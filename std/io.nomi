@@ -1,6 +1,6 @@
 import {
     assertions.{Assertable, AssertionDetails}
-    bytes.{Byte, Bytes}
+    bytes.Bytes
     display.Display
     equatable.Equatable
     int.Int
@@ -350,7 +350,7 @@ impl Reader {
     //! run = capture("one\ntwo\n", fn -> Reader.read_all_text(io.stdin))
     //! assert run.value == Result.Ok("one\ntwo\n")
     //!
-    //! high = try Byte.from_int(255)
+    //! high = try Int.to_byte(255)
     //! bad = Reader.from_bytes(Bytes.concat(String.to_bytes("hi"), Bytes.from_list([high])))
     //! assert Reader.read_all_text(bad) == Result.Err(#Error.InvalidText{path: "<bytes>", offset: 2})
     //

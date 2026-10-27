@@ -161,8 +161,8 @@ test "untyped empty lists" {
 }
 
 test "lists of Byte and Bytes equality" {
-  a = try Byte.from_int(97)
-  b = try Byte.from_int(98)
+  a = try Int.to_byte(97)
+  b = try Int.to_byte(98)
   assert Bytes.from_list([a, b]) |> Bytes.to_list() == [a, b]
   refute Bytes.from_list([a]) == Bytes.from_list([b])
   assert Display.to_string(Bytes.from_list([a, b])) == "Bytes(2)"

@@ -39,8 +39,8 @@ const builtinGoldenPath = "testdata/builtins.golden"
 
 // builtinCheckedRows are the RtFuncs rows this suite covers.
 var builtinCheckedRows = map[string]bool{
-	"decimal.Decimal.from_int": true, "decimal.Decimal.from_string": true, "decimal.Decimal.to_int": true,
-	"decimal.Decimal.to_float": true, "decimal.Decimal.from_float": true, "decimal.Decimal.divide": true,
+	"int.Int.to_decimal": true, "strings.String.to_decimal": true, "decimal.Decimal.to_int": true,
+	"decimal.Decimal.to_float": true, "float.Float.to_decimal": true, "decimal.Decimal.divide": true,
 	"decimal.Decimal.divide_exact": true,
 	"decimal.Decimal.round":        true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
 	"strings.String.repeat": true, "int.Int.shift_left": true, "int.Int.shift_right": true,
@@ -55,6 +55,12 @@ var builtinCheckedRows = map[string]bool{
 	"dynamic.Dynamic.as_bool": true, "dynamic.Dynamic.as_list": true, "dynamic.Dynamic.as_dict": true,
 	"dynamic.Dynamic.null?": true, "dynamic.Dynamic.has?": true, "dynamic.Dynamic.inspect": true,
 	"json.Json.to_dynamic": true,
+	"int.Int.pow":          true, "int.Int.sqrt": true, "int.Int.gcd": true, "int.Int.lcm": true,
+	"int.int_to_digits": true, "int.int_from_digits": true,
+	"float.float_round": true, "float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true,
+	"float.Float.log": true, "float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true,
+	"float.Float.cos": true, "float.Float.tan": true, "float.Float.atan2": true,
+	"decimal.Decimal.pow": true, "decimal.Decimal.sqrt": true,
 }
 
 // contextCheckedRows are held to rt directly.
@@ -72,7 +78,7 @@ var contextCheckedRows = map[string]bool{
 	// Calls back into Nomi on each read's frame: rt's
 	// TestPullReaders_* and vmhost's TestReaderSources_*.
 	"io.Reader.from_fn": true,
-	"fs_host.open": true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
+	"fs_host.open":      true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
 	"fs_host.make_temp_dir": true, "fs_host.current_dir": true, "fs_host.new_sandbox": true,
 	"fs_host.sandbox_fail": true, "fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
 	// A File on the disk and in a sandbox, and fs.within's crossings:
@@ -242,13 +248,13 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	decimals := []any{dec(t, "1.50"), dec(t, "-0.001"), dec(t, "42"), dec(t, "123456789012345678901234.5"), dec(t, "0")}
 	modes := []string{"HalfEven", "HalfUp", "Down", "Floor", "Ceiling", "Up", "Unnecessary"}
 	cases := map[string][][]any{
-		"decimal.Decimal.from_int":     {{iv(0)}, {iv(-5)}, {iv(math.MaxInt64)}, {iv(math.MinInt64)}},
-		"decimal.Decimal.from_string":  {{sv("1.50")}, {sv("abc")}, {sv("-0.001")}, {sv("")}, {sv("1e5")}, {sv(" 2")}},
+		"int.Int.to_decimal":           {{iv(0)}, {iv(-5)}, {iv(math.MaxInt64)}, {iv(math.MinInt64)}},
+		"strings.String.to_decimal":    {{sv("1.50")}, {sv("abc")}, {sv("-0.001")}, {sv("")}, {sv("1e5")}, {sv(" 2")}},
 		"decimal.Decimal.to_float":     {},
 		"decimal.Decimal.to_int":       {},
 		"decimal.Decimal.normalize":    {},
 		"decimal.Decimal.scale":        {},
-		"decimal.Decimal.from_float":   {},
+		"float.Float.to_decimal":       {},
 		"decimal.Decimal.divide":       {},
 		"decimal.Decimal.divide_exact": {},
 		"decimal.Decimal.round":        {},
@@ -340,9 +346,69 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	cases["decimal.Decimal.divide_exact"] = append(cases["decimal.Decimal.divide_exact"], []any{dec(t, "10.00"), dec(t, "4")})
 	for _, x := range []float64{0.1, 3.14159, -2.5, math.NaN(), math.Inf(1), 1e300} {
 		for _, m := range []string{"HalfEven", "Floor", "Unnecessary"} {
-			cases["decimal.Decimal.from_float"] = append(cases["decimal.Decimal.from_float"], []any{fv(x), iv(2), mode(m)})
+			cases["float.Float.to_decimal"] = append(cases["float.Float.to_decimal"], []any{fv(x), iv(2), mode(m)})
 		}
 	}
+	// Int's arithmetic: the limits, the signs, zero and each trap.
+	edges := []int64{0, 1, -1, 2, -3, 12, 18, math.MaxInt64, math.MinInt64}
+	for _, a := range edges {
+		cases["int.Int.sqrt"] = append(cases["int.Int.sqrt"], []any{iv(a)})
+		for _, b := range edges {
+			cases["int.Int.gcd"] = append(cases["int.Int.gcd"], []any{iv(a), iv(b)})
+			cases["int.Int.lcm"] = append(cases["int.Int.lcm"], []any{iv(a), iv(b)})
+		}
+		for _, e := range []int64{-1, 0, 1, 2, 63, 64, math.MaxInt64} {
+			cases["int.Int.pow"] = append(cases["int.Int.pow"], []any{iv(a), iv(e)})
+		}
+		for _, base := range []int64{1, 2, 10, 16, math.MaxInt64} {
+			cases["int.int_to_digits"] = append(cases["int.int_to_digits"], []any{iv(a), iv(base)})
+		}
+	}
+	cases["int.Int.sqrt"] = append(cases["int.Int.sqrt"], []any{iv(15)}, []any{iv(16)}, []any{iv(3037000499 * 3037000499)}, []any{iv(3037000499*3037000499 - 1)})
+	for _, digits := range [][]int64{{}, {0}, {1, 2, 3}, {0, 0, 7}, {1, 10}, {-1}, {9, 2, 2, 3, 3, 7, 2, 0, 3, 6, 8, 5, 4, 7, 7, 5, 8, 0, 7}, {9, 2, 2, 3, 3, 7, 2, 0, 3, 6, 8, 5, 4, 7, 7, 5, 8, 0, 8}} {
+		items := make([]rt.Value, len(digits))
+		for i, d := range digits {
+			items[i] = d
+		}
+		for _, base := range []int64{0, 2, 10, 16} {
+			cases["int.int_from_digits"] = append(cases["int.int_from_digits"], []any{rtList(items...), iv(base)})
+		}
+	}
+	// Float.round at scale 0 and HalfEven is the unary Float.round the
+	// RtFuncs suite recorded over these values, so those outcomes hold.
+	roundFloats := []float64{0, math.Copysign(0, -1), 1.5, -2.5, 2.5, 0.5, -0.4, 1e21, 1e-7, 0.1 + 0.2,
+		math.Inf(1), math.Inf(-1), math.NaN(), 9.3e18, -9.3e18, 9.2e18, -9.223372036854775808e18}
+	for _, x := range roundFloats {
+		cases["float.float_round"] = append(cases["float.float_round"], []any{fv(x), iv(0), mode("HalfEven")})
+	}
+	for _, x := range []float64{2.675, -2.675, 1.25, 1234.5, 0.004, -0.004, 2.0, math.MaxFloat64, 5e-324, math.NaN(), math.Inf(-1)} {
+		for _, scale := range []int64{-400, -2, 0, 2, 1100, math.MinInt64} {
+			for _, m := range []string{"HalfUp", "HalfDown", "Floor", "Up", "Unnecessary"} {
+				cases["float.float_round"] = append(cases["float.float_round"], []any{fv(x), iv(scale), mode(m)})
+			}
+		}
+	}
+	specials := []float64{0, math.Copysign(0, -1), 1, -1, 0.5, 2, -8, 1e308, math.Inf(1), math.Inf(-1), math.NaN()}
+	for _, x := range specials {
+		for _, k := range []string{"sqrt", "exp", "log", "log2", "log10", "sin", "cos", "tan"} {
+			cases["float.Float."+k] = append(cases["float.Float."+k], []any{fv(x)})
+		}
+		for _, y := range specials {
+			cases["float.Float.pow"] = append(cases["float.Float.pow"], []any{fv(x), fv(y)})
+			cases["float.Float.atan2"] = append(cases["float.Float.atan2"], []any{fv(x), fv(y)})
+		}
+	}
+	for _, d := range append(decimals, dec(t, "-1.5"), dec(t, "6.25"), dec(t, "0.0625"), dec(t, "2")) {
+		for _, e := range []int64{-1, 0, 1, 3} {
+			cases["decimal.Decimal.pow"] = append(cases["decimal.Decimal.pow"], []any{d, iv(e)})
+		}
+		for _, scale := range []int64{-1, 0, 1, 4} {
+			for _, m := range []string{"HalfEven", "HalfUp", "HalfDown", "Down", "Up", "Unnecessary"} {
+				cases["decimal.Decimal.sqrt"] = append(cases["decimal.Decimal.sqrt"], []any{d, iv(scale), mode(m)})
+			}
+		}
+	}
+	cases["decimal.Decimal.pow"] = append(cases["decimal.Decimal.pow"], []any{dec(t, "0.01"), iv(1 << 30)}, []any{dec(t, "2"), iv(1 << 40)}, []any{dec(t, "-1"), iv(1<<40 + 1)})
 
 	keys := make([]string, 0, len(cases))
 	for k := range cases {

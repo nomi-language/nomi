@@ -7,7 +7,7 @@ description: "List every run of adjacent digits of a given length in a string of
 
 List every run of adjacent digits of a given length in a string of digits, in order.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/series) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/series) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
 
 ```nomi-run
 // FILE: series.nomi
@@ -35,8 +35,9 @@ pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
     } else if length > size {
         Err(.LengthTooLarge)
     } else {
-        0..=size - length
-        |> Iter.map(fn start -> String.slice(series, start, start + length))
+        series
+        |> Iter.windows(length)
+        |> Iter.map(&String.join(&1))
         |> Iter.to_list()
         |> Ok()
     }
@@ -87,11 +88,5 @@ test "errors" {
 
 - Errors are an `Error` enum with one variant per canonical message. The checks run in the order the canonical cases need: an empty series is `EmptySeries` even when the length is also too large.
 - The validation is an `if`/`else if` chain, since each condition compares different values; a `case` on `length` would need a guard on every arm.
-- Each run is `String.slice(series, start, start + length)` for every start in `0..=size - length`. The function works on graphemes, not only digits.
+- The runs are `Iter.windows(series, length)` over the string's graphemes, each joined back into a string. The function works on graphemes, not only digits.
 - The test file splits the canonical cases into two `subtests` tables, one for `Ok` results and one for errors, so each table makes one claim. The test binds the input as `digits`, since `series` is the module's name there.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no sliding window over an `Iter` or a list, so the runs come from a range of start indices and `String.slice`. Rust has `slice::windows(n)`, Gleam `list.window(xs, n)`, and Elixir `Enum.chunk_every(xs, n, 1, :discard)`. The proverb exercise pairs neighbours with `Iter.zip(xs, Iter.drop(xs, 1))` for the same reason.

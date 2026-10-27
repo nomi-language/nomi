@@ -45,7 +45,7 @@ fn main() {
 }
 `, "comparison type mismatch: Int vs String"},
 		{"unorderable operand", `fn main() {
-    _ = #(1, 2) ‸< #(1, 3)
+    _ = #{a: 1} ‸< #{a: 2}
 }
 `, "no impl of `Comparable`"},
 		{"type without an operator impl", `fn main() {

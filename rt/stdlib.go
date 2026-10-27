@@ -3,6 +3,8 @@ package rt
 import (
 	"fmt"
 	"math"
+	"math/big"
+	"math/bits"
 	"strings"
 )
 
@@ -195,6 +197,138 @@ func negativeShiftText(op string, n int64) string {
 	return fmt.Sprintf("Int.%s: negative shift count %d", op, n)
 }
 
+// IntPow is `Int.pow`: n multiplied by itself exp times, by squaring. A
+// negative exponent traps, since its answer is a fraction, and a power past
+// Int's range traps as `*` does.
+func IntPow(n, exp int64) int64 {
+	if exp < 0 {
+		Trap(fmt.Sprintf("Int.pow: negative exponent %d: the power is a fraction, which Float.pow gives", exp))
+		return 0
+	}
+	result, base, e := int64(1), n, exp
+	for e > 0 {
+		if e&1 == 1 {
+			if MulOverflows(result, base) {
+				Trap(intOverflowText("pow", n, exp))
+			}
+			result *= base
+		}
+		e >>= 1
+		// The base is squared only while a higher bit remains, and every
+		// power that needs the square is at least the square in magnitude,
+		// so an overflowing square is an overflowing power.
+		if e > 0 {
+			if MulOverflows(base, base) {
+				Trap(intOverflowText("pow", n, exp))
+			}
+			base *= base
+		}
+	}
+	return result
+}
+
+func intOverflowText(fn string, a, b int64) string {
+	return fmt.Sprintf("integer overflow: Int.%s(%d, %d)", fn, a, b)
+}
+
+// IntSqrt is `Int.sqrt`: the greatest r with r*r <= n. A negative n traps.
+// The float square root is within one of the answer, and the corrections
+// compare in uint64, where the square of every candidate fits.
+func IntSqrt(n int64) int64 {
+	if n < 0 {
+		Trap(fmt.Sprintf("Int.sqrt: negative number %d", n))
+		return 0
+	}
+	r, u := uint64(math.Sqrt(float64(n))), uint64(n)
+	for r*r > u {
+		r--
+	}
+	for (r+1)*(r+1) <= u {
+		r++
+	}
+	return int64(r)
+}
+
+// magnitude is |n| as a uint64, which holds |Int.min_value|.
+func magnitude(n int64) uint64 {
+	if n < 0 {
+		return uint64(-(n + 1)) + 1
+	}
+	return uint64(n)
+}
+
+func gcdMagnitude(a, b uint64) uint64 {
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+// IntGcd is `Int.gcd`: the greatest common divisor of |a| and |b|, never
+// negative, and 0 for gcd(0, 0). It traps only when the answer is 2^63, one
+// past Int's range: gcd(Int.min_value, 0) and gcd(Int.min_value,
+// Int.min_value).
+func IntGcd(a, b int64) int64 {
+	g := gcdMagnitude(magnitude(a), magnitude(b))
+	if g > math.MaxInt64 {
+		Trap(intOverflowText("gcd", a, b))
+	}
+	return int64(g)
+}
+
+// IntLcm is `Int.lcm`: the least common multiple of |a| and |b|, never
+// negative, and 0 when either is 0. A multiple past Int's range traps.
+func IntLcm(a, b int64) int64 {
+	if a == 0 || b == 0 {
+		return 0
+	}
+	ua, ub := magnitude(a), magnitude(b)
+	hi, lo := bits.Mul64(ua/gcdMagnitude(ua, ub), ub)
+	if hi != 0 || lo > math.MaxInt64 {
+		Trap(intOverflowText("lcm", a, b))
+	}
+	return int64(lo)
+}
+
+// IntToDigits is `Int.to_digits`: n's digits in base, most significant
+// first, and [0] for 0. A base below 2 and a negative n trap.
+func IntToDigits(n, base int64) *List[int64] {
+	if base < 2 {
+		Trap(fmt.Sprintf("Int.to_digits: base %d is less than 2", base))
+	}
+	if n < 0 {
+		Trap(fmt.Sprintf("Int.to_digits: negative number %d", n))
+	}
+	if n == 0 {
+		return Cons[int64](0, nil)
+	}
+	var out *List[int64]
+	for n > 0 {
+		out = Cons(n%base, out)
+		n /= base
+	}
+	return out
+}
+
+// IntFromDigits is `Int.from_digits`: the Int whose digits in base, most
+// significant first, are digits; Some(0) for none. None when a digit is
+// outside 0 to base - 1 or the number is past Int's range. A base below 2
+// traps.
+func IntFromDigits(digits *List[int64], base int64) Maybe[int64] {
+	if base < 2 {
+		Trap(fmt.Sprintf("Int.from_digits: base %d is less than 2", base))
+	}
+	var n int64
+	for cur := digits; cur != nil; cur = cur.Tail {
+		d := cur.Head
+		if d < 0 || d >= base || MulOverflows(n, base) || AddOverflows(n*base, d) {
+			return None[int64]()
+		}
+		n = n*base + d
+	}
+	return Some(n)
+}
+
 // --- std/float -------------------------------------------------------------
 
 // FloatNaN is `Float.nan`.
@@ -213,7 +347,42 @@ func FloatIsNaN(x float64) bool { return math.IsNaN(x) }
 // math.Round. `Float.round(2.5)` is 2.0 in Nomi and 3.0 under math.Round, so
 // this is the one function in this file where the obvious Go spelling is the
 // wrong answer.
-func FloatRound(x float64) float64 { return math.RoundToEven(x) }
+//
+// With a scale or another mode it rounds x's exact binary value to that many
+// digits after the decimal point (a negative scale rounds to tens, hundreds,
+// ...) as Decimal.round rounds, and answers the Float nearest the result.
+// The binary value is what rounds: 2.675 is
+// 2.67499999999999982236431605997495353221893310546875, so it is 2.67 at
+// scale 2 under every half mode. NaN and the infinities pass through, a zero
+// result keeps x's sign, and RoundUnnecessary traps when rounding would
+// change the value.
+func FloatRound(x float64, scale int64, mode RoundingMode) float64 {
+	if scale == 0 && mode == RoundHalfEven {
+		return math.RoundToEven(x)
+	}
+	if math.IsNaN(x) || math.IsInf(x, 0) || x == 0 {
+		return x
+	}
+	// A finite Float has at most 1074 binary digits after the point, so at
+	// most 1074 decimal ones: a scale at or above 1100 keeps every digit.
+	// 10^400 is past the largest Float, so every scale below -400 rounds as
+	// -400 does; holding it there keeps it within Decimal's int32 scale.
+	if scale >= 1100 {
+		return x
+	}
+	if scale < -400 {
+		scale = -400
+	}
+	rounded, err := RatToDecimal(new(big.Rat).SetFloat64(x)).Round(int32(scale), mode)
+	if err != nil {
+		Trap(fmt.Sprintf("Float.round: rounding necessary to reach scale %d but mode is Unnecessary", scale))
+	}
+	out := DecimalToFloat(rounded)
+	if out == 0 {
+		return math.Copysign(0, x)
+	}
+	return out
+}
 
 // FloatFloor is `Float.floor`.
 func FloatFloor(x float64) float64 { return math.Floor(x) }
@@ -223,6 +392,37 @@ func FloatCeil(x float64) float64 { return math.Ceil(x) }
 
 // FloatTrunc is `Float.trunc`.
 func FloatTrunc(x float64) float64 { return math.Trunc(x) }
+
+// FloatPow is `Float.pow`: Go's math.Pow and its IEEE special cases.
+func FloatPow(x, y float64) float64 { return math.Pow(x, y) }
+
+// FloatSqrt is `Float.sqrt`: NaN for a negative x, -0.0 for -0.0.
+func FloatSqrt(x float64) float64 { return math.Sqrt(x) }
+
+// FloatExp is `Float.exp`: e to the x.
+func FloatExp(x float64) float64 { return math.Exp(x) }
+
+// FloatLog is `Float.log`, the natural logarithm.
+func FloatLog(x float64) float64 { return math.Log(x) }
+
+// FloatLog2 is `Float.log2`.
+func FloatLog2(x float64) float64 { return math.Log2(x) }
+
+// FloatLog10 is `Float.log10`.
+func FloatLog10(x float64) float64 { return math.Log10(x) }
+
+// FloatSin is `Float.sin`, of an angle in radians.
+func FloatSin(x float64) float64 { return math.Sin(x) }
+
+// FloatCos is `Float.cos`, of an angle in radians.
+func FloatCos(x float64) float64 { return math.Cos(x) }
+
+// FloatTan is `Float.tan`, of an angle in radians.
+func FloatTan(x float64) float64 { return math.Tan(x) }
+
+// FloatAtan2 is `Float.atan2`: the angle of the point (x, y) from the
+// positive x axis, in radians from -π to π.
+func FloatAtan2(y, x float64) float64 { return math.Atan2(y, x) }
 
 // FloatBits is std/float's private `float_bits`: the IEEE-754 bit pattern as an
 // Int, backing the Float `Hashable` impl.

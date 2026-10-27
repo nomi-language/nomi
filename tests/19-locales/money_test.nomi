@@ -172,6 +172,49 @@ test "an amount rounds to its currency's minor digits" {
     }
 }
 
+test "an amount times a rate rounds to its currency's minor digits" {
+    // A 23% tax: 19.99 * 0.23 is 4.5977.
+    assert Money.multiply_by(Money`19.99 EUR`, 0.23d) == Money`4.60 EUR`
+
+    // 0.25 * 0.5 is 0.125, half way: half to even keeps 0.12, half up 0.13.
+    assert Money.multiply_by(Money`0.25 EUR`, 0.5d) == Money`0.12 EUR`
+    assert Money.multiply_by(Money`0.25 EUR`, 0.5d, .HalfUp) == Money`0.13 EUR`
+
+    // The yen has no minor digits: 999 * 0.08 is 79.92.
+    assert Money.multiply_by(Money`999 JPY`, 0.08d) == Money`80 JPY`
+
+    // A negative amount rounds as Decimal.round does: -5.025 is half way.
+    assert Money.multiply_by(Money`-10.05 EUR`, 0.5d) == Money`-5.02 EUR`
+    assert Money.multiply_by(Money`-10.05 EUR`, 0.5d, .HalfUp) == Money`-5.03 EUR`
+
+    // A product that fits the currency's digits passes Unnecessary.
+    assert Money.multiply_by(Money`12.50 EUR`, 0.2d, .Unnecessary) == Money`2.50 EUR`
+
+    // A Float rate becomes a Decimal first.
+    assert Some(rate) = Float.to_decimal(0.0825, 4, .HalfEven)
+    assert Money.multiply_by(Money`40.00 USD`, rate) == Money`3.30 USD`
+}
+
+test "a rate that needs rounding traps under Unnecessary" {
+    result =
+        """
+            import std/decimal.RoundingMode
+            import std/money.Money
+
+            fn main() {
+              _ = Money.multiply_by(Money`19.99 EUR`, 0.23d, RoundingMode.Unnecessary)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+
+    assert String.contains?(
+        message,
+        "line 5: Decimal.round: decimal: rounding necessary to reach scale 2 but mode is Unnecessary",
+    )
+}
+
 test "an amount a reader typed is read strictly by default" {
     eur = Currency`EUR`
     assert Money.parse_in("12,50 €", Locale`pl`, eur) == Ok(#Money{amount: 12.5d, currency: eur})

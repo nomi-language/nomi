@@ -80,8 +80,8 @@ fn show_bool(b: Bool) -> String {
 /// Two Codepoints and a stepped walk over the range between them, rendered as
 /// their scalar values so ORDER and LENGTH are both in the output.
 fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
-    a = try Codepoint.from_int(from)
-    b = try Codepoint.from_int(to)
+    a = try Int.to_codepoint(from)
+    b = try Int.to_codepoint(to)
 
     Some(
         show_ints(
@@ -94,8 +94,8 @@ fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
 
 /// The plain inclusive walk over a Codepoint range, same rendering.
 fn cp_walk(from: Int, to: Int) -> Maybe<String> {
-    a = try Codepoint.from_int(from)
-    b = try Codepoint.from_int(to)
+    a = try Int.to_codepoint(from)
+    b = try Int.to_codepoint(to)
 
     Some(
         show_ints(
@@ -316,7 +316,7 @@ fn main() {
     // `Discrete.next` at Codepoint SKIPS the UTF-16 surrogate block, and
     // `Steppable.step_by` skips it in both directions. 55_295 and 57_344 are the
     // neighbours across the block, so a naive `n + 1` answers a different list —
-    // and `Codepoint.from_int` would refuse the value it produced, which is why a
+    // and `Int.to_codepoint` would refuse the value it produced, which is why a
     // wrong successor shows up as a SHORT list rather than a wrong one.
     io.print(show_maybe_str(cp_walk(97, 100)))
     io.print(show_maybe_str(cp_walk(55_295, 57_344)))

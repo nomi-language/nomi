@@ -7,7 +7,7 @@
 <- response setExceptionBreakpoints {}
 -> configurationDone
 <- response configurationDone
-<- event output {"category":"stdout","output":"{\"type\":\"test\",\"file\":\"$TESTDATA/half_test.nomi\",\"line\":5,\"end_line\":7,\"name\":\"testdata/half_test.nomi :: half of four\",\"status\":\"passed\",\"message\":\"\",\"report\":\"ok testdata/half_test.nomi :: half of four\\n\"}\n"}
+<- event output {"category":"stdout","output":"{\"type\":\"test\",\"file\":\"$TESTDATA/half_test.nomi\",\"line\":5,\"end_line\":7,\"name\":\"testdata/half_test.nomi :: half of four\",\"status\":\"passed\",\"cases\":1,\"message\":\"\",\"report\":\"ok testdata/half_test.nomi :: half of four\\n\"}\n"}
 <- event output {"category":"stdout","output":"{\"type\":\"summary\",\"passed\":1,\"failed\":0,\"blocked\":0}\n"}
 <- event exited {"exitCode":0}
 <- event terminated {}

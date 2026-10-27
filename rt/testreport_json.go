@@ -23,10 +23,16 @@ import (
 // The stream is one object per line, one per test, then one summary object:
 //
 //	{"type":"test","file":"/abs/a_test.nomi","line":9,"end_line":12,
-//	 "name":"a_test.nomi :: adds","status":"passed","message":""}
-//	{"type":"test",...,"status":"failed","message":"line 16: assertion failed\n...","error_line":16}
+//	 "name":"a_test.nomi :: adds","status":"passed","cases":1,"message":""}
+//	{"type":"test",...,"status":"failed","cases":9,"failed_cases":1,"message":"line 16: ...","error_line":16}
 //	{"type":"file","file":"/abs/b_test.nomi","name":"b_test.nomi","status":"failed","message":"..."}
 //	{"type":"summary","passed":3,"failed":2,"blocked":0}
+//
+// `cases` is how many cases the test counts as: 1, or the rows of the
+// `subtests` tables it ran (CaseCount); `failed_cases`, on a failed test, is
+// how many of them failed. The summary's `passed` and `failed` count cases,
+// so a test of 9 rows of which 1 failed adds 8 and 1; `blocked` counts
+// tests, one for a blocked test whatever its tables hold.
 //
 // A "file" record is a failure that stopped a file's tests from running at all
 // (a load or type error): the text report's `FAIL <file>: <error>` line.
@@ -106,11 +112,13 @@ type TestLocation struct {
 
 // ResultAt is Result for a test whose position is known. The text report is
 // identical to Result's; the JSON record carries the position.
-func (r *TestReporter) ResultAt(loc TestLocation, name string, err error, output string) {
+func (r *TestReporter) ResultAt(loc TestLocation, name string, err error, output string, count CaseCount) {
 	if r.format != TestFormatJSON {
-		r.Result(name, err, output)
+		r.Result(name, err, output, count)
 		return
 	}
+	count = count.resolve(err)
+	r.tally(count)
 	rec := testRecord{
 		Type:    "test",
 		File:    loc.File,
@@ -118,17 +126,17 @@ func (r *TestReporter) ResultAt(loc TestLocation, name string, err error, output
 		EndLine: loc.EndLine,
 		Name:    name,
 		Status:  TestStatusPassed,
+		Cases:   count.Cases,
 		Output:  stripANSI(output),
 	}
 	if err != nil {
-		r.failed++
 		rec.Status = TestStatusFailed
+		rec.FailedCases = count.Failed
 		rec.Message = failureMessage(err)
 		rec.ErrorLine = TestErrorLine(err)
 		rec.Report = textReport(func(w io.Writer) { writeFailure(w, name, err, output) })
 	} else {
-		r.passed++
-		rec.Report = textReport(func(w io.Writer) { writeOK(w, name, output) })
+		rec.Report = textReport(func(w io.Writer) { writeOK(w, name, output, count) })
 	}
 	r.writeRecord(rec)
 }
@@ -146,16 +154,21 @@ func (r *TestReporter) FailFile(file string, err error) {
 }
 
 type testRecord struct {
-	Type      string `json:"type"`
-	File      string `json:"file,omitempty"`
-	Line      int    `json:"line,omitempty"`
-	EndLine   int    `json:"end_line,omitempty"`
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Message   string `json:"message"`
-	ErrorLine int    `json:"error_line,omitempty"`
-	Output    string `json:"output,omitempty"`
-	Report    string `json:"report"`
+	Type    string `json:"type"`
+	File    string `json:"file,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	EndLine int    `json:"end_line,omitempty"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	// Cases is how many cases the test counts as (CaseCount): 1, or the
+	// rows of the `subtests` tables it ran. A "file" record has none.
+	Cases int `json:"cases,omitempty"`
+	// FailedCases is how many of a failed test's cases failed.
+	FailedCases int    `json:"failed_cases,omitempty"`
+	Message     string `json:"message"`
+	ErrorLine   int    `json:"error_line,omitempty"`
+	Output      string `json:"output,omitempty"`
+	Report      string `json:"report"`
 }
 
 type testSummaryRecord struct {

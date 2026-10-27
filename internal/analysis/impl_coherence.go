@@ -1590,6 +1590,100 @@ func detectInherentImplCollisions(inherents []InherentMethodRecord, pathOf func(
 	return errs
 }
 
+// detectInherentImplNameClashes reports each type's own (inherent) function
+// whose name is also a function the type's interface impls write. Nomi does
+// not overload, and `Type.name(...)` names both: which one a call reached
+// depended on the interface (`Box.multiply(b, 1.5)` beside an
+// `impl Multiply<Int, Box> for Box` reached the impl's `multiply` and failed
+// "argument 2: expected Int, got Float"). The error is at the
+// inherent function's name whichever is declared first, once per inherent
+// function, naming the first clashing impl function by interface name.
+//
+// A type is its nominal identity, `(declaring file, name)`: an inherent
+// record's ReceiverOrigin against the origin of the impl's receiver as its
+// home file resolves it. A record or an impl whose origin is unresolved (an
+// impl over a type parameter) matches nothing. Both sides come from the same
+// files (`ifaceImpls` and `inherents` are collected over one build's files),
+// and a type's inherent functions and its impls are in one module's files
+// (the orphan rule), so a std type's clashes are std's own, which a build of
+// std reports.
+func detectInherentImplNameClashes(
+	inherents []InherentMethodRecord,
+	ifaceImpls map[string]map[string][]*ast.FuncDef,
+	implFiles map[*ast.FuncDef]string,
+	receivers map[*ast.FuncDef]string,
+	ifaceKeys map[*ast.FuncDef]string,
+	filesByKey map[string]*FileAnalysis,
+	primitives map[string]string,
+	pathOf func(key string) string,
+) []TypeError {
+	if len(inherents) == 0 || len(ifaceImpls) == 0 {
+		return nil
+	}
+	ifaces := make([]string, 0, len(ifaceImpls))
+	for iface := range ifaceImpls {
+		ifaces = append(ifaces, iface)
+	}
+	sort.Strings(ifaces)
+	recs := make([]InherentMethodRecord, len(inherents))
+	copy(recs, inherents)
+	sort.SliceStable(recs, func(i, j int) bool {
+		if recs[i].Module != recs[j].Module {
+			return recs[i].Module < recs[j].Module
+		}
+		if recs[i].Fn.Line != recs[j].Fn.Line {
+			return recs[i].Fn.Line < recs[j].Fn.Line
+		}
+		return recs[i].Fn.Col < recs[j].Fn.Col
+	})
+	type originKey struct{ module, head string }
+	origins := map[originKey]string{}
+	originOf := func(fn *ast.FuncDef) string {
+		k := originKey{module: implFiles[fn], head: typeNameHead(receivers[fn])}
+		origin, seen := origins[k]
+		if !seen {
+			origin = declaringOriginOfType(filesByKey[k.module], k.head, primitives)
+			origins[k] = origin
+		}
+		return origin
+	}
+	var errs []TypeError
+	for _, rec := range recs {
+		if rec.Fn == nil || rec.Receiver == "" || rec.Method == "" || rec.ReceiverOrigin == OriginUnresolved {
+			continue
+		}
+		var clash *ast.FuncDef
+		var clashIface string
+		for _, iface := range ifaces {
+			for _, fn := range ifaceImpls[iface][rec.Method] {
+				if receivers[fn] != rec.Receiver || originOf(fn) != rec.ReceiverOrigin {
+					continue
+				}
+				clash, clashIface = fn, iface
+				if key := ifaceKeys[fn]; key != "" {
+					clashIface = key
+				}
+				break
+			}
+			if clash != nil {
+				break
+			}
+		}
+		if clash == nil {
+			continue
+		}
+		errs = append(errs, TypeError{
+			Line: rec.Fn.Line,
+			Col:  rec.Fn.Col,
+			Message: fmt.Sprintf(
+				"`%s.%s` is already `%s`'s `%s` for `%s`, and Nomi does not overload, so a call `%s.%s(...)` would name both; give this function another name",
+				rec.Receiver, rec.Method, clashIface, rec.Method, rec.Receiver, rec.Receiver, rec.Method),
+			File: fileAt(pathOf, rec.Module),
+		})
+	}
+	return errs
+}
+
 func detectInherentImplBlockCollisions(blocks []InherentImplBlockRecord, pathOf func(key string) string) []TypeError {
 	byKey := map[string][]InherentImplBlockRecord{}
 	for _, rec := range blocks {

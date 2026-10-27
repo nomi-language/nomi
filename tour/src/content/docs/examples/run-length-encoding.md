@@ -54,54 +54,48 @@ fn decode_run(groups: List<Maybe<String>>) -> String {
 // FILE: run_length_encoding_test.nomi
 import run_length_encoding
 
-group "run-length encode a string" {
-    test "encodes" {
-        cases = [
-            #("empty string", "", ""),
-            #("single characters only are encoded without count", "XYZ", "XYZ"),
-            #("string with no single characters", "AABBBCCCC", "2A3B4C"),
-            #(
-                "single characters mixed with repeated characters",
-                "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWB",
-                "12WB12W3B24WB",
-            ),
-            #("multiple whitespace mixed in string", "  hsqq qww  ", "2 hs2q q2w2 "),
-            #("lowercase characters", "aabbbcccc", "2a3b4c"),
-        ]
+test "run-length encode a string" {
+    cases = [
+        #("empty string", "", ""),
+        #("single characters only are encoded without count", "XYZ", "XYZ"),
+        #("string with no single characters", "AABBBCCCC", "2A3B4C"),
+        #(
+            "single characters mixed with repeated characters",
+            "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWB",
+            "12WB12W3B24WB",
+        ),
+        #("multiple whitespace mixed in string", "  hsqq qww  ", "2 hs2q q2w2 "),
+        #("lowercase characters", "aabbbcccc", "2a3b4c"),
+    ]
 
-        subtests cases, #(description, text, expected), description {
-            assert run_length_encoding.encode(text) == expected
-        }
+    subtests cases, #(description, text, expected), description {
+        assert run_length_encoding.encode(text) == expected
     }
 }
 
-group "run-length decode a string" {
-    test "decodes" {
-        cases = [
-            #("empty string", "", ""),
-            #("single characters only", "XYZ", "XYZ"),
-            #("string with no single characters", "2A3B4C", "AABBBCCCC"),
-            #(
-                "single characters with repeated characters",
-                "12WB12W3B24WB",
-                "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWB",
-            ),
-            #("multiple whitespace mixed in string", "2 hs2q q2w2 ", "  hsqq qww  "),
-            #("lowercase string", "2a3b4c", "aabbbcccc"),
-        ]
+test "run-length decode a string" {
+    cases = [
+        #("empty string", "", ""),
+        #("single characters only", "XYZ", "XYZ"),
+        #("string with no single characters", "2A3B4C", "AABBBCCCC"),
+        #(
+            "single characters with repeated characters",
+            "12WB12W3B24WB",
+            "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWB",
+        ),
+        #("multiple whitespace mixed in string", "2 hs2q q2w2 ", "  hsqq qww  "),
+        #("lowercase string", "2a3b4c", "aabbbcccc"),
+    ]
 
-        subtests cases, #(description, encoded, expected), description {
-            assert run_length_encoding.decode(encoded) == expected
-        }
+    subtests cases, #(description, encoded, expected), description {
+        assert run_length_encoding.decode(encoded) == expected
     }
 }
 
-group "encode and then decode" {
-    test "encode followed by decode gives original string" {
-        text = "zzz ZZ  zZ"
+test "encode and then decode" {
+    text = "zzz ZZ  zZ"
 
-        assert text |> run_length_encoding.encode() |> run_length_encoding.decode() == text
-    }
+    assert text |> run_length_encoding.encode() |> run_length_encoding.decode() == text
 }
 ```
 
@@ -109,7 +103,7 @@ group "encode and then decode" {
 
 - `encode` is `Iter.chunk_by` on the string's graphemes, then each run written out by `encode_run`, then `String.join`.
 - `decode` reads the runs with ``String.captures_all(Regex`(\d*)(\D)`)``: an optional count, then one character. `decode_run` repeats the character `count` times, or once when the count group matched empty. The other way is an `Iter.reduce` over graphemes that threads `#(count, text)` and builds the count digit by digit; the pattern is clearer because it states the encoded format in one line, where the reducer spreads it over a tuple accumulator and an `if count == 0` fallback. The cost is that `\D` matches one code point, not one grapheme, so a run of a character written with a combining mark would decode wrongly; the canonical cases are all single code points.
-- The canonical groups are `group` blocks, each holding one `subtests` table; the round-trip case is a plain test in its own group.
+- Each canonical group is a test named by the group's description, holding one `subtests` table; the round-trip case is a plain test.
 
 ## Rough edges
 

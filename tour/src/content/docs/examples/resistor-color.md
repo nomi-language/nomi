@@ -56,17 +56,15 @@ import {
     resistor_color.Color
 }
 
-group "Color codes" {
-    test "color_code" {
-        cases = [
-            #("Black", Color.Black, 0),
-            #("White", .White, 9),
-            #("Orange", .Orange, 3),
-        ]
+test "Color codes" {
+    cases = [
+        #("Black", Color.Black, 0),
+        #("White", .White, 9),
+        #("Orange", .Orange, 3),
+    ]
 
-        subtests cases, #(description, color, expected), description {
-            assert resistor_color.color_code(color) == expected
-        }
+    subtests cases, #(description, color, expected), description {
+        assert resistor_color.color_code(color) == expected
     }
 }
 

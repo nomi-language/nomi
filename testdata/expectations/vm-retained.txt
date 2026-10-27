@@ -1781,19 +1781,19 @@
 19-locales/money_test.nomi:literal Currency`BHD` at 21:40 failure	ran
 19-locales/money_test.nomi:literal Currency`BTC:8` at 169:63 failure	ran
 19-locales/money_test.nomi:literal Currency`BTC:8` at 171:19 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 226:11 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 269:11 failure	ran
 19-locales/money_test.nomi:literal Currency`BTC:8` at 51:11 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 10:45 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 131:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 176:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 208:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 234:55 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 219:11 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 251:11 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 26:59 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 277:55 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 77:11 failure	ran
 19-locales/money_test.nomi:literal Currency`JPY` at 164:58 failure	ran
 19-locales/money_test.nomi:literal Currency`JPY` at 166:19 failure	ran
 19-locales/money_test.nomi:literal Currency`JPY` at 18:57 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 202:52 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 245:52 failure	ran
 19-locales/money_test.nomi:literal Currency`JPY` at 44:38 failure	ran
 19-locales/money_test.nomi:literal Currency`PLN` at 40:40 failure	ran
 19-locales/money_test.nomi:literal Currency`PTS:0` at 62:14 failure	ran
@@ -1805,16 +1805,16 @@
 19-locales/money_test.nomi:literal Locale`en-CA` at 34:30 failure	ran
 19-locales/money_test.nomi:literal Locale`en-CA` at 35:30 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 11:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 179:42 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 183:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 186:38 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 190:36 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 198:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 202:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 218:43 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 228:38 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 222:42 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 226:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 229:38 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 22:9 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 233:36 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 241:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 245:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 261:43 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 26:75 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 271:38 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 27:71 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 28:35 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 36:30 failure	ran
@@ -1826,13 +1826,29 @@
 19-locales/money_test.nomi:literal Locale`ja` at 15:30 failure	ran
 19-locales/money_test.nomi:literal Locale`ja` at 18:73 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 13:30 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 177:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 194:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 210:36 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 214:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 222:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 220:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 237:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 253:36 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 257:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 265:40 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 41:30 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 59:31 failure	ran
+19-locales/money_test.nomi:literal Money`-10.05 EUR` at 187:30 failure	ran
+19-locales/money_test.nomi:literal Money`-10.05 EUR` at 188:30 failure	ran
+19-locales/money_test.nomi:literal Money`-5.02 EUR` at 187:58 failure	ran
+19-locales/money_test.nomi:literal Money`-5.03 EUR` at 188:67 failure	ran
+19-locales/money_test.nomi:literal Money`0.12 EUR` at 180:56 failure	ran
+19-locales/money_test.nomi:literal Money`0.13 EUR` at 181:65 failure	ran
+19-locales/money_test.nomi:literal Money`0.25 EUR` at 180:30 failure	ran
+19-locales/money_test.nomi:literal Money`0.25 EUR` at 181:30 failure	ran
+19-locales/money_test.nomi:literal Money`12.50 EUR` at 191:30 failure	ran
+19-locales/money_test.nomi:literal Money`19.99 EUR` at 177:30 failure	ran
+19-locales/money_test.nomi:literal Money`2.50 EUR` at 191:71 failure	ran
+19-locales/money_test.nomi:literal Money`3.30 USD` at 195:57 failure	ran
+19-locales/money_test.nomi:literal Money`4.60 EUR` at 177:58 failure	ran
+19-locales/money_test.nomi:literal Money`40.00 USD` at 195:30 failure	ran
+19-locales/money_test.nomi:literal Money`80 JPY` at 184:56 failure	ran
+19-locales/money_test.nomi:literal Money`999 JPY` at 184:30 failure	ran
 19-locales/number_format_test.nomi:literal Locale`ar-EG-u-nu-latn` at 30:29 failure	ran
 19-locales/number_format_test.nomi:literal Locale`ar-EG` at 116:61 failure	ran
 19-locales/number_format_test.nomi:literal Locale`ar-EG` at 29:29 failure	ran
@@ -2089,7 +2105,6 @@ exercism/affine-cipher/affine_cipher.nomi:inverse	ran
 exercism/affine-cipher/affine_cipher.nomi:shift	ran
 exercism/affine-cipher/affine_cipher.nomi:translate	PROBE: a synthesized argument is not a value of the declared type
 exercism/all-your-base/all_your_base.nomi:Error.inspect	ran
-exercism/all-your-base/all_your_base.nomi:digits_of	ran
 exercism/all-your-base/all_your_base.nomi:rebase	ran
 exercism/allergies/allergies.nomi:Allergen.inspect	ran
 exercism/allergies/allergies.nomi:Allergen.variants	ran
@@ -2098,8 +2113,6 @@ exercism/allergies/allergies.nomi:list	ran
 exercism/allergies/allergies.nomi:value	ran
 exercism/anagram/anagram.nomi:find	ran
 exercism/armstrong-numbers/armstrong_numbers.nomi:armstrong?	ran
-exercism/armstrong-numbers/armstrong_numbers.nomi:digits_of	ran
-exercism/armstrong-numbers/armstrong_numbers.nomi:power	ran
 exercism/atbash-cipher/atbash_cipher.nomi:decode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:encode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:swap	ran
@@ -2150,7 +2163,6 @@ exercism/kindergarten-garden/kindergarten_garden.nomi:parse_row	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:position	ran
 exercism/largest-series-product/largest_series_product.nomi:Error.inspect	ran
 exercism/largest-series-product/largest_series_product.nomi:largest_product	ran
-exercism/largest-series-product/largest_series_product.nomi:product	PROBE: a synthesized argument is not a value of the declared type
 exercism/leap/leap.nomi:leap_year?	ran
 exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
 exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
@@ -2230,7 +2242,6 @@ exercism/resistor-color-trio/resistor_color_trio.nomi:Resistance.inspect	ran
 exercism/resistor-color-trio/resistor_color_trio.nomi:digit	ran
 exercism/resistor-color-trio/resistor_color_trio.nomi:in_largest_unit	ran
 exercism/resistor-color-trio/resistor_color_trio.nomi:label	ran
-exercism/resistor-color-trio/resistor_color_trio.nomi:power_of_ten	ran
 exercism/resistor-color/resistor_color.nomi:Color.inspect	ran
 exercism/resistor-color/resistor_color.nomi:Color.variants	ran
 exercism/resistor-color/resistor_color.nomi:color_code	ran
@@ -2274,7 +2285,6 @@ exercism/space-age/space_age.nomi:Planet.parse	ran
 exercism/space-age/space_age.nomi:Planet.to_string	ran
 exercism/space-age/space_age.nomi:Planet.variants	ran
 exercism/space-age/space_age.nomi:age	ran
-exercism/space-age/space_age_test.nomi:to_hundredths	ran
 exercism/spiral-matrix/spiral_matrix.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:empty?	PROBE: a synthesized argument is not a value of the declared type
 exercism/spiral-matrix/spiral_matrix.nomi:fill	PROBE: a synthesized argument is not a value of the declared type
@@ -2284,7 +2294,6 @@ exercism/spiral-matrix/spiral_matrix.nomi:step	ran
 exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
 exercism/sublist/sublist.nomi:Relation.inspect	ran
 exercism/sublist/sublist.nomi:contains_run?	ran
-exercism/sublist/sublist.nomi:starts_with?	ran
 exercism/sublist/sublist.nomi:sublist	ran
 exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran
 exercism/tournament/tournament.nomi:Error.inspect	ran
@@ -2545,6 +2554,7 @@ std/money.nomi:CurrencyDisplay.inspect	ran
 std/money.nomi:Error.equal?	ran
 std/money.nomi:Error.inspect	ran
 std/money.nomi:Error.to_string	ran
+std/money.nomi:Money.abs	PROBE: a synthesized argument is not a value of the declared type
 std/money.nomi:Money.add	PROBE: a synthesized argument is not a value of the declared type
 std/money.nomi:Money.empty?	ran
 std/money.nomi:Money.empty_sum	ran
@@ -2555,15 +2565,22 @@ std/money.nomi:Money.from_fragments	ran
 std/money.nomi:Money.hash	ran
 std/money.nomi:Money.inspect	ran
 std/money.nomi:Money.localize	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.max	ran
+std/money.nomi:Money.min	ran
 std/money.nomi:Money.multiply	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.multiply_by	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.multiply_by default 3	ran
+std/money.nomi:Money.negate	PROBE: a synthesized argument is not a value of the declared type
 std/money.nomi:Money.parse_in	ran
 std/money.nomi:Money.parse_in default 4	ran
 std/money.nomi:Money.round	PROBE: a synthesized argument is not a value of the declared type
 std/money.nomi:Money.round default 2	ran
+std/money.nomi:Money.sign	ran
 std/money.nomi:Money.subtract	PROBE: a synthesized argument is not a value of the declared type
 std/money.nomi:Money.to_string	ran
-std/money.nomi:literal Currency`XXX` at 208:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 268:55 failure	ran
+std/money.nomi:Money.zero?	ran
+std/money.nomi:literal Currency`XXX` at 293:27 failure	ran
+std/money.nomi:literal Currency`XXX` at 353:53 failure	ran
 std/path.nomi:absolute?	ran
 std/path.nomi:base	ran
 std/path.nomi:clean	ran
@@ -2586,6 +2603,9 @@ std/path.nomi:step	PROBE: a synthesized argument is not a value of the declared 
 std/process.nomi:Exit.code default	ran
 std/process.nomi:Exit.inspect	ran
 std/process.nomi:Exit.message default	ran
+std/reverse.nomi:Reverse.compare	ran
+std/reverse.nomi:Reverse.inspect	ran
+std/reverse.nomi:Reverse.of	ran
 std/sql.nomi:Bool.from_sql	ran
 std/sql.nomi:Bool.to_sql	ran
 std/sql.nomi:Bytes.from_sql	ran

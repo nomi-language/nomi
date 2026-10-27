@@ -14,7 +14,7 @@ import {
 //# Unicode scalar values. `String` iterates by grapheme cluster for text
 //# workflows; use `String.to_codepoints` when code needs to inspect the scalar
 //# values that make up a string. An ASCII codepoint is written as a literal,
-//# `'a'` or `'\n'`; every other scalar value comes from `Codepoint.from_int`.
+//# `'a'` or `'\n'`; every other scalar value comes from `Int.to_codepoint`.
 
 /// A Unicode code point / scalar value: `0..=0x10FFFF`, excluding UTF-16
 /// surrogate code points. Backed by `Int`, but validated at construction.
@@ -22,20 +22,6 @@ import {
 pub opaque type Codepoint Int
 
 impl Codepoint {
-    /// Validates `n` and wraps it as a Codepoint.
-    //! assert Codepoint.from_int(65) == Some('A')
-    //! assert Codepoint.from_int(55_296) == None
-    //
-    pub fn from_int(n: Int) -> Maybe<Codepoint> {
-        if n < 0 or n > 1_114_111 {
-            None
-        } else if n >= 55_296 and n <= 57_343 {
-            None
-        } else {
-            Some(Codepoint(n))
-        }
-    }
-
     /// Returns the numeric Unicode scalar value.
     //! assert Codepoint.to_int('A') == 65
     //
@@ -48,7 +34,7 @@ impl Codepoint {
     /// script count. Digits, punctuation, emoji and combining marks (category
     /// M, such as U+0301 COMBINING ACUTE ACCENT) do not.
     //! assert Codepoint.letter?('a')
-    //! zhe = try Codepoint.from_int(0x0436)
+    //! zhe = try Int.to_codepoint(0x0436)
     //! assert Codepoint.letter?(zhe)
     //! assert !Codepoint.letter?('7')
     //
@@ -60,7 +46,7 @@ impl Codepoint {
     /// (U+FF11) are not digits here. There is no function for Unicode decimal
     /// digits (general category Nd).
     //! assert Codepoint.digit?('7')
-    //! three = try Codepoint.from_int(0x0663)
+    //! three = try Int.to_codepoint(0x0663)
     //! assert !Codepoint.digit?(three)
     //! assert !Codepoint.digit?('x')
     //
@@ -73,7 +59,7 @@ impl Codepoint {
     /// rejects. ASCII-only on purpose, as `digit?` is: Arabic-Indic and
     /// full-width digits answer `None`.
     //! assert Codepoint.to_digit('7') == Some(7)
-    //! one = try Codepoint.from_int(0xFF11)
+    //! one = try Int.to_codepoint(0xFF11)
     //! assert Codepoint.to_digit(one) == None
     //! assert Codepoint.to_digit('x') == None
     //
@@ -91,7 +77,7 @@ impl Codepoint {
     /// ideographic space U+3000 and the other Unicode spaces and line
     /// separators. Zero-width space U+200B is not White_Space.
     //! assert Codepoint.whitespace?('\t')
-    //! nbsp = try Codepoint.from_int(0x00A0)
+    //! nbsp = try Int.to_codepoint(0x00A0)
     //! assert Codepoint.whitespace?(nbsp)
     //! assert !Codepoint.whitespace?('a')
     //
@@ -102,7 +88,7 @@ impl Codepoint {
     /// such as `ǅ` U+01C5) are neither upper nor lower, and neither are
     /// letters without case, such as `中`.
     //! assert Codepoint.upper?('A')
-    //! zhe = try Codepoint.from_int(0x0416)
+    //! zhe = try Int.to_codepoint(0x0416)
     //! assert Codepoint.upper?(zhe)
     //! assert !Codepoint.upper?('a')
     //
@@ -113,7 +99,7 @@ impl Codepoint {
     /// such as `ǅ` U+01C5) are neither lower nor upper, and neither are
     /// letters without case, such as `中`.
     //! assert Codepoint.lower?('a')
-    //! e_acute = try Codepoint.from_int(0x00E9)
+    //! e_acute = try Int.to_codepoint(0x00E9)
     //! assert Codepoint.lower?(e_acute)
     //! assert !Codepoint.lower?('A')
     //
@@ -144,7 +130,7 @@ impl Discrete for Codepoint {
     /// Returns the next valid Codepoint, skipping the UTF-16 surrogate block.
     /// Returns None after the largest Unicode scalar value.
     //! assert Codepoint.next('A') == Some('B')
-    //! assert Codepoint.next(try Codepoint.from_int(0x10FFFF)) == None
+    //! assert Codepoint.next(try Int.to_codepoint(0x10FFFF)) == None
     //
     fn next(cp: Codepoint) -> Maybe<Codepoint> {
         n = Codepoint.to_int(cp)
@@ -152,9 +138,9 @@ impl Discrete for Codepoint {
         if n == 1_114_111 {
             None
         } else if n == 55_295 {
-            Codepoint.from_int(57_344)
+            Int.to_codepoint(57_344)
         } else {
-            Codepoint.from_int(n + 1)
+            Int.to_codepoint(n + 1)
         }
     }
 
@@ -199,7 +185,7 @@ impl Steppable for Codepoint {
                 raw
             }
 
-            Codepoint.from_int(adjusted)
+            Int.to_codepoint(adjusted)
         }
     }
 }

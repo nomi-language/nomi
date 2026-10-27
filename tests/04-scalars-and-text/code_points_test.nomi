@@ -1,17 +1,17 @@
 test "codepoints convert to and from integers and strings" {
-    assert Some(a) = Codepoint.from_int(65)
+    assert Some(a) = Int.to_codepoint(65)
 
     assert Codepoint.to_int(a) == 65
     assert Codepoint.to_string(a) == "A"
 }
 
 test "codepoint construction rejects surrogate values" {
-    assert Codepoint.from_int(55_296) == None
+    assert Int.to_codepoint(55_296) == None
 }
 
 test "codepoint ranges iterate over scalar values" {
-    assert Some(start) = Codepoint.from_int(97)
-    assert Some(end) = Codepoint.from_int(100)
+    assert Some(start) = Int.to_codepoint(97)
+    assert Some(end) = Int.to_codepoint(100)
 
     exclusive_values =
         start..end
@@ -34,8 +34,8 @@ test "codepoint ranges iterate over scalar values" {
 }
 
 test "codepoint ranges skip surrogate values" {
-    assert Some(before_surrogates) = Codepoint.from_int(55_295)
-    assert Some(after_surrogates) = Codepoint.from_int(57_344)
+    assert Some(before_surrogates) = Int.to_codepoint(55_295)
+    assert Some(after_surrogates) = Int.to_codepoint(57_344)
 
     inclusive_values =
         before_surrogates..=after_surrogates
@@ -57,7 +57,7 @@ test "letter? is Unicode general category L" {
     // A digit, a space and an emoji.
     assert !(String.to_codepoints("7 🙂") |> Iter.any?(Codepoint.letter?))
 
-    assert Some(combining_acute) = Codepoint.from_int(0x0301)
+    assert Some(combining_acute) = Int.to_codepoint(0x0301)
 
     assert !Codepoint.letter?(combining_acute)
 }

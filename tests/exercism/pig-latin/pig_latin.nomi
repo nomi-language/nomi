@@ -13,7 +13,7 @@ pub fn translate(phrase: String) -> String {
 
 fn translate_word(word: String) -> String {
     onset = onset_length(Iter.to_list(word))
-    String.slice(word, onset, String.length(word)) + String.slice(word, 0, onset) + "ay"
+    String.drop(word, onset) + String.take(word, onset) + "ay"
 }
 
 /// How many letters at the start of a word move to its end: the consonants

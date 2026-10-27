@@ -329,10 +329,14 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   and `nomi.toml`, nested in this repository, so the compiler's module
   excludes it and its requirements never enter the compiler's go.mod. It is
   versioned with nomi's commits (no tags; a module that requires a sibling
-  `replace`s it with the sibling's directory, and requires the published
-  commit for users: after a push to `main`, `scripts/pin-lib.sh <commit>`
-  writes that commit's pseudo-version into each such require, and
-  `--verify` adds sqlkit from the proxy into a fresh project), tested by nomi's checks (`TestLibModules` in
+  `replace`s it with the sibling's directory, and requires a published
+  commit only as a floor: `nomi add` and `nomi update` keep every
+  `github.com/nomi-language/nomi/lib/...` module a project requires on one
+  commit, the one added or the newest (`modfetch.alignLib`), so a sibling
+  require never needs moving when a batch is pushed;
+  `scripts/pin-lib.sh <commit>` moves the floors when a module comes to need
+  a newer sibling, and `scripts/pin-lib.sh --verify <commit>` adds sqlkit at
+  a pushed commit from the proxy into a fresh project and runs sqlite), tested by nomi's checks (`TestLibModules` in
   `cmd/nomi` runs each one's Nomi tests and the driver's Go tests; CI's lib
   job vets and tests their Go side), and added by users with `nomi add
   github.com/nomi-language/nomi/lib/...`. The tour links a lib module's
@@ -626,7 +630,9 @@ make test-tour                 # tour doctests, wasm bundle, grammar
 `nomi test <dir or file>` runs `test "…"` blocks. `TestTestCommand_VMCorpus`
 and `TestTestCommand_VMStdlib` run `nomi test tests` and `nomi test std` and
 require no failed or blocked case, and as many passing cases as
-`corpus.expect` and `stdlib.expect` declare.
+`corpus.expect` and `stdlib.expect` declare. A case is a test, or each row of
+the `subtests` tables a test runs (`rt.CountCases`), so a test of nine rows
+counts nine.
 
 The modules under `lib/` are Go modules of their own, which root `go test
 ./...` and `go vet ./...` skip. `TestLibModules` (`cmd/nomi`) runs `nomi
@@ -1284,7 +1290,12 @@ with a file under a directory, from a file tree beside the editor
 muted and is a menu above the editor on a narrow screen. A manual block's
 Run button sits in its output header. Every runnable block has an "Open
 large" button that moves the editor itself into a modal `<dialog>` and back,
-so its edits and output carry over. Plain ` ```nomi `
+so its edits and output carry over. In the large view a block of several files can show
+its files in two groups, each a pane with its own tabs (`splitPanes`): the
+open tab of a lone group has a right and a down arrow that split it off into
+a new group on that side, and in a split each group's open tab has one arrow
+pointing at the other group, which moves it there; a group a move empties
+closes. The split lasts while the page is open. Plain ` ```nomi `
 blocks are highlighted only. Highlighting,
 hovers and runs happen client-side with the same grammar, queries, analyzer
 and VM the editor uses (compiled to wasm).

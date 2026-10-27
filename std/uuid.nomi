@@ -300,7 +300,7 @@ fn read_half(data: Bytes, start: Int) -> Int {
 fn half_bytes(half: Int) -> Bytes {
     0..8
     |> Iter.flat_map(fn i -> {
-        case Byte.from_int(Int.bitwise_and(Int.shift_right(half, (7 - i) * 8), 255)) {
+        case Int.to_byte(Int.bitwise_and(Int.shift_right(half, (7 - i) * 8), 255)) {
             Some(b) -> [b]
             None -> []
         }

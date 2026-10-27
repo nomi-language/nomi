@@ -33,6 +33,7 @@ pub import {
     maybe.Maybe
     maybe.Maybe.{None, Some}
     multiply.Multiply
+    productable.Productable
     ranges.Range
     results.{Infallible, Result}
     results.Result.{Err, Ok}

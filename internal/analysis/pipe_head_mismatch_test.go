@@ -89,7 +89,7 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 		{"an Int into a Decimal stage",
 			"  _ = 3 |> dec()\n",
 			"`dec` takes a Decimal as its first argument, but the pipe passes an Int\n" +
-				"help: convert the Int first with `|> Decimal.from_int()`",
+				"help: convert the Int first with `|> Int.to_decimal()`",
 			"dec", "3"},
 		{"a Decimal into a Float stage",
 			"  _ = 3d |> half()\n",

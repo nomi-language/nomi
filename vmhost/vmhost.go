@@ -348,7 +348,7 @@ func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOpt
 			rep.BlockedAt(loc, label(c.Name), c.Blocked, c.Output)
 			continue
 		}
-		rep.ResultAt(loc, label(c.Name), c.Err, c.Output)
+		rep.ResultAt(loc, label(c.Name), c.Err, c.Output, c.Count())
 	}
 }
 
@@ -359,6 +359,15 @@ type CaseResult struct {
 	Line    int
 	EndLine int
 	Err     error
+	// Cases is how many cases the test counts as in a report's summary, and
+	// FailedCases how many of them failed (rt.CountCases): 1 and 0 or 1 for a
+	// test that ran no `subtests` table, the rows it ran for one that did
+	// (Subtests). A blocked test counts as one blocked test, and these are 0.
+	Cases       int
+	FailedCases int
+	// Subtests reports whether the test ran a `subtests` table: its ok line
+	// names its count of cases.
+	Subtests bool
 	// Output is what the case wrote while it ran: `io.print`, `io.write`,
 	// `io.inspect` and `dbg`, from its boot, setup, body, the tasks it
 	// started and the `once` initializers it forced, with `dbg` coloured as
@@ -378,6 +387,17 @@ type CaseResult struct {
 	// has one.
 	BlockedPath string
 	BlockedLine int
+}
+
+// Count is the cases r counts as, as a report takes them.
+func (r CaseResult) Count() CaseCount {
+	return CaseCount{Subtests: r.Subtests, Cases: r.Cases, Failed: r.FailedCases}
+}
+
+// counted sets r's case counts from the rows of `subtests` tables it ran.
+func (r *CaseResult) counted(rows int) {
+	c := rt.CountCases(rows, r.Err)
+	r.Cases, r.FailedCases, r.Subtests = c.Cases, c.Failed, c.Subtests
 }
 
 // blockedBy fills r's blocker fields from b.
@@ -416,6 +436,7 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 		results := make([]CaseResult, len(duplicates))
 		for i, d := range duplicates {
 			results[i] = CaseResult{Name: d.Name, Err: d.Err, Line: d.Line, EndLine: d.EndLine}
+			results[i].counted(0)
 		}
 		return results
 	}
@@ -464,8 +485,9 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 	}
 	var failures []error
 	var outputs, limits []string
+	var rows []int
 	if len(runnable) > 0 {
-		failures, outputs, limits = m.RunCases(runnable)
+		failures, outputs, limits, rows = m.RunCases(runnable)
 	}
 	results := make([]CaseResult, len(plan))
 	for i, tc := range plan {
@@ -485,8 +507,10 @@ func (p *Program) entryCases(out io.Writer, opts TestOptions) []CaseResult {
 			if errors.As(results[i].Err, &timedOut) {
 				timedOut.Hint = p.testTimeoutHint
 			}
+			results[i].counted(rows[o.run])
 		default:
 			results[i].Err = o.err
+			results[i].counted(0)
 		}
 	}
 	return results

@@ -531,7 +531,10 @@ func Add(root, arg string, opts Options) (Added, error) {
 			listed[r.Path] = list[len(list)-1]
 		}
 		mf.SetRequireSeparateIndirect(list)
-		return nil
+		if strings.HasPrefix(m.Path, libPrefix) {
+			return alignLib(mf, m.Version)
+		}
+		return alignLib(mf, "")
 	}); err != nil {
 		return Added{}, err
 	}
@@ -546,6 +549,36 @@ func Add(root, arg string, opts Options) (Added, error) {
 		}
 	}
 	return added, nil
+}
+
+// libPrefix is the path prefix of the first-party modules under the nomi
+// repository's lib/ (the sqlite driver, sqlkit, ...). They are versioned
+// by nomi's commits and tested together, and one requires another only as
+// a floor, so a project takes them all from one commit.
+const libPrefix = "github.com/nomi-language/nomi/lib/"
+
+// alignLib requires every lib/ module go.mod lists at one version: version,
+// the one a project just added, else the newest of them, which is the
+// latest commit since each is a pseudo-version of a nomi commit.
+func alignLib(mf *modfile.File, version string) error {
+	if version == "" {
+		for _, r := range mf.Require {
+			if strings.HasPrefix(r.Mod.Path, libPrefix) && semver.Compare(r.Mod.Version, version) > 0 {
+				version = r.Mod.Version
+			}
+		}
+	}
+	if version == "" {
+		return nil
+	}
+	for _, r := range mf.Require {
+		if strings.HasPrefix(r.Mod.Path, libPrefix) && r.Mod.Version != version {
+			if err := mf.AddRequire(r.Mod.Path, version); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // resolve answers module path at query (`latest` when empty, else a full

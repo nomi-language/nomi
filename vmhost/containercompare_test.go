@@ -68,25 +68,56 @@ fn main() {
 	}
 }
 
-// A tuple or an anonymous struct has no order, so every route that demands
-// one is a compile error rather than a program the VM cannot run: a List of
-// tuples compared directly or by operator, `Comparable.compare`, and a sort.
-func TestLoad_OrderingOverATupleIsACompileError(t *testing.T) {
-	for _, expr := range []string{
-		"List.compare([#(1, 2)], [#(1, 3)])",
-		"[#(1, 2)] < [#(1, 3)]",
-		"Comparable.compare(#(1, 2), #(1, 3))",
-		"Iter.sort([#{a: 2}, #{a: 1}])",
+// A tuple is Comparable when its elements are, lexicographically, on every
+// route that orders one: `<` on two, `Comparable.compare`, a List of tuples
+// compared directly or by operator, a sort of them and a sort by a tuple
+// key, with tuples nested in tuples and a declared type as an element.
+func TestRun_TuplesCompareLexicographically(t *testing.T) {
+	out := runOutput(t, `import std/io
+
+struct P {
+  a: Int
+}
+
+derive Comparable for P
+
+fn main() {
+  io.inspect(#(1, "b") < #(2, "a"))
+  io.inspect(#(1, "b") >= #(1, "c"))
+  io.inspect(Comparable.compare(#(1, #(2, 3)), #(1, #(2, 4))))
+  io.inspect(Comparable.compare(#(#P{a: 2}, 0), #(#P{a: 1}, 9)))
+  io.inspect(List.compare([#(1, 2)], [#(1, 3)]))
+  io.inspect([#(1, 2)] < [#(1, 3)])
+  io.inspect(Iter.sort([#(2, "a"), #(1, "b"), #(1, "a")]))
+  io.inspect(Iter.sort_by(["bb", "a", "ab"], fn s -> #(String.length(s), s)))
+  io.inspect(Iter.max([#(1, 2.5), #(1, 3.5), #(0, 9.0)]))
+}
+`)
+	want := strings.Join([]string{
+		"True", "False", "Less", "Greater", "Less", "True",
+		`[#(1, "a"), #(1, "b"), #(2, "a")]`, `["a", "ab", "bb"]`, "Some(#(1, 3.5))",
+	}, "\n") + "\n"
+	if out != want {
+		t.Fatalf("output\n%s\nwant\n%s", out, want)
+	}
+}
+
+// An anonymous struct has no order, and neither does a tuple with an
+// element that has none, so every route that demands one is a compile error
+// rather than a program the VM cannot run.
+func TestLoad_OrderingOverAnAnonymousStructIsACompileError(t *testing.T) {
+	for _, c := range []struct{ expr, want string }{
+		{"Iter.sort([#{a: 2}, #{a: 1}])", "types cannot implement `Comparable`"},
+		{"#{a: 2} < #{a: 1}", "types cannot implement `Comparable`"},
+		{"[#(1, Unit)] < [#(1, Unit)]", "no impl of `Comparable` for `Unit`"},
+		{"Iter.sort([#(1, Unit)])", "is Comparable when each element is, and `Unit` is not"},
 	} {
-		_, err := vmhost.Load(writeProgram(t, "import std/io\n\nfn main() {\n  io.inspect("+expr+")\n}\n"))
+		_, err := vmhost.Load(writeProgram(t, "import std/io\n\nfn main() {\n  io.inspect("+c.expr+")\n}\n"))
 		if err == nil {
-			t.Fatalf("%s: the front end now ACCEPTS this", expr)
+			t.Fatalf("%s: the front end now ACCEPTS this", c.expr)
 		}
-		if !strings.Contains(err.Error(), "types cannot implement `Comparable`") {
-			t.Fatalf("%s: rejected for another reason: %v", expr, err)
-		}
-		if strings.Count(err.Error(), "cannot implement") != 1 {
-			t.Fatalf("%s: reported more than once: %v", expr, err)
+		if !strings.Contains(err.Error(), c.want) {
+			t.Fatalf("%s: rejected for another reason: %v", c.expr, err)
 		}
 	}
 }

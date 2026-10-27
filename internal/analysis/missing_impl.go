@@ -469,6 +469,17 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 			}
 		}
 	}
+	if bound.Name == "Comparable" {
+		if tup, ok := resolveTypeVar(concrete).(*TupleType); ok {
+			// A tuple is Comparable when every element is, so the help is
+			// the first element's that is not (comparable_structural.go).
+			for _, p := range tup.Elems {
+				if !typeSatisfiesInterfaceForImplMatch(p, bound, c.implsContext(), c.implTypeArgsContext(), nil) {
+					return fmt.Sprintf("`%s` is Comparable when each element is, and `%s` is not: %s", name, p, c.boundHelp(p, bound))
+				}
+			}
+		}
+	}
 	ownsType := programDeclares(concrete)
 	if !ownsType && IsStdlibKey(bound.Origin) {
 		origin, _ := nominalOrigin(resolveTypeVar(concrete))

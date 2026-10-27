@@ -7,7 +7,7 @@ description: "Read a resistor's first three color bands as a resistance, written
 
 Read a resistor's first three color bands as a resistance, written in the largest metric unit that keeps the value whole.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/resistor-color-trio) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/resistor-color-trio) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
 
 ```nomi-run
 // FILE: resistor_color_trio.nomi
@@ -50,7 +50,7 @@ pub fn label(bands: List<Color>) -> Maybe<Resistance> {
         return None
     }
 
-    ohms = (digit(first) * 10 + digit(second)) * power_of_ten(digit(zeros))
+    ohms = (digit(first) * 10 + digit(second)) * Int.pow(10, digit(zeros))
     Some(in_largest_unit(ohms))
 }
 
@@ -64,10 +64,6 @@ fn in_largest_unit(ohms: Int) -> Resistance {
             resistance
         }
     })
-}
-
-fn power_of_ten(exponent: Int) -> Int {
-    Iter.reduce(1..=exponent, fn n = 1, _ -> n * 10)
 }
 
 fn digit(color: Color) -> Int {
@@ -120,11 +116,6 @@ test "fewer than three bands have no label" {
 
 - The answer is a `Resistance` struct of a value and a `Magnitude` enum (`Ohms`, `Kiloohms`, `Megaohms`, `Gigaohms`), matching the canonical `{value, unit}`, rather than the label text. The enum is `Magnitude`, not `Unit`: `Unit` names Nomi's empty value and is reserved, and `Magnitude` says what the variants are.
 - `label` takes a `List<Color>` and answers `Maybe<Resistance>`, `None` for fewer than three bands, for the reason resistor-color-duo gives. The binding `else` keeps the success path unindented.
+- The third band's zeros are `Int.pow(10, digit(zeros))`, inline in the ohms expression.
 - `in_largest_unit` folds over the larger units with `Iter.reduce`, dividing by 1000 while the value stays whole and is not zero. It needs no arm for running out of units, which a recursive walk down a list of units would.
 - The ten canonical cases are one `subtests` table whose rows hold the expected value and unit as two columns, rebuilt into a `Resistance` in the assertion.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no integer power, so `power_of_ten` is `Iter.reduce(1..=exponent, fn n = 1, _ -> n * 10)`. Rust has `i64::pow`, Elixir `Integer.pow/2`, Gleam `int.power` (over floats); Go has only `math.Pow` over floats.

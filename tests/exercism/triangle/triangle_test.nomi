@@ -1,56 +1,50 @@
 import triangle
 
-group "equilateral triangle" {
-    test "equilateral?" {
-        cases = [
-            #("all sides are equal", #(2.0, 2.0, 2.0), True),
-            #("any side is unequal", #(2.0, 3.0, 2.0), False),
-            #("no sides are equal", #(5.0, 4.0, 6.0), False),
-            #("all zero sides is not a triangle", #(0.0, 0.0, 0.0), False),
-            #("sides may be floats", #(0.5, 0.5, 0.5), True),
-        ]
+test "equilateral triangle" {
+    cases = [
+        #("all sides are equal", #(2.0, 2.0, 2.0), True),
+        #("any side is unequal", #(2.0, 3.0, 2.0), False),
+        #("no sides are equal", #(5.0, 4.0, 6.0), False),
+        #("all zero sides is not a triangle", #(0.0, 0.0, 0.0), False),
+        #("sides may be floats", #(0.5, 0.5, 0.5), True),
+    ]
 
-        subtests cases, #(description, sides, expected), description {
-            assert triangle.equilateral?(sides) == expected
-        }
+    subtests cases, #(description, sides, expected), description {
+        assert triangle.equilateral?(sides) == expected
     }
 }
 
-group "isosceles triangle" {
-    test "isosceles?" {
-        cases = [
-            #("last two sides are equal", #(3.0, 4.0, 4.0), True),
-            #("first two sides are equal", #(4.0, 4.0, 3.0), True),
-            #("first and last sides are equal", #(4.0, 3.0, 4.0), True),
-            #("equilateral triangles are also isosceles", #(4.0, 4.0, 4.0), True),
-            #("no sides are equal", #(2.0, 3.0, 4.0), False),
-            #("first triangle inequality violation", #(1.0, 1.0, 3.0), False),
-            #("second triangle inequality violation", #(1.0, 3.0, 1.0), False),
-            #("third triangle inequality violation", #(3.0, 1.0, 1.0), False),
-            #("sides may be floats", #(0.5, 0.4, 0.5), True),
-        ]
+test "isosceles triangle" {
+    cases = [
+        #("last two sides are equal", #(3.0, 4.0, 4.0), True),
+        #("first two sides are equal", #(4.0, 4.0, 3.0), True),
+        #("first and last sides are equal", #(4.0, 3.0, 4.0), True),
+        #("equilateral triangles are also isosceles", #(4.0, 4.0, 4.0), True),
+        #("no sides are equal", #(2.0, 3.0, 4.0), False),
+        #("first triangle inequality violation", #(1.0, 1.0, 3.0), False),
+        #("second triangle inequality violation", #(1.0, 3.0, 1.0), False),
+        #("third triangle inequality violation", #(3.0, 1.0, 1.0), False),
+        #("sides may be floats", #(0.5, 0.4, 0.5), True),
+    ]
 
-        subtests cases, #(description, sides, expected), description {
-            assert triangle.isosceles?(sides) == expected
-        }
+    subtests cases, #(description, sides, expected), description {
+        assert triangle.isosceles?(sides) == expected
     }
 }
 
-group "scalene triangle" {
-    test "scalene?" {
-        cases = [
-            #("no sides are equal", #(5.0, 4.0, 6.0), True),
-            #("all sides are equal", #(4.0, 4.0, 4.0), False),
-            #("first and second sides are equal", #(4.0, 4.0, 3.0), False),
-            #("first and third sides are equal", #(3.0, 4.0, 3.0), False),
-            #("second and third sides are equal", #(4.0, 3.0, 3.0), False),
-            #("may not violate triangle inequality", #(7.0, 3.0, 2.0), False),
-            #("sides may be floats", #(0.5, 0.4, 0.6), True),
-        ]
+test "scalene triangle" {
+    cases = [
+        #("no sides are equal", #(5.0, 4.0, 6.0), True),
+        #("all sides are equal", #(4.0, 4.0, 4.0), False),
+        #("first and second sides are equal", #(4.0, 4.0, 3.0), False),
+        #("first and third sides are equal", #(3.0, 4.0, 3.0), False),
+        #("second and third sides are equal", #(4.0, 3.0, 3.0), False),
+        #("may not violate triangle inequality", #(7.0, 3.0, 2.0), False),
+        #("sides may be floats", #(0.5, 0.4, 0.6), True),
+    ]
 
-        subtests cases, #(description, sides, expected), description {
-            assert triangle.scalene?(sides) == expected
-        }
+    subtests cases, #(description, sides, expected), description {
+        assert triangle.scalene?(sides) == expected
     }
 }
 

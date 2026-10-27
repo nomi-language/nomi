@@ -14,7 +14,7 @@ test "a codepoint literal is the codepoint of its ASCII character" {
     assert Codepoint.to_int('0') == 48
     assert Codepoint.to_int(' ') == 32
     assert Codepoint.to_int('~') == 126
-    assert Codepoint.from_int(97) == Some('a')
+    assert Int.to_codepoint(97) == Some('a')
 }
 
 test "escapes are the string escapes with the single quote in place of the double" {

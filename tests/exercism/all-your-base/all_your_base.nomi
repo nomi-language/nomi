@@ -22,14 +22,5 @@ pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<Li
     }
 
     number = Iter.reduce(digits, fn total = 0, d -> total * input_base + d)
-    Ok(digits_of(number, output_base))
-}
-
-fn digits_of(number: Int, base: Int) -> List<Int> {
-    if number == 0 { return [0] }
-
-    Iter.iterate(number, &(&1 / base))
-    |> Iter.take_while(&(&1 > 0))
-    |> Iter.map(&(&1 % base))
-    |> Iter.reverse()
+    Ok(Int.to_digits(number, output_base))
 }

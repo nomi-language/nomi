@@ -16,8 +16,8 @@
 //# amount or the currency is a value the program computes.
 //#
 //# The amount keeps every digit it has: adding, subtracting and multiplying
-//# are exact, and only `Money.round` rounds, to the currency's minor
-//# digits. Two amounts in different currencies do not add: `+` and `-`
+//# by a count are exact, and only `Money.round` and `Money.multiply_by`, a
+//# product with a Decimal rate, round, to the currency's minor digits. Two amounts in different currencies do not add: `+` and `-`
 //# trap and name both, as `Int` overflow traps. Std has no exchange rates;
 //# a library that has them converts and checks the currency first.
 //# `Money.format` writes an amount as a reader of a locale writes it, and
@@ -172,6 +172,91 @@ impl Money {
         #Money{amount: Decimal.round(money.amount, digits, mode), currency: money.currency}
     }
 
+    /// The amount times a Decimal `factor`, rounded to its currency's minor
+    /// digits with `mode` (half to even unless it says otherwise), as
+    /// `Money.round` rounds: a tax, a discount or a share of a bill.
+    ///
+    /// `*` takes only an Int. A whole count times an amount is exact, so
+    /// three of a book's price needs no rounding. A Decimal factor makes
+    /// more digits than the currency has, and the rounding that removes
+    /// them should be in the code where a reader sees it. There is no Float
+    /// form: a Float is binary, so `0.1` is not one tenth. Convert a Float
+    /// rate first, with `Float.to_decimal(rate, 4, RoundingMode.HalfEven)`.
+    /// `RoundingMode.Unnecessary` traps when the product has more digits
+    /// than the currency, as `Decimal.round` does.
+    //! import std/float.Float
+    //!
+    //! assert Money.multiply_by(Money`19.99 EUR`, 0.23d) == Money`4.60 EUR`
+    //! assert Money.multiply_by(Money`0.25 EUR`, 0.5d) == Money`0.12 EUR`
+    //! assert Money.multiply_by(Money`0.25 EUR`, 0.5d, RoundingMode.HalfUp) == Money`0.13 EUR`
+    //! assert Money.multiply_by(Money`999 JPY`, 0.08d) == Money`80 JPY`
+    //! assert Money.multiply_by(Money`-10.05 EUR`, 0.5d) == Money`-5.02 EUR`
+    //!
+    //! rate = try Float.to_decimal(0.0825, 4, RoundingMode.HalfEven)
+    //! assert Money.multiply_by(Money`40.00 USD`, rate) == Money`3.30 USD`
+    //
+    pub fn multiply_by(
+        price: Money,
+        factor: Decimal,
+        mode: RoundingMode = RoundingMode.HalfEven,
+    ) -> Money {
+        Money.round(#Money{amount: price.amount * factor, currency: price.currency}, mode)
+    }
+
+    /// The amount without its sign, in the same currency, every digit kept.
+    //! assert Money.abs(Money`-12.50 EUR`) == Money`12.50 EUR`
+    //! assert Money.abs(Money`3 PLN`) == Money`3 PLN`
+    //
+    pub fn abs(money: Money) -> Money {
+        #Money{amount: Decimal.abs(money.amount), currency: money.currency}
+    }
+
+    /// The amount with its sign flipped, in the same currency: a refund of
+    /// a charge. Negating zero stays zero.
+    //! assert Money.negate(Money`12.50 EUR`) == Money`-12.50 EUR`
+    //
+    pub fn negate(money: Money) -> Money {
+        #Money{amount: Decimal.negate(money.amount), currency: money.currency}
+    }
+
+    /// The sign of the amount as -1, 0, or +1, as `Decimal.sign` gives it:
+    /// a debit, nothing, or a credit.
+    //! assert Money.sign(Money`-0.01 EUR`) == -1
+    //! assert Money.sign(Money`0.00 EUR`) == 0
+    //! assert Money.sign(Money`12.50 EUR`) == 1
+    //
+    pub fn sign(money: Money) -> Int {
+        Decimal.sign(money.amount)
+    }
+
+    /// Whether the amount is zero, at any scale and in any currency.
+    //! assert Money.zero?(Money`0.00 EUR`)
+    //! refute Money.zero?(Money`0.01 EUR`)
+    //
+    pub fn zero?(money: Money) -> Bool {
+        Decimal.zero?(money.amount)
+    }
+
+    /// The lesser of two amounts in one currency (ties return `a`): what a
+    /// refund is capped at. Amounts in two currencies trap, naming both,
+    /// as `+` does: `Money.min: the amounts are in two currencies, EUR and
+    /// PLN`.
+    //! assert Money.min(Money`12.50 EUR`, Money`20 EUR`) == Money`12.50 EUR`
+    //
+    pub fn min(a: Money, b: Money) -> Money {
+        money_format.require_same("Money.min", a.currency, b.currency)
+        if a.amount <= b.amount { a } else { b }
+    }
+
+    /// The greater of two amounts in one currency (ties return `a`): a
+    /// minimum charge. Amounts in two currencies trap, as `Money.min` does.
+    //! assert Money.max(Money`0.30 EUR`, Money`0.50 EUR`) == Money`0.50 EUR`
+    //
+    pub fn max(a: Money, b: Money) -> Money {
+        money_format.require_same("Money.max", a.currency, b.currency)
+        if a.amount >= b.amount { a } else { b }
+    }
+
     /// Read an amount in `currency` that a reader of `locale` wrote, strictly
     /// unless `lenient: True`. Strict reads what `Money.format` writes, with
     /// the currency's symbol, narrow symbol or code where the locale puts
@@ -248,7 +333,7 @@ impl Multiply<Int, Money> for Money {
     //! assert Money`12.50 EUR` * 3 == Money`37.50 EUR`
     //
     fn multiply(money: Money, rhs: Int) -> Money {
-        #Money{amount: money.amount * Decimal.from_int(rhs), currency: money.currency}
+        #Money{amount: money.amount * Int.to_decimal(rhs), currency: money.currency}
     }
 }
 
@@ -265,7 +350,7 @@ impl Summable for Money {
     //! assert Iter.sum(empty) == Money`0 XXX`
     //
     fn empty_sum() -> Money {
-        #Money{amount: Decimal.from_int(0), currency: Currency`XXX`}
+        #Money{amount: Int.to_decimal(0), currency: Currency`XXX`}
     }
 }
 
@@ -311,13 +396,13 @@ impl Literal for Money {
 
         case String.split(body, " ") {
             [text] ->
-                case Decimal.from_string(text) {
+                case String.to_decimal(text) {
                     Some(_) -> Err(#Error.NoCurrency{amount: text})
                     None -> Err(#Error.Malformed{text})
                 }
 
             [amount_text, code] when amount_text != "" and code != "" -> {
-                amount = case Decimal.from_string(amount_text) {
+                amount = case String.to_decimal(amount_text) {
                     Some(d) -> d
                     None -> return Err(#Error.Amount{text: amount_text})
                 }

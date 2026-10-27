@@ -11,20 +11,20 @@ import (
 // Same-module stdlib calls link to the callee's retained declaration in the
 // module being lowered. The Tour's Codepoint range program is
 // TestIRRangeIter_TourCodepointRange; it depends on `Discrete.next` for
-// Codepoint, which calls `Codepoint.to_int` and `Codepoint.from_int`.
+// Codepoint, which calls `Codepoint.to_int` and std/int's `Int.to_codepoint`.
 
 // TestIRStdSibling_TypeQualifiedSameModuleCalls runs three std/code_points
 // bodies that call their own module's inherent functions by type
 // qualification: `step_by`, `next` and `inspect` all call `Codepoint.to_int`,
-// and the first two call `Codepoint.from_int`.
+// and the first two call std/int's host function `Int.to_codepoint`.
 func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
 	verifyLambdaProgram(t, `fn run() -> Maybe<Int> {
-  a = try Codepoint.from_int(65)
+  a = try Int.to_codepoint(65)
   b = try Codepoint.step_by(a, 2)
   c = try Codepoint.next(b)
   dbg Codepoint.to_int(c)
   dbg Codepoint.inspect(c)
-  gap = try Codepoint.from_int(55_295)
+  gap = try Int.to_codepoint(55_295)
   dbg Codepoint.to_int(try Codepoint.next(gap))
   Some(0)
 }

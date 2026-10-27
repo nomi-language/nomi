@@ -18,7 +18,7 @@ func TestLambdaElseReturn_RunsInEveryCallback(t *testing.T) {
 
 fn a() {
     Iter.each([1.5, -2.0], fn f -> {
-        Some(d) = Decimal.from_float(f, 1, .HalfUp) else { return Unit }
+        Some(d) = Float.to_decimal(f, 1, .HalfUp) else { return Unit }
         io.print("a ${d}")
     })
 }
@@ -162,7 +162,7 @@ func TestLambdaElseReturn_DecimalFromFloat(t *testing.T) {
 
 fn main() {
     Iter.each([212.0, 33.8, 2.675, -0.05], fn f -> {
-        Some(d) = Decimal.from_float(f, 1, .HalfUp) else { return }
+        Some(d) = Float.to_decimal(f, 1, .HalfUp) else { return }
         io.print("${f} -> ${d}")
     })
 }

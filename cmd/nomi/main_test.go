@@ -3079,9 +3079,9 @@ fn main() -> Result<Unit, String> {
   io.print(text)
   io.print(Byte.to_int(first(prefixed)))
 
-  // Byte.from_int answers a Maybe, and try propagates into the enclosing
+  // Int.to_byte answers a Maybe, and try propagates into the enclosing
   // boundary's own kind -- a Result here -- so this one is a case, not a try.
-  case Byte.from_int(65) {
+  case Int.to_byte(65) {
     Some(a) -> io.print(try Bytes.to_string(singleton(a)))
     None -> io.print("not a byte")
   }

@@ -19,7 +19,7 @@
 //     the row, and it is checked by its CONTENT (195, 169) rather than only its
 //     length, so a clamp that took the wrong end is visible.
 //   - INVERTED bounds are empty, not reversed and not a trap. `2..1`.
-//   - `Byte.from_int` is 0 through 255 INCLUSIVE at both ends. Four rows,
+//   - `Int.to_byte` is 0 through 255 INCLUSIVE at both ends. Four rows,
 //     because an off-by-one at either boundary is exactly the mistake two
 //     implementations make independently.
 //   - `Bytes.concat` is ORDERED, checked by content: swapping the arguments
@@ -72,7 +72,7 @@ fn head_two(data: Bytes) -> Bytes {
 }
 
 fn byte_of(n: Int) -> String {
-    case Byte.from_int(n) {
+    case Int.to_byte(n) {
         Some(b) -> "${Byte.to_int(b)}"
         None -> "out of range"
     }

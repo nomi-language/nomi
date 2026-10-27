@@ -16,7 +16,7 @@ test "age" {
     ]
 
     subtests cases, #(description, planet, seconds, expected), description {
-        assert to_hundredths(space_age.age(planet, seconds)) == expected
+        assert Float.round(space_age.age(planet, seconds), 2) == expected
     }
 }
 
@@ -27,9 +27,4 @@ test "planet names" {
 
 test "invalid planet causes error" {
     assert Planet.parse("Sun") == None
-}
-
-/// The canonical ages are given to two decimal places.
-fn to_hundredths(years: Float) -> Float {
-    Float.round(years * 100.0) / 100.0
 }

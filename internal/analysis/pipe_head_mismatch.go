@@ -173,7 +173,7 @@ func (c *checker) pipeHeadHint(want, have Type, value ast.Node) string {
 	}
 	conversions := map[[2]Type]string{
 		{TypeInt, TypeFloat}:     "Int.to_float",
-		{TypeInt, TypeDecimal}:   "Decimal.from_int",
+		{TypeInt, TypeDecimal}:   "Int.to_decimal",
 		{TypeDecimal, TypeFloat}: "Decimal.to_float",
 	}
 	if fn, ok := conversions[[2]Type{h, w}]; ok {

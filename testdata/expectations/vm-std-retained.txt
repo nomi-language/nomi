@@ -336,7 +336,6 @@ calendar.nomi:day_nanos	ran
 code_points.nomi:Codepoint.compare	ran
 code_points.nomi:Codepoint.digit?	ran
 code_points.nomi:Codepoint.equal?	ran
-code_points.nomi:Codepoint.from_int	ran
 code_points.nomi:Codepoint.hash	ran
 code_points.nomi:Codepoint.inspect	ran
 code_points.nomi:Codepoint.next	ran
@@ -364,6 +363,7 @@ collation.nomi:collation.Collator.new default 4	ran
 collation.nomi:collation.Collator.new default 5	ran
 comparable.nomi:Direction.inspect	ran
 comparable.nomi:Direction.to_string	ran
+comparable.nomi:Ordering.chain	ran
 comparable.nomi:Ordering.inspect	ran
 comparable.nomi:Ordering.to_string	ran
 comparable.nomi:Ordering.variants	ran
@@ -387,6 +387,7 @@ currency.nomi:Error.equal?	ran
 currency.nomi:Error.inspect	ran
 currency.nomi:Error.to_string	ran
 decimal.nomi:Decimal.abs	ran
+decimal.nomi:Decimal.empty_product	ran
 decimal.nomi:Decimal.empty_sum	ran
 decimal.nomi:Decimal.format	ran
 decimal.nomi:Decimal.format_percent	ran
@@ -454,6 +455,7 @@ dynamic.nomi:PathSegment.inspect	ran
 dynamic.nomi:PathSegment.to_string	ran
 float.nomi:Float.abs	ran
 float.nomi:Float.compare	ran
+float.nomi:Float.empty_product	ran
 float.nomi:Float.empty_sum	ran
 float.nomi:Float.equal?	ran
 float.nomi:Float.finite?	ran
@@ -466,6 +468,7 @@ float.nomi:Float.max	ran
 float.nomi:Float.min	ran
 float.nomi:Float.parse_in	ran
 float.nomi:Float.parse_percent_in	ran
+float.nomi:Float.round	ran
 float.nomi:Float.sign	ran
 float.nomi:float.Float.format arity 2	ran
 float.nomi:float.Float.format arity 3	ran
@@ -479,6 +482,10 @@ float.nomi:float.Float.parse_in arity 2	ran
 float.nomi:float.Float.parse_in default 3	ran
 float.nomi:float.Float.parse_percent_in arity 2	ran
 float.nomi:float.Float.parse_percent_in default 3	ran
+float.nomi:float.Float.round arity 1	ran
+float.nomi:float.Float.round arity 2	ran
+float.nomi:float.Float.round default 2	ran
+float.nomi:float.Float.round default 3	ran
 fs_host.nomi:FileSystem.inspect	ran
 instant.nomi:Instant.Add<Duration, Instant>.add	ran
 instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
@@ -494,9 +501,11 @@ instant.nomi:Instant.to_seconds	ran
 int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
 int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
+int.nomi:Int.empty_product	ran
 int.nomi:Int.empty_sum	ran
 int.nomi:Int.equal?	ran
 int.nomi:Int.format	ran
+int.nomi:Int.from_digits	ran
 int.nomi:Int.hash	ran
 int.nomi:Int.inspect	ran
 int.nomi:Int.max	ran
@@ -507,6 +516,7 @@ int.nomi:Int.parse_in	ran
 int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
+int.nomi:Int.to_digits	ran
 int.nomi:Int.to_non_zero	ran
 int.nomi:Int.to_positive	ran
 int.nomi:NonZeroInt.inspect	ran
@@ -518,8 +528,12 @@ int.nomi:int.Int.format arity 2	ran
 int.nomi:int.Int.format arity 3	ran
 int.nomi:int.Int.format default 3	ran
 int.nomi:int.Int.format default 4	ran
+int.nomi:int.Int.from_digits arity 1	ran
+int.nomi:int.Int.from_digits default 2	ran
 int.nomi:int.Int.parse_in arity 2	ran
 int.nomi:int.Int.parse_in default 3	ran
+int.nomi:int.Int.to_digits arity 1	ran
+int.nomi:int.Int.to_digits default 2	ran
 io.nomi:Error.equal?	ran
 io.nomi:Error.inspect	ran
 io.nomi:Error.to_string	ran
@@ -641,6 +655,7 @@ strings.nomi:String.Contains<Codepoint>.contains?	ran
 strings.nomi:String.Contains<Regex>.contains?	ran
 strings.nomi:String.Contains<String>.contains?	ran
 strings.nomi:String.compare	ran
+strings.nomi:String.drop	ran
 strings.nomi:String.empty_sum	ran
 strings.nomi:String.equal?	ran
 strings.nomi:String.find_in	ran
@@ -648,6 +663,7 @@ strings.nomi:String.inspect	ran
 strings.nomi:String.join_list	ran
 strings.nomi:String.pad_end	ran
 strings.nomi:String.pad_start	ran
+strings.nomi:String.take	ran
 strings.nomi:String.to_string	ran
 strings.nomi:padding	ran
 strings.nomi:strings.String.join_list arity 2	ran

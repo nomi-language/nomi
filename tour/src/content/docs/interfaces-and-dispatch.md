@@ -764,6 +764,41 @@ fn main() {
 dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
 -->
 
+To sort by more than one field, make the key a tuple. Tuples compare element
+by element: the first elements decide, and the next ones break a tie. Wrap a
+key in `Reverse.of`, from [`std/reverse`](/reference/reverse/), to put the
+largest first:
+
+```nomi-run
+import std/reverse.Reverse
+
+struct User {
+    name: String
+    age: Int
+}
+
+fn main() {
+    users = [
+        #User{name: "Cara", age: 35},
+        #User{name: "Ann", age: 35},
+        #User{name: "Bo", age: 41},
+    ]
+
+    oldest_first = users |> Iter.sort_by(fn u -> #(Reverse.of(u.age), u.name))
+
+    dbg oldest_first
+}
+
+```
+<!-- expect
+dbg line 17: oldest_first = [#User{name: "Bo", age: 41}, #User{name: "Ann", age: 35}, #User{name: "Cara", age: 35}]
+-->
+
+`Reverse.of` works for any key that can be ordered, names and dates included.
+A comparator that is not a key at all goes to `Iter.sort_with`, and
+[`Ordering.chain`](/reference/comparable/#orderingchain) joins two
+comparisons: the second decides only when the first is `Equal`.
+
 Use `derive Comparable` only when the type has one obvious order, and the
 order of its fields or variants gives it:
 

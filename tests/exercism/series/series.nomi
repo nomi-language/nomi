@@ -22,8 +22,9 @@ pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
     } else if length > size {
         Err(.LengthTooLarge)
     } else {
-        0..=size - length
-        |> Iter.map(fn start -> String.slice(series, start, start + length))
+        series
+        |> Iter.windows(length)
+        |> Iter.map(&String.join(&1))
         |> Iter.to_list()
         |> Ok()
     }

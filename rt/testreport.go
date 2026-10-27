@@ -42,26 +42,101 @@ func NewTestReporter(w io.Writer) *TestReporter {
 	return &TestReporter{w: w}
 }
 
+// CaseCount is how many cases one test counts as in the summary, and how
+// many of them failed. A test that ran no `subtests` table is one case. A
+// test that ran tables counts each row it ran as a case, its tables' rows
+// summed, and a failed row as a failed case; a failure outside every row (a
+// trap, an assertion after a table, a fault inside a row) is one more case,
+// and it failed. CountCases works it out from the rows a test ran.
+//
+// The zero CaseCount is one case, failed exactly when the test's error is
+// not nil, so a caller with no table to count passes CaseCount{}.
+type CaseCount struct {
+	// Subtests reports whether the test ran a `subtests` table. Its ok line
+	// then names its count, `(1 case)` for one row.
+	Subtests bool
+	// Cases is the number of cases, and Failed how many of them failed.
+	Cases  int
+	Failed int
+}
+
+// CountCases is the CaseCount of a test that ran rows rows of `subtests`
+// tables (EnterSubtests) and ended with err, nil when it passed. A test's
+// failure that is a table's (an AssertionFailure with Subtests, which ended
+// the test after the table's last row) fails as many of its cases as rows it
+// names; any other failure is one case more, which failed.
+func CountCases(rows int, err error) CaseCount {
+	if rows == 0 {
+		return CaseCount{}.resolve(err)
+	}
+	if err == nil {
+		return CaseCount{Subtests: true, Cases: rows}
+	}
+	var assertionErr *AssertionFailure
+	if errors.As(err, &assertionErr) && len(assertionErr.Subtests) > 0 {
+		failed := len(assertionErr.Subtests)
+		if failed > rows {
+			// A table's failure carried out of a function the test did not
+			// run its rows in counts no fewer cases than it names.
+			rows = failed
+		}
+		return CaseCount{Subtests: true, Cases: rows, Failed: failed}
+	}
+	return CaseCount{Subtests: true, Cases: rows + 1, Failed: 1}
+}
+
+// resolve is c with the zero CaseCount read as one case.
+func (c CaseCount) resolve(err error) CaseCount {
+	if c.Cases > 0 {
+		return c
+	}
+	c.Cases, c.Failed = 1, 0
+	if err != nil {
+		c.Failed = 1
+	}
+	return c
+}
+
+// tally adds c's cases to the reporter's counts.
+func (r *TestReporter) tally(c CaseCount) {
+	r.passed += c.Cases - c.Failed
+	r.failed += c.Failed
+}
+
 // Result reports one test that ran, named as the report shows it, with the
-// output it wrote (RunTestCases).
-func (r *TestReporter) Result(name string, err error, output string) {
+// output it wrote (RunTestCases) and the cases it counts as.
+func (r *TestReporter) Result(name string, err error, output string, count CaseCount) {
 	if r.format == TestFormatJSON {
-		r.ResultAt(TestLocation{}, name, err, output)
+		r.ResultAt(TestLocation{}, name, err, output, count)
 		return
 	}
+	count = count.resolve(err)
+	r.tally(count)
 	if err != nil {
-		r.failed++
 		writeFailure(r.w, name, err, output)
 		return
 	}
-	r.passed++
-	writeOK(r.w, name, output)
+	writeOK(r.w, name, output, count)
+}
+
+// OKLine is the text after `ok ` on a passed test's line: its name, and for
+// a test that ran a `subtests` table its count of cases,
+// `abbreviates phrases (9 cases)`. Its passing rows are not listed.
+func OKLine(name string, count CaseCount) string {
+	if !count.Subtests {
+		return name
+	}
+	noun := "cases"
+	if count.Cases == 1 {
+		noun = "case"
+	}
+	return fmt.Sprintf("%s (%d %s)", name, count.Cases, noun)
 }
 
 // writeOK is the text report's line for a passed test, and the test's output
 // under it.
-func writeOK(w io.Writer, name, output string) {
-	fmt.Fprintf(w, "%s %s\n", Green("ok"), name)
+func writeOK(w io.Writer, name, output string, count CaseCount) {
+	fmt.Fprintf(w, "%s %s\n", Green("ok"), OKLine(name, count))
 	writeTestOutput(w, output)
 }
 
@@ -162,6 +237,7 @@ func (r *TestReporter) BlockedAt(loc TestLocation, name string, reasons []string
 			EndLine:   loc.EndLine,
 			Name:      name,
 			Status:    TestStatusBlocked,
+			Cases:     1,
 			Message:   stripANSI(strings.Join(reasons, "\n")),
 			ErrorLine: loc.ErrorLine,
 			Output:    stripANSI(output),
@@ -639,11 +715,11 @@ func RunTestsLabelled(ctx context.Context, w io.Writer, label func(string) strin
 	}
 	defer restoreEnv()
 
-	failures, outputs := RunTestCases(ctx, tests)
+	failures, outputs, rows := RunTestCases(ctx, tests)
 
 	rep := NewTestReporter(w)
 	for i, t := range tests {
-		rep.Result(label(t.Name), failures[i], outputs[i])
+		rep.Result(label(t.Name), failures[i], outputs[i], CountCases(rows[i], failures[i]))
 	}
 	if rep.Summary() {
 		return 1
@@ -663,15 +739,17 @@ func RunTestsLabelled(ctx context.Context, w io.Writer, label func(string) strin
 // own test capture (EnterTestCapture), so its output is its own: what its
 // boot, body, tasks and forced `once` initializers wrote, `dbg` included,
 // with `dbg` coloured as the report colours its lines. A case that fails
-// keeps the output it wrote before failing.
-func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs []string) {
+// keeps the output it wrote before failing. rows is how many `subtests` rows
+// each case ran (EnterSubtests), which CountCases reads.
+func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs []string, rows []int) {
 	fr := NewFrame(ctx)
 	failures = make([]error, len(tests))
 	outputs = make([]string, len(tests))
+	rows = make([]int, len(tests))
 	for i, t := range tests {
-		outputs[i], failures[i] = runTest(fr, t)
+		outputs[i], rows[i], failures[i] = runTest(fr, t)
 	}
-	return failures, outputs
+	return failures, outputs, rows
 }
 
 // runTest runs one test body, on the real clock or inside a virtual-time bubble
@@ -694,13 +772,13 @@ func RunTestCases(ctx context.Context, tests []Test) (failures []error, outputs 
 // dereferences the zero-value testing.T's nil internals and kills the process
 // (layer 2's reason). A readable failure beats a segfault, and neither is a
 // state a correct program reaches.
-func runTest(fr *Frame, t Test) (output string, err error) {
+func runTest(fr *Frame, t Test) (output string, rows int, err error) {
 	fr, c := EnterTestCapture(NewFrame(fr.ctx))
 	if t.Live != nil {
 		c.Stream(t.Live)
 	}
 	err = runTestCase(fr, t)
-	return c.Close().Output, err
+	return c.Close().Output, c.subtestRows(), err
 }
 
 func runTestCase(fr *Frame, t Test) error {

@@ -53,6 +53,7 @@ var programStdModules = map[string]bool{
 	"money":       true,
 	"path":        true,
 	"process":     true,
+	"reverse":     true,
 	"sql":         true,
 	"sql_testing": true,
 	"uuid":        true,

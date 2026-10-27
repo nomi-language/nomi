@@ -12,6 +12,7 @@ import {
     localize.NumberParseError
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    productable.Productable
     results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
@@ -23,8 +24,8 @@ import {
 //# conversions to/from `Int`/`Float`/`String`, explicit-rounding division and
 //# quantization (every rounding op names a `RoundingMode`), sign/scale/abs
 //# helpers, and the value-based (scale-insensitive) arithmetic/`Equatable`/`Comparable`/
-//# `Hashable` impls. `+ - *` are exact; only `Decimal.divide` and
-//# `Decimal.round` round. There is no `/`: `Decimal.divide` names its
+//# `Hashable` impls. `+ - *` and `Decimal.pow` are exact; only
+//# `Decimal.divide`, `Decimal.sqrt` and `Decimal.round` round. There is no `/`: `Decimal.divide` names its
 //# rounding, and `Decimal.divide_exact` answers `None` for a quotient that
 //# does not terminate.
 
@@ -37,22 +38,6 @@ import {
 pub host type Decimal
 
 impl Decimal {
-    /// Exact conversion of an Int to a Decimal (scale 0). Total.
-    //! assert Decimal.from_int(42) == 42d
-    //! assert Decimal.from_int(-7) == -7d
-    //
-    pub host fn from_int(n: Int) -> Decimal
-
-    /// Parses a plain base-10 numeric string into a Decimal. Accepts an optional
-    /// sign, `_` digit separators, and a single fractional part; the number of
-    /// digits after the `.` becomes the scale (`"1.50"` → scale 2). Exponent
-    /// notation is NOT accepted. Returns None for empty or malformed input.
-    //! assert Decimal.from_string("1.50") == Some(1.50d)
-    //! assert Decimal.from_string("1_000") == Some(1000d)
-    //! assert Decimal.from_string("oops") == None
-    //
-    pub host fn from_string(s: String) -> Maybe<Decimal>
-
     /// Converts a Decimal to an Int by truncating toward zero. Returns None when
     /// the truncated value falls outside Int64's range (~±9.22e18). Use
     /// `Decimal.round` first if a different rounding rule is needed.
@@ -68,16 +53,6 @@ impl Decimal {
     //! assert Decimal.to_float(1.50d) == 1.5
     //
     pub host fn to_float(d: Decimal) -> Float
-
-    /// Converts a Float to a Decimal at exactly the requested `scale`, rounding the
-    /// Float's exact binary value with `mode`. Requires an explicit scale and mode
-    /// so it can never silently hand back `0.1000…0055`. Returns None for NaN and
-    /// ±Infinity. A runtime error results only when `mode` is `Unnecessary` and
-    /// rounding would lose information.
-    //! assert Decimal.from_float(0.1, 2, RoundingMode.HalfEven) == Some(0.10d)
-    //! assert Decimal.from_float(3.14159, 2, RoundingMode.Floor) == Some(3.14d)
-    //
-    pub host fn from_float(f: Float, scale: Int, mode: RoundingMode) -> Maybe<Decimal>
 
     /// Divides `a` by `b` to exactly `scale` fractional digits, rounding the
     /// quotient with `mode`. It always returns a value at the named scale;
@@ -110,6 +85,32 @@ impl Decimal {
     //! assert Decimal.round(1d, 2, RoundingMode.Up) == 1.00d
     //
     pub host fn round(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+
+    /// `d` multiplied by itself `exp` times, exactly, as `*` multiplies: the
+    /// scale is `exp` times `d`'s, so `1.5d` squared is `2.25d` and `1.50d`
+    /// squared `2.2500d`. `Decimal.pow(d, 0)` is `1d` for every `d`, `0d`
+    /// included. A negative `exp` traps: its answer is a quotient that may
+    /// not end, so write `Decimal.divide(1d, Decimal.pow(d, n), scale,
+    /// mode)`, which names its rounding. A result whose scale is past
+    /// Decimal's (about two billion digits) traps too.
+    //! assert Decimal.pow(1.5d, 2) == 2.25d
+    //! assert Decimal.to_string(Decimal.pow(1.50d, 2)) == "2.2500"
+    //! assert Decimal.pow(2d, 64) == 18446744073709551616d
+    //! assert Decimal.pow(0d, 0) == 1d
+    //! assert Decimal.divide(1d, Decimal.pow(2d, 3), 3, RoundingMode.Unnecessary) == 0.125d
+    //
+    pub host fn pow(d: Decimal, exp: Int) -> Decimal
+
+    /// The square root of `d` to exactly `scale` digits after the decimal
+    /// point, rounding with `mode`, as `Decimal.divide` rounds its quotient.
+    /// A root that ends within `scale` digits is exact under every mode; one
+    /// that does not traps under `Unnecessary`. A negative `d` traps.
+    //! assert Decimal.sqrt(2d, 4, RoundingMode.HalfEven) == 1.4142d
+    //! assert Decimal.sqrt(2d, 4, RoundingMode.Up) == 1.4143d
+    //! assert Decimal.to_string(Decimal.sqrt(6.25d, 3, RoundingMode.Unnecessary)) == "2.500"
+    //! assert Decimal.sqrt(0d, 2, RoundingMode.HalfEven) == 0d
+    //
+    pub host fn sqrt(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
 
     /// Strips trailing fractional zeros, returning the value at its minimal scale.
     /// Integer magnitude is never reduced (`100d` stays `100d`, scale 0). Zero
@@ -287,7 +288,7 @@ impl Decimal {
                 Err(e)
 
             Ok(text) -> {
-                case Decimal.from_string(text) {
+                case String.to_decimal(text) {
                     Some(d) -> Ok(d)
                     None -> Err(NumberParseError.OutOfRange)
                 }
@@ -354,6 +355,17 @@ impl Subtract<Decimal, Decimal> for Decimal {
 
 impl Multiply<Decimal, Decimal> for Decimal {
     host fn multiply(lhs: Decimal, rhs: Decimal) -> Decimal
+}
+
+impl Productable for Decimal {
+    /// The product of no Decimals: `1d`, at scale 0. A product's scale is
+    /// the sum of its operands', so `x * 1d` keeps `x`'s scale.
+    //! assert Decimal.empty_product() == 1d
+    //! assert Decimal.to_string(1.50d * Decimal.empty_product()) == "1.50"
+    //
+    fn empty_product() -> Decimal {
+        1d
+    }
 }
 
 impl Debug for Decimal {

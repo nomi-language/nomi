@@ -105,143 +105,135 @@ group "Create robot" {
     }
 }
 
-group "Rotating clockwise" {
-    test "move" {
-        cases: List<#(String, Robot, String, Robot)> = [
-            #(
-                "changes north to east",
-                #{position: #{x: 0, y: 0}, direction: .North},
-                "R",
-                #{position: #{x: 0, y: 0}, direction: .East},
-            ),
-            #(
-                "changes east to south",
-                #{position: #{x: 0, y: 0}, direction: .East},
-                "R",
-                #{position: #{x: 0, y: 0}, direction: .South},
-            ),
-            #(
-                "changes south to west",
-                #{position: #{x: 0, y: 0}, direction: .South},
-                "R",
-                #{position: #{x: 0, y: 0}, direction: .West},
-            ),
-            #(
-                "changes west to north",
-                #{position: #{x: 0, y: 0}, direction: .West},
-                "R",
-                #{position: #{x: 0, y: 0}, direction: .North},
-            ),
-        ]
+test "Rotating clockwise" {
+    cases: List<#(String, Robot, String, Robot)> = [
+        #(
+            "changes north to east",
+            #{position: #{x: 0, y: 0}, direction: .North},
+            "R",
+            #{position: #{x: 0, y: 0}, direction: .East},
+        ),
+        #(
+            "changes east to south",
+            #{position: #{x: 0, y: 0}, direction: .East},
+            "R",
+            #{position: #{x: 0, y: 0}, direction: .South},
+        ),
+        #(
+            "changes south to west",
+            #{position: #{x: 0, y: 0}, direction: .South},
+            "R",
+            #{position: #{x: 0, y: 0}, direction: .West},
+        ),
+        #(
+            "changes west to north",
+            #{position: #{x: 0, y: 0}, direction: .West},
+            "R",
+            #{position: #{x: 0, y: 0}, direction: .North},
+        ),
+    ]
 
-        subtests cases, #(description, robot, instructions, expected), description {
-            assert Robot.move(robot, instructions) == Ok(expected)
-        }
+    subtests cases, #(description, robot, instructions, expected), description {
+        assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 
-group "Rotating counter-clockwise" {
-    test "move" {
-        cases: List<#(String, Robot, String, Robot)> = [
-            #(
-                "changes north to west",
-                #{position: #{x: 0, y: 0}, direction: .North},
-                "L",
-                #{position: #{x: 0, y: 0}, direction: .West},
-            ),
-            #(
-                "changes west to south",
-                #{position: #{x: 0, y: 0}, direction: .West},
-                "L",
-                #{position: #{x: 0, y: 0}, direction: .South},
-            ),
-            #(
-                "changes south to east",
-                #{position: #{x: 0, y: 0}, direction: .South},
-                "L",
-                #{position: #{x: 0, y: 0}, direction: .East},
-            ),
-            #(
-                "changes east to north",
-                #{position: #{x: 0, y: 0}, direction: .East},
-                "L",
-                #{position: #{x: 0, y: 0}, direction: .North},
-            ),
-        ]
+test "Rotating counter-clockwise" {
+    cases: List<#(String, Robot, String, Robot)> = [
+        #(
+            "changes north to west",
+            #{position: #{x: 0, y: 0}, direction: .North},
+            "L",
+            #{position: #{x: 0, y: 0}, direction: .West},
+        ),
+        #(
+            "changes west to south",
+            #{position: #{x: 0, y: 0}, direction: .West},
+            "L",
+            #{position: #{x: 0, y: 0}, direction: .South},
+        ),
+        #(
+            "changes south to east",
+            #{position: #{x: 0, y: 0}, direction: .South},
+            "L",
+            #{position: #{x: 0, y: 0}, direction: .East},
+        ),
+        #(
+            "changes east to north",
+            #{position: #{x: 0, y: 0}, direction: .East},
+            "L",
+            #{position: #{x: 0, y: 0}, direction: .North},
+        ),
+    ]
 
-        subtests cases, #(description, robot, instructions, expected), description {
-            assert Robot.move(robot, instructions) == Ok(expected)
-        }
+    subtests cases, #(description, robot, instructions, expected), description {
+        assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 
-group "Moving forward one" {
-    test "move" {
-        cases: List<#(String, Robot, String, Robot)> = [
-            #(
-                "facing north increments Y",
-                #{position: #{x: 0, y: 0}, direction: .North},
-                "A",
-                #{position: #{x: 0, y: 1}, direction: .North},
-            ),
-            #(
-                "facing south decrements Y",
-                #{position: #{x: 0, y: 0}, direction: .South},
-                "A",
-                #{position: #{x: 0, y: -1}, direction: .South},
-            ),
-            #(
-                "facing east increments X",
-                #{position: #{x: 0, y: 0}, direction: .East},
-                "A",
-                #{position: #{x: 1, y: 0}, direction: .East},
-            ),
-            #(
-                "facing west decrements X",
-                #{position: #{x: 0, y: 0}, direction: .West},
-                "A",
-                #{position: #{x: -1, y: 0}, direction: .West},
-            ),
-        ]
+test "Moving forward one" {
+    cases: List<#(String, Robot, String, Robot)> = [
+        #(
+            "facing north increments Y",
+            #{position: #{x: 0, y: 0}, direction: .North},
+            "A",
+            #{position: #{x: 0, y: 1}, direction: .North},
+        ),
+        #(
+            "facing south decrements Y",
+            #{position: #{x: 0, y: 0}, direction: .South},
+            "A",
+            #{position: #{x: 0, y: -1}, direction: .South},
+        ),
+        #(
+            "facing east increments X",
+            #{position: #{x: 0, y: 0}, direction: .East},
+            "A",
+            #{position: #{x: 1, y: 0}, direction: .East},
+        ),
+        #(
+            "facing west decrements X",
+            #{position: #{x: 0, y: 0}, direction: .West},
+            "A",
+            #{position: #{x: -1, y: 0}, direction: .West},
+        ),
+    ]
 
-        subtests cases, #(description, robot, instructions, expected), description {
-            assert Robot.move(robot, instructions) == Ok(expected)
-        }
+    subtests cases, #(description, robot, instructions, expected), description {
+        assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 
-group "Follow series of instructions" {
-    test "move" {
-        cases: List<#(String, Robot, String, Robot)> = [
-            #(
-                "moving east and north from README",
-                #{position: #{x: 7, y: 3}, direction: .North},
-                "RAALAL",
-                #{position: #{x: 9, y: 4}, direction: .West},
-            ),
-            #(
-                "moving west and north",
-                #{position: #{x: 0, y: 0}, direction: .North},
-                "LAAARALA",
-                #{position: #{x: -4, y: 1}, direction: .West},
-            ),
-            #(
-                "moving west and south",
-                #{position: #{x: 2, y: -7}, direction: .East},
-                "RRAAAAALA",
-                #{position: #{x: -3, y: -8}, direction: .South},
-            ),
-            #(
-                "moving east and north",
-                #{position: #{x: 8, y: 4}, direction: .South},
-                "LAAARRRALLLL",
-                #{position: #{x: 11, y: 5}, direction: .North},
-            ),
-        ]
+test "Follow series of instructions" {
+    cases: List<#(String, Robot, String, Robot)> = [
+        #(
+            "moving east and north from README",
+            #{position: #{x: 7, y: 3}, direction: .North},
+            "RAALAL",
+            #{position: #{x: 9, y: 4}, direction: .West},
+        ),
+        #(
+            "moving west and north",
+            #{position: #{x: 0, y: 0}, direction: .North},
+            "LAAARALA",
+            #{position: #{x: -4, y: 1}, direction: .West},
+        ),
+        #(
+            "moving west and south",
+            #{position: #{x: 2, y: -7}, direction: .East},
+            "RRAAAAALA",
+            #{position: #{x: -3, y: -8}, direction: .South},
+        ),
+        #(
+            "moving east and north",
+            #{position: #{x: 8, y: 4}, direction: .South},
+            "LAAARRRALLLL",
+            #{position: #{x: 11, y: 5}, direction: .North},
+        ),
+    ]
 
-        subtests cases, #(description, robot, instructions, expected), description {
-            assert Robot.move(robot, instructions) == Ok(expected)
-        }
+    subtests cases, #(description, robot, instructions, expected), description {
+        assert Robot.move(robot, instructions) == Ok(expected)
     }
 }
 ```

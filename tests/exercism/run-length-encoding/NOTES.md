@@ -10,7 +10,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/run-length-encodin
 
 - `encode` is `Iter.chunk_by` on the string's graphemes, then each run written out by `encode_run`, then `String.join`.
 - `decode` reads the runs with ``String.captures_all(Regex`(\d*)(\D)`)``: an optional count, then one character. `decode_run` repeats the character `count` times, or once when the count group matched empty. The other way is an `Iter.reduce` over graphemes that threads `#(count, text)` and builds the count digit by digit; the pattern is clearer because it states the encoded format in one line, where the reducer spreads it over a tuple accumulator and an `if count == 0` fallback. The cost is that `\D` matches one code point, not one grapheme, so a run of a character written with a combining mark would decode wrongly; the canonical cases are all single code points.
-- The canonical groups are `group` blocks, each holding one `subtests` table; the round-trip case is a plain test in its own group.
+- Each canonical group is a test named by the group's description, holding one `subtests` table; the round-trip case is a plain test.
 
 ## Friction
 

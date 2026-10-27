@@ -15,6 +15,40 @@ pub enum Ordering {
 derive Display for Ordering
 derive Variants for Ordering
 
+impl Ordering {
+    /// `first`, unless it is `Equal`; then `next`. Chains two comparisons
+    /// into one, so a comparator orders by one key and breaks ties with a
+    /// second, each in its own direction: below, points descending (the
+    /// arguments swapped), then name ascending. Both comparisons run; for
+    /// keys that all sort the same way, a tuple key (`Iter.sort_by(rows, fn r
+    /// -> #(r.team, r.name))`) says the same thing and compares the second
+    /// key only on a tie.
+    //
+    //! import std/int.Int
+    //! import std/iter.Iter
+    //! import std/strings.String
+    //!
+    //! assert Ordering.chain(Ordering.Less, Ordering.Greater) == Ordering.Less
+    //! assert Ordering.chain(Ordering.Equal, Ordering.Greater) == Ordering.Greater
+    //!
+    //! rows = [#("ann", 3), #("bob", 6), #("cy", 3)]
+    //!
+    //! ranked =
+    //!     rows
+    //!     |> Iter.sort_with(fn #(a, a_points), #(b, b_points) -> {
+    //!         Ordering.chain(Int.compare(b_points, a_points), String.compare(a, b))
+    //!     })
+    //!
+    //! assert ranked == [#("bob", 6), #("ann", 3), #("cy", 3)]
+    //
+    pub fn chain(first: Ordering, next: Ordering) -> Ordering {
+        case first {
+            .Equal -> next
+            _ -> first
+        }
+    }
+}
+
 /// Direction selects ascending or descending order along a `Comparable`
 /// type. Used as a modifier on sort APIs (`Iter.sort`, `Iter.sort_by`)
 /// that don't take an explicit comparator. For custom orderings, use
@@ -49,6 +83,24 @@ derive Display for Direction
 /// `derive Comparable` synthesizes a lexicographic compare for structs
 /// (field-by-field in declaration order), enums (variant-tag-then-payload),
 /// and distinct types (delegating to the inner value).
+///
+/// A tuple is `Comparable` when every element is, lexicographically: the
+/// first elements decide unless they are `Equal`, then the second, and so
+/// on. That makes a tuple the key for a sort by several fields,
+/// `Iter.sort_by(rows, fn r -> #(r.team, r.name))`. To sort one of the keys
+/// descending, negate a number in the key (`#(-r.points, r.name)`), or
+/// wrap it in `Reverse.of` from `std/reverse`, `#(Reverse.of(r.name), r.points)`, which works for any `Comparable` key; a number can also be negated, `#(-r.points, r.name)`.
+//! import std/iter.Iter
+//! import std/maybe.Maybe.Some
+//!
+//! assert #(1, "b") < #(2, "a")
+//! assert #(1, "a") < #(1, "b")
+//! assert Iter.max([#(1, "z"), #(2, "a")]) == Some(#(2, "a"))
+//!
+//! rows = [#("cy", 3), #("bob", 6), #("ann", 3)]
+//! by_points = Iter.sort_by(rows, fn #(name, points) -> #(-points, name))
+//! assert by_points == [#("bob", 6), #("ann", 3), #("cy", 3)]
+//
 pub interface Comparable {
     fn compare(a: self, b: self) -> Ordering
 }

@@ -70,7 +70,7 @@ import (
 //	97-98-99-100-. …          Codepoint: the element's OWN predicate. 55295 and
 //	                          57344 are the neighbours across the UTF-16
 //	                          surrogate block, so a naive `n + 1` successor
-//	                          produces a value `Codepoint.from_int` refuses and
+//	                          produces a value `Int.to_codepoint` refuses and
 //	                          the list comes out SHORT rather than wrong.
 //	1..5 … "a".."m"           RENDERING, and the endpoints go through Debug and
 //	                          NOT Display — std's choice at the impl. So a String

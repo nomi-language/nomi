@@ -129,7 +129,7 @@ var StdlibLoadOrder = []string{
 	"compiler", "startup", "random", "toml",
 	"calendar", "locale", "plural", "localize", "message_format",
 	"dynamic",
-	"json", "uuid", "message",
+	"json", "uuid", "reverse", "message",
 	"channels", "tasks", "supervisors",
 }
 

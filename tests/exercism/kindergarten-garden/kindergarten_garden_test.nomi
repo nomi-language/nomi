@@ -44,36 +44,34 @@ group "partial garden" {
     }
 }
 
-group "full garden" {
-    test "plants" {
-        garden = try Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")
+test "full garden" {
+    garden = try Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")
 
-        cases = [
-            #(
-                "for Alice, first student's garden",
-                Student.Alice,
-                [Plant.Violets, .Radishes, .Violets, .Radishes],
-            ),
-            #("for Bob, second student's garden", .Bob, [.Clover, .Grass, .Clover, .Clover]),
-            #("for Charlie", .Charlie, [.Violets, .Violets, .Clover, .Grass]),
-            #("for David", .David, [.Radishes, .Violets, .Clover, .Radishes]),
-            #("for Eve", .Eve, [.Clover, .Grass, .Radishes, .Grass]),
-            #("for Fred", .Fred, [.Grass, .Clover, .Violets, .Clover]),
-            #("for Ginny", .Ginny, [.Clover, .Grass, .Grass, .Clover]),
-            #("for Harriet", .Harriet, [.Violets, .Radishes, .Radishes, .Violets]),
-            #("for Ileana", .Ileana, [.Grass, .Clover, .Violets, .Clover]),
-            #("for Joseph", .Joseph, [.Violets, .Clover, .Violets, .Grass]),
-            #(
-                "for Kincaid, second to last student's garden",
-                .Kincaid,
-                [.Grass, .Clover, .Clover, .Grass],
-            ),
-            #("for Larry, last student's garden", .Larry, [.Grass, .Violets, .Clover, .Violets]),
-        ]
+    cases = [
+        #(
+            "for Alice, first student's garden",
+            Student.Alice,
+            [Plant.Violets, .Radishes, .Violets, .Radishes],
+        ),
+        #("for Bob, second student's garden", .Bob, [.Clover, .Grass, .Clover, .Clover]),
+        #("for Charlie", .Charlie, [.Violets, .Violets, .Clover, .Grass]),
+        #("for David", .David, [.Radishes, .Violets, .Clover, .Radishes]),
+        #("for Eve", .Eve, [.Clover, .Grass, .Radishes, .Grass]),
+        #("for Fred", .Fred, [.Grass, .Clover, .Violets, .Clover]),
+        #("for Ginny", .Ginny, [.Clover, .Grass, .Grass, .Clover]),
+        #("for Harriet", .Harriet, [.Violets, .Radishes, .Radishes, .Violets]),
+        #("for Ileana", .Ileana, [.Grass, .Clover, .Violets, .Clover]),
+        #("for Joseph", .Joseph, [.Violets, .Clover, .Violets, .Grass]),
+        #(
+            "for Kincaid, second to last student's garden",
+            .Kincaid,
+            [.Grass, .Clover, .Clover, .Grass],
+        ),
+        #("for Larry, last student's garden", .Larry, [.Grass, .Violets, .Clover, .Violets]),
+    ]
 
-        subtests cases, #(description, student, expected), description {
-            assert Garden.plants(garden, student) == expected
-        }
+    subtests cases, #(description, student, expected), description {
+        assert Garden.plants(garden, student) == expected
     }
 }
 

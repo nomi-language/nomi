@@ -71,6 +71,8 @@ import {
     maps.Map
     maybe.Maybe
     maybe.Maybe.{None, Some}
+    multiply.Multiply
+    productable.Productable
     sets.Set
     strings.String
     summable.Summable
@@ -274,6 +276,21 @@ impl Iter<T> {
                 None
             }
         })
+    }
+
+    /// Returns the zero-based index of the first element matching the
+    /// predicate, or None. Stops at the first match, so it ends on an
+    /// infinite source that holds one. `Iter.find` returns the element itself.
+    //
+    //! assert Iter.find_index(["a", "b", "c"], &(&1 == "b")) == Some(1)
+    //! assert Iter.find_index([1, 2], &(&1 > 99)) == None
+    //! assert Iter.find_index(Iter.from(10), &(&1 % 7 == 0)) == Some(4)
+    //
+    pub fn find_index<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<Int> {
+        source
+        |> Iter.with_index()
+        |> Iter.find(fn #(_, item) -> f(item))
+        |> Maybe.map(fn #(index, _) -> index)
     }
 
     /// Consumes the iterator and returns its elements as a List sorted by the
@@ -714,6 +731,35 @@ impl Iter<T> {
         #Seq{run: fn yield: (List<T>) -> Bool -> chunks_each(source, size, yield)}
     }
 
+    /// Lazy: yields every run of `size` neighbouring elements as a List, one
+    /// starting at each element, so the runs overlap: `[1, 2, 3, 4]` with
+    /// size 2 gives `[1, 2]`, `[2, 3]` and `[3, 4]`. A source with fewer
+    /// than `size` elements yields none, and so does a non-positive size (as
+    /// in `chunks`). It is infinite when `source` is and `size` is positive.
+    //
+    //! assert [1, 2, 3, 4] |> Iter.windows(2) |> Iter.to_list() == [[1, 2], [2, 3], [3, 4]]
+    //! assert [1, 2] |> Iter.windows(3) |> Iter.to_list() == []
+    //! assert [1, 2] |> Iter.windows(0) |> Iter.to_list() == []
+    //!
+    //! rises =
+    //!     [3, 5, 4, 8]
+    //!     |> Iter.windows(2)
+    //!     |> Iter.filter(fn w -> w == Iter.sort(w))
+    //!     |> Iter.count()
+    //!
+    //! assert rises == 2
+    //! assert Iter.from(1) |> Iter.windows(3) |> Iter.first() == Some([1, 2, 3])
+    //
+    pub fn windows<T>(source: Iter<T>, size: Int) -> Iter<List<T>> {
+        if size <= 0 {
+            source |> Iter.take(0) |> Iter.map(fn item -> [item])
+        } else {
+            source
+            |> Iter.scan(fn window: List<T> = [], item -> slide(window, item, size))
+            |> Iter.filter(fn window -> Iter.count(window) == size)
+        }
+    }
+
     /// Lazy: yields adjacent runs whose elements produce equal keys. Unlike
     /// `group_by`, this never reorders or merges non-adjacent elements.
     //
@@ -928,6 +974,43 @@ impl Iter<T> {
     //
     pub fn sum<T>(source: Iter<T>) -> T where T: Add<T, T> and Summable {
         reduce(source, fn total = T.empty_sum(), x -> total + x)
+    }
+
+    /// Multiplies the elements with `*`, left to right, starting from
+    /// `T.empty_product()`. An empty source's product is
+    /// `T.empty_product()`: 1 for Int, 1.0 for Float, 1d for Decimal.
+    ///
+    /// `Iter.product(xs)` is exactly
+    /// `Iter.reduce(xs, fn product = T.empty_product(), x -> product * x)`,
+    /// so it rounds Floats as that fold does, and an Int product past the
+    /// Int range traps as `*` does. It does not stop at a zero. Consumes the
+    /// whole iterator, so it traps on an infinite source.
+    //
+    //! assert Iter.product([2, 3, 4]) == 24
+    //! assert Iter.product([0.5, 4.0]) == 2.0
+    //! assert Iter.product([1.5d, 2d]) == 3.0d
+    //! assert Iter.product(1..=5) == 120
+    //! none: List<Int> = []
+    //! assert Iter.product(none) == 1
+    //
+    pub fn product<T>(source: Iter<T>) -> T where T: Multiply<T, T> and Productable {
+        reduce(source, fn product = T.empty_product(), x -> product * x)
+    }
+}
+
+// `windows`' step: the window after `item`, the last `size` elements seen.
+fn slide<T>(window: List<T>, item: T, size: Int) -> List<T> {
+    case window {
+        [_, ..rest] -> {
+            if Iter.count(window) == size {
+                List.concat(rest, [item])
+            } else {
+                List.concat(window, [item])
+            }
+        }
+
+        [] ->
+            [item]
     }
 }
 

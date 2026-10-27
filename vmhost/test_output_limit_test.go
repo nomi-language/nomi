@@ -29,7 +29,7 @@ test "loops" {
 	}
 	var out bytes.Buffer
 	m := p.machine(&out).WithLimits(vm.Limits{Steps: 100_000})
-	failures, outputs, limits := m.RunCases(p.entry.Tests())
+	failures, outputs, limits, _ := m.RunCases(p.entry.Tests())
 	if len(limits) != 1 || limits[0] == "" {
 		t.Fatalf("the case ran to an exit (err %v), so this test checks nothing", failures)
 	}

@@ -154,12 +154,13 @@ func (m *Machine) RunTestsLabelled(label func(string) string) (exit int, reason 
 // error (nil when it passed), the output it wrote, and each case's machine
 // limit ("" when the machine ran it to an exit). It reports nothing: `nomi
 // test` feeds several files' results into one `rt.TestReporter`. A case cut
-// off by a limit keeps the output it wrote before the limit.
+// off by a limit keeps the output it wrote before the limit. rows is how many
+// `subtests` rows each case ran, which rt.CountCases turns into its cases.
 //
 // A NON-EMPTY LIMIT MEANS THE CASE DID NOT RUN TO ITS OWN RESULT. Its error is
 // then meaningless and the caller reports the case as blocked, which is the
 // distinction RunTestsLabelled draws for the whole run, drawn here per case.
-func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []string, limits []string) {
+func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []string, limits []string, rows []int) {
 	limits = make([]string, len(cases))
 	tests := make([]rt.Test, len(cases))
 	for i, c := range cases {
@@ -197,8 +198,8 @@ func (m *Machine) RunCases(cases []ir.TestCase) (failures []error, outputs []str
 		}
 		tests[i] = test
 	}
-	failures, outputs = rt.RunTestCases(m.background(), tests)
-	return failures, outputs, limits
+	failures, outputs, rows = rt.RunTestCases(m.background(), tests)
+	return failures, outputs, limits, rows
 }
 
 // testFn is one case's body as `rt.Test.Fn`.

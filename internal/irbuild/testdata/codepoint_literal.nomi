@@ -39,7 +39,7 @@ fn main() {
     io.print('a' == 'b')
     io.print('a' < 'b')
     io.print('Z' >= 'a')
-    io.print(Some('a') == Codepoint.from_int(97))
+    io.print(Some('a') == Int.to_codepoint(97))
     io.print(kind('a'))
     io.print(kind('\n'))
     io.print(kind('\''))

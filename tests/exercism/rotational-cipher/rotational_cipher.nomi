@@ -8,8 +8,8 @@ pub fn rotate(text: String, key: Int) -> String {
     text
     |> String.to_codepoints()
     |> Iter.map(fn letter -> Map.get(cipher, letter) |> Maybe.with_default(letter))
-    |> Iter.map(Codepoint.to_string)
-    |> String.join()
+    |> Iter.to_list()
+    |> String.from_codepoints()
 }
 
 /// Maps each letter of `alphabet` to the letter `key` places after it.

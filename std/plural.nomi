@@ -63,7 +63,7 @@ pub interface PluralOperand {
 
 impl PluralOperand for Int {
     fn plural_operand(n: Int) -> Decimal {
-        Decimal.from_int(n)
+        Int.to_decimal(n)
     }
 }
 

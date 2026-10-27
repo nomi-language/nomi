@@ -1,6 +1,6 @@
 import {
     add.Add
-    bool.Bool
+    bool.Bool.{self, False, True}
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
@@ -68,6 +68,53 @@ impl List<T> {
             [_, ..tail] -> Some(tail)
             [] -> None
         }
+    }
+
+    /// True if `list` begins with the elements of `prefix`, in order, each
+    /// `==` to its counterpart. Every list starts with `[]`. The list form of
+    /// `String.starts_with?`.
+    //! assert List.starts_with?([1, 2, 3], [1, 2])
+    //! refute List.starts_with?([1, 2, 3], [2, 3])
+    //! assert List.starts_with?([1, 2], [])
+    //! refute List.starts_with?([1], [1, 2])
+    //
+    pub fn starts_with?<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable {
+        case prefix {
+            [] ->
+                True
+
+            [p, ..ps] ->
+                case list {
+                    [x, ..xs] -> if x == p { starts_with?(xs, ps) } else { False }
+                    [] -> False
+                }
+        }
+    }
+
+    /// True if `list` ends with the elements of `suffix`, in order, each `==`
+    /// to its counterpart. Every list ends with `[]`. The list form of
+    /// `String.ends_with?`.
+    //! assert List.ends_with?([1, 2, 3], [2, 3])
+    //! refute List.ends_with?([1, 2, 3], [1, 2])
+    //! assert List.ends_with?([1, 2], [])
+    //! refute List.ends_with?([3], [2, 3])
+    //
+    pub fn ends_with?<T>(list: List<T>, suffix: List<T>) -> Bool where T: Equatable {
+        extra = Iter.count(list) - Iter.count(suffix)
+
+        if extra < 0 {
+            False
+        } else {
+            starts_with?(drop_front(list, extra), suffix)
+        }
+    }
+}
+
+// `list` after its first `n` elements.
+fn drop_front<T>(list: List<T>, n: Int) -> List<T> {
+    case list {
+        [_, ..rest] -> if n > 0 { drop_front(rest, n - 1) } else { list }
+        [] -> list
     }
 }
 

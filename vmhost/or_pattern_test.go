@@ -309,8 +309,8 @@ test "subtests" {
 	p.Test(&buf, rep, name, vmhost.TestOptions{}, func(n string) string { return vmhost.TestName(name, n) })
 	rep.Summary()
 	out := buf.String()
-	if strings.Contains(out, "BLOCKED") || !strings.Contains(out, "3 passed, 1 failed") ||
+	if strings.Contains(out, "BLOCKED") || !strings.Contains(out, "4 passed, 1 failed") ||
 		!strings.Contains(out, "pattern did not match\n    assert 1 or 2 = 3") {
-		t.Fatalf("want three passing cases and one pattern mismatch:\n%s", out)
+		t.Fatalf("want four passing cases (two of them subtests rows) and one pattern mismatch:\n%s", out)
 	}
 }

@@ -981,6 +981,14 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// for them again (Program.programErrors); the inherent blocks, which
 	// hold positions of their own, are collected again then.
 	recollect := false
+	// The primitive receivers' declaring files, for the inherent-impl name
+	// clash check's receiver identities.
+	var clashPrimitives map[string]string
+	if share != nil {
+		clashPrimitives = share.primitives
+	} else {
+		clashPrimitives = primitiveOriginIndex(filesByKey)
+	}
 	programErrors := func() []TypeError {
 		inherentBlocks := inherentBlocks
 		if recollect {
@@ -1018,6 +1026,11 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		// for one type after lowering).
 		programErrs = append(
 			programErrs, detectInherentImplCollisions(inherentImpls, pathOf)...,
+		)
+		// A type's own function named as one of its interface impls'
+		// functions, which `Type.name(...)` would never reach.
+		programErrs = append(
+			programErrs, detectInherentImplNameClashes(inherentImpls, ifaceImpls, ifaceImplFiles, implBlockReceivers, implBlockInterfaceKeys, filesByKey, clashPrimitives, pathOf)...,
 		)
 		// Synthesized inherent-block collisions with the same receiver/signature
 		// in one file.

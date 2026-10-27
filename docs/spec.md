@@ -3769,9 +3769,9 @@ The `Iter` interface defines a **push** iterator: `each_while` walks the collect
 
 `List<T>` implements `Iter<T>` — `each_while` walks the cons chain. `Vector<T>` also implements `Iter<T>`, retaining its O(1) known count while walking its slice window by index. `Map<K, V>` implements `Iter<#(K, V)>`. `String` implements `Iter<String>` and iterates by grapheme cluster, one user-visible character per element. Ranges over `Discrete` values such as `Int` and `Codepoint` also implement it, so everything composes under one protocol.
 
-`List`, `Vector`, and `Map` also implement `Equatable` and `Hashable` (structural; map equality and hashing are order-insensitive), so a type with a collection field can write `derive Equatable` / `derive Hashable`. `List<T>` and `Vector<T>` additionally implement `Comparable` (lexicographic) when `T` does, so a List of tuples or anonymous structs has no order: `List.compare`, `<`, `Comparable.compare` and `Iter.sort` over one are compile errors, as `<` on a tuple is. `Map` is intentionally **not** `Comparable` — it has no natural total order (matching Rust's `HashMap`).
+`List`, `Vector`, and `Map` also implement `Equatable` and `Hashable` (structural; map equality and hashing are order-insensitive), so a type with a collection field can write `derive Equatable` / `derive Hashable`. `List<T>` and `Vector<T>` additionally implement `Comparable` (lexicographic) when `T` does, so a List of anonymous structs has no order: `List.compare`, `<`, `Comparable.compare` and `Iter.sort` over one are compile errors, as `<` on an anonymous struct is. A List of tuples whose elements are `Comparable` orders like any other. `Map` is intentionally **not** `Comparable` — it has no natural total order (matching Rust's `HashMap`).
 
-A tuple is `Equatable` and `Hashable` structurally, and not `Comparable` (as Rust derives `Hash` and `Eq` for tuples; the order is left undeclared here for the reason `<` on a tuple is an error). `Hashable.hash(#(a, b, c))` is the `derive Hashable` mix over the slots, `(Hashable.hash(a) * 31 + Hashable.hash(b)) * 31 + Hashable.hash(c)` with wrapping arithmetic, each slot hashed by its own type's impl — the same number a positional variant carrying those slots mixes before its variant index. So `Hashable.hash(#(1, 2)) == 33`. An anonymous record is `Equatable` and `Hashable` the same way, over its fields in name order, so `#{b: 2, a: 1}` hashes as `#(1, 2)` does, and `Equatable.equal?` over two tuples or two records is `==`.
+A tuple is `Equatable` and `Hashable` structurally, and `Comparable` when every element is, lexicographically: the first elements decide unless they are `Equal`, then the second, and so on, and an element after the deciding one is never compared (as Rust derives `Hash`, `Eq` and `Ord` for tuples). So `#(1, "b") < #(2, "a")` and `#(1, "a") < #(1, "b")`, `Iter.sort` of tuples and `Iter.max` over them work, and a tuple is the key for a sort by several fields: `Iter.sort_by(rows, fn r -> #(r.team, r.name))`. A tuple with an element that is not `Comparable` is not, and ordering one is a compile error naming the element type. An anonymous record is not `Comparable`. `Hashable.hash(#(a, b, c))` is the `derive Hashable` mix over the slots, `(Hashable.hash(a) * 31 + Hashable.hash(b)) * 31 + Hashable.hash(c)` with wrapping arithmetic, each slot hashed by its own type's impl — the same number a positional variant carrying those slots mixes before its variant index. So `Hashable.hash(#(1, 2)) == 33`. An anonymous record is `Equatable` and `Hashable` the same way, over its fields in name order, so `#{b: 2, a: 1}` hashes as `#(1, 2)` does, and `Equatable.equal?` over two tuples or two records is `==`.
 
 ### Interface Body Items — the Kinds
 
@@ -4176,6 +4176,8 @@ fn main() {
 
 Type-qualification cannot disambiguate here — `Dog.speak(my_dog)` names the concrete type, which both impls share. Only the interface qualifier can pick a contract, so interface-qualification is **required** for a function name a type implements under two interfaces. That holds wherever the impls are: a file that imports only `Dog`, with the `Performer` impl in a third file, gets the same error for `Dog.speak(my_dog)`. A bare `speak(my_dog)` is rejected because interface function calls are always qualified. A file may expose a `speak` façade, but that façade still has to resolve to exactly one interface function for the receiver type.
 
+A type's own function may not share a name with a function its interface impls write, in whichever file and order either is declared: Nomi does not overload, so beside `impl Multiply<Int, Box> for Box { fn multiply ... }`, an `impl Box { pub fn multiply(...) }` is the error `` `Box.multiply` is already `Multiply<Int, Box>`'s `multiply` for `Box`, and Nomi does not overload, so a call `Box.multiply(...)` would name both; give this function another name `` at the type function's name.
+
 > **Display and Debug deliberately do *not* collide.** The two most prolific stdlib interfaces have *distinct* function names — `Display.to_string` and `Debug.inspect` — so a type can implement both without a same-name clash. Reach them through the interface (`Display.to_string(xs)`, `Debug.inspect(xs)`). The collision rule above is reachable only by *user* code that defines two interfaces sharing a function name.
 
 When one type intentionally satisfies several contracts that genuinely share a
@@ -4280,7 +4282,7 @@ Generic type parameters can be constrained to types that implement a specific in
 fn sort<T>(list: List<T>) -> List<T> where T: Comparable
 ```
 
-`T` must implement `Comparable`. The bound is also what the body may use: a generic body runs for every type argument its callers pass, so an interface it needs of a value of type `T` (an interface-qualified call or pipe, `"${value}"`, an ordering or arithmetic operator, a call of a generic function bounding it) must be one of `T`'s bounds, from the function's `where`, its impl block's or its type's declaration. Without it the use is an error, `` `x` is a `T`, and `f` does not require Display of `T` ``, with a hint showing the signature with `where T: Display` added; a value that holds `T` (`xs: List<T>` in `"${xs}"`) is reported as `` `xs` holds values of `T` ``. On an interface impl the hint shows the bound on the block (`impl Display for Box<T> where T: Display`), and on an inherent impl, whose block has no `where`, on the function. `Debug` needs no bound, since every type implements it, and neither does `==`, which compares structurally. The compiler rejects calls with types that don't satisfy the bound: `sort([#(1, 2)])` fails with ``no impl of `Comparable` for `#(Int, Int)`; tuple types cannot implement `Comparable` ``.
+`T` must implement `Comparable`. The bound is also what the body may use: a generic body runs for every type argument its callers pass, so an interface it needs of a value of type `T` (an interface-qualified call or pipe, `"${value}"`, an ordering or arithmetic operator, a call of a generic function bounding it) must be one of `T`'s bounds, from the function's `where`, its impl block's or its type's declaration. Without it the use is an error, `` `x` is a `T`, and `f` does not require Display of `T` ``, with a hint showing the signature with `where T: Display` added; a value that holds `T` (`xs: List<T>` in `"${xs}"`) is reported as `` `xs` holds values of `T` ``. On an interface impl the hint shows the bound on the block (`impl Display for Box<T> where T: Display`), and on an inherent impl, whose block has no `where`, on the function. `Debug` needs no bound, since every type implements it, and neither does `==`, which compares structurally. The compiler rejects calls with types that don't satisfy the bound: `sort([#{x: 1}])` fails with ``no impl of `Comparable` for `#{x: Int}`; anonymous struct types cannot implement `Comparable` ``.
 
 The error's help offers what the program can write. For a type it declares, that is `derive` when the interface is derivable (§38.1) and an impl block spelled with the interface's required functions (``write an `impl Shape for Point` block with `fn area(s: Point) -> Float` ``). Where it declares neither the type nor the interface, the orphan rule forbids the impl, and the help says so. For an interface at most four types implement, it names them: `String.split("a1b", 1)` reports ``Int does not implement Matcher (required by `where M: Matcher`)`` with the help ``only std can implement `Matcher` for `Int`; `Codepoint`, `Regex` and `String` implement it``. For one that more types implement, it says to wrap the type: ``only std can implement `Hashable` for `Ordering`; wrap it in a type of your own that implements `Hashable` ``.
 
@@ -4777,7 +4779,7 @@ Name collisions between specific imports are a compiler error.
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
 - Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like the short name of any module with no file of that name at its root, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
-- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
+- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
 
 ```nomi
@@ -4889,11 +4891,11 @@ Resolution rules per `X`:
 
 `Decimal` is the third blessed numeric type: an arbitrary-precision, **exact base-10** number (mantissa × 10⁻ˢᶜᵃˡᵉ), for money and any value where `0.1 + 0.2 == 0.3` must hold (it does not in `Float`). It is the shopspring/`BigDecimal` family — but with the famous `BigDecimal` footguns removed. Like `Int` and `Float` it is a *blessed primitive*, not a stdlib type: it participates in the built-in arithmetic and comparison operators (§22). Key properties:
 
-- **Exact-by-default.** `+ - *` never round — scale grows as needed (`1.50d + 1.5d == 3.00d`; `1.50d * 1.5d == 2.250d`). Only `Decimal.divide` and `Decimal.round` round, and they always name a `RoundingMode` explicitly — there is no hidden global precision/rounding context (rejecting Python's mutable `getcontext()` and Java's per-op `MathContext`).
+- **Exact-by-default.** `+ - *` never round — scale grows as needed (`1.50d + 1.5d == 3.00d`; `1.50d * 1.5d == 2.250d`). `Decimal.pow(d, exp)` is exact too, at `exp` times `d`'s scale, and traps on a negative `exp`. Only `Decimal.divide`, `Decimal.sqrt` and `Decimal.round` round, and they always name a `RoundingMode` explicitly — there is no hidden global precision/rounding context (rejecting Python's mutable `getcontext()` and Java's per-op `MathContext`).
 - **No `/`.** Whether an exact quotient terminates depends on the divisor's value: `10d` by `4d` is `2.50d`, `10d` by `3d` has no finite answer. An operator that answered the first and trapped on the second would let `total / count` pass tests that divide by 2, 4 or 5 and stop in production on 3, so `Decimal` has `+ - *` and no `/`. A division names what it does when the quotient does not terminate: `Decimal.divide(a, b, scale, mode)` rounds to `scale` digits by `mode`, and `Decimal.divide_exact(a, b)` answers `Some` of the exact quotient (`Decimal.divide_exact(10.00d, 4d) == Some(2.50d)`) or `None` (`Decimal.divide_exact(10d, 3d) == None`). `a / b` with a `Decimal` operand is a compile error that names both.
 - **No special values.** Unlike `Float`, `Decimal` has no NaN and no ±Infinity. Division by zero (`Decimal.divide` or `Decimal.divide_exact` with a zero `b`) is a runtime error (like `Int`), not an Infinity.
 - **Scale is display-significant, equality is value-based (Model C).** A `Decimal` remembers its scale for display — `1.50d` prints `"1.50"`, `Decimal.scale(1.50d) == 2` — but `==`, `Comparable`, `Hashable`, and pattern matching are *scale-insensitive*: `1.50d == 1.5d` is `True`, and the two are one `Map`/`Set` key. This is the same value-vs-representation split `Float` already has (`-0.0 == +0.0`, reflexive `NaN == NaN`), not a new principle. Two `==`-equal decimals remain observably distinguishable via `Decimal.scale` / display.
-- **Literals** carry a `d` (or `D`) suffix, and the literal's text determines its scale: `1.50d` → scale 2, `1.5d` → scale 1, `5d` → scale 0. Underscore digit separators are allowed between two digits, as in Int and Float literals (`1_000.00d`; `1__0.5d` and `1_d` are errors); exponent notation is not. Runtime/parsed values come from `Decimal.from_string`.
+- **Literals** carry a `d` (or `D`) suffix, and the literal's text determines its scale: `1.50d` → scale 2, `1.5d` → scale 1, `5d` → scale 0. Underscore digit separators are allowed between two digits, as in Int and Float literals (`1_000.00d`; `1__0.5d` and `1_d` are errors); exponent notation is not. Runtime/parsed values come from `String.to_decimal`.
 
 The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `divide_exact` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `zero?` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the `Add`, `Subtract` and `Multiply` impls. `Decimal.format` and `Decimal.format_percent` (with fraction-digit limits and a `RoundingMode`), `Decimal.parse_in` and `Decimal.parse_percent_in` format and parse it for a locale (§41). `Money` (`std/money`, §41 *Money*) pairs a `Decimal` amount with a `Currency` and builds on `Decimal` without changing it.
 
@@ -4931,7 +4933,7 @@ String.to_codepoints("é")
 
 `Bytes` is distinct from text `String` and is the FFI boundary type for Go
 `[]byte`. `Byte` is not a numeric type: convert explicitly with
-`Byte.to_int` / `Byte.from_int` when integer arithmetic or display is wanted.
+`Byte.to_int` / `Int.to_byte` when integer arithmetic or display is wanted.
 `Bytes + Bytes` concatenates buffers, matching `Bytes.concat`.
 
 ### Built-in Types
@@ -5540,9 +5542,9 @@ case cp {
 
 The literal is infallible: its type is std's `Codepoint` whatever the file has in scope. `Codepoint` is in the prelude, so naming the type needs no import either. It is not text: `"a" == 'a'` is a type error (String vs Codepoint), and `Codepoint.to_string('a')` or `"${'a'}"` turns one into a one-character string. It compares, orders and hashes as a `Codepoint`, so `cp == ','` and `cp >= 'a'` work, and a range of codepoint literals iterates (`Codepoint` is `Discrete`). It is a pattern too, at the top of a `case` arm or inside a variant, tuple or struct pattern; a `case` on a `Codepoint` whose arms test literals needs a `_` arm. There are no range patterns, for codepoints or for `Int`.
 
-**ASCII only (U+0000–U+007F).** For ASCII the codepoint, the UTF-8 byte and the grapheme are the same thing, so `'a'` cannot mean anything other than what it looks like. Above 127 they come apart: `é` is one grapheme, but it is one codepoint (U+00E9) precomposed or two (`e` + U+0301) decomposed, and two UTF-8 bytes either way. A literal there would have to pick one reading, so text stays a `String` (`"é"`), and another scalar value comes from `Codepoint.from_int(0xE9)`, which returns a `Maybe` because it validates.
+**ASCII only (U+0000–U+007F).** For ASCII the codepoint, the UTF-8 byte and the grapheme are the same thing, so `'a'` cannot mean anything other than what it looks like. Above 127 they come apart: `é` is one grapheme, but it is one codepoint (U+00E9) precomposed or two (`e` + U+0301) decomposed, and two UTF-8 bytes either way. A literal there would have to pick one reading, so text stays a `String` (`"é"`), and another scalar value comes from `Int.to_codepoint(0xE9)`, which returns a `Maybe` because it validates.
 
-**What a Codepoint offers.** Besides the literal, `std/code_points` gives `Codepoint.from_int` and `Codepoint.to_int`, `Codepoint.to_string` (`Display`), `next`, `steps_between` and `step_by` (`Discrete`, `Steppable`), and six classifiers:
+**What a Codepoint offers.** Besides the literal and `Int.to_codepoint`, `std/code_points` gives `Codepoint.to_int`, `Codepoint.to_string` (`Display`), `next`, `steps_between` and `step_by` (`Discrete`, `Steppable`), and six classifiers:
 
 | Function | Answers |
 |---|---|
@@ -5563,7 +5565,7 @@ String.to_codepoints("Call 555-0134")
 
 **Escapes.** The 95 printable ASCII characters are written directly, except the single quote and the backslash, which are written `'\''` and `'\\'`. A control character (U+0000–U+001F, U+007F) has to be escaped. The escapes are the string escapes with the literal's own delimiter in place of the string's: `\n`, `\r`, `\t`, `\\`, `\'` and `\u{...}` (braces, 1–6 hex digits, at most `7F` here). There is no `\0`, as in strings: write `'\u{0}'`. Each literal escapes only its own quote: `\"` is an error in a codepoint literal (write `'"'`), and `\'` is an error in a string (write `"it's"`).
 
-These are compile errors, each naming the literal: an empty `''`; more than one character (`'ab'`, which suggests `"ab"`); a character or `\u{...}` above U+007F (`'é'`, which suggests `"é"` or `Codepoint.from_int`); a control character written directly; an unknown escape; and a literal with no closing quote on its line.
+These are compile errors, each naming the literal: an empty `''`; more than one character (`'ab'`, which suggests `"ab"`); a character or `\u{...}` above U+007F (`'é'`, which suggests `"é"` or `Int.to_codepoint`); a control character written directly; an unknown escape; and a literal with no closing quote on its line.
 
 ### Typed literals
 
@@ -5628,7 +5630,7 @@ Imports work like any other type: `import std/calendar.DateTime` brings the type
 
 **Prefix resolution at the use site.** The lexer's adjacency rule distinguishes `Date"..."` (typed literal) from `Date "..."` (type reference next to an unrelated string); the parser builds a `TaggedString` AST node carrying the prefix type's name. At each `<Type>"..."` site the analyzer resolves `<Type>` to a type with a `(Literal, <Type>)` impl and records that impl demand (so the runtime bridge force-loads its module). If `<Type>` isn't a type, or the type has no `Literal` impl, the error fires at the prefix's position (parallel to "`T` has no `Display` impl").
 
-**A tag type declares `from_fragments` exactly once, and a second declaration is an error at the use site.** The rest of the language chooses between two providers of one method name by reading the call: an inherent `impl T { pub fn f }` beats an `impl Iface for T { fn f }` because the author wrote `f` and the more specific declaration is the one they named. A typed literal names no method — `from_fragments` is the compiler's, from this section — so there is nothing to read, and the language rejects rather than picking. Both spellings of the clash are rejected:
+**A tag type declares `from_fragments` exactly once, and a second declaration is an error at the use site.** The rest of the language chooses between two interfaces that share a function name by reading the call: an interface-qualified call names the one it means. A typed literal names no method — `from_fragments` is the compiler's, from this section — so there is nothing to read, and the language rejects rather than picking. Both spellings of the clash are rejected:
 
 ```nomi
 type Pick
@@ -5643,7 +5645,7 @@ impl Pick {
     pub fn from_fragments(fragments: List<Fragment<String>>) -> String {
         ...
     }
-} // error at `Pick"..."`
+} // error here, at `from_fragments`, and at `Pick"..."`
 
 interface Other {
     fn from_fragments(fragments: List<Fragment<String>>) -> Int
@@ -5656,9 +5658,9 @@ impl Other for Pick {
 } // error at `Pick"..."`
 ```
 
-The diagnostic points at the tag, names the rival declaration's line, and says which block to change. It is a rule about the LITERAL and not about the declarations: both programs above are legal so long as nothing writes `Pick"..."`.
+The diagnostic points at the tag, names the rival declaration's line, and says which block to change. It is a rule about the LITERAL and not about the declarations: the second program is legal so long as nothing writes `Pick"..."`. The first is also an error at the inherent `from_fragments`, since a type's own function may not share a name with one of its impls' functions (§13 *Function Name Collisions*).
 
-**The rule follows from the desugaring rather than adding to it,** and each spelling shows that a different way. Written by hand, `Pick.from_fragments([...])` with the second interface present is *already* rejected — §13 *Function Name Collisions*' ambiguity check fires, and it can suggest a fix a literal cannot use (`qualify by interface, e.g. Literal.from_fragments(...)`); with the inherent block present it resolves to the inherent method by inherent-beats-impl. So in one spelling the sugar was the only form that picked where its own desugaring refuses, and in the other it picked the opposite side from its own desugaring. Go agrees by construction: two methods of one name on one type is not expressible there at all.
+**The rule follows from the desugaring rather than adding to it,** and each spelling shows that a different way. Written by hand, `Pick.from_fragments([...])` with the second interface present is *already* rejected — §13 *Function Name Collisions*' ambiguity check fires, and it can suggest a fix a literal cannot use (`qualify by interface, e.g. Literal.from_fragments(...)`); with the inherent block present the declaration itself is rejected. So the sugar would otherwise be the only form that picked where its own desugaring refuses. Go agrees by construction: two methods of one name on one type is not expressible there at all.
 
 **Desugaring.** The parser emits a `TaggedString` AST node with the type name, raw flag, and the interleaved static / dynamic body parts. At evaluation it desugars to the type-qualified call into the type's handler:
 
@@ -6795,6 +6797,7 @@ fn concat(a: Iter<T>, b: Iter<T>) -> Iter<T>
 fn with_index(source: Iter<T>) -> Iter<#(Int, T)>
 fn zip<A, B>(a: Iter<A>, b: Iter<B>) -> Iter<#(A, B)>
 fn chunks(source: Iter<T>, size: Int) -> Iter<List<T>>
+fn windows(source: Iter<T>, size: Int) -> Iter<List<T>>   // every run of size neighbours, overlapping; none when size <= 0
 fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Iter<List<T>> where K: Equatable
 ```
 
@@ -6805,6 +6808,7 @@ fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U) -> U   // f is a lambda whose f
 fn map_reduce<T, U, A>(source: Iter<T>, f: (A, T) -> #(U, A)) -> #(List<U>, A)   // seeded as reduce; the outputs in order and the final state
 fn each(source: Iter<T>, f: (T) -> Unit) -> Unit
 fn find(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>
+fn find_index(source: Iter<T>, f: (T) -> Bool) -> Maybe<Int>   // index of the first match; stops there
 fn any?(source: Iter<T>, f: (T) -> Bool) -> Bool
 fn all?(source: Iter<T>, f: (T) -> Bool) -> Bool
 fn contains?<T>(source: Iter<T>, x: T) -> Bool where T: Equatable   // an element == x; stops at the first
@@ -6819,6 +6823,7 @@ fn max<T>(source: Iter<T>) -> Maybe<T> where T: Comparable   // None when empty;
 fn min_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable   // least key; ties as min
 fn max_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable   // greatest key; ties as max
 fn sum<T>(source: Iter<T>) -> T where T: Add<T, T> and Summable   // T.empty_sum() when empty
+fn product<T>(source: Iter<T>) -> T where T: Multiply<T, T> and Productable   // T.empty_product() when empty
 fn sort<T>(source: Iter<T>, direction: Direction = Direction.Ascending) -> List<T> where T: Comparable
 fn sort_by<T, K>(source: Iter<T>, direction: Direction = Direction.Ascending, key: (T) -> K) -> List<T> where K: Comparable
 fn sort_with(source: Iter<T>, compare: (T, T) -> Ordering) -> List<T>
@@ -6858,6 +6863,10 @@ source sums to the type's empty sum, and a type without the two impls is a
 compile error at the call: `Iter.sum([True])` reports `` Bool does not implement
 Summable (required by `where T: Summable`) ``. Summing Maps follows Map's `+`:
 a later map wins on a shared key.
+`Iter.product(xs)` is the same fold over `*` from `T.empty_product()`,
+bounded by `where T: Multiply<T, T> and Productable`: `Iter.product([2, 3,
+4])` is 24, an empty source gives the type's empty product, and an Int product
+past the Int range traps as `*` does.
 
 ```nomi
 Iter.reduce([3, 1, 2], fn sum = 0, n -> sum + n) // 6
@@ -7453,11 +7462,27 @@ default or "unset" value: a type with no `+` over its own values (`Bool`,
 extend one another (§13), so code that sums names both bounds: `where T:
 Add<T, T> and Summable`. `Iter.sum` (§*`std/iter`*) is that code.
 
+**Productable.** The same holds for `*`: a type whose `*` takes two of its
+values and returns one can implement the prelude interface `Productable`,
+whose `empty_product()` is the product of no values, the one value `*` leaves
+alone. The stdlib implements it for `Int` (`1`), `Float` (`1.0`) and `Decimal`
+(`1d`, at scale 0). `Money` and `Duration` multiply by a number of another type
+and do not implement it. `Iter.product` is bounded by `where T: Multiply<T, T>
+and Productable`.
+
+```nomi
+interface Productable {
+    fn empty_product() -> self
+}
+```
+
 **Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason. Unary `-` traps on `Int.min_value`, whose magnitude is one past `Int.max_value`, and so does `Int.abs(Int.min_value)`, with the same error. An overflow is a trap, by the rule in §17 *Traps, `Maybe` and `Result`*: the program asked for a number that does not fit.
 
-**No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Decimal.from_int` / `Decimal.to_float` / `Decimal.from_float`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
+**No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Int.to_decimal` / `Decimal.to_float` / `Float.to_decimal`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
 **Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
+
+**Integer powers, roots and digits.** `Int.pow(n, exp)` is exact and traps on overflow as `*` does, and on a negative `exp`, whose answer is a fraction (`Float.pow` gives one). `Int.sqrt(n)` is the root rounded down and traps on a negative `n`. `Int.gcd` and `Int.lcm` are never negative (`Int.gcd(0, 0) == 0`, `Int.lcm(n, 0) == 0`) and trap only when the answer is past the Int range. `Int.to_digits(n, base = 10)` lists a non-negative `n`'s digits most significant first (`[0]` for 0) and traps on a negative `n` or a base below 2; `Int.from_digits(digits, base = 10)` reads them back as a `Maybe<Int>`, `None` for a digit outside the base or a number past the Int range, as `String.to_int` answers for text that is no Int.
 
 **Where a trap is reported.** A runtime fault (overflow, a zero divisor, a `case` with no arm, a call past the depth limit, a failed host function) prints `line N:` and then the fault's own text. `N` is a line of the program's own code: the line of the operation that faulted, or, when the fault happens inside the standard library, the line of the program's call into the standard library that led to it, however many std calls deep the fault is. The text after the line is the fault's own and does not name the std function; the call on line `N` does. So both of these programs print `line 2: integer overflow: 0 - -9223372036854775808`:
 
@@ -7571,7 +7596,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -8427,7 +8452,7 @@ struct Point {
 // help: add `derive Comparable` to `Point` or write an `impl Comparable for Point` block
 ```
 
-Add `derive Comparable` (field-by-field lexicographic, §38.1) or a hand-written `Comparable.compare` function and the operators work, routed through `Comparable.compare`. The stdlib declares `Comparable` for the naturally-ordered types — `Int`, `Float`, `Decimal`, `String`, `Bool`, `List` (lexicographic), `Duration`, and the `std/calendar` ladder — while `Map` is deliberately non-`Comparable` (no natural total order) and opaque `Instant` exposes `Instant.before?` instead. Nameless structural types — **anonymous structs** (`#{x: 1} < #{x: 2}`) and **tuples** (`#(1, 2) < #(3, 4)`) — are *also* a compile-time error here, and unrecoverably so: there is no declaration to attach an impl (or `derive Comparable`) to, so the diagnostic reads `no impl of `Comparable` for `#{x: Int}` … anonymous struct types cannot implement `Comparable` rather than suggesting a fix. (Equality is unaffected — `#{x: 1} == #{x: 1}` works via the structural fallback.) This is Python's line (positional containers compare, records don't), and the opt-in posture matches Rust/Haskell; OCaml/Erlang-style universal compare is a known footgun Nomi declines.
+Add `derive Comparable` (field-by-field lexicographic, §38.1) or a hand-written `Comparable.compare` function and the operators work, routed through `Comparable.compare`. The stdlib declares `Comparable` for the naturally-ordered types — `Int`, `Float`, `Decimal`, `String`, `Bool`, `List` (lexicographic), `Duration`, and the `std/calendar` ladder — while `Map` is deliberately non-`Comparable` (no natural total order) and opaque `Instant` exposes `Instant.before?` instead. A **tuple** is `Comparable` when its elements are, lexicographically (§13): its order is its positions, which a reader sees at every use, so it has none of a struct's field-order hazard. An **anonymous struct** (`#{x: 1} < #{x: 2}`) is a compile-time error here, and unrecoverably so: there is no declaration to attach an impl (or `derive Comparable`) to, so the diagnostic reads `no impl of `Comparable` for `#{x: Int}` … anonymous struct types cannot implement `Comparable` rather than suggesting a fix. (Equality is unaffected — `#{x: 1} == #{x: 1}` works via the structural fallback.) This is Python's line (positional containers compare, records don't), and the opt-in posture matches Rust/Haskell; OCaml/Erlang-style universal compare is a known footgun Nomi declines.
 
 ## 31. Module & Dependency Management
 
@@ -8801,6 +8826,10 @@ Float division by zero **does not error** — it produces the IEEE 754 value:
 Int division by zero still errors at the operator (`1 / 0` is a runtime error), because Int has no spare bit patterns to encode "no value" — every Int64 is a valid integer. Code that wants total integer division validates the divisor first with `Int.to_non_zero(y) -> Maybe<NonZeroInt>`, then calls `Int.divide(x, nz) -> Int`. The infix operator stays direct, and the fallible step is named at the boundary where the divisor becomes known-safe.
 
 NaN and ±Infinity propagate through arithmetic and through the rounding helpers (`Float.round`, `floor`, `ceil`, `trunc`) per IEEE 754 — `Float.round(NaN)` is `NaN`, `Float.floor(+Inf)` is `+Inf`, etc.
+
+`Float.round(x, scale = 0, mode = RoundingMode.HalfEven)` rounds to `scale` digits after the decimal point with Decimal's `RoundingMode`, and `Unnecessary` traps when rounding would change the value. It rounds the Float's exact binary value, so `Float.round(2.675, 2, RoundingMode.HalfUp)` is `2.67`: 2.675 is stored as 2.67499999…. Exact decimal rounding is `Decimal.round`'s.
+
+`Float.pow`, `sqrt`, `exp`, `log` (natural), `log2`, `log10`, `sin`, `cos`, `tan` and `atan2(y, x)` are Go's `math` functions, with IEEE 754's answers at the edges: `Float.sqrt(-1.0)` and `Float.log(-1.0)` are NaN, `Float.log(0.0)` is `-Inf`, `Float.pow(x, 0.0)` is `1.0` for every `x`, and a result past the Float range is an infinity.
 
 `Int`, `Float` and `Decimal` each have `abs`, `sign` (an `Int`: -1, 0 or 1),
 `min` and `max`. On `Float` they follow IEEE 754-2019:
@@ -9503,9 +9532,10 @@ A failed assertion in the body ends that row only, and the next row runs.
 After the last row, when any row failed, the statement fails as one
 assertion does, with a report that lists each failed row: the row rendered
 as a `values:` row renders a value, then that row's own assertion report,
-then the count. Rows that pass print nothing, and a test whose rows all pass
-prints its one `ok` line. Were the second row above `#("abc", True)`, the test
-would report:
+then the count. Rows that pass are not listed: a test whose rows all pass
+prints its one `ok` line with the number of rows it ran,
+`ok palindrome_test.nomi :: determines palindromes (3 cases)` (`(1 case)` for
+one row). Were the second row above `#("abc", True)`, the test would report:
 
 ```text
 FAIL palindrome_test.nomi :: determines palindromes
@@ -9627,9 +9657,17 @@ A row is not a function, and every row runs to its end, so `return`, `break`,
 `` `return` cannot be used in a `subtests` body: a row is not a function, and each row runs to its end ``.
 Inside a lambda or a nested `fn` in the body they leave that, as anywhere.
 
-A test that uses `subtests` is still one test: it counts once in the totals,
-and `--line`, an editor's test lens and the debugger treat it as one test. A
-breakpoint in the body stops once per row, in a frame of its own.
+Each row a test runs is a case in the `test result:` totals. A test that runs
+`subtests` counts as many cases as rows it ran, the rows of several
+statements summed, and a test with none counts one. A failed row is a failed
+case and a passing row a passed one, so a test of 9 rows of which 1 failed
+adds `8 passed, 1 failed`. A failure outside every row (an assertion after the
+rows, a trap in a row, which stops the rows after it) is one more case, and it
+failed. A test that cannot run counts one blocked test, whatever its rows. In
+`nomi test --format json` each test record carries its `cases` count, a failed
+one its `failed_cases`, and the summary counts cases. `--line`, an editor's
+test lens and the debugger still treat the test as one test. A breakpoint in
+the body stops once per row, in a frame of its own.
 
 `subtests` is a keyword only where a statement starts with it, an expression
 starts on its line, and a comma follows that expression. Anywhere else it is
@@ -10703,7 +10741,7 @@ visible fraction digits; the sign does not matter. CLDR's operands (`n`, `i`,
 any size, and `e` is always 0. Visible trailing zeros count: `1d` is `One` in
 English and `1.0d` is `Other`. `Float` does not implement `PluralOperand`,
 because its category depends on how many digits are shown, which a `Float`
-does not carry; round it to a `Decimal` first (`Decimal.from_float`).
+does not carry; round it to a `Decimal` first (`Float.to_decimal`).
 
 | Locale | Cardinal |
 |---|---|
@@ -11110,7 +11148,7 @@ impl Literal for Money          // Money`12.50 EUR`, Money`1200 PTS:0`
   REPL) and the standard library's own files may name any.
 - **Money literals.** `` Money`1299.50 USD` `` is `#Money{amount: 1299.50d,
   currency: Currency`USD`}`: the amount, one space and the currency, the
-  text `Display` writes. The amount is what `Decimal.from_string` reads (an
+  text `Display` writes. The amount is what `String.to_decimal` reads (an
   optional sign, digits, `_` separators and an optional fraction) and keeps
   every digit written (`` Money`12.5 EUR` `` has scale 1); the currency is
   what `` Currency`…` `` reads, so `` Money`1200 PTS:0` `` names a custom
@@ -11131,8 +11169,16 @@ impl Literal for Money          // Money`12.50 EUR`, Money`1200 PTS:0`
   list of amounts is their total in their currency. Two amounts are equal
   when their currencies are and their amounts are equal numbers. Std has no
   exchange rates; a library that converts checks `m.currency` first.
+  `Money.abs`, `negate`, `sign`, `zero?`, `min` and `max` work on the amount
+  and keep the currency; `min` and `max` of two currencies trap as `+` does
+  (`Money.min: the amounts are in two currencies, EUR and PLN`).
 - **Rounding.** `Money.round` rounds the amount to its currency's minor
-  digits, half to even unless `mode` says otherwise.
+  digits, half to even unless `mode` says otherwise. `Money.multiply_by(price,
+  factor, mode)` multiplies by a `Decimal` factor (a tax rate, a discount) and
+  rounds the product the same way; `*` takes only an `Int`, whose product is
+  exact, and there is no `Float` factor, since a binary `0.1` is not one
+  tenth (`Float.to_decimal` converts a rate first). `RoundingMode.Unnecessary`
+  traps when a product needs rounding, as it does in `Decimal.round`.
 - **Formatting** writes the locale's currency pattern with the currency as
   `display` says: its `Symbol` (`€`, `US$` in `en-CA`), its `Narrow` symbol
   (`$`), its ISO `Code`, or its `Name` in the plural form the amount takes,

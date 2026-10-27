@@ -382,12 +382,19 @@ function readOnlyMark(reason) {
 
 // tabsNav lays a block's files out as a tab strip in its bar: one tab per
 // file, arrows move along it. select(i, focus) shows file i's pane.
-function tabsNav(widget, bar, panes, first, select) {
+function tabsNav(widget, bar, panes, first, select, controls = null) {
   const tabBar = document.createElement("div");
   tabBar.className = "nomi-tabs";
   tabBar.setAttribute("role", "tablist");
   bar.append(tabBar);
+  // Each tab sits in a slot, so the open tab's move arrows (controls) can sit
+  // beside it.
+  const slots = [];
   const btns = panes.map((p, i) => {
+    const slot = document.createElement("span");
+    slot.className = "nomi-tab-slot";
+    slot.setAttribute("role", "presentation");
+    slots.push(slot);
     const btn = document.createElement("button");
     btn.className = "nomi-tab";
     btn.type = "button";
@@ -398,7 +405,8 @@ function tabsNav(widget, bar, panes, first, select) {
       btn.append(readOnlyMark(p.readOnly));
     }
     p.pane.setAttribute("role", "tabpanel");
-    tabBar.appendChild(btn);
+    slot.append(btn);
+    tabBar.appendChild(slot);
     btn.addEventListener("click", () => {
       activate(i);
       select(i, true);
@@ -412,6 +420,13 @@ function tabsNav(widget, bar, panes, first, select) {
       btn.setAttribute("aria-selected", String(active));
       btn.tabIndex = active ? 0 : -1;
     });
+    if (controls) slots[i].append(controls);
+  };
+  // hide leaves out of the strip the file the split's second pane shows.
+  const hide = (gone) => {
+    slots.forEach((slot, k) => {
+      slot.hidden = gone.includes(k);
+    });
   };
   activate(first);
   tabBar.addEventListener("keydown", (ev) => {
@@ -419,11 +434,15 @@ function tabsNav(widget, bar, panes, first, select) {
     const at = btns.indexOf(document.activeElement);
     if (at < 0) return;
     ev.preventDefault();
-    const next = (at + (ev.key === "ArrowLeft" ? -1 : 1) + btns.length) % btns.length;
+    let next = at;
+    do {
+      next = (next + (ev.key === "ArrowLeft" ? -1 : 1) + btns.length) % btns.length;
+    } while (slots[next].hidden && next !== at);
     activate(next);
     select(next, false);
     btns[next].focus();
   });
+  return { activate, hide };
 }
 
 // treeNav lays a block's files out as a tree in a column beside the editor:
@@ -431,7 +450,7 @@ function tabsNav(widget, bar, panes, first, select) {
 // others. The bar names the open file. On a narrow screen the tree is a
 // menu that the bar's file button opens.
 let navSeq = 0;
-function treeNav(widget, bar, panes, first, select) {
+function treeNav(widget, bar, panes, first, select, controls = null) {
   const nav = document.createElement("nav");
   nav.className = "nomi-tree";
   nav.id = "nomi-tree-" + ++navSeq;
@@ -445,6 +464,8 @@ function treeNav(widget, bar, panes, first, select) {
   const path = document.createElement("span");
   path.className = "nomi-path";
   bar.append(menu, path);
+  // The open file's move arrows sit after its name.
+  if (controls) bar.append(controls);
 
   // Folders, from the files' paths, in the block's order.
   const root = { dirs: new Map(), files: [] };
@@ -581,6 +602,7 @@ function treeNav(widget, bar, panes, first, select) {
     shown[next].focus();
   });
   widget.prepend(nav);
+  return { activate };
 }
 
 // --- the large view: one shared <dialog> the widget is moved into ---
@@ -675,11 +697,22 @@ function openModal(widget, opener) {
   m.title.textContent = blockTitle(placeholder);
   m.body.append(widget);
   widget.classList.add("is-modal");
-  m.current = { widget, placeholder, opener, restoreScroll };
+  // The live dot and the formatting chip describe the whole example, so the
+  // large view, whose editor may be split, shows them in the output's
+  // header; closing it puts them back.
+  const live = widget.querySelector(".nomi-live-controls");
+  const head = widget.querySelector(".nomi-out-head");
+  let liveHome = null;
+  if (live && head) {
+    liveHome = { parent: live.parentElement, next: live.nextSibling };
+    head.append(live);
+  }
+  m.current = { widget, placeholder, opener, restoreScroll, live, liveHome };
   document.documentElement.classList.add("nomi-modal-open");
   m.dialog.showModal();
   // The bars measure the panes, so they go in once the dialog is shown.
   addSplitters(widget);
+  widget.onModalOpen?.();
   restoreScroll();
   const editor = focused?.matches("textarea")
     ? focused
@@ -691,10 +724,12 @@ function closeModal() {
   const m = modal;
   if (!m?.current) return;
   // The page's view of the widget comes back scrolled as it was left.
-  const { widget, placeholder, opener, restoreScroll } = m.current;
+  const { widget, placeholder, opener, restoreScroll, live, liveHome } = m.current;
+  if (liveHome) liveHome.parent.insertBefore(live, liveHome.next);
   hideTooltip();
   widget.closeFileMenu?.();
   m.current = null;
+  widget.onModalClose?.();
   widget.classList.remove("is-modal");
   removeSplitters(widget);
   placeholder.replaceWith(widget);
@@ -798,6 +833,265 @@ function addSplitters(widget) {
 function removeSplitters(widget) {
   for (const bar of widget.querySelectorAll(".nomi-split")) bar.remove();
   for (const prop of Object.values(SPLIT_PROPS)) widget.style.removeProperty(prop);
+}
+
+// --- splitting the large view's editor ---
+
+// splitPanes lets a multi-file example show its files in two groups in the
+// large view, each a pane with its own tabs. The open tab of a group carries
+// arrows for the moves it can make: in a lone group of several files, right
+// and down, which split the tab off into a new group on that side; in a
+// split, one arrow pointing at the other group, which moves the tab there.
+// A group that a move empties closes, and the example is one group again.
+// (A group on the left or above would be the same split with the groups
+// swapped.) A pane is the file's own editor moved between the two places,
+// so its text, highlighting and listeners go with it. Leaving the large
+// view and coming back keeps the split while the page is open; the inline
+// editor, which grows to its code, never splits.
+const MOVE_ARROWS = {
+  right: ["Move {} to a pane on the right", "M6 3l5 5-5 5"],
+  below: ["Move {} to a pane below", "M3 6l5 5 5-5"],
+  left: ["Move {} to the pane on the left", "M10 3L5 8l5 5"],
+  above: ["Move {} to the pane above", "M3 10l5-5 5 5"],
+};
+function moveArrows(sides, file, onMove) {
+  const span = document.createElement("span");
+  span.className = "nomi-move-controls";
+  for (const where of sides) {
+    const [label, path] = MOVE_ARROWS[where];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "nomi-move-btn";
+    btn.setAttribute("aria-label", label.replace("{}", file));
+    btn.title = btn.getAttribute("aria-label");
+    btn.innerHTML = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      onMove(where);
+    });
+    span.append(btn);
+  }
+  return span;
+}
+function splitPanes(widget, main, bar, editors, panes, first) {
+  // a is the main group's open file; the second group holds the files in
+  // second, b its open one, on side ("right" or "below").
+  let a = first;
+  let second = [];
+  let b = -1;
+  let side = null;
+  let wrapper = null;
+  let paneA = null;
+  let other = null;
+  let strip = null;
+  let kept = null;
+  const api = { nav: null };
+  // The main group's arrows go in a slot nav gives them, beside its open tab.
+  const controls = document.createElement("span");
+  controls.className = "nomi-move-slot";
+
+  const inMain = (j) => !second.includes(j);
+  const mainCount = () => panes.length - second.length;
+  // nextIn is the file a group opens when its own leaves: the next one in
+  // the block that stays in the group, preferring one that is not a setup
+  // file.
+  const nextIn = (from, stays) => {
+    let fallback = -1;
+    for (let k = 1; k < panes.length; k++) {
+      const j = (from + k) % panes.length;
+      if (!stays(j)) continue;
+      if (!isSetupFile(panes[j].file.name)) return j;
+      if (fallback < 0) fallback = j;
+    }
+    return fallback;
+  };
+
+  const render = () => {
+    panes.forEach((p, j) => {
+      const inB = side && second.includes(j);
+      const home = inB ? other : editors;
+      if (p.pane.parentElement !== home) home.append(p.pane);
+      p.pane.hidden = !(j === a || (inB && j === b));
+    });
+    api.nav?.hide?.(side ? second : []);
+    api.nav?.activate(a);
+    const mainSides = side ? [side] : panes.length > 1 ? ["right", "below"] : [];
+    controls.replaceChildren(moveArrows(mainSides, panes[a].file.name, (where) => moveFromMain(where)));
+    if (strip) {
+      strip.replaceChildren();
+      for (const j of second) {
+        const slot = document.createElement("span");
+        slot.className = "nomi-tab-slot";
+        slot.setAttribute("role", "presentation");
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "nomi-tab" + (j === b ? " is-active" : "");
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-selected", String(j === b));
+        btn.tabIndex = j === b ? 0 : -1;
+        tabLabel(btn, panes[j].file.name);
+        if (panes[j].readOnly) {
+          btn.title = panes[j].readOnly;
+          btn.append(readOnlyMark(panes[j].readOnly));
+        }
+        btn.addEventListener("click", () => {
+          b = j;
+          render();
+          panes[j].ta.focus({ preventScroll: true });
+        });
+        slot.append(btn);
+        if (j === b) {
+          slot.append(moveArrows([side === "right" ? "left" : "above"], panes[j].file.name, () => moveFromSecond()));
+        }
+        strip.append(slot);
+      }
+    }
+  };
+
+  const build = (where) => {
+    side = where;
+    wrapper = document.createElement("div");
+    wrapper.className = `nomi-panes is-${where}`;
+    const divider = document.createElement("div");
+    divider.className = "nomi-pane-divider";
+    divider.tabIndex = 0;
+    divider.setAttribute("role", "separator");
+    divider.setAttribute("aria-orientation", where === "right" ? "vertical" : "horizontal");
+    divider.setAttribute("aria-label", "Resize the split");
+    const box = document.createElement("div");
+    box.className = "nomi-pane-b";
+    strip = document.createElement("div");
+    strip.className = "nomi-tabs nomi-pane-bar";
+    strip.setAttribute("role", "tablist");
+    other = document.createElement("div");
+    other.className = "nomi-editors";
+    box.append(strip, other);
+    // Each group is its tabs over its editor, so the two tab strips sit on
+    // one row when the groups are side by side.
+    paneA = document.createElement("div");
+    paneA.className = "nomi-pane-a";
+    editors.replaceWith(wrapper);
+    paneA.append(bar, editors);
+    wrapper.append(paneA, divider, box);
+    resizable(divider);
+  };
+  const unbuild = () => {
+    if (!side) return;
+    side = null;
+    second = [];
+    b = -1;
+    // The panes go home before the wrapper leaves, so none leaves with it.
+    for (const p of panes) if (p.pane.parentElement !== editors) editors.append(p.pane);
+    wrapper.replaceWith(bar, editors);
+    wrapper = paneA = other = strip = null;
+  };
+
+  // moveFromMain moves the main group's open file: into a new group on that
+  // side, or, while split, into the second group. A main group the move
+  // empties hands the split's files back as one group.
+  const moveFromMain = (where) => {
+    const moved = a;
+    if (!side) {
+      build(where);
+      second = [moved];
+      b = moved;
+      a = nextIn(moved, (j) => j !== moved);
+    } else if (mainCount() === 1) {
+      unbuild();
+      a = moved;
+    } else {
+      second = [...second, moved];
+      b = moved;
+      a = nextIn(moved, (j) => inMain(j) && j !== moved);
+    }
+    render();
+    panes[moved].ta.focus({ preventScroll: true });
+  };
+  // moveFromSecond moves the second group's open file into the main group,
+  // and closes the second group when it empties.
+  const moveFromSecond = () => {
+    const moved = b;
+    second = second.filter((j) => j !== moved);
+    if (second.length === 0) unbuild();
+    else b = nextIn(moved, (j) => second.includes(j));
+    a = moved;
+    render();
+    panes[moved].ta.focus({ preventScroll: true });
+  };
+
+  // The divider moves by dragging, or by the arrow keys in steps of 5%
+  // (20% with Shift); each pane keeps at least a fifth of the room.
+  // --nomi-split-a is the main group's share.
+  const resizable = (divider) => {
+    const across = () => side === "right";
+    const set = (frac) => {
+      const f = Math.max(0.2, Math.min(0.8, frac));
+      wrapper.style.setProperty("--nomi-split-a", `${(f * 100).toFixed(1)}%`);
+      divider.setAttribute("aria-valuenow", String(Math.round(f * 100)));
+    };
+    const share = () => {
+      const r = wrapper.getBoundingClientRect();
+      const e = paneA.getBoundingClientRect();
+      return across() ? e.width / r.width : e.height / r.height;
+    };
+    set(0.5);
+    divider.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      divider.setPointerCapture(ev.pointerId);
+      divider.classList.add("is-dragging");
+      const move = (e) => {
+        const r = wrapper.getBoundingClientRect();
+        set(across() ? (e.clientX - r.left) / r.width : (e.clientY - r.top) / r.height);
+      };
+      const up = (e) => {
+        divider.releasePointerCapture(e.pointerId);
+        divider.classList.remove("is-dragging");
+        divider.removeEventListener("pointermove", move);
+        divider.removeEventListener("pointerup", up);
+        divider.removeEventListener("pointercancel", up);
+      };
+      divider.addEventListener("pointermove", move);
+      divider.addEventListener("pointerup", up);
+      divider.addEventListener("pointercancel", up);
+    });
+    divider.addEventListener("keydown", (ev) => {
+      const back = across() ? "ArrowLeft" : "ArrowUp";
+      const fwd = across() ? "ArrowRight" : "ArrowDown";
+      if (ev.key !== back && ev.key !== fwd) return;
+      ev.preventDefault();
+      set(share() + (ev.shiftKey ? 0.2 : 0.05) * (ev.key === back ? -1 : 1));
+    });
+  };
+
+  // Leaving the large view puts every file back in one group and keeps the
+  // split, which the large view opens with again.
+  widget.onModalOpen = () => {
+    if (!kept) return;
+    const k = kept;
+    kept = null;
+    build(k.side);
+    second = k.second;
+    b = k.b;
+    a = inMain(k.a) ? k.a : nextIn(k.a, inMain);
+    render();
+  };
+  widget.onModalClose = () => {
+    kept = side ? { side, second, b, a } : null;
+    unbuild();
+    render();
+  };
+
+  return Object.assign(api, {
+    controls,
+    // show opens file i where it sits: in the second group when it is
+    // there (a file tree lists every file), else in the main group.
+    show(i) {
+      if (side && second.includes(i)) b = i;
+      else a = i;
+      render();
+    },
+    render,
+  });
 }
 
 // Stitch a per-tab file list back into the source string the wasm
@@ -1406,12 +1700,13 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     return { file, lang, readOnly, pane, hl, ta, captures: null, code: file.body };
   });
 
+  const split = splitPanes(widget, main, bar, editors, panes, first);
   const nav = (tree ? treeNav : tabsNav)(widget, bar, panes, first, (i, focus) => {
-    panes.forEach((p, j) => {
-      p.pane.hidden = i !== j;
-    });
+    split.show(i);
     if (focus) panes[i].ta.focus({ preventScroll: true });
-  });
+  }, panes.length > 1 ? split.controls : null);
+  split.nav = nav;
+  split.render();
 
   pre.replaceWith(widget);
   const live = attachControls(widget, bar, out, expectError, manual ? () => run() : null);

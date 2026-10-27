@@ -71,6 +71,7 @@ var infiniteIterTerminals = map[string]iterDrain{
 	"Iter.min_by":          {source: iterSourceArg},
 	"Iter.max_by":          {source: iterSourceArg},
 	"Iter.sum":             {source: iterSourceArg},
+	"Iter.product":         {source: iterSourceArg},
 	"Iter.reduce":          {source: iterSourceArg, callback: iterCallbackArg},
 	"Iter.each":            {source: iterSourceArg, callback: iterCallbackArg},
 	"Iter.map_reduce":      {source: iterSourceArg, callback: iterCallbackArg},
@@ -89,7 +90,7 @@ const (
 	// any) can stop it.
 	iterKeeps infiniteIterAdapter = iota
 	// iterChunks is endless when its source is and its size is a literal
-	// above zero.
+	// above zero (chunks, windows).
 	iterChunks
 	// iterCycles is endless when its source is, or when the source is a
 	// literal collection with an element.
@@ -121,6 +122,7 @@ var infiniteIterAdapters = map[string]iterAdapterRule{
 	"Iter.chunk_by":   {iterKeeps, &iterArg{1, "key_fn"}},
 	"Iter.flat_map":   {iterKeeps, iterCallbackArg},
 	"Iter.chunks":     {iterChunks, nil},
+	"Iter.windows":    {iterChunks, nil},
 	"Iter.cycle":      {iterCycles, nil},
 	"Iter.concat":     {iterEither, nil},
 	"Iter.zip":        {iterBoth, nil},

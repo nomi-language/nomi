@@ -157,18 +157,18 @@ test "divide rounds at a named scale" {
 }
 
 test "conversions are explicit and total only where they can be" {
-    assert Decimal.to_string(Decimal.from_int(42)) == "42"
-    assert Decimal.to_string(Decimal.from_int(-7)) == "-7"
-    assert Decimal.from_string("1.50") == Some(1.50d)
-    assert Decimal.from_string("1_000") == Some(1000d)
-    assert Decimal.from_string("oops") == None
-    assert Decimal.from_string("") == None
-    assert Decimal.from_string("1e5") == None
+    assert Decimal.to_string(Int.to_decimal(42)) == "42"
+    assert Decimal.to_string(Int.to_decimal(-7)) == "-7"
+    assert String.to_decimal("1.50") == Some(1.50d)
+    assert String.to_decimal("1_000") == Some(1000d)
+    assert String.to_decimal("oops") == None
+    assert String.to_decimal("") == None
+    assert String.to_decimal("1e5") == None
     assert Decimal.to_int(3.7d) == Some(3)
     assert Decimal.to_int(-3.7d) == Some(-3)
     assert Decimal.to_float(1.50d) == 1.5
-    assert Decimal.from_float(0.1, 2, HalfEven) == Some(0.10d)
-    assert Decimal.from_float(3.14159, 2, Floor) == Some(3.14d)
+    assert Float.to_decimal(0.1, 2, HalfEven) == Some(0.10d)
+    assert Float.to_decimal(3.14159, 2, Floor) == Some(3.14d)
 }
 
 test "Int64's boundary round-trips, and one step past it does not" {
@@ -178,15 +178,15 @@ test "Int64's boundary round-trips, and one step past it does not" {
     min_int = -9223372036854775807 - 1
     max_int = 9223372036854775807
 
-    assert Decimal.to_string(Decimal.from_int(min_int)) == "-9223372036854775808"
-    assert Decimal.to_string(Decimal.from_int(max_int)) == "9223372036854775807"
-    assert Decimal.to_int(Decimal.from_int(min_int)) == Some(min_int)
-    assert Decimal.to_int(Decimal.from_int(max_int)) == Some(max_int)
+    assert Decimal.to_string(Int.to_decimal(min_int)) == "-9223372036854775808"
+    assert Decimal.to_string(Int.to_decimal(max_int)) == "9223372036854775807"
+    assert Decimal.to_int(Int.to_decimal(min_int)) == Some(min_int)
+    assert Decimal.to_int(Int.to_decimal(max_int)) == Some(max_int)
 
     // Decimal is arbitrary-precision, so it holds values Int cannot. Converting
     // one back must answer None rather than wrap — the extreme row.
-    past_max = Decimal.from_int(max_int) + 1d
-    past_min = Decimal.from_int(min_int) - 1d
+    past_max = Int.to_decimal(max_int) + 1d
+    past_min = Int.to_decimal(min_int) - 1d
     assert Decimal.to_string(past_max) == "9223372036854775808"
     assert Decimal.to_string(past_min) == "-9223372036854775809"
     assert Decimal.to_int(past_max) == None
@@ -199,13 +199,13 @@ test "Int64's boundary round-trips, and one step past it does not" {
     // of operations is observable — truncate THEN range-check answers Some,
     // range-check THEN truncate answers None — and only a half-step past a
     // boundary can tell the two apart.
-    assert Decimal.to_int(Decimal.from_int(min_int) - 0.5d) == Some(min_int)
-    assert Decimal.to_int(Decimal.from_int(max_int) + 0.5d) == Some(max_int)
+    assert Decimal.to_int(Int.to_decimal(min_int) - 0.5d) == Some(min_int)
+    assert Decimal.to_int(Int.to_decimal(max_int) + 0.5d) == Some(max_int)
 
     // And the other direction of the same rule: a half-step INSIDE the boundary
     // truncates toward zero, so it moves off the boundary by one.
-    assert Decimal.to_int(Decimal.from_int(min_int) + 0.5d) == Some(min_int + 1)
-    assert Decimal.to_int(Decimal.from_int(max_int) - 0.5d) == Some(max_int - 1)
+    assert Decimal.to_int(Int.to_decimal(min_int) + 0.5d) == Some(min_int + 1)
+    assert Decimal.to_int(Int.to_decimal(max_int) - 0.5d) == Some(max_int - 1)
 }
 
 test "min and max pick by value, not by scale" {

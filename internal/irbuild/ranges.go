@@ -29,8 +29,8 @@ import (
 //	fn next(cp: Codepoint) -> Maybe<Codepoint> {
 //	  n = Codepoint.to_int(cp)
 //	  if n == 1_114_111 { None }
-//	  else if n == 55_295 { Codepoint.from_int(57_344) }
-//	  else { Codepoint.from_int(n + 1) }
+//	  else if n == 55_295 { Int.to_codepoint(57_344) }
+//	  else { Int.to_codepoint(n + 1) }
 //	}
 //
 // — ordinary Nomi in std/code_points.nomi, with the UTF-16 surrogate-block skip in

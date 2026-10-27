@@ -37,7 +37,7 @@ pub fn label(bands: List<Color>) -> Maybe<Resistance> {
         return None
     }
 
-    ohms = (digit(first) * 10 + digit(second)) * power_of_ten(digit(zeros))
+    ohms = (digit(first) * 10 + digit(second)) * Int.pow(10, digit(zeros))
     Some(in_largest_unit(ohms))
 }
 
@@ -51,10 +51,6 @@ fn in_largest_unit(ohms: Int) -> Resistance {
             resistance
         }
     })
-}
-
-fn power_of_ten(exponent: Int) -> Int {
-    Iter.reduce(1..=exponent, fn n = 1, _ -> n * 10)
 }
 
 fn digit(color: Color) -> Int {

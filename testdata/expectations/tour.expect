@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 272
+records 273
 declared-cases 90
 failing 0
 C bindings-and-expressions.md:L116
@@ -441,104 +441,104 @@ T
 C examples/acronym.md:L12
 E 0
 N 1
-H 50a1249eace921dda6f55466b80cd73b0a2d94d7054e091491ec97c0f5d62d49
-T ok abbreviates phrases
-T test result: ok. 1 passed, 0 failed
+H 236f73357353d7a3b9884cf861875e25700ee25caec04baf28e713ed7f241700
+T ok abbreviates phrases (9 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/affine-cipher.md:L12
 E 0
 N 1
-H c1fc1b200b702181c76d6e3833bef4c27c01a04c7126e175d0064490b6b1a26e
-T ok encode / encodes
+H 66c472c62073c3717eceaea6bbd3a28ac84734d52b0f4060b8a9d6cd29a8bd0d
+T ok encode / encodes (8 cases)
 T ok encode / encode with a not coprime to m
-T ok decode / decodes
+T ok decode / decodes (6 cases)
 T ok decode / decode with a not coprime to m
-T test result: ok. 4 passed, 0 failed
+T test result: ok. 16 passed, 0 failed
 T
 C examples/all-your-base.md:L12
 E 0
 N 1
-H f2f78e740b93d9efca7baf09404df026e1eec74ec82c44693b57ee9e357bd96e
-T ok rebases digits
-T test result: ok. 1 passed, 0 failed
+H d61c3af7fa05b6522d215ffb32dc8caa45022f665af988b158ae8956671f1700
+T ok rebases digits (21 cases)
+T test result: ok. 21 passed, 0 failed
 T
 C examples/allergies.md:L12
 E 0
 N 1
-H 6ae81004d94d93045947a96b97875858093ad3306f6d7cb9965bb9fcd5bd1023
-T ok testing for eggs allergy / allergic_to? eggs
-T ok testing for peanuts allergy / allergic_to? peanuts
-T ok testing for shellfish allergy / allergic_to? shellfish
-T ok testing for strawberries allergy / allergic_to? strawberries
-T ok testing for tomatoes allergy / allergic_to? tomatoes
-T ok testing for chocolate allergy / allergic_to? chocolate
-T ok testing for pollen allergy / allergic_to? pollen
-T ok testing for cats allergy / allergic_to? cats
-T ok list when: / list
-T test result: ok. 9 passed, 0 failed
+H 2ab721291bbd3102a3a955534ce545c240ef6fda2244950a8e55f41bd164815e
+T ok testing for eggs allergy (5 cases)
+T ok testing for peanuts allergy (5 cases)
+T ok testing for shellfish allergy (5 cases)
+T ok testing for strawberries allergy (5 cases)
+T ok testing for tomatoes allergy (5 cases)
+T ok testing for chocolate allergy (5 cases)
+T ok testing for pollen allergy (5 cases)
+T ok testing for cats allergy (5 cases)
+T ok list when: (10 cases)
+T test result: ok. 50 passed, 0 failed
 T
 C examples/anagram.md:L12
 E 0
 N 1
-H f58419c629069cfcee50b5b520e8de22bfbee281355bb6ef66439e52771342b8
-T ok finds anagrams
-T test result: ok. 1 passed, 0 failed
+H f7faee121025fd383440fec80601d89e1a71553c6712585b6ef7ac1a8fbbc121
+T ok finds anagrams (18 cases)
+T test result: ok. 18 passed, 0 failed
 T
 C examples/armstrong-numbers.md:L12
 E 0
 N 1
-H 838017876d41f4ab81ca86998804a7c5dfbb4310ceff36065f5d71478ca77f0b
-T ok recognizes Armstrong numbers
-T test result: ok. 1 passed, 0 failed
+H b8c815d382676bb45292504890399e30176970e9b8ab0210b054aa90d5c7e489
+T ok recognizes Armstrong numbers (9 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/atbash-cipher.md:L12
 E 0
 N 1
-H 7f9cc54be1058f067bf5bc75c54ec350cab11a461ec86b4cd7f1b56d8ff8a585
-T ok encode / encodes
-T ok decode / decodes
-T test result: ok. 2 passed, 0 failed
+H 30d1b49527ab5e2359ecbb88841ced3f9a24b47b099740144a4f85f875c0466a
+T ok encode (8 cases)
+T ok decode (6 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C examples/binary-search.md:L12
 E 0
 N 1
-H 404ab4b1f799403b0bd73a36b9b41aece57481421f290c4febbec0fec3454fe3
-T ok finds a value
-T ok reports a missing value
-T test result: ok. 2 passed, 0 failed
+H 69e71cd1472250bd305d32efef20e90ce7488f60b1819928a4a5c2290c6e71b2
+T ok finds a value (6 cases)
+T ok reports a missing value (5 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C examples/bob.md:L12
 E 0
 N 1
-H f926e57dce0e1eeb72877581fcec8bd417ebf52a2a4edba4e8c498e2f6664c23
-T ok bob's responses
-T test result: ok. 1 passed, 0 failed
+H fdee0a80492aeafc83c7d9164c77f5d8b48eedb86379b365dffe20c6223fa563
+T ok bob's responses (26 cases)
+T test result: ok. 26 passed, 0 failed
 T
 C examples/clock.md:L12
 E 0
 N 1
-H b38e25f4591514e5110737855e7820bb2a3409905a31263d0c3a875af89e081d
-T ok Create a new clock with an initial time / create
-T ok Add minutes / add
-T ok Subtract minutes / subtract
-T ok Compare two clocks for equality / equal
-T test result: ok. 4 passed, 0 failed
+H 6fc022b3c41b651cb26a69f6bc2a9e5b9c5e4c87283bc6c9af726f95333864cb
+T ok Create a new clock with an initial time (20 cases)
+T ok Add minutes (8 cases)
+T ok Subtract minutes (8 cases)
+T ok Compare two clocks for equality (16 cases)
+T test result: ok. 52 passed, 0 failed
 T
 C examples/collatz-conjecture.md:L12
 E 0
 N 1
-H 3a287f0d2a25057531ca8c9cf0874c0bacb113d3f11c215b44f213c43194a7d7
-T ok counts the steps
+H 8e848dede2f5df3bfd23914dfba0ae1540bc4ae4ee15f62ecac8b59293840941
+T ok counts the steps (4 cases)
 T ok zero is an error
 T ok negative value is an error
-T test result: ok. 3 passed, 0 failed
+T test result: ok. 6 passed, 0 failed
 T
 C examples/darts.md:L12
 E 0
 N 1
-H d24140fec06b951927fb992dac9c8a82b158b2a9e7b800c5d794eb8b93c5d686
-T ok scores a toss
-T test result: ok. 1 passed, 0 failed
+H 450707aa13db9ab79df0e82324102f9a19ab3faa3d0b147d681c1e4a4c46aa9d
+T ok scores a toss (13 cases)
+T test result: ok. 13 passed, 0 failed
 T
 C examples/diamond.md:L12
 E 0
@@ -554,18 +554,18 @@ T
 C examples/difference-of-squares.md:L12
 E 0
 N 1
-H 69c1bbbf797ee9c30d4cbcf4009d5c9a07b3fad1c3e2221de3907d94ef6d019c
-T ok Square the sum of the numbers up to the given number / square of sum
-T ok Sum the squares of the numbers up to the given number / sum of squares
-T ok Subtract sum of squares from square of sums / difference of squares
-T test result: ok. 3 passed, 0 failed
+H 3bdd33946074bc0e40ba1a43325deab5d92de14d0981640b2b1528e48490d417
+T ok Square the sum of the numbers up to the given number (3 cases)
+T ok Sum the squares of the numbers up to the given number (3 cases)
+T ok Subtract sum of squares from square of sums (3 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/eliuds-eggs.md:L12
 E 0
 N 1
-H d5026dc0960332a075f0fdb715c134da957324b31333549bc8c325f4b259d088
-T ok counts the eggs
-T test result: ok. 1 passed, 0 failed
+H a8a79d9f8ad460fbf204df883e2f3ee8b8510c6023ecaa214ab7f4a3e7d57c76
+T ok counts the eggs (4 cases)
+T test result: ok. 4 passed, 0 failed
 T
 C examples/etl.md:L12
 E 0
@@ -580,72 +580,72 @@ T
 C examples/game-of-life.md:L12
 E 0
 N 1
-H 02e0bf14779528972a99d2ed18c83233547461a19027140bc9f92e1ba6e92054
-T ok tick
-T test result: ok. 1 passed, 0 failed
+H 002734be3039ca26f06a426adaa690d273275755278b387af5b3644e161243da
+T ok tick (8 cases)
+T test result: ok. 8 passed, 0 failed
 T
 C examples/grains.md:L12
 E 0
 N 1
-H f4256c515d232b1dd067c2889afbcc20957697fafd89528755dbb16cb63139dd
-T ok returns the number of grains on the square / counts the grains
-T ok returns the number of grains on the square / rejects squares off the board
+H 018b2b0d35a97d6dc0252b06b0de58fe757a720d7ee9289b0628406d50919efd
+T ok returns the number of grains on the square / counts the grains (7 cases)
+T ok returns the number of grains on the square / rejects squares off the board (3 cases)
 T ok returns the total number of grains on the board
-T test result: ok. 3 passed, 0 failed
+T test result: ok. 11 passed, 0 failed
 T
 C examples/hamming.md:L12
 E 0
 N 1
-H 760be61ba2d1be423ad732374ce6f7f925bc0c60561c15256ee59cad745a0131
-T ok hamming distance
-T test result: ok. 1 passed, 0 failed
+H 31756552ce13c6db95d57945ab99549baaea0b09de2580ff87724949fcca02f7
+T ok hamming distance (9 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/house.md:L12
 E 0
 N 1
-H 833cfaf554abd8b3791e69509b4abab5fc5bb00843b44d1ed56e1cf842a506eb
-T ok single verses
-T ok several verses
-T test result: ok. 2 passed, 0 failed
+H dc9852872df1d97bb1c489eac776ca188655914331362e6721444a368d75a535
+T ok single verses (12 cases)
+T ok several verses (2 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C examples/isbn-verifier.md:L12
 E 0
 N 1
-H 86013a51b63f8f44c947ee5525fcc40c3e65f320f4ff27765a38f1acb414d77a
-T ok verifies ISBN-10 numbers
-T test result: ok. 1 passed, 0 failed
+H d9e9c6af9bd69e136302e9dc95e51a934aafbc2529d2eba0411e7fc9996a8b67
+T ok verifies ISBN-10 numbers (21 cases)
+T test result: ok. 21 passed, 0 failed
 T
 C examples/isogram.md:L12
 E 0
 N 1
-H 34219d1c7390bba68de9db791ca61377ce0625ea3c4c116db06352bdc267b724
-T ok isograms
-T test result: ok. 1 passed, 0 failed
+H 25d8abbd07203248fcda9cb2d7f4aad3df2db2c993df2b478ba101c136f487e4
+T ok isograms (14 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C examples/kindergarten-garden.md:L12
 E 0
 N 1
-H ca3ee2e669b98ff9448ad8f96fb76ae9778abcb61d88e2059b4face74d39023e
-T ok partial garden / plants
-T ok partial garden / multiple students for the same garden with three students
-T ok full garden / plants
+H 33b8602b1074c69041d4985d8aeec1337aa71cbaa60a8950849b6b58b4fbba71
+T ok partial garden / plants (3 cases)
+T ok partial garden / multiple students for the same garden with three students (2 cases)
+T ok full garden (12 cases)
 T ok a letter that names no plant
-T test result: ok. 4 passed, 0 failed
+T test result: ok. 18 passed, 0 failed
 T
 C examples/largest-series-product.md:L12
 E 0
 N 1
-H 6a588a0fbc612013db8ceed2c0af558a38e437b665a69c9ecf527b39b7cc11ac
-T ok largest product
-T ok rejects
-T test result: ok. 2 passed, 0 failed
+H cf917a47345c0269359bd3c10e1a9ae5de968643e7e836003263e36d4b215cdb
+T ok largest product (11 cases)
+T ok rejects (4 cases)
+T test result: ok. 15 passed, 0 failed
 T
 C examples/leap.md:L12
 E 0
 N 1
-H c8686871c85e80a4afd39b03eaa975daf7c13f00e537a10c6ca1d0a501b66956
-T ok leap years
-T test result: ok. 1 passed, 0 failed
+H dc532ce940dfb5cb7804c185e5d8b77222695ecb9641db514b58cb6e76d864be
+T ok leap years (9 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/list-ops.md:L12
 E 0
@@ -679,16 +679,16 @@ T
 C examples/luhn.md:L12
 E 0
 N 1
-H d868b79f6a87ea3f3db3b60d8cbc691d039c2bc51014092baca4e997f5c33679
-T ok validates numbers with the Luhn checksum
-T test result: ok. 1 passed, 0 failed
+H 018e189f362d7faec43d1a9ea2489539e898ddf12304a6fc9182a03093f4a225
+T ok validates numbers with the Luhn checksum (22 cases)
+T test result: ok. 22 passed, 0 failed
 T
 C examples/matching-brackets.md:L12
 E 0
 N 1
-H 8140550128095091bb2d83034e98070b16ba2f1775c16af8eab8434188e89978
-T ok checks bracket pairing
-T test result: ok. 1 passed, 0 failed
+H 6368dddcf8cd02ba517818fb5aba91cdcbabfc320be61ecef5d1cc07080fd553
+T ok checks bracket pairing (20 cases)
+T test result: ok. 20 passed, 0 failed
 T
 C examples/minesweeper.md:L12
 E 0
@@ -711,74 +711,74 @@ T
 C examples/nth-prime.md:L12
 E 0
 N 1
-H 580ca710bd694d4c9391fbcfc176a79a7f0fe9b254f27722867be6a580fa9d75
-T ok prime
-T test result: ok. 1 passed, 0 failed
+H 6978dd38eba782fc49e6e9a9a56d89aa7af4d863b84b6e585d2ee85c9f5d6dc4
+T ok prime (5 cases)
+T test result: ok. 5 passed, 0 failed
 T
 C examples/nucleotide-count.md:L12
 E 0
 N 1
-H b9e1ed59a8c440dcd82ce52182527330df22718b2240e1298c9d77f06a505ef6
-T ok nucleotide counts
-T test result: ok. 1 passed, 0 failed
+H 05dbdef29a8e000d4b35ca0dd04a7f20128591210a252f9b53d49a108a2078e3
+T ok nucleotide counts (5 cases)
+T test result: ok. 5 passed, 0 failed
 T
 C examples/pangram.md:L12
 E 0
 N 1
-H 87f86c550737ecd9d388d618d399ae8413ac9345a0a528a184ec5416fd9a246c
-T ok pangrams
-T test result: ok. 1 passed, 0 failed
+H 763fc02054a761ac1c821ad77f4161a16674fec61e8c071bd4b2147eadc0938f
+T ok pangrams (10 cases)
+T test result: ok. 10 passed, 0 failed
 T
 C examples/pascals-triangle.md:L12
 E 0
 N 1
-H 8664c3cf17b41339c61c814b87b7976b0e0a3466ce6b57f4f875a875b0c8a8b4
-T ok rows
-T test result: ok. 1 passed, 0 failed
+H 74a38e481bd236998d7d28663022cec3870e44cc1a9a2cdb66d7eb6bafa3118e
+T ok rows (8 cases)
+T test result: ok. 8 passed, 0 failed
 T
 C examples/perfect-numbers.md:L12
 E 0
 N 1
-H 119f6896d89fda26bd636d66272ec8c4063dcd7e16f033e24627af2a4f99c2fe
-T ok Perfect numbers / classify
-T ok Abundant numbers / classify
-T ok Deficient numbers / classify
-T ok Invalid inputs / classify
-T test result: ok. 4 passed, 0 failed
+H 003f426a9b11beed3ef2ed6862e62d48a7bdb5bd76fc7fc7b8393a7e24f92bb0
+T ok Perfect numbers (3 cases)
+T ok Abundant numbers (4 cases)
+T ok Deficient numbers (5 cases)
+T ok Invalid inputs (2 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C examples/phone-number.md:L12
 E 0
 N 1
-H d206e5e068480e777eafe0d930cbb4c097595e5692976961d8dc6df3b94f1a85
-T ok cleans phone numbers
-T test result: ok. 1 passed, 0 failed
+H 605f91583ffd24b6d25d23f207494aff675f3d05b779a098d5892e8fe4721b5b
+T ok cleans phone numbers (18 cases)
+T test result: ok. 18 passed, 0 failed
 T
 C examples/pig-latin.md:L12
 E 0
 N 1
-H b72396203be8126a1b4f48ddfd9c9a1634ef16178067bf0ca98b59d537ceab65
-T ok ay is added to words that start with vowels / translate
-T ok first letter and ay are moved to the end of words that start with consonants / translate
-T ok some letter clusters are treated like a single consonant / translate
-T ok some letter clusters are treated like a single vowel / translate
-T ok position of y in a word determines if it is a consonant or a vowel / translate
-T ok phrases are translated / a whole phrase
-T test result: ok. 6 passed, 0 failed
+H 6efaca10c99751f6449fcc978f22337a1769526838b93932329cf5dddcd40242
+T ok ay is added to words that start with vowels (6 cases)
+T ok first letter and ay are moved to the end of words that start with consonants (5 cases)
+T ok some letter clusters are treated like a single consonant (6 cases)
+T ok some letter clusters are treated like a single vowel (2 cases)
+T ok position of y in a word determines if it is a consonant or a vowel (3 cases)
+T ok phrases are translated
+T test result: ok. 23 passed, 0 failed
 T
 C examples/prime-factors.md:L12
 E 0
 N 1
-H 01641212d0a4a8ff83b0b3c630768622cab6096583d34c4db493b151d42f4f1c
-T ok factors
-T test result: ok. 1 passed, 0 failed
+H bac626d63f3df6a9f7f213c36ad4a21c03be11c92672df0b78b2d7474a549d1c
+T ok factors (12 cases)
+T test result: ok. 12 passed, 0 failed
 T
 C examples/protein-translation.md:L12
 E 0
 N 1
-H b9647a7921835657de9c5cf72aa44d8eac0ec84b29ad1645f207d946bbcababd
-T ok proteins
-T ok invalid codons
-T test result: ok. 2 passed, 0 failed
+H 25b97bcd8feb7d88243055705d9d058837a4667e6372a93c043be6a229691d1e
+T ok proteins (28 cases)
+T ok invalid codons (2 cases)
+T test result: ok. 30 passed, 0 failed
 T
 C examples/proverb.md:L12
 E 0
@@ -795,120 +795,120 @@ T
 C examples/queen-attack.md:L12
 E 0
 N 1
-H a51bc1ec3633211ed04d5a26d1728c82a917910064bf3620c2a655c9c1d86e23
+H 724d5462457a35d237d8a69f6f03f9348b0e8e646d7a0c6599376de8700f36f8
 T ok Test creation of Queens with valid and invalid positions / queen with a valid position
-T ok Test creation of Queens with valid and invalid positions / invalid positions
-T ok Test the ability of one queen to attack another / can_attack?
-T test result: ok. 3 passed, 0 failed
+T ok Test creation of Queens with valid and invalid positions / invalid positions (4 cases)
+T ok Test the ability of one queen to attack another (8 cases)
+T test result: ok. 13 passed, 0 failed
 T
 C examples/raindrops.md:L12
 E 0
 N 1
-H b91899a391ae8251e9abdb137b35e64c28c8eff267d735e5e76fa63875bbfd35
-T ok raindrop sounds
-T test result: ok. 1 passed, 0 failed
+H f1282b69b43d13b103e683ae12184b230652a6b1112f4567a515866ed0651c83
+T ok raindrop sounds (18 cases)
+T test result: ok. 18 passed, 0 failed
 T
 C examples/resistor-color-duo.md:L12
 E 0
 N 1
-H 9e6593da85beee89da01ec70eb2a2139d9c660db201a1d68465cec666dfb35fc
-T ok value
+H 4d86ccdeb8a8dce6ea28d0a63c1fbff8db03e1d6d64a33bbc01c659cb7f97e00
+T ok value (7 cases)
 T ok fewer than two bands have no value
-T test result: ok. 2 passed, 0 failed
+T test result: ok. 8 passed, 0 failed
 T
 C examples/resistor-color-trio.md:L12
 E 0
 N 1
-H 6b7d22c60c25397dd7a47e0e90c923604151a9f57ec7374a7230200f65b98e0e
-T ok label
+H 6b12e1763642c9125626a720e945dec3c9d4fd2558cb179c2a984c631e0bc4e3
+T ok label (10 cases)
 T ok fewer than three bands have no label
-T test result: ok. 2 passed, 0 failed
+T test result: ok. 11 passed, 0 failed
 T
 C examples/resistor-color.md:L12
 E 0
 N 1
-H 082d190bf2191e5291c7502551514bdcb462a31764c15622dc2329410473420e
-T ok Color codes / color_code
+H a8a916df06a72faf38f15b986a9fac8610be3236b377fc73e395b384172883b7
+T ok Color codes (3 cases)
 T ok Colors
-T test result: ok. 2 passed, 0 failed
+T test result: ok. 4 passed, 0 failed
 T
 C examples/reverse-string.md:L12
 E 0
 N 1
-H bbfbcf3b7ee71a791d75697e3c00dcd75501bf95943115745510b8e3f5770c8e
-T ok reverses strings
-T test result: ok. 1 passed, 0 failed
+H 2e112c0c4e321f277bfbfa30595ad99e298901fefcc32a2a64aa42d2a6479c75
+T ok reverses strings (9 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/rna-transcription.md:L12
 E 0
 N 1
-H e6befc3728e98072597701e5dbff374bb2a6ee721ba8d8c6bc9e5a60cbc798cb
-T ok transcribes DNA to RNA
-T test result: ok. 1 passed, 0 failed
+H a4e8d132ec1c663f6e619beb25893aa11d48606090a76c6eb0e4951388809996
+T ok transcribes DNA to RNA (6 cases)
+T test result: ok. 6 passed, 0 failed
 T
 C examples/robot-simulator.md:L12
 E 0
 N 1
-H d9c3b202f465f176c9479c77e0b65fbe4af10e7cfd8f15d5374cb6f24eb73064
+H ac6cfb5f7a37d494c22ace578134e69ec3698a53fd00b05d95331d10c7acea34
 T ok Create robot / at origin facing north
 T ok Create robot / at negative position facing south
-T ok Rotating clockwise / move
-T ok Rotating counter-clockwise / move
-T ok Moving forward one / move
-T ok Follow series of instructions / move
-T test result: ok. 6 passed, 0 failed
+T ok Rotating clockwise (4 cases)
+T ok Rotating counter-clockwise (4 cases)
+T ok Moving forward one (4 cases)
+T ok Follow series of instructions (4 cases)
+T test result: ok. 18 passed, 0 failed
 T
 C examples/roman-numerals.md:L12
 E 0
 N 1
-H 084697a82a1c09142765c60a1c58f5d21632a1964face84d4d1cf425c1d3d40b
-T ok converts to Roman numerals
-T test result: ok. 1 passed, 0 failed
+H 244ca8f34d656ba41d4fd41e2715a8c3eb8b658b45cbdcf821c8e30ee3e039f2
+T ok converts to Roman numerals (27 cases)
+T test result: ok. 27 passed, 0 failed
 T
 C examples/rotational-cipher.md:L12
 E 0
 N 1
-H 4b14dad856c84e7eeeffa27fdfd7ec7ae111a16965f5ebf7bb00d7a17f80e468
-T ok rotate
-T test result: ok. 1 passed, 0 failed
+H 689f353b64e60d1ae1f2fa26dcc7de0a9d2af2d2cfc5550dc0d38e7434a6bbe8
+T ok rotate (10 cases)
+T test result: ok. 10 passed, 0 failed
 T
 C examples/run-length-encoding.md:L12
 E 0
 N 1
-H 6feb28d1974ec22d35fa39a690e4e2674ea7384c325b944c9c5863f9915c04d3
-T ok run-length encode a string / encodes
-T ok run-length decode a string / decodes
-T ok encode and then decode / encode followed by decode gives original string
-T test result: ok. 3 passed, 0 failed
+H 7fb4c1c0137bbc15b7a72626b02b65ed676b0f852978bb1a8d0d22cc68ab6b3d
+T ok run-length encode a string (6 cases)
+T ok run-length decode a string (6 cases)
+T ok encode and then decode
+T test result: ok. 13 passed, 0 failed
 T
 C examples/saddle-points.md:L12
 E 0
 N 1
-H b6847e7eda837964b8f47f0dbd275c16e0db90c961f8b302e1eb87dbf94b02c1
-T ok saddle_points
-T test result: ok. 1 passed, 0 failed
+H 4998ba4c0c166ca6eac4952cd0d38a2fd890498fb7e5867ad8878ceec3af3a80
+T ok saddle_points (9 cases)
+T test result: ok. 9 passed, 0 failed
 T
 C examples/scrabble-score.md:L12
 E 0
 N 1
-H c73edf767d154535643130e326a9139668cd5e3f259dd31f50f76d88888fc5bf
-T ok score
-T test result: ok. 1 passed, 0 failed
+H 60b1d6dc67c4b185839a392826a964955bf373336368f39ac109dad2409c9899
+T ok score (11 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C examples/secret-handshake.md:L12
 E 0
 N 1
-H d77ee2beba99ee80937cafd85b1823d65ea75709d76c8a61a5a599cd7165b1d0
-T ok commands
-T test result: ok. 1 passed, 0 failed
+H 752c7e85cd4c3ab448407c98ecc2e2bb5c06ff1f6b7817947d0f087c9e905b0f
+T ok commands (11 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C examples/series.md:L12
 E 0
 N 1
-H fc9f2b586a35ab691a57e1e99b2f1bf9dc564b8beb25b4d40e3c1569aa9deaed
-T ok slices
-T ok errors
-T test result: ok. 2 passed, 0 failed
+H 708f2ca5c3656898246f32e5b8556d6b73817f60c91d7424a42aaef98c3d2c49
+T ok slices (6 cases)
+T ok errors (5 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C examples/sieve.md:L12
 E 0
@@ -924,32 +924,32 @@ T
 C examples/space-age.md:L12
 E 0
 N 1
-H d9537e1bfbfabb69b5c47885d25fcd43188b713d91d35ac1b308301d307b9460
-T ok age
+H 1353303cac4ceb5c285842529b99130ad59fe2904ea6e6046de18adbce4a6614
+T ok age (8 cases)
 T ok planet names
 T ok invalid planet causes error
-T test result: ok. 3 passed, 0 failed
+T test result: ok. 10 passed, 0 failed
 T
 C examples/spiral-matrix.md:L12
 E 0
 N 1
-H 08e70f53696785188815dfc763c143539276838e19753a1eb14b585ec85f2a80
-T ok spiral_matrix
-T test result: ok. 1 passed, 0 failed
+H ed0552c962690469801674b53677f9499855aba6b06de5f5ca0476c0bb351f32
+T ok spiral_matrix (6 cases)
+T test result: ok. 6 passed, 0 failed
 T
 C examples/sublist.md:L12
 E 0
 N 1
-H 861c8200bfb949eec721b2969bfb4b7f3f977ec66f8aebf06419533370f0242b
-T ok sublist
-T test result: ok. 1 passed, 0 failed
+H 4d6eb8e449f3bdbab8196121d00d0feaa420c3f87703f994d12dbf7d91371ff8
+T ok sublist (18 cases)
+T test result: ok. 18 passed, 0 failed
 T
 C examples/sum-of-multiples.md:L12
 E 0
 N 1
-H 1a97ac686796bb19083a16641be34982761bd03a685afd6fe5f731dcd9db8237
-T ok sums the multiples
-T test result: ok. 1 passed, 0 failed
+H 63945495e7a950c96607eadc7e379d7f247f5f4e37b2857eddeb7b4025e78d66
+T ok sums the multiples (16 cases)
+T test result: ok. 16 passed, 0 failed
 T
 C examples/tournament.md:L12
 E 0
@@ -973,26 +973,26 @@ T
 C examples/transpose.md:L12
 E 0
 N 1
-H d64386b0eb1ea130ddccc77be73f04a7cfeb41e632ed17b66b679fd62d8de7de
-T ok transpose
-T test result: ok. 1 passed, 0 failed
+H 88adf64716e6c8fa9cf77e9f1f16cf0544515b17ba56437a3fd9def2c5392866
+T ok transpose (12 cases)
+T test result: ok. 12 passed, 0 failed
 T
 C examples/triangle.md:L12
 E 0
 N 1
-H 08ff25ee4bbb1c8e52b7c4a5122be7b5208753fc406c4253585aadc1d36e29e9
-T ok equilateral triangle / equilateral?
-T ok isosceles triangle / isosceles?
-T ok scalene triangle / scalene?
-T test result: ok. 3 passed, 0 failed
+H bd7b2b87f844b210f957b54bb8e42efddc89e1912c780e6eb016d1f1c79d6611
+T ok equilateral triangle (5 cases)
+T ok isosceles triangle (9 cases)
+T ok scalene triangle (7 cases)
+T test result: ok. 21 passed, 0 failed
 T
 C examples/twelve-days.md:L12
 E 0
 N 1
-H 3a1661f24a09e2a761b12818884f524139f7a220aa8d775db3887b94deb3a284
-T ok verse / single verses
-T ok lyrics / several verses
-T test result: ok. 2 passed, 0 failed
+H 57c6bd7c0a340a14ea0936944437c5719ba338fcecea992adb0683bfdfb4b070
+T ok verse (12 cases)
+T ok lyrics (3 cases)
+T test result: ok. 15 passed, 0 failed
 T
 C examples/two-fer.md:L12
 E 0
@@ -1006,17 +1006,17 @@ T
 C examples/word-count.md:L12
 E 0
 N 1
-H 4b5a15a164187b561297d0bc82ed4b188c21af9fc4cfd34e214c2edc3274bd4a
-T ok counts words
-T test result: ok. 1 passed, 0 failed
+H 566c75a70d1451c009196f41deb73beca03203af151aaafb0acc732a412904b5
+T ok counts words (14 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C examples/wordy.md:L12
 E 0
 N 1
-H a3064a28a0f23ef5d2476cefb26b525dd96057938e5e14684f918bcb2433b81c
-T ok answers word problems
+H 0a29d5cf7e25309aba096bffceb606326dcee0c70df40099a72a73142b0a0fb0
+T ok answers word problems (27 cases)
 T ok division by zero
-T test result: ok. 2 passed, 0 failed
+T test result: ok. 28 passed, 0 failed
 T
 C ffi-and-dynamic.md:L157
 E 0
@@ -1353,7 +1353,13 @@ T Rex says woof
 T Rex says woof
 T 42
 T
-C interfaces-and-dispatch.md:L835
+C interfaces-and-dispatch.md:L772
+E 0
+N 0
+H 15cdfa28f6cda88b57fafe0e1b3dfbf7c1d6fbbee9a42897ccb6fb3ab309730b
+T dbg line 17: oldest_first = [#User{name: "Bo", age: 41}, #User{name: "Ann", age: 35}, #User{name: "Cara", age: 35}]
+T
+C interfaces-and-dispatch.md:L870
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da
@@ -2104,9 +2110,9 @@ T
 C testing.md:L160
 E 0
 N 1
-H 8467029eb90beb83e61d12991f5e32dca80dcb6fa67ec5a3ffcd5d873f0034a0
-T ok determines palindromes
-T test result: ok. 1 passed, 0 failed
+H c718fee8366293ac979eed122530defb267fe83a80f5e292df92d0345abfac04
+T ok determines palindromes (3 cases)
+T test result: ok. 3 passed, 0 failed
 T
 C testing.md:L19
 E 0
@@ -2115,14 +2121,14 @@ H 8eeca313765dd04281036cf844cec131b22a8e5e72a400c514cfdef774f77606
 T ok arithmetic has the expected shape
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L206
+C testing.md:L210
 E 0
 N 1
-H c8686871c85e80a4afd39b03eaa975daf7c13f00e537a10c6ca1d0a501b66956
-T ok leap years
-T test result: ok. 1 passed, 0 failed
+H ea7c0d4d7e80368e897f54858d9187a8804aa570cf4f7d7408f867a67805a552
+T ok leap years (3 cases)
+T test result: ok. 3 passed, 0 failed
 T
-C testing.md:L254
+C testing.md:L258
 E 0
 N 1
 H a529d2aef3956d5ef189622e65532fffad58bf2db7f89c3238addc7971a12287
@@ -2131,7 +2137,7 @@ T ok greets the name it reads
 T ok greets a stranger when there is no input
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L287
+C testing.md:L291
 E 0
 N 1
 H 689a5fa4b60f419109c4e4ef868b48fafd7281d6aa30e37edb55433bff24140d
@@ -2146,7 +2152,7 @@ T ok assert checks successful results
 T ok refute checks result errors
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L322
+C testing.md:L326
 E 0
 N 1
 H 11e6df1f55bd27672717d56bebed415683122c04b2efa0e8ef7dc0976d009a56
@@ -2155,7 +2161,7 @@ T hello, stranger
 T ok asks for a name, then an age
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L387
+C testing.md:L391
 E 0
 N 1
 H 29f9191f9f1843ac32f0130f1f324909f10c53f3ca9cfbdb082f6f379d988540
@@ -2164,7 +2170,7 @@ T  -5.0 C |   23.0 F
 T ok converts to Fahrenheit
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L416
+C testing.md:L420
 E 0
 N 1
 H f2bd4d358a0711cb60aa46191c1246f835d81388acdd02b91f70b68200206fc8
@@ -2172,7 +2178,7 @@ T ok user labels / setup value is explicit
 T ok user labels / a test may ignore the setup value
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L453
+C testing.md:L457
 E 0
 N 1
 H 6f7cc69cd602b57272358318906f7cbbca164ac2f14b83912bd321c886fd9426
@@ -2181,7 +2187,7 @@ T ok app-backed behavior / reads the booted field
 T ok app-backed behavior / a with line replaces a field for the rest of the body
 T test result: ok. 2 passed, 0 failed
 T
-C testing.md:L495
+C testing.md:L499
 E 0
 N 1
 H 5e5a6007494211f6690adb2b128d0333f87e2c428ddeb5a37b336cbbc10b226e
@@ -2197,7 +2203,7 @@ H 96e900cd5cd8591ae7f3c64c60673a9c8aee4155fb7162ba0bc6184787f16285
 T ok assert can destructure expected shapes
 T test result: ok. 1 passed, 0 failed
 T
-C testing.md:L608
+C testing.md:L612
 E 0
 N 1
 H c0acde33b41944882e0c12f7be13c75f744a1586675d7c6330663a0678faed48

@@ -80,6 +80,9 @@ type Capture struct {
 	test bool
 	// live, when set, receives every write as it is made (Stream).
 	live io.Writer
+	// rows is how many `subtests` rows the test case ran, and tables how
+	// many `subtests` statements are running in it (EnterSubtests).
+	rows, tables int
 }
 
 // InputIndent is the indentation of a line read in a capture's transcript,
@@ -135,6 +138,51 @@ func EnterReplay(parent *Frame, script ReplayScript) (*Frame, *Capture) {
 // that goes to the program's output.
 func EnterTestCapture(parent *Frame) (*Frame, *Capture) {
 	return enter(parent, &Capture{test: true})
+}
+
+// EnterSubtests starts a `subtests` statement in the test case running on
+// fr, and answers the call that ends it with the number of rows it ran to
+// their end (passed or failed). The rows count toward the case's cases
+// (CountCases). A statement that runs inside a row of another, through a
+// function the row calls, adds nothing: the outer row is the case. Outside a
+// test case it counts nothing.
+func EnterSubtests(fr *Frame) (done func(rows int)) {
+	c := testCaptureOf(fr)
+	if c == nil {
+		return func(int) {}
+	}
+	c.mu.Lock()
+	c.tables++
+	outermost := c.tables == 1
+	c.mu.Unlock()
+	return func(rows int) {
+		c.mu.Lock()
+		c.tables--
+		if outermost {
+			c.rows += rows
+		}
+		c.mu.Unlock()
+	}
+}
+
+// testCaptureOf is the innermost test capture on fr, or nil.
+func testCaptureOf(fr *Frame) *Capture {
+	if fr == nil {
+		return nil
+	}
+	for c := fr.capture; c != nil; c = c.outer {
+		if c.test {
+			return c
+		}
+	}
+	return nil
+}
+
+// subtestRows is how many `subtests` rows the test case c collects ran.
+func (c *Capture) subtestRows() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.rows
 }
 
 // Stream makes every write to c reach w as well, as it is made: a debugger

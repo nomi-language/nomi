@@ -287,8 +287,8 @@ func TestExpectation_Corpus(t *testing.T) {
 		Population: "corpus",
 		What: "one record per .nomi file under tests/, run as the command that owns it " +
 			"would: `nomi test` when the file declares tests, `nomi run` otherwise, through the " +
-			"generated FFI wrapper when the project needs one. N is the declared case count " +
-			"vmcmd.Tester.File answers.",
+			"generated FFI wrapper when the project needs one. N is the case count " +
+			"vmcmd.Tester.File answers, each `subtests` row a case.",
 	}
 	for _, rel := range nomiFilesUnder(t, root) {
 		o, cases := runCommand(t, filepath.Join(root, rel))
@@ -479,7 +479,7 @@ func runTourBlock(b doctest.Block) (observed, bool) {
 			rep.Blocked(c.Name, c.Blocked, c.Output)
 			continue
 		}
-		rep.Result(c.Name, c.Err, c.Output)
+		rep.Result(c.Name, c.Err, c.Output, c.Count())
 	}
 	o := observed{}
 	if rep.Summary() {

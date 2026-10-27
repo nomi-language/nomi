@@ -7,7 +7,7 @@ description: "Translate English words to Pig Latin by moving each word's leading
 
 Translate English words to Pig Latin by moving each word's leading consonants to its end and adding "ay".
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/pig-latin) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/pig-latin) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
 
 ```nomi-run
 // FILE: pig_latin.nomi
@@ -26,7 +26,7 @@ pub fn translate(phrase: String) -> String {
 
 fn translate_word(word: String) -> String {
     onset = onset_length(Iter.to_list(word))
-    String.slice(word, onset, String.length(word)) + String.slice(word, 0, onset) + "ay"
+    String.drop(word, onset) + String.take(word, onset) + "ay"
 }
 
 /// How many letters at the start of a word move to its end: the consonants
@@ -54,99 +54,81 @@ fn consonants(letters: List<String>) -> Int {
 // FILE: pig_latin_test.nomi
 import pig_latin
 
-group "ay is added to words that start with vowels" {
-    test "translate" {
-        cases = [
-            #("word beginning with a", "apple", "appleay"),
-            #("word beginning with e", "ear", "earay"),
-            #("word beginning with i", "igloo", "iglooay"),
-            #("word beginning with o", "object", "objectay"),
-            #("word beginning with u", "under", "underay"),
-            #("word beginning with a vowel and followed by a qu", "equal", "equalay"),
-        ]
+test "ay is added to words that start with vowels" {
+    cases = [
+        #("word beginning with a", "apple", "appleay"),
+        #("word beginning with e", "ear", "earay"),
+        #("word beginning with i", "igloo", "iglooay"),
+        #("word beginning with o", "object", "objectay"),
+        #("word beginning with u", "under", "underay"),
+        #("word beginning with a vowel and followed by a qu", "equal", "equalay"),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert pig_latin.translate(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert pig_latin.translate(phrase) == expected
     }
 }
 
-group "first letter and ay are moved to the end of words that start with consonants" {
-    test "translate" {
-        cases = [
-            #("word beginning with p", "pig", "igpay"),
-            #("word beginning with k", "koala", "oalakay"),
-            #("word beginning with x", "xenon", "enonxay"),
-            #("word beginning with q without a following u", "qat", "atqay"),
-            #("word beginning with consonant and vowel containing qu", "liquid", "iquidlay"),
-        ]
+test "first letter and ay are moved to the end of words that start with consonants" {
+    cases = [
+        #("word beginning with p", "pig", "igpay"),
+        #("word beginning with k", "koala", "oalakay"),
+        #("word beginning with x", "xenon", "enonxay"),
+        #("word beginning with q without a following u", "qat", "atqay"),
+        #("word beginning with consonant and vowel containing qu", "liquid", "iquidlay"),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert pig_latin.translate(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert pig_latin.translate(phrase) == expected
     }
 }
 
-group "some letter clusters are treated like a single consonant" {
-    test "translate" {
-        cases = [
-            #("word beginning with ch", "chair", "airchay"),
-            #("word beginning with qu", "queen", "eenquay"),
-            #("word beginning with qu and a preceding consonant", "square", "aresquay"),
-            #("word beginning with th", "therapy", "erapythay"),
-            #("word beginning with thr", "thrush", "ushthray"),
-            #("word beginning with sch", "school", "oolschay"),
-        ]
+test "some letter clusters are treated like a single consonant" {
+    cases = [
+        #("word beginning with ch", "chair", "airchay"),
+        #("word beginning with qu", "queen", "eenquay"),
+        #("word beginning with qu and a preceding consonant", "square", "aresquay"),
+        #("word beginning with th", "therapy", "erapythay"),
+        #("word beginning with thr", "thrush", "ushthray"),
+        #("word beginning with sch", "school", "oolschay"),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert pig_latin.translate(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert pig_latin.translate(phrase) == expected
     }
 }
 
-group "some letter clusters are treated like a single vowel" {
-    test "translate" {
-        cases = [
-            #("word beginning with yt", "yttria", "yttriaay"),
-            #("word beginning with xr", "xray", "xrayay"),
-        ]
+test "some letter clusters are treated like a single vowel" {
+    cases = [
+        #("word beginning with yt", "yttria", "yttriaay"),
+        #("word beginning with xr", "xray", "xrayay"),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert pig_latin.translate(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert pig_latin.translate(phrase) == expected
     }
 }
 
-group "position of y in a word determines if it is a consonant or a vowel" {
-    test "translate" {
-        cases = [
-            #("y is treated like a consonant at the beginning of a word", "yellow", "ellowyay"),
-            #("y is treated like a vowel at the end of a consonant cluster", "rhythm", "ythmrhay"),
-            #("y as second letter in two letter word", "my", "ymay"),
-        ]
+test "position of y in a word determines if it is a consonant or a vowel" {
+    cases = [
+        #("y is treated like a consonant at the beginning of a word", "yellow", "ellowyay"),
+        #("y is treated like a vowel at the end of a consonant cluster", "rhythm", "ythmrhay"),
+        #("y as second letter in two letter word", "my", "ymay"),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert pig_latin.translate(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert pig_latin.translate(phrase) == expected
     }
 }
 
-group "phrases are translated" {
-    test "a whole phrase" {
-        assert pig_latin.translate("quick fast run") == "ickquay astfay unray"
-    }
+test "phrases are translated" {
+    assert pig_latin.translate("quick fast run") == "ickquay astfay unray"
 }
 ```
 
 ## How it's written
 
-- The four rules become one count, `onset_length`: how many letters at the start of the word move. The word is then two `String.slice` calls and `"ay"`.
+- The four rules become one count, `onset_length`: how many letters at the start of the word move. The word is then `String.drop(word, onset)`, `String.take(word, onset)` and `"ay"`.
 - The count walks the word's letters with list patterns. `["q", "u", .._]` is rule 3, `["x", "r", .._] or ["y", "t", .._]` is the `xr`/`yt` part of rule 1, and a leading `["y", ..rest]` makes `y` a consonant only as the first letter, which is rule 4 without a flag parameter.
 - The vowels are a `once` Set, looked up with `Set.contains?` in a guard; `y` is among them because after the first letter it acts as one.
-- The canonical groups are `group` blocks holding one `subtests` table each; the one-case "phrases are translated" group is a plain test.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** No function gives the rest of a string from an index, so the tail is `String.slice(word, onset, String.length(word))`, or `word |> Iter.drop(onset) |> String.join()`. Rust writes `&word[onset..]`, Gleam `string.drop_start(word, onset)`, and Elixir `String.slice(word, onset..-1//1)`.
+- Each canonical group is a test named by the group's description, holding one `subtests` table; the one-case "phrases are translated" group is a plain test.

@@ -1,6 +1,7 @@
 package rt
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -13,7 +14,7 @@ import (
 // One implementation matters more for Decimal than for Int, because these
 // rules are not arithmetic that a second implementation would get visibly
 // wrong -- they are rounding and conversion policies, and a second
-// implementation gets those wrong quietly. `Decimal.from_float(0.1, 2,
+// implementation gets those wrong quietly. `Float.to_decimal(0.1, 2,
 // HalfEven)` is `Some(0.10d)` only because the float's exact binary value is
 // taken as a rational first; an implementation that went through `%g` would
 // answer `Some(0.10d)` too, and would answer differently at some scale nobody
@@ -24,14 +25,14 @@ import (
 // (`Decimal.divide: decimal: division by zero`). decimalFault is that prefix,
 // once.
 
-// DecimalFromInt is `Decimal.from_int`: exact, scale 0, total.
-func DecimalFromInt(n int64) Decimal {
+// IntToDecimal is `Int.to_decimal`: exact, scale 0, total.
+func IntToDecimal(n int64) Decimal {
 	return Decimal{Mantissa: big.NewInt(n), Scale: 0}
 }
 
-// DecimalFromString is `Decimal.from_string`, and None matters here: it
+// StringToDecimal is `String.to_decimal`, and None matters here: it
 // parses plain base-10 only, so "1e5" is None rather than 100000.
-func DecimalFromString(s string) Maybe[Decimal] {
+func StringToDecimal(s string) Maybe[Decimal] {
 	d, err := ParseDecimal(s)
 	if err != nil {
 		return None[Decimal]()
@@ -67,7 +68,7 @@ func DecimalToFloat(d Decimal) float64 {
 	return f
 }
 
-// DecimalFromFloat is `Decimal.from_float` at an explicit scale and mode.
+// FloatToDecimal is `Float.to_decimal` at an explicit scale and mode.
 //
 // NaN and ±Inf are None. Everything else goes through the float's exact binary
 // value as a rational, which is the only way the answer is honest: 0.1 as a
@@ -77,7 +78,7 @@ func DecimalToFloat(d Decimal) float64 {
 //
 // Traps only for RoundUnnecessary on an inexact value, which is that mode's
 // entire contract.
-func DecimalFromFloat(f float64, scale int64, mode RoundingMode) Maybe[Decimal] {
+func FloatToDecimal(f float64, scale int64, mode RoundingMode) Maybe[Decimal] {
 	if math.IsNaN(f) || math.IsInf(f, 0) {
 		return None[Decimal]()
 	}
@@ -87,7 +88,7 @@ func DecimalFromFloat(f float64, scale int64, mode RoundingMode) Maybe[Decimal] 
 	}
 	rounded, err := RatToDecimal(rat).Round(int32(scale), mode)
 	if err != nil {
-		decimalFault("Decimal.from_float", err)
+		decimalFault("Float.to_decimal", err)
 	}
 	return Some(rounded)
 }
@@ -134,6 +135,67 @@ func DecimalRound(d Decimal, scale int64, mode RoundingMode) Decimal {
 // decimalFault traps with a Decimal std function's fault: the function's Nomi
 // name, then the arithmetic's own error.
 func decimalFault(fn string, err error) { Trap(fn + ": " + err.Error()) }
+
+// DecimalPow is `Decimal.pow`: d multiplied by itself exp times, exactly,
+// at scale exp times d's (1d at scale 0 for exp 0). A negative exponent
+// traps, since its answer is a quotient that may not terminate and that
+// `Decimal.divide` rounds by a named mode; so does a scale past Decimal's.
+func DecimalPow(d Decimal, exp int64) Decimal {
+	if exp < 0 {
+		Trap(fmt.Sprintf("Decimal.pow: negative exponent %d: divide 1d by the power with Decimal.divide, which names a scale and a rounding mode", exp))
+	}
+	// Past 2^31 the scale overflows unless it is 0, and the digits run past
+	// what memory holds unless the mantissa is 0 or ±1.
+	huge := exp > math.MaxInt32
+	scale := int64(d.Scale) * min(exp, math.MaxInt32+1)
+	if (huge && (d.Scale != 0 || d.MantissaOrZero().CmpAbs(bigOne) > 0)) || scale > math.MaxInt32 || scale < math.MinInt32 {
+		Trap(fmt.Sprintf("Decimal.pow: the power of %s to %d has more digits than a Decimal holds", d.Display(), exp))
+	}
+	m := new(big.Int).Exp(d.MantissaOrZero(), big.NewInt(exp), nil)
+	return Decimal{Mantissa: m, Scale: int32(scale)}
+}
+
+// DecimalSqrt is `Decimal.sqrt`: the square root of d to exactly scale
+// digits after the point, rounded by mode as `Decimal.divide` rounds its
+// quotient. A negative d traps, and so does RoundUnnecessary when the root
+// does not end within scale digits.
+//
+// With d = m / 10^k, the root at scale s is sqrt(m * 10^(2s - k)) units of
+// 10^-s, so the answer is the integer square root q of A / B, where A and B
+// carry the power of ten on whichever side it is positive. The root is
+// exact when q*q*B == A, and above the half when 4A > (2q+1)^2 * B.
+func DecimalSqrt(d Decimal, scale int64, mode RoundingMode) Decimal {
+	if d.Sign() < 0 {
+		Trap(fmt.Sprintf("Decimal.sqrt: negative number %s", d.Display()))
+	}
+	s := int32(scale)
+	a := new(big.Int).Set(d.MantissaOrZero())
+	b := big.NewInt(1)
+	if t := 2*int64(s) - int64(d.Scale); t >= 0 {
+		a.Mul(a, pow10(int32(t)))
+	} else {
+		b = pow10(int32(-t))
+	}
+	q := new(big.Int).Sqrt(new(big.Int).Quo(a, b))
+	// r is how far A is past q's square, in B units: 4(A - q^2 B), against
+	// (4q + 1) B, the distance from q^2 to (q + 1/2)^2. applyRounding
+	// compares twice its remainder with its divisor, so the divisor is
+	// twice that distance.
+	sq := new(big.Int).Mul(q, q)
+	r := new(big.Int).Sub(a, sq.Mul(sq, b))
+	if r.Sign() == 0 {
+		return Decimal{Mantissa: q, Scale: s}
+	}
+	if mode == RoundUnnecessary {
+		Trap(fmt.Sprintf("Decimal.sqrt: the square root of %s is not exact at scale %d but mode is Unnecessary", d.Display(), scale))
+	}
+	r.Lsh(r, 2)
+	half := new(big.Int).Lsh(q, 2)
+	half.Add(half, bigOne)
+	half.Mul(half, b)
+	half.Lsh(half, 1)
+	return Decimal{Mantissa: applyRounding(q, r, half, 1, mode), Scale: s}
+}
 
 // DecimalNormalize is `Decimal.normalize`: minimal scale, same value.
 func DecimalNormalize(d Decimal) Decimal { return d.Normalize() }

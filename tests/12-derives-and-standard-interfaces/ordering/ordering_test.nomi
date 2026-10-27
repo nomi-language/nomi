@@ -63,13 +63,20 @@ test "ordering operators require Comparable for named structs" {
     assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Comparable` for `Point`")
 }
 
-test "ordering operators reject tuple and anonymous structural values" {
+test "ordering operators order tuples by element and reject anonymous structs" {
+    assert #(1, 2) < #(1, 3)
+    assert #(2, "a") > #(1, "z")
+    assert Comparable.compare(#(1, "a"), #(1, "a")) == Ordering.Equal
+
     tuple_diagnostics = compiler.check(
         """
+          struct Point {
+            x: Int
+          }
+
           fn main() {
-            a = #(1, 2)
-            b = #(3, 4)
-            _ = a < b
+            a = #(1, #Point{x: 2})
+            _ = a < a
           }
         """
     )
@@ -85,11 +92,7 @@ test "ordering operators reject tuple and anonymous structural values" {
     )
 
     assert Iter.count(tuple_diagnostics) == 1
-
-    assert test_helpers.has_diagnostic?(
-        tuple_diagnostics,
-        "tuple types cannot implement `Comparable`",
-    )
+    assert test_helpers.has_diagnostic?(tuple_diagnostics, "no impl of `Comparable` for `Point`")
 
     assert Iter.count(anon_diagnostics) == 1
     assert test_helpers.has_diagnostic?(anon_diagnostics, "no impl of `Comparable` for `#{x: Int}`")

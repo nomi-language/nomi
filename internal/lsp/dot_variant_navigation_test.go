@@ -295,7 +295,7 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			hover: "Tone.Warm", decl: "tones.nomi:1:4",
 			uses: []string{m("tones.tint(.Warm)", "Warm"), "tones.nomi:7:13"}},
 		{name: "std function argument", marker: "[3, 1, 2], .Descending", word: "Descending",
-			hover: "Direction.Descending", decl: "comparable.nomi:24:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
+			hover: "Direction.Descending", decl: "comparable.nomi:58:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
 		{name: "prelude enum", marker: "= .Some(1)", written: "= Maybe.Some(1)", word: "Some",
 			hover: "Maybe.Some(Int) -> Maybe<Int>", decl: "maybe.nomi:20:4", uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
 		{name: "lambda result", marker: "fn _x, _y -> .Less", written: "fn _x, _y -> Ordering.Less", word: "Less",

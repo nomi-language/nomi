@@ -281,7 +281,18 @@ func Update(root, only string, opts Options) ([]Change, error) {
 	moved := map[string]string{}
 	var raise []module.Version
 	for _, m := range targets {
-		v, err := f.upgrade(m)
+		upgrade := f.upgrade
+		if strings.HasPrefix(m.Path, libPrefix) {
+			// A lib/ module has no tags: its latest is the latest commit.
+			upgrade = func(m module.Version) (string, error) {
+				v, err := f.latest(m.Path)
+				if err != nil || semver.Compare(v, m.Version) <= 0 {
+					return m.Version, err
+				}
+				return v, nil
+			}
+		}
+		v, err := upgrade(m)
 		if err != nil {
 			return nil, fmt.Errorf("finding the latest version of %s: %w", m.Path, err)
 		}
@@ -332,7 +343,7 @@ func Update(root, only string, opts Options) ([]Change, error) {
 				listed[r.Path] = r.Version
 			}
 		}
-		return nil
+		return alignLib(mf, "")
 	}); err != nil {
 		return nil, err
 	}

@@ -1,19 +1,24 @@
 import {
     add.Add
     bool.Bool.{self, False, True}
+    bytes.Byte
+    code_points.Codepoint
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
     debug.Debug
+    decimal.Decimal
     discrete.Discrete
     display.Display
     divide.Divide
     equatable.Equatable
     float.Float
     hashable.Hashable
+    lists.List
     locale.Locale
     localize.NumberParseError
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
+    productable.Productable
     results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
@@ -22,8 +27,9 @@ import {
 }
 
 //# Operations on the 64-bit signed `Int` type: total division gated on the
-//# refinement types `NonZeroInt`/`PositiveInt`, floored modulo, conversion to
-//# `Float`, wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
+//# refinement types `NonZeroInt`/`PositiveInt`, floored modulo, powers, integer
+//# square roots, `gcd`/`lcm`, digits in a base, conversion to `Float`,
+//# wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
 //# arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable` impls give `Int` its
 //# string form, hashing, and total order.
 
@@ -69,6 +75,29 @@ impl Int {
     //! assert Int.to_float(-7) == -7.0
     //
     pub host fn to_float(x: Int) -> Float
+
+    /// Converts an Int to a Decimal exactly, at scale 0. Total.
+    //! assert Int.to_decimal(42) == 42d
+    //! assert Int.to_decimal(-7) == -7d
+    //
+    pub host fn to_decimal(n: Int) -> Decimal
+
+    /// Converts an Int to a Byte when it is in range 0..255.
+    //! b = try Int.to_byte(65)
+    //! assert Byte.to_int(b) == 65
+    //! assert Int.to_byte(-1) == None
+    //! assert Int.to_byte(256) == None
+    //
+    pub host fn to_byte(n: Int) -> Maybe<Byte>
+
+    /// Converts an Int to a Codepoint when it is a Unicode scalar value:
+    /// `0` through `0x10FFFF`, outside the UTF-16 surrogate block
+    /// `0xD800` through `0xDFFF`.
+    //! assert Int.to_codepoint(65) == Some('A')
+    //! assert Int.to_codepoint(55_296) == None
+    //! assert Int.to_codepoint(1_114_112) == None
+    //
+    pub host fn to_codepoint(n: Int) -> Maybe<Codepoint>
 
     /// Wrapping (modular, two's-complement) addition. Unlike `+`, which traps on
     /// overflow, this silently wraps — for hashing, checksums, and any algorithm
@@ -188,6 +217,79 @@ impl Int {
         if a >= b { a } else { b }
     }
 
+    /// `n` multiplied by itself `exp` times; `Int.pow(n, 0)` is `1` for every
+    /// `n`, `0` included. A power past the Int range traps with an integer
+    /// overflow, as `*` does, and a negative `exp` traps: its answer is a
+    /// fraction, which is `Float.pow`'s.
+    //! assert Int.pow(2, 10) == 1024
+    //! assert Int.pow(-3, 3) == -27
+    //! assert Int.pow(0, 0) == 1
+    //! assert Int.pow(-2, 63) == Int.min_value
+    //
+    pub host fn pow(n: Int, exp: Int) -> Int
+
+    /// The integer square root of `n`: the greatest Int whose square is at
+    /// most `n`, so the root rounded down. A negative `n` traps, as a
+    /// negative `exp` does in `Int.pow`; check the sign first when it comes
+    /// from data.
+    //! assert Int.sqrt(16) == 4
+    //! assert Int.sqrt(15) == 3
+    //! assert Int.sqrt(0) == 0
+    //! assert Int.sqrt(Int.max_value) == 3037000499
+    //
+    pub host fn sqrt(n: Int) -> Int
+
+    /// The greatest common divisor of `a` and `b`: the largest Int that
+    /// divides both, never negative whatever their signs. `Int.gcd(n, 0)` is
+    /// `Int.abs(n)` and `Int.gcd(0, 0)` is `0`. The one answer past the Int
+    /// range, 2^63 from `Int.gcd(Int.min_value, 0)`, traps with an integer
+    /// overflow.
+    //! assert Int.gcd(12, 18) == 6
+    //! assert Int.gcd(-12, 18) == 6
+    //! assert Int.gcd(7, 0) == 7
+    //! assert Int.gcd(0, 0) == 0
+    //
+    pub host fn gcd(a: Int, b: Int) -> Int
+
+    /// The least common multiple of `a` and `b`: the smallest non-negative
+    /// Int both divide, and `0` when either is `0`. A multiple past the Int
+    /// range traps with an integer overflow.
+    //! assert Int.lcm(4, 6) == 12
+    //! assert Int.lcm(-4, 6) == 12
+    //! assert Int.lcm(5, 0) == 0
+    //
+    pub host fn lcm(a: Int, b: Int) -> Int
+
+    /// The digits of `n` in `base`, most significant first: `[1, 2, 3]` for
+    /// `123`, and `[0]` for `0`. The digits are of a non-negative Int, so a
+    /// negative `n` traps; `Int.abs` it first when its sign does not
+    /// matter. A `base` below 2 traps. `Int.from_digits` reads them back.
+    //! assert Int.to_digits(123) == [1, 2, 3]
+    //! assert Int.to_digits(0) == [0]
+    //! assert Int.to_digits(10, 2) == [1, 0, 1, 0]
+    //! assert Int.to_digits(255, 16) == [15, 15]
+    //
+    pub fn to_digits(n: Int, base: Int = 10) -> List<Int> {
+        int_to_digits(n, base)
+    }
+
+    /// The Int whose digits in `base`, most significant first, are `digits`,
+    /// as `Int.to_digits` writes them, and `Some(0)` for no digits. `None`
+    /// when a digit is outside `0` to `base - 1`, or the number is past the
+    /// Int range, as `String.to_int` answers for text that is no Int. A
+    /// `base` below 2 traps.
+    //! assert Int.from_digits([1, 2, 3]) == Some(123)
+    //! assert Int.from_digits([1, 0, 1, 0], 2) == Some(10)
+    //! assert Int.from_digits([]) == Some(0)
+    //! assert Int.from_digits([1, 2], 2) == None
+    //! assert Int.from_digits([-1]) == None
+    //! assert Int.from_digits(Int.to_digits(Int.max_value)) == Some(Int.max_value)
+    //! assert Int.from_digits([9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]) == None
+    //
+    pub fn from_digits(digits: List<Int>, base: Int = 10) -> Maybe<Int> {
+        int_from_digits(digits, base)
+    }
+
     /// `n` as a reader of `locale` writes it: the locale's digits, minus
     /// sign and group separator, grouped as the locale groups (`hi` writes
     /// lakhs). `grouping: False` leaves the separators out, and `min_digits`
@@ -227,6 +329,10 @@ impl Int {
     }
 }
 
+host fn int_to_digits(n: Int, base: Int) -> List<Int>
+
+host fn int_from_digits(digits: List<Int>, base: Int) -> Maybe<Int>
+
 host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> String
 
 host fn int_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Int, NumberParseError>
@@ -260,6 +366,16 @@ impl Subtract<Int, Int> for Int {
 
 impl Multiply<Int, Int> for Int {
     host fn multiply(lhs: Int, rhs: Int) -> Int
+}
+
+impl Productable for Int {
+    /// The product of no Ints: `1`.
+    //! assert Int.empty_product() == 1
+    //! assert 7 * Int.empty_product() == 7
+    //
+    fn empty_product() -> Int {
+        1
+    }
 }
 
 impl Divide<Int, Int> for Int {

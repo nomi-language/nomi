@@ -54,57 +54,51 @@ pub fn scalene?(sides: #(Float, Float, Float)) -> Bool {
 // FILE: triangle_test.nomi
 import triangle
 
-group "equilateral triangle" {
-    test "equilateral?" {
-        cases = [
-            #("all sides are equal", #(2.0, 2.0, 2.0), True),
-            #("any side is unequal", #(2.0, 3.0, 2.0), False),
-            #("no sides are equal", #(5.0, 4.0, 6.0), False),
-            #("all zero sides is not a triangle", #(0.0, 0.0, 0.0), False),
-            #("sides may be floats", #(0.5, 0.5, 0.5), True),
-        ]
+test "equilateral triangle" {
+    cases = [
+        #("all sides are equal", #(2.0, 2.0, 2.0), True),
+        #("any side is unequal", #(2.0, 3.0, 2.0), False),
+        #("no sides are equal", #(5.0, 4.0, 6.0), False),
+        #("all zero sides is not a triangle", #(0.0, 0.0, 0.0), False),
+        #("sides may be floats", #(0.5, 0.5, 0.5), True),
+    ]
 
-        subtests cases, #(description, sides, expected), description {
-            assert triangle.equilateral?(sides) == expected
-        }
+    subtests cases, #(description, sides, expected), description {
+        assert triangle.equilateral?(sides) == expected
     }
 }
 
-group "isosceles triangle" {
-    test "isosceles?" {
-        cases = [
-            #("last two sides are equal", #(3.0, 4.0, 4.0), True),
-            #("first two sides are equal", #(4.0, 4.0, 3.0), True),
-            #("first and last sides are equal", #(4.0, 3.0, 4.0), True),
-            #("equilateral triangles are also isosceles", #(4.0, 4.0, 4.0), True),
-            #("no sides are equal", #(2.0, 3.0, 4.0), False),
-            #("first triangle inequality violation", #(1.0, 1.0, 3.0), False),
-            #("second triangle inequality violation", #(1.0, 3.0, 1.0), False),
-            #("third triangle inequality violation", #(3.0, 1.0, 1.0), False),
-            #("sides may be floats", #(0.5, 0.4, 0.5), True),
-        ]
+test "isosceles triangle" {
+    cases = [
+        #("last two sides are equal", #(3.0, 4.0, 4.0), True),
+        #("first two sides are equal", #(4.0, 4.0, 3.0), True),
+        #("first and last sides are equal", #(4.0, 3.0, 4.0), True),
+        #("equilateral triangles are also isosceles", #(4.0, 4.0, 4.0), True),
+        #("no sides are equal", #(2.0, 3.0, 4.0), False),
+        #("first triangle inequality violation", #(1.0, 1.0, 3.0), False),
+        #("second triangle inequality violation", #(1.0, 3.0, 1.0), False),
+        #("third triangle inequality violation", #(3.0, 1.0, 1.0), False),
+        #("sides may be floats", #(0.5, 0.4, 0.5), True),
+    ]
 
-        subtests cases, #(description, sides, expected), description {
-            assert triangle.isosceles?(sides) == expected
-        }
+    subtests cases, #(description, sides, expected), description {
+        assert triangle.isosceles?(sides) == expected
     }
 }
 
-group "scalene triangle" {
-    test "scalene?" {
-        cases = [
-            #("no sides are equal", #(5.0, 4.0, 6.0), True),
-            #("all sides are equal", #(4.0, 4.0, 4.0), False),
-            #("first and second sides are equal", #(4.0, 4.0, 3.0), False),
-            #("first and third sides are equal", #(3.0, 4.0, 3.0), False),
-            #("second and third sides are equal", #(4.0, 3.0, 3.0), False),
-            #("may not violate triangle inequality", #(7.0, 3.0, 2.0), False),
-            #("sides may be floats", #(0.5, 0.4, 0.6), True),
-        ]
+test "scalene triangle" {
+    cases = [
+        #("no sides are equal", #(5.0, 4.0, 6.0), True),
+        #("all sides are equal", #(4.0, 4.0, 4.0), False),
+        #("first and second sides are equal", #(4.0, 4.0, 3.0), False),
+        #("first and third sides are equal", #(3.0, 4.0, 3.0), False),
+        #("second and third sides are equal", #(4.0, 3.0, 3.0), False),
+        #("may not violate triangle inequality", #(7.0, 3.0, 2.0), False),
+        #("sides may be floats", #(0.5, 0.4, 0.6), True),
+    ]
 
-        subtests cases, #(description, sides, expected), description {
-            assert triangle.scalene?(sides) == expected
-        }
+    subtests cases, #(description, sides, expected), description {
+        assert triangle.scalene?(sides) == expected
     }
 }
 ```
@@ -114,5 +108,5 @@ group "scalene triangle" {
 - Sides are a `#(Float, Float, Float)` tuple, since the canonical data includes fractional sides and Nomi does not mix `Int` and `Float`. Whole sides are written `2.0`.
 - `kind` answers `Maybe<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
 - The kind comes from the size of the set of sides (1, 2 or 3 distinct lengths) rather than pairwise comparisons.
-- Each canonical group is a `group` holding one `subtests` table.
+- Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
 - `isosceles?` matches `Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one arm says both kinds count.

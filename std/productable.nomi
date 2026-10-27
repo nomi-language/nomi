@@ -1,0 +1,25 @@
+import {
+    int.Int
+    iter.Iter
+}
+
+/// A type whose values can be multiplied together: `empty_product()` is the
+/// product of no values, so multiplying by it changes nothing:
+/// `T.multiply(x, T.empty_product()) == x`.
+///
+/// `Iter.product` starts from `T.empty_product()` and multiplies each
+/// element with `*`, so a type implements `Productable` beside a
+/// `Multiply<T, T>` whose `*` takes two values of the type and returns one.
+/// Nomi has no interface inheritance, so a function that multiplies writes
+/// both bounds: `where T: Multiply<T, T> and Productable`.
+///
+/// `empty_product()` is the one value `*` leaves alone: `1` for Int, `1.0`
+/// for Float and `1d` for Decimal. A type whose `*` takes another type on
+/// the right, such as Money times a count or a Duration times a factor,
+/// does not implement it.
+//! assert Int.empty_product() == 1
+//! assert Iter.product([2, 3, 4]) == 24
+//
+pub interface Productable {
+    fn empty_product() -> self
+}

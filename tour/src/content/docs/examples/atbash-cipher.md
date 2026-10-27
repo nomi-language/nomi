@@ -55,55 +55,51 @@ fn swap(cp: Codepoint) -> Maybe<Codepoint> {
 // FILE: atbash_cipher_test.nomi
 import atbash_cipher
 
-group "encode" {
-    test "encodes" {
-        cases = [
-            #("encode yes", "yes", "bvh"),
-            #("encode no", "no", "ml"),
-            #("encode OMG", "OMG", "lnt"),
-            #("encode spaces", "O M G", "lnt"),
-            #("encode mindblowingly", "mindblowingly", "nrmwy oldrm tob"),
-            #("encode numbers", "Testing,1 2 3, testing.", "gvhgr mt123 gvhgr mt"),
-            #("encode deep thought", "Truth is fiction.", "gifgs rhurx grlm"),
-            #(
-                "encode all the letters",
-                "The quick brown fox jumps over the lazy dog.",
-                "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
-            ),
-        ]
+test "encode" {
+    cases = [
+        #("encode yes", "yes", "bvh"),
+        #("encode no", "no", "ml"),
+        #("encode OMG", "OMG", "lnt"),
+        #("encode spaces", "O M G", "lnt"),
+        #("encode mindblowingly", "mindblowingly", "nrmwy oldrm tob"),
+        #("encode numbers", "Testing,1 2 3, testing.", "gvhgr mt123 gvhgr mt"),
+        #("encode deep thought", "Truth is fiction.", "gifgs rhurx grlm"),
+        #(
+            "encode all the letters",
+            "The quick brown fox jumps over the lazy dog.",
+            "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
+        ),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert atbash_cipher.encode(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert atbash_cipher.encode(phrase) == expected
     }
 }
 
-group "decode" {
-    test "decodes" {
-        cases = [
-            #("decode exercism", "vcvix rhn", "exercism"),
-            #(
-                "decode a sentence",
-                "zmlyh gzxov rhlug vmzhg vkkrm thglm v",
-                "anobstacleisoftenasteppingstone",
-            ),
-            #("decode numbers", "gvhgr mt123 gvhgr mt", "testing123testing"),
-            #(
-                "decode all the letters",
-                "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
-                "thequickbrownfoxjumpsoverthelazydog",
-            ),
-            #("decode with too many spaces", "vc vix    r hn", "exercism"),
-            #(
-                "decode with no spaces",
-                "zmlyhgzxovrhlugvmzhgvkkrmthglmv",
-                "anobstacleisoftenasteppingstone",
-            ),
-        ]
+test "decode" {
+    cases = [
+        #("decode exercism", "vcvix rhn", "exercism"),
+        #(
+            "decode a sentence",
+            "zmlyh gzxov rhlug vmzhg vkkrm thglm v",
+            "anobstacleisoftenasteppingstone",
+        ),
+        #("decode numbers", "gvhgr mt123 gvhgr mt", "testing123testing"),
+        #(
+            "decode all the letters",
+            "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
+            "thequickbrownfoxjumpsoverthelazydog",
+        ),
+        #("decode with too many spaces", "vc vix    r hn", "exercism"),
+        #(
+            "decode with no spaces",
+            "zmlyhgzxovrhlugvmzhgvkkrmthglmv",
+            "anobstacleisoftenasteppingstone",
+        ),
+    ]
 
-        subtests cases, #(description, phrase, expected), description {
-            assert atbash_cipher.decode(phrase) == expected
-        }
+    subtests cases, #(description, phrase, expected), description {
+        assert atbash_cipher.decode(phrase) == expected
     }
 }
 ```
@@ -113,7 +109,7 @@ group "decode" {
 - The cipher is a map from each letter to its mirror, `Iter.zip('a'..='z', Iter.reverse('a'..='z')) |> Iter.to_map()`, built once. Arithmetic on code point numbers (`219 - n`) was the other option; the map shows the two alphabets the description shows.
 - `translate` works on code points, since the cipher is ASCII. `swap` keeps a digit and looks a letter up in the map, so anything else answers `None` and `Maybe.values` drops it.
 - The cipher is its own inverse, so `encode` and `decode` share `translate` and differ only in how they join the letters: groups of five from `Iter.chunks(5)`, or one run.
-- Each canonical group is a `group` holding one `subtests` table.
+- Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
 
 ## Rough edges
 

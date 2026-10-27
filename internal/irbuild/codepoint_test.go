@@ -7,17 +7,16 @@ import (
 
 // `std/code_points.Codepoint` as an anchored stdlib opaque newtype.
 //
-// Nine of the eleven declarations over Codepoint are ordinary Nomi bodies that
-// LOWER, so the program runs std's own validation predicate rather than a Go
-// copy of it. The two rt functions and the nominal identity of the type are
-// what the absolute pins below are for.
+// Most declarations over Codepoint are ordinary Nomi bodies that LOWER. The
+// rt functions (the validation in `Int.to_codepoint` among them) and the
+// nominal identity of the type are what the absolute pins below are for.
 
 // TestCodepoint_PinnedText pins the reference bytes absolutely.
 //
 // Every group is a rule with a wrong implementation attached. For `Codepoint`
 // the tempting wrong implementation is an unvalidated int64 newtype.
 //
-//	Some(65) … Some(57344)   from_int VALIDATES: the two range bounds
+//	Some(65) … Some(57344)   to_codepoint VALIDATES: the two range bounds
 //	                         (1_114_112, -1) and both edges of the UTF-16
 //	                         surrogate block (55_296, 57_343) answer None, and
 //	                         both neighbours outside it (55_295, 57_344) answer
@@ -153,7 +152,7 @@ func TestOpaqueGoWidthMatchesTheDeclaredInner(t *testing.T) {
 }
 
 // TestCodepointLiteral_PinnedText pins codepoint literals end to end: the
-// value is std's Codepoint (Display, Debug, equality with a from_int-built
+// value is std's Codepoint (Display, Debug, equality with a to_codepoint-built
 // value), the literal orders, ranges over literals iterate, and literal
 // patterns match at the top of a case, inside a variant payload and inside a
 // tuple. Each escaped arm (newline, quote, backslash, NUL) matches only its

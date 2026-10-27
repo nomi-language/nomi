@@ -28,7 +28,7 @@ fn main() {
     dbg price.currency
 
     cents = 1999
-    amount = cents |> Decimal.from_int() |> Decimal.divide(100d, 2, .HalfEven)
+    amount = cents |> Int.to_decimal() |> Decimal.divide(100d, 2, .HalfEven)
     dbg #Money{amount, currency: Currency`USD`} == price
 }
 

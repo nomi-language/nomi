@@ -6614,8 +6614,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.addError(n.Line, n.Col, c.typef(
 				"comparison type mismatch: %s vs %s", left, right))
 		} else if kind, unorderable := orderingUnsupportedKind(left); unorderable {
-			// Nameless structural aggregates (anonymous structs, tuples)
-			// can never carry an `impl Comparable` — there is no
+			// An anonymous struct can never carry an `impl Comparable` — there is no
 			// declaration to hang the impl on, and they have no nominal
 			// name for `recordConformanceRecording` to demand, so the
 			// strong-demand route below would silently drop them and the
@@ -10409,6 +10408,14 @@ func typeImplementsInterface(c *checker, concrete Type, iface *InterfaceType, re
 	}
 	if iface.Name == "Display" {
 		implements, decided := structuralDisplay(concrete, func(p Type) bool {
+			return typeImplementsInterface(c, p, iface, recPos, recKind)
+		})
+		if decided {
+			return implements
+		}
+	}
+	if iface.Name == "Comparable" {
+		implements, decided := structuralComparable(concrete, func(p Type) bool {
 			return typeImplementsInterface(c, p, iface, recPos, recKind)
 		})
 		if decided {
@@ -17421,6 +17428,14 @@ func (c *checker) recordConformanceRecording(t Type, ifaceName string, rec Recor
 			return
 		}
 	}
+	if tup, ok := resolved.(*TupleType); ok && ifaceName == "Comparable" {
+		// A tuple is Comparable when every element is, so the demand is
+		// each element's (comparable_structural.go).
+		for _, p := range tup.Elems {
+			c.recordConformanceRecording(p, ifaceName, rec)
+		}
+		return
+	}
 	if kind, unorderable := orderingUnsupportedKind(resolved); unorderable && ifaceName == "Comparable" {
 		// A tuple or anonymous struct has no declaration to hang an `impl
 		// Comparable` on and no nominal name for the manifest, so a demand
@@ -18343,11 +18358,12 @@ func isStructShaped(t Type) bool {
 }
 
 // orderingUnsupportedKind reports whether a concrete operand type can never
-// carry a `Comparable` impl, returning a human-facing description of its kind.
-// Anonymous structs and tuples are structural — they have no declaration to
-// attach an `impl Comparable` to and no nominal name for the strong-demand
-// recorder, so an ordering operator on them is a compile-time missing-impl
-// error rather than the unreachable runtime "cannot compare" trap. Returns
+// be `Comparable`, returning a human-facing description of its kind. An
+// anonymous struct is structural: it has no declaration to attach an `impl
+// Comparable` to and no nominal name for the strong-demand recorder, so an
+// ordering operator on one is a compile-time missing-impl error rather than
+// the unreachable runtime "cannot compare" trap. A tuple is Comparable when
+// its elements are (comparable_structural.go). Returns
 // ("", false) for every type that either has a nominal name (so it *can* impl
 // Comparable, named structs included) or is existential (interface / type
 // param / type var — those skip the demand recorder separately).
@@ -18358,8 +18374,6 @@ func orderingUnsupportedKind(t Type) (string, bool) {
 	switch resolveTypeVar(t).(type) {
 	case *AnonStructType:
 		return "anonymous struct", true
-	case *TupleType:
-		return "tuple", true
 	}
 	return "", false
 }

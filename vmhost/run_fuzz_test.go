@@ -506,7 +506,7 @@ func runBounded(p *Program, plan runPlan, dir string, img *ir.Image) (out runOut
 	if found := m.Unretained(roots, boots); len(found) > 0 {
 		return runOutcome{skip: "blocked before it runs: " + p.blocked(found).Error()}
 	}
-	failures, outputs, limits := m.RunCases(plan.cases)
+	failures, outputs, limits, _ := m.RunCases(plan.cases)
 	out.class = runOK
 	var b strings.Builder
 	b.WriteString(buf.String())

@@ -328,6 +328,12 @@ pre.nomi-tour {
   margin-left: auto;
   padding: 0 0.45em;
 }
+/* In the large view the controls sit in the output's header
+   (openModal in tour-client.mjs). */
+.nomi-out-head > .nomi-live-controls {
+  position: static;
+  flex: none;
+}
 /* Live indicator on every runnable widget — a pulsing accent dot at
    top-right with a hover tooltip explaining the interactive behavior.
    Static `language-nomi` snippets keep their bare `pre.nomi-tour` look. */
@@ -1062,8 +1068,86 @@ dialog.nomi-modal::backdrop {
   overflow: auto;
 }
 .is-modal .nomi-expand { display: none; }
+/* Splitting the large view's editor (splitPanes in tour-client.mjs): the
+   open file's move arrows show only there, beside its tab (or its name in a
+   file tree's bar), and a split puts the main pane and the second pane side
+   by side or one above the other, a divider between. */
+.nomi-tab-slot { display: inline-flex; align-items: center; }
+.nomi-tab-slot[hidden] { display: none; }
+.nomi-move-controls { display: none; align-items: center; gap: 1px; padding: 0 0.25rem; }
+.is-modal .nomi-move-controls { display: inline-flex; }
+.nomi-move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: color-mix(in srgb, var(--tour-fg) 60%, transparent);
+  cursor: pointer;
+}
+.nomi-move-btn:hover {
+  color: var(--sl-color-accent);
+  border-color: color-mix(in srgb, var(--sl-color-accent) 45%, transparent);
+}
+.nomi-move-btn:focus-visible {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 1px;
+}
+.is-modal .nomi-panes {
+  --nomi-split-a: 50%;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+.is-modal .nomi-panes.is-right { flex-direction: row; }
+.is-modal .nomi-panes.is-below { flex-direction: column; }
+.is-modal .nomi-pane-a {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--nomi-split-a);
+  min-width: 0;
+  min-height: 0;
+}
+.is-modal .nomi-pane-a > .nomi-editors {
+  flex: 1 1 0;
+}
+.is-modal .nomi-pane-b {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+.is-modal .nomi-pane-b > .nomi-editors {
+  flex: 1 1 0;
+}
+.nomi-pane-divider {
+  flex: 0 0 4px;
+  background: var(--tour-divider);
+  touch-action: none;
+}
+.nomi-panes.is-right > .nomi-pane-divider { cursor: col-resize; }
+.nomi-panes.is-below > .nomi-pane-divider { cursor: row-resize; }
+.nomi-pane-divider:hover,
+.nomi-pane-divider:focus-visible,
+.nomi-pane-divider.is-dragging {
+  background: var(--sl-color-accent);
+  outline: none;
+}
+.nomi-pane-bar {
+  display: flex;
+  align-items: stretch;
+  background: var(--tour-out-bg);
+}
+.nomi-move-slot { display: inline-flex; align-items: center; }
 @media (max-width: 900px) {
   .nomi-split { display: none; }
+  .is-modal .nomi-move-controls { display: none; }
   .nomi-interactive.is-modal {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(6rem, 40%);

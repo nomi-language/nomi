@@ -108,7 +108,7 @@ pub struct Shares {
 
 impl Multiply<Shares, Decimal> for Decimal {
     fn multiply(lhs: Decimal, rhs: Shares) -> Decimal {
-        lhs * Decimal.from_int(rhs.count)
+        lhs * Int.to_decimal(rhs.count)
     }
 }
 // FILE: shares/nomi.toml

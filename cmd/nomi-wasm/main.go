@@ -170,7 +170,8 @@ func tool(this js.Value, args []js.Value) (res any) {
 // VM could not run prints one `BLOCKED <case> <blocker>` line per blocker (the
 // diagnostic `nomi check` gives, its hints indented under it) and
 // counts toward the summary's blocked number. What a case printed is
-// indented under its line.
+// indented under its line. A test that ran a `subtests` table counts its rows
+// as cases (CaseResult.Cases) and names their count on its ok line.
 func formatCaseResults(cases []vmhost.CaseResult) string {
 	if len(cases) == 0 {
 		return ""
@@ -195,14 +196,15 @@ func formatCaseResults(cases []vmhost.CaseResult) string {
 			}
 			writeCaseOutput(&report, c.Output)
 		case c.Err != nil:
-			failed++
+			passed += c.Cases - c.FailedCases
+			failed += c.FailedCases
 			fmt.Fprintf(&report, "FAIL %s\n", name)
 			writeCaseOutput(&report, c.Output)
 			report.WriteString(indent(formatRunError(c.Err), "  "))
 			report.WriteByte('\n')
 		default:
-			passed++
-			fmt.Fprintf(&report, "ok %s\n", name)
+			passed += c.Cases
+			fmt.Fprintf(&report, "ok %s\n", vmhost.OKLine(name, c.Count()))
 			writeCaseOutput(&report, c.Output)
 		}
 	}

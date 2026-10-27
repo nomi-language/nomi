@@ -29,7 +29,7 @@
 
 import {
     bool.Bool.{False, True}
-    bytes.{Byte, Bytes}
+    bytes.Bytes
     debug.Debug
     equatable.Equatable
     fs.{self, Access, Entry, Kind, WriteMode}
@@ -567,7 +567,7 @@ fn rule_invalid_text(dir: String) -> Maybe<String> {
 /// Bytes from their values, each 0 to 255.
 fn bytes_of(values: List<Int>) -> Bytes {
     values
-    |> Iter.map(Byte.from_int)
+    |> Iter.map(Int.to_byte)
     |> Maybe.collect()
     |> Maybe.with_default([])
     |> Bytes.from_list()

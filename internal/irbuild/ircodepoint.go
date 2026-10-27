@@ -6,8 +6,8 @@ import (
 )
 
 // codepointLiteral lowers `'a'` as std's `Codepoint(97)`: the Int constant
-// wrapped by MakeDistinct, which is what `Codepoint.from_int`'s `Some` arm
-// builds. The lexer admits only ASCII, so the value is a valid scalar value
+// wrapped by MakeDistinct, the value `Int.to_codepoint` answers inside
+// `Some`. The lexer admits only ASCII, so the value is a valid scalar value
 // and there is no check to make here.
 func (bl *irScalarBuilder) codepointLiteral(t *ast.CodepointLit) (ir.Temp, kind, bool, bool) {
 	k := codepointKind()

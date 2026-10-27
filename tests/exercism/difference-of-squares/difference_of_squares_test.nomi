@@ -1,43 +1,37 @@
 import difference_of_squares
 
-group "Square the sum of the numbers up to the given number" {
-    test "square of sum" {
-        cases = [
-            #("square of sum 1", 1, 1),
-            #("square of sum 5", 5, 225),
-            #("square of sum 100", 100, 25502500),
-        ]
+test "Square the sum of the numbers up to the given number" {
+    cases = [
+        #("square of sum 1", 1, 1),
+        #("square of sum 5", 5, 225),
+        #("square of sum 100", 100, 25502500),
+    ]
 
-        subtests cases, #(description, n, expected), description {
-            assert difference_of_squares.square_of_sum(n) == expected
-        }
+    subtests cases, #(description, n, expected), description {
+        assert difference_of_squares.square_of_sum(n) == expected
     }
 }
 
-group "Sum the squares of the numbers up to the given number" {
-    test "sum of squares" {
-        cases = [
-            #("sum of squares 1", 1, 1),
-            #("sum of squares 5", 5, 55),
-            #("sum of squares 100", 100, 338350),
-        ]
+test "Sum the squares of the numbers up to the given number" {
+    cases = [
+        #("sum of squares 1", 1, 1),
+        #("sum of squares 5", 5, 55),
+        #("sum of squares 100", 100, 338350),
+    ]
 
-        subtests cases, #(description, n, expected), description {
-            assert difference_of_squares.sum_of_squares(n) == expected
-        }
+    subtests cases, #(description, n, expected), description {
+        assert difference_of_squares.sum_of_squares(n) == expected
     }
 }
 
-group "Subtract sum of squares from square of sums" {
-    test "difference of squares" {
-        cases = [
-            #("difference of squares 1", 1, 0),
-            #("difference of squares 5", 5, 170),
-            #("difference of squares 100", 100, 25164150),
-        ]
+test "Subtract sum of squares from square of sums" {
+    cases = [
+        #("difference of squares 1", 1, 0),
+        #("difference of squares 5", 5, 170),
+        #("difference of squares 100", 100, 25164150),
+    ]
 
-        subtests cases, #(description, n, expected), description {
-            assert difference_of_squares.difference_of_squares(n) == expected
-        }
+    subtests cases, #(description, n, expected), description {
+        assert difference_of_squares.difference_of_squares(n) == expected
     }
 }

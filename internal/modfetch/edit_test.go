@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/mod/module"
 )
 
 func TestAddLocal_WritesRequireAndReplace(t *testing.T) {
@@ -219,5 +221,59 @@ func TestUpdate_StaysWithinTheModulePath(t *testing.T) {
 	}
 	if _, err := Update(app, "example.com/none", Options{}); err == nil || !strings.Contains(err.Error(), "go.mod does not require example.com/none") {
 		t.Errorf("Update of a module go.mod does not require: %v", err)
+	}
+}
+
+// The modules under nomi's lib/ come from one commit: adding sqlkit, whose
+// go.mod requires sqlite at an older commit only as a floor, requires sqlite
+// at sqlkit's commit too, and updating either moves both to the latest
+// commit, which the proxy's @latest names since lib/ has no tags.
+func TestAddAndUpdate_KeepTheLibModulesOnOneCommit(t *testing.T) {
+	const (
+		sqlite = "github.com/nomi-language/nomi/lib/sql/sqlite"
+		sqlkit = "github.com/nomi-language/nomi/lib/sql/sqlkit"
+		older  = "v0.0.0-20261001000000-aaaaaaaaaaaa"
+		newer  = "v0.0.0-20261020000000-bbbbbbbbbbbb"
+		newest = "v0.0.0-20261026000000-cccccccccccc"
+	)
+	p := newTestProxy(t)
+	for _, v := range []string{older, newer, newest} {
+		p.publish(t, sqlite, v, map[string]string{
+			"go.mod":      "module " + sqlite + "\n\ngo 1.22\n",
+			"nomi.toml":   "[module]\nname = \"sqlite\"\n",
+			"sqlite.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+		})
+		p.publish(t, sqlkit, v, map[string]string{
+			"go.mod":      "module " + sqlkit + "\n\ngo 1.22\n\nrequire " + sqlite + " " + older + "\n",
+			"nomi.toml":   "[module]\nname = \"sqlkit\"\n",
+			"sqlkit.nomi": "pub fn version() -> String {\n    \"" + v + "\"\n}\n",
+		})
+	}
+	app, _ := setup(t, p)
+
+	if _, err := Add(app, sqlkit+"@"+newer, Options{}); err != nil {
+		t.Fatalf("Add sqlkit: %v", err)
+	}
+	goMod := readFile(t, filepath.Join(app, "go.mod"))
+	for _, want := range []string{"require " + sqlkit + " " + newer + "\n", "require " + sqlite + " " + newer + " // indirect\n"} {
+		if !strings.Contains(goMod, want) {
+			t.Errorf("after adding sqlkit, go.mod lacks %q:\n%s", want, goMod)
+		}
+	}
+
+	// @latest names the newest commit, as the proxy answers it for a module
+	// with no tags.
+	for _, path := range []string{sqlite, sqlkit} {
+		enc, _ := module.EscapePath(path)
+		writeFile(t, filepath.Join(p.dir, filepath.FromSlash(enc), "@latest"), `{"Version":"`+newest+`"}`)
+	}
+	if _, err := Update(app, sqlkit, Options{}); err != nil {
+		t.Fatalf("Update sqlkit: %v", err)
+	}
+	goMod = readFile(t, filepath.Join(app, "go.mod"))
+	for _, want := range []string{"require " + sqlkit + " " + newest + "\n", "require " + sqlite + " " + newest + " // indirect\n"} {
+		if !strings.Contains(goMod, want) {
+			t.Errorf("after updating sqlkit, go.mod lacks %q:\n%s", want, goMod)
+		}
 	}
 }

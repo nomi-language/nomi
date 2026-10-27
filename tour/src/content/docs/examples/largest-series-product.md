@@ -7,7 +7,7 @@ description: "Find the largest product of a given number of adjacent digits in a
 
 Find the largest product of a given number of adjacent digits in a string of digits.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/largest-series-product) (MIT). Listed under [Numbers & Math](/examples/?subject=numbers-and-math).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/largest-series-product) (MIT). Listed under [Numbers & Math](/examples/?subject=numbers-and-math).
 
 ```nomi-run
 // FILE: largest_series_product.nomi
@@ -34,18 +34,17 @@ pub fn largest_product(digits: String, span: Int) -> Result<Int, Error> {
         return Err(.NotADigit)
     }
 
-    last_start = Iter.count(numbers) - span
+    if span > Iter.count(numbers) {
+        return Err(.SpanTooLong)
+    }
 
-    if last_start < 0 { return Err(.SpanTooLong) }
+    if span == 0 { return Ok(1) }
 
-    0..=last_start
-    |> Iter.map(fn start -> numbers |> Iter.drop(start) |> Iter.take(span) |> product())
+    numbers
+    |> Iter.windows(span)
+    |> Iter.map(Iter.product)
     |> Iter.reduce(fn largest = 0, candidate -> Int.max(largest, candidate))
     |> Ok()
-}
-
-fn product(numbers: Iter<Int>) -> Int {
-    Iter.reduce(numbers, fn total = 1, n -> total * n)
 }
 
 // FILE: largest_series_product_test.nomi
@@ -97,14 +96,8 @@ test "rejects" {
 
 - Errors are an `Error` enum, one variant per canonical message. The checks run in the order the canonical errors imply: a negative span, then a character that is not a digit, then a span longer than the digits.
 - The digits become a `List<Int>` in one pipe: `String.to_codepoints`, `Codepoint.to_digit` on each and `Maybe.collect`, whose `None` is the not-a-digit error through a binding `else`.
-- The span check computes `last_start`, the last position a series can start at, and refuses a negative one, so the range of starts `0..=last_start` that follows is never empty.
+- The span check compares the span with the digit count, before any series is built, since `Iter.windows` yields no series for a span longer than the digits and the error must be told apart from a product.
+- Each series is a window from `Iter.windows(span)`, and its product is `Iter.product`, passed to `Iter.map` as a function value.
 - The largest product is an `Iter.reduce` from 0 rather than `Iter.max`: every product is at least 0 and there is always one series, so 0 is a safe floor, and `Iter.max`'s `Maybe` would need a default for a case that cannot happen.
-- A span of 0 needs no case of its own: each start takes no digits, and the empty product is 1.
+- A span of 0 returns 1, the empty product, before the windows: `Iter.windows(0)` yields no window, as a non-positive size does in `Iter.chunks`, where the exercise wants one empty series.
 - The canonical cases are two `subtests` tables, the products and the rejections, since the rows of each share an assertion.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no sliding window over a list, so each series is `numbers |> Iter.drop(start) |> Iter.take(span)` for each start. Rust has `slice.windows(n)`, Gleam `list.window(xs, n)` and Elixir `Enum.chunk_every(xs, n, 1, :discard)`.
-- **Not in the standard library.** There is no product of an `Iter`, the counterpart of `Iter.sum`, so `product` is `Iter.reduce(numbers, fn total = 1, n -> total * n)`. Rust has `Iterator::product`, Elixir `Enum.product/1` and Gleam `int.product`.

@@ -59,18 +59,18 @@ test "decimal rounding and shaping functions are explicit" {
 
 test "decimal conversions are explicit" {
     assert 42
-        |> Decimal.from_int()
+        |> Int.to_decimal()
         |> Decimal.to_string()
         |> String.equal?("42")
 
-    assert Decimal.from_string("1.50") == Some(1.50d)
-    assert Decimal.from_string("oops") == None
+    assert String.to_decimal("1.50") == Some(1.50d)
+    assert String.to_decimal("oops") == None
     assert Decimal.to_string(1.50d) == "1.50"
     assert Decimal.to_int(3.7d) == Some(3)
     assert Decimal.to_int(-3.7d) == Some(-3)
     assert Decimal.to_float(1.50d) == 1.5
-    assert Decimal.from_float(0.1, 2, HalfEven) == Some(0.10d)
-    assert Decimal.from_float(3.14159, 2, Floor) == Some(3.14d)
+    assert Float.to_decimal(0.1, 2, HalfEven) == Some(0.10d)
+    assert Float.to_decimal(3.14159, 2, Floor) == Some(3.14d)
 }
 
 test "decimal debug and comparisons are scale insensitive where appropriate" {

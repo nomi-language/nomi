@@ -72,7 +72,7 @@ fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where
 fn widenings(value: Value) -> List<Value> {
     case value {
         .Int(n) ->
-            [Value.Float(Int.to_float(n)), Value.Decimal(Decimal.from_int(n))]
+            [Value.Float(Int.to_float(n)), Value.Decimal(Int.to_decimal(n))]
 
         .Float(x) ->
             shortest(x)
@@ -103,7 +103,7 @@ pub fn digits(d: Decimal) -> Int {
 //! assert runtime.exact(12.555, 2) == None
 //
 pub fn exact(x: Float, scale: Int) -> Maybe<Decimal> {
-    case Decimal.from_float(x, scale, RoundingMode.HalfEven) {
+    case Float.to_decimal(x, scale, RoundingMode.HalfEven) {
         Some(d) when Decimal.to_float(d) == x and digits(d) <= exact_digits() -> Some(d)
         _ -> None
     }
@@ -145,7 +145,7 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
 
     scaled = case value {
         .Int(n) -> {
-            d = Decimal.round(Decimal.from_int(n), scale, RoundingMode.HalfEven)
+            d = Decimal.round(Int.to_decimal(n), scale, RoundingMode.HalfEven)
 
             if digits(d) <= exact_digits() {
                 Ok(d)

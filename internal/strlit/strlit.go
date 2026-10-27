@@ -117,7 +117,7 @@ func DecodeCodepoint(body string) (rune, string) {
 	}
 	for _, r := range decoded {
 		if r > 0x7F {
-			return 0, fmt.Sprintf(`codepoint literal '%s' is U+%04X, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "%s" as a string, or use Codepoint.from_int for another scalar value`, body, r, EncodeStringBody(string(decoded)))
+			return 0, fmt.Sprintf(`codepoint literal '%s' is U+%04X, not ASCII: a codepoint literal is ASCII only (U+0000–U+007F); write "%s" as a string, or use Int.to_codepoint for another scalar value`, body, r, EncodeStringBody(string(decoded)))
 		}
 	}
 	if len(decoded) > 1 {

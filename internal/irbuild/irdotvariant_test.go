@@ -68,7 +68,7 @@ fn main() {
   Iter.sort(xs, .Ascending) |> io.print()
   Iter.sort_by(xs, .Descending, fn n -> n) |> io.print()
   xs |> Iter.sort_with(fn a, b -> if a < b { .Greater } else if a > b { .Less } else { .Equal }) |> io.print()
-  Decimal.round(Decimal.from_int(5), 1, .HalfEven) |> io.print()
+  Decimal.round(Int.to_decimal(5), 1, .HalfEven) |> io.print()
   String.normalize("e\u{301}", .NFC) |> String.length() |> io.print()
   Json.encode(.Arr([.Int(1), .Null])) |> io.print()
   os: List<Ordering> = [.Less, .Greater]

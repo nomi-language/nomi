@@ -71,7 +71,7 @@ func stripFactor(n, p *big.Int) (stripped *big.Int, count int32) {
 //
 // The number of digits after the '.' becomes Scale (so "1.50" has scale 2,
 // "5" has scale 0). Exponent notation is not accepted. This is the shared
-// parser behind both the `1.50d` literal evaluator and `Decimal.from_string`,
+// parser behind both the `1.50d` literal evaluator and `String.to_decimal`,
 // so it rejects empty/garbage input rather than guessing.
 func ParseDecimal(s string) (Decimal, error) {
 	orig := s

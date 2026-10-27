@@ -322,6 +322,10 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			return bl.rankedCompare(t, op, lhs, rhs, lk, rmobile)
 		}
 	}
+	if op.Ordering() && lk.tag == tagTuple {
+		// A tuple compares lexicographically (irtuplecompare.go).
+		return bl.tupleRankedCompare(t, op, lhs, rhs, lk)
+	}
 	if v, ok := bl.holeCompare(t, op, lk); ok {
 		// `item < m` over a type parameter the call left unsolved; see
 		// irholecall.go.

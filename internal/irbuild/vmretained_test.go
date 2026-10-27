@@ -1022,6 +1022,12 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		// hands `Sandbox.dirs`, a List, to `fs_host.new_sandbox`).
 		return true
 	}
+	if strings.Contains(err.Error(), "a Decimal operation's") && strings.Contains(err.Error(), "operand is rt.Context") {
+		// Decimal arithmetic on a field of a struct the probe built, which
+		// it filled with the root Context (std/money's `Money.negate`
+		// subtracts the amount from 0d).
+		return true
+	}
 	if strings.Contains(err.Error(), ": expected one Receiver") || strings.Contains(err.Error(), ": expected one Sender") {
 		// A channel half read off a struct the probe built (std/sql_testing's
 		// Fake keeps its state in a Channel field): the probe makes up a

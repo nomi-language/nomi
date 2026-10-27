@@ -345,7 +345,7 @@ go:café
   may not be valid UTF-8.
 
 A `Byte` is not a number, so you can't do arithmetic on it. Convert with
-[`Byte.from_int`](/reference/bytes/#bytefrom_int) and `Byte.to_int` when you
+[`Int.to_byte`](/reference/int/#intto_byte) and `Byte.to_int` when you
 need the number.
 
 ## Triple-quoted strings

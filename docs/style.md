@@ -316,7 +316,7 @@ Write an acronym as a word: `Json`, `Toml`, `Uuid`, `HttpClient`, `IoError`.
 A file's name is its module's name, and it is `snake_case` like every other
 lowercase name: `std/message_format`, `std/code_points`, `order_lines.nomi`,
 never `orderlines` or `orderLines`. The file qualifier code writes is the
-same name (`code_points.from_int(65)`). A name ends in `_test` only when the
+same name (`order_lines.total(lines)`). A name ends in `_test` only when the
 file holds tests, since `_test.nomi` is what marks a test file; a module that
 helps tests run is named for what it holds, as `std/sql_testing` holds the
 fake `Conn` and the conformance suite.
@@ -344,6 +344,13 @@ differ; within one owner, pick a name that describes the path, such as
 extensible only through their standard interfaces (`Add`, `Subtract`,
 `Multiply`, `Divide`), with the right-hand and result types in the impl header:
 `impl Add<Months, Date> for Date`.
+
+A conversion from one value type to another is `to_<target>` on the source
+type: `Int.to_float`, `Int.to_decimal`, `Float.to_int`, `String.to_int`,
+`String.to_decimal`, `Int.to_codepoint`. `from_` is for building a value out
+of its units, an encoding or a collection, on the type it builds:
+`Instant.from_seconds`, `Uuid.from_bytes`, `Int.from_digits`,
+`String.from_codepoints`, `Bytes.from_list`.
 
 A function that reads or changes text by a locale's conventions ends in
 `_in` when its name without the suffix is, or would be, the same operation
@@ -573,6 +580,16 @@ test "result values can be asserted directly" {
 Use unique full test names within a file. The enclosing `group` is part
 of the full name, so repeated leaf names are fine in different groups.
 
+A `group` is for tests that share a `clock`, `boot` or `setup`, or for
+several tests that belong under one heading. Don't wrap a single test in a
+group to name it: name the test.
+
+```nomi
+test "a new clock wraps past midnight" {
+    assert "${Clock.new(25, 0)}" == "01:00"
+}
+```
+
 Use attached tests (§7) for compact examples that belong to one declaration,
 especially stdlib reference examples. Keep broader workflows and multi-case
 behavior in named `test` / `group` blocks.
@@ -612,7 +629,7 @@ interpolation to produce output; assert the value itself. Don't introduce a
 pipeline for a simple call-and-compare; direct equality is clearer:
 
 ```nomi
-assert Decimal.from_string("1.50") == Some(1.50d)
+assert String.to_decimal("1.50") == Some(1.50d)
 ```
 
 Use `subtests` when one claim is checked over a table of inputs: the same
@@ -1404,7 +1421,7 @@ when the field gets a whole new value.
 A codepoint literal (`'a'`) is a `Codepoint`, not a character of text. Reach
 for it when the code works at the codepoint level: enumerating ASCII
 (`'a'..='z'`), scanning `String.to_codepoints` output, or matching delimiters
-in a `case`. Write `'a'` rather than `try Codepoint.from_int(97)`: the literal
+in a `case`. Write `'a'` rather than `try Int.to_codepoint(97)`: the literal
 is infallible and says which character it is.
 
 ```nomi
@@ -1560,6 +1577,10 @@ not `Iter.reduce(fn total = 0, n -> total + n)`, which spells out the starting
 value and the step the type's `Summable` and `Add` impls already name. Keep
 `Iter.reduce` when the fold does more than add (`total + n * weight`), starts
 from another value, or breaks early.
+
+A fold that multiplies from 1 is `Iter.product` for the same reason, and a
+fold that multiplies one value by itself is `Int.pow` or `Decimal.pow`:
+`Int.pow(10, zeros)`, not `Iter.reduce(1..=zeros, fn n = 1, _ -> n * 10)`.
 
 ## 27. Keep a fold's states with `Iter.scan` or `Iter.map_reduce`
 
@@ -1748,3 +1769,23 @@ one.
   with `dir = "data"`), which it receives as `config`. Do not invent another
   configuration file, and do not put settings that apply to every
   declaration into each declaration's body.
+
+## 33. Sort by several keys with one tuple key
+
+Tuples compare element by element, so a sort by several keys is one
+`Iter.sort_by` whose key is a tuple of them, most significant first. Wrap a
+key in `Reverse.of` (`std/reverse`) to sort it descending; it works for any
+`Comparable` key, and reads as intent where negating a number reads as
+arithmetic:
+
+```nomi
+// most points first, then by name
+table = Iter.sort_by(standings, fn s -> #(Reverse.of(s.points), s.team))
+```
+
+Don't chain stable sorts, `|> Iter.sort_by(.team)` and then
+`|> Iter.sort_by(Direction.Descending, .points)`: the reader has to know the
+sort is stable and read the keys bottom up. To sort a whole list descending,
+pass `Direction.Descending`. `Iter.sort_with` and `Ordering.chain` remain for
+a comparator that is not a key, such as one that compares by a function of
+both values.

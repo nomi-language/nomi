@@ -66,6 +66,8 @@ var infiniteIterCases = []infiniteIterCase{
 	{"flat_map", []string{"Iter.flat_map"}, pipe("Iter.from(0)", " |> Iter.flat_map(fn x -> [x, x]) |> Iter.to_list()"), true},
 	{"chunks", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(3) |> Iter.to_list()"), true},
 	{"chunks of zero", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(0) |> Iter.to_list()"), false},
+	{"windows", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(2) |> Iter.to_list()"), true},
+	{"windows of zero", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(0) |> Iter.to_list()"), false},
 	{"cycle of an infinite source", []string{"Iter.cycle"}, pipe("Iter.from(0)", " |> Iter.cycle() |> Iter.to_list()"), true},
 	{"cycle of a list", []string{"Iter.cycle"}, pipe("[1, 2] |> Iter.cycle()", " |> Iter.to_list()"), true},
 	{"cycle of a vector", []string{"Iter.cycle"}, pipe("#[1] |> Iter.cycle()", " |> Iter.to_list()"), true},
@@ -104,6 +106,8 @@ var infiniteIterCases = []infiniteIterCase{
 	{"min_by", []string{"Iter.min_by"}, pipe("Iter.repeat(1)", " |> Iter.min_by(fn x -> x)"), true},
 	{"max_by", []string{"Iter.max_by"}, pipe("Iter.repeat(1)", " |> Iter.max_by(fn x -> x)"), true},
 	{"sum", []string{"Iter.sum"}, pipe("Iter.from(0)", " |> Iter.sum()"), true},
+	// Ones, so the product never overflows and only the endless source can end it.
+	{"product", []string{"Iter.product"}, pipe("Iter.repeat(1)", " |> Iter.product()"), true},
 	{"reduce", []string{"Iter.reduce"}, pipe("Iter.repeat(1)", " |> Iter.reduce(fn total = 0, x -> total + x)"), true},
 	{"reduce that can break", []string{"Iter.reduce"}, pipe("Iter.from(0)", " |> Iter.reduce(fn total = 0, x -> {\n        if x > 4 {\n            break total\n        } else {\n            total + x\n        }\n    })"), false},
 	{"each", []string{"Iter.each"}, pipe("Iter.repeat(1)", " |> Iter.each(fn _x -> Unit)"), true},
@@ -117,6 +121,7 @@ var infiniteIterCases = []infiniteIterCase{
 	}, true},
 	// Terminals that may stop early.
 	{"find", []string{"Iter.find"}, pipe("Iter.from(0)", " |> Iter.find(&(&1 > 3))"), false},
+	{"find_index", []string{"Iter.find_index"}, pipe("Iter.from(0)", " |> Iter.find_index(&(&1 > 3))"), false},
 	{"first", []string{"Iter.first"}, pipe("Iter.repeat(1)", " |> Iter.first()"), false},
 	{"get", []string{"Iter.get"}, pipe("Iter.from(0)", " |> Iter.get(4)"), false},
 	{"any?", []string{"Iter.any?"}, pipe("Iter.from(0)", " |> Iter.any?(&(&1 == 7))"), false},

@@ -39,6 +39,6 @@ fn main() {
     io.print(Decimal.to_string(12345678901234567890.12345d * 100000d))
 
     // Int64's boundary. The literal cannot be written, so it is computed.
-    io.print(Decimal.to_string(Decimal.from_int(-9223372036854775807 - 1)))
-    io.print(Decimal.to_string(Decimal.from_int(-9223372036854775807 - 1) - 1d))
+    io.print(Decimal.to_string(Int.to_decimal(-9223372036854775807 - 1)))
+    io.print(Decimal.to_string(Int.to_decimal(-9223372036854775807 - 1) - 1d))
 }

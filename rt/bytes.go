@@ -48,18 +48,18 @@ type Byte uint8
 // Bytes is std/bytes.Bytes: an immutable byte buffer. See the header.
 type Bytes string
 
-// ByteInRange is the `Byte.from_int` domain: 0 through 255, inclusive at both
+// ByteInRange is the `Int.to_byte` domain: 0 through 255, inclusive at both
 // ends.
 //
-// Exported as a predicate rather than folded into ByteFromInt so a caller that
+// Exported as a predicate rather than folded into IntToByte so a caller that
 // holds a boxed Int need not carry a second copy of the bounds. An off-by-one
 // at either end is precisely the mistake a second copy makes, which is why
 // both boundary values and both failures are rows in
 // internal/irbuild/testdata/std_host_type_boundary.nomi.
 func ByteInRange(n int64) bool { return n >= 0 && n <= 255 }
 
-// ByteFromInt is `Byte.from_int`.
-func ByteFromInt(n int64) Maybe[Byte] {
+// IntToByte is `Int.to_byte`.
+func IntToByte(n int64) Maybe[Byte] {
 	if !ByteInRange(n) {
 		return None[Byte]()
 	}

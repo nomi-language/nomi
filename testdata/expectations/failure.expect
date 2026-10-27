@@ -12,7 +12,7 @@
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
 records 55
-declared-cases 288
+declared-cases 304
 failing 55
 C anon_struct.nomi
 E 1
@@ -1103,8 +1103,8 @@ T test result: FAILED. 0 passed, 4 failed
 T
 C subtests_names_report.nomi
 E 1
-N 5
-H 4dfa240c904ce842c2e2ff5901890a1f2a37018e367f7e52c3dbfef8535ff305
+N 12
+H 421a12a4a115841d5c698ae78a6a00d3ce76af451cffcdcdcf40929d2c741121
 T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a failed row reports its name
 T   subtest "year divisible by 400 is leap year": line 20: assertion failed
 T     assert leap_year?(year) == expected
@@ -1145,13 +1145,13 @@ T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a name tha
 T   subtest 0: line 37: its name trapped: line 9: division by zero
 T     label(n)
 T   1 of 1 subtest failed
-T ok <root>/internal/irbuild/testdata/subtests_names_report.nomi :: every named row passes
-T test result: FAILED. 1 passed, 4 failed
+T ok <root>/internal/irbuild/testdata/subtests_names_report.nomi :: every named row passes (2 cases)
+T test result: FAILED. 6 passed, 6 failed
 T
 C subtests_report.nomi
 E 1
-N 5
-H 28225f476d6ff3cb0aafa2c4ed8cfc0e154c4bc2080cab432b5986e911be6da2
+N 14
+H 9f3c5a009ba68e9f35a13537409d0a3587fb51134def097dfeb1344c6f22fc0e
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
 T   subtest #("abc", True): line 18: assertion failed
 T     assert palindrome?(line) == known_palindrome
@@ -1195,8 +1195,8 @@ T         = 3
 T   1 of 2 subtests failed
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: a trap in a row fails the test as a trap
 T   line 46: division by zero
-T ok <root>/internal/irbuild/testdata/subtests_report.nomi :: every row passes
-T test result: FAILED. 1 passed, 4 failed
+T ok <root>/internal/irbuild/testdata/subtests_report.nomi :: every row passes (2 cases)
+T test result: FAILED. 8 passed, 6 failed
 T
 C tests_attached.nomi
 E 1

@@ -74,9 +74,10 @@ fn parse_row(row: String) -> Maybe<List<Plant>> {
     |> Maybe.collect()
 }
 
-/// How many students come before `student` in the class.
+/// How many students come before `student` in the class. Every student is
+/// in `Student.variants()`, so the default is never used.
 fn position(student: Student) -> Int {
     Student.variants()
-    |> Iter.take_while(&(&1 != student))
-    |> Iter.count()
+    |> Iter.find_index(&(&1 == student))
+    |> Maybe.with_default(0)
 }

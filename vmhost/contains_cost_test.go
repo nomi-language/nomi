@@ -34,7 +34,7 @@ fn vector_words() -> Vector<String> {
 		}
 		var out bytes.Buffer
 		m := p.machine(&out).WithLimits(vm.Limits{Steps: 1_000})
-		failures, _, limits := m.RunCases(p.entry.Tests())
+		failures, _, limits, _ := m.RunCases(p.entry.Tests())
 		if len(failures) != 1 || len(limits) != 1 {
 			t.Fatalf("want one case, got failures %v, limits %v", failures, limits)
 		}

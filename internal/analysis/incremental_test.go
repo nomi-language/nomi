@@ -336,6 +336,18 @@ var orderEdits = []editStep{
 		return strings.Replace(cur, `"area ${Shape.area(shape)}"`, `"the area ${Shape.area(shape)}"`, 1), true
 	}},
 	restore("body back", "report"),
+	// A type function named as one of the type's impl functions is an
+	// error at the type function, added and removed by an edit to either
+	// file.
+	appendText("type function named as an impl function", "shapes", "\nimpl Circle {\n    pub fn area(circle: Circle, _scale: Int) -> Int {\n        circle.radius\n    }\n}\n"),
+	replace("body only, the clash moves", "shapes", "        value.radius + Iter.count(Settings.tag)\n",
+		"        // The tag counts towards the area.\n\n        value.radius + Iter.count(Settings.tag)\n"),
+	replace("type function renamed", "shapes", "pub fn area(circle: Circle", "pub fn scaled_area(circle: Circle"),
+	restore("type function and its impl block removed", "shapes"),
+	appendText("type function no impl function names, in an impl block", "shapes", "\nimpl Circle {\n    pub fn to_string(_circle: Circle, _width: Int) -> String {\n        \"circle\"\n    }\n}\n"),
+	appendText("impl in another file names it", "report", "\nimpl Display for Circle {\n    fn to_string(_value: Circle) -> String {\n        \"a circle\"\n    }\n}\n"),
+	restore("impl in another file removed", "report"),
+	restore("type function and its impl block removed again", "shapes"),
 }
 
 // genericEdits are edits any project file takes: a declaration added, its
@@ -794,6 +806,22 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	})
 	t.Run("order", func(t *testing.T) {
 		p := orderIncremental()
+		// The clash steps compare something only while the clash is an
+		// error a full check reports.
+		for _, s := range orderEdits {
+			if s.kind != "type function named as an impl function" {
+				continue
+			}
+			shapes, _ := s.change(p.texts["shapes"], p.texts["shapes"])
+			texts := map[string]string{}
+			for key, text := range p.texts {
+				texts[key] = text
+			}
+			texts["shapes"] = shapes
+			if dump := analysis.DumpProgramForTest(fullCheck(p, texts)); !strings.Contains(dump, "`Circle.area` is already `Shape`'s `area` for `Circle`") {
+				t.Fatalf("the type function named as an impl function is not reported:\n%s", dump)
+			}
+		}
 		runChecked(t, p, orderEdits, recheck)
 		for _, key := range []string{"main", "shapes"} {
 			runChecked(t, p, genericEdits(key, p.texts[key]), recheck)

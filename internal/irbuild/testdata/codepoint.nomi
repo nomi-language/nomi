@@ -1,20 +1,21 @@
 // `std/code_points.Codepoint` as an ANCHORED stdlib opaque newtype: the whole
-// Nomi-bodied surface plus the two rt externs over it.
+// Nomi-bodied surface plus the rt externs over it.
 //
-// The point of the fixture is that almost nothing here is an rt implementation.
-// `Codepoint.from_int`'s validation, `next`, `step_by` and `steps_between` are
-// ordinary Nomi source in std/code_points.nomi and lower to IR. Only
-// `Codepoint.to_string` (rt.CodepointToString) and `String.to_codepoints`
-// (rt.StringToCodepoints) are rt functions, and both are one expression.
+// The point of the fixture is that little here is an rt implementation.
+// `next`, `step_by` and `steps_between` are ordinary Nomi source in
+// std/code_points.nomi and lower to IR. `Int.to_codepoint`
+// (rt.IntToCodepoint, the validation), `Codepoint.to_string`
+// (rt.CodepointToString) and `String.to_codepoints` (rt.StringToCodepoints)
+// are rt functions.
 //
 // So the fixture is strong for the lowering (a wrong opaque width, a lost
 // nominal identity, a dropped `Maybe` are all visible) and says nothing about
-// the two rt functions beyond the inputs named below. That is why
+// the rt functions beyond the inputs named below. That is why
 // codepoint_test.go checks the rt side's widths directly.
 //
 // # Why every Codepoint arrives inside a `Maybe`
 //
-// The values under test are mostly outside ASCII, where `Codepoint.from_int`
+// The values under test are mostly outside ASCII, where `Int.to_codepoint`
 // is the only constructor reachable from outside std/code_points, and it
 // answers `Maybe<Codepoint>` because the type validates. A codepoint literal
 // (`'a'`) builds an ASCII one directly; codepoint_literal.nomi covers it. `try`
@@ -26,32 +27,32 @@ import std/io
 
 // --- the surface, one helper per declaration -------------------------------
 fn to_int_of(n: Int) -> Maybe<Int> {
-    Some(Codepoint.to_int(try Codepoint.from_int(n)))
+    Some(Codepoint.to_int(try Int.to_codepoint(n)))
 }
 
 fn to_string_of(n: Int) -> Maybe<String> {
-    Some(Codepoint.to_string(try Codepoint.from_int(n)))
+    Some(Codepoint.to_string(try Int.to_codepoint(n)))
 }
 
 fn inspect_of(n: Int) -> Maybe<String> {
-    Some(Codepoint.inspect(try Codepoint.from_int(n)))
+    Some(Codepoint.inspect(try Int.to_codepoint(n)))
 }
 
 fn next_of(n: Int) -> Maybe<Codepoint> {
-    Codepoint.next(try Codepoint.from_int(n))
+    Codepoint.next(try Int.to_codepoint(n))
 }
 
 fn steps_of(a: Int, b: Int) -> Maybe<Int> {
-    Codepoint.steps_between(try Codepoint.from_int(a), try Codepoint.from_int(b))
+    Codepoint.steps_between(try Int.to_codepoint(a), try Int.to_codepoint(b))
 }
 
 fn step_by_of(n: Int, by: Int) -> Maybe<Codepoint> {
-    Codepoint.step_by(try Codepoint.from_int(n), by)
+    Codepoint.step_by(try Int.to_codepoint(n), by)
 }
 
-/// Two Codepoints from SEPARATE `from_int` calls, so nothing shares a value.
+/// Two Codepoints from SEPARATE `to_codepoint` calls, so nothing shares a value.
 fn equal_of(a: Int, b: Int) -> Maybe<Bool> {
-    Some(Codepoint.equal?(try Codepoint.from_int(a), try Codepoint.from_int(b)))
+    Some(Codepoint.equal?(try Int.to_codepoint(a), try Int.to_codepoint(b)))
 }
 
 /// `String.to_codepoints("abc")`'s result, built SEPARATELY by the program out
@@ -85,9 +86,9 @@ fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint> {
 /// with no pointer anywhere in the path, which is what this fixture needs;
 /// both chains are built from the same input string.
 fn same_as_literal(s: String) -> Maybe<Bool> {
-    a = try Codepoint.from_int(97)
-    b = try Codepoint.from_int(98)
-    c = try Codepoint.from_int(99)
+    a = try Int.to_codepoint(97)
+    b = try Int.to_codepoint(98)
+    c = try Int.to_codepoint(99)
     Some(join_points(String.to_codepoints(s)) == join_points(literal_abc(a, b, c)))
 }
 
@@ -144,7 +145,7 @@ fn join_points(cps: List<Codepoint>) -> String {
 }
 
 fn main() {
-    // --- from_int VALIDATES, and the predicate is Nomi source that lowered ----
+    // --- to_codepoint VALIDATES ----------------------------------------------
     // A naive int64 newtype admits every one of these. The two range bounds and
     // the two surrogate-block bounds are the four inputs where a missing
     // predicate is a wrong ANSWER rather than a missing refusal.

@@ -410,30 +410,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		keyFn := ir.NewCopy(bl.g.irNodePos(t.Args[1]), bl.f.NewTemp(), args.temps[1])
 		bl.b.Append(keyFn)
 		bl.side(keyFn.Dst(), irScalarSide{k: args.kinds[1], copy: irCopyProjection})
-		var ref *ir.Ref
-		cmp := ir.NoTemp
-		if sortKeySibling != nil {
-			ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), sortKeySibling)
-			bl.b.Append(ref)
-			bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{sortKey, sortKey}, stdEnumKind(stdEnumOrdering))})
-		} else if sortKeyLocal != nil {
-			ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irCalleeSym(sortKeyLocal, sortKey.nomi()+"."+sortKeyLocal.name))
-			bl.b.Append(ref)
-			bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, sortKeyLocal.params, sortKeyLocal.result)})
-		} else if sortKeyCmp.irBody == nil {
-			// Decimal's compare is a `host fn`, forwarded as `sort` does.
-			fv := ir.NewFuncValue(bl.g.irNodePos(t), bl.f.NewTemp(), bl.irHostForward(t, sortKeyCmp))
-			bl.b.Append(fv)
-			bl.side(fv.Dst(), irScalarSide{k: funcKindIn(bl.g, sortKeyCmp.params, sortKeyCmp.result)})
-			cmp = fv.Dst()
-		} else {
-			ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), sortKeyCmp.irBody.Sym())
-			bl.b.Append(ref)
-			bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, sortKeyCmp.params, sortKeyCmp.result)})
-		}
-		if ref != nil {
-			cmp = ref.Dst()
-		}
+		cmp := bl.comparatorOperand(t, sortKey, sortKeyLocal, sortKeySibling, sortKeyCmp)
 		n := ir.NewIter(bl.g.irNodePos(t), bl.f.NewTemp(), ir.IterSortBy, ir.IterOverSeq, sortOperands(direction, src, keyFn.Dst(), cmp)...)
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: result})
@@ -971,6 +948,11 @@ func (bl *irScalarBuilder) iterGroupBy(t *ast.Call, src ir.Temp, elem kind, fn i
 // and a `host fn` compare (Decimal's) is admitted there because the caller
 // forwards it as a function value (irHostForward).
 func (bl *irScalarBuilder) sortComparator(k kind) (*implItem, *ir.Symbol, *stdFunc, bool) {
+	if k.tag == tagTuple {
+		// A tuple answers none of the three: comparatorOperand builds its
+		// lexicographic compare (irtuplecompare.go).
+		return nil, nil, nil, bl.tupleComparable(k)
+	}
 	if irNominalElemKind(k) || irRangeDistinctElem(k) {
 		if local := bl.localCompareItem(k); local != nil {
 			return local, nil, nil, true
@@ -995,6 +977,9 @@ func (bl *irScalarBuilder) sortComparator(k kind) (*implItem, *ir.Symbol, *stdFu
 // declaring file's) or to std's retained body, or a forwarding body around
 // std's host.
 func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, local *implItem, sibling *ir.Symbol, std *stdFunc) ir.Temp {
+	if elem.tag == tagTuple && local == nil && sibling == nil && std == nil {
+		return bl.tupleComparator(at, elem)
+	}
 	pos := bl.g.irNodePos(at)
 	switch {
 	case sibling != nil:

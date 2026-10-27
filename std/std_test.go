@@ -423,4 +423,13 @@ func TestStdlib_AnalyzesWithoutErrors(t *testing.T) {
 			t.Errorf("std/%s:%d:%d: %s", name, e.Line, e.Col, e.Message)
 		}
 	}
+	// The program's own errors (coherence, orphans, a type function named as
+	// one of the type's impl functions) are the build's, not a file's.
+	prelude := lib.Files["prelude"]
+	if prelude == nil || prelude.Program() == nil {
+		t.Fatal("no stdlib program to read its own errors from")
+	}
+	for _, e := range prelude.Program().Errors {
+		t.Errorf("%s:%d:%d: %s", e.File, e.Line, e.Col, e.Message)
+	}
 }

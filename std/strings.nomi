@@ -7,6 +7,7 @@ import {
     comparable.Ordering.{self, Equal, Greater, Less}
     contains.Contains
     debug.Debug
+    decimal.Decimal
     display.Display
     equatable.Equatable
     hashable.Hashable
@@ -165,6 +166,32 @@ impl String {
     //! assert String.slice("hello", 1, 4) == "ell"
     //
     pub host fn slice(s: String, start: Int, end: Int) -> String
+
+    /// The first `n` grapheme clusters of `s`, counted as `String.slice` and
+    /// `String.length` count them. An `n` past the end gives the whole
+    /// string, and an `n` of zero or less gives "". `String.drop` gives the
+    /// rest, so `String.take(s, n) + String.drop(s, n) == s`.
+    //! assert String.take("hello", 2) == "he"
+    //! assert String.take("héllo", 2) == "hé"
+    //! assert String.take("hi", 5) == "hi"
+    //! assert String.take("hi", -1) == ""
+    //
+    pub fn take(s: String, n: Int) -> String {
+        slice(s, 0, n)
+    }
+
+    /// `s` after its first `n` grapheme clusters, counted as `String.slice`
+    /// and `String.length` count them. An `n` past the end gives "", and an
+    /// `n` of zero or less gives the whole string. `String.take` gives the
+    /// clusters this drops.
+    //! assert String.drop("hello", 2) == "llo"
+    //! assert String.drop("héllo", 2) == "llo"
+    //! assert String.drop("hi", 5) == ""
+    //! assert String.drop("hi", -1) == "hi"
+    //
+    pub fn drop(s: String, n: Int) -> String {
+        if n <= 0 { s } else { slice(s, n, length(s)) }
+    }
 
     /// Prepends copies of `fill` until `s` is `width` grapheme clusters long,
     /// the units `String.length` counts. A multi-character `fill` repeats and
@@ -390,6 +417,17 @@ impl String {
     //
     pub host fn to_int(s: String) -> Maybe<Int>
 
+    /// Parses `s` as a plain base-10 Decimal. It accepts an optional sign,
+    /// `_` digit separators and one fractional part, and the number of
+    /// digits after the `.` becomes the scale (`"1.50"` is scale 2).
+    /// Exponent notation is not accepted. Returns None for empty or
+    /// malformed input.
+    //! assert String.to_decimal("1.50") == Some(1.50d)
+    //! assert String.to_decimal("1_000") == Some(1000d)
+    //! assert String.to_decimal("oops") == None
+    //
+    pub host fn to_decimal(s: String) -> Maybe<Decimal>
+
     /// Returns the raw bytes of the string (UTF-8 encoded).
     //! assert String.to_bytes("ab")
     //! |> Bytes.to_list()
@@ -406,6 +444,28 @@ impl String {
     //!     |> List.equal?([97, 98])
     //
     pub host fn to_codepoints(s: String) -> List<Codepoint>
+
+    /// The string of the codepoints in `cps`, in order: the inverse of
+    /// `String.to_codepoints`. It takes a List, as `to_codepoints` gives
+    /// one; end a lazy chain of codepoints with `Iter.to_list()`.
+    //! assert String.from_codepoints(['h', 'i']) == "hi"
+    //! assert String.from_codepoints([]) == ""
+    //! assert "héllo" |> String.to_codepoints() |> String.from_codepoints() == "héllo"
+    //!
+    //! shifted =
+    //!     "abc"
+    //!     |> String.to_codepoints()
+    //!     |> Iter.map(&Int.to_codepoint(Codepoint.to_int(&1) + 1))
+    //!     |> Maybe.values()
+    //!     |> String.from_codepoints()
+    //!
+    //! assert shifted == "bcd"
+    //
+    pub fn from_codepoints(cps: List<Codepoint>) -> String {
+        cps
+        |> Iter.map(&Codepoint.to_string(&1))
+        |> join()
+    }
 
     /// `s` as a Nomi string literal that reads back as `s`: quoted, with
     /// `\n`, `\r`, `\t`, `\\` and `\"` escaped, `\u{...}` for any other
@@ -545,7 +605,7 @@ impl Matcher for Codepoint {
     // A codepoint matches its own one-codepoint text, so each search is the
     // String matcher's over `Codepoint.to_string(cp)`. Declared here rather
     // than in std/code_points so the String host functions are this module's.
-    //! e_acute = try Codepoint.from_int(0xE9)
+    //! e_acute = try Int.to_codepoint(0xE9)
     //! assert String.contains?("café", e_acute)
     //! refute String.contains?("cafe", e_acute)
     //! assert String.split("a,b", ',') == ["a", "b"]

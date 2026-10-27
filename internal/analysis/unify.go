@@ -629,6 +629,14 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 			return implements
 		}
 	}
+	if iface.Name == "Comparable" {
+		implements, decided := structuralComparable(concrete, func(p Type) bool {
+			return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
+		})
+		if decided {
+			return implements
+		}
+	}
 	concreteName := interfaceImplName(concrete)
 	if concreteName == "" || !interfaceImplemented(concreteName, iface.Name, iface.Origin, impls) {
 		return false

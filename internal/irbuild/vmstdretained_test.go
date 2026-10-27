@@ -259,7 +259,7 @@ func vmSampleForIn(k kind, qual string) any {
 		// A body handing a Decimal and a Locale to a host (`Decimal.format`)
 		// needs the Decimal itself; the shaper's trial leaves would put a
 		// handle in the Locale's place.
-		return rt.DecimalFromInt(1)
+		return rt.IntToDecimal(1)
 	}
 	if irHostHandleKind(k) {
 		return vmRegexHandle()

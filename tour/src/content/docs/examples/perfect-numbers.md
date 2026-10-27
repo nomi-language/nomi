@@ -63,61 +63,53 @@ import {
     perfect_numbers.Error
 }
 
-group "Perfect numbers" {
-    test "classify" {
-        cases = [
-            #("Smallest perfect number is classified correctly", 6),
-            #("Medium perfect number is classified correctly", 28),
-            #("Large perfect number is classified correctly", 33550336),
-        ]
+test "Perfect numbers" {
+    cases = [
+        #("Smallest perfect number is classified correctly", 6),
+        #("Medium perfect number is classified correctly", 28),
+        #("Large perfect number is classified correctly", 33550336),
+    ]
 
-        subtests cases, #(description, number), description {
-            assert perfect_numbers.classify(number) == Ok(Classification.Perfect)
-        }
+    subtests cases, #(description, number), description {
+        assert perfect_numbers.classify(number) == Ok(Classification.Perfect)
     }
 }
 
-group "Abundant numbers" {
-    test "classify" {
-        cases = [
-            #("Smallest abundant number is classified correctly", 12),
-            #("Medium abundant number is classified correctly", 30),
-            #("Large abundant number is classified correctly", 33550335),
-            #("Perfect square abundant number is classified correctly", 196),
-        ]
+test "Abundant numbers" {
+    cases = [
+        #("Smallest abundant number is classified correctly", 12),
+        #("Medium abundant number is classified correctly", 30),
+        #("Large abundant number is classified correctly", 33550335),
+        #("Perfect square abundant number is classified correctly", 196),
+    ]
 
-        subtests cases, #(description, number), description {
-            assert perfect_numbers.classify(number) == Ok(Classification.Abundant)
-        }
+    subtests cases, #(description, number), description {
+        assert perfect_numbers.classify(number) == Ok(Classification.Abundant)
     }
 }
 
-group "Deficient numbers" {
-    test "classify" {
-        cases = [
-            #("Smallest prime deficient number is classified correctly", 2),
-            #("Smallest non-prime deficient number is classified correctly", 4),
-            #("Medium deficient number is classified correctly", 32),
-            #("Large deficient number is classified correctly", 33550337),
-            #("Edge case (no factors other than itself) is classified correctly", 1),
-        ]
+test "Deficient numbers" {
+    cases = [
+        #("Smallest prime deficient number is classified correctly", 2),
+        #("Smallest non-prime deficient number is classified correctly", 4),
+        #("Medium deficient number is classified correctly", 32),
+        #("Large deficient number is classified correctly", 33550337),
+        #("Edge case (no factors other than itself) is classified correctly", 1),
+    ]
 
-        subtests cases, #(description, number), description {
-            assert perfect_numbers.classify(number) == Ok(Classification.Deficient)
-        }
+    subtests cases, #(description, number), description {
+        assert perfect_numbers.classify(number) == Ok(Classification.Deficient)
     }
 }
 
-group "Invalid inputs" {
-    test "classify" {
-        cases = [
-            #("Zero is rejected (as it is not a positive integer)", 0),
-            #("Negative integer is rejected (as it is not a positive integer)", -1),
-        ]
+test "Invalid inputs" {
+    cases = [
+        #("Zero is rejected (as it is not a positive integer)", 0),
+        #("Negative integer is rejected (as it is not a positive integer)", -1),
+    ]
 
-        subtests cases, #(description, number), description {
-            assert perfect_numbers.classify(number) == Err(Error.NotPositive)
-        }
+    subtests cases, #(description, number), description {
+        assert perfect_numbers.classify(number) == Err(Error.NotPositive)
     }
 }
 ```
@@ -128,4 +120,4 @@ group "Invalid inputs" {
 - The classification is a `case` over `Int.compare(aliquot_sum(number), number)`, whose three `Ordering`s are the three classes.
 - `aliquot_sum` finds divisors only up to the square root and adds each with its pair (`divisor_pair`), so the cases near 33.5 million take about 5,800 steps rather than 33 million.
 - The divisor search is a lazy pipe from `Iter.from(1)` under `Iter.take_while`, rather than a range to a computed integer square root.
-- Each canonical group is a `group` with one `subtests` table, since every row in a group expects the same answer.
+- Each canonical group is a test named by the group's description, with one `subtests` table, since every row in a group expects the same answer.

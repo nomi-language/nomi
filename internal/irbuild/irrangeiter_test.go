@@ -58,8 +58,8 @@ fn main() {
 
 func TestIRRangeIter_TourCodepointRange(t *testing.T) {
 	verifyLambdaProgram(t, `fn run() -> Maybe<List<String>> {
-  a = try Codepoint.from_int(97)
-  d = try Codepoint.from_int(100)
+  a = try Int.to_codepoint(97)
+  d = try Int.to_codepoint(100)
 
   letters =
     a..=d

@@ -22,7 +22,7 @@ import (
 func TestDistinctOverLeaf_RunsEveryShape(t *testing.T) {
 	const byteHelper = `
 fn byte(n: Int) -> Byte {
-    case Byte.from_int(n) {
+    case Int.to_byte(n) {
         Some(b) -> b
         None -> byte(0)
     }

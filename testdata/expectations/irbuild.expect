@@ -783,7 +783,7 @@ T
 C control_test.nomi@5106566f59bd9d17
 E 1
 N 0
-H c73ad2ab4ee3b888cfe353b4b0bfef9d146736636d3eeafb0c5095950209b2c0
+H 7dc600d6d186701e5ee40fadf3478c7f32f8f8c08e0bc31ba31229956d352534
 S -- control_test.nomi 1062 --
 S import std/io
 S
@@ -869,14 +869,14 @@ T ok <dir>/control_test.nomi :: a loop callback's arm
 T   next arm ends
 T   next arm ends
 T   break arm ends
-T ok <dir>/control_test.nomi :: subtests rows
+T ok <dir>/control_test.nomi :: subtests rows (2 cases)
 T   row one ends
 T   row two ends
 T FAIL <dir>/control_test.nomi :: a failed assertion in the arm
 T   released on failure
 T   line 65: assertion failed
 T     assert False
-T test result: FAILED. 4 passed, 1 failed
+T test result: FAILED. 5 passed, 1 failed
 T
 C control_test.nomi@517742633c495702
 E 0
@@ -4319,7 +4319,7 @@ T inner y = 900
 T outer(1) = 11
 T adder(3)(4) = 7
 T
-C internal/irbuild/testdata/codepoint.nomi@f9f4ea227eaf0927
+C internal/irbuild/testdata/codepoint.nomi@c066b19fe2edf305
 E 0
 N 0
 H c37445a6bcf90c7173fad3efe4fcfc657aaebc15233a1ca40ecd84d31f354336
@@ -4740,7 +4740,7 @@ T       r
 T         = #Rev{alpha: 2, zeta: 1}
 T test result: FAILED. 1 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal.nomi@cd095987315d11fb
+C internal/irbuild/testdata/decimal.nomi@3df30845f91d80d6
 E 1
 N 0
 H ec3e6a57ca80527803f2c89b71c6623739fff37a65226ee991e9cf5c2a2c245d
@@ -4795,7 +4795,7 @@ T set has absent = False
 T returned = %{0.99 => 1, 19.99 => 2}
 T total = 2
 T
-C internal/irbuild/testdata/decimal_render.nomi@a9737508f303babf
+C internal/irbuild/testdata/decimal_render.nomi@6be7b8381afe527e
 E 0
 N 0
 H 8c31c62013b19d31f7b8835102ee8c32aff6a65c071f9db87f3f31f242b9dbff
@@ -7144,7 +7144,7 @@ H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
 T label=staged
 T tier=7
 T
-C internal/irbuild/testdata/ranges.nomi@6df4ee4f72270d95
+C internal/irbuild/testdata/ranges.nomi@d53df46aba55bef5
 E 0
 N 0
 H a70248c59fc13f38a409040f940d68d8b2ea979d8787ccdefd975015a12d5649
@@ -7643,7 +7643,7 @@ T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
 T
-C internal/irbuild/testdata/std_host_type_boundary.nomi@3b66e62fb93c28d3
+C internal/irbuild/testdata/std_host_type_boundary.nomi@ef1433325764094d
 E 0
 N 0
 H 1443bb69a564d63f4641fa5649efc849a3536ee4271f71b1a306f63b8b410c97

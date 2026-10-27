@@ -77,7 +77,7 @@ func TestStdlibLoweringOrderPutsAModuleAfterItsImports(t *testing.T) {
 			return false
 		}
 		seen[from] = true
-		for _, dep := range stdModuleImports(lib.Nodes[from]) {
+		for _, dep := range stdModuleImports(from, lib.Nodes[from]) {
 			if dep == to || reaches(dep, to, seen) {
 				return true
 			}
@@ -87,7 +87,7 @@ func TestStdlibLoweringOrderPutsAModuleAfterItsImports(t *testing.T) {
 
 	var cyclic []string
 	for _, name := range names {
-		for _, dep := range stdModuleImports(lib.Nodes[name]) {
+		for _, dep := range stdModuleImports(name, lib.Nodes[name]) {
 			if _, known := lib.Nodes[dep]; !known {
 				continue
 			}

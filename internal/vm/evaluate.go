@@ -344,7 +344,7 @@ var pureCrossings = map[string]bool{
 	"strings.String.words": true, "strings.String.lines": true,
 	"assertions.AssertionFailure.format": true,
 	// strings.String.repeat is not here: its cost is its Int operand.
-	"bytes.Byte.from_int": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
+	"int.Int.to_byte": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
 	"bytes.Bytes.get": true, "bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
 	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true, "bytes.Bytes.contains?": true,
 	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.bytes_compare": true,
@@ -352,20 +352,26 @@ var pureCrossings = map[string]bool{
 	"int.Int.wrapping_sub": true, "int.Int.wrapping_mul": true, "int.Int.bitwise_and": true,
 	"int.Int.bitwise_or": true, "int.Int.bitwise_xor": true, "int.Int.bitwise_not": true,
 	"int.Int.shift_left": true, "int.Int.shift_right": true,
+	"int.Int.pow": true, "int.Int.sqrt": true, "int.Int.gcd": true, "int.Int.lcm": true,
+	"int.int_to_digits": true, "int.int_from_digits": true,
 	"float.Float.to_string": true, "float.Float.nan": true, "float.Float.positive_infinity": true,
-	"float.Float.negative_infinity": true, "float.Float.nan?": true, "float.Float.round": true,
+	"float.Float.negative_infinity": true, "float.Float.nan?": true, "float.float_round": true,
 	"float.Float.floor": true, "float.Float.ceil": true, "float.Float.trunc": true,
 	"float.Float.to_int": true, "float.float_bits": true,
+	"float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true, "float.Float.log": true,
+	"float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true, "float.Float.cos": true,
+	"float.Float.tan": true, "float.Float.atan2": true,
 	"decimal.Decimal.to_string": true, "decimal.Decimal.equal?": true, "decimal.Decimal.hash": true,
-	"decimal.Decimal.compare": true, "decimal.Decimal.from_int": true,
-	"decimal.Decimal.from_string": true, "decimal.Decimal.to_int": true,
-	"decimal.Decimal.to_float": true, "decimal.Decimal.from_float": true,
+	"decimal.Decimal.compare": true, "int.Int.to_decimal": true,
+	"strings.String.to_decimal": true, "decimal.Decimal.to_int": true,
+	"decimal.Decimal.to_float": true, "float.Float.to_decimal": true,
 	"decimal.Decimal.normalize": true, "decimal.Decimal.scale": true, "decimal.Decimal.divide_exact": true,
-	// decimal.Decimal.divide and round are not here: their cost is their
-	// scale operand.
+	// decimal.Decimal.divide, round and sqrt are not here: their cost is their
+	// scale operand. decimal.Decimal.pow is not either: its cost is its
+	// exponent.
 	"duration.Duration.to_string": true, "code_points.Codepoint.to_string": true,
 	"code_points.Codepoint.letter?": true, "code_points.Codepoint.whitespace?": true,
-	"code_points.Codepoint.upper?": true, "code_points.Codepoint.lower?": true,
+	"code_points.Codepoint.upper?": true, "code_points.Codepoint.lower?": true, "int.Int.to_codepoint": true,
 	"json.Json.decode": true, "json.Json.encode": true, "json.Json.to_dynamic": true,
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true,

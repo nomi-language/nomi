@@ -16,6 +16,10 @@ package vm
 // function once per row, before the row, and records a failed row under
 // the name rendered as a String; a name that faults fails its row without
 // running it, recorded under the rendered row (rt.SubtestNameTrapFailure).
+//
+// Each row that runs to its end, passed or failed, is a case of the running
+// test: the statement reports how many to the case's test capture
+// (rt.EnterSubtests), and the report counts them (rt.CountCases).
 
 import (
 	"errors"
@@ -78,6 +82,11 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 	}
 	var failed []rt.SubtestFailure
 	total := 0
+	// ran counts the rows that ran to their end, passed or failed: the
+	// running test case's cases (rt.EnterSubtests, rt.CountCases).
+	ran := 0
+	done := rt.EnterSubtests(fr.runtime)
+	defer func() { done(ran) }()
 	var stop error
 	seq.Run(fr.runtime, func(runtime *rt.Frame, item any) bool {
 		total++
@@ -98,12 +107,14 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 				}
 				failed = append(failed, rt.SubtestFailure{Row: rowText,
 					Failure: rt.SubtestNameTrapFailure(n.NameLine(), n.NameText(), trap.Error())})
+				ran++
 				return true
 			}
 			label = rt.RowText(text)
 		}
 		_, rowErr := run.activateSlot(row.fnSlot(run), []any{item}, row.captures, runtime, true, run.depth, nil)
 		if rowErr == nil {
+			ran++
 			return true
 		}
 		failure, isAssertion := asAssertFailure(rowErr)
@@ -123,6 +134,7 @@ func (m *Machine) subtestsInstr(fr *frame, n *ir.Subtests) (err error) {
 			}
 		}
 		failed = append(failed, rt.SubtestFailure{Row: text, Failure: failure})
+		ran++
 		return true
 	})
 	if stop != nil {

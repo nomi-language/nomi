@@ -38,6 +38,12 @@ const (
 // TestLocation locates a case in a JSON report.
 type TestLocation = rt.TestLocation
 
+// CaseCount is how many cases a test counts as in a report (CaseResult.Count).
+type CaseCount = rt.CaseCount
+
+// OKLine is the text after `ok ` on a passed test's report line.
+func OKLine(name string, count CaseCount) string { return rt.OKLine(name, count) }
+
 // NewTestReport is a text reporter writing to w.
 func NewTestReport(w io.Writer) *TestReport { return rt.NewTestReporter(w) }
 

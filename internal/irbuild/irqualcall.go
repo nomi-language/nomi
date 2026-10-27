@@ -661,6 +661,13 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			}
 		}
 	}
+	if ti.Name == "Comparable" && method == "compare" {
+		if _, local := bl.g.types["Comparable"]; !local {
+			if v, rk, mobile, ok, handled := bl.tupleCompareCall(t); handled {
+				return v, rk, mobile, ok
+			}
+		}
+	}
 	if ti.Name == "Equatable" && method == "equal?" && len(t.Args) == 2 && bl.g.stdModule != "" {
 		// `Equatable.equal?(a.max_age, b.max_age)` in a std body (a derived
 		// impl's field over a `Maybe<Int>`): a std module holds no generic

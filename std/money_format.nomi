@@ -53,7 +53,7 @@ pub fn parse(
             Err(e)
 
         Ok(digits) -> {
-            case Decimal.from_string(digits) {
+            case String.to_decimal(digits) {
                 Some(d) -> Ok(d)
                 None -> Err(NumberParseError.OutOfRange)
             }

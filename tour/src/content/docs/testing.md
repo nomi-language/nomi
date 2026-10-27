@@ -194,8 +194,12 @@ FAIL palindrome_test.nomi :: determines palindromes
   1 of 3 subtests failed
 ```
 
-The whole statement is still one test. A row cannot `return`, `break` or
-`try`: every row runs to its end.
+Each row counts as a case in the totals. The rows that pass are not listed: a
+test whose rows all pass prints one line with how many it ran, such as
+`ok palindrome_test.nomi :: determines palindromes (3 cases)`, and a test of 3
+rows with one failing adds `2 passed, 1 failed` to the `test result:` line.
+`--line` and an editor still run the whole statement as one test. A row cannot
+`return`, `break` or `try`: every row runs to its end.
 
 ### Naming Rows
 

@@ -21,16 +21,15 @@ pub fn largest_product(digits: String, span: Int) -> Result<Int, Error> {
         return Err(.NotADigit)
     }
 
-    last_start = Iter.count(numbers) - span
+    if span > Iter.count(numbers) {
+        return Err(.SpanTooLong)
+    }
 
-    if last_start < 0 { return Err(.SpanTooLong) }
+    if span == 0 { return Ok(1) }
 
-    0..=last_start
-    |> Iter.map(fn start -> numbers |> Iter.drop(start) |> Iter.take(span) |> product())
+    numbers
+    |> Iter.windows(span)
+    |> Iter.map(Iter.product)
     |> Iter.reduce(fn largest = 0, candidate -> Int.max(largest, candidate))
     |> Ok()
-}
-
-fn product(numbers: Iter<Int>) -> Int {
-    Iter.reduce(numbers, fn total = 1, n -> total * n)
 }

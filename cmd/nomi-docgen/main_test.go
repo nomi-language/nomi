@@ -354,7 +354,7 @@ func referenceTestBodies(page, module string) []referenceTest {
 var htmlTag = regexp.MustCompile(`<[^>]*>`)
 
 // referenceEntryLabel names the API entry the page text before an editor ends
-// in: its last `##`/`###` heading with the markup stripped (`Byte.from_int`,
+// in: its last `##`/`###` heading with the markup stripped (`Int.to_byte`,
 // `type Bool`), plus the impl context line that directly follows that heading
 // (`Date.add (impl Add<Duration> for Date)`), which is what tells one owner's
 // several impls of one method apart.

@@ -51,7 +51,7 @@ test "adding empty_sum changes nothing" {
     assert adds_nothing(#[1, 2])
     assert adds_nothing(%[1, 2])
     assert adds_nothing(%{"a" => 1})
-    a = try Byte.from_int(97)
+    a = try Int.to_byte(97)
     assert adds_nothing(Bytes.from_list([a]))
     assert adds_nothing(Cents(5))
 }

@@ -1,6 +1,6 @@
 //# Tallies a small football competition into a league table.
 
-import std/comparable.Direction
+import std/reverse.Reverse
 
 /// Why the results could not be tallied.
 pub enum Error {
@@ -68,8 +68,7 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
         results
         |> Iter.group_by(.0)
         |> Iter.map(fn #(team, outcomes) -> standing(team, Iter.map(outcomes, .1)))
-        |> Iter.sort_by(.team)
-        |> Iter.sort_by(Direction.Descending, Standing.points)
+        |> Iter.sort_by(fn s -> #(Reverse.of(Standing.points(s)), s.team))
 
     table = Iter.map(standings, fn s -> {
         numbers = [Standing.played(s), s.won, s.drawn, s.lost, Standing.points(s)]

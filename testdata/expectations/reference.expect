@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 49
-declared-cases 538
+records 52
+declared-cases 578
 failing 0
 C assertions
 E 0
@@ -26,9 +26,8 @@ H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
 T ok enum Bool
 C bytes
 E 0
-N 18
-H 910c2bfad5a99fa1645048c3b316d7a7f25639c2aaa31fce148a44b8371948b1
-T ok Byte.from_int
+N 17
+H 067edd418d343e150519e81b0c56e73b6fb5a760a8f9a468ef724078406f79df
 T ok Byte.to_int
 T ok Bytes.length
 T ok Bytes.get
@@ -114,9 +113,8 @@ T ok Sender.close
 T ok Receiver.receive
 C code_points
 E 0
-N 13
-H 5953dd980aa7374eb62f211ef783b9eca59b6ff4d5c847b6fe5e8e04279f1e0a
-T ok Codepoint.from_int
+N 12
+H 0d7cd92b8368c6742491e4425d3e586e3109ed0bfdcc2de1c0bad9d1eee9e98e
 T ok Codepoint.to_int
 T ok Codepoint.letter?
 T ok Codepoint.digit?
@@ -138,6 +136,12 @@ T ok Collator.new
 T ok Collator.compare
 T ok Collator.sort_key
 T ok Collator.inspect (impl Debug for Collator)
+C comparable
+E 0
+N 2
+H 31dff51941bce4e4838c1952d7ba3e4b3c875756066778d10720f8df6d1f9f1d
+T ok Ordering.chain
+T ok interface Comparable
 C compiler
 E 0
 N 4
@@ -176,15 +180,14 @@ T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
 N 23
-H 6e9f5960af6325e6164644bbe4e6a240fe6697a3a85b83a12bf994bc6fb47a88
-T ok Decimal.from_int
-T ok Decimal.from_string
+H c6d8aa7019d131b7d532d4c241cdc8855386f7aa7df9cc7109f38cb06a8bfda5
 T ok Decimal.to_int
 T ok Decimal.to_float
-T ok Decimal.from_float
 T ok Decimal.divide
 T ok Decimal.divide_exact
 T ok Decimal.round
+T ok Decimal.pow
+T ok Decimal.sqrt
 T ok Decimal.normalize
 T ok Decimal.scale
 T ok Decimal.abs
@@ -199,6 +202,7 @@ T ok Decimal.parse_in
 T ok Decimal.parse_percent_in
 T ok Decimal.to_string (impl Display for Decimal)
 T ok Decimal.empty_sum (impl Summable for Decimal)
+T ok Decimal.empty_product (impl Productable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 C duration
 E 0
@@ -226,8 +230,8 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 21
-H ba6e0aca7a8cfe5a0e3b71189b85a245721787cdc6fd791c49942ec44f4f43fb
+N 33
+H a7da69813dd05a2119de824e4a4afd23f883e4df27722e2b850218092a160dfe
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -235,6 +239,7 @@ T ok Float.nan?
 T ok Float.infinite?
 T ok Float.finite?
 T ok Float.to_int
+T ok Float.to_decimal
 T ok Float.round
 T ok Float.floor
 T ok Float.ceil
@@ -243,12 +248,23 @@ T ok Float.abs
 T ok Float.sign
 T ok Float.min
 T ok Float.max
+T ok Float.pow
+T ok Float.sqrt
+T ok Float.exp
+T ok Float.log
+T ok Float.log2
+T ok Float.log10
+T ok Float.sin
+T ok Float.cos
+T ok Float.tan
+T ok Float.atan2
 T ok Float.format
 T ok Float.format_percent
 T ok Float.parse_in
 T ok Float.parse_percent_in
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
+T ok Float.empty_product (impl Productable for Float)
 C fs
 E 0
 N 31
@@ -307,13 +323,16 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 25
-H 9b43056a06b8f43b7b2094279622e2ab8d33539bd3b894b7cc4ec7db9e515945
+N 35
+H 0c593787bccb839b4368e5f79d43d9802b7e7424c7c857081a490bff9628cd01
 T ok Int.max_value
 T ok Int.min_value
 T ok Int.to_non_zero
 T ok Int.to_positive
 T ok Int.to_float
+T ok Int.to_decimal
+T ok Int.to_byte
+T ok Int.to_codepoint
 T ok Int.wrapping_add
 T ok Int.wrapping_sub
 T ok Int.wrapping_mul
@@ -328,10 +347,17 @@ T ok Int.abs
 T ok Int.sign
 T ok Int.min
 T ok Int.max
+T ok Int.pow
+T ok Int.sqrt
+T ok Int.gcd
+T ok Int.lcm
+T ok Int.to_digits
+T ok Int.from_digits
 T ok Int.format
 T ok Int.parse_in
 T ok Int.to_string (impl Display for Int)
 T ok Int.empty_sum (impl Summable for Int)
+T ok Int.empty_product (impl Productable for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
 T ok PositiveInt.to_non_zero
 C io
@@ -365,13 +391,14 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 48
-H b32f485bcedb55d81048bb2fc905456b8ede7bc1ee9e48ed7cc085fe0ac18c6e
+N 51
+H 663b1138252059b0462a50207a3bb1bae14cecf4678afcfa85b8dd25cbaaa589
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
 T ok Iter.map_reduce
 T ok Iter.find
+T ok Iter.find_index
 T ok Iter.sort_with
 T ok Iter.sort
 T ok Iter.sort_by
@@ -402,6 +429,7 @@ T ok Iter.drop
 T ok Iter.drop_while
 T ok Iter.flat_map
 T ok Iter.chunks
+T ok Iter.windows
 T ok Iter.chunk_by
 T ok Iter.from
 T ok Iter.repeat
@@ -415,6 +443,7 @@ T ok Iter.max
 T ok Iter.min_by
 T ok Iter.max_by
 T ok Iter.sum
+T ok Iter.product
 C json
 E 0
 N 3
@@ -424,12 +453,14 @@ T ok Json.encode
 T ok Json.to_dynamic
 C lists
 E 0
-N 6
-H e4bd37c6109452d7d771f8f508a6fb5d23ce2acbd43fead784002ea3d0305ef2
+N 8
+H 1b53fc93c3279d47e14dd27be3122f21495b40cc687c09465cf2b098d4181b1d
 T ok List.next_item
 T ok List.concat
 T ok List.head
 T ok List.tail
+T ok List.starts_with?
+T ok List.ends_with?
 T ok List.contains? (impl Contains for List<T>)
 T ok List.empty_sum (impl Summable for List<T>)
 C locale
@@ -508,11 +539,18 @@ T ok Maybe.collect
 T ok Maybe.values
 C money
 E 0
-N 11
-H 29d1f047fc754fcb0419c2585c320a94313f28b0681296f5c97ac3fb9d8eb23d
+N 18
+H 9038cb4d9b88fc3c1c3d37b8fbae0a03399036d87d69187b4ddded9b38e1b966
 T ok struct Money
 T ok Money.format
 T ok Money.round
+T ok Money.multiply_by
+T ok Money.abs
+T ok Money.negate
+T ok Money.sign
+T ok Money.zero?
+T ok Money.min
+T ok Money.max
 T ok Money.parse_in
 T ok Money.add (impl Add<Money, Money> for Money)
 T ok Money.subtract (impl Subtract<Money, Money> for Money)
@@ -549,6 +587,11 @@ E 0
 N 1
 H a978df8c7f4582ae68e0d4c156cd5fa980bf7f781206b5e9ba1cb1c18391deb4
 T ok struct Exit
+C productable
+E 0
+N 1
+H 160ca3a8a6588c1e688c9dfee1c5e35f497aa4ac7e136b369308cf3c6b427846
+T ok interface Productable
 C random
 E 0
 N 11
@@ -596,6 +639,11 @@ T ok Result.map_err
 T ok Result.to_maybe
 T ok Result.collect
 T ok Result.partition
+C reverse
+E 0
+N 1
+H 1f8a2911d85fc0c2cc46801fd1c76e17bfc099aade578f10dd10c6fab6ee2113
+T ok struct Reverse
 C sets
 E 0
 N 11
@@ -644,8 +692,8 @@ T ok sql_testing.conformance
 T ok sql_testing.rules
 C strings
 E 0
-N 36
-H 9d24083d57c565fa492d9f05e9b5432b436850cbc5c7fa1ff522f56725354b65
+N 40
+H 2925088b12f7a6880a1f7873774c3103341063ab57a5c6555130049187f17604
 T ok String.contains? Contains<String> (impl Contains<String> for String)
 T ok String.contains? Contains<Regex> (impl Contains<Regex> for String)
 T ok String.contains? Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -661,6 +709,8 @@ T ok String.repeat
 T ok String.reverse
 T ok String.normalize
 T ok String.slice
+T ok String.take
+T ok String.drop
 T ok String.pad_start
 T ok String.pad_end
 T ok String.join
@@ -674,8 +724,10 @@ T ok String.words
 T ok String.lines
 T ok String.trim
 T ok String.to_int
+T ok String.to_decimal
 T ok String.to_bytes
 T ok String.to_codepoints
+T ok String.from_codepoints
 T ok String.to_literal
 T ok String.strip_prefix
 T ok String.strip_suffix

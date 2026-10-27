@@ -31,45 +31,39 @@ pub fn difference_of_squares(n: Int) -> Int {
 // FILE: difference_of_squares_test.nomi
 import difference_of_squares
 
-group "Square the sum of the numbers up to the given number" {
-    test "square of sum" {
-        cases = [
-            #("square of sum 1", 1, 1),
-            #("square of sum 5", 5, 225),
-            #("square of sum 100", 100, 25502500),
-        ]
+test "Square the sum of the numbers up to the given number" {
+    cases = [
+        #("square of sum 1", 1, 1),
+        #("square of sum 5", 5, 225),
+        #("square of sum 100", 100, 25502500),
+    ]
 
-        subtests cases, #(description, n, expected), description {
-            assert difference_of_squares.square_of_sum(n) == expected
-        }
+    subtests cases, #(description, n, expected), description {
+        assert difference_of_squares.square_of_sum(n) == expected
     }
 }
 
-group "Sum the squares of the numbers up to the given number" {
-    test "sum of squares" {
-        cases = [
-            #("sum of squares 1", 1, 1),
-            #("sum of squares 5", 5, 55),
-            #("sum of squares 100", 100, 338350),
-        ]
+test "Sum the squares of the numbers up to the given number" {
+    cases = [
+        #("sum of squares 1", 1, 1),
+        #("sum of squares 5", 5, 55),
+        #("sum of squares 100", 100, 338350),
+    ]
 
-        subtests cases, #(description, n, expected), description {
-            assert difference_of_squares.sum_of_squares(n) == expected
-        }
+    subtests cases, #(description, n, expected), description {
+        assert difference_of_squares.sum_of_squares(n) == expected
     }
 }
 
-group "Subtract sum of squares from square of sums" {
-    test "difference of squares" {
-        cases = [
-            #("difference of squares 1", 1, 0),
-            #("difference of squares 5", 5, 170),
-            #("difference of squares 100", 100, 25164150),
-        ]
+test "Subtract sum of squares from square of sums" {
+    cases = [
+        #("difference of squares 1", 1, 0),
+        #("difference of squares 5", 5, 170),
+        #("difference of squares 100", 100, 25164150),
+    ]
 
-        subtests cases, #(description, n, expected), description {
-            assert difference_of_squares.difference_of_squares(n) == expected
-        }
+    subtests cases, #(description, n, expected), description {
+        assert difference_of_squares.difference_of_squares(n) == expected
     }
 }
 ```
@@ -79,4 +73,4 @@ group "Subtract sum of squares from square of sums" {
 - Both sums iterate the range `1..=n` with `Iter.sum`, rather than using the closed forms `n(n+1)/2` and `n(n+1)(2n+1)/6`. The ranges say what is summed, and the inputs are small.
 - `square_of_sum` binds the sum and multiplies it by itself, since there is no integer power.
 - The squares are `fn k -> k * k`, a lambda rather than a capture, because the body uses its parameter twice (style §31).
-- Each canonical group is a `group` holding one `subtests` table.
+- Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.

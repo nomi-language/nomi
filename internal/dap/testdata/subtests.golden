@@ -44,7 +44,7 @@
 <- event output {"category":"stdout","output":"      want\n"}
 <- event output {"category":"stdout","output":"        = 6\n"}
 <- event output {"category":"stdout","output":"  1 of 2 subtests failed\n"}
-<- event output {"category":"stdout","output":"test result: FAILED. 0 passed, 1 failed\n"}
+<- event output {"category":"stdout","output":"test result: FAILED. 1 passed, 1 failed\n"}
 <- event exited {"exitCode":1}
 <- event terminated {}
 -> disconnect {"terminateDebuggee":true}

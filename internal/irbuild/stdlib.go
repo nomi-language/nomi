@@ -909,7 +909,7 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 			return
 		}
 		state[name] = active
-		for _, dep := range stdModuleImports(lib.Nodes[name]) {
+		for _, dep := range stdModuleImports(name, lib.Nodes[name]) {
 			if _, known := lib.Nodes[dep]; known {
 				visit(dep)
 			}
@@ -950,11 +950,23 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 // `locale.Locale` and `localize.NumberParseError` for their formatting
 // functions' signatures and pass the locale straight to a host function;
 // counting those imports as edges would put std/locale, which is written
-// over Int and String, ahead of both. The rule is held to those two modules
+// over Int and String, ahead of both. std/float imports
+// `decimal.RoundingMode` the same way, for `Float.round`, a host function:
+// as an edge it would put std/decimal, which is written over Int and Float,
+// ahead of std/float. The rule is held to those three modules
 // (typeOnlyImportModules) because the same reading of other std imports
 // would reorder modules that lower correctly today, strings and code_points
 // among them.
-func stdModuleImports(nodes []ast.Node) []string {
+//
+// The conversions `Int.to_decimal`, `Int.to_byte`, `Int.to_codepoint`,
+// `Float.to_decimal` and `String.to_decimal` are host functions in modules
+// lowered before the module of the type they return, and their imports of
+// that type are not edges either (conversionTypeImports). Those rows hold
+// for the named importer alone, and they also count the analyzer's
+// primitive types (Byte, Decimal: stdHostSpecs rows) as process-wide, since
+// every other module's import of `decimal.Decimal` or `bytes.Byte` stays an
+// edge that std/localize and std/strings lower by.
+func stdModuleImports(importer string, nodes []ast.Node) []string {
 	seen := map[string]bool{}
 	add := func(imp *ast.ImportStmt) {
 		if len(imp.ModulePath) == 0 {
@@ -964,7 +976,7 @@ func stdModuleImports(nodes []ast.Node) []string {
 		if !isHead {
 			return
 		}
-		if !seen[head.Name] && importsOnlySharedTypes(head.Name, imp) {
+		if !seen[head.Name] && importsOnlySharedTypes(importer, head.Name, imp) {
 			return
 		}
 		seen[head.Name] = true
@@ -989,13 +1001,22 @@ func stdModuleImports(nodes []ast.Node) []string {
 
 // typeOnlyImportModules are the std modules an import of process-wide types
 // only does not make a lowering dependency on. See stdModuleImports.
-var typeOnlyImportModules = map[string]bool{"locale": true, "localize": true}
+var typeOnlyImportModules = map[string]bool{"decimal": true, "locale": true, "localize": true}
+
+// conversionTypeImports are, per importing std module, the modules whose
+// types its `to_<target>` conversions return. See stdModuleImports.
+var conversionTypeImports = map[string]map[string]bool{
+	"float":   {"decimal": true},
+	"int":     {"bytes": true, "code_points": true, "decimal": true},
+	"strings": {"decimal": true},
+}
 
 // importsOnlySharedTypes reports whether imp, an import of std module
 // module, names types only, each with a process-wide def, and module is one
-// of typeOnlyImportModules.
-func importsOnlySharedTypes(module string, imp *ast.ImportStmt) bool {
-	if !typeOnlyImportModules[module] || imp.IncludeParent || imp.ModuleAlias != nil {
+// of typeOnlyImportModules or of importer's conversionTypeImports.
+func importsOnlySharedTypes(importer, module string, imp *ast.ImportStmt) bool {
+	conversion := conversionTypeImports[importer][module]
+	if !typeOnlyImportModules[module] && !conversion || imp.IncludeParent || imp.ModuleAlias != nil {
 		return false
 	}
 	var names []string
@@ -1037,6 +1058,13 @@ func importsOnlySharedTypes(module string, imp *ast.ImportStmt) bool {
 		}
 		for _, s := range stdStructSpecs {
 			if s.origin == origin && s.nomi == name {
+				return true
+			}
+		}
+		// A primitive row (Byte, Decimal) is the analyzer's singleton, the
+		// same type whichever module declares its surface.
+		for _, s := range stdHostSpecs {
+			if conversion && s.prim != nil && s.nomi == name {
 				return true
 			}
 		}

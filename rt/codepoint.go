@@ -20,18 +20,28 @@ import "unicode"
 // what a Nomi distinct type maps to, and rt is linked by everything, so a type
 // declared here is package-neutral.
 //
-// # What this file does not do
+// # Validation
 //
-// It does not validate. `Codepoint.from_int` is ordinary Nomi source in
-// std/code_points.nomi — the range test and the UTF-16 surrogate-block test are
-// Nomi `if` expressions returning `Maybe<Codepoint>` — and it lowers, so the VM
-// runs that predicate rather than a Go copy of it. A second validator here would be the divergence
-// rt/opaque.go's header warns about for formatters.
+// IntToCodepoint is `Int.to_codepoint`, the one constructor outside
+// std/code_points.nomi, and the one place the domain is checked. It is a host
+// function rather than a Nomi body because std/int is lowered before
+// std/code_points and cannot build the opaque type there. Inside
+// std/code_points.nomi, `next` and `step_by` reach new values through it too.
 //
-// So every Codepoint reaching CodepointToString has been through that predicate,
-// which is what makes `string(rune(cp))` total: the surrogate range D800–DFFF and
-// everything above 0x10FFFF are unconstructible from Nomi.
+// So every Codepoint reaching CodepointToString is a scalar value (a codepoint
+// literal is ASCII), which is what makes `string(rune(cp))` total: the
+// surrogate range D800–DFFF and everything above 0x10FFFF are unconstructible
+// from Nomi.
 type Codepoint int64
+
+// IntToCodepoint is `Int.to_codepoint`: Some for 0 through 0x10FFFF outside
+// the UTF-16 surrogate block 0xD800–0xDFFF, None otherwise.
+func IntToCodepoint(n int64) Maybe[Codepoint] {
+	if n < 0 || n > 0x10FFFF || (n >= 0xD800 && n <= 0xDFFF) {
+		return None[Codepoint]()
+	}
+	return Some(Codepoint(n))
+}
 
 // The classifiers below answer from Go's unicode tables, so their Unicode
 // version is the Go toolchain's (unicode.Version).

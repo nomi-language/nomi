@@ -53,7 +53,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -300,15 +302,19 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 		// taken from the entry the front end checked, and the flag is what
 		// the record is compared against.
 		flag := wantCases
-		wantCases = len(frontend.CollectTestCases(prog.Entry().Nodes))
 		defer func() {
 			if reason == "" {
 				cases = flag
 			}
 		}()
 	}
-	if got := len(mod.Tests()); got != wantCases {
-		return "", 0, 0, fmt.Sprintf("retained %d of %d case(s)", got, wantCases)
+	// A RECORD'S N COUNTS CASES, a `subtests` row each (rt.CountCases), so
+	// it is not the number of tests to retain. The tests to retain are the
+	// entry's declared ones, and the cases the run counted are read off its
+	// own summary line (reportCases), which is the number the command records.
+	declared := len(frontend.CollectTestCases(prog.Entry().Nodes))
+	if got := len(mod.Tests()); got != declared {
+		return "", 0, 0, fmt.Sprintf("retained %d of %d case(s)", got, declared)
 	}
 	var out bytes.Buffer
 	// THE PROGRAM'S MODULES, as `vmRun` hands a whole program: a std host
@@ -332,7 +338,7 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 		if stderr != "" {
 			transcript += "--- stderr ---\n" + stderr
 		}
-		return transcript, exit, len(mod.Tests()), ""
+		return transcript, exit, reportCases(out.String()), ""
 	}
 	// THE TOUR'S COMPOSITION IS THE PLAYGROUND'S AND IT IS NOT `nomi test`'s,
 	// in two ways, both read off `runTourBlock` in
@@ -368,6 +374,26 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 	}
 	return out.String(), exit, len(mod.Tests()), ""
 }
+
+// reportCases is the number of cases a report's `test result:` line counts,
+// passed, failed and blocked summed, or 0 when it has none.
+func reportCases(report string) int {
+	m := reportSummary.FindStringSubmatch(reportColour.ReplaceAllString(report, ""))
+	if m == nil {
+		return 0
+	}
+	n := 0
+	for _, s := range m[1:] {
+		v, _ := strconv.Atoi(s)
+		n += v
+	}
+	return n
+}
+
+var (
+	reportSummary = regexp.MustCompile(`(?m)^test result: \S+\. (\d+) passed, (\d+) failed(?:, (\d+) blocked)?$`)
+	reportColour  = regexp.MustCompile("\x1b\\[[0-9;]*m")
+)
 
 // vmReportSubsetOf runs every report-shaped record and returns the engine's
 // Set plus a per-record refusal report.
