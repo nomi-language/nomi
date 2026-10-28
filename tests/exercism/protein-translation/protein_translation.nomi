@@ -24,7 +24,7 @@ pub enum Error {
 pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error> {
     strand
     |> Iter.chunks(3)
-    |> Iter.map(&String.join(&1))
+    |> Iter.map(String.join)
     |> Iter.map(translate)
     |> Iter.take_while(&(&1 != Ok(None)))
     |> Result.collect()

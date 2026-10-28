@@ -402,6 +402,7 @@ func RtFuncs() []Binding {
 		{Name: "float.Float.trunc", Fn: rt.FloatTrunc},
 		{Name: "float.Float.to_int", Fn: rt.FloatToInt},
 		{Name: "float.float_bits", Fn: rt.FloatBits},
+		{Name: "float.require_tolerance", Fn: rt.FloatRequireTolerance},
 		{Name: "float.Float.pow", Fn: rt.FloatPow},
 		{Name: "float.Float.sqrt", Fn: rt.FloatSqrt},
 		{Name: "float.Float.exp", Fn: rt.FloatExp},

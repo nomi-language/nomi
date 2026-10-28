@@ -1,0 +1,65 @@
+import binary_search_tree.Tree
+
+test "data is inserted" {
+    cases: List<#(String, List<Int>, Tree<Int>)> = [
+        #("data is retained", [4], #.Node{left: .Leaf, value: 4, right: .Leaf}),
+        #(
+            "smaller number at left node",
+            [4, 2],
+            #.Node{
+                left: #.Node{left: .Leaf, value: 2, right: .Leaf},
+                value: 4,
+                right: .Leaf,
+            },
+        ),
+        #(
+            "same number at left node",
+            [4, 4],
+            #.Node{
+                left: #.Node{left: .Leaf, value: 4, right: .Leaf},
+                value: 4,
+                right: .Leaf,
+            },
+        ),
+        #(
+            "greater number at right node",
+            [4, 5],
+            #.Node{
+                left: .Leaf,
+                value: 4,
+                right: #.Node{left: .Leaf, value: 5, right: .Leaf},
+            },
+        ),
+        #("can create complex tree", [4, 2, 6, 1, 3, 5, 7], #.Node{
+            left: #.Node{
+                left: #.Node{left: .Leaf, value: 1, right: .Leaf},
+                value: 2,
+                right: #.Node{left: .Leaf, value: 3, right: .Leaf},
+            },
+            value: 4,
+            right: #.Node{
+                left: #.Node{left: .Leaf, value: 5, right: .Leaf},
+                value: 6,
+                right: #.Node{left: .Leaf, value: 7, right: .Leaf},
+            },
+        }),
+    ]
+
+    subtests cases, #(description, values, expected), description {
+        assert Tree.from(values) == expected
+    }
+}
+
+test "can sort data" {
+    cases = [
+        #("can sort single number", [2], [2]),
+        #("can sort if second number is smaller than first", [2, 1], [1, 2]),
+        #("can sort if second number is same as first", [2, 2], [2, 2]),
+        #("can sort if second number is greater than first", [2, 3], [2, 3]),
+        #("can sort complex tree", [2, 1, 3, 6, 7, 5], [1, 2, 3, 5, 6, 7]),
+    ]
+
+    subtests cases, #(description, values, expected), description {
+        assert Tree.from(values) |> Tree.sorted() == expected
+    }
+}

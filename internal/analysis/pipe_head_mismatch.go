@@ -101,7 +101,7 @@ func (c *checker) checkThenCaptureTakes(pipe *ast.Binary, capture *ast.Capture, 
 			positional++
 		}
 	}
-	c.report(c.pipeHeadMismatch(p, want, piped).WithHint(mismatchHint(want, piped)))
+	c.report(c.pipeHeadMismatch(p, want, piped).WithHint(c.defaultedFuncValueHint(want, piped, pipe.Left)).WithHint(mismatchHint(want, piped)))
 }
 
 // source is the expression the piped value comes from: the stage before

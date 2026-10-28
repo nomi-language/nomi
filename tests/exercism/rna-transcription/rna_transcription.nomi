@@ -4,7 +4,7 @@ pub fn to_rna(dna: String) -> Result<String, String> {
     dna
     |> Iter.map(complement)
     |> Result.collect()
-    |> Result.map(&String.join(&1))
+    |> Result.map(String.join)
 }
 
 fn complement(nucleotide: String) -> Result<String, String> {

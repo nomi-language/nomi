@@ -1,0 +1,39 @@
+import say.{self, Error}
+
+test "say" {
+    cases = [
+        #("zero", 0, Ok("zero")),
+        #("one", 1, Ok("one")),
+        #("fourteen", 14, Ok("fourteen")),
+        #("twenty", 20, Ok("twenty")),
+        #("twenty-two", 22, Ok("twenty-two")),
+        #("thirty", 30, Ok("thirty")),
+        #("ninety-nine", 99, Ok("ninety-nine")),
+        #("one hundred", 100, Ok("one hundred")),
+        #("one hundred twenty-three", 123, Ok("one hundred twenty-three")),
+        #("two hundred", 200, Ok("two hundred")),
+        #("nine hundred ninety-nine", 999, Ok("nine hundred ninety-nine")),
+        #("one thousand", 1000, Ok("one thousand")),
+        #("one thousand two hundred thirty-four", 1234, Ok("one thousand two hundred thirty-four")),
+        #("one million", 1_000_000, Ok("one million")),
+        #(
+            "one million two thousand three hundred forty-five",
+            1_002_345,
+            Ok("one million two thousand three hundred forty-five"),
+        ),
+        #("one billion", 1_000_000_000, Ok("one billion")),
+        #(
+            "a big number",
+            987_654_321_123,
+            Ok(
+                "nine hundred eighty-seven billion six hundred fifty-four million three hundred twenty-one thousand one hundred twenty-three"
+            ),
+        ),
+        #("numbers below zero are out of range", -1, Err(Error.OutOfRange)),
+        #("numbers above 999,999,999,999 are out of range", 1_000_000_000_000, Err(.OutOfRange)),
+    ]
+
+    subtests cases, #(description, number, expected), description {
+        assert say.say(number) == expected
+    }
+}

@@ -671,7 +671,9 @@ func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
 // testArm lowers one arm of a test-body statement region into the current
 // block and jumps to exit. The arm is its own lexical scope:
 // names it binds, and their "defined as:" records, end with it.
-func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node) (kind, bool) {
+// leaves is irFuncSig.leaves: an arm whose last statement is a `todo` or an
+// `unreachable` traps there and reaches no exit.
+func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node, leaves bool) (kind, bool) {
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	defs, stages, after, outer, outerWith := bl.testDefs, bl.testStages, bl.testAfter, bl.testDeferScope, bl.testWithScope
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
@@ -704,10 +706,26 @@ func (bl *irScalarBuilder) testArm(exit *ir.Block, body ast.Node) (kind, bool) {
 	if !bl.testStmts(stmts) {
 		return kindInvalid, false
 	}
+	if last := lastStmtExpr(stmts); leaves && isTrapExpr(last) {
+		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(last), bl.b.ID()))
+		return kindDiverged, true
+	}
 	bl.closeDefers(scope, body)
 	bl.closeWithScope(ws, body)
 	bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(body), exit.ID()))
 	return kindUnit, true
+}
+
+// lastStmtExpr is the expression the last of stmts is, through an
+// expression statement, or nil when there is none.
+func lastStmtExpr(stmts []ast.Node) ast.Node {
+	if len(stmts) == 0 {
+		return nil
+	}
+	if es, ok := stmts[len(stmts)-1].(*ast.ExprStmt); ok {
+		return es.Expr
+	}
+	return stmts[len(stmts)-1]
 }
 
 // testBinding lowers `name = expr` inside a test body.

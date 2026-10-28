@@ -17,19 +17,9 @@ Adapted from Exercism problem-specifications (MIT), exercises/rna-transcription.
   for no gain in a function this size.
 - `Result.collect` turns the per-nucleotide results into one, so the first
   invalid nucleotide becomes the error.
-- The parts are joined with `Result.map(&String.join(&1))`, a capture,
-  because `String.join` cannot be passed bare (see below).
+- The parts are joined with `Result.map(String.join)`: where a function of
+  one parameter is expected, `String.join` takes its default separator.
 
 ## Friction
 
-- [feature] A function with a defaulted parameter cannot be passed where a
-  function of fewer parameters is expected. `Result.map(String.join)` is
-  rejected, because `String.join` is `(Iter<String>, String) -> String` with
-  the separator defaulted:
-
-  ```
-  error: argument 2: expected (List<String>) -> U, got (Iter<String>, String) -> String
-  ```
-
-  The capture `&String.join(&1)` works. Gleam has no defaults; Elixir names
-  the arity, `&Enum.join/1`, which is what this wants.
+None.

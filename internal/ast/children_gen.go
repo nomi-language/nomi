@@ -315,6 +315,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfUnary(n, fn)
 		}
+	case *Unreachable:
+		if n != nil {
+			childrenOfUnreachable(n, fn)
+		}
 	case *VectorLit:
 		if n != nil {
 			childrenOfVectorLit(n, fn)
@@ -519,6 +523,8 @@ func absent(n Node) bool {
 	case *TypeIdent:
 		return n == nil
 	case *Unary:
+		return n == nil
+	case *Unreachable:
 		return n == nil
 	case *VectorLit:
 		return n == nil
@@ -1610,6 +1616,12 @@ func childrenOfUnary(x *Unary, fn func(Node)) {
 	}
 }
 
+func childrenOfUnreachable(x *Unreachable, fn func(Node)) {
+	if x.Reason != nil {
+		fn(x.Reason)
+	}
+}
+
 func childrenOfVectorLit(x *VectorLit, fn func(Node)) {
 	if !absent(x.TypeName) {
 		fn(x.TypeName)
@@ -1762,6 +1774,7 @@ var generatedTypes = []any{
 	(*TypeDef)(nil),
 	(*TypeIdent)(nil),
 	(*Unary)(nil),
+	(*Unreachable)(nil),
 	(*VectorLit)(nil),
 	(*VectorPattern)(nil),
 	(*WildcardPattern)(nil),

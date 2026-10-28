@@ -170,7 +170,6 @@ func TestFormat_WidthBrokenElseBlockStaysBroken(t *testing.T) {
 		"            score_rather_long_rather_long: -1,\n" +
 		"        }\n" +
 		"    }\n" +
-		"\n" +
 		"    r_rather_long.score\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, want)

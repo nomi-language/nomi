@@ -42,7 +42,7 @@ module.exports = grammar({
     $.attached_comment_test_line_prompt,
     $._attached_test_prompt_group_end,
     // Zero-width, before the operand of `dbg`, `try`, `return`, `break` and
-    // `todo` when that operand starts on the keyword's line. The Go parser
+    // `todo`, and before `unreachable`'s reason, when that operand starts on the keyword's line. The Go parser
     // ends the statement at a line break after the keyword, so `n |> dbg`
     // followed by a line `same = dbg n` is two statements, not `dbg same`.
     $._same_line,
@@ -374,7 +374,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|unreachable|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -1090,6 +1090,7 @@ module.exports = grammar({
       $.try_expression,
       $.dbg_expression,
       $.todo_expression,
+      $.unreachable_expression,
       $.paren_expression,
       $.tuple_expression,
       $.return_statement,
@@ -1466,6 +1467,7 @@ module.exports = grammar({
       $.try_expression,
       $.dbg_expression,
       $.todo_expression,
+      $.unreachable_expression,
       $.paren_expression,
       $.tuple_expression,
       $.return_statement,
@@ -1525,6 +1527,7 @@ module.exports = grammar({
       $.try_expression,
       $.dbg_expression,
       $.todo_expression,
+      $.unreachable_expression,
       $.paren_expression,
       $.tuple_expression,
     ),
@@ -2033,6 +2036,10 @@ module.exports = grammar({
     // A placeholder for code not yet written: `todo` or `todo "reason"`. The
     // reason is a string literal; the compiler rejects an interpolated one.
     todo_expression: $ => prec.right(1, seq('todo', optional(seq($._same_line, field('reason', choice($.string, $.triple_string, $.raw_string)))))),
+    // The program's claim that it never reaches a point:
+    // `unreachable "reason"`. The reason is required and starts on the
+    // keyword's line; the compiler rejects an interpolated one.
+    unreachable_expression: $ => prec.right(1, seq('unreachable', $._same_line, field('reason', choice($.string, $.triple_string, $.raw_string)))),
 
     // The name of a type built on a shape, written right after the shape's
     // symbol with no space: `#Point{..}`, `#geo.Point{..}`,

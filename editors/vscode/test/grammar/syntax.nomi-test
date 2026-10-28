@@ -20,6 +20,8 @@ pub fn double?(n: Int) -> Int { todo }
 // <~~~~~~~~~~~~~~~~~~--- entity.name.type.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.arrow.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~---- keyword.control.nomi
+pub fn first(xs: List<Int>) -> Int { unreachable "callers pass a non-empty list" }
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~----------- keyword.control.nomi
 pub message cart_items(count: Int) `{$count} items`
 // <--- keyword.declaration.nomi
 // <~~~~------- keyword.declaration.nomi

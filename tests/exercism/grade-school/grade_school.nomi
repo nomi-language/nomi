@@ -1,0 +1,43 @@
+/// A school's roster: each student's grade, keyed by name. A name is
+/// enrolled at most once, in one grade.
+pub opaque struct School {
+    grades: Map<String, Int>
+}
+
+/// Why a student cannot be added.
+pub enum Error {
+    AlreadyEnrolled
+}
+
+impl School {
+    /// A school with no students.
+    pub fn new() -> School {
+        #School{grades: %{}}
+    }
+
+    /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
+    /// the name is on the roster already, in this grade or another.
+    pub fn add(school: School, name: String, grade: Int) -> Result<School, Error> {
+        if Map.contains?(school.grades, name) {
+            Err(.AlreadyEnrolled)
+        } else {
+            Ok(#School{grades: Map.put(school.grades, name, grade)})
+        }
+    }
+
+    /// Every student, by grade and then by name.
+    pub fn roster(school: School) -> List<String> {
+        school.grades
+        |> Iter.sort_by(fn #(name, grade) -> #(grade, name))
+        |> Iter.map(fn #(name, _grade) -> name)
+        |> Iter.to_list()
+    }
+
+    /// The students in `grade`, by name.
+    pub fn grade(school: School, grade: Int) -> List<String> {
+        school.grades
+        |> Iter.filter(fn #(_name, in_grade) -> in_grade == grade)
+        |> Iter.map(fn #(name, _grade) -> name)
+        |> Iter.sort()
+    }
+}

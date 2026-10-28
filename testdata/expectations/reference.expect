@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 52
-declared-cases 578
+declared-cases 580
 failing 0
 C assertions
 E 0
@@ -230,8 +230,8 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 33
-H a7da69813dd05a2119de824e4a4afd23f883e4df27722e2b850218092a160dfe
+N 34
+H 4eaa47d672aab29e428f6afd4fb10a88a46fa3ac1c78c9ad884c7d947601168a
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -245,6 +245,7 @@ T ok Float.floor
 T ok Float.ceil
 T ok Float.trunc
 T ok Float.abs
+T ok Float.equal_within?
 T ok Float.sign
 T ok Float.min
 T ok Float.max
@@ -391,8 +392,8 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 51
-H 663b1138252059b0462a50207a3bb1bae14cecf4678afcfa85b8dd25cbaaa589
+N 52
+H a67cd25469e664314d861b382fc7a508267d1d90d4e431e7d08f0543651f7d74
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
@@ -436,6 +437,7 @@ T ok Iter.repeat
 T ok Iter.iterate
 T ok Iter.to_map
 T ok Iter.flatten
+T ok Iter.transpose
 T ok Iter.reverse
 T ok Iter.count
 T ok Iter.min

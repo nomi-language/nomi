@@ -57,8 +57,9 @@ leave that field out when you build the struct.
 
 You can often leave out the type name too, and write just `#{...}`: when the
 code around the literal already says which struct it needs, the literal
-builds that struct. That happens with a type annotation, a parameter, a field or
-a return type:
+builds that struct. That happens with a type annotation, a parameter, a field, a
+return type, or an earlier element of the same list or map
+(`[#Address{...}, #{...}]`):
 
 ```nomi-run
 struct Address {

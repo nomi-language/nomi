@@ -115,14 +115,14 @@ func (bl *irScalarBuilder) neverCaseRegion(t *ast.Case, sig irFuncSig) (kind, bo
 	return want, true
 }
 
-// isNeverOperand reports whether n is a `todo`, a call or a name of type
+// isNeverOperand reports whether n is a `todo`, an `unreachable`, a call or a name of type
 // Infallible: an operand that lowers to a value of kindNever.
 func (bl *irScalarBuilder) isNeverOperand(n ast.Node) bool {
 	if g, grouped := n.(*ast.GroupedExpr); grouped {
 		return bl.isNeverOperand(g.Expr)
 	}
 	switch t := n.(type) {
-	case *ast.Todo:
+	case *ast.Todo, *ast.Unreachable:
 		return true
 	case *ast.Ident:
 		return bl.localKindOf(t.Name) == kindNever
@@ -174,6 +174,8 @@ func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.lowerNever(t.Expr)
 	case *ast.Todo:
 		return bl.todo(t, kindNever)
+	case *ast.Unreachable:
+		return bl.unreachable(t, kindNever)
 	case *ast.Call:
 		// A call the checker typed as something else, which never returns
 		// because its first argument does not: the call's value is that

@@ -7,7 +7,7 @@ description: "Encode and decode text by swapping each letter with its mirror in 
 
 Encode and decode text by swapping each letter with its mirror in the alphabet.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/atbash-cipher) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/atbash-cipher) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
 
 ```nomi-run
 // FILE: atbash_cipher.nomi
@@ -23,7 +23,7 @@ pub fn encode(phrase: String) -> String {
     phrase
     |> translate()
     |> Iter.chunks(5)
-    |> Iter.map(&String.join(&1))
+    |> Iter.map(String.join)
     |> String.join(" ")
 }
 
@@ -110,14 +110,3 @@ test "decode" {
 - `translate` works on code points, since the cipher is ASCII. `swap` keeps a digit and looks a letter up in the map, so anything else answers `None` and `Maybe.values` drops it.
 - The cipher is its own inverse, so `encode` and `decode` share `translate` and differ only in how they join the letters: groups of five from `Iter.chunks(5)`, or one run.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **A missing feature.** A function with a defaulted parameter cannot be passed where a function of fewer parameters is expected, so joining each group of five is `Iter.map(&String.join(&1))` rather than `Iter.map(String.join)`. The error's hint names the capture to write:
-
-  ```
-  error: argument 2: expected (List<String>) -> U, got (Iter<String>, String) -> String
-    = help: defaults do not apply to a function value, so pass a capture that calls it: &String.join(&1)
-  ```

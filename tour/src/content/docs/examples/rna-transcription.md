@@ -7,7 +7,7 @@ description: "Turn a DNA strand into its RNA complement: G to C, C to G, T to A 
 
 Turn a DNA strand into its RNA complement: G to C, C to G, T to A and A to U.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/rna-transcription) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/rna-transcription) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
 
 ```nomi-run
 // FILE: rna_transcription.nomi
@@ -17,7 +17,7 @@ pub fn to_rna(dna: String) -> Result<String, String> {
     dna
     |> Iter.map(complement)
     |> Result.collect()
-    |> Result.map(&String.join(&1))
+    |> Result.map(String.join)
 }
 
 fn complement(nucleotide: String) -> Result<String, String> {
@@ -60,21 +60,5 @@ test "transcribes DNA to RNA" {
   for no gain in a function this size.
 - `Result.collect` turns the per-nucleotide results into one, so the first
   invalid nucleotide becomes the error.
-- The parts are joined with `Result.map(&String.join(&1))`, a capture,
-  because `String.join` cannot be passed bare (see below).
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **A missing feature.** A function with a defaulted parameter cannot be passed where a
-  function of fewer parameters is expected. `Result.map(String.join)` is
-  rejected, because `String.join` is `(Iter<String>, String) -> String` with
-  the separator defaulted:
-
-  ```
-  error: argument 2: expected (List<String>) -> U, got (Iter<String>, String) -> String
-  ```
-
-  The capture `&String.join(&1)` works. Gleam has no defaults; Elixir names
-  the arity, `&Enum.join/1`, which is what this wants.
+- The parts are joined with `Result.map(String.join)`: where a function of
+  one parameter is expected, `String.join` takes its default separator.

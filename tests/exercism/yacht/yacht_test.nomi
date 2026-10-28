@@ -1,0 +1,44 @@
+import yacht.{self, Category}
+
+test "yacht" {
+    cases = [
+        #("Yacht", [5, 5, 5, 5, 5], Category.Yacht, 50),
+        #("Not Yacht", [1, 3, 3, 2, 5], .Yacht, 0),
+        #("Ones", [1, 1, 1, 3, 5], .Ones, 3),
+        #("Ones, out of order", [3, 1, 1, 5, 1], .Ones, 3),
+        #("No ones", [4, 3, 6, 5, 5], .Ones, 0),
+        #("Twos", [2, 3, 4, 5, 6], .Twos, 2),
+        #("Fours", [1, 4, 1, 4, 1], .Fours, 8),
+        #("Yacht counted as threes", [3, 3, 3, 3, 3], .Threes, 15),
+        #("Yacht of 3s counted as fives", [3, 3, 3, 3, 3], .Fives, 0),
+        #("Fives", [1, 5, 3, 5, 3], .Fives, 10),
+        #("Sixes", [2, 3, 4, 5, 6], .Sixes, 6),
+        #("Full house two small, three big", [2, 2, 4, 4, 4], .FullHouse, 16),
+        #("Full house three small, two big", [5, 3, 3, 5, 3], .FullHouse, 19),
+        #("Two pair is not a full house", [2, 2, 4, 4, 5], .FullHouse, 0),
+        #("Four of a kind is not a full house", [1, 4, 4, 4, 4], .FullHouse, 0),
+        #("Yacht is not a full house", [2, 2, 2, 2, 2], .FullHouse, 0),
+        #("Four of a Kind", [6, 6, 4, 6, 6], .FourOfAKind, 24),
+        #("Yacht can be scored as Four of a Kind", [3, 3, 3, 3, 3], .FourOfAKind, 12),
+        #("Full house is not Four of a Kind", [3, 3, 3, 5, 5], .FourOfAKind, 0),
+        #("Little Straight", [3, 5, 4, 1, 2], .LittleStraight, 30),
+        #("Little Straight as Big Straight", [1, 2, 3, 4, 5], .BigStraight, 0),
+        #("Four in order but not a little straight", [1, 1, 2, 3, 4], .LittleStraight, 0),
+        #("No pairs but not a little straight", [1, 2, 3, 4, 6], .LittleStraight, 0),
+        #(
+            "Minimum is 1, maximum is 5, but not a little straight",
+            [1, 1, 3, 4, 5],
+            .LittleStraight,
+            0,
+        ),
+        #("Big Straight", [4, 6, 2, 5, 3], .BigStraight, 30),
+        #("Big Straight as little straight", [6, 5, 4, 3, 2], .LittleStraight, 0),
+        #("No pairs but not a big straight", [6, 5, 4, 3, 1], .BigStraight, 0),
+        #("Choice", [3, 3, 5, 6, 6], .Choice, 23),
+        #("Yacht as choice", [2, 2, 2, 2, 2], .Choice, 10),
+    ]
+
+    subtests cases, #(description, dice, category, expected), description {
+        assert yacht.score(dice, category) == expected
+    }
+}

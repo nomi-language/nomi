@@ -150,6 +150,28 @@ impl Float {
         if float_bits(x) < 0 { -x } else { x }
     }
 
+    /// Whether `a` and `b` differ by at most `tolerance`: `a == b`, or
+    /// `Float.abs(a - b) <= tolerance`. Use it where a computed Float should
+    /// equal a known one, since `==` compares every bit and most results
+    /// carry rounding error (`Float.pow(8.0, 4.0 / 3.0)` is
+    /// `15.999999999999998`, not `16.0`). The tolerance is absolute and the
+    /// caller picks it. Two equal infinities are equal; a NaN is equal within
+    /// no tolerance to anything, itself included, though `Float.nan() ==
+    /// Float.nan()` holds. A negative or NaN tolerance traps.
+    //! assert Float.equal_within?(Float.pow(8.0, 4.0 / 3.0), 16.0, 1e-12)
+    //! refute Float.pow(8.0, 4.0 / 3.0) == 16.0
+    //! assert Float.equal_within?(1.5, 1.5, 0.0)
+    //! refute Float.equal_within?(1.0, 1.1, 0.05)
+    //! assert Float.equal_within?(Float.positive_infinity(), Float.positive_infinity(), 0.0)
+    //! refute Float.equal_within?(Float.positive_infinity(), Float.negative_infinity(), 1e300)
+    //! refute Float.equal_within?(Float.nan(), Float.nan(), 1.0)
+    //
+    pub fn equal_within?(a: Float, b: Float, tolerance: Float) -> Bool {
+        require_tolerance(tolerance)
+        // `==` holds for two NaNs, so NaN is ruled out first.
+        !Float.nan?(a) and !Float.nan?(b) and (a == b or Float.abs(a - b) <= tolerance)
+    }
+
     /// Returns the sign of `x` as -1, 0, or +1. Both zeros give 0, and so does
     /// NaN, which is neither less than nor greater than zero; test for it with
     /// `Float.nan?` first when it must be told apart from zero.
@@ -381,6 +403,10 @@ host fn float_parse_percent_in(
 /// that are `==` and not NaN agree on `float_bits`. NaN values can have
 /// multiple bit patterns; this returns the actual bits.
 host fn float_bits(x: Float) -> Int
+
+/// Traps unless `tolerance` is zero or more, naming it: the check
+/// `Float.equal_within?` makes before it compares.
+host fn require_tolerance(tolerance: Float) -> Unit
 
 impl Display for Float {
     /// Returns the canonical string form of `x`, matching the runtime

@@ -141,7 +141,10 @@ in every block: function, lambda, test and `case` arm bodies and `if`/`else`
 branches. A pipe statement is no exception: a stacked pipeline, or one `fmt`
 breaks because it does not fit, is set apart, and one that fits on its line,
 such as `a = c |> Int.to_string() |> String.pad_start(5)`, sits with its
-neighbours.
+neighbours. A binding `else` block is measured by its first line: a guard
+whose `Some(n) = String.to_int(word) else {` fits on one line sits with its
+neighbours however its block breaks, so a run of guards reads as one step. A
+binding `else` with arms is laid out as a `case`, and is set apart like one.
 
 `fmt` also puts a blank line after a block's imports. One-line statements sit
 together; `fmt` keeps a single blank line you write between them, so use one to
@@ -1455,9 +1458,10 @@ A made-up `#Header{name: "", size: 0}` runs and returns a wrong answer that
 nothing flags; `todo` stops the program at the line that is missing, the editor
 lists it as a warning, and `nomi build` refuses to ship it. Give a reason when
 the next step is not obvious from the signature, and keep it to what is left to
-do. Use `todo` while writing code, not as a permanent "unreachable" marker: a
-case that cannot happen is better shaped out of the types, and one that can
-happen deserves a real answer or an `Err`.
+do. Use `todo` while writing code, not as a permanent marker for a case that
+cannot happen: such a case is better shaped out of the types, and where the
+types cannot say it, `unreachable "reason"` states the invariant (§28). One
+that can happen deserves a real answer or an `Err`.
 
 ## 21. Read a field with `.name`, not `fn x -> x.name`
 
@@ -1651,6 +1655,28 @@ Don't return a `Maybe` whose `None` every caller must unwrap with an
 "impossible" arm: that arm is untested code, and it hides the bug a trap would
 report at its line. Don't trap on data from outside the program either; a
 missing key in a config file is something to report, not a crash.
+
+When a `Maybe` or a `case` arm can only miss because of a bug in your own
+code, and no `at`-style function already states the promise, write
+`unreachable` with the invariant as its reason. A made-up default would hide
+the bug instead:
+
+```nomi
+// every student is in Student.variants(), so the search cannot miss
+fn position(student: Student) -> Int {
+    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else {
+        unreachable "every student is listed"
+    }
+    i
+}
+```
+
+`Maybe.with_default(0)` in its place answers 0 for a student someone forgot
+to list, and nothing flags it. The reason is the claim a reader checks, so
+state the invariant, not the symptom: "every student is listed", not "not
+found". Never use it for data from outside the program: an `unreachable`
+after parsing a line of input claims something the program does not
+control.
 
 ## 29. Take a vector apart with a pattern when its shape decides
 

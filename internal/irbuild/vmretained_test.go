@@ -849,7 +849,7 @@ func vmProbe(e vmProbeEntry) vmProbeResult {
 	var lastErr error
 	for _, args := range vmArgShapes(e.mod, e.fn, e.links...) {
 		_, err := vmRunSymV(m, e.fn.Sym(), args...)
-		if vmRan(err) {
+		if vmRan(err, append([]*ir.Module{e.mod}, e.links...)...) {
 			return vmProbeResult{ran: true}
 		}
 		lastErr = err
@@ -1007,13 +1007,16 @@ func vmProbeArgFailure(fn *ir.Func, err error) bool {
 		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
 		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") ||
 		strings.Contains(err.Error(), "list tail is rt.Context") || strings.Contains(err.Error(), "vector test reads rt.Context") ||
-		strings.Contains(err.Error(), "range receiver is rt.Context") {
+		strings.Contains(err.Error(), "range receiver is rt.Context") || strings.Contains(err.Error(), "list count reads rt.Context") ||
+		(strings.Contains(err.Error(), "variant comparison's operands are") && strings.Contains(err.Error(), "rt.Context")) {
 		// A field read, variant test, iteration, Set operation, list or vector pattern,
-		// Vector operation or Range operation on the leaf the probe supplied for
-		// a parameter it cannot build (a nominal type, an `Iter<T>`, a struct
-		// whose field is a Set, a list matched as part of a tuple the body builds
-		// or whose shape only a callee more than four call edges away states, a
-		// generic Vector only a host call reads, or a `Range<Codepoint>`).
+		// Vector operation, Range operation, list count or variant comparison
+		// on the leaf the probe supplied for a parameter it cannot build (a
+		// nominal type, an `Iter<T>`, a struct whose field is a Set or a list,
+		// a list matched as part of a tuple the body builds or whose shape only
+		// a callee more than four call edges away states, a generic Vector only
+		// a host call reads, a `Range<Codepoint>`, or a std enum such as
+		// `Weekday` compared with one a host call answers).
 		return true
 	}
 	if strings.Contains(err.Error(), ": arg ") && strings.Contains(err.Error(), ", got rt.Context") {
@@ -1187,14 +1190,53 @@ const vmProbeSteps = 20_000_000
 // on arguments it made up, and one that recurses past rt.MaxCallDepth or
 // loops past vmProbeSteps on them was executed by the machine: the limit is
 // that body's answer on those arguments, as a division by zero would be, and
-// not a construct this machine cannot run.
-func vmRan(err error) bool {
-	if err == nil || errors.Is(err, vm.ErrLimit) {
+// not a construct this machine cannot run. It counts the trap of an
+// `unreachable` the program states in mods as a run too
+// (vmReachedOwnUnreachable).
+func vmRan(err error, mods ...*ir.Module) bool {
+	if err == nil || errors.Is(err, vm.ErrLimit) || vmReachedOwnUnreachable(err, mods) {
 		return true
 	}
 	var fault *vm.Fault
 	depthText := strings.TrimPrefix(rt.CallDepthError(0).Error(), "line 0")
 	return errors.As(err, &fault) && strings.HasSuffix(err.Error(), depthText)
+}
+
+// vmReachedOwnUnreachable reports whether err is the trap of an
+// `unreachable` the program states, in mods' functions or their lambdas, by
+// its reason: the probe's made-up argument broke an invariant the program's
+// real callers keep (kindergarten-garden's `position` finds every real
+// Student, and none of the probe's leaves; `Garden.plants` calls it). The
+// machine ran everything up to the program's own trap, so the function ran.
+// The compiler's `unreachable` fault for a call it proved no execution
+// reaches has the same text and no ir.Unreachable, so it stays a failure.
+func vmReachedOwnUnreachable(err error, mods []*ir.Module) bool {
+	var fault *vm.Fault
+	if err == nil || !errors.As(err, &fault) {
+		return false
+	}
+	found := false
+	var walk func(f *ir.Func)
+	walk = func(f *ir.Func) {
+		for _, b := range f.Blocks() {
+			for _, in := range b.Instrs() {
+				switch n := in.(type) {
+				case *ir.Unreachable:
+					if strings.HasSuffix(err.Error(), ": unreachable: "+n.Reason()) {
+						found = true
+					}
+				case *ir.FuncValue:
+					walk(n.Body())
+				}
+			}
+		}
+	}
+	for _, m := range mods {
+		for _, f := range m.Funcs() {
+			walk(f)
+		}
+	}
+	return found
 }
 
 func vmHardFailure(err error) bool {

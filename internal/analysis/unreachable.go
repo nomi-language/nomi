@@ -12,6 +12,7 @@ const UnreachableCodeCode = "unreachable-code"
 
 // checkUnreachable reports the first statement of block that follows a
 // statement that always exits: a `return`, `break` or `continue`; an
+// `unreachable`, which always traps; an
 // `Iter.loop` whose callback holds no `break` (LoopNeverBreaks), which never
 // finishes; an `if` with an `else` whose every branch always exits; a `case`
 // whose every arm always exits (a `case` is exhaustive, so one of its arms
@@ -31,7 +32,7 @@ func checkUnreachable(fa *FileAnalysis, block *ast.Block) (TypeError, bool) {
 		return TypeError{}, false
 	}
 	for i, stmt := range block.Stmts {
-		ex := fa.alwaysExits(stmt)
+		ex := fa.alwaysExits(stmt, true)
 		if ex == 0 {
 			continue
 		}
@@ -61,8 +62,9 @@ func checkUnreachable(fa *FileAnalysis, block *ast.Block) (TypeError, bool) {
 }
 
 // exitSet records which of `return`, `break` and `continue` a statement that
-// always exits may leave by, and exitNever when it may instead run a loop
-// that never finishes. Zero means the statement does not always exit.
+// always exits may leave by, exitNever when it may instead run a loop that
+// never finishes, and exitTrap when it may reach an `unreachable`. Zero means
+// the statement does not always exit.
 type exitSet uint8
 
 const (
@@ -70,11 +72,15 @@ const (
 	exitBreak
 	exitContinue
 	exitNever
+	exitTrap
 )
 
 // alwaysExits answers how stmt always leaves its block, or 0 when some path
-// through it falls through to the next statement.
-func (fa *FileAnalysis) alwaysExits(stmt ast.Node) exitSet {
+// through it falls through to the next statement. traps says whether an
+// `unreachable` counts as leaving: it does for the unreachable-code rule,
+// and not for the IR builder (AlwaysExits), which lowers it as an operand
+// that traps, as it lowers `todo`.
+func (fa *FileAnalysis) alwaysExits(stmt ast.Node, traps bool) exitSet {
 	if es, ok := stmt.(*ast.ExprStmt); ok {
 		stmt = es.Expr
 	}
@@ -85,6 +91,10 @@ func (fa *FileAnalysis) alwaysExits(stmt ast.Node) exitSet {
 		return exitBreak
 	case *ast.Continue:
 		return exitContinue
+	case *ast.Unreachable:
+		if traps {
+			return exitTrap
+		}
 	case *ast.Call:
 		if fa.LoopNeverBreaks(s) {
 			return exitNever
@@ -94,7 +104,7 @@ func (fa *FileAnalysis) alwaysExits(stmt ast.Node) exitSet {
 			return 0
 		}
 		for _, inner := range s.Stmts {
-			if ex := fa.alwaysExits(inner); ex != 0 {
+			if ex := fa.alwaysExits(inner, traps); ex != 0 {
 				return ex
 			}
 		}
@@ -102,7 +112,7 @@ func (fa *FileAnalysis) alwaysExits(stmt ast.Node) exitSet {
 		if s == nil || s.Then == nil || s.Else == nil {
 			return 0
 		}
-		then, els := fa.alwaysExits(s.Then), fa.alwaysExits(s.Else)
+		then, els := fa.alwaysExits(s.Then, traps), fa.alwaysExits(s.Else, traps)
 		if then == 0 || els == 0 {
 			return 0
 		}
@@ -113,7 +123,7 @@ func (fa *FileAnalysis) alwaysExits(stmt ast.Node) exitSet {
 		}
 		var all exitSet
 		for _, br := range s.Branches {
-			ex := fa.alwaysExits(br.Body)
+			ex := fa.alwaysExits(br.Body, traps)
 			if ex == 0 {
 				return 0
 			}
@@ -139,6 +149,8 @@ func unreachableMessage(stmt ast.Node, ex exitSet) string {
 		verb = "continues"
 	case exitNever:
 		verb = "loops forever"
+	case exitTrap:
+		verb = "traps"
 	}
 	switch stmt.(type) {
 	case *ast.Return:
@@ -147,6 +159,8 @@ func unreachableMessage(stmt ast.Node, ex exitSet) string {
 		return "unreachable code after break"
 	case *ast.Continue:
 		return "unreachable code after continue"
+	case *ast.Unreachable:
+		return "unreachable code after `unreachable`"
 	case *ast.Call:
 		return "unreachable code after a loop that never breaks"
 	case *ast.If:
@@ -197,7 +211,7 @@ func stmtStart(n ast.Node) (int, int) {
 // nothing after `y = case x { 0 -> continue  _ -> break 1 }` runs, so the
 // builder lowers the `case` as the block's tail and lowers nothing after it.
 // stmt is a statement of fa's file.
-func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.alwaysExits(stmt) != 0 }
+func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.alwaysExits(stmt, false) != 0 }
 
 // LoopNeverBreaks reports whether n, a node of fa's file, is a call
 // `Iter.loop(...)` whose callback cannot end it: a lambda or a capture whose

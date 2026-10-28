@@ -15,9 +15,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/atbash-cipher.
 
 ## Friction
 
-- [feature] A function with a defaulted parameter cannot be passed where a function of fewer parameters is expected, so joining each group of five is `Iter.map(&String.join(&1))` rather than `Iter.map(String.join)`. The error's hint names the capture to write:
-
-  ```
-  error: argument 2: expected (List<String>) -> U, got (Iter<String>, String) -> String
-    = help: defaults do not apply to a function value, so pass a capture that calls it: &String.join(&1)
-  ```
+None.

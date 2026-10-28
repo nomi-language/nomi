@@ -8,6 +8,7 @@ import (
 	"math/bits"
 	"runtime/metrics"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -34,11 +35,15 @@ import (
 // Memory, when not zero, bounds how far the heap grows while the evaluation
 // runs, in bytes: the process's heap objects (runtime/metrics), measured
 // against the heap when it starts. It is read every few steps, more often
-// as the growth nears the bound: a pure crossing at most doubles what its
-// operands hold, so between two reads the heap cannot pass twice the bound.
-// The process's other goroutines grow the same heap, so the bound is
-// approximate; a macro's run sets it as a backstop against one that
-// would take the language server down.
+// as what the run holds nears the bound: a pure crossing at most doubles
+// what its operands hold, so between two reads the run cannot come to hold
+// more than twice the bound. What the run built is measured by what it
+// allocated and by the heap above what the last collection before it
+// found live, never by the growth: a collection that frees garbage the
+// heap held when the run started makes the growth read low, or below
+// zero. The process's other goroutines grow and shrink the same heap, so
+// the bound is approximate; a macro's run sets it as a backstop against
+// one that would take the language server down.
 type Limits struct {
 	Steps    int64
 	Deadline time.Time
@@ -60,14 +65,35 @@ var ErrMemoryLimit = fmt.Errorf("%w: memory", ErrLimit)
 // machine tells it from the step limit.
 var ErrDeadline = fmt.Errorf("%w: deadline", ErrLimit)
 
-// heapObjects is the bytes of heap objects now.
-func heapObjects() int64 {
-	s := []metrics.Sample{{Name: "/memory/classes/heap/objects:bytes"}}
-	metrics.Read(s)
-	if s[0].Value.Kind() != metrics.KindUint64 {
-		return 0
+// heap is what readHeap answers, in bytes: the heap's objects now (dead
+// ones not yet swept among them), what was allocated on the heap since
+// the process started, and what the last collection found live.
+type heap struct{ objects, allocated, live int64 }
+
+// heapSamples holds the samples readHeap reads into. A read allocates
+// nothing, since a run that reads the heap often would otherwise grow it
+// with its reads.
+var heapSamples = sync.Pool{New: func() any {
+	return &[3]metrics.Sample{
+		{Name: "/memory/classes/heap/objects:bytes"},
+		{Name: "/gc/heap/allocs:bytes"},
+		{Name: "/gc/heap/live:bytes"},
 	}
-	return int64(s[0].Value.Uint64())
+}}
+
+// readHeap reads the heap. A test replaces it to play a heap that a
+// collection shrinks.
+var readHeap = func() heap {
+	s := heapSamples.Get().(*[3]metrics.Sample)
+	defer heapSamples.Put(s)
+	metrics.Read(s[:])
+	bytes := func(v metrics.Value) int64 {
+		if v.Kind() != metrics.KindUint64 {
+			return 0
+		}
+		return int64(v.Uint64())
+	}
+	return heap{bytes(s[0].Value), bytes(s[1].Value), bytes(s[2].Value)}
 }
 
 // fuel is a running evaluation's remaining Limits, shared by every view of the
@@ -88,12 +114,13 @@ type fuel struct {
 	// is the fuel of the machine the case runs on, StopOn's, still burned.
 	watch bool
 	outer *fuel
-	// memory is Limits.Memory, heapBase the heap when the run started,
+	// memory is Limits.Memory, base the heap when the run started,
 	// memoryCheck the steps until the heap is read again, and overMemory
 	// records that the run passed the bound.
-	memory, heapBase int64
-	memoryCheck      atomic.Int32
-	overMemory       atomic.Bool
+	memory      int64
+	base        heap
+	memoryCheck atomic.Int32
+	overMemory  atomic.Bool
 	// overDeadline records that the run was stopped at its deadline.
 	overDeadline atomic.Bool
 }
@@ -102,26 +129,30 @@ func newFuel(lim Limits) *fuel {
 	f := &fuel{deadline: lim.Deadline, memory: lim.Memory}
 	f.left.Store(lim.Steps)
 	if f.memory > 0 {
-		f.heapBase = heapObjects()
+		f.base = readHeap()
 		f.memoryCheck.Store(1)
 	}
 	return f
 }
 
 // checkMemory reads the heap when its countdown is done, and answers
-// whether the run is past its bound. The next read is fewer steps away the
-// nearer the growth is to the bound: as many as the times the growth could
-// double before it passes the bound, less one.
+// whether the run is past its bound: whether the heap grew past it. The
+// next read is fewer steps away the nearer what the run built may be to
+// the bound: as many as the times that could double before it passes the
+// bound, less one. What the run built is no more than it allocated, nor
+// more than the heap holds above what was live before it started; a
+// collection lowers neither for garbage the heap held then.
 func (f *fuel) checkMemory() bool {
 	if f.memoryCheck.Add(-1) > 0 {
 		return false
 	}
-	grown := max(heapObjects()-f.heapBase, 1)
-	if grown > f.memory {
+	h := readHeap()
+	if h.objects-f.base.objects > f.memory {
 		f.overMemory.Store(true)
 		return true
 	}
-	f.memoryCheck.Store(int32(min(max(bits.Len64(uint64(f.memory/grown))-1, 1), 64)))
+	built := max(min(h.allocated-f.base.allocated, h.objects-f.base.live), 1)
+	f.memoryCheck.Store(int32(min(max(bits.Len64(uint64(f.memory/built))-1, 1), 64)))
 	return false
 }
 

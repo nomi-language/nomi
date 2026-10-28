@@ -27,7 +27,7 @@ pub fn encode(phrase: String, key: Key) -> Result<String, Error> {
     phrase
     |> translate(fn i -> key.a * i + key.b)
     |> Iter.chunks(5)
-    |> Iter.map(&String.join(&1))
+    |> Iter.map(String.join)
     |> String.join(" ")
     |> Ok()
 }

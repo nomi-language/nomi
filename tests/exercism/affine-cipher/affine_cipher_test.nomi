@@ -5,8 +5,8 @@ import {
 
 group "encode" {
     test "encodes" {
-        cases: List<#(String, String, Key, String)> = [
-            #("encode yes", "yes", #{a: 5, b: 7}, "xbt"),
+        cases = [
+            #("encode yes", "yes", #Key{a: 5, b: 7}, "xbt"),
             #("encode no", "no", #{a: 15, b: 18}, "fu"),
             #("encode OMG", "OMG", #{a: 21, b: 3}, "lvz"),
             #("encode O M G", "O M G", #{a: 25, b: 47}, "hjp"),
@@ -33,8 +33,8 @@ group "encode" {
 
 group "decode" {
     test "decodes" {
-        cases: List<#(String, String, Key, String)> = [
-            #("decode exercism", "tytgn fjr", #{a: 3, b: 7}, "exercism"),
+        cases = [
+            #("decode exercism", "tytgn fjr", #Key{a: 3, b: 7}, "exercism"),
             #(
                 "decode a sentence",
                 "qdwju nqcro muwhn odqun oppmd aunwd o",

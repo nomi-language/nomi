@@ -2230,6 +2230,46 @@ func (p *Parser) parseTodo() (ast.Node, error) {
 	return n, nil
 }
 
+// parseUnreachable parses `unreachable "reason"`. The reason is required,
+// starts on the keyword's line, and is a string literal in one of the forms
+// a `todo` reason takes: it states the invariant the program claims, as
+// fixed text a reader checks without running anything.
+func (p *Parser) parseUnreachable() (ast.Node, error) {
+	tok := p.peek()
+	p.advance()
+	n := &ast.Unreachable{Line: tok.Line, Col: tok.Col}
+	if p.atEnd() || p.peek().Line != tok.Line {
+		return nil, unreachableWithoutReason(tok)
+	}
+	switch next := p.peek(); next.Type {
+	case token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL,
+		token.RAW_STRING_LITERAL, token.RAW_TRIPLE_STRING_LITERAL:
+		reasonStart := p.pos
+		reason, err := p.parsePrefix()
+		if err != nil {
+			return nil, err
+		}
+		p.recordSpan(reason, reasonStart)
+		n.Reason = reason.(*ast.StringLit)
+	case token.STRING_START, token.TRIPLE_STRING_START,
+		token.TAGGED_STRING_START, token.TAGGED_TRIPLE_STRING_START,
+		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
+		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL:
+		return nil, errorAt(next.Line, next.Col,
+			"an `unreachable` reason is a plain string literal: it cannot interpolate or carry a tag")
+	default:
+		return nil, unreachableWithoutReason(tok)
+	}
+	return n, nil
+}
+
+// unreachableWithoutReason is the error for an `unreachable` with no string
+// literal after it on its line.
+func unreachableWithoutReason(tok token.Token) error {
+	return ParseError{Line: tok.Line, Col: tok.Col, Message: "`unreachable` needs a reason",
+		Hints: []string{"write the invariant it claims, as in `unreachable \"every student is listed\"`"}}
+}
+
 func pipeNode(left, right ast.Node, line, col int) *ast.Binary {
 	b := &ast.Binary{Left: left, Op: "|>", Right: right, Line: line, Col: col}
 	if l, ok := left.(ast.HasSpan); ok {
@@ -2568,6 +2608,9 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.TODO:
 		return p.parseTodo()
+
+	case token.UNREACHABLE:
+		return p.parseUnreachable()
 
 	case token.DOTDOT, token.DOTDOTEQ:
 		// Open-ended range forms (`..5`, `..=5`, `5..`, `..`) have been

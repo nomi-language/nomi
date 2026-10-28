@@ -176,6 +176,12 @@ which code in other files relies on, so changing a default never changes
 the function's type. A lambda is checked where it stands, so it can leave
 the type off, as `y = 10` does, and the type comes from the default value.
 
+Passed where a function with fewer parameters is expected, a named function
+fills the rest from its defaults too: `["Ada", "Lin"] |> Iter.map(greet)`
+greets each name with `"Hello"`, and `Iter.map(rows, String.join)` joins each
+row with no separator. Bound with nothing expected, as in `g = greet`, the
+value keeps every parameter, and a call through it passes every argument.
+
 ## Named arguments
 
 ```nomi-run
@@ -312,6 +318,35 @@ the rest of the program still checks and runs.
 If the program reaches it, the program stops with
 `todo reached at main.nomi:6: parse the header`. The editor shows each
 `todo` as a warning, and `nomi build` refuses a program that still has one.
+
+## Code that cannot be reached
+
+```nomi-run error
+fn initial(name: String) -> String {
+    case Iter.first(name) {
+        Some(letter) -> letter
+        None -> unreachable "names are never empty"
+    }
+}
+
+fn main() {
+    dbg initial("Ada")
+    dbg initial("")
+}
+```
+<!-- expect
+dbg line 9: initial("Ada") = "A"
+line 4: unreachable: names are never empty
+-->
+
+`unreachable` marks a place your own code guarantees it never gets to, and
+its reason says why. Like `todo`, it fits any type. Unlike `todo`, it is
+finished code: `nomi build` accepts it.
+
+If the program does reach it, the guarantee was wrong, so the program stops
+with `line 4: unreachable: names are never empty`. Use it only for what the
+program itself makes true. A name a user typed can be empty, and that case
+needs a real answer.
 
 [Pipes](/pipes/) is next. It shows how `|>` joins these calls into code that
 reads from top to bottom.

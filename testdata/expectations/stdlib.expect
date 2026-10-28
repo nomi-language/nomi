@@ -12,7 +12,7 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 54
-declared-cases 585
+declared-cases 587
 failing 0
 C assertions
 E 0
@@ -259,8 +259,8 @@ T test result: ok. 20 passed, 0 failed
 T
 C float
 E 0
-N 33
-H 8a145fbb9ddc391357a234e08cb9207fa490230ed02a790c95ec5e8b3d59fb13
+N 34
+H eb76155791951a9cab81e1f7030e1b0ec4390ff73b9500f19a00ba098da10767
 T ok <root>/std/float.nomi :: impl / nan //! test line 38
 T ok <root>/std/float.nomi :: impl / positive_infinity //! test line 44
 T ok <root>/std/float.nomi :: impl / negative_infinity //! test line 50
@@ -274,27 +274,28 @@ T ok <root>/std/float.nomi :: impl / floor //! test lines 125-126
 T ok <root>/std/float.nomi :: impl / ceil //! test lines 131-132
 T ok <root>/std/float.nomi :: impl / trunc //! test lines 137-138
 T ok <root>/std/float.nomi :: impl / abs //! test lines 144-147
-T ok <root>/std/float.nomi :: impl / sign //! test lines 156-159
-T ok <root>/std/float.nomi :: impl / min //! test lines 172-174
-T ok <root>/std/float.nomi :: impl / max //! test lines 191-193
-T ok <root>/std/float.nomi :: impl / pow //! test lines 213-217
-T ok <root>/std/float.nomi :: impl / sqrt //! test lines 223-225
-T ok <root>/std/float.nomi :: impl / exp //! test lines 231-233
-T ok <root>/std/float.nomi :: impl / log //! test lines 239-242
-T ok <root>/std/float.nomi :: impl / log2 //! test lines 248-249
-T ok <root>/std/float.nomi :: impl / log10 //! test lines 255-256
-T ok <root>/std/float.nomi :: impl / sin //! test lines 261-263
-T ok <root>/std/float.nomi :: impl / cos //! test lines 268-269
-T ok <root>/std/float.nomi :: impl / tan //! test lines 274-275
-T ok <root>/std/float.nomi :: impl / atan2 //! test lines 284-286
-T ok <root>/std/float.nomi :: impl / format //! test lines 295-299
-T ok <root>/std/float.nomi :: impl / format_percent //! test lines 313-316
-T ok <root>/std/float.nomi :: impl / parse_in //! test lines 324-325
-T ok <root>/std/float.nomi :: impl / parse_percent_in //! test lines 339-344
-T ok <root>/std/float.nomi :: impl / to_string //! test lines 389-390
-T ok <root>/std/float.nomi :: impl / empty_sum //! test lines 402-403
-T ok <root>/std/float.nomi :: impl / empty_product //! test lines 421-422
-T test result: ok. 33 passed, 0 failed
+T ok <root>/std/float.nomi :: impl / equal_within? //! test lines 161-167
+T ok <root>/std/float.nomi :: impl / sign //! test lines 178-181
+T ok <root>/std/float.nomi :: impl / min //! test lines 194-196
+T ok <root>/std/float.nomi :: impl / max //! test lines 213-215
+T ok <root>/std/float.nomi :: impl / pow //! test lines 235-239
+T ok <root>/std/float.nomi :: impl / sqrt //! test lines 245-247
+T ok <root>/std/float.nomi :: impl / exp //! test lines 253-255
+T ok <root>/std/float.nomi :: impl / log //! test lines 261-264
+T ok <root>/std/float.nomi :: impl / log2 //! test lines 270-271
+T ok <root>/std/float.nomi :: impl / log10 //! test lines 277-278
+T ok <root>/std/float.nomi :: impl / sin //! test lines 283-285
+T ok <root>/std/float.nomi :: impl / cos //! test lines 290-291
+T ok <root>/std/float.nomi :: impl / tan //! test lines 296-297
+T ok <root>/std/float.nomi :: impl / atan2 //! test lines 306-308
+T ok <root>/std/float.nomi :: impl / format //! test lines 317-321
+T ok <root>/std/float.nomi :: impl / format_percent //! test lines 335-338
+T ok <root>/std/float.nomi :: impl / parse_in //! test lines 346-347
+T ok <root>/std/float.nomi :: impl / parse_percent_in //! test lines 361-366
+T ok <root>/std/float.nomi :: impl / to_string //! test lines 415-416
+T ok <root>/std/float.nomi :: impl / empty_sum //! test lines 428-429
+T ok <root>/std/float.nomi :: impl / empty_product //! test lines 447-448
+T test result: ok. 34 passed, 0 failed
 T
 C fs
 E 0
@@ -432,8 +433,8 @@ T test result: ok. 25 passed, 0 failed
 T
 C iter
 E 0
-N 51
-H 55ac1515736dc9e5f841ccd6ecc42611a3ff7f18b81709a323b9ff0656c2028d
+N 52
+H 3579bfcfde47a97ba0aa6711dde9ea59ffa60cbf97a418cd24138804ec827d5c
 T ok <root>/std/iter.nomi :: impl / loop //! test lines 164-183
 T ok <root>/std/iter.nomi :: impl / reduce //! test lines 210-212
 T ok <root>/std/iter.nomi :: impl / scan //! test lines 228-232
@@ -477,15 +478,16 @@ T ok <root>/std/iter.nomi :: impl / repeat //! test lines 794-795
 T ok <root>/std/iter.nomi :: impl / iterate //! test lines 812-826
 T ok <root>/std/iter.nomi :: impl / to_map //! test line 835
 T ok <root>/std/iter.nomi :: impl / flatten //! test line 844
-T ok <root>/std/iter.nomi :: impl / reverse //! test line 858
-T ok <root>/std/iter.nomi :: impl / count //! test lines 875-876
-T ok <root>/std/iter.nomi :: impl / min //! test lines 888-890
-T ok <root>/std/iter.nomi :: impl / max //! test lines 904-906
-T ok <root>/std/iter.nomi :: impl / min_by //! test lines 921-922
-T ok <root>/std/iter.nomi :: impl / max_by //! test lines 941-942
-T ok <root>/std/iter.nomi :: impl / sum //! test lines 967-973
-T ok <root>/std/iter.nomi :: impl / product //! test lines 989-994
-T test result: ok. 51 passed, 0 failed
+T ok <root>/std/iter.nomi :: impl / transpose //! test lines 856-860
+T ok <root>/std/iter.nomi :: impl / reverse //! test line 877
+T ok <root>/std/iter.nomi :: impl / count //! test lines 894-895
+T ok <root>/std/iter.nomi :: impl / min //! test lines 907-909
+T ok <root>/std/iter.nomi :: impl / max //! test lines 923-925
+T ok <root>/std/iter.nomi :: impl / min_by //! test lines 940-941
+T ok <root>/std/iter.nomi :: impl / max_by //! test lines 960-961
+T ok <root>/std/iter.nomi :: impl / sum //! test lines 986-992
+T ok <root>/std/iter.nomi :: impl / product //! test lines 1008-1013
+T test result: ok. 52 passed, 0 failed
 T
 C json
 E 0

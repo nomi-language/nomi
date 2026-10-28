@@ -37,7 +37,7 @@ pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
     } else {
         series
         |> Iter.windows(length)
-        |> Iter.map(&String.join(&1))
+        |> Iter.map(String.join)
         |> Iter.to_list()
         |> Ok()
     }

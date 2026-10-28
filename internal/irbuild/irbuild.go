@@ -391,6 +391,9 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		g.settleImpls()
 	}
 	files.resolveImplMembers(gens)
+	// Owner functions are registered with their blocks and lowered with
+	// them; a call from another file finds them here (siblingOwnerPlan).
+	files.resolveOwnerMembers(gens)
 	// Every file's impls are registered now and no body has been lowered yet,
 	// which is the one window in which "does this PROGRAM implement I for T?"
 	// is both answerable and needed: a boxing site in one file dispatches

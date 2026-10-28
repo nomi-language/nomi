@@ -59,7 +59,7 @@ func TestFormat_BindingElse_WidthBoundary(t *testing.T) {
 
 func TestFormat_BindingElse_LongBlockBreaks(t *testing.T) {
 	src := "fn f(id: Int, m: Maybe<String>) -> Result<String, String> {\n    Some(email) = m else { return Err(\"user ${id} has no email address on file\") }\n    Ok(email)\n}\n"
-	want := "fn f(id: Int, m: Maybe<String>) -> Result<String, String> {\n    Some(email) = m else {\n        return Err(\"user ${id} has no email address on file\")\n    }\n\n    Ok(email)\n}\n"
+	want := "fn f(id: Int, m: Maybe<String>) -> Result<String, String> {\n    Some(email) = m else {\n        return Err(\"user ${id} has no email address on file\")\n    }\n    Ok(email)\n}\n"
 	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -67,7 +67,7 @@ func TestFormat_BindingElse_LongBlockBreaks(t *testing.T) {
 
 func TestFormat_BindingElse_MultiStatementBlockBreaks(t *testing.T) {
 	src := "fn f(m: Maybe<Int>) -> Int {\n    Some(n) = m else { io.print(\"none\")\n return 0 }\n    n\n}\n"
-	want := "fn f(m: Maybe<Int>) -> Int {\n    Some(n) = m else {\n        io.print(\"none\")\n        return 0\n    }\n\n    n\n}\n"
+	want := "fn f(m: Maybe<Int>) -> Int {\n    Some(n) = m else {\n        io.print(\"none\")\n        return 0\n    }\n    n\n}\n"
 	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -115,6 +115,29 @@ func TestFormat_BindingElse_PipeValue(t *testing.T) {
 	long := "fn f(text: String) -> Int {\n    Ok(n) = text |> String.trim() |> String.replace(\"aaaaaaaaaaaaaaa\", \"bbbbbbbbbbbbbbbbbbbbbbbbbbb\") |> Int.parse() else { return 0 }\n    n\n}\n"
 	want := "fn f(text: String) -> Int {\n    Ok(n) =\n        text\n        |> String.trim()\n        |> String.replace(\"aaaaaaaaaaaaaaa\", \"bbbbbbbbbbbbbbbbbbbbbbbbbbb\")\n        |> Int.parse()\n    else {\n        return 0\n    }\n\n    n\n}\n"
 	if got := formatTwice(t, long); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// A guard whose `Pattern = value else {` is one line sits with its
+// neighbours however its block breaks, so a run of guards reads as one step.
+// One whose value breaks across lines is set apart like any statement.
+func TestFormat_BindingElse_GuardsSitTogether(t *testing.T) {
+	src := "fn f(a: String, b: String) -> Result<Int, String> {\n" +
+		"    Some(x) = String.to_int(a) else { return Err(\"the first operand is not a number\") }\n" +
+		"    Some(y) = String.to_int(b) else { return Err(\"the second operand is not a number\") }\n" +
+		"    Ok(x + y)\n" +
+		"}\n"
+	want := "fn f(a: String, b: String) -> Result<Int, String> {\n" +
+		"    Some(x) = String.to_int(a) else {\n" +
+		"        return Err(\"the first operand is not a number\")\n" +
+		"    }\n" +
+		"    Some(y) = String.to_int(b) else {\n" +
+		"        return Err(\"the second operand is not a number\")\n" +
+		"    }\n" +
+		"    Ok(x + y)\n" +
+		"}\n"
+	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }

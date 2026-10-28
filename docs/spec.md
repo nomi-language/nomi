@@ -259,7 +259,7 @@ Rules:
 - **Interface implementation functions inherit interface visibility.** A function inside an `impl Iface for Type { ... }` block has no per-function `pub` marker. If the interface is `pub`, other files can call the implementation functions; if the interface is private, those functions stay private too. See §13 for the private-wrapper pattern when you want a public interface's defaults only inside the file.
 - **Struct fields and enum variants are not separately publishable.** Field access follows the struct's visibility; enum variant visibility follows the enum.
 
-Keywords are always lowercase: `pub`, `export`, `opaque`, `once`, `fn`, `struct`, `enum`, `interface`, `impl`, `for`, `type`, `typealias`, `as`, `todo`.
+Keywords are always lowercase: `pub`, `export`, `opaque`, `once`, `fn`, `struct`, `enum`, `interface`, `impl`, `for`, `type`, `typealias`, `as`, `todo`, `unreachable`.
 
 PascalCase is a compiler-enforced style rule for type names (`type`, `interface`, `typealias`) and enum variants — it is not a visibility mechanism.
 
@@ -360,7 +360,7 @@ fn add(x: Int, y: Int) -> Int {
 - Types inferred within function body
 - Function bodies always render across multiple lines — `fn add(x: Int, y: Int) -> Int { x + y }` reformats to the multi-line shape shown above. This matches the dominant convention from gofmt, Prettier, dart format, zig fmt, swift-format, and rustfmt's default. Empty bodies stay flat as `{}`. The rule applies to top-level `fn`s, impl-block functions, and interface default functions; inline expression-position blocks like `if cond { x }` keep their flat form (see §11).
 - Last expression is the return value
-- `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn name(...)`) and lambdas (`fn ... -> ...`). Nomi has no non-local control flow: `return`, `break` and `continue` each leave only the function they are written in, with no exceptions (§12 *Named Functions as Callbacks*). Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). An `Iter.loop` statement whose callback holds no `break` of its own, a lambda or a named step passed as the callback, never finishes, and counts the same way (`unreachable code after a loop that never breaks`, with the help "remove it, or give the loop a `break` that ends it"); see §12 *`loop`*. A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and no other call counts as an exit.
+- `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn name(...)`) and lambdas (`fn ... -> ...`). Nomi has no non-local control flow: `return`, `break` and `continue` each leave only the function they are written in, with no exceptions (§12 *Named Functions as Callbacks*). Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `unreachable`, which always traps (`` unreachable code after `unreachable` ``, §5 *Unreachable Code*); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). An `Iter.loop` statement whose callback holds no `break` of its own, a lambda or a named step passed as the callback, never finishes, and counts the same way (`unreachable code after a loop that never breaks`, with the help "remove it, or give the loop a `break` that ends it"); see §12 *`loop`*. A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and no other call counts as an exit. An `if` or `case` whose branches all exit and one of which traps says it `exits` in every branch, and one whose branches all trap says it `traps`.
 - `try x` is sugar for `case x { Ok(val) -> val, Err(e) -> return Err(e) }` (and similarly for `Maybe`). Since `return` exits the nearest function boundary, `try` inside a lambda returns from that lambda, not from an outer function.
 - `defer call(args)` evaluates the call's operands where it stands and runs the call when the block it is written in ends, the most recently registered first. A function's or a lambda's body is such a block, so a `defer` in a lambda runs when that invocation of the lambda ends, and one in an `Iter.loop` or other iteration callback runs at the end of each iteration, before the next starts. Every way out of the block runs them: reaching its end, `return`, a callback's `break` or `continue`, `try` propagating a failure, and a trap.
 - `->` separates the parameter list from the return type: `fn add(x: Int, y: Int) -> Int`. In a generic function the return type comes before the `where` clause: `fn shown<T>(x: T) -> String where T: Display { ... }`.
@@ -430,7 +430,7 @@ A default is not part of the function's body, so `try`, `return`, `break`, `cont
 
 The one exception is the **trailing-lambda routing** described in the next subsection: a lambda passed as the final positional argument can skip earlier defaulted slots without naming.
 
-**Defaults apply to calls, not to function values.** A function named as a value has its full parameter list, defaulted parameters included, so it does not fit a function type with fewer parameters. Passing it, binding it, or piping it where the shorter type is expected is a compile error that suggests the lambda to write instead, which says which arguments the defaults fill:
+**Defaults fill a function value only where a shorter function type is expected.** A function named as a value has its full parameter list, defaulted parameters included. Where the position it stands in expects a function type with fewer parameters, and each parameter past those has a default, the value is the function of its first parameters instead, and its call fills the rest from their defaults, as a call of the function by name would. That holds at an argument (a generic one's too: `Iter.map`'s `(T) -> U`), an annotated binding, a struct field, a list element, a return value and a `case` or `if` arm. A pipe's head is checked before the stage it feeds, so nothing is expected of it there: `parse |> apply("1")` passes the full function, a mismatch whose help suggests the capture. A parameter without a default past the expected ones is a mismatch too:
 
 ```nomi
 fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
@@ -439,16 +439,16 @@ fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
 
 parse("12") // OK — a call; strict = False
 
-Iter.map(words, parse) // error: expected (String) -> U, got (String, Bool) -> Maybe<Int>
+Iter.map(words, parse) // OK — (String) -> Maybe<Int>; strict = False
 
-f: (String) -> Maybe<Int> = parse // error: the same mismatch
+f: (String) -> Maybe<Int> = parse // OK — the same
 
-Iter.map(words, fn w -> parse(w)) // OK
+g: (String, Bool) -> Maybe<Int> = parse // OK — the full function
 
-Iter.map(words, &parse(&1)) // OK — a partial capture leaves strict to its default
+Iter.map(words, &parse(&1, strict: True)) // a partial capture passes another value
 ```
 
-A call through the value passes every argument too, since only a call of `parse` by name fills its defaults. After `g = parse`, `g("12")` is the error `` expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name ``, whose help suggests calling `parse` directly or binding `g = fn s -> parse(s)`. The same holds for `"12" |> g()`, for `(parse)("12")`, and for a value passed through a parameter, a field or a generic function. The value's parameters have no names either (*Named Arguments* below). A lambda's own defaults (*Lambda Default Parameters*) and a partial capture's open defaults belong to the name the value is bound to and its copies, so `h = fn x = 1 -> x` is called as `h()`, and so is `g = h`, by a call or a pipe (`1 |> g()`). The value passed on or taken out of a container has no defaults (*Named Arguments*), and neither has one reached through anything but a local name: `(h)()`, `(if b { h } else { k })()` and a pipe into a call's result each pass every argument. A `once` holding a lambda or a partial capture (`once ping = &connect(&1, port: &2)`) has no defaults either: its value is computed once in its own initializer, so `ping("a")` is `expected 2 arguments, got 1`, and `ping("a", 80)` runs.
+Bound with nothing expected, the value is the full function, and a call through it passes every argument, since only a call of `parse` by name fills its defaults. After `g = parse`, `g("12")` is the error `` expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name ``, whose help suggests calling `parse` directly or binding `g = fn s -> parse(s)`. The same holds for `"12" |> g()`, for `(parse)("12")`, and for a value passed through a parameter, a field or a generic function. The value's parameters have no names either (*Named Arguments* below). A lambda's own defaults (*Lambda Default Parameters*) and a partial capture's open defaults belong to the name the value is bound to and its copies, so `h = fn x = 1 -> x` is called as `h()`, and so is `g = h`, by a call or a pipe (`1 |> g()`). The value passed on or taken out of a container has no defaults (*Named Arguments*), and neither has one reached through anything but a local name: `(h)()`, `(if b { h } else { k })()` and a pipe into a call's result each pass every argument. A `once` holding a lambda or a partial capture (`once ping = &connect(&1, port: &2)`) has no defaults either: its value is computed once in its own initializer, so `ping("a")` is `expected 2 arguments, got 1`, and `ping("a", 80)` runs.
 
 ### Parameter Destructuring
 
@@ -633,9 +633,8 @@ failures = Iter.loop(fn attempts = 0 -> {
 // parameter, not to its elements
 Iter.loop(fn state = #(n / 2.0, 0.0) -> {
     #(guess, prev) = state
-    diff = guess - prev
 
-    if diff > -0.0001 and diff < 0.0001 {
+    if Float.equal_within?(guess, prev, 0.0001) {
         break state
     }
 
@@ -946,6 +945,55 @@ fn area(shape: Shape) -> Float {
   code that is not written yet; the message carries the reason. The quick
   fixes that write missing functions, fields and `case` arms fill each hole
   with `todo`, so their result checks.
+
+### Unreachable Code: `unreachable`
+
+`unreachable "reason"` is the program's claim that it never reaches a point:
+an invariant it guarantees itself, which no `at`-style function already
+states (§17). Reaching it is a bug in the program, and it traps:
+
+```nomi
+fn position(student: Student) -> Int {
+    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else {
+        unreachable "every student is listed"
+    }
+    i
+}
+
+fn encode_run(run: List<String>) -> String {
+    case run {
+        [letter] -> letter
+        [letter, .._] -> "${Iter.count(run)}${letter}"
+        [] -> unreachable "chunk_by never yields an empty run"
+    }
+}
+```
+
+- **Type.** As `todo`'s: it never produces a value, so it has the type its
+  position expects, in every position a `todo` takes one, and an unannotated
+  binding of it is an error asking for one (`` cannot infer a type for 'x'
+  from `unreachable` ``).
+- **Reason.** Required, and a string literal in the forms a `todo` reason
+  takes. It states the invariant, so a reader can check the claim. A bare
+  `unreachable` is `` `unreachable` needs a reason ``, and an interpolated or
+  tagged reason is a parse error.
+- **It exits.** Unlike a `todo`, an `unreachable` statement always leaves its
+  block, so a statement after it is `` unreachable code after `unreachable` ``
+  (*Named Functions* above). It is finished code: a function whose body holds one still reports a
+  parameter it never reads.
+- **Running it.** Reaching it traps with `line N: unreachable: <reason>` at
+  the program's line (§17 *Traps, `Maybe` and `Result`*), and `nomi run`
+  exits 1. It always traps, in every build; it is never an assumption the
+  compiler optimizes on, as Zig's `unreachable` is in a release build. One
+  inside the standard library is reported at the program's call, as any
+  trap from there is.
+- **Tooling.** `nomi build` accepts it and the LSP does not warn about it:
+  unlike a `todo`, it is not code left to write.
+
+It is not for data from outside the program. A value read from input, a file
+or the network that a function cannot handle is a `Maybe` or a `Result` to
+report (§17); `unreachable` after `String.to_int(line)` claims something the
+program does not control.
 
 ### Exported Functions
 
@@ -2096,9 +2144,9 @@ Qualified pattern forms (`#Shape.Circle{radius} -> ...`) are also accepted when 
 
 ### Variant Resolution
 
-A `.Variant` expression (or `.Variant(payload)` / `#.Variant{fields}` / `.Variant[elements]` / `#.Variant[elements]` / `%.Variant{entries}`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([#(.North, .Cave)])` checks the list against `Iter<#(Direction, Place)>`. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. An operand of `==`, `!=`, `<`, `>`, `<=` or `>=` is a determining position too: the two operands have one type (§22), so each is checked against the other's. The operand whose type depends on its position (a `.Variant` in any spelling, or a `#{...}` literal with no type name) is checked second, against the type of the other: `k == .Deposit` and `.Deposit == k` both resolve against `k`'s enum, and `p == #{x: 1, y: 2}` builds `p`'s struct. The comparison's own expected type (`Bool`, or none at a statement or `if` condition) is never its operands'. When both operands are dot-leading (`.Deposit == .Withdrawal`), neither names the enum, and the comparison is an error that asks for one to be qualified. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
+A `.Variant` expression (or `.Variant(payload)` / `#.Variant{fields}` / `.Variant[elements]` / `#.Variant[elements]` / `%.Variant{entries}`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([#(.North, .Cave)])` checks the list against `Iter<#(Direction, Place)>`. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. An operand of `==`, `!=`, `<`, `>`, `<=` or `>=` is a determining position too: the two operands have one type (§22), so each is checked against the other's. The operand whose type depends on its position (a `.Variant` in any spelling, or a `#{...}` literal with no type name) is checked second, against the type of the other: `k == .Deposit` and `.Deposit == k` both resolve against `k`'s enum, and `p == #{x: 1, y: 2}` builds `p`'s struct. The comparison's own expected type (`Bool`, or none at a statement or `if` condition) is never its operands'. When both operands are dot-leading (`.Deposit == .Withdrawal`), neither names the enum, and the comparison is an error that asks for one to be qualified. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. The outer type may name the enclosing function's own type parameters: in `fn write<T>(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`, `Err(.Full)` takes `E` from it as `Error` and leaves `T` to the arguments, since a callee parameter is pinned only to a type that names no type parameter. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
 
-**An earlier element of the same literal.** A list, vector, set or map literal checked with no expected type (an unannotated binding, a row of a `subtests` table, an argument whose parameter type nothing has solved) checks its elements left to right, and checks each element after the first against the type the elements before it give, as against an expected type, whenever that type has an enum in it: it is an enum, or an enum is among its element, key, value, tuple element or type argument types. A map's keys and its values are two positions, each with its own type. So the first qualified element sets the enum for the bare variants after it, as Swift's `[Color.red, .green]` does: `[Color.Red, .Green]` is a `List<Color>`, and `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`. Nesting is the same rule applied at each level, since the earlier element's whole type is what the later one is checked against: `[%{N.A => 0}, %{.C => 1}]`, `[#(Color.Red, 1), #(.Green, 2)]` and `[Some(Color.Red), Some(.Green)]` resolve. An element whose type is still open sets nothing and blocks nothing: in `[[], [Color.Red], [.Green]]`, `[Color.Red]` fixes the element type `[]` left open, so `.Green` resolves. The heads of `[h1, h2, ..rest]` count as elements. Resolution runs left to right only: in `[.Red, Color.Green]` nothing before `.Red` gives it an enum, so `.Red` is the *no determinable enum type* error, whose hint asks for the first element to be qualified. A tuple's elements are separate positions of separate types, so `#(Color.Red, .Green)` gives `.Green` nothing. An expected type, when the literal has one, is what every element is checked against instead: in `xs: List<Size> = [Color.Red, .Large]`, `.Large` resolves to `Size.Large` and `Color.Red` is a mismatch.
+**An earlier element of the same literal.** A list, vector, set or map literal checked with no expected type (an unannotated binding, a row of a `subtests` table, an argument whose parameter type nothing has solved) checks its elements left to right, and checks each element after the first against the type the elements before it give, as against an expected type, whenever that type has an enum or a named struct in it: it is one, or one is among its element, key, value, tuple element or type argument types. A map's keys and its values are two positions, each with its own type. So the first qualified element sets the enum for the bare variants after it, as Swift's `[Color.red, .green]` does: `[Color.Red, .Green]` is a `List<Color>`, and `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`. Nesting is the same rule applied at each level, since the earlier element's whole type is what the later one is checked against: `[%{N.A => 0}, %{.C => 1}]`, `[#(Color.Red, 1), #(.Green, 2)]` and `[Some(Color.Red), Some(.Green)]` resolve. A `#{...}` literal with no type name after an element of a named struct builds that struct, as it would under an annotation: `[#Point{x: 0, y: 0}, #{x: 1, y: 2}]` is a `List<Point>`, and `[#(#Point{x: 0, y: 0}, "origin"), #(#{x: 1, y: 2}, "corner")]` a `List<#(Point, String)>`. An element whose type is still open sets nothing and blocks nothing: in `[[], [Color.Red], [.Green]]`, `[Color.Red]` fixes the element type `[]` left open, so `.Green` resolves. The heads of `[h1, h2, ..rest]` count as elements. Resolution runs left to right only: in `[.Red, Color.Green]` nothing before `.Red` gives it an enum, so `.Red` is the *no determinable enum type* error, whose hint asks for the first element to be qualified. A tuple's elements are separate positions of separate types, so `#(Color.Red, .Green)` gives `.Green` nothing. An expected type, when the literal has one, is what every element is checked against instead: in `xs: List<Size> = [Color.Red, .Large]`, `.Large` resolves to `Size.Large` and `Color.Red` is a mismatch.
 
 Concrete consequences:
 
@@ -2113,6 +2161,7 @@ Concrete consequences:
 | `themes: Map<String, Color> = %{"a" => .Red}` | ✓ map value type from annotation |
 | `palette = [Color.Red, .Green]` | ✓ element type from the earlier element |
 | `counts = %{Color.Red => 0, .Green => 0}` | ✓ key type from the earlier key |
+| `corners = [#Point{x: 0, y: 0}, #{x: 1, y: 2}]` | ✓ builds a `Point` from the earlier element |
 | `c: Color = .Red` | ✓ binding annotation |
 | `c: Color = id(.Red)` (generic `id<T>(x: T): T`) | ✓ annotation pins `T` through `id`'s return |
 | `pair: #(Color, Size) = #(.Red, .Large)` | ✓ element types from annotation |
@@ -3098,7 +3147,7 @@ The braces hold case arms when their first item is `pattern ->` (or `pattern whe
 
 - The right-hand side is evaluated once. If the pattern matches, its names are bound and are in scope for the rest of the enclosing block, like any binding's. They are not in scope inside the `else`, which runs because the pattern did not match.
 - If it does not match, the `else` runs. Arms match the value that failed, which has the right-hand side's type. The binding's pattern and the arms together must be exhaustive, by `case`'s rules (§*Exhaustiveness Checking*), including its `_` requirements; the error is `non-exhaustive `else` on Result: missing Err`.
-- Every path through the `else` either **leaves** — `return`, `break` or `continue` (inside an iteration callback, §12), or a branch every path of which leaves — or **produces a fallback**.
+- Every path through the `else` either **leaves** — `return`, `break` or `continue` (inside an iteration callback, §12), a trap that ends it (`unreachable "reason"`, or `todo` while the code is unwritten), or a branch every path of which leaves — or **produces a fallback**. The names the pattern binds are bound only where it matched, so a path that traps binds none of them.
 - A fallback is allowed only when the pattern names one variant with a payload, `Variant(inner)` or `#.Variant{fields}`, whose own pattern always matches. The fallback's type is the payload's (for a struct-shaped variant, the anonymous struct of its fields), and the inner pattern binds from it exactly as it would from a match: `Some(email) = m else { "none" }` binds `email` to `"none"`, and `Ok(#(w, h)) = r else { #(80, 24) }` binds `w` to 80 and `h` to 24. A fallback of another type is the error `the fallback stands in for Some's payload of type String, got Int`.
 - A pattern with no single payload to stand in for — a list pattern such as `[first, ..rest]`, a vector pattern such as `#[first, ..rest]`, a map pattern such as `%{"port" => p}`, a set pattern such as `%["admin", ..rest]`, a nested refutable pattern such as `Ok(Some(x))`, a literal, a tuple with a refutable part — requires every path to leave. A path that produces a value is the error `this pattern has no single payload a fallback could stand in for; every path through `else` must return, break or continue`.
 - A pattern that always matches takes no `else`: `#(x, y) = pair else { ... }` is the error `this pattern always matches; remove the else`.
@@ -3510,9 +3559,8 @@ import std/io
 fn square_root(n: Float) -> Float {
     #(_, guess) = Iter.loop(fn state = #(n / 2.0, 0.0) -> {
         #(guess, prev) = state
-        diff = guess - prev
 
-        if diff > -0.0001 and diff < 0.0001 {
+        if Float.equal_within?(guess, prev, 0.0001) {
             break state
         }
 
@@ -3789,7 +3837,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `infinite?`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `infinite?` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
+> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `infinite?`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `infinite?` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False) -> String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -6051,7 +6099,8 @@ APIs written in Nomi:
 - **A trap** when the caller broke a promise it could have checked: a divisor
   it chose (`/`, §22), arithmetic past 64 bits (§22 *Integer overflow traps*),
   an index it computed (`Vector.at`, `Vector.set`), a range whose bounds it
-  picked (`Generator.int`, §40), or a `todo` it left in (§5 *Unwritten
+  picked (`Generator.int`, §40), a `todo` it left in (§5 *Unwritten
+  Code*), or an `unreachable` whose invariant it broke (§5 *Unreachable
   Code*). A trap means the program has a bug. It is not a situation to
   handle.
 - **Every trapping operation has a total way around it**: a sibling that
@@ -6340,6 +6389,8 @@ Iter.take(xs, n) / Iter.drop(xs, n)
 Iter.take_while(xs, p) / Iter.drop_while(xs, p)
 
 Iter.flat_map(xs, f) / Iter.flatten(xss) / Iter.zip(a, b) / Iter.with_index(xs)
+
+Iter.transpose(rows) // → List<List<T>>, column i from each row long enough
 
 Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
 
@@ -6712,7 +6763,7 @@ A terminal that has to reach the end of its source asks `infinite?` before takin
 line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 ```
 
-Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any?`, `all?`, `contains?`, `get`, `empty?`, `not_empty?`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `infinite?`, a `take_while` whose predicate never fails) still runs until it is stopped.
+Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `transpose`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any?`, `all?`, `contains?`, `get`, `empty?`, `not_empty?`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `infinite?`, a `take_while` whose predicate never fails) still runs until it is stopped.
 
 When the whole pipeline is written where the terminal is, the checker reports the trap as a compile error instead, with the same words, at the terminal and naming the source:
 
@@ -6769,7 +6820,7 @@ The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The p
 
 - **Adapters** (lazy, return `Iter<...>` — one closure over the upstream's push loop, allocated when the chain is built rather than rebuilt per element, so pipelines fuse): `map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`/`chunks`/`chunk_by`.
 - **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`contains?`/`empty?`/`not_empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
-- **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`from`/`repeat`/`iterate`.
+- **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`/`from`/`repeat`/`iterate`.
 
 Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while`, `Iter.known_count` and `Iter.infinite?`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it traps on an infinite source (*Infinite iterators* above) — bound it with `Iter.take(n)` first.
 
@@ -8404,7 +8455,7 @@ Structural equality everywhere. `==` compares values deeply, not references.
 #(1, "hello") == #(1, "hello") // True
 ```
 
-**NaN equality is reflexive.** IEEE 754 says `NaN != NaN`, but Nomi's `==` is reflexive on `Float` so that pattern matching, `Maybe`/`Result` equality, and structural equality on containers all behave consistently — `nan == nan` is `True`, and `Some(nan) == Some(nan)` is `True`. This deviates from IEEE 754 in `==` only; the underlying Float64 representation and arithmetic are unchanged. To test for NaN-ness specifically, use `Float.nan?(x)`.
+**NaN equality is reflexive.** IEEE 754 says `NaN != NaN`, but Nomi's `==` is reflexive on `Float` so that pattern matching, `Maybe`/`Result` equality, and structural equality on containers all behave consistently — `nan == nan` is `True`, and `Some(nan) == Some(nan)` is `True`. This deviates from IEEE 754 in `==` only; the underlying Float64 representation and arithmetic are unchanged. To test for NaN-ness specifically, use `Float.nan?(x)`. `==` on `Float` compares every bit, so a computed result rarely equals a written one exactly (`Float.pow(8.0, 4.0 / 3.0)` is `15.999999999999998`); `Float.equal_within?(a, b, tolerance)` compares within an absolute tolerance the caller picks, is `False` when either operand is NaN, and traps on a negative or NaN tolerance.
 
 **Functions and Iters cannot be compared.** Using `==` or `!=` on a function or an `Iter<T>` is a compiler error: a function's only identity is its closure, and an `Iter` is a function over its source, so comparing two would either compare closures or run both sources. A value that holds one — a struct field, a tuple or record part, a list element, a `Maybe`/`Result` or enum payload — is also incomparable, and `==` on it is a compiler error naming the part (`` `==` cannot compare `Feed`: it holds `Iter<Int>`, and an Iter has no equality ``). A struct or enum with its own `impl Equatable` compares through that impl, so write one to compare such a type by its other fields; to compare an Iter's elements, materialize it with `Iter.to_list` first. A `Set` finds its elements and a `Map` its keys by equality, so such a value cannot be either: building a `Set` or `Map` over one (`%[it]`, `%{f => 1}`) is a compiler error at the expression that builds it (`` `Iter<Int>` cannot be a Set element: an Iter has no equality or hashing ``).
 

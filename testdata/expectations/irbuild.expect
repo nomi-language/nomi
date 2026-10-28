@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 395
+records 397
 declared-cases 0
-failing 82
+failing 83
 C assert_subject_test.nomi@52b656b5ada294aa
 E 1
 N 0
@@ -1705,6 +1705,33 @@ T ok <dir>/control_test.nomi :: a namespaced variant, bare and with a payload
 T ok <dir>/control_test.nomi :: a namespaced type's impl function
 T ok <dir>/control_test.nomi :: a stdlib module's type-owned function
 T test result: ok. 3 passed, 0 failed
+T
+C control_test.nomi@d5e891bb4fffb58c
+E 1
+N 0
+H 106680309eabb99767168d8b002fbe1f43decc9a3c70b5469b540b3ef6566c58
+S -- control_test.nomi 214 --
+S test "binds two names" {
+S     [a, b, .._] = [1, 2, 3] else {
+S         unreachable "the list has three"
+S     }
+S
+S     assert a + b == 3
+S }
+S
+S test "traps" {
+S     #[a, b] = #[1] else {
+S         todo
+S     }
+S
+S     assert a == b
+S }
+S
+S
+T ok <dir>/control_test.nomi :: binds two names
+T FAIL <dir>/control_test.nomi :: traps
+T   todo reached at <dir>/control_test.nomi:11
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@e4097eb62b09a587
 E 1
@@ -9198,6 +9225,31 @@ T 1
 T 0
 T --- stderr ---
 T line 5: division by zero
+T
+C main.nomi@b1154591072e400a
+E 1
+N 0
+H 0d1abe2276fb0072d27b7545bb229bb709c011176a863b07e187fbef9862f065
+S -- main.nomi 213 --
+S import std/io
+S
+S fn pair(xs: List<Int>) -> Int {
+S     [a, b, .._] = xs else {
+S         io.print("short list")
+S         unreachable "callers pass two or more"
+S     }
+S
+S     a * b
+S }
+S
+S fn main() {
+S     io.inspect(pair([1]))
+S }
+S
+S
+T short list
+T --- stderr ---
+T line 6: unreachable: callers pass two or more
 T
 C main.nomi@bbe3d9af07a343c4
 E 1

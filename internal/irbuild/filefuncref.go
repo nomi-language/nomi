@@ -34,6 +34,10 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 	if t.Field == nil || irQualIsLocal(bl, owner.Name) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
+	if g.defaultFilledRef(t) {
+		v, k, mobile, ok := bl.callFuncValue(t, owner.Name+"."+t.Field.Name)
+		return v, k, mobile, ok, true
+	}
 	if g.files != nil {
 		if to, isSibling := g.files.lookupQualifier(g.fa, owner); isSibling {
 			f := g.files.units[to].funcs[t.Field.Name]

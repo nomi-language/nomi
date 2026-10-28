@@ -1,0 +1,79 @@
+/// The twelve ways to score a throw of five dice.
+pub enum Category {
+    Ones
+    Twos
+    Threes
+    Fours
+    Fives
+    Sixes
+    FullHouse
+    FourOfAKind
+    LittleStraight
+    BigStraight
+    Choice
+    Yacht
+}
+
+/// The score of five `dice` in `category`: 0 when they do not make it.
+pub fn score(dice: List<Int>, category: Category) -> Int {
+    case category {
+        .Ones -> face_total(dice, 1)
+        .Twos -> face_total(dice, 2)
+        .Threes -> face_total(dice, 3)
+        .Fours -> face_total(dice, 4)
+        .Fives -> face_total(dice, 5)
+        .Sixes -> face_total(dice, 6)
+        .FullHouse -> full_house(dice)
+        .FourOfAKind -> four_of_a_kind(dice)
+        .LittleStraight -> straight(dice, from: 1)
+        .BigStraight -> straight(dice, from: 2)
+        .Choice -> Iter.sum(dice)
+        .Yacht -> yacht(dice)
+    }
+}
+
+/// The total of the dice showing `face`.
+fn face_total(dice: List<Int>, face: Int) -> Int {
+    face * (dice |> Iter.filter(&(&1 == face)) |> Iter.count())
+}
+
+/// All the dice when three show one face and two another, or 0.
+fn full_house(dice: List<Int>) -> Int {
+    if group_sizes(dice) == [2, 3] {
+        Iter.sum(dice)
+    } else {
+        0
+    }
+}
+
+/// Four times the face that at least four dice show, or 0.
+fn four_of_a_kind(dice: List<Int>) -> Int {
+    dice
+    |> Iter.frequencies()
+    |> Iter.find(fn #(_face, count) -> count >= 4)
+    |> Maybe.map(fn #(face, _count) -> 4 * face)
+    |> Maybe.with_default(0)
+}
+
+/// 30 when the dice are the five faces counting up `from`, or 0.
+fn straight(dice: List<Int>, from: Int) -> Int {
+    if Iter.sort(dice) == Iter.to_list(from..from + 5) {
+        30
+    } else {
+        0
+    }
+}
+
+/// 50 when all five dice show one face, or 0.
+fn yacht(dice: List<Int>) -> Int {
+    if group_sizes(dice) == [5] { 50 } else { 0 }
+}
+
+/// How many dice show each face that comes up, smallest group first: a full
+/// house is `[2, 3]`, a yacht `[5]`.
+fn group_sizes(dice: List<Int>) -> List<Int> {
+    dice
+    |> Iter.frequencies()
+    |> Map.values()
+    |> Iter.sort()
+}

@@ -663,6 +663,10 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		// `todo` takes the wanted kind; see irtodo.go.
 		return bl.todo(td, want)
 	}
+	// kindInvalid: sentinel — no wanted kind passed; unreachable() then reads the checker's.
+	if ur, isUnreachable := at.(*ast.Unreachable); isUnreachable && want != kindInvalid {
+		return bl.unreachable(ur, want)
+	}
 	if d, isDbg := at.(*ast.Dbg); isDbg && !isNilNode(d.Expr) {
 		// `_none: Maybe<Int> = dbg None`: `dbg` is transparent, so the
 		// wanted type is its operand's.

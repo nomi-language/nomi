@@ -198,3 +198,44 @@ func TestDotVariant_AVariantAgainstANonEnumIsStillReported(t *testing.T) {
 		t.Fatalf("want .Small's refusal and .Red's, got %d:\n%s", len(got), strings.Join(got, "\n"))
 	}
 }
+
+// An anonymous struct literal after an element of a named struct builds that
+// struct, as it would under an annotation (spec, "Variant resolution").
+func TestStructLit_EarlierElementSetsTheStruct(t *testing.T) {
+	decls := "struct Key {\n  a: Int\n  b: Int\n}\n\n"
+	cases := map[string]string{
+		"list":           "  xs = [#Key{a: 1, b: 2}, #{a: 3, b: 4}]\n  _ = xs",
+		"vector":         "  xs = #[#Key{a: 1, b: 2}, #{a: 3, b: 4}]\n  _ = xs",
+		"map values":     "  m = %{\"k\" => #Key{a: 1, b: 2}, \"j\" => #{a: 3, b: 4}}\n  _ = m",
+		"list of tuples": "  ts = [#(#Key{a: 1, b: 2}, \"x\"), #(#{a: 3, b: 4}, \"y\")]\n  _ = ts",
+		"payload":        "  ms = [Some(#Key{a: 1, b: 2}), Some(#{a: 3, b: 4})]\n  _ = ms",
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(decls + "fn main() {\n" + body + "\n}\n")
+			for _, e := range errs {
+				t.Errorf("the checker rejects an anonymous struct literal after a named one: %s", diagText(e))
+			}
+		})
+	}
+}
+
+// Left to right only, and the literal must still fit the struct: a field the
+// struct lacks is an error at the anonymous literal.
+func TestStructLit_EarlierElementStillChecksTheFields(t *testing.T) {
+	decls := "struct Key {\n  a: Int\n  b: Int\n}\n\n"
+	for name, c := range map[string]struct{ body, want string }{
+		"anonymous first": {"  xs = [#{a: 3, b: 4}, #Key{a: 1, b: 2}]\n  _ = xs", "list element type mismatch"},
+		"unknown field":   {"  xs = [#Key{a: 1, b: 2}, #{a: 3, c: 4}]\n  _ = xs", "c"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(decls + "fn main() {\n" + c.body + "\n}\n")
+			if len(errs) == 0 {
+				t.Fatalf("the checker admits %q", c.body)
+			}
+			if got := diagText(errs[0]); !strings.Contains(got, c.want) {
+				t.Errorf("error %q does not mention %q", got, c.want)
+			}
+		})
+	}
+}

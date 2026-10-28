@@ -882,6 +882,12 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 		// NoMatch's reason; the destination is never written.
 		return rt.TodoError(m.fileNameOf(n.Pos().File()), n.Pos().Line(), n.Reason())
 
+	case *ir.Unreachable:
+		// An `unreachable` was reached: the program's own claim failed.
+		// The text is rt's, positioned at its line as other traps are, so
+		// one in std is reported at the program's call (stdlibfault.go).
+		return rt.UnreachableError(n.Pos().Line(), n.Reason())
+
 	case *ir.Assert:
 		// See assert.go in this package for which half of an assertion is
 		// `rt`'s and which is this consumer's.

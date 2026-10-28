@@ -369,6 +369,8 @@
   "dbg" @keyword)
 (todo_expression
   "todo" @keyword)
+(unreachable_expression
+  "unreachable" @keyword)
 
 ; Parameters
 (parameter
@@ -598,6 +600,7 @@
 "subtests" @keyword
 "dbg" @keyword
 "todo" @keyword
+"unreachable" @keyword
 "concurrent" @keyword
 "try" @keyword
 "then" @keyword

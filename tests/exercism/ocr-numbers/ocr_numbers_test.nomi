@@ -1,0 +1,187 @@
+import ocr_numbers.{self, Error}
+
+test "convert" {
+    cases = [
+        #(
+            "Recognizes 0",
+            [
+                " _ ",
+                "| |",
+                "|_|",
+                "   ",
+            ],
+            Ok("0"),
+        ),
+        #(
+            "Recognizes 1",
+            [
+                "   ",
+                "  |",
+                "  |",
+                "   ",
+            ],
+            Ok("1"),
+        ),
+        #(
+            "Unreadable but correctly sized inputs return ?",
+            [
+                "   ",
+                "  _",
+                "  |",
+                "   ",
+            ],
+            Ok("?"),
+        ),
+        #(
+            "Input with a number of lines that is not a multiple of four raises an error",
+            [
+                " _ ",
+                "| |",
+                "   ",
+            ],
+            Err(Error.LinesNotMultipleOfFour),
+        ),
+        #(
+            "Input with a number of columns that is not a multiple of three raises an error",
+            [
+                "    ",
+                "   |",
+                "   |",
+                "    ",
+            ],
+            Err(Error.ColumnsNotMultipleOfThree),
+        ),
+        #(
+            "Recognizes 110101100",
+            [
+                "       _     _        _  _ ",
+                "  |  || |  || |  |  || || |",
+                "  |  ||_|  ||_|  |  ||_||_|",
+                "                           ",
+            ],
+            Ok("110101100"),
+        ),
+        #(
+            "Garbled numbers in a string are replaced with ?",
+            [
+                "       _     _           _ ",
+                "  |  || |  || |     || || |",
+                "  |  | _|  ||_|  |  ||_||_|",
+                "                           ",
+            ],
+            Ok("11?10?1?0"),
+        ),
+        #(
+            "Recognizes 2",
+            [
+                " _ ",
+                " _|",
+                "|_ ",
+                "   ",
+            ],
+            Ok("2"),
+        ),
+        #(
+            "Recognizes 3",
+            [
+                " _ ",
+                " _|",
+                " _|",
+                "   ",
+            ],
+            Ok("3"),
+        ),
+        #(
+            "Recognizes 4",
+            [
+                "   ",
+                "|_|",
+                "  |",
+                "   ",
+            ],
+            Ok("4"),
+        ),
+        #(
+            "Recognizes 5",
+            [
+                " _ ",
+                "|_ ",
+                " _|",
+                "   ",
+            ],
+            Ok("5"),
+        ),
+        #(
+            "Recognizes 6",
+            [
+                " _ ",
+                "|_ ",
+                "|_|",
+                "   ",
+            ],
+            Ok("6"),
+        ),
+        #(
+            "Recognizes 7",
+            [
+                " _ ",
+                "  |",
+                "  |",
+                "   ",
+            ],
+            Ok("7"),
+        ),
+        #(
+            "Recognizes 8",
+            [
+                " _ ",
+                "|_|",
+                "|_|",
+                "   ",
+            ],
+            Ok("8"),
+        ),
+        #(
+            "Recognizes 9",
+            [
+                " _ ",
+                "|_|",
+                " _|",
+                "   ",
+            ],
+            Ok("9"),
+        ),
+        #(
+            "Recognizes string of decimal numbers",
+            [
+                "    _  _     _  _  _  _  _  _ ",
+                "  | _| _||_||_ |_   ||_||_|| |",
+                "  ||_  _|  | _||_|  ||_| _||_|",
+                "                              ",
+            ],
+            Ok("1234567890"),
+        ),
+        #(
+            "Numbers separated by empty lines are recognized. Lines are joined by commas.",
+            [
+                "    _  _ ",
+                "  | _| _|",
+                "  ||_  _|",
+                "         ",
+                "    _  _ ",
+                "|_||_ |_ ",
+                "  | _||_|",
+                "         ",
+                " _  _  _ ",
+                "  ||_||_|",
+                "  ||_| _|",
+                "         ",
+            ],
+            Ok("123,456,789"),
+        ),
+    ]
+
+    subtests cases, #(description, rows, expected), description {
+        assert ocr_numbers.convert(rows) == expected
+    }
+}

@@ -16,29 +16,23 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// with spaces on the right first, so a character never moves left; nothing
 /// pads past the last line that reaches a column.
 pub fn transpose(lines: List<String>) -> List<String> {
-    rows = padded_rows(lines)
-    width = rows |> List.head() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
-
-    0..width
-    |> Iter.map(fn column -> {
-        rows
-        |> Iter.map(&Vector.get(&1, column))
-        |> Maybe.values()
-        |> String.join()
-    })
+    lines
+    |> padded()
+    |> Iter.transpose()
+    |> Iter.map(String.join)
     |> Iter.to_list()
 }
 
-/// Each line as a vector of its characters, padded with spaces on the right
-/// to the width of the longest line from it to the end. The widths never grow
-/// down the rows, so the rows that reach a column are always the first ones.
-fn padded_rows(lines: List<String>) -> List<Vector<String>> {
+/// Each line padded with spaces on the right to the width of the longest line
+/// from it to the end. The widths never grow down the lines, so the lines
+/// that reach a column are always the first ones.
+fn padded(lines: List<String>) -> List<String> {
     #(rows, _width) =
         lines
         |> Iter.reverse()
         |> Iter.map_reduce(fn width = 0, line -> {
             width = Int.max(width, String.length(line))
-            #(line |> String.pad_end(width) |> Iter.to_vector(), width)
+            #(String.pad_end(line, width), width)
         })
 
     Iter.reverse(rows)
@@ -155,8 +149,7 @@ test "transpose" {
 
 ## How it's written
 
-- Each line is padded on the right to the width of the longest line from it to the end. After that, the rows that reach column `i` are always a prefix of the rows, so output line `i` is every row's character at `i` where it has one, and no row needs trailing-space bookkeeping.
-- The padding widths are a running maximum from the bottom up: one `Iter.map_reduce` over the reversed lines, whose state is the width so far and whose output is each padded row. The rows come out bottom first, so one `Iter.reverse` puts them back in order. `Iter.scan` over the widths, reversed and zipped back with the lines, is the other spelling; it needs a reverse and a zip where `map_reduce` needs one reverse.
-- Rows are `Vector<String>` of graphemes (`Iter.to_vector` over a `String`), since output line `i` reads column `i` of each row by index. The input and output stay `List<String>`.
-- A row too short for a column gives `Vector.get`'s `None`, and `Maybe.values` drops it. That `None` is the rule "don't pad on the right", not an error. The read is `Iter.map(&Vector.get(&1, column))`, a capture, since it is one call that uses the row once (style §31).
+- Each line is padded on the right to the width of the longest line from it to the end. After that, the rows that reach column `i` are always a prefix of the rows, so output line `i` is every row's character at `i` where it has one, which is what `Iter.transpose` gives: a short row adds nothing past its end. No row needs trailing-space bookkeeping.
+- The padding widths are a running maximum from the bottom up: one `Iter.map_reduce` over the reversed lines, whose state is the width so far and whose output is each padded line. The rows come out bottom first, so one `Iter.reverse` puts them back in order. `Iter.scan` over the widths, reversed and zipped back with the lines, is the other spelling; it needs a reverse and a zip where `map_reduce` needs one reverse.
+- The padded lines go to `Iter.transpose` as they are: a `String` is an `Iter` of its graphemes, so each column comes back as a `List<String>` of characters, which `String.join` puts back together. Nothing is indexed.
 - One `subtests` table: the cases share one shape, and a table of string lists is shallow enough for `nomi fmt` to keep.

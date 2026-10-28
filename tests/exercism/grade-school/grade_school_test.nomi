@@ -1,0 +1,136 @@
+import grade_school.School
+
+/// Adds each `#(name, grade)` in turn, answering whether each was added and
+/// the school after all of them.
+fn enroll(students: List<#(String, Int)>) -> #(List<Bool>, School) {
+    students
+    |> Iter.map_reduce(fn school = School.new(), #(name, grade) -> {
+        case School.add(school, name, grade) {
+            Ok(added) -> #(True, added)
+            Err(_) -> #(False, school)
+        }
+    })
+}
+
+test "adding students" {
+    cases = [
+        #("Add a student", [#("Aimee", 2)], [True]),
+        #(
+            "Adding multiple students in the same grade in the roster",
+            [#("Blair", 2), #("James", 2), #("Paul", 2)],
+            [True, True, True],
+        ),
+        #(
+            "Cannot add student to same grade in the roster more than once",
+            [#("Blair", 2), #("James", 2), #("James", 2), #("Paul", 2)],
+            [True, True, False, True],
+        ),
+        #("Adding students in multiple grades", [#("Chelsea", 3), #("Logan", 7)], [True, True]),
+        #(
+            "Cannot add same student to multiple grades in the roster",
+            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            [True, True, False, True],
+        ),
+    ]
+
+    subtests cases, #(description, students, expected), description {
+        #(added, _school) = enroll(students)
+        assert added == expected
+    }
+}
+
+test "the roster" {
+    cases: List<#(String, List<#(String, Int)>, List<String>)> = [
+        #("Roster is empty when no student is added", [], []),
+        #("Student is added to the roster", [#("Aimee", 2)], ["Aimee"]),
+        #(
+            "Multiple students in the same grade are added to the roster",
+            [#("Blair", 2), #("James", 2), #("Paul", 2)],
+            ["Blair", "James", "Paul"],
+        ),
+        #(
+            "Student not added to same grade in the roster more than once",
+            [#("Blair", 2), #("James", 2), #("James", 2), #("Paul", 2)],
+            ["Blair", "James", "Paul"],
+        ),
+        #(
+            "Students in multiple grades are added to the roster",
+            [#("Chelsea", 3), #("Logan", 7)],
+            ["Chelsea", "Logan"],
+        ),
+        #(
+            "Student not added to multiple grades in the roster",
+            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            ["Blair", "James", "Paul"],
+        ),
+        #(
+            "Students are sorted by grades in the roster",
+            [#("Jim", 3), #("Peter", 2), #("Anna", 1)],
+            ["Anna", "Peter", "Jim"],
+        ),
+        #(
+            "Students are sorted by name in the roster",
+            [#("Peter", 2), #("Zoe", 2), #("Alex", 2)],
+            ["Alex", "Peter", "Zoe"],
+        ),
+        #(
+            "Students are sorted by grades and then by name in the roster",
+            [
+                #("Peter", 2),
+                #("Anna", 1),
+                #("Barb", 1),
+                #("Zoe", 2),
+                #("Alex", 2),
+                #("Jim", 3),
+                #("Charlie", 1),
+            ],
+            ["Anna", "Barb", "Charlie", "Alex", "Peter", "Zoe", "Jim"],
+        ),
+    ]
+
+    subtests cases, #(description, students, expected), description {
+        #(_added, school) = enroll(students)
+        assert School.roster(school) == expected
+    }
+}
+
+test "one grade" {
+    cases: List<#(String, List<#(String, Int)>, Int, List<String>)> = [
+        #("Grade is empty if no students in the roster", [], 1, []),
+        #(
+            "Grade is empty if no students in that grade",
+            [#("Peter", 2), #("Zoe", 2), #("Alex", 2), #("Jim", 3)],
+            1,
+            [],
+        ),
+        #(
+            "Student not added to same grade more than once",
+            [#("Blair", 2), #("James", 2), #("James", 2), #("Paul", 2)],
+            2,
+            ["Blair", "James", "Paul"],
+        ),
+        #(
+            "Student not added to multiple grades",
+            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            2,
+            ["Blair", "James"],
+        ),
+        #(
+            "Student not added to other grade for multiple grades",
+            [#("Blair", 2), #("James", 2), #("James", 3), #("Paul", 3)],
+            3,
+            ["Paul"],
+        ),
+        #(
+            "Students are sorted by name in a grade",
+            [#("Franklin", 5), #("Bradley", 5), #("Jeff", 1)],
+            5,
+            ["Bradley", "Franklin"],
+        ),
+    ]
+
+    subtests cases, #(description, students, grade, expected), description {
+        #(_added, school) = enroll(students)
+        assert School.grade(school, grade) == expected
+    }
+}

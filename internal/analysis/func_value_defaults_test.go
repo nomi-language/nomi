@@ -1,13 +1,14 @@
 package analysis_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
-// A function's defaults apply to a call and do not shorten its type, so a
-// function with a defaulted parameter named as a value does not fit a function
-// type with fewer parameters, in any position. The generic call path used to
-// let `Maybe.map(m, parse)` through (the mismatch fell to its permissive
-// fallback) while the annotated binding was rejected, and the accepted form
-// was BLOCKED at run time.
+// A function's defaults apply to a call by name, and to the function named as
+// a value where a function type with fewer parameters is expected: the value
+// is then the shorter function, whose call fills the rest. Anywhere else the
+// value has every parameter, and a call through it passes every argument.
 
 const funcValueDefaultsDecls = `
 fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
@@ -31,29 +32,48 @@ fn seed(n: Int = 1) -> Int {
 }
 `
 
-func TestFuncValueDefaults_RejectedWhereFewerParametersAreExpected(t *testing.T) {
-	const hint = "\nhelp: defaults do not apply to a function value, so pass a capture that calls it: &parse(&1)"
+func TestFuncValueDefaults_FillWhereFewerParametersAreExpected(t *testing.T) {
+	for _, stmt := range []string{
+		`_ = Maybe.map(Some("1"), parse)`,
+		`_ = Iter.map(["1"], parse)`,
+		`_ = ["1"] |> Iter.map(parse)`,
+		`f: (String) -> Maybe<Int> = parse` + "\n  _ = f(\"1\")",
+		`_ = apply(parse, "1")`,
+		`_ = apply(f: parse, s: "1")`,
+		`f: (String, Int) -> Int = three` + "\n  _ = f(\"a\", 1)",
+		`f: () -> Int = seed` + "\n  _ = f()",
+		`_ = [["a"], ["b", "c"]] |> Iter.map(String.join)`,
+		`_ = Result.map(Ok(["a"]), String.join)`,
+	} {
+		t.Run(stmt, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + stmt + "\n}\n")
+			expectNoStdlibErrors(t, errs)
+		})
+	}
+}
+
+// The parameters a shorter type leaves out must all have defaults, and a
+// pipe's head is checked before the stage it feeds, so nothing is expected of
+// it: both are mismatches. The head's hint names the capture to write.
+func TestFuncValueDefaults_RejectedWhereADefaultCannotFill(t *testing.T) {
 	for _, tc := range []struct{ stmt, want string }{
-		{`_ = Maybe.map(Some("1"), parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
-		{`_ = Iter.map(["1"], parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
-		{`_ = ["1"] |> Iter.map(parse)`, "argument 2: expected (String) -> U, got (String, Bool) -> Maybe<Int>" + hint},
-		{`f: (String) -> Maybe<Int> = parse`, "type mismatch: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>" + hint},
-		{`_ = apply(parse, "1")`, "argument 1: expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>" + hint},
-		{`_ = apply(f: parse, s: "1")`, "argument 'f': expected (String) -> Maybe<Int>, got (String, Bool) -> Maybe<Int>" + hint},
-		// The capture has a hole for each parameter the position expects; a
-		// position that expects none gets a lambda, since a capture uses at
-		// least `&1`.
-		{`f: (String, Int) -> Int = three`, "type mismatch: expected (String, Int) -> Int, got (String, Int, Bool) -> Int" +
-			"\nhelp: defaults do not apply to a function value, so pass a capture that calls it: &three(&1, &2)"},
-		{`f: () -> Int = seed`, "type mismatch: expected () -> Int, got (Int) -> Int" +
-			"\nhelp: defaults do not apply to a function value, so pass a lambda that calls it: fn -> seed()"},
-		// No defaults: the generic path reports any arity mismatch now.
 		{`_ = Iter.map(["1"], two)`, "argument 2: expected (String) -> U, got (String, Int) -> Int"},
+		{`_ = parse |> apply("1")`, "`apply` takes (String) -> Maybe<Int> as its first argument, but the pipe passes (String, Bool) -> Maybe<Int>"},
 	} {
 		t.Run(tc.stmt, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  " + tc.stmt + "\n}\n")
 			expectStdlibError(t, errs, tc.want)
 		})
+	}
+	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + "\nfn main() {\n  _ = parse |> apply(\"1\")\n}\n")
+	found := false
+	for _, e := range errs {
+		if strings.Contains(diagText(e), "help: a function value takes its defaults only where its shorter type is expected, so pass a capture that calls it: &parse(&1)") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("the pipe head's mismatch does not suggest the capture")
 	}
 }
 

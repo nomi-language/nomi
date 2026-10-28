@@ -27,7 +27,7 @@ import (
 // the stage dispatch: `x |> todo`, and `x |> dbg expr`, which it rejects.
 func isPipeKeywordStage(stage ast.Node) bool {
 	switch ungroupExpr(stage).(type) {
-	case *ast.Todo, *ast.Dbg:
+	case *ast.Todo, *ast.Unreachable, *ast.Dbg:
 		return true
 	}
 	return false

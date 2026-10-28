@@ -694,6 +694,27 @@ func (bl *irScalarBuilder) genericVariantBare(field *ast.FieldAccess) (ir.Temp, 
 	return bl.variantValue(field, d, v, nil, true)
 }
 
+// genericDotBare builds `.Leaf` of a user generic enum at the instance the
+// checker typed the dot at (`t: Tree<Int> = .Leaf`). field is the qualified
+// spelling the dot abbreviates (qualifiedDot), a node the checker never saw,
+// so genericVariantBare's reference lookup finds the template's variant
+// there and no instance; the dot's own type names it. ok is false, with
+// nothing lowered, for any other dot.
+func (bl *irScalarBuilder) genericDotBare(t *ast.DotVariant, field *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
+	want := bl.g.checkedKind(t)
+	if want.tag != tagNamed || want.def == nil || want.def.genericOf == nil {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	d, v, ok := bl.genericVariant(field, nil, want)
+	if ok && v.kind == "embedded" && irRetainedMarker(v.embeds) {
+		return bl.embedMarker(field, d, v)
+	}
+	if !ok || v.kind != "bare" {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	return bl.variantValue(field, d, v, nil, true)
+}
+
 // embedMarker widens an embedded marker into its variant: the tag alone, as
 // variantValue drops a zero-sized payload's slot. The VM answers the marker
 // value itself, as it does for any widened embedded value.

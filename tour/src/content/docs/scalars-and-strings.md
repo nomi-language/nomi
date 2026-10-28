@@ -83,7 +83,9 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 -->
 
 [`Float`](/reference/float/) is fast but not exact. It stores numbers in
-binary, so `0.1 + 0.2` is not quite `0.3`.
+binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
+the difference you accept: `Float.equal_within?(0.1 + 0.2, 0.3, 1e-9)` is
+`True`.
 
 [`Decimal`](/reference/decimal/) stores numbers in base 10 and adds them
 exactly. Use it when a rounding error would be a bug, as with money. A

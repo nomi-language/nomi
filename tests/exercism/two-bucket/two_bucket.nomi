@@ -1,0 +1,82 @@
+/// One of the two buckets.
+pub enum Bucket {
+    One
+    Two
+}
+
+/// How the goal is reached: in how many actions, in which bucket, and how
+/// much is left in the other.
+pub struct Outcome {
+    moves: Int
+    goal_bucket: Bucket
+    other_bucket: Int
+}
+
+/// Why the goal cannot be measured.
+pub enum Error {
+    Impossible
+}
+
+/// The liters in bucket one and bucket two.
+typealias State #(Int, Int)
+
+/// The fewest actions that measure `goal` liters with buckets of `one` and
+/// `two` liters, filling `start` first. No action may leave `start` empty
+/// and the other bucket full.
+pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, Error> {
+    #(first, forbidden) = case start {
+        .One -> #(#(one, 0), #(0, two))
+        .Two -> #(#(0, two), #(one, 0))
+    }
+
+    search([first], %[first, forbidden], 1, #(one, two), goal)
+}
+
+/// A breadth-first search: `frontier` is every state `moves` actions reach
+/// that no fewer actions do, and `seen` every state reached so far, with the
+/// forbidden one, so no action leads back to them.
+fn search(
+    frontier: List<State>,
+    seen: Set<State>,
+    moves: Int,
+    sizes: State,
+    goal: Int,
+) -> Result<Outcome, Error> {
+    case Iter.find(frontier, fn #(one, two) -> one == goal or two == goal) {
+        Some(#(one, two)) when one == goal ->
+            Ok(#{moves, goal_bucket: .One, other_bucket: two})
+
+        Some(#(one, _two)) ->
+            Ok(#{moves, goal_bucket: .Two, other_bucket: one})
+
+        None -> {
+            next =
+                frontier
+                |> Iter.flat_map(&actions(&1, sizes))
+                |> Iter.filter(fn state -> !Set.contains?(seen, state))
+                |> Iter.to_set()
+
+            if Set.size(next) == 0 {
+                Err(.Impossible)
+            } else {
+                search(Iter.to_list(next), Set.union(seen, next), moves + 1, sizes, goal)
+            }
+        }
+    }
+}
+
+/// The states one action leads to from `#(one, two)`: fill a bucket, empty
+/// one, or pour one into the other until it is empty or the other is full.
+fn actions(#(one, two): State, #(size_one, size_two): State) -> List<State> {
+    into_two = Int.min(one, size_two - two)
+    into_one = Int.min(two, size_one - one)
+
+    [
+        #(size_one, two),
+        #(one, size_two),
+        #(0, two),
+        #(one, 0),
+        #(one - into_two, two + into_two),
+        #(one + into_one, two - into_one),
+    ]
+}

@@ -7,7 +7,7 @@ description: "Read a diagram of two rows of plant cups and say which four plants
 
 Read a diagram of two rows of plant cups and say which four plants each child of the class looks after.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/kindergarten-garden) (MIT). Listed under [Grids & Matrices](/examples/?subject=grids-and-matrices).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/kindergarten-garden) (MIT). Listed under [Grids & Matrices](/examples/?subject=grids-and-matrices).
 
 ```nomi-run
 // FILE: kindergarten_garden.nomi
@@ -88,11 +88,12 @@ fn parse_row(row: String) -> Maybe<List<Plant>> {
 }
 
 /// How many students come before `student` in the class. Every student is
-/// in `Student.variants()`, so the default is never used.
+/// in `Student.variants()`, so the search cannot miss.
 fn position(student: Student) -> Int {
-    Student.variants()
-    |> Iter.find_index(&(&1 == student))
-    |> Maybe.with_default(0)
+    Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else {
+        unreachable "every student is listed"
+    }
+    i
 }
 
 // FILE: kindergarten_garden_test.nomi
@@ -182,13 +183,7 @@ test "a letter that names no plant" {
 
 - Plants and students are enums. The class is fixed at twelve named children, so asking for a child who is not in it cannot be written, and `Garden.plants` needs no error.
 - The diagram is parsed once into an opaque `Garden` by `Garden.parse`, which returns `None` for a letter that names no plant. A diagram is data, so a bad one is an answer rather than a trap. The canonical data has no bad diagram; the test file adds one, marked as not canonical.
-- A student's position is their index in `derive Variants`' list (`Iter.find_index`), so the alphabetical order lives only in the enum's declaration.
+- A student's position is their index in `derive Variants`' list (`Iter.find_index`), so the alphabetical order lives only in the enum's declaration. Every student is in that list, so the search cannot miss: its `None` is `unreachable "every student is listed"` (style §28), a trap if the enum and the list ever disagree, rather than a default that would answer a wrong position.
 - `Garden.plants` takes two cups from each row with `Iter.drop` and `Iter.take` under one `Iter.flat_map`.
 - "partial garden" is a `group` of its two tests, the nested canonical group "multiple students for the same garden with three students" among them, since groups do not nest; "full garden" is a plain test. Where every row shares a diagram, the test parses it once with `try` before the table; where rows bring their own, the row parses it with `assert Some(garden) = ...`, since `try` cannot be used in a `subtests` body.
 - Each table's first row qualifies its variants (`Student.Alice`, `[Plant.Radishes, ...]`), and the later rows write them bare.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** `Iter.find_index` answers a `Maybe`, and std has no unwrap that traps on `None`, so a position that is always there still ends in `Maybe.with_default(0)`, whose default never applies. Rust writes `.position(..).unwrap()`. Counting the students before this one with `Iter.take_while` and `Iter.count` needs no `Maybe`, but says less directly what it computes.

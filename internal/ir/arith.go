@@ -155,6 +155,8 @@ const (
 	// FaultTodo: a `todo` was reached. See todo.go. In this set for
 	// FaultNoMatch's reason.
 	FaultTodo
+	// FaultUnreachable: an `unreachable` was reached. See unreachable.go.
+	FaultUnreachable
 )
 
 // Any reports whether the operation can fault at all.
@@ -172,7 +174,7 @@ func (f Faults) String() string {
 		bit  Faults
 		name string
 	}{{FaultOverflow, "overflow"}, {FaultDivByZero, "div0"}, {FaultUndefined, "undefined"},
-		{FaultNoMatch, "nomatch"}, {FaultTodo, "todo"}} {
+		{FaultNoMatch, "nomatch"}, {FaultTodo, "todo"}, {FaultUnreachable, "unreachable"}} {
 		if f.Has(k.bit) {
 			if s != "" {
 				s += "|"

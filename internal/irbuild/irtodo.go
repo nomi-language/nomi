@@ -30,9 +30,24 @@ func (bl *irScalarBuilder) todo(t *ast.Todo, want kind) (ir.Temp, kind, bool, bo
 	return n.Dst(), k, false, true
 }
 
-// todoCheckedKind is the kind of the type the checker expected at t, or
-// Infallible when it expected none this builder can represent.
-func (bl *irScalarBuilder) todoCheckedKind(t *ast.Todo) kind {
+// unreachable lowers `unreachable "reason"` to one `ir.Unreachable`, a trap
+// whose destination takes its kind exactly as a `todo`'s does.
+func (bl *irScalarBuilder) unreachable(t *ast.Unreachable, want kind) (ir.Temp, kind, bool, bool) {
+	k := want
+	// kindInvalid: sentinel — no wanted kind passed, not an operand's kind.
+	if k == kindInvalid {
+		k = bl.todoCheckedKind(t)
+	}
+	n := ir.NewUnreachable(bl.g.irNodePos(t), bl.f.NewTemp(), t.ReasonText())
+	bl.b.Append(n)
+	bl.g.irTypeTemp(bl.f, n.Dst(), k)
+	return n.Dst(), k, false, true
+}
+
+// todoCheckedKind is the kind of the type the checker expected at t, a
+// `todo` or an `unreachable`, or Infallible when it expected none this
+// builder can represent.
+func (bl *irScalarBuilder) todoCheckedKind(t ast.Node) kind {
 	if bl.g.fa != nil {
 		if ty, ok := bl.g.srcFA().ExpectedTypes[t]; ok {
 			// kindInvalid: lookup — a type this builder cannot represent falls back to Infallible.
@@ -42,4 +57,16 @@ func (bl *irScalarBuilder) todoCheckedKind(t *ast.Todo) kind {
 		}
 	}
 	return kindNever
+}
+
+// isTrapExpr reports whether n, through parentheses, is a `todo` or an
+// `unreachable`: an expression that always traps.
+func isTrapExpr(n ast.Node) bool {
+	switch t := n.(type) {
+	case *ast.GroupedExpr:
+		return isTrapExpr(t.Expr)
+	case *ast.Todo, *ast.Unreachable:
+		return true
+	}
+	return false
 }

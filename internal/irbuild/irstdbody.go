@@ -52,11 +52,15 @@ type irFuncSig struct {
 	// testArms lowers each arm of a test-body `if` or `case` STATEMENT as
 	// test statements, assertions included, whose values are discarded.
 	testArms bool
-	result   kind
-	decl     *ast.FuncDef
-	dicts    int
-	name     string
-	origin   irFuncOrigin
+	// leaves marks a region every path of which must leave, a binding's
+	// else in the LEAVING shape (irelsebinding.go): a path whose tail is a
+	// `todo` or an `unreachable` traps there and reaches no exit.
+	leaves bool
+	result kind
+	decl   *ast.FuncDef
+	dicts  int
+	name   string
+	origin irFuncOrigin
 }
 
 // irFuncOrigin is which producer built a retained function, and therefore

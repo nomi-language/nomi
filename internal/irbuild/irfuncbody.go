@@ -355,7 +355,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			if v, k, mobile, ok := bl.preludeBareValue(t, kindInvalid); ok {
 				return v, k, mobile, true
 			}
-			return bl.variantBare(bl.g.qualifiedDot(t))
+			field := bl.g.qualifiedDot(t)
+			if v, k, mobile, ok := bl.genericDotBare(t, field); ok {
+				return v, k, mobile, true
+			}
+			return bl.variantBare(field)
 		}
 		return ir.NoTemp, kindInvalid, false, false
 	case *ast.GroupedExpr:
@@ -686,6 +690,10 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.Todo:
 		// See irtodo.go.
 		return bl.todo(t, kindInvalid)
+
+	case *ast.Unreachable:
+		// See irtodo.go.
+		return bl.unreachable(t, kindInvalid)
 	}
 	return ir.NoTemp, kindInvalid, false, false
 }
@@ -2435,7 +2443,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	}
 	lp := bl.loop
 	if sig.testArms {
-		return bl.testArm(exit, body)
+		return bl.testArm(exit, body, sig.leaves)
 	}
 	// Arms are distinct lexical scopes. Copies of the symbol table preserve
 	// outer identities while giving same-spelled sibling bindings new symbols.
@@ -2602,6 +2610,16 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 		bl.closeWithScope(ws, body)
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(body), exit.ID()))
 		return k, true
+	}
+	if sig.leaves && isTrapExpr(body) {
+		// A leaving region's path that ends in a trap writes no value and
+		// reaches no exit, as a `return` arm does: the names a binding's
+		// pattern binds are bound only where it matched.
+		if _, _, _, ok := bl.lowerNever(body); !ok {
+			return kindInvalid, false
+		}
+		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(body), bl.b.ID()))
+		return kindDiverged, true
 	}
 	var val ir.Temp
 	if sig.inferResult {

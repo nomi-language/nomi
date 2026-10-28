@@ -19,13 +19,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/wordy.
 
 ## Friction
 
-- [verbose] `nomi fmt` puts a binding `else` on one line only within 50 columns, and sets the broken form apart with blank lines, so each guard here takes four lines:
-
-  ```nomi
-  Some(total) = String.to_int(first) else {
-      return Err(.SyntaxError)
-  }
-
-  ```
-
-  The three guards in `answer` take 16 lines with their blank lines. rustfmt has the same 50-column default for `let ... else`, but adds no blank lines around it.
+None.

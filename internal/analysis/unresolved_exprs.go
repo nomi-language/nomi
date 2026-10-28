@@ -93,7 +93,7 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 	})
 	switch n := n.(type) {
 	case ast.TypeExpr, *ast.ImportStmt, *ast.ImportBlock, *ast.Decorator, *ast.FieldAccessor,
-		*ast.Todo:
+		*ast.Todo, *ast.Unreachable:
 		return false
 	case *ast.FieldAccess:
 		w.skip[n.Field] = true

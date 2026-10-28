@@ -76,6 +76,7 @@
 "subtests" @keyword
 "dbg" @keyword
 "todo" @keyword
+"unreachable" @keyword
 "concurrent" @keyword
 "try" @keyword
 "then" @keyword
@@ -279,6 +280,8 @@
   "dbg" @keyword)
 (todo_expression
   "todo" @keyword)
+(unreachable_expression
+  "unreachable" @keyword)
 
 ; An attached list's head (`Ids[1]`, `JV.Arr[x]`)
 (typed_list

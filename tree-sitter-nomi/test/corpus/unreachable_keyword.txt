@@ -1,0 +1,31 @@
+================================================================================
+Unreachable with a reason
+================================================================================
+
+once a: Int = unreachable "every student is listed"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    type: (type_identifier)
+    value: (unreachable_expression
+      reason: (string
+        (string_content)))))
+
+================================================================================
+Unreachable with a raw reason
+================================================================================
+
+once a: Int = unreachable `(\d*)(\D) always has two groups`
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    name: (identifier)
+    type: (type_identifier)
+    value: (unreachable_expression
+      reason: (raw_string
+        (raw_string_content)))))

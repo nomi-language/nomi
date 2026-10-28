@@ -58,17 +58,28 @@ func containsTodo(n ast.Node) bool {
 	return found
 }
 
-// isTodoValue reports whether n's value is a `todo`: the expression itself,
-// or a pipeline whose last stage is one.
-func isTodoValue(n ast.Node) bool {
+// bottomValueKeyword is `todo` or `unreachable` when n's value is one: the
+// expression itself, or a pipeline whose last stage is one. Otherwise "".
+func bottomValueKeyword(n ast.Node) string {
 	switch v := ungroupExpr(n).(type) {
 	case *ast.Todo:
-		return true
+		return "todo"
+	case *ast.Unreachable:
+		return "unreachable"
 	case *ast.Binary:
 		if v.Op == "|>" {
-			_, ok := ungroupExpr(v.Right).(*ast.Todo)
-			return ok
+			return bottomValueKeyword(v.Right)
 		}
 	}
-	return false
+	return ""
+}
+
+// bottomStage is a pipe stage that is a `todo` or an `unreachable`, which
+// traps after the piped value is computed.
+func bottomStage(stage ast.Node) (ast.Node, bool) {
+	switch s := ungroupExpr(stage).(type) {
+	case *ast.Todo, *ast.Unreachable:
+		return s, true
+	}
+	return nil, false
 }

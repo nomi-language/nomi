@@ -8,20 +8,61 @@ import (
 )
 
 // A function's default parameter values apply to a call of the function by
-// name. They do not shorten its type: `fn parse(s: String, strict: Bool =
-// False)` named as a value is a `(String, Bool) -> Maybe<Int>`, and passing or
-// binding it where a `(String) -> Maybe<Int>` is expected is a mismatch (spec
-// §5, *Default Arguments*: "Defaults apply to calls, not to function values").
-// A call through the value passes every argument: after `g = parse`, `g("1")`
-// is an error. A capture or lambda that calls it states which arguments the
+// name, and where a function type with fewer parameters is expected: `fn
+// parse(s: String, strict: Bool = False)` named as a value is a `(String,
+// Bool) -> Maybe<Int>`, and where a `(String) -> Maybe<Int>` is expected it is
+// that function, whose call fills `strict` (spec §5, *Default Arguments*:
+// "Defaults fill a function value only where a shorter type is expected";
+// defaultFilledFuncValue). Bound or passed with nothing expected, it keeps
+// every parameter, and a call through the value passes every argument:
+// after `g = parse`, `g("1")` is an error. A capture or lambda that calls it states which arguments the
 // defaults fill. A lambda's own defaults and a partial's open defaults belong
 // to the name the value is bound to and its copies: a call through any other
 // value with no declaration behind it passes every argument (checkCall,
 // calleeIsNamelessValue, calleeCopiesADeclaration).
 
+// defaultFilledFuncValue is the type of node, a named function checked as a
+// value of type ty where expected is expected: when expected is a function
+// type with fewer parameters, and each of the function's parameters past
+// them has a default, the value is the function of those first parameters,
+// and the IR builder makes it a function whose body calls node by name, so
+// the call fills the rest (callFuncValue). The shorter type is the
+// reference's CallType, which is how the IR builder tells it from the
+// function's own. `Iter.map(words, parse)` passes
+// `(String) -> Maybe<Int>`. Any other value keeps ty, and a mismatch is
+// reported where the value is used.
+func (c *checker) defaultFilledFuncValue(node ast.Node, ty, expected Type) Type {
+	ft, ok := ty.(*FuncType)
+	if !ok {
+		return ty
+	}
+	want, ok := resolveTypeVar(expected).(*FuncType)
+	if !ok || len(want.Params) >= len(ft.Params) {
+		return ty
+	}
+	params, named := c.namedFuncParams(node)
+	if !named || len(params) != len(ft.Params) {
+		return ty
+	}
+	for _, p := range params[len(want.Params):] {
+		if p.Default == nil {
+			return ty
+		}
+	}
+	short := *ft
+	short.Params = ft.Params[:len(want.Params):len(want.Params)]
+	short.DefaultCount = 0
+	c.attachCallType(node, &short)
+	return &short
+}
+
 // defaultedFuncValueHint is the hint appended to a mismatch between an
 // expected function type and a function value that has the expected
-// parameters plus defaulted ones, or "" for any other mismatch. arg is the
+// parameters plus defaulted ones, or "" for any other mismatch. A value
+// checked where the shorter type is expected takes it
+// (defaultFilledFuncValue), so the mismatch arises where nothing was
+// expected when the value was checked: a pipe's head, checked before the
+// stage it feeds. arg is the
 // value's expression, used to name it in the suggested capture and, for a
 // named function, to count its defaults, which its value's type does not
 // carry (funcValueType).
@@ -58,13 +99,13 @@ func (c *checker) defaultedFuncValueHint(expected, got Type, arg ast.Node) strin
 	if n == 0 {
 		// A capture uses at least `&1`, so a function of no arguments is a
 		// lambda.
-		return "defaults do not apply to a function value, so pass a lambda that calls it: fn -> " + name + "()"
+		return "a function value takes its defaults only where its shorter type is expected, so pass a lambda that calls it: fn -> " + name + "()"
 	}
 	holes := make([]string, n)
 	for i := range holes {
 		holes[i] = fmt.Sprintf("&%d", i+1)
 	}
-	return "defaults do not apply to a function value, so pass a capture that calls it: &" +
+	return "a function value takes its defaults only where its shorter type is expected, so pass a capture that calls it: &" +
 		name + "(" + strings.Join(holes, ", ") + ")"
 }
 

@@ -537,7 +537,9 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		// sent to indirectCall (qualCalleeIsValue).
 		owner, mod, ok := bl.qualDottedOwner(fa.Object)
 		if !ok {
-			return no()
+			if owner, ok = bl.siblingOwnerSpelling(fa.Object, method); !ok {
+				return no()
+			}
 		}
 		if mod != "" {
 			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, bl.g.stdOwnerUnshadowed(owner)); handled {
@@ -1852,6 +1854,9 @@ func (bl *irScalarBuilder) qualCalleeIsValue(fa *ast.FieldAccess) bool {
 	case *ast.Ident:
 		return irQualIsLocal(bl, obj.Name)
 	case *ast.TypeIdent, *ast.GenericType:
+		return false
+	}
+	if _, sibling := bl.siblingOwnerSpelling(fa.Object, fa.Field.Name); sibling {
 		return false
 	}
 	_, _, owner := bl.qualDottedOwner(fa.Object)

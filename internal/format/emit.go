@@ -896,6 +896,8 @@ func emitNode(n ast.Node) Doc {
 		return emitDbg(v)
 	case *ast.Todo:
 		return emitTodo(v)
+	case *ast.Unreachable:
+		return Concat(Text("unreachable "), emit(v.Reason))
 	case *ast.ConcurrentBlock:
 		return emitConcurrentBlock(v)
 	case *ast.StructDef:
@@ -1050,16 +1052,7 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 		}
 		return emitBindingValue(target, v.Value)
 	}
-	// head is everything up to the else's `{`, `else ` included.
-	var head Doc
-	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
-		head = Group(Concat(target, Text(" ="),
-			withPipeDanglingAfter(pipe, pipeAfterEquals(emitPipeChain(pipe))),
-			IfBroken(Text(" "), HardLine()),
-			Text("else ")))
-	} else {
-		head = Concat(target, Text(" = "), emit(v.Value), Text(" else "))
-	}
+	head := patternBindingHead(v, target)
 	if block := v.Else.Block; block != nil {
 		broken := Concat(head, emitBlockForceBroken(block))
 		if !isInlineableBlockBody(block) {
@@ -1076,6 +1069,18 @@ func emitPatternBinding(v *ast.PatternBinding) Doc {
 		HardLine(),
 		Text("}"),
 	)
+}
+
+// patternBindingHead renders a binding with an else up to the else's `{`,
+// `else ` included.
+func patternBindingHead(v *ast.PatternBinding, target Doc) Doc {
+	if pipe, ok := v.Value.(*ast.Binary); ok && pipe.Op == "|>" {
+		return Group(Concat(target, Text(" ="),
+			withPipeDanglingAfter(pipe, pipeAfterEquals(emitPipeChain(pipe))),
+			IfBroken(Text(" "), HardLine()),
+			Text("else ")))
+	}
+	return Concat(target, Text(" = "), emit(v.Value), Text(" else "))
 }
 
 // bareStartsDestructure reports whether pattern, written bare at the start
@@ -2017,22 +2022,29 @@ func emitStatementDocs(stmts []ast.Node) []Doc {
 // the statement alone, which is what is measured; full adds its comments.
 // authorBlank records a blank line the source wrote above it, which full
 // already renders. node is nil for an item that is not a statement node, and
-// blankAfter forces a blank line after the item.
+// blankAfter forces a blank line after the item. guardHead is the head of a
+// binding with an else block (`Some(x) = value else `), measured in place of
+// doc.
 type statementItem struct {
 	node        ast.Node
 	doc         Doc
 	full        Doc
+	guardHead   Doc
 	authorBlank bool
 	blankAfter  bool
 }
 
 func newStatementItem(s ast.Node, doc Doc) statementItem {
-	return statementItem{
+	it := statementItem{
 		node:        s,
 		doc:         doc,
 		full:        emitWithTriviaDoc(s, doc),
 		authorBlank: hasLeadingBlank(s),
 	}
+	if pb, ok := s.(*ast.PatternBinding); ok && pb.Else != nil && pb.Else.Block != nil {
+		it.guardHead = patternBindingHead(pb, emitPattern(pb.Pattern))
+	}
+	return it
 }
 
 // emitStatementSequence lays out a block's statements, one per line, with one
@@ -2041,7 +2053,10 @@ func newStatementItem(s ast.Node, doc Doc) statementItem {
 //     apart from its neighbours (no blank line is added at the top or bottom
 //     of the block). A pipe statement is no exception either way: a stacked
 //     one, or one that breaks to fit the width, is set apart, and one that
-//     fits on its line sits with its neighbours;
+//     fits on its line sits with its neighbours. A binding with an else
+//     block counts by its head alone: a guard whose `Pattern = value else {`
+//     is one line sits with its neighbours however its block breaks (an else
+//     with arms is laid out as a case, and counts whole);
 //   - the first is an import and the second is not;
 //   - the source wrote one there.
 //
@@ -2059,7 +2074,11 @@ func emitStatementSequence(items []statementItem) Doc {
 		}
 		multiline := make([]bool, len(items))
 		for i, it := range items {
-			multiline[i] = spansLines(it.doc, indent, width)
+			if it.guardHead != nil {
+				multiline[i] = spansLines(it.guardHead, indent, width)
+			} else {
+				multiline[i] = spansLines(it.doc, indent, width)
+			}
 		}
 		parts := make([]Doc, 0, len(items)*3)
 		for i, it := range items {

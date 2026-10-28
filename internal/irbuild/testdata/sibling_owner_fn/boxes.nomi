@@ -1,0 +1,46 @@
+// Owner functions of a generic type and of an interface: the functions of
+// `impl Box<T>` and `impl Shape<T>` whose signatures name none of the
+// block's parameters, called from main.nomi and calls_test.nomi.
+pub struct Box<T> {
+    items: List<T>
+}
+
+impl Box<T> {
+    pub fn seven() -> Int {
+        7
+    }
+
+    pub fn size<U>(b: Box<U>) -> Int {
+        Iter.count(b.items)
+    }
+
+    pub fn of<U>(item: U) -> Box<U> {
+        #Box{items: [item]}
+    }
+
+    pub fn first<T>(b: Box<T>) -> Maybe<T> {
+        List.head(b.items)
+    }
+
+    pub fn pad(label: String, width: Int = 3) -> String {
+        String.pad_end(label, width) + "|"
+    }
+
+    pub fn count(b: Box<T>) -> Int {
+        Iter.count(b.items)
+    }
+}
+
+pub interface Shape<T> {
+    fn area(s: self) -> T
+}
+
+impl Shape<T> {
+    pub fn unit() -> Int {
+        1
+    }
+
+    pub fn twice<U>(x: U) -> #(U, U) {
+        #(x, x)
+    }
+}

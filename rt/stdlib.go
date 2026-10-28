@@ -424,6 +424,16 @@ func FloatTan(x float64) float64 { return math.Tan(x) }
 // positive x axis, in radians from -π to π.
 func FloatAtan2(y, x float64) float64 { return math.Atan2(y, x) }
 
+// FloatRequireTolerance is std/float's private `require_tolerance`, the check
+// `Float.equal_within?` makes of its tolerance before it compares: a negative
+// or NaN tolerance is a value the caller chose, so it traps, naming it.
+func FloatRequireTolerance(tolerance float64) Unit {
+	if math.IsNaN(tolerance) || tolerance < 0 {
+		Trap("Float.equal_within?: tolerance must not be negative or NaN, got " + FormatFloat(tolerance))
+	}
+	return Unit{}
+}
+
 // FloatBits is std/float's private `float_bits`: the IEEE-754 bit pattern as an
 // Int, backing the Float `Hashable` impl.
 func FloatBits(x float64) int64 { return int64(math.Float64bits(x)) }

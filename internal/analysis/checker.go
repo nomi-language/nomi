@@ -1297,6 +1297,8 @@ func nodeLineCol(n ast.Node) (int, int) {
 		return v.Line, v.Col
 	case *ast.Todo:
 		return v.Line, v.Col
+	case *ast.Unreachable:
+		return v.Line, v.Col
 	}
 	return n.LineNum(), 0
 }
@@ -4228,7 +4230,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		c.funcRefNode = n
 		ty := c.checkNode(n)
 		c.funcRefNode = prevRef
-		return c.instantiateFuncRef(n, ty, expected)
+		return c.instantiateFuncRef(n, c.defaultFilledFuncValue(n, ty, expected), expected)
 	case *ast.GroupedExpr:
 		return c.checkNodeExpecting(n.Expr, expected)
 	case *ast.With:
@@ -4256,7 +4258,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		return c.checkIf(n, expected)
 	case *ast.Dbg:
 		return c.checkDbgExpecting(n, expected)
-	case *ast.Todo:
+	case *ast.Todo, *ast.Unreachable:
 		return TypeInfallible
 	case *ast.Lambda:
 		expectedFT, ok := expected.(*FuncType)
@@ -4776,10 +4778,11 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 	case *ast.Dbg:
 		return c.checkDbg(n)
 
-	case *ast.Todo:
-		// `todo` never produces a value, so it is the bottom type: it fits
-		// whatever its position expects (checkNodeExpecting records that
-		// expectation for the IR builder) and leaves a join to its other arms.
+	case *ast.Todo, *ast.Unreachable:
+		// `todo` and `unreachable` never produce a value, so each is the
+		// bottom type: it fits whatever its position expects
+		// (checkNodeExpecting records that expectation for the IR builder)
+		// and leaves a join to its other arms.
 		return TypeInfallible
 
 	case *ast.TestDecl:
@@ -6669,11 +6672,12 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if pipeDbg {
 			return left
 		}
-		if todo, ok := ungroupExpr(n.Right).(*ast.Todo); ok {
-			// `x |> todo`: the piped value is computed and the stage traps,
-			// so the pipeline fits whatever its position expects.
+		if stage, ok := bottomStage(n.Right); ok {
+			// `x |> todo` or `x |> unreachable "..."`: the piped value is
+			// computed and the stage traps, so the pipeline fits whatever its
+			// position expects.
 			if expected != nil {
-				c.fa.recordExpectedType(todo, expected)
+				c.fa.recordExpectedType(stage, expected)
 			}
 			return TypeInfallible
 		}
@@ -7083,6 +7087,29 @@ func (c *checker) pipeCalleeType(call *ast.Call) Type {
 // concreteExpected reports an expected type that can seed a generic call's
 // type parameters: present, with no type parameter and no unsolved inference
 // variable in it.
+// seedFromPartlyGenericExpected unifies expected, which names the caller's
+// type parameters, with resultTy in a trial, and copies into subs each of
+// ft's own type parameters the trial solved to a type naming no type
+// parameter. A parameter solved to one of the caller's is left unsolved, so
+// the arguments solve it as they would with no expected type.
+func (c *checker) seedFromPartlyGenericExpected(expected, resultTy Type, ft *FuncType, subs map[*TypeParam_]Type) {
+	trial := make(map[*TypeParam_]Type, len(subs))
+	for k, v := range subs {
+		trial[k] = v
+	}
+	if c.unifyInto(expected, resultTy, trial) != nil {
+		return
+	}
+	for _, tp := range collectOrderedTypeParams(ft) {
+		if _, solved := subs[tp]; solved {
+			continue
+		}
+		if v, ok := trial[tp]; ok && !ContainsTypeParam(v) && !containsTypeVar(v) {
+			subs[tp] = v
+		}
+	}
+}
+
 func concreteExpected(expected Type) bool {
 	return expected != nil && !ContainsTypeParam(expected) && !containsTypeVar(expected)
 }
@@ -7399,7 +7426,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			continue
 		}
 		if !c.argMatchesParam(argTy, ft.Params[fill.slot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
-			c.report(c.pipeHeadMismatch(newPipeHead(n, pipeCall, fill), ft.Params[fill.slot], argTy).WithHint(mismatchHint(ft.Params[fill.slot], argTy)))
+			c.report(c.pipeHeadMismatch(newPipeHead(n, pipeCall, fill), ft.Params[fill.slot], argTy).WithHint(c.defaultedFuncValueHint(ft.Params[fill.slot], argTy, n.Left)).WithHint(mismatchHint(ft.Params[fill.slot], argTy)))
 		}
 	}
 
@@ -9722,6 +9749,14 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		if c.unifyInto(expected, resultTy, trial) == nil {
 			subs = trial
 		}
+	} else if expected != nil && !containsTypeVar(expected) && !skipReturnInfer &&
+		ContainsTypeParam(resultTy) && callArgsNeedExpectedType(n.Args) {
+		// An expected type that holds the caller's own type parameters
+		// (`Result<T, E>` in `fn write<T>`) seeds only the callee's
+		// parameters it solves to a type with none in it: `Err(.Full)` takes
+		// E from it and leaves T to the arguments, so the two scopes never
+		// mix (seedFromPartlyGenericExpected).
+		c.seedFromPartlyGenericExpected(expected, resultTy, ft, subs)
 	}
 
 	// Process arguments left to right. After each argument, apply partial
@@ -11757,12 +11792,17 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 		}
 	} else {
 		valTy = c.checkNode(n.Value)
-		if isTodoValue(n.Value) && !ast.IsDiscardName(n.Name) {
-			// `todo` takes the type its position expects, and an unannotated
-			// binding expects none, so nothing says what the name holds.
+		if kw := bottomValueKeyword(n.Value); kw != "" && !ast.IsDiscardName(n.Name) {
+			// `todo` and `unreachable` take the type their position expects,
+			// and an unannotated binding expects none, so nothing says what
+			// the name holds.
+			example := kw
+			if kw == "unreachable" {
+				example = `unreachable "..."`
+			}
 			c.addError(n.Line, n.Col, fmt.Sprintf(
-				"cannot infer a type for '%s' from `todo`: annotate the binding (`%s: T = todo`)",
-				n.Name, n.Name))
+				"cannot infer a type for '%s' from `%s`: annotate the binding (`%s: T = %s`)",
+				n.Name, kw, n.Name, example))
 			return TypeUnit
 		}
 	}
@@ -13947,8 +13987,13 @@ func (c *checker) joinLitElem(have, ty Type) (Type, bool) {
 // When have has an enum in it (enumInType), item is checked against have as
 // against an expected type, so a bare variant in it resolves against the
 // enum the earlier elements fixed: `[Color.Red, .Green]`,
-// `%{N.A => 0, .C => 1}`, `[%{N.A => 0}, %{.C => 1}]`. Resolution runs left
-// to right, so a bare variant before every qualified one resolves against
+// `%{N.A => 0, .C => 1}`, `[%{N.A => 0}, %{.C => 1}]`. When have has a named
+// struct in it and item holds an anonymous struct literal
+// (holdsAnonStructLit), the literal takes the struct they fixed, as it would
+// under an annotation: `[#Key{a: 1}, #{a: 2}]`, `[#(#Key{a: 1}, "x"),
+// #(#{a: 2}, "y")]`. Any other item after a struct is checked on its own, so
+// `[#Circle{r: 1}, shape]` still joins to the enum that embeds Circle
+// (embedsJoin). Resolution runs left to right, so a bare variant before every qualified one resolves against
 // nothing (`[.Red, Color.Green]` is refused at `.Red`).
 //
 // pos is the literal's state at this position. Once an element has a bare
@@ -13967,7 +14012,7 @@ func (c *checker) checkLitElem(pos *litPosition, item ast.Node, have Type) Type 
 	defer func() { c.inFirstLitElem = prevFirst }()
 	before := c.unresolvedVariants
 	defer func() { pos.unresolved = pos.unresolved || c.unresolvedVariants > before }()
-	if have != nil && enumInType(have, 0) {
+	if have != nil && (enumInType(have, 0) || (structInType(have, 0) && holdsAnonStructLit(item))) {
 		return c.checkNodeExpecting(item, have)
 	}
 	if dv := bareVariantOf(item); dv != nil && have == nil {
@@ -14034,6 +14079,63 @@ func enumInType(ty Type, depth int) bool {
 		}
 	}
 	return false
+}
+
+// structInType reports whether ty is a named struct or has one among its
+// element types, as enumInType looks for an enum.
+func structInType(ty Type, depth int) bool {
+	if depth > 8 {
+		return false
+	}
+	switch t := resolveTypeVar(ty).(type) {
+	case *StructType:
+		return true
+	case *ListType:
+		return structInType(t.Elem, depth+1)
+	case *MapType:
+		return structInType(t.Key, depth+1) || structInType(t.Val, depth+1)
+	case *TupleType:
+		for _, e := range t.Elems {
+			if structInType(e, depth+1) {
+				return true
+			}
+		}
+	case *DistinctType:
+		for _, a := range t.TypeArgs {
+			if structInType(a, depth+1) {
+				return true
+			}
+		}
+	case *EnumType:
+		for _, a := range t.TypeArgs {
+			if structInType(a, depth+1) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// holdsAnonStructLit reports whether item is an anonymous struct literal
+// (`#{a: 1}`) or holds one in a literal around it, not inside a lambda.
+func holdsAnonStructLit(item ast.Node) bool {
+	found := false
+	ast.Inspect(item, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		switch v := n.(type) {
+		case *ast.Lambda:
+			return false
+		case *ast.StructLit:
+			if v.TypeName == nil {
+				found = true
+				return false
+			}
+		}
+		return true
+	})
+	return found
 }
 
 // litElemFits reports whether an element of type ty, written at item, fits a
@@ -15742,7 +15844,7 @@ func (c *checker) settleTodo(body ast.Node, ty Type) {
 		return
 	}
 	switch n := body.(type) {
-	case *ast.Todo:
+	case *ast.Todo, *ast.Unreachable:
 		if _, known := c.fa.ExpectedTypes[n]; !known {
 			c.fa.recordExpectedType(n, ty)
 		}

@@ -117,7 +117,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		}
 		for _, args := range vectors {
 			_, err := vmRunSymV(m, fn.Sym(), args...)
-			if vmRan(err) {
+			if vmRan(err, append([]*ir.Module{mod}, modules...)...) {
 				okAny = true
 				break
 			}

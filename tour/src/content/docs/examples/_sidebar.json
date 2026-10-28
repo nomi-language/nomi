@@ -134,6 +134,14 @@
 				"link": "/examples/raindrops/"
 			},
 			{
+				"label": "Rational Numbers",
+				"link": "/examples/rational-numbers/"
+			},
+			{
+				"label": "Say",
+				"link": "/examples/say/"
+			},
+			{
 				"label": "Secret Handshake",
 				"link": "/examples/secret-handshake/"
 			},
@@ -164,8 +172,24 @@
 				"link": "/examples/binary-search/"
 			},
 			{
+				"label": "Binary Search Tree",
+				"link": "/examples/binary-search-tree/"
+			},
+			{
+				"label": "Circular Buffer",
+				"link": "/examples/circular-buffer/"
+			},
+			{
 				"label": "ETL",
 				"link": "/examples/etl/"
+			},
+			{
+				"label": "Flatten Array",
+				"link": "/examples/flatten-array/"
+			},
+			{
+				"label": "Grade School",
+				"link": "/examples/grade-school/"
 			},
 			{
 				"label": "List Ops",
@@ -196,6 +220,10 @@
 			{
 				"label": "Matching Brackets",
 				"link": "/examples/matching-brackets/"
+			},
+			{
+				"label": "OCR Numbers",
+				"link": "/examples/ocr-numbers/"
 			},
 			{
 				"label": "Phone Number",
@@ -298,6 +326,14 @@
 			{
 				"label": "Robot Simulator",
 				"link": "/examples/robot-simulator/"
+			},
+			{
+				"label": "Two Bucket",
+				"link": "/examples/two-bucket/"
+			},
+			{
+				"label": "Yacht",
+				"link": "/examples/yacht/"
 			}
 		]
 	},
@@ -312,6 +348,10 @@
 			{
 				"label": "Leap",
 				"link": "/examples/leap/"
+			},
+			{
+				"label": "Meetup",
+				"link": "/examples/meetup/"
 			}
 		]
 	}

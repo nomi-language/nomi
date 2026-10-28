@@ -13,15 +13,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/affine-cipher.
 - `encode` checks the key with `_ = try inverse(key.a)` before it starts, since it does not need the inverse.
 - `translate` takes the step as a function, `fn i -> key.a * i + key.b` or `fn y -> a_inverse * (y - key.b)`, so encoding and decoding share it. `Int.modulo` brings a negative result back into `0..26`, where `%` would leave it negative.
 - Letters go to numbers through a map, a `once` that pipes `Iter.zip(alphabet, 0..letter_count)` into `Iter.to_map()`, written stacked to start from the pairs, and back with `Vector.at`, which cannot miss because the index is reduced mod 26.
-- The tables are annotated `List<#(String, String, Key, String)>` so that their `#{a: 5, b: 7}` keys are `Key`s; see Friction.
+- Each table names `Key` in its first row only (`#Key{a: 5, b: 7}`); the rows after it write `#{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.
 
 ## Friction
 
-- [feature] In a list with no annotation, a qualified enum variant in an earlier element gives its enum to the bare variants after it, but a named struct literal does not do the same for `#{...}`. `[#Key{a: 1}, #{a: 2}]` is rejected:
-
-  ```
-  error: list element type mismatch: expected Key, got #{a: Int}
-  ```
-
-  so a table of keys needs the annotation, or `#Key{...}` in every row.
-- [feature] A function with a defaulted parameter cannot be passed where a function of fewer parameters is expected, so joining each group of five is `Iter.map(&String.join(&1))` rather than `Iter.map(String.join)`.
+None.

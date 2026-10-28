@@ -692,14 +692,17 @@ func irRetainedSeqKind(k kind) bool {
 }
 
 // funcRef retains module-function values. A function with defaults is its
-// full parameter list as a value, since defaults apply to calls (spec
-// "Defaults apply to calls, not to function values"). A generic one is
+// full parameter list as a value, except where the checker typed it shorter,
+// which callFuncValue builds (defaultFilledRef). A generic one is
 // the instance the checker instantiated the reference at (funcref.go). The
 // symbol is shared with direct calls and bodies.
 func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if bl.g.onces[t.Name] != nil {
 		return no()
+	}
+	if bl.g.defaultFilledRef(t) {
+		return bl.callFuncValue(t, t.Name)
 	}
 	sig := bl.g.funcs[t.Name]
 	if sig == nil && bl.g.files != nil {

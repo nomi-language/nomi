@@ -951,6 +951,33 @@ func (n *Todo) ReasonText() string {
 	return n.Reason.Value
 }
 
+// Unreachable is `unreachable "reason"`, the program's claim that it never
+// reaches this point: an invariant it guarantees itself, such as a lookup
+// that cannot miss. Like `todo` it produces no value, so the checker gives it
+// the type its position expects; unlike `todo` it always leaves its block, it
+// is finished code that `nomi build` accepts, and its reason is required.
+// Reaching it traps with `line N: unreachable: <reason>`. Reason is a string
+// literal with no interpolation (the parser rejects any other reason), kept
+// as a node so the formatter can reproduce its source form.
+type Unreachable struct {
+	TriviaCarrier
+	SpanCarrier
+	Reason *StringLit
+	Line   int
+	Col    int
+}
+
+func (*Unreachable) NodeType() string { return "Unreachable" }
+func (n *Unreachable) LineNum() int   { return n.Line }
+
+// ReasonText is the reason's text.
+func (n *Unreachable) ReasonText() string {
+	if n.Reason == nil {
+		return ""
+	}
+	return n.Reason.Value
+}
+
 // ConcurrentBlock is `concurrent { body }` — the structured-
 // concurrency scope from spec §20. The body type-checks
 // like a lambda body (last expression is the value; `return` / `try`

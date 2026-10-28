@@ -269,7 +269,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 				args = append(args, arg)
 			}
 			counted[fn] = true
-			if err := run(e, args); vmRan(err) {
+			if err := run(e, args); vmRan(err, append([]*ir.Module{e.mod}, e.links...)...) {
 				okAny = true
 				break
 			} else {
@@ -293,7 +293,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 			}
 			if args, ok := vmArgsForKindsIn(kinds[fn], qual); ok && len(kinds[fn]) == len(fn.Params()) {
 				for _, vector := range [][]any{args, vmAscending(args)} {
-					if err := run(e, vector); vmRan(err) {
+					if err := run(e, vector); vmRan(err, append([]*ir.Module{e.mod}, e.links...)...) {
 						okAny = true
 						break
 					} else {

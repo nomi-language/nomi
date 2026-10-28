@@ -13,7 +13,7 @@ fn encode_run(run: List<String>) -> String {
     case run {
         [letter] -> letter
         [letter, .._] -> "${Iter.count(run)}${letter}"
-        [] -> ""
+        [] -> unreachable "chunk_by never yields an empty run"
     }
 }
 
@@ -34,6 +34,6 @@ fn decode_run(groups: List<Maybe<String>>) -> String {
         }
 
         _ ->
-            ""
+            unreachable `(\d*)(\D) always has two groups, and both take part`
     }
 }

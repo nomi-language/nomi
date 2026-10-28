@@ -1,0 +1,10 @@
+import {
+    boxes
+    boxes.Box
+}
+
+test "owner functions of another file's generic type" {
+    assert Box.seven() == 7
+    assert Box.size(Box.of("x")) == 1
+    assert boxes.Box.first(boxes.Box.of(2)) == Some(2)
+}

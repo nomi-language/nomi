@@ -1,0 +1,75 @@
+import two_bucket.{self, Bucket, Error, Outcome}
+
+test "measure" {
+    cases: List<#(String, #(Int, Int), Int, Bucket, Result<Outcome, Error>)> = [
+        #(
+            "Measure using bucket one of size 3 and bucket two of size 5 - start with bucket one",
+            #(3, 5),
+            1,
+            .One,
+            Ok(#{moves: 4, goal_bucket: .One, other_bucket: 5}),
+        ),
+        #(
+            "Measure using bucket one of size 3 and bucket two of size 5 - start with bucket two",
+            #(3, 5),
+            1,
+            .Two,
+            Ok(#{moves: 8, goal_bucket: .Two, other_bucket: 3}),
+        ),
+        #(
+            "Measure using bucket one of size 7 and bucket two of size 11 - start with bucket one",
+            #(7, 11),
+            2,
+            .One,
+            Ok(#{moves: 14, goal_bucket: .One, other_bucket: 11}),
+        ),
+        #(
+            "Measure using bucket one of size 7 and bucket two of size 11 - start with bucket two",
+            #(7, 11),
+            2,
+            .Two,
+            Ok(#{moves: 18, goal_bucket: .Two, other_bucket: 7}),
+        ),
+        #(
+            "Measure one step using bucket one of size 1 and bucket two of size 3 - start with bucket two",
+            #(1, 3),
+            3,
+            .Two,
+            Ok(#{moves: 1, goal_bucket: .Two, other_bucket: 0}),
+        ),
+        #(
+            "Measure using bucket one of size 2 and bucket two of size 3 - start with bucket one and end with bucket two",
+            #(2, 3),
+            3,
+            .One,
+            Ok(#{moves: 2, goal_bucket: .Two, other_bucket: 2}),
+        ),
+        #(
+            "Measure using bucket one much bigger than bucket two",
+            #(5, 1),
+            2,
+            .One,
+            Ok(#{moves: 6, goal_bucket: .One, other_bucket: 1}),
+        ),
+        #(
+            "Measure using bucket one much smaller than bucket two",
+            #(3, 15),
+            9,
+            .One,
+            Ok(#{moves: 6, goal_bucket: .Two, other_bucket: 0}),
+        ),
+        #("Not possible to reach the goal", #(6, 15), 5, .One, Err(.Impossible)),
+        #(
+            "With the same buckets but a different goal, then it is possible",
+            #(6, 15),
+            9,
+            .One,
+            Ok(#{moves: 10, goal_bucket: .Two, other_bucket: 0}),
+        ),
+        #("Goal larger than both buckets is impossible", #(5, 7), 8, .One, Err(.Impossible)),
+    ]
+
+    subtests cases, #(description, #(one, two), goal, start, expected), description {
+        assert two_bucket.measure(one, two, goal, start) == expected
+    }
+}

@@ -95,6 +95,7 @@ var infiniteIterCases = []infiniteIterCase{
 	{"last", []string{"Iter.last"}, pipe("Iter.from(0)", " |> Iter.last()"), true},
 	{"reverse", []string{"Iter.reverse"}, pipe("Iter.from(0)", " |> Iter.reverse()"), true},
 	{"flatten", []string{"Iter.flatten"}, pipe("Iter.repeat([1])", " |> Iter.flatten()"), true},
+	{"transpose", []string{"Iter.transpose"}, pipe("Iter.repeat([1])", " |> Iter.transpose()"), true},
 	{"sort", []string{"Iter.sort"}, pipe("Iter.from(0)", " |> Iter.sort()"), true},
 	{"sort_by", []string{"Iter.sort_by"}, pipe("Iter.from(0)", " |> Iter.sort_by(fn x -> 0 - x)"), true},
 	{"sort_with", []string{"Iter.sort_with"}, pipe("Iter.from(0)", " |> Iter.sort_with(&Int.compare(&1, &2))"), true},

@@ -1,0 +1,82 @@
+/// Why a number cannot be said.
+pub enum Error {
+    OutOfRange
+}
+
+/// The largest number `say` spells.
+once largest = 999_999_999_999
+
+/// The words for 0 to 19.
+once small = #[
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
+]
+
+/// The words for each multiple of ten, by its tens digit; 0 and 1 have none.
+once tens = #["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+
+/// Each scale word with the number it counts, largest first.
+once scales = [
+    #(1_000_000_000, "billion"),
+    #(1_000_000, "million"),
+    #(1000, "thousand"),
+    #(100, "hundred"),
+]
+
+/// `number` in English words, from "zero" to the largest number below a
+/// trillion.
+pub fn say(number: Int) -> Result<String, Error> {
+    if number < 0 or number > largest {
+        Err(.OutOfRange)
+    } else {
+        Ok(words(number))
+    }
+}
+
+/// `n` in words: the largest scale it reaches, said as a count of that
+/// scale and then the rest, or below a hundred the words for its tens and
+/// ones.
+fn words(n: Int) -> String {
+    case Iter.find(scales, fn #(size, _name) -> n >= size) {
+        Some(#(size, name)) -> {
+            head = "${words(n / size)} ${name}"
+
+            if n % size == 0 {
+                head
+            } else {
+                "${head} ${words(n % size)}"
+            }
+        }
+
+        None ->
+            below_hundred(n)
+    }
+}
+
+fn below_hundred(n: Int) -> String {
+    if n < 20 {
+        Vector.at(small, n)
+    } else if n % 10 == 0 {
+        Vector.at(tens, n / 10)
+    } else {
+        "${Vector.at(tens, n / 10)}-${Vector.at(small, n % 10)}"
+    }
+}

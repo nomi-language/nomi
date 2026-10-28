@@ -1,0 +1,78 @@
+/// A fraction kept in lowest terms with a positive denominator, so two
+/// equal rationals have the same fields and `==` compares them.
+pub opaque struct Rational {
+    numerator: Int
+    denominator: Int
+}
+
+derive Equatable for Rational
+
+impl Rational {
+    /// `numerator / denominator` in lowest terms. The denominator is a
+    /// divisor the caller chose, so a zero one traps as `/` does: the
+    /// reduction divides by it.
+    pub fn new(numerator: Int, denominator: Int) -> Rational {
+        common = Int.gcd(numerator, denominator) * Int.sign(denominator)
+        #Rational{numerator: numerator / common, denominator: denominator / common}
+    }
+
+    pub fn numerator(r: Rational) -> Int {
+        r.numerator
+    }
+
+    pub fn denominator(r: Rational) -> Int {
+        r.denominator
+    }
+
+    pub fn abs(r: Rational) -> Rational {
+        #Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
+    }
+
+    /// `r` to the power `exponent`. A negative exponent raises the
+    /// reciprocal, so zero to a negative power traps as division by zero
+    /// does.
+    pub fn pow(r: Rational, exponent: Int) -> Rational {
+        if exponent >= 0 {
+            Rational.new(Int.pow(r.numerator, exponent), Int.pow(r.denominator, exponent))
+        } else {
+            Rational.new(Int.pow(r.denominator, -exponent), Int.pow(r.numerator, -exponent))
+        }
+    }
+
+    /// `base` to the power `r`: the `r.denominator`th root of `base` to the
+    /// power `r.numerator`.
+    pub fn raise(base: Float, r: Rational) -> Float {
+        Float.pow(base, Int.to_float(r.numerator) / Int.to_float(r.denominator))
+    }
+}
+
+impl Add<Rational, Rational> for Rational {
+    fn add(lhs: Rational, rhs: Rational) -> Rational {
+        Rational.new(
+            lhs.numerator * rhs.denominator + rhs.numerator * lhs.denominator,
+            lhs.denominator * rhs.denominator,
+        )
+    }
+}
+
+impl Subtract<Rational, Rational> for Rational {
+    fn subtract(lhs: Rational, rhs: Rational) -> Rational {
+        Rational.new(
+            lhs.numerator * rhs.denominator - rhs.numerator * lhs.denominator,
+            lhs.denominator * rhs.denominator,
+        )
+    }
+}
+
+impl Multiply<Rational, Rational> for Rational {
+    fn multiply(lhs: Rational, rhs: Rational) -> Rational {
+        Rational.new(lhs.numerator * rhs.numerator, lhs.denominator * rhs.denominator)
+    }
+}
+
+impl Divide<Rational, Rational> for Rational {
+    /// Dividing by zero traps, as `/` on `Int` does.
+    fn divide(lhs: Rational, rhs: Rational) -> Rational {
+        Rational.new(lhs.numerator * rhs.denominator, lhs.denominator * rhs.numerator)
+    }
+}

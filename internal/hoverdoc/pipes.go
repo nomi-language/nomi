@@ -148,6 +148,9 @@ func (s *shapeSearch) describeStage(b *ast.Binary, in string) pipeStage {
 	case *ast.Todo:
 		return pipeStage{text: "todo",
 			detail: []string{"Stops the program here when it runs; the pipeline has the type its position expects."}}
+	case *ast.Unreachable:
+		return pipeStage{text: "unreachable",
+			detail: []string{"Claims the program never gets here, and traps if it does; the pipeline has the type its position expects."}}
 	case *ast.Assertion:
 		return pipeStage{text: assertionWord(r)}
 	case *ast.Lambda:

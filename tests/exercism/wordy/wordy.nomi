@@ -19,11 +19,9 @@ pub fn answer(question: String) -> Result<Int, Error> {
     [first, ..rest] = String.words(problem) else {
         return Err(.SyntaxError)
     }
-
     Some(total) = String.to_int(first) else {
         return Err(.SyntaxError)
     }
-
     evaluate(total, rest)
 }
 
@@ -52,11 +50,9 @@ fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int,
     [word, ..rest] = words else {
         return Err(.SyntaxError)
     }
-
     Some(n) = String.to_int(word) else {
         return Err(.SyntaxError)
     }
-
     total = try apply(operation, total, n)
     evaluate(total, rest)
 }

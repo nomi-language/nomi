@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 273
-declared-cases 90
+records 283
+declared-cases 100
 failing 0
 C bindings-and-expressions.md:L116
 E 0
@@ -499,6 +499,14 @@ T ok encode (8 cases)
 T ok decode (6 cases)
 T test result: ok. 14 passed, 0 failed
 T
+C examples/binary-search-tree.md:L12
+E 0
+N 1
+H 3dbd99fe143e559046ccd19599e1eb1d4f76a1c1df5c1821d8b2b45c53b16956
+T ok data is inserted (5 cases)
+T ok can sort data (5 cases)
+T test result: ok. 10 passed, 0 failed
+T
 C examples/binary-search.md:L12
 E 0
 N 1
@@ -513,6 +521,13 @@ N 1
 H fdee0a80492aeafc83c7d9164c77f5d8b48eedb86379b365dffe20c6223fa563
 T ok bob's responses (26 cases)
 T test result: ok. 26 passed, 0 failed
+T
+C examples/circular-buffer.md:L12
+E 0
+N 1
+H 9367544f0fdb26e53f668cf47db9d3a8edca336e0015ec975ba35dd7aed413a2
+T ok circular buffer (14 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C examples/clock.md:L12
 E 0
@@ -577,12 +592,28 @@ T ok multiple scores with multiple letters
 T ok multiple scores with differing numbers of letters
 T test result: ok. 4 passed, 0 failed
 T
+C examples/flatten-array.md:L12
+E 0
+N 1
+H 2b01a644637b83cd1875b183c9c2cb38034972657a79ffc509307994e143ced4
+T ok flatten (11 cases)
+T test result: ok. 11 passed, 0 failed
+T
 C examples/game-of-life.md:L12
 E 0
 N 1
 H 002734be3039ca26f06a426adaa690d273275755278b387af5b3644e161243da
 T ok tick (8 cases)
 T test result: ok. 8 passed, 0 failed
+T
+C examples/grade-school.md:L12
+E 0
+N 1
+H c6e7836f4da8856ef9570c19866f0fe805fbc7377bd574231458bcc9377f683d
+T ok adding students (5 cases)
+T ok the roster (9 cases)
+T ok one grade (6 cases)
+T test result: ok. 20 passed, 0 failed
 T
 C examples/grains.md:L12
 E 0
@@ -690,6 +721,13 @@ H 6368dddcf8cd02ba517818fb5aba91cdcbabfc320be61ecef5d1cc07080fd553
 T ok checks bracket pairing (20 cases)
 T test result: ok. 20 passed, 0 failed
 T
+C examples/meetup.md:L12
+E 0
+N 1
+H 6e65465638613ac15aca0f33f807280f93e73e393848426306043c9bb7c666b2
+T ok meetup (95 cases)
+T test result: ok. 95 passed, 0 failed
+T
 C examples/minesweeper.md:L12
 E 0
 N 1
@@ -721,6 +759,13 @@ N 1
 H 05dbdef29a8e000d4b35ca0dd04a7f20128591210a252f9b53d49a108a2078e3
 T ok nucleotide counts (5 cases)
 T test result: ok. 5 passed, 0 failed
+T
+C examples/ocr-numbers.md:L12
+E 0
+N 1
+H 40044c33ffc97b6d36c4cf4fd33cffb956592375bdb481da0a94ce813bed6621
+T ok convert (17 cases)
+T test result: ok. 17 passed, 0 failed
 T
 C examples/pangram.md:L12
 E 0
@@ -808,6 +853,20 @@ H f1282b69b43d13b103e683ae12184b230652a6b1112f4567a515866ed0651c83
 T ok raindrop sounds (18 cases)
 T test result: ok. 18 passed, 0 failed
 T
+C examples/rational-numbers.md:L12
+E 0
+N 1
+H 8ce518941520bc5a12ea145818984cb816a159549d65a4e03e5cea157256d6fe
+T ok addition (4 cases)
+T ok subtraction (4 cases)
+T ok multiplication (6 cases)
+T ok division (4 cases)
+T ok absolute value (6 cases)
+T ok a rational to an integer power (9 cases)
+T ok a real number to a rational power (3 cases)
+T ok reduction to lowest terms (7 cases)
+T test result: ok. 43 passed, 0 failed
+T
 C examples/resistor-color-duo.md:L12
 E 0
 N 1
@@ -887,6 +946,13 @@ N 1
 H 4998ba4c0c166ca6eac4952cd0d38a2fd890498fb7e5867ad8878ceec3af3a80
 T ok saddle_points (9 cases)
 T test result: ok. 9 passed, 0 failed
+T
+C examples/say.md:L12
+E 0
+N 1
+H b560851265cabae15a44d64f6d492432c8d909592f8341b267f943fa9eee20ff
+T ok say (19 cases)
+T test result: ok. 19 passed, 0 failed
 T
 C examples/scrabble-score.md:L12
 E 0
@@ -994,6 +1060,13 @@ T ok verse (12 cases)
 T ok lyrics (3 cases)
 T test result: ok. 15 passed, 0 failed
 T
+C examples/two-bucket.md:L12
+E 0
+N 1
+H 8f549aa60d3878f95306941af23f8195de0ef6d3eeba5d04234c8a3d93d1951b
+T ok measure (11 cases)
+T test result: ok. 11 passed, 0 failed
+T
 C examples/two-fer.md:L12
 E 0
 N 1
@@ -1017,6 +1090,13 @@ H 0a29d5cf7e25309aba096bffceb606326dcee0c70df40099a72a73142b0a0fb0
 T ok answers word problems (27 cases)
 T ok division by zero
 T test result: ok. 28 passed, 0 failed
+T
+C examples/yacht.md:L12
+E 0
+N 1
+H 2cec52fa924949a5b38f2eb7b5a226be08c7b28b4a8f5cfd6ec8ff08b5833c13
+T ok yacht (29 cases)
+T test result: ok. 29 passed, 0 failed
 T
 C ffi-and-dynamic.md:L157
 E 0
@@ -1056,7 +1136,7 @@ T dbg line 7: greet("World", "Hi") = "Hi, World!"
 T dbg line 11: add(5) = 15
 T dbg line 12: add(5, 2) = 7
 T
-C functions-and-lambdas.md:L181
+C functions-and-lambdas.md:L187
 E 0
 N 0
 H 5a75baa21186e7996be93bb40480a8abfdcb0f66042a04e61111288d5c50fa29
@@ -1064,7 +1144,7 @@ T dbg line 6: connect("localhost") = "localhost:8080:30"
 T dbg line 7: connect("localhost", timeout: 10) = "localhost:8080:10"
 T dbg line 8: connect(host: "api", port: 443, timeout: 5) = "api:443:5"
 T
-C functions-and-lambdas.md:L207
+C functions-and-lambdas.md:L213
 E 0
 N 0
 H c27a029891c7432cf7c262c129860a7c469751319f0948f1cdafc8377f219ff1
@@ -1072,7 +1152,7 @@ T dbg line 22: diff = 7
 T dbg line 23: sum_point(#Point{x: 4, y: 5}) = 9
 T dbg line 24: add_pair(#(20, 22)) = 42
 T
-C functions-and-lambdas.md:L255
+C functions-and-lambdas.md:L261
 E 0
 N 0
 H 1b3f2615e5310cafc065aef3b352e88fdd3769495725b2a187d165775ed4973f
@@ -1839,13 +1919,21 @@ H 2876bfc0caac1aefa2e0bbe450a2ecc97317495c62355a74ae265d0bd8f46996
 T dbg line 6: 10 |> then &divide(100, &1) = 10
 T dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
 T
-C scalars-and-strings.md:L128
+C scalars-and-strings.md:L101
+E 0
+N 0
+H 12bd532039fc4747d0e08b76d79b7f867e8f4b93beb1643ff270a34277f6eec8
+T Hello, Nomi!
+T 1 + 2 = 3
+T Hello, Nomi
+T
+C scalars-and-strings.md:L130
 E 0
 N 0
 H 9953e026f3298c19f2d7af35814709dec91b610fa142a4439c8ab428c41c1ed0
 T echo ${HOME} costs $5 #{not a struct}
 T
-C scalars-and-strings.md:L162
+C scalars-and-strings.md:L164
 E 0
 N 0
 H aab58eb806f599ab71671f3b75185381fda4981448c818ce3eef309001135e64
@@ -1865,7 +1953,7 @@ T dbg line 6: -(3 + 4) = -7
 T dbg line 7: 42 > 10 = True
 T dbg line 8: True and !False = True
 T
-C scalars-and-strings.md:L204
+C scalars-and-strings.md:L206
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -1878,7 +1966,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L237
+C scalars-and-strings.md:L239
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -1889,7 +1977,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L273
+C scalars-and-strings.md:L275
 E 0
 N 0
 H eae8f3109ecc025c2a41c9cbe8776658c511899325e41be9c3c63c1efaa1ad56
@@ -1907,7 +1995,7 @@ T   |> Iter.map(Codepoint.to_digit)
 T   |> Maybe.values()
 T   = [5, 5, 5, 0, 1]
 T
-C scalars-and-strings.md:L315
+C scalars-and-strings.md:L317
 E 0
 N 0
 H 1b5bde9ad561d4b30bcdc16febfa87be031bcbe6ca8905f1190ea023321d1b13
@@ -1915,7 +2003,7 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L353
+C scalars-and-strings.md:L355
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -1923,7 +2011,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L380
+C scalars-and-strings.md:L382
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -1933,7 +2021,7 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L428
+C scalars-and-strings.md:L430
 E 0
 N 0
 H 229a106b0ad7c67d236145262f7ea75c486e424d469847d5b275edafc5e4040f
@@ -1963,15 +2051,7 @@ T dbg line 3: 0.1 + 0.2 == 0.3 = False
 T dbg line 6: 0.1d + 0.2d == 0.3d = True
 T dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 T
-C scalars-and-strings.md:L99
-E 0
-N 0
-H 12bd532039fc4747d0e08b76d79b7f867e8f4b93beb1643ff270a34277f6eec8
-T Hello, Nomi!
-T 1 + 2 = 3
-T Hello, Nomi
-T
-C structs-enums-distinct.md:L119
+C structs-enums-distinct.md:L120
 E 0
 N 0
 H 43c4d94302caabc4790e0291c3631eaf041d1fbd146cc78884236a3231fcaec1
@@ -1979,14 +2059,14 @@ T dbg line 9: older = #User{name: "Alice", age: 31}
 T dbg line 12: #{..point, x: 9} = #{x: 9, y: 20}
 T dbg line 16: #{..alice, age} = #User{name: "Alice", age: 32}
 T
-C structs-enums-distinct.md:L151
+C structs-enums-distinct.md:L152
 E 0
 N 0
 H a021ec7dc9b0c76565d518553359b5e2d4c5968da7086c32beb39e148b1beb54
 T dbg line 13: #{..ada, address: #{..ada.address, city: "NYC"}} = #Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
 T dbg line 14: #{..ada, address: #{.., city: "NYC"}} = #Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
 T
-C structs-enums-distinct.md:L196
+C structs-enums-distinct.md:L197
 E 0
 N 0
 H 089d10d46b62826d8a9ff67542e375e3cb7a62e48f849daf4ed49b0b08af9f95
@@ -1994,7 +2074,7 @@ T dbg line 5: pair = #("Ada", 37)
 T dbg line 6: name = "Ada"
 T dbg line 7: pair.1 = 37
 T
-C structs-enums-distinct.md:L225
+C structs-enums-distinct.md:L226
 E 0
 N 0
 H 0fe3331c5309037f7820db2b382e88aabc663ede51858b29598d9ab7cf83f823
@@ -2014,7 +2094,7 @@ T dbg line 9: alice.age = 30
 T dbg line 13: bob.age = 0
 T dbg line 20: carol = #User{name: "Carol", age: 28}
 T
-C structs-enums-distinct.md:L258
+C structs-enums-distinct.md:L259
 E 0
 N 0
 H 3d6ac3fcbf0c99996365e81d5df22af7ccc3df35694c74d9a23623be6559400f
@@ -2022,7 +2102,7 @@ T dbg line 10: id = Id(42)
 T dbg line 14: n = 42
 T dbg line 16: raw(id) = 42
 T
-C structs-enums-distinct.md:L300
+C structs-enums-distinct.md:L301
 E 0
 N 0
 H 9c9d979a68ef2db62706624bbdfa4a82fb48e9a80d27caaac374f50f16570fbb
@@ -2032,14 +2112,14 @@ T dbg line 10: word = "one"
 T dbg line 12: #Path[3, 1, 4] = Path(#[3, 1, 4])
 T dbg line 13: %Scores{"ada" => 3} = Scores(%{"ada" => 3})
 T
-C structs-enums-distinct.md:L334
+C structs-enums-distinct.md:L335
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
 T dbg line 7: state = Expired
 T dbg line 8: Online = Online
 T
-C structs-enums-distinct.md:L360
+C structs-enums-distinct.md:L361
 E 0
 N 0
 H 8b2ea90fd1ef57e0bdc659c9a502d0d57b9d2cf592cca74a928e6fa6bb4541ad
@@ -2047,39 +2127,39 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = #Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L396
+C structs-enums-distinct.md:L397
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
 T
-C structs-enums-distinct.md:L446
+C structs-enums-distinct.md:L447
 E 0
 N 0
 H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
 T dbg line 18: User.full_name(alice) = "Ada Lovelace"
 T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
-C structs-enums-distinct.md:L497
+C structs-enums-distinct.md:L498
 E 0
 N 0
 H 8d5d0d35282dbe2642fc48f43e9b683e5572d74056060c6b0b09b0255db06a2a
 T dbg line 22: events = [#Click{x: 10, y: 20}, #KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L543
+C structs-enums-distinct.md:L544
 E 0
 N 0
 H 146e277c6689f3178c5dda691a859dae1ee257987a25d16620ccfa1295befd86
 T dbg line 21: result = %{"evens" => [4, 2], "odds" => [1]}
 T
-C structs-enums-distinct.md:L63
+C structs-enums-distinct.md:L64
 E 0
 N 0
 H 92e757b56be22e1d81d2cbfe01c092249592d77d18087dc81a89845b56f784ff
 T dbg line 14: ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath"}}
 T
-C structs-enums-distinct.md:L91
+C structs-enums-distinct.md:L92
 E 0
 N 0
 H 93a7a0cc2776436556dff815254ad852dff35d876360f0535b3bd195fc7aae8a

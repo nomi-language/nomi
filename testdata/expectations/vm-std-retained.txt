@@ -458,6 +458,7 @@ float.nomi:Float.compare	ran
 float.nomi:Float.empty_product	ran
 float.nomi:Float.empty_sum	ran
 float.nomi:Float.equal?	ran
+float.nomi:Float.equal_within?	ran
 float.nomi:Float.finite?	ran
 float.nomi:Float.format	ran
 float.nomi:Float.format_percent	ran

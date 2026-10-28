@@ -7,7 +7,7 @@ description: "Parse and evaluate simple arithmetic word problems, left to right.
 
 Parse and evaluate simple arithmetic word problems, left to right.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/wordy) (MIT). Listed under [Parsing & Validation](/examples/?subject=parsing-and-validation).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/wordy) (MIT). Listed under [Parsing & Validation](/examples/?subject=parsing-and-validation).
 
 ```nomi-run
 // FILE: wordy.nomi
@@ -32,11 +32,9 @@ pub fn answer(question: String) -> Result<Int, Error> {
     [first, ..rest] = String.words(problem) else {
         return Err(.SyntaxError)
     }
-
     Some(total) = String.to_int(first) else {
         return Err(.SyntaxError)
     }
-
     evaluate(total, rest)
 }
 
@@ -65,11 +63,9 @@ fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int,
     [word, ..rest] = words else {
         return Err(.SyntaxError)
     }
-
     Some(n) = String.to_int(word) else {
         return Err(.SyntaxError)
     }
-
     total = try apply(operation, total, n)
     evaluate(total, rest)
 }
@@ -149,18 +145,3 @@ test "division by zero" {
 - Guards use binding `else` (`[first, ..rest] = String.words(problem) else { ... }`) so the success path stays unindented. The style guide uses a binding `else`, not `Maybe.to_result` with `try`, when the value is bound for the lines that follow, as every guard here is.
 - The 27 canonical cases are one `subtests` table.
 - The trailing `?` comes off through `Maybe.flat_map(&String.strip_suffix(&1, "?"))`: one call that uses its parameter once, so it is a capture rather than `fn rest -> ...` (style §31).
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Longer than it should be.** `nomi fmt` puts a binding `else` on one line only within 50 columns, and sets the broken form apart with blank lines, so each guard here takes four lines:
-
-  ```nomi
-  Some(total) = String.to_int(first) else {
-      return Err(.SyntaxError)
-  }
-
-  ```
-
-  The three guards in `answer` take 16 lines with their blank lines. rustfmt has the same 50-column default for `let ... else`, but adds no blank lines around it.

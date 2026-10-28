@@ -360,6 +360,7 @@ var constructNames = map[string]string{
 	"Continue":        "continue",
 	"Dbg":             "dbg",
 	"Todo":            "todo",
+	"Unreachable":     "unreachable",
 	"Then":            "then stage",
 	"Tap":             "tap stage",
 	"CodepointLit":    "codepoint literal",

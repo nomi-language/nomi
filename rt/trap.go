@@ -160,9 +160,12 @@ func callDepthText(line int) string {
 	return fmt.Sprintf("line %d: stack overflow: more than %d nested calls", line, MaxCallDepth)
 }
 
-// UnreachableError is the fault of a call the compiler proved no execution
-// reaches: a bound dispatch on a type argument it filled itself because the
-// call left it unconstrained. reason is the compiler's account of why.
+// UnreachableError is the fault of a point a proof said no execution reaches,
+// `line N: unreachable: <reason>`. The proof is the program's own for an
+// `unreachable "reason"` expression, whose reason states the invariant it
+// claimed; or the compiler's for a call it proved no execution reaches (a
+// bound dispatch on a type argument it filled itself because the call left
+// it unconstrained), whose reason is the compiler's account of why.
 // Arriving here means that proof was wrong.
 func UnreachableError(line int, reason string) error {
 	return positioned(line, fmt.Sprintf("line %d: unreachable: %s", line, reason))

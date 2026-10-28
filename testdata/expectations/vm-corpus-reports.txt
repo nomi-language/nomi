@@ -170,8 +170,10 @@ exercism/allergies/allergies_test.nomi
 exercism/anagram/anagram_test.nomi
 exercism/armstrong-numbers/armstrong_numbers_test.nomi
 exercism/atbash-cipher/atbash_cipher_test.nomi
+exercism/binary-search-tree/binary_search_tree_test.nomi
 exercism/binary-search/binary_search_test.nomi
 exercism/bob/bob_test.nomi
+exercism/circular-buffer/circular_buffer_test.nomi
 exercism/clock/clock_test.nomi
 exercism/collatz-conjecture/collatz_conjecture_test.nomi
 exercism/darts/darts_test.nomi
@@ -179,7 +181,9 @@ exercism/diamond/diamond_test.nomi
 exercism/difference-of-squares/difference_of_squares_test.nomi
 exercism/eliuds-eggs/eliuds_eggs_test.nomi
 exercism/etl/etl_test.nomi
+exercism/flatten-array/flatten_array_test.nomi
 exercism/game-of-life/game_of_life_test.nomi
+exercism/grade-school/grade_school_test.nomi
 exercism/grains/grains_test.nomi
 exercism/hamming/hamming_test.nomi
 exercism/house/house_test.nomi
@@ -191,9 +195,11 @@ exercism/leap/leap_test.nomi
 exercism/list-ops/list_ops_test.nomi
 exercism/luhn/luhn_test.nomi
 exercism/matching-brackets/matching_brackets_test.nomi
+exercism/meetup/meetup_test.nomi
 exercism/minesweeper/minesweeper_test.nomi
 exercism/nth-prime/nth_prime_test.nomi
 exercism/nucleotide-count/nucleotide_count_test.nomi
+exercism/ocr-numbers/ocr_numbers_test.nomi
 exercism/pangram/pangram_test.nomi
 exercism/pascals-triangle/pascals_triangle_test.nomi
 exercism/perfect-numbers/perfect_numbers_test.nomi
@@ -204,6 +210,7 @@ exercism/protein-translation/protein_translation_test.nomi
 exercism/proverb/proverb_test.nomi
 exercism/queen-attack/queen_attack_test.nomi
 exercism/raindrops/raindrops_test.nomi
+exercism/rational-numbers/rational_numbers_test.nomi
 exercism/resistor-color-duo/resistor_color_duo_test.nomi
 exercism/resistor-color-trio/resistor_color_trio_test.nomi
 exercism/resistor-color/resistor_color_test.nomi
@@ -214,6 +221,7 @@ exercism/roman-numerals/roman_numerals_test.nomi
 exercism/rotational-cipher/rotational_cipher_test.nomi
 exercism/run-length-encoding/run_length_encoding_test.nomi
 exercism/saddle-points/saddle_points_test.nomi
+exercism/say/say_test.nomi
 exercism/scrabble-score/scrabble_score_test.nomi
 exercism/secret-handshake/secret_handshake_test.nomi
 exercism/series/series_test.nomi
@@ -226,6 +234,8 @@ exercism/tournament/tournament_test.nomi
 exercism/transpose/transpose_test.nomi
 exercism/triangle/triangle_test.nomi
 exercism/twelve-days/twelve_days_test.nomi
+exercism/two-bucket/two_bucket_test.nomi
 exercism/two-fer/two_fer_test.nomi
 exercism/word-count/word_count_test.nomi
 exercism/wordy/wordy_test.nomi
+exercism/yacht/yacht_test.nomi

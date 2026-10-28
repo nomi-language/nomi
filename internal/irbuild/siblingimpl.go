@@ -182,6 +182,56 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 	}
 }
 
+// resolveOwnerMembers indexes every gen's owner functions by the declaration
+// of their owner, so `Box.of(1)` in one file reaches the block of owner
+// functions another file declares for its `Box<T>` (siblingOwnerPlan).
+// Owners sorted, so sites keep one order.
+func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
+	x.ownerMembers = map[implMemberKey][]implMemberSite{}
+	for unit, g := range gens {
+		if g == nil {
+			continue
+		}
+		owners := make([]string, 0, len(g.ownerImpls))
+		for owner := range g.ownerImpls {
+			owners = append(owners, owner)
+		}
+		sort.Strings(owners)
+		for _, owner := range owners {
+			decl := g.ownerDecl(owner)
+			if decl == nil {
+				continue
+			}
+			for _, d := range g.ownerImpls[owner] {
+				for _, it := range d.order {
+					k := implMemberKey{recv: decl, method: it.name}
+					x.ownerMembers[k] = append(x.ownerMembers[k],
+						implMemberSite{unit: unit, fn: implMemberFunc(d, it), block: d.decl,
+							item: it, symName: owner + "." + it.name})
+				}
+				withheld := make([]string, 0, len(d.gaps))
+				for method := range d.gaps {
+					withheld = append(withheld, method)
+				}
+				sort.Strings(withheld)
+				for _, method := range withheld {
+					w, ok := d.withheldMember(method)
+					if !ok {
+						continue
+					}
+					f := &fileFunc{name: method, params0: w.params, generic: true, why: "generic impl function"}
+					if w.decl != nil && !w.decl.Public {
+						f.why = "private sibling file impl function"
+					}
+					k := implMemberKey{recv: decl, method: method}
+					x.ownerMembers[k] = append(x.ownerMembers[k],
+						implMemberSite{unit: unit, fn: f, block: d.decl, withheld: d})
+				}
+			}
+		}
+	}
+}
+
 // writtenImplMembers is the sites somebody WROTE, or every site when nobody
 // did: a synthesized impl is a fallback, not a candidate beside a written one.
 //

@@ -1,0 +1,22 @@
+/// One element of a nested array: a value, an array of elements, or null.
+pub enum Nested {
+    Value Int
+    Array List<Nested>
+    Null
+}
+
+/// Every value in `array`, at any depth, in order; nulls are left out.
+pub fn flatten(array: List<Nested>) -> List<Int> {
+    array
+    |> Iter.flat_map(values)
+    |> Iter.to_list()
+}
+
+/// The values one element holds.
+fn values(element: Nested) -> List<Int> {
+    case element {
+        .Value(n) -> [n]
+        .Array(elements) -> flatten(elements)
+        .Null -> []
+    }
+}

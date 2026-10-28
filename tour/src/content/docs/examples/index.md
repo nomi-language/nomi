@@ -59,7 +59,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
 <tr data-subject="encoding-and-ciphers" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct pattern-matching">
-<td><a href="/examples/affine-cipher/">Affine Cipher</a> <a class="nomi-rough-badge" href="/examples/affine-cipher/#rough-edges">rough edges</a></td>
+<td><a href="/examples/affine-cipher/">Affine Cipher</a></td>
 <td>Encoding &amp; Ciphers</td>
 <td>Encode and decode text with the affine cipher, which maps letter number `i` to `(a * i + b) mod 26`.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
@@ -88,11 +88,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Decide whether a number equals the sum of its digits, each raised to the power of the digit count.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
-<tr data-subject="encoding-and-ciphers" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops pattern-matching">
-<td><a href="/examples/atbash-cipher/">Atbash Cipher</a> <a class="nomi-rough-badge" href="/examples/atbash-cipher/#rough-edges">rough edges</a></td>
+<tr data-subject="encoding-and-ciphers" data-chapters="bindings-and-expressions pipes scalars-and-strings collections iteration-and-loops pattern-matching">
+<td><a href="/examples/atbash-cipher/">Atbash Cipher</a></td>
 <td>Encoding &amp; Ciphers</td>
 <td>Encode and decode text by swapping each letter with its mirror in the alphabet.</td>
-<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 <tr data-subject="collections-and-algorithms" data-chapters="bindings-and-expressions collections pattern-matching generics">
 <td><a href="/examples/binary-search/">Binary Search</a></td>
@@ -100,11 +100,23 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Find a value&#39;s index in a sorted array by repeatedly halving the range it could be in.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/collections/">Collections</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/generics/">Generics</a></td>
 </tr>
+<tr data-subject="collections-and-algorithms" data-chapters="functions-and-lambdas collections iteration-and-loops structs-enums-distinct pattern-matching generics interfaces-and-dispatch">
+<td><a href="/examples/binary-search-tree/">Binary Search Tree</a></td>
+<td>Collections &amp; Algorithms</td>
+<td>Insert values into a binary search tree, check the shape it builds, and read its values back in sorted order.</td>
+<td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/generics/">Generics</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
+</tr>
 <tr data-subject="strings-and-text" data-chapters="bindings-and-expressions scalars-and-strings iteration-and-loops pattern-matching">
 <td><a href="/examples/bob/">Bob</a></td>
 <td>Strings &amp; Text</td>
 <td>Answer a remark the way a lackadaisical teenager would, depending on whether it is a question, a shout, both, or silence.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+</tr>
+<tr data-subject="collections-and-algorithms" data-chapters="bindings-and-expressions pipes collections iteration-and-loops structs-enums-distinct pattern-matching generics">
+<td><a href="/examples/circular-buffer/">Circular Buffer</a></td>
+<td>Collections &amp; Algorithms</td>
+<td>A fixed-capacity buffer that is read oldest first: writes fail when it is full, reads fail when it is empty, and an overwrite drops the oldest item to make room.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/pipes/">Pipes</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/generics/">Generics</a></td>
 </tr>
 <tr data-subject="dates-and-time" data-chapters="bindings-and-expressions pipes scalars-and-strings structs-enums-distinct interfaces-and-dispatch">
 <td><a href="/examples/clock/">Clock</a></td>
@@ -148,11 +160,23 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Turn a Scrabble score table keyed by score into one keyed by lower-case letter.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
+<tr data-subject="collections-and-algorithms" data-chapters="pipes iteration-and-loops structs-enums-distinct pattern-matching">
+<td><a href="/examples/flatten-array/">Flatten Array</a></td>
+<td>Collections &amp; Algorithms</td>
+<td>Flatten an arbitrarily nested array of integers into one flat list, leaving out nulls.</td>
+<td><a href="/pipes/">Pipes</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+</tr>
 <tr data-subject="grids-and-matrices" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops pattern-matching">
 <td><a href="/examples/game-of-life/">Game of Life</a></td>
 <td>Grids &amp; Matrices</td>
 <td>Compute the next generation of a Conway&#39;s Game of Life board.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+</tr>
+<tr data-subject="collections-and-algorithms" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct">
+<td><a href="/examples/grade-school/">Grade School</a></td>
+<td>Collections &amp; Algorithms</td>
+<td>Keep a school&#39;s roster: enroll each student in one grade, list the students in a grade, and list the whole school by grade and then by name.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a></td>
 </tr>
 <tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops">
 <td><a href="/examples/grains/">Grains</a> <a class="nomi-rough-badge" href="/examples/grains/#rough-edges">rough edges</a></td>
@@ -185,7 +209,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td><a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
 <tr data-subject="grids-and-matrices" data-chapters="functions-and-lambdas pipes scalars-and-strings iteration-and-loops structs-enums-distinct pattern-matching interfaces-and-dispatch">
-<td><a href="/examples/kindergarten-garden/">Kindergarten Garden</a> <a class="nomi-rough-badge" href="/examples/kindergarten-garden/#rough-edges">rough edges</a></td>
+<td><a href="/examples/kindergarten-garden/">Kindergarten Garden</a></td>
 <td>Grids &amp; Matrices</td>
 <td>Read a diagram of two rows of plant cups and say which four plants each child of the class looks after.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
@@ -220,6 +244,12 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Check that every bracket, brace and parenthesis in a string is closed by its own kind, in order.</td>
 <td><a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
+<tr data-subject="dates-and-time" data-chapters="functions-and-lambdas pipes collections iteration-and-loops structs-enums-distinct pattern-matching">
+<td><a href="/examples/meetup/">Meetup</a></td>
+<td>Dates &amp; Time</td>
+<td>Find the date of a monthly meetup described as &#34;the first Monday&#34;, &#34;the last Thursday&#34; or &#34;the teenth Saturday&#34; of a month.</td>
+<td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+</tr>
 <tr data-subject="grids-and-matrices" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops">
 <td><a href="/examples/minesweeper/">Minesweeper</a></td>
 <td>Grids &amp; Matrices</td>
@@ -237,6 +267,12 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Strings &amp; Text</td>
 <td>Count how often each of the four nucleotides occurs in a DNA strand, rejecting any other letter.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
+</tr>
+<tr data-subject="parsing-and-validation" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct pattern-matching">
+<td><a href="/examples/ocr-numbers/">OCR Numbers</a></td>
+<td>Parsing &amp; Validation</td>
+<td>Read the digits a scanner drew with pipes and underscores, three columns and four rows per digit, and join several lines of them with commas.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 <tr data-subject="strings-and-text" data-chapters="functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops">
 <td><a href="/examples/pangram/">Pangram</a></td>
@@ -298,6 +334,12 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Turn a number into raindrop sounds: &#34;Pling&#34; for a factor of 3, &#34;Plang&#34; for 5, &#34;Plong&#34; for 7, or the number itself when it has none of them.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
+<tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions scalars-and-strings structs-enums-distinct interfaces-and-dispatch">
+<td><a href="/examples/rational-numbers/">Rational Numbers</a></td>
+<td>Numbers &amp; Math</td>
+<td>Implement rational numbers: the four arithmetic operations, absolute value, integer powers, a real number raised to a rational power, and reduction to lowest terms.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
+</tr>
 <tr data-subject="encoding-and-ciphers" data-chapters="structs-enums-distinct pattern-matching interfaces-and-dispatch">
 <td><a href="/examples/resistor-color/">Resistor Color</a></td>
 <td>Encoding &amp; Ciphers</td>
@@ -322,11 +364,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Reverse a string by its characters as a reader sees them, so combining marks stay on their letters.</td>
 <td><a href="/scalars-and-strings/">Scalars &amp; Strings</a></td>
 </tr>
-<tr data-subject="encoding-and-ciphers" data-chapters="functions-and-lambdas pipes scalars-and-strings iteration-and-loops pattern-matching">
-<td><a href="/examples/rna-transcription/">RNA Transcription</a> <a class="nomi-rough-badge" href="/examples/rna-transcription/#rough-edges">rough edges</a></td>
+<tr data-subject="encoding-and-ciphers" data-chapters="pipes scalars-and-strings iteration-and-loops pattern-matching">
+<td><a href="/examples/rna-transcription/">RNA Transcription</a></td>
 <td>Encoding &amp; Ciphers</td>
 <td>Turn a DNA strand into its RNA complement: G to C, C to G, T to A and A to U.</td>
-<td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+<td><a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 <tr data-subject="games-and-simulation" data-chapters="functions-and-lambdas collections iteration-and-loops structs-enums-distinct pattern-matching">
 <td><a href="/examples/robot-simulator/">Robot Simulator</a></td>
@@ -353,10 +395,16 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 <tr data-subject="grids-and-matrices" data-chapters="functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct pattern-matching">
-<td><a href="/examples/saddle-points/">Saddle Points</a> <a class="nomi-rough-badge" href="/examples/saddle-points/#rough-edges">rough edges</a></td>
+<td><a href="/examples/saddle-points/">Saddle Points</a></td>
 <td>Grids &amp; Matrices</td>
 <td>Find the cells of a grid that are the largest in their row and the smallest in their column.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+</tr>
+<tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions functions-and-lambdas scalars-and-strings collections iteration-and-loops structs-enums-distinct pattern-matching">
+<td><a href="/examples/say/">Say</a></td>
+<td>Numbers &amp; Math</td>
+<td>Spell out a number from zero to 999,999,999,999 in English words.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 <tr data-subject="strings-and-text" data-chapters="pipes scalars-and-strings iteration-and-loops pattern-matching">
 <td><a href="/examples/scrabble-score/">Scrabble Score</a></td>
@@ -370,11 +418,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Turn a number&#39;s lowest five bits into the actions of a secret handshake, reversed when the fifth bit is set.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
 </tr>
-<tr data-subject="strings-and-text" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings iteration-and-loops structs-enums-distinct">
+<tr data-subject="strings-and-text" data-chapters="bindings-and-expressions pipes scalars-and-strings iteration-and-loops structs-enums-distinct">
 <td><a href="/examples/series/">Series</a></td>
 <td>Strings &amp; Text</td>
 <td>List every run of adjacent digits of a given length in a string of digits, in order.</td>
-<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a></td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a></td>
 </tr>
 <tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops">
 <td><a href="/examples/sieve/">Sieve</a></td>
@@ -412,11 +460,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Tally the results of a small football competition into a league table, ordered by points and then by name.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
-<tr data-subject="grids-and-matrices" data-chapters="functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops pattern-matching">
+<tr data-subject="grids-and-matrices" data-chapters="functions-and-lambdas pipes scalars-and-strings iteration-and-loops">
 <td><a href="/examples/transpose/">Transpose</a></td>
 <td>Grids &amp; Matrices</td>
 <td>Transpose lines of text, padding short lines on the left of a column with spaces and never on the right.</td>
-<td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+<td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
 <tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct pattern-matching">
 <td><a href="/examples/triangle/">Triangle</a></td>
@@ -429,6 +477,12 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Strings &amp; Text</td>
 <td>Recite the verses of &#34;The Twelve Days of Christmas&#34;, each adding a gift to the one before.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
+</tr>
+<tr data-subject="games-and-simulation" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct pattern-matching">
+<td><a href="/examples/two-bucket/">Two Bucket</a></td>
+<td>Games &amp; Simulation</td>
+<td>Find the fewest actions that measure an exact number of liters with two buckets, starting by filling a given one, and never leaving the starting bucket empty with the other full.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 <tr data-subject="strings-and-text" data-chapters="functions-and-lambdas scalars-and-strings">
 <td><a href="/examples/two-fer/">Two-fer</a></td>
@@ -443,10 +497,16 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td><a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
 <tr data-subject="parsing-and-validation" data-chapters="functions-and-lambdas pipes scalars-and-strings collections structs-enums-distinct pattern-matching">
-<td><a href="/examples/wordy/">Wordy</a> <a class="nomi-rough-badge" href="/examples/wordy/#rough-edges">rough edges</a></td>
+<td><a href="/examples/wordy/">Wordy</a></td>
 <td>Parsing &amp; Validation</td>
 <td>Parse and evaluate simple arithmetic word problems, left to right.</td>
 <td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
+</tr>
+<tr data-subject="games-and-simulation" data-chapters="bindings-and-expressions functions-and-lambdas pipes collections iteration-and-loops structs-enums-distinct pattern-matching">
+<td><a href="/examples/yacht/">Yacht</a></td>
+<td>Games &amp; Simulation</td>
+<td>Score a throw of five dice in one of the twelve categories of the dice game Yacht.</td>
+<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
 </tbody>
 </table>

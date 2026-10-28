@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 38
+const FormatVersion = 39
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -159,6 +159,7 @@ const (
 	tagTodo
 	tagSubtests
 	tagCtlRead
+	tagUnreachable
 )
 
 const (
@@ -886,6 +887,11 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		e.pos(w, n.pos)
 	case *Todo:
 		w.byte1(tagTodo)
+		e.pos(w, n.pos)
+		w.temp(n.dst)
+		w.uv(e.str(n.reason))
+	case *Unreachable:
+		w.byte1(tagUnreachable)
 		e.pos(w, n.pos)
 		w.temp(n.dst)
 		w.uv(e.str(n.reason))

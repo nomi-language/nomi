@@ -79,9 +79,9 @@ func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopB
 	// Every path of the else leaves, so none reaches its exit; the exit
 	// joins the continuation only to terminate.
 	exit := bl.f.NewBlock(pos, "else exit")
-	sig := irFuncSig{result: kindUnit}
+	sig := irFuncSig{result: kindUnit, leaves: true}
 	if bl.inTest {
-		sig = irFuncSig{testArms: true}
+		sig = irFuncSig{testArms: true, leaves: true}
 	}
 	if !bl.bindingElse(t, subj, sk, failed, exit, sig, lp) {
 		return false
@@ -430,6 +430,14 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 		target = lp.head
 	case *ast.Continue:
 		target = lp.head
+	case *ast.Todo, *ast.Unreachable:
+		// The trap ends the path: it writes no fallback and reaches
+		// neither the head nor the exit.
+		if _, _, _, ok := bl.lowerNever(tail); !ok {
+			return false
+		}
+		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(tail), bl.b.ID()))
+		return true
 	case *ast.If, *ast.Case:
 		// A region tail: each of its arms leaves as a loop arm does
 		// (armInto) or writes the fallback into the payload slot.

@@ -1,0 +1,58 @@
+/// A buffer of at most `capacity` items, read oldest first. It is a value:
+/// each operation answers the buffer after it.
+pub opaque struct Buffer<T> {
+    capacity: Int
+    items: List<T>
+}
+
+/// Why an operation cannot be done.
+pub enum Error {
+    Full
+    Empty
+}
+
+impl Buffer<T> {
+    /// An empty buffer that holds at most `capacity` items.
+    pub fn new(capacity: Int) -> Buffer<T> {
+        #Buffer{capacity, items: []}
+    }
+
+    /// `buffer` with `item` after its newest, or `Full` when it holds
+    /// `capacity` items already.
+    pub fn write(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error> {
+        if Buffer.full?(buffer) {
+            Err(.Full)
+        } else {
+            Ok(#{..buffer, items: List.concat(buffer.items, [item])})
+        }
+    }
+
+    /// `buffer` with `item` after its newest, dropping the oldest item first
+    /// when it is full.
+    pub fn overwrite(buffer: Buffer<T>, item: T) -> Buffer<T> {
+        kept = if Buffer.full?(buffer) {
+            Iter.drop(buffer.items, 1) |> Iter.to_list()
+        } else {
+            buffer.items
+        }
+
+        #{..buffer, items: List.concat(kept, [item])}
+    }
+
+    /// The oldest item and the buffer without it, or `Empty`.
+    pub fn read(buffer: Buffer<T>) -> Result<#(T, Buffer<T>), Error> {
+        case buffer.items {
+            [oldest, ..rest] -> Ok(#(oldest, #{..buffer, items: rest}))
+            [] -> Err(.Empty)
+        }
+    }
+
+    /// `buffer` with no items, at the same capacity.
+    pub fn clear(buffer: Buffer<T>) -> Buffer<T> {
+        #{..buffer, items: []}
+    }
+
+    fn full?(buffer: Buffer<T>) -> Bool {
+        Iter.count(buffer.items) == buffer.capacity
+    }
+}

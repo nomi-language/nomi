@@ -10,7 +10,7 @@ pub fn encode(phrase: String) -> String {
     phrase
     |> translate()
     |> Iter.chunks(5)
-    |> Iter.map(&String.join(&1))
+    |> Iter.map(String.join)
     |> String.join(" ")
 }
 

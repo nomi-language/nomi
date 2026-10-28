@@ -1,0 +1,117 @@
+import circular_buffer.Buffer
+
+/// One canonical operation and what it should do: a write that succeeds or
+/// fails, a read of a given item or one that fails, a clear, an overwrite.
+enum Step {
+    Write Int
+    WriteFails Int
+    Read Int
+    ReadFails
+    Clear
+    Overwrite Int
+}
+
+derive Equatable for Step
+
+/// Runs each step's operation on a buffer of `capacity`, in turn, and
+/// answers the steps as they happened. A run that does what every step says
+/// answers the steps it was given.
+fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
+    #(happened, _buffer) =
+        steps
+        |> Iter.map_reduce(fn buffer = Buffer.new(capacity), step -> {
+            case step {
+                .Write(item) or .WriteFails(item) -> {
+                    case Buffer.write(buffer, item) {
+                        Ok(written) -> #(Step.Write(item), written)
+                        Err(_) -> #(Step.WriteFails(item), buffer)
+                    }
+                }
+
+                .Read(_) or .ReadFails -> {
+                    case Buffer.read(buffer) {
+                        Ok(#(item, rest)) -> #(Step.Read(item), rest)
+                        Err(_) -> #(Step.ReadFails, buffer)
+                    }
+                }
+
+                .Clear ->
+                    #(Step.Clear, Buffer.clear(buffer))
+
+                .Overwrite(item) ->
+                    #(Step.Overwrite(item), Buffer.overwrite(buffer, item))
+            }
+        })
+
+    happened
+}
+
+test "circular buffer" {
+    cases = [
+        #("reading empty buffer should fail", 1, [Step.ReadFails]),
+        #("can read an item just written", 1, [.Write(1), .Read(1)]),
+        #("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
+        #(
+            "items are read in the order they are written",
+            2,
+            [.Write(1), .Write(2), .Read(1), .Read(2)],
+        ),
+        #("full buffer can't be written to", 1, [.Write(1), .WriteFails(2)]),
+        #(
+            "a read frees up capacity for another write",
+            1,
+            [.Write(1), .Read(1), .Write(2), .Read(2)],
+        ),
+        #(
+            "read position is maintained even across multiple writes",
+            3,
+            [.Write(1), .Write(2), .Read(1), .Write(3), .Read(2), .Read(3)],
+        ),
+        #("items cleared out of buffer can't be read", 1, [.Write(1), .Clear, .ReadFails]),
+        #("clear frees up capacity for another write", 1, [.Write(1), .Clear, .Write(2), .Read(2)]),
+        #("clear does nothing on empty buffer", 1, [.Clear, .Write(1), .Read(1)]),
+        #(
+            "overwrite acts like write on non-full buffer",
+            2,
+            [.Write(1), .Overwrite(2), .Read(1), .Read(2)],
+        ),
+        #(
+            "overwrite replaces the oldest item on full buffer",
+            2,
+            [.Write(1), .Write(2), .Overwrite(3), .Read(2), .Read(3)],
+        ),
+        #(
+            "overwrite replaces the oldest item remaining in buffer following a read",
+            3,
+            [
+                .Write(1),
+                .Write(2),
+                .Write(3),
+                .Read(1),
+                .Write(4),
+                .Overwrite(5),
+                .Read(3),
+                .Read(4),
+                .Read(5),
+            ],
+        ),
+        #(
+            "initial clear does not affect wrapping around",
+            2,
+            [
+                .Clear,
+                .Write(1),
+                .Write(2),
+                .Overwrite(3),
+                .Overwrite(4),
+                .Read(3),
+                .Read(4),
+                .ReadFails,
+            ],
+        ),
+    ]
+
+    subtests cases, #(description, capacity, steps), description {
+        assert replay(capacity, steps) == steps
+    }
+}

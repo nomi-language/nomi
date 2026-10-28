@@ -2117,10 +2117,26 @@ exercism/atbash-cipher/atbash_cipher.nomi:decode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:encode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:swap	ran
 exercism/atbash-cipher/atbash_cipher.nomi:translate	ran
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.equal?	PROBE: a synthesized argument is not a value of the declared type
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.from	ran
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.insert	PROBE: a synthesized argument is not a value of the declared type
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.inspect	PROBE: a synthesized argument is not a value of the declared type
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.sorted	PROBE: a synthesized argument is not a value of the declared type
 exercism/binary-search/binary_search.nomi:find	PROBE: a synthesized argument is not a value of the declared type
 exercism/binary-search/binary_search.nomi:search	ran
 exercism/bob/bob.nomi:response	ran
 exercism/bob/bob.nomi:shouting?	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.clear	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.full?	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.inspect	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.new	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.overwrite	PROBE: a synthesized argument is not a value of the declared type
+exercism/circular-buffer/circular_buffer.nomi:Buffer.read	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.write	PROBE: a synthesized struct lacks a field read through a container
+exercism/circular-buffer/circular_buffer.nomi:Error.inspect	ran
+exercism/circular-buffer/circular_buffer_test.nomi:Step.equal?	ran
+exercism/circular-buffer/circular_buffer_test.nomi:Step.inspect	ran
+exercism/circular-buffer/circular_buffer_test.nomi:replay	ran
 exercism/clock/clock.nomi:Clock.add	ran
 exercism/clock/clock.nomi:Clock.inspect	ran
 exercism/clock/clock.nomi:Clock.new	ran
@@ -2138,10 +2154,20 @@ exercism/difference-of-squares/difference_of_squares.nomi:square_of_sum	ran
 exercism/difference-of-squares/difference_of_squares.nomi:sum_of_squares	ran
 exercism/eliuds-eggs/eliuds_eggs.nomi:egg_count	ran
 exercism/etl/etl.nomi:transform	ran
+exercism/flatten-array/flatten_array.nomi:Nested.inspect	ran
+exercism/flatten-array/flatten_array.nomi:flatten	ran
+exercism/flatten-array/flatten_array.nomi:values	ran
 exercism/game-of-life/game_of_life.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
 exercism/game-of-life/game_of_life.nomi:live_neighbours	PROBE: a synthesized argument is not a value of the declared type
 exercism/game-of-life/game_of_life.nomi:next_state	ran
 exercism/game-of-life/game_of_life.nomi:tick	PROBE: a synthesized argument is not a value of the declared type
+exercism/grade-school/grade_school.nomi:Error.inspect	ran
+exercism/grade-school/grade_school.nomi:School.add	ran
+exercism/grade-school/grade_school.nomi:School.grade	ran
+exercism/grade-school/grade_school.nomi:School.inspect	ran
+exercism/grade-school/grade_school.nomi:School.new	ran
+exercism/grade-school/grade_school.nomi:School.roster	ran
+exercism/grade-school/grade_school_test.nomi:enroll	ran
 exercism/grains/grains.nomi:grains_on	ran
 exercism/grains/grains.nomi:square	ran
 exercism/grains/grains.nomi:total	ran
@@ -2194,6 +2220,105 @@ exercism/luhn/luhn.nomi:double	ran
 exercism/luhn/luhn.nomi:valid?	ran
 exercism/matching-brackets/matching_brackets.nomi:balanced?	PROBE: a synthesized argument is not a value of the declared type
 exercism/matching-brackets/matching_brackets.nomi:paired?	ran
+exercism/meetup/meetup.nomi:Week.inspect	ran
+exercism/meetup/meetup.nomi:days_on	ran
+exercism/meetup/meetup.nomi:meetup	ran
+exercism/meetup/meetup.nomi:teenth	PROBE: a synthesized argument is not a value of the declared type
+exercism/meetup/meetup_test.nomi:literal Date`2012-02-29` at 693:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2012-12-07` at 717:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-01-05` at 262:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-01-12` at 374:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-01-16` at 62:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-01-19` at 486:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-01-26` at 598:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-01-26` at 675:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-02` at 270:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-09` at 382:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-13` at 70:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-16` at 134:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-16` at 494:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-23` at 606:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-02-23` at 683:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-03` at 278:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-04` at 182:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-10` at 390:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-11` at 294:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-17` at 502:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-18` at 406:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-19` at 38:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-24` at 614:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-25` at 518:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-25` at 624:80 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-03-31` at 685:80 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-01` at 190:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-07` at 286:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-08` at 302:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-13` at 142:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-14` at 398:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-15` at 414:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-16` at 46:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-19` at 110:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-21` at 510:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-22` at 526:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-28` at 622:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-28` at 686:80 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-04-29` at 625:80 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-07` at 198:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-13` at 14:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-14` at 310:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-16` at 86:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-19` at 158:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-21` at 422:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-28` at 534:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-05-28` at 626:83 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-04` at 206:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-11` at 318:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-13` at 94:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-16` at 166:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-18` at 430:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-19` at 78:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-25` at 542:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-06-25` at 633:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-07-03` at 214:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-07-10` at 326:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-07-17` at 438:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-07-24` at 550:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-07-31` at 641:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-07` at 222:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-13` at 54:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-14` at 334:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-16` at 118:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-19` at 22:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-21` at 446:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-28` at 558:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-08-28` at 649:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-05` at 230:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-12` at 342:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-13` at 126:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-16` at 30:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-19` at 102:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-19` at 454:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-26` at 566:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-09-26` at 657:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-03` at 238:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-10` at 350:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-13` at 174:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-17` at 462:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-19` at 150:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-24` at 574:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-10-31` at 665:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-11-01` at 246:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-11-08` at 358:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-11-15` at 470:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-11-22` at 582:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-11-29` at 667:81 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-12-06` at 254:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-12-13` at 366:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-12-20` at 478:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 590:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 668:81 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2014-12-31` at 701:13 failure	ran
+exercism/meetup/meetup_test.nomi:literal Date`2015-02-22` at 709:13 failure	ran
 exercism/minesweeper/minesweeper.nomi:annotate	ran
 exercism/minesweeper/minesweeper.nomi:annotate_square	PROBE: a synthesized argument is not a value of the declared type
 exercism/minesweeper/minesweeper.nomi:mines_in_row	ran
@@ -2205,6 +2330,10 @@ exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.inspect	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.parse	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.variants	ran
 exercism/nucleotide-count/nucleotide_count.nomi:counts	ran
+exercism/ocr-numbers/ocr_numbers.nomi:Error.inspect	ran
+exercism/ocr-numbers/ocr_numbers.nomi:convert	ran
+exercism/ocr-numbers/ocr_numbers.nomi:glyphs	ran
+exercism/ocr-numbers/ocr_numbers.nomi:read_line	ran
 exercism/pangram/pangram.nomi:pangram?	ran
 exercism/pascals-triangle/pascals_triangle.nomi:next_row	ran
 exercism/pascals-triangle/pascals_triangle.nomi:rows	ran
@@ -2233,6 +2362,19 @@ exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
 exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.new	ran
 exercism/raindrops/raindrops.nomi:convert	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.abs	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.add	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.denominator	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.divide	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.equal?	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.inspect	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.multiply	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.new	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.numerator	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.pow	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.raise	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.subtract	ran
+exercism/rational-numbers/rational_numbers_test.nomi:rational	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:Color.inspect	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:digit	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:value	ran
@@ -2267,8 +2409,11 @@ exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
 exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
 exercism/saddle-points/saddle_points.nomi:column_minima	PROBE: a synthesized argument is not a value of the declared type
-exercism/saddle-points/saddle_points.nomi:column_minimum	PROBE: a synthesized argument is not a value of the declared type
 exercism/saddle-points/saddle_points.nomi:saddle_points	PROBE: a synthesized argument is not a value of the declared type
+exercism/say/say.nomi:Error.inspect	ran
+exercism/say/say.nomi:below_hundred	ran
+exercism/say/say.nomi:say	ran
+exercism/say/say.nomi:words	ran
 exercism/scrabble-score/scrabble_score.nomi:letter_value	ran
 exercism/scrabble-score/scrabble_score.nomi:score	ran
 exercism/secret-handshake/secret_handshake.nomi:Action.inspect	ran
@@ -2308,7 +2453,7 @@ exercism/tournament/tournament.nomi:line	PROBE: a synthesized argument is not a 
 exercism/tournament/tournament.nomi:parse_row	ran
 exercism/tournament/tournament.nomi:standing	PROBE: a synthesized argument is not a value of the declared type
 exercism/tournament/tournament.nomi:tally	ran
-exercism/transpose/transpose.nomi:padded_rows	ran
+exercism/transpose/transpose.nomi:padded	ran
 exercism/transpose/transpose.nomi:transpose	ran
 exercism/triangle/triangle.nomi:Kind.inspect	ran
 exercism/triangle/triangle.nomi:equilateral?	ran
@@ -2318,6 +2463,12 @@ exercism/triangle/triangle.nomi:scalene?	ran
 exercism/twelve-days/twelve_days.nomi:gifts	ran
 exercism/twelve-days/twelve_days.nomi:recite	ran
 exercism/twelve-days/twelve_days.nomi:verse	ran
+exercism/two-bucket/two_bucket.nomi:Bucket.inspect	ran
+exercism/two-bucket/two_bucket.nomi:Error.inspect	ran
+exercism/two-bucket/two_bucket.nomi:Outcome.inspect	ran
+exercism/two-bucket/two_bucket.nomi:actions	ran
+exercism/two-bucket/two_bucket.nomi:measure	ran
+exercism/two-bucket/two_bucket.nomi:search	ran
 exercism/two-fer/two_fer.nomi:two_fer	ran
 exercism/two-fer/two_fer.nomi:two_fer default 1	ran
 exercism/word-count/word_count.nomi:count_words	ran
@@ -2328,6 +2479,14 @@ exercism/wordy/wordy.nomi:apply	ran
 exercism/wordy/wordy.nomi:divide	ran
 exercism/wordy/wordy.nomi:evaluate	ran
 exercism/wordy/wordy.nomi:operand	ran
+exercism/yacht/yacht.nomi:Category.inspect	ran
+exercism/yacht/yacht.nomi:face_total	ran
+exercism/yacht/yacht.nomi:four_of_a_kind	ran
+exercism/yacht/yacht.nomi:full_house	ran
+exercism/yacht/yacht.nomi:group_sizes	ran
+exercism/yacht/yacht.nomi:score	ran
+exercism/yacht/yacht.nomi:straight	ran
+exercism/yacht/yacht.nomi:yacht	ran
 std/fs.nomi:Access.equal?	ran
 std/fs.nomi:Access.inspect	ran
 std/fs.nomi:Chunks.each_while	ran

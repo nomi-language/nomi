@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -169,7 +171,11 @@ func (g *gen) ownerImplOf(ib *ast.ImplBlock) *implDef {
 // both supply the name decline, as typeQualifiedCall's ambiguity does.
 func (bl *irScalarBuilder) ownerImplPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
 	var only *implItem
+	supplied := false
 	for _, d := range bl.g.ownerImpls[owner] {
+		if d.supplies(method) {
+			supplied = true
+		}
 		if !d.lowerable || !d.supplies(method) {
 			continue
 		}
@@ -185,7 +191,145 @@ func (bl *irScalarBuilder) ownerImplPlan(t *ast.Call, args irQualArgs, owner, me
 		}
 	}
 	if only == nil {
-		return nil
+		if supplied {
+			return nil
+		}
+		// No block of this file supplies it: another file's may.
+		return bl.siblingOwnerPlan(t, args, owner, method)
 	}
 	return bl.implItemPlan(t, args, only, owner+"."+method)
+}
+
+// ownerDecl is the declaration of owner, a generic type or an interface this
+// file declares, which keys its owner functions program-wide
+// (fileIndex.ownerMembers), or nil.
+func (g *gen) ownerDecl(owner string) ast.Node {
+	if tpl := g.genericTemplates[owner]; tpl != nil && tpl.decl != nil {
+		return tpl.decl
+	}
+	if d, isIface := g.ifaces[owner]; isIface && d != nil && d.decl != nil {
+		return d.decl
+	}
+	return nil
+}
+
+// siblingOwnerPlan resolves `Owner.method(args)` to an owner function another
+// file declares for Owner: `Box.of(1)` where boxes.nomi declares `Box<T>` and
+// `impl Box<T> { pub fn of<U>(item: U) -> Box<U> }`. The owner is the
+// declaration the analyzer resolved the name to, so an alias or a selective
+// import reaches the same entry. A monomorphic one is called in the declaring
+// unit, its kinds translated into this one as an impl function's are
+// (qualSiblingIfaceImplPlan); a generic one is instantiated by the declaring
+// unit for this call (siblingMethodPlan). One site only: two files supplying
+// the name decline, as two local blocks do.
+func (bl *irScalarBuilder) siblingOwnerPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
+	sym := resolvedTypeSymbol(bl.g.fa, owner)
+	if q, name, dotted := strings.Cut(owner, "."); dotted {
+		if scope := bl.g.moduleScope(q); scope != nil {
+			// `boxes.Box.of(1)`: the owner the qualifier's file exports.
+			sym = resolvedScopeSymbol(scope, name)
+		}
+	}
+	if sym == nil || sym.Node == nil {
+		return nil
+	}
+	return bl.siblingOwnerPlanFor(t, args, sym.Node, owner, method)
+}
+
+// siblingOwnerSites is the owner functions other files declare under method
+// for the owner decl declares.
+func (g *gen) siblingOwnerSites(decl ast.Node, method string) []implMemberSite {
+	if g.files == nil || g.fileUnit < 0 || g.reg == nil || decl == nil {
+		return nil
+	}
+	var sites []implMemberSite
+	for _, s := range g.files.ownerMembers[implMemberKey{recv: decl, method: method}] {
+		if s.unit != g.fileUnit {
+			sites = append(sites, s)
+		}
+	}
+	return sites
+}
+
+// siblingOwnerPlanFor is siblingOwnerPlan for the owner decl declares.
+func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, decl ast.Node, owner, method string) *irQualPlan {
+	g := bl.g
+	sites := g.siblingOwnerSites(decl, method)
+	if len(sites) != 1 {
+		return nil
+	}
+	site := &sites[0]
+	owning := g.reg.gens[site.unit]
+	if owning == nil {
+		return nil
+	}
+	if site.withheld != nil {
+		if site.fn.why != "generic impl function" {
+			// A private owner function, which the checker already refuses.
+			return nil
+		}
+		return bl.siblingMethodPlan(t, args, owning, site.withheld, method)
+	}
+	f := site.fn
+	if !f.lowerable() || site.item == nil {
+		return nil
+	}
+	params := make([]kind, len(f.params))
+	for i, p := range f.params {
+		ip, ok := g.importKind(p)
+		if !ok {
+			return nil
+		}
+		params[i] = ip
+	}
+	result, ok := g.importKind(f.result)
+	if !ok {
+		return nil
+	}
+	var filled *irQualArgs
+	if args.ok && len(args.temps) < len(params) {
+		// `Box.pad("p")` omitting a parameter the declaring file defaults.
+		if namedArgNode(t.Args) != nil {
+			return nil
+		}
+		full, ok := bl.siblingDefaultArgs(t, args, site, params, owning)
+		if !ok {
+			return nil
+		}
+		filled = &full
+		args = full
+		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
+	}
+	if !bl.qualSignature(t, args, params, result) {
+		return nil
+	}
+	p := &irQualPlan{token: f, name: g.files.units[site.unit].key + "." + owner + "." + method, result: result, args: filled}
+	p.sym = owning.irCalleeSym(site.item, site.symName)
+	return p
+}
+
+// siblingOwnerSpelling answers `mod.Owner` when qual spells it, mod qualifies
+// another user file, and Owner is an interface or generic type for which
+// another file declares an owner function named method: `boxes.Shape.twice(3)`.
+// The three-segment route finds an owner by the dotted name of its mirror
+// (qualDottedOwner), and an interface has none, so without this the call would
+// be read as a call through a value. siblingOwnerPlan resolves the spelling.
+func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (string, bool) {
+	inner, isFA := qual.(*ast.FieldAccess)
+	if !isFA || inner.Field == nil {
+		return "", false
+	}
+	mod, isIdent := inner.Object.(*ast.Ident)
+	if !isIdent || irQualIsLocal(bl, mod.Name) {
+		return "", false
+	}
+	scope := bl.g.moduleScope(mod.Name)
+	if scope == nil {
+		return "", false
+	}
+	sym := resolvedScopeSymbol(scope, inner.Field.Name)
+	if sym == nil || sym.Node == nil || len(bl.g.siblingOwnerSites(sym.Node, method)) == 0 {
+		return "", false
+	}
+	return mod.Name + "." + inner.Field.Name, true
 }

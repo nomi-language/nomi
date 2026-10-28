@@ -7,7 +7,7 @@ description: "Find the cells of a grid that are the largest in their row and the
 
 Find the cells of a grid that are the largest in their row and the smallest in their column.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/saddle-points) (MIT). Listed under [Grids & Matrices](/examples/?subject=grids-and-matrices).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/saddle-points) (MIT). Listed under [Grids & Matrices](/examples/?subject=grids-and-matrices).
 
 ```nomi-run
 // FILE: saddle_points.nomi
@@ -37,21 +37,14 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
     |> Iter.to_list()
 }
 
-/// The shortest height in each column.
+/// The shortest height in each column. No column is empty, so every
+/// `Iter.min` is `Some`.
 fn column_minima(matrix: Vector<Vector<Int>>) -> Vector<Int> {
-    width = matrix |> Iter.first() |> Maybe.map(Vector.length) |> Maybe.with_default(0)
-
-    0..width
-    |> Iter.map(&column_minimum(matrix, &1))
-    |> Maybe.collect()
-    |> Maybe.with_default([])
-    |> Iter.to_vector()
-}
-
-fn column_minimum(matrix: Vector<Vector<Int>>, column: Int) -> Maybe<Int> {
     matrix
-    |> Iter.map(&Vector.at(&1, column))
-    |> Iter.min()
+    |> Iter.transpose()
+    |> Iter.map(Iter.min)
+    |> Maybe.values()
+    |> Iter.to_vector()
 }
 
 // FILE: saddle_points_test.nomi
@@ -110,16 +103,10 @@ test "saddle_points" {
 
 ## How it's written
 
-- The matrix is `Vector<Vector<Int>>`, since the column check reads by index. A row is in hand while iterating, so its maximum is `Iter.max(heights)` with no indexing; only columns need it.
-- Column minima are computed once into a `Vector<Int>` and looked up by column index, rather than scanning the column again for every cell. Both callbacks there are one call that uses its parameter once, so they are captures (style §31): `Iter.map(&column_minimum(matrix, &1))` and `Iter.map(&Vector.at(&1, column))`.
+- The matrix is `Vector<Vector<Int>>`, as the canonical data's grid of rows reads. A row is in hand while iterating, so its maximum is `Iter.max(heights)` with no indexing.
+- The columns come from `Iter.transpose(matrix)`, and their minima are computed once into a `Vector<Int>` and looked up by column index, rather than scanning the column again for every cell. `Iter.map(Iter.min)` passes the function itself; `Maybe.values()` drops the `None` an empty column would give, and no column is empty.
 - A point is a `pub struct Position { row, column }`, counted from 1 as the canonical data does (style §18: a struct once it travels). Tests write `#{row: 2, column: 1}`, which the comparison types as `Position`.
 - Points come out row by row and left to right. The canonical "non square matrix" case lists (1, 3) before (1, 1); its comment allows reordering, so the test expects (1, 1) first.
 - `Some(height) == tallest` compares against `Iter.max`'s `Maybe` directly instead of unwrapping it; an empty row has no cells to compare.
-- Both indexed reads use `Vector.at`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first. A ragged matrix (rows of different widths) is outside the problem, and a read past a short row stops the program rather than answering.
+- The one indexed read uses `Vector.at`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first and `minima` has a value for every column. A ragged matrix (rows of different widths) is outside the problem: `Iter.transpose` gives a short row nothing past its end, so a later row's column could have no minimum and the read would stop the program rather than answer.
 - The cases are one `subtests` table of `#(description, matrix, expected)` rows. Its annotation names `List<Position>` so the `#{row, column}` literals in the rows are typed; each row breaks into its three parts and each grid stays on one line.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** No transpose or column access for nested sequences. The column is `matrix |> Iter.map(&Vector.at(&1, column))`, read by index for each column. Gleam has `list.transpose`, Elixir `Enum.zip/1` over the rows, Python `zip(*rows)`. An `Iter.transpose` (or `zip_all`) over `Iter<Iter<T>>` would give the columns with no index.

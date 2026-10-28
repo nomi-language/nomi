@@ -60,6 +60,7 @@ var builtinCheckedRows = map[string]bool{
 	"float.float_round": true, "float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true,
 	"float.Float.log": true, "float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true,
 	"float.Float.cos": true, "float.Float.tan": true, "float.Float.atan2": true,
+	"float.require_tolerance": true,
 	"decimal.Decimal.pow": true, "decimal.Decimal.sqrt": true,
 }
 
@@ -389,6 +390,9 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		}
 	}
 	specials := []float64{0, math.Copysign(0, -1), 1, -1, 0.5, 2, -8, 1e308, math.Inf(1), math.Inf(-1), math.NaN()}
+	for _, x := range specials {
+		cases["float.require_tolerance"] = append(cases["float.require_tolerance"], []any{fv(x)})
+	}
 	for _, x := range specials {
 		for _, k := range []string{"sqrt", "exp", "log", "log2", "log10", "sin", "cos", "tan"} {
 			cases["float.Float."+k] = append(cases["float.Float."+k], []any{fv(x)})

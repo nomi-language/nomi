@@ -992,7 +992,7 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|where|with"
+          "value": "and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|unreachable|where|with"
         }
       }
     },
@@ -5068,6 +5068,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "unreachable_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "paren_expression"
         },
         {
@@ -7009,6 +7013,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "unreachable_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "paren_expression"
         },
         {
@@ -7230,6 +7238,10 @@
         {
           "type": "SYMBOL",
           "name": "todo_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "unreachable_expression"
         },
         {
           "type": "SYMBOL",
@@ -10599,6 +10611,44 @@
                 "type": "BLANK"
               }
             ]
+          }
+        ]
+      }
+    },
+    "unreachable_expression": {
+      "type": "PREC_RIGHT",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "unreachable"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_same_line"
+          },
+          {
+            "type": "FIELD",
+            "name": "reason",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "string"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "triple_string"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "raw_string"
+                }
+              ]
+            }
           }
         ]
       }

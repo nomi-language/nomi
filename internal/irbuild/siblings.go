@@ -177,6 +177,12 @@ type fileIndex struct {
 	// reaches another file's impl block through it; see siblingimpl.go, which
 	// owns it and states why the question is program-wide.
 	implMembers map[implMemberKey][]implMemberSite
+	// ownerMembers locates every owner function in the program by the
+	// declaration of its owner (a generic type or an interface) and its
+	// name: the functions of an inherent block on a generic owner that take
+	// no receiver, which no instance of the owner holds (ownerimpl.go). Kept
+	// apart from implMembers, which answers for a receiver's impls.
+	ownerMembers map[implMemberKey][]implMemberSite
 	// implUnits is which units declare an impl block for which type
 	// DECLARATION, read as syntax before any type is resolved. closeReferences
 	// needs it to record the Go import edge a type-qualified call emits; see

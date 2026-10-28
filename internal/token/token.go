@@ -87,6 +87,7 @@ const (
 	REFUTE      // refute — negated assertion statement
 	DBG         // dbg — debug-print expression and return its value
 	TODO        // todo — placeholder expression for unwritten code; traps when reached
+	UNREACHABLE // unreachable — a claim the program never reaches this point; traps when it does
 	SELF        // self — keyword for the implementing type in interface signatures and for import self-markers
 	TRY         // try — prefix error-propagation keyword (unwrap Result/Maybe or short-circuit)
 	THEN        // then — pipe stage that applies a lambda to the piped value
@@ -236,6 +237,7 @@ var tokenNames = [...]string{
 	REFUTE:                           "REFUTE",
 	DBG:                              "DBG",
 	TODO:                             "TODO",
+	UNREACHABLE:                      "UNREACHABLE",
 	SELF:                             "SELF",
 	TRY:                              "TRY",
 	THEN:                             "THEN",

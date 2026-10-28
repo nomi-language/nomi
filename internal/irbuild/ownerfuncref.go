@@ -87,6 +87,32 @@ func (bl *irScalarBuilder) callFuncValue(ref ast.Node, name string) (ir.Temp, ki
 	return bl.callFuncValueOf(ref, name, params, result)
 }
 
+// defaultFilledRef reports whether the checker typed ref, a function named as
+// a value, with fewer parameters than the function declares: a shorter
+// function type was expected there, and the value is the function of its
+// first parameters, whose call by name fills the rest from their defaults
+// (analysis.defaultFilledFuncValue). callFuncValue builds it.
+func (g *gen) defaultFilledRef(ref ast.Node) bool {
+	if g.fa == nil {
+		return false
+	}
+	line, col := calleeRefPos(ref)
+	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
+	if sym == nil {
+		return false
+	}
+	short, _ := sym.CallType.(*analysis.FuncType)
+	if short == nil {
+		return false
+	}
+	for decl := sym; decl != nil; decl = decl.Resolved {
+		if whole, ok := decl.Type.(*analysis.FuncType); ok {
+			return len(short.Params) < len(whole.Params)
+		}
+	}
+	return false
+}
+
 // selfCtorFuncRef lowers `self` named as a value inside an interface default
 // bounded by `where self: Distinct<T>`: the constructor of the implementor
 // this copy of the default is emitted for, a function from what it wraps to

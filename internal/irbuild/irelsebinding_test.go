@@ -154,3 +154,136 @@ fn main() {
 		t.Fatalf("declined: %v", declines)
 	}
 }
+
+// A binding whose pattern binds names no single payload holds (a list, a
+// vector, a tuple inside a variant matched whole) takes the LEAVING shape,
+// and its else may end in a trap: `unreachable` or `todo`. The trap ends the
+// path, so the names are bound only where the pattern matched. The builder
+// used to write the trap's value into the function's result and join the
+// continuation from the else, so `nomi check` failed ir.Lint ("temp defined
+// before use"). Covered: a function, an else with statements before the
+// trap, else arms one of which traps, an inline Iter.loop body and a lambda.
+func TestBindingElse_ATrapEndsALeavingElse(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	verifyLambdaProgram(t, `import std/io
+
+fn pair(xs: List<Int>) -> Int {
+    [a, b, .._] = xs else {
+        io.print("short list")
+        unreachable "callers pass two or more"
+    }
+
+    a * b
+}
+
+fn vec(xs: Vector<Int>) -> Int {
+    #[a, b, ..] = xs else {
+        todo
+    }
+
+    a + b
+}
+
+fn arms(r: Result<#(Int, Int), String>) -> Int {
+    Ok(#(a, b)) = r else {
+        Err("skip") -> return 0
+        Err(_) -> unreachable "only skip fails"
+    }
+
+    a - b
+}
+
+fn looped(rows: List<List<Int>>) -> Int {
+    #(_, sum) = Iter.loop(
+        fn #(left, total) -> {
+            [row, ..rest] = left else {
+                break #(left, total)
+            }
+
+            [a, b] = row else {
+                unreachable "rows have two cells"
+            }
+
+            return #(rest, total + a + b)
+        },
+        from: #(rows, 0),
+    )
+
+    sum
+}
+
+fn sums(rows: List<List<Int>>) -> List<Int> {
+    rows
+    |> Iter.map(fn row -> {
+        [a, b] = row else {
+            unreachable "rows have two cells"
+        }
+
+        a + b
+    })
+    |> Iter.to_list()
+}
+
+fn main() {
+    io.inspect(pair([3, 4, 5]))
+    io.inspect(vec(#[1, 2]))
+    io.inspect(arms(Ok(#(9, 2))))
+    io.inspect(arms(Err("skip")))
+    io.inspect(looped([[1, 2], [3, 4]]))
+    io.inspect(sums([[1, 2], [3, 4]]))
+}
+`, "12\n3\n7\n0\n10\n[3, 7]\n")
+}
+
+// The trap runs where the pattern does not match, after the else's own
+// statements.
+func TestBindingElse_ATrapInALeavingElseTraps(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	verifyIterFault(t, `import std/io
+
+fn pair(xs: List<Int>) -> Int {
+    [a, b, .._] = xs else {
+        io.print("short list")
+        unreachable "callers pass two or more"
+    }
+
+    a * b
+}
+
+fn main() {
+    io.inspect(pair([1]))
+}
+`, "line 6: unreachable: callers pass two or more", "short list\n")
+}
+
+// The same in a test body, whose else is lowered as test statements.
+func TestBindingElse_ATrapEndsALeavingElseInATest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	out := irTestBodyVM(t, `test "binds two names" {
+    [a, b, .._] = [1, 2, 3] else {
+        unreachable "the list has three"
+    }
+
+    assert a + b == 3
+}
+
+test "traps" {
+    #[a, b] = #[1] else {
+        todo
+    }
+
+    assert a == b
+}
+`, 2)
+	for _, want := range []string{"control_test.nomi :: binds two names\n", "FAIL ", "control_test.nomi :: traps\n", "todo reached at"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report lacks %q:\n%s", want, out)
+		}
+	}
+}

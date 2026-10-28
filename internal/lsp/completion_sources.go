@@ -17,7 +17,7 @@ var (
 		"fn", "pub", "export", "import", "struct", "enum", "impl", "interface", "type",
 		"typealias", "group", "test", "once", "derive", "opaque", "host",
 	}
-	expressionKeywords = []string{"if", "case", "try", "dbg", "todo", "concurrent"}
+	expressionKeywords = []string{"if", "case", "try", "dbg", "todo", "unreachable", "concurrent"}
 	statementKeywords  = append([]string{
 		"return", "defer", "with", "assert", "refute", "subtests", "import", "fn", "once",
 		"break", "continue",

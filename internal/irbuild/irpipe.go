@@ -121,6 +121,12 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 			return no()
 		}
 		return bl.todo(r, kindInvalid)
+	case *ast.Unreachable:
+		// `x |> unreachable "..."`: as `x |> todo`.
+		if _, _, _, ok := bl.lower(t.Left); !ok {
+			return no()
+		}
+		return bl.unreachable(r, kindInvalid)
 	}
 	return no()
 }
