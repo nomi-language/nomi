@@ -10,7 +10,8 @@ import "testing"
 // `Board` imported by name has the target `Set<Cell>`, and `Cell` is bound in
 // shapes.nomi's scope and not in main.nomi's, so expanding the target's
 // spelling in the using file refused it. Both now take the target the checker
-// resolved in the declaring file.
+// resolved in the declaring file. `#shapes.Pt{...}` names `shapes.Point`
+// through the qualified alias (qualifiedAliasTarget).
 func TestTypeAlias_ImportedAndQualifiedAliasesRun(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -19,7 +20,8 @@ func TestTypeAlias_ImportedAndQualifiedAliasesRun(t *testing.T) {
 		"2\n" +
 		// 1*2 + 3*4
 		"14\n" +
-		"6\n"
+		"6\n" +
+		"7\n"
 	got := vmReference(fixture("typealias_imported/main.nomi"))
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",

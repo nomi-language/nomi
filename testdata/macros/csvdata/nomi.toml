@@ -1,3 +1,0 @@
-[module]
-name = "csvdata"
-entry_points = ["tools/create", "tools/rows"]

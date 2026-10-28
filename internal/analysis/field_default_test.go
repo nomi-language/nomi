@@ -611,16 +611,12 @@ fn main() {
 // top-level struct `Game` and two on the record variant `Shape.Box`, which a
 // derived FromJson fills when the JSON object lacks the key.
 //
-// `std` reads 24: std/assertions 5, std/compiler 2, std/json 2,
+// `std` reads 22: std/assertions 5, std/compiler 2, std/fs_testing 7
+// (`Sandbox`'s files, directories, links and failures, empty by default, so
+// `#Sandbox{}` is an empty file system), std/json 2, std/process 2,
 // std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
-// `#Startup{}` is an empty Startup), std/supervisors 2 (the fields of the
-// `Backoff.Exponential` record variant) and std/macro 11, all on top-level
-// structs: `Action.tool` and `Body.tag_span`, `None` by default so a test
-// builds a value without them, and the empty defaults that let a macro
-// write `#Request{files: [path]}` or `#Expansion{diagnostics: problems}`
-// (`Request.files` and `sites`, `Expansion.source`, `spans` and
-// `diagnostics`, `Diagnostic.hints`, `Action.edits`, and the `config` of
-// `NavigationCall` and `ActionsCall`).
+// `#Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
+// `Backoff.Exponential` record variant).
 //
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
 // the other site. `capabilities-and-context.md`'s "basic shape" block declared
@@ -629,12 +625,14 @@ fn main() {
 // with no default and the `context` default lives on stdlib's `App`. The one
 // survivor the census prints is `structs-enums-distinct.md:L29`'s `age@3:3`.
 //
-// `std` reads 33 since std/fs_testing's `Sandbox` gained `links`, an empty
-// map by default, so `#Sandbox{}` still has no symlinks.
+// The Exercism ports add 23, all on top-level structs: food-chain 2, grep 5
+// (its option flags), pov 1, rest-api 3, paasio 4, piecing-it-together 7
+// (its Clues) and tree-building 1. Each is counted twice, once in its
+// `tests/exercism` file and once in the Examples page generated from it.
 var fieldDefaultDenominator = map[string]int{
-	"std":             33,
-	"tests":           44,
-	"tour (nomi-run)": 1,
+	"std":             22,
+	"tests":           67,
+	"tour (nomi-run)": 24,
 	"tour (nomi)":     0,
 }
 

@@ -21,8 +21,8 @@ import (
 // one's module graph. So the machine binds a TRANSCRIPTION of each project's
 // binding.go as a host table over rt values. What the VM leg checks is what
 // irbuild and the VM own: that the retained caller links the host fn's body,
-// that the body crosses under the key the wrapper's table is keyed on, and
-// that the values crossing are the machine's own. It does not check the
+// that the body crosses under the project name of the key the wrapper's
+// table is keyed on, and that the values crossing are the machine's own. It does not check the
 // project's Go code or its generated adapters (internal/ffirun's
 // TestGoSourceTypesGenerateTheReflectedAdapters does that for the generator).
 
@@ -120,7 +120,7 @@ func TestIRHostFn_GoBoundProgramsRunOnTheVM(t *testing.T) {
 					}
 					for _, b := range f.Blocks() {
 						for _, in := range b.Instrs() {
-							if c, isCall := in.(*ir.Call); isCall && c.Crosses() && strings.HasPrefix(c.Callee().Name(), "ffi.") {
+							if c, isCall := in.(*ir.Call); isCall && c.Crosses() && strings.HasPrefix(c.Callee().Name(), hostadapt.ProjectName("ffi.")) {
 								crossings[c.Callee().Name()] = true
 							}
 						}
@@ -128,7 +128,7 @@ func TestIRHostFn_GoBoundProgramsRunOnTheVM(t *testing.T) {
 				}
 			}
 			for _, key := range tc.bindings {
-				if !crossings[key] {
+				if !crossings[hostadapt.ProjectName(key)] {
 					t.Errorf("no retained body crosses into %s; crossings %v", key, crossings)
 				}
 			}
@@ -137,7 +137,7 @@ func TestIRHostFn_GoBoundProgramsRunOnTheVM(t *testing.T) {
 			}
 
 			var out bytes.Buffer
-			booted, err := vm.NewProgram(entry, res.IRModules(), &out).WithHosts(tc.hosts).Boot()
+			booted, err := vm.NewProgram(entry, res.IRModules(), &out).WithHosts(hostadapt.ProjectTable(tc.hosts)).Boot()
 			if err != nil {
 				t.Fatal(err)
 			}

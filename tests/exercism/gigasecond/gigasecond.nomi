@@ -1,0 +1,9 @@
+import std/calendar.{NaiveDateTime, Seconds}
+
+/// One gigasecond: a thousand million seconds.
+once gigasecond = Seconds(1_000_000_000)
+
+/// The moment one gigasecond after `moment`.
+pub fn add(moment: NaiveDateTime) -> NaiveDateTime {
+    moment + gigasecond
+}

@@ -83,10 +83,6 @@ func TestTourDoctests(t *testing.T) {
 				t.Run(name, func(t *testing.T) { checkTourToolBlock(t, b, tools) })
 				continue
 			}
-			if b.HasInfo(doctest.InfoExpand) {
-				t.Run(name, func(t *testing.T) { checkTourExpandBlock(t, b) })
-				continue
-			}
 			if b.HasInfo(doctest.InfoError) {
 				t.Run(name, func(t *testing.T) { checkTourErrorBlock(t, b) })
 				continue
@@ -215,15 +211,24 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 }
 
 // checkTourToolBlock holds a ```nomi-run tool:<module>/<name> block to
-// what this binary can check of it. Its tools are tour modules' (the block
-// imports each one), whose Go side only the tour's wasm links, so the
-// block's run, which the tools' files feed, is
-// TestTourWasmAnswersTheTourBlocks' to compare with its expect block,
-// which it must have.
+// what this binary can check of it. A tool of a module the block holds
+// (one under a directory of its own, which its go.mod requires) is Nomi
+// alone, so this binary runs the tools and the block (checkOwnToolBlock).
+// Otherwise its tools are tour modules' (the block imports each one), whose
+// Go side only the tour's wasm links, so the block's run, which the tools'
+// files feed, is TestTourWasmAnswersTheTourBlocks' to compare with its
+// expect block, which it must have.
 func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 	t.Helper()
-	if b.HasInfo(doctest.InfoExpand) || b.HasInfo(doctest.InfoNoRun) {
-		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `expand` and `no-run`:\n%s", b.Code)
+	if b.HasInfo(doctest.InfoNoRun) {
+		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `no-run`:\n%s", b.Code)
+	}
+	tourModule := func(name string) bool {
+		return slices.ContainsFunc(tourgo.Modules, func(m tourgo.Module) bool { return m.Name == name })
+	}
+	if !slices.ContainsFunc(tools, func(tool doctest.Tool) bool { return tourModule(tool.Module) }) {
+		checkOwnToolBlock(t, b, tools)
+		return
 	}
 	imported := tourgo.Imported(b.Code)
 	for _, tool := range tools {
@@ -239,25 +244,60 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 	}
 }
 
-// checkTourExpandBlock holds a ```nomi-run expand block to what the tour
-// shows for it: what `nomi expand` prints for its first tab.
-func checkTourExpandBlock(t *testing.T, b doctest.Block) {
+// checkOwnToolBlock holds a block whose tools are its own modules' to its
+// expect block, run as the page runs it: each tool on the source the one
+// before left (vmhost.ToolMarked), what it prints first, then the block,
+// whose tests must pass. A tool that fails stops there, and the block must
+// be an error block showing what the tool printed and its failure.
+func checkOwnToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 	t.Helper()
-	if b.HasInfo(doctest.InfoError) || b.HasInfo(doctest.InfoNoRun) {
-		t.Fatalf("an expand tour block shows an expansion, which neither fails nor goes unrun; drop `error` and `no-run`:\n%s", b.Code)
-	}
-	text, err := vmhost.ExpandMarked(tourgo.Source(b.Code), t.TempDir())
-	if err != nil {
-		t.Fatalf("an expand tour block does not expand:\n%s\n\nerror: %v", b.Code, err)
-	}
-	if strings.Contains(text, "-->") {
-		t.Fatalf("the expansion holds `-->`, which would end the hidden <!-- expect --> comment in the page:\n%s", text)
-	}
 	if b.Expected == nil {
-		t.Fatalf("an expand tour block needs a hidden <!-- expect ... --> block holding its expansion:\n%s\n\nexpansion:\n%s", b.Code, text)
+		t.Fatalf("a block with a tool: word needs a hidden <!-- expect ... --> block:\n%s", b.Code)
 	}
-	if err := doctest.CheckOutput(b.Expected, text); err != nil {
-		t.Fatalf("an expand tour block expands to something else:\n%s\n\n%s\n\nthe whole expansion:\n%s", b.Code, err, text)
+	src := b.Code
+	var out bytes.Buffer
+	failure := ""
+	for _, tool := range tools {
+		written, err := vmhost.ToolMarked(src, t.TempDir(), tool.Module, tool.Name, &out, vmhost.WithErrorOutput(&out))
+		if err != nil {
+			failure = vmhost.FormatFailure(err)
+			break
+		}
+		src = vmhost.ReplaceSections(src, written)
+	}
+	if failure == "" {
+		p, hasTests, err := vmhost.LoadMarked(src, t.TempDir(), vmhost.WithErrorOutput(&out))
+		if err != nil {
+			failure = err.Error()
+		} else {
+			if err := p.Run(context.Background(), &out, nil, false); err != nil {
+				failure = vmhost.FormatFailure(err)
+			}
+			if hasTests && failure == "" {
+				// The page prints the tests' report after the run's
+				// output (cmd/nomi-wasm's formatCaseResults); every case
+				// here must pass.
+				var testOut bytes.Buffer
+				cases := p.Cases(&testOut, vmhost.TestOptions{})
+				for _, result := range cases {
+					if result.Blocked != nil || result.Err != nil {
+						t.Fatalf("tour block test %q does not pass:\n%s\n\noutput:\n%s", result.Name, b.Code, testOut.String())
+					}
+					fmt.Fprintf(&out, "ok %s\n", result.Name)
+				}
+				fmt.Fprintf(&out, "test result: ok. %d passed, 0 failed\n", len(cases))
+			}
+		}
+	}
+	if (failure != "") != b.HasInfo(doctest.InfoError) {
+		t.Fatalf("the block's tools and run fail exactly when it is an error block; failure: %q\n%s\n\noutput:\n%s", failure, b.Code, out.String())
+	}
+	shown := doctest.Shown(out.String(), failure)
+	if strings.Contains(shown, "-->") {
+		t.Fatalf("the run's text holds `-->`, which would end the hidden <!-- expect --> comment in the page:\n%s", shown)
+	}
+	if err := doctest.CheckOutput(b.Expected, shown); err != nil {
+		t.Fatalf("the block's tools and run show something else:\n%s\n\n%s\n\nthe page shows:\n%s", b.Code, err, shown)
 	}
 }
 
@@ -297,8 +337,7 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 // compiler reads, which an edit can change the output of) or a Go file
 // (which the tour compiles ahead of time and shows read-only by its kind).
 // A block that names modules (one with a go.mod section) is left out: it
-// is written to disk, and its data files are a macro's inputs, which the
-// compiler reads, not the run.
+// is written to disk.
 func tourFileSystem(t *testing.T, b doctest.Block) (*vmhost.MemoryFiles, []string) {
 	t.Helper()
 	seed, err := vmhost.DataFiles(b.Code)

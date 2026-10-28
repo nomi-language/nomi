@@ -1,0 +1,62 @@
+//# The ways a Nomi function says it could not do its job: `None` for an
+//# answer that is not there, an `Err` for a failure the caller handles, and
+//# a trap for a promise the caller broke. And how a resource is released
+//# whichever way the work ends: `defer`.
+
+import std/io.{self, Reader}
+
+/// Why a total could not be read.
+pub enum Error {
+    NotANumber {text: String}
+    Io io.Error
+}
+
+derive Equatable for Error
+
+/// The number `text` writes, or `None` when it writes none.
+pub fn number(text: String) -> Maybe<Int> {
+    String.to_int(text)
+}
+
+/// The number `text` writes, or an `Err` saying what was there instead.
+pub fn parse(text: String) -> Result<Int, Error> {
+    Maybe.to_result(number(text), #Error.NotANumber{text})
+}
+
+/// The number `text` writes. The caller promises it writes one, and a
+/// `text` that does not is a bug in the caller: the call traps.
+pub fn parse_trusted(text: String) -> Int {
+    Some(n) = number(text) else {
+        unreachable "parse_trusted was given text that is not a number"
+    }
+
+    n
+}
+
+/// The sum of the numbers on the lines of `reader`, or the first line that
+/// is not one. The reader is closed when the sum is read, whether or not
+/// it could be.
+pub fn sum_lines(reader: Reader) -> Result<Int, Error> {
+    defer Reader.close_quietly(reader)
+
+    total(reader, parse)
+}
+
+/// The sum of the numbers on the lines of `reader`, each of which the
+/// caller promises is a number. The reader is closed when the sum is read,
+/// and when a line breaks the promise and the call traps.
+pub fn sum_trusted_lines(reader: Reader) -> Result<Int, Error> {
+    defer Reader.close_quietly(reader)
+
+    total(reader, fn line -> Ok(parse_trusted(line)))
+}
+
+/// The sum of what `read` makes of each line still in `reader`.
+fn total(reader: Reader, read: (String) -> Result<Int, Error>) -> Result<Int, Error> {
+    next = Reader.read_line(reader) |> Result.map_err(Error.Io)
+
+    case try next {
+        None -> Ok(0)
+        Some(line) -> Ok(try read(line) + try total(reader, read))
+    }
+}

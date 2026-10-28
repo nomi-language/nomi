@@ -1,0 +1,66 @@
+import line_up
+
+test "format" {
+    cases = [
+        #("format smallest non-exceptional ordinal numeral 4", "Gianna", 4, "4th"),
+        #("format greatest single digit non-exceptional ordinal numeral 9", "Maarten", 9, "9th"),
+        #("format non-exceptional ordinal numeral 5", "Petronila", 5, "5th"),
+        #("format non-exceptional ordinal numeral 6", "Attakullakulla", 6, "6th"),
+        #("format non-exceptional ordinal numeral 7", "Kate", 7, "7th"),
+        #("format non-exceptional ordinal numeral 8", "Maximiliano", 8, "8th"),
+        #("format exceptional ordinal numeral 1", "Mary", 1, "1st"),
+        #("format exceptional ordinal numeral 2", "Haruto", 2, "2nd"),
+        #("format exceptional ordinal numeral 3", "Henriette", 3, "3rd"),
+        #("format smallest two digit non-exceptional ordinal numeral 10", "Alvarez", 10, "10th"),
+        #("format non-exceptional ordinal numeral 11", "Jacqueline", 11, "11th"),
+        #("format non-exceptional ordinal numeral 12", "Juan", 12, "12th"),
+        #("format non-exceptional ordinal numeral 13", "Patricia", 13, "13th"),
+        #("format exceptional ordinal numeral 21", "Washi", 21, "21st"),
+        #(
+            "format exceptional ordinal numeral 22 ending in nd even though it is a multiple of 11",
+            "Ingrid",
+            22,
+            "22nd",
+        ),
+        #(
+            "format exceptional ordinal numeral 33 ending in rd even though it is a multiple of 11",
+            "Mario",
+            33,
+            "33rd",
+        ),
+        #(
+            "format exceptional ordinal numeral 52 ending in nd even though it is a multiple of 13",
+            "Quentin",
+            52,
+            "52nd",
+        ),
+        #("format exceptional ordinal numeral 62", "Nayra", 62, "62nd"),
+        #(
+            "format non-exceptional ordinal numeral 72 ending in nd even though it is a multiple of 12",
+            "Ugo",
+            72,
+            "72nd",
+        ),
+        #(
+            "format exceptional ordinal numeral 91 ending in st even though it is a multiple of 13",
+            "Boris",
+            91,
+            "91st",
+        ),
+        #("format exceptional ordinal numeral 100", "John", 100, "100th"),
+        #("format exceptional ordinal numeral 101", "Zeinab", 101, "101st"),
+        #("format non-exceptional ordinal numeral 112", "Knud", 112, "112th"),
+        #("format exceptional ordinal numeral 123", "Yma", 123, "123rd"),
+        #(
+            "format large number 972 ending in nd even though it is a multiple of 12",
+            "Elias",
+            972,
+            "972nd",
+        ),
+    ]
+
+    subtests cases, #(description, name, number, ordinal), description {
+        assert line_up.format(name, number)
+            == "${name}, you are the ${ordinal} customer we serve today. Thank you!"
+    }
+}

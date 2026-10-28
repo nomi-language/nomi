@@ -52,20 +52,11 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		}
 		return nil, nil
 	}
-	// A macro's fixes for what it reported, in a declaring file or
-	// in an input, which is no document.
-	var macroFixes []protocol.CodeAction
-	if kindAllowed(only, protocol.CodeActionKindQuickFix) {
-		macroFixes = s.macroActions(uri, params.Context.Diagnostics)
-	}
 	snap := s.docs.Snapshot(uri)
 	if snap == nil || snap.Analysis == nil {
-		if len(macroFixes) > 0 {
-			return macroFixes, nil
-		}
 		return nil, nil
 	}
-	actions := macroFixes
+	var actions []protocol.CodeAction
 	if kindAllowed(only, protocol.CodeActionKindQuickFix) {
 		actions = append(actions, buildRemoveUnusedActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)

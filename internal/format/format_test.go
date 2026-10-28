@@ -219,17 +219,11 @@ func TestFormat_Block_MultilineAssertionsAreBlankSeparated(t *testing.T) {
 }
 `
 	want := `test "durations support arithmetic" {
-    assert duration.add(
-        Duration.seconds(1),
-        Duration.milliseconds(500),
-        Duration.microseconds(250),
-    ) == Duration.microseconds(1500250)
+    assert duration.add(Duration.seconds(1), Duration.milliseconds(500), Duration.microseconds(250))
+        == Duration.microseconds(1500250)
 
-    assert duration.subtract(
-        Duration.seconds(1),
-        Duration.seconds(3),
-        Duration.milliseconds(250),
-    ) == Duration.milliseconds(-2250)
+    assert duration.subtract(Duration.seconds(1), Duration.seconds(3), Duration.milliseconds(250))
+        == Duration.milliseconds(-2250)
 
     assert duration.multiply(Duration.seconds(2), 3) == Duration.seconds(6)
 }
@@ -1363,9 +1357,8 @@ fn answer_again() -> Int {
     42
 }
 
-//! assert Result.map_err(Result.Err("bad"), fn e: String -> {
-//!     "error: " + e + ", retried: none"
-//! }) == Result.Err("error: bad, retried: none")
+//! assert Result.map_err(Result.Err("bad"), fn e: String -> "error: " + e + ", retried: none")
+//!     == Result.Err("error: bad, retried: none")
 fn answer_lambda() -> Int {
     42
 }

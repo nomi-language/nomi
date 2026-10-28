@@ -2,7 +2,7 @@
 /// of `factors`. Each multiple counts once, and a factor of 0 has none.
 pub fn sum(factors: List<Int>, limit: Int) -> Int {
     factors
-    |> Iter.filter(&(&1 > 0))
+    |> Iter.filter(fn factor -> factor > 0)
     |> Iter.flat_map(fn factor -> Range.step_by(factor..limit, factor))
     |> Iter.to_set()
     |> Iter.sum()

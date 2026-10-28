@@ -81,3 +81,44 @@ func genStructSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 	}
 	return k, true
 }
+
+// genHostSigKind is the kind a stdlib signature's `Vector<String>` /
+// `Sender<Int>` annotation names, reporting whether the annotation was a
+// generic std host type at all: genStructSigKind's arm for the
+// stdGenHostSpecs family, on the same terms.
+//
+// Without it the family had a spec and no signature arm, so a generic host type
+// was admissible in a user's annotation (stdGenHostTypeOf) and in an inferred
+// position, and every shared std function that named one at a concrete
+// argument refused as `stdlib function outside the scalar subset` with the
+// representation present: a private `fn digits_end(marks: Vector<String>, at:
+// Int)` in std/duration was never lowered, and every body that called it
+// declined.
+//
+// Resolved through anchors.genHosts, stdGenHostAnchorsOf's (origin, name) and
+// validated-shape map, and interned through the PROCESS-WIDE door
+// (sharedGenHostInstance), for genStructSigKind's reasons. A type argument
+// this boundary cannot share is claimed and refused, so the refusal names the
+// argument rather than the container.
+func genHostSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
+	a := anchors.genHosts[gt.Name]
+	if a == nil {
+		return kindInvalid, false
+	}
+	if len(gt.Params) != len(a.spec.params) {
+		return kindInvalid, true
+	}
+	args := make([]kind, len(gt.Params))
+	for i, p := range gt.Params {
+		args[i] = stdTypeKind(p, anchors)
+		// kindInvalid: propagates — the argument's own refusal is the answer.
+		if args[i] == kindInvalid {
+			return kindInvalid, true
+		}
+	}
+	k, shared := sharedGenHostInstance(a.spec, args)
+	if !shared {
+		return kindInvalid, true
+	}
+	return k, true
+}

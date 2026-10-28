@@ -1,0 +1,90 @@
+/// A game of bowling: the rolls so far, each one valid when it was rolled.
+pub struct Game {
+    rolls: List<Int>
+}
+
+/// Why a roll or a score is refused.
+pub enum Error {
+    NegativeRoll
+    TooManyPins
+    GameOver
+    GameNotOver
+}
+
+impl Game {
+    /// A game with no rolls yet.
+    pub fn new() -> Game {
+        #{rolls: []}
+    }
+
+    /// The game after a roll that knocks down `pins`.
+    pub fn roll(game: Game, pins: Int) -> Result<Game, Error> {
+        if pins < 0 { return Err(.NegativeRoll) }
+
+        Some(standing) = pins_standing(game.rolls, frame: 1) else {
+            return Err(.GameOver)
+        }
+        if pins > standing { return Err(.TooManyPins) }
+        Ok(#{rolls: List.concat(game.rolls, [pins])})
+    }
+
+    /// The total score of a finished game.
+    pub fn score(game: Game) -> Result<Int, Error> {
+        case pins_standing(game.rolls, frame: 1) {
+            Some(_) -> Err(.GameNotOver)
+            None -> Ok(total(game.rolls, frame: 1))
+        }
+    }
+}
+
+/// The pins standing for the next roll after `rolls`, which start at
+/// `frame`, or `None` when the game is over.
+fn pins_standing(rolls: List<Int>, frame: Int) -> Maybe<Int> {
+    case rolls {
+        _ when frame == 10 -> last_frame_standing(rolls)
+        [] -> Some(10)
+        [10, ..rest] -> pins_standing(rest, frame: frame + 1)
+        [first] -> Some(10 - first)
+        [_, _, ..rest] -> pins_standing(rest, frame: frame + 1)
+    }
+}
+
+/// The pins standing in the tenth frame after `rolls`. A strike or a spare
+/// earns fill balls, and the pins are set up again after each strike and
+/// after the spare.
+fn last_frame_standing(rolls: List<Int>) -> Maybe<Int> {
+    case rolls {
+        [] or [10] or [10, 10] -> Some(10)
+        [10, second] -> Some(10 - second)
+        [first] -> Some(10 - first)
+        [first, second] when first + second == 10 -> Some(10)
+        _ -> None
+    }
+}
+
+/// The score of the finished frames `rolls` holds, which start at `frame`.
+/// A strike adds the next two rolls and a spare the next one; the tenth
+/// frame is its pins, fill balls included.
+fn total(rolls: List<Int>, frame: Int) -> Int {
+    case rolls {
+        _ when frame == 10 ->
+            Iter.sum(rolls)
+
+        [10, ..rest] ->
+            10 + bonus(rest, 2) + total(rest, frame: frame + 1)
+
+        [first, second, ..rest] when first + second == 10 ->
+            10 + bonus(rest, 1) + total(rest, frame: frame + 1)
+
+        [first, second, ..rest] ->
+            first + second + total(rest, frame: frame + 1)
+
+        _ ->
+            unreachable "a finished game has two rolls in every frame that is not a strike"
+    }
+}
+
+/// The pins of the next `count` rolls.
+fn bonus(rolls: List<Int>, count: Int) -> Int {
+    rolls |> Iter.take(count) |> Iter.sum()
+}

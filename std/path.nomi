@@ -2,7 +2,7 @@
 //# a program and its tests behave the same everywhere: on Windows std/fs
 //# accepts `\` too and answers `/`, and a drive is written `C:/Users`.
 //# These functions read the text alone; none of them looks at the file
-//# system, so a typed literal's handler and a macro may call them.
+//# system, so a typed literal's handler may call them.
 //#
 //# ```nomi
 //# path.join("data", "log.txt") // "data/log.txt"
@@ -324,10 +324,8 @@ fn match_names(patterns: List<String>, names: List<String>) -> Bool {
             }
 
         #([pattern, ..rest], [name, ..more]) ->
-            if hidden_matches?(pattern, name) and match_name(
-                String.to_codepoints(pattern),
-                String.to_codepoints(name),
-            ) {
+            if hidden_matches?(pattern, name)
+                and match_name(String.to_codepoints(pattern), String.to_codepoints(name)) {
                 match_names(rest, more)
             } else {
                 False

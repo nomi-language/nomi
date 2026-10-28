@@ -1,0 +1,97 @@
+/// A binary tree node: a value and a subtree on each side, either of which
+/// may be missing.
+pub struct Tree<T> {
+    value: T
+    left: Maybe<Tree<T>>
+    right: Maybe<Tree<T>>
+}
+
+derive Equatable for Tree<T>
+
+/// A tree seen from one of its nodes, the focus. The zipper holds the focus
+/// subtree and the path back to the root, nearest parent first, so moving
+/// the focus or changing it rebuilds only the nodes on that path.
+pub opaque struct Zipper<T> {
+    focus: Tree<T>
+    path: List<Crumb<T>>
+}
+
+/// One step up from a focus: the parent's value and the parent's other
+/// subtree, on the side the focus was not.
+enum Crumb<T> {
+    FromLeft {value: T, right: Maybe<Tree<T>>}
+    FromRight {value: T, left: Maybe<Tree<T>>}
+}
+
+derive Equatable for Crumb<T>
+
+derive Equatable for Zipper<T>
+
+impl Zipper<T> {
+    /// A zipper on `tree` with its root in focus.
+    pub fn from_tree(tree: Tree<T>) -> Zipper<T> {
+        #Zipper{focus: tree, path: []}
+    }
+
+    /// The whole tree, whatever the focus.
+    pub fn to_tree(zipper: Zipper<T>) -> Tree<T> {
+        case Zipper.up(zipper) {
+            Some(parent) -> Zipper.to_tree(parent)
+            None -> zipper.focus
+        }
+    }
+
+    /// The value of the focus node.
+    pub fn value(zipper: Zipper<T>) -> T {
+        zipper.focus.value
+    }
+
+    /// The zipper on the focus's left subtree, or `None` when it has none.
+    pub fn left(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
+        #Tree{value, left, right} = zipper.focus
+
+        Maybe.map(left, fn child -> #Zipper{
+            focus: child,
+            path: [#.FromLeft{value, right}, ..zipper.path],
+        })
+    }
+
+    /// The zipper on the focus's right subtree, or `None` when it has none.
+    pub fn right(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
+        #Tree{value, left, right} = zipper.focus
+
+        Maybe.map(right, fn child -> #Zipper{
+            focus: child,
+            path: [#.FromRight{value, left}, ..zipper.path],
+        })
+    }
+
+    /// The zipper on the focus's parent, or `None` at the root.
+    pub fn up(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
+        case zipper.path {
+            [] ->
+                None
+
+            [#.FromLeft{value, right}, ..path] ->
+                Some(#Zipper{focus: #{value, left: Some(zipper.focus), right}, path})
+
+            [#.FromRight{value, left}, ..path] ->
+                Some(#Zipper{focus: #{value, left, right: Some(zipper.focus)}, path})
+        }
+    }
+
+    /// `zipper` with the focus node's value replaced by `value`.
+    pub fn set_value(zipper: Zipper<T>, value: T) -> Zipper<T> {
+        #{..zipper, focus: #{.., value}}
+    }
+
+    /// `zipper` with the focus node's left subtree replaced by `left`.
+    pub fn set_left(zipper: Zipper<T>, left: Maybe<Tree<T>>) -> Zipper<T> {
+        #{..zipper, focus: #{.., left}}
+    }
+
+    /// `zipper` with the focus node's right subtree replaced by `right`.
+    pub fn set_right(zipper: Zipper<T>, right: Maybe<Tree<T>>) -> Zipper<T> {
+        #{..zipper, focus: #{.., right}}
+    }
+}

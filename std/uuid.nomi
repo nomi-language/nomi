@@ -76,15 +76,13 @@ impl Uuid {
     /// Read the 36-character hyphenated form, in either case. Braces, a
     /// `urn:uuid:` prefix and the 32-digit form without hyphens are not
     /// accepted.
-    //! assert Display.to_string(
-    //!     try Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")
-    //! ) == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    //! assert Display.to_string(try Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"))
+    //!     == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     //!
     //! assert Uuid.parse("6ba7b810") == Err(#Error.Length{length: 8})
     //!
-    //! assert Uuid.parse("6ba7b810+9dad-11d1-80b4-00c04fd430c8") == Err(
-    //!     #Error.Separator{index: 8, found: "+"}
-    //! )
+    //! assert Uuid.parse("6ba7b810+9dad-11d1-80b4-00c04fd430c8")
+    //!     == Err(#Error.Separator{index: 8, found: "+"})
     //!
     //! assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(#Error.Digit{index: 7, found: "g"})
     //

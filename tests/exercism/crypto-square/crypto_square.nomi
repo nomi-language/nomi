@@ -1,0 +1,42 @@
+//# The square code: the message's letters and digits written in rows of a
+//# rectangle, then read down the columns.
+
+/// The square code of `plaintext`: its columns, separated by spaces, each as
+/// long as the rectangle is tall.
+pub fn ciphertext(plaintext: String) -> String {
+    text = normalize(plaintext)
+    length = String.length(text)
+    if length == 0 { return "" }
+
+    columns = width(length)
+    rows = (length + columns - 1) / columns
+
+    text
+    |> String.pad_end(rows * columns)
+    |> Iter.chunks(columns)
+    |> Iter.transpose()
+    |> Iter.map(&String.join(&1))
+    |> String.join(" ")
+}
+
+/// `text` in lower case, with everything but letters and digits removed.
+fn normalize(text: String) -> String {
+    text
+    |> String.to_lower()
+    |> String.to_codepoints()
+    |> Iter.filter(fn cp -> Codepoint.letter?(cp) or Codepoint.digit?(cp))
+    |> Iter.to_list()
+    |> String.from_codepoints()
+}
+
+/// The fewest columns that hold `length` letters in a rectangle no taller
+/// than it is wide.
+fn width(length: Int) -> Int {
+    root = Int.sqrt(length)
+
+    if root * root == length {
+        root
+    } else {
+        root + 1
+    }
+}

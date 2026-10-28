@@ -1,0 +1,59 @@
+import matrix.{Error, Matrix}
+
+test "rows" {
+    cases = [
+        #("extract row from one number matrix", "1", 1, [1]),
+        #("can extract row", "1 2\n3 4", 2, [3, 4]),
+        #("extract row where numbers have different widths", "1 2\n10 20", 2, [10, 20]),
+        #(
+            "can extract row from non-square matrix with no corresponding column",
+            "1 2 3\n4 5 6\n7 8 9\n8 7 6",
+            4,
+            [8, 7, 6],
+        ),
+    ]
+
+    subtests cases, #(description, text, index, expected), description {
+        assert Ok(matrix) = Matrix.parse(text)
+
+        assert Matrix.row(matrix, index) == Some(expected)
+    }
+}
+
+test "columns" {
+    cases = [
+        #("extract column from one number matrix", "1", 1, [1]),
+        #("can extract column", "1 2 3\n4 5 6\n7 8 9", 3, [3, 6, 9]),
+        #(
+            "can extract column from non-square matrix with no corresponding row",
+            "1 2 3 4\n5 6 7 8\n9 8 7 6",
+            4,
+            [4, 8, 6],
+        ),
+        #(
+            "extract column where numbers have different widths",
+            "89 1903 3\n18 3 1\n9 4 800",
+            2,
+            [1903, 3, 4],
+        ),
+    ]
+
+    subtests cases, #(description, text, index, expected), description {
+        assert Ok(matrix) = Matrix.parse(text)
+
+        assert Matrix.column(matrix, index) == Some(expected)
+    }
+}
+
+// Not canonical: the canonical matrices are all well formed and every index
+// is in range.
+test "a word that is not a number is an error" {
+    assert Matrix.parse("1 2\n3 four") == Err(Error.NotANumber("four"))
+}
+
+test "an index past the last row or column is None" {
+    matrix = try Matrix.parse("1 2\n3 4")
+
+    assert Matrix.row(matrix, 3) == None
+    assert Matrix.column(matrix, 0) == None
+}

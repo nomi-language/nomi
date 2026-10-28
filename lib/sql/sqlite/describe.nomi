@@ -1,5 +1,5 @@
 //# Asking SQLite about a schema and its statements, for tools such as
-//# `nomi tool sqlkit prepare`: `describe.describe(migrations, statements)`
+//# `nomi tool sqlkit generate`: `describe.describe(migrations, statements)`
 //# applies the migrations to a fresh in-memory database and answers its
 //# tables and, for each statement, its result columns (with the table
 //# column each one reads, from SQLite's column metadata), its parameter

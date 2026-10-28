@@ -1,0 +1,244 @@
+import complex_numbers.Complex
+
+// The canonical data asks for a tolerance on results that are not whole
+// numbers.
+once tolerance = 1e-12
+
+test "Real part" {
+    cases = [
+        #("Real part of a purely real number", Complex.new(1.0, 0.0), 1.0),
+        #("Real part of a purely imaginary number", Complex.new(0.0, 1.0), 0.0),
+        #("Real part of a number with real and imaginary part", Complex.new(1.0, 2.0), 1.0),
+    ]
+
+    subtests cases, #(description, z, expected), description {
+        assert Complex.real(z) == expected
+    }
+}
+
+test "Imaginary part" {
+    cases = [
+        #("Imaginary part of a purely real number", Complex.new(1.0, 0.0), 0.0),
+        #("Imaginary part of a purely imaginary number", Complex.new(0.0, 1.0), 1.0),
+        #("Imaginary part of a number with real and imaginary part", Complex.new(1.0, 2.0), 2.0),
+    ]
+
+    subtests cases, #(description, z, expected), description {
+        assert Complex.imaginary(z) == expected
+    }
+}
+
+test "Imaginary unit" {
+    assert Complex.new(0.0, 1.0) * Complex.new(0.0, 1.0) == Complex.new(-1.0, 0.0)
+}
+
+group "Arithmetic" {
+    test "Addition" {
+        cases = [
+            #(
+                "Add purely real numbers",
+                Complex.new(1.0, 0.0),
+                Complex.new(2.0, 0.0),
+                Complex.new(3.0, 0.0),
+            ),
+            #(
+                "Add purely imaginary numbers",
+                Complex.new(0.0, 1.0),
+                Complex.new(0.0, 2.0),
+                Complex.new(0.0, 3.0),
+            ),
+            #(
+                "Add numbers with real and imaginary part",
+                Complex.new(1.0, 2.0),
+                Complex.new(3.0, 4.0),
+                Complex.new(4.0, 6.0),
+            ),
+        ]
+
+        subtests cases, #(description, z1, z2, expected), description {
+            assert z1 + z2 == expected
+        }
+    }
+
+    test "Subtraction" {
+        cases = [
+            #(
+                "Subtract purely real numbers",
+                Complex.new(1.0, 0.0),
+                Complex.new(2.0, 0.0),
+                Complex.new(-1.0, 0.0),
+            ),
+            #(
+                "Subtract purely imaginary numbers",
+                Complex.new(0.0, 1.0),
+                Complex.new(0.0, 2.0),
+                Complex.new(0.0, -1.0),
+            ),
+            #(
+                "Subtract numbers with real and imaginary part",
+                Complex.new(1.0, 2.0),
+                Complex.new(3.0, 4.0),
+                Complex.new(-2.0, -2.0),
+            ),
+        ]
+
+        subtests cases, #(description, z1, z2, expected), description {
+            assert z1 - z2 == expected
+        }
+    }
+
+    test "Multiplication" {
+        cases = [
+            #(
+                "Multiply purely real numbers",
+                Complex.new(1.0, 0.0),
+                Complex.new(2.0, 0.0),
+                Complex.new(2.0, 0.0),
+            ),
+            #(
+                "Multiply purely imaginary numbers",
+                Complex.new(0.0, 1.0),
+                Complex.new(0.0, 2.0),
+                Complex.new(-2.0, 0.0),
+            ),
+            #(
+                "Multiply numbers with real and imaginary part",
+                Complex.new(1.0, 2.0),
+                Complex.new(3.0, 4.0),
+                Complex.new(-5.0, 10.0),
+            ),
+        ]
+
+        subtests cases, #(description, z1, z2, expected), description {
+            assert z1 * z2 == expected
+        }
+    }
+
+    test "Division" {
+        cases = [
+            #(
+                "Divide purely real numbers",
+                Complex.new(1.0, 0.0),
+                Complex.new(2.0, 0.0),
+                Complex.new(0.5, 0.0),
+            ),
+            #(
+                "Divide purely imaginary numbers",
+                Complex.new(0.0, 1.0),
+                Complex.new(0.0, 2.0),
+                Complex.new(0.5, 0.0),
+            ),
+            #(
+                "Divide numbers with real and imaginary part",
+                Complex.new(1.0, 2.0),
+                Complex.new(3.0, 4.0),
+                Complex.new(0.44, 0.08),
+            ),
+        ]
+
+        subtests cases, #(description, z1, z2, expected), description {
+            assert Complex.equal_within?(z1 / z2, expected, tolerance)
+        }
+    }
+}
+
+test "Absolute value" {
+    cases = [
+        #("Absolute value of a positive purely real number", Complex.new(5.0, 0.0), 5.0),
+        #("Absolute value of a negative purely real number", Complex.new(-5.0, 0.0), 5.0),
+        #(
+            "Absolute value of a purely imaginary number with positive imaginary part",
+            Complex.new(0.0, 5.0),
+            5.0,
+        ),
+        #(
+            "Absolute value of a purely imaginary number with negative imaginary part",
+            Complex.new(0.0, -5.0),
+            5.0,
+        ),
+        #("Absolute value of a number with real and imaginary part", Complex.new(3.0, 4.0), 5.0),
+    ]
+
+    subtests cases, #(description, z, expected), description {
+        assert Complex.abs(z) == expected
+    }
+}
+
+test "Complex conjugate" {
+    cases = [
+        #("Conjugate a purely real number", Complex.new(5.0, 0.0), Complex.new(5.0, 0.0)),
+        #("Conjugate a purely imaginary number", Complex.new(0.0, 5.0), Complex.new(0.0, -5.0)),
+        #(
+            "Conjugate a number with real and imaginary part",
+            Complex.new(1.0, 1.0),
+            Complex.new(1.0, -1.0),
+        ),
+    ]
+
+    subtests cases, #(description, z, expected), description {
+        assert Complex.conjugate(z) == expected
+    }
+}
+
+test "Complex exponential function" {
+    cases = [
+        #("Euler's identity/formula", Complex.new(0.0, Float.pi), Complex.new(-1.0, 0.0)),
+        #("Exponential of 0", Complex.new(0.0, 0.0), Complex.new(1.0, 0.0)),
+        #("Exponential of a purely real number", Complex.new(1.0, 0.0), Complex.new(Float.e, 0.0)),
+        #(
+            "Exponential of a number with real and imaginary part",
+            Complex.new(Float.log(2.0), Float.pi),
+            Complex.new(-2.0, 0.0),
+        ),
+        #(
+            "Exponential resulting in a number with real and imaginary part",
+            Complex.new(Float.log(2.0) / 2.0, Float.pi / 4.0),
+            Complex.new(1.0, 1.0),
+        ),
+    ]
+
+    subtests cases, #(description, z, expected), description {
+        assert Complex.equal_within?(Complex.exp(z), expected, tolerance)
+    }
+}
+
+test "Operations between real numbers and complex numbers" {
+    cases = [
+        #("Add real number to complex number", Complex.new(1.0, 2.0) + 5.0, Complex.new(6.0, 2.0)),
+        #("Add complex number to real number", 5.0 + Complex.new(1.0, 2.0), Complex.new(6.0, 2.0)),
+        #(
+            "Subtract real number from complex number",
+            Complex.new(5.0, 7.0) - 4.0,
+            Complex.new(1.0, 7.0),
+        ),
+        #(
+            "Subtract complex number from real number",
+            4.0 - Complex.new(5.0, 7.0),
+            Complex.new(-1.0, -7.0),
+        ),
+        #(
+            "Multiply complex number by real number",
+            Complex.new(2.0, 5.0) * 5.0,
+            Complex.new(10.0, 25.0),
+        ),
+        #(
+            "Multiply real number by complex number",
+            5.0 * Complex.new(2.0, 5.0),
+            Complex.new(10.0, 25.0),
+        ),
+        #(
+            "Divide complex number by real number",
+            Complex.new(10.0, 100.0) / 10.0,
+            Complex.new(1.0, 10.0),
+        ),
+        #(
+            "Divide real number by complex number",
+            5.0 / Complex.new(1.0, 1.0),
+            Complex.new(2.5, -2.5),
+        ),
+    ]
+
+    subtests cases, #(description, actual, expected), description {
+        assert Complex.equal_within?(actual, expected, tolerance)
+    }
+}

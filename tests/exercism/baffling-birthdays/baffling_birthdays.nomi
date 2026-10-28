@@ -1,0 +1,63 @@
+//# The birthday problem: how likely it is that two people in a group share
+//# a birthday, estimated by drawing random groups and counting.
+
+import {
+    std/calendar.{Date, Days}
+    std/random.Generator
+}
+
+/// The years a random birthdate falls in: the years from 1900 to 2023
+/// without a 29 February, so every day of the year is as likely.
+once common_years = 1900..=2023 |> Iter.filter(fn year -> !Date.leap_year?(year)) |> Iter.to_list()
+
+/// Whether two of `birthdates` fall on the same day of the year, whatever
+/// the years.
+pub fn shared_birthday?(birthdates: List<Date>) -> Bool {
+    days =
+        birthdates
+        |> Iter.map(fn date -> #(Date.month(date), Date.day(date)))
+        |> Iter.to_set()
+
+    Set.size(days) < Iter.count(birthdates)
+}
+
+/// `group_size` birthdates, each a uniformly random day of a random year
+/// that is not a leap year.
+pub fn random_birthdates(group_size: Int) -> Generator<List<Date>> {
+    Generator.list(birthdate(), group_size)
+}
+
+/// The percentage of `trials` random groups of `group_size` people in
+/// which two share a birthday.
+pub fn estimated_probability_of_shared_birthday(
+    group_size: Int,
+    trials: Int = 10000,
+) -> Generator<Float> {
+    random_birthdates(group_size)
+    |> Generator.map(shared_birthday?)
+    |> Generator.list(trials)
+    |> Generator.map(fn shared -> {
+        hits = shared |> Iter.filter(fn yes -> yes) |> Iter.count()
+        100.0 * Int.to_float(hits) / Int.to_float(trials)
+    })
+}
+
+/// A uniformly random day of a random common year.
+fn birthdate() -> Generator<Date> {
+    [first, ..rest] = common_years else {
+        unreachable "the years from 1900 to 2023 include common years"
+    }
+
+    Generator.uniform(first, rest)
+    |> Generator.flat_map(fn year -> {
+        Generator.int(0, 364)
+        |> Generator.map(fn day -> first_of_january(year) + Days(day))
+    })
+}
+
+fn first_of_january(year: Int) -> Date {
+    case Date.new(year, 1, 1) {
+        Ok(date) -> date
+        Err(_) -> unreachable "1 January is a date in every year"
+    }
+}

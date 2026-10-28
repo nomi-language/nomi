@@ -374,6 +374,7 @@ type mapFn struct {
 // the map without it.
 var mapFuncs = map[string]mapFn{
 	"get":       {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "maybe"},
+	"at":        {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "value"},
 	"put":       {rtCall: "rt.MapPut", args: 3, opsAfter: 1, result: "map"},
 	"size":      {rtCall: "rt.MapSize", args: 1, opsAfter: 0, result: "int"},
 	"remove":    {rtCall: "rt.MapRemove", args: 2, opsAfter: 1, result: "map"},
@@ -389,6 +390,9 @@ func (g *gen) mapResultKind(tag string, key, val kind, at ast.Node) (kind, bool)
 		return kindInt, true
 	case "bool":
 		return kindBool, true
+	case "value":
+		// `Map.at` answers the value itself, and traps on a missing key.
+		return val, true
 	case "map":
 		return g.mapKind(key, val), true
 	case "next":

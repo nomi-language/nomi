@@ -50,7 +50,7 @@ type Module struct {
 	// Dir is its directory in this repository, slash-separated.
 	Dir string
 	// Requires is the names of the tour modules its go.mod requires, which
-	// Source attaches with it (sqlkit's prepare tool imports sqlite).
+	// Source attaches with it (sqlkit's generate tool imports sqlite).
 	Requires []string
 	// Files is the text of its nomi.toml and Nomi files, its tests left
 	// out, by their path in Dir: modules_sources_gen.go's copy of the tree.
@@ -297,7 +297,7 @@ type linkedModule struct {
 // project of src, a block Source attached its modules to: MarkedHosts',
 // with the bindings of the tool's own file, tools/<name>.nomi, also under
 // the keys a program whose entry it is crosses under, their bare names
-// (`config_text` for `tools/prepare.config_text`), since the tool runs as
+// (`config_text` for `tools/generate.config_text`), since the tool runs as
 // that program.
 func ToolHosts(src, name string) (func(*hostadapt.Env) (map[string]hostadapt.Func, error), error) {
 	hosts, err := MarkedHosts(src)

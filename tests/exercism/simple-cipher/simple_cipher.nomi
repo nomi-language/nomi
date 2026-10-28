@@ -1,0 +1,76 @@
+//# The Vigenère cipher over lowercase letters: each letter of the text moves
+//# along the alphabet by the number of the key's letter at its position, `a`
+//# moving it by 0, and the key repeats as often as the text needs.
+
+import std/random.{Generator, Seed}
+
+once alphabet = Iter.to_vector('a'..='z')
+once letter_count = Vector.length(alphabet)
+
+/// How long a random key is.
+once random_key_length = 100
+
+/// A cipher with its key, a non-empty string of lowercase letters.
+pub opaque struct Cipher {
+    key: String
+}
+
+impl Cipher {
+    /// The cipher with `key`, a non-empty string of lowercase letters.
+    pub fn new(key: String) -> Cipher {
+        #Cipher{key}
+    }
+
+    /// A cipher with a random key of 100 lowercase letters drawn from
+    /// `seed`, and the seed to draw from next.
+    pub fn random(seed: Seed) -> #(Cipher, Seed) {
+        #(letters, next) =
+            Generator.int(0, letter_count - 1)
+            |> Generator.map(&Vector.at(alphabet, &1))
+            |> Generator.list(random_key_length)
+            |> Generator.step(seed)
+
+        #(#Cipher{key: String.from_codepoints(letters)}, next)
+    }
+
+    /// The cipher's key.
+    pub fn key(cipher: Cipher) -> String {
+        cipher.key
+    }
+
+    /// `plaintext`, lowercase letters, with each letter moved forward by its
+    /// key letter.
+    pub fn encode(cipher: Cipher, plaintext: String) -> String {
+        shift(cipher, plaintext, 1)
+    }
+
+    /// `ciphertext`, lowercase letters, with each letter moved back by its
+    /// key letter: the inverse of `encode`.
+    pub fn decode(cipher: Cipher, ciphertext: String) -> String {
+        shift(cipher, ciphertext, -1)
+    }
+}
+
+/// `text` with each letter moved by its key letter's number, forward for a
+/// `direction` of 1 and back for -1, wrapping around the alphabet.
+fn shift(cipher: Cipher, text: String, direction: Int) -> String {
+    key =
+        cipher.key
+        |> String.to_codepoints()
+        |> Iter.cycle()
+
+    text
+    |> String.to_codepoints()
+    |> Iter.zip(key)
+    |> Iter.map(fn #(letter, by) -> {
+        moved = number(letter) + direction * number(by)
+        Vector.at(alphabet, Int.modulo(moved, letter_count))
+    })
+    |> Iter.to_list()
+    |> String.from_codepoints()
+}
+
+/// A lowercase letter's place in the alphabet, from 0 for `a`.
+fn number(letter: Codepoint) -> Int {
+    Codepoint.to_int(letter) - Codepoint.to_int('a')
+}

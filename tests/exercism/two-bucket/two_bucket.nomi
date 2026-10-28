@@ -17,9 +17,6 @@ pub enum Error {
     Impossible
 }
 
-/// The liters in bucket one and bucket two.
-typealias State #(Int, Int)
-
 /// The fewest actions that measure `goal` liters with buckets of `one` and
 /// `two` liters, filling `start` first. No action may leave `start` empty
 /// and the other bucket full.
@@ -32,14 +29,15 @@ pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, 
     search([first], %[first, forbidden], 1, #(one, two), goal)
 }
 
-/// A breadth-first search: `frontier` is every state `moves` actions reach
+/// A breadth-first search over states, the liters in bucket one and bucket
+/// two: `frontier` is every state `moves` actions reach
 /// that no fewer actions do, and `seen` every state reached so far, with the
 /// forbidden one, so no action leads back to them.
 fn search(
-    frontier: List<State>,
-    seen: Set<State>,
+    frontier: List<#(Int, Int)>,
+    seen: Set<#(Int, Int)>,
     moves: Int,
-    sizes: State,
+    sizes: #(Int, Int),
     goal: Int,
 ) -> Result<Outcome, Error> {
     case Iter.find(frontier, fn #(one, two) -> one == goal or two == goal) {
@@ -67,7 +65,7 @@ fn search(
 
 /// The states one action leads to from `#(one, two)`: fill a bucket, empty
 /// one, or pour one into the other until it is empty or the other is full.
-fn actions(#(one, two): State, #(size_one, size_two): State) -> List<State> {
+fn actions(#(one, two): #(Int, Int), #(size_one, size_two): #(Int, Int)) -> List<#(Int, Int)> {
     into_two = Int.min(one, size_two - two)
     into_one = Int.min(two, size_one - one)
 

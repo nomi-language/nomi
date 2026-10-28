@@ -80,11 +80,8 @@ func loadOrderSample(t *testing.T) []loweringSeed {
 	}
 	// Always in the sample: libraries' impls for std receivers, which the
 	// impl indexes key by a receiver no program file declares.
-	// And a program whose front end builds and runs a macro, whose
-	// build and expansion are cached for the process.
 	fixed := []loweringSeed{
 		{name: "local type argument impls", src: localTypeArgumentProgram},
-		{name: "a macro's expansion", src: macroLoadOrderProgram},
 	}
 	if n >= len(all) {
 		return append(all, fixed...)

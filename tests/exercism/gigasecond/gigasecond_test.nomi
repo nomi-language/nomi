@@ -1,0 +1,50 @@
+import {
+    std/calendar.{Date, NaiveDateTime}
+    gigasecond
+}
+
+test "date only specification of time" {
+    cases = [
+        #("date only specification of time", Date`2011-04-25`, NaiveDateTime`2043-01-01T01:46:40`),
+        #(
+            "second test for date only specification of time",
+            Date`1977-06-13`,
+            NaiveDateTime`2009-02-19T01:46:40`,
+        ),
+        #(
+            "third test for date only specification of time",
+            Date`1959-07-19`,
+            NaiveDateTime`1991-03-27T01:46:40`,
+        ),
+    ]
+
+    subtests cases, #(description, day, expected), description {
+        assert NaiveDateTime.at_midnight(day) |> gigasecond.add() == expected
+    }
+}
+
+test "full time specified" {
+    cases = [
+        #(
+            "full time specified",
+            NaiveDateTime`2015-01-24T22:00:00`,
+            NaiveDateTime`2046-10-02T23:46:40`,
+        ),
+        #(
+            "full time with day roll-over",
+            NaiveDateTime`2015-01-24T23:59:59`,
+            NaiveDateTime`2046-10-03T01:46:39`,
+        ),
+    ]
+
+    subtests cases, #(description, moment, expected), description {
+        assert gigasecond.add(moment) == expected
+    }
+}
+
+test "does not mutate the input" {
+    moment = NaiveDateTime`2015-01-24T23:59:59`
+    _later = gigasecond.add(moment)
+
+    assert moment == NaiveDateTime`2015-01-24T23:59:59`
+}

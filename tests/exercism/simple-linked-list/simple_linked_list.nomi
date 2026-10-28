@@ -1,0 +1,58 @@
+/// A singly linked list that is last in, first out: `push` puts a value at
+/// the head, and `pop` and `peek` read the head. It is a value, so every
+/// operation answers a list and shares the nodes it did not change.
+pub enum LinkedList<T> {
+    Empty
+    Node {value: T, next: LinkedList<T>}
+}
+
+/// Why a value cannot be read.
+pub enum Error {
+    EmptyList
+}
+
+impl LinkedList<T> {
+    /// The list that pushing `values` one after another onto an empty list
+    /// builds, so the last of them is at the head.
+    pub fn from(values: List<T>) -> LinkedList<T> {
+        Iter.reduce(values, LinkedList.push, from: LinkedList.Empty)
+    }
+
+    /// `list` with `value` at its head.
+    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
+        #.Node{value, next: list}
+    }
+
+    /// The value at the head of `list` and the list after it, or
+    /// `EmptyList`.
+    pub fn pop(list: LinkedList<T>) -> Result<#(T, LinkedList<T>), Error> {
+        case list {
+            .Empty -> Err(.EmptyList)
+            #.Node{value, next} -> Ok(#(value, next))
+        }
+    }
+
+    /// The value at the head of `list`, or `EmptyList`.
+    pub fn peek(list: LinkedList<T>) -> Result<T, Error> {
+        case list {
+            .Empty -> Err(.EmptyList)
+            #.Node{value} -> Ok(value)
+        }
+    }
+
+    /// `list` with its values in the opposite order.
+    pub fn reverse(list: LinkedList<T>) -> LinkedList<T> {
+        Iter.reduce(list, LinkedList.push, from: LinkedList.Empty)
+    }
+}
+
+impl Iter<T> for LinkedList<T> {
+    /// Walks the list from its head, so `Iter.to_list` answers the values in
+    /// the order `pop` would.
+    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
+        case list {
+            .Empty -> True
+            #.Node{value, next} -> yield(value) and each_while(next, yield)
+        }
+    }
+}

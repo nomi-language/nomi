@@ -1,23 +1,11 @@
-//# Checked SQL. Two macros, written against `std/macro`, used after
-//# `import sqlkit`:
-//#
-//# - `sqlkit.database! main` declares the database `main`, which
-//#   `[sqlkit.database.main]` in `nomi.toml` may configure, and generates a
-//#   row struct per table, named in the singular (`users` is `User`), an
-//#   enum per `CHECK (column IN (...))` column, and the migrations as data.
-//# - ``sqlkit.query! name(params) -> Row Sql`SQL` `` declares a function
-//#   that runs the SQL, `@param` marking where each parameter is bound, and
-//#   answers typed rows: `-> T` exactly one row, `-> Maybe<T>` at most one,
-//#   `-> List<T>` every row, `-> Rows<T>` a stream read with `Rows.fold`.
-//#   With no result type it answers a list of anonymous structs of its
-//#   columns. SQL that returns no rows writes `-> Changed` for the number
-//#   of rows it changed (`#Changed{rows}`), or `-> Unit` to ignore it. The
-//#   body is tagged `Sql`, so editors highlight it as SQL.
-//#
-//# Both read only the snapshot `nomi tool sqlkit prepare` writes from the
-//# migrations, so checking needs no database. A column is a `Maybe` when it
-//# may be NULL; `AS "name!"` asserts it never is, `AS "name?"` that it may
-//# be, and `AS "name: Type"` gives an expression's type.
+//# Checked SQL. `nomi tool sqlkit generate` reads a module's migrations
+//# and its query files, asks SQLite to describe each query, and writes
+//# ordinary Nomi files: the schema (a row struct per table, named in the
+//# singular, an enum per `CHECK (column IN (...))` column, and the
+//# migrations as data) and a function per query that runs its SQL on a
+//# `Conn` and answers typed rows. This file holds what the generated code
+//# and its callers use: `Rows<T>`, `Changed`, `Migration` and `migrate`,
+//# and the SQL type families.
 //#
 //# A Nomi type is read from, or bound to, a column of a SQL type family when
 //# it implements that family's interface (`SqlInt`, `SqlText`, ...), and
@@ -30,123 +18,9 @@ import {
     std/channels.{Channel, Receiver, Sender}
     std/instant.Instant
     std/json.Json
-    std/macro.{
-        Action,
-        ActionsCall,
-        CheckCall,
-        Completion,
-        Diagnostic,
-        ExpandCall,
-        Expansion,
-        Macro,
-        Navigation,
-        NavigationCall,
-        ProgramCheck,
-        Request,
-        RequestCall,
-        Span
-    }
     std/sql.{self, Conn, Row, Sql, Statement}
     std/uuid.Uuid
     checksum
-    databases
-    generate
-    navigate
-}
-
-/// ``sqlkit.query! name(params) -> Row Sql`SQL` ``: a function that runs the
-/// SQL, checked against the database snapshot. Its first parameter is the
-/// `Conn` it runs on. The body must be tagged `Sql`.
-pub macro query: QueryKeyword
-
-/// `sqlkit.database! name`: the row types, enums and migrations of the
-/// database `name`, from its snapshot. `[sqlkit.database.<name>]` in
-/// `nomi.toml` configures it; with one database, the table may be left
-/// out.
-pub macro database: DatabaseKeyword
-
-type QueryKeyword
-
-type DatabaseKeyword
-
-impl Macro for QueryKeyword {
-    fn request(call: RequestCall) -> Request {
-        configured = databases.read(call.config)
-
-        // With no database configured, the module's one `database`
-        // declaration (a site) names the database, and its snapshot is a
-        // default one.
-        if Iter.empty?(configured) {
-            return #Request{files: [databases.default_snapshots()], sites: ["database"]}
-        }
-
-        case databases.for_file(configured, call.decl.file) {
-            Ok(db) -> #Request{files: [db.snapshot], sites: ["database"]}
-            Err(_) -> #Request{files: [], sites: ["database"]}
-        }
-    }
-
-    fn expand(call: ExpandCall) -> Expansion {
-        generate.query(call)
-    }
-}
-
-impl Macro for DatabaseKeyword {
-    fn request(call: RequestCall) -> Request {
-        case databases.named(databases.read(call.config), call.decl.name) {
-            Ok(db) -> #Request{files: [db.snapshot, "${db.migrations}/*.sql"], sites: []}
-            Err(_) -> #Request{files: [], sites: []}
-        }
-    }
-
-    fn expand(call: ExpandCall) -> Expansion {
-        generate.database(call)
-    }
-}
-
-impl Navigation for QueryKeyword {
-    fn hover(call: NavigationCall) -> Maybe<String> {
-        navigate.hover(call)
-    }
-
-    fn definition(call: NavigationCall) -> Maybe<Span> {
-        navigate.definition(call)
-    }
-
-    fn complete(call: NavigationCall) -> List<Completion> {
-        navigate.complete(call)
-    }
-
-    fn actions(call: ActionsCall) -> List<Action> {
-        navigate.actions(call)
-    }
-}
-
-impl Navigation for DatabaseKeyword {
-    fn hover(call: NavigationCall) -> Maybe<String> {
-        _ = call
-        None
-    }
-
-    fn definition(call: NavigationCall) -> Maybe<Span> {
-        _ = call
-        None
-    }
-
-    fn complete(call: NavigationCall) -> List<Completion> {
-        _ = call
-        []
-    }
-
-    fn actions(call: ActionsCall) -> List<Action> {
-        navigate.actions(call)
-    }
-}
-
-impl ProgramCheck for DatabaseKeyword {
-    fn check_all(call: CheckCall) -> List<Diagnostic> {
-        generate.duplicate_databases(call.decls)
-    }
 }
 
 /// The rows of a `-> Rows<T>` query, read one at a time with `Rows.fold`.
@@ -231,8 +105,8 @@ pub struct Changed {
 
 derive Equatable for Changed
 
-/// One migration: its path from the module root and its SQL. A `database`
-/// declaration generates `migrations`, a list of them in name order.
+/// One migration: its path from the module root and its SQL. The generated
+/// schema file holds `migrations`, a list of them in name order.
 pub struct Migration {
     path: String
     sql: String

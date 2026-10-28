@@ -1,0 +1,52 @@
+/// The fewest steps from `from` to `to` in `family`, which maps each
+/// parent to their children. A step joins a parent and a child, or two
+/// children of one parent. `None` when no steps join them.
+pub fn degree_of_separation(
+    family: Map<String, List<String>>,
+    from: String,
+    to: String,
+) -> Maybe<Int> {
+    search(%[from], %[from], 0, relatives(family), to)
+}
+
+/// A breadth-first search: `frontier` is every person `distance` steps
+/// reach that no fewer steps do, and `seen` every person reached so far.
+fn search(
+    frontier: Set<String>,
+    seen: Set<String>,
+    distance: Int,
+    relatives: Map<String, Set<String>>,
+    to: String,
+) -> Maybe<Int> {
+    if Set.contains?(frontier, to) {
+        return Some(distance)
+    }
+
+    next =
+        frontier
+        |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default(%[])))
+        |> Iter.filter(&(!Set.contains?(seen, &1)))
+        |> Iter.to_set()
+
+    if Set.size(next) == 0 {
+        None
+    } else {
+        search(next, Set.union(seen, next), distance + 1, relatives, to)
+    }
+}
+
+/// Each person's relatives one step away: their parents, their children
+/// and their siblings.
+fn relatives(family: Map<String, List<String>>) -> Map<String, Set<String>> {
+    family
+    |> Iter.flat_map(fn #(parent, children) -> {
+        Iter.flat_map(children, fn child -> {
+            siblings = children |> Iter.filter(&(&1 != child)) |> Iter.map(&#(child, &1))
+            Iter.concat([#(parent, child), #(child, parent)], siblings)
+        })
+    })
+    |> Iter.group_by(fn #(person, _relative) -> person)
+    |> Map.map_values(fn links -> {
+        links |> Iter.map(fn #(_person, relative) -> relative) |> Iter.to_set()
+    })
+}

@@ -46,6 +46,7 @@ calendar.nomi:Date.Subtract<Weeks, Date>.subtract	ran
 calendar.nomi:Date.Subtract<Years, Date>.subtract	ran
 calendar.nomi:Date.compare	ran
 calendar.nomi:Date.day	ran
+calendar.nomi:Date.days_in_month	ran
 calendar.nomi:Date.equal?	ran
 calendar.nomi:Date.fields_of	ran
 calendar.nomi:Date.format	ran
@@ -53,6 +54,7 @@ calendar.nomi:Date.format_fields	ran
 calendar.nomi:Date.from_fragments	ran
 calendar.nomi:Date.hash	ran
 calendar.nomi:Date.inspect	ran
+calendar.nomi:Date.leap_year?	ran
 calendar.nomi:Date.localize	ran
 calendar.nomi:Date.month	ran
 calendar.nomi:Date.new	ran
@@ -432,6 +434,7 @@ duration.nomi:Duration.as_millis	ran
 duration.nomi:Duration.as_minutes	ran
 duration.nomi:Duration.as_nanos	ran
 duration.nomi:Duration.as_seconds	ran
+duration.nomi:Duration.clock	ran
 duration.nomi:Duration.compare	ran
 duration.nomi:Duration.empty_sum	ran
 duration.nomi:Duration.equal?	ran
@@ -444,11 +447,22 @@ duration.nomi:Duration.microseconds	ran
 duration.nomi:Duration.milliseconds	ran
 duration.nomi:Duration.minutes	ran
 duration.nomi:Duration.nanoseconds	ran
+duration.nomi:Duration.parse_clock	ran
 duration.nomi:Duration.seconds	ran
 duration.nomi:DurationWidth.equal?	ran
 duration.nomi:DurationWidth.inspect	ran
+duration.nomi:ascii_digit?	ran
+duration.nomi:digits_end	ran
+duration.nomi:duration.Duration.clock arity 1	ran
+duration.nomi:duration.Duration.clock default 2	ran
 duration.nomi:duration.Duration.format arity 2	ran
 duration.nomi:duration.Duration.format default 3	ran
+duration.nomi:fraction	ran
+duration.nomi:mark	ran
+duration.nomi:number	ran
+duration.nomi:sixty	ran
+duration.nomi:two_digits	ran
+duration.nomi:unexpected	ran
 dynamic.nomi:Error.inspect	ran
 dynamic.nomi:Error.to_string	ran
 dynamic.nomi:PathSegment.inspect	ran
@@ -505,6 +519,7 @@ int.nomi:Int.compare	ran
 int.nomi:Int.empty_product	ran
 int.nomi:Int.empty_sum	ran
 int.nomi:Int.equal?	ran
+int.nomi:Int.floor_div	ran
 int.nomi:Int.format	ran
 int.nomi:Int.from_digits	ran
 int.nomi:Int.hash	ran
@@ -681,14 +696,14 @@ supervisors.nomi:GiveUp.inspect	ran
 supervisors.nomi:Restart.inspect	ran
 supervisors.nomi:Supervisor.flush	ran
 supervisors.nomi:Supervisor.inspect	ran
-supervisors.nomi:Supervisor.new	BOOT: creatable only while boot runs
+supervisors.nomi:Supervisor.new	ran
 supervisors.nomi:Wait.inspect	ran
 supervisors.nomi:supervisors.Supervisor.flush arity 1	ran
 supervisors.nomi:supervisors.Supervisor.flush default 2	ran
-supervisors.nomi:supervisors.Supervisor.new arity 1	BOOT: creatable only while boot runs
-supervisors.nomi:supervisors.Supervisor.new arity 2	BOOT: creatable only while boot runs
-supervisors.nomi:supervisors.Supervisor.new arity 3	BOOT: creatable only while boot runs
-supervisors.nomi:supervisors.Supervisor.new arity 4	BOOT: creatable only while boot runs
+supervisors.nomi:supervisors.Supervisor.new arity 1	ran
+supervisors.nomi:supervisors.Supervisor.new arity 2	ran
+supervisors.nomi:supervisors.Supervisor.new arity 3	ran
+supervisors.nomi:supervisors.Supervisor.new arity 4	ran
 supervisors.nomi:supervisors.Supervisor.new default 2	ran
 supervisors.nomi:supervisors.Supervisor.new default 3	ran
 supervisors.nomi:supervisors.Supervisor.new default 4	ran

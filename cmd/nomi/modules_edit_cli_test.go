@@ -135,16 +135,16 @@ func TestModules_AddALocalModule(t *testing.T) {
 	work := t.TempDir()
 	app := filepath.Join(work, "app")
 	c.must(work, "new", "example.com/app")
-	lib := filepath.Join(app, "macros", "csvdata")
+	lib := filepath.Join(app, "generators", "csvdata")
 	mustWrite(t, filepath.Join(lib, "go.mod"), "module example.com/csvdata\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(lib, "nomi.toml"), "[module]\nname = \"csvdata\"\n")
 	mustWrite(t, filepath.Join(lib, "csvdata.nomi"), "pub fn rows() -> Int {\n    3\n}\n")
 
-	if out := c.must(app, "add", "./macros/csvdata"); out != "added example.com/csvdata from ./macros/csvdata (module csvdata; import csvdata)" {
-		t.Fatalf("nomi add ./macros/csvdata printed %q", out)
+	if out := c.must(app, "add", "./generators/csvdata"); out != "added example.com/csvdata from ./generators/csvdata (module csvdata; import csvdata)" {
+		t.Fatalf("nomi add ./generators/csvdata printed %q", out)
 	}
 	goMod := mustRead(t, filepath.Join(app, "go.mod"))
-	for _, want := range []string{"require example.com/csvdata v0.0.0\n", "replace example.com/csvdata => ./macros/csvdata\n"} {
+	for _, want := range []string{"require example.com/csvdata v0.0.0\n", "replace example.com/csvdata => ./generators/csvdata\n"} {
 		if !strings.Contains(goMod, want) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)
 		}

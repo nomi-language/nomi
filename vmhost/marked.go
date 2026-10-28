@@ -1,14 +1,11 @@
 package vmhost
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 )
 
@@ -21,9 +18,9 @@ import (
 //
 // A source that names modules, one with a `go.mod` section (a root module
 // that requires and replaces a module of its own under it, such as a
-// macro's), is a project of several modules, which resolve through the
+// generator's), is a project of several modules, which resolve through the
 // files the front end reads from disk: go.mod's requirements, each module's
-// nomi.toml, a macro's file and the inputs it reads. So it is written as
+// nomi.toml and the catalogs it reads. So it is written as
 // those files under dir, which is emptied first, and loaded from there as
 // the same files written by hand would be. A diagnostic names a file by its
 // path from dir, as the source marks it, and so does a run-time failure (a
@@ -97,66 +94,6 @@ func pathFromRoot(path, root string) string {
 		return filepath.ToSlash(rel)
 	}
 	return DisplayPath(path)
-}
-
-// ExpandMarked answers what `nomi expand` prints for the first section of a
-// marked source that names modules, a tour block whose output is the
-// expansion of its first tab: the source is written under dir as
-// LoadMarked writes it, and the file is expanded as Expansions expands it
-// and printed as FormatExpansions prints it, each file named by its path
-// from dir.
-func ExpandMarked(src, dir string) (string, error) {
-	project, err := virtualproject.FromMarkedSource(src)
-	if err != nil {
-		return "", err
-	}
-	if project.Files == nil {
-		return "", errors.New("a macro runs only in a project whose go.mod requires its module: mark a `// FILE: go.mod` section")
-	}
-	if !strings.HasSuffix(project.First, ".nomi") {
-		return "", fmt.Errorf("the first section, %s, is not a Nomi file", project.First)
-	}
-	root, err := project.Write(dir)
-	if err != nil {
-		return "", err
-	}
-	path := filepath.Join(root, filepath.FromSlash(project.First))
-	exps, err := Expansions(path)
-	if err != nil {
-		return "", &underRoot{err: err, root: root}
-	}
-	return fromRoot(FormatExpansions(project.First, exps), root), nil
-}
-
-// FormatExpansions is what `nomi expand <file>` prints for file's
-// expansions: each declaration's keyword, name and macro, what the macro
-// reported, and its source, formatted.
-func FormatExpansions(file string, exps []Expansion) string {
-	if len(exps) == 0 {
-		return fmt.Sprintf("// %s declares nothing a macro expands\n", file)
-	}
-	var out strings.Builder
-	for i, x := range exps {
-		if i > 0 {
-			out.WriteString("\n")
-		}
-		fmt.Fprintf(&out, "// %s %s (line %d), expanded by the macro %s of module %s\n", x.Keyword, x.Name, x.Line, x.Macro, x.Module)
-		for _, e := range x.Errors {
-			fmt.Fprintf(&out, "// error: %s\n", e)
-		}
-		if x.Source == "" {
-			continue
-		}
-		src := x.Source
-		if formatted, err := format.Format(src); err == nil {
-			src = formatted
-		}
-		out.WriteString(src)
-		if !strings.HasSuffix(src, "\n") {
-			out.WriteString("\n")
-		}
-	}
-	return out.String()
 }
 
 // underRoot is a load error of a project written under root, whose text

@@ -1,0 +1,141 @@
+import tree_building.{self, Node, Record}
+
+/// A node with no replies.
+fn leaf(id: Int) -> Node {
+    #{id}
+}
+
+test "build tree" {
+    cases: List<#(String, List<Record>, Maybe<Node>)> = [
+        #("empty list", [], None),
+        #("single record", [#{id: 0, parent: 0}], Some(leaf(0))),
+        #(
+            "three records in order",
+            [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 2, parent: 0}],
+            Some(#{id: 0, children: [leaf(1), leaf(2)]}),
+        ),
+        #(
+            "three records in reverse order",
+            [#{id: 2, parent: 0}, #{id: 1, parent: 0}, #{id: 0, parent: 0}],
+            Some(#{id: 0, children: [leaf(1), leaf(2)]}),
+        ),
+        #(
+            "more than two children",
+            [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 2, parent: 0}, #{id: 3, parent: 0}],
+            Some(#{id: 0, children: [leaf(1), leaf(2), leaf(3)]}),
+        ),
+        #(
+            "binary tree",
+            [
+                #{id: 5, parent: 1},
+                #{id: 3, parent: 2},
+                #{id: 2, parent: 0},
+                #{id: 4, parent: 1},
+                #{id: 1, parent: 0},
+                #{id: 0, parent: 0},
+                #{id: 6, parent: 2},
+            ],
+            Some(#{
+                id: 0,
+                children: [
+                    #{id: 1, children: [leaf(4), leaf(5)]},
+                    #{id: 2, children: [leaf(3), leaf(6)]},
+                ],
+            }),
+        ),
+        #(
+            "unbalanced tree",
+            [
+                #{id: 5, parent: 2},
+                #{id: 3, parent: 2},
+                #{id: 2, parent: 0},
+                #{id: 4, parent: 1},
+                #{id: 1, parent: 0},
+                #{id: 0, parent: 0},
+                #{id: 6, parent: 2},
+            ],
+            Some(#{
+                id: 0,
+                children: [
+                    #{id: 1, children: [leaf(4)]},
+                    #{id: 2, children: [leaf(3), leaf(5), leaf(6)]},
+                ],
+            }),
+        ),
+    ]
+
+    subtests cases, #(description, records, expected), description {
+        assert tree_building.build_tree(records) == Ok(expected)
+    }
+}
+
+test "invalid records" {
+    cases: List<#(String, List<Record>, String)> = [
+        #(
+            "one root node and has parent",
+            [#{id: 0, parent: 1}],
+            "node parent_id should be smaller than its record_id",
+        ),
+        #(
+            "root node has parent",
+            [#{id: 0, parent: 1}, #{id: 1, parent: 0}],
+            "node parent_id should be smaller than its record_id",
+        ),
+        #(
+            "no root node",
+            [#{id: 1, parent: 0}, #{id: 2, parent: 0}],
+            "record id is invalid or out of order",
+        ),
+        #(
+            "duplicate node",
+            [#{id: 0, parent: 0}, #{id: 1, parent: 0}, #{id: 1, parent: 0}],
+            "record id is invalid or out of order",
+        ),
+        #(
+            "duplicate root",
+            [#{id: 0, parent: 0}, #{id: 0, parent: 0}],
+            "record id is invalid or out of order",
+        ),
+        #(
+            "non-continuous",
+            [#{id: 2, parent: 0}, #{id: 4, parent: 2}, #{id: 1, parent: 0}, #{id: 0, parent: 0}],
+            "record id is invalid or out of order",
+        ),
+        #(
+            "cycle directly",
+            [
+                #{id: 5, parent: 2},
+                #{id: 3, parent: 2},
+                #{id: 2, parent: 2},
+                #{id: 4, parent: 1},
+                #{id: 1, parent: 0},
+                #{id: 0, parent: 0},
+                #{id: 6, parent: 3},
+            ],
+            "record id is invalid or out of order",
+        ),
+        #(
+            "cycle indirectly",
+            [
+                #{id: 5, parent: 2},
+                #{id: 3, parent: 2},
+                #{id: 2, parent: 6},
+                #{id: 4, parent: 1},
+                #{id: 1, parent: 0},
+                #{id: 0, parent: 0},
+                #{id: 6, parent: 3},
+            ],
+            "record id is invalid or out of order",
+        ),
+        #(
+            "higher id parent of lower id",
+            [#{id: 0, parent: 0}, #{id: 2, parent: 0}, #{id: 1, parent: 2}],
+            "record id is invalid or out of order",
+        ),
+    ]
+
+    subtests cases, #(description, records, message), description {
+        assert Err(error) = tree_building.build_tree(records)
+        assert "${error}" == message
+    }
+}

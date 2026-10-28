@@ -59,9 +59,6 @@ const specPath = "../../docs/spec.md"
 // occurs in exactly one spec block. These are findings, not fragments; the
 // value is why the block does not parse.
 var specDivergences = map[string]string{
-	"typealias Lookup<V> Map<String, V>": "`typealias` IS a keyword the parser knows and `typealias Name Target` (no `=`) works end to end; " +
-		"only the GENERIC form is refused, as a hard parse error at the `<` (`expected type name, got LT`). " +
-		"`ast.TypeAlias` has no type-parameter field to hold one. §15 Type Aliases carries the callout.",
 	"Rectangle #(Float, Float)    // payload is a tuple": "a trailing `//` comment on an enum variant line. A parser INCONSISTENCY, not a language rule: " +
 		"all four variant kinds reject one (bare -> `expected type name, got a comment`; positional, struct-shaped and " +
 		"`embeds` -> `enum variants are newline- or semicolon-separated`), while a struct field and an interface " +

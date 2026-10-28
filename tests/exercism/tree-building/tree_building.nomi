@@ -1,0 +1,62 @@
+/// One post as it is stored: its id and its parent's id. The root's parent
+/// is itself.
+pub struct Record {
+    id: Int
+    parent: Int
+}
+
+/// A post and its replies, ordered by id.
+pub struct Node {
+    id: Int
+    children: List<Node> = []
+}
+
+derive Equatable for Node
+
+/// Why the records do not make a tree.
+pub enum Error {
+    RootHasParent
+    InvalidRecord
+}
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .RootHasParent -> "node parent_id should be smaller than its record_id"
+            .InvalidRecord -> "record id is invalid or out of order"
+        }
+    }
+}
+
+/// The tree of `records`, in any order, or `None` for no records. The ids
+/// must be 0 to one less than the number of records, each once; the root,
+/// 0, is its own parent, and every other record's parent has a lower id.
+pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
+    sorted = Iter.sort_by(records, .id)
+
+    if !Iter.all?(Iter.with_index(sorted), fn #(index, record) -> record.id == index) {
+        return Err(.InvalidRecord)
+    }
+
+    case sorted {
+        [] ->
+            Ok(None)
+
+        [root, ..] when root.parent != 0 ->
+            Err(.RootHasParent)
+
+        [_root, ..rest] when Iter.any?(rest, fn record -> record.parent >= record.id) ->
+            Err(.InvalidRecord)
+
+        [_root, ..rest] ->
+            Ok(Some(node(0, Iter.group_by(rest, .parent))))
+    }
+}
+
+/// The node `id` with its replies, from each parent's child records in id
+/// order.
+fn node(id: Int, children: Map<Int, List<Record>>) -> Node {
+    replies = Map.get(children, id) |> Maybe.with_default([])
+
+    #{id, children: replies |> Iter.map(&node(&1.id, children)) |> Iter.to_list()}
+}

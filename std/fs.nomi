@@ -593,10 +593,10 @@ pub fn within<T>(dir: String, body: () -> Result<T, Error>) -> Result<T, Error> 
 //! })
 //!
 //! assert ran.value == Ok([
-//!     #Entry{path: "d/a.txt", name: "a.txt", kind: Kind.File},
-//!     #Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
-//!     #Entry{path: "d/sub", name: "sub", kind: Kind.Directory},
-//! ])
+//!         #Entry{path: "d/a.txt", name: "a.txt", kind: Kind.File},
+//!         #Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
+//!         #Entry{path: "d/sub", name: "sub", kind: Kind.Directory},
+//!     ])
 //
 pub fn list(dir: String) -> Result<List<Entry>, Error> {
     listed(dir) |> Result.flat_map(fn entries -> Result.collect(entries))
@@ -671,9 +671,8 @@ fn decoded(dir: String, coded: String) -> Result<Entry, Error> {
 //!
 //! assert ran.value == [Ok("d/a"), Ok("d/a/x.txt"), Ok("d/b.txt"), Ok("d/c")]
 //!
-//! assert fs_testing.run(#Sandbox{}, fn -> Result.collect(walk("none"))).value == Err(
-//!     #Error.NotFound{path: "none"}
-//! )
+//! assert fs_testing.run(#Sandbox{}, fn -> Result.collect(walk("none"))).value
+//!     == Err(#Error.NotFound{path: "none"})
 //
 pub fn walk(root: String) -> Iter<Result<Entry, Error>> {
     #Walk{root, depth: -1}

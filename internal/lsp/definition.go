@@ -33,10 +33,6 @@ func (s *Server) textDocumentDefinition(ctx *glsp.Context, params *protocol.Defi
 		Col:  utf16ToByteCol(doc.Content, params.Position.Line, params.Position.Character),
 	}
 
-	// Inside a macro's declaration's body, the macro answers.
-	if loc, ok := s.macroDefinition(doc, pos); ok {
-		return s.toUTF16Location(loc), nil
-	}
 	sym := doc.Analysis.SymbolAt(pos)
 	if sym == nil {
 		// An operator: the function of the impl the checker chose for it
@@ -447,11 +443,6 @@ func (s *Server) definitionLocationForSymbol(uri string, defSym, clickedSym *ana
 	// not the click position. The "it" implicit-param check stays on
 	// `clickedSym` because that's specifically about the local binding shape.
 	at := defSym.Pos
-	// A declaration a macro's expansion made is where it was made
-	// from: its declaration, or the span its map names.
-	if origin, ok := s.expansionOrigin(targetURI, at); ok {
-		at = origin
-	}
 	startLine := toZeroBased(at.Line)
 	startChar := toZeroBased(at.Col)
 	endChar := startChar + uint32(len(defSym.Name))

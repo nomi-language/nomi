@@ -308,9 +308,8 @@ test "a row that is not a match is an error" {
 
     assert tournament.tally([row]) == Err(Error.InvalidRow(row))
 
-    assert tournament.tally(["Allegoric Alaskans;win"]) == Err(
-        .InvalidRow("Allegoric Alaskans;win")
-    )
+    assert tournament.tally(["Allegoric Alaskans;win"])
+        == Err(.InvalidRow("Allegoric Alaskans;win"))
 }
 ```
 

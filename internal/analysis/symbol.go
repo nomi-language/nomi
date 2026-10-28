@@ -77,10 +77,6 @@ const (
 	// whose type its spelling does not name: a codepoint literal `'a'` is a
 	// `Codepoint`. Name is the literal as written.
 	SymbolLiteral
-	// SymbolMacro is a declaration keyword a `macro` declaration
-	// adds (ast.MacroDecl). A file imports it by name, and each
-	// declaration written with it references it at its keyword.
-	SymbolMacro
 )
 
 // TryOpInfo holds the per-site data a SymbolTryOp needs to render hover

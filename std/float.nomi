@@ -23,7 +23,7 @@ import {
 }
 
 //# Operations on the IEEE 754 double-precision `Float` type: the special
-//# values (`nan`, `±infinity`), classification predicates, rounding, powers,
+//# values (`nan`, `±infinity`), the constants `pi` and `e`, classification predicates, rounding, powers,
 //# roots, logarithms, trigonometry, and conversion to `Int`. The arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/
 //# `Comparable` impls give `Float` a total order and `==`-consistent hashing
 //# (NaN and signed zero normalized).
@@ -50,6 +50,20 @@ impl Float {
     //! assert Float.infinite?(Float.negative_infinity())
     //
     pub host fn negative_infinity() -> Float
+
+    /// The Float nearest π, the ratio of a circle's circumference to its
+    /// diameter: 3.141592653589793.
+    //! assert Float.pi == 3.141592653589793
+    //! assert Float.cos(Float.pi) == -1.0
+    //
+    pub once pi = 3.141592653589793
+
+    /// The Float nearest e, the base of the natural logarithm:
+    /// 2.718281828459045.
+    //! assert Float.e == 2.718281828459045
+    //! assert Float.log(Float.e) == 1.0
+    //
+    pub once e = 2.718281828459045
 
     /// True if x is NaN.
     //! assert Float.nan?(Float.nan())
@@ -361,9 +375,8 @@ impl Float {
     //! assert Float.parse_percent_in("12,5\u{a0}%", Locale`de`) == Ok(0.125)
     //! assert Float.parse_percent_in("%50", Locale`tr`) == Ok(0.5)
     //!
-    //! assert Float.parse_percent_in("12.5", Locale`en`) == Err(
-    //!     #NumberParseError.Unexpected{at: 4, text: ""}
-    //! )
+    //! assert Float.parse_percent_in("12.5", Locale`en`)
+    //!     == Err(#NumberParseError.Unexpected{at: 4, text: ""})
     //
     pub fn parse_percent_in(
         text: String,

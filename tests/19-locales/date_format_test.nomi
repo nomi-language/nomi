@@ -38,12 +38,8 @@ test "a date and time join as the locale joins them, with the zone's offset" {
     assert NaiveDateTime.format(naive, Locale`pl`, date: .Long) == "20 października 2026 09:30"
     moment = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`
 
-    assert DateTime.format(
-        moment,
-        Locale`de`,
-        date: .Full,
-        time: .Full,
-    ) == "Dienstag, 20. Oktober 2026, 09:30:00 GMT+02:00"
+    assert DateTime.format(moment, Locale`de`, date: .Full, time: .Full)
+        == "Dienstag, 20. Oktober 2026, 09:30:00 GMT+02:00"
 
     assert DateTime.format(moment, Locale`fr`, time: .Long) == "20 oct. 2026, 09:30:00 UTC+2"
     assert Localize.localize(moment, Locale`ja`) == "2026/10/20 9:30"
@@ -83,17 +79,11 @@ test "a time skeleton takes the locale's clock, or the one it names" {
     // A date and time no one pattern covers is the two joined.
     moment = NaiveDateTime`2026-10-20T21:05:00`
 
-    assert NaiveDateTime.format_fields(
-        moment,
-        Locale`en`,
-        DateTimeFields`yMMMdjm`,
-    ) == "Oct 20, 2026, 9:05\u{202f}PM"
+    assert NaiveDateTime.format_fields(moment, Locale`en`, DateTimeFields`yMMMdjm`)
+        == "Oct 20, 2026, 9:05\u{202f}PM"
 
-    assert NaiveDateTime.format_fields(
-        moment,
-        Locale`pl`,
-        DateTimeFields`MMMMEEEEdjm`,
-    ) == "wtorek, 20 października 21:05"
+    assert NaiveDateTime.format_fields(moment, Locale`pl`, DateTimeFields`MMMMEEEEdjm`)
+        == "wtorek, 20 października 21:05"
 }
 
 test "a fixed pattern writes the same text everywhere and reads it back" {
@@ -119,9 +109,8 @@ test "a fixed pattern writes the same text everywhere and reads it back" {
         DatePattern`dd/MM/yyyy`,
     )
 
-    assert Date.parse_with("31/02/2026", DatePattern`dd/MM/yyyy`) == Err(
-        calendar.Error.InvalidValue("month 2 of 2026 has no day 31")
-    )
+    assert Date.parse_with("31/02/2026", DatePattern`dd/MM/yyyy`)
+        == Err(calendar.Error.InvalidValue("month 2 of 2026 has no day 31"))
 }
 
 test "a pattern made while the program runs is checked then" {
@@ -147,9 +136,8 @@ test "a date a reader typed is read by the locale's short style, strictly" {
         style: .Medium,
     )
 
-    assert Date.parse_in("31.2.26", Locale`de`) == Err(
-        calendar.Error.InvalidValue("month 2 of 2026 has no day 31")
-    )
+    assert Date.parse_in("31.2.26", Locale`de`)
+        == Err(calendar.Error.InvalidValue("month 2 of 2026 has no day 31"))
 
     assert Time.parse_in("9:05 PM", Locale`en`) == Ok(Time`21:05:00`)
 }
@@ -157,17 +145,14 @@ test "a date a reader typed is read by the locale's short style, strictly" {
 test "lenient reading takes any case, width and punctuation" {
     assert Date.parse_in("4.5.2026", Locale`de`, lenient: True) == Ok(Date`2026-05-04`)
 
-    assert Date.parse_in("oct 20 2026", Locale`en`, style: .Medium, lenient: True) == Ok(
-        Date`2026-10-20`
-    )
+    assert Date.parse_in("oct 20 2026", Locale`en`, style: .Medium, lenient: True)
+        == Ok(Date`2026-10-20`)
 
-    assert Date.parse_in("October 20, 2026", Locale`en`, style: .Medium, lenient: True) == Ok(
-        Date`2026-10-20`
-    )
+    assert Date.parse_in("October 20, 2026", Locale`en`, style: .Medium, lenient: True)
+        == Ok(Date`2026-10-20`)
 
-    assert Date.parse_in(" 20 paź 2026 ", Locale`pl`, style: .Medium, lenient: True) == Ok(
-        Date`2026-10-20`
-    )
+    assert Date.parse_in(" 20 paź 2026 ", Locale`pl`, style: .Medium, lenient: True)
+        == Ok(Date`2026-10-20`)
 
     assert Time.parse_in("9:05 pm", Locale`en`, lenient: True) == Ok(Time`21:05:00`)
 }
@@ -206,11 +191,8 @@ test "a duration is the units it has, joined as one measure" {
     assert Duration.format(Duration.minutes(122), Locale`pl`) == "2 godziny i 2 minuty"
     assert Duration.format(Duration.seconds(5), Locale`fr`) == "5\u{a0}secondes"
 
-    assert Duration.format(
-        Duration.milliseconds(1500),
-        Locale`en`,
-        width: .Short,
-    ) == "1 sec, 500 ms"
+    assert Duration.format(Duration.milliseconds(1500), Locale`en`, width: .Short)
+        == "1 sec, 500 ms"
 
     assert Duration.format(Duration.hours(26), Locale`en`, width: .Narrow) == "26h"
     assert Localize.localize(Duration.seconds(0), Locale`en`) == "0 seconds"

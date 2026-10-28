@@ -1,0 +1,56 @@
+/// The bytes that carry `message`: its bits seven at a time, the last seven
+/// padded with zeros, each followed by a parity bit that makes the byte's
+/// count of ones even.
+//! assert transmit([0x05]) == [0x05, 0x81]
+//
+pub fn transmit(message: List<Int>) -> List<Int> {
+    message
+    |> Iter.flat_map(bits)
+    |> Iter.chunks(7)
+    |> Iter.map(fn chunk -> {
+        data = Int.shift_left(from_bits(chunk), 7 - Iter.count(chunk))
+        Int.shift_left(data, 1) + Iter.sum(chunk) % 2
+    })
+    |> Iter.to_list()
+}
+
+/// The message `transmission` carries: the seven data bits of each byte,
+/// eight at a time, with the bits left over at the end dropped. A byte whose
+/// count of ones is odd was damaged on the way, and is `Err("wrong parity")`.
+//! assert receive([0x05, 0x81]) == Ok([0x05])
+//
+pub fn receive(transmission: List<Int>) -> Result<List<Int>, String> {
+    data =
+        transmission
+        |> Iter.map(data_bits)
+        |> try Result.collect()
+
+    data
+    |> Iter.flatten()
+    |> Iter.chunks(8)
+    |> Iter.filter(&(Iter.count(&1) == 8))
+    |> Iter.map(from_bits)
+    |> Iter.to_list()
+    |> Ok()
+}
+
+/// The first seven bits of `byte`, or an error when its parity is odd.
+fn data_bits(byte: Int) -> Result<List<Int>, String> {
+    all = Iter.to_list(bits(byte))
+
+    if Iter.sum(all) % 2 == 0 {
+        all |> Iter.take(7) |> Iter.to_list() |> Ok()
+    } else {
+        Err("wrong parity")
+    }
+}
+
+/// The eight bits of `byte`, most significant first.
+fn bits(byte: Int) -> Iter<Int> {
+    Iter.map(0..8, fn i -> Int.bitwise_and(Int.shift_right(byte, 7 - i), 1))
+}
+
+/// The number whose bits, most significant first, are `bits`.
+fn from_bits(bits: List<Int>) -> Int {
+    Iter.reduce(bits, fn n = 0, bit -> n * 2 + bit)
+}

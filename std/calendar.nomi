@@ -243,6 +243,37 @@ impl Date {
         }
     }
 
+    /// Whether `year` is a leap year in the Gregorian calendar, which
+    /// `Date` follows for every year: one divisible by 4, except a century
+    /// year not divisible by 400.
+    //! assert Date.leap_year?(2024)
+    //! assert Date.leap_year?(2000)
+    //! refute Date.leap_year?(1900)
+    //! refute Date.leap_year?(2026)
+    //
+    pub fn leap_year?(year: Int) -> Bool {
+        year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+    }
+
+    /// How many days month `month` (1 to 12) of `year` has: 28 to 31,
+    /// with 29 in February of a leap year. A month outside 1 to 12 is
+    /// `Err(.InvalidValue(...))`, as `Date.new` answers for it.
+    //! assert Date.days_in_month(2026, 1) == Ok(31)
+    //! assert Date.days_in_month(2026, 4) == Ok(30)
+    //! assert Date.days_in_month(2026, 2) == Ok(28)
+    //! assert Date.days_in_month(2024, 2) == Ok(29)
+    //! assert Date.days_in_month(2026, 13) == Err(Error.InvalidValue("month out of range: 13"))
+    //
+    pub fn days_in_month(year: Int, month: Int) -> Result<Int, Error> {
+        case {
+            month < 1 or month > 12 -> Err(Error.InvalidValue("month out of range: ${month}"))
+            month == 2 and Date.leap_year?(year) -> Ok(29)
+            month == 2 -> Ok(28)
+            month == 4 or month == 6 or month == 9 or month == 11 -> Ok(30)
+            _ -> Ok(31)
+        }
+    }
+
     /// The date as a reader of `locale` writes it, at the length `style`
     /// says: the locale decides the order, the punctuation and the words.
     //! d = Date`2026-10-20`
@@ -287,16 +318,14 @@ impl Date {
     //! assert Date.parse_in("10/20/26", Locale`en`) == Ok(Date`2026-10-20`)
     //! assert Date.parse_in("Oct 20, 2026", Locale`en`, style: .Medium) == Ok(Date`2026-10-20`)
     //!
-    //! assert Date.parse_in("october 20 2026", Locale`en`, style: .Medium, lenient: True) == Ok(
-    //!     Date`2026-10-20`
-    //! )
+    //! assert Date.parse_in("october 20 2026", Locale`en`, style: .Medium, lenient: True)
+    //!     == Ok(Date`2026-10-20`)
     //!
     //! assert Err(Error.InvalidFormat(_why)) = Date.parse_in("4.5.2026", Locale`de`)
     //! assert Date.parse_in("4.5.2026", Locale`de`, lenient: True) == Ok(Date`2026-05-04`)
     //!
-    //! assert Date.parse_in("31.2.26", Locale`de`) == Err(
-    //!     Error.InvalidValue("month 2 of 2026 has no day 31")
-    //! )
+    //! assert Date.parse_in("31.2.26", Locale`de`)
+    //!     == Err(Error.InvalidValue("month 2 of 2026 has no day 31"))
     //
     pub fn parse_in(
         text: String,
@@ -704,11 +733,8 @@ impl NaiveDateTime {
     /// names.
     //! dt = NaiveDateTime`2026-10-20T09:30:00`
     //!
-    //! assert NaiveDateTime.format_fields(
-    //!     dt,
-    //!     Locale`en`,
-    //!     DateTimeFields`MMMdjm`,
-    //! ) == "Oct 20, 9:30\u{202f}AM"
+    //! assert NaiveDateTime.format_fields(dt, Locale`en`, DateTimeFields`MMMdjm`)
+    //!     == "Oct 20, 9:30\u{202f}AM"
     //
     pub fn format_fields(dt: NaiveDateTime, locale: Locale, fields: DateTimeFields) -> String {
         DateTimeFields(skeleton) = fields
@@ -725,9 +751,8 @@ impl NaiveDateTime {
     }
 
     /// Read a date and time by a fixed numeric pattern.
-    //! assert NaiveDateTime.parse_with("20261019T093000", DateTimePattern`yyyyMMdd'T'HHmmss`) == Ok(
-    //!     NaiveDateTime`2026-10-19T09:30:00`
-    //! )
+    //! assert NaiveDateTime.parse_with("20261019T093000", DateTimePattern`yyyyMMdd'T'HHmmss`)
+    //!     == Ok(NaiveDateTime`2026-10-19T09:30:00`)
     //
     pub fn parse_with(text: String, pattern: DateTimePattern) -> Result<NaiveDateTime, Error> {
         DateTimePattern(p) = pattern
@@ -747,10 +772,8 @@ impl NaiveDateTime {
 
     /// Combine a `Date` and a `Time`. Both parts are already valid, so
     /// this is infallible.
-    //! assert NaiveDateTime.of(
-    //!     try Date"2026-05-04",
-    //!     try Time"14:30:00",
-    //! ) == try NaiveDateTime"2026-05-04T14:30:00"
+    //! assert NaiveDateTime.of(try Date"2026-05-04", try Time"14:30:00")
+    //!     == try NaiveDateTime"2026-05-04T14:30:00"
     //
     pub fn of(d: Date, t: Time) -> NaiveDateTime {
         #NaiveDateTime{
@@ -834,10 +857,8 @@ impl NaiveDateTime {
 
     /// Parse an ISO naive datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
     /// Allows a single space instead of `T` between the date and time.
-    //! assert try NaiveDateTime.parse("2026-05-04T14:30:00") == NaiveDateTime.of(
-    //!     try Date"2026-05-04",
-    //!     try Time"14:30:00",
-    //! )
+    //! assert try NaiveDateTime.parse("2026-05-04T14:30:00")
+    //!     == NaiveDateTime.of(try Date"2026-05-04", try Time"14:30:00")
     //!
     //! assert try NaiveDateTime.parse("2026-05-04 14:30:00") == try NaiveDateTime"2026-05-04T14:30:00"
     //
@@ -1102,10 +1123,8 @@ impl OffsetDateTime {
     /// Combine a `NaiveDateTime` wall-reading with a fixed UTC offset.
     /// Returns `Err(.InvalidValue(...))` if the offset is outside the
     /// IANA-acceptable range (`±18:00`).
-    //! assert try OffsetDateTime.with_offset(
-    //!     try NaiveDateTime"2026-05-04T09:00:00",
-    //!     Duration.hours(-5),
-    //! ) == try OffsetDateTime"2026-05-04T09:00:00-05:00"
+    //! assert try OffsetDateTime.with_offset(try NaiveDateTime"2026-05-04T09:00:00", Duration.hours(-5))
+    //!     == try OffsetDateTime"2026-05-04T09:00:00-05:00"
     //
     pub fn with_offset(dt: NaiveDateTime, offset: Duration) -> Result<OffsetDateTime, Error> {
         attempt = offset_with_offset_raw(dt, Duration.as_nanos(offset))
@@ -1119,10 +1138,8 @@ impl OffsetDateTime {
 
     /// Attach a fixed offset to an absolute `Instant`. Always total —
     /// every instant has a representation at every fixed offset.
-    //! assert OffsetDateTime.from_instant(
-    //!     Instant.from_seconds(0),
-    //!     Duration.hours(0),
-    //! ) == try OffsetDateTime"1970-01-01T00:00:00Z"
+    //! assert OffsetDateTime.from_instant(Instant.from_seconds(0), Duration.hours(0))
+    //!     == try OffsetDateTime"1970-01-01T00:00:00Z"
     //
     pub fn from_instant(i: Instant, offset: Duration) -> OffsetDateTime {
         offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset))
@@ -1130,9 +1147,8 @@ impl OffsetDateTime {
 
     /// Parse an ISO-8601 timestamp with offset suffix
     /// (`YYYY-MM-DDTHH:MM:SS[.fff…][±HH:MM|Z]`).
-    //! assert try OffsetDateTime.parse(
-    //!     "2026-05-04T14:30:00-05:00"
-    //! ) == try OffsetDateTime"2026-05-04T14:30:00-05:00"
+    //! assert try OffsetDateTime.parse("2026-05-04T14:30:00-05:00")
+    //!     == try OffsetDateTime"2026-05-04T14:30:00-05:00"
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = OffsetDateTime.parse("2026-05-04T14:30:00")
     //
@@ -1474,12 +1490,8 @@ impl DateTime {
     //! dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`
     //! assert DateTime.format(dt, Locale`pl`) == "20 paź 2026, 09:30"
     //!
-    //! assert DateTime.format(
-    //!     dt,
-    //!     Locale`en`,
-    //!     date: .Full,
-    //!     time: .Long,
-    //! ) == "Tuesday, October 20, 2026, 9:30:00\u{202f}AM GMT+2"
+    //! assert DateTime.format(dt, Locale`en`, date: .Full, time: .Long)
+    //!     == "Tuesday, October 20, 2026, 9:30:00\u{202f}AM GMT+2"
     //
     pub fn format(
         dt: DateTime,
@@ -1532,10 +1544,8 @@ impl DateTime {
     /// `UnknownZone` always, and — only when `mode = Reject` — on
     /// `Nonexistent` (gap) or `Ambiguous` (fold). The three resolving
     /// modes (`Compatible`/`Earlier`/`Later`) always land on an instant.
-    //! assert try DateTime.in_zone(
-    //!     try NaiveDateTime"2026-06-15T12:00:00",
-    //!     "America/New_York",
-    //! ) == try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    //! assert try DateTime.in_zone(try NaiveDateTime"2026-06-15T12:00:00", "America/New_York")
+    //!     == try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     //!
     //! assert Err(Error.UnknownZone(_zone)) = DateTime.in_zone(
     //!     try NaiveDateTime"2026-06-15T12:00:00",
@@ -1573,10 +1583,8 @@ impl DateTime {
 
     /// Project an absolute `Instant` into an IANA zone. Always total
     /// once the zone is known. Fails only on `UnknownZone`.
-    //! assert try DateTime.from_instant_in(
-    //!     Instant.from_seconds(0),
-    //!     "UTC",
-    //! ) == try DateTime"1970-01-01T00:00:00Z[UTC]"
+    //! assert try DateTime.from_instant_in(Instant.from_seconds(0), "UTC")
+    //!     == try DateTime"1970-01-01T00:00:00Z[UTC]"
     //
     pub fn from_instant_in(i: Instant, zone: String) -> Result<DateTime, Error> {
         attempt = zoned_from_instant_in_raw(Instant.as_nanos(i), zone)
@@ -1599,9 +1607,8 @@ impl DateTime {
     /// Freeze the zone's current offset at this instant — produces an
     /// `OffsetDateTime` carrying the offset effective at the `DateTime`'s
     /// instant. Lossy: the result no longer remembers the IANA zone.
-    //! assert DateTime.to_offset(
-    //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    //! ) == try OffsetDateTime"2026-06-15T12:00:00-04:00"
+    //! assert DateTime.to_offset(try DateTime"2026-06-15T12:00:00-04:00[America/New_York]")
+    //!     == try OffsetDateTime"2026-06-15T12:00:00-04:00"
     //
     pub host fn to_offset(d: DateTime) -> OffsetDateTime
 
@@ -1626,10 +1633,8 @@ impl DateTime {
     /// (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`). The IANA-zone
     /// bracket suffix is required — bare offset forms parse via
     /// `OffsetDateTime.parse` instead.
-    //! assert try DateTime.parse("2026-06-15T12:00:00-04:00[America/New_York]") == try DateTime.in_zone(
-    //!     try NaiveDateTime"2026-06-15T12:00:00",
-    //!     "America/New_York",
-    //! )
+    //! assert try DateTime.parse("2026-06-15T12:00:00-04:00[America/New_York]")
+    //!     == try DateTime.in_zone(try NaiveDateTime"2026-06-15T12:00:00", "America/New_York")
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = DateTime.parse("2026-06-15T12:00:00-04:00")
     //

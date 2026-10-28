@@ -103,7 +103,7 @@ test "not reached" {
 `)
 	for _, want := range []string{
 		"    assert out == \"\"\"\n        b\n        \"\"\"\n    values:\n",
-		"    assert String.length(out) == 3 and out == \"\"\"\n        a\n        c\n        \"\"\"\n    values:\n",
+		"    assert String.length(out) == 3\n        and out == \"\"\"\n            a\n            c\n            \"\"\"\n    values:\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the report has no\n%s\nin:\n%s", want, out)

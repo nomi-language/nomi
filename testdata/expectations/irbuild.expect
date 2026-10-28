@@ -7736,7 +7736,7 @@ T zero
 T positive PositiveInt(3)
 T not positive
 T
-C internal/irbuild/testdata/std_once_int_limits.nomi@cf8b690ab151af9a
+C internal/irbuild/testdata/std_once_int_limits.nomi@f55e0da7136d7d2e
 E 1
 N 0
 H 861ab8832c8feb884e4d7e5104e102071af15394e23bada870625b425d871a5e
@@ -9966,7 +9966,7 @@ T ok <dir>/dbg_test.nomi :: dbg expression prints source and returns value
 T ok <dir>/dbg_test.nomi :: dbg pipe stage prints source and passes the value through
 T test result: ok. 2 passed, 0 failed
 T
-C tests/03-tooling-and-diagnostics/formatting_test.nomi@1885d7ba218231ed
+C tests/03-tooling-and-diagnostics/formatting_test.nomi@b8911bac2c9586da
 E 0
 N 0
 H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563

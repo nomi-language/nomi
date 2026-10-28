@@ -1,0 +1,69 @@
+//# Turns a small part of Markdown into HTML: headings, unordered lists,
+//# paragraphs, and bold and italic text.
+
+import std/regex.Regex
+
+/// One line of Markdown, by what it becomes.
+enum Block {
+    Heading {level: Int, text: String}
+    Item String
+    Paragraph String
+}
+
+/// The HTML for `markdown`. Each line is a heading, a list item or a
+/// paragraph, and a run of list items is one list.
+pub fn parse(markdown: String) -> String {
+    markdown
+    |> String.lines()
+    |> Iter.map(block)
+    |> Iter.chunk_by(item?)
+    |> Iter.map(render_run)
+    |> String.join()
+}
+
+/// What `line` is: a heading of one to six `#`s and a space, an item after
+/// `* `, or else a paragraph.
+fn block(line: String) -> Block {
+    if Some(text) = String.strip_prefix(line, "* ") {
+        return .Item(text)
+    }
+
+    case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
+        Some([Some(marks), Some(text)]) -> #.Heading{level: String.length(marks), text}
+        _ -> .Paragraph(line)
+    }
+}
+
+fn item?(block: Block) -> Bool {
+    case block {
+        .Item(_) -> True
+        _ -> False
+    }
+}
+
+/// A run of blocks of one kind: list items go into one list, and anything
+/// else stands on its own.
+fn render_run(run: List<Block>) -> String {
+    html = run |> Iter.map(render) |> String.join()
+
+    case run {
+        [.Item(_), .._] -> "<ul>${html}</ul>"
+        _ -> html
+    }
+}
+
+fn render(block: Block) -> String {
+    case block {
+        #.Heading{level, text} -> "<h${level}>${emphasize(text)}</h${level}>"
+        .Item(text) -> "<li>${emphasize(text)}</li>"
+        .Paragraph(text) -> "<p>${emphasize(text)}</p>"
+    }
+}
+
+/// `text` with `__bold__` and `_italic_` spans marked up. Bold goes first,
+/// so its double underscores are not read as two italic marks.
+fn emphasize(text: String) -> String {
+    text
+    |> then &Regex.replace_all(Regex`__(.+?)__`, &1, "<strong>$1</strong>")
+    |> then &Regex.replace_all(Regex`_(.+?)_`, &1, "<em>$1</em>")
+}

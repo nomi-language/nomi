@@ -1,14 +1,15 @@
 import {
+    std/fs_testing.{self, Sandbox}
     std/json.Json
-    std/macro.{Action, ActionsCall, Body, Declaration, ExpandCall, Expansion, Input}
-    std/macro.{NavigationCall, Param, Site, Span, Tool, TypeText}
     std/sql.{self, Conn, Row, Sql, Value}
     std/sql_testing.Fake
     checksum
-    generate
-    navigate
+    codegen.{self, Schema}
+    databases.{self, Database}
+    described.{Column, QueryError, Table, TableColumn}
+    inputs.{self, Input}
+    queryfile.{self, File, Param, Problem, Query}
     runtime
-    snapshot.{self, Column, Query, QueryError, Snapshot, Table, TableColumn}
     sqlite
     sqlkit.{self, Migration, Rows}
     sqltext
@@ -16,337 +17,107 @@ import {
 
 gopkg "github.com/nomi-language/nomi/lib/sql/sqlkit/testside"
 
-fn span(line: Int, col: Int, end_col: Int) -> Span {
-    #Span{file: "queries.nomi", line, col, end_line: line, end_col}
+// --- query files ---------------------------------------------------------
+fn parsed(text: String) -> Result<File, List<Problem>> {
+    queryfile.parse("db/queries/q.sql", text)
 }
 
-fn config() -> Json {
-    Json.decode("{\"database\":{\"main\":{\"snapshot\":\"db/main.snapshot.json\"}}}")
-    |> Result.with_default(Json.Null)
+fn messages(problems: List<Problem>) -> List<String> {
+    problems |> Iter.map(fn p -> p.message) |> Iter.to_list()
 }
 
-/// ``sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`SELECT ...` ``, its
-/// body on line 2 of queries.nomi.
-fn declaration(sql_text: String, result: Maybe<String>) -> Declaration {
-    #Declaration{
-        keyword: "query",
-        name: "user_by_email",
-        public: True,
-        params: [
-            #Param{
-                name: "email",
-                type_text: #TypeText{text: "String", span: span(1, 25, 31)},
-                span: span(1, 18, 31),
-            },
-        ],
-        result: result
-        |> Maybe.map(fn text -> #TypeText{text, span: span(1, 36, 36 + String.length(text))}),
-        body: Some(
-            #Body{
-                text: sql_text,
-                span: span(2, 1, 40),
-                start_line: 2,
-                start_col: 5,
-                indent_col: 5,
-                tag: Some("Sql"),
-            }
-        ),
-        doc: "The user with this email.",
-        file: "queries.nomi",
-        span: span(1, 5, 10),
-        name_span: span(1, 11, 24),
-    }
+fn places(problems: List<Problem>) -> List<#(Int, Int)> {
+    problems |> Iter.map(fn p -> #(p.line, p.col)) |> Iter.to_list()
 }
 
-fn user_query(sql_text: String) -> Query {
-    #Query{
-        file: "queries.nomi",
-        name: "user_by_email",
-        sql: sql_text,
-        params: 1,
-        columns: [
-            #Column{
-                name: "id",
-                type_name: "INTEGER",
-                table: "users",
-                column: "id",
-                nullable: False,
-            },
-            #Column{
-                name: "name",
-                type_name: "TEXT",
-                table: "users",
-                column: "name",
-                nullable: True,
-            },
-        ],
-        error: None,
-    }
-}
+test "a query file reads each query's annotation, doc lines and SQL" {
+    text = "-- The shop's queries.\n-- import: shop.Report\n\n-- query: user_by_email(email: String) -> Maybe<User>\n-- The user with this email,\n--\n-- if any.\nSELECT id\nFROM users\nWHERE email = @email;\n\n-- query: all_users()\nSELECT id FROM users;\n"
 
-fn snapshot_of(queries: List<Query>) -> Snapshot {
-    #Snapshot{
-        format: snapshot.format,
-        database: "main",
-        dialect: "sqlite",
-        migrations: snapshot.migrations_checksum([#("db/migrations/1.sql", users_sql())]),
-        tables: [
-            #Table{
-                name: "users",
-                migration: "db/migrations/1.sql",
-                line: 1,
-                columns: [
-                    #TableColumn{
-                        name: "id",
-                        type_name: "INTEGER",
-                        nullable: False,
-                        primary_key: True,
-                        has_default: False,
-                        values: [],
-                        migration: "db/migrations/1.sql",
-                        line: 2,
-                    },
-                ],
-            },
-        ],
-        queries,
-    }
-}
-
-fn expand(decl: Declaration, snap: Snapshot) -> Expansion {
-    inputs = [#Input{path: "db/main.snapshot.json", text: Snapshot.write(snap)}]
-    generate.query(#ExpandCall{decl, config: config(), inputs, sites: []})
-}
-
-fn messages(e: Expansion) -> List<String> {
-    e.diagnostics |> Iter.map(fn d -> d.message) |> Iter.to_list()
-}
-
-test "a snapshot reads back as the snapshot written" {
-    snap = snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")])
-    assert Snapshot.parse(Snapshot.write(snap)) == Ok(snap)
-}
-
-test "a snapshot keeps SQL as it reads, quotes, comparisons and all" {
-    sql_text = "SELECT count(*) AS \"n\" FROM users WHERE id >= ?1 AND name <> 'a\\b'"
-    snap = snapshot_of([user_query(sql_text)])
-    text = Snapshot.write(snap)
-
-    assert String.contains?(
-        text,
-        "\"sql\": \"SELECT count(*) AS \\\"n\\\" FROM users WHERE id >= ?1 AND name <> 'a\\\\b'\"",
-    )
-
-    assert Snapshot.parse(text) == Ok(snap)
-}
-
-test "a snapshot of another format is refused" {
-    text = Snapshot.write(#{..snapshot_of([]), format: 99})
-    assert Snapshot.parse(text) == Err("it is in format 99, and this sqlkit reads format 2")
-
-    // Format 1 had no `migrations`: the format is what is reported.
-    old = "{\"format\": 1, \"database\": \"main\", \"dialect\": \"sqlite\", \"tables\": [], \"queries\": []}"
-    assert Snapshot.parse(old) == Err("it is in format 1, and this sqlkit reads format 2")
-}
-
-fn users_sql() -> String {
-    "CREATE TABLE users (\n    id INTEGER PRIMARY KEY\n);\n"
-}
-
-fn database_decl() -> Declaration {
-    #Declaration{
-        keyword: "database",
-        name: "main",
-        public: True,
-        params: [],
-        result: None,
-        body: None,
-        doc: "",
-        file: "schema.nomi",
-        span: #Span{file: "schema.nomi", line: 1, col: 5, end_line: 1, end_col: 21},
-        name_span: #Span{file: "schema.nomi", line: 1, col: 23, end_line: 1, end_col: 27},
-    }
-}
-
-fn expand_database(migrations: List<Input>) -> Expansion {
-    inputs = [#Input{
-        path: "db/main.snapshot.json",
-        text: Snapshot.write(snapshot_of([])),
-    }, ..migrations]
-
-    generate.database(#ExpandCall{decl: database_decl(), config: config(), inputs, sites: []})
-}
-
-test "a snapshot records its migrations' checksum, which any change to them changes" {
-    one = [#("db/migrations/1.sql", users_sql())]
-    sum = snapshot.migrations_checksum(one)
-    text = Snapshot.write(snapshot_of([]))
-    assert String.contains?(text, "  \"migrations\": \"${sum}\",\n")
-
-    // What `prepare --check` compares: the text it would write changes
-    // with the migrations, whether or not the schema does.
-    assert snapshot.migrations_checksum(
-        [#("db/migrations/1.sql", users_sql() + "-- a note\n")]
-    ) != sum
-
-    assert snapshot.migrations_checksum([#("db/migrations/2.sql", users_sql())]) != sum
-    assert snapshot.migrations_checksum(one + [#("db/migrations/2.sql", "")]) != sum
-    assert snapshot.migrations_checksum([]) != sum
-}
-
-test "a database whose migrations are the snapshot's expands with no diagnostic" {
-    e = expand_database([#Input{path: "db/migrations/1.sql", text: users_sql()}])
-    assert e.diagnostics == []
-    assert String.contains?(e.source, "pub struct User {")
-}
-
-test "a database whose migrations changed after prepare is out of date, with prepare as its fix" {
-    renamed = #Input{
-        path: "db/migrations/1.sql",
-        text: "CREATE TABLE users (\n    user_id INTEGER PRIMARY KEY\n);\n",
+    file = case parsed(text) {
+        Ok(f) -> f
+        Err(ps) -> return Err("${messages(ps)}")
     }
 
-    added = #Input{
-        path: "db/migrations/2.sql",
-        text: "ALTER TABLE users RENAME COLUMN id TO user_id;\n",
-    }
+    assert file.imports == ["shop.Report"]
 
-    first = #Input{path: "db/migrations/1.sql", text: users_sql()}
-    message = "db/main.snapshot.json is out of date: the migrations changed after the last `nomi tool sqlkit prepare`"
-
-    changed = expand_database([renamed])
-    assert messages(changed) == [message]
-
-    assert changed.diagnostics |> Iter.map(fn d -> d.span) |> Iter.to_list() == [
-        database_decl().span,
-    ]
-
-    // The code is the snapshot's still, so its users check against it.
-    assert String.contains?(changed.source, "pub struct User {")
-
-    assert messages(expand_database([first, added])) == [message]
-    e = expand_database([renamed])
-
-    Some(d) = Iter.first(e.diagnostics) else {
-        None -> return Err("no diagnostic")
-    }
-
-    assert navigate.actions(#ActionsCall{decl: database_decl(), inputs: [], diagnostic: d}) == [
-        #Action{
-            title: "Describe the queries with `nomi tool sqlkit prepare`",
-            edits: [],
-            tool: Some(#Tool{name: "prepare", args: []}),
+    assert file.queries == [
+        #Query{
+            file: "db/queries/q.sql",
+            line: 4,
+            name: "user_by_email",
+            params: [#Param{name: "email", type_text: "String", col: 25}],
+            result: Some("Maybe<User>"),
+            result_col: 43,
+            doc: ["The user with this email,", "", "if any."],
+            sql: "SELECT id\nFROM users\nWHERE email = @email",
+            sql_line: 8,
+        },
+        #Query{
+            file: "db/queries/q.sql",
+            line: 12,
+            name: "all_users",
+            params: [],
+            result: None,
+            result_col: 0,
+            doc: [],
+            sql: "SELECT id FROM users",
+            sql_line: 13,
         },
     ]
 }
 
-test "a described query expands to a function reading its columns" {
-    sql_text = "SELECT id, name\nFROM users\nWHERE email = @email"
+test "a parameter's type may hold commas inside brackets" {
+    text = "-- query: q(a: Map<String, Int>, b: #(Int, Int)) -> Int\nSELECT @a, @b;\n"
 
-    e = expand(
-        declaration(sql_text, Some("Maybe<User>")),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
-    )
+    params = case parsed(text) {
+        Ok(f) ->
+            f.queries
+            |> Iter.flat_map(fn q -> q.params)
+            |> Iter.map(fn p -> p.type_text)
+            |> Iter.to_list()
 
-    assert e.diagnostics == []
+        Err(ps) ->
+            return Err("${messages(ps)}")
+    }
 
-    assert String.contains?(
-        e.source,
-        "\npub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {",
-    )
-
-    assert String.contains?(e.source, "[\"SELECT id, name FROM users WHERE email = \", \"\"]")
-    assert String.contains?(e.source, "[runtime.bind(email)]")
-
-    assert String.contains?(
-        e.source,
-        "runtime.optional(conn, \"user_by_email\", statement, fn row -> Ok(#User{",
-    )
-
-    assert String.contains?(e.source, "id: try runtime.int(\"user_by_email\", row, 0),")
-    assert String.contains?(e.source, "name: try runtime.text_null(\"user_by_email\", row, 1),")
+    assert params == ["Map<String, Int>", "#(Int, Int)"]
 }
 
-test "a column's reader is mapped to the column in the body, with a hint" {
-    sql_text = "SELECT id, name\nFROM users\nWHERE email = @email"
+test "a query file's mistakes are problems at their line and column" {
+    text = "SELECT 1;\n-- query: Bad()\nSELECT 1;\n-- query: no_parens -> Int\nSELECT 1;\n-- query: twice(a: Int, a: Int)\nSELECT @a;\n-- query: no_end() -> Int\nSELECT 1\n-- query: two() -> Int\nSELECT 1; SELECT 2;\n-- query: empty()\n"
 
-    e = expand(
-        declaration(sql_text, Some("Maybe<User>")),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
-    )
-
-    Some(name_map) = Iter.find(e.spans, fn m -> {
-        String.slice(e.source, m.start, m.start + 5) == "name:"
-    }) else {
-        None -> return Err("no span for the name column")
+    problems = case parsed(text) {
+        Ok(_) -> return Err("no problems")
+        Err(ps) -> ps
     }
 
-    assert name_map.span == #Span{file: "queries.nomi", line: 2, col: 16, end_line: 2, end_col: 20}
-
-    assert name_map.hint == Some(
-        "`name` is TEXT and may be NULL, so the field should be `Maybe<String>`; or assert it is never NULL with `AS \"name!\"`"
-    )
-
-    Some(id_map) = Iter.find(e.spans, fn m -> {
-        String.slice(e.source, m.start, m.start + 3) == "id:"
-    }) else {
-        None -> return Err("no span for the id column")
-    }
-
-    assert id_map.hint == Some("`id` is INTEGER, so the field should be `Int`")
-}
-
-test "a one-column query's hint names the row type the column should be" {
-    one = #{
-        ..user_query("SELECT name FROM users WHERE email = ?1"),
-        columns: [
-            #Column{
-                name: "name",
-                type_name: "TEXT",
-                table: "users",
-                column: "name",
-                nullable: False,
-            },
-        ],
-    }
-
-    e = expand(
-        declaration("SELECT name FROM users WHERE email = @email", Some("Int")),
-        snapshot_of([one]),
-    )
-
-    assert e.diagnostics == []
-
-    Some(text_map) = Iter.find(e.spans, fn m -> {
-        String.slice(e.source, m.start, m.start + 12) == "runtime.text"
-    }) else {
-        None -> return Err("no span for the column's reader")
-    }
-
-    assert text_map.hint == Some("`name` is TEXT, so the row type should be `String`")
-}
-
-test "a parameter the SQL does not use, and an `@name` no parameter names, are errors" {
-    e = expand(declaration("SELECT id FROM users WHERE email = @mail", None), snapshot_of([]))
-
-    assert messages(e) == [
-        "`mail` is not a parameter of `user_by_email`",
-        "the parameter `email` is not used in the SQL of `user_by_email`",
+    assert messages(problems) == [
+        "SQL before the first `-- query:` belongs to no query",
+        "a query's name is lower case letters, digits and `_`",
+        "`no_parens` needs its parameters in parentheses, `()` for none",
+        "the parameter `a` is declared twice",
+        "the SQL of `no_end` does not end in `;`",
+        "`two` has SQL after the `;` that ends it",
+        "`empty` has no SQL",
     ]
 
-    // The first error is at the `@mail` and names the declared parameters.
-    assert Iter.first(e.diagnostics) |> Maybe.map(fn d -> #(d.span, d.hints)) == Some(
-        #(
-            #Span{file: "queries.nomi", line: 2, col: 40, end_line: 2, end_col: 45},
-            ["its parameters are `email`"],
-        )
-    )
-
-    assert Iter.last(e.diagnostics) |> Maybe.map(fn d -> d.hints) == Some(
-        ["write `@email` where it is bound, or remove it"]
-    )
+    assert places(problems) == [#(1, 1), #(2, 11), #(4, 20), #(6, 25), #(8, 1), #(11, 11), #(12, 1)]
 }
 
+test "a problem prints as the compiler prints a diagnostic" {
+    p = #Problem{
+        file: "db/queries/q.sql",
+        line: 3,
+        col: 7,
+        message: "no such column: x",
+        hints: ["a hint"],
+    }
+
+    assert "${p}" == "db/queries/q.sql:3:7: no such column: x\ndb/queries/q.sql:3:7: help: a hint"
+    assert "${#{..p, line: 0, hints: []}}" == "db/queries/q.sql: no such column: x"
+}
+
+// --- parameters in SQL ---------------------------------------------------
 fn params_of(text: String) -> List<String> {
     sqltext.markers(sqltext.tokens(text)) |> Iter.map(fn t -> t.text) |> Iter.to_list()
 }
@@ -368,356 +139,428 @@ test "an `@` in a string, a quoted name or a comment is SQL text" {
     assert params_of("SELECT 1 -- @x\nFROM t /* @z\n @w */ WHERE a = @y") == ["@y"]
 }
 
-test "a `\${...}` in a body is an error that suggests `@name`" {
-    e = expand(declaration("SELECT id FROM users WHERE email = \${email}", None), snapshot_of([]))
-
-    // Only the `${email}` is reported: the parameter it meant counts as used.
-    assert messages(e) == ["a query body is raw SQL, so `\${...}` is not interpolated"]
-
-    assert Iter.first(e.diagnostics) |> Maybe.map(fn d -> #(d.span, d.hints)) == Some(
-        #(
-            #Span{file: "queries.nomi", line: 2, col: 40, end_line: 2, end_col: 48},
-            ["write `@email`: a query binds a parameter with SQL's `@name`"],
-        )
-    )
-
-    // In a string literal it is SQL text.
-    assert params_of("SELECT '\${x}'") == []
-    assert sqltext.interpolations(sqltext.tokens("SELECT '\${x}' -- \${y}")) == []
-}
-
-fn tagged(decl: Declaration, tag: Maybe<String>) -> Declaration {
-    #{..decl, body: decl.body |> Maybe.map(fn b -> #{..b, tag})}
-}
-
-test "a query's body must be tagged `Sql`, at the body with a hint" {
-    sql_text = "SELECT id, name FROM users WHERE email = @email"
-    snap = snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")])
-    hint = "write `Sql` right before the opening backtick: ``Sql`SELECT ...` ``"
-    at = #Span{file: "queries.nomi", line: 2, col: 5, end_line: 2, end_col: 52}
-
-    untagged = expand(tagged(declaration(sql_text, None), None), snap)
-    assert untagged.source == ""
-    assert messages(untagged) == ["a query's body is SQL, tagged `Sql`"]
-
-    assert Iter.first(untagged.diagnostics) |> Maybe.map(fn d -> #(d.span, d.hints)) == Some(
-        #(at, [hint])
-    )
-
-    other = expand(tagged(declaration(sql_text, None), Some("Json")), snap)
-    assert messages(other) == ["a query's body is SQL, tagged `Sql`, not `Json`"]
-
-    tagged_sql = expand(declaration(sql_text, None), snap)
-    assert !Iter.any?(messages(tagged_sql), fn m -> String.contains?(m, "tagged"))
-}
-
 test "each `@name` is sent as the next positional parameter" {
     tokens = sqltext.tokens("SELECT a FROM t WHERE a = @x OR b = @y OR c = @x")
 
-    assert sqltext.sqlite_sql(
-        sqltext.parts(tokens)
-    ) == "SELECT a FROM t WHERE a = ?1 OR b = ?2 OR c = ?3"
-
-    sql_text = "SELECT id, name FROM users WHERE email = @email OR name = @email"
-
-    e = expand(
-        declaration(sql_text, Some("User")),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1 OR name = ?2")]),
-    )
-
-    assert e.diagnostics == []
-
-    // A parameter used twice is bound twice.
-    assert String.contains?(e.source, "[runtime.bind(email), runtime.bind(email)]")
+    assert sqltext.sqlite_sql(sqltext.parts(tokens))
+        == "SELECT a FROM t WHERE a = ?1 OR b = ?2 OR c = ?3"
 }
 
-test "a query the snapshot does not hold says to run prepare" {
-    e = expand(
-        declaration("SELECT id, name FROM users WHERE email = @email", Some("User")),
-        snapshot_of([]),
-    )
-
-    assert messages(e) == ["`user_by_email` is not in db/main.snapshot.json"]
-
-    assert Iter.first(e.diagnostics) |> Maybe.map(fn d -> d.hints) == Some(
-        ["run `nomi tool sqlkit prepare` to describe the queries again"]
-    )
-
-    // The function keeps its signature, so its callers still check.
-    assert String.contains?(e.source, "-> Result<User, sql.Error> {")
+// --- the generated functions ---------------------------------------------
+fn column(name: String, type_name: String, nullable: Bool, values: List<String>) -> TableColumn {
+    #TableColumn{
+        name,
+        type_name,
+        nullable,
+        primary_key: name == "id",
+        has_default: False,
+        values,
+        migration: "db/migrations/1.sql",
+        line: 2,
+    }
 }
 
-test "a query whose SQL changed since the snapshot is stale" {
-    snap = snapshot_of([user_query("SELECT id FROM users WHERE email = ?1")])
-
-    e = expand(declaration("SELECT id, name FROM users WHERE email = @email", Some("User")), snap)
-
-    assert messages(e) == [
-        "`user_by_email` is not in db/main.snapshot.json: its SQL changed after the last `nomi tool sqlkit prepare`",
-    ]
-
-    // The error spans the SQL, not the space before it.
-    indented = expand(
-        declaration("    SELECT id, name FROM users WHERE email = @email  ", Some("User")),
-        snap,
-    )
-
-    assert Iter.first(indented.diagnostics) |> Maybe.map(fn d -> d.span) == Some(
-        #Span{file: "queries.nomi", line: 2, col: 9, end_line: 2, end_col: 56}
-    )
+fn users_table() -> Table {
+    #Table{
+        name: "users",
+        migration: "db/migrations/1.sql",
+        line: 1,
+        columns: [
+            column("id", "INTEGER", False, []),
+            column("name", "TEXT", True, []),
+            column("status", "TEXT", False, ["active", "gone"]),
+        ],
+    }
 }
 
-test "a stale query with no result type keeps the type the snapshot last described" {
-    e = expand(
-        declaration("SELECT id, name, email FROM users WHERE email = @email", None),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
-    )
-
-    assert messages(e) == [
-        "`user_by_email` is not in db/main.snapshot.json: its SQL changed after the last `nomi tool sqlkit prepare`",
-    ]
-
-    assert String.contains?(
-        e.source,
-        "-> Result<List<#{id: Int, name: Maybe<String>}>, sql.Error> {",
-    )
-
-    assert String.contains?(e.source, "Err(runtime.undescribed(\"user_by_email\"))")
-
-    // A query the snapshot never described has no type to keep.
-    new = expand(declaration("SELECT id FROM users WHERE email = @email", None), snapshot_of([]))
-
-    assert new.source == ""
+fn schema_with(db: Database, tables: List<Table>) -> Result<Schema, List<Problem>> {
+    codegen.schema(db, tables, "schema")
 }
 
-test "a query with a misspelled parameter keeps its signature" {
-    e = expand(
-        declaration("SELECT id, name FROM users WHERE email = @mail", Some("User")),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
+fn users_schema() -> Schema {
+    case schema_with(databases.defaults("main"), [users_table()]) {
+        Ok(s) -> s
+        Err(_) -> #Schema{db: databases.defaults("main"), tables: [], rows: %{}, module: "schema"}
+    }
+}
+
+fn id_column() -> Column {
+    #Column{name: "id", type_name: "INTEGER", table: "users", column: "id", nullable: False}
+}
+
+fn name_column() -> Column {
+    #Column{name: "name", type_name: "TEXT", table: "users", column: "name", nullable: True}
+}
+
+// The file q.sql of `text` generates, each query described by `described`.
+fn generate(
+    text: String,
+    described: List<Result<List<Column>, QueryError>>,
+) -> Result<String, List<Problem>> {
+    file = try parsed(text)
+    codegen.queries_file(users_schema(), file, described, "ab12")
+}
+
+fn source_of(text: String, columns: List<Column>) -> String {
+    case generate(text, [Ok(columns)]) {
+        Ok(source) -> source
+        Err(ps) -> "${messages(ps)}"
+    }
+}
+
+fn problems_of(text: String, described: List<Result<List<Column>, QueryError>>) -> List<Problem> {
+    case generate(text, described) {
+        Ok(_) -> []
+        Err(ps) -> ps
+    }
+}
+
+test "a described query generates a function reading its columns" {
+    text = "-- query: user_by_email(email: String) -> Maybe<User>\n-- The user.\nSELECT id, name\nFROM users\nWHERE email = @email;\n"
+    source = source_of(text, [id_column(), name_column()])
+
+    assert source == "// Generated by `nomi tool sqlkit generate` from db/queries/q.sql and\n// db/migrations. Do not edit: change the SQL and generate again.\n// inputs sha256: ab12\nimport {\n    std/sql\n    schema.User\n    sqlkit/runtime\n}\n\n/// The user.\npub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {\n    statement = runtime.statement(\n        [\"SELECT id, name FROM users WHERE email = \", \"\"],\n        [runtime.bind(email)],\n    )\n\n    runtime.optional(conn, \"user_by_email\", statement, fn row -> Ok(#User{\n            id: try runtime.int(\"user_by_email\", row, 0),\n            name: try runtime.text_null(\"user_by_email\", row, 1),\n        }))\n}\n"
+}
+
+test "a parameter used twice is bound twice" {
+    text = "-- query: q(email: String) -> Maybe<User>\nSELECT id, name FROM users WHERE email = @email OR name = @email;\n"
+    source = source_of(text, [id_column(), name_column()])
+    assert String.contains?(source, "[runtime.bind(email), runtime.bind(email)]")
+}
+
+test "a parameter the SQL does not use, and an `@name` no parameter names, are problems" {
+    problems = problems_of(
+        "-- query: user_by_email(email: String)\nSELECT id FROM users WHERE email = @mail;\n",
+        [Ok([id_column()])],
     )
 
-    assert messages(e) == [
+    assert messages(problems) == [
         "`mail` is not a parameter of `user_by_email`",
         "the parameter `email` is not used in the SQL of `user_by_email`",
     ]
 
-    assert String.contains?(e.source, "-> Result<User, sql.Error> {")
+    assert places(problems) == [#(2, 36), #(1, 25)]
+
+    assert problems |> Iter.map(fn p -> p.hints) |> Iter.to_list() == [
+        ["its parameters are `email`"],
+        ["write `@email` where it is bound, or remove it"],
+    ]
 }
 
-test "a database with no snapshot says to write it, and its queries keep their signatures" {
-    e = generate.query(#ExpandCall{
-        decl: declaration("SELECT id, name FROM users WHERE email = @email", Some("User")),
-        config: config(),
-        inputs: [],
-        sites: [],
-    })
-
-    assert messages(e) == ["the database `main` has no snapshot at db/main.snapshot.json"]
-
-    assert Iter.first(e.diagnostics) |> Maybe.map(fn d -> d.hints) == Some(
-        ["run `nomi tool sqlkit prepare` to write it from the migrations"]
+test "a `\${...}` in a query's SQL is a problem that suggests `@name`" {
+    problems = problems_of(
+        "-- query: q(email: String)\nSELECT id FROM users WHERE email = \${email};\n",
+        [Ok([id_column()])],
     )
 
-    assert String.contains?(e.source, "-> Result<User, sql.Error> {")
+    // Only the `${email}` is reported: the parameter it meant counts as used.
+    assert messages(problems) == ["a query's SQL has no `\${...}`"]
+
+    assert problems |> Iter.flat_map(fn p -> p.hints) |> Iter.to_list() == [
+        "write `@email`: a query binds a parameter with `@name`",
+    ]
+
+    // In a string literal it is SQL text.
+    assert sqltext.interpolations(sqltext.tokens("SELECT '\${x}' -- \${y}")) == []
 }
 
-test "SQLite's error is reported at the token it names" {
-    sql_text = "SELECT id, nmae FROM users WHERE email = @email"
+test "SQLite's error is a problem at the token it names" {
+    rejected = Err(#QueryError{message: "no such column: nmae", offset: 11})
 
-    failed = #{
-        ..user_query("SELECT id, nmae FROM users WHERE email = ?1"),
-        columns: [],
-        error: Some(#QueryError{message: "no such column: nmae", offset: 11}),
+    problems = problems_of(
+        "-- query: q() -> User\nSELECT id,\n       nmae FROM users;\n",
+        [rejected],
+    )
+
+    assert messages(problems) == ["no such column: nmae"]
+    assert places(problems) == [#(3, 8)]
+}
+
+test "a query with no result type answers anonymous rows, its enums and std types imported" {
+    status = #Column{
+        name: "status",
+        type_name: "TEXT",
+        table: "users",
+        column: "status",
+        nullable: False,
     }
 
-    e = expand(declaration(sql_text, Some("User")), snapshot_of([failed]))
-    assert messages(e) == ["no such column: nmae"]
+    at = #Column{name: "at", type_name: "TIMESTAMPTZ", table: "", column: "", nullable: True}
 
-    assert Iter.first(e.diagnostics) |> Maybe.map(fn d -> d.span) == Some(
-        #Span{file: "queries.nomi", line: 2, col: 16, end_line: 2, end_col: 20}
-    )
-}
-
-test "a query with no result type answers anonymous rows" {
-    e = expand(
-        declaration("SELECT id, name FROM users WHERE email = @email", None),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
+    source = source_of(
+        "-- query: q()\nSELECT id, status, at FROM users;\n",
+        [id_column(), status, at],
     )
 
     assert String.contains?(
-        e.source,
-        "-> Result<List<#{id: Int, name: Maybe<String>}>, sql.Error> {",
+        source,
+        "import {\n    std/instant.Instant\n    std/sql\n    schema.UserStatus\n    sqlkit/runtime\n}\n",
     )
 
-    assert String.contains?(e.source, "id: try runtime.int<Int>(\"user_by_email\", row, 0),")
+    assert String.contains?(
+        source,
+        "pub fn q(conn: sql.Conn) -> Result<List<#{\n    id: Int,\n    status: UserStatus,\n    at: Maybe<Instant>,\n}>, sql.Error> {",
+    )
+
+    assert String.contains?(source, "            id: try runtime.int<Int>(\"q\", row, 0),\n")
+
+    assert String.contains?(
+        source,
+        "            at: try runtime.timestamptz_null<Instant>(\"q\", row, 2),\n",
+    )
 }
 
 test "SQL that returns no rows answers the rows it changed with `-> Changed`, or nothing with `-> Unit`" {
-    changed = #{..user_query("DELETE FROM users WHERE email = ?1"), columns: []}
+    changed = source_of("-- query: q(id: Int) -> Changed\nDELETE FROM users WHERE id = @id;\n", [])
 
-    e = expand(
-        declaration("DELETE FROM users WHERE email = @email", Some("Changed")),
-        snapshot_of([changed]),
+    assert String.contains?(
+        changed,
+        "pub fn q(conn: sql.Conn, id: Int) -> Result<sqlkit.Changed, sql.Error> {",
     )
 
-    assert e.diagnostics == []
-    assert String.contains?(e.source, "-> Result<sqlkit.Changed, sql.Error> {")
-    assert String.contains?(e.source, "runtime.exec(conn, statement)")
+    assert String.contains?(changed, "    runtime.exec(conn, statement)\n")
+    assert String.contains?(changed, "\n    sqlkit\n")
 
-    // The query's name is not a statement of its own.
-    refute String.contains?(e.source, "_ = \"user_by_email\"")
-
-    ignored = expand(
-        declaration("DELETE FROM users WHERE email = @email", Some("Unit")),
-        snapshot_of([changed]),
-    )
-
-    assert ignored.diagnostics == []
-    assert String.contains?(ignored.source, "-> Result<Unit, sql.Error> {")
-    assert String.contains?(ignored.source, "runtime.run(conn, statement)")
+    ignored = source_of("-- query: q(id: Int) -> Unit\nDELETE FROM users WHERE id = @id;\n", [])
+    assert String.contains?(ignored, "-> Result<Unit, sql.Error> {")
+    assert String.contains?(ignored, "    runtime.run(conn, statement)\n")
+    refute String.contains?(ignored, "\n    sqlkit\n")
 }
 
-test "SQL that returns no rows must write `-> Changed` or `-> Unit`, at the query's name" {
-    changed = #{..user_query("DELETE FROM users WHERE email = ?1"), columns: []}
+test "a query's result must fit whether its SQL returns rows" {
+    none = fn result: String -> {
+        messages(
+            problems_of(
+                "-- query: q(id: Int)${result}\nDELETE FROM users WHERE id = @id;\n",
+                [Ok([])],
+            )
+        )
+    }
 
-    e = expand(declaration("DELETE FROM users WHERE email = @email", None), snapshot_of([changed]))
+    rows = fn result: String -> {
+        messages(
+            problems_of("-- query: q()${result}\nSELECT id FROM users;\n", [Ok([id_column()])])
+        )
+    }
 
-    assert messages(e) == [
-        "`user_by_email` returns no rows, so its result is the number of rows it changed: write `-> Changed`",
+    assert none("") == [
+        "`q` returns no rows, so its result is the number of rows it changed: write `-> Changed`",
     ]
 
-    assert e.diagnostics |> Iter.map(fn d -> #(d.span, d.hints)) |> Iter.to_list() == [
-        #(span(1, 11, 24), ["write `-> Changed` for the count, or `-> Unit` to ignore it"]),
+    assert none(" -> List<User>") == ["`q` returns no rows, so it has no row type"]
+
+    assert none(" -> Int") == [
+        "`q` returns no rows, so it cannot answer an `Int`; write `-> Changed` for the number of rows it changed, or `-> Unit`",
     ]
 
-    assert e.source == ""
-
-    // A row type on SQL that returns no rows says the same.
-    row = expand(
-        declaration("DELETE FROM users WHERE email = @email", Some("List<User>")),
-        snapshot_of([changed]),
-    )
-
-    assert messages(row) == ["`user_by_email` returns no rows, so it has no row type"]
-
-    assert row.diagnostics |> Iter.map(fn d -> #(d.span, d.hints)) |> Iter.to_list() == [
-        #(span(1, 41, 45), ["write `-> Changed` for the count, or `-> Unit` to ignore it"]),
-    ]
-}
-
-test "`-> Int` on SQL that returns no rows is an error, not the count" {
-    changed = #{..user_query("INSERT INTO users (email) VALUES (?1)"), columns: []}
-
-    e = expand(
-        declaration("INSERT INTO users (email) VALUES (@email)", Some("Int")),
-        snapshot_of([changed]),
-    )
-
-    assert messages(e) == [
-        "`user_by_email` returns no rows, so it cannot answer an `Int`; write `-> Changed` for the number of rows it changed, or `-> Unit`",
-    ]
-
-    assert e.diagnostics |> Iter.map(fn d -> d.span) |> Iter.to_list() == [span(1, 36, 39)]
-    assert e.source == ""
-}
-
-test "`-> Unit` and `-> Changed` on SQL that returns rows are errors at the result type" {
-    e = expand(
-        declaration("SELECT id, name FROM users WHERE email = @email", Some("Unit")),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
-    )
-
-    assert messages(e) == ["`user_by_email` returns rows, so its result cannot be `Unit`"]
-
-    assert e.diagnostics |> Iter.map(fn d -> #(d.span, d.hints)) |> Iter.to_list() == [
-        #(
-            span(1, 36, 40),
-            [
-                "name their type, `-> List<MyRow>`, or leave the result type out to read them as anonymous structs",
-            ],
-        ),
-    ]
-
-    assert e.source == ""
-
-    changed = expand(
-        declaration("SELECT id, name FROM users WHERE email = @email", Some("Changed")),
-        snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]),
-    )
-
-    assert messages(changed) == ["`user_by_email` returns rows, so its result cannot be `Changed`"]
-    assert changed.diagnostics |> Iter.map(fn d -> d.span) |> Iter.to_list() == [span(1, 36, 43)]
-}
-
-test "before prepare describes it, `-> Changed` and `-> Unit` keep their signatures" {
-    count = expand(
-        declaration("DELETE FROM users WHERE email = @email", Some("Changed")),
-        snapshot_of([]),
-    )
-
-    assert messages(count) == ["`user_by_email` is not in db/main.snapshot.json"]
-    assert String.contains?(count.source, "-> Result<sqlkit.Changed, sql.Error> {")
-
-    ignored = expand(
-        declaration("DELETE FROM users WHERE email = @email", Some("Unit")),
-        snapshot_of([]),
-    )
-
-    assert messages(ignored) == ["`user_by_email` is not in db/main.snapshot.json"]
-    assert String.contains?(ignored.source, "-> Result<Unit, sql.Error> {")
+    assert rows(" -> Unit") == ["`q` returns rows, so its result cannot be `Unit`"]
+    assert rows(" -> Changed") == ["`q` returns rows, so its result cannot be `Changed`"]
 }
 
 test "a one-column query reads a scalar row type as the column" {
-    one = #{
-        ..user_query("SELECT id FROM users WHERE email = ?1"),
-        columns: [
-            #Column{
-                name: "id",
-                type_name: "INTEGER",
-                table: "users",
-                column: "id",
-                nullable: False,
-            },
-        ],
-    }
-
-    e = expand(
-        declaration("SELECT id FROM users WHERE email = @email", Some("Int")),
-        snapshot_of([one]),
-    )
-
-    assert e.diagnostics == []
+    source = source_of("-- query: q() -> Int\nSELECT id FROM users;\n", [id_column()])
 
     assert String.contains?(
-        e.source,
-        "runtime.one(conn, \"user_by_email\", statement, fn row -> runtime.int(\"user_by_email\", row, 0))",
+        source,
+        "    runtime.one(conn, \"q\", statement, fn row -> runtime.int(\"q\", row, 0))\n",
     )
 }
 
 test "an expression's column needs a type in an anonymous row" {
-    count = #{
-        ..user_query("SELECT count(*) AS \"n\" FROM users WHERE email = ?1"),
-        columns: [#Column{name: "n", type_name: "", table: "", column: "", nullable: True}],
-    }
+    n = #Column{name: "n", type_name: "", table: "", column: "", nullable: True}
 
-    e = expand(
-        declaration("SELECT count(*) AS \"n\" FROM users WHERE email = @email", None),
-        snapshot_of([count]),
-    )
-
-    assert messages(e) == [
-        "SQLite reports no type for the column `n` of `user_by_email`: it is an expression",
+    assert messages(
+        problems_of("-- query: q()\nSELECT count(*) AS \"n\" FROM users;\n", [Ok([n])])
+    ) == [
+        "SQLite reports no type for the column `n` of `q`: it is an expression",
     ]
 
-    typed = expand(
-        declaration("SELECT count(*) AS \"n!: Int\" FROM users WHERE email = @email", None),
-        snapshot_of([count]),
-    )
-
-    assert typed.diagnostics == []
-    assert String.contains?(typed.source, "n: try runtime.value<Int>(\"user_by_email\", row, 0),")
+    typed = source_of("-- query: q()\nSELECT count(*) AS \"n!: Int\" FROM users;\n", [n])
+    assert String.contains?(typed, "n: try runtime.value<Int>(\"q\", row, 0),")
 }
 
+test "a CAST to DECIMAL(p, s) reads the expression at its scale" {
+    sum = #Column{name: "n", type_name: "DECIMAL(12, 2)", table: "", column: "", nullable: False}
+
+    source = source_of(
+        "-- query: q()\nSELECT CAST(sum(id) AS DECIMAL(12, 2)) AS \"n\" FROM users;\n",
+        [sum],
+    )
+
+    assert String.contains?(source, "n: try runtime.numeric_scaled<Decimal>(\"q\", row, 0, 2),")
+}
+
+test "a type no import gives is a problem, and `-- import:` gives one" {
+    problems = problems_of(
+        "-- query: q(r: Report) -> Int\nSELECT id FROM users WHERE id = @r;\n",
+        [Ok([id_column()])],
+    )
+
+    assert messages(problems) == ["`Report` is not a type of the schema, the prelude or std"]
+    assert places(problems) == [#(1, 13)]
+
+    source = source_of(
+        "-- import: shop.Report\n-- query: q(r: Report) -> Int\nSELECT id FROM users WHERE id = @r;\n",
+        [id_column()],
+    )
+
+    assert String.contains?(source, "\n    shop.Report\n")
+}
+
+test "a long signature and long SQL are laid out as the formatter lays them out" {
+    text = "-- query: a_query_with_a_long_name(first_parameter: String, second_parameter: Int) -> Int\nSELECT id FROM users WHERE name = @first_parameter AND id = @second_parameter AND id > 0;\n"
+    source = source_of(text, [id_column()])
+
+    assert String.contains?(
+        source,
+        "pub fn a_query_with_a_long_name(\n    conn: sql.Conn,\n    first_parameter: String,\n    second_parameter: Int,\n) -> Result<Int, sql.Error> {\n    statement = runtime.statement(\n        [\"SELECT id FROM users WHERE name = \", \" AND id = \", \" AND id > 0\"],\n        [runtime.bind(first_parameter), runtime.bind(second_parameter)],\n    )\n",
+    )
+
+    assert String.contains?(
+        source,
+        "    runtime.one(conn, \"a_query_with_a_long_name\", statement, fn row -> {\n        runtime.int(\"a_query_with_a_long_name\", row, 0)\n    })\n",
+    )
+}
+
+test "an import entry names its module and what it imports" {
+    assert codegen.entry("shop.Report") == #("shop", ["Report"])
+    assert codegen.entry("std/calendar.{Date, Time}") == #("std/calendar", ["Date", "Time"])
+    assert codegen.entry("reports/monthly") == #("reports/monthly", ["self"])
+}
+
+// --- the schema ----------------------------------------------------------
+fn many_tables() -> List<Table> {
+    table = fn name: String, columns: List<TableColumn> -> {
+        #Table{name, migration: "db/migrations/1.sql", line: 1, columns}
+    }
+
+    [
+        table("categories", [column("id", "INTEGER", False, [])]),
+        table("order_items", [column("kind", "TEXT", False, ["gift", "sale"])]),
+        table("people", [column("status", "TEXT", False, ["active", "gone"])]),
+    ]
+}
+
+fn named(tables: Map<String, String>) -> Database {
+    #{..databases.defaults("main"), tables}
+}
+
+fn schema_source(db: Database) -> String {
+    case schema_with(db, many_tables()) {
+        Ok(s) ->
+            codegen.schema_file(s, [#("db/migrations/1.sql", "CREATE TABLE t (n INT);\n")], "ab12")
+
+        Err(ps) ->
+            "${messages(ps)}"
+    }
+}
+
+test "a table's row struct is its name in the singular, and its enums take that name" {
+    source = schema_source(databases.defaults("main"))
+    assert String.contains?(source, "pub struct Category {")
+    assert String.contains?(source, "pub struct OrderItem {")
+    assert String.contains?(source, "pub struct People {")
+    assert String.contains?(source, "pub enum OrderItemKind {")
+    assert String.contains?(source, "pub enum PeopleStatus {")
+    refute String.contains?(source, "struct Categories")
+
+    assert String.contains?(
+        source,
+        "pub once migrations: List<sqlkit.Migration> = [\n    #sqlkit.Migration{\n        path: \"db/migrations/1.sql\",\n        sql: \"CREATE TABLE t (n INT);\\n\",\n    },\n]\n",
+    )
+}
+
+test "nomi.toml names a table's row struct, and its enums follow" {
+    source = schema_source(named(%{"people" => "Person"}))
+    assert String.contains?(source, "pub struct Person {")
+    assert String.contains?(source, "pub enum PersonStatus {")
+    refute String.contains?(source, "People")
+}
+
+test "row names in nomi.toml that are not type names, name no table or clash are problems" {
+    problems = fn tables: Map<String, String> -> {
+        case schema_with(named(tables), many_tables()) {
+            Ok(_) -> []
+            Err(ps) -> messages(ps)
+        }
+    }
+
+    assert problems(%{"people" => "person"}) == [
+        "`[sqlkit.database.main.tables]` names the row of `people` `person`, which is not a type's name",
+    ]
+
+    assert problems(%{"people" => "Category"}) == [
+        "the tables `categories` and `people` both have the row struct `Category`",
+    ]
+
+    assert problems(%{"peple" => "Person"}) == [
+        "`[sqlkit.database.main.tables]` names the table `peple`, which the migrations do not create",
+    ]
+}
+
+test "with no database table, the module has `main` with the defaults" {
+    assert databases.read(Json.Null) == [databases.defaults("main")]
+    assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
+}
+
+// --- the inputs and the freshness test -----------------------------------
+test "the digest of the inputs is SHA-256 over each path and text" {
+    one = [#Input{path: "db/migrations/1.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
+
+    // `printf 'db/migrations/1.sql\0CREATE TABLE t (n INTEGER);\n\0' | sha256sum`
+    assert inputs.digest(one) == "10b41abfbb8505e08365c73cb420fbef7b05342a9da3a44c37972f372f61c14e"
+
+    assert inputs.digest(one) != inputs.digest(
+        [#Input{path: "db/migrations/2.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
+    )
+}
+
+test "the inputs are the `.sql` files of the two directories, in name order" {
+    files = %{
+        "db/migrations/2_b.sql" => "B",
+        "db/migrations/1_a.sql" => "A",
+        "db/migrations/notes.txt" => "not SQL",
+        "db/queries/users.sql" => "Q",
+    }
+
+    ran = fs_testing.run(#Sandbox{files}, fn -> {
+        m = try inputs.read("db/migrations")
+        q = try inputs.read("db/queries")
+
+        Ok(
+            #(
+                m |> Iter.map(fn i -> i.path) |> Iter.to_list(),
+                try inputs.current("db/migrations", "db/queries"),
+                inputs.digest(m + q),
+            )
+        )
+    })
+
+    case ran.value {
+        Ok(#(paths, current, digest)) -> {
+            assert paths == ["db/migrations/1_a.sql", "db/migrations/2_b.sql"]
+            assert current == digest
+        }
+
+        Err(e) ->
+            return Err(e)
+    }
+}
+
+test "a generated file's header records the digest, and the test compares it" {
+    db = databases.defaults("main")
+    test_source = codegen.test_file(db, "ab12")
+    assert codegen.recorded(test_source) == Some("ab12")
+
+    assert String.contains?(
+        test_source,
+        "    assert inputs.current(\"db/migrations\", \"db/queries\")\n        == Ok(\"ab12\")\n",
+    )
+
+    assert codegen.recorded("import sqlkit\n") == None
+}
+
+// --- the runtime ---------------------------------------------------------
 // A fake connection whose every query answers rows of one column `n`.
 fn numbers(values: List<Value>) -> Fake {
     Fake.new(
@@ -746,9 +589,8 @@ test "Rows.fold folds each row in order" {
 test "a row that does not decode stops Rows.fold with its error" {
     rows = n_rows(numbers([Value.Int(1), Value.Text("two"), Value.Int(3)]))
 
-    assert Rows.fold(rows, 0, fn acc, n -> acc + n) == Err(
-        #sql.Error.Decode{query: "n_rows", column: "n", expected: "Int", found: "Text"}
-    )
+    assert Rows.fold(rows, 0, fn acc, n -> acc + n)
+        == Err(#sql.Error.Decode{query: "n_rows", column: "n", expected: "Int", found: "Text"})
 }
 
 test "a NULL in a column asserted never NULL names the query and the column" {
@@ -824,48 +666,21 @@ test "a DECIMAL(p, s) column reads at its scale, exactly or not at all" {
     assert runtime.numeric_scaled_null<Decimal>("sums", null_row, 0, 2) == Ok(None)
 }
 
-test "a CAST to DECIMAL(p, s) reads the expression at its scale" {
-    sum = #{
-        ..user_query(
-            "SELECT CAST(sum(total) AS DECIMAL(12, 2)) AS \"n\" FROM users WHERE email = ?1"
-        ),
-        columns: [
-            #Column{name: "n", type_name: "DECIMAL(12, 2)", table: "", column: "", nullable: False},
-        ],
-    }
-
-    e = expand(
-        declaration(
-            "SELECT CAST(sum(total) AS DECIMAL(12, 2)) AS \"n\" FROM users WHERE email = @email",
-            None,
-        ),
-        snapshot_of([sum]),
-    )
-
-    assert e.diagnostics == []
-
-    assert String.contains?(
-        e.source,
-        "n: try runtime.numeric_scaled<Decimal>(\"user_by_email\", row, 0, 2),",
-    )
-}
-
 test "one and optional count the rows" {
     two = numbers([Value.Int(1), Value.Int(2)])
     none = numbers([])
     read = fn row: Row -> runtime.int<Int>("q", row, 0)
 
-    assert runtime.one(two, "q", Sql"SELECT n", read) == Err(
-        #sql.Error.RowCount{query: "q", expected: "exactly one", found: 2}
-    )
+    assert runtime.one(two, "q", Sql"SELECT n", read)
+        == Err(#sql.Error.RowCount{query: "q", expected: "exactly one", found: 2})
 
     assert runtime.optional(none, "q", Sql"SELECT n", read) == Ok(None)
 
-    assert runtime.optional(two, "q", Sql"SELECT n", read) == Err(
-        #sql.Error.RowCount{query: "q", expected: "at most one", found: 2}
-    )
+    assert runtime.optional(two, "q", Sql"SELECT n", read)
+        == Err(#sql.Error.RowCount{query: "q", expected: "at most one", found: 2})
 }
 
+// --- migrations ----------------------------------------------------------
 test "migrate runs each migration in order, each in a transaction with its record" {
     fake = Fake.new()
 
@@ -957,205 +772,4 @@ test "migrate runs only the migrations a database file has not run, and refuses 
 
     // Nothing ran: the refusal comes before every migration.
     assert applied(path) == Ok(["1_users.sql", "2_orders.sql"])
-}
-
-fn inputs_of(snap: Snapshot) -> List<Input> {
-    [#Input{path: "db/main.snapshot.json", text: Snapshot.write(snap)}]
-}
-
-test "hover on a column of a table the query reads shows its type and migration" {
-    decl = declaration("SELECT id, name FROM users WHERE email = @email", Some("User"))
-    inputs = inputs_of(snapshot_of([]))
-
-    assert navigate.hover(#NavigationCall{decl, inputs, line: 2, col: 12}) == Some(
-        "`users.id`: INTEGER NOT NULL, read as `Int`\n\nfrom db/migrations/1.sql:2"
-    )
-
-    assert navigate.definition(#NavigationCall{decl, inputs, line: 2, col: 12}) == Some(
-        Span.line("db/migrations/1.sql", 2, "")
-    )
-
-    assert navigate.definition(#NavigationCall{decl, inputs, line: 2, col: 27}) == Some(
-        Span.line("db/migrations/1.sql", 1, "")
-    )
-}
-
-test "hover elsewhere in the body shows the query's columns" {
-    decl = declaration("SELECT id, name FROM users WHERE email = @email", Some("User"))
-    inputs = inputs_of(snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")]))
-
-    assert navigate.hover(#NavigationCall{decl, inputs, line: 2, col: 5}) == Some(
-        "`user_by_email`, as `nomi tool sqlkit prepare` described it:\n\n- `id`: INTEGER\n- `name`: TEXT, may be NULL"
-    )
-}
-
-test "completion offers the tables and their columns" {
-    decl = declaration("SELECT id FROM users WHERE email = @email", Some("User"))
-
-    labels =
-        navigate.complete(
-            #NavigationCall{decl, inputs: inputs_of(snapshot_of([])), line: 2, col: 5}
-        )
-        |> Iter.map(fn c -> c.label)
-        |> Iter.to_list()
-
-    assert labels == ["users", "id"]
-}
-
-test "the quick fix for an undescribed query runs prepare" {
-    decl = declaration("SELECT id FROM users WHERE email = @email", Some("User"))
-    e = expand(decl, snapshot_of([]))
-
-    Some(d) = Iter.first(e.diagnostics) else {
-        None -> return Err("no diagnostic")
-    }
-
-    assert navigate.actions(#ActionsCall{decl, inputs: [], diagnostic: d}) == [
-        #Action{
-            title: "Describe the queries with `nomi tool sqlkit prepare`",
-            edits: [],
-            tool: Some(#Tool{name: "prepare", args: []}),
-        },
-    ]
-}
-
-// --- table names and the configuration ----------------------------------
-fn orders_snapshot() -> Snapshot {
-    column = fn name: String, type_name: String, values: List<String> -> {
-        #TableColumn{
-            name,
-            type_name,
-            nullable: False,
-            primary_key: False,
-            has_default: False,
-            values,
-            migration: "db/migrations/1.sql",
-            line: 2,
-        }
-    }
-
-    table = fn name: String, columns: List<TableColumn> -> {
-        #Table{name, migration: "db/migrations/1.sql", line: 1, columns}
-    }
-
-    #{
-        ..snapshot_of([]),
-        tables: [
-            table("categories", [column("id", "INTEGER", [])]),
-            table("order_items", [column("kind", "TEXT", ["gift", "sale"])]),
-            table("people", [column("status", "TEXT", ["active", "gone"])]),
-        ],
-    }
-}
-
-fn expand_with(snap: Snapshot, config_text: String) -> Expansion {
-    config = Json.decode(config_text) |> Result.with_default(Json.Null)
-
-    inputs = [
-        #Input{path: "db/main.snapshot.json", text: Snapshot.write(snap)},
-        #Input{path: "db/migrations/1.sql", text: users_sql()},
-    ]
-
-    generate.database(#ExpandCall{decl: database_decl(), config, inputs, sites: []})
-}
-
-test "a table's row struct is its name in the singular, and its enums take that name" {
-    e = expand_with(orders_snapshot(), "null")
-    assert String.contains?(e.source, "pub struct Category {")
-    assert String.contains?(e.source, "pub struct OrderItem {")
-    assert String.contains?(e.source, "pub struct People {")
-    assert String.contains?(e.source, "pub enum OrderItemKind {")
-    assert String.contains?(e.source, "pub enum PeopleStatus {")
-    refute String.contains?(e.source, "struct Categories")
-}
-
-test "nomi.toml names a table's row struct, and its enums follow" {
-    e = expand_with(
-        orders_snapshot(),
-        "{\"database\":{\"main\":{\"tables\":{\"people\":\"Person\"}}}}",
-    )
-
-    assert String.contains?(e.source, "pub struct Person {")
-    assert String.contains?(e.source, "pub enum PersonStatus {")
-    refute String.contains?(e.source, "People")
-    assert e.diagnostics == []
-}
-
-test "a row name in nomi.toml that is not a type's name is an error at the declaration" {
-    e = expand_with(
-        orders_snapshot(),
-        "{\"database\":{\"main\":{\"tables\":{\"people\":\"person\"}}}}",
-    )
-
-    assert messages(e) == [
-        "`[sqlkit.database.main.tables]` names the row of `people` `person`, which is not a type's name",
-    ]
-
-    assert e.diagnostics |> Iter.flat_map(fn d -> d.hints) |> Iter.to_list() == [
-        "a type's name starts with a capital letter, then letters, digits and `_`: `Person`",
-    ]
-
-    assert e.source == ""
-}
-
-test "two tables whose rows take one name are an error that says to name one" {
-    e = expand_with(
-        orders_snapshot(),
-        "{\"database\":{\"main\":{\"tables\":{\"people\":\"Category\"}}}}",
-    )
-
-    assert messages(e) == [
-        "the tables `categories` and `people` both have the row struct `Category`",
-    ]
-
-    assert e.source == ""
-}
-
-test "a row name for a table the snapshot does not hold is an error, and the rest expands" {
-    e = expand_with(
-        orders_snapshot(),
-        "{\"database\":{\"main\":{\"tables\":{\"peple\":\"Person\"}}}}",
-    )
-
-    assert Iter.contains?(
-        messages(e),
-        "`[sqlkit.database.main.tables]` names the table `peple`, which db/main.snapshot.json does not hold",
-    )
-
-    assert String.contains?(e.source, "pub struct People {")
-}
-
-fn database_site(name: String) -> Site {
-    #Site{keyword: "database", name, file: "schema.nomi", span: database_decl().span}
-}
-
-fn expand_query_with(config: Json, sites: List<Site>) -> Expansion {
-    snap = snapshot_of([user_query("SELECT id, name FROM users WHERE email = ?1")])
-    inputs = [#Input{path: "db/main.snapshot.json", text: Snapshot.write(snap)}]
-    decl = declaration("SELECT id, name\nFROM users\nWHERE email = @email", Some("Maybe<User>"))
-    generate.query(#ExpandCall{decl, config, inputs, sites})
-}
-
-test "with no database table, the one `database` declaration has the defaults" {
-    e = expand_query_with(Json.Null, [database_site("main")])
-    assert e.diagnostics == []
-    assert String.contains?(e.source, "pub fn user_by_email(conn: sql.Conn, email: String)")
-
-    d = expand_with(snapshot_of([]), "null")
-    assert d.diagnostics == []
-    assert String.contains?(d.source, "pub struct User {")
-}
-
-test "with no database table, a query needs exactly one `database` declaration" {
-    none = expand_query_with(Json.Null, [])
-
-    assert messages(none) == [
-        "the module declares no database: write `sqlkit.database! main` in one of its files",
-    ]
-
-    two = expand_query_with(Json.Null, [database_site("main"), database_site("audit")])
-
-    assert messages(two) == [
-        "the module declares several databases (audit, main), so nomi.toml says whose queries are whose: add a `[sqlkit.database.<name>]` table for each, with `queries = [\"<dir>\"]`",
-    ]
 }

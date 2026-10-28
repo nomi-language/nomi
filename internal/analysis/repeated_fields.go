@@ -49,9 +49,7 @@ func CheckRepeatedFields(nodes []ast.Node) []TypeError {
 				errs = append(errs, TypeError{
 					Line: it.line, Col: it.col, EndLine: it.line, EndCol: it.col + len(it.name),
 					Message: fmt.Sprintf("%s '%s' is declared twice in %s", kind, it.name, where),
-					// A location, not a line number in the text: a macro's
-					// expansion is relocated to what the user wrote, and
-					// its text is not.
+					// A location, not a line number in the text.
 					Related: []RelatedInfo{{
 						Line: f.line, Col: f.col, EndLine: f.line, EndCol: f.col + len(f.name),
 						Message: "the first is here",

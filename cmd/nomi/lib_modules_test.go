@@ -13,7 +13,7 @@ import (
 
 // TestLibModules runs the first-party modules under lib/ as their checkout
 // runs them: `nomi test` on the sqlite driver and on sqlkit, `nomi tool
-// sqlkit prepare --check` and `nomi test .` in the shop example, and the
+// sqlkit generate --check` and `nomi test .` in the shop example, and the
 // driver's Go tests (`go test ./...` in lib/sql/sqlite, its own Go
 // module). Each is its own module with its own go.mod, which root `go test
 // ./...` does not reach. They require modernc.org/sqlite, which the
@@ -64,8 +64,11 @@ func TestLibModules(t *testing.T) {
 	})
 	t.Run("shop", func(t *testing.T) {
 		shop := filepath.Join(root, "lib", "sql", "examples", "shop")
-		nomi(t, shop, "tool", "sqlkit", "prepare", "--check")
+		nomi(t, shop, "tool", "sqlkit", "generate", "--check")
 		passes(t, shop, "test", ".")
+		// The generated test reads the SQL under the module root, from
+		// wherever `nomi test` runs.
+		passes(t, root, "test", filepath.Join("lib", "sql", "examples", "shop"))
 	})
 	t.Run("sqlite's Go tests", func(t *testing.T) {
 		cmd := exec.Command("go", "test", "-count=1", "./...")

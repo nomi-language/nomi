@@ -1,0 +1,109 @@
+import {
+    std/tasks.Task
+    bank_account
+    bank_account.{Account, Error}
+}
+
+/// One canonical operation before the last balance check.
+enum Step {
+    Open
+    Close
+    Deposit Int
+    Withdraw Int
+}
+
+/// Runs `steps` on a new account, stopping at the first refused one, and
+/// answers the balance after them or the refusal.
+fn replay(steps: List<Step>) -> Result<Int, Error> {
+    bank_account.with_account(fn account -> {
+        steps
+        |> Iter.map(fn step -> run(account, step))
+        |> Result.collect()
+        |> Result.flat_map(fn _ -> Account.balance(account))
+    })
+}
+
+fn run(account: Account, step: Step) -> Result<Unit, Error> {
+    case step {
+        .Open -> Account.open(account)
+        .Close -> Account.close(account)
+        .Deposit(amount) -> Account.deposit(account, amount)
+        .Withdraw(amount) -> Account.withdraw(account, amount)
+    }
+}
+
+test "bank account" {
+    cases: List<#(String, List<Step>, Result<Int, Error>)> = [
+        #("Newly opened account has zero balance", [.Open], Ok(0)),
+        #("Single deposit", [.Open, .Deposit(100)], Ok(100)),
+        #("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
+        #("Withdraw once", [.Open, .Deposit(100), .Withdraw(75)], Ok(25)),
+        #("Withdraw twice", [.Open, .Deposit(100), .Withdraw(80), .Withdraw(20)], Ok(0)),
+        #(
+            "Can do multiple operations sequentially",
+            [.Open, .Deposit(100), .Deposit(110), .Withdraw(200), .Deposit(60), .Withdraw(50)],
+            Ok(20),
+        ),
+        #("Cannot check balance of closed account", [.Open, .Close], Err(.AccountNotOpen)),
+        #(
+            "Cannot deposit into closed account",
+            [.Open, .Close, .Deposit(50)],
+            Err(.AccountNotOpen),
+        ),
+        #("Cannot deposit into unopened account", [.Deposit(50)], Err(.AccountNotOpen)),
+        #(
+            "Cannot withdraw from closed account",
+            [.Open, .Close, .Withdraw(50)],
+            Err(.AccountNotOpen),
+        ),
+        #("Cannot close an account that was not opened", [.Close], Err(.AccountNotOpen)),
+        #("Cannot open an already opened account", [.Open, .Open], Err(.AccountAlreadyOpen)),
+        #("Reopened account does not retain balance", [.Open, .Deposit(50), .Close, .Open], Ok(0)),
+        #(
+            "Cannot withdraw more than deposited",
+            [.Open, .Deposit(25), .Withdraw(50)],
+            Err(.AmountAboveBalance),
+        ),
+        #(
+            "Cannot withdraw negative",
+            [.Open, .Deposit(100), .Withdraw(-50)],
+            Err(.AmountNotPositive),
+        ),
+        #("Cannot deposit negative", [.Open, .Deposit(-50)], Err(.AmountNotPositive)),
+    ]
+
+    subtests cases, #(description, steps, expected), description {
+        assert replay(steps) == expected
+    }
+}
+
+test "Can handle concurrent transactions" {
+    #(opened, transactions, balance) = bank_account.with_account(fn account -> {
+        opened = Account.open(account)
+
+        transactions = concurrent {
+            1..=1000
+            |> Task.spawn_all(
+                fn _ -> {
+                    Account.deposit(account, 1)
+                    |> Result.flat_map(fn _ -> Account.withdraw(account, 1))
+                },
+                max_running: 100,
+            )
+            |> Task.await_all()
+        }
+
+        #(opened, transactions, Account.balance(account))
+    })
+
+    assert opened == Ok(Unit)
+    assert transactions |> Iter.all?(Result.ok?)
+    assert balance == Ok(0)
+}
+
+test "errors read as the canonical messages" {
+    assert "${Error.AccountNotOpen}" == "account not open"
+    assert "${Error.AccountAlreadyOpen}" == "account already open"
+    assert "${Error.AmountNotPositive}" == "amount must be greater than 0"
+    assert "${Error.AmountAboveBalance}" == "amount must be less than balance"
+}

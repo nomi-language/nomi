@@ -1,0 +1,150 @@
+import simple_linked_list.LinkedList
+
+/// One canonical operation and what it should answer: a count, a pop or a
+/// peek of a given value or one that fails, a push, the values as a list, a
+/// reverse.
+enum Step {
+    Count Int
+    Pop Int
+    PopFails
+    Push Int
+    Peek Int
+    PeekFails
+    ToList List<Int>
+    Reverse
+}
+
+derive Equatable for Step
+
+/// Runs each step's operation on the list built from `values`, in turn, and
+/// answers the steps as they happened. A list that does what every step
+/// says answers the steps it was given.
+fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
+    #(happened, _list) =
+        steps
+        |> Iter.map_reduce(fn list = LinkedList.from(values), step -> {
+            case step {
+                .Count(_) ->
+                    #(Step.Count(Iter.count(list)), list)
+
+                .Pop(_) or .PopFails -> {
+                    case LinkedList.pop(list) {
+                        Ok(#(value, rest)) -> #(Step.Pop(value), rest)
+                        Err(_) -> #(Step.PopFails, list)
+                    }
+                }
+
+                .Push(value) ->
+                    #(Step.Push(value), LinkedList.push(list, value))
+
+                .Peek(_) or .PeekFails -> {
+                    case LinkedList.peek(list) {
+                        Ok(value) -> #(Step.Peek(value), list)
+                        Err(_) -> #(Step.PeekFails, list)
+                    }
+                }
+
+                .ToList(_) ->
+                    #(Step.ToList(Iter.to_list(list)), list)
+
+                .Reverse ->
+                    #(Step.Reverse, LinkedList.reverse(list))
+            }
+        })
+
+    happened
+}
+
+test "count" {
+    cases = [
+        #("Empty list has length of zero", [], [Step.Count(0)]),
+        #("Singleton list has length of one", [1], [.Count(1)]),
+        #("Non-empty list has correct length", [1, 2, 3], [.Count(3)]),
+    ]
+
+    subtests cases, #(description, values, steps), description {
+        assert replay(values, steps) == steps
+    }
+}
+
+test "pop" {
+    cases = [
+        #("Pop from empty list is an error", [], [Step.PopFails]),
+        #("Can pop from singleton list", [1], [.Pop(1)]),
+        #("Can pop from non-empty list", [1, 2], [.Pop(2)]),
+        #("Can pop multiple items", [1, 2], [.Pop(2), .Pop(1)]),
+        #("Pop updates the count", [1, 2], [.Count(2), .Pop(2), .Count(1), .Pop(1), .Count(0)]),
+    ]
+
+    subtests cases, #(description, values, steps), description {
+        assert replay(values, steps) == steps
+    }
+}
+
+test "push" {
+    cases = [
+        #("Can push to an empty list", [], [Step.Push(1)]),
+        #("Can push to a non-empty list", [1, 2], [.Push(3)]),
+        #("Push updates count", [1, 2], [.Push(3), .Count(3)]),
+        #(
+            "Push and pop",
+            [],
+            [.Push(1), .Push(2), .Pop(2), .Push(3), .Count(2), .Pop(3), .Pop(1), .Count(0)],
+        ),
+    ]
+
+    subtests cases, #(description, values, steps), description {
+        assert replay(values, steps) == steps
+    }
+}
+
+test "peek" {
+    cases = [
+        #("Peek on empty list is an error", [], [Step.PeekFails]),
+        #("Can peek on singleton list", [1], [.Peek(1)]),
+        #("Can peek on non-empty list", [1, 2], [.Peek(2)]),
+        #("Peek does not change the count", [1, 2], [.Peek(2), .Count(2)]),
+        #(
+            "Can peek after a pop and push",
+            [],
+            [.Push(1), .Push(2), .Peek(2), .Pop(2), .Peek(1), .Push(3), .Peek(3)],
+        ),
+    ]
+
+    subtests cases, #(description, values, steps), description {
+        assert replay(values, steps) == steps
+    }
+}
+
+test "toList LIFO" {
+    cases = [
+        #("Empty linked list to list is empty", [], [Step.ToList([])]),
+        #("To list with multiple values", [1, 2, 3], [.ToList([3, 2, 1])]),
+        #(
+            "To list after a pop",
+            [],
+            [.Push(1), .Push(2), .Push(3), .Pop(3), .Push(4), .ToList([4, 2, 1])],
+        ),
+    ]
+
+    subtests cases, #(description, values, steps), description {
+        assert replay(values, steps) == steps
+    }
+}
+
+test "reverse" {
+    cases = [
+        #("Reversed empty list has same values", [], [Step.Reverse, .ToList([])]),
+        #("Reversed singleton list is same list", [1], [.Reverse, .ToList([1])]),
+        #(
+            "Reversed non-empty list is reversed",
+            [1, 2, 3],
+            [.Reverse, .Count(3), .Pop(1), .Pop(2), .Pop(3)],
+        ),
+        #("Double reverse", [1, 2, 3], [.Reverse, .Reverse, .Pop(3), .Pop(2), .Pop(1)]),
+    ]
+
+    subtests cases, #(description, values, steps), description {
+        assert replay(values, steps) == steps
+    }
+}

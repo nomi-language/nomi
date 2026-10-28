@@ -31,9 +31,8 @@ test "ordering operators and sort work with derived Comparable structs" {
     assert #OrderedPoint{x: 1, y: 2} <= #OrderedPoint{x: 1, y: 2}
     refute #OrderedPoint{x: 1, y: 9} >= #OrderedPoint{x: 2, y: 0}
 
-    assert Debug.inspect(
-        sorted
-    ) == "[#OrderedPoint{x: 1, y: 2}, #OrderedPoint{x: 1, y: 9}, #OrderedPoint{x: 2, y: 1}]"
+    assert Debug.inspect(sorted)
+        == "[#OrderedPoint{x: 1, y: 2}, #OrderedPoint{x: 1, y: 9}, #OrderedPoint{x: 2, y: 1}]"
 }
 
 test "Float equality hashing and ordering handle signed zero and NaN" {

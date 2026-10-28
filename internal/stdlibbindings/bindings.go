@@ -367,6 +367,8 @@ func RtFuncs() []Binding {
 		{Name: "int.Int.to_byte", Fn: rt.IntToByte},
 		{Name: "bytes.Byte.to_int", Fn: rt.ByteToInt},
 		{Name: "bytes.Bytes.length", Fn: rt.BytesLength},
+		{Name: "hash.sha256", Fn: rt.SHA256},
+		{Name: "hash.sha256_hex", Fn: rt.SHA256Hex},
 		{Name: "bytes.Bytes.get", Fn: rt.BytesGet},
 		{Name: "bytes.Bytes.at", Fn: rt.BytesAt},
 		{Name: "bytes.Bytes.slice", Fn: rt.BytesSlice},

@@ -1,0 +1,95 @@
+import {
+    novel
+    parallel_letter_frequency
+}
+
+test "letter frequency" {
+    cases: List<#(String, List<String>, Map<String, Int>)> = [
+        #("no texts", [], %{}),
+        #("one text with one letter", ["a"], %{"a" => 1}),
+        #("one text with multiple letters", ["bbcccd"], %{"b" => 2, "c" => 3, "d" => 1}),
+        #("two texts with one letter", ["e", "f"], %{"e" => 1, "f" => 1}),
+        #("two texts with multiple letters", ["ggh", "hhi"], %{"g" => 2, "h" => 3, "i" => 1}),
+        #("ignore letter casing", ["m", "M"], %{"m" => 2}),
+        #("ignore whitespace", ["   ", "\t", "\r\n"], %{}),
+        #("ignore punctuation", ["!", "?", ";", ",", "."], %{}),
+        #("ignore numbers", ["1", "2", "3", "4", "5", "6", "7", "8", "9"], %{}),
+        #("Unicode letters", ["本", "φ", "ほ", "ø"], %{"本" => 1, "φ" => 1, "ほ" => 1, "ø" => 1}),
+        #(
+            "large texts",
+            novel.texts,
+            %{
+                "a" => 845,
+                "b" => 155,
+                "c" => 278,
+                "d" => 359,
+                "e" => 1143,
+                "f" => 222,
+                "g" => 187,
+                "h" => 507,
+                "i" => 791,
+                "j" => 12,
+                "k" => 67,
+                "l" => 423,
+                "m" => 288,
+                "n" => 833,
+                "o" => 791,
+                "p" => 197,
+                "q" => 8,
+                "r" => 432,
+                "s" => 700,
+                "t" => 1043,
+                "u" => 325,
+                "v" => 111,
+                "w" => 223,
+                "x" => 7,
+                "y" => 251,
+            },
+        ),
+        #(
+            "many small texts",
+            Iter.repeat("abbccc") |> Iter.take(50) |> Iter.to_list(),
+            %{"a" => 50, "b" => 100, "c" => 150},
+        ),
+    ]
+
+    subtests cases, #(description, texts, expected), description {
+        assert parallel_letter_frequency.frequency(texts) == expected
+    }
+}
+
+// Not the canonical case: the canonical "combination of lower- and
+// uppercase letters, punctuation and white space" counts a published
+// passage that is not reproduced here. This text mixes the same things.
+test "combination of lower- and uppercase letters, punctuation and white space" {
+    text = "The Quick, brown fox -- JUMPS over the lazy dog!\n\tTwice: The quick fox."
+
+    assert parallel_letter_frequency.frequency([text]) == %{
+        "a" => 1,
+        "b" => 1,
+        "c" => 3,
+        "d" => 1,
+        "e" => 5,
+        "f" => 2,
+        "g" => 1,
+        "h" => 3,
+        "i" => 3,
+        "j" => 1,
+        "k" => 2,
+        "l" => 1,
+        "m" => 1,
+        "n" => 1,
+        "o" => 5,
+        "p" => 1,
+        "q" => 2,
+        "r" => 2,
+        "s" => 1,
+        "t" => 4,
+        "u" => 3,
+        "v" => 1,
+        "w" => 2,
+        "x" => 2,
+        "y" => 1,
+        "z" => 1,
+    }
+}

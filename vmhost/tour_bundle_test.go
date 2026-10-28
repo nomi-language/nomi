@@ -401,16 +401,13 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 	type probe struct {
 		Name   string `json:"name"`
 		Source string `json:"source"`
-		// Expand asks for nomiExpand, as the page asks for a ```nomi-run
-		// expand block's output.
-		Expand bool `json:"expand,omitempty"`
 		// Tools are the block's tool: words, which the page runs before
 		// each run (nomiTool), its output first.
 		Tools []doctest.Tool `json:"tools,omitempty"`
 	}
 	probes := make([]probe, 0, len(blocks))
 	for _, b := range blocks {
-		probes = append(probes, probe{Name: b.name, Source: b.block.Code, Expand: b.block.HasInfo(doctest.InfoExpand), Tools: b.block.Tools()})
+		probes = append(probes, probe{Name: b.name, Source: b.block.Code, Tools: b.block.Tools()})
 	}
 	answers := runUnderNode(t, node, probes)
 	if len(answers) != len(probes) {
@@ -424,18 +421,6 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 			t.Fatalf("answer %d is for %q, expected %q", i, got.Name, b.name)
 		}
 		t.Run(b.name, func(t *testing.T) {
-			if b.block.HasInfo(doctest.InfoExpand) {
-				// The output is the first tab's expansion, which
-				// TestTourDoctests holds vmhost.ExpandMarked to.
-				if got.Error != "" {
-					t.Errorf("block %s does not expand in the staged wasm: %s. Fix: %s", b.name, got.Error, rebuildInstruction)
-					return
-				}
-				if err := doctest.CheckOutput(b.block.Expected, got.Output); err != nil {
-					t.Errorf("STAGED TOUR WASM EXPANDS BLOCK %s TO SOMETHING ELSE THAN THE DOCS.\n\n%s\n\nFix: %s", b.name, err, rebuildInstruction)
-				}
-				return
-			}
 			if b.block.HasInfo(doctest.InfoError) {
 				// An error block fails on purpose: its expect block holds
 				// what the page shows, the compile error or the run's output
@@ -882,14 +867,15 @@ const go = new Go();
         if (r.error) return { name: p.name, output: printed, error: r.error };
         source = r.source;
       }
-      const r = p.expand ? globalThis.nomiExpand(source) : globalThis.nomiRun(source);
+      const r = globalThis.nomiRun(source);
       return { name: p.name, output: printed + r.output, error: r.error };
     } catch (err) {
       return { name: p.name, output: "", error: "host threw: " + String(err) };
     }
   }
-  process.stdout.write(JSON.stringify(answers));
-  process.exit(0);
+  // A write to a pipe is asynchronous, so exiting at once drops what has
+  // not drained; exit once the whole answer is written.
+  process.stdout.write(JSON.stringify(answers), () => process.exit(0));
 })().catch((err) => {
   process.stderr.write(String(err && err.stack ? err.stack : err));
   process.exit(1);

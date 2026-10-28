@@ -1,0 +1,16 @@
+//# The exercise asks for `keep` and `discard` without the standard
+//# library's filter, so `keep` walks the list with a pattern.
+
+/// The items of `list` that `predicate` holds for, in order.
+pub fn keep<T>(list: List<T>, predicate: (T) -> Bool) -> List<T> {
+    case list {
+        [] -> []
+        [head, ..tail] when predicate(head) -> [head, ..keep(tail, predicate)]
+        [_head, ..tail] -> keep(tail, predicate)
+    }
+}
+
+/// The items of `list` that `predicate` does not hold for, in order.
+pub fn discard<T>(list: List<T>, predicate: (T) -> Bool) -> List<T> {
+    keep(list, &!predicate(&1))
+}

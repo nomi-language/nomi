@@ -7,8 +7,8 @@
 // kind of value it is) and answers diagnostics the same way; Print writes a
 // message's canonical text; Format renders a message with its arguments
 // through an Env that supplies a locale's plural rules and number
-// formatting. The compiler's `message` declarations, a runtime catalog
-// loader and a macro wrapper can all call it unchanged.
+// formatting. The compiler's `message` declarations and a runtime catalog
+// loader can both call it unchanged.
 //
 // The functions Nomi formats are the stable defaults `:string`,
 // `:number`, `:integer`, `:percent` and `:currency`, the draft `:date`,

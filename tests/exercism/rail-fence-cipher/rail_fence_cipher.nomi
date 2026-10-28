@@ -1,0 +1,36 @@
+//# The rail fence cipher: the message is written in a zig-zag across the
+//# rails, then read off one rail after another.
+
+/// `message` read off the rails, top rail first.
+pub fn encode(message: String, rails: Int) -> String {
+    message
+    |> Iter.zip(zigzag(rails))
+    |> Iter.sort_by(.1)
+    |> Iter.map(.0)
+    |> String.join()
+}
+
+/// The message whose encoding on `rails` rails is `ciphertext`.
+pub fn decode(ciphertext: String, rails: Int) -> String {
+    positions =
+        0..String.length(ciphertext)
+        |> Iter.zip(zigzag(rails))
+        |> Iter.sort_by(.1)
+        |> Iter.map(.0)
+
+    positions
+    |> Iter.zip(ciphertext)
+    |> Iter.sort_by(.0)
+    |> Iter.map(.1)
+    |> String.join()
+}
+
+/// The rail each position of the message is written on, without end: down
+/// from the top rail to the bottom, then back up.
+fn zigzag(rails: Int) -> Iter<Int> {
+    up = Iter.reverse(1..rails - 1)
+
+    0..rails
+    |> Iter.concat(up)
+    |> Iter.cycle()
+}

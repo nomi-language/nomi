@@ -1,0 +1,74 @@
+/// A set of values, kept as a list in ascending order with no value twice.
+/// Two sets with the same values hold the same list, so they are equal.
+pub opaque struct CustomSet<T> {
+    items: List<T>
+}
+
+derive Equatable for CustomSet<T>
+
+impl CustomSet<T> {
+    /// The set of `values`, each kept once.
+    pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
+        Iter.reduce(values, fn set = #CustomSet{items: []}, value -> CustomSet.add(set, value))
+    }
+
+    /// Whether `set` holds no values.
+    pub fn empty?(set: CustomSet<T>) -> Bool {
+        Iter.empty?(set.items)
+    }
+
+    /// Whether `set` holds `element`.
+    pub fn contains?(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
+        List.contains?(set.items, element)
+    }
+
+    /// Whether every value of `set` is in `other`.
+    pub fn subset?(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+        Iter.all?(set.items, &CustomSet.contains?(other, &1))
+    }
+
+    /// Whether `set` and `other` share no value.
+    pub fn disjoint?(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+        !Iter.any?(set.items, &CustomSet.contains?(other, &1))
+    }
+
+    /// `set` with `element` in it.
+    pub fn add(set: CustomSet<T>, element: T) -> CustomSet<T> where T: Comparable {
+        #CustomSet{items: insert(set.items, element)}
+    }
+
+    /// The values in both `set` and `other`.
+    pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
+        #CustomSet{
+            items: set.items |> Iter.filter(&CustomSet.contains?(other, &1)) |> Iter.to_list(),
+        }
+    }
+
+    /// The values in `set` that are not in `other`.
+    pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
+        #CustomSet{
+            items: set.items |> Iter.filter(&(!CustomSet.contains?(other, &1))) |> Iter.to_list(),
+        }
+    }
+
+    /// The values in `set`, `other` or both.
+    pub fn union(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Comparable {
+        Iter.reduce(other.items, CustomSet.add, from: set)
+    }
+}
+
+/// `items`, which is in ascending order with no value twice, with
+/// `element` in its place, or unchanged when it holds `element` already.
+fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable {
+    case items {
+        [] ->
+            [element]
+
+        [first, ..rest] ->
+            case Comparable.compare(element, first) {
+                .Less -> [element, ..items]
+                .Equal -> items
+                .Greater -> [first, ..insert(rest, element)]
+            }
+    }
+}

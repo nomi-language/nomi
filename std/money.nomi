@@ -83,9 +83,8 @@ derive Equatable for Error
 
 impl Display for Error {
     /// What is wrong, as a compile error at a ``Money`…` `` literal shows it.
-    //! assert Display.to_string(
-    //!     #Error.NoCurrency{amount: "12.50"}
-    //! ) == "`12.50` has no currency: write the amount, one space and the currency, as Money`12.50 EUR`"
+    //! assert Display.to_string(#Error.NoCurrency{amount: "12.50"})
+    //!     == "`12.50` has no currency: write the amount, one space and the currency, as Money`12.50 EUR`"
     //
     fn to_string(e: Error) -> String {
         case e {
@@ -270,13 +269,11 @@ impl Money {
     //! assert Money.parse_in("€1,299.50", Locale`en`, eur) == Ok(Money`1299.50 EUR`)
     //! assert Money.parse_in("12,50", Locale`pl`, eur, lenient: True) == Ok(Money`12.50 EUR`)
     //!
-    //! assert Money.parse_in("12,50 zł", Locale`pl`, eur) == Err(
-    //!     #NumberParseError.WrongCurrency{expected: eur, found: "zł"}
-    //! )
+    //! assert Money.parse_in("12,50 zł", Locale`pl`, eur)
+    //!     == Err(#NumberParseError.WrongCurrency{expected: eur, found: "zł"})
     //!
-    //! assert Money.parse_in("€12.505", Locale`en`, eur) == Err(
-    //!     #NumberParseError.TooManyFractionDigits{max: 2}
-    //! )
+    //! assert Money.parse_in("€12.505", Locale`en`, eur)
+    //!     == Err(#NumberParseError.TooManyFractionDigits{max: 2})
     //
     pub fn parse_in(
         text: String,

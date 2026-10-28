@@ -116,11 +116,6 @@ func (dm *DocumentManager) recheckDependents(prev *CheckedProgram, edits []Progr
 		if !ok || pf.implFingerprint != was {
 			return nil, "the impls the file brings changed"
 		}
-		if len(macroExpansions(prev.Nodes[e.Key])) > 0 {
-			// The impls a macro expands to are not in the text the
-			// impls fingerprint reads.
-			return nil, "the file has declarations a macro expanded"
-		}
 		if exportsFunctions(pf.nodes) {
 			return nil, "the program exports functions"
 		}

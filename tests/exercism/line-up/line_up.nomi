@@ -1,0 +1,18 @@
+/// The ticket message for the customer `name`, served `number`th today.
+//! assert format("Mary", 1) == "Mary, you are the 1st customer we serve today. Thank you!"
+//
+pub fn format(name: String, number: Int) -> String {
+    "${name}, you are the ${number}${suffix(number)} customer we serve today. Thank you!"
+}
+
+/// The English ordinal suffix of `number`: 1st, 2nd, 3rd, then th, except
+/// that 11, 12 and 13 take th in every hundred.
+fn suffix(number: Int) -> String {
+    case #(number % 100, number % 10) {
+        #(11 or 12 or 13, _) -> "th"
+        #(_, 1) -> "st"
+        #(_, 2) -> "nd"
+        #(_, 3) -> "rd"
+        _ -> "th"
+    }
+}

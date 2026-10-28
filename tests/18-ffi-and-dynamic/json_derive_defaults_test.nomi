@@ -35,15 +35,15 @@ test "a derived FromJson fills a missing field from its default" {
     assert decoded == Result.Ok(#Game{word: "cat"})
 
     assert decoded == Result.Ok(#Game{
-        word: "cat",
-        guessed: %[],
-        misses: 0,
-        scores: #[],
-        hint: "no hint",
-        ratio: -0.5,
-        hard: False,
-        letters: ["A", "B"],
-    })
+            word: "cat",
+            guessed: %[],
+            misses: 0,
+            scores: #[],
+            hint: "no hint",
+            ratio: -0.5,
+            hard: False,
+            letters: ["A", "B"],
+        })
 }
 
 test "a derived FromJson decodes a present field over its default" {

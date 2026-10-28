@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -117,6 +118,10 @@ fn main() {
 // the iteration, so recursion through `Iter.map` faults too. Without that the
 // driver would restart the count at every level and the process would die.
 func TestCallDepth_RecursionThroughACallbackFaults(t *testing.T) {
+	// A level through a callback holds several Go frames, and under the race
+	// detector they outgrow Go's default 1 GB stack before the limit's
+	// 100,000 levels; the limit, not the Go stack, is what this tests.
+	defer debug.SetMaxStack(debug.SetMaxStack(2_000_000_000))
 	_, err := runDepth(t, `import std/io
 
 fn walk(n: Int) -> Int {

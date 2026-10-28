@@ -397,20 +397,11 @@
 (function_definition
   name: (identifier) @function)
 
-; Keyword declarations: `message cart_items(count: Int) `...``, and
-; `sqlkit.query! ...`, whose qualifier is the macro's file and whose
-; keyword, marked with `!`, reads as a macro, as Zed draws Rust's.
-(keyword_declaration
-  module: (identifier) @module)
+; Keyword declarations: `message cart_items(count: Int) `...``.
 (keyword_declaration
   keyword: (identifier) @keyword)
 (keyword_declaration
-  keyword: (identifier) @function.macro
-  mark: (macro_mark) @function.macro)
-(keyword_declaration
   name: (identifier) @function)
-(keyword_declaration
-  name: (type_identifier) @type)
 (function_definition
   name: (type_identifier) @function)
 

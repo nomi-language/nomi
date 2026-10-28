@@ -157,9 +157,8 @@ impl Debug for Collator {
     /// defaults included.
     //! assert Debug.inspect(Collator.new(Locale`sv`)) == "Collator.new(Locale`sv`)"
     //!
-    //! assert Debug.inspect(
-    //!     Collator.new(Locale`en`, strength: Strength.Primary, numeric: True)
-    //! ) == "Collator.new(Locale`en`, strength: Strength.Primary, numeric: True)"
+    //! assert Debug.inspect(Collator.new(Locale`en`, strength: Strength.Primary, numeric: True))
+    //!     == "Collator.new(Locale`en`, strength: Strength.Primary, numeric: True)"
     //
     fn inspect(collator: Collator) -> String {
         Collator(spec) = collator

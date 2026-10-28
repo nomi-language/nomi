@@ -228,3 +228,53 @@ func TestStdRangeConstructorsLower(t *testing.T) {
 		}
 	}
 }
+
+// TestGenHostSigAndAnnotationPathsAgree is TestGenStructSigAndAnnotationPathsAgree
+// for the generic std host types (`stdGenHostSpecs`): at every row, in the
+// declaring module, the SIGNATURE path (genHostSigKind, through stdTypeKind)
+// and the ANNOTATION path (stdGenHostTypeOf) give the same interned def. It goes
+// through stdTypeKind rather than calling genHostSigKind directly, so it also
+// guards the wiring: before that arm existed, `Vector<String>` in a shared std
+// signature refused as outside the scalar subset.
+func TestGenHostSigAndAnnotationPathsAgree(t *testing.T) {
+	lib := std.Load()
+	checked := 0
+	for i := range stdGenHostSpecs {
+		s := &stdGenHostSpecs[i]
+		module := strings.TrimPrefix(s.origin, "std/")
+		fa := lib.Files[module]
+		if fa == nil {
+			t.Fatalf("%s: std declares no module %q", s.nomi, module)
+		}
+		args := make([]string, len(s.params))
+		for j := range args {
+			args[j] = "String"
+		}
+		src := s.nomi + "<" + strings.Join(args, ", ") + ">"
+		item := s.origin + "." + s.nomi
+		if lib.Primitives.Lookup(s.nomi) != nil {
+			item = ""
+		}
+		te := parseStdTypeExprImporting(t, item, src)
+		gt, isGeneric := te.(*ast.GenericType)
+		if !isGeneric {
+			t.Fatalf("%s parsed as %T, not a generic type", src, te)
+		}
+		sigKind := stdTypeKind(gt, stdAnchorsOf(fa))
+		if sigKind == kindInvalid {
+			t.Errorf("stdTypeKind refused %s in its own declaring module, so a shared std "+
+				"signature naming it is outside the scalar subset", src)
+			continue
+		}
+		g := &gen{fa: fa}
+		annKind, handled := g.stdGenHostTypeOf(gt)
+		if !handled || annKind != sigKind {
+			t.Errorf("%s: the annotation path gives %s (handled=%v) and the signature path %s",
+				src, annKind.nomi(), handled, sigKind.nomi())
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatal("stdGenHostSpecs is empty, so this comparison checked nothing")
+	}
+}

@@ -26,23 +26,10 @@ pub message cart_items(count: Int) `{$count} items`
 // <--- keyword.declaration.nomi
 // <~~~~------- keyword.declaration.nomi
 // <~~~~~~~~~~~~---------- entity.name.function.nomi
-pub sqlkit.query! orders(user_id: Int) Sql`SELECT id`
+pub noun item `{{item}}`
 // <--- keyword.declaration.nomi
-// <~~~~------ entity.name.namespace.nomi
-// <~~~~~~~~~~~------ entity.name.function.macro.nomi
-// <~~~~~~~~~~~~~~~~~~------ entity.name.function.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--- string.quoted.other.raw.nomi entity.name.type.literal.nomi
-// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~--------- string.quoted.other.raw.nomi
-query! names `x`
-// <------ entity.name.function.macro.nomi
-pub choices.one_of! Size `small medium large`
-// <~~~~------- entity.name.namespace.nomi
-// <~~~~~~~~~~~~------- entity.name.function.macro.nomi
-// <~~~~~~~~~~~~~~~~~~~~---- entity.name.type.nomi
-pub macro table: CsvTable
-// <--- keyword.declaration.nomi
-// <~~~~----- keyword.declaration.nomi
-// <~~~~~~~~~~----- entity.name.function.nomi
+// <~~~~---- keyword.declaration.nomi
+// <~~~~~~~~~---- entity.name.function.nomi
 x = 1 // trailing comment
 // <~~~~~~-- comment.line.double-slash.nomi punctuation.definition.comment.nomi
 // <~~~~~~~~~-------- comment.line.double-slash.nomi
@@ -151,6 +138,8 @@ span = 0..=10
 big = Iter.filter(xs, &(&1 > 2))
 // <~~~~~~~~~~~~~~~~~~~~~~- keyword.other.capture.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~-- variable.parameter.placeholder.nomi
+odd = Iter.filter(xs, &!keep?(&1))
+// <~~~~~~~~~~~~~~~~~~~~~~- keyword.other.capture.nomi
 import std/test.Thing
 // <------ keyword.declaration.nomi
 // <~~~~~~~~~~~---- variable.other.nomi

@@ -20,12 +20,28 @@
 				"link": "/examples/bob/"
 			},
 			{
+				"label": "Bottle Song",
+				"link": "/examples/bottle-song/"
+			},
+			{
 				"label": "Diamond",
 				"link": "/examples/diamond/"
 			},
 			{
+				"label": "Food Chain",
+				"link": "/examples/food-chain/"
+			},
+			{
+				"label": "Grep",
+				"link": "/examples/grep/"
+			},
+			{
 				"label": "Hamming",
 				"link": "/examples/hamming/"
+			},
+			{
+				"label": "Hello World",
+				"link": "/examples/hello-world/"
 			},
 			{
 				"label": "House",
@@ -36,12 +52,28 @@
 				"link": "/examples/isogram/"
 			},
 			{
+				"label": "Ledger",
+				"link": "/examples/ledger/"
+			},
+			{
+				"label": "Line Up",
+				"link": "/examples/line-up/"
+			},
+			{
+				"label": "Micro Blog",
+				"link": "/examples/micro-blog/"
+			},
+			{
 				"label": "Nucleotide Count",
 				"link": "/examples/nucleotide-count/"
 			},
 			{
 				"label": "Pangram",
 				"link": "/examples/pangram/"
+			},
+			{
+				"label": "Parallel Letter Frequency",
+				"link": "/examples/parallel-letter-frequency/"
 			},
 			{
 				"label": "Pig Latin",
@@ -98,6 +130,10 @@
 				"link": "/examples/collatz-conjecture/"
 			},
 			{
+				"label": "Complex Numbers",
+				"link": "/examples/complex-numbers/"
+			},
+			{
 				"label": "Difference of Squares",
 				"link": "/examples/difference-of-squares/"
 			},
@@ -110,12 +146,20 @@
 				"link": "/examples/grains/"
 			},
 			{
+				"label": "Killer Sudoku Helper",
+				"link": "/examples/killer-sudoku-helper/"
+			},
+			{
 				"label": "Largest Series Product",
 				"link": "/examples/largest-series-product/"
 			},
 			{
 				"label": "Nth Prime",
 				"link": "/examples/nth-prime/"
+			},
+			{
+				"label": "Palindrome Products",
+				"link": "/examples/palindrome-products/"
 			},
 			{
 				"label": "Pascal's Triangle",
@@ -126,8 +170,16 @@
 				"link": "/examples/perfect-numbers/"
 			},
 			{
+				"label": "Piecing It Together",
+				"link": "/examples/piecing-it-together/"
+			},
+			{
 				"label": "Prime Factors",
 				"link": "/examples/prime-factors/"
+			},
+			{
+				"label": "Pythagorean Triplet",
+				"link": "/examples/pythagorean-triplet/"
 			},
 			{
 				"label": "Raindrops",
@@ -136,6 +188,10 @@
 			{
 				"label": "Rational Numbers",
 				"link": "/examples/rational-numbers/"
+			},
+			{
+				"label": "Resistor Color Tolerance",
+				"link": "/examples/resistor-color-tolerance/"
 			},
 			{
 				"label": "Say",
@@ -154,6 +210,10 @@
 				"link": "/examples/space-age/"
 			},
 			{
+				"label": "Square Root",
+				"link": "/examples/square-root/"
+			},
+			{
 				"label": "Sum of Multiples",
 				"link": "/examples/sum-of-multiples/"
 			},
@@ -168,6 +228,10 @@
 		"collapsed": true,
 		"items": [
 			{
+				"label": "Alphametics",
+				"link": "/examples/alphametics/"
+			},
+			{
 				"label": "Binary Search",
 				"link": "/examples/binary-search/"
 			},
@@ -176,8 +240,24 @@
 				"link": "/examples/binary-search-tree/"
 			},
 			{
+				"label": "Book Store",
+				"link": "/examples/book-store/"
+			},
+			{
+				"label": "Change",
+				"link": "/examples/change/"
+			},
+			{
 				"label": "Circular Buffer",
 				"link": "/examples/circular-buffer/"
+			},
+			{
+				"label": "Custom Set",
+				"link": "/examples/custom-set/"
+			},
+			{
+				"label": "Dominoes",
+				"link": "/examples/dominoes/"
 			},
 			{
 				"label": "ETL",
@@ -192,8 +272,52 @@
 				"link": "/examples/grade-school/"
 			},
 			{
+				"label": "High Scores",
+				"link": "/examples/high-scores/"
+			},
+			{
+				"label": "Knapsack",
+				"link": "/examples/knapsack/"
+			},
+			{
+				"label": "Lens Person",
+				"link": "/examples/lens-person/"
+			},
+			{
+				"label": "Linked List",
+				"link": "/examples/linked-list/"
+			},
+			{
 				"label": "List Ops",
 				"link": "/examples/list-ops/"
+			},
+			{
+				"label": "PaaS I/O",
+				"link": "/examples/paasio/"
+			},
+			{
+				"label": "POV",
+				"link": "/examples/pov/"
+			},
+			{
+				"label": "React",
+				"link": "/examples/react/"
+			},
+			{
+				"label": "Relative Distance",
+				"link": "/examples/relative-distance/"
+			},
+			{
+				"label": "Satellite",
+				"link": "/examples/satellite/"
+			},
+			{
+				"label": "Simple Linked List",
+				"link": "/examples/simple-linked-list/"
+			},
+			{
+				"label": "Strain",
+				"link": "/examples/strain/"
 			},
 			{
 				"label": "Sublist",
@@ -202,6 +326,14 @@
 			{
 				"label": "Tournament",
 				"link": "/examples/tournament/"
+			},
+			{
+				"label": "Tree Building",
+				"link": "/examples/tree-building/"
+			},
+			{
+				"label": "Zipper",
+				"link": "/examples/zipper/"
 			}
 		]
 	},
@@ -210,12 +342,28 @@
 		"collapsed": true,
 		"items": [
 			{
+				"label": "DOT DSL",
+				"link": "/examples/dot-dsl/"
+			},
+			{
+				"label": "Error Handling",
+				"link": "/examples/error-handling/"
+			},
+			{
+				"label": "Forth",
+				"link": "/examples/forth/"
+			},
+			{
 				"label": "ISBN Verifier",
 				"link": "/examples/isbn-verifier/"
 			},
 			{
 				"label": "Luhn",
 				"link": "/examples/luhn/"
+			},
+			{
+				"label": "Markdown",
+				"link": "/examples/markdown/"
 			},
 			{
 				"label": "Matching Brackets",
@@ -228,6 +376,14 @@
 			{
 				"label": "Phone Number",
 				"link": "/examples/phone-number/"
+			},
+			{
+				"label": "REST API",
+				"link": "/examples/rest-api/"
+			},
+			{
+				"label": "SGF Parsing",
+				"link": "/examples/sgf-parsing/"
 			},
 			{
 				"label": "Wordy",
@@ -248,8 +404,20 @@
 				"link": "/examples/atbash-cipher/"
 			},
 			{
+				"label": "Crypto Square",
+				"link": "/examples/crypto-square/"
+			},
+			{
+				"label": "Intergalactic Transmission",
+				"link": "/examples/intergalactic-transmission/"
+			},
+			{
 				"label": "Protein Translation",
 				"link": "/examples/protein-translation/"
+			},
+			{
+				"label": "Rail Fence Cipher",
+				"link": "/examples/rail-fence-cipher/"
 			},
 			{
 				"label": "Resistor Color",
@@ -278,6 +446,14 @@
 			{
 				"label": "Run-Length Encoding",
 				"link": "/examples/run-length-encoding/"
+			},
+			{
+				"label": "Simple Cipher",
+				"link": "/examples/simple-cipher/"
+			},
+			{
+				"label": "Variable Length Quantity",
+				"link": "/examples/variable-length-quantity/"
 			}
 		]
 	},
@@ -286,16 +462,32 @@
 		"collapsed": true,
 		"items": [
 			{
+				"label": "Connect",
+				"link": "/examples/connect/"
+			},
+			{
+				"label": "Flower Field",
+				"link": "/examples/flower-field/"
+			},
+			{
 				"label": "Game of Life",
 				"link": "/examples/game-of-life/"
+			},
+			{
+				"label": "Go Counting",
+				"link": "/examples/go-counting/"
 			},
 			{
 				"label": "Kindergarten Garden",
 				"link": "/examples/kindergarten-garden/"
 			},
 			{
-				"label": "Minesweeper",
-				"link": "/examples/minesweeper/"
+				"label": "Matrix",
+				"link": "/examples/matrix/"
+			},
+			{
+				"label": "Rectangles",
+				"link": "/examples/rectangles/"
 			},
 			{
 				"label": "Saddle Points",
@@ -308,6 +500,10 @@
 			{
 				"label": "Transpose",
 				"link": "/examples/transpose/"
+			},
+			{
+				"label": "Word Search",
+				"link": "/examples/word-search/"
 			}
 		]
 	},
@@ -316,16 +512,52 @@
 		"collapsed": true,
 		"items": [
 			{
+				"label": "Bank Account",
+				"link": "/examples/bank-account/"
+			},
+			{
+				"label": "Bowling",
+				"link": "/examples/bowling/"
+			},
+			{
+				"label": "Camicia",
+				"link": "/examples/camicia/"
+			},
+			{
 				"label": "Darts",
 				"link": "/examples/darts/"
+			},
+			{
+				"label": "D&D Character",
+				"link": "/examples/dnd-character/"
+			},
+			{
+				"label": "Poker",
+				"link": "/examples/poker/"
+			},
+			{
+				"label": "Prism",
+				"link": "/examples/prism/"
 			},
 			{
 				"label": "Queen Attack",
 				"link": "/examples/queen-attack/"
 			},
 			{
+				"label": "Robot Name",
+				"link": "/examples/robot-name/"
+			},
+			{
 				"label": "Robot Simulator",
 				"link": "/examples/robot-simulator/"
+			},
+			{
+				"label": "Save the Cow",
+				"link": "/examples/save-the-cow/"
+			},
+			{
+				"label": "State of Tic-Tac-Toe",
+				"link": "/examples/state-of-tic-tac-toe/"
 			},
 			{
 				"label": "Two Bucket",
@@ -334,6 +566,10 @@
 			{
 				"label": "Yacht",
 				"link": "/examples/yacht/"
+			},
+			{
+				"label": "Zebra Puzzle",
+				"link": "/examples/zebra-puzzle/"
 			}
 		]
 	},
@@ -342,8 +578,16 @@
 		"collapsed": true,
 		"items": [
 			{
+				"label": "Baffling Birthdays",
+				"link": "/examples/baffling-birthdays/"
+			},
+			{
 				"label": "Clock",
 				"link": "/examples/clock/"
+			},
+			{
+				"label": "Gigasecond",
+				"link": "/examples/gigasecond/"
 			},
 			{
 				"label": "Leap",
@@ -352,6 +596,14 @@
 			{
 				"label": "Meetup",
 				"link": "/examples/meetup/"
+			},
+			{
+				"label": "Split-Second Stopwatch",
+				"link": "/examples/split-second-stopwatch/"
+			},
+			{
+				"label": "Swift Scheduling",
+				"link": "/examples/swift-scheduling/"
 			}
 		]
 	}

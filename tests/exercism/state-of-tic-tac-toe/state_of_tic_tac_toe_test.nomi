@@ -1,0 +1,87 @@
+import state_of_tic_tac_toe.{self, State}
+
+test "won games" {
+    cases = [
+        #("Finished game where X won via left column victory", ["XOO", "X  ", "X  "]),
+        #("Finished game where X won via middle column victory", ["OXO", " X ", " X "]),
+        #("Finished game where X won via right column victory", ["OOX", "  X", "  X"]),
+        #("Finished game where O won via left column victory", ["OXX", "OX ", "O  "]),
+        #("Finished game where O won via middle column victory", ["XOX", " OX", " O "]),
+        #("Finished game where O won via right column victory", ["XXO", " XO", "  O"]),
+        #("Finished game where X won via top row victory", ["XXX", "XOO", "O  "]),
+        #("Finished game where X won via middle row victory", ["O  ", "XXX", " O "]),
+        #("Finished game where X won via bottom row victory", [" OO", "O X", "XXX"]),
+        #("Finished game where O won via top row victory", ["OOO", "XXO", "XX "]),
+        #("Finished game where O won via middle row victory", ["XX ", "OOO", "X  "]),
+        #("Finished game where O won via bottom row victory", ["XOX", " XX", "OOO"]),
+        #("Finished game where X won via falling diagonal victory", ["XOO", " X ", "  X"]),
+        #("Finished game where X won via rising diagonal victory", ["O X", "OX ", "X  "]),
+        #("Finished game where O won via falling diagonal victory", ["OXX", "OOX", "X O"]),
+        #("Finished game where O won via rising diagonal victory", ["  O", " OX", "OXX"]),
+        #("Finished game where X won via a row and a column victory", ["XXX", "XOO", "XOO"]),
+        #("Finished game where X won via two diagonal victories", ["XOX", "OXO", "XOX"]),
+    ]
+
+    subtests cases, #(description, board), description {
+        assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Win)
+    }
+}
+
+test "drawn games" {
+    cases = [
+        #("Draw", ["XOX", "XXO", "OXO"]),
+        #("Another draw", ["XXO", "OXX", "XOO"]),
+    ]
+
+    subtests cases, #(description, board), description {
+        assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Draw)
+    }
+}
+
+test "ongoing games" {
+    cases = [
+        #("Ongoing game: one move in", ["   ", "X  ", "   "]),
+        #("Ongoing game: two moves in", ["O  ", " X ", "   "]),
+        #("Ongoing game: five moves in", ["X  ", " XO", "OX "]),
+    ]
+
+    subtests cases, #(description, board), description {
+        assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Ongoing)
+    }
+}
+
+test "invalid boards" {
+    cases = [
+        #(
+            "Invalid board: X went twice",
+            ["XX ", "   ", "   "],
+            "Wrong turn order: X went twice",
+        ),
+        #("Invalid board: O started", ["OOX", "   ", "   "], "Wrong turn order: O started"),
+        #(
+            "Invalid board: X won and O kept playing",
+            ["XXX", "OOO", "   "],
+            "Impossible board: game should have ended after the game was won",
+        ),
+        #(
+            "Invalid board: players kept playing after a win",
+            ["XXX", "OOO", "XOX"],
+            "Impossible board: game should have ended after the game was won",
+        ),
+        #(
+            "Invalid board: O kept playing after X wins",
+            ["OO ", "XXX", " O "],
+            "Impossible board: game should have ended after the game was won",
+        ),
+        #(
+            "Invalid board: X kept playing after O wins",
+            ["XX ", "OOO", " XX"],
+            "Impossible board: game should have ended after the game was won",
+        ),
+    ]
+
+    subtests cases, #(description, board, message), description {
+        assert Err(error) = state_of_tic_tac_toe.gamestate(board)
+        assert "${error}" == message
+    }
+}

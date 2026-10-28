@@ -774,6 +774,53 @@ impl Iter<T> {
         #Seq{run: fn yield: (List<T>) -> Bool -> chunk_by_each(source, key_fn, yield)}
     }
 
+    /// Lazy: every ordering of the elements of `items`, each as a List, in
+    /// lexicographic order of the positions the elements come from, so a
+    /// sorted source gives its orderings sorted. Elements are told apart by
+    /// position, not by value: `[1, 1]` gives `[1, 1]` twice. `n` elements give
+    /// `n!` orderings, and none give one, the empty list. `items` is read at
+    /// once and must end; each ordering is built only when the walk reaches
+    /// it.
+    //
+    //! assert [1, 2, 3] |> Iter.permutations() |> Iter.to_list() == [
+    //!     [1, 2, 3],
+    //!     [1, 3, 2],
+    //!     [2, 1, 3],
+    //!     [2, 3, 1],
+    //!     [3, 1, 2],
+    //!     [3, 2, 1],
+    //! ]
+    //!
+    //! assert 1..=10 |> Iter.permutations() |> Iter.get(1) == Some([1, 2, 3, 4, 5, 6, 7, 8, 10, 9])
+    //! assert Iter.permutations(["a"]) |> Iter.count() == 1
+    //
+    pub fn permutations<T>(items: Iter<T>) -> Iter<List<T>> {
+        permutations_of(to_list(items))
+    }
+
+    /// Lazy: every choice of `k` elements of `items`, each as a List that keeps
+    /// the order of the source, in lexicographic order of the positions the
+    /// elements come from. Elements are told apart by position, not by value.
+    /// `n` elements give `n` choose `k` lists; a `k` of 0 gives one, the empty
+    /// list, and a `k` below 0 or above `n` gives none. `items` is read at once
+    /// and must end; each choice is built only when the walk reaches it.
+    //
+    //! assert ["a", "b", "c", "d"] |> Iter.combinations(2) |> Iter.to_list() == [
+    //!     ["a", "b"],
+    //!     ["a", "c"],
+    //!     ["a", "d"],
+    //!     ["b", "c"],
+    //!     ["b", "d"],
+    //!     ["c", "d"],
+    //! ]
+    //!
+    //! assert 1..=20 |> Iter.combinations(10) |> Iter.count() == 184_756
+    //! assert [1, 2] |> Iter.combinations(3) |> Iter.to_list() == []
+    //
+    pub fn combinations<T>(items: Iter<T>, k: Int) -> Iter<List<T>> {
+        combinations_of(to_list(items), k)
+    }
+
     // ---------------------------------------------------------------------------
     // Constructors / materializers. `from`/`repeat`/`iterate` take no `self`, and
     // `to_map` consumes a *specifically-typed* iterator, so they live
@@ -1053,6 +1100,16 @@ fn transpose_columns<T>(rows: List<List<T>>, columns: List<List<T>>) -> List<Lis
 // depth-N pipeline is N closures composed once at build time, with nothing
 // allocated or rebuilt per element and no upstream iterator held in an
 // existential field.
+//
+// Every function here that builds a `Seq` is one the IR builder lowers itself
+// as an intrinsic over rt.Seq (`concat`'s push loop is Nomi, and that is
+// fine, because the builder never lowers this body). The builder never
+// lowers `impl Iter for Seq`'s `each_while` for a program: generic std
+// functions are instantiated per program when called by name, and an impl
+// member reached through a source is not. So a Seq built by a body that is
+// instantiated from Nomi leaves every program walking it blocked. Write such
+// an adapter over the existing ones, as `permutations` and `combinations`
+// are. `TestStdIterSeqLiteralsAreBuilderIntrinsics` holds the rule.
 // ---------------------------------------------------------------------------
 /// A source that is nothing but its own push loop: `run` takes the consumer's
 /// `yield` and returns whether the source ran to exhaustion. Go spells this
@@ -1110,3 +1167,41 @@ host fn chunk_by_each<T, K>(
     key_fn: (T) -> K,
     yield: (List<T>) -> Bool,
 ) -> Bool where K: Equatable
+
+// Each ordering of `left`, as `permutations` yields them: each element in
+// turn first, before each ordering of the others.
+fn permutations_of<T>(left: List<T>) -> Iter<List<T>> {
+    if Iter.empty?(left) {
+        none: List<T> = []
+        Iter.repeat(none) |> Iter.take(1)
+    } else {
+        left
+        |> Iter.with_index()
+        |> Iter.flat_map(fn #(index, item) -> {
+            List.remove_at(left, index)
+            |> permutations_of()
+            |> Iter.map(fn rest -> [item, ..rest])
+        })
+    }
+}
+
+// Each choice of `k` elements of `left`, as `combinations` yields them: each
+// element that leaves enough after it in turn first, before each choice of
+// the rest from the elements after it.
+fn combinations_of<T>(left: List<T>, k: Int) -> Iter<List<T>> {
+    if k <= 0 {
+        none: List<T> = []
+        Iter.repeat(none) |> Iter.take(if k == 0 { 1 } else { 0 })
+    } else {
+        left
+        |> Iter.with_index()
+        |> Iter.take(Iter.count(left) - k + 1)
+        |> Iter.flat_map(fn #(index, item) -> {
+            left
+            |> Iter.drop(index + 1)
+            |> Iter.to_list()
+            |> combinations_of(k - 1)
+            |> Iter.map(fn rest -> [item, ..rest])
+        })
+    }
+}

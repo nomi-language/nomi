@@ -27,7 +27,7 @@ import {
 }
 
 //# Operations on the 64-bit signed `Int` type: total division gated on the
-//# refinement types `NonZeroInt`/`PositiveInt`, floored modulo, powers, integer
+//# refinement types `NonZeroInt`/`PositiveInt`, floored division and modulo, powers, integer
 //# square roots, `gcd`/`lcm`, digits in a base, conversion to `Float`,
 //# wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
 //# arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable` impls give `Int` its
@@ -158,7 +158,7 @@ impl Int {
     /// answer, so it wraps a value into a range: `Int.modulo(-1, 1440)` is
     /// `1439`. `x % y` differs for operands of opposite signs: it is the
     /// remainder, takes the sign of the dividend `x`, and matches `/`
-    /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * floor(x / y)`.
+    /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * Int.floor_div(x, y)`.
     /// A zero `y` traps with the division-by-zero error `%` gives, and
     /// `Int.modulo(Int.min_value, -1)` is `0`.
     //! assert Int.modulo(7, 3) == 1
@@ -175,6 +175,31 @@ impl Int {
             r + y
         } else {
             r
+        }
+    }
+
+    /// Floored division: `x / y` rounded toward negative infinity, as
+    /// Python's `//`, Elixir's `Integer.floor_div/2` and Gleam's
+    /// `int.floor_divide` answer. It is the partner of `Int.modulo`:
+    /// `x == y * Int.floor_div(x, y) + Int.modulo(x, y)` for every `x` and
+    /// non-zero `y`. `x / y` differs for operands of opposite signs: it
+    /// truncates toward zero (`-7 / 2` is `-3`). A zero `y` traps with the
+    /// division-by-zero error `/` gives, and `Int.floor_div(Int.min_value, -1)`
+    /// traps with the integer overflow `Int.min_value / -1` gives.
+    //! assert Int.floor_div(7, 2) == 3
+    //! assert Int.floor_div(-7, 2) == -4
+    //! assert Int.floor_div(7, -2) == -4
+    //! assert Int.floor_div(-7, -2) == 3
+    //! assert -7 / 2 == -3
+    //! assert 2 * Int.floor_div(-7, 2) + Int.modulo(-7, 2) == -7
+    //
+    pub fn floor_div(x: Int, y: Int) -> Int {
+        q = x / y
+
+        if x % y != 0 and (x < 0) != (y < 0) {
+            q - 1
+        } else {
+            q
         }
     }
 

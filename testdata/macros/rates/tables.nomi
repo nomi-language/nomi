@@ -1,7 +1,0 @@
-import csvdata
-
-/// Exchange rates to the euro, in basis points.
-pub csvdata.table! rate(code: String) -> Maybe<Int> `rates.csv`
-
-/// What each currency is called.
-pub csvdata.table! currency_name(code: String) -> Maybe<String> `names.csv`

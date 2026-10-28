@@ -250,7 +250,8 @@ func TestRunFile_FFIMapRoundTrip(t *testing.T) {
 }
 
 // TestRunFile_GoBindings runs testdata/go_bindings, whose Go functions take
-// and return a Nomi struct, a map of lists, Bytes and Results.
+// and return a Nomi struct, a map of lists, Bytes and Results. Its hash.nomi
+// binds sha256, the key std/hash's row has, and main uses both.
 func TestRunFile_GoBindings(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -263,7 +264,8 @@ func TestRunFile_GoBindings(t *testing.T) {
 		t.Fatalf("nomi run testdata/go_bindings: %v\nstdout/stderr:\n%s", err, out)
 	}
 	if !strings.Contains(out, "example.com/search tags=[go, nomi]") ||
-		!strings.Contains(out, "sha256(nomi) = 0f937e60148316557dbe0dce3e862e77d4d8157bfea24ae4b4c1fa367297c2d9") {
+		!strings.Contains(out, "sha256(nomi) = 0f937e60148316557dbe0dce3e862e77d4d8157bfea24ae4b4c1fa367297c2d9") ||
+		!strings.Contains(out, "std/hash agrees: True") {
 		t.Fatalf("expected go-bindings output, got:\n%s", out)
 	}
 }

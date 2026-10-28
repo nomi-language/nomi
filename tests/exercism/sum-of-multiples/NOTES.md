@@ -9,7 +9,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/sum-of-multiples.
 ## Choices
 
 - The solution follows the instructions' wording: the multiples of each factor (`Range.step_by(factor..limit, factor)`), combined into a `Set` to drop duplicates, then summed with `Iter.sum`. Filtering `1..limit` by "divisible by any factor" was the other natural form; the set form says what the problem says.
-- A factor of 0 is filtered out before stepping, since it has no positive multiples and `step_by` by 0 would not end. The filter is `Iter.filter(&(&1 > 0))`, one comparison, so the capture reads more directly than `fn factor -> factor > 0`; the `flat_map` after it uses the factor twice and stays a lambda.
+- A factor of 0 is filtered out before stepping, since it has no positive multiples and `step_by` by 0 would not end. The filter and the `flat_map` after it both name the factor, `fn factor -> ...`, so the two stages read alike.
 - One `subtests` table for all 16 cases.
 
 ## Friction

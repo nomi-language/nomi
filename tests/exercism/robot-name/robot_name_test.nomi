@@ -1,0 +1,66 @@
+import {
+    std/random.Seed
+    robot_name.{Factory, Robot}
+}
+
+/// Whether `name` is two uppercase letters and three digits.
+fn well_formed?(name: String) -> Bool {
+    case String.to_codepoints(name) {
+        [a, b, c, d, e] -> {
+            letter? = &Range.contains?('A'..='Z', &1)
+            Iter.all?([a, b], letter?) and Iter.all?([c, d, e], Codepoint.digit?)
+        }
+
+        _ ->
+            False
+    }
+}
+
+/// The names of `count` robots from `factory`, in the order it built them.
+fn names(factory: Factory, count: Int) -> List<String> {
+    #(names, _factory) =
+        1..=count
+        |> Iter.map_reduce(fn factory = factory, _n -> {
+            Ok(#(robot, next)) = Factory.build(factory) else {
+                unreachable "a new factory has names for many more robots"
+            }
+            #(Robot.name(robot), next)
+        })
+
+    names
+}
+
+group "robot name" {
+    setup Factory.new(Seed.from_int(42))
+
+    test "has a name", factory {
+        assert Ok(#(robot, _factory)) = Factory.build(factory)
+        assert well_formed?(Robot.name(robot))
+    }
+
+    test "name is the same each time", factory {
+        assert Ok(#(robot, _factory)) = Factory.build(factory)
+        assert Robot.name(robot) == Robot.name(robot)
+    }
+
+    test "different robots have different names", factory {
+        assert Ok(#(first, factory)) = Factory.build(factory)
+        assert Ok(#(second, _factory)) = Factory.build(factory)
+        assert Robot.name(first) != Robot.name(second)
+    }
+
+    test "reset changes the name to a new well-formed one", factory {
+        assert Ok(#(robot, factory)) = Factory.build(factory)
+        assert Ok(#(reset, _factory)) = Factory.reset(factory, robot)
+        assert Robot.name(reset) != Robot.name(robot)
+        assert well_formed?(Robot.name(reset))
+    }
+
+    test "a thousand robots all have different names", factory {
+        assert names(factory, 1000) |> Iter.to_set() |> Set.size() == 1000
+    }
+
+    test "the same seed names the same robots", factory {
+        assert names(factory, 5) == names(Factory.new(Seed.from_int(42)), 5)
+    }
+}

@@ -1,0 +1,16 @@
+import square_root
+
+test "square root" {
+    cases = [
+        #("root of 1", 1, 1),
+        #("root of 4", 4, 2),
+        #("root of 25", 25, 5),
+        #("root of 81", 81, 9),
+        #("root of 196", 196, 14),
+        #("root of 65025", 65025, 255),
+    ]
+
+    subtests cases, #(description, radicand, expected), description {
+        assert square_root.square_root(radicand) == expected
+    }
+}

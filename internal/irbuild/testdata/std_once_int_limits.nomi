@@ -29,10 +29,8 @@ fn under(n: Int) -> Int {
 /// Wrapping arithmetic at the boundary, which does NOT fault: it is the pair of
 /// identities std/int documents (int.nomi:71, :76).
 fn wrap_round_trip() -> Bool {
-    Int.wrapping_add(Int.max_value, 1) == Int.min_value and Int.wrapping_sub(
-        Int.min_value,
-        1,
-    ) == Int.max_value
+    Int.wrapping_add(Int.max_value, 1) == Int.min_value
+        and Int.wrapping_sub(Int.min_value, 1) == Int.max_value
 }
 
 /// The distance between the two limits, computed WITHOUT overflowing: if either

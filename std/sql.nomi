@@ -589,9 +589,8 @@ impl Row {
     //! row = Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])
     //! assert Row.value_position(row, 0) == Ok(Value.Int(1))
     //!
-    //! assert Row.value_position(row, 1) == Err(
-    //!     #Error.ColumnPosition{query: "SELECT 1 AS n", position: 1, count: 1}
-    //! )
+    //! assert Row.value_position(row, 1)
+    //!     == Err(#Error.ColumnPosition{query: "SELECT 1 AS n", position: 1, count: 1})
     //
     pub fn value_position(row: Row, position: Int) -> Result<Value, Error> {
         case Iter.get(row.values, position) {
@@ -616,9 +615,8 @@ impl Row {
     //! n: Int = try Row.get(row, "n")
     //! assert n == 1
     //!
-    //! assert Row.get<String>(row, "n") == Err(
-    //!     #Error.Decode{query: "SELECT n, t", column: "n", expected: "String", found: "Int"}
-    //! )
+    //! assert Row.get<String>(row, "n")
+    //!     == Err(#Error.Decode{query: "SELECT n, t", column: "n", expected: "String", found: "Int"})
     //!
     //! assert Row.get<String>(row, "t") == Err(#Error.UnexpectedNull{query: "SELECT n, t", column: "t"})
     //! assert Row.get<Maybe<String>>(row, "t") == Ok(None)

@@ -14,9 +14,9 @@ import (
 // alone and at the std file's line and column, and not as what the checker
 // says about the part of the file recovery skipped.
 func TestStdSyntaxErrorIsReportedToEveryProgram(t *testing.T) {
-	_, errs := parser.ParseWithRecovery(lexer.Lex("fn f() -> Bool {\n  True\n    and False\n}\n"))
+	_, errs := parser.ParseWithRecovery(lexer.Lex("fn f() -> Int {\n  1\n    * 2\n}\n"))
 	if len(errs) == 0 {
-		t.Fatal("the parser accepts a line that starts with `and`; pick another syntax error")
+		t.Fatal("the parser accepts a line that starts with `*`; pick another syntax error")
 	}
 	broken := *std.Shared()
 	broken.SyntaxErrors = map[string][]parser.ParseError{"io": errs}

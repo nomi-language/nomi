@@ -1,0 +1,129 @@
+import rectangles
+
+test "rectangles" {
+    cases = [
+        #("no rows", [], 0),
+        #("no columns", [""], 0),
+        #("no rectangles", [" "], 0),
+        #(
+            "one rectangle",
+            [
+                "+-+",
+                "| |",
+                "+-+",
+            ],
+            1,
+        ),
+        #(
+            "two rectangles without shared parts",
+            [
+                "  +-+",
+                "  | |",
+                "+-+-+",
+                "| |  ",
+                "+-+  ",
+            ],
+            2,
+        ),
+        #(
+            "five rectangles with shared parts",
+            [
+                "  +-+",
+                "  | |",
+                "+-+-+",
+                "| | |",
+                "+-+-+",
+            ],
+            5,
+        ),
+        #(
+            "rectangle of height 1 is counted",
+            [
+                "+--+",
+                "+--+",
+            ],
+            1,
+        ),
+        #(
+            "rectangle of width 1 is counted",
+            [
+                "++",
+                "||",
+                "++",
+            ],
+            1,
+        ),
+        #(
+            "1x1 square is counted",
+            [
+                "++",
+                "++",
+            ],
+            1,
+        ),
+        #(
+            "only complete rectangles are counted",
+            [
+                "  +-+",
+                "    |",
+                "+-+-+",
+                "| | -",
+                "+-+-+",
+            ],
+            1,
+        ),
+        #(
+            "rectangles can be of different sizes",
+            [
+                "+------+----+",
+                "|      |    |",
+                "+---+--+    |",
+                "|   |       |",
+                "+---+-------+",
+            ],
+            3,
+        ),
+        #(
+            "corner is required for a rectangle to be complete",
+            [
+                "+------+----+",
+                "|      |    |",
+                "+------+    |",
+                "|   |       |",
+                "+---+-------+",
+            ],
+            2,
+        ),
+        #(
+            "large input with many rectangles",
+            [
+                "+---+--+----+",
+                "|   +--+----+",
+                "+---+--+    |",
+                "|   +--+----+",
+                "+---+--+--+-+",
+                "+---+--+--+-+",
+                "+------+  | |",
+                "          +-+",
+            ],
+            60,
+        ),
+        #(
+            "rectangles must have four sides",
+            [
+                "+-+ +-+",
+                "| | | |",
+                "+-+-+-+",
+                "  | |  ",
+                "+-+-+-+",
+                "| | | |",
+                "+-+ +-+",
+            ],
+            5,
+        ),
+    ]
+
+    subtests cases, #(description, lines, expected), description {
+        assert rectangles.count(lines) == expected
+    }
+}

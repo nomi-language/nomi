@@ -1,0 +1,85 @@
+import {
+    std/fs
+    std/io
+}
+
+/// The canonical flags, each `False` unless set.
+pub struct Options {
+    /// `-n`: put each line's number, from 1, before it.
+    line_numbers: Bool = False
+    /// `-l`: answer the names of the files with a match, not the lines.
+    file_names: Bool = False
+    /// `-i`: compare without regard to case.
+    ignore_case: Bool = False
+    /// `-v`: answer the lines that do not match.
+    invert: Bool = False
+    /// `-x`: match only a line that is the whole pattern.
+    whole_line: Bool = False
+}
+
+/// The lines of `files` that contain `pattern`, in file order, as `options`
+/// says. With more than one file each line starts with its file's name.
+/// A file that cannot be read is the error reading it gave.
+pub fn grep(
+    pattern: String,
+    options: Options,
+    files: List<String>,
+) -> Result<List<String>, io.Error> {
+    named = Iter.count(files) > 1
+
+    files
+    |> Iter.map(&search(&1, pattern, options, named))
+    |> Result.collect()
+    |> Result.map(&Iter.flatten(&1))
+}
+
+/// What `grep` answers for one file.
+fn search(
+    file: String,
+    pattern: String,
+    options: Options,
+    named: Bool,
+) -> Result<List<String>, io.Error> {
+    text = try fs.read_text(file)
+
+    found =
+        String.lines(text)
+        |> Iter.with_index()
+        |> Iter.filter(fn #(_index, line) -> matches?(line, pattern, options))
+        |> Iter.to_list()
+
+    if options.file_names {
+        Ok(if Iter.empty?(found) { [] } else { [file] })
+    } else {
+        found
+        |> Iter.map(fn #(index, line) -> {
+            file_part = if named { "${file}:" } else { "" }
+
+            number_part = if options.line_numbers {
+                "${index + 1}:"
+            } else {
+                ""
+            }
+
+            file_part + number_part + line
+        })
+        |> Iter.to_list()
+        |> Ok()
+    }
+}
+
+fn matches?(line: String, pattern: String, options: Options) -> Bool {
+    #(line, pattern) = if options.ignore_case {
+        #(String.to_lower(line), String.to_lower(pattern))
+    } else {
+        #(line, pattern)
+    }
+
+    found = if options.whole_line {
+        line == pattern
+    } else {
+        String.contains?(line, pattern)
+    }
+
+    found != options.invert
+}

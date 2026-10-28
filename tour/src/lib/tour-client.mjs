@@ -186,14 +186,11 @@ function post(msg, cbs) {
 }
 
 // files names a multi-file source's Nomi tabs, whose semantic tokens the
-// worker answers per tab ({ file: tokens }). With expand, the run's output
-// is what `nomi expand` prints for the first tab (a ```nomi-run expand
-// block). Tools run in the block's project before the run (a ```nomi-run
-// tool:<module>/<name> block), and the run's answer carries the files they
-// wrote.
-function dispatch(id, source, cbs, files, expand = false, tools = []) {
+// worker answers per tab ({ file: tokens }). Tools run in the block's
+// project before the run (a ```nomi-run tool:<module>/<name> block), and
+// the run's answer carries the files they wrote.
+function dispatch(id, source, cbs, files, tools = []) {
   const msg = files ? { id, source, files } : { id, source };
-  if (expand) msg.op = "expand";
   if (tools.length) msg.tools = tools;
   post(msg, cbs);
 }
@@ -266,7 +263,7 @@ function fileLanguage(name) {
 }
 
 // tabLabel writes a tab's file name into btn, a file under a directory
-// (`macros/csvdata/csvdata.nomi`, a module of its own in the block) with
+// (`generators/csvdata/csvdata.nomi`, a module of its own in the block) with
 // the directory muted, so the file's own name reads first.
 function tabLabel(btn, name) {
   const slash = name.lastIndexOf("/");
@@ -483,7 +480,7 @@ function treeNav(widget, bar, panes, first, select, controls = null) {
     const ul = document.createElement("ul");
     for (let [name, child] of node.dirs) {
       // A directory holding only one directory reads as one folder
-      // (`macros/choices`).
+      // (`generators/choices`).
       while (child.files.length === 0 && child.dirs.size === 1) {
         const [[inner, grandchild]] = child.dirs;
         name += "/" + inner;
@@ -1419,9 +1416,7 @@ async function enhance(pre) {
 
   const expectError = pre.dataset.nomiExpect === "error";
   // ```nomi-run manual: run once when shown, then when the reader asks.
-  // ```nomi-run expand: the output is `nomi expand` of the first tab.
   const manual = pre.dataset.nomiManual === "1";
-  const expand = pre.dataset.nomiExpand === "1";
 
   const files = isStdlibTest ? null : splitFiles(source);
   if (files && files.length > 1) {
@@ -1433,7 +1428,7 @@ async function enhance(pre) {
       .split(" ")
       .filter(Boolean)
       .map((w) => ({ module: w.slice(0, w.indexOf("/")), name: w.slice(w.indexOf("/") + 1) }));
-    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs, tools);
+    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, readOnlyGlobs, tools);
   }
 
   const widget = document.createElement("div");
@@ -1449,7 +1444,7 @@ async function enhance(pre) {
     '<textarea class="nomi-src" rows="1" spellcheck="false" autocapitalize="off" autocorrect="off" aria-label="Code"></textarea>' +
     "</div>" +
     "</div>";
-  const out = outputPanel(expand ? "Expansion" : "Output");
+  const out = outputPanel("Output");
   widget.append(out.panel);
   pre.replaceWith(widget);
   if (!isStdlibTest) widget.querySelector(".nomi-path-single").textContent = "main.nomi";
@@ -1516,7 +1511,7 @@ async function enhance(pre) {
     live.setRunning(true);
     const runner = isStdlibTest
       ? (callbacks) => dispatchStdlibTest(id, stdlibModule, stdlibContext, code, callbacks)
-      : (callbacks) => dispatch(id, code, callbacks, undefined, expand);
+      : (callbacks) => dispatch(id, code, callbacks, undefined);
     runner({
       onSem: (sem) => {
         if (block.req === id) hl.innerHTML = render(captures, sem, code, EDITOR_RENDER);
@@ -1646,7 +1641,7 @@ function attachHover(ta, marked, DOMPurify, ask) {
 // the run builds it), so a name one tab imports from another resolves. A
 // tab's text is its file's text, so a position in the tab is a position in
 // that file and needs no offset. TOML tabs get neither.
-async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, expand, readOnlyGlobs, tools = []) {
+async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, readOnlyGlobs, tools = []) {
   const tree = usesTree(files);
   const widget = document.createElement("div");
   widget.className = "nomi-interactive nomi-multifile" + (tree ? " nomi-has-tree" : "");
@@ -1659,7 +1654,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   editors.className = "nomi-editors";
   main.append(bar, editors);
   const hint = tabHint(main);
-  const out = outputPanel(expand ? "Expansion" : "Output");
+  const out = outputPanel("Output");
   widget.append(main, out.panel);
 
   // The Go files' highlighting, which the build put in the block (one hidden
@@ -1823,8 +1818,8 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       onRun: (output, error, written) => {
         if (block.req !== id) return;
         live.setRunning(false);
-        // The files the block's tools wrote (a snapshot `prepare`
-        // refreshed) replace their tabs' text, as the tool replaces them
+        // The files the block's tools wrote (the files `generate`
+        // wrote) replace their tabs' text, as the tool replaces them
         // on disk.
         for (const p of panes) {
           const text = written?.[p.file.name];
@@ -1845,7 +1840,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
         cleanFormatSnapshots = null;
         live.setFormatting(false);
       },
-    }, nomiPanes.map((p) => p.file.name), expand, tools);
+    }, nomiPanes.map((p) => p.file.name), tools);
   };
 
   let debounce;

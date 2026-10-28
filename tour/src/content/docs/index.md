@@ -116,9 +116,9 @@ literals, and early `return`, `break` and `continue`.
 **Rust.** Traits become interfaces, and an implementation is
 `impl Interface for Type { ... }`. `where` bounds are checked at each call.
 `Result` and `Maybe` use prefix `try`. Distinct types do the job of
-newtypes. There is no ownership, no `mut` and no `value.method()` calls, and
-[macros](/macros/) write only top-level declarations. Type inference stays
-inside a function body.
+newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
+macros: a library [generates code](/generating-code/) into ordinary files
+instead. Type inference stays inside a function body.
 
 **Go.** You will recognize modules that work like Go modules, a standard formatter,
 explicit imports, channels and context-style cancellation. Nomi has no Go

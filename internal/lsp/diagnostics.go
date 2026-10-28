@@ -73,9 +73,8 @@ func typeErrorsToDiagnosticsIn(uri string, errs []analysis.TypeError) []protocol
 			diag.Code = &protocol.IntegerOrString{Value: e.Code}
 		}
 		for _, r := range e.Related {
-			// A location in code the compiler generated that no macro's
-			// span map moved (analysis.RelocateExpansionErrors) has no text
-			// to show.
+			// A location in code the compiler generated has no text to
+			// show.
 			if analysis.IsSynthesizedLine(r.Line) {
 				continue
 			}
@@ -297,7 +296,24 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 	if snap.Open {
 		tokens = func() []token.Token { return s.pipeTokens.get(snap.URI, snap.Content).toks }
 	}
-	diags := buildPublishedDiagnosticsFor(snap.URI, snap.Content, s.contentForURI, tokens, snap.Nodes, snap.Errors, snap.Analysis.TypeErrors, s.relatedInformation)
+	typeErrs := snap.Analysis.TypeErrors
+	refused := programRefusesReservedName(snap)
+	if refused {
+		// A type declared under a reserved name is refused, and every use
+		// of the name still means the built-in, so what the checker says
+		// about those uses follows from the refusal: the program reports
+		// the refusals alone, as the front end does.
+		typeErrs = analysis.ReservedNameRefusals(typeErrs)
+	}
+	diags := buildPublishedDiagnosticsFor(snap.URI, snap.Content, s.contentForURI, tokens, snap.Nodes, snap.Errors, typeErrs, s.relatedInformation)
+	if refused {
+		notify(protocol.ServerTextDocumentPublishDiagnostics, &protocol.PublishDiagnosticsParams{
+			URI:         protocol.DocumentUri(snap.URI),
+			Diagnostics: diags,
+		})
+		s.publishInputs(notify, snap.URI, typeErrs)
+		return
+	}
 	if lits := s.literalDiagnostics(snap, false); len(lits) > 0 {
 		lines := newLineIndex(snap.Content)
 		for _, d := range lits {
@@ -316,6 +332,20 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 		Diagnostics: diags,
 	})
 	s.publishInputs(notify, snap.URI, snap.Analysis.TypeErrors)
+}
+
+// programRefusesReservedName reports whether a file of snap's program, the
+// document's own or another, declares a type under a reserved name.
+func programRefusesReservedName(snap *analysis.DocSnapshot) bool {
+	if len(analysis.ReservedNameRefusals(snap.Analysis.TypeErrors)) > 0 {
+		return true
+	}
+	for _, fa := range snap.Analysis.Program().Files() {
+		if fa != nil && len(analysis.ReservedNameRefusals(fa.TypeErrors)) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // stdSyntaxDiagnostic is an error on every document's first line when the

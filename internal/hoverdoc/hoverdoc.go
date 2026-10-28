@@ -240,13 +240,6 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		if sym.Type != nil {
 			sig = sym.Name + ": " + displayValueType(sym.Type)
 		}
-	case analysis.SymbolMacro:
-		// A macro's keyword, at its declaration or at a declaration
-		// written with it.
-		if d, ok := sym.Node.(*ast.MacroDecl); ok && d.Impl != nil {
-			sig = "macro " + d.Name + ": " + d.Impl.TypeString()
-			doc = d.Doc
-		}
 	case analysis.SymbolEnumVariant:
 		return renderVariant(sym, false)
 	case analysis.SymbolArgHint:

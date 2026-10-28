@@ -1,0 +1,135 @@
+//# Camicia, a two-player card game of the beggar-my-neighbour family,
+//# played out from two starting decks until one player holds every card or
+//# the decks come round to a shape they had before.
+
+/// How a game ended: one player holds every card, or the game would go on
+/// for ever.
+pub enum Status {
+    Finished
+    Loop
+}
+
+/// The end of a game: how it ended, how many cards were played and how many
+/// times a player collected the pile.
+pub struct Game {
+    status: Status
+    cards: Int
+    tricks: Int
+}
+
+/// The two players. A starts.
+enum Side {
+    A
+    B
+}
+
+/// Both players' cards, each from the top of the deck down.
+struct Hands {
+    a: List<String>
+    b: List<String>
+}
+
+/// Plays a game from the decks `player_a` and `player_b`, each from the top
+/// down. Cards are `"2"` to `"10"`, `"J"`, `"Q"`, `"K"` and `"A"`.
+pub fn simulate_game(player_a: List<String>, player_b: List<String>) -> Game {
+    hands: Hands = #{a: player_a, b: player_b}
+
+    rounds(hands, leader: .A, seen: %[shape(hands)], cards: 0, tricks: 0)
+}
+
+/// Plays tricks from `hands`, `leader` playing first, until a player holds
+/// every card or the hands take a shape already in `seen`.
+fn rounds(
+    hands: Hands,
+    leader: Side,
+    seen: Set<#(List<String>, List<String>)>,
+    cards: Int,
+    tricks: Int,
+) -> Game {
+    #(collector, pile, hands) = play(hands, turn: leader, pile: [], owed: 0, collector: leader)
+    hands = with_hand(hands, collector, List.concat(hand(hands, collector), Iter.reverse(pile)))
+    cards = cards + Iter.count(pile)
+    tricks = tricks + 1
+    now = shape(hands)
+
+    case {
+        Iter.empty?(hand(hands, other(collector))) -> #{status: .Finished, cards, tricks}
+        Set.contains?(seen, now) -> #{status: .Loop, cards, tricks}
+        _ -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
+    }
+}
+
+/// Plays one trick from `turn` on, onto `pile` (newest card first), and
+/// answers who collects the pile, the pile and the hands left. `owed` is
+/// how many cards `turn` still has to pay, and `collector` who played the
+/// payment card they are paying for.
+fn play(
+    hands: Hands,
+    turn: Side,
+    pile: List<String>,
+    owed: Int,
+    collector: Side,
+) -> #(Side, List<String>, Hands) {
+    case hand(hands, turn) {
+        [] ->
+            #(other(turn), pile, hands)
+
+        [card, ..rest] -> {
+            hands = with_hand(hands, turn, rest)
+            pile = [card, ..pile]
+
+            case {
+                penalty(card) > 0 -> play(hands, other(turn), pile, penalty(card), turn)
+                owed == 1 -> #(collector, pile, hands)
+                owed > 1 -> play(hands, turn, pile, owed - 1, collector)
+                _ -> play(hands, other(turn), pile, 0, collector)
+            }
+        }
+    }
+}
+
+/// The cards a payment card makes the other player pay, or 0 for a number
+/// card.
+fn penalty(card: String) -> Int {
+    case card {
+        "J" -> 1
+        "Q" -> 2
+        "K" -> 3
+        "A" -> 4
+        _ -> 0
+    }
+}
+
+/// The hands with every number card alike, which is all that decides how
+/// the game goes on.
+fn shape(hands: Hands) -> #(List<String>, List<String>) {
+    #(alike(hands.a), alike(hands.b))
+}
+
+/// `cards` with each number card written `-`.
+fn alike(cards: List<String>) -> List<String> {
+    cards
+    |> Iter.map(fn card -> if penalty(card) > 0 { card } else { "-" })
+    |> Iter.to_list()
+}
+
+fn other(side: Side) -> Side {
+    case side {
+        .A -> .B
+        .B -> .A
+    }
+}
+
+fn hand(hands: Hands, side: Side) -> List<String> {
+    case side {
+        .A -> hands.a
+        .B -> hands.b
+    }
+}
+
+fn with_hand(hands: Hands, side: Side, cards: List<String>) -> Hands {
+    case side {
+        .A -> #{..hands, a: cards}
+        .B -> #{..hands, b: cards}
+    }
+}

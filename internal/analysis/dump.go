@@ -305,8 +305,8 @@ type printedDiagnostic struct {
 // printedDiagnostics are the diagnostics the front end prints for p, in its
 // order (frontend.Checker.check and Analyze): a syntax error in the entry
 // stops it before analysis, a syntax error in another file is reported alone,
-// and otherwise the entry's diagnostics come first and then each other
-// file's, in key order.
+// so is a declaration refused for its reserved name, and otherwise the
+// entry's diagnostics come first and then each other file's, in key order.
 func printedDiagnostics(p *CheckedProgram) []printedDiagnostic {
 	var out []printedDiagnostic
 	keys := p.Keys()
@@ -331,6 +331,13 @@ func printedDiagnostics(p *CheckedProgram) []printedDiagnostic {
 	}
 	for _, key := range keys[1:] {
 		add(key, syntaxErrors(p.Syntax[key]))
+	}
+	if len(out) > 0 {
+		return out
+	}
+	// A declaration refused for its reserved name is reported alone.
+	for _, key := range keys {
+		add(key, ReservedNameRefusals(p.Errors[key]))
 	}
 	if len(out) > 0 {
 		return out

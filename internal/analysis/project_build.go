@@ -1484,13 +1484,13 @@ func findContextTypeFromCache(cache map[string]*FileAnalysis) Type {
 // declaration it was synthesized for, as repointSynthErrors does for a
 // file's own errors. The coherence checks anchor an error at the impl
 // function, whose position is in the synthesized band, a line no one can
-// navigate to. A macro's expansion is left to RelocateExpansionErrors.
+// navigate to.
 //
 // files calls each with every file's path, as the errors name it, and nodes.
 func repointSynthBandErrors(errs []TypeError, files func(each func(path string, nodes []ast.Node))) []TypeError {
 	band := false
 	for _, e := range errs {
-		band = band || IsSynthesizedLine(e.Line) && !IsExpansionLine(e.Line)
+		band = band || IsSynthesizedLine(e.Line)
 	}
 	if !band {
 		return errs
@@ -1509,7 +1509,7 @@ func repointSynthBandErrors(errs []TypeError, files func(each func(path string, 
 	})
 	out := slices.Clone(errs)
 	for i, e := range out {
-		if !IsSynthesizedLine(e.Line) || IsExpansionLine(e.Line) {
+		if !IsSynthesizedLine(e.Line) {
 			continue
 		}
 		if blk := origins[slotKey{e.File, synthSlotBase(e.Line)}]; blk != nil {
@@ -1517,4 +1517,9 @@ func repointSynthBandErrors(errs []TypeError, files func(each func(path string, 
 		}
 	}
 	return out
+}
+
+// synthSlotBase is the first line of the slot holding synthesized line.
+func synthSlotBase(line int) int {
+	return synthLineBase + (line-synthLineBase)/synthLineStride*synthLineStride
 }

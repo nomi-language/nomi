@@ -16,10 +16,10 @@ import {
 }
 
 //# Operations on the persistent linked `List<T>` type. Container-specific ops
-//# (`concat`, `head`, `tail`) live here; generic iteration — including
-//# `Iter.count` (O(1) via the `known_count` protocol) — goes through
-//# `Iter`: `Iter.map(xs, f) |> Iter.to_list()` for the strict,
-//# List-returning form.
+//# (`concat`, `head`, `tail`, `remove_at`, `remove`) live here;
+//# generic iteration — including `Iter.count` (O(1) via the
+//# `known_count` protocol) — goes through `Iter`:
+//# `Iter.map(xs, f) |> Iter.to_list()` for the strict, List-returning form.
 
 /// Ordered, immutable sequence of elements.
 pub host type List<T>
@@ -67,6 +67,27 @@ impl List<T> {
         case list {
             [_, ..tail] -> Some(tail)
             [] -> None
+        }
+    }
+
+    /// The list without the element at zero-based `index`, which must be in
+    /// `0 <= index < length`. Any other index traps, as `Vector.at` does:
+    /// `index 7 is out of range for a List of length 5`. O(n): the elements
+    /// before `index` are copied, and the ones after it are shared.
+    //! assert List.remove_at(["a", "b", "c"], 1) == ["a", "c"]
+    //! assert List.remove_at(["a", "b", "c"], 0) == ["b", "c"]
+    //
+    pub host fn remove_at<T>(list: List<T>, index: Int) -> List<T>
+
+    /// The list without the first element `==` to `value`, or the same list
+    /// when no element is. O(n).
+    //! assert List.remove([1, 2, 3, 2], 2) == [1, 3, 2]
+    //! assert List.remove([1, 2, 3], 9) == [1, 2, 3]
+    //
+    pub fn remove<T>(list: List<T>, value: T) -> List<T> where T: Equatable {
+        case Iter.find_index(list, fn item -> item == value) {
+            Some(index) -> List.remove_at(list, index)
+            None -> list
         }
     }
 

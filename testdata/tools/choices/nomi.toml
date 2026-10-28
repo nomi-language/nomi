@@ -1,0 +1,3 @@
+[module]
+name = "choices"
+entry_points = ["tools/generate"]

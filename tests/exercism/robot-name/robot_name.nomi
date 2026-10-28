@@ -1,0 +1,73 @@
+import std/random.{Generator, Seed}
+
+once letters = Iter.to_vector('A'..='Z')
+
+/// How many names there are: two letters, then three digits.
+once name_count = 26 * 26 * 1000
+
+/// A robot and the name it answers to.
+pub opaque struct Robot {
+    name: String
+}
+
+impl Robot {
+    /// The robot's name: two uppercase letters and three digits, as `RX837`.
+    pub fn name(robot: Robot) -> String {
+        robot.name
+    }
+}
+
+/// Why the factory cannot name another robot.
+pub enum Error {
+    NamesExhausted
+}
+
+/// A factory that names robots at random and never gives two the same
+/// name. It is a value: each robot it builds or resets answers the factory
+/// after it, holding every name given so far and the seed to draw from next.
+pub opaque struct Factory {
+    seed: Seed
+    given: Set<String>
+}
+
+impl Factory {
+    /// A factory that draws names from `seed`.
+    pub fn new(seed: Seed) -> Factory {
+        #Factory{seed, given: %[]}
+    }
+
+    /// A new robot with a name no robot of this factory has had, or
+    /// `NamesExhausted` when every name has been given.
+    pub fn build(factory: Factory) -> Result<#(Robot, Factory), Error> {
+        if Set.size(factory.given) == name_count {
+            return Err(.NamesExhausted)
+        }
+
+        #(name, seed) = Generator.step(names(), factory.seed)
+
+        if Set.contains?(factory.given, name) {
+            Factory.build(#{..factory, seed})
+        } else {
+            Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))
+        }
+    }
+
+    /// `robot` reset to its factory settings: wiped, and named again with a
+    /// name no robot of this factory has had. The old name is not given
+    /// again.
+    pub fn reset(factory: Factory, _robot: Robot) -> Result<#(Robot, Factory), Error> {
+        Factory.build(factory)
+    }
+}
+
+/// Every name, each equally likely: a number below `name_count` read as two
+/// letters and three digits.
+fn names() -> Generator<String> {
+    Generator.int(0, name_count - 1)
+    |> Generator.map(fn n -> {
+        first = Vector.at(letters, n / 26_000)
+        second = Vector.at(letters, n / 1000 % 26)
+        digits = Int.to_string(n % 1000) |> String.pad_start(3, "0")
+        String.from_codepoints([first, second]) + digits
+    })
+}

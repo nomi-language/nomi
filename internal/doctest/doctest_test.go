@@ -12,12 +12,13 @@ func TestInfoWords(t *testing.T) {
 	if len(blocks) != 7 {
 		t.Fatalf("expected seven blocks, got %d", len(blocks))
 	}
-	for i, want := range []bool{false, false, true, true, true, false, false} {
+	for i, want := range []bool{false, false, true, true, true, false, true} {
 		if got := blocks[i].Runs(); got != want {
 			t.Errorf("block %d (%v): Runs() = %v, want %v", i, blocks[i].Info, got, want)
 		}
 	}
-	for i, want := range [][]string{nil, nil, nil, {"ignore"}, nil, nil, nil} {
+	// `expand` is no word a block carries.
+	for i, want := range [][]string{nil, nil, nil, {"ignore"}, nil, nil, {"expand"}} {
 		if got := blocks[i].UnknownInfo(); !reflect.DeepEqual(got, want) {
 			t.Errorf("block %d: UnknownInfo() = %#v, want %#v", i, got, want)
 		}
@@ -82,7 +83,7 @@ After.`
 }
 
 func TestToolInfo(t *testing.T) {
-	blocks := ExtractBlocks("```nomi-run manual tool:sqlkit/prepare tool:sqlkit tool:/x\nx\n```\n", "nomi-run")
+	blocks := ExtractBlocks("```nomi-run manual tool:sqlkit/generate tool:sqlkit tool:/x\nx\n```\n", "nomi-run")
 	if len(blocks) != 1 {
 		t.Fatalf("expected one block, got %d", len(blocks))
 	}
@@ -90,7 +91,7 @@ func TestToolInfo(t *testing.T) {
 	if got, want := b.UnknownInfo(), []string{"tool:sqlkit", "tool:/x"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("UnknownInfo() = %#v, want %#v: a tool: word names a module and a tool", got, want)
 	}
-	if got, want := b.Tools(), []Tool{{Module: "sqlkit", Name: "prepare"}}; !reflect.DeepEqual(got, want) {
+	if got, want := b.Tools(), []Tool{{Module: "sqlkit", Name: "generate"}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("Tools() = %#v, want %#v", got, want)
 	}
 }

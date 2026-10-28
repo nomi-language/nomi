@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/syntheticextern"
@@ -144,7 +143,6 @@ func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edits []ProgramEd
 	}
 	var changed []ProgramEdit
 	inputs := map[string]bool{}
-	sourceChanged := false
 	for _, e := range edits {
 		if e.Input != "" {
 			if old, ok := prev.Inputs[e.Input]; !ok || !old.Found || old.Text != e.Text {
@@ -162,13 +160,6 @@ func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edits []ProgramEd
 			if slices.ContainsFunc(changed, func(e ProgramEdit) bool { return e.Key == key }) {
 				continue
 			}
-			if fa := prev.Files[key]; fa != nil && inputs[filepath.Clean(fa.FilePath)] {
-				// The input is a file of the program too: a macro's
-				// own source, of another module, which the program imports
-				// for its keyword and reads from the disk.
-				sourceChanged = true
-				continue
-			}
 			for _, in := range ExpansionInputs(prev.Nodes[key]) {
 				if inputs[in.Path] {
 					changed = append(changed, ProgramEdit{Key: key, Text: prev.Texts[key]})
@@ -177,17 +168,13 @@ func (dm *DocumentManager) recheckLocked(prev *CheckedProgram, edits []ProgramEd
 			}
 		}
 	}
-	if len(changed) == 0 && !sourceChanged {
+	if len(changed) == 0 {
 		return prev, RecheckOutcome{Path: RecheckUnchanged}
 	}
 	parsed := parseEdits(changed)
-	outcome := RecheckOutcome{Path: RecheckFull, Reason: "a macro's source file changed"}
-	if !sourceChanged {
-		var next *CheckedProgram
-		next, outcome = dm.recheckIncremental(prev, changed, parsed)
-		if next != nil {
-			return next, outcome
-		}
+	next, outcome := dm.recheckIncremental(prev, changed, parsed)
+	if next != nil {
+		return next, outcome
 	}
 	texts := maps.Clone(prev.Texts)
 	for _, e := range changed {
@@ -412,15 +399,8 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	elsewhere := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		nodes, err := base(projectRoot, modulePath)
 		if err == nil {
-			path := filepath.Clean(ResolveModulePath(projectRoot, modulePath))
 			mu.Lock()
-			// A macro's source file, which the program imports for
-			// its keyword, is an input its expansions read from the disk:
-			// an edit to it is seen there (changedInputs), unless an
-			// editor holds another text of it.
-			if in, read := p.Inputs[path]; !read || !in.Found || dm.IsOpen(fileuri.FromPath(path)) {
-				p.unread = true
-			}
+			p.unread = true
 			mu.Unlock()
 		}
 		return nodes, err
@@ -558,10 +538,9 @@ type programChecks struct {
 	// catalogTree holds the errors about the module's catalogs that nothing
 	// reads (CheckCatalogTree).
 	catalogTree []TypeError
-	// macroChecks holds what each macro's ProgramCheck reports,
-	// and the agreement of nouns and messages, by module key, "" for the
-	// entry to report (CheckProgramDeclarations).
-	macroChecks map[string][]TypeError
+	// declChecks holds the agreement of nouns and messages, by module
+	// key, "" for the entry to report (CheckProgramDeclarations).
+	declChecks map[string][]TypeError
 	// frontEnd holds the derive-lowering and duplicate test name errors the
 	// front end reports before analysis.
 	frontEnd []TypeError
@@ -616,7 +595,7 @@ func (c *programChecks) reduce(p *CheckedProgram) {
 	c.coherence = FinalizeCoherence(c.entry)
 	m, _ := LoadManifest(p.Root)
 	c.catalogTree = CheckCatalogTree(p.Root, m, p.Nodes)
-	c.macroChecks = CheckProgramDeclarations(p.Nodes)
+	c.declChecks = CheckProgramDeclarations(p.Nodes)
 }
 
 // checkSibling is a file's check other than the entry's, in the front
@@ -645,11 +624,11 @@ func (c *programChecks) assemble(p *CheckedProgram) {
 	errs = append(errs, c.check[p.Entry]...)
 	errs = append(errs, c.appRoots[p.Entry]...)
 	errs = append(errs, c.implImports[p.Entry]...)
-	errs = append(errs, c.entryMacroChecks(p)...)
+	errs = append(errs, c.entryDeclChecks(p)...)
 	errs = append(errs, c.coherence...)
 	errs = append(errs, c.catalogTree...)
 	errs = append(errs, c.entryChecks...)
-	p.Errors[p.Entry] = RelocateExpansionErrors(p.Nodes[p.Entry], append(errs, c.frontEnd...))
+	p.Errors[p.Entry] = append(errs, c.frontEnd...)
 	for _, key := range c.checked {
 		if IsStdlibKey(key) {
 			continue
@@ -657,27 +636,17 @@ func (c *programChecks) assemble(p *CheckedProgram) {
 		errs := slices.Clone(c.build[key])
 		errs = append(errs, c.check[key]...)
 		errs = append(errs, c.appRoots[key]...)
-		errs = append(errs, c.macroChecks[key]...)
-		p.Errors[key] = RelocateExpansionErrors(p.Nodes[key], append(errs, c.implImports[key]...))
-	}
-	if MacroFailed(p.Nodes) {
-		p.Errors[p.Entry] = MacroErrorsAlone(p.Nodes[p.Entry], c.entryMacroChecks(p))
-		for _, key := range c.checked {
-			// A file of a macro module that did not build keeps its own
-			// errors (InUnbuiltMacroModule).
-			if fa := p.Files[key]; !IsStdlibKey(key) && (fa == nil || !InUnbuiltMacroModule(p.Nodes, fa.FilePath)) {
-				p.Errors[key] = MacroErrorsAlone(p.Nodes[key], c.macroChecks[key])
-			}
-		}
+		errs = append(errs, c.declChecks[key]...)
+		p.Errors[key] = append(errs, c.implImports[key]...)
 	}
 }
 
-// entryMacroChecks are the macros' ProgramCheck diagnostics the
+// entryDeclChecks are the program declaration checks' diagnostics the
 // entry reports: its own, and those in no file of the program.
-func (c *programChecks) entryMacroChecks(p *CheckedProgram) []TypeError {
-	errs := slices.Clone(c.macroChecks[p.Entry])
+func (c *programChecks) entryDeclChecks(p *CheckedProgram) []TypeError {
+	errs := slices.Clone(c.declChecks[p.Entry])
 	if p.Entry != "" {
-		errs = append(errs, c.macroChecks[""]...)
+		errs = append(errs, c.declChecks[""]...)
 	}
 	return errs
 }

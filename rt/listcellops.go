@@ -102,3 +102,26 @@ func SortSliceToListCells[T any, N ListCellShape[T, N]](items []T, less func(T, 
 	}
 	return out
 }
+
+// ListCellRemoveAt is `List.remove_at`: the list without the element at
+// zero-based index, rebuilding the cells before it and sharing the cells
+// after it. An index outside `0 <= index < length` traps with
+// IndexOutOfRangeText, as `Vector.at` does.
+func ListCellRemoveAt[T any, N ListCellShape[T, N]](xs *N, index int64) *N {
+	length := ListCellCount[T, N](xs)
+	if index < 0 || index >= length {
+		Trap(IndexOutOfRangeText("List", index, length))
+	}
+	before := make([]T, 0, index)
+	node := xs
+	for range index {
+		cell := ListCell[T, N](*node)
+		before = append(before, cell.Head)
+		node = cell.Tail
+	}
+	out := ListCell[T, N](*node).Tail
+	for i := range len(before) {
+		out = ConsCell[T, N](before[len(before)-1-i], out)
+	}
+	return out
+}

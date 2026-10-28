@@ -18,3 +18,7 @@ func defaultBackend() Backend { return processMemory() }
 // ProcessMemory is the in-memory file system a js/wasm build's programs
 // reach unless their host gives them another.
 func ProcessMemory() *Memory { return processMemory() }
+
+// OSAt is, on js/wasm, the process's in-memory file system: there is no
+// disk whose working directory could be dir.
+func OSAt(dir string) Backend { return processMemory() }

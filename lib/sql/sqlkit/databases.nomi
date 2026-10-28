@@ -1,31 +1,32 @@
 //# The `[sqlkit]` table of a module's `nomi.toml`: its databases, each a
-//# `[sqlkit.database.<name>]` table named after the `database`
-//# declaration that declares it.
+//# `[sqlkit.database.<name>]` table.
 //#
 //#     [sqlkit.database.main]
-//#     migrations = "db/migrations"          # SQL files, applied in name order
-//#     snapshot = "db/main.snapshot.json"    # what `nomi tool sqlkit prepare` writes
-//#     queries = ["src"]                     # with several databases: whose queries are whose
+//#     migrations = "db/migrations"   # SQL files, applied in name order
+//#     queries = "db/queries"         # the query files, `*.sql`
+//#     out = "."                      # where the generated files go
+//#     schema = "schema"              # the generated schema file's name
 //#
 //#     [sqlkit.database.main.tables]
-//#     people = "Person"                     # a table's row struct, when the rule misses
+//#     people = "Person"              # a table's row struct, when the rule misses
 //#
-//# Every key may be left out: the defaults are `db/migrations`,
-//# `db/<name>.snapshot.json`, every file, and each table's name made
-//# singular (`users` is `User`). A module with one `database` declaration
-//# needs no table at all: it has the defaults.
+//# Every key may be left out: those are the defaults, and each table's
+//# row struct is its name made singular (`users` is `User`). A module with
+//# no `[sqlkit.database]` table has one database, `main`, with the
+//# defaults.
 
 import {
     std/json.Json
     sqltext
 }
 
-/// One database the module declares.
+/// One database of the module.
 pub struct Database {
     name: String
     migrations: String
-    snapshot: String
-    queries: List<String>
+    queries: String
+    out: String
+    schema: String
 
     /// The row struct of each table whose name the `tables` table gives,
     /// by table.
@@ -34,10 +35,11 @@ pub struct Database {
 
 derive Equatable for Database
 
-/// The databases a `[sqlkit]` table, as `Json`, declares, by name.
+/// The databases a `[sqlkit]` table, as `Json`, declares, by name; with
+/// none, `main` with the defaults.
 //! c =
 //!     Json.decode(
-//!         "{\"database\":{\"main\":{\"snapshot\":\"s.json\",\"tables\":{\"people\":\"Person\"}}}}"
+//!         "{\"database\":{\"main\":{\"queries\":\"sql\",\"tables\":{\"people\":\"Person\"}}}}"
 //!     )
 //!     |> Result.with_default(Json.Null)
 //!
@@ -45,11 +47,14 @@ derive Equatable for Database
 //!     #Database{
 //!         name: "main",
 //!         migrations: "db/migrations",
-//!         snapshot: "s.json",
-//!         queries: [],
+//!         queries: "sql",
+//!         out: ".",
+//!         schema: "schema",
 //!         tables: %{"people" => "Person"},
 //!     },
 //! ]
+//!
+//! assert databases.read(Json.Null) == [databases.defaults("main")]
 //
 pub fn read(config: Json) -> List<Database> {
     tables = case field(config, "database") {
@@ -57,17 +62,23 @@ pub fn read(config: Json) -> List<Database> {
         _ -> %{}
     }
 
+    if Map.size(tables) == 0 {
+        return [defaults("main")]
+    }
+
     tables
     |> Map.keys()
+    |> Iter.sort()
     |> Iter.map(fn name -> {
         table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
-        defaults = defaults(name)
+        d = defaults(name)
 
         #Database{
             name,
-            migrations: text(table, "migrations") |> Maybe.with_default(defaults.migrations),
-            snapshot: text(table, "snapshot") |> Maybe.with_default(defaults.snapshot),
-            queries: texts(table, "queries"),
+            migrations: text(table, "migrations") |> Maybe.with_default(d.migrations),
+            queries: text(table, "queries") |> Maybe.with_default(d.queries),
+            out: text(table, "out") |> Maybe.with_default(d.out),
+            schema: text(table, "schema") |> Maybe.with_default(d.schema),
             tables: text_map(table, "tables"),
         }
     })
@@ -75,105 +86,37 @@ pub fn read(config: Json) -> List<Database> {
 }
 
 /// The database `name` with every key left out.
-//! assert databases.defaults("main").snapshot == "db/main.snapshot.json"
+//! assert databases.defaults("main").queries == "db/queries"
 //
 pub fn defaults(name: String) -> Database {
     #Database{
         name,
         migrations: "db/migrations",
-        snapshot: "db/${name}.snapshot.json",
-        queries: [],
+        queries: "db/queries",
+        out: ".",
+        schema: "schema",
         tables: %{},
     }
 }
 
-/// The glob a query requests its snapshot by when nomi.toml configures no
-/// database: the default snapshot of whichever database the module
-/// declares.
-pub fn default_snapshots() -> String {
-    "db/*.snapshot.json"
-}
-
-/// The databases of a module whose `database` declarations are named
-/// `declared`: those its `[sqlkit]` table configures, or with none
-/// configured, the one it declares, with the defaults. `Err` says why
-/// there is none.
-//! assert databases.of_module(Json.Null, ["main"]) == Ok([databases.defaults("main")])
-//! refute Result.ok?(databases.of_module(Json.Null, []))
+/// The path from the module root of the generated file `name` (without
+/// `.nomi`) of db.
+//! assert databases.out_file(databases.defaults("main"), "schema") == "schema.nomi"
+//! assert databases.out_file(#{..databases.defaults("main"), out: "src/db/"}, "q") == "src/db/q.nomi"
 //
-pub fn of_module(config: Json, declared: List<String>) -> Result<List<Database>, String> {
-    configured = read(config)
-
-    if !Iter.empty?(configured) {
-        return Ok(configured)
-    }
-
-    case declared |> Iter.to_set() |> Iter.to_list() |> Iter.sort() {
-        [] ->
-            Err(
-                "the module declares no database: write `sqlkit.database! main` in one of its files"
-            )
-
-        [only] ->
-            Ok([defaults(only)])
-
-        several ->
-            Err(
-                "the module declares several databases (${String.join(
-                    several,
-                    ", ",
-                )}), so nomi.toml says whose queries are whose: add a `[sqlkit.database.<name>]` table for each, with `queries = [\"<dir>\"]`"
-            )
-    }
+pub fn out_file(db: Database, name: String) -> String {
+    "${module_of(db, name)}.nomi"
 }
 
-/// The database whose queries `file` holds: the only one, or the one whose
-/// `queries` directories hold the file. `Err` says why there is none.
-pub fn for_file(databases: List<Database>, file: String) -> Result<Database, String> {
-    case databases {
-        [] ->
-            Err(
-                "the module declares no database: write `sqlkit.database! main` in one of its files"
-            )
+/// The import path, from the module root, of the generated file `name`.
+pub fn module_of(db: Database, name: String) -> String {
+    dir = sqltext.cut_suffix(db.out, "/")
 
-        [only] ->
-            Ok(only)
-
-        _ -> {
-            owners =
-                databases
-                |> Iter.filter(fn db -> Iter.any?(db.queries, fn dir -> within?(file, dir)))
-                |> Iter.to_list()
-
-            case owners {
-                [owner] -> Ok(owner)
-                [] -> Err("${file} is in the `queries` of no database (${names(databases)})")
-                _ -> Err("${file} is in the `queries` of several databases (${names(owners)})")
-            }
-        }
+    if dir == "" or dir == "." {
+        name
+    } else {
+        "${sqltext.cut_prefix(dir, "./")}/${name}"
     }
-}
-
-/// The database named `name`: with no database configured, the defaults.
-pub fn named(databases: List<Database>, name: String) -> Result<Database, String> {
-    if Iter.empty?(databases) {
-        return Ok(defaults(name))
-    }
-
-    case Iter.find(databases, fn db -> db.name == name) {
-        Some(db) -> Ok(db)
-        None -> Err("nomi.toml has no `[sqlkit.database.${name}]` table")
-    }
-}
-
-fn names(databases: List<Database>) -> String {
-    databases |> Iter.map(fn db -> db.name) |> String.join(", ")
-}
-
-/// Whether `file` is in the directory `dir`, both from the module root.
-fn within?(file: String, dir: String) -> Bool {
-    clean = sqltext.cut_suffix(dir, "/")
-    clean == "" or clean == "." or String.starts_with?(file, clean + "/")
 }
 
 fn field(json: Json, key: String) -> Maybe<Json> {
@@ -187,23 +130,6 @@ fn text(json: Json, key: String) -> Maybe<String> {
     case field(json, key) {
         Some(Json.String(s)) -> Some(s)
         _ -> None
-    }
-}
-
-fn texts(json: Json, key: String) -> List<String> {
-    case field(json, key) {
-        Some(Json.Arr(items)) ->
-            items
-            |> Iter.flat_map(fn item -> {
-                case item {
-                    Json.String(s) -> [s]
-                    _ -> []
-                }
-            })
-            |> Iter.to_list()
-
-        _ ->
-            []
     }
 }
 

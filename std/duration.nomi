@@ -7,12 +7,16 @@ import {
     equatable.Equatable
     hashable.Hashable
     int.Int
+    iter.Iter
     locale.Locale
-    localize.Localize
+    localize.{Localize, NumberParseError}
+    maybe.Maybe.{self, Some}
     multiply.Multiply
+    results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract
     summable.Summable
+    unit.Unit
 }
 
 /// A length of time — a fixed span, independent of any wall clock or
@@ -143,6 +147,92 @@ impl Duration {
 
         duration_format_raw(locale, ns, width_tag)
     }
+
+    /// The length as a stopwatch shows it, `HH:MM:SS`: the hours in at least
+    /// two digits and as many more as they need, then the minutes and the
+    /// seconds in two digits each. A negative length has a leading `-`. The
+    /// seconds are whole unless `fraction_digits` asks for that many digits
+    /// of the second after a `.`, at most 9 (nanoseconds); what the digits
+    /// do not show is cut off, not rounded. `Duration.parse_clock` reads it
+    /// back.
+    //! assert Duration.clock(Duration.seconds(88)) == "00:01:28"
+    //! assert Duration.clock(Duration.hours(100) + Duration.minutes(5)) == "100:05:00"
+    //! assert Duration.clock(Duration.seconds(-5)) == "-00:00:05"
+    //! assert Duration.clock(Duration.milliseconds(1_999)) == "00:00:01"
+    //! assert Duration.clock(Duration.milliseconds(1_250), fraction_digits: 3) == "00:00:01.250"
+    //
+    pub fn clock(d: Duration, fraction_digits: Int = 0) -> String {
+        Duration(ns) = d
+        whole = Int.abs(ns / 1_000_000_000)
+        digits = fraction_digits |> Int.max(0) |> Int.min(9)
+
+        fraction = if digits == 0 {
+            ""
+        } else {
+            nanos = Int.abs(ns % 1_000_000_000) |> Int.to_string() |> String.pad_start(9, "0")
+            "." + String.take(nanos, digits)
+        }
+
+        sign = if ns < 0 { "-" } else { "" }
+        hours = two_digits(whole / 3600)
+        "${sign}${hours}:${two_digits(whole / 60 % 60)}:${two_digits(whole % 60)}${fraction}"
+    }
+
+    /// Reads a length written as `Duration.clock` writes it: an optional
+    /// `-`, the hours in one digit or more, then `:`, the minutes, `:` and the
+    /// seconds in two digits each, both below 60, and an optional `.` and one
+    /// to nine digits of the second. The error says where the text stops
+    /// being that, at a position counted in grapheme clusters, or that the
+    /// length does not fit a `Duration` (`.OutOfRange`).
+    //! assert Duration.parse_clock("00:01:28") == Ok(Duration.seconds(88))
+    //! assert Duration.parse_clock("-1:00:00.5") == Ok(Duration.milliseconds(-3_600_500))
+    //! assert Duration.parse_clock("00:61:00") == Err(#NumberParseError.Unexpected{at: 3, text: "61"})
+    //! assert Duration.parse_clock("1:02") == Err(#NumberParseError.Unexpected{at: 4, text: ""})
+    //! assert Duration.parse_clock("") == Err(NumberParseError.Empty)
+    //!
+    //! d = Duration.seconds(5_000) + Duration.milliseconds(25)
+    //! assert Duration.parse_clock(Duration.clock(d, fraction_digits: 3)) == Ok(d)
+    //
+    pub fn parse_clock(text: String) -> Result<Duration, NumberParseError> {
+        if String.length(text) == 0 {
+            return Err(NumberParseError.Empty)
+        }
+
+        negative = String.take(text, 1) == "-"
+        hours_at = if negative { 1 } else { 0 }
+        hours_end = digits_end(text, hours_at)
+
+        if hours_end == hours_at {
+            return Err(unexpected(text, hours_at))
+        }
+
+        _ = try mark(text, hours_end, ":")
+        minutes = try sixty(text, hours_end + 1)
+        _ = try mark(text, hours_end + 3, ":")
+        seconds = try sixty(text, hours_end + 4)
+        nanos = try fraction(text, hours_end + 6)
+
+        whole_limit = Int.max_value / 1_000_000_000
+        nanos_limit = Int.max_value % 1_000_000_000 + (if negative { 1 } else { 0 })
+
+        Some(hours) = number(text, hours_at, hours_end - hours_at) else {
+            return Err(NumberParseError.OutOfRange)
+        }
+
+        if hours > whole_limit / 3600 {
+            return Err(NumberParseError.OutOfRange)
+        }
+
+        whole = hours * 3600 + minutes * 60 + seconds
+
+        if whole > whole_limit or (whole == whole_limit and nanos > nanos_limit) {
+            Err(NumberParseError.OutOfRange)
+        } else if negative {
+            Ok(Duration(0 - whole * 1_000_000_000 - nanos))
+        } else {
+            Ok(Duration(whole * 1_000_000_000 + nanos))
+        }
+    }
 }
 
 /// How long the words `Duration.format` writes for each unit are, CLDR's
@@ -217,6 +307,7 @@ impl Display for Duration {
     //! assert Duration.to_string(Duration.milliseconds(1500)) == "1s500ms"
     //! assert Duration.to_string(Duration.minutes(90)) == "1h30m"
     //! assert Duration.to_string(Duration.nanoseconds(0)) == "0s"
+    //! assert Duration.to_string(Duration.nanoseconds(Int.min_value)) == "-2562047h47m16s854ms775µs808ns"
     //
     host fn to_string(d: Duration) -> String
 }
@@ -237,5 +328,99 @@ impl Debug for Duration {
     //
     fn inspect(d: Duration) -> String {
         to_string(d)
+    }
+}
+
+// `Duration.clock`'s field of two digits at least.
+fn two_digits(n: Int) -> String {
+    n |> Int.to_string() |> String.pad_start(2, "0")
+}
+
+// The index after the run of ASCII digits in `text` that starts at `at`.
+fn digits_end(text: String, at: Int) -> Int {
+    at + (String.drop(text, at) |> Iter.take_while(ascii_digit?) |> Iter.count())
+}
+
+fn ascii_digit?(mark: String) -> Bool {
+    String.length(mark) == 1 and String.contains?("0123456789", mark)
+}
+
+// The number the `count` digits at `at` write, or None when it does not fit
+// an Int.
+fn number(text: String, at: Int, count: Int) -> Maybe<Int> {
+    String.slice(text, at, at + count) |> String.to_int()
+}
+
+// `parse_clock`'s error at `at`: the mark there, or the end of the text.
+fn unexpected(text: String, at: Int) -> NumberParseError {
+    #NumberParseError.Unexpected{at, text: String.slice(text, at, at + 1)}
+}
+
+fn mark(text: String, at: Int, expected: String) -> Result<Unit, NumberParseError> {
+    if String.slice(text, at, at + 1) == expected {
+        Ok(Unit)
+    } else {
+        Err(unexpected(text, at))
+    }
+}
+
+// A minutes or seconds field: two digits at `at`, below 60.
+fn sixty(text: String, at: Int) -> Result<Int, NumberParseError> {
+    end = digits_end(text, at)
+
+    case {
+        end - at < 2 ->
+            Err(unexpected(text, end))
+
+        end - at > 2 ->
+            Err(unexpected(text, at + 2))
+
+        _ -> {
+            value = number(text, at, 2) |> Maybe.with_default(0)
+
+            if value < 60 {
+                Ok(value)
+            } else {
+                text = String.slice(text, at, at + 2)
+                Err(#NumberParseError.Unexpected{at, text})
+            }
+        }
+    }
+}
+
+// The nanoseconds of an optional fraction of a second at `at`, which must
+// end the text.
+fn fraction(text: String, at: Int) -> Result<Int, NumberParseError> {
+    case String.slice(text, at, at + 1) {
+        "" ->
+            Ok(0)
+
+        "." -> {
+            end = digits_end(text, at + 1)
+            count = end - at - 1
+
+            case {
+                count == 0 ->
+                    Err(unexpected(text, at + 1))
+
+                end < String.length(text) ->
+                    Err(unexpected(text, end))
+
+                count > 9 ->
+                    Err(#NumberParseError.TooManyFractionDigits{max: 9})
+
+                _ -> {
+                    digits = String.drop(text, at + 1) |> String.pad_end(9, "0")
+
+                    Ok(
+                        String.to_int(digits)
+                        |> Maybe.with_default(0)
+                    )
+                }
+            }
+        }
+
+        _ ->
+            Err(unexpected(text, at))
     }
 }

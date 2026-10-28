@@ -1,0 +1,33 @@
+//# Cryptographic hashes of bytes. `hash.sha256(data)` is the 32-byte
+//# SHA-256 digest (FIPS 180-4), and `hash.sha256_hex(data)` the same as the
+//# 64 lowercase hexadecimal digits `sha256sum` prints, the form a digest is
+//# usually written down in. Hash text as its UTF-8 bytes:
+//#
+//# ```nomi
+//# digest = hash.sha256_hex(String.to_bytes("abc"))
+//# ```
+//#
+//# Both are pure, so a typed literal's handler may call them.
+
+import {
+    bytes.Bytes
+    strings.String
+}
+
+/// The SHA-256 digest of `data`: 32 bytes.
+//! import std/hash
+//!
+//! assert Bytes.length(hash.sha256(String.to_bytes(""))) == 32
+//
+pub host fn sha256(data: Bytes) -> Bytes
+
+/// The SHA-256 digest of `data` as 64 lowercase hexadecimal digits.
+//! import std/hash
+//!
+//! assert hash.sha256_hex(String.to_bytes(""))
+//!     == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+//!
+//! assert hash.sha256_hex(String.to_bytes("abc"))
+//!     == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+//
+pub host fn sha256_hex(data: Bytes) -> String

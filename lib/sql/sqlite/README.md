@@ -105,7 +105,7 @@ decimal again. So the driver:
 Each refusal is `sql.Error.Database` with the code `SQLITE_MISMATCH` and a
 message naming the parameter or column and the fix. So a `DECIMAL(p, s)`
 column with `p` at most 15 keeps every value exactly, at its scale;
-`nomi tool sqlkit prepare` warns about one declared wider, or with no
+`nomi tool sqlkit generate` warns about one declared wider, or with no
 scale. Keep an amount that needs more digits, or that SQL adds up over many
 rows and must be exact whatever the rows hold, as INTEGER minor units
 (cents): SQLite's integer arithmetic is exact, and a sum that overflows is
@@ -201,5 +201,5 @@ and the byte it names. It reads SQLite's column metadata
 `sqlite3_table_column_metadata`, `sqlite3_error_offset`), which
 `database/sql` does not expose: natively through `modernc.org/sqlite`'s
 `lib` package, and in the browser through the WebAssembly build's C API,
-which compiles the column metadata in too. `nomi tool sqlkit prepare` is
+which compiles the column metadata in too. `nomi tool sqlkit generate` is
 built on it, so it runs in the browser as well.

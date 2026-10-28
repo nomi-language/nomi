@@ -178,6 +178,69 @@ func implOf(byType map[string]*ir.Symbol, r *rt.Record) *ir.Symbol {
 	return byType[r.Desc.Name]
 }
 
+// DispatchMiss is a dispatched call whose receiver's run-time type has no
+// impl among the program's retained modules.
+type DispatchMiss struct {
+	// Func is the function making the call, Callee the interface function.
+	Func, Callee string
+	// Received is the receiver's run-time type name, as the message prints
+	// it.
+	Received string
+	// Declared is the stored type of the receiver operand at the call, or
+	// nil for an untyped one.
+	Declared *ir.ValType
+	receiver any
+}
+
+func (e *DispatchMiss) Error() string {
+	return fmt.Sprintf("vm: %s: %s dispatches on %s, and this program's modules did not "+
+		"retain an implementation for it", e.Func, e.Callee, e.Received)
+}
+
+// ReceiverOfDeclaredType reports whether the receiver is a value of the
+// operand's declared type, and whether that can be decided at all. It can
+// for a scalar and for a struct, enum, tuple or distinct, compared by the
+// type's run-time name. It cannot for an interface, an untyped operand or
+// any other type, whose values are many types at run time.
+//
+// A receiver of its declared type whose type has no retained impl is a
+// builder gap: the impl was not retained. A receiver of another type is a
+// value the operand's type does not admit, which only a caller handing the
+// function a made-up argument produces.
+func (e *DispatchMiss) ReceiverOfDeclaredType() (of, decided bool) {
+	t := e.Declared
+	if t == nil {
+		return false, false
+	}
+	v := e.receiver
+	switch t.Kind() {
+	case ir.KindBool:
+		_, of = v.(bool)
+	case ir.KindInt:
+		_, of = v.(int64)
+	case ir.KindFloat:
+		_, of = v.(float64)
+	case ir.KindByte:
+		_, of = v.(rt.Byte)
+	case ir.KindString:
+		_, of = v.(string)
+	case ir.KindBytes:
+		_, of = v.(rt.Bytes)
+	case ir.KindDecimal:
+		_, of = v.(rt.Decimal)
+	case ir.KindStruct, ir.KindEnum, ir.KindTuple, ir.KindDistinct:
+		d := descOfType(t)
+		if d == nil {
+			return false, false
+		}
+		r, isRecord := v.(*rt.Record)
+		of = isRecord && r != nil && r.Desc.Name == d.Name && r.Desc.Inst == d.Inst
+	default:
+		return false, false
+	}
+	return of, true
+}
+
 // dispatchTarget selects a dispatched call's body by the declared type of its
 // receiver operand.
 func (m *Machine) dispatchTarget(fr *frame, n *ir.Call, args []any) (*ir.Func, error) {
@@ -193,8 +256,11 @@ func (m *Machine) dispatchTarget(fr *frame, n *ir.Call, args []any) (*ir.Func, e
 		if r, isRecord := recv.(*rt.Record); isRecord && r != nil && r.Desc.Kind == rt.KindBoxed {
 			typ = r.Desc.Name
 		}
-		return nil, fmt.Errorf("vm: %s: %s dispatches on %s, and this program's modules did not "+
-			"retain an implementation for it", fr.fn.Name(), n.Callee().Name(), typ)
+		miss := &DispatchMiss{Func: fr.fn.Name(), Callee: n.Callee().Name(), Received: typ, receiver: recv}
+		if k := n.KeyAt(); k < n.NumArgs() {
+			miss.Declared = fr.fn.TempType(n.Arg(k))
+		}
+		return nil, miss
 	}
 	fn, err := m.resolveFunc(impl, fr.fn.Name())
 	if err != nil {

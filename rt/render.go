@@ -244,9 +244,9 @@ type DebugHook func(v any) (text string, owned bool, err error)
 // DebugText is the structural `Debug.inspect` of a Value, consulting hook
 // first at every level. It renders what the front end's universal Debug and
 // std's impls print for scalars, collections, tuples, anonymous records,
-// distincts, Bool and the prelude's carrying enums, and refuses by name what
-// only a dispatched impl can render: a named struct, a user enum, a Dynamic,
-// an opaque value.
+// distincts, Bool, the prelude's carrying enums and the placeholder of an
+// opaque value (a task, a channel half), and refuses by name what only a
+// dispatched impl can render: a named struct, a user enum, a Dynamic.
 func DebugText(v any, hook DebugHook) (string, error) {
 	v = Unbox(v)
 	if hook != nil {
@@ -336,6 +336,11 @@ func DebugText(v any, hook DebugHook) (string, error) {
 	case Closure:
 		// A function held in a tuple or record part.
 		return FunctionInspectText(), nil
+	case Opaque:
+		// A value kind with no declaration to render: a task (`<task>`), a
+		// channel half (`<channel>`), a Supervisor. Its placeholder is the
+		// one its values: row prints.
+		return t.OpaqueText(), nil
 	}
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%T)", v)
 }
@@ -404,6 +409,9 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 	if r.Desc.Name == "sets.Set" {
 		return debugSet(r, hook)
 	}
+	if r.Desc.Name == ChannelTypeName {
+		return debugChannel(r, hook)
+	}
 	if r.Desc.Kind == KindAnon || r.Desc.Name == "" {
 		// An anonymous record's field order is its sorted names, which is
 		// its descriptor's layout order.
@@ -416,6 +424,23 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 	return "", fmt.Errorf("Debug on an unrepresented receiver (%s): a struct's "+
 		"Debug renders its fields in DECLARATION order through its dispatched impl, "+
 		"and the structural renderer prints only sorted orders", r.Desc.Short)
+}
+
+// debugChannel is a `Channel<T>`'s Debug. std declares no impl Debug for it,
+// so it reads as any struct's universal Debug does, `#Channel{...}` with its
+// fields in declaration order, which is its descriptor's layout order: the
+// sender, then the receiver, each a channel half (ChannelInspectText).
+func debugChannel(r *Record, hook DebugHook) (string, error) {
+	l := r.Layout()
+	parts := make([]string, len(l.Fields))
+	for i := range l.Fields {
+		s, err := DebugText(r.slot(&l.Fields[i]), hook)
+		if err != nil {
+			return "", err
+		}
+		parts[i] = l.Fields[i].Name + ": " + s
+	}
+	return "#" + r.Desc.Short + "{" + strings.Join(parts, ", ") + "}", nil
 }
 
 func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {

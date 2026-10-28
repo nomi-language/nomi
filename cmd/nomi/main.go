@@ -95,10 +95,8 @@ const usage = `usage:
                                         programs in it in a browser or Node
   nomi dap                              serve the Debug Adapter Protocol on stdin and
                                         stdout, for an editor's debugger
-  nomi expand <file>                    print what the file's declarations written
-                                        with a macro's keyword expand to
-  nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi:
-                                        a macro's work that needs effects
+  nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi,
+                                        such as a code generator
   nomi messages accept <locale> <msg>   mark a locale's translation of a message
                                         current, recording the message's text as
                                         the source it was translated from
@@ -225,11 +223,6 @@ func main() {
 			os.Exit(1)
 		}
 		os.Exit(dap.RunTerminal(os.Args[2], os.Stdin, os.Stdout))
-	} else if command == "expand" {
-		if err := runExpand(os.Args[2:], os.Stdout); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
 	} else if command == "tool" {
 		if err := runTool(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -388,7 +381,7 @@ func runCheck(path string) error {
 
 // writeCheckFailure writes the failed check of the program entry: a
 // `FAIL <file>` line for each file that holds errors (a file the entry
-// imports, or an input a macro read), in the order its first error
+// imports, or a message catalog), in the order its first error
 // comes, with that file's errors below it. An error an earlier entry's
 // check already printed is not printed again (reported keeps them); an
 // entry whose errors were all printed says so. A failure that is not a
@@ -555,6 +548,9 @@ func discoverCheckFiles(root string) (files []string, through map[string][]strin
 			case ".git", "node_modules", "dist", ".astro":
 				return filepath.SkipDir
 			}
+			if stdFixturesDir(path) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if !strings.HasSuffix(d.Name(), ".nomi") {
@@ -573,6 +569,23 @@ func discoverCheckFiles(root string) (files []string, through map[string][]strin
 	sort.Strings(files)
 	files, through = programRoots(files)
 	return files, through, false, nil
+}
+
+// stdFixturesDir reports whether dir is the standard library's `_fixtures`
+// tree. Its modules are std modules only in a test binary run with
+// NOMI_STD_FIXTURES=1 (std.FixturesLoaded); this nomi's stdlib does not
+// hold them, so a check would read their bare std imports as other files'
+// and report type identities that differ only by path.
+func stdFixturesDir(dir string) bool {
+	if filepath.Base(dir) != "_fixtures" {
+		return false
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	_, stdRoot, ok := frontend.StdlibFile(abs)
+	return ok && filepath.Dir(abs) == filepath.Clean(stdRoot)
 }
 
 // programRoots is the files of a directory check that are checked as

@@ -122,7 +122,10 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 	restKind := kindInvalid
 	if tail != nil {
 		v, k, _, ok := bl.lower(tail)
-		if !ok || !(irRetainedListKind(k) || irListTransportKind(k)) {
+		// The checker gives a spread a List tail. Its elements are any values
+		// with a stored type, as the heads' are (a list of Iters, of
+		// functions, of structs).
+		if !ok || !(irRetainedListKind(k) || irListTransportKind(k) || bl.g.irSpreadTailKind(k)) {
 			return no()
 		}
 		rest, restKind = v, k
@@ -209,6 +212,16 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: k})
 	return n.Dst(), k, false, true
+}
+
+// irSpreadTailKind is a list whose element has a stored value type: the VM's
+// list holds values of every kind, as listMakeOf's heads are admitted.
+func (g *gen) irSpreadTailKind(k kind) bool {
+	if k.tag != tagList || k.comp == nil || len(k.comp.parts) != 1 {
+		return false
+	}
+	elem := k.comp.parts[0]
+	return elem == kindUnit || g.irValType(elem) != nil
 }
 
 // irEmbeddedIn reports whether k widens into a retained `embeds` variant of

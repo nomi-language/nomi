@@ -32,10 +32,6 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	if doc.Analysis == nil {
 		return nil, nil
 	}
-	// Inside a macro's declaration's body, the macro answers.
-	if h, ok := s.macroHover(doc, pos); ok {
-		return h, nil
-	}
 	// A static typed literal shows its value (literal_eval.go); on its tag,
 	// below the handler's own hover.
 	literal, literalRange, onTag, isLiteral := s.literalHover(doc, posToOffset(lineOffsets(doc.Content), pos.Line, pos.Col))

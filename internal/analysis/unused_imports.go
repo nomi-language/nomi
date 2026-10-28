@@ -306,13 +306,9 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 }
 
 // compilerWritten reports whether a use at line is compiler output rather
-// than the file's own text: a synthesized line, except a macro's
-// expansion, which is code the file's declaration wrote. An expansion names
-// the declaring file's imports when it copies what the declaration says
-// (`query user(id: Int) -> Maybe<User>` generates a function returning
-// `Maybe<User>`), and that is the file's use of `User`.
+// than the file's own text: a synthesized line.
 func compilerWritten(line int) bool {
-	return IsSynthesizedLine(line) && !IsExpansionLine(line)
+	return IsSynthesizedLine(line)
 }
 
 type importBindingUseKey struct {
@@ -376,12 +372,10 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 	}
 }
 
-// markExpansionTypeUses marks the imports a macro's expansion names
-// as types. The builder records no reference for a type written on a
-// synthesized line (walkTypeExpr), so the uses would otherwise be missed:
-// `query user(id: Int) -> Maybe<User>` imports `User` for the function
-// the expansion writes, and nowhere else. A type name in a file is the
-// file's binding of it, so the name is the use.
+// markExpansionTypeUses marks the imports the types of a keyword
+// declaration that stays in the file (one whose keyword Nomi does not
+// know, which the checker rejects) name, so that its import is not also
+// reported unused.
 func markExpansionTypeUses(nodes []ast.Node, byName map[string]int, used []bool) {
 	mark := func(name string) {
 		if i, ok := byName[name]; ok {
@@ -389,28 +383,20 @@ func markExpansionTypeUses(nodes []ast.Node, byName map[string]int, used []bool)
 		}
 	}
 	for _, n := range nodes {
-		// A type a keyword declaration writes (`query user(id: Int) ->
-		// Maybe<User>`) is the file's use of it, whether or not the
-		// declaration's expansion copies it: one that could not expand
-		// still names what the file imported for it.
-		written := false
-		if _, ok := n.(*ast.KeywordDecl); ok {
-			written = true
+		// A type a keyword declaration writes is the file's use of it,
+		// whether or not the declaration expanded: one that could not
+		// expand still names what the file imported for it.
+		if _, ok := n.(*ast.KeywordDecl); !ok {
+			continue
 		}
 		ast.Inspect(n, func(n ast.Node) bool {
 			switch t := n.(type) {
 			case *ast.SimpleType:
-				if written || IsExpansionLine(t.Line) {
-					mark(t.Name)
-				}
+				mark(t.Name)
 			case *ast.GenericType:
-				if written || IsExpansionLine(t.Line) {
-					mark(t.Name)
-				}
+				mark(t.Name)
 			case *ast.QualifiedType:
-				if written {
-					mark(t.Module)
-				}
+				mark(t.Module)
 			}
 			return true
 		})

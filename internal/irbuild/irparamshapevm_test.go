@@ -11,11 +11,13 @@ package irbuild
 // Two checks, because each is blind to half the population:
 //
 //  1. One argument vector, chosen by the recorded shape, and the machine must
-//     still run. `vmArgShapes` tries every leaf and counts a function runnable
-//     if any completes. This runs each function with the leaf the declaration
-//     names, so a wrong scalar shape feeds, say, a String where the body adds,
-//     the machine refuses, and the count falls below the committed list's
-//     `ran` count (vmRetainedList.ranCount).
+//     still run it (vmRan, the population tests' rule). `vmArgShapes` tries
+//     every leaf and counts a function runnable if it runs on any. This runs
+//     each function with the leaf the declaration names, so a wrong scalar
+//     shape feeds, say, an Int where the parameter is a Decimal, the counting
+//     machine refuses it at entry (vm's checkParamKinds), the body is never
+//     entered, and the count falls below the committed list's `ran` count
+//     (vmRetainedList.ranCount).
 //
 //  2. The structure the shaper derived must agree with the shape the
 //     declaration records. Check 1 cannot see a wrong composite shape:
@@ -30,7 +32,7 @@ package irbuild
 // reader can see how much of the population each covers.
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -180,17 +182,19 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 	var disagreed []string
 	counted := map[*ir.Func]bool{}
 	// run makes the machine and calls fn in a bubble, with the step budget
-	// vmProbe gives a call.
-	run := func(e vmProbeEntry, args []any) error {
-		err, answered, bubbleErr := vmInBubble(func() error {
+	// vmProbe gives a call, and reports whether the call ran fn (vmRan).
+	run := func(e vmProbeEntry, args []any) (bool, error) {
+		w := &vmProbeWatch{}
+		out, answered, bubbleErr := vmInBubble(func() vmProbeResult {
 			m := vmProgram(e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
-			_, err := vmRunSymV(m, e.fn.Sym(), args...)
-			return err
+			w.watch(m, e.fn)
+			entered, err := vmCall(m, e.fn, args)
+			return vmProbeResult{ran: vmRan(entered, err), err: err}
 		})
 		if !answered {
-			return vmBlockedError(e.fn, bubbleErr)
+			return w.entered(e.fn), vmBlockedError(e.fn, bubbleErr)
 		}
-		return err
+		return out.ran, out.err
 	}
 	for _, e := range entries {
 		mod, fn := e.mod, e.fn
@@ -204,24 +208,23 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 		// its two parameters are the startup snapshot and a root Context,
 		// not leaves.
 		type started struct {
-			isBoot bool
-			err    error
+			isBoot, entered bool
+			err             error
 		}
+		w := &vmProbeWatch{}
 		boot, answered, bubbleErr := vmInBubble(func() started {
-			isBoot, err := vmStartBoot(mod, e.links, fn)
-			return started{isBoot, err}
+			isBoot, entered, err := vmStartBoot(mod, e.links, fn, w)
+			return started{isBoot, entered, err}
 		})
 		if !answered {
-			boot = started{true, vmBlockedError(fn, bubbleErr)}
+			boot = started{true, w.entered(fn), vmBlockedError(fn, bubbleErr)}
 		}
 		if boot.isBoot {
 			counted[fn] = true
-			// A boot that returned `Err` ran its body to that answer.
-			var bootErr *vm.BootError
-			if boot.err == nil || errors.As(boot.err, &bootErr) {
+			if vmRan(boot.entered, boot.err) {
 				ran++
 			} else {
-				failed = append(failed, fn.Name()+": "+boot.err.Error())
+				failed = append(failed, fmt.Sprintf("%s: entered=%v: %v", fn.Name(), boot.entered, boot.err))
 			}
 			continue
 		}
@@ -269,7 +272,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 				args = append(args, arg)
 			}
 			counted[fn] = true
-			if err := run(e, args); vmRan(err, append([]*ir.Module{e.mod}, e.links...)...) {
+			if ok, err := run(e, args); ok {
 				okAny = true
 				break
 			} else {
@@ -293,7 +296,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 			}
 			if args, ok := vmArgsForKindsIn(kinds[fn], qual); ok && len(kinds[fn]) == len(fn.Params()) {
 				for _, vector := range [][]any{args, vmAscending(args)} {
-					if err := run(e, vector); vmRan(err, append([]*ir.Module{e.mod}, e.links...)...) {
+					if ok, err := run(e, vector); ok {
 						okAny = true
 						break
 					} else {
@@ -306,7 +309,7 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 			ran++
 			continue
 		}
-		failed = append(failed, fn.Name()+": "+lastErr.Error())
+		failed = append(failed, fmt.Sprintf("%s: %v", fn.Name(), lastErr))
 	}
 
 	if total == 0 {

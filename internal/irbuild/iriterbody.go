@@ -128,7 +128,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
 	setMember, isSet := setElem(sk)
 	isSet = isSet && sk != kindEmptySet && irRetainedSetKind(sk)
-	var userEach *implItem
+	var userEach *userIterSource
 	var userElem kind
 	if !isVector && !isMap && !isSet {
 		userEach, userElem = bl.userSource(sk)
@@ -649,75 +649,69 @@ func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 	return seqKindIn(g, elem), true
 }
 
+// userIterSource is a named source's own `impl Iter`, in this file or a
+// sibling, as the retained pipeline walks it: its `each_while`, the element
+// it pushes, and its written `known_count` and `infinite?` when it writes
+// them.
+type userIterSource struct {
+	each       userIterFn
+	knownCount *userIterFn
+	infinite   *userIterFn
+	elem       kind
+}
+
 // userSource is the `each_while` a named source's own `impl Iter` declares,
 // and the element it pushes, when the retained pipeline can walk it:
-// iterUserSource's recognition, a retained element, and a source-written body
-// the VM can link. A written `known_count` override the VM cannot link
-// declines.
-func (bl *irScalarBuilder) userSource(sk kind) (*implItem, kind) {
-	it, elem, ok := bl.g.iterUserEachWhile(sk)
-	if !ok || irImplSource(it) == nil || !irRetainedValueKind(elem) {
+// iterUserEachWhile's recognition, a retained element, and a source-written
+// body the VM can link. A written `known_count` or `infinite?` override the
+// VM cannot link declines.
+func (bl *irScalarBuilder) userSource(sk kind) (*userIterSource, kind) {
+	u, each, elem, ok := bl.g.iterUserEachWhile(sk)
+	if !ok || !irRetainedValueKind(elem) {
 		return nil, kindInvalid
 	}
-	if kc := bl.g.implsByIface["Iter"][sk].items["known_count"]; kc != nil && !kc.inherited && bl.userKnownCount(sk) == nil {
-		return nil, kindInvalid
+	src := &userIterSource{each: each, elem: elem}
+	if kc := u.d.items["known_count"]; kc != nil && !kc.inherited {
+		f, ok := u.fn(bl.g, "known_count")
+		if mk, shared := bl.g.sharedMaybe(kindInt); !ok || !shared || len(f.params) != 1 || f.params[0] != sk || f.result != mk {
+			return nil, kindInvalid
+		}
+		src.knownCount = &f
 	}
-	if inf := bl.g.implsByIface["Iter"][sk].items["infinite?"]; inf != nil && !inf.inherited && bl.userInfinite(sk) == nil {
-		return nil, kindInvalid
+	if inf := u.d.items["infinite?"]; inf != nil && !inf.inherited {
+		f, ok := u.fn(bl.g, "infinite?")
+		if !ok || len(f.params) != 1 || f.params[0] != sk || f.result != kindBool {
+			return nil, kindInvalid
+		}
+		src.infinite = &f
 	}
-	return it, elem
-}
-
-// userInfinite is the `infinite?` a named source's own `impl Iter` writes,
-// when its body is one the VM can link, or nil: the view asks it whether the
-// source never ends.
-func (bl *irScalarBuilder) userInfinite(sk kind) *implItem {
-	inf := bl.g.implsByIface["Iter"][sk].items["infinite?"]
-	if inf == nil || inf.inherited || !inf.lowerable || irImplSource(inf) == nil || len(inf.params) != 1 || inf.params[0] != sk || inf.result != kindBool {
-		return nil
-	}
-	return inf
-}
-
-// userKnownCount is the `known_count` a named source's own `impl Iter`
-// writes, when its body is one the VM can link, or nil: the view carries
-// it as the sequence's count, so `Iter.known_count` answers it as std's
-// dispatch would.
-func (bl *irScalarBuilder) userKnownCount(sk kind) *implItem {
-	kc := bl.g.implsByIface["Iter"][sk].items["known_count"]
-	if kc == nil || kc.inherited || !kc.lowerable || irImplSource(kc) == nil || len(kc.params) != 1 || kc.params[0] != sk {
-		return nil
-	}
-	if mk, shared := bl.g.sharedMaybe(kindInt); !shared || kc.result != mk {
-		return nil
-	}
-	return kc
+	return src, elem
 }
 
 // userView views a user source through rt.UserSeq. The view's second operand
 // references the impl's `each_while`, a third its written `known_count`, and
 // a fourth its written `infinite?`. A view with a fourth and no written
 // `known_count` holds Unit third: the source inherits the declining default.
-func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, it *implItem, elem kind) ir.Temp {
+func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, us *userIterSource, elem kind) ir.Temp {
 	pos := bl.g.irNodePos(at)
-	refTo := func(it *implItem) ir.Temp {
-		ref := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irCalleeSym(it, sk.nomi()+"."+it.name))
+	refTo := func(f userIterFn) ir.Temp {
+		ref := ir.NewRefFunc(pos, bl.f.NewTemp(), f.sym)
 		bl.b.Append(ref)
-		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, it.params, it.result)})
+		bl.side(ref.Dst(), irScalarSide{k: f.k})
 		return ref.Dst()
 	}
-	operands := []ir.Temp{src, refTo(it)}
-	if kc := bl.userKnownCount(sk); kc != nil {
-		operands = append(operands, refTo(kc))
+	operands := []ir.Temp{src, refTo(us.each)}
+	if us.knownCount != nil {
+		operands = append(operands, refTo(*us.knownCount))
 	}
-	if inf := bl.userInfinite(sk); inf != nil {
+	if us.infinite != nil {
 		if len(operands) == 2 {
 			unit := ir.NewUnit(pos, bl.f.NewTemp())
 			bl.b.Append(unit)
 			bl.side(unit.Dst(), irScalarSide{k: kindUnit})
 			operands = append(operands, unit.Dst())
 		}
-		operands = append(operands, refTo(inf))
+		operands = append(operands, refTo(*us.infinite))
 	}
 	n := ir.NewIter(pos, bl.f.NewTemp(), ir.IterView, ir.IterOverUserImpl, operands...)
 	bl.b.Append(n)

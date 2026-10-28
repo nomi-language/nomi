@@ -48,9 +48,8 @@ impl Json {
     /// Numbers are decoded as `Int` when they fit in int64 with no
     /// fractional part / exponent; otherwise as `Float`. See the
     /// `Json` doc-comment for the rationale.
-    //! assert Json.decode("{\"ok\":true,\"n\":42}") == Result.Ok(
-    //!     %Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
-    //! )
+    //! assert Json.decode("{\"ok\":true,\"n\":42}")
+    //!     == Result.Ok(%Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)})
     //!
     //! assert Result.err?(Json.decode("{"))
     //
@@ -62,9 +61,8 @@ impl Json {
     /// Number-rendering note: `Float(36.0)` renders as `"36"`, not `"36.0"`.
     /// The `Int`/`Float` distinction captured by `decode` therefore does
     /// not necessarily survive a text round-trip.
-    //! assert Json.encode(
-    //!     %Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)}
-    //! ) == "{\"ok\":true,\"n\":42}"
+    //! assert Json.encode(%Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)})
+    //!     == "{\"ok\":true,\"n\":42}"
     //
     pub host fn encode(jv: Json) -> String
 

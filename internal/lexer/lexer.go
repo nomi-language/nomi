@@ -185,6 +185,11 @@ func (l *lexer) scanNewline() {
 			if (next == '|' && nextNext == '>') || next == ')' || next == ']' {
 				return
 			}
+			// A comparison or boolean operator cannot start an expression,
+			// so a line that starts with one continues the expression above.
+			if startsContinuationOperator(l.source[nextPos:]) {
+				return
+			}
 		}
 		l.tokens = append(l.tokens, token.Token{Type: token.NEWLINE, Lexeme: "\n", Line: line, Col: col})
 		// A run of 2+ newlines represents a blank line separator between
@@ -193,6 +198,27 @@ func (l *lexer) scanNewline() {
 			l.tokens = append(l.tokens, token.Token{Type: token.BLANK_LINE, Lexeme: "", Line: line, Col: col})
 		}
 	}
+}
+
+// startsContinuationOperator reports whether rest, the text where the next
+// line starts, begins with a binary operator that no expression starts
+// with: `==`, `!=`, `<`, `<=`, `>`, `>=`, `and` or `or`. Such a line
+// continues the expression on the line above, as one starting with `|>`
+// does. `-` and `!` start expressions too, so a line starting with one
+// keeps its line break.
+func startsContinuationOperator(rest string) bool {
+	switch {
+	case strings.HasPrefix(rest, "=="), strings.HasPrefix(rest, "!="):
+		return true
+	case strings.HasPrefix(rest, "<"), strings.HasPrefix(rest, ">"):
+		return true
+	}
+	for _, word := range []string{"and", "or"} {
+		if strings.HasPrefix(rest, word) && (len(rest) == len(word) || !isIdentPart(rest[len(word)]) && rest[len(word)] != '?') {
+			return true
+		}
+	}
+	return false
 }
 
 func (l *lexer) nextTokenStartPosAfterPrompt() int {
@@ -1295,11 +1321,11 @@ func isDigit(ch byte) bool {
 }
 
 // startsCaptureBody reports whether ch, written right after `&`, starts a
-// capture's body: a call's callee (a name or `.Variant`), `(`, or a
-// literal's `#`, `%` or `[`.
+// capture's body: a call's callee (a name or `.Variant`), `(`, a literal's
+// `#`, `%` or `[`, or the `!` that negates one.
 func startsCaptureBody(ch byte) bool {
 	switch {
-	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.':
+	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.', ch == '!':
 		return true
 	case ch >= 'a' && ch <= 'z', ch >= 'A' && ch <= 'Z':
 		return true

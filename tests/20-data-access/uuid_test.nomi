@@ -20,25 +20,20 @@ test "invalid text is a typed error" {
     assert Uuid.parse("") == Err(#uuid.Error.Length{length: 0})
     assert Uuid.parse("6ba7b8109dad11d180b400c04fd430c8") == Err(#uuid.Error.Length{length: 32})
 
-    assert Uuid.parse("{6ba7b810-9dad-11d1-80b4-00c04fd430c8}") == Err(
-        #uuid.Error.Length{length: 38}
-    )
+    assert Uuid.parse("{6ba7b810-9dad-11d1-80b4-00c04fd430c8}")
+        == Err(#uuid.Error.Length{length: 38})
 
-    assert Uuid.parse("6ba7b810_9dad-11d1-80b4-00c04fd430c8") == Err(
-        #uuid.Error.Separator{index: 8, found: "_"}
-    )
+    assert Uuid.parse("6ba7b810_9dad-11d1-80b4-00c04fd430c8")
+        == Err(#uuid.Error.Separator{index: 8, found: "_"})
 
-    assert Uuid.parse("6ba7b810-9dad-11d1-80b4a00c04fd430c8") == Err(
-        #uuid.Error.Separator{index: 23, found: "a"}
-    )
+    assert Uuid.parse("6ba7b810-9dad-11d1-80b4a00c04fd430c8")
+        == Err(#uuid.Error.Separator{index: 23, found: "a"})
 
-    assert Uuid.parse("6ba7b810-9dad-11d1-80b4-00c04fd430cz") == Err(
-        #uuid.Error.Digit{index: 35, found: "z"}
-    )
+    assert Uuid.parse("6ba7b810-9dad-11d1-80b4-00c04fd430cz")
+        == Err(#uuid.Error.Digit{index: 35, found: "z"})
 
-    assert Uuid.parse("6ba7b810-9dad-11d1-8-b4-00c04fd430c8") == Err(
-        #uuid.Error.Digit{index: 20, found: "-"}
-    )
+    assert Uuid.parse("6ba7b810-9dad-11d1-8-b4-00c04fd430c8")
+        == Err(#uuid.Error.Digit{index: 20, found: "-"})
 
     assert Err(e) = Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8")
     assert "${e}" == "expected a hexadecimal digit at index 7 of a UUID, found `g`"
@@ -62,10 +57,9 @@ test "bytes round trip, most significant first" {
 fn shaped?(id: Uuid, version: Int) -> Bool {
     text = "${id}"
 
-    Uuid.version(id) == version and String.slice(text, 14, 15) == "${version}" and Set.contains?(
-        %["8", "9", "a", "b"],
-        String.slice(text, 19, 20),
-    )
+    Uuid.version(id) == version
+        and String.slice(text, 14, 15) == "${version}"
+        and Set.contains?(%["8", "9", "a", "b"], String.slice(text, 19, 20))
 }
 
 fn generated(count: Int, make: () -> Result<Uuid, random.Error>) -> List<Uuid> {

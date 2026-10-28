@@ -37,9 +37,6 @@ text = text.replace("@property", "@variable.other.member")
 text = text.replace("@number", "@constant.numeric")
 text = text.replace("@module", "@namespace")
 text = text.replace("(codepoint) @string.special", "(codepoint) @constant.character")
-# A macro's marked keyword (`sqlkit.query!`) is Zed's @function.special,
-# as Zed draws a Rust macro; Helix names it @function.macro.
-text = text.replace("@function.special", "@function.macro")
 text = text.replace(
     '(string_interpolation\n  "#{" @punctuation.special\n  "}" @punctuation.special)',
     '(string_interpolation\n  "#{" @constant.character.escape\n  "}" @constant.character.escape)',

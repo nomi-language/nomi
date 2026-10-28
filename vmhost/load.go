@@ -46,13 +46,10 @@ type config struct {
 	// session is the REPL session a program is loaded for: it provides the
 	// session's host functions and keeps earlier inputs' imports legal.
 	session *Session
-	// macros runs the macros the program's declarations are
-	// written with (macros.go).
-	macros *macroHost
 }
 
 func newConfig(opts []Option) config {
-	c := config{out: os.Stdout, macros: &macroHost{}}
+	c := config{out: os.Stdout}
 	for _, o := range opts {
 		o(&c)
 	}
@@ -152,7 +149,6 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 		UnmetHint:           "answer them from a host table passed with vmhost.WithHosts.",
 		AllowUnusedImports:  c.session != nil,
 		AllowUnusedBindings: c.allowUnusedBindings,
-		Macros:              c.macros,
 	}, nil
 }
 
@@ -268,10 +264,6 @@ func lower(cfg config, analyze func() (*irbuild.Program, error)) (*Program, erro
 	// on the lock.
 	lowering.Lock()
 	defer lowering.Unlock()
-	// A macro the front end runs is built while this load holds the
-	// lock (macros.go).
-	cfg.macros.held.Store(true)
-	defer cfg.macros.held.Store(false)
 	return lowerLocked(cfg, analyze)
 }
 
@@ -527,7 +519,12 @@ func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]
 		p.input = rt.NewInput(cfg.input)
 	}
 	p.hosts = append(p.hosts, compilerhosts.Table(prog.Root, prog.VirtualFiles))
-	p.hosts = append(p.hosts, cfg.hosts...)
+	// A project's and an embedder's tables answer under their keys'
+	// project names, so none of their keys answers a std crossing
+	// (hostadapt.ProjectTable).
+	for _, t := range cfg.hosts {
+		p.hosts = append(p.hosts, hostadapt.ProjectTable(t))
+	}
 	m := programManifest(prog.Root, cfg.manifest)
 	p.locales, p.webEmbedded = m.CarriedLocales(), m.WebLocales()
 	if p.locales != nil {

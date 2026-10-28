@@ -1,0 +1,105 @@
+import {
+    std/calendar.Date
+    std/random.{Generator, Seed}
+    baffling_birthdays
+}
+
+/// The value `generator` draws from a fixed seed.
+fn draw<T>(generator: Generator<T>) -> T {
+    #(value, _seed) = Generator.step(generator, Seed.from_int(2024))
+    value
+}
+
+test "shared birthday" {
+    cases = [
+        #("one birthdate", [Date`2000-01-01`], False),
+        #(
+            "two birthdates with same year, month, and day",
+            [Date`2000-01-01`, Date`2000-01-01`],
+            True,
+        ),
+        #(
+            "two birthdates with same year and month, but different day",
+            [Date`2012-05-09`, Date`2012-05-17`],
+            False,
+        ),
+        #(
+            "two birthdates with same month and day, but different year",
+            [Date`1999-10-23`, Date`1988-10-23`],
+            True,
+        ),
+        #(
+            "two birthdates with same year, but different month and day",
+            [Date`2007-12-19`, Date`2007-04-27`],
+            False,
+        ),
+        #(
+            "two birthdates with different year, month, and day",
+            [Date`1997-08-04`, Date`1963-11-23`],
+            False,
+        ),
+        #(
+            "multiple birthdates without shared birthday",
+            [Date`1966-07-29`, Date`1977-02-12`, Date`2001-12-25`, Date`1980-11-10`],
+            False,
+        ),
+        #(
+            "multiple birthdates with one shared birthday",
+            [Date`1966-07-29`, Date`1977-02-12`, Date`2001-07-29`, Date`1980-11-10`],
+            True,
+        ),
+        #(
+            "multiple birthdates with more than one shared birthday",
+            [
+                Date`1966-07-29`,
+                Date`1977-02-12`,
+                Date`2001-12-25`,
+                Date`1980-07-29`,
+                Date`2019-02-12`,
+            ],
+            True,
+        ),
+    ]
+
+    subtests cases, #(description, birthdates, expected), description {
+        assert baffling_birthdays.shared_birthday?(birthdates) == expected
+    }
+}
+
+group "random birthdates" {
+    setup draw(baffling_birthdays.random_birthdates(100))
+
+    test "generate requested number of birthdates" {
+        assert 1..=20
+            |> Iter.all?(fn size -> {
+                Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
+            })
+    }
+
+    test "years are not leap years", birthdates {
+        refute birthdates |> Iter.any?(fn date -> Date.leap_year?(Date.year(date)))
+    }
+
+    test "months are random", birthdates {
+        assert birthdates |> Iter.map(Date.month) |> Iter.to_set() |> Set.size() > 1
+    }
+
+    test "days are random", birthdates {
+        assert birthdates |> Iter.map(Date.day) |> Iter.to_set() |> Set.size() > 1
+    }
+}
+
+test "estimated probability of at least one shared birthday" {
+    cases = [
+        #("for one person", 1, 0.0),
+        #("among ten people", 10, 11.694818),
+        #("among twenty-three people", 23, 50.729723),
+        #("among seventy people", 70, 99.915958),
+    ]
+
+    subtests cases, #(description, group_size, expected), description {
+        estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
+
+        assert Float.equal_within?(estimate, expected, 1.0)
+    }
+}

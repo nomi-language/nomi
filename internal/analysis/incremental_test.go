@@ -14,7 +14,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/std"
-	"github.com/nomi-language/nomi/vmhost"
 )
 
 // The equivalence harness an incremental check is held to. A recheck
@@ -55,8 +54,6 @@ func newManager() *analysis.DocumentManager {
 	lib := std.Shared()
 	dm := analysis.NewDocumentManager()
 	dm.SetStdlib(lib.Primitives, lib.Modules, lib.Files)
-	// Macros run on the VM, as the language server runs them.
-	dm.Macros = vmhost.Macros()
 	return dm
 }
 
@@ -164,7 +161,7 @@ func runEdits(tb testing.TB, p incrementalProject, steps []editStep, recheck rec
 
 // isInputKey reports whether an edit step's key names an input of the
 // project's expansions, a path from its directory with its extension (a
-// catalog, a macro's table, a macro's own source), rather than a
+// catalog), rather than a
 // project file's module key, which has none.
 func isInputKey(key string) bool {
 	return filepath.Ext(key) != ""
@@ -197,11 +194,7 @@ var dependentsMayBeFull = map[string]bool{
 	"every file of the program depends on the edited files":                true,
 	"a file that does not import the edited files holds something of them": true,
 	"the program exports functions":                                        true,
-	// A macro's expansion may bring impls the text does not show, and
-	// a program that uses one reads its source from the other module.
-	"the file has declarations a macro expanded": true,
-	"the program reads files of other modules":   true,
-	"a macro's source file changed":              true,
+	"the program reads files of other modules":                             true,
 }
 
 // checkPaths fails tb for each step whose recheck went the wrong way. A
@@ -765,13 +758,6 @@ func TestIncrementalMatchesFull(t *testing.T) {
 			t.Fatalf("the project does not check: %v", errs)
 		}
 		runChecked(t, p, messagesEdits, recheck)
-	})
-	t.Run("macros", func(t *testing.T) {
-		p := macrosProject(t)
-		if errs := fullCheck(p, p.texts).Errors; len(errs["main"])+len(errs["tables"]) > 0 {
-			t.Fatalf("the project does not check: %v", errs)
-		}
-		runChecked(t, p, macrosEdits, recheck)
 	})
 	t.Run("dispatch", func(t *testing.T) {
 		p := dispatchProject()

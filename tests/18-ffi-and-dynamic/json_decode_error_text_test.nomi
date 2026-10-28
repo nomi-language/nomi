@@ -35,68 +35,57 @@ fn decode_error(src: String) -> String {
 
 group "Json.decode error text (Nomi-owned contract)" {
     test "an unexpected character is named, and located at itself" {
-        assert decode_error(
-            "not json"
-        ) == "json decode error at line 1, col 2: unexpected character 'o'"
+        assert decode_error("not json")
+            == "json decode error at line 1, col 2: unexpected character 'o'"
     }
 
     test "a bad string escape reports the escaped character" {
-        assert decode_error(
-            "\"\\q\""
-        ) == "json decode error at line 1, col 3: unexpected character 'q'"
+        assert decode_error("\"\\q\"")
+            == "json decode error at line 1, col 3: unexpected character 'q'"
     }
 
     test "the position tracks lines, not just columns" {
-        assert decode_error(
-            "{\n  bad}"
-        ) == "json decode error at line 2, col 3: unexpected character 'b'"
+        assert decode_error("{\n  bad}")
+            == "json decode error at line 2, col 3: unexpected character 'b'"
     }
 
     test "a truncated object reports where the input ran out" {
-        assert decode_error(
-            "{\"a\":"
-        ) == "json decode error at line 1, col 6: unexpected end of input: incomplete JSON value"
+        assert decode_error("{\"a\":")
+            == "json decode error at line 1, col 6: unexpected end of input: incomplete JSON value"
     }
 
     test "a truncated array reports where the input ran out" {
-        assert decode_error(
-            "[1, 2"
-        ) == "json decode error at line 1, col 6: unexpected end of input: incomplete JSON value"
+        assert decode_error("[1, 2")
+            == "json decode error at line 1, col 6: unexpected end of input: incomplete JSON value"
     }
 
     test "an unterminated string reports where the input ran out" {
-        assert decode_error(
-            "\"unterminated"
-        ) == "json decode error at line 1, col 14: unexpected end of input: incomplete JSON value"
+        assert decode_error("\"unterminated")
+            == "json decode error at line 1, col 14: unexpected end of input: incomplete JSON value"
     }
 
     test "empty input is distinguished from a truncated value" {
-        assert decode_error(
-            ""
-        ) == "json decode error at line 1, col 1: unexpected end of input: expected a JSON value"
+        assert decode_error("")
+            == "json decode error at line 1, col 1: unexpected end of input: expected a JSON value"
     }
 
     test "blank input is empty input" {
-        assert decode_error(
-            "   "
-        ) == "json decode error at line 1, col 4: unexpected end of input: expected a JSON value"
+        assert decode_error("   ")
+            == "json decode error at line 1, col 4: unexpected end of input: expected a JSON value"
     }
 
     test "trailing content is reported with its column" {
-        assert decode_error(
-            "{} extra"
-        ) == "json decode error at line 1, col 4: trailing content after JSON value"
+        assert decode_error("{} extra")
+            == "json decode error at line 1, col 4: trailing content after JSON value"
     }
 
     test "a leading zero is rejected as trailing content" {
-        assert decode_error(
-            "01"
-        ) == "json decode error at line 1, col 2: trailing content after JSON value"
+        assert decode_error("01")
+            == "json decode error at line 1, col 2: trailing content after JSON value"
     }
 
     test "a well-formed but unrepresentable number reports its lexeme" {
-        assert decode_error(
-            "1e999"
-        ) == "json decode error at line 1, col 1: number out of range: 1e999"
+        assert decode_error("1e999")
+            == "json decode error at line 1, col 1: number out of range: 1e999"
     }
 }

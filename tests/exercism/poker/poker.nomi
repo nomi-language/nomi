@@ -1,0 +1,133 @@
+/// Why a hand cannot be scored.
+pub enum Error {
+    InvalidHand String
+}
+
+/// The hands of poker, weakest first, so the derived order ranks them.
+enum Category {
+    HighCard
+    OnePair
+    TwoPair
+    ThreeOfAKind
+    Straight
+    Flush
+    FullHouse
+    FourOfAKind
+    StraightFlush
+}
+
+derive Comparable for Category
+
+/// How strong a hand is: its category, then the ranks that break a tie
+/// within it, in the order they are compared. The derived order compares
+/// the fields in the order they are declared.
+struct Score {
+    category: Category
+    ranks: List<Int>
+}
+
+derive Comparable for Score
+
+struct Card {
+    rank: Int
+    suit: String
+}
+
+/// The hands of `hands` that score highest, in the order given: one, or
+/// every hand that ties for best.
+pub fn best_hands(hands: List<String>) -> Result<List<String>, Error> {
+    scored =
+        hands
+        |> Iter.map(fn hand -> score(hand) |> Result.map(&#(hand, &1)))
+        |> try Result.collect()
+
+    Some(best) = scored |> Iter.map(fn #(_hand, score) -> score) |> Iter.max() else {
+        return Ok([])
+    }
+
+    scored
+    |> Iter.filter(fn #(_hand, score) -> score == best)
+    |> Iter.map(fn #(hand, _score) -> hand)
+    |> Iter.to_list()
+    |> Ok()
+}
+
+/// The score of a hand of five cards written as `"4S 5S 7H 8D JC"`.
+fn score(hand: String) -> Result<Score, Error> {
+    Some(cards) = hand |> String.words() |> Iter.map(card) |> Maybe.collect() else {
+        return Err(.InvalidHand(hand))
+    }
+
+    if Iter.count(cards) != 5 {
+        return Err(.InvalidHand(hand))
+    }
+
+    // Each rank with how many cards show it, the largest group first and
+    // the higher rank first among groups of one size.
+    groups =
+        cards
+        |> Iter.map(.rank)
+        |> Iter.frequencies()
+        |> Iter.sort_by(.Descending, fn #(rank, count) -> #(count, rank))
+
+    counts = groups |> Iter.map(fn #(_rank, count) -> count) |> Iter.to_list()
+    ranks = groups |> Iter.map(fn #(rank, _count) -> rank) |> Iter.to_list()
+    flush = cards |> Iter.map(.suit) |> Iter.to_set() |> Set.size() == 1
+
+    Ok(
+        case #(counts, straight(ranks), flush) {
+            #([4, 1], _, _) -> #{category: .FourOfAKind, ranks}
+            #([3, 2], _, _) -> #{category: .FullHouse, ranks}
+            #([3, 1, 1], _, _) -> #{category: .ThreeOfAKind, ranks}
+            #([2, 2, 1], _, _) -> #{category: .TwoPair, ranks}
+            #([2, 1, 1, 1], _, _) -> #{category: .OnePair, ranks}
+            #(_, Some(high), True) -> #{category: .StraightFlush, ranks: high}
+            #(_, Some(high), False) -> #{category: .Straight, ranks: high}
+            #(_, None, True) -> #{category: .Flush, ranks}
+            #(_, None, False) -> #{category: .HighCard, ranks}
+        }
+    )
+}
+
+/// The ranks of a straight, highest first, when `ranks` (five different
+/// ones, highest first) make one. An ace counts low in `A 2 3 4 5`.
+fn straight(ranks: List<Int>) -> Maybe<List<Int>> {
+    case ranks {
+        [14, 5, 4, 3, 2] -> Some([5, 4, 3, 2, 1])
+        [high, _, _, _, low] when high - low == 4 -> Some(ranks)
+        _ -> None
+    }
+}
+
+/// A card written as its rank and its suit, `"10H"` or `"QS"`.
+fn card(text: String) -> Maybe<Card> {
+    length = String.length(text)
+    suit = String.drop(text, length - 1)
+
+    rank = case String.take(text, length - 1) {
+        "J" -> Some(11)
+        "Q" -> Some(12)
+        "K" -> Some(13)
+        "A" -> Some(14)
+        digits -> pip_rank(digits)
+    }
+
+    if Iter.contains?(["S", "H", "D", "C"], suit) {
+        rank |> Maybe.map(&#Card{rank: &1, suit})
+    } else {
+        None
+    }
+}
+
+/// The rank of a numbered card, 2 to 10.
+fn pip_rank(digits: String) -> Maybe<Int> {
+    Some(n) = String.to_int(digits) else {
+        return None
+    }
+
+    if Range.contains?(2..=10, n) {
+        Some(n)
+    } else {
+        None
+    }
+}

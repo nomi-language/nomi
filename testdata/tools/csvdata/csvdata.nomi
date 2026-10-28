@@ -1,0 +1,27 @@
+//# Lookup tables from CSV files. `nomi tool csvdata generate` writes
+//# tables.nomi from the module's data/*.csv files, a function per file,
+//# and tables_test.nomi, whose test calls `inputs_digest` to see that the
+//# files have not changed since.
+
+import {
+    std/fs
+    std/hash
+}
+
+/// The SHA-256 digest of the CSV files directly in `dir`, each path and
+/// text in name order: what tables.nomi's header records.
+pub fn inputs_digest(dir: String) -> Result<String, String> {
+    paths = try (fs.glob("${dir}/*.csv") |> Result.map_err(fn e -> "${dir}: ${e}"))
+
+    texts =
+        paths
+        |> Iter.sort()
+        |> Iter.map(fn path -> {
+            fs.read_text(path)
+            |> Result.map(fn text -> "${path}\u{0}${text}\u{0}")
+            |> Result.map_err(fn e -> "${path}: ${e}")
+        })
+        |> Result.collect()
+
+    Ok(hash.sha256_hex(String.to_bytes(String.join(try texts))))
+}

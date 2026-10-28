@@ -68,6 +68,8 @@ var listFuncs = map[string]listFn{
 	"head":   {rtCall: "rt.ListHead", args: 1, result: "maybe-elem"},
 	"tail":   {rtCall: "rt.ListTail", args: 1, result: "maybe-list"},
 	"concat": {rtCall: "rt.ListConcat", args: 2, result: "list"},
+	// The second operand of remove_at is the index, an Int.
+	"remove_at": {rtCall: "rt.ListCellRemoveAt", args: 2, result: "list"},
 }
 
 // listOrders reports whether a List of kind k has Nomi's list order, shared by

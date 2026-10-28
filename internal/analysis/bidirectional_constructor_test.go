@@ -116,3 +116,84 @@ fn read() -> Result<Other, String> {
 	_, errs := checkSource(src)
 	expectError(t, errs, "Quit")
 }
+
+// An `if` or `case` argument is its branches' value, so the constructor's
+// payload type, pinned from the expected result, reaches a dot variant or an
+// anonymous struct literal in each branch.
+func TestDotVariant_GenericConstructorArgThroughIfAndCase_OK(t *testing.T) {
+	src := `enum Result<T, E> { Ok T; Err E }
+enum Color { Red; Blue }
+struct Score { color: Color
+  n: Int }
+fn pick(n: Int) -> Result<Color, String> {
+  Result.Ok(if n == 1 { .Red } else { .Blue })
+}
+fn arm(n: Int) -> Result<Color, String> {
+  Result.Ok(case n { 1 -> .Red; _ -> .Blue })
+}
+fn score(n: Int) -> Result<Score, String> {
+  Result.Ok(case n { 1 -> #{color: .Red, n}; _ -> #{color: .Blue, n} })
+}
+fn nested(n: Int) -> Result<Color, String> {
+  Result.Ok(if n == 1 { .Red } else if n == 2 { .Blue } else { .Red })
+}`
+	_, errs := checkSource(src)
+	expectNoErrors(t, errs)
+}
+
+// The mirror: with no expected type around the call, nothing determines the
+// branches' enum, and the error stays.
+func TestDotVariant_GenericConstructorArgThroughIf_NoExpectedType_Rejected(t *testing.T) {
+	src := `enum Result<T, E> { Ok T; Err E }
+enum Color { Red; Blue }
+fn main() {
+  n = 1
+  r = Result.Ok(if n == 1 { .Red } else { .Blue })
+  _ = r
+}`
+	_, errs := checkSource(src)
+	for _, e := range errs {
+		if e.Message == ".Red cannot be resolved here: nothing at this position determines its enum" {
+			return
+		}
+	}
+	t.Fatalf("expected the unresolved .Red error, got %v", errs)
+}
+
+// A list literal with a spread checks its heads against the expected
+// element type, as a plain list literal does: `[.Red, ..rest]` against
+// `List<Color>`, and inside a generic function against its own
+// `List<Crumb<T>>`, where the function's `T` is a determined type.
+func TestDotVariant_ListSpreadHeadTakesTheElementType_OK(t *testing.T) {
+	src := `enum Color { Red; Blue }
+enum Crumb<T> { Left T; Right T }
+fn colors(rest: List<Color>) -> List<Color> {
+  a: List<Color> = [.Red, ..rest]
+  [.Blue, ..a]
+}
+fn push<T>(x: T, rest: List<Crumb<T>>) -> List<Crumb<T>> {
+  one: List<Crumb<T>> = [.Left(x)]
+  [.Right(x), ..one]
+}`
+	_, errs := checkSource(src)
+	expectNoErrors(t, errs)
+}
+
+// The mirror: a head or a tail of another element type is still refused.
+func TestDotVariant_ListSpreadAgainstAnExpectedList_Rejected(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"a head", "  a: List<Color> = [1, ..rest]\n  _ = a", "list element type mismatch: expected Color, got Int"},
+		{"a tail", "  a: List<Color> = [.Red, ..[1]]\n  _ = a", "list element type mismatch: expected Color, got Int"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "enum Color { Red; Blue }\nfn f(rest: List<Color>) {\n  _ = rest\n" + tc.body + "\n}"
+			_, errs := checkSource(src)
+			for _, e := range errs {
+				if e.Message == tc.want {
+					return
+				}
+			}
+			t.Fatalf("expected %q, got %v", tc.want, errs)
+		})
+	}
+}

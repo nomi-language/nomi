@@ -1,0 +1,38 @@
+/// The `stones`, each the dots on its two halves, laid in a chain, each turned as it must be, where touching
+/// halves match and the two free ends match each other; `None` when no
+/// order makes one.
+pub fn chain(stones: List<#(Int, Int)>) -> Maybe<List<#(Int, Int)>> {
+    case stones {
+        [] -> Some([])
+        [#(start, end) as first, ..rest] -> extend(start, end, [first], rest)
+    }
+}
+
+/// Lays the stones `left` after `laid`, which runs from `start` to `end`
+/// and is held last stone first, trying each stone that fits, either way
+/// round, and backing out of any that leads nowhere.
+fn extend(
+    start: Int,
+    end: Int,
+    laid: List<#(Int, Int)>,
+    left: List<#(Int, Int)>,
+) -> Maybe<List<#(Int, Int)>> {
+    if left == [] and start == end {
+        return Some(Iter.reverse(laid))
+    }
+
+    left
+    |> picks()
+    |> Iter.flat_map(fn #(#(a, b), others) -> [#(#(a, b), others), #(#(b, a), others)])
+    |> Iter.filter(fn #(#(a, _b), _others) -> a == end)
+    |> Iter.map(fn #(#(a, b), others) -> extend(start, b, [#(a, b), ..laid], others))
+    |> Iter.find(Maybe.some?)
+    |> Maybe.flat_map(fn found -> found)
+}
+
+/// Each stone of `stones` with the stones other than it.
+fn picks(stones: List<#(Int, Int)>) -> Iter<#(#(Int, Int), List<#(Int, Int)>)> {
+    stones
+    |> Iter.with_index()
+    |> Iter.map(fn #(index, stone) -> #(stone, List.remove_at(stones, index)))
+}

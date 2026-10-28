@@ -1,0 +1,66 @@
+import {
+    go_counting
+    go_counting.{Territories, Territory}
+}
+
+once board = [
+    "  B  ",
+    " B B ",
+    "B W B",
+    " W W ",
+    "  W  ",
+]
+
+test "territory" {
+    cases: List<#(String, Int, Int, Result<Territory, String>)> = [
+        #(
+            "Black corner territory on 5x5 board",
+            0,
+            1,
+            Ok(#{owner: .Black, points: %[#(0, 0), #(0, 1), #(1, 0)]}),
+        ),
+        #("White center territory on 5x5 board", 2, 3, Ok(#{owner: .White, points: %[#(2, 3)]})),
+        #(
+            "Open corner territory on 5x5 board",
+            1,
+            4,
+            Ok(#{owner: .Neither, points: %[#(0, 3), #(0, 4), #(1, 4)]}),
+        ),
+        #("A stone and not a territory on 5x5 board", 1, 1, Ok(#{owner: .Neither, points: %[]})),
+        #("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
+        #("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
+        #("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
+        #("Invalid because Y is too high for 5x5 board", 1, 5, Err("Invalid coordinate")),
+    ]
+
+    subtests cases, #(description, x, y, expected), description {
+        assert go_counting.territory(board, x, y) == expected
+    }
+}
+
+test "territories" {
+    cases: List<#(String, List<String>, Territories)> = [
+        #(
+            "One territory is the whole board",
+            [" "],
+            #{black: %[], white: %[], neither: %[#(0, 0)]},
+        ),
+        #(
+            "Two territory rectangular board",
+            [
+                " BW ",
+                " BW ",
+            ],
+            #{black: %[#(0, 0), #(0, 1)], white: %[#(3, 0), #(3, 1)], neither: %[]},
+        ),
+        #(
+            "Two region rectangular board",
+            [" B "],
+            #{black: %[#(0, 0), #(2, 0)], white: %[], neither: %[]},
+        ),
+    ]
+
+    subtests cases, #(description, board, expected), description {
+        assert go_counting.territories(board) == expected
+    }
+}

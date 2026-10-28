@@ -5,7 +5,6 @@
 //
 //	nomiRun(source)             -> { output: string, error: string } // run a program on the VM
 //	nomiRunStdlibTest(module, body, context) -> { output: string, error: string }
-//	nomiExpand(source)          -> { output: string, error: string } // `nomi expand` of a block's first tab
 //	nomiTool(source, module, name) -> { output, error, source, files } // `nomi tool` in a block's project
 //	nomiFormat(source)          -> { output: string, error: string } // format source
 //	nomiFormatTestBody(source)  -> { output: string, error: string }
@@ -106,25 +105,6 @@ func run(this js.Value, args []js.Value) (res any) {
 	}
 
 	return result(buf.String(), errText)
-}
-
-// expand answers what `nomi expand` prints for the first tab of args[0], a
-// source that names modules (vmhost.ExpandMarked): a ```nomi-run expand
-// block's output.
-func expand(this js.Value, args []js.Value) (res any) {
-	defer func() {
-		if r := recover(); r != nil {
-			res = result("", fmt.Sprintf("%v", r))
-		}
-	}()
-	if len(args) < 1 {
-		return result("", "no source provided")
-	}
-	text, err := vmhost.ExpandMarked(tourgo.Source(args[0].String()), projectDir)
-	if err != nil {
-		return result("", err.Error())
-	}
-	return result(text, "")
 }
 
 // tool runs `nomi tool <args[1]> <args[2]>` in the project of args[0], a
@@ -412,7 +392,7 @@ var lastProgram struct {
 func programOf(src string) *highlight.Program {
 	if lastProgram.prog == nil || lastProgram.source != src {
 		lastProgram.source = src
-		lastProgram.prog = highlight.AnalyzeProgram(tourgo.Source(src), projectDir, stdLib, vmhost.Macros())
+		lastProgram.prog = highlight.AnalyzeProgram(tourgo.Source(src), projectDir, stdLib)
 	}
 	return lastProgram.prog
 }
@@ -497,7 +477,6 @@ func main() {
 	stdLib = std.Shared()
 	js.Global().Set("nomiRun", js.FuncOf(run))
 	js.Global().Set("nomiRunStdlibTest", js.FuncOf(runStdlibTestBody))
-	js.Global().Set("nomiExpand", js.FuncOf(expand))
 	js.Global().Set("nomiTool", js.FuncOf(tool))
 	js.Global().Set("nomiFormat", js.FuncOf(formatSrc))
 	js.Global().Set("nomiFormatTestBody", js.FuncOf(formatTestBody))

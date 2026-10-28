@@ -488,7 +488,7 @@ types, opaque types, host types, and generic types such as
 The tour moves on to [**Pattern Matching, Maybe, Result & Try**](/pattern-matching/),
 which shows how `case` takes apart every value you can now build. The section
 below covers `embeds`, for using existing types as enum variants, and
-`typealias`, for short names for long types.
+`typealias`, for short names for long anonymous types.
 :::
 
 ## Going deeper
@@ -542,43 +542,56 @@ this one, with one `embeds` per kind of event.
 ### Type aliases
 
 ```nomi-run
-typealias Index Map<String, List<Int>>
+typealias Rule (String) -> Maybe<String>
 
-fn record(index: Index, bucket: String, n: Int) -> Index {
-    existing: List<Int> = case Map.get(index, bucket) {
-        Some(xs) -> xs
-        None -> []
+fn problems(name: String, rules: List<Rule>) -> List<String> {
+    rules
+    |> Iter.map(fn rule -> rule(name))
+    |> Maybe.values()
+}
+
+fn too_short(name: String) -> Maybe<String> {
+    if String.length(name) < 3 {
+        Some("too short")
+    } else {
+        None
     }
+}
 
-    Map.put(index, bucket, [n, ..existing])
+fn has_space(name: String) -> Maybe<String> {
+    if String.contains?(name, " ") {
+        Some("has a space")
+    } else {
+        None
+    }
 }
 
 fn main() {
-    start: Index = %{}
+    rules: List<Rule> = [too_short, has_space]
 
-    result =
-        start
-        |> record("evens", 2)
-        |> record("evens", 4)
-        |> record("odds", 1)
-
-    dbg result
+    dbg problems("al", rules)
+    dbg problems("ada lovelace", rules)
+    dbg problems("ada", rules)
 }
 ```
 <!-- expect
-dbg line 21: result = %{"evens" => [4, 2], "odds" => [1]}
+dbg line 28: problems("al", rules) = ["too short"]
+dbg line 29: problems("ada lovelace", rules) = ["has a space"]
+dbg line 30: problems("ada", rules) = []
 -->
 
-A `typealias` is another name for an existing type. `Index` and
-`Map<String, List<Int>>` are the same type, and you can use either one
-anywhere. There is no wrapping and no conversion.
+A `typealias` is another name for an existing type. `Rule` and
+`(String) -> Maybe<String>` are the same type, and you can use either one
+anywhere. There is no wrapping and no conversion: `too_short` is an ordinary
+function, and the list holds it as a `Rule`.
 
-The point is shorter signatures. `record` reads
-`(Index, String, Int) -> Index` instead of
-`(Map<String, List<Int>>, String, Int) -> Map<String, List<Int>>`. Its callers
-still pass ordinary [`Map`](/reference/maps/#type-map) values.
+The point is shorter signatures. `problems` takes a `List<Rule>` instead of a
+`List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long
+anonymous shape like this one: a function type, an anonymous struct or a long
+tuple. An alias takes no type parameters, and you cannot `impl` one or call a
+function through it; it only stands for its target.
 
 Use `type` when you want the compiler to tell two things apart. A `UserId` and
 an `OrderId` may both hold an `Int`, but you should not pass one where the
-other belongs. Use `typealias` when a long type has a useful name and writing
-it out everywhere makes signatures hard to read.
+other belongs. When the thing deserves a name of its own, declare a struct or
+a `type` rather than an alias.

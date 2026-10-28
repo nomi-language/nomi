@@ -1,0 +1,98 @@
+//# Hex, the game of connecting two opposite sides of a rhombus of hexagons.
+//# `X` joins the left edge to the right one, `O` the top edge to the bottom.
+
+/// The two players.
+pub enum Player {
+    X
+    O
+}
+
+derive Equatable for Player
+
+/// A cell on the board, `#(row, column)`.
+typealias Cell #(Int, Int)
+
+/// The six cells a hexagon touches. Each row is shifted half a cell right
+/// of the one above, so a cell touches the one above it and the one above
+/// and right, and the one below it and the one below and left.
+once neighbours = [#(0, -1), #(0, 1), #(-1, 0), #(-1, 1), #(1, -1), #(1, 0)]
+
+/// The player whose stones join their two sides of `board`, or `None`.
+/// Each row of the board is its cells separated by spaces, `X`, `O` or `.`,
+/// indented to show the shift.
+pub fn winner(board: List<String>) -> Maybe<Player> {
+    rows =
+        board
+        |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
+        |> Iter.to_list()
+
+    [Player.X, Player.O] |> Iter.find(&connects?(rows, &1))
+}
+
+/// Whether `player`'s stones join their two sides of the board.
+fn connects?(rows: List<List<String>>, player: Player) -> Bool {
+    stones =
+        rows
+        |> Iter.with_index()
+        |> Iter.flat_map(fn #(row, cells) -> {
+            cells
+            |> Iter.with_index()
+            |> Iter.filter(fn #(_column, cell) -> cell == stone(player))
+            |> Iter.map(fn #(column, _cell) -> #(row, column))
+        })
+        |> Iter.to_set()
+
+    last_row = Iter.count(rows) - 1
+    width = rows |> Iter.first() |> Maybe.map(&Iter.count(&1)) |> Maybe.with_default(0)
+    last_column = width - 1
+
+    #(start?, goal?) = case player {
+        .X ->
+            #(
+                fn #(_row, column): Cell -> column == 0,
+                fn #(_row, column): Cell -> column == last_column,
+            )
+
+        .O ->
+            #(fn #(row, _column): Cell -> row == 0, fn #(row, _column): Cell -> row == last_row)
+    }
+
+    starts = stones |> Iter.filter(start?) |> Iter.to_list()
+    reaches?(stones, starts, Iter.to_set(starts), goal?)
+}
+
+fn stone(player: Player) -> String {
+    case player {
+        .X -> "X"
+        .O -> "O"
+    }
+}
+
+/// Whether a path through `stones` leads from a cell of `frontier` to a
+/// cell where `goal?` holds, without stepping on a cell of `seen` again.
+/// A depth-first search: the newest cells found are tried first.
+fn reaches?(
+    stones: Set<Cell>,
+    frontier: List<Cell>,
+    seen: Set<Cell>,
+    goal?: (Cell) -> Bool,
+) -> Bool {
+    case frontier {
+        [] ->
+            False
+
+        [cell, ..rest] -> {
+            if goal?(cell) { return True }
+
+            #(row, column) = cell
+
+            next =
+                neighbours
+                |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
+                |> Iter.filter(fn n -> Set.contains?(stones, n) and !Set.contains?(seen, n))
+                |> Iter.to_list()
+
+            reaches?(stones, List.concat(next, rest), Set.union(seen, Iter.to_set(next)), goal?)
+        }
+    }
+}

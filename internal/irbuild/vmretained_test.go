@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -44,6 +45,34 @@ import (
 // A function that ran in the committed list and no longer runs is a VM
 // regression, and the test reports it by name before any other difference.
 //
+// WHAT "RAN" MEANS is one rule the machine observes (vmRan): the machine
+// entered the function's body (vm.Machine.Entries, counted at pc 0 of every
+// body compiled WithEntryCounts) and the run did not end in a machine
+// refusal (vmRefused). Whatever else ends the run is the body's answer on
+// the probe's made-up arguments: a trap, an `Err`, a `todo`, the step or
+// call-depth limit, waiting on a channel nothing answers, Supervisor.new
+// outside boot, a boot that returns `Err`, or a fault on a field the probe
+// could not build. The bytecode compiler never fails (a construct it cannot
+// run compiles to a refusal raised on arrival), so entry alone is not
+// enough: a refusal shows only when execution reaches its instruction.
+//
+// A dispatched call whose receiver's run-time type has no retained impl
+// (vm.DispatchMiss) is LINKING, since the impl may be one the builder did
+// not retain, unless the receiver is not a value of the type the call
+// declares for that operand: then the probe made it up and the miss is the
+// body's answer (vmProbeReceiver). The machine can decide that only for a
+// concrete declared type, and every dispatched operand the builder makes is
+// an interface value, so today every dispatch miss is LINKING. The probe
+// hands an interface-typed temporary a value of a type the program retains
+// an impl of (vmShaper.ifaceArg), so a miss is not its own made-up receiver;
+// an interface with no retained impl keeps the trial leaf, and the test logs
+// each function that takes one.
+//
+// A failure is one of the refusal buckets, or PROBE (vmNotEnteredClass): the
+// machine did not enter the body on any synthesized argument vector, because
+// a parameter refused the argument (a counting machine also refuses a
+// scalar of the wrong kind) or the argument could not be built.
+//
 // Two buckets must stay empty whatever the list says. VOCABULARY: the builder
 // put an instruction into a retained body that the machine cannot run.
 // IDENTITY: a retained graph reads a local its own parameter list does not
@@ -58,13 +87,9 @@ import (
 // TestVMCoverage_TheLinkingClassifierCatchesItsPlant and
 // TestVMCoverage_TheHostClassifierCatchesItsPlant). UNLINKED is a host fn
 // that crosses into a project's Go binding this test binary does not link
-// (vmUnlinkedClass). BLOCKED waits on a channel nothing in isolation answers
-// (vmInBubble). BOOT creates a supervisor outside boot. TODO reaches a `todo`
-// on the path the probe's argument takes. The two PROBE buckets are artifacts
-// of argument synthesis, not of the machine: a struct lacking a field read
-// through a container, or an argument that is not a value of the declared
-// type (an existential with no implementing value, a leaf where a recursive
-// type or an Iter belongs). The corpus runs each with real values.
+// (vmUnlinkedClass). NEVER takes an Infallible parameter, so nothing can call
+// it. PROBE is an artifact of argument synthesis, not of the machine; the
+// corpus runs each member with real values.
 //
 // std's population has the same list, vm-std-retained.txt
 // (TestIRRetainedStdPopulationRuns, vmstdretained_test.go).
@@ -221,11 +246,11 @@ func (l vmRetainedList) check(t *testing.T, lines []string) {
 	}
 }
 
-// vmProbeArgClass is a function the probe's synthesized arguments cannot
-// satisfy: an existential parameter with no implementing value, or a field
-// read in a callee off a leaf the probe supplied. An artifact of argument
-// synthesis, not of the machine.
-const vmProbeArgClass = "PROBE: a synthesized argument is not a value of the declared type"
+// vmNotEnteredClass is a function the machine entered on none of the
+// synthesized argument vectors, with no refusal to name: a parameter refused
+// the argument at entry, or the argument could not be built. An artifact of
+// argument synthesis, not of the machine.
+const vmNotEnteredClass = "PROBE: the machine entered the body on no synthesized argument"
 
 // vmNeverParamClass is a function with a parameter of Infallible, which has
 // no values, so no call can pass one an argument (`impl Display for
@@ -243,17 +268,12 @@ func vmNeverParam(fn *ir.Func) bool {
 	return false
 }
 
-// vmProbeShapeClass is a probe argument that lacks a field a callee reads
-// after the value crossed a container: an artifact of argument synthesis,
-// not of the machine.
-const vmProbeShapeClass = "PROBE: a synthesized struct lacks a field read through a container"
-
 // vmArgShapes is one argument vector per scalar shape the retained grammar
 // admits, with a composite built wherever the graph projects out of a
 // parameter.
 //
-// Every scalar shape is tried and a function counts as runnable if any
-// completes. That cannot manufacture a pass for the VOCABULARY pin: a "this
+// Every scalar shape is tried and a function counts as runnable if it runs
+// on any (vmRan). That cannot manufacture a pass for the VOCABULARY pin: a "this
 // machine runs no X" refusal is a fact about the instruction, and no argument
 // choice produces or avoids it, which is why the loop stops on one rather than
 // trying the rest.
@@ -355,6 +375,8 @@ type vmShaper struct {
 	links []*ir.Module
 	projs map[*ir.Func]map[ir.Temp][]*ir.Proj
 	fwd   map[*ir.Func]map[ir.Temp][]vmFwd
+	// built is builtTypes' answer, computed once.
+	built map[string]bool
 }
 
 // callee follows the same identity and ambiguity rules as vm.NewProgram.
@@ -465,6 +487,11 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 	// every field (an Int field holding "s") does not run; the type says
 	// which leaf the field holds.
 	if v, ok := vmLeafForType(f.TempType(t)); ok {
+		return v
+	}
+	// An interface value takes a value of a type the program implements
+	// the interface for.
+	if v, ok := s.ifaceArg(f, t, leaf, depth); ok {
 		return v
 	}
 	// An indirect callee demands a callable, not one of the scalar leaves.
@@ -679,6 +706,227 @@ func (s *vmShaper) argFor(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) any
 	return leaf
 }
 
+// ifaceArg is the value an interface-typed temporary t of f holds: a value
+// of a type the program implements the interface for, as a caller would pass
+// one, so a dispatch on it reaches a retained impl and a dispatch miss is a
+// builder gap rather than the probe's made-up receiver.
+//
+// The interface's methods are the dispatched calls whose receiver is t, in f
+// or, when f only passes t on, in the callees it passes t to
+// (vmShaper.ifaceMethods). The implementing type is the one the program's
+// retained impls (ir.Module.Impls, the table the machine dispatches by)
+// cover those methods for, preferring a type the program builds a value of
+// (vmShaper.builtTypes). Its value is shaped by what the impls' bodies read
+// off their receiver, as any struct argument is (argFor). A struct, enum,
+// distinct or scalar is passed as itself, since the machine dispatches on
+// its run-time type name; any other type is passed in the box
+// ir.MakeExistential builds for it (rt.Box under the impl's type name).
+//
+// It answers false for a temporary that is not an interface value, and for
+// an interface the program retains no impl of, which keeps the leaf.
+func (s *vmShaper) ifaceArg(f *ir.Func, t ir.Temp, leaf *probeLeaf, depth int) (any, bool) {
+	ty := f.TempType(t)
+	if ty == nil || ty.Kind() != ir.KindIface || ty.Sym() == nil {
+		return nil, false
+	}
+	methods := s.ifaceMethods(f, t, depth)
+	if len(methods) == 0 {
+		// Nothing dispatches on it within reach: every method of the
+		// interface, by the name its method symbols carry
+		// (`Conn.close`, `Gets<String>.got`).
+		name := ty.Sym().Name()
+		for _, impl := range s.impls() {
+			m := impl.Method.Name()
+			if strings.HasPrefix(m, name+".") || strings.HasPrefix(m, name+"<") {
+				methods[impl.Method] = true
+			}
+		}
+	}
+	// Each implementing type, with the impls it brings for these methods.
+	byType := map[string][]ir.Impl{}
+	var order []string
+	for _, impl := range s.impls() {
+		if !methods[impl.Method] {
+			continue
+		}
+		name := impl.Type.Name()
+		if byType[name] == nil {
+			order = append(order, name)
+		}
+		byType[name] = append(byType[name], impl)
+	}
+	if len(order) == 0 {
+		return nil, false
+	}
+	built := s.builtTypes()
+	best := ""
+	for _, name := range order {
+		if best == "" || vmBetterImplType(byType[name], built[name], byType[best], built[best]) {
+			best = name
+		}
+	}
+	// The receiver's value, with what every chosen impl body reads off it.
+	var v any = leaf
+	var self *ir.ValType
+	for _, impl := range byType[best] {
+		body := s.callee(impl.Func)
+		if body == nil || len(body.Params()) == 0 || depth > 4 {
+			continue
+		}
+		p := body.Params()[0].Temp
+		if self == nil {
+			self = body.TempType(p)
+		}
+		got := s.argFor(body, p, leaf, depth+1)
+		if v12IsLeaf(v, leaf) {
+			v = got
+			continue
+		}
+		into, isStruct := v.(*probeStruct)
+		more, alsoStruct := got.(*probeStruct)
+		if isStruct && alsoStruct {
+			for name, fv := range more.fields {
+				if _, has := into.fields[name]; !has {
+					into.fields[name] = fv
+				}
+			}
+		}
+	}
+	if self == nil {
+		return nil, false
+	}
+	if scalar, ok := vmLeafForType(self); ok {
+		return scalar, true
+	}
+	switch self.Kind() {
+	case ir.KindStruct:
+		sv, isStruct := v.(*probeStruct)
+		if !isStruct {
+			sv = &probeStruct{fields: map[string]any{}}
+		}
+		sv.name = best
+		return sv, true
+	case ir.KindEnum, ir.KindDistinct, ir.KindTuple:
+		if v12IsLeaf(v, leaf) {
+			return nil, false
+		}
+		return v, true
+	}
+	// A container or other value with no run-time type name of its own is
+	// an interface value only in a box that names its static type.
+	return rt.Box(rt.BoxDesc(best), vmOperand(v)), true
+}
+
+// vmUnimplementedIfaces names fn's interface-typed parameters whose
+// interface the program retains no impl of, so the probe hands them the
+// trial leaf (ifaceArg answers false).
+func vmUnimplementedIfaces(mod *ir.Module, fn *ir.Func, links []*ir.Module) []string {
+	sh := &vmShaper{mod: mod, links: links, projs: map[*ir.Func]map[ir.Temp][]*ir.Proj{},
+		fwd: map[*ir.Func]map[ir.Temp][]vmFwd{}}
+	var out []string
+	for _, p := range fn.Params() {
+		ty := fn.TempType(p.Temp)
+		if ty == nil || ty.Kind() != ir.KindIface {
+			continue
+		}
+		if _, ok := sh.ifaceArg(fn, p.Temp, &probeLeaf{v: int64(1)}, 0); !ok {
+			out = append(out, ty.String())
+		}
+	}
+	return out
+}
+
+// vmBetterImplType reports whether the type with impls a (built says the
+// program builds a value of it) is a better receiver than the one with b:
+// it covers more of the methods, or as many and the program builds it.
+func vmBetterImplType(a []ir.Impl, aBuilt bool, b []ir.Impl, bBuilt bool) bool {
+	if len(a) != len(b) {
+		return len(a) > len(b)
+	}
+	return aBuilt && !bBuilt
+}
+
+// ifaceMethods are the interface methods dispatched on temporary t of f:
+// each dispatched call whose receiver operand is t, and, followed up to the
+// probe's depth, each one on the parameter of a callee t is passed to.
+func (s *vmShaper) ifaceMethods(f *ir.Func, t ir.Temp, depth int) map[*ir.Symbol]bool {
+	out := map[*ir.Symbol]bool{}
+	aliases := vmParamAliases(f)
+	binds := vmBindSources(f)
+	resolve := func(x ir.Temp) ir.Temp {
+		if a, ok := aliases[x]; ok {
+			x = a
+		}
+		if b, ok := binds[x]; ok {
+			x = b
+		}
+		return x
+	}
+	for _, b := range f.Blocks() {
+		for _, in := range b.Instrs() {
+			call, isCall := in.(*ir.Call)
+			if !isCall || call.Form() != ir.CalleeDispatched {
+				continue
+			}
+			if k := call.KeyAt(); k < call.NumArgs() && resolve(call.Arg(k)) == t {
+				out[call.Callee()] = true
+			}
+		}
+	}
+	if len(out) > 0 || depth > 4 {
+		return out
+	}
+	s.index(f)
+	for _, fw := range s.fwd[f][t] {
+		for m := range s.ifaceMethods(fw.fn, fw.t, depth+1) {
+			out[m] = true
+		}
+	}
+	return out
+}
+
+// impls are the dispatch entries of the shaper's module and its links.
+func (s *vmShaper) impls() []ir.Impl {
+	var out []ir.Impl
+	seen := map[*ir.Module]bool{}
+	for _, mod := range append([]*ir.Module{s.mod}, s.links...) {
+		if mod == nil || seen[mod] {
+			continue
+		}
+		seen[mod] = true
+		out = append(out, mod.Impls()...)
+	}
+	return out
+}
+
+// builtTypes are the names of the types the program builds a value of, by
+// the stored type of each Make's destination.
+func (s *vmShaper) builtTypes() map[string]bool {
+	if s.built != nil {
+		return s.built
+	}
+	s.built = map[string]bool{}
+	seen := map[*ir.Module]bool{}
+	for _, mod := range append([]*ir.Module{s.mod}, s.links...) {
+		if mod == nil || seen[mod] {
+			continue
+		}
+		seen[mod] = true
+		for _, f := range mod.Funcs() {
+			for _, b := range f.Blocks() {
+				for _, in := range b.Instrs() {
+					if mk, isMake := in.(*ir.Make); isMake {
+						if ty := f.TempType(mk.Dst()); ty != nil && ty.Sym() != nil {
+							s.built[ty.Sym().Name()] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	return s.built
+}
+
 // vmBindSources maps each Bind's destination to the value it binds, so a
 // pattern binding's use states a demand on the projection it names.
 func vmBindSources(f *ir.Func) map[ir.Temp]ir.Temp {
@@ -828,42 +1076,54 @@ type vmProbeResult struct {
 	ran bool
 	// err is the last failure when the member did not run.
 	err error
-	// boot reports a boot, which is started rather than called.
-	boot bool
+}
+
+// vmProbeWatch is the machine a probe calls its function on, kept where a
+// probe that never answers (vmInBubble) still lets the caller ask whether
+// the machine entered the body. base is the function's entry count when the
+// probe started calling it, so entries a boot made do not count.
+type vmProbeWatch struct {
+	m    atomic.Pointer[vm.Machine]
+	base atomic.Uint64
+}
+
+// watch records m as the machine fn is called on from now on.
+func (w *vmProbeWatch) watch(m *vm.Machine, fn *ir.Func) {
+	if w == nil {
+		return
+	}
+	w.base.Store(m.Entries(fn))
+	w.m.Store(m)
+}
+
+// entered reports whether the watched machine entered fn's body since watch.
+func (w *vmProbeWatch) entered(fn *ir.Func) bool {
+	m := w.m.Load()
+	return m != nil && m.Entries(fn) > w.base.Load()
 }
 
 // vmProbe runs one member: a boot the way a program or a test group starts
 // it, on a boot frame where Supervisor.new is legal, and any other function on
-// each synthesized argument vector until one runs.
-func vmProbe(e vmProbeEntry) vmProbeResult {
-	if isBoot, err := vmStartBoot(e.mod, e.links, e.fn); isBoot {
-		// A boot that returned `Err` ran its body to the answer it gives.
-		var failed *vm.BootError
-		return vmProbeResult{ran: err == nil || errors.As(err, &failed), err: err, boot: true}
+// each synthesized argument vector until one runs. w sees the machine.
+func vmProbe(e vmProbeEntry, w *vmProbeWatch) vmProbeResult {
+	if isBoot, entered, err := vmStartBoot(e.mod, e.links, e.fn, w); isBoot {
+		return vmProbeResult{ran: vmRan(entered, err), err: err}
 	}
 	// Made-up arguments can send a loop that the program's own callers
 	// bound around forever (all-your-base's digits_of in base 1), so each
 	// call has a step budget. A spinning goroutine never blocks, so the
 	// bubble's virtual clock cannot end it.
 	m := vmProgram(e.mod, e.links).WithLimits(vm.Limits{Steps: vmProbeSteps})
+	w.watch(m, e.fn)
 	var lastErr error
 	for _, args := range vmArgShapes(e.mod, e.fn, e.links...) {
-		_, err := vmRunSymV(m, e.fn.Sym(), args...)
-		if vmRan(err, append([]*ir.Module{e.mod}, e.links...)...) {
+		entered, err := vmCall(m, e.fn, args)
+		if vmRan(entered, err) {
 			return vmProbeResult{ran: true}
 		}
 		lastErr = err
 		if vmHardFailure(err) {
 			break
-		}
-	}
-	if e.mod.Boot() != nil {
-		// A program whose boot returns `Err` never publishes its app, so a
-		// function that reads it (its `main`) cannot run: that is the
-		// boot's answer, not the function's failure.
-		var failed *vm.BootError
-		if _, err := vm.NewProgram(e.mod, e.links, io.Discard).WithHosts(testHosts).Boot(); errors.As(err, &failed) {
-			return vmProbeResult{err: err}
 		}
 	}
 	return vmProbeResult{err: lastErr}
@@ -885,6 +1145,7 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 	failures := map[string][]string{}
 	var lines []string
 	total, ran := 0, 0
+	var unimplemented []string
 	for _, e := range entries {
 		fn := e.fn
 		total++
@@ -903,9 +1164,15 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\t"+vmNeverParamClass)
 			continue
 		}
-		res, answered, bubbleErr := vmInBubble(func() vmProbeResult { return vmProbe(e) })
+		if missing := vmUnimplementedIfaces(e.mod, fn, e.links); len(missing) > 0 {
+			unimplemented = append(unimplemented, fmt.Sprintf("%s:%s (%s)", e.rel, fn.Name(), strings.Join(missing, ", ")))
+		}
+		w := &vmProbeWatch{}
+		res, answered, bubbleErr := vmInBubble(func() vmProbeResult { return vmProbe(e, w) })
 		if !answered {
-			res = vmProbeResult{err: vmBlockedError(fn, bubbleErr)}
+			// Waiting on a channel nothing in isolation answers is the
+			// body's answer, when the machine entered it.
+			res = vmProbeResult{ran: w.entered(fn), err: vmBlockedError(fn, bubbleErr)}
 		} else if bubbleErr != nil {
 			t.Logf("  %s:%s answered, and then its bubble reported: %v", e.rel, fn.Name(), bubbleErr)
 		}
@@ -914,19 +1181,8 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\tran")
 			continue
 		}
-		class := vmClassify(res.err)
-		if res.boot {
-			failures[class] = append(failures[class], e.rel+":"+fn.Name())
-			lines = append(lines, key+"\t"+class)
-			t.Logf("  %s:%s did not start: %v", e.rel, fn.Name(), res.err)
-			continue
-		}
-		if vmUnlinkedBinding(res.err, e.unlinked) {
-			class = vmUnlinkedClass
-		}
-		if vmProbeArgFailure(fn, res.err) {
-			class = vmProbeArgClass
-		}
+		class := vmFailureClass(res.err, e.unlinked)
+		t.Logf("  %s:%s did not run: %v%s", e.rel, fn.Name(), res.err, vmDispatchNote(res.err))
 		failures[class] = append(failures[class], e.rel+":"+fn.Name())
 		lines = append(lines, key+"\t"+class)
 	}
@@ -954,10 +1210,26 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 	}
 	t.Logf("%d modules, %d retained functions, %d executed by the VM; %d copies of a "+
 		"function another program already lowered were not probed again", modules, total, ran, copies)
+	t.Logf("%d function(s) take an interface value the program retains no impl of, and get "+
+		"the trial leaf for it: %s", len(unimplemented), strings.Join(unimplemented, "; "))
 
 	vmRetainedCorpus.check(t, lines)
 
 	vmCheckBuckets(t, failures)
+}
+
+// vmFailureClass is the bucket of a member that did not run, from the last
+// error its probe saw: the refusal's class, UNLINKED for a refused crossing
+// into one of the program's own Go bindings (unlinked), and otherwise PROBE,
+// since a member the machine entered without a refusal ran.
+func vmFailureClass(err error, unlinked map[string]bool) string {
+	if !vmRefused(err) {
+		return vmNotEnteredClass
+	}
+	if vmUnlinkedBinding(err, unlinked) {
+		return vmUnlinkedClass
+	}
+	return vmClassify(err)
 }
 
 // vmCheckBuckets holds a population's failure buckets to what no list can
@@ -973,19 +1245,15 @@ func vmCheckBuckets(t *testing.T, failures map[string][]string) {
 				strings.Join(members, ", "))
 		}
 	}
-	// A failure outside the classified buckets is a misclassification the list
-	// would record as an opaque reason; name it instead.
+	// A failure outside the classified buckets (a compiler panic) is a
+	// misclassification the list would record as an opaque reason; name it
+	// instead.
 	known := map[string]bool{
-		"LINKING: a declaration this module did not retain":        true,
-		"HOST: crosses into Go with no binding":                    true,
-		vmUnlinkedClass:                                            true,
-		"BLOCKED: waits on a channel nothing in isolation answers": true,
-		"BOOT: creatable only while boot runs":                     true,
-		vmProbeShapeClass:                                          true,
-		"TODO: the body is not written yet":                        true,
-		vmBootErrClass:                                             true,
-		vmProbeArgClass:                                            true,
-		vmNeverParamClass:                                          true,
+		"LINKING: a declaration this module did not retain": true,
+		"HOST: crosses into Go with no binding":             true,
+		vmUnlinkedClass:                                     true,
+		vmNotEnteredClass:                                   true,
+		vmNeverParamClass:                                   true,
 	}
 	for class, members := range failures {
 		if !known[class] && !strings.HasPrefix(class, "VOCABULARY") && !strings.HasPrefix(class, "IDENTITY") {
@@ -993,99 +1261,6 @@ func vmCheckBuckets(t *testing.T, failures map[string][]string) {
 				len(members), class, strings.Join(members, ", "))
 		}
 	}
-}
-
-// vmProbeArgFailure reports a failure the probe's own arguments explain: a
-// function with an existential parameter the probe filled with a value of no
-// implementing type, or a field read off a leaf the probe supplied where the
-// declared type is a struct.
-func vmProbeArgFailure(fn *ir.Func, err error) bool {
-	if err == nil {
-		return false
-	}
-	if strings.Contains(err.Error(), "reads a field off") || strings.Contains(err.Error(), "variant test reads rt.Context") ||
-		strings.Contains(err.Error(), "iteration reads rt.Context") || strings.Contains(err.Error(), "set receiver is rt.Context") ||
-		strings.Contains(err.Error(), "list test reads rt.Context") || strings.Contains(err.Error(), "is rt.Context, want Vector") ||
-		strings.Contains(err.Error(), "list tail is rt.Context") || strings.Contains(err.Error(), "vector test reads rt.Context") ||
-		strings.Contains(err.Error(), "range receiver is rt.Context") || strings.Contains(err.Error(), "list count reads rt.Context") ||
-		(strings.Contains(err.Error(), "variant comparison's operands are") && strings.Contains(err.Error(), "rt.Context")) {
-		// A field read, variant test, iteration, Set operation, list or vector pattern,
-		// Vector operation, Range operation, list count or variant comparison
-		// on the leaf the probe supplied for a parameter it cannot build (a
-		// nominal type, an `Iter<T>`, a struct whose field is a Set or a list,
-		// a list matched as part of a tuple the body builds or whose shape only
-		// a callee more than four call edges away states, a generic Vector only
-		// a host call reads, a `Range<Codepoint>`, or a std enum such as
-		// `Weekday` compared with one a host call answers).
-		return true
-	}
-	if strings.Contains(err.Error(), ": arg ") && strings.Contains(err.Error(), ", got rt.Context") {
-		// A host call's argument read off a struct the probe built, whose
-		// field it filled with the root Context (std/fs_testing's `run`
-		// hands `Sandbox.dirs`, a List, to `fs_host.new_sandbox`).
-		return true
-	}
-	if strings.Contains(err.Error(), "a Decimal operation's") && strings.Contains(err.Error(), "operand is rt.Context") {
-		// Decimal arithmetic on a field of a struct the probe built, which
-		// it filled with the root Context (std/money's `Money.negate`
-		// subtracts the amount from 0d).
-		return true
-	}
-	if strings.Contains(err.Error(), ": expected one Receiver") || strings.Contains(err.Error(), ": expected one Sender") {
-		// A channel half read off a struct the probe built (std/sql_testing's
-		// Fake keeps its state in a Channel field): the probe makes up a
-		// leaf for a handle only `Channel.buffered` creates.
-		return true
-	}
-	for _, p := range fn.Params() {
-		t := fn.TempType(p.Temp)
-		if t == nil {
-			continue
-		}
-		if t.Kind() == ir.KindIface {
-			return true
-		}
-		// A distinct parameter of a std type the program does not declare,
-		// held as the distinct (std/message's `Message.format` takes a
-		// `Locale`): no trial leaf is one, so every trial is refused at the
-		// write, the last one with the root Context.
-		if t.Kind() == ir.KindDistinct && strings.Contains(err.Error(), " holds "+t.String()+" and received rt.Context") {
-			return true
-		}
-		// The same for a struct parameter's field the probe fills with a
-		// trial leaf: std/money's `Money` holds a `Decimal` and a
-		// distinct `Currency`, and no trial leaf is either.
-		if t.Kind() == ir.KindStruct && t.Layout() != nil {
-			for _, f := range t.Layout().Fields {
-				if f.Type == nil {
-					continue
-				}
-				if f.Type.Kind() == ir.KindDistinct && strings.Contains(err.Error(), " holds "+f.Type.String()+" and received rt.Context") {
-					return true
-				}
-				if f.Type.Kind() == ir.KindDecimal && strings.Contains(err.Error(), "a Decimal operation's left operand is rt.Context") {
-					return true
-				}
-			}
-		}
-		// A Set, Map or Vector parameter the body compares with `==` gets
-		// the list the probe builds for any container a comparison reads
-		// (vmShaper.argFor's Compare arm), so a Set or Map operation on it
-		// then meets a List (`x + T.empty_sum() == x` in a generic body
-		// instantiated at Set<Int>).
-		if k := t.Kind(); (k == ir.KindSet || k == ir.KindMap || k == ir.KindVector) &&
-			strings.Contains(err.Error(), "is *rt.List[interface {}], want ") {
-			return true
-		}
-		// A function parameter the body only passes on, captured in a
-		// lambda or as an argument, states no call for the probe to build
-		// a callback from, so it holds a leaf when a callee calls it
-		// (exercism/list-ops' filter and map, through foldr).
-		if t.Kind() == ir.KindFunc && strings.Contains(err.Error(), "indirect callee is not a function") {
-			return true
-		}
-	}
-	return false
 }
 
 // vmShapeOf names the instruction and its discriminating kind, for the log of
@@ -1111,13 +1286,13 @@ func vmShapeOf(in ir.Instr) string {
 	return key
 }
 
-// vmProgram opens a machine over mod's program and boots it when the program's
-// boot is retained, so a body reading an app field finds the app published.
-// A test file with no program boot boots its first `group` boot instead,
-// which is the app that group's cases call the file's functions in. An
-// unretained boot leaves the unbooted machine.
+// vmProgram opens a counting machine over mod's program and boots it when the
+// program's boot is retained, so a body reading an app field finds the app
+// published. A test file with no program boot boots its first `group` boot
+// instead, which is the app that group's cases call the file's functions in.
+// An unretained boot, or one that answers `Err`, leaves the unbooted machine.
 func vmProgram(mod *ir.Module, links []*ir.Module) *vm.Machine {
-	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts)
+	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts).WithEntryCounts()
 	if mod.Boot() == nil {
 		// A test file's module, or an entry file a test file imports (whose
 		// boot the test file's group `boot` line calls): boot the first
@@ -1140,13 +1315,17 @@ func vmProgram(mod *ir.Module, links []*ir.Module) *vm.Machine {
 	return m
 }
 
-// vmStartBoot starts fn when it is a boot mod records, program or test
-// group, and reports whether it was one.
-func vmStartBoot(mod *ir.Module, links []*ir.Module, fn *ir.Func) (bool, error) {
-	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts)
+// vmStartBoot starts fn when it is a boot a program or a retained test case
+// starts, on a counting machine w watches, and reports whether it was one,
+// whether the machine entered fn's body and how the start ended. A boot no
+// retained case starts has no Startup to call it with, and is probed as any
+// other function.
+func vmStartBoot(mod *ir.Module, links []*ir.Module, fn *ir.Func, w *vmProbeWatch) (isBoot, entered bool, err error) {
+	m := vm.NewProgram(mod, links, io.Discard).WithHosts(testHosts).WithEntryCounts()
 	if fn.Sym() == mod.Boot() {
+		w.watch(m, fn)
 		_, err := m.Boot()
-		return true, err
+		return true, m.Entries(fn) > 0, err
 	}
 	// An entry boot a test file's group `boot` line calls lives in the entry
 	// file's module, and the test file's module records it.
@@ -1156,19 +1335,13 @@ func vmStartBoot(mod *ir.Module, links []*ir.Module, fn *ir.Func) (bool, error) 
 		}
 		for _, c := range cand.Tests() {
 			if group := c.Group(); group.Boot != nil && fn.Sym() == group.Boot {
+				w.watch(m, fn)
 				_, err := m.BootTest(group)
-				return true, err
-			}
-		}
-		for _, sym := range cand.TestBoots() {
-			if fn.Sym() == sym {
-				// A recorded boot no retained case starts: there is no
-				// Startup to call it with.
-				return true, nil
+				return true, m.Entries(fn) > 0, err
 			}
 		}
 	}
-	return false, nil
+	return false, false, nil
 }
 
 // vmFirstGroupBoot is the group of mod's first retained case that boots.
@@ -1185,68 +1358,95 @@ func vmFirstGroupBoot(mod *ir.Module) (ir.TestGroup, bool) {
 // takes on its made-up arguments, and a moment of CPU.
 const vmProbeSteps = 20_000_000
 
-// vmRan reports whether a probe's run executed the body, and it counts the
-// call-depth fault and the step budget's end as a run. A probe calls a body
-// on arguments it made up, and one that recurses past rt.MaxCallDepth or
-// loops past vmProbeSteps on them was executed by the machine: the limit is
-// that body's answer on those arguments, as a division by zero would be, and
-// not a construct this machine cannot run. It counts the trap of an
-// `unreachable` the program states in mods as a run too
-// (vmReachedOwnUnreachable).
-func vmRan(err error, mods ...*ir.Module) bool {
-	if err == nil || errors.Is(err, vm.ErrLimit) || vmReachedOwnUnreachable(err, mods) {
-		return true
-	}
-	var fault *vm.Fault
-	depthText := strings.TrimPrefix(rt.CallDepthError(0).Error(), "line 0")
-	return errors.As(err, &fault) && strings.HasSuffix(err.Error(), depthText)
+// vmCall calls fn on m with args and reports whether the machine entered
+// fn's body during the call, by its entry count. m counts entries
+// (vm.Machine.WithEntryCounts).
+func vmCall(m *vm.Machine, fn *ir.Func, args []any) (entered bool, err error) {
+	before := m.Entries(fn)
+	_, err = vmRunSymV(m, fn.Sym(), args...)
+	return m.Entries(fn) > before, err
 }
 
-// vmReachedOwnUnreachable reports whether err is the trap of an
-// `unreachable` the program states, in mods' functions or their lambdas, by
-// its reason: the probe's made-up argument broke an invariant the program's
-// real callers keep (kindergarten-garden's `position` finds every real
-// Student, and none of the probe's leaves; `Garden.plants` calls it). The
-// machine ran everything up to the program's own trap, so the function ran.
-// The compiler's `unreachable` fault for a call it proved no execution
-// reaches has the same text and no ir.Unreachable, so it stays a failure.
-func vmReachedOwnUnreachable(err error, mods []*ir.Module) bool {
-	var fault *vm.Fault
-	if err == nil || !errors.As(err, &fault) {
+// vmRan is the one rule for a probe's outcome: the machine entered the body
+// and the run did not end in a refusal. Every other ending is the body's
+// answer on the probe's arguments.
+func vmRan(entered bool, err error) bool {
+	return entered && !vmRefused(err)
+}
+
+// vmRefused reports whether a run ended in a machine refusal: a construct
+// this machine runs no code for (VOCABULARY), a local the frame does not
+// declare (IDENTITY), a callee no module retained (LINKING) or a crossing
+// with no binding (HOST). A compiler panic counts too, so it never counts as
+// a run; vmClassify leaves it unclassified and the test fails on it.
+func vmRefused(err error) bool {
+	if err == nil {
 		return false
 	}
-	found := false
-	var walk func(f *ir.Func)
-	walk = func(f *ir.Func) {
-		for _, b := range f.Blocks() {
-			for _, in := range b.Instrs() {
-				switch n := in.(type) {
-				case *ir.Unreachable:
-					if strings.HasSuffix(err.Error(), ": unreachable: "+n.Reason()) {
-						found = true
-					}
-				case *ir.FuncValue:
-					walk(n.Body())
-				}
-			}
-		}
+	if _, isPanic := vm.AsCompilePanic(err); isPanic {
+		return true
 	}
-	for _, m := range mods {
-		for _, f := range m.Funcs() {
-			walk(f)
-		}
-	}
-	return found
+	s := err.Error()
+	return strings.Contains(s, "this machine runs no") ||
+		strings.Contains(s, "does not declare") ||
+		vmMissingCallee(err) ||
+		strings.Contains(s, "binds no implementation")
 }
 
-func vmHardFailure(err error) bool {
+// vmMissingCallee reports a callee the machine finds in no retained module:
+// resolveFunc's refusal of a symbol, in either spelling, or a dispatched
+// call whose receiver's run-time type has no retained impl
+// (vm.DispatchMiss) unless the receiver is not a value of the type the call
+// declares for that operand (vmProbeReceiver).
+func vmMissingCallee(err error) bool {
 	s := err.Error()
-	return strings.Contains(s, vmBlockedText) ||
-		strings.Contains(s, "this machine runs no") ||
-		strings.Contains(s, "does not declare") ||
-		strings.Contains(s, "did not retain") ||
-		strings.Contains(s, "binds no implementation") ||
-		strings.Contains(s, "Create it while `boot` builds the app value")
+	if strings.Contains(s, "names a declaration this module did not retain") ||
+		strings.Contains(s, "names a declaration this program's modules did not retain") {
+		return true
+	}
+	if !strings.Contains(s, "did not retain an implementation") {
+		return false
+	}
+	return !vmProbeReceiver(err)
+}
+
+// vmDispatchNote says, for a dispatch miss, the operand's declared type and
+// whether the receiver was a value of it, so the log shows why the miss
+// counts as LINKING.
+func vmDispatchNote(err error) string {
+	var miss *vm.DispatchMiss
+	if err == nil || !errors.As(err, &miss) {
+		return ""
+	}
+	of, decided := miss.ReceiverOfDeclaredType()
+	switch {
+	case !decided:
+		return fmt.Sprintf(" (dispatch miss; declared %v, undecidable)", miss.Declared)
+	case of:
+		return fmt.Sprintf(" (dispatch miss; receiver is its declared %v)", miss.Declared)
+	}
+	return fmt.Sprintf(" (dispatch miss; receiver is not its declared %v)", miss.Declared)
+}
+
+// vmProbeReceiver reports a dispatch miss on a receiver that is not a value
+// of the operand's declared type: the probe synthesized it, so the miss is
+// a fault on a made-up argument and the body's answer. A miss on a receiver
+// of its declared type is a builder gap, the impl not retained, and so is
+// one the machine cannot decide (an interface or untyped operand, or a
+// miss whose typed error a crossing turned into text).
+func vmProbeReceiver(err error) bool {
+	var miss *vm.DispatchMiss
+	if !errors.As(err, &miss) {
+		return false
+	}
+	of, decided := miss.ReceiverOfDeclaredType()
+	return decided && !of
+}
+
+// vmHardFailure is a failure no other argument vector changes: a refusal,
+// or a wait on a channel nothing in isolation answers.
+func vmHardFailure(err error) bool {
+	return vmRefused(err) || (err != nil && strings.Contains(err.Error(), vmBlockedText))
 }
 
 // vmBlockedText marks a probe vmInBubble gave up on.
@@ -1336,32 +1536,18 @@ func vmClassify(err error) string {
 	}
 	s := err.Error()
 	switch {
-	case strings.Contains(s, vmBlockedText):
-		return "BLOCKED: waits on a channel nothing in isolation answers"
 	case strings.Contains(s, "this machine runs no"):
 		i := strings.Index(s, "this machine runs no")
 		return "VOCABULARY: " + vmFirstWords(s[i:], 6)
 	case strings.Contains(s, "does not declare"):
 		return "IDENTITY: a local the frame does not declare"
-	case strings.Contains(s, "did not retain"):
+	case vmMissingCallee(err):
 		return "LINKING: a declaration this module did not retain"
 	case strings.Contains(s, "binds no implementation"):
 		return "HOST: crosses into Go with no binding"
-	case strings.Contains(s, "Create it while `boot` builds the app value"):
-		return "BOOT: creatable only while boot runs"
-	case strings.Contains(s, "todo reached at"):
-		return "TODO: the body is not written yet"
-	case errors.As(err, new(*vm.BootError)):
-		return vmBootErrClass
-	case strings.Contains(s, "names a field Probe"):
-		return vmProbeShapeClass
 	}
 	return "OTHER: " + vmFirstWords(s, 10)
 }
-
-// vmBootErrClass is a function of a program whose boot returns `Err` that
-// does not run without the app the boot never publishes (its `main`).
-const vmBootErrClass = "BOOT ERR: reads the app a boot that returns Err never publishes"
 
 // vmUnlinkedClass is a crossing into a project's own Go-bound `host fn`. That
 // binding is reachable only inside ffirun's wrapper binary, which links the

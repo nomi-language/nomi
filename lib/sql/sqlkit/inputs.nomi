@@ -1,0 +1,71 @@
+//# The files a database's generated code is made from: the `.sql` files of
+//# its migrations directory and of its queries directory. Each generated
+//# file records their SHA-256 digest, and the generated test computes it
+//# again from the files as they are, so `nomi test` notices a migration or
+//# a query changed after the last `nomi tool sqlkit generate`.
+
+import {
+    std/fs
+    std/hash
+}
+
+/// One input: its path from the module root and its text.
+pub struct Input {
+    path: String
+    text: String
+}
+
+derive Equatable for Input
+
+/// The `.sql` files directly in `dir`, in name order, with their text.
+pub fn read(dir: String) -> Result<List<Input>, String> {
+    pattern = "${sqltext_dir(dir)}*.sql"
+    paths = try (fs.glob(pattern) |> Result.map_err(fn e -> "${dir}: ${e}"))
+
+    paths
+    |> Iter.sort()
+    |> Iter.map(fn path -> {
+        fs.read_text(path)
+        |> Result.map(fn text -> #Input{path, text})
+        |> Result.map_err(fn e -> "${path}: ${e}")
+    })
+    |> Result.collect()
+}
+
+// `dir` with one `/` after it, or nothing for the current directory.
+fn sqltext_dir(dir: String) -> String {
+    trimmed = String.strip_suffix(dir, "/") |> Maybe.with_default(dir)
+
+    if trimmed == "" or trimmed == "." {
+        ""
+    } else {
+        "${trimmed}/"
+    }
+}
+
+/// The SHA-256 digest of inputs, each path and text in order: what a
+/// generated file records.
+//! assert inputs.digest([]) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+//!
+//! one = [#Input{path: "db/migrations/1.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
+//!
+//! assert inputs.digest(one)
+//!     != inputs.digest([#Input{path: "db/migrations/2.sql", text: "CREATE TABLE t (n INTEGER);\n"}])
+//
+pub fn digest(inputs: List<Input>) -> String {
+    inputs
+    |> Iter.map(fn i -> "${i.path}\u{0}${i.text}\u{0}")
+    |> String.join()
+    |> String.to_bytes()
+    |> hash.sha256_hex()
+}
+
+/// The digest of the `.sql` files in `migrations` and then in `queries`,
+/// as they are now, by relative paths, which a test resolves under its
+/// module root: what the generated test compares with the digest the
+/// generated files record.
+pub fn current(migrations: String, queries: String) -> Result<String, String> {
+    m = try read(migrations)
+    q = try read(queries)
+    Ok(digest(m + q))
+}

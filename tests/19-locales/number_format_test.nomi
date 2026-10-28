@@ -73,21 +73,18 @@ test "strict parsing rejects with typed errors" {
     assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
     assert Int.parse_in("1,234,567", Locale`hi`) == Err(#NumberParseError.Grouping{at: 1})
 
-    assert Decimal.parse_in("1.234,5", Locale`en`) == Err(
-        #NumberParseError.Unexpected{at: 5, text: ","}
-    )
+    assert Decimal.parse_in("1.234,5", Locale`en`)
+        == Err(#NumberParseError.Unexpected{at: 5, text: ","})
 
-    assert Int.parse_in("12 apples", Locale`en`) == Err(
-        #NumberParseError.Unexpected{at: 2, text: " "}
-    )
+    assert Int.parse_in("12 apples", Locale`en`)
+        == Err(#NumberParseError.Unexpected{at: 2, text: " "})
 
     assert Int.parse_in(" 12", Locale`en`) == Err(#NumberParseError.Unexpected{at: 0, text: " "})
     assert Int.parse_in("12.0", Locale`en`) == Err(#NumberParseError.Unexpected{at: 2, text: "."})
     assert Int.parse_in("9223372036854775808", Locale`en`) == Err(NumberParseError.OutOfRange)
 
-    assert Decimal.parse_percent_in("12.5", Locale`en`) == Err(
-        #NumberParseError.Unexpected{at: 4, text: ""}
-    )
+    assert Decimal.parse_percent_in("12.5", Locale`en`)
+        == Err(#NumberParseError.Unexpected{at: 4, text: ""})
 }
 
 test "lenient parsing accepts more" {
@@ -98,9 +95,8 @@ test "lenient parsing accepts more" {
     assert Int.parse_in("-42", Locale`sv`, lenient: True) == Ok(-42)
     assert Decimal.parse_percent_in("12.5 %", Locale`en`, lenient: True) == Ok(0.125d)
 
-    assert Int.parse_in("12 apples", Locale`en`, lenient: True) == Err(
-        #NumberParseError.Unexpected{at: 2, text: " "}
-    )
+    assert Int.parse_in("12 apples", Locale`en`, lenient: True)
+        == Err(#NumberParseError.Unexpected{at: 2, text: " "})
 }
 
 fn round_trips?(locale: Locale) -> Bool {
@@ -123,13 +119,8 @@ test "a decimal's digits are limited and rounded as the options say" {
     assert Decimal.format(0.125d, en, max_fraction: 2, mode: .HalfUp) == "0.13"
     assert Decimal.format(12d, Locale`de`, min_fraction: 2) == "12,00"
 
-    assert Decimal.format(
-        1234.5678d,
-        en,
-        min_fraction: 1,
-        max_fraction: 1,
-        grouping: False,
-    ) == "1234.6"
+    assert Decimal.format(1234.5678d, en, min_fraction: 1, max_fraction: 1, grouping: False)
+        == "1234.6"
 
     assert Decimal.format_percent(0.12345d, en) == "12.345%"
     assert Decimal.format_percent(0.12345d, en, max_fraction: 0) == "12%"
@@ -141,7 +132,6 @@ test "a float reads a percentage back as a fraction" {
     assert Float.parse_percent_in("50\u{a0}%", Locale`fr`) == Ok(0.5)
     assert Float.parse_percent_in("%50", Locale`en`, lenient: True) == Ok(0.5)
 
-    assert Float.parse_percent_in("50", Locale`en`) == Err(
-        #NumberParseError.Unexpected{at: 2, text: ""}
-    )
+    assert Float.parse_percent_in("50", Locale`en`)
+        == Err(#NumberParseError.Unexpected{at: 2, text: ""})
 }

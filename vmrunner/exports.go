@@ -109,6 +109,7 @@ func boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if err := checkHostKeys(im.HostKeys, hosts); err != nil {
 		return nil, err
 	}
+	hosts = projectHosts(hosts, cfg.compiler != nil)
 	locales, err := localeData(im)
 	if err != nil {
 		return nil, err

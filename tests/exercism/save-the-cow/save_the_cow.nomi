@@ -1,0 +1,97 @@
+/// Where a game stands.
+pub enum State {
+    Ongoing
+    Win
+    Lose
+}
+
+derive Equatable for State
+
+/// A guess the game no longer takes.
+pub enum Error {
+    AlreadyWon
+    AlreadyLost
+}
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .AlreadyWon -> "cannot guess after the game is won"
+            .AlreadyLost -> "cannot guess after the game is lost"
+        }
+    }
+}
+
+/// How many failures a game allows before the one that loses it.
+once allowed_failures = 9
+
+/// A word-guessing game. It is a value: each guess answers the game after
+/// it.
+pub opaque struct Game {
+    word: List<Codepoint>
+    revealed: Set<Codepoint>
+    remaining_failures: Int
+    state: State
+}
+
+impl Game {
+    /// A new game whose secret is `word`, with no letters revealed.
+    pub fn new(word: String) -> Game {
+        #Game{
+            word: String.to_codepoints(word),
+            revealed: %[],
+            remaining_failures: allowed_failures,
+            state: .Ongoing,
+        }
+    }
+
+    /// The game after guessing `letter`. A letter of the word not yet
+    /// revealed reveals every place it stands; any other guess is a failure,
+    /// and a failure with none remaining loses.
+    pub fn guess(game: Game, letter: Codepoint) -> Result<Game, Error> {
+        case game.state {
+            .Win -> Err(.AlreadyWon)
+            .Lose -> Err(.AlreadyLost)
+            .Ongoing when hidden?(game, letter) -> Ok(reveal(game, letter))
+            .Ongoing when game.remaining_failures == 0 -> Ok(#{..game, state: .Lose})
+            .Ongoing -> Ok(#{..game, remaining_failures: game.remaining_failures - 1})
+        }
+    }
+
+    /// Where the game stands.
+    pub fn state(game: Game) -> State {
+        game.state
+    }
+
+    /// The word with each letter not yet revealed written as `_`.
+    pub fn masked_word(game: Game) -> String {
+        game.word
+        |> Iter.map(fn letter -> {
+            if Set.contains?(game.revealed, letter) {
+                letter
+            } else {
+                '_'
+            }
+        })
+        |> Iter.to_list()
+        |> String.from_codepoints()
+    }
+
+    /// How many more failures the game allows before the one that loses it.
+    pub fn remaining_failures(game: Game) -> Int {
+        game.remaining_failures
+    }
+}
+
+/// Whether `letter` is in the word and not yet revealed.
+fn hidden?(game: Game, letter: Codepoint) -> Bool {
+    List.contains?(game.word, letter) and !Set.contains?(game.revealed, letter)
+}
+
+/// `game` with `letter` revealed, won when that reveals the whole word.
+fn reveal(game: Game, letter: Codepoint) -> Game {
+    revealed = Set.insert(game.revealed, letter)
+    won = Iter.all?(game.word, &Set.contains?(revealed, &1))
+
+    #{..game, revealed, state: if won { .Win } else { .Ongoing }}
+}

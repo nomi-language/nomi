@@ -1,0 +1,44 @@
+================================================================================
+A boolean or of two names as an if condition
+================================================================================
+
+fn f() {
+  if a or b {
+    c
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (if_expression
+        (binary_expression
+          (identifier)
+          (identifier))
+        (body
+          (identifier))))))
+
+================================================================================
+An enum payload named through its file
+================================================================================
+
+enum E {
+  Io io.Error
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (enum_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (enum_body
+      (enum_variant
+        name: (type_identifier)
+        (qualified_type
+          (identifier)
+          (type_identifier))))))

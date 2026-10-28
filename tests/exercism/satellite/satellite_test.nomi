@@ -1,0 +1,100 @@
+import satellite.{self, Error, Tree}
+
+/// A node with no subtrees.
+fn leaf(value: String) -> Tree<String> {
+    #.Node{left: .Leaf, value, right: .Leaf}
+}
+
+test "rebuilds the tree" {
+    cases: List<#(String, List<String>, List<String>, Tree<String>)> = [
+        #("Empty tree", [], [], .Leaf),
+        #("Tree with one item", ["a"], ["a"], leaf("a")),
+        #(
+            "Tree with many items",
+            ["a", "i", "x", "f", "r"],
+            ["i", "a", "f", "x", "r"],
+            #.Node{
+                left: leaf("i"),
+                value: "a",
+                right: #.Node{left: leaf("f"), value: "x", right: leaf("r")},
+            },
+        ),
+        #(
+            "A degenerate binary tree",
+            ["a", "b", "c", "d"],
+            ["d", "c", "b", "a"],
+            #.Node{
+                left: #.Node{
+                    left: #.Node{left: leaf("d"), value: "c", right: .Leaf},
+                    value: "b",
+                    right: .Leaf,
+                },
+                value: "a",
+                right: .Leaf,
+            },
+        ),
+        #(
+            "Another degenerate binary tree",
+            ["a", "b", "c", "d"],
+            ["a", "b", "c", "d"],
+            #.Node{
+                left: .Leaf,
+                value: "a",
+                right: #.Node{
+                    left: .Leaf,
+                    value: "b",
+                    right: #.Node{left: .Leaf, value: "c", right: leaf("d")},
+                },
+            },
+        ),
+        #(
+            "Tree with many more items",
+            ["a", "b", "d", "g", "h", "c", "e", "f", "i"],
+            ["g", "d", "h", "b", "a", "e", "c", "i", "f"],
+            #.Node{
+                left: #.Node{
+                    left: #.Node{left: leaf("g"), value: "d", right: leaf("h")},
+                    value: "b",
+                    right: .Leaf,
+                },
+                value: "a",
+                right: #.Node{
+                    left: leaf("e"),
+                    value: "c",
+                    right: #.Node{left: leaf("i"), value: "f", right: .Leaf},
+                },
+            },
+        ),
+    ]
+
+    subtests cases, #(description, preorder, inorder, expected), description {
+        assert satellite.tree_from_traversals(preorder, inorder) == Ok(expected)
+    }
+}
+
+test "rejects traversals of no tree" {
+    cases = [
+        #(
+            "Reject traversals of different length",
+            ["a", "b"],
+            ["b", "a", "r"],
+            Error.DifferentLengths,
+        ),
+        #(
+            "Reject inconsistent traversals of same length",
+            ["x", "y", "z"],
+            ["a", "b", "c"],
+            .DifferentElements,
+        ),
+        #(
+            "Reject traversals with repeated items",
+            ["a", "b", "a"],
+            ["b", "a", "a"],
+            .RepeatedItems,
+        ),
+    ]
+
+    subtests cases, #(description, preorder, inorder, expected), description {
+        assert satellite.tree_from_traversals(preorder, inorder) == Err(expected)
+    }
+}

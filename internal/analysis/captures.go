@@ -82,7 +82,29 @@ func (c *checker) checkPartialCapture(n *ast.Capture, call *ast.Call, k int, exp
 		params := append(append([]Type{}, pt.Params...), ft.Params[k:]...)
 		return &FuncType{Params: params, Return: pt.Return}
 	}
+	// The position gives every parameter a type: the open arguments are
+	// those types, as the lambda the capture stands for takes them, so a
+	// callee whose slot is an interface (`Iter<Iter<U>>`) is called with
+	// the concrete value (`List<List<String>>`) a direct call would pass.
+	if holes := c.determinedHoles(ft); holes != nil {
+		prevCall, prevHoles := c.partialCall, c.partialHoles
+		c.partialCall, c.partialHoles = call, holes
+		defer func() { c.partialCall, c.partialHoles = prevCall, prevHoles }()
+	}
 	return c.checkNodeExpecting(call, expected)
+}
+
+// determinedHoles maps each parameter number of ft to its type when every
+// parameter is a type nothing is left to solve, or answers nil.
+func (c *checker) determinedHoles(ft *FuncType) map[int]Type {
+	holes := make(map[int]Type, len(ft.Params))
+	for i, p := range ft.Params {
+		if p == nil || c.openElemType(p) {
+			return nil
+		}
+		holes[i+1] = p
+	}
+	return holes
 }
 
 // checkCaptureBody types a capture that is no partial: its body is checked

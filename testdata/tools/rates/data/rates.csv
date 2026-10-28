@@ -1,0 +1,4 @@
+code: String,basis_points: Int
+usd,9200
+gbp,11700
+jpy,61

@@ -251,9 +251,8 @@ impl Decimal {
     //! assert Decimal.parse_in("1.234,5", Locale`de`) == Ok(1234.5d)
     //! assert Decimal.parse_in("12,50", Locale`pl`) |> Result.map(&Display.to_string(&1)) == Ok("12.50")
     //!
-    //! assert Decimal.parse_in("1.234,5", Locale`en`) == Err(
-    //!     #NumberParseError.Unexpected{at: 5, text: ","}
-    //! )
+    //! assert Decimal.parse_in("1.234,5", Locale`en`)
+    //!     == Err(#NumberParseError.Unexpected{at: 5, text: ","})
     //
     pub fn parse_in(
         text: String,
@@ -269,9 +268,8 @@ impl Decimal {
     //! assert Decimal.parse_percent_in("12,5\u{a0}%", Locale`de`) == Ok(0.125d)
     //! assert Decimal.parse_percent_in("12.5%", Locale`en`) == Ok(0.125d)
     //!
-    //! assert Decimal.parse_percent_in("12.5", Locale`en`) == Err(
-    //!     #NumberParseError.Unexpected{at: 4, text: ""}
-    //! )
+    //! assert Decimal.parse_percent_in("12.5", Locale`en`)
+    //!     == Err(#NumberParseError.Unexpected{at: 4, text: ""})
     //
     pub fn parse_percent_in(
         text: String,

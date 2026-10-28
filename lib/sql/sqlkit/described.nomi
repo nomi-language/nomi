@@ -1,0 +1,62 @@
+//# What SQLite says about a database's schema and its queries, once
+//# `nomi tool sqlkit generate` has applied the migrations to an in-memory
+//# database and asked it to describe each query: what the generated code
+//# is written from.
+
+/// A table: its name, the migration and line that created it, and its
+/// columns.
+pub struct Table {
+    name: String
+    migration: String
+    line: Int
+    columns: List<TableColumn>
+}
+
+/// A column of a table. A column's `values` are the values a
+/// `CHECK (column IN (...))` constraint allows, which the schema turns
+/// into an enum.
+pub struct TableColumn {
+    name: String
+    type_name: String
+    nullable: Bool
+    primary_key: Bool
+    has_default: Bool
+    values: List<String>
+    migration: String
+    line: Int
+}
+
+/// A result column of a query: its name, the declared type of the table
+/// column it reads (for an expression, the type one `CAST` gives it, else
+/// `""`), that table and column (`""` for an expression), and whether it
+/// may be NULL: a column read from a table is NULL only when the table's
+/// column may be or an outer join may leave it out, and an expression
+/// always may be.
+pub struct Column {
+    name: String
+    type_name: String
+    table: String
+    column: String
+    nullable: Bool
+}
+
+/// The error SQLite gave for a query it could not prepare, and the byte of
+/// the SQL it sent that the error names (-1 for none).
+pub struct QueryError {
+    message: String
+    offset: Int
+}
+
+derive Equatable for Table
+
+derive Equatable for TableColumn
+
+derive Equatable for Column
+
+derive Equatable for QueryError
+
+/// The column `column` of the table `table`.
+pub fn column(tables: List<Table>, table: String, column: String) -> Maybe<TableColumn> {
+    Iter.find(tables, fn t -> t.name == table)
+    |> Maybe.flat_map(fn t -> Iter.find(t.columns, fn c -> c.name == column))
+}

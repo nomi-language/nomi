@@ -1,8 +1,7 @@
-//# Reading a query's SQL body without parsing SQL: a tokenizer that knows
+//# Reading a query's SQL without parsing SQL: a tokenizer that knows
 //# strings, quoted names, comments and `@name` parameters, and what is read
-//# from its tokens. The macro and `nomi tool sqlkit prepare` both read
-//# a body here, so the SQL the tool describes is the SQL the generated
-//# function sends.
+//# from its tokens. `nomi tool sqlkit generate` describes the SQL these
+//# functions write, and the function it generates sends the same SQL.
 
 /// What a token is.
 pub enum Kind {
@@ -18,8 +17,8 @@ pub enum Kind {
     /// A parameter, `@user_id`.
     Param
 
-    /// A `${...}` left in the body. A raw body has no interpolation, so it
-    /// is an error that suggests `@name`.
+    /// A `${...}` in the SQL. A query's SQL has no interpolation, so it is
+    /// an error that suggests `@name`.
     Interpolation
 
     /// Whitespace or a comment.
@@ -31,7 +30,7 @@ pub enum Kind {
 
 derive Equatable for Kind
 
-/// One token: its kind, its text as written, and where it is in the body,
+/// One token: its kind, its text as written, and where it is in the SQL,
 /// by grapheme from the start.
 pub struct Token {
     kind: Kind
@@ -114,10 +113,8 @@ fn space?(c: String) -> Bool {
 }
 
 fn word?(c: String) -> Bool {
-    String.contains?(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
-        c,
-    ) and c != ""
+    String.contains?("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", c)
+        and c != ""
 }
 
 fn name_start?(c: String) -> Bool {
@@ -201,7 +198,7 @@ pub fn override(token: Token) -> Maybe<Override> {
     }
 }
 
-/// Every override the body's quoted names hold.
+/// Every override the SQL's quoted names hold.
 pub fn overrides(tokens: List<Token>) -> List<Override> {
     tokens |> Iter.flat_map(fn t -> override(t) |> listed()) |> Iter.to_list()
 }
@@ -214,10 +211,10 @@ fn sent(token: Token) -> String {
     }
 }
 
-/// The SQL a body sends, as std/sql's `Statement` keeps it: the text
+/// The SQL a query sends, as std/sql's `Statement` keeps it: the text
 /// around each `@name` parameter, one more than there are parameters. Runs of
 /// whitespace and comments become one space, and the ends are trimmed, so
-/// the SQL does not depend on how the body is indented.
+/// the SQL does not depend on how it is indented.
 //! tokens = sqltext.tokens("\n  SELECT id  -- the key\n  FROM t WHERE a = @a AND b = @b\n")
 //! assert sqltext.parts(tokens) == ["SELECT id FROM t WHERE a = ", " AND b = ", ""]
 //
@@ -271,9 +268,8 @@ fn pieces(tokens: List<Token>) -> List<#(Token, String)> {
     Iter.reverse(out)
 }
 
-/// The SQL a body sends with its parameters written as `?1`, `?2`, ..., as the
-/// SQLite driver writes them: what `prepare` describes and the snapshot
-/// keeps.
+/// The SQL a query sends with its parameters written as `?1`, `?2`, ..., as
+/// the SQLite driver writes them: what SQLite describes.
 //! assert sqltext.sqlite_sql(["SELECT ", " + ", ""]) == "SELECT ?1 + ?2"
 //
 pub fn sqlite_sql(parts: List<String>) -> String {
@@ -284,7 +280,7 @@ pub fn sqlite_sql(parts: List<String>) -> String {
 }
 
 /// The token of the SQL `sqlite_sql` writes at byte `offset`: where an
-/// error SQLite reports at that offset is in the body.
+/// error SQLite reports at that offset is in the query's SQL.
 //! tokens = sqltext.tokens("SELECT  @x, nope")
 //! assert sqltext.token_at_offset(tokens, 11) |> Maybe.map(fn t -> t.text) == Some("nope")
 //
@@ -325,12 +321,12 @@ pub fn markers(tokens: List<Token>) -> List<Token> {
     tokens |> Iter.filter(fn t -> t.kind == Kind.Param) |> Iter.to_list()
 }
 
-/// The `${...}` left in the body, in order.
+/// The `${...}` in the SQL, in order.
 pub fn interpolations(tokens: List<Token>) -> List<Token> {
     tokens |> Iter.filter(fn t -> t.kind == Kind.Interpolation) |> Iter.to_list()
 }
 
-/// The result columns a body writes after its first `SELECT` (or its
+/// The result columns a query writes after its first `SELECT` (or its
 /// `RETURNING`) at the top level, each as the tokens from its first to its
 /// last, split at the commas outside parentheses. A `*` is one item, so
 /// the list may be shorter than the columns.
@@ -440,9 +436,8 @@ fn trim(tokens: List<Token>) -> List<Token> {
 //!     sqltext.select_items(sqltext.tokens(text)) |> Iter.first() |> Maybe.flat_map(sqltext.cast_type)
 //! }
 //!
-//! assert cast("SELECT CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue!\" FROM o") == Some(
-//!     "DECIMAL(12, 2)"
-//! )
+//! assert cast("SELECT CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue!\" FROM o")
+//!     == Some("DECIMAL(12, 2)")
 //!
 //! assert cast("SELECT cast(x as numeric(5,1)) r FROM o") == Some("numeric(5,1)")
 //! assert cast("SELECT CAST(x AS INTEGER) + 1 FROM o") == None
@@ -485,9 +480,9 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
 
     rest = Vector.length(words) - close - 1
 
-    named = rest == 0 or (rest == 1 and text_at(close + 1) != "") or (rest == 2 and text_at(
-        close + 1
-    ) == "AS")
+    named = rest == 0
+        or (rest == 1 and text_at(close + 1) != "")
+        or (rest == 2 and text_at(close + 1) == "AS")
 
     case #(Vector.get(words, as_at), Vector.get(words, close)) {
         #(Some(a), Some(c)) when as_at >= 0 and close > as_at + 1 and named -> {
@@ -582,13 +577,12 @@ fn keyword?(word: String) -> Bool {
     )
 }
 
-/// Whether the body joins with `RIGHT` or `FULL`, whose left side may be
-/// NULL, which `prepare` does not track table by table.
+/// Whether the SQL joins with `RIGHT` or `FULL`, whose left side may be
+/// NULL, which sqlkit does not track table by table.
 pub fn right_or_full_join?(tokens: List<Token>) -> Bool {
     Iter.any?(tokens, fn t -> {
-        t.kind == Kind.Word and (String.to_upper(t.text) == "RIGHT" or String.to_upper(
-            t.text
-        ) == "FULL")
+        t.kind == Kind.Word
+            and (String.to_upper(t.text) == "RIGHT" or String.to_upper(t.text) == "FULL")
     })
 }
 
@@ -601,9 +595,11 @@ pub fn right_or_full_join?(tokens: List<Token>) -> Bool {
 pub fn name?(word: String) -> Bool {
     first = String.slice(word, 0, 1)
 
-    word != "" and !String.contains?("0123456789", first) and Iter.all?(word, fn c -> {
-        String.contains?("abcdefghijklmnopqrstuvwxyz0123456789_", c)
-    })
+    word != ""
+        and !String.contains?("0123456789", first)
+        and Iter.all?(word, fn c -> {
+            String.contains?("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+        })
 }
 
 /// `s` without `prefix`, or `s` when it does not start with it.
@@ -625,7 +621,7 @@ pub fn listed<T>(m: Maybe<T>) -> List<T> {
 }
 
 /// The line, counting from 0, and the text before it on that line, of
-/// grapheme `index` of `text`: what `Body.span` places a token by.
+/// grapheme `index` of `text`: where a token is in its query file.
 //! assert sqltext.position("ab\ncd", 4) == #(1, "c")
 //
 pub fn position(text: String, index: Int) -> #(Int, String) {

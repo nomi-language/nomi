@@ -1,0 +1,58 @@
+import strain
+
+test "keep integers" {
+    cases: List<#(String, List<Int>, (Int) -> Bool, List<Int>)> = [
+        #("keep on empty list returns empty list", [], fn _x -> True, []),
+        #("keeps everything", [1, 3, 5], fn _x -> True, [1, 3, 5]),
+        #("keeps nothing", [1, 3, 5], fn _x -> False, []),
+        #("keeps first and last", [1, 2, 3], &(&1 % 2 == 1), [1, 3]),
+        #("keeps neither first nor last", [1, 2, 3], &(&1 % 2 == 0), [2]),
+    ]
+
+    subtests cases, #(description, list, predicate, expected), description {
+        assert strain.keep(list, predicate) == expected
+    }
+}
+
+test "keeps strings" {
+    words = ["apple", "zebra", "banana", "zombies", "cherimoya", "zealot"]
+
+    assert strain.keep(words, &String.starts_with?(&1, "z")) == ["zebra", "zombies", "zealot"]
+}
+
+test "keeps lists" {
+    lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
+
+    assert strain.keep(lists, &List.contains?(&1, 5)) == [
+        [5, 5, 5],
+        [5, 1, 2],
+        [1, 5, 2],
+        [1, 2, 5],
+    ]
+}
+
+test "discard integers" {
+    cases: List<#(String, List<Int>, (Int) -> Bool, List<Int>)> = [
+        #("discard on empty list returns empty list", [], fn _x -> True, []),
+        #("discards everything", [1, 3, 5], fn _x -> True, []),
+        #("discards nothing", [1, 3, 5], fn _x -> False, [1, 3, 5]),
+        #("discards first and last", [1, 2, 3], &(&1 % 2 == 1), [2]),
+        #("discards neither first nor last", [1, 2, 3], &(&1 % 2 == 0), [1, 3]),
+    ]
+
+    subtests cases, #(description, list, predicate, expected), description {
+        assert strain.discard(list, predicate) == expected
+    }
+}
+
+test "discards strings" {
+    words = ["apple", "zebra", "banana", "zombies", "cherimoya", "zealot"]
+
+    assert strain.discard(words, &String.starts_with?(&1, "z")) == ["apple", "banana", "cherimoya"]
+}
+
+test "discards lists" {
+    lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
+
+    assert strain.discard(lists, &List.contains?(&1, 5)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
+}

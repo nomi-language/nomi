@@ -30,9 +30,8 @@ test "a bare stdlib error variant renders" {
             assert False
 
         Err(e) ->
-            assert Display.to_string(
-                e
-            ) == "random weights must include at least one positive weight"
+            assert Display.to_string(e)
+                == "random weights must include at least one positive weight"
     }
 }
 
@@ -66,9 +65,8 @@ test "two modules' same-named errors each get their own impl" {
                     assert False
 
                 Err(random_error) -> {
-                    assert Display.to_string(
-                        calendar_error
-                    ) == "invalid format: expected YYYY-MM-DD, got \"05/04/2026\""
+                    assert Display.to_string(calendar_error)
+                        == "invalid format: expected YYYY-MM-DD, got \"05/04/2026\""
 
                     assert Display.to_string(random_error) == "invalid random weight: -1.0"
                     refute Display.to_string(calendar_error) == Display.to_string(random_error)

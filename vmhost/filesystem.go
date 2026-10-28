@@ -3,6 +3,8 @@ package vmhost
 import (
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -151,6 +153,32 @@ type FileInfo struct {
 // in-memory one on js/wasm. An embedder wraps it to give a program the disk
 // with something added, a log of the calls or a refusal of some.
 func DiskFiles() FileSystem { return backendFiles{stdio.Default()} }
+
+// DiskFilesAt is DiskFiles with a relative path under dir, an absolute
+// directory, rather than the process's working directory, and
+// `fs.current_dir()` answering dir. On js/wasm it is DiskFiles.
+func DiskFilesAt(dir string) FileSystem { return backendFiles{stdio.OSAt(dir)} }
+
+// TestDir is the working directory `nomi test` gives the test file at
+// path: its module root, the nearest directory at or above it holding a
+// nomi.toml, or the file's own directory when there is none. A test that
+// reads its module's files by a relative path reads the same files wherever
+// `nomi test` runs.
+func TestDir(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return filepath.Dir(path)
+	}
+	dir := filepath.Dir(abs)
+	for d := dir; ; d = filepath.Dir(d) {
+		if info, err := os.Stat(filepath.Join(d, "nomi.toml")); err == nil && !info.IsDir() {
+			return d
+		}
+		if filepath.Dir(d) == d {
+			return dir
+		}
+	}
+}
 
 // WithFileSystem makes the program's std/fs calls reach files rather than
 // the disk, for every run of the program: DiskFiles, NewMemoryFiles or an

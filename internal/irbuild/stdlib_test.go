@@ -96,6 +96,12 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		"strings.String.Add<String, String>.add":      "operator impl; String `+` is lowered natively as concatenation",
 		"int.Int.Divide<Int, Int>.divide":             "operator impl; `/` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
 
+		// A VM intrinsic the builder lowers by name (irsupervisor.go's
+		// supervisorSpawn). Its signature counts as scalar since shared std
+		// signatures admit a generic std host type at a concrete argument
+		// (its result, `Task<Unit>`; see stdgensig.go's genHostSigKind).
+		"supervisors.Supervisor.spawn": "a VM intrinsic lowered by name; the crossing needs the machine's supervisor, not an rt function",
+
 		// The Decimal operator impls, unbound for the reason the Int ones
 		// are: they lower through scalararith.go's arm, the same operation as
 		// the operator spelling, so a row would be a second path to it.

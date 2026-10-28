@@ -1,0 +1,130 @@
+import zipper.{Tree, Zipper}
+
+/// One canonical operation on a zipper.
+enum Operation {
+    Left
+    Right
+    Up
+    SetValue Int
+    SetLeft Maybe<Tree<Int>>
+    SetRight Maybe<Tree<Int>>
+}
+
+/// A node with no subtrees.
+fn leaf(value: Int) -> Tree<Int> {
+    #{value, left: None, right: None}
+}
+
+/// The tree every canonical case starts from.
+fn initial_tree() -> Tree<Int> {
+    #{value: 1, left: Some(#{value: 2, left: None, right: Some(leaf(3))}), right: Some(leaf(4))}
+}
+
+/// The zipper on the initial tree after each operation in turn, or `None`
+/// once a move finds no node.
+fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
+    start = Some(Zipper.from_tree(initial_tree()))
+
+    Iter.reduce(operations, fn zipper = start, operation -> {
+        Maybe.flat_map(zipper, &apply(&1, operation))
+    })
+}
+
+fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>> {
+    case operation {
+        .Left -> Zipper.left(zipper)
+        .Right -> Zipper.right(zipper)
+        .Up -> Zipper.up(zipper)
+        .SetValue(value) -> Some(Zipper.set_value(zipper, value))
+        .SetLeft(left) -> Some(Zipper.set_left(zipper, left))
+        .SetRight(right) -> Some(Zipper.set_right(zipper, right))
+    }
+}
+
+test "the tree after the operations" {
+    cases: List<#(String, List<Operation>, Tree<Int>)> = [
+        #("data is retained", [], initial_tree()),
+        #("tree from deep focus", [.Left, .Right], initial_tree()),
+        #(
+            "set_value",
+            [.Left, .SetValue(5)],
+            #{
+                value: 1,
+                left: Some(#{value: 5, left: None, right: Some(leaf(3))}),
+                right: Some(leaf(4)),
+            },
+        ),
+        #(
+            "set_value after traversing up",
+            [.Left, .Right, .Up, .SetValue(5)],
+            #{
+                value: 1,
+                left: Some(#{value: 5, left: None, right: Some(leaf(3))}),
+                right: Some(leaf(4)),
+            },
+        ),
+        #(
+            "set_left with leaf",
+            [.Left, .SetLeft(Some(leaf(5)))],
+            #{
+                value: 1,
+                left: Some(#{value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
+                right: Some(leaf(4)),
+            },
+        ),
+        #(
+            "set_right with null",
+            [.Left, .SetRight(None)],
+            #{value: 1, left: Some(leaf(2)), right: Some(leaf(4))},
+        ),
+        #(
+            "set_right with subtree",
+            [.SetRight(Some(#{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
+            #{
+                value: 1,
+                left: Some(#{value: 2, left: None, right: Some(leaf(3))}),
+                right: Some(#{value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
+            },
+        ),
+        #(
+            "set_value on deep focus",
+            [.Left, .Right, .SetValue(5)],
+            #{
+                value: 1,
+                left: Some(#{value: 2, left: None, right: Some(leaf(5))}),
+                right: Some(leaf(4)),
+            },
+        ),
+    ]
+
+    subtests cases, #(description, operations, expected), description {
+        assert follow(operations) |> Maybe.map(Zipper.to_tree) == Some(expected)
+    }
+}
+
+test "the value at the focus" {
+    cases = [
+        #("left, right and value", [Operation.Left, .Right], 3),
+        #("left, right, and up", [.Left, .Up, .Right, .Up, .Left, .Right], 3),
+        #("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
+    ]
+
+    subtests cases, #(description, operations, expected), description {
+        assert follow(operations) |> Maybe.map(Zipper.value) == Some(expected)
+    }
+}
+
+test "no node to move to" {
+    cases = [
+        #("dead end", [Operation.Left, .Left]),
+        #("traversing up from top", [.Up]),
+    ]
+
+    subtests cases, #(description, operations), description {
+        assert follow(operations) == None
+    }
+}
+
+test "different paths to same zipper" {
+    assert follow([.Left, .Up, .Right]) == follow([.Right])
+}

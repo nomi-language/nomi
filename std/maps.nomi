@@ -34,6 +34,15 @@ impl Map<K, V> {
     //
     pub host fn get<K, V>(m: Map<K, V>, key: K) -> Maybe<V>
 
+    /// The value under `key`, which must be present. A missing key traps
+    /// with the key as `Debug` writes it: `key "z" is not in the Map`.
+    /// Use `Map.get` when whether the key is there is data (input, a lookup
+    /// that may miss), and `Map.at` when the program guarantees it, as it
+    /// does for a key it took from the map itself.
+    //! assert Map.at(%{"a" => 1, "b" => 2}, "b") == 2
+    //
+    pub host fn at<K, V>(m: Map<K, V>, key: K) -> V
+
     /// Returns a new map with the key-value pair added or updated.
     //! assert Map.put(%{"a" => 1}, "b", 2) == %{"a" => 1, "b" => 2}
     //! assert Map.put(%{"a" => 1}, "a", 9) == %{"a" => 9}

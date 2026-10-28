@@ -918,8 +918,6 @@ func emitNode(n ast.Node) Doc {
 		return emitExternFunc(v)
 	case *ast.KeywordDecl:
 		return emitKeywordDecl(v)
-	case *ast.MacroDecl:
-		return emitMacroDecl(v)
 	case *ast.ExternType:
 		return emitExternType(v)
 	case *ast.ExternPackage:
@@ -1211,6 +1209,12 @@ func emitInterpolatedExpr(n ast.Node) Doc {
 // what `escapeInterpolationOpeners` does. We do NOT use strconv.Quote here — that would
 // turn newlines into `\n` and defeat the whole purpose of the triple form.
 func emitTripleStringLit(v *ast.StringLit) Doc {
+	// A one-line value that ends in a carriage return keeps the one-line
+	// form, `"""0\r"""`: in the canonical shape the `\r` would end a body
+	// line, and the lexer reads `\r\n` as a line break and drops it.
+	if strings.HasSuffix(v.Value, "\r") && !strings.Contains(v.Value, "\n") {
+		return Text(`"""` + encodeTripleStringContent(v.Value) + `"""`)
+	}
 	body := tripleBodyDoc(encodeTripleStringContent(v.Value))
 	return tripleStringFraming("", body, defaultIndent)
 }
@@ -2142,6 +2146,8 @@ func containsHardLine(d Doc) bool {
 		return containsHardLine(v.d)
 	case docWithIndent:
 		return containsHardLine(v.f(0, unboundedWidth))
+	case docWithColumn:
+		return containsHardLine(v.f(0, 0, unboundedWidth))
 	}
 	return false
 }
@@ -3462,8 +3468,15 @@ func emitPatternNode(n ast.Node) Doc {
 		if v.TailSpread != nil {
 			// A comment is the exception, which no flat form can hold.
 			items := append(append([]ast.Node{}, v.Heads...), v.TailSpread)
+			// A bare rest (`[first, ..]`) is written as the `..` alone.
+			rest := func(d Doc) Doc {
+				if v.BareRest {
+					return Text("..")
+				}
+				return Concat(Text(".."), d)
+			}
 			if elems, cs, ok := patternItems(items); ok {
-				elems[len(elems)-1] = Concat(Text(".."), elems[len(elems)-1])
+				elems[len(elems)-1] = rest(elems[len(elems)-1])
 				return emitCommentedListNoLastComma(open, "]", elems, cs)
 			}
 			parts := make([]Doc, 0, len(v.Heads)*2+4)
@@ -3477,7 +3490,7 @@ func emitPatternNode(n ast.Node) Doc {
 			if len(v.Heads) > 0 {
 				parts = append(parts, Text(", "))
 			}
-			parts = append(parts, Text(".."), emitPattern(v.TailSpread), Text("]"))
+			parts = append(parts, rest(emitPattern(v.TailSpread)), Text("]"))
 			return Concat(parts...)
 		}
 		elems, cs, ok := patternItems(v.Heads)
@@ -3575,15 +3588,127 @@ const (
 // emitBinary writes a binary operation other than a pipe. next is what
 // follows it (emitOperand).
 func emitBinary(v *ast.Binary, next follower) Doc {
+	head, parts, breakable := binaryChain(v, next)
+	// A comment after an operand, before the operator on the next line,
+	// stays there: the operator then starts the next line whatever the
+	// layout.
+	comments := func(part binaryPart) Doc {
+		var ds []Doc
+		for _, c := range part.comments {
+			ds = append(ds, Hidden(Concat(Text(" "), Text(c))))
+		}
+		return Concat(ds...)
+	}
+	inline := head
+	for _, part := range parts {
+		if len(part.comments) > 0 {
+			inline = Concat(inline, comments(part), Nest(defaultIndent, Concat(HardLine(), Text(part.op), Text(" "), part.right)))
+			continue
+		}
+		inline = Concat(inline, Text(" "), Text(part.op), Text(" "), part.right)
+	}
+	if !breakable {
+		return inline
+	}
+	// A comparison or boolean operator may start a line (no expression
+	// starts with one), so an operation too long for its line breaks
+	// before the operator, the right operand one indent in, before it
+	// breaks inside either operand, and a chain of `and`s (or `or`s) breaks
+	// before each of them. That holds only when the first operand fits on
+	// its line: one that breaks anyway (`}) == 3`, a call broken after its
+	// `(`) keeps the operator after its last line. An `and` or `or` chain
+	// breaks before each operator even when an operand spans lines (a
+	// lambda with a block body).
+	var rest Doc = Nil()
+	for _, part := range parts {
+		var sep Doc = Line()
+		if len(part.comments) > 0 {
+			sep = HardLine()
+		}
+		rest = Concat(rest, comments(part), sep, Text(part.op), Text(" "), part.right)
+	}
+	broken := Group(Concat(head, Nest(defaultIndent, rest)))
+	single := !(v.Op == "and" || v.Op == "or")
+	return WithColumn(func(col, indent, width int) Doc {
+		if !fits(head, nil, width-col) {
+			return inline
+		}
+		// A comparison whose right operand spans lines on a line of its
+		// own too (a triple-quoted string, a long literal) keeps the
+		// operator after the first operand, and the right operand breaks
+		// inside its brackets.
+		last := parts[len(parts)-1]
+		if single && !fits(last.right, nil, width-indent-defaultIndent-len(last.op)-1) {
+			return inline
+		}
+		return broken
+	})
+}
+
+// trailingBeforeOperator is the text of each line comment written after
+// operand n, before the operator that follows it on the next line: the
+// trailing trivia of n and of the operands along its right edge. A block or
+// a case writes its trailing trivia inside its braces itself
+// (keepsEndTriviaAsTrailing).
+func trailingBeforeOperator(n ast.Node) []string {
+	var out []string
+	for n != nil {
+		if ht, ok := n.(ast.HasTrivia); ok && !keepsEndTriviaAsTrailing(n) {
+			for _, t := range ht.GetTrailing() {
+				if t.Kind == ast.TriviaComment {
+					out = append(out, t.Text)
+				}
+			}
+		}
+		switch v := n.(type) {
+		case *ast.Binary:
+			n = v.Right
+		case *ast.Unary:
+			n = v.Right
+		default:
+			n = nil
+		}
+	}
+	return out
+}
+
+// binaryPart is an operator and its right operand, as written after the
+// first operand of a chain.
+type binaryPart struct {
+	op    string
+	right Doc
+	// comments are the line comments written before op, after the operand
+	// before it.
+	comments []string
+}
+
+// binaryChain writes v as its first operand and the operators and right
+// operands after it: a left operand that is the same `and` or `or` (`a and b
+// and c`, nested to the left) joins the chain. breakable reports whether the
+// chain may break before its operators: each is a comparison, `and` or `or`
+// (continuesLine), no right operand is a bracketed literal, which breaks
+// inside its brackets instead (`== [`), the first operand is no pipeline,
+// whose last stage the operator follows, and a comparison has no right
+// operand that spans lines.
+func binaryChain(v *ast.Binary, next follower) (Doc, []binaryPart, bool) {
 	p := precedence(v.Op)
+	boolean := v.Op == "and" || v.Op == "or"
 	// Left child: all Nomi binary operators are left-associative (parser
 	// uses prec+1 for the right operand), so a left child at the same
-	// precedence level doesn't need parens.
+	// precedence level needs no parens.
 	leftNext := followsOther
 	if v.Op == "<" {
 		leftNext = followsLess
 	}
-	left := emitOperand(v.Left, p, leftNext)
+	var head Doc
+	var parts []binaryPart
+	breakable := true
+	if lb, ok := v.Left.(*ast.Binary); ok && boolean && lb.Op == v.Op && !hasDangling(lb) {
+		head, parts, breakable = binaryChain(lb, leftNext)
+	} else {
+		head = emitOperand(v.Left, p, leftNext)
+		breakable = !isPipeExpr(v.Left)
+	}
 	// Right child: for left-associative operators, a right child at the
 	// same precedence level DOES need parens to preserve the tree shape
 	// (e.g., `1 - (2 - 3)`).
@@ -3593,7 +3718,41 @@ func emitBinary(v *ast.Binary, next follower) Doc {
 	} else {
 		right = emitOperand(v.Right, p, next)
 	}
-	return Concat(left, Text(" "), Text(v.Op), Text(" "), right)
+	breakable = breakable && continuesLine(v.Op) && !opensBracket(v.Right)
+	var comments []string
+	if continuesLine(v.Op) {
+		// Only these operators can follow a line break, and so a comment.
+		comments = trailingBeforeOperator(v.Left)
+	}
+	return head, append(parts, binaryPart{op: v.Op, right: right, comments: comments}), breakable
+}
+
+// hasDangling reports whether n carries comments of its own, which
+// withDangling writes around it.
+func hasDangling(n ast.Node) bool {
+	h, ok := n.(ast.HasDangling)
+	return ok && (len(h.GetDanglingBefore()) > 0 || len(h.GetDanglingAfter()) > 0)
+}
+
+// opensBracket reports whether n is a literal written in brackets or braces
+// (a list, vector, set, map, tuple or struct literal), which breaks inside
+// them when it is too long.
+func opensBracket(n ast.Node) bool {
+	switch n.(type) {
+	case *ast.ListLit, *ast.ListSpreadLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit, *ast.TupleLit, *ast.StructLit:
+		return true
+	}
+	return false
+}
+
+// continuesLine reports whether op may start a continuation line: a
+// comparison or boolean operator, which no expression starts with.
+func continuesLine(op string) bool {
+	switch op {
+	case "==", "!=", "<", "<=", ">", ">=", "and", "or":
+		return true
+	}
+	return false
 }
 
 // emitUnary writes a unary operation. Unary binds tighter than any binary,
@@ -5322,14 +5481,14 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 }
 
 // emitKeywordDecl renders a keyword declaration by the general rule
-// `[pub] [module.]keyword name [(params)] [-> type] [[Tag]raw body]`,
+// `[pub] keyword name [(params)] [-> type] [[Tag]raw body]`,
 // writing each part that was written.
 func emitKeywordDecl(v *ast.KeywordDecl) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, nil)
 	if v.Public {
 		parts = append(parts, Text("pub "))
 	}
-	parts = append(parts, Text(v.QualifiedKeyword()+" "+v.Name))
+	parts = append(parts, Text(v.Keyword+" "+v.Name))
 	if v.HasParams {
 		paramDocs := make([]Doc, 0, len(v.Params))
 		for _, p := range v.Params {
@@ -5343,16 +5502,6 @@ func emitKeywordDecl(v *ast.KeywordDecl) Doc {
 	if v.Body != nil {
 		parts = append(parts, Text(" "+v.BodyTag), emit(v.Body))
 	}
-	return Concat(parts...)
-}
-
-// emitMacroDecl renders `[pub] macro name: Type`.
-func emitMacroDecl(v *ast.MacroDecl) Doc {
-	parts := emitDocBeforeAttachedTests(v.Doc, nil)
-	if v.Public {
-		parts = append(parts, Text("pub "))
-	}
-	parts = append(parts, Text("macro "+v.Name+": "), emitTypeExpr(v.Impl))
 	return Concat(parts...)
 }
 

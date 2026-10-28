@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -98,7 +99,9 @@ func (g *gen) irHostCrossingBody(ef *ast.ExternFunc, sh *irFuncShell, result kin
 		args = append(args, p.Temp)
 	}
 	at := g.irNodePos(hostShellOf(ef))
-	binding := g.irCalleeSym(irHostBinding{ef}, key)
+	// A project's crossing is named apart from every std row's
+	// (hostadapt.ProjectName): its key may equal one.
+	binding := g.irCalleeSym(irHostBinding{ef}, hostadapt.ProjectName(key))
 	call := ir.NewHostCall(at, sh.fn.NewTemp(), ir.OrdinaryCall, binding, args...)
 	g.irTypeTemp(sh.fn, call.Dst(), result)
 	sh.entry.Append(call)

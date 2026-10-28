@@ -7,7 +7,6 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/stdcache"
 	"github.com/nomi-language/nomi/std"
-	"github.com/nomi-language/nomi/vmhost"
 	"path/filepath"
 	"sync"
 
@@ -26,8 +25,6 @@ var version = "0.1.0"
 type Server struct {
 	handler protocol.Handler
 	docs    *analysis.DocumentManager
-	// tools are the macro tool runs quick fixes offered (macro_tools.go).
-	tools   macroTools
 	wrapper *handlerWrapper
 	std     *std.StdLib
 	// stdNav, when set, chooses where navigation into std lands in place of
@@ -91,9 +88,6 @@ func NewServer() *Server {
 	s := &Server{
 		docs: analysis.NewDocumentManager(),
 	}
-	// Macros run on the VM, in the sandbox a typed literal's handler
-	// runs in.
-	s.docs.Macros = vmhost.Macros()
 	s.startBackground()
 
 	// The process's one stdlib analysis, the one the front end and the IR
@@ -145,7 +139,6 @@ func NewServer() *Server {
 		WorkspaceDidChangeConfiguration:  s.workspaceDidChangeConfiguration,
 		WorkspaceSymbol:                  s.workspaceSymbol,
 		WorkspaceWillRenameFiles:         s.workspaceWillRenameFiles,
-		WorkspaceExecuteCommand:          s.workspaceExecuteCommand,
 	}
 
 	s.wrapper = &handlerWrapper{inner: &s.handler, server: s}
@@ -226,10 +219,6 @@ func (s *Server) initialize(ctx *glsp.Context, params *protocol.InitializeParams
 
 	capabilities.RenameProvider = protocol.RenameOptions{PrepareProvider: boolPtr(true)}
 
-	// A macro's quick fix may run one of its module's tools
-	// (macro_tools.go).
-	capabilities.ExecuteCommandProvider = &protocol.ExecuteCommandOptions{Commands: []string{runToolCommand}}
-
 	// A rename or move of a .nomi file or a folder updates its imports
 	// (file_rename.go).
 	capabilities.Workspace.FileOperations.WillRename.Filters = fileRenameFilters()
@@ -270,10 +259,6 @@ func (s *Server) initialized(ctx *glsp.Context, params *protocol.InitializedPara
 						Watchers: []protocol.FileSystemWatcher{
 							{GlobPattern: "**/*.nomi"},
 							{GlobPattern: "**/*.toml"},
-							// The data files macros commonly read; an
-							// input of another kind is read again at the
-							// next analysis that reaches it.
-							{GlobPattern: "**/*.{csv,tsv,json,sql,proto,graphql,yaml,yml,txt}"},
 							{GlobPattern: "**/*.go"},
 							{GlobPattern: "**/go.mod"},
 							{GlobPattern: "**/go.sum"},
@@ -508,7 +493,6 @@ func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *proto
 		if !isNomiURI(uri) {
 			continue
 		}
-		s.watchedNomiInput(uri)
 
 		switch event.Type {
 		case protocol.FileChangeTypeCreated:

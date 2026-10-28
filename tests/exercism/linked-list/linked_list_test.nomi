@@ -1,0 +1,160 @@
+import linked_list.LinkedList
+
+/// One canonical operation and what it should answer: a push or an unshift,
+/// a pop or a shift of a given value or one that finds the list empty, a
+/// count, a delete.
+enum Step {
+    Push Int
+    Pop Int
+    PopFails
+    Shift Int
+    ShiftFails
+    Unshift Int
+    Count Int
+    Delete Int
+}
+
+derive Equatable for Step
+
+/// Runs each step's operation on an empty list, in turn, and answers the
+/// steps as they happened. A list that does what every step says answers the
+/// steps it was given.
+fn replay(steps: List<Step>) -> List<Step> {
+    #(happened, _list) =
+        steps
+        |> Iter.map_reduce(fn list = LinkedList.new(), step -> {
+            case step {
+                .Push(value) ->
+                    #(Step.Push(value), LinkedList.push(list, value))
+
+                .Unshift(value) ->
+                    #(Step.Unshift(value), LinkedList.unshift(list, value))
+
+                .Pop(_) or .PopFails -> {
+                    case LinkedList.pop(list) {
+                        Some(#(value, rest)) -> #(Step.Pop(value), rest)
+                        None -> #(Step.PopFails, list)
+                    }
+                }
+
+                .Shift(_) or .ShiftFails -> {
+                    case LinkedList.shift(list) {
+                        Some(#(value, rest)) -> #(Step.Shift(value), rest)
+                        None -> #(Step.ShiftFails, list)
+                    }
+                }
+
+                .Count(_) ->
+                    #(Step.Count(Iter.count(list)), list)
+
+                .Delete(value) ->
+                    #(Step.Delete(value), LinkedList.delete(list, value))
+            }
+        })
+
+    happened
+}
+
+test "linked list" {
+    cases = [
+        #("pop gets element from the list", [Step.Push(7), .Pop(7)]),
+        #(
+            "push/pop respectively add/remove at the end of the list",
+            [.Push(11), .Push(13), .Pop(13), .Pop(11)],
+        ),
+        #("shift gets an element from the list", [.Push(17), .Shift(17)]),
+        #("shift gets first element from the list", [.Push(23), .Push(5), .Shift(23), .Shift(5)]),
+        #(
+            "unshift adds element at start of the list",
+            [.Unshift(23), .Unshift(5), .Shift(5), .Shift(23)],
+        ),
+        #(
+            "pop, push, shift, and unshift can be used in any order",
+            [
+                .Push(1),
+                .Push(2),
+                .Pop(2),
+                .Push(3),
+                .Shift(1),
+                .Unshift(4),
+                .Push(5),
+                .Shift(4),
+                .Pop(5),
+                .Shift(3),
+            ],
+        ),
+        #("count an empty list", [.Count(0)]),
+        #("count a list with items", [.Push(37), .Push(1), .Count(2)]),
+        #(
+            "count is correct after mutation",
+            [
+                .Push(31),
+                .Count(1),
+                .Unshift(43),
+                .Count(2),
+                .Shift(43),
+                .Count(1),
+                .Pop(31),
+                .Count(0),
+            ],
+        ),
+        #(
+            "popping to empty doesn't break the list",
+            [.Push(41), .Push(59), .Pop(59), .Pop(41), .Push(47), .Count(1), .Pop(47)],
+        ),
+        #(
+            "shifting to empty doesn't break the list",
+            [.Push(41), .Push(59), .Shift(41), .Shift(59), .Push(47), .Count(1), .Shift(47)],
+        ),
+        #("deletes the only element", [.Push(61), .Delete(61), .Count(0)]),
+        #(
+            "deletes the element with the specified value from the list",
+            [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Pop(79), .Shift(71)],
+        ),
+        #(
+            "deletes the element with the specified value from the list, re-assigns tail",
+            [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Pop(79), .Pop(71)],
+        ),
+        #(
+            "deletes the element with the specified value from the list, re-assigns head",
+            [.Push(71), .Push(83), .Push(79), .Delete(83), .Count(2), .Shift(71), .Shift(79)],
+        ),
+        #(
+            "deletes the first of two elements",
+            [.Push(97), .Push(101), .Delete(97), .Count(1), .Pop(101)],
+        ),
+        #(
+            "deletes the second of two elements",
+            [.Push(97), .Push(101), .Delete(101), .Count(1), .Pop(97)],
+        ),
+        #(
+            "delete does not modify the list if the element is not found",
+            [.Push(89), .Delete(103), .Count(1)],
+        ),
+        #(
+            "deletes only the first occurrence",
+            [
+                .Push(73),
+                .Push(9),
+                .Push(9),
+                .Push(107),
+                .Delete(9),
+                .Count(3),
+                .Pop(107),
+                .Pop(9),
+                .Pop(73),
+            ],
+        ),
+    ]
+
+    subtests cases, #(description, steps), description {
+        assert replay(steps) == steps
+    }
+}
+
+// Not canonical: the canonical cases never pop or shift an empty list.
+test "pop and shift on an empty list find nothing" {
+    steps = [Step.PopFails, .ShiftFails, .Push(1), .Shift(1), .PopFails]
+
+    assert replay(steps) == steps
+}

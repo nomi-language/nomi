@@ -1,0 +1,77 @@
+/// Where a valid game stands.
+pub enum State {
+    Win
+    Draw
+    Ongoing
+}
+
+/// Why a board cannot come from a game played by the rules.
+pub enum Error {
+    XWentTwice
+    OStarted
+    PlayedAfterWin
+}
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .XWentTwice -> "Wrong turn order: X went twice"
+            .OStarted -> "Wrong turn order: O started"
+            .PlayedAfterWin -> "Impossible board: game should have ended after the game was won"
+        }
+    }
+}
+
+/// The positions of the eight lines that win, in a board read row by row:
+/// three rows, three columns and two diagonals.
+once lines = [
+    #[0, 1, 2],
+    #[3, 4, 5],
+    #[6, 7, 8],
+    #[0, 3, 6],
+    #[1, 4, 7],
+    #[2, 5, 8],
+    #[0, 4, 8],
+    #[2, 4, 6],
+]
+
+/// The state of the game on `board`, three rows of three cells, each `X`,
+/// `O` or a space. X plays first, and the game stops at the first line of
+/// three.
+pub fn gamestate(board: List<String>) -> Result<State, Error> {
+    cells =
+        board
+        |> Iter.flat_map(String.to_codepoints)
+        |> Iter.to_vector()
+
+    xs = marks(cells, 'X')
+    os = marks(cells, 'O')
+    x_won = won?(cells, 'X')
+    o_won = won?(cells, 'O')
+
+    if os > xs {
+        Err(.OStarted)
+    } else if xs > os + 1 {
+        Err(.XWentTwice)
+    } else if x_won and (o_won or xs == os) or o_won and xs > os {
+        Err(.PlayedAfterWin)
+    } else if x_won or o_won {
+        Ok(.Win)
+    } else if xs + os == 9 {
+        Ok(.Draw)
+    } else {
+        Ok(.Ongoing)
+    }
+}
+
+/// How many cells hold `mark`.
+fn marks(cells: Vector<Codepoint>, mark: Codepoint) -> Int {
+    cells
+    |> Iter.filter(&(&1 == mark))
+    |> Iter.count()
+}
+
+/// Whether `mark` fills one of the lines.
+fn won?(cells: Vector<Codepoint>, mark: Codepoint) -> Bool {
+    Iter.any?(lines, fn line -> Iter.all?(line, &(Vector.at(cells, &1) == mark)))
+}

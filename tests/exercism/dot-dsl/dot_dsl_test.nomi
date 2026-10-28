@@ -1,0 +1,230 @@
+import {
+    dot_dsl
+    dot_dsl.Graph
+}
+
+test "parse" {
+    cases: List<#(String, String, Graph)> = [
+        #(
+            "empty graph",
+            """
+                graph {
+                }
+                """,
+            #{nodes: %{}, edges: %{}, attrs: %{}},
+        ),
+        #(
+            "graph with one node",
+            """
+                graph {
+                    a;
+                }
+                """,
+            #{
+                nodes: %{"a" => %{}},
+                edges: %{},
+                attrs: %{},
+            },
+        ),
+        #(
+            "graph with one node with attribute",
+            """
+                graph {
+                    a [color=green];
+                }
+                """,
+            #{
+                nodes: %{"a" => %{"color" => .Text("green")}},
+                edges: %{},
+                attrs: %{},
+            },
+        ),
+        #(
+            "graph with one edge",
+            """
+                graph {
+                    a -- b;
+                }
+                """,
+            #{
+                nodes: %{"a" => %{}, "b" => %{}},
+                edges: %{#("a", "b") => %{}},
+                attrs: %{},
+            },
+        ),
+        #(
+            "graph with one attribute",
+            """
+                graph {
+                    [foo=1];
+                }
+                """,
+            #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+        ),
+        #(
+            "graph with comments",
+            """
+                graph {
+                    // a C-like comment
+                    # a shell-like comment
+                    [foo=1];
+                }
+                """,
+            #{nodes: %{}, edges: %{}, attrs: %{"foo" => .Number(1)}},
+        ),
+        #(
+            "graph with nodes, edges, and attributes",
+            """
+                graph {
+                    [foo=1];
+                    [title="Testing Attrs"];
+                    a [color=green];
+                    b [label="Beta!"];
+                    b -- c;
+                    a -- b [color=blue];
+                    [bar=true];
+                }
+                """,
+            #{
+                nodes: %{
+                    "a" => %{"color" => .Text("green")},
+                    "b" => %{"label" => .Text("Beta!")},
+                    "c" => %{},
+                },
+                edges: %{#("a", "b") => %{"color" => .Text("blue")}, #("b", "c") => %{}},
+                attrs: %{
+                    "foo" => .Number(1),
+                    "title" => .Text("Testing Attrs"),
+                    "bar" => .Flag(True),
+                },
+            },
+        ),
+        #(
+            "multiple edges on one line",
+            """
+                graph {
+                    a -- b -- c -- d [style=dotted];
+                }
+                """,
+            #{
+                nodes: %{"a" => %{}, "b" => %{}, "c" => %{}, "d" => %{}},
+                edges: %{
+                    #("a", "b") => %{"style" => .Text("dotted")},
+                    #("b", "c") => %{"style" => .Text("dotted")},
+                    #("c", "d") => %{"style" => .Text("dotted")},
+                },
+                attrs: %{},
+            },
+        ),
+        #(
+            "only 1 edge between nodes",
+            """
+                graph {
+                    a -- b;
+                    a -- b;
+                    b -- a [color=blue];
+                }
+                """,
+            #{
+                nodes: %{"a" => %{}, "b" => %{}},
+                edges: %{#("a", "b") => %{"color" => .Text("blue")}},
+                attrs: %{},
+            },
+        ),
+    ]
+
+    subtests cases, #(description, text, expected), description {
+        assert dot_dsl.parse(text) == Ok(expected)
+    }
+}
+
+test "parse errors" {
+    cases: List<#(String, String, String)> = [
+        #(
+            "malformed input",
+            """
+                graphical {
+                }
+                """,
+            "invalid graph",
+        ),
+        #(
+            "malformed edge",
+            """
+                graph {
+                    a --;
+                }
+                """,
+            "invalid edge",
+        ),
+        #(
+            "malformed edge 2",
+            """
+                graph {
+                    a b;
+                }
+                """,
+            "invalid edge",
+        ),
+        #("invalid edge type", "graph {\n    a == b;\n} ", "invalid edge"),
+        #(
+            "multiple edges missing a node",
+            """
+                graph {
+                    a -- b --;
+                }
+                """,
+            "invalid edge",
+        ),
+        #(
+            "multiple edges missing a connector",
+            """
+                graph {
+                    a -- b c;
+                }
+                """,
+            "invalid edge",
+        ),
+        #(
+            "empty attribute",
+            """
+                graph {
+                    a [];
+                }
+                """,
+            "invalid attribute",
+        ),
+        #(
+            "malformed attribute",
+            """
+                graph {
+                    a [name];
+                }
+                """,
+            "invalid attribute",
+        ),
+        #(
+            "empty attribute name",
+            """
+                graph {
+                    a [=value];
+                }
+                """,
+            "invalid attribute",
+        ),
+        #(
+            "non-alphanumeric node name",
+            """
+                graph {
+                    ? [key=value];
+                }
+                """,
+            "node name must be alphanumeric",
+        ),
+    ]
+
+    subtests cases, #(description, text, expected), description {
+        assert Err(error) = dot_dsl.parse(text)
+        assert "${error}" == expected
+    }
+}

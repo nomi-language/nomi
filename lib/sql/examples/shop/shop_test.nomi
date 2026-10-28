@@ -55,9 +55,8 @@ group "the shop" {
         assert "${total}" == "12.50"
         assert shipped_on == None
 
-        assert queries.order(db, id + 1) == Err(
-            #sql.Error.RowCount{query: "order", expected: "exactly one", found: 0}
-        )
+        assert queries.order(db, id + 1)
+            == Err(#sql.Error.RowCount{query: "order", expected: "exactly one", found: 0})
     }
 
     test "a failed sign-up leaves nothing behind", db {
@@ -107,13 +106,13 @@ group "the shop" {
         assert revenue |> Iter.map(fn r -> "${r.revenue}") |> Iter.to_list() == ["12.50", "1.00"]
 
         assert revenue == [
-            #queries.CustomerRevenue{
+            #shop.CustomerRevenue{
                 user_id: ada,
                 email: "ada@example.com",
                 order_count: 2,
                 revenue: 12.50d,
             },
-            #queries.CustomerRevenue{
+            #shop.CustomerRevenue{
                 user_id: grace,
                 email: "grace@example.com",
                 order_count: 1,

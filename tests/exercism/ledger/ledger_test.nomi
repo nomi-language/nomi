@@ -1,0 +1,169 @@
+import {
+    std/calendar.Date
+    std/currency.Currency
+    ledger.{self, Entry, Style}
+}
+
+test "ledger" {
+    cases: List<#(String, Currency, Style, List<Entry>, List<String>)> = [
+        #(
+            "empty ledger",
+            Currency`USD`,
+            Style.American,
+            [],
+            [
+                "Date       | Description               | Change       ",
+            ],
+        ),
+        #(
+            "one entry",
+            Currency`USD`,
+            .American,
+            [
+                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Buy present               |      ($10.00)",
+            ],
+        ),
+        #(
+            "credit and debit",
+            Currency`USD`,
+            .American,
+            [
+                #{date: Date`2015-01-02`, description: "Get present", cents: 1000},
+                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Buy present               |      ($10.00)",
+                "01/02/2015 | Get present               |       $10.00 ",
+            ],
+        ),
+        #(
+            "multiple entries on same date ordered by description, as first written",
+            Currency`USD`,
+            .American,
+            [
+                #{date: Date`2015-01-02`, description: "Get present", cents: 1000},
+                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Buy present               |      ($10.00)",
+                "01/02/2015 | Get present               |       $10.00 ",
+            ],
+        ),
+        #(
+            "final order tie breaker is change",
+            Currency`USD`,
+            .American,
+            [
+                #{date: Date`2015-01-01`, description: "Something", cents: 0},
+                #{date: Date`2015-01-01`, description: "Something", cents: -1},
+                #{date: Date`2015-01-01`, description: "Something", cents: 1},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Something                 |       ($0.01)",
+                "01/01/2015 | Something                 |        $0.00 ",
+                "01/01/2015 | Something                 |        $0.01 ",
+            ],
+        ),
+        #(
+            "overlong description is truncated",
+            Currency`USD`,
+            .American,
+            [
+                #{
+                    date: Date`2015-01-01`,
+                    description: "Freude schoner Gotterfunken",
+                    cents: -123456,
+                },
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Freude schoner Gotterf... |   ($1,234.56)",
+            ],
+        ),
+        #(
+            "euros",
+            Currency`EUR`,
+            .American,
+            [
+                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Buy present               |      (€10.00)",
+            ],
+        ),
+        #(
+            "Dutch locale",
+            Currency`USD`,
+            .Dutch,
+            [
+                #{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+            ],
+            [
+                "Datum      | Omschrijving              | Verandering  ",
+                "12-03-2015 | Buy present               |   $ 1.234,56 ",
+            ],
+        ),
+        #(
+            "Dutch locale and euros",
+            Currency`EUR`,
+            .Dutch,
+            [
+                #{date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+            ],
+            [
+                "Datum      | Omschrijving              | Verandering  ",
+                "12-03-2015 | Buy present               |   € 1.234,56 ",
+            ],
+        ),
+        #(
+            "Dutch negative number with 3 digits before decimal point",
+            Currency`USD`,
+            .Dutch,
+            [
+                #{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+            ],
+            [
+                "Datum      | Omschrijving              | Verandering  ",
+                "12-03-2015 | Buy present               |    $ -123,45 ",
+            ],
+        ),
+        #(
+            "American negative number with 3 digits before decimal point",
+            Currency`USD`,
+            .American,
+            [
+                #{date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "03/12/2015 | Buy present               |     ($123.45)",
+            ],
+        ),
+        #(
+            "multiple entries on same date ordered by description",
+            Currency`USD`,
+            .American,
+            [
+                #{date: Date`2015-01-01`, description: "Get present", cents: 1000},
+                #{date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+            ],
+            [
+                "Date       | Description               | Change       ",
+                "01/01/2015 | Buy present               |      ($10.00)",
+                "01/01/2015 | Get present               |       $10.00 ",
+            ],
+        ),
+    ]
+
+    subtests cases, #(description, currency, style, entries, expected), description {
+        assert ledger.format_entries(currency, style, entries) == expected
+    }
+}

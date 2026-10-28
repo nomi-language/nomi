@@ -12,7 +12,7 @@
 -> exceptionInfo {"threadId":1}
 <- response exceptionInfo {"breakMode":"always","description":"line 5: integer overflow: 0 - -9223372036854775808","details":{"message":"line 5: integer overflow: 0 - -9223372036854775808","typeName":"Trap"},"exceptionId":"trap"}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":20,"id":1,"line":188,"name":"abs","presentationHint":"subtle","source":{"name":"int.nomi","path":"$STD/int.nomi","presentationHint":"deemphasize"}},{"column":24,"id":2,"line":5,"name":"main","source":{"name":"stdtrap.nomi","path":"$TESTDATA/stdtrap.nomi"}}],"totalFrames":2}
+<- response stackTrace {"stackFrames":[{"column":20,"id":1,"line":213,"name":"abs","presentationHint":"subtle","source":{"name":"int.nomi","path":"$STD/int.nomi","presentationHint":"deemphasize"}},{"column":24,"id":2,"line":5,"name":"main","source":{"name":"stdtrap.nomi","path":"$TESTDATA/stdtrap.nomi"}}],"totalFrames":2}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stderr","output":"line 5: integer overflow: 0 - -9223372036854775808\n"}

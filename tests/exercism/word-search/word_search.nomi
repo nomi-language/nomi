@@ -1,0 +1,67 @@
+/// A letter's place in the puzzle, counted from 1 at the top left.
+pub struct Position {
+    column: Int
+    row: Int
+}
+
+/// Where a word lies: its first letter and its last.
+pub struct Span {
+    start: Position
+    end: Position
+}
+
+/// The eight directions a word may run in, as a step in rows and a step in
+/// columns.
+once directions = [#(0, 1), #(0, -1), #(1, 0), #(-1, 0), #(1, 1), #(-1, -1), #(1, -1), #(-1, 1)]
+
+/// Where each of `words` lies in the rows of `grid`, or `None` for a word
+/// that is not there.
+pub fn search(grid: List<String>, words: List<String>) -> Map<String, Maybe<Span>> {
+    letters =
+        grid
+        |> Iter.map(Iter.to_vector)
+        |> Iter.to_vector()
+
+    words
+    |> Iter.map(fn word -> #(word, find(letters, word)))
+    |> Iter.to_map()
+}
+
+/// Where `word` lies in `letters`: the first cell and direction from which
+/// its letters read in order.
+fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
+    spelling = Iter.to_list(word)
+    last = Iter.count(spelling) - 1
+
+    letters
+    |> Iter.with_index()
+    |> Iter.flat_map(fn #(row, line) -> Iter.map(0..Vector.length(line), &#(row, &1)))
+    |> Iter.flat_map(fn cell -> Iter.map(directions, &#(cell, &1)))
+    |> Iter.find(fn #(cell, step) -> reads?(letters, spelling, cell, step))
+    |> Maybe.map(fn #(#(row, column), #(down, across)) -> {
+        #Span{
+            start: #{column: column + 1, row: row + 1},
+            end: #{column: column + 1 + across * last, row: row + 1 + down * last},
+        }
+    })
+}
+
+/// Whether `spelling` reads from the cell at `row` and `column`, stepping
+/// `down` rows and `across` columns between letters, without leaving the
+/// grid.
+fn reads?(
+    letters: Vector<Vector<String>>,
+    spelling: List<String>,
+    #(row, column): #(Int, Int),
+    #(down, across): #(Int, Int),
+) -> Bool {
+    spelling
+    |> Iter.with_index()
+    |> Iter.all?(fn #(i, letter) -> {
+        letter_at(letters, row + down * i, column + across * i) == Some(letter)
+    })
+}
+
+fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String> {
+    letters |> Vector.get(row) |> Maybe.flat_map(&Vector.get(&1, column))
+}

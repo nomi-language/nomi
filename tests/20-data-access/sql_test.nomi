@@ -91,9 +91,8 @@ test "a row reads every std type, and Maybe of each" {
     assert Row.get<Json>(row, "doc") == Ok(Json.Null)
     assert Row.get<Maybe<Decimal>>(row, "gone") == Ok(None)
 
-    assert Row.get<Decimal>(row, "gone") == Err(
-        #sql.Error.UnexpectedNull{query: "SELECT *", column: "gone"}
-    )
+    assert Row.get<Decimal>(row, "gone")
+        == Err(#sql.Error.UnexpectedNull{query: "SELECT *", column: "gone"})
 }
 
 test "a statement is a value: equal when its parts and parameters are" {
@@ -101,9 +100,8 @@ test "a statement is a value: equal when its parts and parameters are" {
     assert Sql"SELECT ${1}" != Sql"SELECT ${2}"
     assert Sql"SELECT ${1}" == #Statement{parts: ["SELECT ", ""], params: [Value.Int(1)]}
 
-    assert Debug.inspect(
-        Sql"SELECT ${1}"
-    ) == "#Statement{parts: [\"SELECT \", \"\"], params: [Int(1)]}"
+    assert Debug.inspect(Sql"SELECT ${1}")
+        == "#Statement{parts: [\"SELECT \", \"\"], params: [Int(1)]}"
 }
 
 // to_sql then from_sql answers the value it started with.
@@ -138,9 +136,8 @@ test "each std type becomes its own Value variant" {
     assert ToSql.to_sql(Date`2026-10-19`) == Value.Date(Date`2026-10-19`)
     assert ToSql.to_sql(Time`09:30:00`) == Value.Time(Time`09:30:00`)
 
-    assert ToSql.to_sql(NaiveDateTime`2026-10-19T09:30:00`) == Value.Timestamp(
-        NaiveDateTime`2026-10-19T09:30:00`
-    )
+    assert ToSql.to_sql(NaiveDateTime`2026-10-19T09:30:00`)
+        == Value.Timestamp(NaiveDateTime`2026-10-19T09:30:00`)
 
     assert ToSql.to_sql(Instant.from_seconds(5)) == Value.Timestamptz(Instant.from_seconds(5))
     assert ToSql.to_sql(Uuid.nil()) == Value.Uuid(Uuid.nil())
@@ -199,39 +196,33 @@ test "a missing column and a position past the end are typed errors" {
     assert Row.get<Int>(row, "age") == Err(#sql.Error.MissingColumn{query, column: "age"})
     assert Row.value(row, "Name") == Err(#sql.Error.MissingColumn{query, column: "Name"})
 
-    assert Row.get_position<Int>(row, 3) == Err(
-        #sql.Error.ColumnPosition{query, position: 3, count: 3}
-    )
+    assert Row.get_position<Int>(row, 3)
+        == Err(#sql.Error.ColumnPosition{query, position: 3, count: 3})
 
-    assert Row.value_position(row, -1) == Err(
-        #sql.Error.ColumnPosition{query, position: -1, count: 3}
-    )
+    assert Row.value_position(row, -1)
+        == Err(#sql.Error.ColumnPosition{query, position: -1, count: 3})
 }
 
 test "a value of the wrong type is a Decode error naming the column and both types" {
     row = user_row()
     query = "SELECT id, name, nickname FROM users"
 
-    assert Row.get<Int>(row, "name") == Err(
-        #sql.Error.Decode{query, column: "name", expected: "Int", found: "Text"}
-    )
+    assert Row.get<Int>(row, "name")
+        == Err(#sql.Error.Decode{query, column: "name", expected: "Int", found: "Text"})
 
-    assert Row.get_position<Bool>(row, 0) == Err(
-        #sql.Error.Decode{query, column: "id", expected: "Bool", found: "Int"}
-    )
+    assert Row.get_position<Bool>(row, 0)
+        == Err(#sql.Error.Decode{query, column: "id", expected: "Bool", found: "Int"})
 }
 
 test "NULL read as a type that cannot hold it is UnexpectedNull" {
     row = user_row()
     query = "SELECT id, name, nickname FROM users"
 
-    assert Row.get<String>(row, "nickname") == Err(
-        #sql.Error.UnexpectedNull{query, column: "nickname"}
-    )
+    assert Row.get<String>(row, "nickname")
+        == Err(#sql.Error.UnexpectedNull{query, column: "nickname"})
 
-    assert Row.get_position<String>(row, 2) == Err(
-        #sql.Error.UnexpectedNull{query, column: "nickname"}
-    )
+    assert Row.get_position<String>(row, 2)
+        == Err(#sql.Error.UnexpectedNull{query, column: "nickname"})
 }
 
 test "a constraint error keeps the constraint's name" {

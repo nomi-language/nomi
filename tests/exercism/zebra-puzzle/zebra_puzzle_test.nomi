@@ -1,0 +1,9 @@
+import zebra_puzzle.{self, Nationality}
+
+test "resident who drinks water" {
+    assert zebra_puzzle.drinks_water() == Nationality.Norwegian
+}
+
+test "resident who owns zebra" {
+    assert zebra_puzzle.owns_zebra() == Nationality.Japanese
+}

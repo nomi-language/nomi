@@ -910,8 +910,7 @@ func tourModule1Names() []string {
 	return []string{
 		"remove_all",
 		"temp_dir",
-		"tools/prepare.config_text",
-		"tools/prepare.list_files",
+		"tools/generate.config_text",
 	}
 }
 
@@ -927,10 +926,9 @@ func tourModule1Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		return nil, err
 	}
 	return map[string]hostadapt.Func{
-		"remove_all":                b.fn1,
-		"temp_dir":                  b.fn3,
-		"tools/prepare.config_text": b.fn5,
-		"tools/prepare.list_files":  b.fn6,
+		"remove_all":                 b.fn1,
+		"temp_dir":                   b.fn3,
+		"tools/generate.config_text": b.fn5,
 	}, nil
 }
 
@@ -990,15 +988,15 @@ func (b *tourModule1Bound) fn3(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	return ok, nil
 }
 
-// fn5 adapts tools/prepare.config_text: config_text(root: String) -> Result<String, String>
+// fn5 adapts tools/generate.config_text: config_text(root: String) -> Result<String, String>
 func (b *tourModule1Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("tools/prepare.config_text", &err)
+	defer hostadapt.Recover("tools/generate.config_text", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("tools/prepare.config_text", 1, len(args))
+		return nil, hostadapt.Arity("tools/generate.config_text", 1, len(args))
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("tools/prepare.config_text", 0, err)
+		return nil, hostadapt.Arg("tools/generate.config_text", 0, err)
 	}
 	r0, e := toolside.Config(a0)
 	if e != nil {
@@ -1012,52 +1010,6 @@ func (b *tourModule1Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	ok := b.d1.NewVariant(0)
 	ok.S[0] = v0.(string)
-	return ok, nil
-}
-
-// out7 builds a List<String> from Go []string.
-func (b *tourModule1Bound) out7(v []string) (rt.Value, error) {
-	var xs *rt.List[any]
-	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out4(v[i])
-		if err != nil {
-			return nil, fmt.Errorf("index %d: %w", i, err)
-		}
-		xs = rt.Cons[any](x, xs)
-	}
-	return xs, nil
-}
-
-// fn6 adapts tools/prepare.list_files: list_files(root: String, dir: String, suffix: String) -> Result<List<String>, String>
-func (b *tourModule1Bound) fn6(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("tools/prepare.list_files", &err)
-	if len(args) != 3 {
-		return nil, hostadapt.Arity("tools/prepare.list_files", 3, len(args))
-	}
-	a0, err := b.in2(fr, args[0])
-	if err != nil {
-		return nil, hostadapt.Arg("tools/prepare.list_files", 0, err)
-	}
-	a1, err := b.in2(fr, args[1])
-	if err != nil {
-		return nil, hostadapt.Arg("tools/prepare.list_files", 1, err)
-	}
-	a2, err := b.in2(fr, args[2])
-	if err != nil {
-		return nil, hostadapt.Arg("tools/prepare.list_files", 2, err)
-	}
-	r0, e := toolside.Files(a0, a1, a2)
-	if e != nil {
-		rec := b.d0.NewVariant(1)
-		rec.S[0] = e.Error()
-		return rec, nil
-	}
-	v0, err := b.out7(r0)
-	if err != nil {
-		return nil, err
-	}
-	ok := b.d0.NewVariant(0)
-	ok.R[0] = v0
 	return ok, nil
 }
 

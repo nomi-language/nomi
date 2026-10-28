@@ -1,0 +1,95 @@
+import resistor_color_tolerance.{self, Color, Label}
+
+test "label decoder" {
+    cases: List<#(String, List<Color>, Label)> = [
+        #(
+            "Orange, orange, black and red",
+            [.Orange, .Orange, .Black, .Red],
+            #{value: 33d, unit: .Ohms, tolerance: Some(2d)},
+        ),
+        #(
+            "Blue, gray, brown and violet",
+            [.Blue, .Grey, .Brown, .Violet],
+            #{value: 680d, unit: .Ohms, tolerance: Some(0.1d)},
+        ),
+        #(
+            "Red, black, red and green",
+            [.Red, .Black, .Red, .Green],
+            #{value: 2d, unit: .Kiloohms, tolerance: Some(0.5d)},
+        ),
+        #(
+            "Green, brownm orange and grey",
+            [.Green, .Brown, .Orange, .Grey],
+            #{value: 51d, unit: .Kiloohms, tolerance: Some(0.05d)},
+        ),
+        #("Only one band", [.Black], #{value: 0d, unit: .Ohms, tolerance: None}),
+        #(
+            "Orange, orange, yellow, black and brown",
+            [.Orange, .Orange, .Yellow, .Black, .Brown],
+            #{value: 334d, unit: .Ohms, tolerance: Some(1d)},
+        ),
+        #(
+            "Red, green, yellow, yellow and brown",
+            [.Red, .Green, .Yellow, .Yellow, .Brown],
+            #{value: 2.54d, unit: .Megaohms, tolerance: Some(1d)},
+        ),
+        #(
+            "Blue, gray, white, brown and brown",
+            [.Blue, .Grey, .White, .Brown, .Brown],
+            #{value: 6.89d, unit: .Kiloohms, tolerance: Some(1d)},
+        ),
+        #(
+            "Violet, orange, red and gray",
+            [.Violet, .Orange, .Red, .Grey],
+            #{value: 7.3d, unit: .Kiloohms, tolerance: Some(0.05d)},
+        ),
+        #(
+            "Brown, red, orange, green and blue",
+            [.Brown, .Red, .Orange, .Green, .Blue],
+            #{value: 12.3d, unit: .Megaohms, tolerance: Some(0.25d)},
+        ),
+        #(
+            "Brown, black, brown, yellow and violet",
+            [.Brown, .Black, .Brown, .Yellow, .Violet],
+            #{value: 1.01d, unit: .Megaohms, tolerance: Some(0.1d)},
+        ),
+        #(
+            "Brown, black, red and red",
+            [.Brown, .Black, .Red, .Red],
+            #{value: 1d, unit: .Kiloohms, tolerance: Some(2d)},
+        ),
+    ]
+
+    subtests cases, #(description, bands, expected), description {
+        assert resistor_color_tolerance.label(bands) == Some(expected)
+    }
+}
+
+test "labels read as the description writes them" {
+    cases: List<#(List<Color>, String)> = [
+        #([.Orange, .Orange, .Black, .Green], "33 ohms ±0.5%"),
+        #([.Orange, .Orange, .Orange, .Grey], "33 kiloohms ±0.05%"),
+        #([.Orange, .Orange, .Blue, .Red], "33 megaohms ±2%"),
+        #([.Red, .Green, .Yellow, .Yellow, .Brown], "2.54 megaohms ±1%"),
+        #([.Black], "0 ohms"),
+    ]
+
+    subtests cases, #(bands, expected) {
+        assert Some(label) = resistor_color_tolerance.label(bands)
+        assert "${label}" == expected
+    }
+}
+
+test "bands that make no label" {
+    cases: List<#(String, List<Color>)> = [
+        #("no bands", []),
+        #("one band that is not black", [.Brown]),
+        #("three bands", [.Brown, .Black, .Red]),
+        #("a tolerance color as a digit", [.Gold, .Black, .Red, .Red]),
+        #("a digit color as a tolerance", [.Brown, .Black, .Red, .Orange]),
+    ]
+
+    subtests cases, #(description, bands), description {
+        assert resistor_color_tolerance.label(bands) == None
+    }
+}

@@ -1,7 +1,6 @@
-//# What the functions a `query` declaration generates call: binding a
+//# What the functions `nomi tool sqlkit generate` writes call: binding a
 //# parameter, reading a column of each SQL type family, and the result
-//# shapes. Generated code imports it under a name the program cannot
-//# write; nothing else needs it.
+//# shapes. Only generated code needs it.
 //#
 //# A column reader is generic in the type it reads, which the field it
 //# fills decides, and bounded by the column's family, so a field of a type
@@ -529,16 +528,4 @@ pub fn text_of(value: Value) -> Maybe<String> {
         .Text(s) -> Some(s)
         _ -> None
     }
-}
-
-/// The error of a query the snapshot does not describe, which a program
-/// with one does not run: the generated function keeps its signature, so
-/// its callers still check.
-pub fn undescribed(query: String) -> sql.Error {
-    #sql.Error.Database{code: "sqlkit", message: "`${query}` is not described by the snapshot"}
-}
-
-/// `undescribed` for a `-> Rows<T>` query.
-pub fn undescribed_rows<T>(conn: Conn, query: String) -> Rows<T> {
-    Rows.new(conn, query, statement(["SELECT 1 WHERE 0"], []), fn _ -> Err(undescribed(query)))
 }

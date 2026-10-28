@@ -15,7 +15,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/wordy.
 - Division is its own `divide` function, one pipe: `Int.to_non_zero(b) |> Maybe.map(&Int.divide(a, &1)) |> Maybe.to_result(Error.DivisionByZero)`. The missing divisor is never bound for later lines, so `Maybe.to_result` as a pipe stage fits rather than a binding `else` (style §16). The capture's open operand takes `NonZeroInt` from the pipe, which picks `Int`'s `Divide<NonZeroInt, Int>` impl. Keeping it out of `apply` keeps each arm there on one line.
 - Guards use binding `else` (`[first, ..rest] = String.words(problem) else { ... }`) so the success path stays unindented. The style guide uses a binding `else`, not `Maybe.to_result` with `try`, when the value is bound for the lines that follow, as every guard here is.
 - The 27 canonical cases are one `subtests` table.
-- The trailing `?` comes off through `Maybe.flat_map(&String.strip_suffix(&1, "?"))`: one call that uses its parameter once, so it is a capture rather than `fn rest -> ...` (style §31).
+- The trailing `?` comes off through `Maybe.flat_map(&String.strip_suffix(&1, "?"))`, a capture rather than `fn rest -> ...`.
 
 ## Friction
 

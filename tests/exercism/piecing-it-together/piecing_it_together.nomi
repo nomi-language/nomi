@@ -1,0 +1,201 @@
+/// The shape of a puzzle of square pieces: taller than wide, square, or
+/// wider than tall.
+pub enum Format {
+    Portrait
+    Square
+    Landscape
+}
+
+/// Everything about a jigsaw puzzle.
+pub struct Jigsaw {
+    pieces: Int
+    border: Int
+    inside: Int
+    rows: Int
+    columns: Int
+    aspect_ratio: Float
+    format: Format
+}
+
+/// What is known about a puzzle: any of its parts, each `None` when unknown.
+pub struct Clues {
+    pieces: Maybe<Int> = None
+    border: Maybe<Int> = None
+    inside: Maybe<Int> = None
+    rows: Maybe<Int> = None
+    columns: Maybe<Int> = None
+    aspect_ratio: Maybe<Float> = None
+    format: Maybe<Format> = None
+}
+
+/// Why the clues do not describe exactly one puzzle.
+pub enum Error {
+    InsufficientData
+    ContradictoryData
+}
+
+derive Equatable for Format
+
+derive Equatable for Error
+
+/// The one puzzle `clues` describe: `InsufficientData` when more than one
+/// fits them, and `ContradictoryData` when none does.
+//! assert jigsaw_data(#{pieces: Some(6), rows: Some(3)}) |> Result.map(.columns) == Ok(2)
+//
+pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error> {
+    Some(rows) = row_candidates(clues) else {
+        return Err(.InsufficientData)
+    }
+
+    Some(columns_for) = column_rule(clues) else {
+        return Err(.InsufficientData)
+    }
+
+    fitting =
+        rows
+        |> Iter.flat_map(fn rows -> {
+            columns_for(rows)
+            |> Iter.filter(&(&1 >= 1))
+            |> Iter.map(&puzzle(rows, &1))
+        })
+        |> Iter.filter(&fits?(clues, &1))
+        |> Iter.take(2)
+        |> Iter.to_list()
+
+    case fitting {
+        [] -> Err(.ContradictoryData)
+        [jigsaw] -> Ok(jigsaw)
+        _ -> Err(.InsufficientData)
+    }
+}
+
+/// The puzzle of `rows` rows and `columns` columns.
+fn puzzle(rows: Int, columns: Int) -> Jigsaw {
+    pieces = rows * columns
+    inside = Int.max(rows - 2, 0) * Int.max(columns - 2, 0)
+    aspect_ratio = Int.to_float(columns) / Int.to_float(rows)
+
+    format = case Int.compare(columns, rows) {
+        .Less -> Format.Portrait
+        .Equal -> .Square
+        .Greater -> .Landscape
+    }
+
+    #Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
+}
+
+/// Whether `jigsaw` agrees with every part `clues` knows.
+fn fits?(clues: Clues, jigsaw: Jigsaw) -> Bool {
+    counts_agree =
+        [
+            #(clues.pieces, jigsaw.pieces),
+            #(clues.border, jigsaw.border),
+            #(clues.inside, jigsaw.inside),
+            #(clues.rows, jigsaw.rows),
+            #(clues.columns, jigsaw.columns),
+        ]
+        |> Iter.all?(fn #(known, actual) -> agrees?(known, actual))
+
+    ratio_agrees = case clues.aspect_ratio {
+        Some(ratio) -> Float.equal_within?(ratio, jigsaw.aspect_ratio, 0.000000001)
+        None -> True
+    }
+
+    counts_agree and ratio_agrees and agrees?(clues.format, jigsaw.format)
+}
+
+/// Whether `actual` is the `known` value, when there is one.
+fn agrees?<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
+    case known {
+        Some(value) -> value == actual
+        None -> True
+    }
+}
+
+/// The row counts worth trying: the known one, or every count up to a bound
+/// that a known part sets. `None` when nothing bounds the rows, so that
+/// endlessly many puzzles fit.
+fn row_candidates(clues: Clues) -> Maybe<List<Int>> {
+    case clues {
+        #{rows: Some(rows)} ->
+            Some([rows])
+
+        #{pieces: Some(pieces)} ->
+            Some(up_to(pieces))
+
+        #{border: Some(border)} ->
+            Some(up_to(border))
+
+        #{inside: Some(inside)} ->
+            Some(up_to(inside + 2))
+
+        #{columns: Some(columns), aspect_ratio: Some(ratio)} ->
+            nearest(Int.to_float(columns) / ratio) |> Maybe.map(up_to)
+
+        #{columns: Some(columns), format: Some(.Square or .Landscape)} ->
+            Some(up_to(columns))
+
+        _ ->
+            None
+    }
+}
+
+fn up_to(bound: Int) -> List<Int> {
+    Iter.to_list(1..=bound)
+}
+
+/// How the first known part that settles the columns gives them for a
+/// puzzle of so many rows, or `None` when no known part settles them.
+fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
+    case clues {
+        #{columns: Some(columns)} ->
+            Some(fn _rows -> [columns])
+
+        #{pieces: Some(pieces)} ->
+            Some(fn rows -> {
+                if pieces % rows == 0 {
+                    [pieces / rows]
+                } else {
+                    []
+                }
+            })
+
+        #{aspect_ratio: Some(ratio)} ->
+            Some(fn rows -> {
+                case nearest(Int.to_float(rows) * ratio) {
+                    Some(columns) -> [columns]
+                    None -> []
+                }
+            })
+
+        #{format: Some(.Square)} ->
+            Some(fn rows -> [rows])
+
+        #{border: Some(border)} ->
+            Some(fn rows -> {
+                if rows == 1 {
+                    [border]
+                } else {
+                    [(border + 4) / 2 - rows]
+                }
+            })
+
+        #{inside: Some(inside)} -> {
+            Some(fn rows -> {
+                if rows > 2 and inside % (rows - 2) == 0 {
+                    [inside / (rows - 2) + 2]
+                } else {
+                    []
+                }
+            })
+        }
+
+        _ ->
+            None
+    }
+}
+
+/// The whole number nearest `x`.
+fn nearest(x: Float) -> Maybe<Int> {
+    Float.to_int(Float.round(x))
+}

@@ -1,0 +1,170 @@
+import bowling.{Error, Game}
+
+/// The game after `rolls`, each of which must succeed.
+fn play(rolls: List<Int>) -> Result<Game, Error> {
+    Iter.reduce(rolls, fn game = Ok(Game.new()), pins -> {
+        Result.flat_map(game, &Game.roll(&1, pins))
+    })
+}
+
+test "score" {
+    cases: List<#(String, List<Int>, Result<Int, Error>)> = [
+        #(
+            "should be able to score a game with all zeros",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(0),
+        ),
+        #(
+            "should be able to score a game with no strikes or spares",
+            [3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6],
+            Ok(90),
+        ),
+        #(
+            "a spare followed by zeros is worth ten points",
+            [6, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(10),
+        ),
+        #(
+            "points scored in the roll after a spare are counted twice",
+            [6, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(16),
+        ),
+        #(
+            "consecutive spares each get a one roll bonus",
+            [5, 5, 3, 7, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(31),
+        ),
+        #(
+            "a spare in the last frame gets a one roll bonus that is counted once",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 3, 7],
+            Ok(17),
+        ),
+        #(
+            "a strike earns ten points in a frame with a single roll",
+            [10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(10),
+        ),
+        #(
+            "points scored in the two rolls after a strike are counted twice as a bonus",
+            [10, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(26),
+        ),
+        #(
+            "consecutive strikes each get the two roll bonus",
+            [10, 10, 10, 5, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            Ok(81),
+        ),
+        #(
+            "a strike in the last frame gets a two roll bonus that is counted once",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 7, 1],
+            Ok(18),
+        ),
+        #(
+            "rolling a spare with the two roll bonus does not get a bonus roll",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 7, 3],
+            Ok(20),
+        ),
+        #(
+            "strikes with the two roll bonus do not get bonus rolls",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10],
+            Ok(30),
+        ),
+        #(
+            "last two strikes followed by only last bonus with non strike points",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 0, 1],
+            Ok(31),
+        ),
+        #(
+            "a strike with the one roll bonus after a spare in the last frame does not get a bonus",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 3, 10],
+            Ok(20),
+        ),
+        #(
+            "all strikes is a perfect game",
+            [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+            Ok(300),
+        ),
+        #(
+            "two bonus rolls after a strike in the last frame can score more than 10 points if one is a strike",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 6],
+            Ok(26),
+        ),
+        #("an unstarted game cannot be scored", [], Err(.GameNotOver)),
+        #("an incomplete game cannot be scored", [0, 0], Err(.GameNotOver)),
+        #(
+            "bonus rolls for a strike in the last frame must be rolled before score can be calculated",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10],
+            Err(.GameNotOver),
+        ),
+        #(
+            "both bonus rolls for a strike in the last frame must be rolled before score can be calculated",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10],
+            Err(.GameNotOver),
+        ),
+        #(
+            "bonus roll for a spare in the last frame must be rolled before score can be calculated",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 3],
+            Err(.GameNotOver),
+        ),
+    ]
+
+    subtests cases, #(description, rolls, expected), description {
+        assert Ok(game) = play(rolls)
+        assert Game.score(game) == expected
+    }
+}
+
+test "roll" {
+    cases: List<#(String, List<Int>, Int, Error)> = [
+        #("rolls cannot score negative points", [], -1, .NegativeRoll),
+        #("a roll cannot score more than 10 points", [], 11, .TooManyPins),
+        #("two rolls in a frame cannot score more than 10 points", [5], 6, .TooManyPins),
+        #(
+            "bonus roll after a strike in the last frame cannot score more than 10 points",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10],
+            11,
+            .TooManyPins,
+        ),
+        #(
+            "two bonus rolls after a strike in the last frame cannot score more than 10 points",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 5],
+            6,
+            .TooManyPins,
+        ),
+        #(
+            "the second bonus rolls after a strike in the last frame cannot be a strike if the first one is not a strike",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 6],
+            10,
+            .TooManyPins,
+        ),
+        #(
+            "second bonus roll after a strike in the last frame cannot score more than 10 points",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10],
+            11,
+            .TooManyPins,
+        ),
+        #(
+            "cannot roll if game already has ten frames",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            0,
+            .GameOver,
+        ),
+        #(
+            "cannot roll after bonus roll for spare",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 3, 2],
+            2,
+            .GameOver,
+        ),
+        #(
+            "cannot roll after bonus rolls for strike",
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 3, 2],
+            2,
+            .GameOver,
+        ),
+    ]
+
+    subtests cases, #(description, previous, pins, expected), description {
+        assert Ok(game) = play(previous)
+        assert Game.roll(game, pins) == Err(expected)
+    }
+}

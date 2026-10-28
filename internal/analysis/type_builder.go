@@ -397,7 +397,6 @@ func (ft *fileTyping) typeSignatures() {
 func (ft *fileTyping) finish() (declErrs, bodyErrs []TypeError) {
 	declErrs = ft.decls.errors()
 	bodyErrs = buildBodyTypes(ft.fa, ft.reg, ft.nodes)
-	recordMacroContracts(ft.fa, ft.reg, ft.nodes)
 	if ft.fa.kept != nil {
 		ft.fa.kept.types = ft.reg
 	}

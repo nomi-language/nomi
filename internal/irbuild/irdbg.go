@@ -111,6 +111,12 @@ func irDebugValueKind(k kind) bool {
 		}
 		return true
 	}
+	if irConcHandleKind(k) {
+		// A channel half or a task renders as its placeholder (`<channel>`,
+		// `<task>`), rt.DebugText's Opaque arm, and a `Channel<T>` as the
+		// struct std declares around its two halves (rt's debugChannel).
+		return true
+	}
 	if irStdMarkerKind(k) {
 		// std's payload-free marker (`ChannelClosed`) has no impl of its own
 		// and renders as its bare name, as rt's value does.

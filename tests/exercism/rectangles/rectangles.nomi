@@ -1,0 +1,70 @@
+/// How many rectangles the ASCII diagram `lines` draws: four `+` corners
+/// joined by sides of `-` along the rows and `|` down the columns, where a
+/// `+` may also stand in a side.
+//! assert count(["+-+", "| |", "+-+"]) == 1
+//
+pub fn count(lines: List<String>) -> Int {
+    grid =
+        lines
+        |> Iter.map(Iter.to_vector)
+        |> Iter.to_vector()
+
+    corners =
+        grid
+        |> Iter.with_index()
+        |> Iter.flat_map(fn #(row, line) -> {
+            line
+            |> Iter.with_index()
+            |> Iter.filter(fn #(_, symbol) -> symbol == "+")
+            |> Iter.map(fn #(column, _) -> #(row, column))
+        })
+        |> Iter.to_list()
+
+    corners
+    |> Iter.flat_map(fn top_left -> Iter.map(corners, &#(top_left, &1)))
+    |> Iter.filter(fn #(top_left, bottom_right) -> rectangle?(grid, top_left, bottom_right))
+    |> Iter.count()
+}
+
+/// Whether `top_left` and `bottom_right` are opposite corners of a
+/// rectangle: below and right of each other, the other two corners `+`, and
+/// every side whole.
+fn rectangle?(
+    grid: Vector<Vector<String>>,
+    #(top, left): #(Int, Int),
+    #(bottom, right): #(Int, Int),
+) -> Bool {
+    bottom > top
+        and right > left
+        and Iter.all?([#(top, right), #(bottom, left)], fn #(row, column) -> {
+            symbol_at(grid, row, column) == Some("+")
+        })
+        and Iter.all?([top, bottom], &across?(grid, &1, left, right))
+        and Iter.all?([left, right], &down?(grid, &1, top, bottom))
+}
+
+/// Whether row `row` is a side from column `left` to column `right`.
+fn across?(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Bool {
+    Iter.all?(left..=right, fn column -> {
+        case symbol_at(grid, row, column) {
+            Some("-" or "+") -> True
+            _ -> False
+        }
+    })
+}
+
+/// Whether column `column` is a side from row `top` to row `bottom`.
+fn down?(grid: Vector<Vector<String>>, column: Int, top: Int, bottom: Int) -> Bool {
+    Iter.all?(top..=bottom, fn row -> {
+        case symbol_at(grid, row, column) {
+            Some("|" or "+") -> True
+            _ -> False
+        }
+    })
+}
+
+/// The symbol at `row` and `column`, or `None` off the diagram: a line may
+/// be shorter than the others.
+fn symbol_at(grid: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String> {
+    grid |> Vector.get(row) |> Maybe.flat_map(&Vector.get(&1, column))
+}

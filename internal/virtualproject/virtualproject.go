@@ -210,11 +210,9 @@ func fromModuleFiles(marked map[string]string, order []string, forced string) (P
 		if _, dup := files[clean]; dup {
 			return Project{}, "", nil, fmt.Errorf("// FILE: %s is marked twice", name)
 		}
-		if isNomiSource(clean) {
-			files[clean] = body
-		} else {
-			files[clean] = dataText(body)
-		}
+		// A file ends as a file on disk does, with one newline: the blank
+		// lines between sections are not part of it.
+		files[clean] = dataText(body)
 		if base := path.Base(clean); (base == "nomi.toml" || base == "go.mod") && path.Dir(clean) != "." {
 			moduleDirs[path.Dir(clean)] = true
 		}
@@ -384,7 +382,7 @@ func (p Project) Write(dir string) (string, error) {
 	return root, nil
 }
 
-// dataText is a data file's text as its section holds it: the blank lines
+// dataText is a file's text as its section holds it: the blank lines
 // that separate it from the next section are not part of it, and a text
 // that is not empty ends with one newline, as a text file does.
 func dataText(body string) string {

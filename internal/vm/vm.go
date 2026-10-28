@@ -55,6 +55,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/stdmessageformat"
@@ -172,6 +173,9 @@ type Machine struct {
 	// dbg is the debugger this machine reports to, or nil. A machine with
 	// one compiles its functions with statement hooks (debug.go).
 	dbg *Debugger
+	// countEntries says each function this machine compiles counts its
+	// entries (entries.go).
+	countEntries bool
 	// dvia names, on a debug machine's view, the Go-driven operation whose
 	// callbacks the view starts (`Iter.map`, a host call), which the logical
 	// call stack shows between the callback and its caller.
@@ -437,6 +441,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"List.tail":            listHost("List.tail"),
 		"List.concat":          listHost("List.concat"),
 		"List.contains?":       listContainsHost,
+		"List.remove_at":       listRemoveAtHost,
 		// A call the builder lowered as unreachable: a bound dispatch on a type
 		// argument it filled itself (irbuild's holeBoundCall). It faults with
 		// the builder's text if control ever arrives.
@@ -470,6 +475,7 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Vector.next_item":     vectorHost("Vector.next_item"),
 		"Vector.contains?":     vectorContainsHost,
 		"Map.get":              mapHost("Map.get"),
+		"Map.at":               mapHost("Map.at"),
 		"Map.put":              mapHost("Map.put"),
 		"Map.size":             mapHost("Map.size"),
 		"Context.with_value":   contextWithValueHost,
@@ -1052,7 +1058,7 @@ func (m *Machine) crossInto(fr *frame, n *ir.Call, name string, args []any) (any
 		return callAdapter(fn, fr.runtime, args)
 	}
 	return nil, fmt.Errorf("vm: %s: %s crosses into Go and this machine binds no "+
-		"implementation for it", fr.fn.Name(), name)
+		"implementation for it", fr.fn.Name(), hostadapt.DisplayName(name))
 }
 
 // match answers one refutable question.

@@ -7,3 +7,4 @@ pub typealias Cell #(Int, Int)
 pub typealias Board Set<Cell>
 pub typealias Flat Set<#(Int, Int)>
 pub typealias Points List<Point>
+pub typealias Pt Point

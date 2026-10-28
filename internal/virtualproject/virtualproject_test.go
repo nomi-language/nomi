@@ -7,11 +7,11 @@ import (
 )
 
 // A block with a go.mod is its files: the entry is the root module's file
-// with `fn main`, never a file of the module under macros/, and Write lays
+// with `fn main`, never a file of the module under generators/, and Write lays
 // the files out as the block marks them.
 func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
-	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: macros/csvdata/main.nomi\nfn main() {}\n\n" +
-		"// FILE: macros/csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() {}\n\n" +
+	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: generators/csvdata/main.nomi\nfn main() {}\n\n" +
+		"// FILE: generators/csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() {}\n\n" +
 		"// FILE: data/prices.csv\nsku,cents\n\n\n// FILE: go.mod\nmodule shop\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
@@ -27,9 +27,9 @@ func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(root, "macros", "csvdata", "nomi.toml"))
+	data, err := os.ReadFile(filepath.Join(root, "generators", "csvdata", "nomi.toml"))
 	if err != nil || string(data) != "[module]\nname = \"csvdata\"\n" {
-		t.Errorf("macros/csvdata/nomi.toml holds %q (%v)", data, err)
+		t.Errorf("generators/csvdata/nomi.toml holds %q (%v)", data, err)
 	}
 	// With no `fn main`, the entry is the first root file the block marks,
 	// the tab it opens on, not the first by name.

@@ -47,7 +47,7 @@ func TestStdlibSource_RecheckedDurationIsTheSharedDuration(t *testing.T) {
 		t.Fatal("std/duration is not embedded")
 	}
 	text := strings.Replace(string(src), "import {\n",
-		"import {\n    calendar.{Date, NaiveDateTime, OffsetDateTime, Time}\n    results.Result\n", 1)
+		"import {\n    calendar.{Date, NaiveDateTime, OffsetDateTime, Time}\n", 1)
 	if text == string(src) {
 		t.Fatal("std/duration.nomi no longer opens with an import block")
 	}

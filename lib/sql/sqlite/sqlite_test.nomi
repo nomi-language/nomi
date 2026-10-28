@@ -290,9 +290,8 @@ test "SQL the engine rejects is a Database error with its message" {
     db = try sqlite.memory()
     defer sql.close_quietly(db)
 
-    assert Conn.query(db, Sql"SELECT nope FROM nowhere") == Err(
-        #sql.Error.Database{code: "SQLITE_ERROR", message: "no such table: nowhere"}
-    )
+    assert Conn.query(db, Sql"SELECT nope FROM nowhere")
+        == Err(#sql.Error.Database{code: "SQLITE_ERROR", message: "no such table: nowhere"})
 }
 
 test "exec answers the rows a statement changed" {

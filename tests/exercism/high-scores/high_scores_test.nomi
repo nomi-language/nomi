@@ -1,0 +1,61 @@
+import high_scores
+
+test "List of scores" {
+    assert high_scores.scores([30, 50, 20, 70]) == [30, 50, 20, 70]
+}
+
+test "Latest score" {
+    assert high_scores.latest([100, 0, 90, 30]) == Some(30)
+}
+
+test "Personal best" {
+    assert high_scores.personal_best([40, 100, 70]) == Some(100)
+}
+
+group "Top 3 scores" {
+    test "personal top three" {
+        cases = [
+            #(
+                "Personal top three from a list of scores",
+                [10, 30, 90, 30, 100, 20, 10, 0, 30, 40, 40, 70, 70],
+                [100, 90, 70],
+            ),
+            #("Personal top highest to lowest", [20, 10, 30], [30, 20, 10]),
+            #("Personal top when there is a tie", [40, 20, 40, 30], [40, 40, 30]),
+            #("Personal top when there are less than 3", [30, 70], [70, 30]),
+            #("Personal top when there is only one", [40], [40]),
+        ]
+
+        subtests cases, #(description, scores, expected), description {
+            assert high_scores.personal_top_three(scores) == expected
+        }
+    }
+
+    test "Latest score after personal top scores" {
+        scores = [70, 50, 20, 30]
+        _ = high_scores.personal_top_three(scores)
+
+        assert high_scores.latest(scores) == Some(30)
+    }
+
+    test "Scores after personal top scores" {
+        scores = [30, 50, 20, 70]
+        _ = high_scores.personal_top_three(scores)
+
+        assert high_scores.scores(scores) == [30, 50, 20, 70]
+    }
+
+    test "Latest score after personal best" {
+        scores = [20, 70, 15, 25, 30]
+        _ = high_scores.personal_best(scores)
+
+        assert high_scores.latest(scores) == Some(30)
+    }
+
+    test "Scores after personal best" {
+        scores = [20, 70, 15, 25, 30]
+        _ = high_scores.personal_best(scores)
+
+        assert high_scores.scores(scores) == [20, 70, 15, 25, 30]
+    }
+}

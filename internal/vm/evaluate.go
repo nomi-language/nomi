@@ -5,10 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/bits"
-	"runtime/metrics"
 	"sort"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,23 +28,9 @@ import (
 // steps; zero means none. A single crossing into Go is not interrupted, so
 // pureCrossings admits only crossings whose cost follows from the size of
 // their operands, which the steps bound.
-//
-// Memory, when not zero, bounds how far the heap grows while the evaluation
-// runs, in bytes: the process's heap objects (runtime/metrics), measured
-// against the heap when it starts. It is read every few steps, more often
-// as what the run holds nears the bound: a pure crossing at most doubles
-// what its operands hold, so between two reads the run cannot come to hold
-// more than twice the bound. What the run built is measured by what it
-// allocated and by the heap above what the last collection before it
-// found live, never by the growth: a collection that frees garbage the
-// heap held when the run started makes the growth read low, or below
-// zero. The process's other goroutines grow and shrink the same heap, so
-// the bound is approximate; a macro's run sets it as a backstop against
-// one that would take the language server down.
 type Limits struct {
 	Steps    int64
 	Deadline time.Time
-	Memory   int64
 	// Spent, when set, receives the steps the evaluation took.
 	Spent *int64
 }
@@ -55,46 +38,11 @@ type Limits struct {
 // ErrLimit is what Evaluate answers when the evaluation used up its Limits.
 var ErrLimit = errors.New("vm: the evaluation reached its step or time limit")
 
-// ErrMemoryLimit is Evaluate's answer when the evaluation grew the heap past
-// Limits.Memory. It is an ErrLimit.
-var ErrMemoryLimit = fmt.Errorf("%w: memory", ErrLimit)
-
 // ErrDeadline is Evaluate's answer when the evaluation was still running at
 // Limits.Deadline. It is an ErrLimit. Unlike the steps, the deadline depends
 // on how fast the machine is, so a caller that must answer the same on every
 // machine tells it from the step limit.
 var ErrDeadline = fmt.Errorf("%w: deadline", ErrLimit)
-
-// heap is what readHeap answers, in bytes: the heap's objects now (dead
-// ones not yet swept among them), what was allocated on the heap since
-// the process started, and what the last collection found live.
-type heap struct{ objects, allocated, live int64 }
-
-// heapSamples holds the samples readHeap reads into. A read allocates
-// nothing, since a run that reads the heap often would otherwise grow it
-// with its reads.
-var heapSamples = sync.Pool{New: func() any {
-	return &[3]metrics.Sample{
-		{Name: "/memory/classes/heap/objects:bytes"},
-		{Name: "/gc/heap/allocs:bytes"},
-		{Name: "/gc/heap/live:bytes"},
-	}
-}}
-
-// readHeap reads the heap. A test replaces it to play a heap that a
-// collection shrinks.
-var readHeap = func() heap {
-	s := heapSamples.Get().(*[3]metrics.Sample)
-	defer heapSamples.Put(s)
-	metrics.Read(s[:])
-	bytes := func(v metrics.Value) int64 {
-		if v.Kind() != metrics.KindUint64 {
-			return 0
-		}
-		return int64(v.Uint64())
-	}
-	return heap{bytes(s[0].Value), bytes(s[1].Value), bytes(s[2].Value)}
-}
 
 // fuel is a running evaluation's remaining Limits, shared by every view of the
 // machine it runs on, a task's included, so its counters are atomic. Nil on a
@@ -114,46 +62,14 @@ type fuel struct {
 	// is the fuel of the machine the case runs on, StopOn's, still burned.
 	watch bool
 	outer *fuel
-	// memory is Limits.Memory, base the heap when the run started,
-	// memoryCheck the steps until the heap is read again, and overMemory
-	// records that the run passed the bound.
-	memory      int64
-	base        heap
-	memoryCheck atomic.Int32
-	overMemory  atomic.Bool
 	// overDeadline records that the run was stopped at its deadline.
 	overDeadline atomic.Bool
 }
 
 func newFuel(lim Limits) *fuel {
-	f := &fuel{deadline: lim.Deadline, memory: lim.Memory}
+	f := &fuel{deadline: lim.Deadline}
 	f.left.Store(lim.Steps)
-	if f.memory > 0 {
-		f.base = readHeap()
-		f.memoryCheck.Store(1)
-	}
 	return f
-}
-
-// checkMemory reads the heap when its countdown is done, and answers
-// whether the run is past its bound: whether the heap grew past it. The
-// next read is fewer steps away the nearer what the run built may be to
-// the bound: as many as the times that could double before it passes the
-// bound, less one. What the run built is no more than it allocated, nor
-// more than the heap holds above what was live before it started; a
-// collection lowers neither for garbage the heap held then.
-func (f *fuel) checkMemory() bool {
-	if f.memoryCheck.Add(-1) > 0 {
-		return false
-	}
-	h := readHeap()
-	if h.objects-f.base.objects > f.memory {
-		f.overMemory.Store(true)
-		return true
-	}
-	built := max(min(h.allocated-f.base.allocated, h.objects-f.base.live), 1)
-	f.memoryCheck.Store(int32(min(max(bits.Len64(uint64(f.memory/built))-1, 1), 64)))
-	return false
 }
 
 // burn spends one step. Once the steps are gone every later burn fails too,
@@ -173,17 +89,10 @@ func (f *fuel) burn() error {
 		if f.stopped.Load() {
 			return ErrStopped
 		}
-		if f.overMemory.Load() {
-			return ErrMemoryLimit
-		}
 		if f.overDeadline.Load() {
 			return ErrDeadline
 		}
 		return ErrLimit
-	}
-	if f.memory > 0 && f.checkMemory() {
-		f.left.Store(-1)
-		return ErrMemoryLimit
 	}
 	if (!f.deadline.IsZero() || f.stop != nil) && f.ticks.Add(1)&1023 == 0 {
 		if !f.deadline.IsZero() && time.Now().After(f.deadline) {
@@ -274,9 +183,7 @@ func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limi
 		}
 		if run.fuel.spent() {
 			result, err = nil, ErrLimit
-			if run.fuel.overMemory.Load() {
-				err = ErrMemoryLimit
-			} else if run.fuel.overDeadline.Load() {
+			if run.fuel.overDeadline.Load() {
 				err = ErrDeadline
 			}
 		}
@@ -297,6 +204,7 @@ var pureCrossings = map[string]bool{
 	"Result.map_err": true, "Maybe.to_result": true,
 	"Maybe.with_default": true, "Result.with_default": true,
 	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true, "List.contains?": true,
+	"List.remove_at": true,
 	"Vector.compare": true, "vm.unreachable": true, "vm.hash_value": true,
 	"Range.contains?": true, "Range.step_by": true, "Range.known_count": true,
 	"Range.bounded?": true, "Range.contains?Float": true,
@@ -305,7 +213,7 @@ var pureCrossings = map[string]bool{
 	"Set.subset?":   true,
 	"Vector.length": true, "Vector.get": true, "Vector.at": true, "Vector.push": true, "Vector.concat": true,
 	"Vector.set": true, "Vector.next_item": true, "Vector.contains?": true,
-	"Map.get": true, "Map.put": true, "Map.size": true,
+	"Map.get": true, "Map.at": true, "Map.put": true, "Map.size": true,
 	"Map.remove": true, "Map.contains?": true, "Map.merge": true, "Map.keys": true,
 	"Map.values": true, "Map.map_values": true, "Map.map_keys": true, "Map.map_next": true,
 
@@ -379,6 +287,7 @@ var pureCrossings = map[string]bool{
 	"bytes.Bytes.get": true, "bytes.Bytes.at": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
 	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true, "bytes.Bytes.contains?": true,
 	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.bytes_compare": true,
+	"hash.sha256": true, "hash.sha256_hex": true,
 	"int.Int.to_string": true, "int.Int.to_float": true, "int.Int.wrapping_add": true,
 	"int.Int.wrapping_sub": true, "int.Int.wrapping_mul": true, "int.Int.bitwise_and": true,
 	"int.Int.bitwise_or": true, "int.Int.bitwise_xor": true, "int.Int.bitwise_not": true,

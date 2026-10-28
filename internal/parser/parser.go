@@ -1233,9 +1233,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 					return p.parseKeywordDecl(true)
 				}
 				if kw := p.peek(); p.peekAt(1).Type == token.TYPE_IDENT {
-					// `pub strct Point`, or a macro's keyword missing its
-					// `!` before a type name (startsKeywordDecl).
-					return nil, errorAt(kw.Line, kw.Col, "`%s` declares nothing: a type is declared with `struct`, `enum` or `type`, and a macro's declaration marks its keyword with `!`: `%s! %s`", kw.Lexeme, kw.Lexeme, p.peekAt(1).Lexeme)
+					// `pub strct Point`.
+					return nil, errorAt(kw.Line, kw.Col, "`%s` declares nothing: a type is declared with `struct`, `enum` or `type`", kw.Lexeme)
 				}
 				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
 			}
@@ -4492,12 +4491,6 @@ func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 	start := p.peek()
 	savedPos, savedRecoveries := p.pos, p.recoveries
 	pattern, err := p.parseSinglePattern()
-	// `[first, ..] = xs`: a list with a bare `..` is never an expression
-	// statement, so a pattern followed by `=` reports its unnamed rest rather
-	// than the `=` the expression reading stops at.
-	if perr, ok := err.(ParseError); ok && perr.Message == unnamedListRestMessage && p.groupBeforeEQ(savedPos) {
-		return nil, true, err
-	}
 	if err != nil || p.atEnd() || p.peek().Type != token.EQ {
 		p.pos, p.recoveries = savedPos, savedRecoveries
 		return nil, false, nil
@@ -4515,33 +4508,6 @@ func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 	}
 	return n, true, nil
 }
-
-// groupBeforeEQ reports whether the token at from opens a bracketed group
-// whose closing token is directly followed by `=`.
-func (p *Parser) groupBeforeEQ(from int) bool {
-	depth := 0
-	for i := from; i < len(p.tokens); i++ {
-		switch p.tokens[i].Type {
-		case token.LPAREN, token.LBRACKET, token.LBRACE:
-			depth++
-		case token.RPAREN, token.RBRACKET, token.RBRACE:
-			depth--
-			if depth == 0 {
-				return i+1 < len(p.tokens) && p.tokens[i+1].Type == token.EQ
-			}
-		case token.EOF:
-			return false
-		}
-		if depth == 0 {
-			return false
-		}
-	}
-	return false
-}
-
-// unnamedListRestMessage is the error for a list pattern's `..` with no
-// pattern after it (`[first, ..]`).
-const unnamedListRestMessage = "a list pattern's rest needs a name: write `..rest` or `.._`"
 
 // parseCaseBranch parses one branch of a case expression: pattern [when
 // guard] -> body. keyword names what holds the arms (`case`, `else`) in the
@@ -7372,6 +7338,13 @@ func (p *Parser) parseTypeAlias(public bool) (ast.Node, error) {
 		return nil, err
 	}
 
+	// An alias takes no type parameters: it shortens a long anonymous
+	// shape, and a shape worth parameterizing is worth a name of its own.
+	if !p.atEnd() && p.peek().Type == token.LT {
+		lt := p.peek()
+		return nil, errorAt(lt.Line, lt.Col, "a typealias takes no type parameters; declare a struct or a `type` when the shape deserves a name of its own")
+	}
+
 	// Expect target type directly after the name (no `=` separator —
 	// typealias declarations mirror `type Name Inner`). Two shapes:
 	//   - single type: `typealias Foo Bar`        → TargetTypeExpr
@@ -8508,8 +8481,15 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			spreadTok := p.peek()
 			p.advance() // consume DOTDOT
 			p.skipNewlines()
-			if !p.atEnd() && (p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA) {
-				return nil, errorAt(spreadTok.Line, spreadTok.Col, unnamedListRestMessage)
+			if !p.atEnd() && p.peek().Type == token.RBRACKET {
+				// `[first, ..]`: the rest is ignored, as `.._` ignores it.
+				lc.close()
+				p.advance()
+				rest := &ast.WildcardPattern{Line: spreadTok.Line, Col: spreadTok.Col}
+				return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: true, Line: line, Col: col}, nil
+			}
+			if !p.atEnd() && p.peek().Type == token.COMMA {
+				return nil, errorAt(spreadTok.Line, spreadTok.Col, "list pattern spread `..` must be the last element")
 			}
 			tail, err := p.parseSinglePattern()
 			if err != nil {
@@ -9582,8 +9562,6 @@ func attachDoc(node ast.Node, doc string) bool {
 		n.Doc = doc
 	case *ast.KeywordDecl:
 		n.Doc = doc
-	case *ast.MacroDecl:
-		n.Doc = doc
 	default:
 		return false
 	}
@@ -9660,85 +9638,47 @@ func (p *Parser) parseOnceBinding(public bool) (ast.Node, error) {
 // ---------------------------------------------------------------------------
 
 // startsKeywordDecl reports whether the cursor is at a keyword
-// declaration's keyword: two names in a row (`message hi`), a name marked
-// with `!` and a name (`query! user`), or either with the keyword
-// qualified (`sqlkit.query! user`). The declared name may be a type name
-// (`choices.one_of! Size`, `one_of! Size`) when the keyword is marked or
-// qualified: a macro's declaration may declare a type. An unmarked,
-// unqualified name before a type name is not one, so a misspelled
-// declaration keyword (`strct Point`) keeps its own error.
+// declaration's keyword: two names in a row (`message hi`). A name before
+// a type name is not one, so a misspelled declaration keyword
+// (`strct Point`) keeps its own error, except after `message` and `noun`,
+// whose declaration's error it is: they name a function and a value.
 func (p *Parser) startsKeywordDecl() bool {
 	if p.peek().Type != token.IDENT {
 		return false
 	}
-	i := 1
-	if p.peekAt(1).Type == token.DOT && p.peekAt(2).Type == token.IDENT {
-		i = 3
-	}
-	if p.peekAt(i).Type == token.BANG {
-		i++
-	}
-	switch p.peekAt(i).Type {
+	switch p.peekAt(1).Type {
 	case token.IDENT:
-		return i > 1 || p.peekAt(1).Type == token.IDENT
+		return true
 	case token.TYPE_IDENT:
-		// `message` and `noun` name a function and a value, so a type
-		// name after them is their declaration's error.
-		return i > 1 || p.peek().Lexeme == "message" || p.peek().Lexeme == "noun"
+		return p.peek().Lexeme == "message" || p.peek().Lexeme == "noun"
 	}
 	return false
 }
 
 // parseKeywordDecl parses a declaration by the general rule
 //
-//	[pub] [module.]keyword[!] name [(params)] [-> type] [[Tag]raw body]
+//	[pub] keyword name [(params)] [-> type] [[Tag]raw body]
 //
-// with the cursor at the keyword, or at its qualifier. The grammar does not
-// know the keyword; the analysis decides what it means (ast.KeywordDecl).
-// It knows only that `message` and `noun` are built in, so they take no
-// `!`.
+// with the cursor at the keyword. The grammar does not know the keyword;
+// the analysis decides what it means (ast.KeywordDecl).
 func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
-	var modTok token.Token
-	if p.peekAt(1).Type == token.DOT {
-		modTok = p.peek()
-		p.advance() // consume the qualifier
-		p.advance() // consume DOT
-	}
 	kwTok := p.peek()
 	p.advance() // consume the keyword
-	marked := false
-	if bang := p.peek(); bang.Type == token.BANG {
-		if bang.Line != kwTok.Line || bang.Col != kwTok.Col+len(kwTok.Lexeme) {
-			return nil, errorAt(bang.Line, bang.Col, "a macro's keyword is marked with a `!` written against it: `%s!`", kwTok.Lexeme)
-		}
-		p.advance() // consume BANG
-		marked = true
-	}
 	nameTok := p.peek()
 	p.advance() // consume the name
-	if nameTok.Type == token.TYPE_IDENT && !marked && modTok.Lexeme == "" && (kwTok.Lexeme == "message" || kwTok.Lexeme == "noun") {
+	if nameTok.Type == token.TYPE_IDENT {
 		return nil, errorAt(nameTok.Line, nameTok.Col, "the name of a `%s` is snake_case, not the type name `%s`", kwTok.Lexeme, nameTok.Lexeme)
 	}
-	if kwTok.Lexeme == "macro" && modTok.Lexeme == "" && !marked {
-		return p.parseMacroDecl(public, kwTok, nameTok)
-	}
-	if marked && modTok.Lexeme == "" && (kwTok.Lexeme == "message" || kwTok.Lexeme == "noun" || kwTok.Lexeme == "macro") {
-		return nil, errorAt(kwTok.Line, kwTok.Col+len(kwTok.Lexeme), "`%s` is built in; write it without `!`", kwTok.Lexeme)
-	}
 	decl := &ast.KeywordDecl{
-		Module:     modTok.Lexeme,
-		ModuleLine: modTok.Line,
-		ModuleCol:  modTok.Col,
-		Keyword:    kwTok.Lexeme,
-		Marked:     marked,
-		Name:       nameTok.Lexeme,
-		Public:     public,
-		Line:       kwTok.Line,
-		Col:        kwTok.Col,
-		NameLine:   nameTok.Line,
-		NameCol:    nameTok.Col,
+		Keyword:  kwTok.Lexeme,
+		Name:     nameTok.Lexeme,
+		Public:   public,
+		Line:     kwTok.Line,
+		Col:      kwTok.Col,
+		NameLine: nameTok.Line,
+		NameCol:  nameTok.Col,
 	}
-	written := decl.QualifiedKeyword()
+	written := decl.Keyword
 	if !p.atEnd() && p.peek().Type == token.LPAREN {
 		p.advance() // consume LPAREN
 		params, paramsEnd, err := p.parseFuncParamList(kwTok)
@@ -9778,7 +9718,7 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 			col := tok.Col - len(tok.Tag)
 			return nil, errorAt(tok.Line, col, "the body of a `%s` declaration is a raw string: write it between backticks", written)
 		}
-		if decl.BodyTag != "" && decl.Module == "" && (decl.Keyword == "message" || decl.Keyword == "noun") {
+		if decl.BodyTag != "" && (decl.Keyword == "message" || decl.Keyword == "noun") {
 			return nil, errorAt(decl.Body.Line, decl.TagCol(), "a `%s` body is MessageFormat 2 text and takes no tag: remove `%s`", decl.Keyword, decl.BodyTag)
 		}
 	}
@@ -9790,35 +9730,6 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 		}
 	}
 	return decl, nil
-}
-
-// parseMacroDecl parses `[pub] macro name: Type` (ast.MacroDecl)
-// with the keyword and the name consumed.
-func (p *Parser) parseMacroDecl(public bool, kwTok, nameTok token.Token) (ast.Node, error) {
-	if p.atEnd() || p.peek().Type != token.COLON {
-		return nil, errorAt(nameTok.Line, nameTok.Col, "a `macro` declaration names the type whose impls expand it: write `macro %s: Type`", nameTok.Lexeme)
-	}
-	p.advance() // consume COLON
-	impl, err := p.parseTypeAnnotation()
-	if err != nil {
-		return nil, err
-	}
-	if !p.atEnd() {
-		switch tok := p.peek(); tok.Type {
-		case token.NEWLINE, token.SEMICOLON, token.BLANK_LINE, token.COMMENT, token.EOF:
-		default:
-			return nil, errorAt(tok.Line, tok.Col, "unexpected %s in a `macro` declaration; it is `macro name: Type`", tok.Lexeme)
-		}
-	}
-	return &ast.MacroDecl{
-		Name:     nameTok.Lexeme,
-		Public:   public,
-		Impl:     impl,
-		Line:     kwTok.Line,
-		Col:      kwTok.Col,
-		NameLine: nameTok.Line,
-		NameCol:  nameTok.Col,
-	}, nil
 }
 
 // ---------------------------------------------------------------------------

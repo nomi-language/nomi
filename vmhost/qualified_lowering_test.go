@@ -1,11 +1,14 @@
 package vmhost
 
-import "testing"
+import (
+	"bytes"
+	"context"
+	"testing"
+)
 
 // A std interface named through its module's qualifier (`sql.Conn`,
 // `display.Display`) is an existential over it, as the bare name is, in a
-// parameter and a result: what a macro's expansion writes, since its
-// imports are whole files.
+// parameter and a result.
 func TestLowering_StdInterfaceThroughItsModulesQualifier(t *testing.T) {
 	const program = `// FILE: main.nomi
 import {
@@ -102,4 +105,26 @@ entry_points = ["main"]
 	if got := runText(t, entry); got != "abc\n4\n5\n" {
 		t.Errorf("got %q", got)
 	}
+}
+
+func checkText(t *testing.T, path string) string {
+	t.Helper()
+	err := Check(path)
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func runText(t *testing.T, path string) string {
+	t.Helper()
+	var out bytes.Buffer
+	p, err := Load(path, WithOutput(&out))
+	if err != nil {
+		t.Fatalf("load %s: %v", path, err)
+	}
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatalf("run %s: %v", path, err)
+	}
+	return out.String()
 }

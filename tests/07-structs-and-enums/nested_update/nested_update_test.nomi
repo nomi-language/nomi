@@ -81,10 +81,9 @@ fn ada() -> Person {
 // whether a diagnostic at line:col reads exactly message, before any help
 fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bool {
     Iter.any?(diagnostics, fn d -> {
-        d.line == line and d.col == col and (d.message == message or String.starts_with?(
-            d.message,
-            message + "\nhelp: ",
-        ))
+        d.line == line
+            and d.col == col
+            and (d.message == message or String.starts_with?(d.message, message + "\nhelp: "))
     })
 }
 
@@ -114,9 +113,8 @@ test "updates nest three deep" {
         floor: #{.., geo: #{.., city: "Bergen"}},
     }
 
-    assert Display.to_string(
-        moved
-    ) == "#Building{name: HQ, floor: #Floor{geo: #Geo{lat: 5, city: Bergen}, rooms: 9}}"
+    assert Display.to_string(moved)
+        == "#Building{name: HQ, floor: #Floor{geo: #Geo{lat: 5, city: Bergen}, rooms: 9}}"
 }
 
 // --- collections at a field ---------------------------------------------
@@ -174,9 +172,8 @@ test "a missing key builds a struct from the fields written and the defaults" {
     geos = %{"oslo" => #Geo{lat: 60, city: "Oslo"}}
     moved = %{..geos, "oslo" => #{.., lat: 59}, "rome" => #{.., city: "Rome"}}
 
-    assert Display.to_string(
-        moved
-    ) == "%{oslo => #Geo{lat: 59, city: Oslo}, rome => #Geo{lat: 0, city: Rome}}"
+    assert Display.to_string(moved)
+        == "%{oslo => #Geo{lat: 59, city: Oslo}, rome => #Geo{lat: 0, city: Rome}}"
 }
 
 test "a whole missing chain is built" {
@@ -225,10 +222,8 @@ test "Struct.update with the patch named first" {
 test "an update in an assertion subject" {
     assert Struct.update(ada(), #{address: #{.., city: "NYC"}}).address.city == "NYC"
 
-    assert #{..ada(), address: #{.., city: "NYC"}} == Struct.update(
-        ada(),
-        #{address: #{.., city: "NYC"}},
-    )
+    assert #{..ada(), address: #{.., city: "NYC"}}
+        == Struct.update(ada(), #{address: #{.., city: "NYC"}})
 }
 
 test "a failing assertion shows the updated value" {
@@ -237,7 +232,7 @@ test "a failing assertion shows the updated value" {
 
     // The patch's row shows each `..` field as the value it became.
     assert AssertionFailure.format(failure) == """
-        line 236: check failed
+        line 231: check failed
           check Struct.update(w, #{p: #{.., a: 5}}) == w
           values:
             w

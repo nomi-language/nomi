@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 500
-declared-cases 2538
+records 627
+declared-cases 3584
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -849,15 +849,17 @@ T test result: ok. 11 passed, 0 failed
 T
 C 06-collections/index_traps_test.nomi
 E 0
-N 6
-H 386e9e5375dcdd3e4000cb48543f3672db159e531b98e372f7db0f5510dd109c
+N 8
+H ac73117e013a29cf78a8c3534e3b72e49f946a3dce7db10431af98d909fe1276
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on an index past the end
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on a negative index
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector set traps on an index outside the vector
 T ok <root>/tests/06-collections/index_traps_test.nomi :: bytes at traps on an index outside the buffer
 T ok <root>/tests/06-collections/index_traps_test.nomi :: an index trap inside a std call is reported at the program's call
 T ok <root>/tests/06-collections/index_traps_test.nomi :: the get siblings answer None where at traps
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/06-collections/index_traps_test.nomi :: list remove_at traps on an index outside the list
+T ok <root>/tests/06-collections/index_traps_test.nomi :: map at traps on a missing key and names it
+T test result: ok. 8 passed, 0 failed
 T
 C 06-collections/lists_test.nomi
 E 0
@@ -3662,6 +3664,20 @@ T ok <root>/tests/exercism/allergies/allergies_test.nomi :: testing for cats all
 T ok <root>/tests/exercism/allergies/allergies_test.nomi :: list when: (10 cases)
 T test result: ok. 50 passed, 0 failed
 T
+C exercism/alphametics/alphametics.nomi
+E 1
+N 0
+H c4b93764b90ac9200f795dbec0e0de0ab967d69c91c541f55ad810d632c0e022
+T --- stderr ---
+T nomi run: <root>/tests/exercism/alphametics/alphametics.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/alphametics/alphametics_test.nomi
+E 0
+N 10
+H bfbeb6b485a2e8cdf41c33a3cabc3d292e540cf30a71b6809c8744ef45dc0068
+T ok <root>/tests/exercism/alphametics/alphametics_test.nomi :: solve (10 cases)
+T test result: ok. 10 passed, 0 failed
+T
 C exercism/anagram/anagram.nomi
 E 1
 N 0
@@ -3704,6 +3720,41 @@ H b13fe20958e3abfa0135156fddac524d4e56d05ee7f844f736d1baf4ea58a185
 T ok <root>/tests/exercism/atbash-cipher/atbash_cipher_test.nomi :: encode (8 cases)
 T ok <root>/tests/exercism/atbash-cipher/atbash_cipher_test.nomi :: decode (6 cases)
 T test result: ok. 14 passed, 0 failed
+T
+C exercism/baffling-birthdays/baffling_birthdays.nomi
+E 1
+N 0
+H 35ccb7559c2f10e0bd47b22b47c53d18b30e0f83319c9bc6c79952a0ddcf959b
+T --- stderr ---
+T nomi run: <root>/tests/exercism/baffling-birthdays/baffling_birthdays.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/baffling-birthdays/baffling_birthdays_test.nomi
+E 0
+N 17
+H e390e89f0fcfc09ab59796132dcf170707eac554c8ce81a6dc388d01a3adcb45
+T ok <root>/tests/exercism/baffling-birthdays/baffling_birthdays_test.nomi :: shared birthday (9 cases)
+T ok <root>/tests/exercism/baffling-birthdays/baffling_birthdays_test.nomi :: random birthdates / generate requested number of birthdates
+T ok <root>/tests/exercism/baffling-birthdays/baffling_birthdays_test.nomi :: random birthdates / years are not leap years
+T ok <root>/tests/exercism/baffling-birthdays/baffling_birthdays_test.nomi :: random birthdates / months are random
+T ok <root>/tests/exercism/baffling-birthdays/baffling_birthdays_test.nomi :: random birthdates / days are random
+T ok <root>/tests/exercism/baffling-birthdays/baffling_birthdays_test.nomi :: estimated probability of at least one shared birthday (4 cases)
+T test result: ok. 17 passed, 0 failed
+T
+C exercism/bank-account/bank_account.nomi
+E 1
+N 0
+H 3a25fdbbe73be22106cfe962e37af7eaa0433235d0e062de97f1adafd7e9b37c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/bank-account/bank_account.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/bank-account/bank_account_test.nomi
+E 0
+N 18
+H ba1b4c48796fb21f2c7b5bf2c53c3dd10d63a010f79446c313a763805fd2a30f
+T ok <root>/tests/exercism/bank-account/bank_account_test.nomi :: bank account (16 cases)
+T ok <root>/tests/exercism/bank-account/bank_account_test.nomi :: Can handle concurrent transactions
+T ok <root>/tests/exercism/bank-account/bank_account_test.nomi :: errors read as the canonical messages
+T test result: ok. 18 passed, 0 failed
 T
 C exercism/binary-search-tree/binary_search_tree.nomi
 E 1
@@ -3748,6 +3799,78 @@ N 26
 H 8de30575927d2f3961e6e940838882949b3538530312608124e183074095770e
 T ok <root>/tests/exercism/bob/bob_test.nomi :: bob's responses (26 cases)
 T test result: ok. 26 passed, 0 failed
+T
+C exercism/book-store/book_store.nomi
+E 1
+N 0
+H c03404342353f5e7b0f67f2f990a62b4abf13c804fca52f6fcf622808f370db5
+T --- stderr ---
+T nomi run: <root>/tests/exercism/book-store/book_store.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/book-store/book_store_test.nomi
+E 0
+N 18
+H 07191328622a6e6ca42280fbdfa0660433cc190ff6c9cbd31fb351b3e132202f
+T ok <root>/tests/exercism/book-store/book_store_test.nomi :: total (18 cases)
+T test result: ok. 18 passed, 0 failed
+T
+C exercism/bottle-song/bottle_song.nomi
+E 1
+N 0
+H e6c7fa0f6836992cb0499b8809cbbea5ce567dbfc97ee815283ac0c4de207999
+T --- stderr ---
+T nomi run: <root>/tests/exercism/bottle-song/bottle_song.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/bottle-song/bottle_song_test.nomi
+E 0
+N 7
+H 959e2859296443227a45dd88e1ccb2cb91a2db268569eb5b1e1753e74a69d7fa
+T ok <root>/tests/exercism/bottle-song/bottle_song_test.nomi :: single verse (4 cases)
+T ok <root>/tests/exercism/bottle-song/bottle_song_test.nomi :: multiple verses (3 cases)
+T test result: ok. 7 passed, 0 failed
+T
+C exercism/bowling/bowling.nomi
+E 1
+N 0
+H f1e58433103938d2de6edd70be2fc87053f32101e73336b253943421a14c6500
+T --- stderr ---
+T nomi run: <root>/tests/exercism/bowling/bowling.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/bowling/bowling_test.nomi
+E 0
+N 31
+H 1091dfe95a528bfa412c6cc64618bf18e4c2f8f61bf49f78a04ed4dd01615c9d
+T ok <root>/tests/exercism/bowling/bowling_test.nomi :: score (21 cases)
+T ok <root>/tests/exercism/bowling/bowling_test.nomi :: roll (10 cases)
+T test result: ok. 31 passed, 0 failed
+T
+C exercism/camicia/camicia.nomi
+E 1
+N 0
+H cd558f02d15a9a7335f7f1165fa9867a69adbc21956759b672a38aea3cef69a1
+T --- stderr ---
+T nomi run: <root>/tests/exercism/camicia/camicia.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/camicia/camicia_test.nomi
+E 0
+N 28
+H a980beab6a031ec24e1bedb1e285bfd28fe1d60365b94203e8b475b3fed39fc6
+T ok <root>/tests/exercism/camicia/camicia_test.nomi :: simulate game (28 cases)
+T test result: ok. 28 passed, 0 failed
+T
+C exercism/change/change.nomi
+E 1
+N 0
+H f6614cfd3af15c39633eb3482f64c78499b9ca722d9a2a97a3166fb7ada5fcd1
+T --- stderr ---
+T nomi run: <root>/tests/exercism/change/change.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/change/change_test.nomi
+E 0
+N 13
+H 74c4af1acf543e7e0457828a0ee812606fba3bb8283d471643de42e435fff0dd
+T ok <root>/tests/exercism/change/change_test.nomi :: find fewest coins (13 cases)
+T test result: ok. 13 passed, 0 failed
 T
 C exercism/circular-buffer/circular_buffer.nomi
 E 1
@@ -3795,6 +3918,80 @@ T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: co
 T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: zero is an error
 T ok <root>/tests/exercism/collatz-conjecture/collatz_conjecture_test.nomi :: negative value is an error
 T test result: ok. 6 passed, 0 failed
+T
+C exercism/complex-numbers/complex_numbers.nomi
+E 1
+N 0
+H 92ce38e202d002a4d20a85e4a7a35a341414063d79e424889f9024590cc63e39
+T --- stderr ---
+T nomi run: <root>/tests/exercism/complex-numbers/complex_numbers.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/complex-numbers/complex_numbers_test.nomi
+E 0
+N 40
+H 4bde706cf589df1f07c410aa66637d8ba4c503c2168868c0c9a27c8726f20834
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Real part (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Imaginary part (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Imaginary unit
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Arithmetic / Addition (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Arithmetic / Subtraction (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Arithmetic / Multiplication (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Arithmetic / Division (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Absolute value (5 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Complex conjugate (3 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Complex exponential function (5 cases)
+T ok <root>/tests/exercism/complex-numbers/complex_numbers_test.nomi :: Operations between real numbers and complex numbers (8 cases)
+T test result: ok. 40 passed, 0 failed
+T
+C exercism/connect/connect.nomi
+E 1
+N 0
+H ac0d4281e1db350e743fb5ffb7a9e2a408c9ef73706ad04717d13afe95418aa0
+T --- stderr ---
+T nomi run: <root>/tests/exercism/connect/connect.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/connect/connect_test.nomi
+E 0
+N 12
+H c56d61221a2373b98cbcffb7b9e6f9bbc0855ed328df9c6db04547aced331355
+T ok <root>/tests/exercism/connect/connect_test.nomi :: winner (12 cases)
+T test result: ok. 12 passed, 0 failed
+T
+C exercism/crypto-square/crypto_square.nomi
+E 1
+N 0
+H 97ba81621fcfc2223a04d5547f8c1dfb0936a3f3248060498295dfdd0d20b242
+T --- stderr ---
+T nomi run: <root>/tests/exercism/crypto-square/crypto_square.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/crypto-square/crypto_square_test.nomi
+E 0
+N 8
+H 6fe1e5cb69817f72cb00403dae3148f60d0c7168d15e9a2db5926d785264077f
+T ok <root>/tests/exercism/crypto-square/crypto_square_test.nomi :: crypto square (8 cases)
+T test result: ok. 8 passed, 0 failed
+T
+C exercism/custom-set/custom_set.nomi
+E 1
+N 0
+H 9303ed26b0c430a937d2ebc342b1d42f67cf7a9af28fc196b91b1e9ad6cd4dad
+T --- stderr ---
+T nomi run: <root>/tests/exercism/custom-set/custom_set.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/custom-set/custom_set_test.nomi
+E 0
+N 40
+H 27227025eb94532e26ec46914b73005a6c8f1759edfa49f9cc8ed616b342d71d
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Returns true if the set contains no elements (2 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Sets can report if they contain an element (3 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: A set is a subset if all of its elements are contained in the other set (6 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Sets are disjoint if they share no elements (5 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Sets with the same elements are equal (7 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Unique elements can be added to a set (3 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Intersection returns a set of all shared elements (5 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Difference (or Complement) of a set is a set of all elements that are only in the first set (5 cases)
+T ok <root>/tests/exercism/custom-set/custom_set_test.nomi :: Union returns a set of all elements in either set (4 cases)
+T test result: ok. 40 passed, 0 failed
 T
 C exercism/darts/darts.nomi
 E 1
@@ -3844,6 +4041,53 @@ T ok <root>/tests/exercism/difference-of-squares/difference_of_squares_test.nomi
 T ok <root>/tests/exercism/difference-of-squares/difference_of_squares_test.nomi :: Subtract sum of squares from square of sums (3 cases)
 T test result: ok. 9 passed, 0 failed
 T
+C exercism/dnd-character/dnd_character.nomi
+E 1
+N 0
+H bfe09b15b602c74902cf46d92f2e9096f46d598d07a3e6534a160698823659ff
+T --- stderr ---
+T nomi run: <root>/tests/exercism/dnd-character/dnd_character.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/dnd-character/dnd_character_test.nomi
+E 0
+N 19
+H 163d24501f9e5725bea11814889281d2e4231fb9b077d614e46560f582bd27fa
+T ok <root>/tests/exercism/dnd-character/dnd_character_test.nomi :: ability modifier (16 cases)
+T ok <root>/tests/exercism/dnd-character/dnd_character_test.nomi :: random ability is within range
+T ok <root>/tests/exercism/dnd-character/dnd_character_test.nomi :: random character is valid
+T ok <root>/tests/exercism/dnd-character/dnd_character_test.nomi :: each ability is only calculated once
+T test result: ok. 19 passed, 0 failed
+T
+C exercism/dominoes/dominoes.nomi
+E 1
+N 0
+H 67a4cf90c51af3ebf4aa997f148549bfc43e146999c70dfd77183794c5e7eb3f
+T --- stderr ---
+T nomi run: <root>/tests/exercism/dominoes/dominoes.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/dominoes/dominoes_test.nomi
+E 0
+N 13
+H 2a745a42cf8f1d9722b0790af040b7d176f05f48202c7953f8944a34aa12e26c
+T ok <root>/tests/exercism/dominoes/dominoes_test.nomi :: can chain (7 cases)
+T ok <root>/tests/exercism/dominoes/dominoes_test.nomi :: cannot chain (6 cases)
+T test result: ok. 13 passed, 0 failed
+T
+C exercism/dot-dsl/dot_dsl.nomi
+E 1
+N 0
+H 7ac540fe5cc7c92edc7abb3f54a4ba074f5d31d1b6fc4922c6f7d0b8d950d70a
+T --- stderr ---
+T nomi run: <root>/tests/exercism/dot-dsl/dot_dsl.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/dot-dsl/dot_dsl_test.nomi
+E 0
+N 19
+H 798d2f1c75279b7146974d9f1c215d4c16c6eafa690ab5847ba797047e6932c1
+T ok <root>/tests/exercism/dot-dsl/dot_dsl_test.nomi :: parse (9 cases)
+T ok <root>/tests/exercism/dot-dsl/dot_dsl_test.nomi :: parse errors (10 cases)
+T test result: ok. 19 passed, 0 failed
+T
 C exercism/eliuds-eggs/eliuds_eggs.nomi
 E 1
 N 0
@@ -3857,6 +4101,25 @@ N 4
 H 44453f7a18a00becb8ae1b3a2c5689c248a6edb7c05590f0806d0e1e894fbf1a
 T ok <root>/tests/exercism/eliuds-eggs/eliuds_eggs_test.nomi :: counts the eggs (4 cases)
 T test result: ok. 4 passed, 0 failed
+T
+C exercism/error-handling/error_handling.nomi
+E 1
+N 0
+H 4eb7f32138916e49b81911b47daf53f2c96ed3051f739bd2460d58b80b7dce83
+T --- stderr ---
+T nomi run: <root>/tests/exercism/error-handling/error_handling.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/error-handling/error_handling_test.nomi
+E 0
+N 6
+H 027a466b6608ecfde8d3c0a027da35f670627acad0e7290aab5e8a45388da9b0
+T ok <root>/tests/exercism/error-handling/error_handling_test.nomi :: a missing answer is None
+T ok <root>/tests/exercism/error-handling/error_handling_test.nomi :: a failure the caller handles is an Err
+T ok <root>/tests/exercism/error-handling/error_handling_test.nomi :: a broken promise traps
+T ok <root>/tests/exercism/error-handling/error_handling_test.nomi :: a resource is released when the work succeeds
+T ok <root>/tests/exercism/error-handling/error_handling_test.nomi :: a resource is released when the work fails
+T ok <root>/tests/exercism/error-handling/error_handling_test.nomi :: a resource is released when the work traps
+T test result: ok. 6 passed, 0 failed
 T
 C exercism/etl/etl.nomi
 E 1
@@ -3889,6 +4152,72 @@ H d96001d8da8b1108aa0bba194e352f223c66b7f632520f807bae0482311053b1
 T ok <root>/tests/exercism/flatten-array/flatten_array_test.nomi :: flatten (11 cases)
 T test result: ok. 11 passed, 0 failed
 T
+C exercism/flower-field/flower_field.nomi
+E 1
+N 0
+H d18f2acd68826c71c2aec664c14c9318a292f5c40478291b9e9d1f3de907cb5d
+T --- stderr ---
+T nomi run: <root>/tests/exercism/flower-field/flower_field.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/flower-field/flower_field_test.nomi
+E 0
+N 13
+H b74af86f3411cdf0180f69a73e19eaf7f2cc186034bfad2370a583e169726031
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: no rows
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: no columns
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: no flowers
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: garden full of flowers
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: flower surrounded by spaces
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: space surrounded by flowers
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: horizontal line
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: horizontal line, flowers at edges
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: vertical line
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: vertical line, flowers at edges
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: cross
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: large garden
+T ok <root>/tests/exercism/flower-field/flower_field_test.nomi :: multiple adjacent flowers
+T test result: ok. 13 passed, 0 failed
+T
+C exercism/food-chain/food_chain.nomi
+E 1
+N 0
+H fe34ef1016c958c36084bb7cdc8a2bb1e665e01a8b81ffd64baf88d1b56db0c1
+T --- stderr ---
+T nomi run: <root>/tests/exercism/food-chain/food_chain.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/food-chain/food_chain_test.nomi
+E 0
+N 10
+H 29ef75c2a12ca9db41230170e6a89dd2f392ebaf2c39730663d7eb08a7ae4bd7
+T ok <root>/tests/exercism/food-chain/food_chain_test.nomi :: food chain (10 cases)
+T test result: ok. 10 passed, 0 failed
+T
+C exercism/forth/forth.nomi
+E 1
+N 0
+H a1453d05392d12b250306b366c2e890b0faad71d209be98c7064d313c6ddc705
+T --- stderr ---
+T nomi run: <root>/tests/exercism/forth/forth.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/forth/forth_test.nomi
+E 0
+N 55
+H 74c1f38c896b02aee37faee870225fe51c3a8773ced30d544d6b4c969d42fad9
+T ok <root>/tests/exercism/forth/forth_test.nomi :: parsing and numbers (2 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: addition (4 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: subtraction (4 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: multiplication (4 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: division (6 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: combined arithmetic (4 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: dup (3 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: drop (3 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: swap (4 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: over (4 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: user-defined words (10 cases)
+T ok <root>/tests/exercism/forth/forth_test.nomi :: user-defined words: only defines locally
+T ok <root>/tests/exercism/forth/forth_test.nomi :: case-insensitivity (6 cases)
+T test result: ok. 55 passed, 0 failed
+T
 C exercism/game-of-life/game_of_life.nomi
 E 1
 N 0
@@ -3902,6 +4231,37 @@ N 8
 H 793dca8c7521e74bb121612bb28d9a74954b48deff552cc7e99fb922f937ec43
 T ok <root>/tests/exercism/game-of-life/game_of_life_test.nomi :: tick (8 cases)
 T test result: ok. 8 passed, 0 failed
+T
+C exercism/gigasecond/gigasecond.nomi
+E 1
+N 0
+H bf190d2274503bed895763ecea7603acc79f8f1d2d7b2ce662ca84353df11469
+T --- stderr ---
+T nomi run: <root>/tests/exercism/gigasecond/gigasecond.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/gigasecond/gigasecond_test.nomi
+E 0
+N 6
+H 4a639f842c6dc6c4413da8122bf925bb4420e93522ee58393f2405bf097e6cdc
+T ok <root>/tests/exercism/gigasecond/gigasecond_test.nomi :: date only specification of time (3 cases)
+T ok <root>/tests/exercism/gigasecond/gigasecond_test.nomi :: full time specified (2 cases)
+T ok <root>/tests/exercism/gigasecond/gigasecond_test.nomi :: does not mutate the input
+T test result: ok. 6 passed, 0 failed
+T
+C exercism/go-counting/go_counting.nomi
+E 1
+N 0
+H 8c6bd87ca0e79fcf0ac0e1fe8d7eecf62ef9cc9f0d488d22d5a7c1aa2c2bd400
+T --- stderr ---
+T nomi run: <root>/tests/exercism/go-counting/go_counting.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/go-counting/go_counting_test.nomi
+E 0
+N 11
+H 387ccb736d4a463f78b4ad031881b2a1cd13a087869b6b052395e828582d8abf
+T ok <root>/tests/exercism/go-counting/go_counting_test.nomi :: territory (8 cases)
+T ok <root>/tests/exercism/go-counting/go_counting_test.nomi :: territories (3 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C exercism/grade-school/grade_school.nomi
 E 1
@@ -3935,6 +4295,22 @@ T ok <root>/tests/exercism/grains/grains_test.nomi :: returns the number of grai
 T ok <root>/tests/exercism/grains/grains_test.nomi :: returns the total number of grains on the board
 T test result: ok. 11 passed, 0 failed
 T
+C exercism/grep/grep.nomi
+E 1
+N 0
+H c9d54a10807d1169458ee86f5cac0c7f52cb3b34f86e2559452b1a13b847e896
+T --- stderr ---
+T nomi run: <root>/tests/exercism/grep/grep.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/grep/grep_test.nomi
+E 0
+N 26
+H ba9f966e84a5494cb96aa1e20969501e9daa554609eb8281cdad84417a5c32d7
+T ok <root>/tests/exercism/grep/grep_test.nomi :: Test grepping a single file (14 cases)
+T ok <root>/tests/exercism/grep/grep_test.nomi :: Test grepping multiples files at once (11 cases)
+T ok <root>/tests/exercism/grep/grep_test.nomi :: a missing file is the error reading it
+T test result: ok. 26 passed, 0 failed
+T
 C exercism/hamming/hamming.nomi
 E 1
 N 0
@@ -3948,6 +4324,41 @@ N 9
 H 5e07d58a257feb353f1ec103eb6e3f1406c3ada08451d6f80901cd5eebf7532e
 T ok <root>/tests/exercism/hamming/hamming_test.nomi :: hamming distance (9 cases)
 T test result: ok. 9 passed, 0 failed
+T
+C exercism/hello-world/hello_world.nomi
+E 1
+N 0
+H 1d1bfd8e96787f355a15378b40db5d629a1641c48e79ec6bdbd83bd1999d4961
+T --- stderr ---
+T nomi run: <root>/tests/exercism/hello-world/hello_world.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/hello-world/hello_world_test.nomi
+E 0
+N 1
+H 4243e31090cd1e920a074fce6a5c6dd83aa913b73f2deb551cc2852742c70af9
+T ok <root>/tests/exercism/hello-world/hello_world_test.nomi :: Say Hi!
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/high-scores/high_scores.nomi
+E 1
+N 0
+H fce96b1d4cc5efe3f7f5e4197516baad25488f058417a137b3ac4fae5bc0eb6a
+T --- stderr ---
+T nomi run: <root>/tests/exercism/high-scores/high_scores.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/high-scores/high_scores_test.nomi
+E 0
+N 12
+H b92daf9a819125868c8288840d7c076308815674c6ace6a1ed57691b70b4e76a
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: List of scores
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Latest score
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Personal best
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Top 3 scores / personal top three (5 cases)
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Top 3 scores / Latest score after personal top scores
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Top 3 scores / Scores after personal top scores
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Top 3 scores / Latest score after personal best
+T ok <root>/tests/exercism/high-scores/high_scores_test.nomi :: Top 3 scores / Scores after personal best
+T test result: ok. 12 passed, 0 failed
 T
 C exercism/house/house.nomi
 E 1
@@ -3963,6 +4374,22 @@ H 39a3b2d8f7538516fc63f1bcf2d71d46c43dc8eabb0507ed2c05d4c03349cac4
 T ok <root>/tests/exercism/house/house_test.nomi :: single verses (12 cases)
 T ok <root>/tests/exercism/house/house_test.nomi :: several verses (2 cases)
 T test result: ok. 14 passed, 0 failed
+T
+C exercism/intergalactic-transmission/intergalactic_transmission.nomi
+E 0
+N 2
+H b6ef0138eb6eb471b1a90f3a8a1b9301a6b8cf73e1d93ccf83e3a1e6daa95898
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: transmit //! test line 4
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: receive //! test line 20
+T test result: ok. 2 passed, 0 failed
+T
+C exercism/intergalactic-transmission/intergalactic_transmission_test.nomi
+E 0
+N 26
+H 8af6a5c743067a70b15170469ae096a289854a3a162babaf61936a8d7e933f93
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission_test.nomi :: calculate transmit sequences (11 cases)
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission_test.nomi :: decode received messages (15 cases)
+T test result: ok. 26 passed, 0 failed
 T
 C exercism/isbn-verifier/isbn_verifier.nomi
 E 1
@@ -3992,6 +4419,24 @@ H f9794b37c40f93c1817876210b761f1e0efc1f3ba16c1eb313a32955bdc0058f
 T ok <root>/tests/exercism/isogram/isogram_test.nomi :: isograms (14 cases)
 T test result: ok. 14 passed, 0 failed
 T
+C exercism/killer-sudoku-helper/killer_sudoku_helper.nomi
+E 0
+N 1
+H c706104f5bfbd948c2bc595e15eb65addee7579f902478921a240b83ecd6d9d8
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper.nomi :: combinations //! test line 4
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi
+E 0
+N 13
+H 9ad94224c15a0f05cb1fdc421b81868b66ec9839cfe7b45bddd982c60fbcd986
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi :: Trivial 1-digit cages (9 cases)
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi :: Cage with sum 45 contains all digits 1:9
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi :: Cage with only 1 possible combination
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi :: Cage with several combinations
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi :: Cage with several combinations that is restricted
+T test result: ok. 13 passed, 0 failed
+T
 C exercism/kindergarten-garden/kindergarten_garden.nomi
 E 1
 N 0
@@ -4008,6 +4453,20 @@ T ok <root>/tests/exercism/kindergarten-garden/kindergarten_garden_test.nomi :: 
 T ok <root>/tests/exercism/kindergarten-garden/kindergarten_garden_test.nomi :: full garden (12 cases)
 T ok <root>/tests/exercism/kindergarten-garden/kindergarten_garden_test.nomi :: a letter that names no plant
 T test result: ok. 18 passed, 0 failed
+T
+C exercism/knapsack/knapsack.nomi
+E 1
+N 0
+H e8a3dabd91a5a28711d738955e80101ac5e13a25c0d46b2750e7cbe7359431c4
+T --- stderr ---
+T nomi run: <root>/tests/exercism/knapsack/knapsack.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/knapsack/knapsack_test.nomi
+E 0
+N 7
+H aab70ecd6e3ff11557460f211ac34bc21e472d796989a2e0180535c6e252e38d
+T ok <root>/tests/exercism/knapsack/knapsack_test.nomi :: maximum value (7 cases)
+T test result: ok. 7 passed, 0 failed
 T
 C exercism/largest-series-product/largest_series_product.nomi
 E 1
@@ -4037,6 +4496,68 @@ N 9
 H 510f191b252fef99b75d2cb525fbe34775ea3ba9cd154882eb47ce275d793252
 T ok <root>/tests/exercism/leap/leap_test.nomi :: leap years (9 cases)
 T test result: ok. 9 passed, 0 failed
+T
+C exercism/ledger/ledger.nomi
+E 1
+N 0
+H 64e5c0b48bf7d594e78172692c26fa8351873177a51c7c049a5a6830bb865a89
+T --- stderr ---
+T nomi run: <root>/tests/exercism/ledger/ledger.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/ledger/ledger_test.nomi
+E 0
+N 12
+H 56f41db40318485874d2a8b383108fc1eee9d16043bf9dab66c70d3681f8190f
+T ok <root>/tests/exercism/ledger/ledger_test.nomi :: ledger (12 cases)
+T test result: ok. 12 passed, 0 failed
+T
+C exercism/lens-person/lens_person.nomi
+E 1
+N 0
+H dc14656e56affea797a0f2a180c86c901a70fe2c2ee64fb6ad23258bea03db46
+T --- stderr ---
+T nomi run: <root>/tests/exercism/lens-person/lens_person.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/lens-person/lens_person_test.nomi
+E 0
+N 6
+H c7a6dc474148dceb07a4b96db141ec977f702268278eeac51142ffe0ad556cc5
+T ok <root>/tests/exercism/lens-person/lens_person_test.nomi :: bornStreet
+T ok <root>/tests/exercism/lens-person/lens_person_test.nomi :: setCurrentStreet
+T ok <root>/tests/exercism/lens-person/lens_person_test.nomi :: setBirthMonth
+T ok <root>/tests/exercism/lens-person/lens_person_test.nomi :: renameStreets birth
+T ok <root>/tests/exercism/lens-person/lens_person_test.nomi :: renameStreets current
+T ok <root>/tests/exercism/lens-person/lens_person_test.nomi :: a birth month without the birth day is an error
+T test result: ok. 6 passed, 0 failed
+T
+C exercism/line-up/line_up.nomi
+E 0
+N 1
+H 047a6cfd984f3f2ac5e5aa96beb955402ae5b5a1c31ce7956aef27e0f46aeda7
+T ok <root>/tests/exercism/line-up/line_up.nomi :: format //! test line 2
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/line-up/line_up_test.nomi
+E 0
+N 25
+H 8b6ba1666d397d3920f767d2d3906bc9513a3ce9d3db1df3e5ba3cc764207cad
+T ok <root>/tests/exercism/line-up/line_up_test.nomi :: format (25 cases)
+T test result: ok. 25 passed, 0 failed
+T
+C exercism/linked-list/linked_list.nomi
+E 1
+N 0
+H 06c7c7c9e907e378b676eadd7266d06e3542fccef937b5077aa076fedaa8d0f2
+T --- stderr ---
+T nomi run: <root>/tests/exercism/linked-list/linked_list.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/linked-list/linked_list_test.nomi
+E 0
+N 20
+H fb672e309dd14d54f2b151e8343130cfc846a44b90d01dd01bbf84696aa373e5
+T ok <root>/tests/exercism/linked-list/linked_list_test.nomi :: linked list (19 cases)
+T ok <root>/tests/exercism/linked-list/linked_list_test.nomi :: pop and shift on an empty list find nothing
+T test result: ok. 20 passed, 0 failed
 T
 C exercism/list-ops/list_ops.nomi
 E 1
@@ -4088,6 +4609,20 @@ H feaebec250c547561da1d01e3208ace9dea1ad5e1edbcecf39936997efa58f09
 T ok <root>/tests/exercism/luhn/luhn_test.nomi :: validates numbers with the Luhn checksum (22 cases)
 T test result: ok. 22 passed, 0 failed
 T
+C exercism/markdown/markdown.nomi
+E 1
+N 0
+H 59363dcbde3c548a06676ba9555c85204e56d99b4fd266f22ae59ff1e4d88d3e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/markdown/markdown.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/markdown/markdown_test.nomi
+E 0
+N 17
+H 0cf7f19aa0cb082156764dce67414a09bf3c5b9df87e753813b72aac7131d2bb
+T ok <root>/tests/exercism/markdown/markdown_test.nomi :: markdown (17 cases)
+T test result: ok. 17 passed, 0 failed
+T
 C exercism/matching-brackets/matching_brackets.nomi
 E 1
 N 0
@@ -4101,6 +4636,23 @@ N 20
 H 935edf53dd22f1b233c8918dd54d6733d2b4276556c30a42135c37e6ffeaaad3
 T ok <root>/tests/exercism/matching-brackets/matching_brackets_test.nomi :: checks bracket pairing (20 cases)
 T test result: ok. 20 passed, 0 failed
+T
+C exercism/matrix/matrix.nomi
+E 1
+N 0
+H 52c6269e503573589b1b705410fa148ae0b28475eb49807149e4e5a281683629
+T --- stderr ---
+T nomi run: <root>/tests/exercism/matrix/matrix.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/matrix/matrix_test.nomi
+E 0
+N 10
+H dfd0d32fa08f29b898b3ebfd2f07b1a464d06024c5eba7c483deff3eecdf4f55
+T ok <root>/tests/exercism/matrix/matrix_test.nomi :: rows (4 cases)
+T ok <root>/tests/exercism/matrix/matrix_test.nomi :: columns (4 cases)
+T ok <root>/tests/exercism/matrix/matrix_test.nomi :: a word that is not a number is an error
+T ok <root>/tests/exercism/matrix/matrix_test.nomi :: an index past the last row or column is None
+T test result: ok. 10 passed, 0 failed
 T
 C exercism/meetup/meetup.nomi
 E 1
@@ -4116,30 +4668,20 @@ H 36136fd5a252181f4ce660450a741b6a8b632144eb6ec821fcf70615d1083075
 T ok <root>/tests/exercism/meetup/meetup_test.nomi :: meetup (95 cases)
 T test result: ok. 95 passed, 0 failed
 T
-C exercism/minesweeper/minesweeper.nomi
+C exercism/micro-blog/micro_blog.nomi
 E 1
 N 0
-H ceb45506af099edfea7b6be89e981e80a26b25a1e54db04b6095ecd207d5d209
+H c42166604c3a782fc0e5835110e8d1c9ca2b2d42968dafd9bb36638851be0fc8
 T --- stderr ---
-T nomi run: <root>/tests/exercism/minesweeper/minesweeper.nomi declares no `fn main`, so there is no program to run
+T nomi run: <root>/tests/exercism/micro-blog/micro_blog.nomi declares no `fn main`, so there is no program to run
 T
-C exercism/minesweeper/minesweeper_test.nomi
+C exercism/micro-blog/micro_blog_test.nomi
 E 0
-N 12
-H 1283dbc9d4848609ec88ba49e88c8a8751e05ddf4797fc6a3359abdc3af70549
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no rows
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no columns
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: no mines
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: minefield with only mines
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: mine surrounded by spaces
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: space surrounded by mines
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: horizontal line
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: horizontal line, mines at edges
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: vertical line
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: vertical line, mines at edges
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: cross
-T ok <root>/tests/exercism/minesweeper/minesweeper_test.nomi :: large minefield
-T test result: ok. 12 passed, 0 failed
+N 13
+H f1e1623844563bf4e538eed37a77abab5cdd9693c11043d412525ad62300a978
+T ok <root>/tests/exercism/micro-blog/micro_blog_test.nomi :: truncate (12 cases)
+T ok <root>/tests/exercism/micro-blog/micro_blog_test.nomi :: graphemes of several codepoints
+T test result: ok. 13 passed, 0 failed
 T
 C exercism/nth-prime/nth_prime.nomi
 E 1
@@ -4183,6 +4725,41 @@ H 7fe55806a81a66247a7ff2ed1883b91712870f699ef825b7c2a83c7c33dc9229
 T ok <root>/tests/exercism/ocr-numbers/ocr_numbers_test.nomi :: convert (17 cases)
 T test result: ok. 17 passed, 0 failed
 T
+C exercism/paasio/paasio.nomi
+E 1
+N 0
+H 4ef71824b31a0b86e8a523537cfaccbaeba70a042d6ce30e3acb03a266675364
+T --- stderr ---
+T nomi run: <root>/tests/exercism/paasio/paasio.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/paasio/paasio_test.nomi
+E 0
+N 7
+H 535a611589071e8d492c087a6b2671dfd660d075190276f4db22d756fd4ee23d
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: a new meter has counted nothing
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: reads count their bytes and themselves
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: one read takes what fits, and the next finds the end
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: reading an empty stream is one operation and no bytes
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: a read error passes through
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: writes count their bytes and themselves
+T ok <root>/tests/exercism/paasio/paasio_test.nomi :: earlier meters keep their own counts
+T test result: ok. 7 passed, 0 failed
+T
+C exercism/palindrome-products/palindrome_products.nomi
+E 1
+N 0
+H 33bc2694afacffe23555cec23ceacee1b77ea2cd545d012da4ef1e66254c82c9
+T --- stderr ---
+T nomi run: <root>/tests/exercism/palindrome-products/palindrome_products.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/palindrome-products/palindrome_products_test.nomi
+E 0
+N 13
+H d3cd3b9a48eeadd20c3b2edc912fd34c9d09a1b6f29162155be8523f4be34889
+T ok <root>/tests/exercism/palindrome-products/palindrome_products_test.nomi :: smallest (7 cases)
+T ok <root>/tests/exercism/palindrome-products/palindrome_products_test.nomi :: largest (6 cases)
+T test result: ok. 13 passed, 0 failed
+T
 C exercism/pangram/pangram.nomi
 E 1
 N 0
@@ -4196,6 +4773,28 @@ N 10
 H c4f5a1dc3638ede860764c669cf75441defa10a9bd936fd73a51419d31629247
 T ok <root>/tests/exercism/pangram/pangram_test.nomi :: pangrams (10 cases)
 T test result: ok. 10 passed, 0 failed
+T
+C exercism/parallel-letter-frequency/novel.nomi
+E 1
+N 0
+H dbd38ef1b68f0fbdd244af63dbd3c3a60fcdbe71047d1cbadd94651ab2611b6d
+T --- stderr ---
+T nomi run: <root>/tests/exercism/parallel-letter-frequency/novel.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/parallel-letter-frequency/parallel_letter_frequency.nomi
+E 1
+N 0
+H 895713fec8645b2c8aab2d531abc063c0a90f768c78472025a9d07f3e5a4b52f
+T --- stderr ---
+T nomi run: <root>/tests/exercism/parallel-letter-frequency/parallel_letter_frequency.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/parallel-letter-frequency/parallel_letter_frequency_test.nomi
+E 0
+N 13
+H 94c31d2c8e184753dc7f88e4d99347ef0927c2ed5ca32650c3abdedc8064c204
+T ok <root>/tests/exercism/parallel-letter-frequency/parallel_letter_frequency_test.nomi :: letter frequency (12 cases)
+T ok <root>/tests/exercism/parallel-letter-frequency/parallel_letter_frequency_test.nomi :: combination of lower- and uppercase letters, punctuation and white space
+T test result: ok. 13 passed, 0 failed
 T
 C exercism/pascals-triangle/pascals_triangle.nomi
 E 1
@@ -4242,6 +4841,22 @@ H e4f76b9d041ace7c883ea9c575a356f8b592acbf5b06f646146bd6b07b4849b2
 T ok <root>/tests/exercism/phone-number/phone_number_test.nomi :: cleans phone numbers (18 cases)
 T test result: ok. 18 passed, 0 failed
 T
+C exercism/piecing-it-together/piecing_it_together.nomi
+E 0
+N 1
+H f5dee35b121a05ede87378a0ac301123de49a349aaaf4ec95249da8482d732b2
+T ok <root>/tests/exercism/piecing-it-together/piecing_it_together.nomi :: jigsaw_data //! test line 43
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/piecing-it-together/piecing_it_together_test.nomi
+E 0
+N 7
+H 56896f66b8afe9ebbf366aef3041d9a0a691c028c96d758129035b34256a6c17
+T ok <root>/tests/exercism/piecing-it-together/piecing_it_together_test.nomi :: jigsaw data (5 cases)
+T ok <root>/tests/exercism/piecing-it-together/piecing_it_together_test.nomi :: puzzle with insufficient data
+T ok <root>/tests/exercism/piecing-it-together/piecing_it_together_test.nomi :: puzzle with contradictory data
+T test result: ok. 7 passed, 0 failed
+T
 C exercism/pig-latin/pig_latin.nomi
 E 1
 N 0
@@ -4261,6 +4876,36 @@ T ok <root>/tests/exercism/pig-latin/pig_latin_test.nomi :: position of y in a w
 T ok <root>/tests/exercism/pig-latin/pig_latin_test.nomi :: phrases are translated
 T test result: ok. 23 passed, 0 failed
 T
+C exercism/poker/poker.nomi
+E 1
+N 0
+H 9e85422e352ad50703df1cefa49181d9f43ebf74223866a3f6ab8d425b98f0e5
+T --- stderr ---
+T nomi run: <root>/tests/exercism/poker/poker.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/poker/poker_test.nomi
+E 0
+N 38
+H dc937eadcce36bffe50f0606dca07ef1614a857c3683f5cde11a40e2d648285b
+T ok <root>/tests/exercism/poker/poker_test.nomi :: best hands (37 cases)
+T ok <root>/tests/exercism/poker/poker_test.nomi :: a hand with a card that is not a card is refused
+T test result: ok. 38 passed, 0 failed
+T
+C exercism/pov/pov.nomi
+E 1
+N 0
+H 3b1659f1d6e0a5f7c428925bbac2e61b9230073322491be761482655274f3ed1
+T --- stderr ---
+T nomi run: <root>/tests/exercism/pov/pov.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/pov/pov_test.nomi
+E 0
+N 15
+H 428807a7065d06b9f0c797bd7303f95ea7eb616ef2ff9db17d2eb5de0aaa99ab
+T ok <root>/tests/exercism/pov/pov_test.nomi :: Reroot a tree so that its root is the specified node. (8 cases)
+T ok <root>/tests/exercism/pov/pov_test.nomi :: Given two nodes, find the path between them (7 cases)
+T test result: ok. 15 passed, 0 failed
+T
 C exercism/prime-factors/prime_factors.nomi
 E 1
 N 0
@@ -4274,6 +4919,20 @@ N 12
 H 8ad999c87555f091cacd1372d4f47d6a3748e978d9d51359a1129fb34266d424
 T ok <root>/tests/exercism/prime-factors/prime_factors_test.nomi :: factors (12 cases)
 T test result: ok. 12 passed, 0 failed
+T
+C exercism/prism/prism.nomi
+E 0
+N 1
+H 9ac0ee282e2d8fb9d20e827b29e3af58a764c00ce4be00fa8b0fb4f253d8f654
+T ok <root>/tests/exercism/prism/prism.nomi :: find_sequence //! test lines 24-25
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/prism/prism_test.nomi
+E 0
+N 14
+H 95b6b447f6d2ffdf44d3e61f75af0b5daf306e9fac7a34e6bd12d36132271c41
+T ok <root>/tests/exercism/prism/prism_test.nomi :: find sequence (14 cases)
+T test result: ok. 14 passed, 0 failed
 T
 C exercism/protein-translation/protein_translation.nomi
 E 1
@@ -4309,6 +4968,20 @@ T ok <root>/tests/exercism/proverb/proverb_test.nomi :: full proverb
 T ok <root>/tests/exercism/proverb/proverb_test.nomi :: four pieces modernized
 T test result: ok. 6 passed, 0 failed
 T
+C exercism/pythagorean-triplet/pythagorean_triplet.nomi
+E 1
+N 0
+H c7d204cde2a4b1a58efd2f771c1fcc8d92896f3c2614aad7522b529430466a2a
+T --- stderr ---
+T nomi run: <root>/tests/exercism/pythagorean-triplet/pythagorean_triplet.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/pythagorean-triplet/pythagorean_triplet_test.nomi
+E 0
+N 7
+H 08119c10b1e2623b4a8c5bba767b8e26c299d1e1449016d65b224c4571ca4906
+T ok <root>/tests/exercism/pythagorean-triplet/pythagorean_triplet_test.nomi :: triplets with sum (7 cases)
+T test result: ok. 7 passed, 0 failed
+T
 C exercism/queen-attack/queen_attack.nomi
 E 1
 N 0
@@ -4324,6 +4997,22 @@ T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test creation 
 T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test creation of Queens with valid and invalid positions / invalid positions (4 cases)
 T ok <root>/tests/exercism/queen-attack/queen_attack_test.nomi :: Test the ability of one queen to attack another (8 cases)
 T test result: ok. 13 passed, 0 failed
+T
+C exercism/rail-fence-cipher/rail_fence_cipher.nomi
+E 1
+N 0
+H 6ff201779b402f5d3029f95b0bd84a7d9778f2e596bc7aa97e3eceb5010f00e1
+T --- stderr ---
+T nomi run: <root>/tests/exercism/rail-fence-cipher/rail_fence_cipher.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/rail-fence-cipher/rail_fence_cipher_test.nomi
+E 0
+N 7
+H ae6ee36ad7bbdf1843e88e71330dec88c0c555d9038628409ba20504d21ac519
+T ok <root>/tests/exercism/rail-fence-cipher/rail_fence_cipher_test.nomi :: encode (3 cases)
+T ok <root>/tests/exercism/rail-fence-cipher/rail_fence_cipher_test.nomi :: decode (3 cases)
+T ok <root>/tests/exercism/rail-fence-cipher/rail_fence_cipher_test.nomi :: one rail
+T test result: ok. 7 passed, 0 failed
 T
 C exercism/raindrops/raindrops.nomi
 E 1
@@ -4360,6 +5049,51 @@ T ok <root>/tests/exercism/rational-numbers/rational_numbers_test.nomi :: a real
 T ok <root>/tests/exercism/rational-numbers/rational_numbers_test.nomi :: reduction to lowest terms (7 cases)
 T test result: ok. 43 passed, 0 failed
 T
+C exercism/react/react.nomi
+E 1
+N 0
+H 482191b79a3614d4dd50e18659db6669ac10dc3c680e689c8458b0b794c64de8
+T --- stderr ---
+T nomi run: <root>/tests/exercism/react/react.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/react/react_test.nomi
+E 0
+N 17
+H dd29e11c6aec6da77c6edc7d2f21331d60a41afdd402a6be0ac2e52bd647215b
+T ok <root>/tests/exercism/react/react_test.nomi :: react (14 cases)
+T ok <root>/tests/exercism/react/react_test.nomi :: a cell's name is used once
+T ok <root>/tests/exercism/react/react_test.nomi :: a compute cell reads only cells that exist
+T ok <root>/tests/exercism/react/react_test.nomi :: only an input cell can be set
+T test result: ok. 17 passed, 0 failed
+T
+C exercism/rectangles/rectangles.nomi
+E 0
+N 1
+H 59b1c82da72e10f3a0a7535a1f2b80f6f566d38549032fd5b72601855012bd5d
+T ok <root>/tests/exercism/rectangles/rectangles.nomi :: count //! test line 4
+T test result: ok. 1 passed, 0 failed
+T
+C exercism/rectangles/rectangles_test.nomi
+E 0
+N 14
+H d2650e233b61b8c15dc09eb0f8275a89e471f5083420664b3eee476acf370379
+T ok <root>/tests/exercism/rectangles/rectangles_test.nomi :: rectangles (14 cases)
+T test result: ok. 14 passed, 0 failed
+T
+C exercism/relative-distance/relative_distance.nomi
+E 1
+N 0
+H 5ac93bdc17e7bf2cd305d3506d1c3295fa47a1f5484e116016f7b83dfa563761
+T --- stderr ---
+T nomi run: <root>/tests/exercism/relative-distance/relative_distance.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/relative-distance/relative_distance_test.nomi
+E 0
+N 7
+H 6280629f3ae89c042e5d28b2eec4e62567f91f3898bce4d233e6131c6c650194
+T ok <root>/tests/exercism/relative-distance/relative_distance_test.nomi :: degree of separation (7 cases)
+T test result: ok. 7 passed, 0 failed
+T
 C exercism/resistor-color-duo/resistor_color_duo.nomi
 E 1
 N 0
@@ -4374,6 +5108,22 @@ H d41cfe473a050821b04793beb509ff3024920c4aa2fe76c74144fdbf8b5174f3
 T ok <root>/tests/exercism/resistor-color-duo/resistor_color_duo_test.nomi :: value (7 cases)
 T ok <root>/tests/exercism/resistor-color-duo/resistor_color_duo_test.nomi :: fewer than two bands have no value
 T test result: ok. 8 passed, 0 failed
+T
+C exercism/resistor-color-tolerance/resistor_color_tolerance.nomi
+E 1
+N 0
+H bc630519e568b4f363a58b1a5dfad7154a645c04e09013597d2a95af3f3cc341
+T --- stderr ---
+T nomi run: <root>/tests/exercism/resistor-color-tolerance/resistor_color_tolerance.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/resistor-color-tolerance/resistor_color_tolerance_test.nomi
+E 0
+N 22
+H 6ecfade88b0d3f9eaf8d9746ae1af79d25d411f8754762c87c8b56f6f95a4e8e
+T ok <root>/tests/exercism/resistor-color-tolerance/resistor_color_tolerance_test.nomi :: label decoder (12 cases)
+T ok <root>/tests/exercism/resistor-color-tolerance/resistor_color_tolerance_test.nomi :: labels read as the description writes them (5 cases)
+T ok <root>/tests/exercism/resistor-color-tolerance/resistor_color_tolerance_test.nomi :: bands that make no label (5 cases)
+T test result: ok. 22 passed, 0 failed
 T
 C exercism/resistor-color-trio/resistor_color_trio.nomi
 E 1
@@ -4405,6 +5155,23 @@ T ok <root>/tests/exercism/resistor-color/resistor_color_test.nomi :: Color code
 T ok <root>/tests/exercism/resistor-color/resistor_color_test.nomi :: Colors
 T test result: ok. 4 passed, 0 failed
 T
+C exercism/rest-api/rest_api.nomi
+E 1
+N 0
+H 6e4201b99aa4874f7900d377c3b1eed32cf5b85512c37bb440ee0821a56a22ea
+T --- stderr ---
+T nomi run: <root>/tests/exercism/rest-api/rest_api.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/rest-api/rest_api_test.nomi
+E 0
+N 9
+H 1bfbd90777542147854eaaa87a329c255d74fcd06d31d4938c8257b73fb23de3
+T ok <root>/tests/exercism/rest-api/rest_api_test.nomi :: user management / no users
+T ok <root>/tests/exercism/rest-api/rest_api_test.nomi :: user management / add user
+T ok <root>/tests/exercism/rest-api/rest_api_test.nomi :: user management / get single user
+T ok <root>/tests/exercism/rest-api/rest_api_test.nomi :: iou (6 cases)
+T test result: ok. 9 passed, 0 failed
+T
 C exercism/reverse-string/reverse_string.nomi
 E 1
 N 0
@@ -4431,6 +5198,25 @@ E 0
 N 6
 H 71250ed9a2ec1611d14977f0494e13dbac7f9640c2decc7ddbe77481fa99f962
 T ok <root>/tests/exercism/rna-transcription/rna_transcription_test.nomi :: transcribes DNA to RNA (6 cases)
+T test result: ok. 6 passed, 0 failed
+T
+C exercism/robot-name/robot_name.nomi
+E 1
+N 0
+H a80fb76e0c0f602012ebc35486e18761e116a498f732249c20e57d3f715bb949
+T --- stderr ---
+T nomi run: <root>/tests/exercism/robot-name/robot_name.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/robot-name/robot_name_test.nomi
+E 0
+N 6
+H a33f816ec7dcb8cd0a600cac9ada7e9f9ed50db3b60f3fb599f618bf2d6339d3
+T ok <root>/tests/exercism/robot-name/robot_name_test.nomi :: robot name / has a name
+T ok <root>/tests/exercism/robot-name/robot_name_test.nomi :: robot name / name is the same each time
+T ok <root>/tests/exercism/robot-name/robot_name_test.nomi :: robot name / different robots have different names
+T ok <root>/tests/exercism/robot-name/robot_name_test.nomi :: robot name / reset changes the name to a new well-formed one
+T ok <root>/tests/exercism/robot-name/robot_name_test.nomi :: robot name / a thousand robots all have different names
+T ok <root>/tests/exercism/robot-name/robot_name_test.nomi :: robot name / the same seed names the same robots
 T test result: ok. 6 passed, 0 failed
 T
 C exercism/robot-simulator/robot_simulator.nomi
@@ -4510,6 +5296,36 @@ H 8ad66b0d94f30fcbde5a892ed4b0643c3e973267a1acf17e984042d3ca3371bd
 T ok <root>/tests/exercism/saddle-points/saddle_points_test.nomi :: saddle_points (9 cases)
 T test result: ok. 9 passed, 0 failed
 T
+C exercism/satellite/satellite.nomi
+E 1
+N 0
+H 8426eed04c3578ba843fe409d3db56bd33b7b9003e9ef927719192f33a94347e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/satellite/satellite.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/satellite/satellite_test.nomi
+E 0
+N 9
+H c58b6eec3174161973892acab857350e449885bb8315d05d4adae15eba527cb7
+T ok <root>/tests/exercism/satellite/satellite_test.nomi :: rebuilds the tree (6 cases)
+T ok <root>/tests/exercism/satellite/satellite_test.nomi :: rejects traversals of no tree (3 cases)
+T test result: ok. 9 passed, 0 failed
+T
+C exercism/save-the-cow/save_the_cow.nomi
+E 1
+N 0
+H fec225dce43de6e14d0cf006c7fe5fa020fd462dde6f147ad53243f15afff810
+T --- stderr ---
+T nomi run: <root>/tests/exercism/save-the-cow/save_the_cow.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/save-the-cow/save_the_cow_test.nomi
+E 0
+N 10
+H 1187256148f6b9a1b78b42d90949dc696ff19e072e004ba33a7177f64e9217e0
+T ok <root>/tests/exercism/save-the-cow/save_the_cow_test.nomi :: guess (8 cases)
+T ok <root>/tests/exercism/save-the-cow/save_the_cow_test.nomi :: guessing after the game is over (2 cases)
+T test result: ok. 10 passed, 0 failed
+T
 C exercism/say/say.nomi
 E 1
 N 0
@@ -4567,6 +5383,21 @@ T ok <root>/tests/exercism/series/series_test.nomi :: slices (6 cases)
 T ok <root>/tests/exercism/series/series_test.nomi :: errors (5 cases)
 T test result: ok. 11 passed, 0 failed
 T
+C exercism/sgf-parsing/sgf_parsing.nomi
+E 1
+N 0
+H fc638e598d84583a1eb596a65335361074ef879d1fc8c5434c7e18738bd896e8
+T --- stderr ---
+T nomi run: <root>/tests/exercism/sgf-parsing/sgf_parsing.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/sgf-parsing/sgf_parsing_test.nomi
+E 0
+N 28
+H 2f7041ccb1da5f0a22ddf74b9a1e7f32a3d92b66da610b36e673aba6d4a18ecc
+T ok <root>/tests/exercism/sgf-parsing/sgf_parsing_test.nomi :: parse (23 cases)
+T ok <root>/tests/exercism/sgf-parsing/sgf_parsing_test.nomi :: malformed trees (5 cases)
+T test result: ok. 28 passed, 0 failed
+T
 C exercism/sieve/sieve.nomi
 E 1
 N 0
@@ -4584,6 +5415,45 @@ T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 10
 T ok <root>/tests/exercism/sieve/sieve_test.nomi :: limit is prime
 T ok <root>/tests/exercism/sieve/sieve_test.nomi :: find primes up to 1000
 T test result: ok. 5 passed, 0 failed
+T
+C exercism/simple-cipher/simple_cipher.nomi
+E 1
+N 0
+H 50ff08e61ee9f03b59e9cd2730e95ae555de106c173d25761c6569028403872d
+T --- stderr ---
+T nomi run: <root>/tests/exercism/simple-cipher/simple_cipher.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/simple-cipher/simple_cipher_test.nomi
+E 0
+N 12
+H 60b37880d5841d1243647217db795e0629b967a1dcb5b00b201e1c2db87ed7e2
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: random key cipher / Can encode
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: random key cipher / Can decode
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: random key cipher / Is reversible
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: random key cipher / Key is made only of lowercase letters
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: substitution cipher encodes (4 cases)
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: substitution cipher decodes (3 cases)
+T ok <root>/tests/exercism/simple-cipher/simple_cipher_test.nomi :: substitution cipher is reversible
+T test result: ok. 12 passed, 0 failed
+T
+C exercism/simple-linked-list/simple_linked_list.nomi
+E 1
+N 0
+H 96ed2fe50068b04a52976e4d1be0672c94ed7a60af38ee1a5d635ff9aacc5000
+T --- stderr ---
+T nomi run: <root>/tests/exercism/simple-linked-list/simple_linked_list.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/simple-linked-list/simple_linked_list_test.nomi
+E 0
+N 24
+H 64bb3f5576b3c3ae1bd9cce2fa2e1b17e512ae27ffebce6ec68a77a5df3ac79e
+T ok <root>/tests/exercism/simple-linked-list/simple_linked_list_test.nomi :: count (3 cases)
+T ok <root>/tests/exercism/simple-linked-list/simple_linked_list_test.nomi :: pop (5 cases)
+T ok <root>/tests/exercism/simple-linked-list/simple_linked_list_test.nomi :: push (4 cases)
+T ok <root>/tests/exercism/simple-linked-list/simple_linked_list_test.nomi :: peek (5 cases)
+T ok <root>/tests/exercism/simple-linked-list/simple_linked_list_test.nomi :: toList LIFO (3 cases)
+T ok <root>/tests/exercism/simple-linked-list/simple_linked_list_test.nomi :: reverse (4 cases)
+T test result: ok. 24 passed, 0 failed
 T
 C exercism/space-age/space_age.nomi
 E 1
@@ -4615,6 +5485,70 @@ H 7f1130fa03a5e0976d8bc40d6008b2f5730cf795c28ebcfaef75dad2f9d201fb
 T ok <root>/tests/exercism/spiral-matrix/spiral_matrix_test.nomi :: spiral_matrix (6 cases)
 T test result: ok. 6 passed, 0 failed
 T
+C exercism/split-second-stopwatch/split_second_stopwatch.nomi
+E 1
+N 0
+H 809de5cdc5a8a19862925cf8bf58cf583b3c973b9f03bdfe7895c57fc160cda4
+T --- stderr ---
+T nomi run: <root>/tests/exercism/split-second-stopwatch/split_second_stopwatch.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/split-second-stopwatch/split_second_stopwatch_test.nomi
+E 0
+N 29
+H 613ae8762be60b409acf3d2696d346f52142fc2e68c01062a76b543d617bd5a7
+T ok <root>/tests/exercism/split-second-stopwatch/split_second_stopwatch_test.nomi :: split second stopwatch (29 cases)
+T test result: ok. 29 passed, 0 failed
+T
+C exercism/square-root/square_root.nomi
+E 1
+N 0
+H b20f54ddb133596d5a23e50d74a047ef53ebfbe8498a5422bc4cdaf7e20d2095
+T --- stderr ---
+T nomi run: <root>/tests/exercism/square-root/square_root.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/square-root/square_root_test.nomi
+E 0
+N 6
+H 1e759b541870144ef199531581319354846ee3f9a6cd281898d46e6fc5ab65ba
+T ok <root>/tests/exercism/square-root/square_root_test.nomi :: square root (6 cases)
+T test result: ok. 6 passed, 0 failed
+T
+C exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi
+E 1
+N 0
+H ee92c773027d74b8ecead779f2a96d953c180012325772dde0bca8d136287c92
+T --- stderr ---
+T nomi run: <root>/tests/exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/state-of-tic-tac-toe/state_of_tic_tac_toe_test.nomi
+E 0
+N 29
+H 08d01f63315512b56ecf0c835e19166f3a40324ee20fa720658125e3d1dbfb67
+T ok <root>/tests/exercism/state-of-tic-tac-toe/state_of_tic_tac_toe_test.nomi :: won games (18 cases)
+T ok <root>/tests/exercism/state-of-tic-tac-toe/state_of_tic_tac_toe_test.nomi :: drawn games (2 cases)
+T ok <root>/tests/exercism/state-of-tic-tac-toe/state_of_tic_tac_toe_test.nomi :: ongoing games (3 cases)
+T ok <root>/tests/exercism/state-of-tic-tac-toe/state_of_tic_tac_toe_test.nomi :: invalid boards (6 cases)
+T test result: ok. 29 passed, 0 failed
+T
+C exercism/strain/strain.nomi
+E 1
+N 0
+H 00ed79ac8cd43e87dd29b8127ee3ee82b658af1e490e56d23e4f798c34f7968e
+T --- stderr ---
+T nomi run: <root>/tests/exercism/strain/strain.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/strain/strain_test.nomi
+E 0
+N 14
+H b5d4c51a9022006f15d27c868f8c2cfc468b8089de698303e7aacb653795872f
+T ok <root>/tests/exercism/strain/strain_test.nomi :: keep integers (5 cases)
+T ok <root>/tests/exercism/strain/strain_test.nomi :: keeps strings
+T ok <root>/tests/exercism/strain/strain_test.nomi :: keeps lists
+T ok <root>/tests/exercism/strain/strain_test.nomi :: discard integers (5 cases)
+T ok <root>/tests/exercism/strain/strain_test.nomi :: discards strings
+T ok <root>/tests/exercism/strain/strain_test.nomi :: discards lists
+T test result: ok. 14 passed, 0 failed
+T
 C exercism/sublist/sublist.nomi
 E 1
 N 0
@@ -4642,6 +5576,21 @@ N 16
 H b0172ff360d6c1ca238b029a4ba8966937a760ca0bf5063f1f9c54a18cb5d71e
 T ok <root>/tests/exercism/sum-of-multiples/sum_of_multiples_test.nomi :: sums the multiples (16 cases)
 T test result: ok. 16 passed, 0 failed
+T
+C exercism/swift-scheduling/swift_scheduling.nomi
+E 1
+N 0
+H f8ce0690fa65e015fe050bd9a4fca5d4c0a3e0eacaaf8d38a7b4097506294304
+T --- stderr ---
+T nomi run: <root>/tests/exercism/swift-scheduling/swift_scheduling.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/swift-scheduling/swift_scheduling_test.nomi
+E 0
+N 23
+H c568d1c3303c555135d1e54a68e19020a38824a4637956eb61bb43793d8cff39
+T ok <root>/tests/exercism/swift-scheduling/swift_scheduling_test.nomi :: delivery date (17 cases)
+T ok <root>/tests/exercism/swift-scheduling/swift_scheduling_test.nomi :: descriptions that name no delivery date (6 cases)
+T test result: ok. 23 passed, 0 failed
 T
 C exercism/tournament/tournament.nomi
 E 1
@@ -4682,6 +5631,21 @@ N 12
 H df3bb0dfc3c9de51c7abe210a8178fdcfcf20064e9c814ed6e01b2aca13db254
 T ok <root>/tests/exercism/transpose/transpose_test.nomi :: transpose (12 cases)
 T test result: ok. 12 passed, 0 failed
+T
+C exercism/tree-building/tree_building.nomi
+E 1
+N 0
+H b25e1ffdffd0b537c9b9cfa38662ad803c63cf9f96fcd3761b1498df5b8bfba3
+T --- stderr ---
+T nomi run: <root>/tests/exercism/tree-building/tree_building.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/tree-building/tree_building_test.nomi
+E 0
+N 16
+H a7c7094fd6a95b41a8cbf6a1b47a7d2a11db5a8a1fbd071910dbabe6a7ec7318
+T ok <root>/tests/exercism/tree-building/tree_building_test.nomi :: build tree (7 cases)
+T ok <root>/tests/exercism/tree-building/tree_building_test.nomi :: invalid records (9 cases)
+T test result: ok. 16 passed, 0 failed
 T
 C exercism/triangle/triangle.nomi
 E 1
@@ -4744,6 +5708,21 @@ T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: a name given
 T ok <root>/tests/exercism/two-fer/two_fer_test.nomi :: another name given
 T test result: ok. 3 passed, 0 failed
 T
+C exercism/variable-length-quantity/variable_length_quantity.nomi
+E 1
+N 0
+H 14ddbd0f2c552c28213136e0517e4e02883b5f76cb709981db895555e417fc90
+T --- stderr ---
+T nomi run: <root>/tests/exercism/variable-length-quantity/variable_length_quantity.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/variable-length-quantity/variable_length_quantity_test.nomi
+E 0
+N 31
+H 86236b6f44ee42a323d8a80842d4e6c883c0be182fd978607ed00a2cb8f43488
+T ok <root>/tests/exercism/variable-length-quantity/variable_length_quantity_test.nomi :: encode a series of integers, producing a series of bytes (23 cases)
+T ok <root>/tests/exercism/variable-length-quantity/variable_length_quantity_test.nomi :: decode a series of bytes, producing a series of integers (8 cases)
+T test result: ok. 31 passed, 0 failed
+T
 C exercism/word-count/word_count.nomi
 E 1
 N 0
@@ -4757,6 +5736,20 @@ N 14
 H 9c09725598e5eb00cce44037588a04cadeaaab83e98036b5c48af56a87b89c24
 T ok <root>/tests/exercism/word-count/word_count_test.nomi :: counts words (14 cases)
 T test result: ok. 14 passed, 0 failed
+T
+C exercism/word-search/word_search.nomi
+E 1
+N 0
+H f0f99d5c2db25a5ec3557acd5d08aa212f6875a5f5d10400ee6d7fa7a059427c
+T --- stderr ---
+T nomi run: <root>/tests/exercism/word-search/word_search.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/word-search/word_search_test.nomi
+E 0
+N 24
+H 1e148bf64edd85ea610a9d1210ecbc503ecdcf7b8a5f0b4e43c569867beee99f
+T ok <root>/tests/exercism/word-search/word_search_test.nomi :: search (24 cases)
+T test result: ok. 24 passed, 0 failed
 T
 C exercism/wordy/wordy.nomi
 E 1
@@ -4786,4 +5779,36 @@ N 29
 H 8fbb9b93d24d242b8195f6a3f38a2e0ddba40b83fbd26ff954921ca1c1e3a6b4
 T ok <root>/tests/exercism/yacht/yacht_test.nomi :: yacht (29 cases)
 T test result: ok. 29 passed, 0 failed
+T
+C exercism/zebra-puzzle/zebra_puzzle.nomi
+E 1
+N 0
+H 5ec80ae9b3cceab9c8726de17552a24a18600fb06bf3cfb61dd330ef8e5db56d
+T --- stderr ---
+T nomi run: <root>/tests/exercism/zebra-puzzle/zebra_puzzle.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/zebra-puzzle/zebra_puzzle_test.nomi
+E 0
+N 2
+H 0c55eed999adc38c33071e0ada536beb39efab9b953acb12bdf80a4cabc10152
+T ok <root>/tests/exercism/zebra-puzzle/zebra_puzzle_test.nomi :: resident who drinks water
+T ok <root>/tests/exercism/zebra-puzzle/zebra_puzzle_test.nomi :: resident who owns zebra
+T test result: ok. 2 passed, 0 failed
+T
+C exercism/zipper/zipper.nomi
+E 1
+N 0
+H 3cf9887e5b151ace17dcd712d5e79156355f465322a2e83a04a831df1d0084e8
+T --- stderr ---
+T nomi run: <root>/tests/exercism/zipper/zipper.nomi declares no `fn main`, so there is no program to run
+T
+C exercism/zipper/zipper_test.nomi
+E 0
+N 14
+H fb3a8735ba7a6e5ca67a77543d2f32396aa803af08c63041b18e4a120ed5e781
+T ok <root>/tests/exercism/zipper/zipper_test.nomi :: the tree after the operations (8 cases)
+T ok <root>/tests/exercism/zipper/zipper_test.nomi :: the value at the focus (3 cases)
+T ok <root>/tests/exercism/zipper/zipper_test.nomi :: no node to move to (2 cases)
+T ok <root>/tests/exercism/zipper/zipper_test.nomi :: different paths to same zipper
+T test result: ok. 14 passed, 0 failed
 T

@@ -112,6 +112,9 @@ const (
 	opStmt // idx                a statement boundary: the debugger's hook
 	opPC   // _                  saves this pc before an instruction that may call
 	opTap  // t                  records what a lazy pipeline stage passes on (debugpipe.go)
+	// opEnter is emitted only for a machine counting entries (entries.go),
+	// at pc 0 of every function.
+	opEnter // _                 counts an entry into the function's body
 )
 
 // Comparison conditions for opCmpI and opCmpF.
@@ -187,6 +190,9 @@ type code struct {
 	// dbg is the statement and position table of a function compiled for a
 	// debugger, or nil. See debug.go.
 	dbg *codeDebug
+	// entries counts the entries into the body of a function compiled for a
+	// machine counting them (entries.go).
+	entries atomic.Uint64
 }
 
 // site is one instruction's entry in the line and fault table.
@@ -290,6 +296,7 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 	if cp.m.dbg != nil {
 		c.dbg = &codeDebug{stageTemps: stageTemps(f)}
 	}
+	cp.emitEnter(f)
 	for _, b := range blocks {
 		cp.blocks[b.ID()] = len(c.code)
 		handler := -1
@@ -1126,7 +1133,7 @@ var opNames = [...]string{
 	opMatchV: "matchv", opProjP: "projp", opProjF: "projf", opMake: "make",
 	opCall: "call", opTail: "tail", opJmp: "jmp", opBr: "br", opBrX: "brx",
 	opRet: "ret", opRetU: "retu", opRetCtl: "retctl", opIR: "ir", opHost: "host", opFail: "fail",
-	opStmt: "stmt", opPC: "pc", opTap: "tap",
+	opStmt: "stmt", opPC: "pc", opTap: "tap", opEnter: "enter",
 }
 
 // String disassembles c, one instruction per line: its offset, opcode, the

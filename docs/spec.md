@@ -274,6 +274,7 @@ A `pub` declaration must not expose private types. The compiler enforces this �
 - A `pub` sum type to embed a private type
 - A `pub` interface's function signatures to reference a private type
 - A `pub` type alias to reference a private type
+- A `pub once` binding's type to reference a private type, whether the annotation writes it or the value's inferred type holds it (`pub once items = [#Secret{value: "x"}]` is the error `public once binding exposes private type Secret`); a type declared inside a body is private to it (`public once binding exposes private type Box, which is declared inside a body`)
 
 ```nomi
 struct Secret {
@@ -711,16 +712,19 @@ these:
 - a parenthesized expression: `&(&1 > 2)`, `&(&1 * 2 + 1)`,
   `&(&1 % 2 == 0)`, `&(&2)`, `&(!&1)`;
 - a literal or a construction: `&#Point{x: &1, y: 0}`, `&#(&1, 0)`,
-  `&#.Circle{radius: &1}`, `&%{&1 => 0}`, `&[&1, 0]`, `&#[&1]`, `&%[&1]`.
+  `&#.Circle{radius: &1}`, `&%{&1 => 0}`, `&[&1, 0]`, `&#[&1]`, `&%[&1]`;
+- the negation of one of these: `&!Iter.empty?(&1)` is
+  `fn xs -> !Iter.empty?(xs)`, and `&!(&1 > 2)` is `&(!(&1 > 2))`.
 
 The body is one postfix-level operand, as a prefix `try`'s is. So
 `&f(&1)(2)` captures the call `f(&1)(2)`, and `&f(&1) + 1` adds 1 to a
 capture, which is a type error; the function of the sum is
 `&(f(&1) + 1)`. Anything else after `&` is the parse error `` a capture
 is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)`
-or `&(&1 > 2)` ``: `&x`, `&f(&1).x` (write `&(f(&1).x)`), and `&Int.max`,
-which is no call (the function itself is `Int.max`). `& (x)`, with a
-space, is the error that says the `&` goes against its body.
+or `&(&1 > 2)` ``: `&x`, `&f(&1).x` (write `&(f(&1).x)`), `&Int.max`,
+which is no call (the function itself is `Int.max`), and `&!&1` (write
+`&(!&1)`). `& (x)`, with a space, is the error that says the `&` goes
+against its body.
 
 `&N` is parameter N of the capture around it: `&(&1 > 2)` is `fn x -> x >
 2`, `&(&2 - &1)` is `fn a, b -> b - a`, and `&#Point{x: &1, y: 0}` is `fn
@@ -789,7 +793,13 @@ is held to the callee's argument count as a full call is: `&add(&1, 1,
 2)` against a two-parameter `add` is `expected 2 arguments, got 3`. A
 generic callee's type parameters are solved from the expected function
 type when there is one: `f: (Int) -> Int = &pick(True, &1, 4)`
-instantiates `pick` at `Int`. An expected function type of more
+instantiates `pick` at `Int`. Where the expected function type's
+parameters are all known types that the callee's slots take as arguments,
+the partial's parameters are those types, as the lambda the capture
+stands for would take them: `Result.map(found, &Iter.flatten(&1))` with
+`found` a `Result<List<List<String>>, E>` is a `(List<List<String>>) ->
+List<String>`, though `Iter.flatten`'s slot is an `Iter<Iter<U>>`. An
+expected function type of more
 parameters gives the ones past the partial's, which it ignores
 (`apply2(&add(&1, 100))` is `fn a, _b -> add(a, 100)`); one of fewer is
 the error for an `&N` past the arity. A call whose `&N`s repeat, come in
@@ -2144,9 +2154,11 @@ Qualified pattern forms (`#Shape.Circle{radius} -> ...`) are also accepted when 
 
 ### Variant Resolution
 
-A `.Variant` expression (or `.Variant(payload)` / `#.Variant{fields}` / `.Variant[elements]` / `#.Variant[elements]` / `%.Variant{entries}`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([#(.North, .Cave)])` checks the list against `Iter<#(Direction, Place)>`. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. An operand of `==`, `!=`, `<`, `>`, `<=` or `>=` is a determining position too: the two operands have one type (§22), so each is checked against the other's. The operand whose type depends on its position (a `.Variant` in any spelling, or a `#{...}` literal with no type name) is checked second, against the type of the other: `k == .Deposit` and `.Deposit == k` both resolve against `k`'s enum, and `p == #{x: 1, y: 2}` builds `p`'s struct. The comparison's own expected type (`Bool`, or none at a statement or `if` condition) is never its operands'. When both operands are dot-leading (`.Deposit == .Withdrawal`), neither names the enum, and the comparison is an error that asks for one to be qualified. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. The outer type may name the enclosing function's own type parameters: in `fn write<T>(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`, `Err(.Full)` takes `E` from it as `Error` and leaves `T` to the arguments, since a callee parameter is pinned only to a type that names no type parameter. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
+A `.Variant` expression (or `.Variant(payload)` / `#.Variant{fields}` / `.Variant[elements]` / `#.Variant[elements]` / `%.Variant{entries}`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call and the arguments the stage writes after it). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([#(.North, .Cave)])` checks the list against `Iter<#(Direction, Place)>`. An `if` or `case` argument is the value of its branches, so the constraint reaches through it too: in `fn pick(n: Int) -> Maybe<Color>`, `Some(if n == 1 { .Red } else { .Blue })` resolves both variants to `Color`, and `Ok(case ... { ... -> #{category: .FullHouse, ranks} })` builds the `Ok` type's struct in every arm. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. The heads of a list spread are elements too: `a: List<Color> = [.Red, ..rest]` resolves `.Red` against `Color` and checks `rest` against `List<Color>`. Inside a generic function its own type parameters determine as any type does, so `[.Right(x), ..path]` against `List<Crumb<T>>` resolves `.Right` to `Crumb<T>.Right`. An operand of `==`, `!=`, `<`, `>`, `<=` or `>=` is a determining position too: the two operands have one type (§22), so each is checked against the other's. The operand whose type depends on its position (a `.Variant` in any spelling, or a `#{...}` literal with no type name) is checked second, against the type of the other: `k == .Deposit` and `.Deposit == k` both resolve against `k`'s enum, and `p == #{x: 1, y: 2}` builds `p`'s struct. The comparison's own expected type (`Bool`, or none at a statement or `if` condition) is never its operands'. When both operands are dot-leading (`.Deposit == .Withdrawal`), neither names the enum, and the comparison is an error that asks for one to be qualified. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. The outer type may name the enclosing function's own type parameters: in `fn write<T>(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`, `Err(.Full)` takes `E` from it as `Error` and leaves `T` to the arguments, since a callee parameter is pinned only to a type that names no type parameter. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
 
 **An earlier element of the same literal.** A list, vector, set or map literal checked with no expected type (an unannotated binding, a row of a `subtests` table, an argument whose parameter type nothing has solved) checks its elements left to right, and checks each element after the first against the type the elements before it give, as against an expected type, whenever that type has an enum or a named struct in it: it is one, or one is among its element, key, value, tuple element or type argument types. A map's keys and its values are two positions, each with its own type. So the first qualified element sets the enum for the bare variants after it, as Swift's `[Color.red, .green]` does: `[Color.Red, .Green]` is a `List<Color>`, and `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`. Nesting is the same rule applied at each level, since the earlier element's whole type is what the later one is checked against: `[%{N.A => 0}, %{.C => 1}]`, `[#(Color.Red, 1), #(.Green, 2)]` and `[Some(Color.Red), Some(.Green)]` resolve. A `#{...}` literal with no type name after an element of a named struct builds that struct, as it would under an annotation: `[#Point{x: 0, y: 0}, #{x: 1, y: 2}]` is a `List<Point>`, and `[#(#Point{x: 0, y: 0}, "origin"), #(#{x: 1, y: 2}, "corner")]` a `List<#(Point, String)>`. An element whose type is still open sets nothing and blocks nothing: in `[[], [Color.Red], [.Green]]`, `[Color.Red]` fixes the element type `[]` left open, so `.Green` resolves. The heads of `[h1, h2, ..rest]` count as elements. Resolution runs left to right only: in `[.Red, Color.Green]` nothing before `.Red` gives it an enum, so `.Red` is the *no determinable enum type* error, whose hint asks for the first element to be qualified. A tuple's elements are separate positions of separate types, so `#(Color.Red, .Green)` gives `.Green` nothing. An expected type, when the literal has one, is what every element is checked against instead: in `xs: List<Size> = [Color.Red, .Large]`, `.Large` resolves to `Size.Large` and `Color.Red` is a mismatch.
+
+**An earlier arm of the same `case`, or the first branch of the same `if`.** A `case` or an `if` checked with no expected type follows the same rule for its arms: each arm's value after the first is checked against the type the arms before it give, as against an expected type, whenever that type has an enum or a named struct in it (and, for a struct, the arm's value holds a `#{...}` literal with no type name). So `format = case order { .Less -> Format.Portrait  .Equal -> .Square  .Greater -> .Landscape }` is a `Format`, as `format = if wide { Format.Landscape } else { .Portrait }` is. A diverging arm (`todo`, `return`) gives nothing, and the arms after it take the type from the first arm that has a value. Resolution runs from the first arm on: with `.Square` first and `Format.Portrait` second, `.Square` is the *no determinable enum type* error. An expected type, when the `case` or `if` has one, is what every arm is checked against instead.
 
 Concrete consequences:
 
@@ -2887,7 +2899,7 @@ case grid {
 }
 ```
 
-`.._` ignores the tail. `..rest` must appear last in the list pattern. Note: structs don't need a spread — partial matching is already the default (see Struct Destructuring above).
+`.._` ignores the tail, and so does a bare `..` (`[first, ..]`), as in a vector pattern. `..rest`, `.._` and `..` must appear last in the list pattern. Note: structs don't need a spread — partial matching is already the default (see Struct Destructuring above).
 
 List patterns are refutable — a `_` catch-all or `[]` base case is required for exhaustiveness.
 
@@ -3232,6 +3244,20 @@ if x > 0 {
     "negative"
 }
 ```
+
+The branches of an `if`, like the arms of a `case`, have one type: the value is one of them, and the code after it reads either. Two different types are the error `if/else branch type mismatch: then is Range<Int>, else is List<Int>`, with the joins below as the exceptions: a concrete type beside an interface it implements is the interface, and a type beside an enum that `embeds` it is the enum. Two different `Iter` types, such as a `Range` and the `List` that `Iter.reverse` returns, join as `Iter<T>` only where the value's type is written as one: a binding's annotation, a parameter's type or a function's declared result. A pipe's head is its first stage's first argument, so `if up { 1..4 } else { [3, 2, 1] } |> Iter.count()` joins at `Iter.count`'s `Iter<T>` parameter as `Iter.count(if up { 1..4 } else { [3, 2, 1] })` does. Each branch's value is then viewed as that `Iter`:
+
+```nomi
+fn in_order(values: Range<Int>, descending: Bool) -> Iter<Int> {
+    if descending {
+        Iter.reverse(values)
+    } else {
+        values
+    }
+}
+```
+
+Without a written `Iter<T>` the mismatch stands, and its help names the element and the annotation that joins them: ``both are an Iter<Int>, and two kinds of Iter join only where the value's type is written as one: annotate it `: Iter<Int>`, or declare the function's result as `Iter<Int>` ``. The join is not inferred: an unannotated `if` keeps its branches' concrete type, and the annotation is where the program gives it up.
 
 The parser accepts `else` and `else if` rungs on a fresh line after the previous block's closing `}` (`}\nelse if ... {`) — equivalent to keeping `else` on the same line as `}`. The formatter (`nomi fmt`) normalizes every chain to the same-line `} else if` form and always splits each branch body onto its own line, so long chains read uniformly regardless of how they were written.
 
@@ -3744,7 +3770,7 @@ Non-tail recursion is allowed; it suits bounded-depth data like trees. For itera
 
 **Diagnostics.** Tail calls do not appear as separate frames in error reporting. When an error fires inside a tail-recursive function, the trace shows one frame regardless of how deep the iteration ran — that is the cost of constant stack space.
 
-**Deferred calls.** A tail call leaves its function before the callee runs. In a function with pending `defer` registrations, the tail call's arguments are evaluated first, then the function's deferred calls run, most recent first, and then the callee runs:
+**Deferred calls.** A call in tail position while a `defer` registered in a block around it is still pending is an ordinary call, not a tail call. The deferred calls run when their block ends, which is after the call returns, so the function keeps its frame until then:
 
 ```nomi
 import std/io
@@ -3768,7 +3794,7 @@ fn main() {
 }
 ```
 
-`down(1)` prints `enter 1`, `leave 1`, `enter 0`, `leave 0`.
+`down(1)` prints `enter 1`, `enter 0`, `leave 0`, `leave 1`: each `leave` runs after the call below it has returned. Recursion that registers a `defer` at each step therefore keeps a frame per step and counts toward the limit in *Recursion depth*; a `defer` in a block that has ended, such as one branch of an earlier `if`, is not pending.
 
 ### Recursion depth
 
@@ -4857,7 +4883,7 @@ Real value cycles in `once` bindings — where forcing one binding transitively 
 ### File Rules
 
 - One import source per file, derived from the file path (no declaration)
-- An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. When `go.mod` requires a module the Go module cache does not hold (§31), the hint names it and says to run `nomi fetch`. When the path's first name is neither a file nor a directory there and is no misspelling of one, and the project's `go.mod` has no `require` line for a module of that name, the message says so too (``no module `csvdata`: no file csvdata.nomi in this file's directory, and go.mod has no `require` line for `csvdata` ``), with a hint to run `nomi add`: with the directory, when exactly one directory under the project root (three levels down at most) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or a directory otherwise; a `replace` of the name with no `require` gives `` go.mod replaces `csvdata` with ../csvdata but does not require it; run `nomi add ../csvdata` ``; a module `go.mod` requires whose directory has no `nomi.toml` is ``no module `csvdata`: go.mod replaces `csvdata` with ./macros/csvdata, which has no nomi.toml``. A declaration whose keyword the failed import would have brought reports nothing more. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
+- An import path that names no file is a compile-time error at the path, in every import form, whether or not the file uses the import: `import lib` with no `lib.nomi` reports ``no module `lib`: no file lib.nomi in this file's directory``. The message names the directory searched, relative to the importing file, and a hint names a sibling file the path is a misspelling of, or a file inside a directory the path names (`sub` is a directory, not a file). `import std/x` with no standard library module `x` is the same error. When `go.mod` requires a module the Go module cache does not hold (§31), the hint names it and says to run `nomi fetch`. When the path's first name is neither a file nor a directory there and is no misspelling of one, and the project's `go.mod` has no `require` line for a module of that name, the message says so too (``no module `csvdata`: no file csvdata.nomi in this file's directory, and go.mod has no `require` line for `csvdata` ``), with a hint to run `nomi add`: with the directory, when exactly one directory under the project root (three levels down at most) or beside it holds a Nomi module of that name (`` run `nomi add ../csvdata` to add the module in that directory ``), and with a module path or a directory otherwise; a `replace` of the name with no `require` gives `` go.mod replaces `csvdata` with ../csvdata but does not require it; run `nomi add ../csvdata` ``; a module `go.mod` requires whose directory has no `nomi.toml` is ``no module `csvdata`: go.mod replaces `csvdata` with ./generators/csvdata, which has no nomi.toml``. A selected name the file does not export is an error at the name: `file 'std/io' has no exported name 'nosuchname'`.
 - The `/`-joined segments always name the file: `import utils/inner.Thing` needs `utils/inner.nomi`, and is not a lookup of `inner` inside `utils.nomi`.
 - Files cannot be reopened or split across files
 - Importing `http` does not import `http/request` — each must be imported separately. A facade file can flatten this for its own consumers by re-exporting the items they need (`pub import http/request.{Request, get}` in `http.nomi` lets consumers write `import http.{Request, get}`); it cannot re-export the file `request` itself (see §3 *Re-exporting imported names*).
@@ -5311,19 +5337,9 @@ Map.keys(results) // works — UserResults IS Map<String, ...>
 
 An alias may name any type the file sees, including an alias declared below it. An alias whose target names the alias itself, directly or through other aliases, is an error at each alias on the cycle (`typealias 'X' refers to itself (X → Y → X)`), since the target would be infinite; a recursive type is a struct or an enum.
 
-Type aliases can also be generic:
+An alias takes no type parameters: `typealias Lookup<V> Map<String, V>` is a parse error. An alias shortens a long anonymous shape (an anonymous struct, a function type, a long tuple); a shape that deserves a name of its own is a struct or a `type`.
 
-```nomi
-typealias Lookup<V> Map<String, V>
-
-fn get_ages() -> Lookup<Int> {
-    %{"Alice" => 30}
-}
-```
-
-> **Status: not yet implemented.** Non-generic aliases work end-to-end.
-> Generic aliases — `typealias Name<T> ...` — are a hard parse error at the
-> `<`: `expected type name, got LT`. Track via `feature-status.md`.
+An alias is a spelling of its target in type positions, not a declaration functions hang off. `impl P`, `impl Display for P` and `derive Debug for P`, where `P` is a typealias, are errors that name the target (`` `P` is a typealias for `Pt`; write `impl Pt` ``), and so is a type-qualified call through one, `P.get(p)` or `shapes.P.get(p)` (`` ...; call `Pt.get` ``).
 
 Use `typealias` for readability shortcuts. Use `type` when you want a new, incompatible type with its own identity:
 
@@ -5331,7 +5347,7 @@ Use `typealias` for readability shortcuts. Use `type` when you want a new, incom
 |---|---|---|
 | New type? | Yes — `Id` ≠ `Int` | No — `Name` = `String` |
 | Conversion | Explicit: `Id(42)`, `Id(n) = id` | None needed |
-| Can implement interfaces? | Yes | No (implement on the underlying type) |
+| Can implement interfaces? | Yes | No: an `impl` through an alias is an error; implement the target |
 | Use case | Type safety, domain modeling | Abbreviating complex types |
 
 ### Type Annotations
@@ -6098,7 +6114,8 @@ APIs written in Nomi:
   depends on the divisor's value (`Decimal.divide_exact`; Decimal has no `/`).
 - **A trap** when the caller broke a promise it could have checked: a divisor
   it chose (`/`, §22), arithmetic past 64 bits (§22 *Integer overflow traps*),
-  an index it computed (`Vector.at`, `Vector.set`), a range whose bounds it
+  an index it computed (`Vector.at`, `Vector.set`), a key it knows is present
+  (`Map.at`), a range whose bounds it
   picked (`Generator.int`, §40), a `todo` it left in (§5 *Unwritten
   Code*), or an `unreachable` whose invariant it broke (§5 *Unreachable
   Code*). A trap means the program has a bug. It is not a situation to
@@ -6126,8 +6143,8 @@ program's own, even when the trap happens inside the standard library
 The naming convention follows from the rule. A function named **`get`**
 returns a `Maybe`, because what it looks for may not be there (`Map.get`,
 `Vector.get`, `Bytes.get`, `Iter.get`). A function named **`at`** returns the
-value itself and traps when the position does not exist (`Vector.at`,
-`Bytes.at`): the caller is promising it does.
+value itself and traps when the position or key does not exist (`Vector.at`,
+`Bytes.at`, `Map.at`): the caller is promising it does.
 
 A map pattern follows the rule too. Whether a key is present is data, so
 `%{"port" => p} = config` is refutable: it needs an `else`, a `case` or an
@@ -6323,7 +6340,8 @@ numbers = [1, 2, 3, 4, 5]
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new lists
 - `List.contains?(xs, x)` is the `Contains` impl, a linear scan (§*Membership: `Contains`*)
-- `..tail` after a comma spreads (cons): `[item, ..list]` is O(1), supports structural sharing. The spread must be the last element (`list spread ".." must be the last element`), because cons cells make prepending O(1) and appending O(n). The struct-update spread (§7) must be *first* instead; the rules differ because a list's is about representation and a record's is about notation.
+- `List.remove_at(xs, i)` is the list without its element at index `i`, and traps on an index outside the list as `Vector.at` does; `List.remove(xs, x)` is the list without its first element `==` to `x`. Both are O(n)
+- `..tail` after a comma spreads (cons): `[item, ..list]` is O(1), supports structural sharing. The spread must be the last element (`list spread ".." must be the last element`), because cons cells make prepending O(1) and appending O(n). The spread must be a list, since the heads are consed onto it: an `Iter`, a range or any other collection is the error ``list spread `..` requires a list, got Iter<Int>``, whose help names `Iter.to_list` (`[heading, ..Iter.to_list(lines)]`). The struct-update spread (§7) must be *first* instead; the rules differ because a list's is about representation and a record's is about notation.
 - At a field or key of an update, a bare `..` tail is the list already there: `#{..account, log: [t, ..]}` puts `t` in front of the old `log` (§7 *Nested updates*). A missing map key starts from `[]`.
 - A spread construction evaluates its tail first, then its head expressions from left to right. Each expression runs once. A plain list literal evaluates its elements from left to right.
 - Works in both construction and pattern matching:
@@ -6393,6 +6411,8 @@ Iter.flat_map(xs, f) / Iter.flatten(xss) / Iter.zip(a, b) / Iter.with_index(xs)
 Iter.transpose(rows) // → List<List<T>>, column i from each row long enough
 
 Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
+
+Iter.permutations(xs) / Iter.combinations(xs, k) // → Iter<List<T>>, by source position
 
 Iter.reduce(xs, f, from: start) / Iter.each(xs, f) / Iter.find(xs, p)
 
@@ -6524,7 +6544,7 @@ updated = Map.merge(ages, %{"Alice" => 31, "Bob" => 26}) // new map with values 
 - Literal syntax: `%{key => value}`. The empty map is `%{}`, which takes its key and value types from the expected type; there is no empty constructor. A map-distinct type or a map-payload variant writes its name after the `%`: `%Kvs{"a" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` (§15 *Distinct Types Over Tuples and Maps*).
 - `%{` and `%Name{` always open a map literal and `#{` and `#Name{` a struct literal, so `%Kvs{}` is always the empty map and `#Point{}` always a struct. A plain `{` is a block, never a map, and a name followed by `{` never starts a literal (`Map{"a" => 1}` is a parse error). Where an operand begins, `%{`, `%[` and `%Name` start a literal, written with no space after the `%`; after an operand, `%` is the remainder operator (`a % b`).
 - Keys are always expressions — string literals require quotes, bare identifiers are evaluated as variables, and any keyable value works (tuples, variants, lists, structs, distinct types), not just scalars
-- `Map.get` returns `Maybe` since key might not exist
+- `Map.get` returns `Maybe` since key might not exist. `Map.at` returns the value itself and traps on a missing key (`line 9: key "z" is not in the Map`), for a key the program guarantees is there (§17 *Traps, `Maybe` and `Result`*)
 - `Map.put` adds a single key-value pair, `Map.merge` combines two maps (second map wins on conflicts)
 - `a + b` is `Map.merge(a, b)`; both operands are maps, so one entry is `m + %{k => v}`. There is no `Map - Map`
 - Operations return new maps
@@ -6650,6 +6670,7 @@ A set literal's elements equal only at run time make one element.
 ```nomi
 // Construction & access
 fn get(m: Map<K, V>, key: K) -> Maybe<V>
+fn at(m: Map<K, V>, key: K) -> V                  // traps on a missing key
 fn put(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 fn remove(m: Map<K, V>, key: K) -> Map<K, V>
 fn merge(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
@@ -6763,7 +6784,7 @@ A terminal that has to reach the end of its source asks `infinite?` before takin
 line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 ```
 
-Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `transpose`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any?`, `all?`, `contains?`, `get`, `empty?`, `not_empty?`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `infinite?`, a `take_while` whose predicate never fails) still runs until it is stopped.
+Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `transpose`, `permutations`, `combinations`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any?`, `all?`, `contains?`, `get`, `empty?`, `not_empty?`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `infinite?`, a `take_while` whose predicate never fails) still runs until it is stopped.
 
 When the whole pipeline is written where the terminal is, the checker reports the trap as a compile error instead, with the same words, at the terminal and naming the source:
 
@@ -6810,7 +6831,7 @@ Nomi separates iteration by one rule:
 > **Generic over any iterable → `Iter.X`. Specific to a container's structure → that container's owner.**
 
 1. **Generic ops** live on `Iter` over any `Iter<T>` — every transform, filter, reduce, sort, count, index access, and materializer. The adapters (`map`/`filter`/`take`/…) are lazy: each returns a new iterator so pipelines fuse without building intermediate collections. The terminals (`reduce`/`find`/`sort`/`count`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) consume the iterator. Strings are joined with `String.join`, which takes any `Iter<String>`.
-2. **Container-specific ops** stay on the container owner — exactly the work a generic adapter can't express because it reads or rebuilds the container's structure: `Map.map_values`/`map_keys`/`merge`/`get`/`put`/`size`, `Set.union`/`intersection`/`difference`/`insert`/`size`, `List.concat`/`head`/`tail`, `Vector.get`/`at`/`push`/`set`/`concat`/`length`, `String.split`/`replace`/`slice`/`join`, native `String.reverse`.
+2. **Container-specific ops** stay on the container owner — exactly the work a generic adapter can't express because it reads or rebuilds the container's structure: `Map.map_values`/`map_keys`/`merge`/`get`/`at`/`put`/`size`, `Set.union`/`intersection`/`difference`/`insert`/`size`, `List.concat`/`head`/`tail`/`remove_at`/`remove`, `Vector.get`/`at`/`push`/`set`/`concat`/`length`, `String.split`/`replace`/`slice`/`join`, native `String.reverse`.
 
 There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, … don't exist): to get a container back from a chain, append an explicit materialize step — `Iter.map(xs, f) |> Iter.to_list()`, `Iter.filter(s, p) |> Iter.to_set()`. The cost (one allocation) is then visible at the call site.
 
@@ -7531,7 +7552,7 @@ interface Productable {
 
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Int.to_decimal` / `Decimal.to_float` / `Float.to_decimal`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
-**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
+**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `Int.floor_div(a, b)` is the floored division it pairs with, so `b * Int.floor_div(a, b) + Int.modulo(a, b) == a` (`Int.floor_div(-7, 2) == -4`); it traps where `/` does. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
 
 **Integer powers, roots and digits.** `Int.pow(n, exp)` is exact and traps on overflow as `*` does, and on a negative `exp`, whose answer is a fraction (`Float.pow` gives one). `Int.sqrt(n)` is the root rounded down and traps on a negative `n`. `Int.gcd` and `Int.lcm` are never negative (`Int.gcd(0, 0) == 0`, `Int.lcm(n, 0) == 0`) and trap only when the answer is past the Int range. `Int.to_digits(n, base = 10)` lists a non-negative `n`'s digits most significant first (`[0]` for 0) and traps on a negative `n` or a base below 2; `Int.from_digits(digits, base = 10)` reads them back as a `Maybe<Int>`, `None` for a digit outside the base or a number past the Int range, as `String.to_int` answers for text that is no Int.
 
@@ -7630,7 +7651,7 @@ host fn abs(n: Int) -> Int
 - Host declarations can have doc comments (`///`) like any other declaration.
 - User-facing Go interop binds ordinary Go packages through `gopkg` declarations. A declaration such as `gopkg "example.com/app/ffi" as ffi` introduces a compile-time package handle whose import path is resolved by Go's normal module machinery. The path must be a valid Go import path. A Go standard library package (`gopkg "strings"`) needs no `go.mod` and no Go package of the project's own: its source is the Go toolchain's, and a script binding only the standard library runs from a directory with no `go.mod` at all. A package internal to the standard library (`internal/abi`) is a check error, since no other module may import it. Any other path must be provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or a package of a module that `go.mod` requires or replaces. Any other is a check error at the path, such as `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`, or one naming the project's module for a path outside all of those. A file held in memory rather than on disk (a sibling an embedder passes with the source it loads, such as a tour example's tab) has no `go.mod` above it: its bindings are answered by the host table its program is loaded with, and one the table does not answer is a load error naming it. A Go type binding must be opaque. It may remain private as a raw implementation handle (`opaque type RawConn go ffi.Conn`) behind a Nomi facade, or it may be intentionally public as a public opaque foreign type (`pub opaque type Regex go ffi.Regex`) when the module deliberately commits to that Go-backed representation. Public opaque foreign types can be named and passed across the module boundary but cannot be constructed, unwrapped, or inspected structurally. A Go function binding maps an exported Go function into a local Nomi function name: `fn open_raw(path: String) -> Result<RawConn, String> go ffi.OpenRaw`. The alias in `go alias.Symbol` must be one a `gopkg` declaration of the same file introduces; any other is a check error at the alias. A `gopkg` is a top-level declaration, as the bindings that use it are; one inside a body is the error `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
 - A program with `gopkg` bindings needs a Go toolchain: `nomi run`, `nomi check` and `nomi test` build a cached Go wrapper that links the bound packages (see [`implementation-notes.md`](implementation-notes.md#go-ffi-wrapper)). With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that (§31, *Dependencies*). A bound package may be in a module from the Go module cache, a dependency's included; its adapters are generated from its source there. The wrapper builds with `CGO_ENABLED=0`, so a `gopkg` naming a package that needs cgo, itself or through a package it imports, is a check error at the path: `` gopkg "example.com/app/wrap": needs cgo: it imports example.com/cdriver/internal/csql (...), whose files import "C", and Go bindings build with CGO_ENABLED=0 ``. Pure-Nomi programs and tests need no toolchain.
-- Every std declaration is a bare `host fn` / `host type`, so importing any std module, Go-backed ones such as `std/regex` included, needs no Go toolchain — see "The rule: `host` for the standard library, `go` for user FFI" below. A user's own Go binding is declared in Nomi source with `gopkg` and `go alias.Symbol`; there is no Go-side registration function. A Go program that embeds Nomi answers the `host fn`s its program declares from a host table passed to `vmhost.Load` (`vmhost.WithHosts`). A plain `host type` in such a program is an opaque handle: the table's functions create and read its values, which Nomi code passes around and stores and reads only through those functions, and the type itself needs no registration.
+- Every std declaration is a bare `host fn` / `host type`, so importing any std module, Go-backed ones such as `std/regex` included, needs no Go toolchain — see "The rule: `host` for the standard library, `go` for user FFI" below. A user's own Go binding is declared in Nomi source with `gopkg` and `go alias.Symbol`; there is no Go-side registration function. A Go program that embeds Nomi answers the `host fn`s its program declares from a host table passed to `vmhost.Load` (`vmhost.WithHosts`). A plain `host type` in such a program is an opaque handle: the table's functions create and read its values, which Nomi code passes around and stores and reads only through those functions, and the type itself needs no registration. A table answers each function by its declaration's key: its name in the entry file, `module.name` in a sibling file. A program's own host functions never answer a standard library call, nor the reverse, even when a file of the program shares a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std/regex`'s.
 - Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int` and the sized signed widths project to `Int`, as do the unsigned widths other than `uint8` when the value fits `int64`; every narrowing is range-checked in both directions rather than truncated), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth; the Go struct may be the bound package's or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`), while a struct of a Go standard library package crosses only from a bound standard library package), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A Go type alias (`type ID = core.ID`, `type Check = func(string) bool`) is its target and projects as the target does. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace` or a required module in the Go module cache, of the packages a bound package's signatures and struct fields name, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
 - A distinct type, opaque or not, crosses as its inner type does, at every depth: `type Id Int` crosses as `int64` (or any Go integer width an `Int` takes), `type Ids List<Int>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int` as `int64`, in a parameter, a result, a `List`, `Maybe`, `Map` or `Result`, a tuple, a struct field and a callback's own parameters and result. The value Go returns is wrapped in the declared distinct again. That is what gives `Duration` and `Instant` (both `opaque type ... Int` in the stdlib) a second legal Go spelling alongside `time.Duration` and `time.Time`: an `int64` slot carries either one. A marker (`type Expired`, no inner type) holds no value and has no Go projection.
 - The projection is checked in the FORWARD direction only. For each declared Nomi type the boundary computes the Go type it projects to and compares that against the Go type actually bound, read from the bound Go declaration's signature: a scalar by its row of the table above, `Dynamic` against a Go empty interface or `rt.Dynamic`, a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure, an opaque binding by the Go type it binds, and a struct of the binding's file field by field. A distinct type declared in the binding's file, and std's `Duration` and `Instant`, is compared through its inner type. The check does not read the declarations of another file: a name declared there fills a Go struct slot on trust, its fields held to the Go struct's by the adapter generator, and fills no other slot, so a binding that passes a distinct of another file declares it in that file. The inverse direction is deliberately NOT checked: a Go type does not determine the Nomi type it must be (`int64` is `Int` and equally every distinct over `Int`, a Go struct is any Nomi struct with matching fields), so an inverse check would reject declarations that work. Disagreements the forward rule proves (a declared `String` against a Go `int64`, a `Dynamic` against a Go `int64`, a `type Name String` against a Go `int64`, in a parameter, a return, a tuple element, a `Result` payload, a struct field, or a callback's own argument or return) are rejected at load, naming both sides and what the declaration projects to.
@@ -7694,7 +7715,7 @@ A writer over a file is buffered: `Writer.flush(w)` sends what it holds on, and 
 
 ### Files
 
-`std/fs`'s functions take paths as `String`s and answer `Result<_, io.Error>`; an empty path or one holding a NUL byte is `InvalidPath`, and every error names the path as the program passed it. A relative path is resolved against the working directory, `fs.current_dir() -> Result<String, io.Error>`, which a program cannot change.
+`std/fs`'s functions take paths as `String`s and answer `Result<_, io.Error>`; an empty path or one holding a NUL byte is `InvalidPath`, and every error names the path as the program passed it. A relative path is resolved against the working directory, `fs.current_dir() -> Result<String, io.Error>`, which a program cannot change. Under `nomi test` a test file's working directory is its module root, the nearest directory at or above the file holding a `nomi.toml` (the file's own directory when there is none), so a test that reads its module's files by a relative path (`fs.read_text("data/rates.csv")`) reads the same files wherever `nomi test` runs.
 
 - `fs.read(path) -> Result<Bytes, io.Error>` and `fs.read_text(path) -> Result<String, io.Error>` read a whole file; bytes that are not UTF-8 are `InvalidText` with the offset from the file's start. A directory is `IsADirectory`.
 - `fs.write(path, data, mode: WriteMode = .Replace)` and `fs.write_text(path, text, mode: .Replace)` write one, `-> Result<Unit, io.Error>`. `WriteMode` is `Replace` (create, or empty an existing file), `ReplaceAtomically` (write a temporary file beside it and rename it over the path when the write ends, so a reader sees the old contents or the new; a write that fails leaves the old file), `Append` (create when missing, write at the end) and `New` (fail with `AlreadyExists` when something is at the path). A new file's permissions are `0o644`, and an atomic write keeps the old file's. A write into a missing directory is `NotFound` naming the directory.
@@ -7709,7 +7730,9 @@ A writer over a file is buffered: `Writer.flush(w)` sends what it holds on, and 
 
 The functions reach the file system the running call is given. A native program and a `wasip1/wasm` module reach the operating system's (under WASI, the directories the runner opens for it). A `js/wasm` module reaches one in memory, whose working directory is `/work`: empty under Go's Node loader, and seeded by `run`'s `files` option in the browser (§25, *Web pages*). Inside `fs_testing.run` (§36) every call reaches that call's sandbox. Tasks reach the file system of the frame they were started on.
 
-`std/path` reads paths as text and never touches the file system, so a typed literal's handler and a macro may call it. A path uses `/` on every operating system; on Windows std/fs accepts `\` too and answers `/`, and a drive is written `C:/Users`. `path.join(base, name)` and `path.join_all(parts)` join with `/` and clean; `path.clean(p)` is Go's `path.Clean` (repeated `/`s, `.` and `..` resolved by reading the text, `"."` for an empty path); `path.parent(p) -> Maybe<String>`, `path.base(p)`, `path.extension(p) -> Maybe<String>` (`Some("gz")` for `log.tar.gz`, `None` for `.bashrc`) and `path.stem(p)` take a path apart; `path.absolute?(p)` is a leading `/` or a drive; `path.relative(from, to) -> Maybe<String>` is the path from one directory to another; and `path.match?(pattern, p)` matches a glob a name at a time, `*` and `?` within a name, `[a-z]` and `[!abc]` sets, `**` any number of names, a name starting with `.` only by a pattern name starting with `.`.
+`std/path` reads paths as text and never touches the file system, so a typed literal's handler may call it. A path uses `/` on every operating system; on Windows std/fs accepts `\` too and answers `/`, and a drive is written `C:/Users`. `path.join(base, name)` and `path.join_all(parts)` join with `/` and clean; `path.clean(p)` is Go's `path.Clean` (repeated `/`s, `.` and `..` resolved by reading the text, `"."` for an empty path); `path.parent(p) -> Maybe<String>`, `path.base(p)`, `path.extension(p) -> Maybe<String>` (`Some("gz")` for `log.tar.gz`, `None` for `.bashrc`) and `path.stem(p)` take a path apart; `path.absolute?(p)` is a leading `/` or a drive; `path.relative(from, to) -> Maybe<String>` is the path from one directory to another; and `path.match?(pattern, p)` matches a glob a name at a time, `*` and `?` within a name, `[a-z]` and `[!abc]` sets, `**` any number of names, a name starting with `.` only by a pattern name starting with `.`.
+
+`std/hash` computes cryptographic hashes of bytes: `hash.sha256(data: Bytes) -> Bytes` is the 32-byte SHA-256 digest (FIPS 180-4), and `hash.sha256_hex(data: Bytes) -> String` the same as the 64 lowercase hexadecimal digits `sha256sum` prints. Text is hashed as its UTF-8 bytes, `hash.sha256_hex(String.to_bytes("abc"))`. Both are pure, so a typed literal's handler may call them.
 
 ## 25. Compilation
 
@@ -8668,6 +8691,8 @@ The `nomi` CLI is the single tool:
   — run tests in a `.nomi` file or discover tests under a directory;
   `--watch` runs them again on every change, and a test that runs longer
   than `--timeout` (10 seconds unless given) is stopped and fails; see §36.
+  A test file's std/fs calls take a relative path under its module root,
+  wherever the command runs (§24, *Files*).
 - `nomi` — the REPL.
 - `nomi check <path>` — type-check and compile without running; code
   the program reaches that the compiler cannot lower is the error at its
@@ -8680,7 +8705,7 @@ The `nomi` CLI is the single tool:
   listed as `ok <file> (through <importer>)`; a file nothing there imports
   is checked on its own.
   A failed check of a directory prints `FAIL <file>` for each file that
-  holds errors, a file the program imports or an input a macro read, with
+  holds errors, a file the program imports or a message catalog, with
   its errors below it, and an error two programs share once.
 - `nomi build <file> [-o <binary>] [--target <goos>/<goarch>]` — one
   executable: nomi-vm with the program's IR appended. It runs at
@@ -8699,10 +8724,14 @@ The `nomi` CLI is the single tool:
   folder on localhost, rebuilding and reloading the page when the source
   changes and reloading it when a static file changes.
 - `nomi fmt [-w|-l|-d] <paths>` — format Nomi source.
-- `nomi expand <file>` — print what the file's declarations written with a
-  macro's keyword expand to (see §45).
-- `nomi tool <module> <name> [args]` — run a module's tool,
-  `tools/<name>.nomi`, with every effect (see §45).
+- `nomi tool <module> <name> [args]` — run a module's tool: the program
+  `tools/<name>.nomi` at the module's root, which its `entry_points` list,
+  with the arguments after its name. It is an ordinary program with every
+  effect, run in the current directory, and runs only when someone runs it.
+  `<module>` is the current module's name or one its `go.mod` requires. It
+  is how a module ships a code generator, such as sqlkit's `nomi tool
+  sqlkit generate` (§43), which writes ordinary `.nomi` files a program
+  commits.
 - `nomi new <module path> [dir]` — start a module in `dir` (a new
   directory named for the path's last element when left out): a
   `nomi.toml` whose `name` is that element without a `/vN` suffix, written
@@ -8978,6 +9007,24 @@ Range operator precedence sits above pipes and below arithmetic — `1+2..5+6` g
 Braces `{ }` form block expressions. The last expression in a block is its value. This is consistent with function bodies, `case` branches, and `if/else` — all of which are already blocks.
 
 Expressions are separated by newlines. Semicolons are supported but not required — the compiler inserts them at newlines (like Go). Explicit semicolons allow multiple expressions on one line: `{ try database.save(db, page); count + 1 }`. The formatter normalizes multi-expression blocks to use newlines.
+
+A newline ends an expression only where the expression could end. A line that starts with an operator no expression can start with, `|>`, a comparison (`==`, `!=`, `<`, `<=`, `>`, `>=`), `and` or `or`, continues the expression on the line above, so a long comparison or condition breaks before its operator:
+
+```nomi
+test "a long comparison" {
+    assert line_up.format("Ingrid", 22)
+        == "Ingrid, you are the 22nd customer we serve today. Thank you!"
+}
+
+fn rectangle?(grid: Grid, top: Int, left: Int, bottom: Int, right: Int) -> Bool {
+    bottom > top
+        and right > left
+        and corners_meet?(grid, top, left, bottom, right)
+        and sides_whole?(grid, top, left, bottom, right)
+}
+```
+
+An arithmetic operator (`+`, `-`, `*`, `/`, `%`) at the start of a line does not continue the expression, since `-` also starts one: `+ 2` alone on a line is the error ``` `+` cannot start a line: the line break ended the expression before it ```, and the operator goes at the end of the line above instead. `nomi fmt` writes a comparison or boolean operation too long for its line with a break before the operator, the rest one indent in, and every `and` (or every `or`) of a chain on a line of its own; a right operand that is a bracketed literal stays after the operator and breaks inside its brackets.
 
 ```nomi
 result = {
@@ -11362,7 +11409,9 @@ patterns at `width`, CLDR's unit widths (`Long`, `Short` or `Narrow` words;
 a list's `ListWidth` is a different set, CLDR's list widths), joined by the locale's
 unit list pattern: `1 hour, 30 minutes` in `en`, `1 godzina i 30 minut` in
 `pl`. A length is counted in hours, since a day is civil; zero is `0
-seconds`. `Duration` implements `Localize` with it.
+seconds`. `Duration` implements `Localize` with it. `Duration.clock` writes
+the same text in every locale, as a stopwatch shows it (`00:01:28`), and
+`Duration.parse_clock` reads that back.
 
 `TimeUnit.format_relative` writes `count` units from now: `in 3 days` and
 `3 days ago` in `en`, `vor 3 Tagen` in `de`, `za 3 tygodnie` and `za 5
@@ -12135,391 +12184,31 @@ A top-level declaration that starts with a keyword and a name is a
 **keyword declaration**, read by one rule whatever the keyword:
 
 ```
-[pub] [file.]keyword[!] name [(params)] [-> type] [[Tag]raw body]
+[pub] keyword name [(params)] [-> type] [raw body]
 ```
 
 Each part after the name may be left out: `message cart_items(count: Int)
-`...``, `noun item `...``, `sqlkit.database! main` and ``sqlkit.query!
-orders(user_id: Int) Sql`SELECT ...` `` all fit it. A keyword and a name in
-a row start nothing else at the top of a file, and a line break between
-them ends a statement. The name is snake_case, or, after a keyword marked
-with `!` or qualified by its file, a type name, since a macro may declare a
-type: ``pub choices.one_of! Size `small medium large` `` and ``one_of! Size
-`small` `` fit the rule too. An unmarked, unqualified keyword before a type
+`...`` and `noun item `...`` fit it. A keyword and a name in a row start
+nothing else at the top of a file, and a line break between them ends a
+statement. The name is snake_case: `message Hi` is `` the name of a
+`message` is snake_case, not the type name `Hi` ``, and a name before a type
 name starts no declaration, so `pub strct Point` is `` `strct` declares
-nothing: a type is declared with `struct`, `enum` or `type`, and a macro's
-declaration marks its keyword with `!`: `strct! Point` ``, and `message Hi`
-is `` the name of a `message` is snake_case, not the type name `Hi` ``. The body is a backtick raw string, and may be a
-typed literal's raw form: a tag written right before the opening backtick
-names the body's language, so editors highlight it as they highlight that
-typed literal (`Sql` as SQL). The tag is not a type and needs no import.
+nothing: a type is declared with `struct`, `enum` or `type` ``. The body is
+a backtick raw string.
 
 The keyword decides what the declaration means. `message` and `noun` are
-built-in declarations (§41, *Messages* and *Nouns and agreement*), never
-macros, written bare and unmarked; their body
-is MessageFormat 2 and takes no tag (`` a `message` body is MessageFormat 2 text and takes no tag: remove
-`Mf2` ``), and `message!` is `` `message` is built in; write it without `!`
-``. Any other keyword is a macro's (§45), marked with a `!` written
-against it, so a reader can tell that a library expands the declaration:
-qualified by the file it comes from (`sqlkit.query!`), or bare after an
-item import. A macro's keyword written without its `!` is the error ``
-`sqlkit.query` is a macro, so it is written `sqlkit.query!`
-``, and a keyword nothing declares is `` unknown declaration keyword
-`database!` ``. `nomi fmt` prints each part that was written, the `!` and
-the tag against what they mark.
+the keywords Nomi knows (§41, *Messages* and *Nouns and agreement*). Their
+body is MessageFormat 2 and takes no tag (`` a `message` body is
+MessageFormat 2 text and takes no tag: remove `Mf2` ``). Any other keyword
+is the error `` unknown declaration keyword `database` ``. `nomi fmt`
+prints each part that was written.
 
-## 45. Macros
+Nomi has no macros. Code a library would generate from data, such as
+functions from SQL queries or an enum from a list of words, is written by a
+tool the library ships (`nomi tool`, §*CLI*) into ordinary `.nomi`
+files that a program imports and commits.
 
-A library adds a declaration keyword with a **macro**: Nomi code that
-the compiler runs while it checks a program, which expands each declaration
-written with the keyword into ordinary Nomi declarations. The keyword's
-declarations are keyword declarations (§44), so the
-grammar, the formatter and the editors need no change per keyword.
-
-### Declaring a macro
-
-A module declares the keyword and the type whose impls expand it, and
-implements `Macro` from `std/macro` for the type in the same file:
-
-```nomi
-import std/macro.{ExpandCall, Expansion, Macro, Source}
-
-/// A function that answers 42.
-pub macro answer: Answer
-
-type Answer
-
-impl Macro for Answer {
-    fn expand(call: ExpandCall) -> Expansion {
-        decl = call.decl
-        visibility = if decl.public { "pub " } else { "" }
-
-        Source.new()
-        |> Source.add("${visibility}fn ${decl.name}() -> Int {\n    42\n}\n")
-        |> Source.expansion()
-    }
-}
-```
-
-`macro name: Type` names the keyword and the type; the type must be one
-the file declares, and the file must implement `Macro` for it:
-`` `Answer` implements no `Macro` in this file, so the macro
-`answer` has nothing to run `` otherwise. `expand` is the one function
-an impl must write: `request`, which says what to read, has a default
-that asks for nothing, so a macro writes it only when it reads files or
-other declarations (csvdata's `table`, below, asks for its CSV file). A
-`pub` macro is part of the module's public surface, as a `pub` function
-is.
-
-### Using one
-
-A file imports the macro's file from a module its `go.mod` requires
-(`nomi add ../csvdata` adds one in a directory), and writes declarations with the keyword qualified by it and marked with
-`!`, as it calls a function of the file (`io.print`):
-
-```nomi
-import csvdata
-
-/// Exchange rates to the euro, in basis points.
-pub csvdata.table! rate(code: String) -> Maybe<Int> `rates.csv`
-```
-
-A macro's declaration states the type of what it declares, so a reader
-of the declaration sees the real signature, and the compiler holds the
-expansion to it (*What an expansion declares*, below): `rate` answers `None`
-for a code the table does not have, so its declaration says `->
-Maybe<Int>`, and csvdata refuses `-> Int` with `` a table answers `None`
-for a missing key, so write `-> Maybe<Int>` ``.
-
-The qualifier is the file API object the import binds (§14): `csvdata`
-after `import csvdata` (the module's root file `csvdata.nomi`), `ck`
-after `import csvdata as ck`, `tables` after `import csvdata/tables`. A
-qualifier no import binds is `` `kit` names no imported file, so
-`kit.table!` names no macro ``, and a keyword the file does not
-declare as a `pub macro` is `` file `csvdata` has no macro
-`tabel` ``, whose hint lists the file's macros. As with a
-function, an item import brings the keyword in bare instead: after `import
-csvdata.table` the declaration is `pub table! rate(...)`, and
-the import may rename it (`import csvdata.{table as csv}`, then
-`csv! rate(...)`); the usual rules for an item import apply, so an
-unused or clashing one is an error. Nomi's own `message` and `noun` are
-never qualified. A module cannot use a macro it declares, as a Rust crate
-cannot use its own procedural macros: the compiler runs a macro's code
-before it checks the module that uses it, so the declaration is the error
-`` `table` is a macro this module declares, and a module cannot
-use its own macros ``. A file in no module (no `nomi.toml` above it)
-cannot use a macro.
-
-### What a macro is given
-
-The compiler builds the macro's file as a program of its own and runs
-two of its impl's functions. Each takes one record, so a macro reads only
-the fields it uses. `request` is given a `RequestCall`, the `decl` and
-`config` below, and answers what to read: `files`, paths or globs
-(`data/*.csv`) from the declaring module's root, and `sites`, keywords
-whose declarations in the module the macro wants to know. Each is empty
-unless the macro names some (`#Request{files: [path]}`), and the default
-`request` answers `#Request{}`. `expand` is then given an `ExpandCall`,
-whose fields are:
-
-- `decl`, the `Declaration` as the parser read it: its keyword (alone,
-  `table`, with no qualifier or `!`), name, visibility, parameters
-  and result type as written (`TypeText`: the text, which the macro
-  never resolves, and where it is), its raw body (`Body`: the text without
-  the indentation a multi-line body's lines share, where each line starts,
-  so `Body.span_at` places a part of it, its tag, `Some("Sql")` for
-  ``Sql`...` `` and `None` for an untagged body, and the tag's span,
-  `tag_span`), its doc comment, the declaring file's path from the module
-  root, the keyword's position, its `!` included (`span`), and the name's
-  (`name_span`), wherever the parser read it. A macro that wants
-  a tag, or none, says so with `Expansion.error` at the tag or the body:
-  csvdata's `table` body is a path, so ``Csv`rates.csv` `` is `` a
-  table's body is the path of its CSV file and takes no tag: remove
-  `Csv` ``, under `Csv`;
-- `config`, the table of the declaring module's `nomi.toml` named after the
-  macro's module (`[csvdata]`), as `Json`, `Json.Null` when there is
-  none. Nomi reads two tables of `nomi.toml` itself, `[module]` and
-  `[i18n]`, so a macro of a module named `module` or `i18n` cannot be
-  used: a declaration with its keyword is the error `` the macro `gen`
-  cannot be used: its module is named `i18n`, so its settings would be
-  nomi.toml's `[i18n]` table, which is Nomi's own ``, and declares
-  nothing;
-- `inputs`, each requested file that exists, with its text. A path or glob
-  that leaves the module root, by `..` or a symbolic link, is an error at
-  the declaration, and nothing outside it is read;
-- `sites`, the declarations of the requested keywords in the module's
-  files, each with its name, file and position.
-
-A `Span` is a file's path from the module root, and a line, column, end line
-and end column, columns counting bytes. A macro reads its body and inputs
-as `String`s, so it finds a piece by its offsets, counted in graphemes as
-`String.slice` counts them, and `std/macro` turns the offsets into a span:
-`Body.span_at(body, start, end)` for a piece of the body, on as many lines
-as it covers, `Input.span_at(input, start, end)` for a piece of an input,
-and `Span.on_line(file, line, text, start, end)` for a piece of a line
-`text` of an input that the macro reads line by line, as a CSV cell is
-placed. `Span.line` is a whole line.
-
-### What it answers
-
-`expand` answers an `Expansion`: Nomi source text, a span map from byte
-ranges of the source to the spans the user wrote they were made from (each
-with an optional hint), and diagnostics. Each has a default, so
-`#Expansion{diagnostics: problems}` declares nothing and reports
-`problems`. `Source` writes the source piece by piece and keeps the map:
-`Source.add` adds text, `Source.mapped` text that was made from a span
-(with `hint: Some(...)` added to an error in it), and
-`Source.string_literal` a string copied from the input, written as the
-Nomi string literal that reads back as it (`String.to_literal`: quoted,
-with `\n`, `\r`, `\t`, `\\`, `\"` and `\${` escaped and `\u{...}` for any other
-character that is not printable), so a CSV cell holding a tab, a quote or
-`${` is the string the file holds. `pascal_case` and `snake_case` name
-what a macro makes from its input's words (`extra_large` is
-`ExtraLarge`, `HTTPServer` is `http_server`). The checker checks the
-source as part of the declaring file:
-
-- Its top-level names join the file's: a call of `tables.rate("usd")`
-  reaches the function a `table` in `tables.nomi` declares, and the
-  function with the declaration's name is at the declaration's name for go to
-  definition and hover. A declaration whose name is a type name declares
-  that type: ``pub choices.one_of! Size `small medium large` `` expands to
-  `pub enum Size` with the variants `Small`, `Medium` and `Large`, which
-  another file imports (`import sizes.Size`) and matches on as any enum
-  (`Size.Small -> 8`). Go to definition on `Size` goes to the
-  declaration's name, and on `Size.Small` to the word `small` the macro
-  mapped it from. The `Declaration` says nothing more: a macro that
-  declares a type reads the case of `name` itself, and reports a
-  snake_case name with `Declaration.error`. A `pub` name it declares is public, which another
-  file reaches through the declaring file; any other is private to the
-  declaring file, which may use it. An expansion may declare names besides
-  the declaration's own (sqlkit's `database! main` declares a struct per
-  table), and a macro names such a helper after the declaration
-  (`rate_rows`) so that two declarations in a file do not collide.
-- A name the source declares that the file declares or imports too is an
-  error at the file's declaration, ``  `helper` is declared here and by
-  `gen! answer` on line 6 ``, and one that another declaration's expansion
-  in the file declares is an error at the later declaration, ``  `helper`
-  is declared by `gen! two` here and by `gen! one` on line 6 ``. Either
-  way the expansion that collides declares nothing, so the file's own
-  declaration keeps its meaning, and the program reports the collision
-  alone, as it reports a declaration the macro declined. Expansions in
-  two files never collide: each file is its own scope.
-- The source may start with whole-file imports (`import std/strings`),
-  which only it sees, under names the file's code cannot write; an import
-  with selected names is an error.
-- The source names only what it declares, what its own imports bring, the
-  prelude, and what the declaration writes: the names of its parameter and
-  result types (`Maybe<User>` in `sqlkit.query! user(id: Int) ->
-  Maybe<User>`, which the expansion returns, through the file's import of
-  `User`), and a name of its body that the macro copies into the source
-  with `Source.mapped`. A bare name in the source that reaches any other
-  declaration or import of the declaring file is an error at the
-  declaration, `` the macro `gen` (module genkit) expanded `gen! answer` to
-  code that names `helper`, which this file declares on line 8: a macro's
-  code names only what it declares, what its own imports bring and what
-  the declaration writes, a defect in the macro ``. So a macro's code means
-  the same in every file that uses it, whatever else the file declares.
-  A local binding, a parameter or a type parameter of the source is its
-  own, whatever the file declares. A type the declaration writes is the
-  file's use of its import, whether or not the expansion names it, so an
-  import that only a declaration's types need is not unused.
-- An error the checker reports inside a mapped range is reported at the
-  range's span, with its hint: a Float cell in an Int table is
-  `` case branch type mismatch: expected Maybe<Int>, got Maybe<Float> `` at
-  the cell in the CSV file, with the hint the macro mapped the cell
-  with. The range's hint comes before the checker's own, since it is about
-  what the user wrote and the checker's are about the generated code. An
-  error outside every range is a defect of the macro, reported
-  at the declaration as `` the macro `table` (module csvdata) expanded
-  `csvdata.table! rate` to code with an error, a defect in the macro: ... ``,
-  and a source that does not parse is likewise reported at the declaration.
-  A location an error refers to (the return type a mismatch names) moves
-  the same way: to the span its range was made from, or else to the
-  declaration's name, its note saying it is in the code the macro
-  generated. No position inside the generated source is ever shown.
-- A diagnostic the macro reports is reported at its span: in the
-  declaring file, or in an input file, where the language server publishes
-  it on that file.
-
-### What an expansion declares
-
-The declaration says what the expansion declares, and the compiler checks
-the expansion against it after the macro runs:
-
-- A declaration whose name is a type name (`one_of! Size`) declares a type
-  of that name: a struct, an enum, a distinct type, a type alias or an
-  interface.
-- One that writes a parameter list or a result type (`table! rate(code:
-  String) -> Maybe<Int>`, `query! order_counts()`) declares a
-  function of that name. The function's parameters end with the
-  declaration's: the same names and types, in the same order, and a macro
-  may put parameters of its own before them, which it documents (sqlkit's
-  generated functions take a leading `conn: sql.Conn`). When the
-  declaration writes a result type `T`, the function returns `T` or
-  `Result<T, E>` for any `E` (sqlkit's queries return `Result<T,
-  sql.Error>`). One that writes no result type leaves the result to the
-  macro.
-- One that writes neither (`database! main`) names what the macro makes,
-  and need not declare anything of its name.
-
-What the declaration names is `pub` exactly when the declaration is. Types
-compare as the checker resolves them, so `sqlkit.Rows<Orders>`, written
-through the expansion's own import, is the `Rows<Orders>` a declaration
-writes after `import sqlkit.Rows`. A declaration's other names (sqlkit's
-row structs) are the macro's to name and to make public or not.
-
-What the declaration names also carries the declaration's doc comment: the
-compiler attaches it, in place of any doc comment the macro wrote there, so
-a macro does not copy `decl.doc`, and `nomi expand` prints the expansion
-with it.
-
-An expansion that breaks any of these is a defect in the macro, reported
-at the declaration with what it expected and what the expansion declares:
-`` the macro `hello` (module greet) expanded `greet.hello! say -> Int` to
-`pub fn say() -> String`: its result should be `Int`, a defect in the macro
-``, `` ... to `fn say() -> Int`: it should be `pub`, as the declaration
-is ``, `` ... to code that declares no function `say` ``, `` ... to `pub fn
-say(name: String, loud: Bool) -> Int`: its parameters should end with the
-declaration's, `name: String` ``, `` ... its parameter `name` should be
-`String` ``, `` the macro `one_of` (module choices) expanded `choices.one_of!
-Size` to code that declares no type `Size` ``. The program reports it
-alone, as it reports a declaration the macro declined, so a call of the
-function elsewhere is not an error too.
-
-### Declining a declaration
-
-`Declaration.error(decl, message)` is an expansion that declares nothing and
-reports `message` at the declaration's keyword, and `Expansion.error(span,
-message)` one that reports it at a span the macro has, such as the result
-type's or the tag's. When a macro answers diagnostics
-and no source for a declaration, the declaration declares nothing, and
-the program's other errors (an import of a name it would have declared, a
-call of its function) only follow from that. A program with such a
-declaration reports the diagnostics of its macro declarations, and
-their macros' whole-module checks, alone, as a syntax error in an
-imported file is reported alone. A macro that keeps a declaration's
-signature while reporting an error about it (sqlkit's query whose SQL
-changed since the snapshot) answers source and diagnostics both, and the
-program's errors are reported beside its own.
-
-### How it runs
-
-The macro runs on the VM, in the sandbox a backtick typed literal's
-handler runs in (§16, *Typed literals*): a `request` or `expand` that can reach an effect
-(output, files, the network, the clock, randomness, tasks, channels, the
-running app's fields) is refused before it runs, at the declaration, as
-`` the macro `table` (module csvdata) could not expand `csvdata.table!
-rate`: its `expand` has effects, which a macro may not have while a
-program is checked (...) ``. Each run is held to a budget of 20,000,000
-steps (calls, backward branches and iteration elements) and a growth of
-the heap of 1 GiB; one that passes either, or faults, is an error at the
-declaration that says which: `` `expand` did not finish within its budget
-of 20,000,000 steps (calls, backward branches and iteration elements) ``.
-Those two decide whether a run succeeds, and neither depends on how fast
-the machine is, so a declaration that expands on a laptop expands on a
-slow build server, and a cached expansion is what any machine would
-answer. The compiler also stops a run still going after two minutes, far
-longer than the whole step budget takes, as a guard against a step that
-takes far longer than any should; that is reported as an internal failure,
-not as the macro's answer, is never cached, and the next check runs the
-macro again. A declaration whose run is refused or stopped, or whose
-macro's module does not check, declares nothing, and the program reports
-it alone, as it reports one the macro declined: `` the macro `one_of`
-(module choices) could not expand `choices.one_of! Size`: its module
-does not check: ... `` at the declaration, beside the macro module's own
-errors in its files, and no error at a use of what it would have
-declared. So `nomi check`, `nomi fmt` and the language server run no
-code that acts outside the VM, whatever a checkout's macros are. The code
-a macro writes runs with the program's effects, as any library's code
-does.
-
-An expansion is a function of what it read: the compiler's version, the text
-of every file the macro's program is built from, the declaration, the
-configuration, the requested files' paths and texts, and the sites. The
-compiler caches each expansion under all of them, in memory, so a check runs
-a macro only when one changed. Nothing is kept on disk, so each run of
-`nomi check`, `nomi run` or `nomi build` runs every macro the program
-uses. Every file an expansion read, the
-macro's own source among them, is an input of the declaring file: the
-language server expands the declaration again when one changes, and an
-edit to a table that keeps what the expansion declares rechecks the
-declaring file's bodies alone.
-
-### Whole-module checks and the editor
-
-Two interfaces of `std/macro` are optional, and their functions take one
-record too. A `ProgramCheck` impl's `check_all` is given a `CheckCall`
-(`decls`, `config`, `inputs`) and runs once over every declaration of the
-keyword in a program's files, with the files their requests read, for what
-no one declaration decides (two tables reading one file). A `Navigation`
-impl answers the language server inside a declaration's body, on the VM
-with the same limits: `hover`, `definition` and `complete` are given a
-`NavigationCall` (`decl`, `config`, `inputs`, and the position's `line`
-and `col`), and `actions`, given an `ActionsCall` (`decl`, `config`,
-`inputs`, `diagnostic`), answers the quick fixes for a diagnostic the
-macro reported. Each of the four has a default that answers nothing
-(`None` or `[]`), so an impl writes only the ones it answers: a macro
-that offers only quick fixes writes `actions` alone. A fix is
-a list of edits to the declaring file or an input, and optionally a `Tool`
-of the macro's own module to run: choosing such a fix runs `nomi tool
-<module> <name> <args>` in the declaring module's root, shows what it
-printed, and checks the open files again with what it wrote. The language
-server runs a tool only when someone chooses the fix that names it, so
-sqlkit's fix for a query the snapshot does not describe yet runs its
-`prepare` tool.
-
-### `nomi expand` and `nomi tool`
-
-`nomi expand <file>` prints what each of the file's macro declarations
-expands to, formatted, with what the macro reports. `nomi tool <module>
-<name> [args]` runs the module's tool, the program `tools/<name>.nomi` at its
-root, which its `entry_points` list: an ordinary program with every effect,
-run in the current directory, for a macro's work that needs a
-database, the network or files, such as writing a file the macro then
-reads. A tool runs only when someone runs it. `<module>` is the current
-module's name or one its `go.mod` requires.
-
-## 46. Open Design Questions
+## 45. Open Design Questions
 
 1. **Exhaustive struct pattern opt-in.** Struct pattern matching is partial by
    default: unmentioned fields are ignored. A `!..` marker could opt into

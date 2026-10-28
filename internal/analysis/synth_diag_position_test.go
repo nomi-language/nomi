@@ -64,10 +64,10 @@ func buildAndCollectTypeErrors(t *testing.T, src string) []analysis.TypeError {
 //
 // Both rows are reproductions; without the fix they read:
 //
-//	derive FromJson  ->  line 1432010752, col 84: unknown type "Json.ShapeError"
+//	derive FromJson  ->  line 1431977984, col 84: unknown type "Json.ShapeError"
 //	derive ToJson    ->  line 1431994368, col 7:  undefined type Json.Obj
 //
-// 1432010752 is not an uninitialized field. It decodes exactly as
+// 1431977984 is not an uninitialized field. It decodes exactly as
 // synthSlot(synthOriginConformance, index 2, synthKindFromJson) —
 // 1<<30 + 21867*16384 — a legitimate slot from derive_synthesis.go's band. The
 // defect is that a band position reached a user-facing message, which

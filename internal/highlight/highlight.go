@@ -129,8 +129,7 @@ func (p *Program) File(name string) (ProgramFile, bool) {
 
 // AnalyzeProgram analyzes a source carrying `// FILE:` markers as the
 // in-memory program the run loads (cmd/nomi-wasm's nomiRun): the entry, its
-// virtual siblings, the staged nomi.toml and catalogs, with macros run
-// through macros. A program with errors still answers its files' analyses.
+// virtual siblings, the staged nomi.toml and catalogs. A program with errors still answers its files' analyses.
 // A file the program did not reach or could not build (the entry does not
 // parse) is analyzed alone, as a single-file snippet is, so a tab still
 // answers something while its text is broken. It answers nil only when lib
@@ -138,7 +137,7 @@ func (p *Program) File(name string) (ProgramFile, bool) {
 //
 // A source that names modules is written under dir and analyzed from
 // there, as the run loads it (vmhost.LoadMarked); see analyzeFiles.
-func AnalyzeProgram(marked, dir string, lib *std.StdLib, macros analysis.MacroHost) *Program {
+func AnalyzeProgram(marked, dir string, lib *std.StdLib) *Program {
 	if lib == nil {
 		return nil
 	}
@@ -148,7 +147,7 @@ func AnalyzeProgram(marked, dir string, lib *std.StdLib, macros analysis.MacroHo
 		return prog
 	}
 	if project.Files != nil {
-		analyzeFiles(prog, project, dir, lib, macros)
+		analyzeFiles(prog, project, dir, lib)
 		return prog
 	}
 	sources := map[string]string{project.EntryName: project.EntrySource}
@@ -157,7 +156,7 @@ func AnalyzeProgram(marked, dir string, lib *std.StdLib, macros analysis.MacroHo
 			sources[name] = text
 		}
 	}
-	if checked := analyzeProject(project, macros); checked != nil {
+	if checked := analyzeProject(project); checked != nil {
 		prog.files[project.EntryName] = ProgramFile{Source: project.EntrySource, FA: checked.FA, Nodes: checked.Nodes}
 		for _, f := range checked.Files {
 			if src, ok := sources[f.Key]; ok {
@@ -178,7 +177,7 @@ func AnalyzeProgram(marked, dir string, lib *std.StdLib, macros analysis.MacroHo
 // analyzeProject runs the front end over project, answering every file's
 // analysis whether or not the program has errors, or nil when the entry
 // did not parse or the front end panicked.
-func analyzeProject(project virtualproject.Project, macros analysis.MacroHost) (p *frontend.Project) {
+func analyzeProject(project virtualproject.Project) (p *frontend.Project) {
 	defer func() {
 		if recover() != nil {
 			p = nil
@@ -187,7 +186,6 @@ func analyzeProject(project virtualproject.Project, macros analysis.MacroHost) (
 	c := frontend.New(frontend.Config{
 		VirtualFiles:    project.VirtualFiles,
 		VirtualManifest: project.Manifest,
-		Macros:          macros,
 	})
 	p, _ = c.AnalyzeSource(project.EntryName, project.EntrySource, frontend.Mode{Tests: true})
 	return p
@@ -195,10 +193,10 @@ func analyzeProject(project virtualproject.Project, macros analysis.MacroHost) (
 
 // analyzeFiles fills prog from a project that names modules, written
 // under dir: the entry's program, then each Nomi file it did not reach
-// (a file of another module, such as a macro's) as the entry of its own
+// (a file of another module) as the entry of its own
 // module's program, and a file neither answers alone. Each is keyed by its
 // path from the root, as its tab names it.
-func analyzeFiles(prog *Program, project virtualproject.Project, dir string, lib *std.StdLib, macros analysis.MacroHost) {
+func analyzeFiles(prog *Program, project virtualproject.Project, dir string, lib *std.StdLib) {
 	root, err := project.Write(dir)
 	if err == nil {
 		analyzeFile := func(name string) (p *frontend.Project) {
@@ -207,7 +205,7 @@ func analyzeFiles(prog *Program, project virtualproject.Project, dir string, lib
 					p = nil
 				}
 			}()
-			c := frontend.New(frontend.Config{Macros: macros})
+			c := frontend.New(frontend.Config{})
 			p, _ = c.AnalyzeFileSource(filepath.Join(root, filepath.FromSlash(name)), project.Files[name], frontend.Mode{Tests: true})
 			return p
 		}

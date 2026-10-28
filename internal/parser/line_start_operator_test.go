@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 )
 
-// A binary operator at the start of a line below an operand is an error at
-// the operator that says the line break ended the expression and how to
-// continue it, for every operator that only joins two operands, in a
-// statement and inside parentheses.
+// An arithmetic operator at the start of a line below an operand is an
+// error at the operator that says the line break ended the expression and
+// how to continue it, in a statement and inside parentheses. A comparison
+// or boolean operator continues the expression instead
+// (TestComparisonOrBooleanOperatorContinuesALine).
 func TestBinaryOperatorStartingALine(t *testing.T) {
-	ops := []string{"==", "!=", "<", ">", "<=", ">=", "and", "or", "+", "*", "/", "%"}
+	ops := []string{"+", "*", "/", "%"}
 	shapes := []struct {
 		name, format string
 		line, col    int
@@ -43,6 +45,45 @@ func TestBinaryOperatorStartingALine(t *testing.T) {
 					t.Errorf("error at %d:%d, want %d:%d (the operator)", pe.Line, pe.Col, shape.line, shape.col)
 				}
 			})
+		}
+	}
+}
+
+// A comparison or boolean operator starting a line continues the expression
+// on the line above, as `|>` does, since no expression starts with one: in
+// an assertion, a binding, after a comment and inside parentheses.
+func TestComparisonOrBooleanOperatorContinuesALine(t *testing.T) {
+	ops := []string{"==", "!=", "<", ">", "<=", ">=", "and", "or"}
+	for _, format := range []string{
+		"fn f() {\n    assert 1 + 1\n        %s 2\n}",
+		"fn f() -> Bool {\n    x = g(1)\n        %s 2\n    x\n}",
+		"fn f() -> Bool {\n    x = g(1) // first\n        %s 2\n    x\n}",
+		"fn f() -> Bool {\n    (1 + 1\n        %s 2)\n}",
+	} {
+		for _, op := range ops {
+			src := fmt.Sprintf(format, op)
+			if _, err := Parse(lexer.Lex(src)); err != nil {
+				t.Errorf("Parse(%q): %v", src, err)
+			}
+		}
+	}
+}
+
+// A line that starts with a name beginning with `and` or `or` (`order`,
+// `or?`) starts a new statement.
+func TestNameStartingWithAndOrOrStartsAStatement(t *testing.T) {
+	for _, src := range []string{
+		"fn f(order: Int) -> Int {\n    x = 1\n    order\n}",
+		"fn f() -> Bool {\n    x = g(1)\n    or?(x)\n}",
+		"fn f(android: Int) -> Int {\n    x = 1\n    android\n}",
+	} {
+		nodes, err := Parse(lexer.Lex(src))
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", src, err)
+		}
+		fn := nodes[0].(*ast.FuncDef)
+		if len(fn.Body.Stmts) != 2 {
+			t.Errorf("Parse(%q): %d statements, want 2", src, len(fn.Body.Stmts))
 		}
 	}
 }

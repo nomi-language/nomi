@@ -1,0 +1,529 @@
+//# A file of queries, `db/queries/*.sql`: each query is an annotation that
+//# gives its Nomi name, parameters and result, optional doc lines, and its
+//# SQL, ending in `;`.
+//#
+//# ```sql
+//# -- import: shop.CustomerRevenue
+//#
+//# -- query: user_by_email(email: String) -> Maybe<User>
+//# -- The user with this email, if any.
+//# SELECT id, email, name, created_at
+//# FROM users
+//# WHERE email = @email;
+//# ```
+//#
+//# `-- import:` lines before the first query name what the generated file
+//# imports for a type its signatures name that is neither the schema's nor
+//# one of std's.
+
+import sqltext.{self, Kind}
+
+/// A parameter of a query: its name, its Nomi type as written, and the
+/// column of its name in the annotation.
+pub struct Param {
+    name: String
+    type_text: String
+    col: Int
+}
+
+derive Equatable for Param
+
+/// One query of a file.
+pub struct Query {
+    /// The file, from the module root.
+    file: String
+
+    /// The line of its `-- query:` annotation.
+    line: Int
+
+    name: String
+    params: List<Param>
+
+    /// The result type as written after `->`, and its column.
+    result: Maybe<String>
+    result_col: Int
+
+    /// The doc lines after the annotation, without their `--`.
+    doc: List<String>
+
+    /// The SQL as written, from the line after the doc lines to before the
+    /// `;`; `sql_line` is the line it starts on.
+    sql: String
+    sql_line: Int
+}
+
+derive Equatable for Query
+
+/// A file of queries: its path, its `-- import:` entries and its queries.
+pub struct File {
+    path: String
+    imports: List<String>
+    queries: List<Query>
+}
+
+/// What is wrong at a line and column of a file (0 for none).
+pub struct Problem {
+    file: String
+    line: Int
+    col: Int
+    message: String
+    hints: List<String>
+}
+
+derive Equatable for Problem
+
+impl Display for Problem {
+    fn to_string(p: Problem) -> String {
+        at = if p.line == 0 {
+            p.file
+        } else if p.col == 0 {
+            "${p.file}:${p.line}"
+        } else {
+            "${p.file}:${p.line}:${p.col}"
+        }
+
+        Iter.concat(
+            [p.message],
+            p.hints
+            |> Iter.map(fn h -> "help: ${h}"),
+        )
+        |> Iter.map(fn line -> "${at}: ${line}")
+        |> String.join("\n")
+    }
+}
+
+/// The line and column, from 1, of grapheme `index` of a query's SQL.
+pub fn place(query: Query, index: Int) -> #(Int, Int) {
+    #(line, before) = sqltext.position(query.sql, index)
+    #(query.sql_line + line, String.length(before) + 1)
+}
+
+// What the reader has seen so far: the imports, the queries done, the
+// query being read (its annotation, then doc lines while `in_doc`, then its
+// SQL lines) and the problems.
+struct State {
+    imports: List<String>
+    done: List<Query>
+    current: Maybe<Query>
+    in_doc: Bool
+    lines: List<String>
+    problems: List<Problem>
+
+    // After an annotation that does not read, its lines up to the next
+    // annotation are skipped.
+    skipping: Bool
+}
+
+/// The queries of the file at `path` holding `text`, or what is wrong
+/// with it.
+//! text = "-- import: shop.Report\n\n-- query: n(id: Int) -> Int\n-- One.\nSELECT @id;\n"
+//!
+//! Ok(file) = queryfile.parse("q.sql", text) else {
+//!     Err(_) -> return Err("no file")
+//! }
+//!
+//! assert file.imports == ["shop.Report"]
+//!
+//! assert file.queries |> Iter.map(fn q -> #(q.name, q.result, q.doc, q.sql)) |> Iter.to_list() == [
+//!     #("n", Some("Int"), ["One."], "SELECT @id"),
+//! ]
+//
+pub fn parse(path: String, text: String) -> Result<File, List<Problem>> {
+    lines = String.split(text, "\n") |> Iter.map(fn l -> sqltext.cut_suffix(l, "\r"))
+
+    start = #State{
+        imports: [],
+        done: [],
+        current: None,
+        in_doc: False,
+        lines: [],
+        problems: [],
+        skipping: False,
+    }
+
+    read =
+        lines
+        |> Iter.with_index()
+        |> Iter.reduce(fn s, #(i, line) -> step(path, s, i + 1, line), from: start)
+
+    state = finish(path, read)
+
+    if Iter.empty?(state.problems) {
+        Ok(#File{path, imports: Iter.reverse(state.imports), queries: Iter.reverse(state.done)})
+    } else {
+        Err(Iter.reverse(state.problems))
+    }
+}
+
+fn step(path: String, s: State, number: Int, line: String) -> State {
+    case String.strip_prefix(line, "-- query:") {
+        Some(rest) -> {
+            done = finish(path, s)
+
+            case annotation(path, number, line, rest) {
+                Ok(q) ->
+                    #{..done, current: Some(q), in_doc: True, lines: [], skipping: False}
+
+                Err(p) ->
+                    #{
+                        ..done,
+                        current: None,
+                        in_doc: False,
+                        lines: [],
+                        problems: [p, ..done.problems],
+                        skipping: True,
+                    }
+            }
+        }
+
+        None ->
+            case s.current {
+                None when s.skipping ->
+                    s
+
+                None ->
+                    before_queries(path, s, number, line)
+
+                Some(_) when s.in_doc and String.starts_with?(line, "--") ->
+                    #{..s, lines: [doc_line(line), ..s.lines]}
+
+                Some(q) when s.in_doc ->
+                    #{
+                        ..s,
+                        current: Some(#{..q, doc: Iter.reverse(s.lines), sql_line: number}),
+                        in_doc: False,
+                        lines: [line],
+                    }
+
+                Some(_) ->
+                    #{..s, lines: [line, ..s.lines]}
+            }
+    }
+}
+
+// A line before the first query: an import, a comment or a blank line.
+fn before_queries(path: String, s: State, number: Int, line: String) -> State {
+    case String.strip_prefix(line, "-- import:") {
+        Some(entry) when String.trim(entry) != "" ->
+            #{..s, imports: [String.trim(entry), ..s.imports]}
+
+        Some(_) -> {
+            p = problem(
+                path,
+                number,
+                1,
+                "an import names what to import: `-- import: shop.Report`",
+                [],
+            )
+
+            #{..s, problems: [p, ..s.problems]}
+        }
+
+        None ->
+            if String.trim(line) == "" or String.starts_with?(String.trim(line), "--") {
+                s
+            } else if s.problems |> Iter.any?(fn p -> p.message == sql_first()) {
+                s
+            } else {
+                p = problem(path, number, 1, sql_first(), [
+                    "start each query with its annotation: `-- query: name(params) -> Row`",
+                ])
+
+                #{..s, problems: [p, ..s.problems]}
+            }
+    }
+}
+
+fn sql_first() -> String {
+    "SQL before the first `-- query:` belongs to no query"
+}
+
+fn doc_line(line: String) -> String {
+    rest = sqltext.cut_prefix(line, "--")
+    sqltext.cut_prefix(rest, " ") |> trim_end()
+}
+
+// The query being read, ended: its SQL is its lines up to the `;`.
+fn finish(path: String, s: State) -> State {
+    case s.current {
+        None ->
+            s
+
+        Some(q) -> {
+            // A query with only doc lines has its SQL start after them.
+            #(q, text) = if s.in_doc {
+                #(
+                    #{..q, doc: Iter.reverse(s.lines), sql_line: q.line + Iter.count(s.lines) + 1},
+                    "",
+                )
+            } else {
+                #(q, s.lines |> Iter.reverse() |> String.join("\n"))
+            }
+
+            base = #{..s, current: None, in_doc: False, lines: []}
+
+            case statement(path, q, text) {
+                Ok(sql) -> #{..base, done: [#{..q, sql}, ..s.done]}
+                Err(p) -> #{..base, problems: [p, ..s.problems]}
+            }
+        }
+    }
+}
+
+// The SQL of `text` before its `;`, or what is wrong with it.
+fn statement(path: String, q: Query, text: String) -> Result<String, Problem> {
+    tokens = sqltext.tokens(text)
+    solid = tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_list()
+
+    if Iter.empty?(solid) {
+        return Err(problem(path, q.line, 1, "`${q.name}` has no SQL", [
+                "write its SQL after the annotation, ending in `;`",
+            ]))
+    }
+
+    end = case Iter.find(solid, fn t -> t.kind == Kind.Punct and t.text == ";") {
+        Some(t) ->
+            t
+
+        None ->
+            return Err(problem(path, q.line, 1, "the SQL of `${q.name}` does not end in `;`", [
+                    "end each query's SQL with `;`",
+                ]))
+    }
+
+    case Iter.find(solid, fn t -> t.start > end.start) {
+        Some(t) -> {
+            #(line, col) = place(#{..q, sql: text}, t.start)
+
+            Err(problem(path, line, col, "`${q.name}` has SQL after the `;` that ends it", [
+                    "a query is one statement: start the next with `-- query:`",
+                ]))
+        }
+
+        None ->
+            Ok(
+                String.slice(text, 0, end.start)
+                |> trim_end()
+            )
+    }
+}
+
+fn problem(path: String, line: Int, col: Int, message: String, hints: List<String>) -> Problem {
+    #Problem{file: path, line, col, message, hints}
+}
+
+fn usage() -> String {
+    "a query's annotation is `-- query: name(params) -> Row`"
+}
+
+// The query an annotation starts, with no doc and no SQL yet. `rest` is
+// the line after `-- query:`.
+fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Query, Problem> {
+    chars = Iter.to_vector(line)
+    first = String.length(line) - String.length(rest)
+    start = skip_spaces(chars, first)
+    name_end = skip_while(chars, start, name_char?)
+    name = slice(chars, start, name_end)
+    bad = fn col: Int, message: String -> Err(problem(path, number, col + 1, message, [usage()]))
+
+    if !sqltext.name?(name) {
+        return bad(start, "a query's name is lower case letters, digits and `_`")
+    }
+
+    if at(chars, name_end) != "(" {
+        return bad(name_end, "`${name}` needs its parameters in parentheses, `()` for none")
+    }
+
+    close = case closing(chars, name_end + 1, 0) {
+        Some(c) -> c
+        None -> return bad(name_end, "the parameters of `${name}` have no closing `)`")
+    }
+
+    params = case parameters(path, number, chars, name_end + 1, close) {
+        Ok(ps) -> ps
+        Err(p) -> return Err(p)
+    }
+
+    after = skip_spaces(chars, close + 1)
+    tail = slice(chars, after, Vector.length(chars)) |> trim_end()
+
+    #(result, result_col) = if tail == "" {
+        #(None, 0)
+    } else {
+        case String.strip_prefix(tail, "->") {
+            Some(t) when String.trim(t) != "" -> {
+                col = skip_spaces(chars, after + 2)
+                #(Some(String.trim(t)), col + 1)
+            }
+
+            _ ->
+                return bad(after, "after the parameters of `${name}` comes `-> Row`, or nothing")
+        }
+    }
+
+    Ok(
+        #Query{
+            file: path,
+            line: number,
+            name,
+            params,
+            result,
+            result_col,
+            doc: [],
+            sql: "",
+            sql_line: number + 1,
+        }
+    )
+}
+
+// The parameters between the parentheses at `open` (just after the `(`)
+// and `close`.
+fn parameters(
+    path: String,
+    number: Int,
+    chars: Vector<String>,
+    open: Int,
+    close: Int,
+) -> Result<List<Param>, Problem> {
+    pieces = split(chars, open, close)
+
+    parsed =
+        pieces
+        |> Iter.filter(fn #(_, text) -> String.trim(text) != "")
+        |> Iter.map(fn #(at_index, text) -> {
+            lead = String.length(text) - String.length(trim_start(text))
+            col = at_index + lead + 1
+
+            case String.split(String.trim(text), ":") |> Iter.to_list() {
+                [name, first, ..more] when sqltext.name?(String.trim(name)) -> {
+                    type_text = String.join([first, ..more], ":") |> String.trim()
+
+                    if type_text == "" {
+                        Err(
+                            problem(
+                                path,
+                                number,
+                                col,
+                                "the parameter `${String.trim(name)}` has no type",
+                                [usage()],
+                            )
+                        )
+                    } else {
+                        Ok(#Param{name: String.trim(name), type_text, col})
+                    }
+                }
+
+                _ ->
+                    Err(problem(path, number, col, "a parameter is `name: Type`", [usage()]))
+            }
+        })
+        |> Result.collect()
+
+    params = try parsed
+
+    #(_, twice) = Iter.reduce(
+        params,
+        fn acc, p -> {
+            #(seen, twice) = acc
+
+            if Iter.contains?(seen, p.name) and twice == None {
+                #(seen, Some(p))
+            } else {
+                #([p.name, ..seen], twice)
+            }
+        },
+        from: #([], None),
+    )
+
+    case twice {
+        Some(p) ->
+            Err(problem(path, number, p.col, "the parameter `${p.name}` is declared twice", []))
+
+        None ->
+            Ok(params)
+    }
+}
+
+// The text between `from` and `to`, split at the commas outside brackets,
+// each piece with the index it starts at.
+fn split(chars: Vector<String>, from: Int, to: Int) -> List<#(Int, String)> {
+    #(pieces, start, _) = Iter.reduce(
+        Iter.from(from)
+        |> Iter.take(to - from),
+        fn acc, i -> {
+            #(pieces, start, depth) = acc
+            c = at(chars, i)
+
+            if c == "," and depth == 0 {
+                #([#(start, slice(chars, start, i)), ..pieces], i + 1, depth)
+            } else if c == "(" or c == "<" or c == "[" or c == "{" {
+                #(pieces, start, depth + 1)
+            } else if c == ")" or c == ">" or c == "]" or c == "}" {
+                #(pieces, start, depth - 1)
+            } else {
+                acc
+            }
+        },
+        from: #([], from, 0),
+    )
+
+    Iter.reverse([#(start, slice(chars, start, to)), ..pieces])
+}
+
+// The index of the `)` that closes the bracket open before `i`.
+fn closing(chars: Vector<String>, i: Int, depth: Int) -> Maybe<Int> {
+    case Vector.get(chars, i) {
+        None ->
+            None
+
+        Some(")") when depth == 0 ->
+            Some(i)
+
+        Some(c) when c == "(" or c == "<" or c == "[" or c == "{" ->
+            closing(chars, i + 1, depth + 1)
+
+        Some(c) when c == ")" or c == ">" or c == "]" or c == "}" ->
+            closing(chars, i + 1, depth - 1)
+
+        Some(_) ->
+            closing(chars, i + 1, depth)
+    }
+}
+
+fn at(chars: Vector<String>, i: Int) -> String {
+    Vector.get(chars, i) |> Maybe.with_default("")
+}
+
+fn slice(chars: Vector<String>, from: Int, to: Int) -> String {
+    Iter.from(from)
+    |> Iter.take(Int.max(to - from, 0))
+    |> Iter.map(fn i -> at(chars, i))
+    |> String.join()
+}
+
+fn skip_while(chars: Vector<String>, i: Int, keep: (String) -> Bool) -> Int {
+    case Vector.get(chars, i) {
+        Some(c) when keep(c) -> skip_while(chars, i + 1, keep)
+        _ -> i
+    }
+}
+
+fn skip_spaces(chars: Vector<String>, i: Int) -> Int {
+    skip_while(chars, i, fn c -> c == " " or c == "\t")
+}
+
+fn name_char?(c: String) -> Bool {
+    c != "" and String.contains?("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+}
+
+fn space?(c: String) -> Bool {
+    c == " " or c == "\t"
+}
+
+fn trim_start(s: String) -> String {
+    s |> Iter.drop_while(space?) |> String.join()
+}
+
+fn trim_end(s: String) -> String {
+    s |> Iter.reverse() |> Iter.drop_while(space?) |> Iter.reverse() |> String.join()
+}

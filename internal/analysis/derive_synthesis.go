@@ -382,12 +382,6 @@ const (
 	// have an explicit Debug), so disjointness does not depend on that skip
 	// staying correct.
 	synthKindAutoDebug
-	// synthKindExpansion is the code a macro expanded a declaration
-	// to (macro_expand.go), and the drivers of a macro's file
-	// (macro_driver.go): source a macro or the compiler wrote,
-	// which every pass checks and lowers as code a file declares
-	// (IsExpansionLine), where the rest of the band is skipped.
-	synthKindExpansion
 	synthKindEnd
 )
 
@@ -455,18 +449,6 @@ func isPreludeInjectLine(line int) bool {
 // in a synth Debug body) don't surface as user-visible defs.
 func IsSynthesizedLine(line int) bool {
 	return line >= synthLineBase
-}
-
-// IsExpansionLine reports whether a synthesized line is in a slot of
-// generated code (synthKindExpansion): a macro's expansion or a
-// macro file's drivers. The IR builder lowers a declaration there as one
-// the file wrote.
-func IsExpansionLine(line int) bool {
-	if line < synthLineBase {
-		return false
-	}
-	slot := (line - synthLineBase) / synthLineStride
-	return slot < synthRegionSize && slot%synthKindCount == int(synthKindExpansion)
 }
 
 // SynthesizeDerives walks the file's top-level nodes, processes each type

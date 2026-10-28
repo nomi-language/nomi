@@ -30,9 +30,6 @@ pub enum Error {
     Impossible
 }
 
-/// The liters in bucket one and bucket two.
-typealias State #(Int, Int)
-
 /// The fewest actions that measure `goal` liters with buckets of `one` and
 /// `two` liters, filling `start` first. No action may leave `start` empty
 /// and the other bucket full.
@@ -45,14 +42,15 @@ pub fn measure(one: Int, two: Int, goal: Int, start: Bucket) -> Result<Outcome, 
     search([first], %[first, forbidden], 1, #(one, two), goal)
 }
 
-/// A breadth-first search: `frontier` is every state `moves` actions reach
+/// A breadth-first search over states, the liters in bucket one and bucket
+/// two: `frontier` is every state `moves` actions reach
 /// that no fewer actions do, and `seen` every state reached so far, with the
 /// forbidden one, so no action leads back to them.
 fn search(
-    frontier: List<State>,
-    seen: Set<State>,
+    frontier: List<#(Int, Int)>,
+    seen: Set<#(Int, Int)>,
     moves: Int,
-    sizes: State,
+    sizes: #(Int, Int),
     goal: Int,
 ) -> Result<Outcome, Error> {
     case Iter.find(frontier, fn #(one, two) -> one == goal or two == goal) {
@@ -80,7 +78,7 @@ fn search(
 
 /// The states one action leads to from `#(one, two)`: fill a bucket, empty
 /// one, or pour one into the other until it is empty or the other is full.
-fn actions(#(one, two): State, #(size_one, size_two): State) -> List<State> {
+fn actions(#(one, two): #(Int, Int), #(size_one, size_two): #(Int, Int)) -> List<#(Int, Int)> {
     into_two = Int.min(one, size_two - two)
     into_one = Int.min(two, size_one - one)
 
@@ -175,7 +173,7 @@ test "measure" {
 ## How it's written
 
 - `measure` returns `Result<Outcome, Error>`. `Outcome` is a struct of the three canonical answers, the number of actions, the bucket that holds the goal and the liters in the other, and `Error.Impossible` is the canonical error.
-- A state is the liters in each bucket, a `#(Int, Int)` named `State` with a `typealias`. The buckets are positions in the tuple, so filling, emptying and pouring are tuple arithmetic in `actions`.
+- A state is the liters in each bucket, a `#(Int, Int)`. The buckets are positions in the tuple, so filling, emptying and pouring are tuple arithmetic in `actions`.
 - `search` is a breadth-first search, written as a tail-recursive function over three values: the frontier of states the current number of actions reaches first, the set of states seen so far, and the number of actions. Breadth first, the first frontier with the goal in either bucket is reached in the fewest actions.
 - The forbidden state, the starting bucket empty and the other full, goes into the seen set before the search starts, so no action ever leads to it, with no check of its own.
 - A frontier that adds no new state means the goal cannot be reached, which is `Error.Impossible`; that covers a goal larger than both buckets with no case of its own.

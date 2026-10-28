@@ -284,7 +284,9 @@ func runTestFileVM(testPath string, args []string, format nomivmhost.TestFormat)
 	if format == nomivmhost.TestFormatJSON {
 		out = stdos.Stderr
 	}
-	p, err := nomivmhost.Load(testPath, nomivmhost.WithHosts(nomiHostTable(testPath)))
+	// A relative path a test's std/fs call takes is under its module root,
+	// as nomi test gives it in process (vmhost.TestDir).
+	p, err := nomivmhost.Load(testPath, nomivmhost.WithHosts(nomiHostTable(testPath)), nomivmhost.WithFileSystem(nomivmhost.DiskFilesAt(nomivmhost.TestDir(testPath))))
 	if err != nil {
 		rep.FailFile(testPath, err)
 	} else {

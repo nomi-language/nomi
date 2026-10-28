@@ -29,4 +29,6 @@ fn main() {
     io.print(board_size(cells))
     io.print(weight(cells))
     io.print(total_x([#shapes.Point{x: 1, y: 2}, #shapes.Point{x: 5, y: 0}]))
+    // A struct literal through a qualified alias builds its target.
+    io.print(total_x([#shapes.Pt{x: 7, y: 0}]))
 }

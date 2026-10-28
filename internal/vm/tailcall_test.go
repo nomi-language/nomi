@@ -183,10 +183,11 @@ fn main() {
 	}
 }
 
-// A tail-calling function's deferred calls run after the call's operands and
-// before the callee: the transfer happens after every block of the caller has
-// exited.
-func TestTailCall_DeferredCallsRunBeforeTheCallee(t *testing.T) {
+// A call in tail position while a `defer` is pending is an ordinary call
+// (analysis.MarkTailCalls): the deferred call runs after the callee
+// returns, as it would after any other call, so each `leave` follows the
+// calls below it.
+func TestTailCall_DeferredCallsRunAfterACallInTailPosition(t *testing.T) {
 	out, err := runDepth(t, `import std/io
 
 fn note(label: String, n: Int) {
@@ -216,9 +217,10 @@ fn main() {
 		t.Fatalf("run: %v", err)
 	}
 	want := strings.Join([]string{
-		"enter 2", "operand 2", "leave 2",
-		"enter 1", "operand 1", "leave 1",
-		"enter 0", "operand 0", "leave 0",
+		"enter 2", "operand 2",
+		"enter 1", "operand 1",
+		"enter 0", "operand 0",
+		"leave 0", "leave 1", "leave 2",
 		"0", "",
 	}, "\n")
 	if out != want {

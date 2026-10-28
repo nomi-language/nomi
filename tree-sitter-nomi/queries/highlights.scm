@@ -9,21 +9,11 @@
 (shebang) @comment
 
 ; Keyword declarations: `message cart_items(count: Int) `...``, whose
-; keyword the grammar does not know and whose name is a function's. A
-; macro's keyword is marked with `!` (`sqlkit.query! orders`) and
-; reads as a macro, `!` included; its qualifier is the file it comes from,
-; a module. Nomi's own `message` and `noun` take no `!` and are keywords.
-(keyword_declaration
-  module: (identifier) @module)
-(keyword_declaration
-  keyword: (identifier) @function.macro
-  mark: (macro_mark) @function.macro)
+; keyword the grammar does not know and whose name is a function's.
 (keyword_declaration
   keyword: (identifier) @keyword)
 (keyword_declaration
   name: (identifier) @function.definition)
-(keyword_declaration
-  name: (type_identifier) @type.definition)
 
 ; Function definitions
 (function_definition

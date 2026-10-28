@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// of `factors`. Each multiple counts once, and a factor of 0 has none.
 pub fn sum(factors: List<Int>, limit: Int) -> Int {
     factors
-    |> Iter.filter(&(&1 > 0))
+    |> Iter.filter(fn factor -> factor > 0)
     |> Iter.flat_map(fn factor -> Range.step_by(factor..limit, factor))
     |> Iter.to_set()
     |> Iter.sum()
@@ -58,5 +58,5 @@ test "sums the multiples" {
 ## How it's written
 
 - The solution follows the instructions' wording: the multiples of each factor (`Range.step_by(factor..limit, factor)`), combined into a `Set` to drop duplicates, then summed with `Iter.sum`. Filtering `1..limit` by "divisible by any factor" was the other natural form; the set form says what the problem says.
-- A factor of 0 is filtered out before stepping, since it has no positive multiples and `step_by` by 0 would not end. The filter is `Iter.filter(&(&1 > 0))`, one comparison, so the capture reads more directly than `fn factor -> factor > 0`; the `flat_map` after it uses the factor twice and stays a lambda.
+- A factor of 0 is filtered out before stepping, since it has no positive multiples and `step_by` by 0 would not end. The filter and the `flat_map` after it both name the factor, `fn factor -> ...`, so the two stages read alike.
 - One `subtests` table for all 16 cases.

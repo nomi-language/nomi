@@ -1,0 +1,86 @@
+/// A letter of the puzzle and what it adds to the sum: `weight` is the
+/// total of its place values, positive in the addends and negative in the
+/// result, so a solution makes the weighted digits add up to zero.
+struct Letter {
+    name: String
+    weight: Int
+    leading: Bool
+}
+
+/// The digit of each letter that makes `puzzle`, written as
+/// `"SEND + MORE == MONEY"`, a true sum, with a different digit for each
+/// letter and no leading zero in a word of more than one letter; `None`
+/// when no digits do.
+pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
+    [left, right] = String.split(puzzle, "==") else {
+        return None
+    }
+
+    addends = left |> String.split("+") |> Iter.map(fn word -> #(String.trim(word), 1))
+
+    letters =
+        addends
+        |> Iter.concat([#(String.trim(right), -1)])
+        |> Iter.flat_map(fn #(word, sign) -> places(word, sign))
+        |> Iter.group_by(fn #(name, _value, _leading) -> name)
+        |> Iter.map(fn #(name, uses) -> letter(name, uses))
+        |> Iter.sort_by(.Descending, fn letter -> Int.abs(letter.weight))
+
+    assign(letters, %[], 0, %{})
+}
+
+/// Each letter of `word` with its place value times `sign`, and whether it
+/// leads a word of more than one letter.
+fn places(word: String, sign: Int) -> List<#(String, Int, Bool)> {
+    last = String.length(word) - 1
+
+    word
+    |> Iter.reverse()
+    |> Iter.with_index()
+    |> Iter.map(fn #(place, name) -> #(name, sign * Int.pow(10, place), place == last and last > 0))
+    |> Iter.to_list()
+}
+
+fn letter(name: String, uses: List<#(String, Int, Bool)>) -> Letter {
+    #Letter{
+        name,
+        weight: uses |> Iter.map(fn #(_name, value, _leading) -> value) |> Iter.sum(),
+        leading: Iter.any?(uses, fn #(_name, _value, leading) -> leading),
+    }
+}
+
+/// Gives each of `letters` an unused digit in turn, keeping the weighted
+/// `total` of the digits given so far, and backs out of a digit after which
+/// the letters left cannot bring the total back to zero. The letters come
+/// heaviest first, so the digits that move the total most are fixed first
+/// and the bound cuts early.
+fn assign(
+    letters: List<Letter>,
+    used: Set<Int>,
+    total: Int,
+    digits: Map<String, Int>,
+) -> Maybe<Map<String, Int>> {
+    [letter, ..rest] = letters else {
+        return if total == 0 { Some(digits) } else { None }
+    }
+
+    0..=9
+    |> Iter.filter(fn digit -> !Set.contains?(used, digit) and !(letter.leading and digit == 0))
+    |> Iter.map(fn digit -> #(digit, total + letter.weight * digit))
+    |> Iter.filter(fn #(_digit, after) -> reachable?(after, rest))
+    |> Iter.map(fn #(digit, after) -> {
+        assign(rest, Set.insert(used, digit), after, Map.put(digits, letter.name, digit))
+    })
+    |> Iter.find(Maybe.some?)
+    |> Maybe.flat_map(fn found -> found)
+}
+
+/// Whether the letters `rest` could still bring `total` to zero: each adds
+/// at most nine times its weight when the weight is positive, and takes
+/// away at most nine times its size when it is negative.
+fn reachable?(total: Int, rest: List<Letter>) -> Bool {
+    weights = Iter.map(rest, .weight)
+    gains = weights |> Iter.filter(&(&1 > 0)) |> Iter.sum()
+    losses = weights |> Iter.filter(&(&1 < 0)) |> Iter.sum()
+    total + 9 * losses <= 0 and 0 <= total + 9 * gains
+}

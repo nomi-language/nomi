@@ -104,9 +104,8 @@ impl Bytes {
     //! c = try Int.to_byte(99)
     //! d = try Int.to_byte(100)
     //!
-    //! assert Bytes.concat(Bytes.from_list([a, b]), Bytes.from_list([c, d])) == Bytes.from_list(
-    //!     [a, b, c, d]
-    //! )
+    //! assert Bytes.concat(Bytes.from_list([a, b]), Bytes.from_list([c, d]))
+    //!     == Bytes.from_list([a, b, c, d])
     //
     pub host fn concat(a: Bytes, b: Bytes) -> Bytes
 

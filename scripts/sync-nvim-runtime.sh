@@ -117,9 +117,6 @@ text = must_replace(text, "(float) @number\n", "(float) @number.float\n", src, 1
 text = must_replace(text, "(decimal) @number\n", "(decimal) @number.float\n", src, 1)
 text = must_replace(text, "(codepoint) @string.special\n", "(codepoint) @character\n", src, 1)
 text = must_sub(text, r"@property(?![\w.])", "@variable.member", src)
-# A macro's marked keyword (`sqlkit.query!`) is Zed's @function.special,
-# as Zed draws a Rust macro; Neovim names it @function.macro.
-text = must_sub(text, r"@function\.special(?![\w.])", "@function.macro", src)
 text = must_replace(text, "@module.path_separator", "@punctuation.delimiter", src, 1)
 text = must_replace(
     text,

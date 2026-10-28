@@ -95,8 +95,6 @@ func symbolKindToCompletionKind(kind analysis.SymbolKind) protocol.CompletionIte
 		return protocol.CompletionItemKindModule
 	case analysis.SymbolInterfaceMethod:
 		return protocol.CompletionItemKindMethod
-	case analysis.SymbolMacro:
-		return protocol.CompletionItemKindKeyword
 	default:
 		return protocol.CompletionItemKindText
 	}
@@ -169,10 +167,6 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		// user's `{`, and a client that reports only the last character
 		// typed (blink.cmp) sends that instead: answer it as the `{`.
 		trigger = "{"
-	}
-	// Inside a macro's declaration's body, the macro answers.
-	if items, ok := s.macroCompletions(doc, positions.scopePos(pos)); ok {
-		return &protocol.CompletionList{Items: items}, nil
 	}
 	// A literal body is read from the latest text (doc.Content here);
 	// literalCompletions reads only names from the analysis.

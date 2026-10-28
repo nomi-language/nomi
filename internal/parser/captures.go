@@ -33,12 +33,17 @@ func (p *Parser) parseCapture() (ast.Node, error) {
 	return &ast.Capture{Body: body, Line: amp.Line, Col: amp.Col}, nil
 }
 
-// captureBody reports whether n can be a capture's body.
+// captureBody reports whether n can be a capture's body: a call, a
+// parenthesized expression or a literal, or the negation of one
+// (`&!String.empty?(&1)`), which reads as the capture of the call it
+// negates.
 func captureBody(n ast.Node) bool {
-	switch n.(type) {
+	switch v := n.(type) {
 	case *ast.Call, *ast.GroupedExpr, *ast.StructLit, *ast.TupleLit, *ast.ListLit,
 		*ast.ListSpreadLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit:
 		return true
+	case *ast.Unary:
+		return v.Op == "!" && captureBody(v.Right)
 	}
 	return false
 }

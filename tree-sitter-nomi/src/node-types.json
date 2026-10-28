@@ -2797,6 +2797,10 @@
             "named": true
           },
           {
+            "type": "unary_expression",
+            "named": true
+          },
+          {
             "type": "vector",
             "named": true
           }
@@ -7975,67 +7979,9 @@
           }
         ]
       },
-      "implementation": {
-        "multiple": true,
-        "required": false,
-        "types": [
-          {
-            "type": ".",
-            "named": false
-          },
-          {
-            "type": "anon_struct_type",
-            "named": true
-          },
-          {
-            "type": "function_type",
-            "named": true
-          },
-          {
-            "type": "generic_type",
-            "named": true
-          },
-          {
-            "type": "qualified_type",
-            "named": true
-          },
-          {
-            "type": "self_type",
-            "named": true
-          },
-          {
-            "type": "tuple_type",
-            "named": true
-          },
-          {
-            "type": "type_identifier",
-            "named": true
-          }
-        ]
-      },
       "keyword": {
         "multiple": false,
         "required": true,
-        "types": [
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      },
-      "mark": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "macro_mark",
-            "named": true
-          }
-        ]
-      },
-      "module": {
-        "multiple": false,
-        "required": false,
         "types": [
           {
             "type": "identifier",
@@ -8049,10 +7995,6 @@
         "types": [
           {
             "type": "identifier",
-            "named": true
-          },
-          {
-            "type": "type_identifier",
             "named": true
           }
         ]
@@ -17364,10 +17306,6 @@
   },
   {
     "type": "line_comment",
-    "named": true
-  },
-  {
-    "type": "macro_mark",
     "named": true
   },
   {

@@ -304,7 +304,9 @@ static bool at_word(TSLexer *lexer, const char *word) {
 
 // Whether the line that starts at the lookahead continues the statement or
 // arm before the line break, as the Go lexer and parser read it. The lexer
-// emits no NEWLINE before a line that starts with `|>`, `)` or `]`; the
+// emits no NEWLINE before a line that starts with `|>`, `)` or `]`, or with
+// an operator no expression starts with (`==`, `!=`, `<`, `<=`, `>`, `>=`,
+// `and`, `or`); the
 // parser steps over one before `else` (an `if`'s or a binding's) and, after a
 // declaration's signature, before its `{` body and its `where` clause. A
 // statement never starts with `}`, `,` or `{` after a complete statement
@@ -323,6 +325,17 @@ static bool line_continues(TSLexer *lexer) {
         case '|':
             advance(lexer);
             return lexer->lookahead == '>';
+        case '<':
+        case '>':
+            return true;
+        case '=':
+        case '!':
+            advance(lexer);
+            return lexer->lookahead == '=';
+        case 'a':
+            return at_word(lexer, "and") && lexer->lookahead != '?';
+        case 'o':
+            return at_word(lexer, "or") && lexer->lookahead != '?';
         case 'e':
             return at_word(lexer, "else");
         case 'w':

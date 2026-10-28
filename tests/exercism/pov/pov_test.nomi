@@ -1,0 +1,234 @@
+import pov.Tree
+
+/// `tree` with every node's children in label order. The canonical data
+/// leaves the order of children open, so the tests compare trees this way.
+fn in_label_order(tree: Tree) -> Tree {
+    #{..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
+}
+
+once singleton = #Tree{label: "x"}
+
+once parent_and_siblings = #Tree{
+    label: "parent",
+    children: [#{label: "a"}, #{label: "x"}, #{label: "b"}, #{label: "c"}],
+}
+
+once parent_with_kids = #Tree{
+    label: "parent",
+    children: [
+        #{
+            label: "x",
+            children: [#{label: "kid-0"}, #{label: "kid-1"}],
+        },
+        #{label: "sibling-0"},
+        #{label: "sibling-1"},
+    ],
+}
+
+once cousins = #Tree{
+    label: "grandparent",
+    children: [
+        #{
+            label: "parent",
+            children: [
+                #{
+                    label: "x",
+                    children: [#{label: "kid-0"}, #{label: "kid-1"}],
+                },
+                #{label: "sibling-0"},
+                #{label: "sibling-1"},
+            ],
+        },
+        #{
+            label: "uncle",
+            children: [#{label: "cousin-0"}, #{label: "cousin-1"}],
+        },
+    ],
+}
+
+test "Reroot a tree so that its root is the specified node." {
+    cases: List<#(String, Tree, String, Maybe<Tree>)> = [
+        #(
+            "Results in the same tree if the input tree is a singleton",
+            singleton,
+            "x",
+            Some(singleton),
+        ),
+        #(
+            "Can reroot a tree with a parent and one sibling",
+            #{
+                label: "parent",
+                children: [#{label: "x"}, #{label: "sibling"}],
+            },
+            "x",
+            Some(#{
+                label: "x",
+                children: [
+                    #{
+                        label: "parent",
+                        children: [#{label: "sibling"}],
+                    },
+                ],
+            }),
+        ),
+        #(
+            "Can reroot a tree with a parent and many siblings",
+            parent_and_siblings,
+            "x",
+            Some(#{
+                label: "x",
+                children: [
+                    #{
+                        label: "parent",
+                        children: [#{label: "a"}, #{label: "b"}, #{label: "c"}],
+                    },
+                ],
+            }),
+        ),
+        #(
+            "Can reroot a tree with new root deeply nested in tree",
+            #{
+                label: "level-0",
+                children: [
+                    #{
+                        label: "level-1",
+                        children: [
+                            #{
+                                label: "level-2",
+                                children: [
+                                    #{
+                                        label: "level-3",
+                                        children: [#{label: "x"}],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            },
+            "x",
+            Some(#{
+                label: "x",
+                children: [
+                    #{
+                        label: "level-3",
+                        children: [
+                            #{
+                                label: "level-2",
+                                children: [
+                                    #{
+                                        label: "level-1",
+                                        children: [#{label: "level-0"}],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }),
+        ),
+        #(
+            "Moves children of the new root to same level as former parent",
+            #{
+                label: "parent",
+                children: [
+                    #{
+                        label: "x",
+                        children: [#{label: "kid-0"}, #{label: "kid-1"}],
+                    },
+                ],
+            },
+            "x",
+            Some(#{
+                label: "x",
+                children: [#{label: "kid-0"}, #{label: "kid-1"}, #{label: "parent"}],
+            }),
+        ),
+        #(
+            "Can reroot a complex tree with cousins",
+            cousins,
+            "x",
+            Some(#{
+                label: "x",
+                children: [
+                    #{label: "kid-1"},
+                    #{label: "kid-0"},
+                    #{
+                        label: "parent",
+                        children: [
+                            #{label: "sibling-0"},
+                            #{label: "sibling-1"},
+                            #{
+                                label: "grandparent",
+                                children: [
+                                    #{
+                                        label: "uncle",
+                                        children: [#{label: "cousin-0"}, #{label: "cousin-1"}],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }),
+        ),
+        #("Errors if target does not exist in a singleton tree", singleton, "nonexistent", None),
+        #("Errors if target does not exist in a large tree", parent_with_kids, "nonexistent", None),
+    ]
+
+    subtests cases, #(description, tree, from, expected), description {
+        rerooted = Tree.from_pov(tree, from) |> Maybe.map(in_label_order)
+        assert rerooted == Maybe.map(expected, in_label_order)
+    }
+}
+
+test "Given two nodes, find the path between them" {
+    cases: List<#(String, Tree, String, String, Maybe<List<String>>)> = [
+        #(
+            "Can find path to parent",
+            #{
+                label: "parent",
+                children: [#{label: "x"}, #{label: "sibling"}],
+            },
+            "x",
+            "parent",
+            Some(["x", "parent"]),
+        ),
+        #("Can find path to sibling", parent_and_siblings, "x", "b", Some(["x", "parent", "b"])),
+        #(
+            "Can find path to cousin",
+            cousins,
+            "x",
+            "cousin-1",
+            Some(["x", "parent", "grandparent", "uncle", "cousin-1"]),
+        ),
+        #(
+            "Can find path not involving root",
+            #{
+                label: "grandparent",
+                children: [
+                    #{
+                        label: "parent",
+                        children: [#{label: "x"}, #{label: "sibling-0"}, #{label: "sibling-1"}],
+                    },
+                ],
+            },
+            "x",
+            "sibling-1",
+            Some(["x", "parent", "sibling-1"]),
+        ),
+        #(
+            "Can find path from nodes other than x",
+            parent_and_siblings,
+            "a",
+            "c",
+            Some(["a", "parent", "c"]),
+        ),
+        #("Errors if destination does not exist", parent_with_kids, "x", "nonexistent", None),
+        #("Errors if source does not exist", parent_with_kids, "nonexistent", "x", None),
+    ]
+
+    subtests cases, #(description, tree, from, to, expected), description {
+        assert Tree.path_to(tree, from, to) == expected
+    }
+}

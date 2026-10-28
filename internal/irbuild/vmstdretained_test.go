@@ -11,10 +11,10 @@ package irbuild
 // one line per retained function, `<file under std/>:<name>\t<outcome>`, as
 // vm-retained.txt is for the corpus (vmretained_test.go). A function that ran
 // in the committed list and no longer runs is named before any other
-// difference. The buckets std is expected to fill are BOOT (Supervisor.new and
-// its arity wrappers make a supervisor, which rt refuses outside boot, and
-// this test runs no boot); HOST and LINKING are expected to be empty, and
-// their classifiers are validated by
+// difference. A function runs by the corpus test's rule (vmRan): the machine
+// entered its body and the run ended in no refusal, so Supervisor.new, which
+// rt refuses outside boot and this test runs no boot, ran. HOST and LINKING
+// are expected to be empty, and their classifiers are validated by
 // TestVMCoverage_TheHostClassifierCatchesItsPlant and
 // TestVMCoverage_TheLinkingClassifierCatchesItsPlant.
 
@@ -89,6 +89,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 	failures := map[string][]string{}
 	var lines []string
 	ran := 0
+	var unimplemented []string
 	for _, fn := range fns {
 		for _, b := range fn.Blocks() {
 			for _, in := range b.Instrs() {
@@ -106,7 +107,11 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\t"+vmNeverParamClass)
 			continue
 		}
-		m := vm.NewProgram(mod, modules, io.Discard).WithHosts(testHosts)
+		if missing := vmUnimplementedIfaces(mod, fn, modules); len(missing) > 0 {
+			unimplemented = append(unimplemented, fmt.Sprintf("%s (%s)",
+				vmStdDeclKey(fn, mod, byBody[fn]), strings.Join(missing, ", ")))
+		}
+		m := vm.NewProgram(mod, modules, io.Discard).WithHosts(testHosts).WithEntryCounts()
 		var lastErr error
 		okAny := false
 		vectors := vmArgShapes(mod, fn, modules...)
@@ -116,8 +121,8 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 			}
 		}
 		for _, args := range vectors {
-			_, err := vmRunSymV(m, fn.Sym(), args...)
-			if vmRan(err, append([]*ir.Module{mod}, modules...)...) {
+			entered, err := vmCall(m, fn, args)
+			if vmRan(entered, err) {
 				okAny = true
 				break
 			}
@@ -132,7 +137,7 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\tran")
 			continue
 		}
-		class := vmClassify(lastErr)
+		class := vmFailureClass(lastErr, nil)
 		failures[class] = append(failures[class], key)
 		lines = append(lines, key+"\t"+class)
 	}
@@ -155,6 +160,8 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		t.Logf("  FAILS %-46s %d  %s", k, len(failures[k]), strings.Join(failures[k], ", "))
 	}
 	t.Logf("%d retained std functions, %d executed by the VM", len(fns), ran)
+	t.Logf("%d function(s) take an interface value std retains no impl of, and get the trial "+
+		"leaf for it: %s", len(unimplemented), strings.Join(unimplemented, "; "))
 
 	vmRetainedStd.check(t, lines)
 	vmCheckBuckets(t, failures)

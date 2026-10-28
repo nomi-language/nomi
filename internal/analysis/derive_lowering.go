@@ -65,6 +65,7 @@ package analysis
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -105,7 +106,7 @@ func lowerNodeListDerives(nodes []ast.Node, errs *[]TypeError) ([]ast.Node, bool
 	index := sourceIndices(nodes)
 	for i, n := range nodes {
 		if conf, ok := n.(*ast.ImplConformance); ok && conf.Derive && conf.Receiver != nil {
-			replacement := lowerTopLevelDerive(conf, index[i], decls, manualImpls, seenDerives, errs)
+			replacement := lowerTopLevelDerive(conf, nodes, index[i], decls, manualImpls, seenDerives, errs)
 			if !changed {
 				out = append(out, nodes[:i]...)
 				changed = true
@@ -158,7 +159,27 @@ func manualImplsInNodeList(nodes []ast.Node) map[string]map[string]bool {
 	return out
 }
 
-func lowerTopLevelDerive(conf *ast.ImplConformance, index int, decls map[string]ast.Node, manualImpls map[string]map[string]bool, seen map[string]map[string]bool, errs *[]TypeError) []ast.Node {
+// typeAliasInNodeList is the typealias named name among nodes, or nil.
+func typeAliasInNodeList(nodes []ast.Node, name string) *ast.TypeAlias {
+	for _, n := range nodes {
+		if ta, ok := n.(*ast.TypeAlias); ok && ta.Name == name {
+			return ta
+		}
+	}
+	return nil
+}
+
+// conformanceText is a derive's interface list as written (`Debug, Equatable`).
+func conformanceText(conf *ast.ImplConformance) string {
+	ifaces := conformanceInterfaces(conf)
+	parts := make([]string, len(ifaces))
+	for i, iface := range ifaces {
+		parts[i] = iface.TypeString()
+	}
+	return strings.Join(parts, ", ")
+}
+
+func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int, decls map[string]ast.Node, manualImpls map[string]map[string]bool, seen map[string]map[string]bool, errs *[]TypeError) []ast.Node {
 	addErr := func(line, col int, format string, args ...interface{}) {
 		*errs = append(*errs, TypeError{Line: line, Col: col, Message: fmt.Sprintf(format, args...)})
 	}
@@ -168,6 +189,11 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, index int, decls map[string]
 		return nil
 	}
 	decl := decls[recvName]
+	if alias := typeAliasInNodeList(nodes, recvName); decl == nil && alias != nil {
+		target := aliasTargetText(&Symbol{Node: alias})
+		addErr(conf.Line, conf.Col, "`%s` is a typealias for `%s`; write `derive %s for %s`", recvName, target, conformanceText(conf), target)
+		return nil
+	}
 	if decl == nil {
 		addErr(conf.Line, conf.Col, "`derive ... for %s` requires `%s` to be declared in the same scope", conf.Receiver.TypeString(), recvName)
 		return nil

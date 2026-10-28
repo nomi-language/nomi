@@ -74,19 +74,21 @@ type Instant int64
 // unit component largest-to-smallest concatenated, or "0s" for zero. 0 -> "0s",
 // 5e9 -> "5s", 1.5e9 -> "1s500ms", 5.4e12 -> "1h30m", -5e9 -> "-5s".
 func DurationToString(d Duration) string {
-	nanos := int64(d)
-	if nanos == 0 {
+	if d == 0 {
 		return "0s"
 	}
 	var b strings.Builder
-	if nanos < 0 {
+	// The magnitude as a uint64: negating the most negative Duration
+	// overflows an int64, and its magnitude fits a uint64.
+	nanos := uint64(d)
+	if d < 0 {
 		b.WriteByte('-')
 		nanos = -nanos
 	}
 	for _, u := range durationUnits {
-		if nanos >= u.factor {
-			fmt.Fprintf(&b, "%d%s", nanos/u.factor, u.suffix)
-			nanos %= u.factor
+		if factor := uint64(u.factor); nanos >= factor {
+			fmt.Fprintf(&b, "%d%s", nanos/factor, u.suffix)
+			nanos %= factor
 		}
 	}
 	return b.String()

@@ -30,16 +30,11 @@ const (
 	// from run to run (it reads the clock), so a doctest checks it and does
 	// not run it.
 	InfoNoRun = "no-run"
-	// InfoManual marks a block whose run is expensive (a macro expands in
+	// InfoManual marks a block whose run is expensive (a tool runs before
 	// it), so the tour runs it only when the reader presses its Run button,
 	// not on every edit. A doctest runs it like any other block, and it
-	// combines with InfoError and InfoExpand.
+	// combines with InfoError.
 	InfoManual = "manual"
-	// InfoExpand marks a block whose output is not its run but what `nomi
-	// expand` prints for its first section (vmhost.ExpandMarked): the
-	// expansion of each macro declaration in that file. A doctest compares
-	// that text with the expect block.
-	InfoExpand = "expand"
 	// InfoReadOnly, followed by a glob (`read-only:photos/*`), marks the
 	// data files the glob matches as files whose contents the program never
 	// reads: only their names matter to the example, so the tour shows them
@@ -47,7 +42,7 @@ const (
 	// `// FILE:` line writes it; the word may repeat.
 	InfoReadOnly = "read-only:"
 	// InfoTool, followed by a module and a tool's name
-	// (`tool:sqlkit/prepare`), marks a block whose every run first runs
+	// (`tool:sqlkit/generate`), marks a block whose every run first runs
 	// `nomi tool <module> <name>` in the block's project, as a reader on
 	// their machine would before `nomi run`: the files the tool writes
 	// replace the block's, in its editor too, and what it prints comes
@@ -63,7 +58,7 @@ type Tool struct {
 }
 
 // infoWords are the words a ```nomi-run fence may carry.
-var infoWords = []string{InfoError, InfoNoRun, InfoManual, InfoExpand}
+var infoWords = []string{InfoError, InfoNoRun, InfoManual}
 
 // InfoWords answers the words a ```nomi-run fence may carry after its
 // language, for a message naming them.
@@ -83,9 +78,9 @@ func (b Block) HasInfo(word string) bool {
 }
 
 // Runs reports whether a doctest runs the block and compares its run's
-// output: it carries none of InfoError, InfoNoRun and InfoExpand.
+// output: it carries neither InfoError nor InfoNoRun.
 func (b Block) Runs() bool {
-	return !b.HasInfo(InfoError) && !b.HasInfo(InfoNoRun) && !b.HasInfo(InfoExpand)
+	return !b.HasInfo(InfoError) && !b.HasInfo(InfoNoRun)
 }
 
 // UnknownInfo answers the block's info words that are not InfoWords, so a

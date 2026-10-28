@@ -1,0 +1,36 @@
+import rail_fence_cipher
+
+test "encode" {
+    cases = [
+        #("encode with two rails", "XOXOXOXOXOXOXOXOXO", 2, "XXXXXXXXXOOOOOOOOO"),
+        #("encode with three rails", "WEAREDISCOVEREDFLEEATONCE", 3, "WECRLTEERDSOEEFEAOCAIVDEN"),
+        #("encode with ending in the middle", "EXERCISES", 4, "ESXIEECSR"),
+    ]
+
+    subtests cases, #(description, message, rails, expected), description {
+        assert rail_fence_cipher.encode(message, rails) == expected
+    }
+}
+
+test "decode" {
+    cases = [
+        #("decode with three rails", "TEITELHDVLSNHDTISEIIEA", 3, "THEDEVILISINTHEDETAILS"),
+        #("decode with five rails", "EIEXMSMESAORIWSCE", 5, "EXERCISMISAWESOME"),
+        #(
+            "decode with six rails",
+            "133714114238148966225439541018335470986172518171757571896261",
+            6,
+            "112358132134558914423337761098715972584418167651094617711286",
+        ),
+    ]
+
+    subtests cases, #(description, ciphertext, rails, expected), description {
+        assert rail_fence_cipher.decode(ciphertext, rails) == expected
+    }
+}
+
+// Not a canonical case: one rail leaves the message as it is.
+test "one rail" {
+    assert rail_fence_cipher.encode("WEARE", 1) == "WEARE"
+    assert rail_fence_cipher.decode("WEARE", 1) == "WEARE"
+}

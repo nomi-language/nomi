@@ -135,7 +135,7 @@
 04-scalars-and-text/matcher_test.nomi:count	ran
 04-scalars-and-text/matcher_test.nomi:first_agrees	ran
 04-scalars-and-text/matcher_test.nomi:first_agrees	ran
-04-scalars-and-text/strings_test.nomi:slash_joined	PROBE: a synthesized argument is not a value of the declared type
+04-scalars-and-text/strings_test.nomi:slash_joined	ran
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
 06-collections/contains_test.nomi:Tag.equal?	ran
@@ -156,8 +156,8 @@
 06-collections/tuples_test.nomi:divide	ran
 06-collections/vectors_test.nomi:Countdown.each_while	ran
 06-collections/vectors_test.nomi:Countdown.inspect	ran
-06-collections/vectors_test.nomi:collect	PROBE: a synthesized argument is not a value of the declared type
-06-collections/vectors_test.nomi:collect	PROBE: a synthesized argument is not a value of the declared type
+06-collections/vectors_test.nomi:collect	ran
+06-collections/vectors_test.nomi:collect	ran
 07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi:greet	ran
 07-structs-and-enums/anonymous_structs/test_helpers.nomi:has_diagnostic?	ran
 07-structs-and-enums/anonymous_structs/test_helpers.nomi:hover_signature	ran
@@ -209,7 +209,7 @@
 07-structs-and-enums/recursive_structs_test.nomi:Stream.inspect	ran
 07-structs-and-enums/recursive_structs_test.nomi:Team.inspect	ran
 07-structs-and-enums/recursive_structs_test.nomi:leaf	ran
-07-structs-and-enums/recursive_structs_test.nomi:length	PROBE: a synthesized argument is not a value of the declared type
+07-structs-and-enums/recursive_structs_test.nomi:length	ran
 07-structs-and-enums/recursive_structs_test.nomi:size	ran
 07-structs-and-enums/struct_call_form_record_test.nomi:Config.inspect	ran
 07-structs-and-enums/struct_call_form_record_test.nomi:Config.to_string	ran
@@ -262,7 +262,7 @@
 07-structs-and-enums/vector_trees_test.nomi:eval	ran
 07-structs-and-enums/vector_trees_test.nomi:sample	ran
 07-structs-and-enums/vector_trees_test.nomi:sum	ran
-07-structs-and-enums/vector_trees_test.nomi:total	PROBE: a synthesized argument is not a value of the declared type
+07-structs-and-enums/vector_trees_test.nomi:total	ran
 08-pattern-matching/as_patterns_test.nomi:Kind.inspect	ran
 08-pattern-matching/as_patterns_test.nomi:Tx.inspect	ran
 08-pattern-matching/as_patterns_test.nomi:change	ran
@@ -409,9 +409,9 @@
 08-pattern-matching/vector_set_patterns_test.nomi:Bag.inspect	ran
 08-pattern-matching/vector_set_patterns_test.nomi:Path.inspect	ran
 08-pattern-matching/vector_set_patterns_test.nomi:Tags.inspect	ran
-08-pattern-matching/vector_set_patterns_test.nomi:ends	PROBE: a synthesized argument is not a value of the declared type
-08-pattern-matching/vector_set_patterns_test.nomi:role	PROBE: a synthesized argument is not a value of the declared type
-08-pattern-matching/vector_set_patterns_test.nomi:sum	PROBE: a synthesized argument is not a value of the declared type
+08-pattern-matching/vector_set_patterns_test.nomi:ends	ran
+08-pattern-matching/vector_set_patterns_test.nomi:role	ran
+08-pattern-matching/vector_set_patterns_test.nomi:sum	ran
 09-functions-and-control-flow/call_semantics_test.nomi:abs	ran
 09-functions-and-control-flow/call_semantics_test.nomi:add	ran
 09-functions-and-control-flow/call_semantics_test.nomi:add3	ran
@@ -487,7 +487,7 @@
 09-functions-and-control-flow/tail_calls_test.nomi:is_even	ran
 09-functions-and-control-flow/tail_calls_test.nomi:is_odd	ran
 09-functions-and-control-flow/tail_calls_test.nomi:sum_up_to	ran
-09-functions-and-control-flow/todo_test.nomi:unfinished	TODO: the body is not written yet
+09-functions-and-control-flow/todo_test.nomi:unfinished	ran
 10-generics-and-type-wrappers/bound_type_params_test.nomi:Chan.inspect	ran
 10-generics-and-type-wrappers/bound_type_params_test.nomi:Chan.inspect	ran
 10-generics-and-type-wrappers/bound_type_params_test.nomi:Half.inspect	ran
@@ -563,7 +563,7 @@
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:grown	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:self_pairs	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:twice	ran
-10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.ends	PROBE: a synthesized struct lacks a field read through a container
+10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.ends	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.first	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.first	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.inspect	ran
@@ -639,28 +639,28 @@
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Maybe<String>.show	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Result<Int, String>.loud	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Result<Int, String>.show	ran
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Set<String>.loud	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Set<String>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Set<String>.loud	ran
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Set<String>.show	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Shape.inspect	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Shape.loud	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Shape.show	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:Shape.to_string	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:String.loud	ran
 11-interfaces-and-impls/boxed_existentials/protocols.nomi:String.show	ran
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<Int>.loud	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<Int>.show	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<String>.loud	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<String>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<Int>.loud	ran
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<Int>.show	ran
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<String>.loud	ran
+11-interfaces-and-impls/boxed_existentials/protocols.nomi:Vector<String>.show	ran
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi:circle_shape	ran
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi:shown	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:List<Int>.size	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:Maybe<String>.size	ran
-11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:has	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:made	ran
-11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.holds?	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.loud	ran
@@ -686,17 +686,17 @@
 11-interfaces-and-impls/container_impls/impls.nomi:Maybe<List<Maybe<Int>>>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Maybe<String>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Maybe<String>.show	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Vector<Int>>.loud	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Vector<Int>>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Vector<Int>>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Vector<Int>>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Result<Int, String>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Result<Int, String>.show	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.loud	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.loud	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.show	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.loud	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.show	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.loud	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.show	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.zero	ran
@@ -713,7 +713,7 @@
 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:held_by	ran
-11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:shouted	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi:shouted	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Bag.held	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Bag.shout	ran
 11-interfaces-and-impls/cross_file_impls/impls.nomi:Num.add	ran
@@ -749,7 +749,7 @@
 11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
 11-interfaces-and-impls/cross_file_impls/things.nomi:Wrap.inspect	ran
-11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:has	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:has	ran
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:hashes_alike	ran
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:kinds	ran
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi:same	ran
@@ -850,7 +850,7 @@
 11-interfaces-and-impls/interface_dispatch_test.nomi:Robot.name	ran
 11-interfaces-and-impls/interface_dispatch_test.nomi:Shape.area	ran
 11-interfaces-and-impls/interface_dispatch_test.nomi:Shape.inspect	ran
-11-interfaces-and-impls/interface_dispatch_test.nomi:announce	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/interface_dispatch_test.nomi:announce	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:Cfg.inspect	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:FakeClock.at	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:FakeClock.inspect	ran
@@ -879,8 +879,8 @@
 11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.inspect	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
-11-interfaces-and-impls/multiple_instantiations_test.nomi:number	PROBE: a synthesized argument is not a value of the declared type
-11-interfaces-and-impls/multiple_instantiations_test.nomi:text	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/multiple_instantiations_test.nomi:number	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:text	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Error.inspect	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Error.to_string	ran
 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi:Seed.from_int	ran
@@ -904,7 +904,7 @@
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:count_shapes	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:echo_struct	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:echo_struct	ran
-11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:greet	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:greet	ran
 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:has_diagnostic?	ran
 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/test_helpers.nomi:has_diagnostic?	ran
@@ -913,7 +913,7 @@
 11-interfaces-and-impls/type_argument_inference/priority.nomi:Priority.inspect	ran
 11-interfaces-and-impls/type_argument_inference/priority.nomi:rank	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Chooser.pick	ran
-11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Chooser.top	PROBE: a synthesized argument is not a value of the declared type
+11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Chooser.top	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Pair.inspect	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Pair.inspect	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:Pair.left	ran
@@ -985,7 +985,7 @@
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.to_string	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.compare	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.compare	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.equal?	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.hash	ran
@@ -1085,12 +1085,12 @@
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Labeled.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Opt.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Pair.inspect	ran
-12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Tree.inspect	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/generic_debug/generic_debug_test.nomi:Tree.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Box.to_string	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:Display.to_string	ran
-12-derives-and-standard-interfaces/generic_debug/main.nomi:Tree.inspect	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/generic_debug/main.nomi:Tree.inspect	ran
 12-derives-and-standard-interfaces/generic_debug/main.nomi:main	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:OrderedPoint.compare	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:OrderedPoint.inspect	ran
@@ -1102,9 +1102,9 @@
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.add	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.empty_sum	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.inspect	ran
-12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
-12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
-12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	PROBE: a synthesized argument is not a value of the declared type
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
+12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
@@ -1158,8 +1158,8 @@
 13-iterators-and-pipes/infinite_test.nomi:Countdown.each_while	ran
 13-iterators-and-pipes/infinite_test.nomi:Countdown.inspect	ran
 13-iterators-and-pipes/iter_equality_test.nomi:reports?	ran
-13-iterators-and-pipes/iter_test.nomi:Tree.each_while	PROBE: a synthesized argument is not a value of the declared type
-13-iterators-and-pipes/iter_test.nomi:Tree.inspect	PROBE: a synthesized argument is not a value of the declared type
+13-iterators-and-pipes/iter_test.nomi:Tree.each_while	ran
+13-iterators-and-pipes/iter_test.nomi:Tree.inspect	ran
 13-iterators-and-pipes/iter_test.nomi:leaf_node	ran
 13-iterators-and-pipes/iter_values_test.nomi:Countdown.each_while	ran
 13-iterators-and-pipes/iter_values_test.nomi:Countdown.inspect	ran
@@ -1168,8 +1168,8 @@
 13-iterators-and-pipes/iter_values_test.nomi:Source.inspect	ran
 13-iterators-and-pipes/iter_values_test.nomi:doubled	ran
 13-iterators-and-pipes/iter_values_test.nomi:evens	ran
-13-iterators-and-pipes/iter_values_test.nomi:first_of	PROBE: a synthesized argument is not a value of the declared type
-13-iterators-and-pipes/iter_values_test.nomi:total	PROBE: a synthesized argument is not a value of the declared type
+13-iterators-and-pipes/iter_values_test.nomi:first_of	ran
+13-iterators-and-pipes/iter_values_test.nomi:total	ran
 13-iterators-and-pipes/keyword_pipe_stages_test.nomi:parse_id	ran
 13-iterators-and-pipes/keyword_pipe_stages_test.nomi:parsed_id	ran
 13-iterators-and-pipes/loop_control_test.nomi:first	ran
@@ -1267,13 +1267,13 @@
 15-app-and-defer/boot_failure/debug_error.nomi:StartError.inspect	ran
 15-app-and-defer/boot_failure/debug_error.nomi:boot	ran
 15-app-and-defer/boot_failure/debug_error.nomi:boot failure	ran
-15-app-and-defer/boot_failure/debug_error.nomi:main	BOOT ERR: reads the app a boot that returns Err never publishes
+15-app-and-defer/boot_failure/debug_error.nomi:main	ran
 15-app-and-defer/boot_failure/main.nomi:App.inspect	ran
 15-app-and-defer/boot_failure/main.nomi:ConfigError.inspect	ran
 15-app-and-defer/boot_failure/main.nomi:ConfigError.to_string	ran
 15-app-and-defer/boot_failure/main.nomi:boot	ran
 15-app-and-defer/boot_failure/main.nomi:boot failure	ran
-15-app-and-defer/boot_failure/main.nomi:main	BOOT ERR: reads the app a boot that returns Err never publishes
+15-app-and-defer/boot_failure/main.nomi:main	ran
 15-app-and-defer/boot_failure/main.nomi:setting	ran
 15-app-and-defer/config_pattern/app.nomi:ConfigApp.inspect	ran
 15-app-and-defer/config_pattern/app.nomi:load	ran
@@ -1293,6 +1293,7 @@
 15-app-and-defer/context_values_test.nomi:accepts_marker	ran
 15-app-and-defer/context_values_test.nomi:lookup_marker	ran
 15-app-and-defer/deadline_floor/deadline_floor_test.nomi:escape_program	ran
+15-app-and-defer/deadline_floor/supervisor_app.nomi:Config.inspect	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:background	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:boot	ran
 15-app-and-defer/deadline_floor/supervisor_app.nomi:boot failure	ran
@@ -1329,7 +1330,7 @@
 15-app-and-defer/exit_status/boot_exit.nomi:App.inspect	ran
 15-app-and-defer/exit_status/boot_exit.nomi:boot	ran
 15-app-and-defer/exit_status/boot_exit.nomi:boot failure	ran
-15-app-and-defer/exit_status/boot_exit.nomi:main	BOOT ERR: reads the app a boot that returns Err never publishes
+15-app-and-defer/exit_status/boot_exit.nomi:main	ran
 15-app-and-defer/exit_status/exit_test.nomi:main	ran
 15-app-and-defer/exit_status/exit_test.nomi:main failure	ran
 15-app-and-defer/exit_status/exit_zero.nomi:main	ran
@@ -1350,7 +1351,7 @@
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.delete	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.inspect	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.load	ran
-15-app-and-defer/file_store_pattern_test.nomi:FileStore.save	PROBE: a synthesized struct lacks a field read through a container
+15-app-and-defer/file_store_pattern_test.nomi:FileStore.save	ran
 15-app-and-defer/file_store_pattern_test.nomi:Priority.equal?	ran
 15-app-and-defer/file_store_pattern_test.nomi:Priority.inspect	ran
 15-app-and-defer/file_store_pattern_test.nomi:Priority.to_string	ran
@@ -1390,15 +1391,18 @@
 16-concurrency/concurrent_runtime_test.nomi:nested_outer_body	ran
 16-concurrency/concurrent_runtime_test.nomi:produce	ran
 16-concurrency/concurrent_runtime_test.nomi:short_fail	ran
-16-concurrency/message_loop/counter_app.nomi:Config.inspect	LINKING: a declaration this module did not retain
+16-concurrency/message_loop/counter_app.nomi:Config.inspect	ran
+16-concurrency/message_loop/counter_app.nomi:Counter.inspect	ran
+16-concurrency/message_loop/counter_app.nomi:Request.inspect	ran
 16-concurrency/message_loop/counter_app.nomi:boot	ran
 16-concurrency/message_loop/counter_app.nomi:boot failure	ran
 16-concurrency/message_loop/counter_app.nomi:explode	ran
-16-concurrency/message_loop/counter_app.nomi:get	BLOCKED: waits on a channel nothing in isolation answers
+16-concurrency/message_loop/counter_app.nomi:get	ran
 16-concurrency/message_loop/counter_app.nomi:increment	ran
 16-concurrency/message_loop/counter_app.nomi:main	ran
 16-concurrency/message_loop/counter_app.nomi:serve	ran
-16-concurrency/message_loop/counter_app.nomi:start	BOOT: creatable only while boot runs
+16-concurrency/message_loop/counter_app.nomi:start	ran
+16-concurrency/supervisors/app.nomi:Config.inspect	ran
 16-concurrency/supervisors/app.nomi:boot	ran
 16-concurrency/supervisors/app.nomi:boot failure	ran
 16-concurrency/supervisors/app.nomi:drain_alerts	ran
@@ -1444,11 +1448,11 @@
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.equal?	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.from_json	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.inspect	ran
-18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.to_json	PROBE: a synthesized argument is not a value of the declared type
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.to_json	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.equal?	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.from_json	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.inspect	ran
-18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.to_json	PROBE: a synthesized argument is not a value of the declared type
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.to_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.equal?	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.inspect	ran
@@ -1540,124 +1544,124 @@
 19-locales/collation_test.nomi:literal Locale`tr` at 122:44 failure	ran
 19-locales/collation_test.nomi:literal Locale`tr` at 123:42 failure	ran
 19-locales/collation_test.nomi:sorted	ran
-19-locales/date_format_test.nomi:literal DateFields`GyMMMd` at 73:46 failure	ran
-19-locales/date_format_test.nomi:literal DateFields`LLLL` at 71:46 failure	ran
-19-locales/date_format_test.nomi:literal DateFields`MMMMEEEEd` at 63:12 failure	ran
-19-locales/date_format_test.nomi:literal DateFields`MMMMd` at 54:17 failure	ran
-19-locales/date_format_test.nomi:literal DateFields`yMMMd` at 131:44 failure	ran
-19-locales/date_format_test.nomi:literal DateFields`yMd` at 72:46 failure	ran
-19-locales/date_format_test.nomi:literal DatePattern`d.M.yy` at 104:35 failure	ran
-19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 103:35 failure	ran
-19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 106:40 failure	ran
-19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 119:9 failure	ran
-19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 122:42 failure	ran
-19-locales/date_format_test.nomi:literal DatePattern`yyyy-MM-dd` at 101:11 failure	ran
-19-locales/date_format_test.nomi:literal DateTimeFields`MMMMEEEEdjm` at 95:9 failure	ran
-19-locales/date_format_test.nomi:literal DateTimeFields`yMMMdjm` at 89:9 failure	ran
-19-locales/date_format_test.nomi:literal DateTimePattern`yyyyMMdd'T'HHmmss` at 108:13 failure	ran
+19-locales/date_format_test.nomi:literal DateFields`GyMMMd` at 69:46 failure	ran
+19-locales/date_format_test.nomi:literal DateFields`LLLL` at 67:46 failure	ran
+19-locales/date_format_test.nomi:literal DateFields`MMMMEEEEd` at 59:12 failure	ran
+19-locales/date_format_test.nomi:literal DateFields`MMMMd` at 50:17 failure	ran
+19-locales/date_format_test.nomi:literal DateFields`yMMMd` at 120:44 failure	ran
+19-locales/date_format_test.nomi:literal DateFields`yMd` at 68:46 failure	ran
+19-locales/date_format_test.nomi:literal DatePattern`d.M.yy` at 94:35 failure	ran
+19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 109:9 failure	ran
+19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 112:42 failure	ran
+19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 93:35 failure	ran
+19-locales/date_format_test.nomi:literal DatePattern`dd/MM/yyyy` at 96:40 failure	ran
+19-locales/date_format_test.nomi:literal DatePattern`yyyy-MM-dd` at 91:11 failure	ran
+19-locales/date_format_test.nomi:literal DateTimeFields`MMMMEEEEdjm` at 85:60 failure	ran
+19-locales/date_format_test.nomi:literal DateTimeFields`yMMMdjm` at 82:60 failure	ran
+19-locales/date_format_test.nomi:literal DateTimePattern`yyyyMMdd'T'HHmmss` at 98:13 failure	ran
 19-locales/date_format_test.nomi:literal DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]` at 39:14 failure	ran
-19-locales/date_format_test.nomi:literal Date`2000-01-01` at 177:25 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-05-04` at 100:9 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-05-04` at 135:54 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-05-04` at 136:56 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-05-04` at 158:71 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 137:56 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 138:58 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 139:83 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 140:58 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 161:9 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 165:9 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 169:9 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 176:25 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 220:9 failure	ran
-19-locales/date_format_test.nomi:literal Date`2026-10-20` at 53:9 failure	ran
+19-locales/date_format_test.nomi:literal Date`2000-01-01` at 162:25 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-05-04` at 124:54 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-05-04` at 125:56 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-05-04` at 146:71 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-05-04` at 90:9 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 126:56 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 127:58 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 128:83 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 129:58 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 149:15 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 152:15 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 155:15 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 161:25 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 202:9 failure	ran
+19-locales/date_format_test.nomi:literal Date`2026-10-20` at 49:9 failure	ran
 19-locales/date_format_test.nomi:literal Date`2026-10-20` at 9:9 failure	ran
 19-locales/date_format_test.nomi:literal Locale`ar-EG` at 19:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 135:36 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 136:38 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 142:80 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 150:37 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 158:38 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 124:36 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 125:38 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 131:80 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 139:37 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 146:38 failure	ran
 19-locales/date_format_test.nomi:literal Locale`de` at 16:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 189:41 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 190:41 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 204:50 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 174:41 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 175:41 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 189:50 failure	ran
 19-locales/date_format_test.nomi:literal Locale`de` at 29:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 43:9 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 57:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 79:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`de` at 80:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 41:36 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 53:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 75:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`de` at 76:34 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en-GB` at 14:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en-GB` at 229:40 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en-GB` at 211:40 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 10:27 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 11:27 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 126:38 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 12:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 137:38 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 135:9 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 13:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 146:9 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 154:37 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 160:41 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 164:46 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 172:37 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 182:10 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 203:50 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 211:9 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 215:48 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 216:51 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 224:48 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 234:36 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 235:36 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 236:36 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 142:37 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 148:41 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 151:46 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 157:37 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 167:10 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 188:50 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 194:57 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 197:48 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 198:51 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 206:48 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 216:36 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 217:36 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 218:36 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 27:27 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 28:27 failure	ran
 19-locales/date_format_test.nomi:literal Locale`en` at 37:40 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 55:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 64:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 72:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 73:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 78:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 81:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`en` at 88:9 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 51:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 60:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 68:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 69:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 74:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 77:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`en` at 82:48 failure	ran
+19-locales/date_format_test.nomi:literal Locale`fr` at 176:40 failure	ran
 19-locales/date_format_test.nomi:literal Locale`fr` at 17:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`fr` at 191:40 failure	ran
-19-locales/date_format_test.nomi:literal Locale`fr` at 207:49 failure	ran
+19-locales/date_format_test.nomi:literal Locale`fr` at 192:49 failure	ran
 19-locales/date_format_test.nomi:literal Locale`fr` at 32:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`fr` at 48:36 failure	ran
-19-locales/date_format_test.nomi:literal Locale`fr` at 58:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`ja` at 140:40 failure	ran
+19-locales/date_format_test.nomi:literal Locale`fr` at 44:36 failure	ran
+19-locales/date_format_test.nomi:literal Locale`fr` at 54:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`ja` at 129:40 failure	ran
+19-locales/date_format_test.nomi:literal Locale`ja` at 184:40 failure	ran
 19-locales/date_format_test.nomi:literal Locale`ja` at 18:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`ja` at 199:40 failure	ran
 19-locales/date_format_test.nomi:literal Locale`ja` at 30:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`ja` at 49:38 failure	ran
-19-locales/date_format_test.nomi:literal Locale`ja` at 59:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`ja` at 67:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 138:40 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 139:51 failure	ran
+19-locales/date_format_test.nomi:literal Locale`ja` at 45:38 failure	ran
+19-locales/date_format_test.nomi:literal Locale`ja` at 55:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`ja` at 63:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 127:40 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 128:51 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 154:44 failure	ran
 19-locales/date_format_test.nomi:literal Locale`pl` at 15:27 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 168:44 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 183:10 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 205:50 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 206:51 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 168:10 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 190:50 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 191:51 failure	ran
 19-locales/date_format_test.nomi:literal Locale`pl` at 20:33 failure	ran
 19-locales/date_format_test.nomi:literal Locale`pl` at 38:40 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 56:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 65:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 71:34 failure	ran
-19-locales/date_format_test.nomi:literal Locale`pl` at 94:9 failure	ran
-19-locales/date_format_test.nomi:literal NaiveDateTime`2026-10-19T09:30:15` at 109:14 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 52:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 61:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 67:34 failure	ran
+19-locales/date_format_test.nomi:literal Locale`pl` at 85:48 failure	ran
+19-locales/date_format_test.nomi:literal NaiveDateTime`2026-10-19T09:30:15` at 99:14 failure	ran
 19-locales/date_format_test.nomi:literal NaiveDateTime`2026-10-20T09:30:00` at 36:13 failure	ran
-19-locales/date_format_test.nomi:literal NaiveDateTime`2026-10-20T21:05:00` at 84:14 failure	ran
-19-locales/date_format_test.nomi:literal TimeFields`Hms` at 81:46 failure	ran
-19-locales/date_format_test.nomi:literal TimeFields`hm` at 80:46 failure	ran
-19-locales/date_format_test.nomi:literal TimeFields`jm` at 78:46 failure	ran
-19-locales/date_format_test.nomi:literal TimeFields`jm` at 79:46 failure	ran
-19-locales/date_format_test.nomi:literal TimePattern`HH:mm:ss.SSS` at 113:13 failure	ran
-19-locales/date_format_test.nomi:literal Time`07:05:00` at 229:24 failure	ran
-19-locales/date_format_test.nomi:literal Time`07:08:09.5` at 114:32 failure	ran
-19-locales/date_format_test.nomi:literal Time`07:08:09.5` at 115:57 failure	ran
-19-locales/date_format_test.nomi:literal Time`21:05:00` at 154:55 failure	ran
-19-locales/date_format_test.nomi:literal Time`21:05:00` at 172:70 failure	ran
-19-locales/date_format_test.nomi:literal Time`21:05:00` at 77:9 failure	ran
+19-locales/date_format_test.nomi:literal NaiveDateTime`2026-10-20T21:05:00` at 80:14 failure	ran
+19-locales/date_format_test.nomi:literal TimeFields`Hms` at 77:46 failure	ran
+19-locales/date_format_test.nomi:literal TimeFields`hm` at 76:46 failure	ran
+19-locales/date_format_test.nomi:literal TimeFields`jm` at 74:46 failure	ran
+19-locales/date_format_test.nomi:literal TimeFields`jm` at 75:46 failure	ran
+19-locales/date_format_test.nomi:literal TimePattern`HH:mm:ss.SSS` at 103:13 failure	ran
+19-locales/date_format_test.nomi:literal Time`07:05:00` at 211:24 failure	ran
+19-locales/date_format_test.nomi:literal Time`07:08:09.5` at 104:32 failure	ran
+19-locales/date_format_test.nomi:literal Time`07:08:09.5` at 105:57 failure	ran
+19-locales/date_format_test.nomi:literal Time`21:05:00` at 142:55 failure	ran
+19-locales/date_format_test.nomi:literal Time`21:05:00` at 157:70 failure	ran
+19-locales/date_format_test.nomi:literal Time`21:05:00` at 73:9 failure	ran
 19-locales/date_format_test.nomi:literal Time`21:05:30` at 26:9 failure	ran
 19-locales/list_format_test.nomi:literal Locale`de` at 48:33 failure	ran
 19-locales/list_format_test.nomi:literal Locale`de` at 50:25 failure	ran
@@ -1778,84 +1782,84 @@
 19-locales/message_functions_test.nomi:paid	ran
 19-locales/message_functions_test.nomi:plain	ran
 19-locales/message_functions_test.nomi:weekday_and_day	ran
-19-locales/money_test.nomi:literal Currency`BHD` at 21:40 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 169:63 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 171:19 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 269:11 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 51:11 failure	ran
+19-locales/money_test.nomi:literal Currency`BHD` at 20:56 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 164:63 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 166:19 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 255:11 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 46:11 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 10:45 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 131:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 219:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 251:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 26:59 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 277:55 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 77:11 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 164:58 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 166:19 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 126:11 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 214:11 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 241:11 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 24:59 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 262:55 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 72:11 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 159:58 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 161:19 failure	ran
 19-locales/money_test.nomi:literal Currency`JPY` at 18:57 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 245:52 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 44:38 failure	ran
-19-locales/money_test.nomi:literal Currency`PLN` at 40:40 failure	ran
-19-locales/money_test.nomi:literal Currency`PTS:0` at 62:14 failure	ran
-19-locales/money_test.nomi:literal Currency`USD` at 27:55 failure	ran
-19-locales/money_test.nomi:literal Currency`USD` at 33:40 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 236:52 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 41:54 failure	ran
+19-locales/money_test.nomi:literal Currency`PLN` at 38:40 failure	ran
+19-locales/money_test.nomi:literal Currency`PTS:0` at 57:14 failure	ran
+19-locales/money_test.nomi:literal Currency`USD` at 25:55 failure	ran
+19-locales/money_test.nomi:literal Currency`USD` at 31:40 failure	ran
 19-locales/money_test.nomi:literal Locale`de-CH` at 16:30 failure	ran
 19-locales/money_test.nomi:literal Locale`de` at 12:30 failure	ran
-19-locales/money_test.nomi:literal Locale`de` at 63:66 failure	ran
-19-locales/money_test.nomi:literal Locale`en-CA` at 34:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en-CA` at 35:30 failure	ran
+19-locales/money_test.nomi:literal Locale`de` at 58:66 failure	ran
+19-locales/money_test.nomi:literal Locale`en-CA` at 32:30 failure	ran
+19-locales/money_test.nomi:literal Locale`en-CA` at 33:30 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 11:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 222:42 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 226:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 229:38 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 22:9 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 233:36 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 241:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 245:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 261:43 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 26:75 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 271:38 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 27:71 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 28:35 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 36:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 37:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 45:9 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 58:31 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 60:31 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 20:72 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 217:42 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 220:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 223:38 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 227:36 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 233:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 236:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 249:43 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 24:75 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 257:38 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 25:71 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 26:35 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 34:30 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 35:30 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 41:70 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 53:31 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 55:31 failure	ran
 19-locales/money_test.nomi:literal Locale`fr` at 14:30 failure	ran
 19-locales/money_test.nomi:literal Locale`ja` at 15:30 failure	ran
 19-locales/money_test.nomi:literal Locale`ja` at 18:73 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 13:30 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 220:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 237:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 253:36 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 257:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 265:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 41:30 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 59:31 failure	ran
-19-locales/money_test.nomi:literal Money`-10.05 EUR` at 187:30 failure	ran
-19-locales/money_test.nomi:literal Money`-10.05 EUR` at 188:30 failure	ran
-19-locales/money_test.nomi:literal Money`-5.02 EUR` at 187:58 failure	ran
-19-locales/money_test.nomi:literal Money`-5.03 EUR` at 188:67 failure	ran
-19-locales/money_test.nomi:literal Money`0.12 EUR` at 180:56 failure	ran
-19-locales/money_test.nomi:literal Money`0.13 EUR` at 181:65 failure	ran
-19-locales/money_test.nomi:literal Money`0.25 EUR` at 180:30 failure	ran
-19-locales/money_test.nomi:literal Money`0.25 EUR` at 181:30 failure	ran
-19-locales/money_test.nomi:literal Money`12.50 EUR` at 191:30 failure	ran
-19-locales/money_test.nomi:literal Money`19.99 EUR` at 177:30 failure	ran
-19-locales/money_test.nomi:literal Money`2.50 EUR` at 191:71 failure	ran
-19-locales/money_test.nomi:literal Money`3.30 USD` at 195:57 failure	ran
-19-locales/money_test.nomi:literal Money`4.60 EUR` at 177:58 failure	ran
-19-locales/money_test.nomi:literal Money`40.00 USD` at 195:30 failure	ran
-19-locales/money_test.nomi:literal Money`80 JPY` at 184:56 failure	ran
-19-locales/money_test.nomi:literal Money`999 JPY` at 184:30 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 215:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 230:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 243:36 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 246:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 252:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 39:30 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 54:31 failure	ran
+19-locales/money_test.nomi:literal Money`-10.05 EUR` at 182:30 failure	ran
+19-locales/money_test.nomi:literal Money`-10.05 EUR` at 183:30 failure	ran
+19-locales/money_test.nomi:literal Money`-5.02 EUR` at 182:58 failure	ran
+19-locales/money_test.nomi:literal Money`-5.03 EUR` at 183:67 failure	ran
+19-locales/money_test.nomi:literal Money`0.12 EUR` at 175:56 failure	ran
+19-locales/money_test.nomi:literal Money`0.13 EUR` at 176:65 failure	ran
+19-locales/money_test.nomi:literal Money`0.25 EUR` at 175:30 failure	ran
+19-locales/money_test.nomi:literal Money`0.25 EUR` at 176:30 failure	ran
+19-locales/money_test.nomi:literal Money`12.50 EUR` at 186:30 failure	ran
+19-locales/money_test.nomi:literal Money`19.99 EUR` at 172:30 failure	ran
+19-locales/money_test.nomi:literal Money`2.50 EUR` at 186:71 failure	ran
+19-locales/money_test.nomi:literal Money`3.30 USD` at 190:57 failure	ran
+19-locales/money_test.nomi:literal Money`4.60 EUR` at 172:58 failure	ran
+19-locales/money_test.nomi:literal Money`40.00 USD` at 190:30 failure	ran
+19-locales/money_test.nomi:literal Money`80 JPY` at 179:56 failure	ran
+19-locales/money_test.nomi:literal Money`999 JPY` at 179:30 failure	ran
 19-locales/number_format_test.nomi:literal Locale`ar-EG-u-nu-latn` at 30:29 failure	ran
-19-locales/number_format_test.nomi:literal Locale`ar-EG` at 116:61 failure	ran
+19-locales/number_format_test.nomi:literal Locale`ar-EG` at 112:61 failure	ran
 19-locales/number_format_test.nomi:literal Locale`ar-EG` at 29:29 failure	ran
 19-locales/number_format_test.nomi:literal Locale`ar-EG` at 60:39 failure	ran
 19-locales/number_format_test.nomi:literal Locale`de-CH` at 11:32 failure	ran
-19-locales/number_format_test.nomi:literal Locale`de` at 116:25 failure	ran
-19-locales/number_format_test.nomi:literal Locale`de` at 124:32 failure	ran
+19-locales/number_format_test.nomi:literal Locale`de` at 112:25 failure	ran
+19-locales/number_format_test.nomi:literal Locale`de` at 120:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale`de` at 20:30 failure	ran
 19-locales/number_format_test.nomi:literal Locale`de` at 34:40 failure	ran
 19-locales/number_format_test.nomi:literal Locale`de` at 40:37 failure	ran
@@ -1867,12 +1871,11 @@
 19-locales/number_format_test.nomi:literal Locale`de` at 68:39 failure	ran
 19-locales/number_format_test.nomi:literal Locale`de` at 8:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en-u-nu-arab` at 32:29 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 101:38 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 116:13 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 121:10 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 140:44 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 142:42 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 144:41 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 112:13 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 117:10 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 131:44 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 133:42 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 135:41 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en` at 18:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en` at 19:27 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en` at 21:34 failure	ran
@@ -1888,34 +1891,35 @@
 19-locales/number_format_test.nomi:literal Locale`en` at 72:29 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en` at 73:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en` at 76:40 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 79:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale`en` at 7:32 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 80:38 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 84:32 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 85:33 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 86:48 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 88:45 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 94:40 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 95:32 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 96:33 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 97:32 failure	ran
-19-locales/number_format_test.nomi:literal Locale`en` at 99:47 failure	ran
-19-locales/number_format_test.nomi:literal Locale`fr` at 116:37 failure	ran
-19-locales/number_format_test.nomi:literal Locale`fr` at 141:48 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 82:32 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 83:33 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 84:48 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 86:45 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 91:40 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 92:32 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 93:33 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 94:32 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 96:47 failure	ran
+19-locales/number_format_test.nomi:literal Locale`en` at 98:38 failure	ran
+19-locales/number_format_test.nomi:literal Locale`fr` at 112:37 failure	ran
+19-locales/number_format_test.nomi:literal Locale`fr` at 132:48 failure	ran
 19-locales/number_format_test.nomi:literal Locale`fr` at 50:35 failure	ran
 19-locales/number_format_test.nomi:literal Locale`fr` at 58:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale`fr` at 9:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale`hi` at 10:32 failure	ran
-19-locales/number_format_test.nomi:literal Locale`hi` at 116:49 failure	ran
+19-locales/number_format_test.nomi:literal Locale`hi` at 112:49 failure	ran
 19-locales/number_format_test.nomi:literal Locale`hi` at 59:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale`hi` at 74:38 failure	ran
-19-locales/number_format_test.nomi:literal Locale`ja` at 116:76 failure	ran
+19-locales/number_format_test.nomi:literal Locale`ja` at 112:76 failure	ran
 19-locales/number_format_test.nomi:literal Locale`pl` at 13:29 failure	ran
 19-locales/number_format_test.nomi:literal Locale`pl` at 14:30 failure	ran
 19-locales/number_format_test.nomi:literal Locale`pl` at 51:37 failure	ran
 19-locales/number_format_test.nomi:literal Locale`pl` at 52:37 failure	ran
 19-locales/number_format_test.nomi:literal Locale`pl` at 63:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale`sv` at 28:28 failure	ran
-19-locales/number_format_test.nomi:literal Locale`sv` at 98:32 failure	ran
+19-locales/number_format_test.nomi:literal Locale`sv` at 95:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale`tr` at 35:40 failure	ran
 19-locales/number_format_test.nomi:round_trips?	ran
 19-locales/plural_test.nomi:cardinals_of	ran
@@ -1982,7 +1986,7 @@
 19-locales/shop/locale_load_test.nomi:literal Locale`fr` at 13:24 failure	ran
 19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 11:24 failure	ran
 19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 14:49 failure	ran
-19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 27:46 failure	ran
+19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 26:46 failure	ran
 19-locales/shop/locale_load_test.nomi:literal Locale`pt` at 19:17 failure	ran
 19-locales/shop/order.nomi:has_shipped	ran
 19-locales/shop/order.nomi:in_cart	ran
@@ -2026,23 +2030,23 @@
 19-locales/shop/order_test.nomi:literal Locale`pt` at 103:53 failure	ran
 19-locales/shop/order_test.nomi:literal Locale`pt` at 23:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale`pt` at 66:23 failure	ran
-20-data-access/sql_test.nomi:literal Date`2026-10-19` at 121:25 failure	ran
-20-data-access/sql_test.nomi:literal Date`2026-10-19` at 138:25 failure	ran
-20-data-access/sql_test.nomi:literal Date`2026-10-19` at 138:57 failure	ran
-20-data-access/sql_test.nomi:literal Date`2026-10-19` at 154:30 failure	ran
+20-data-access/sql_test.nomi:literal Date`2026-10-19` at 119:25 failure	ran
+20-data-access/sql_test.nomi:literal Date`2026-10-19` at 136:25 failure	ran
+20-data-access/sql_test.nomi:literal Date`2026-10-19` at 136:57 failure	ran
+20-data-access/sql_test.nomi:literal Date`2026-10-19` at 151:30 failure	ran
 20-data-access/sql_test.nomi:literal Date`2026-10-19` at 48:11 failure	ran
 20-data-access/sql_test.nomi:literal Date`2026-10-19` at 76:11 failure	ran
-20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 123:25 failure	ran
-20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 141:25 failure	ran
-20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 142:9 failure	ran
+20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 121:25 failure	ran
+20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 139:25 failure	ran
+20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 140:28 failure	ran
 20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 55:72 failure	ran
 20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 63:25 failure	ran
-20-data-access/sql_test.nomi:literal Time`09:30:00` at 122:25 failure	ran
-20-data-access/sql_test.nomi:literal Time`09:30:00` at 139:25 failure	ran
-20-data-access/sql_test.nomi:literal Time`09:30:00` at 139:55 failure	ran
+20-data-access/sql_test.nomi:literal Time`09:30:00` at 120:25 failure	ran
+20-data-access/sql_test.nomi:literal Time`09:30:00` at 137:25 failure	ran
+20-data-access/sql_test.nomi:literal Time`09:30:00` at 137:55 failure	ran
 20-data-access/sql_test.nomi:literal Time`09:30:00` at 55:53 failure	ran
 20-data-access/sql_test.nomi:literal Time`09:30:00` at 62:20 failure	ran
-20-data-access/sql_test.nomi:literal Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` at 126:25 failure	ran
+20-data-access/sql_test.nomi:literal Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` at 124:25 failure	ran
 20-data-access/sql_test.nomi:literal Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` at 50:10 failure	ran
 20-data-access/sql_test.nomi:round_trips?	ran
 20-data-access/sql_test.nomi:round_trips?	ran
@@ -2058,52 +2062,52 @@
 20-data-access/sql_test.nomi:round_trips?	ran
 20-data-access/sql_test.nomi:round_trips?	ran
 20-data-access/sql_test.nomi:user_row	ran
-20-data-access/transactions_test.nomi:ForgetsRollback.begin	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:ForgetsRollback.close	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:ForgetsRollback.commit	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:ForgetsRollback.dialect	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:ForgetsRollback.each_row	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:ForgetsRollback.exec	LINKING: a declaration this module did not retain
+20-data-access/transactions_test.nomi:ForgetsRollback.begin	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.close	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.commit	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.dialect	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.each_row	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.exec	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.inspect	ran
-20-data-access/transactions_test.nomi:ForgetsRollback.ping	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:ForgetsRollback.query	LINKING: a declaration this module did not retain
+20-data-access/transactions_test.nomi:ForgetsRollback.ping	ran
+20-data-access/transactions_test.nomi:ForgetsRollback.query	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.rollback	ran
-20-data-access/transactions_test.nomi:NeverCloses.begin	LINKING: a declaration this module did not retain
+20-data-access/transactions_test.nomi:NeverCloses.begin	ran
 20-data-access/transactions_test.nomi:NeverCloses.close	ran
-20-data-access/transactions_test.nomi:NeverCloses.commit	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:NeverCloses.dialect	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:NeverCloses.each_row	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:NeverCloses.exec	LINKING: a declaration this module did not retain
+20-data-access/transactions_test.nomi:NeverCloses.commit	ran
+20-data-access/transactions_test.nomi:NeverCloses.dialect	ran
+20-data-access/transactions_test.nomi:NeverCloses.each_row	ran
+20-data-access/transactions_test.nomi:NeverCloses.exec	ran
 20-data-access/transactions_test.nomi:NeverCloses.inspect	ran
-20-data-access/transactions_test.nomi:NeverCloses.ping	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:NeverCloses.query	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:NeverCloses.rollback	LINKING: a declaration this module did not retain
-20-data-access/transactions_test.nomi:all_closed?	PROBE: a synthesized argument is not a value of the declared type
+20-data-access/transactions_test.nomi:NeverCloses.ping	ran
+20-data-access/transactions_test.nomi:NeverCloses.query	ran
+20-data-access/transactions_test.nomi:NeverCloses.rollback	ran
+20-data-access/transactions_test.nomi:all_closed?	ran
 20-data-access/transactions_test.nomi:closed?	ran
 20-data-access/transactions_test.nomi:closed?	ran
 20-data-access/transactions_test.nomi:closed?	ran
-20-data-access/transactions_test.nomi:expect_closed	PROBE: a synthesized argument is not a value of the declared type
-20-data-access/transactions_test.nomi:insert	PROBE: a synthesized argument is not a value of the declared type
+20-data-access/transactions_test.nomi:expect_closed	ran
+20-data-access/transactions_test.nomi:insert	ran
 20-data-access/transactions_test.nomi:names	ran
-20-data-access/uuid_test.nomi:generated	PROBE: a synthesized argument is not a value of the declared type
+20-data-access/uuid_test.nomi:generated	ran
 20-data-access/uuid_test.nomi:hex48	ran
-20-data-access/uuid_test.nomi:literal Uuid`00000000-0000-0000-7fff-ffffffffffff` at 133:12 failure	ran
-20-data-access/uuid_test.nomi:literal Uuid`00000000-0000-0000-8000-000000000000` at 133:57 failure	ran
-20-data-access/uuid_test.nomi:literal Uuid`00112233-4455-6677-8899-aabbccddeeff` at 48:10 failure	ran
-20-data-access/uuid_test.nomi:literal Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8` at 139:9 failure	ran
+20-data-access/uuid_test.nomi:literal Uuid`00000000-0000-0000-7fff-ffffffffffff` at 127:12 failure	ran
+20-data-access/uuid_test.nomi:literal Uuid`00000000-0000-0000-8000-000000000000` at 127:57 failure	ran
+20-data-access/uuid_test.nomi:literal Uuid`00112233-4455-6677-8899-aabbccddeeff` at 43:10 failure	ran
+20-data-access/uuid_test.nomi:literal Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8` at 133:9 failure	ran
 20-data-access/uuid_test.nomi:literal Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8` at 13:18 failure	ran
-20-data-access/uuid_test.nomi:literal Uuid`7fffffff-ffff-ffff-ffff-ffffffffffff` at 130:11 failure	ran
-20-data-access/uuid_test.nomi:literal Uuid`80000000-0000-0000-0000-000000000000` at 131:12 failure	ran
+20-data-access/uuid_test.nomi:literal Uuid`7fffffff-ffff-ffff-ffff-ffffffffffff` at 124:11 failure	ran
+20-data-access/uuid_test.nomi:literal Uuid`80000000-0000-0000-0000-000000000000` at 125:12 failure	ran
 20-data-access/uuid_test.nomi:literal Uuid`ffffffff-ffff-ffff-ffff-ffffffffffff` at 16:15 failure	ran
 20-data-access/uuid_test.nomi:shaped?	ran
 exercism/acronym/acronym.nomi:abbreviate	ran
 exercism/affine-cipher/affine_cipher.nomi:Error.inspect	ran
 exercism/affine-cipher/affine_cipher.nomi:Key.inspect	ran
-exercism/affine-cipher/affine_cipher.nomi:decode	PROBE: a synthesized struct lacks a field read through a container
-exercism/affine-cipher/affine_cipher.nomi:encode	PROBE: a synthesized struct lacks a field read through a container
+exercism/affine-cipher/affine_cipher.nomi:decode	ran
+exercism/affine-cipher/affine_cipher.nomi:encode	ran
 exercism/affine-cipher/affine_cipher.nomi:inverse	ran
 exercism/affine-cipher/affine_cipher.nomi:shift	ran
-exercism/affine-cipher/affine_cipher.nomi:translate	PROBE: a synthesized argument is not a value of the declared type
+exercism/affine-cipher/affine_cipher.nomi:translate	ran
 exercism/all-your-base/all_your_base.nomi:Error.inspect	ran
 exercism/all-your-base/all_your_base.nomi:rebase	ran
 exercism/allergies/allergies.nomi:Allergen.inspect	ran
@@ -2111,28 +2115,124 @@ exercism/allergies/allergies.nomi:Allergen.variants	ran
 exercism/allergies/allergies.nomi:allergic_to?	ran
 exercism/allergies/allergies.nomi:list	ran
 exercism/allergies/allergies.nomi:value	ran
+exercism/alphametics/alphametics.nomi:Letter.inspect	ran
+exercism/alphametics/alphametics.nomi:assign	ran
+exercism/alphametics/alphametics.nomi:letter	ran
+exercism/alphametics/alphametics.nomi:places	ran
+exercism/alphametics/alphametics.nomi:reachable?	ran
+exercism/alphametics/alphametics.nomi:solve	ran
 exercism/anagram/anagram.nomi:find	ran
 exercism/armstrong-numbers/armstrong_numbers.nomi:armstrong?	ran
 exercism/atbash-cipher/atbash_cipher.nomi:decode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:encode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:swap	ran
 exercism/atbash-cipher/atbash_cipher.nomi:translate	ran
-exercism/binary-search-tree/binary_search_tree.nomi:Tree.equal?	PROBE: a synthesized argument is not a value of the declared type
+exercism/baffling-birthdays/baffling_birthdays.nomi:birthdate	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:estimated_probability_of_shared_birthday	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:estimated_probability_of_shared_birthday default 2	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:first_of_january	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:random_birthdates	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:shared_birthday?	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:draw	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:draw	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1963-11-23` at 38:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1966-07-29` at 43:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1966-07-29` at 48:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1966-07-29` at 54:17 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1977-02-12` at 43:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1977-02-12` at 48:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1977-02-12` at 55:17 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1980-07-29` at 57:17 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1980-11-10` at 43:68 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1980-11-10` at 48:68 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1988-10-23` at 28:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1997-08-04` at 38:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1999-10-23` at 28:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 15:29 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 18:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2000-01-01` at 18:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2001-07-29` at 48:50 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2001-12-25` at 43:50 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2001-12-25` at 56:17 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2007-04-27` at 33:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2007-12-19` at 33:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2012-05-09` at 23:14 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2012-05-17` at 23:32 failure	ran
+exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`2019-02-12` at 58:17 failure	ran
+exercism/bank-account/bank_account.nomi:Account.balance	ran
+exercism/bank-account/bank_account.nomi:Account.close	ran
+exercism/bank-account/bank_account.nomi:Account.deposit	ran
+exercism/bank-account/bank_account.nomi:Account.inspect	ran
+exercism/bank-account/bank_account.nomi:Account.open	ran
+exercism/bank-account/bank_account.nomi:Account.withdraw	ran
+exercism/bank-account/bank_account.nomi:Error.equal?	ran
+exercism/bank-account/bank_account.nomi:Error.inspect	ran
+exercism/bank-account/bank_account.nomi:Error.to_string	ran
+exercism/bank-account/bank_account.nomi:Request.inspect	ran
+exercism/bank-account/bank_account.nomi:answer	ran
+exercism/bank-account/bank_account.nomi:ask	ran
+exercism/bank-account/bank_account.nomi:ask	ran
+exercism/bank-account/bank_account.nomi:deposited	ran
+exercism/bank-account/bank_account.nomi:handle	ran
+exercism/bank-account/bank_account.nomi:opened	ran
+exercism/bank-account/bank_account.nomi:serve	ran
+exercism/bank-account/bank_account.nomi:with_account	ran
+exercism/bank-account/bank_account.nomi:with_account	ran
+exercism/bank-account/bank_account.nomi:withdrawn	ran
+exercism/bank-account/bank_account_test.nomi:Step.inspect	ran
+exercism/bank-account/bank_account_test.nomi:replay	ran
+exercism/bank-account/bank_account_test.nomi:run	ran
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.equal?	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.from	ran
-exercism/binary-search-tree/binary_search_tree.nomi:Tree.insert	PROBE: a synthesized argument is not a value of the declared type
-exercism/binary-search-tree/binary_search_tree.nomi:Tree.inspect	PROBE: a synthesized argument is not a value of the declared type
-exercism/binary-search-tree/binary_search_tree.nomi:Tree.sorted	PROBE: a synthesized argument is not a value of the declared type
-exercism/binary-search/binary_search.nomi:find	PROBE: a synthesized argument is not a value of the declared type
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.insert	ran
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.inspect	ran
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.sorted	ran
+exercism/binary-search/binary_search.nomi:find	ran
 exercism/binary-search/binary_search.nomi:search	ran
 exercism/bob/bob.nomi:response	ran
 exercism/bob/bob.nomi:shouting?	ran
+exercism/book-store/book_store.nomi:group_price	ran
+exercism/book-store/book_store.nomi:group_sizes	ran
+exercism/book-store/book_store.nomi:groups_of	ran
+exercism/book-store/book_store.nomi:total	ran
+exercism/bottle-song/bottle_song.nomi:capitalize	ran
+exercism/bottle-song/bottle_song.nomi:green_bottles	ran
+exercism/bottle-song/bottle_song.nomi:recite	ran
+exercism/bottle-song/bottle_song.nomi:verse	ran
+exercism/bowling/bowling.nomi:Error.inspect	ran
+exercism/bowling/bowling.nomi:Game.inspect	ran
+exercism/bowling/bowling.nomi:Game.new	ran
+exercism/bowling/bowling.nomi:Game.roll	ran
+exercism/bowling/bowling.nomi:Game.score	ran
+exercism/bowling/bowling.nomi:bonus	ran
+exercism/bowling/bowling.nomi:last_frame_standing	ran
+exercism/bowling/bowling.nomi:pins_standing	ran
+exercism/bowling/bowling.nomi:total	ran
+exercism/bowling/bowling_test.nomi:play	ran
+exercism/camicia/camicia.nomi:Game.inspect	ran
+exercism/camicia/camicia.nomi:Hands.inspect	ran
+exercism/camicia/camicia.nomi:Side.inspect	ran
+exercism/camicia/camicia.nomi:Status.inspect	ran
+exercism/camicia/camicia.nomi:alike	ran
+exercism/camicia/camicia.nomi:hand	ran
+exercism/camicia/camicia.nomi:other	ran
+exercism/camicia/camicia.nomi:penalty	ran
+exercism/camicia/camicia.nomi:play	ran
+exercism/camicia/camicia.nomi:rounds	ran
+exercism/camicia/camicia.nomi:shape	ran
+exercism/camicia/camicia.nomi:simulate_game	ran
+exercism/camicia/camicia.nomi:with_hand	ran
+exercism/camicia/camicia_test.nomi:deck	ran
+exercism/change/change.nomi:Error.inspect	ran
+exercism/change/change.nomi:best	ran
+exercism/change/change.nomi:find_fewest_coins	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.clear	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.full?	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.inspect	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.new	ran
-exercism/circular-buffer/circular_buffer.nomi:Buffer.overwrite	PROBE: a synthesized argument is not a value of the declared type
+exercism/circular-buffer/circular_buffer.nomi:Buffer.overwrite	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.read	ran
-exercism/circular-buffer/circular_buffer.nomi:Buffer.write	PROBE: a synthesized struct lacks a field read through a container
+exercism/circular-buffer/circular_buffer.nomi:Buffer.write	ran
 exercism/circular-buffer/circular_buffer.nomi:Error.inspect	ran
 exercism/circular-buffer/circular_buffer_test.nomi:Step.equal?	ran
 exercism/circular-buffer/circular_buffer_test.nomi:Step.inspect	ran
@@ -2146,21 +2246,141 @@ exercism/clock/clock.nomi:two_digits	ran
 exercism/clock/clock.nomi:wrap	ran
 exercism/collatz-conjecture/collatz_conjecture.nomi:next	ran
 exercism/collatz-conjecture/collatz_conjecture.nomi:steps	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.abs	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.add	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.add	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.conjugate	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.divide	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.divide	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.equal?	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.equal_within?	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.exp	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.from_real	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.imaginary	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.inspect	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.multiply	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.multiply	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.new	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.real	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.subtract	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.subtract	ran
+exercism/complex-numbers/complex_numbers.nomi:Float.add	ran
+exercism/complex-numbers/complex_numbers.nomi:Float.divide	ran
+exercism/complex-numbers/complex_numbers.nomi:Float.multiply	ran
+exercism/complex-numbers/complex_numbers.nomi:Float.subtract	ran
+exercism/connect/connect.nomi:Player.equal?	ran
+exercism/connect/connect.nomi:Player.inspect	ran
+exercism/connect/connect.nomi:connects?	ran
+exercism/connect/connect.nomi:reaches?	ran
+exercism/connect/connect.nomi:stone	ran
+exercism/connect/connect.nomi:winner	ran
+exercism/crypto-square/crypto_square.nomi:ciphertext	ran
+exercism/crypto-square/crypto_square.nomi:normalize	ran
+exercism/crypto-square/crypto_square.nomi:width	ran
+exercism/custom-set/custom_set.nomi:CustomSet.add	ran
+exercism/custom-set/custom_set.nomi:CustomSet.contains?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.difference	ran
+exercism/custom-set/custom_set.nomi:CustomSet.disjoint?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.empty?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.equal?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.from	ran
+exercism/custom-set/custom_set.nomi:CustomSet.inspect	ran
+exercism/custom-set/custom_set.nomi:CustomSet.intersection	ran
+exercism/custom-set/custom_set.nomi:CustomSet.subset?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.union	ran
+exercism/custom-set/custom_set.nomi:insert	ran
 exercism/darts/darts.nomi:score	ran
-exercism/diamond/diamond.nomi:row	PROBE: a synthesized argument is not a value of the declared type
+exercism/diamond/diamond.nomi:row	ran
 exercism/diamond/diamond.nomi:rows	ran
 exercism/difference-of-squares/difference_of_squares.nomi:difference_of_squares	ran
 exercism/difference-of-squares/difference_of_squares.nomi:square_of_sum	ran
 exercism/difference-of-squares/difference_of_squares.nomi:sum_of_squares	ran
+exercism/dnd-character/dnd_character.nomi:Character.inspect	ran
+exercism/dnd-character/dnd_character.nomi:ability	ran
+exercism/dnd-character/dnd_character.nomi:character	ran
+exercism/dnd-character/dnd_character.nomi:modifier	ran
+exercism/dnd-character/dnd_character_test.nomi:draws	ran
+exercism/dnd-character/dnd_character_test.nomi:draws	ran
+exercism/dnd-character/dnd_character_test.nomi:in_range?	ran
+exercism/dnd-character/dnd_character_test.nomi:valid?	ran
+exercism/dominoes/dominoes.nomi:chain	ran
+exercism/dominoes/dominoes.nomi:extend	ran
+exercism/dominoes/dominoes.nomi:picks	ran
+exercism/dominoes/dominoes_test.nomi:chain_of?	ran
+exercism/dominoes/dominoes_test.nomi:same_stones?	ran
+exercism/dominoes/dominoes_test.nomi:unturned	ran
+exercism/dot-dsl/dot_dsl.nomi:Error.equal?	ran
+exercism/dot-dsl/dot_dsl.nomi:Error.inspect	ran
+exercism/dot-dsl/dot_dsl.nomi:Error.to_string	ran
+exercism/dot-dsl/dot_dsl.nomi:Graph.inspect	ran
+exercism/dot-dsl/dot_dsl.nomi:Statement.inspect	ran
+exercism/dot-dsl/dot_dsl.nomi:Value.equal?	ran
+exercism/dot-dsl/dot_dsl.nomi:Value.inspect	ran
+exercism/dot-dsl/dot_dsl.nomi:add	ran
+exercism/dot-dsl/dot_dsl.nomi:alphanumeric?	ran
+exercism/dot-dsl/dot_dsl.nomi:attributes_in	ran
+exercism/dot-dsl/dot_dsl.nomi:comment?	ran
+exercism/dot-dsl/dot_dsl.nomi:edge_names	ran
+exercism/dot-dsl/dot_dsl.nomi:parse	ran
+exercism/dot-dsl/dot_dsl.nomi:statement	ran
+exercism/dot-dsl/dot_dsl.nomi:value_of	ran
+exercism/dot-dsl/dot_dsl.nomi:with_attributes	ran
+exercism/dot-dsl/dot_dsl.nomi:with_attributes	ran
 exercism/eliuds-eggs/eliuds_eggs.nomi:egg_count	ran
+exercism/error-handling/error_handling.nomi:Error.equal?	ran
+exercism/error-handling/error_handling.nomi:Error.inspect	ran
+exercism/error-handling/error_handling.nomi:number	ran
+exercism/error-handling/error_handling.nomi:parse	ran
+exercism/error-handling/error_handling.nomi:parse_trusted	ran
+exercism/error-handling/error_handling.nomi:sum_lines	ran
+exercism/error-handling/error_handling.nomi:sum_trusted_lines	ran
+exercism/error-handling/error_handling.nomi:total	ran
+exercism/error-handling/error_handling_test.nomi:closed?	ran
 exercism/etl/etl.nomi:transform	ran
 exercism/flatten-array/flatten_array.nomi:Nested.inspect	ran
 exercism/flatten-array/flatten_array.nomi:flatten	ran
 exercism/flatten-array/flatten_array.nomi:values	ran
-exercism/game-of-life/game_of_life.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
-exercism/game-of-life/game_of_life.nomi:live_neighbours	PROBE: a synthesized argument is not a value of the declared type
+exercism/flower-field/flower_field.nomi:annotate	ran
+exercism/flower-field/flower_field.nomi:annotate_square	ran
+exercism/flower-field/flower_field.nomi:flowers_in_row	ran
+exercism/food-chain/food_chain.nomi:Animal.inspect	ran
+exercism/food-chain/food_chain.nomi:recite	ran
+exercism/food-chain/food_chain.nomi:verse	ran
+exercism/forth/forth.nomi:Error.inspect	ran
+exercism/forth/forth.nomi:Op.inspect	ran
+exercism/forth/forth.nomi:apply	ran
+exercism/forth/forth.nomi:evaluate	ran
+exercism/forth/forth.nomi:execute	ran
+exercism/forth/forth.nomi:resolve	ran
+exercism/forth/forth.nomi:run	ran
+exercism/game-of-life/game_of_life.nomi:cell_at	ran
+exercism/game-of-life/game_of_life.nomi:live_neighbours	ran
 exercism/game-of-life/game_of_life.nomi:next_state	ran
-exercism/game-of-life/game_of_life.nomi:tick	PROBE: a synthesized argument is not a value of the declared type
+exercism/game-of-life/game_of_life.nomi:tick	ran
+exercism/gigasecond/gigasecond.nomi:add	ran
+exercism/gigasecond/gigasecond_test.nomi:literal Date`1959-07-19` at 16:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal Date`1977-06-13` at 11:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal Date`2011-04-25` at 8:46 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`1991-03-27T01:46:40` at 17:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2009-02-19T01:46:40` at 12:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T22:00:00` at 30:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 35:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 46:14 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 49:22 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2043-01-01T01:46:40` at 8:64 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-02T23:46:40` at 31:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-03T01:46:39` at 36:13 failure	ran
+exercism/go-counting/go_counting.nomi:Owner.equal?	ran
+exercism/go-counting/go_counting.nomi:Owner.inspect	ran
+exercism/go-counting/go_counting.nomi:Territories.inspect	ran
+exercism/go-counting/go_counting.nomi:Territory.inspect	ran
+exercism/go-counting/go_counting.nomi:add	ran
+exercism/go-counting/go_counting.nomi:claimed?	ran
+exercism/go-counting/go_counting.nomi:fill	ran
+exercism/go-counting/go_counting.nomi:read	ran
+exercism/go-counting/go_counting.nomi:spread	ran
+exercism/go-counting/go_counting.nomi:territories	ran
+exercism/go-counting/go_counting.nomi:territory	ran
 exercism/grade-school/grade_school.nomi:Error.inspect	ran
 exercism/grade-school/grade_school.nomi:School.add	ran
 exercism/grade-school/grade_school.nomi:School.grade	ran
@@ -2171,13 +2391,35 @@ exercism/grade-school/grade_school_test.nomi:enroll	ran
 exercism/grains/grains.nomi:grains_on	ran
 exercism/grains/grains.nomi:square	ran
 exercism/grains/grains.nomi:total	ran
+exercism/grep/grep.nomi:Options.file_names default	ran
+exercism/grep/grep.nomi:Options.ignore_case default	ran
+exercism/grep/grep.nomi:Options.inspect	ran
+exercism/grep/grep.nomi:Options.invert default	ran
+exercism/grep/grep.nomi:Options.line_numbers default	ran
+exercism/grep/grep.nomi:Options.whole_line default	ran
+exercism/grep/grep.nomi:grep	ran
+exercism/grep/grep.nomi:matches?	ran
+exercism/grep/grep.nomi:search	ran
+exercism/grep/grep_test.nomi:grep_in_sandbox	ran
 exercism/hamming/hamming.nomi:distance	ran
+exercism/hello-world/hello_world.nomi:hello	ran
+exercism/high-scores/high_scores.nomi:latest	ran
+exercism/high-scores/high_scores.nomi:personal_best	ran
+exercism/high-scores/high_scores.nomi:personal_top_three	ran
+exercism/high-scores/high_scores.nomi:scores	ran
 exercism/house/house.nomi:recite	ran
 exercism/house/house.nomi:verse	ran
+exercism/intergalactic-transmission/intergalactic_transmission.nomi:bits	ran
+exercism/intergalactic-transmission/intergalactic_transmission.nomi:data_bits	ran
+exercism/intergalactic-transmission/intergalactic_transmission.nomi:from_bits	ran
+exercism/intergalactic-transmission/intergalactic_transmission.nomi:receive	ran
+exercism/intergalactic-transmission/intergalactic_transmission.nomi:transmit	ran
 exercism/isbn-verifier/isbn_verifier.nomi:checksum	ran
 exercism/isbn-verifier/isbn_verifier.nomi:valid?	ran
 exercism/isbn-verifier/isbn_verifier.nomi:value	ran
 exercism/isogram/isogram.nomi:isogram?	ran
+exercism/killer-sudoku-helper/killer_sudoku_helper.nomi:combinations	ran
+exercism/killer-sudoku-helper/killer_sudoku_helper.nomi:combinations default 3	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.inspect	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.parse	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.plants	ran
@@ -2187,14 +2429,81 @@ exercism/kindergarten-garden/kindergarten_garden.nomi:Student.inspect	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:Student.variants	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:parse_row	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:position	ran
+exercism/knapsack/knapsack.nomi:Item.inspect	ran
+exercism/knapsack/knapsack.nomi:consider	ran
+exercism/knapsack/knapsack.nomi:maximum_value	ran
 exercism/largest-series-product/largest_series_product.nomi:Error.inspect	ran
 exercism/largest-series-product/largest_series_product.nomi:largest_product	ran
 exercism/leap/leap.nomi:leap_year?	ran
-exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
-exercism/list-ops/list_ops.nomi:append	PROBE: a synthesized argument is not a value of the declared type
-exercism/list-ops/list_ops.nomi:concat	PROBE: a synthesized argument is not a value of the declared type
-exercism/list-ops/list_ops.nomi:concat	PROBE: a synthesized argument is not a value of the declared type
-exercism/list-ops/list_ops.nomi:filter	PROBE: a synthesized argument is not a value of the declared type
+exercism/ledger/ledger.nomi:Entry.inspect	ran
+exercism/ledger/ledger.nomi:Style.headings	ran
+exercism/ledger/ledger.nomi:Style.inspect	ran
+exercism/ledger/ledger.nomi:Style.locale	ran
+exercism/ledger/ledger.nomi:format_change	ran
+exercism/ledger/ledger.nomi:format_entries	ran
+exercism/ledger/ledger.nomi:format_entry	ran
+exercism/ledger/ledger.nomi:literal DateFields`yMMdd` at 57:51 failure	ran
+exercism/ledger/ledger.nomi:literal Locale`en-US` at 27:26 failure	ran
+exercism/ledger/ledger.nomi:literal Locale`nl-NL` at 28:23 failure	ran
+exercism/ledger/ledger.nomi:row	ran
+exercism/ledger/ledger.nomi:truncate	ran
+exercism/ledger/ledger_test.nomi:literal Currency`EUR` at 116:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`EUR` at 92:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 104:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 11:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 128:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 140:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 152:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 20:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 32:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 46:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 60:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Currency`USD` at 76:13 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 155:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 156:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 23:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 36:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 50:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 63:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 64:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 65:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 80:27 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-01` at 95:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-02` at 35:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-01-02` at 49:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 107:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 119:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 131:25 failure	ran
+exercism/ledger/ledger_test.nomi:literal Date`2015-03-12` at 143:25 failure	ran
+exercism/lens-person/lens_person.nomi:Address.inspect	ran
+exercism/lens-person/lens_person.nomi:Born.inspect	ran
+exercism/lens-person/lens_person.nomi:Name.inspect	ran
+exercism/lens-person/lens_person.nomi:Person.inspect	ran
+exercism/lens-person/lens_person.nomi:born_street	ran
+exercism/lens-person/lens_person.nomi:rename_streets	ran
+exercism/lens-person/lens_person.nomi:set_birth_month	ran
+exercism/lens-person/lens_person.nomi:set_current_street	ran
+exercism/lens-person/lens_person_test.nomi:literal Date`1970-03-02` at 15:13 failure	ran
+exercism/lens-person/lens_person_test.nomi:literal Date`1970-03-31` at 58:50 failure	ran
+exercism/lens-person/lens_person_test.nomi:literal Date`1970-09-02` at 39:30 failure	ran
+exercism/line-up/line_up.nomi:format	ran
+exercism/line-up/line_up.nomi:suffix	ran
+exercism/linked-list/linked_list.nomi:LinkedList.delete	ran
+exercism/linked-list/linked_list.nomi:LinkedList.each_while	ran
+exercism/linked-list/linked_list.nomi:LinkedList.inspect	ran
+exercism/linked-list/linked_list.nomi:LinkedList.new	ran
+exercism/linked-list/linked_list.nomi:LinkedList.pop	ran
+exercism/linked-list/linked_list.nomi:LinkedList.push	ran
+exercism/linked-list/linked_list.nomi:LinkedList.shift	ran
+exercism/linked-list/linked_list.nomi:LinkedList.unshift	ran
+exercism/linked-list/linked_list_test.nomi:Step.equal?	ran
+exercism/linked-list/linked_list_test.nomi:Step.inspect	ran
+exercism/linked-list/linked_list_test.nomi:replay	ran
+exercism/list-ops/list_ops.nomi:append	ran
+exercism/list-ops/list_ops.nomi:append	ran
+exercism/list-ops/list_ops.nomi:concat	ran
+exercism/list-ops/list_ops.nomi:concat	ran
+exercism/list-ops/list_ops.nomi:filter	ran
 exercism/list-ops/list_ops.nomi:foldl	ran
 exercism/list-ops/list_ops.nomi:foldl	ran
 exercism/list-ops/list_ops.nomi:foldl	ran
@@ -2210,7 +2519,7 @@ exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:foldr	ran
 exercism/list-ops/list_ops.nomi:length	ran
-exercism/list-ops/list_ops.nomi:map	PROBE: a synthesized argument is not a value of the declared type
+exercism/list-ops/list_ops.nomi:map	ran
 exercism/list-ops/list_ops.nomi:reverse	ran
 exercism/list-ops/list_ops.nomi:reverse	ran
 exercism/list-ops/list_ops.nomi:reverse	ran
@@ -2218,12 +2527,25 @@ exercism/list-ops/list_ops.nomi:reverse	ran
 exercism/luhn/luhn.nomi:checksum	ran
 exercism/luhn/luhn.nomi:double	ran
 exercism/luhn/luhn.nomi:valid?	ran
-exercism/matching-brackets/matching_brackets.nomi:balanced?	PROBE: a synthesized argument is not a value of the declared type
+exercism/markdown/markdown.nomi:Block.inspect	ran
+exercism/markdown/markdown.nomi:block	ran
+exercism/markdown/markdown.nomi:emphasize	ran
+exercism/markdown/markdown.nomi:item?	ran
+exercism/markdown/markdown.nomi:parse	ran
+exercism/markdown/markdown.nomi:render	ran
+exercism/markdown/markdown.nomi:render_run	ran
+exercism/matching-brackets/matching_brackets.nomi:balanced?	ran
 exercism/matching-brackets/matching_brackets.nomi:paired?	ran
+exercism/matrix/matrix.nomi:Error.inspect	ran
+exercism/matrix/matrix.nomi:Matrix.column	ran
+exercism/matrix/matrix.nomi:Matrix.inspect	ran
+exercism/matrix/matrix.nomi:Matrix.parse	ran
+exercism/matrix/matrix.nomi:Matrix.row	ran
+exercism/matrix/matrix.nomi:parse_row	ran
 exercism/meetup/meetup.nomi:Week.inspect	ran
 exercism/meetup/meetup.nomi:days_on	ran
 exercism/meetup/meetup.nomi:meetup	ran
-exercism/meetup/meetup.nomi:teenth	PROBE: a synthesized argument is not a value of the declared type
+exercism/meetup/meetup.nomi:teenth	ran
 exercism/meetup/meetup_test.nomi:literal Date`2012-02-29` at 693:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2012-12-07` at 717:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-01-05` at 262:13 failure	ran
@@ -2319,9 +2641,7 @@ exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 590:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 668:81 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2014-12-31` at 701:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2015-02-22` at 709:13 failure	ran
-exercism/minesweeper/minesweeper.nomi:annotate	ran
-exercism/minesweeper/minesweeper.nomi:annotate_square	PROBE: a synthesized argument is not a value of the declared type
-exercism/minesweeper/minesweeper.nomi:mines_in_row	ran
+exercism/micro-blog/micro_blog.nomi:truncate	ran
 exercism/nth-prime/nth_prime.nomi:prime	ran
 exercism/nth-prime/nth_prime.nomi:prime?	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal?	ran
@@ -2334,7 +2654,32 @@ exercism/ocr-numbers/ocr_numbers.nomi:Error.inspect	ran
 exercism/ocr-numbers/ocr_numbers.nomi:convert	ran
 exercism/ocr-numbers/ocr_numbers.nomi:glyphs	ran
 exercism/ocr-numbers/ocr_numbers.nomi:read_line	ran
+exercism/paasio/paasio.nomi:MeteredReader.inspect	ran
+exercism/paasio/paasio.nomi:MeteredReader.new	ran
+exercism/paasio/paasio.nomi:MeteredReader.read	ran
+exercism/paasio/paasio.nomi:MeteredReader.read default 2	ran
+exercism/paasio/paasio.nomi:MeteredWriter.inspect	ran
+exercism/paasio/paasio.nomi:MeteredWriter.new	ran
+exercism/paasio/paasio.nomi:MeteredWriter.write	ran
+exercism/paasio/paasio.nomi:Stats.add	ran
+exercism/paasio/paasio.nomi:Stats.inspect	ran
+exercism/paasio/paasio_test.nomi:read_to_end	ran
+exercism/palindrome-products/palindrome_products.nomi:Direction.inspect	ran
+exercism/palindrome-products/palindrome_products.nomi:Error.inspect	ran
+exercism/palindrome-products/palindrome_products.nomi:Product.inspect	ran
+exercism/palindrome-products/palindrome_products.nomi:digit_count	ran
+exercism/palindrome-products/palindrome_products.nomi:factors	ran
+exercism/palindrome-products/palindrome_products.nomi:first_product	ran
+exercism/palindrome-products/palindrome_products.nomi:halves	ran
+exercism/palindrome-products/palindrome_products.nomi:in_order	ran
+exercism/palindrome-products/palindrome_products.nomi:largest	ran
+exercism/palindrome-products/palindrome_products.nomi:mirror	ran
+exercism/palindrome-products/palindrome_products.nomi:search	ran
+exercism/palindrome-products/palindrome_products.nomi:smallest	ran
 exercism/pangram/pangram.nomi:pangram?	ran
+exercism/parallel-letter-frequency/parallel_letter_frequency.nomi:add_counts	ran
+exercism/parallel-letter-frequency/parallel_letter_frequency.nomi:frequency	ran
+exercism/parallel-letter-frequency/parallel_letter_frequency.nomi:letter_counts	ran
 exercism/pascals-triangle/pascals_triangle.nomi:next_row	ran
 exercism/pascals-triangle/pascals_triangle.nomi:rows	ran
 exercism/perfect-numbers/perfect_numbers.nomi:Classification.inspect	ran
@@ -2346,21 +2691,72 @@ exercism/phone-number/phone_number.nomi:Error.inspect	ran
 exercism/phone-number/phone_number.nomi:clean	ran
 exercism/phone-number/phone_number.nomi:national	ran
 exercism/phone-number/phone_number.nomi:separator?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.aspect_ratio default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.border default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.columns default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.format default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.inside default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.inspect	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.pieces default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Clues.rows default	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Error.equal?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Error.inspect	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Format.equal?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Format.inspect	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Jigsaw.inspect	ran
+exercism/piecing-it-together/piecing_it_together.nomi:agrees?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:agrees?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:column_rule	ran
+exercism/piecing-it-together/piecing_it_together.nomi:fits?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:jigsaw_data	ran
+exercism/piecing-it-together/piecing_it_together.nomi:nearest	ran
+exercism/piecing-it-together/piecing_it_together.nomi:puzzle	ran
+exercism/piecing-it-together/piecing_it_together.nomi:row_candidates	ran
+exercism/piecing-it-together/piecing_it_together.nomi:up_to	ran
 exercism/pig-latin/pig_latin.nomi:consonants	ran
 exercism/pig-latin/pig_latin.nomi:onset_length	ran
 exercism/pig-latin/pig_latin.nomi:translate	ran
 exercism/pig-latin/pig_latin.nomi:translate_word	ran
+exercism/poker/poker.nomi:Card.inspect	ran
+exercism/poker/poker.nomi:Category.compare	ran
+exercism/poker/poker.nomi:Category.inspect	ran
+exercism/poker/poker.nomi:Error.inspect	ran
+exercism/poker/poker.nomi:Score.compare	ran
+exercism/poker/poker.nomi:Score.inspect	ran
+exercism/poker/poker.nomi:best_hands	ran
+exercism/poker/poker.nomi:card	ran
+exercism/poker/poker.nomi:pip_rank	ran
+exercism/poker/poker.nomi:score	ran
+exercism/poker/poker.nomi:straight	ran
+exercism/pov/pov.nomi:Tree.children default	ran
+exercism/pov/pov.nomi:Tree.equal?	ran
+exercism/pov/pov.nomi:Tree.from_pov	ran
+exercism/pov/pov.nomi:Tree.inspect	ran
+exercism/pov/pov.nomi:Tree.path_to	ran
+exercism/pov/pov.nomi:labels_to	ran
+exercism/pov/pov.nomi:reroot	ran
+exercism/pov/pov_test.nomi:in_label_order	ran
 exercism/prime-factors/prime_factors.nomi:factors	ran
 exercism/prime-factors/prime_factors.nomi:factors_from	ran
+exercism/prism/prism.nomi:Laser.inspect	ran
+exercism/prism/prism.nomi:Prism.inspect	ran
+exercism/prism/prism.nomi:find_sequence	ran
+exercism/prism/prism.nomi:next_hit	ran
+exercism/prism/prism.nomi:trace	ran
 exercism/protein-translation/protein_translation.nomi:AminoAcid.inspect	ran
 exercism/protein-translation/protein_translation.nomi:Error.inspect	ran
 exercism/protein-translation/protein_translation.nomi:proteins	ran
 exercism/protein-translation/protein_translation.nomi:translate	ran
 exercism/proverb/proverb.nomi:recite	ran
+exercism/pythagorean-triplet/pythagorean_triplet.nomi:triplet	ran
+exercism/pythagorean-triplet/pythagorean_triplet.nomi:triplets_with_sum	ran
 exercism/queen-attack/queen_attack.nomi:Error.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
 exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.new	ran
+exercism/rail-fence-cipher/rail_fence_cipher.nomi:decode	ran
+exercism/rail-fence-cipher/rail_fence_cipher.nomi:encode	ran
+exercism/rail-fence-cipher/rail_fence_cipher.nomi:zigzag	ran
 exercism/raindrops/raindrops.nomi:convert	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.abs	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.add	ran
@@ -2375,9 +2771,46 @@ exercism/rational-numbers/rational_numbers.nomi:Rational.pow	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.raise	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.subtract	ran
 exercism/rational-numbers/rational_numbers_test.nomi:rational	ran
+exercism/react/react.nomi:Computed.inspect	ran
+exercism/react/react.nomi:Error.equal?	ran
+exercism/react/react.nomi:Error.inspect	ran
+exercism/react/react.nomi:Reactor.add_callback	ran
+exercism/react/react.nomi:Reactor.compute	ran
+exercism/react/react.nomi:Reactor.input	ran
+exercism/react/react.nomi:Reactor.inspect	ran
+exercism/react/react.nomi:Reactor.new	ran
+exercism/react/react.nomi:Reactor.remove_callback	ran
+exercism/react/react.nomi:Reactor.set_value	ran
+exercism/react/react.nomi:Reactor.value	ran
+exercism/react/react.nomi:value_of	ran
+exercism/react/react_test.nomi:Cell.inspect	ran
+exercism/react/react_test.nomi:Step.equal?	ran
+exercism/react/react_test.nomi:Step.inspect	ran
+exercism/react/react_test.nomi:build	ran
+exercism/react/react_test.nomi:replay	ran
+exercism/rectangles/rectangles.nomi:across?	ran
+exercism/rectangles/rectangles.nomi:count	ran
+exercism/rectangles/rectangles.nomi:down?	ran
+exercism/rectangles/rectangles.nomi:rectangle?	ran
+exercism/rectangles/rectangles.nomi:symbol_at	ran
+exercism/relative-distance/relative_distance.nomi:degree_of_separation	ran
+exercism/relative-distance/relative_distance.nomi:relatives	ran
+exercism/relative-distance/relative_distance.nomi:search	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:Color.inspect	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:digit	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:value	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Color.inspect	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.equal?	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.inspect	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.to_string	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.equal?	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.inspect	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.to_string	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:digit	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:in_largest_unit	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:label	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:make	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:tolerance_of	ran
 exercism/resistor-color-trio/resistor_color_trio.nomi:Color.inspect	ran
 exercism/resistor-color-trio/resistor_color_trio.nomi:Magnitude.inspect	ran
 exercism/resistor-color-trio/resistor_color_trio.nomi:Resistance.inspect	ran
@@ -2388,9 +2821,51 @@ exercism/resistor-color/resistor_color.nomi:Color.inspect	ran
 exercism/resistor-color/resistor_color.nomi:Color.variants	ran
 exercism/resistor-color/resistor_color.nomi:color_code	ran
 exercism/resistor-color/resistor_color.nomi:colors	ran
+exercism/rest-api/rest_api.nomi:Error.inspect	ran
+exercism/rest-api/rest_api.nomi:Iou.from_json	ran
+exercism/rest-api/rest_api.nomi:Iou.inspect	ran
+exercism/rest-api/rest_api.nomi:NewUser.from_json	ran
+exercism/rest-api/rest_api.nomi:NewUser.inspect	ran
+exercism/rest-api/rest_api.nomi:RestApi.get	ran
+exercism/rest-api/rest_api.nomi:RestApi.get default 3	ran
+exercism/rest-api/rest_api.nomi:RestApi.inspect	ran
+exercism/rest-api/rest_api.nomi:RestApi.new	ran
+exercism/rest-api/rest_api.nomi:RestApi.post	ran
+exercism/rest-api/rest_api.nomi:User.equal?	ran
+exercism/rest-api/rest_api.nomi:User.from_json	ran
+exercism/rest-api/rest_api.nomi:User.inspect	ran
+exercism/rest-api/rest_api.nomi:User.to_json	ran
+exercism/rest-api/rest_api.nomi:UserNames.from_json	ran
+exercism/rest-api/rest_api.nomi:UserNames.inspect	ran
+exercism/rest-api/rest_api.nomi:Users.equal?	ran
+exercism/rest-api/rest_api.nomi:Users.from_json	ran
+exercism/rest-api/rest_api.nomi:Users.inspect	ran
+exercism/rest-api/rest_api.nomi:Users.to_json	ran
+exercism/rest-api/rest_api.nomi:find	ran
+exercism/rest-api/rest_api.nomi:net_owed	ran
+exercism/rest-api/rest_api.nomi:read	ran
+exercism/rest-api/rest_api.nomi:read	ran
+exercism/rest-api/rest_api.nomi:read	ran
+exercism/rest-api/rest_api.nomi:read	ran
+exercism/rest-api/rest_api.nomi:with_net	ran
+exercism/rest-api/rest_api.nomi:write	ran
+exercism/rest-api/rest_api.nomi:write	ran
+exercism/rest-api/rest_api_test.nomi:decoded	ran
+exercism/rest-api/rest_api_test.nomi:decoded	ran
+exercism/rest-api/rest_api_test.nomi:users	ran
 exercism/reverse-string/reverse_string.nomi:reverse	ran
 exercism/rna-transcription/rna_transcription.nomi:complement	ran
 exercism/rna-transcription/rna_transcription.nomi:to_rna	ran
+exercism/robot-name/robot_name.nomi:Error.inspect	ran
+exercism/robot-name/robot_name.nomi:Factory.build	ran
+exercism/robot-name/robot_name.nomi:Factory.inspect	ran
+exercism/robot-name/robot_name.nomi:Factory.new	ran
+exercism/robot-name/robot_name.nomi:Factory.reset	ran
+exercism/robot-name/robot_name.nomi:Robot.inspect	ran
+exercism/robot-name/robot_name.nomi:Robot.name	ran
+exercism/robot-name/robot_name.nomi:names	ran
+exercism/robot-name/robot_name_test.nomi:names	ran
+exercism/robot-name/robot_name_test.nomi:well_formed?	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.inspect	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.left	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.right	ran
@@ -2402,14 +2877,33 @@ exercism/robot-simulator/robot_simulator.nomi:advance	ran
 exercism/robot-simulator/robot_simulator.nomi:step	ran
 exercism/roman-numerals/roman_numerals.nomi:roman	ran
 exercism/rotational-cipher/rotational_cipher.nomi:rotate	ran
-exercism/rotational-cipher/rotational_cipher.nomi:shifted	PROBE: a synthesized argument is not a value of the declared type
+exercism/rotational-cipher/rotational_cipher.nomi:shifted	ran
 exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:decode_run	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
 exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
-exercism/saddle-points/saddle_points.nomi:column_minima	PROBE: a synthesized argument is not a value of the declared type
-exercism/saddle-points/saddle_points.nomi:saddle_points	PROBE: a synthesized argument is not a value of the declared type
+exercism/saddle-points/saddle_points.nomi:column_minima	ran
+exercism/saddle-points/saddle_points.nomi:saddle_points	ran
+exercism/satellite/satellite.nomi:Error.inspect	ran
+exercism/satellite/satellite.nomi:Tree.equal?	ran
+exercism/satellite/satellite.nomi:Tree.inspect	ran
+exercism/satellite/satellite.nomi:build	ran
+exercism/satellite/satellite.nomi:tree_from_traversals	ran
+exercism/satellite/satellite_test.nomi:leaf	ran
+exercism/save-the-cow/save_the_cow.nomi:Error.inspect	ran
+exercism/save-the-cow/save_the_cow.nomi:Error.to_string	ran
+exercism/save-the-cow/save_the_cow.nomi:Game.guess	ran
+exercism/save-the-cow/save_the_cow.nomi:Game.inspect	ran
+exercism/save-the-cow/save_the_cow.nomi:Game.masked_word	ran
+exercism/save-the-cow/save_the_cow.nomi:Game.new	ran
+exercism/save-the-cow/save_the_cow.nomi:Game.remaining_failures	ran
+exercism/save-the-cow/save_the_cow.nomi:Game.state	ran
+exercism/save-the-cow/save_the_cow.nomi:State.equal?	ran
+exercism/save-the-cow/save_the_cow.nomi:State.inspect	ran
+exercism/save-the-cow/save_the_cow.nomi:hidden?	ran
+exercism/save-the-cow/save_the_cow.nomi:reveal	ran
+exercism/save-the-cow/save_the_cow_test.nomi:play	ran
 exercism/say/say.nomi:Error.inspect	ran
 exercism/say/say.nomi:below_hundred	ran
 exercism/say/say.nomi:say	ran
@@ -2423,24 +2917,133 @@ exercism/secret-handshake/secret_handshake.nomi:commands	ran
 exercism/secret-handshake/secret_handshake.nomi:set?	ran
 exercism/series/series.nomi:Error.inspect	ran
 exercism/series/series.nomi:slices	ran
+exercism/sgf-parsing/sgf_parsing.nomi:Error.inspect	ran
+exercism/sgf-parsing/sgf_parsing.nomi:Tree.inspect	ran
+exercism/sgf-parsing/sgf_parsing.nomi:node	ran
+exercism/sgf-parsing/sgf_parsing.nomi:parse	ran
+exercism/sgf-parsing/sgf_parsing.nomi:plain	ran
+exercism/sgf-parsing/sgf_parsing.nomi:read_properties	ran
+exercism/sgf-parsing/sgf_parsing.nomi:read_text	ran
+exercism/sgf-parsing/sgf_parsing.nomi:read_values	ran
+exercism/sgf-parsing/sgf_parsing.nomi:variations	ran
 exercism/sieve/sieve.nomi:primes	ran
+exercism/simple-cipher/simple_cipher.nomi:Cipher.decode	ran
+exercism/simple-cipher/simple_cipher.nomi:Cipher.encode	ran
+exercism/simple-cipher/simple_cipher.nomi:Cipher.inspect	ran
+exercism/simple-cipher/simple_cipher.nomi:Cipher.key	ran
+exercism/simple-cipher/simple_cipher.nomi:Cipher.new	ran
+exercism/simple-cipher/simple_cipher.nomi:Cipher.random	ran
+exercism/simple-cipher/simple_cipher.nomi:number	ran
+exercism/simple-cipher/simple_cipher.nomi:shift	ran
+exercism/simple-linked-list/simple_linked_list.nomi:Error.inspect	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.each_while	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.from	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.inspect	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.peek	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.pop	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.push	ran
+exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.reverse	ran
+exercism/simple-linked-list/simple_linked_list_test.nomi:Step.equal?	ran
+exercism/simple-linked-list/simple_linked_list_test.nomi:Step.inspect	ran
+exercism/simple-linked-list/simple_linked_list_test.nomi:replay	ran
 exercism/space-age/space_age.nomi:Planet.inspect	ran
 exercism/space-age/space_age.nomi:Planet.orbital_period	ran
 exercism/space-age/space_age.nomi:Planet.parse	ran
 exercism/space-age/space_age.nomi:Planet.to_string	ran
 exercism/space-age/space_age.nomi:Planet.variants	ran
 exercism/space-age/space_age.nomi:age	ran
-exercism/spiral-matrix/spiral_matrix.nomi:cell_at	PROBE: a synthesized argument is not a value of the declared type
-exercism/spiral-matrix/spiral_matrix.nomi:empty?	PROBE: a synthesized argument is not a value of the declared type
-exercism/spiral-matrix/spiral_matrix.nomi:fill	PROBE: a synthesized argument is not a value of the declared type
-exercism/spiral-matrix/spiral_matrix.nomi:set_cell	PROBE: a synthesized argument is not a value of the declared type
+exercism/spiral-matrix/spiral_matrix.nomi:cell_at	ran
+exercism/spiral-matrix/spiral_matrix.nomi:empty?	ran
+exercism/spiral-matrix/spiral_matrix.nomi:fill	ran
+exercism/spiral-matrix/spiral_matrix.nomi:set_cell	ran
 exercism/spiral-matrix/spiral_matrix.nomi:spiral_matrix	ran
 exercism/spiral-matrix/spiral_matrix.nomi:step	ran
 exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Error.inspect	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Error.to_string	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.equal?	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.inspect	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.advance	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.current_lap	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.inspect	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.lap	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.new	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.previous_laps	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.reset	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.start	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.state	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.stop	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.total	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.equal?	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.inspect	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:command	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:duration	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:replay	ran
+exercism/square-root/square_root.nomi:newton	ran
+exercism/square-root/square_root.nomi:square_root	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:Error.inspect	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:Error.to_string	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:State.inspect	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:gamestate	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:marks	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:won?	ran
+exercism/strain/strain.nomi:discard	ran
+exercism/strain/strain.nomi:discard	ran
+exercism/strain/strain.nomi:discard	ran
+exercism/strain/strain.nomi:keep	ran
+exercism/strain/strain.nomi:keep	ran
+exercism/strain/strain.nomi:keep	ran
 exercism/sublist/sublist.nomi:Relation.inspect	ran
 exercism/sublist/sublist.nomi:contains_run?	ran
 exercism/sublist/sublist.nomi:sublist	ran
 exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran
+exercism/swift-scheduling/swift_scheduling.nomi:Description.inspect	ran
+exercism/swift-scheduling/swift_scheduling.nomi:Error.inspect	ran
+exercism/swift-scheduling/swift_scheduling.nomi:at	ran
+exercism/swift-scheduling/swift_scheduling.nomi:delivery_date	ran
+exercism/swift-scheduling/swift_scheduling.nomi:end_of_week	ran
+exercism/swift-scheduling/swift_scheduling.nomi:first_workday	ran
+exercism/swift-scheduling/swift_scheduling.nomi:last_workday_of_quarter	ran
+exercism/swift-scheduling/swift_scheduling.nomi:next_on	ran
+exercism/swift-scheduling/swift_scheduling.nomi:numbered	ran
+exercism/swift-scheduling/swift_scheduling.nomi:parse	ran
+exercism/swift-scheduling/swift_scheduling.nomi:quarter_of	ran
+exercism/swift-scheduling/swift_scheduling.nomi:workday?	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1997-04-29T10:50:00` at 40:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1997-05-02T17:00:00` at 42:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1999-06-03T09:45:00` at 16:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1999-06-03T17:00:00` at 18:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2001-04-09T09:00:00` at 94:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2001-12-31T08:00:00` at 96:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2003-01-01T10:45:00` at 88:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2003-03-31T08:00:00` at 90:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2005-09-14T11:00:00` at 46:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2005-09-16T17:00:00` at 48:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2007-01-02T14:15:00` at 70:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2007-02-01T08:00:00` at 72:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-02-25T10:30:00` at 64:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-02-29T17:00:00` at 66:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-12-21T13:00:00` at 22:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-12-21T14:50:00` at 28:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-12-22T13:00:00` at 24:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-12-22T13:00:00` at 30:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2011-05-19T08:30:00` at 52:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2011-05-22T20:00:00` at 54:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T09:00:00` at 10:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T09:00:00` at 118:21 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T11:00:00` at 12:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2013-11-21T15:30:00` at 76:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2014-11-03T08:00:00` at 78:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2019-06-15T09:50:00` at 106:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2019-06-28T08:00:00` at 108:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2019-11-18T15:15:00` at 82:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2020-04-01T08:00:00` at 84:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2022-08-05T14:00:00` at 58:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2022-08-07T20:00:00` at 60:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2022-10-06T11:00:00` at 100:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2023-09-29T08:00:00` at 102:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2025-02-03T16:00:00` at 34:13 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2025-02-07T17:00:00` at 36:13 failure	ran
 exercism/tournament/tournament.nomi:Error.inspect	ran
 exercism/tournament/tournament.nomi:Outcome.inspect	ran
 exercism/tournament/tournament.nomi:Outcome.parse	ran
@@ -2448,13 +3051,22 @@ exercism/tournament/tournament.nomi:Outcome.reverse	ran
 exercism/tournament/tournament.nomi:Standing.inspect	ran
 exercism/tournament/tournament.nomi:Standing.played	ran
 exercism/tournament/tournament.nomi:Standing.points	ran
-exercism/tournament/tournament.nomi:count	PROBE: a synthesized argument is not a value of the declared type
-exercism/tournament/tournament.nomi:line	PROBE: a synthesized argument is not a value of the declared type
+exercism/tournament/tournament.nomi:count	ran
+exercism/tournament/tournament.nomi:line	ran
 exercism/tournament/tournament.nomi:parse_row	ran
-exercism/tournament/tournament.nomi:standing	PROBE: a synthesized argument is not a value of the declared type
+exercism/tournament/tournament.nomi:standing	ran
 exercism/tournament/tournament.nomi:tally	ran
 exercism/transpose/transpose.nomi:padded	ran
 exercism/transpose/transpose.nomi:transpose	ran
+exercism/tree-building/tree_building.nomi:Error.inspect	ran
+exercism/tree-building/tree_building.nomi:Error.to_string	ran
+exercism/tree-building/tree_building.nomi:Node.children default	ran
+exercism/tree-building/tree_building.nomi:Node.equal?	ran
+exercism/tree-building/tree_building.nomi:Node.inspect	ran
+exercism/tree-building/tree_building.nomi:Record.inspect	ran
+exercism/tree-building/tree_building.nomi:build_tree	ran
+exercism/tree-building/tree_building.nomi:node	ran
+exercism/tree-building/tree_building_test.nomi:leaf	ran
 exercism/triangle/triangle.nomi:Kind.inspect	ran
 exercism/triangle/triangle.nomi:equilateral?	ran
 exercism/triangle/triangle.nomi:isosceles?	ran
@@ -2471,7 +3083,16 @@ exercism/two-bucket/two_bucket.nomi:measure	ran
 exercism/two-bucket/two_bucket.nomi:search	ran
 exercism/two-fer/two_fer.nomi:two_fer	ran
 exercism/two-fer/two_fer.nomi:two_fer default 1	ran
+exercism/variable-length-quantity/variable_length_quantity.nomi:decode	ran
+exercism/variable-length-quantity/variable_length_quantity.nomi:encode	ran
+exercism/variable-length-quantity/variable_length_quantity.nomi:encode_one	ran
 exercism/word-count/word_count.nomi:count_words	ran
+exercism/word-search/word_search.nomi:Position.inspect	ran
+exercism/word-search/word_search.nomi:Span.inspect	ran
+exercism/word-search/word_search.nomi:find	ran
+exercism/word-search/word_search.nomi:letter_at	ran
+exercism/word-search/word_search.nomi:reads?	ran
+exercism/word-search/word_search.nomi:search	ran
 exercism/wordy/wordy.nomi:Error.inspect	ran
 exercism/wordy/wordy.nomi:Operation.inspect	ran
 exercism/wordy/wordy.nomi:answer	ran
@@ -2487,6 +3108,38 @@ exercism/yacht/yacht.nomi:group_sizes	ran
 exercism/yacht/yacht.nomi:score	ran
 exercism/yacht/yacht.nomi:straight	ran
 exercism/yacht/yacht.nomi:yacht	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.equal?	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.inspect	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:Solution.inspect	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:add_drinks	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:add_hobbies	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:add_nations	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:add_pets	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:drinks_water	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:next_to?	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:owns_zebra	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:resident	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:solve	ran
+exercism/zipper/zipper.nomi:Crumb.equal?	ran
+exercism/zipper/zipper.nomi:Crumb.inspect	ran
+exercism/zipper/zipper.nomi:Tree.equal?	ran
+exercism/zipper/zipper.nomi:Tree.inspect	ran
+exercism/zipper/zipper.nomi:Zipper.equal?	ran
+exercism/zipper/zipper.nomi:Zipper.from_tree	ran
+exercism/zipper/zipper.nomi:Zipper.inspect	ran
+exercism/zipper/zipper.nomi:Zipper.left	ran
+exercism/zipper/zipper.nomi:Zipper.right	ran
+exercism/zipper/zipper.nomi:Zipper.set_left	ran
+exercism/zipper/zipper.nomi:Zipper.set_right	ran
+exercism/zipper/zipper.nomi:Zipper.set_value	ran
+exercism/zipper/zipper.nomi:Zipper.to_tree	ran
+exercism/zipper/zipper.nomi:Zipper.up	ran
+exercism/zipper/zipper.nomi:Zipper.value	ran
+exercism/zipper/zipper_test.nomi:Operation.inspect	ran
+exercism/zipper/zipper_test.nomi:apply	ran
+exercism/zipper/zipper_test.nomi:follow	ran
+exercism/zipper/zipper_test.nomi:initial_tree	ran
+exercism/zipper/zipper_test.nomi:leaf	ran
 std/fs.nomi:Access.equal?	ran
 std/fs.nomi:Access.inspect	ran
 std/fs.nomi:Chunks.each_while	ran
@@ -2541,7 +3194,7 @@ std/fs.nomi:temp_dir	ran
 std/fs.nomi:walk	ran
 std/fs.nomi:walk_dir	ran
 std/fs.nomi:walk_entries	ran
-std/fs.nomi:walk_matches	PROBE: a synthesized argument is not a value of the declared type
+std/fs.nomi:walk_matches	ran
 std/fs.nomi:wild?	ran
 std/fs.nomi:with_file	ran
 std/fs.nomi:with_file default 2	ran
@@ -2572,6 +3225,7 @@ std/fs_testing.nomi:Failure.inspect	ran
 std/fs_testing.nomi:Failure.nth default	ran
 std/fs_testing.nomi:Operation.equal?	ran
 std/fs_testing.nomi:Operation.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
@@ -2655,18 +3309,19 @@ std/fs_testing.nomi:rule_within	ran
 std/fs_testing.nomi:rule_within_escape	ran
 std/fs_testing.nomi:rule_within_missing	ran
 std/fs_testing.nomi:rules	ran
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
-std/fs_testing.nomi:run	PROBE: a synthesized argument is not a value of the declared type
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
@@ -2677,10 +3332,10 @@ std/message.nomi:Catalog.inspect	ran
 std/message.nomi:Catalog.load	ran
 std/message.nomi:Catalog.locale	ran
 std/message.nomi:Message.equal?	ran
-std/message.nomi:Message.format	PROBE: a synthesized argument is not a value of the declared type
+std/message.nomi:Message.format	ran
 std/message.nomi:Message.format default 3	ran
 std/message.nomi:Message.inspect	ran
-std/message.nomi:Message.localize	PROBE: a synthesized argument is not a value of the declared type
+std/message.nomi:Message.localize	ran
 std/message.nomi:Noun.equal?	ran
 std/message.nomi:Noun.inspect	ran
 std/message.nomi:Noun.localize	ran
@@ -2713,33 +3368,33 @@ std/money.nomi:CurrencyDisplay.inspect	ran
 std/money.nomi:Error.equal?	ran
 std/money.nomi:Error.inspect	ran
 std/money.nomi:Error.to_string	ran
-std/money.nomi:Money.abs	PROBE: a synthesized argument is not a value of the declared type
-std/money.nomi:Money.add	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.abs	ran
+std/money.nomi:Money.add	ran
 std/money.nomi:Money.empty?	ran
 std/money.nomi:Money.empty_sum	ran
 std/money.nomi:Money.equal?	ran
-std/money.nomi:Money.format	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.format	ran
 std/money.nomi:Money.format default 3	ran
 std/money.nomi:Money.from_fragments	ran
 std/money.nomi:Money.hash	ran
 std/money.nomi:Money.inspect	ran
-std/money.nomi:Money.localize	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.localize	ran
 std/money.nomi:Money.max	ran
 std/money.nomi:Money.min	ran
-std/money.nomi:Money.multiply	PROBE: a synthesized argument is not a value of the declared type
-std/money.nomi:Money.multiply_by	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.multiply	ran
+std/money.nomi:Money.multiply_by	ran
 std/money.nomi:Money.multiply_by default 3	ran
-std/money.nomi:Money.negate	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.negate	ran
 std/money.nomi:Money.parse_in	ran
 std/money.nomi:Money.parse_in default 4	ran
-std/money.nomi:Money.round	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.round	ran
 std/money.nomi:Money.round default 2	ran
 std/money.nomi:Money.sign	ran
-std/money.nomi:Money.subtract	PROBE: a synthesized argument is not a value of the declared type
+std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
 std/money.nomi:Money.zero?	ran
-std/money.nomi:literal Currency`XXX` at 293:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 353:53 failure	ran
+std/money.nomi:literal Currency`XXX` at 290:27 failure	ran
+std/money.nomi:literal Currency`XXX` at 350:53 failure	ran
 std/path.nomi:absolute?	ran
 std/path.nomi:base	ran
 std/path.nomi:clean	ran
@@ -2751,14 +3406,14 @@ std/path.nomi:in_set	ran
 std/path.nomi:join	ran
 std/path.nomi:join_all	ran
 std/path.nomi:match?	ran
-std/path.nomi:match_name	PROBE: a synthesized argument is not a value of the declared type
-std/path.nomi:match_names	PROBE: a synthesized argument is not a value of the declared type
+std/path.nomi:match_name	ran
+std/path.nomi:match_names	ran
 std/path.nomi:names_reversed	ran
 std/path.nomi:parent	ran
 std/path.nomi:relative	ran
 std/path.nomi:set_items	ran
 std/path.nomi:stem	ran
-std/path.nomi:step	PROBE: a synthesized argument is not a value of the declared type
+std/path.nomi:step	ran
 std/process.nomi:Exit.code default	ran
 std/process.nomi:Exit.inspect	ran
 std/process.nomi:Exit.message default	ran
@@ -2813,10 +3468,10 @@ std/sql.nomi:Row.get	ran
 std/sql.nomi:Row.get	ran
 std/sql.nomi:Row.get	ran
 std/sql.nomi:Row.get	ran
-std/sql.nomi:Row.get_position	PROBE: a synthesized struct lacks a field read through a container
-std/sql.nomi:Row.get_position	PROBE: a synthesized struct lacks a field read through a container
-std/sql.nomi:Row.get_position	PROBE: a synthesized struct lacks a field read through a container
-std/sql.nomi:Row.get_position	PROBE: a synthesized struct lacks a field read through a container
+std/sql.nomi:Row.get_position	ran
+std/sql.nomi:Row.get_position	ran
+std/sql.nomi:Row.get_position	ran
+std/sql.nomi:Row.get_position	ran
 std/sql.nomi:Row.inspect	ran
 std/sql.nomi:Row.new	ran
 std/sql.nomi:Row.query	ran
@@ -2843,69 +3498,69 @@ std/sql.nomi:Value.from_sql	ran
 std/sql.nomi:Value.inspect	ran
 std/sql.nomi:Value.kind	ran
 std/sql.nomi:Value.to_sql	ran
-std/sql.nomi:close_quietly	PROBE: a synthesized argument is not a value of the declared type
+std/sql.nomi:close_quietly	ran
 std/sql.nomi:decode_error	ran
-std/sql.nomi:place	PROBE: a synthesized argument is not a value of the declared type
-std/sql.nomi:settle	PROBE: a synthesized argument is not a value of the declared type
-std/sql.nomi:transaction	PROBE: a synthesized argument is not a value of the declared type
-std/sql.nomi:transaction	PROBE: a synthesized argument is not a value of the declared type
-std/sql.nomi:transaction	PROBE: a synthesized argument is not a value of the declared type
-std/sql.nomi:transaction	PROBE: a synthesized argument is not a value of the declared type
-std/sql.nomi:transaction	PROBE: a synthesized argument is not a value of the declared type
+std/sql.nomi:place	ran
+std/sql.nomi:settle	ran
+std/sql.nomi:transaction	ran
+std/sql.nomi:transaction	ran
+std/sql.nomi:transaction	ran
+std/sql.nomi:transaction	ran
+std/sql.nomi:transaction	ran
 std/sql.nomi:where_joined	ran
-std/sql.nomi:with_connection	LINKING: a declaration this module did not retain
-std/sql.nomi:with_connection	LINKING: a declaration this module did not retain
-std/sql.nomi:with_connection	LINKING: a declaration this module did not retain
+std/sql.nomi:with_connection	ran
+std/sql.nomi:with_connection	ran
+std/sql.nomi:with_connection	ran
 std/sql_testing.nomi:Failure.equal?	ran
 std/sql_testing.nomi:Failure.inspect	ran
 std/sql_testing.nomi:Failure.to_string	ran
-std/sql_testing.nomi:Fake.begin	PROBE: a synthesized struct lacks a field read through a container
-std/sql_testing.nomi:Fake.close	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:Fake.closed?	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:Fake.commit	PROBE: a synthesized struct lacks a field read through a container
-std/sql_testing.nomi:Fake.committed	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:Fake.begin	ran
+std/sql_testing.nomi:Fake.close	ran
+std/sql_testing.nomi:Fake.closed?	ran
+std/sql_testing.nomi:Fake.commit	ran
+std/sql_testing.nomi:Fake.committed	ran
 std/sql_testing.nomi:Fake.dialect	ran
-std/sql_testing.nomi:Fake.each_row	PROBE: a synthesized struct lacks a field read through a container
-std/sql_testing.nomi:Fake.exec	PROBE: a synthesized struct lacks a field read through a container
+std/sql_testing.nomi:Fake.each_row	ran
+std/sql_testing.nomi:Fake.exec	ran
 std/sql_testing.nomi:Fake.inspect	ran
-std/sql_testing.nomi:Fake.log	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:Fake.log	ran
 std/sql_testing.nomi:Fake.new	ran
 std/sql_testing.nomi:Fake.new default 1	ran
 std/sql_testing.nomi:Fake.new default 2	ran
-std/sql_testing.nomi:Fake.ping	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:Fake.query	PROBE: a synthesized struct lacks a field read through a container
-std/sql_testing.nomi:Fake.rollback	PROBE: a synthesized struct lacks a field read through a container
-std/sql_testing.nomi:Fake.statements	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:Fake.ping	ran
+std/sql_testing.nomi:Fake.query	ran
+std/sql_testing.nomi:Fake.rollback	ran
+std/sql_testing.nomi:Fake.statements	ran
 std/sql_testing.nomi:Level.inspect	ran
 std/sql_testing.nomi:State.inspect	ran
-std/sql_testing.nomi:add	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:add	ran
 std/sql_testing.nomi:answer_nothing	ran
-std/sql_testing.nomi:begin	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:check_with	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:check_with	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:check_with	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:begin	ran
+std/sql_testing.nomi:check_with	ran
+std/sql_testing.nomi:check_with	ran
+std/sql_testing.nomi:check_with	ran
 std/sql_testing.nomi:checks	ran
 std/sql_testing.nomi:child_violation	ran
 std/sql_testing.nomi:children_table	ran
-std/sql_testing.nomi:close	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:commit	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:conformance	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:conformance	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:conformance	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:close	ran
+std/sql_testing.nomi:commit	ran
+std/sql_testing.nomi:conformance	ran
+std/sql_testing.nomi:conformance	ran
+std/sql_testing.nomi:conformance	ran
 std/sql_testing.nomi:conformance_answer	ran
 std/sql_testing.nomi:create_table	ran
 std/sql_testing.nomi:depth	ran
-std/sql_testing.nomi:expect_all_closed	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:expect_all_closed	ran
 std/sql_testing.nomi:expect_closed	ran
 std/sql_testing.nomi:expect_closed	ran
 std/sql_testing.nomi:expect_closed	ran
 std/sql_testing.nomi:expect_closed	ran
-std/sql_testing.nomi:expect_constraint	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:expect_constraint	ran
 std/sql_testing.nomi:expect_finished	ran
 std/sql_testing.nomi:expect_finished	ran
-std/sql_testing.nomi:expect_ns	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:expect_read	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:insert	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:expect_ns	ran
+std/sql_testing.nomi:expect_read	ran
+std/sql_testing.nomi:insert	ran
 std/sql_testing.nomi:insert_at	ran
 std/sql_testing.nomi:insert_child	ran
 std/sql_testing.nomi:insert_now	ran
@@ -2913,17 +3568,17 @@ std/sql_testing.nomi:insert_parent	ran
 std/sql_testing.nomi:insert_then	ran
 std/sql_testing.nomi:instant_param	ran
 std/sql_testing.nomi:int_param	ran
-std/sql_testing.nomi:ns	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:ns	ran
 std/sql_testing.nomi:parent_violation	ran
 std/sql_testing.nomi:parents_table	ran
-std/sql_testing.nomi:peek	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:peek	ran
 std/sql_testing.nomi:put	ran
 std/sql_testing.nomi:read_all	ran
-std/sql_testing.nomi:read_ns	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:release	PROBE: a synthesized argument is not a value of the declared type
-std/sql_testing.nomi:rollback	PROBE: a synthesized argument is not a value of the declared type
+std/sql_testing.nomi:read_ns	ran
+std/sql_testing.nomi:release	ran
+std/sql_testing.nomi:rollback	ran
 std/sql_testing.nomi:rules	ran
-std/sql_testing.nomi:run	PROBE: a synthesized struct lacks a field read through a container
+std/sql_testing.nomi:run	ran
 std/sql_testing.nomi:savepoint	ran
 std/sql_testing.nomi:shaped?	ran
 std/sql_testing.nomi:step	ran

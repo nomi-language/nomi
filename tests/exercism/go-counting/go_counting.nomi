@@ -1,0 +1,131 @@
+//# Territory on a Go board: the empty intersections a player's stones
+//# enclose. A board is rows of `B` (black), `W` (white) and ` ` (empty),
+//# and a point is `#(x, y)`, its column and row.
+
+/// A point on the board, `#(x, y)`.
+pub typealias Point #(Int, Int)
+
+/// Who a territory belongs to.
+pub enum Owner {
+    Black
+    White
+    Neither
+}
+
+derive Equatable for Owner
+
+/// An area of connected empty points and who owns it: the player whose
+/// stones alone border it, or neither.
+pub struct Territory {
+    owner: Owner
+    points: Set<Point>
+}
+
+/// Every empty point of a board, by who owns the territory it lies in.
+pub struct Territories {
+    black: Set<Point>
+    white: Set<Point>
+    neither: Set<Point>
+}
+
+once directions = [#(0, -1), #(-1, 0), #(1, 0), #(0, 1)]
+
+/// The territory holding the point `#(x, y)`. A point with a stone on it
+/// lies in no territory, and answers an empty one owned by neither.
+pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, String> {
+    points = read(board)
+
+    case Map.get(points, #(x, y)) {
+        None -> Err("Invalid coordinate")
+        Some(" ") -> Ok(fill(points, #(x, y)))
+        Some(_) -> Ok(#{owner: .Neither, points: %[]})
+    }
+}
+
+/// Every territory of the board, gathered by owner.
+pub fn territories(board: List<String>) -> Territories {
+    points = read(board)
+    empty: Territories = #{black: %[], white: %[], neither: %[]}
+
+    points
+    |> Iter.filter(fn #(_point, stone) -> stone == " ")
+    |> Iter.reduce(fn found = empty, #(point, _stone) -> {
+        if claimed?(found, point) {
+            found
+        } else {
+            add(found, fill(points, point))
+        }
+    })
+}
+
+/// Each point of `board` with what stands on it.
+fn read(board: List<String>) -> Map<Point, String> {
+    board
+    |> Iter.with_index()
+    |> Iter.flat_map(fn #(y, row) -> {
+        row |> Iter.with_index() |> Iter.map(fn #(x, stone) -> #(#(x, y), stone))
+    })
+    |> Iter.to_map()
+}
+
+/// The territory of the empty point `start`: every empty point connected
+/// to it, owned by the one colour of stone they touch, if there is one.
+fn fill(points: Map<Point, String>, start: Point) -> Territory {
+    #(area, borders) = spread(points, [start], %[start], %[])
+
+    owner = case Iter.to_list(borders) {
+        ["B"] -> Owner.Black
+        ["W"] -> Owner.White
+        _ -> Owner.Neither
+    }
+
+    #{owner, points: area}
+}
+
+/// Grows `area` from the points of `frontier` through empty neighbours,
+/// collecting the stones it touches in `borders`.
+fn spread(
+    points: Map<Point, String>,
+    frontier: List<Point>,
+    area: Set<Point>,
+    borders: Set<String>,
+) -> #(Set<Point>, Set<String>) {
+    case frontier {
+        [] ->
+            #(area, borders)
+
+        [#(x, y), ..rest] -> {
+            around =
+                directions
+                |> Iter.map(fn #(dx, dy) -> #(x + dx, y + dy))
+                |> Iter.filter(&Map.contains?(points, &1))
+                |> Iter.to_list()
+
+            #(empty, stones) = Iter.partition(around, fn point -> {
+                Map.get(points, point) == Some(" ")
+            })
+
+            new = empty |> Iter.filter(fn point -> !Set.contains?(area, point)) |> Iter.to_list()
+            touched = stones |> Iter.map(&Map.get(points, &1)) |> Maybe.values() |> Iter.to_set()
+
+            spread(
+                points,
+                List.concat(new, rest),
+                Set.union(area, Iter.to_set(new)),
+                Set.union(borders, touched),
+            )
+        }
+    }
+}
+
+fn claimed?(found: Territories, point: Point) -> Bool {
+    [found.black, found.white, found.neither] |> Iter.any?(&Set.contains?(&1, point))
+}
+
+fn add(found: Territories, territory: Territory) -> Territories {
+    case territory.owner {
+        .Black -> #{..found, black: Set.union(found.black, territory.points)}
+        .White -> #{..found, white: Set.union(found.white, territory.points)}
+        .Neither -> #{..found, neither: Set.union(found.neither, territory.points)}
+    }
+}

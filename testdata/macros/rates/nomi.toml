@@ -1,6 +1,0 @@
-[module]
-name = "rates"
-entry_points = ["main"]
-
-[csvdata]
-dir = "data"

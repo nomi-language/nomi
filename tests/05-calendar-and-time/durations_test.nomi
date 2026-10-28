@@ -24,9 +24,8 @@ test "durations expose total units" {
 }
 
 test "durations support arithmetic" {
-    assert Duration.add(Duration.seconds(1), Duration.milliseconds(500)) == Duration.milliseconds(
-        1500
-    )
+    assert Duration.add(Duration.seconds(1), Duration.milliseconds(500))
+        == Duration.milliseconds(1500)
 
     assert Duration.seconds(1) + Duration.milliseconds(500) == Duration.milliseconds(1500)
 

@@ -84,9 +84,8 @@ derive Equatable for LoadError
 
 impl Display for LoadError {
     /// What failed, naming the locale.
-    //! assert Display.to_string(
-    //!     #LoadError.Unreachable{locale: Locale`pl`, reason: "HTTP 404"}
-    //! ) == "the locale file of pl could not be fetched: HTTP 404"
+    //! assert Display.to_string(#LoadError.Unreachable{locale: Locale`pl`, reason: "HTTP 404"})
+    //!     == "the locale file of pl could not be fetched: HTTP 404"
     //
     fn to_string(e: LoadError) -> String {
         case e {
@@ -105,9 +104,8 @@ impl Display for Error {
     //!     #Error.Underscore{suggestion: "pt-BR"}
     //! ) == "a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)"
     //!
-    //! assert Display.to_string(
-    //!     #Error.UnknownSubtag{subtag: "xx"}
-    //! ) == "`xx` is not a known language, script or region subtag"
+    //! assert Display.to_string(#Error.UnknownSubtag{subtag: "xx"})
+    //!     == "`xx` is not a known language, script or region subtag"
     //
     fn to_string(e: Error) -> String {
         case e {

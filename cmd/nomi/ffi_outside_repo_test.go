@@ -45,7 +45,8 @@ func TestFFI_AProjectOutsideTheRepositoryRuns(t *testing.T) {
 			env := buildEnv(t.TempDir())
 			entry := filepath.Join(root, "main.nomi")
 			const want = "example.com/search tags=[go, nomi]\n" +
-				"sha256(nomi) = 0f937e60148316557dbe0dce3e862e77d4d8157bfea24ae4b4c1fa367297c2d9\n"
+				"sha256(nomi) = 0f937e60148316557dbe0dce3e862e77d4d8157bfea24ae4b4c1fa367297c2d9\n" +
+				"std/hash agrees: True\n"
 
 			run := runProcess(t, env, root, "", nomiBin, "run", entry)
 			if run.exit != 0 || run.stdout != want {

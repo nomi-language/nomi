@@ -17,9 +17,6 @@ func TestParseManifestData_MoneyCustomCurrencies(t *testing.T) {
 	if want := []string{"PTS:0", "BTC:8"}; !reflect.DeepEqual(m.CustomCurrencies, want) {
 		t.Errorf("CustomCurrencies = %q, want %q", m.CustomCurrencies, want)
 	}
-	if _, listed := m.Tables["money"]; listed {
-		t.Error("[money] is kept as a macro's table; it is Nomi's own")
-	}
 	for _, body := range []string{"", "custom_currencies = []\n"} {
 		m, err := ParseManifestData([]byte(head+body), "nomi.toml")
 		if err != nil || len(m.CustomCurrencies) != 0 {

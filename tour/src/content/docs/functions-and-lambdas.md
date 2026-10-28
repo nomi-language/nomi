@@ -96,8 +96,9 @@ A capture writes a small function in place: `&`, then the function's body.
 1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, and `&#Point{x: &1, y: 0}` is
 `fn x -> #Point{x: x, y: 0}`.
 
-The body after `&` is a call, a parenthesized expression or a literal, so
-an operator goes in parentheses. A call that takes the `&1`, `&2`, ... as
+The body after `&` is a call, a parenthesized expression or a literal, or
+one of those negated (`&!Iter.empty?(&1)`), so any other operator goes in
+parentheses. A call that takes the `&1`, `&2`, ... as
 its own arguments, in order, is a partial application: `&Int.max(&1, 2)`
 is `fn x -> Int.max(x, 2)`, and its parameters are the callee's, with
 their names and defaults, so `inc = &Int.max(&1, 0)` needs no annotation.

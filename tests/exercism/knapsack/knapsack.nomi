@@ -1,0 +1,32 @@
+/// Something that could go in the knapsack.
+pub struct Item {
+    weight: Int
+    value: Int
+}
+
+/// The greatest total value of `items`, each taken at most once, whose
+/// weights add up to no more than `maximum_weight`.
+pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
+    nothing =
+        Iter.repeat(0)
+        |> Iter.take(maximum_weight + 1)
+        |> Iter.to_vector()
+
+    best = Iter.reduce(items, consider, from: nothing)
+    Vector.at(best, maximum_weight)
+}
+
+/// The best value for each capacity from 0 to the maximum once `item` may be
+/// taken, given `best`, the best value for each capacity without it.
+fn consider(best: Vector<Int>, item: Item) -> Vector<Int> {
+    best
+    |> Iter.with_index()
+    |> Iter.map(fn #(capacity, without) -> {
+        if capacity < item.weight {
+            without
+        } else {
+            Int.max(without, Vector.at(best, capacity - item.weight) + item.value)
+        }
+    })
+    |> Iter.to_vector()
+}

@@ -20,9 +20,8 @@ test "a failed load names the locale whose file failed" {
         reason: "it was written by another build of the program",
     }
 
-    assert Display.to_string(
-        stale
-    ) == "the locale file of pt cannot be read: it was written by another build of the program"
+    assert Display.to_string(stale)
+        == "the locale file of pt cannot be read: it was written by another build of the program"
 
     offline = #LoadError.Unreachable{locale: Locale`pl`, reason: "HTTP 404"}
     assert Display.to_string(offline) == "the locale file of pl could not be fetched: HTTP 404"

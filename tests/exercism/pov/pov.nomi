@@ -1,0 +1,57 @@
+/// A tree of labelled nodes. The labels are unique within a tree.
+pub struct Tree {
+    label: String
+    children: List<Tree> = []
+}
+
+derive Equatable for Tree
+
+impl Tree {
+    /// `tree` seen from the node labelled `from`: that node is the root, and
+    /// each node on the way from it to the old root is a child of the node
+    /// below it, keeping its other children. `None` when no node has the
+    /// label.
+    pub fn from_pov(tree: Tree, from: String) -> Maybe<Tree> {
+        reroot(tree, from, [])
+    }
+
+    /// The labels on the way from the node labelled `from` to the node
+    /// labelled `to`, both included. `None` when either label is missing.
+    pub fn path_to(tree: Tree, from: String, to: String) -> Maybe<List<String>> {
+        tree
+        |> Tree.from_pov(from)
+        |> Maybe.flat_map(&labels_to(&1, to))
+    }
+}
+
+/// `tree`, whose old parent is `above` re-hung as a tree (none at the old
+/// root), rerooted at the node labelled `label`.
+fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
+    if tree.label == label {
+        return Some(#{..tree, children: List.concat(tree.children, above)})
+    }
+
+    tree.children
+    |> Iter.map(fn child -> {
+        siblings =
+            tree.children
+            |> Iter.filter(&(&1.label != child.label))
+            |> Iter.to_list()
+
+        reroot(child, label, [#{..tree, children: List.concat(siblings, above)}])
+    })
+    |> Maybe.values()
+    |> List.head()
+}
+
+/// The labels from the root of `tree` down to the node labelled `label`,
+/// both included, or `None` when no node has the label.
+fn labels_to(tree: Tree, label: String) -> Maybe<List<String>> {
+    if tree.label == label { return Some([label]) }
+
+    tree.children
+    |> Iter.map(&labels_to(&1, label))
+    |> Maybe.values()
+    |> List.head()
+    |> Maybe.map(fn below -> [tree.label, ..below])
+}

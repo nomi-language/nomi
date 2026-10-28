@@ -67,9 +67,8 @@ test "Iter.sum over each kind of value" {
     assert Iter.sum([0.1, 0.2, 0.3]) == Iter.reduce([0.1, 0.2, 0.3], fn total = 0.0, x -> total + x)
     assert Iter.sum([1.5d, 2.25d]) == 3.75d
 
-    assert Iter.sum([Duration.seconds(1), Duration.milliseconds(250)]) == Duration.milliseconds(
-        1250
-    )
+    assert Iter.sum([Duration.seconds(1), Duration.milliseconds(250)])
+        == Duration.milliseconds(1250)
 
     assert Iter.sum(["a", "b", "c"]) == "abc"
     assert Iter.sum([[1], [], [2, 3]]) == [1, 2, 3]

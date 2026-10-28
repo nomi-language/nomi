@@ -35,10 +35,10 @@ func irConcHandleKind(k kind) bool {
 // A channel is a handle, so the layout never recurses through it, but the
 // admission check does: the element's own fields are checked in turn, and
 // `enum Request { Get {reply: Channel<Request>} }` would recurse forever. So
-// the element is Unit, a leaf, or a named declaration that reaches no channel
-// field of its own whose element is anything but Unit or a leaf. The
-// element's check then ends at those leaf channels. Composite elements stay
-// outside.
+// the element is Unit, a leaf, or a named declaration whose channels end:
+// each of its channel fields holds Unit, a leaf or another such declaration,
+// and none leads back (irReachesNominalChannel). The element's check then
+// ends where those channels do. Composite elements stay outside.
 func irChannelFieldKind(k kind) bool {
 	elem, owner, isChannel := channelElem(k)
 	if !isChannel || owner == "" {
@@ -54,20 +54,38 @@ func irChannelFieldKind(k kind) bool {
 }
 
 // irReachesNominalChannel reports whether d, through its unboxed fields,
-// variant payloads and embedded types, holds a channel whose element is not
-// Unit or a leaf. It answers true past a small depth, which only declines.
+// variant payloads, embedded types and a distinct's inner value, holds a
+// channel whose element is
+// neither Unit, a leaf, nor a declaration that holds only such channels in
+// turn: a channel of d itself, of a composite, or a chain of channels that
+// comes back round. It answers true past a small depth, which only declines.
 func irReachesNominalChannel(d *typeDef, depth int) bool {
 	if depth > 8 {
 		return true
 	}
 	visit := func(k kind) bool {
 		if elem, _, isChannel := channelElem(k); isChannel {
-			return elem != kindUnit && !irRetainedLeafKind(elem)
+			if elem == kindUnit || irRetainedLeafKind(elem) {
+				return false
+			}
+			// A channel of a declaration is admitted when that
+			// declaration's own channels end, as its check will ask in
+			// turn: `reply: Channel<Result<Int, String>>` inside the
+			// element of `inbox: Channel<Request>`. One that leads back
+			// to d is a cycle the check would follow forever.
+			if elem.tag != tagNamed || elem.def == nil || elem.def == d {
+				return true
+			}
+			return irReachesNominalChannel(elem.def, depth+1)
 		}
 		if k.tag == tagNamed && k.def != nil && k.def != d {
 			return irReachesNominalChannel(k.def, depth+1)
 		}
 		return false
+	}
+	if d.isDistinct && visit(d.inner) {
+		// `type Inbox Sender<Request>`: the handle it wraps.
+		return true
 	}
 	for i := range d.fields {
 		if visit(d.fields[i].k) {

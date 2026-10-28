@@ -121,6 +121,21 @@ bracket, which keeps it broken and filled even when it fits. The derive and
 impl conformance lists pack their entries with the same function
 (`packGreedy`).
 
+## Formatter: comparison and boolean operators
+
+A comparison (`==`, `!=`, `<`, `<=`, `>`, `>=`), `and` or `or` may start a
+continuation line, so `emitBinary` writes one as a group whose break is a
+line break before the operator, the right operand one indent in. The
+renderer breaks the outermost group first, so a long comparison breaks
+before its operator before it breaks inside a call on either side. A chain
+of the same `and` or `or` (`a and b and c`, left-nested) is one group
+(`emitBinaryParts`), so a chain that breaks puts each operator on its own
+line. The operator stays on the line, with no group, when either operand
+already spans lines (a lambda's block: `}) == 3`), when the left operand
+is a pipeline (its last stage is what the operator follows), or when the
+right operand is a bracketed literal, which breaks inside its brackets
+(`== [`).
+
 ## Formatter: compound depth
 
 A list, vector, set, map or struct literal, or a list, vector, map or struct

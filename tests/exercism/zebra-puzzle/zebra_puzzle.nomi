@@ -1,0 +1,147 @@
+//# The zebra puzzle, solved by search. Each of the five attributes is an
+//# order: the house, 0 to 4 from the left, of each of its five values. The
+//# search adds one attribute at a time, keeping only the orders that fit the
+//# statements about the attributes added so far.
+
+/// Where a resident comes from.
+pub enum Nationality {
+    Englishman
+    Spaniard
+    Ukrainian
+    Norwegian
+    Japanese
+}
+
+derive Equatable for Nationality
+
+/// The puzzle's two answers.
+pub struct Solution {
+    drinks_water: Nationality
+    owns_zebra: Nationality
+}
+
+/// The houses of the five values of one attribute, in the order the
+/// attribute lists them.
+typealias Order #(Int, Int, Int, Int, Int)
+
+/// Every way to put five values in five houses.
+once orders: List<Order> =
+    0..=4
+    |> Iter.permutations()
+    |> Iter.map(fn houses -> {
+        [a, b, c, d, e] = houses else {
+            unreachable "a permutation of five houses has five"
+        }
+        #(a, b, c, d, e)
+    })
+    |> Iter.to_list()
+
+/// The resident who drinks water.
+pub fn drinks_water() -> Nationality {
+    solve().drinks_water
+}
+
+/// The resident who owns the zebra.
+pub fn owns_zebra() -> Nationality {
+    solve().owns_zebra
+}
+
+/// The one street the fifteen statements allow. The statement numbers are
+/// the puzzle's; 1 is the five houses themselves, and 6 is the only one
+/// about colors alone.
+fn solve() -> Solution {
+    solutions =
+        orders
+        |> Iter.filter(fn #(_red, green, ivory, _yellow, _blue) -> green == ivory + 1)
+        |> Iter.flat_map(add_nations)
+        |> Iter.flat_map(add_drinks)
+        |> Iter.flat_map(add_hobbies)
+        |> Iter.flat_map(add_pets)
+        |> Iter.to_list()
+
+    [solution] = solutions else {
+        unreachable "the puzzle has exactly one solution"
+    }
+
+    solution
+}
+
+/// Each way to add the nationalities to `colors` that fits statements 2,
+/// 10 and 15.
+fn add_nations(colors: Order) -> List<#(Order, Order)> {
+    #(red, _green, _ivory, _yellow, blue) = colors
+
+    orders
+    |> Iter.filter(fn #(english, _spaniard, _ukrainian, norwegian, _japanese) -> {
+        english == red and norwegian == 0 and next_to?(norwegian, blue)
+    })
+    |> Iter.map(&#(colors, &1))
+    |> Iter.to_list()
+}
+
+/// Each way to add the drinks that fits statements 4, 5 and 9.
+fn add_drinks(#(colors, nations): #(Order, Order)) -> List<#(Order, Order, Order)> {
+    #(_red, green, _ivory, _yellow, _blue) = colors
+    #(_english, _spaniard, ukrainian, _norwegian, _japanese) = nations
+
+    orders
+    |> Iter.filter(fn #(coffee, tea, milk, _orange_juice, _water) -> {
+        coffee == green and tea == ukrainian and milk == 2
+    })
+    |> Iter.map(&#(colors, nations, &1))
+    |> Iter.to_list()
+}
+
+/// Each way to add the hobbies that fits statements 8, 13 and 14.
+fn add_hobbies(
+    #(colors, nations, drinks): #(Order, Order, Order),
+) -> List<#(Order, Order, Order, Order)> {
+    #(_red, _green, _ivory, yellow, _blue) = colors
+    #(_english, _spaniard, _ukrainian, _norwegian, japanese) = nations
+    #(_coffee, _tea, _milk, orange_juice, _water) = drinks
+
+    orders
+    |> Iter.filter(fn #(_dancing, painting, _reading, football, chess) -> {
+        painting == yellow and football == orange_juice and chess == japanese
+    })
+    |> Iter.map(&#(colors, nations, drinks, &1))
+    |> Iter.to_list()
+}
+
+/// The answers for each way to add the pets that fits statements 3, 7, 11
+/// and 12.
+fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order)) -> List<Solution> {
+    #(_english, spaniard, _ukrainian, _norwegian, _japanese) = nations
+    #(_coffee, _tea, _milk, _orange_juice, water) = drinks
+    #(dancing, painting, reading, _football, _chess) = hobbies
+
+    orders
+    |> Iter.filter(fn #(dog, snail, fox, horse, _zebra) -> {
+        dog == spaniard
+            and snail == dancing
+            and next_to?(reading, fox)
+            and next_to?(painting, horse)
+    })
+    |> Iter.map(fn #(_dog, _snail, _fox, _horse, zebra) -> {
+        #Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
+    })
+    |> Iter.to_list()
+}
+
+/// The nationality of whoever lives in `house`.
+fn resident(nations: Order, house: Int) -> Nationality {
+    #(english, spaniard, ukrainian, norwegian, japanese) = nations
+
+    case house {
+        _ when house == english -> .Englishman
+        _ when house == spaniard -> .Spaniard
+        _ when house == ukrainian -> .Ukrainian
+        _ when house == norwegian -> .Norwegian
+        _ when house == japanese -> .Japanese
+        _ -> unreachable "the five nationalities live in the five houses"
+    }
+}
+
+fn next_to?(one: Int, other: Int) -> Bool {
+    Int.abs(one - other) == 1
+}

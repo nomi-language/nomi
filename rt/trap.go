@@ -85,11 +85,19 @@ func noCaseMatchText(line int) string {
 }
 
 // IndexOutOfRangeText is the trap a positional access whose caller promised
-// the position exists (`Vector.at`, `Vector.set`, `Bytes.at`) raises when it
-// does not: `index 7 is out of range for a Vector of length 5`. A negative
-// index is out of range the same way. owner is the type the index is into.
+// the position exists (`Vector.at`, `Vector.set`, `Bytes.at`, `List.remove_at`)
+// raises when it does not: `index 7 is out of range for a Vector of length
+// 5`. A negative index is out of range the same way. owner is the type the
+// index is into.
 func IndexOutOfRangeText(owner string, index, length int64) string {
 	return fmt.Sprintf("index %d is out of range for a %s of length %d", index, owner, length)
+}
+
+// KeyMissingText is the trap a lookup whose caller promised the key is
+// present (`Map.at`) raises when it is not: `key "z" is not in the Map`.
+// key is the key as a debugger shows it (Inspect), so a String is quoted.
+func KeyMissingText(owner, key string) string {
+	return fmt.Sprintf("key %s is not in the %s", key, owner)
 }
 
 // TodoError is the failure a `todo` reports when a program reaches it: the

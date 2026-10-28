@@ -184,10 +184,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfListSpreadLit(n, fn)
 		}
-	case *MacroDecl:
-		if n != nil {
-			childrenOfMacroDecl(n, fn)
-		}
 	case *MapLit:
 		if n != nil {
 			childrenOfMapLit(n, fn)
@@ -447,8 +443,6 @@ func absent(n Node) bool {
 	case *ListPattern:
 		return n == nil
 	case *ListSpreadLit:
-		return n == nil
-	case *MacroDecl:
 		return n == nil
 	case *MapLit:
 		return n == nil
@@ -1160,12 +1154,6 @@ func childrenOfListSpreadLit(x *ListSpreadLit, fn func(Node)) {
 	}
 }
 
-func childrenOfMacroDecl(x *MacroDecl, fn func(Node)) {
-	if !absent(x.Impl) {
-		fn(x.Impl)
-	}
-}
-
 func childrenOfMapEntry(x *MapEntry, fn func(Node)) {
 	if !absent(x.Key) {
 		fn(x.Key)
@@ -1736,7 +1724,6 @@ var generatedTypes = []any{
 	(*ListLit)(nil),
 	(*ListPattern)(nil),
 	(*ListSpreadLit)(nil),
-	(*MacroDecl)(nil),
 	(*MapLit)(nil),
 	(*MapPattern)(nil),
 	(*NamedArg)(nil),

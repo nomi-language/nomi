@@ -1,0 +1,73 @@
+/// A list that is read and written at both ends: `push` and `pop` at the
+/// back, `unshift` and `shift` at the front. It is a value, so every
+/// operation answers a list.
+///
+/// The values are two lists, the front ones in order and the back ones
+/// newest first, so each end is the head of one of them. An end that runs
+/// out takes the other list's values, reversed.
+pub opaque struct LinkedList<T> {
+    front: List<T>
+    back: List<T>
+}
+
+impl LinkedList<T> {
+    /// A list with no values.
+    pub fn new() -> LinkedList<T> {
+        #LinkedList{front: [], back: []}
+    }
+
+    /// `list` with `value` after its last value.
+    pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
+        #{..list, back: [value, ..list.back]}
+    }
+
+    /// `list` with `value` before its first value.
+    pub fn unshift(list: LinkedList<T>, value: T) -> LinkedList<T> {
+        #{..list, front: [value, ..list.front]}
+    }
+
+    /// The last value of `list` and the list without it, or `None` when it is
+    /// empty.
+    pub fn pop(list: LinkedList<T>) -> Maybe<#(T, LinkedList<T>)> {
+        case list.back {
+            [last, ..back] ->
+                Some(#(last, #{..list, back}))
+
+            [] -> {
+                case Iter.reverse(list.front) {
+                    [last, ..back] -> Some(#(last, #LinkedList{front: [], back}))
+                    [] -> None
+                }
+            }
+        }
+    }
+
+    /// The first value of `list` and the list without it, or `None` when it
+    /// is empty.
+    pub fn shift(list: LinkedList<T>) -> Maybe<#(T, LinkedList<T>)> {
+        case list.front {
+            [first, ..front] ->
+                Some(#(first, #{..list, front}))
+
+            [] -> {
+                case Iter.reverse(list.back) {
+                    [first, ..front] -> Some(#(first, #LinkedList{front, back: []}))
+                    [] -> None
+                }
+            }
+        }
+    }
+
+    /// `list` without the first value equal to `value`; the same values when
+    /// there is none.
+    pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable {
+        #LinkedList{front: list |> Iter.to_list() |> List.remove(value), back: []}
+    }
+}
+
+impl Iter<T> for LinkedList<T> {
+    /// Walks the list from its first value to its last.
+    fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
+        Iter.each_while(list.front, yield) and Iter.each_while(Iter.reverse(list.back), yield)
+    }
+}

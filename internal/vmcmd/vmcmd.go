@@ -183,7 +183,9 @@ func (t *Tester) File(file string, opts vmhost.TestOptions) int {
 		}
 		return passed + failed + blocked
 	}
-	p, err := vmhost.Load(file, t.loadOptions()...)
+	// A relative path a test's std/fs call takes is under its module root
+	// (vmhost.TestDir), wherever `nomi test` runs.
+	p, err := vmhost.Load(file, append(t.loadOptions(), vmhost.WithFileSystem(vmhost.DiskFilesAt(vmhost.TestDir(file))))...)
 	if err != nil {
 		t.Rep.FailFile(file, err)
 		return 0

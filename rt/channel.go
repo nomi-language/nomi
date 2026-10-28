@@ -90,6 +90,10 @@ type Receiver[T any] struct {
 	c *Chan[T]
 }
 
+// ChannelTypeName is the run-time type name of a `Channel<T>` record, the
+// engine's descriptor for std's struct. DebugText renders a record of it.
+const ChannelTypeName = "channels.Channel"
+
 // Channel is Nomi's `std/channels.Channel<T>`: the pair, as std declares it.
 //
 // Both fields are exported because another package (internal/vm) reads

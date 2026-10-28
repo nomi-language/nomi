@@ -1,0 +1,4 @@
+/// The greeting every program starts with.
+pub fn hello() -> String {
+    "Hello, World!"
+}

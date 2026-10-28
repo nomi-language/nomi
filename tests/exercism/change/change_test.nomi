@@ -1,0 +1,43 @@
+import change.{self, Error}
+
+test "find fewest coins" {
+    cases: List<#(String, List<Int>, Int, Result<List<Int>, Error>)> = [
+        #("change for 1 cent", [1, 5, 10, 25], 1, Ok([1])),
+        #("single coin change", [1, 5, 10, 25, 100], 25, Ok([25])),
+        #("multiple coin change", [1, 5, 10, 25, 100], 15, Ok([5, 10])),
+        #("change with Lilliputian Coins", [1, 4, 15, 20, 50], 23, Ok([4, 4, 15])),
+        #("change with Lower Elbonia Coins", [1, 5, 10, 21, 25], 63, Ok([21, 21, 21])),
+        #(
+            "large target values",
+            [1, 2, 5, 10, 20, 50, 100],
+            999,
+            Ok([2, 2, 5, 20, 20, 50, 100, 100, 100, 100, 100, 100, 100, 100, 100]),
+        ),
+        #(
+            "possible change without unit coins available",
+            [2, 5, 10, 20, 50],
+            21,
+            Ok([2, 2, 2, 5, 10]),
+        ),
+        #(
+            "another possible change without unit coins available",
+            [4, 5],
+            27,
+            Ok([4, 4, 4, 5, 5, 5]),
+        ),
+        #("a greedy approach is not optimal", [1, 10, 11], 20, Ok([10, 10])),
+        #("no coins make 0 change", [1, 5, 10, 21, 25], 0, Ok([])),
+        #(
+            "error testing for change smaller than the smallest of coins",
+            [5, 10],
+            3,
+            Err(.CannotMakeTarget),
+        ),
+        #("error if no combination can add up to target", [5, 10], 94, Err(.CannotMakeTarget)),
+        #("cannot find negative change values", [1, 2, 5], -5, Err(.NegativeTarget)),
+    ]
+
+    subtests cases, #(description, coins, target, expected), description {
+        assert change.find_fewest_coins(coins, target) == expected
+    }
+}

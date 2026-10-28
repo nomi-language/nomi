@@ -162,3 +162,28 @@ func TestSortedCellsPreserveStabilityAndFrame(t *testing.T) {
 		t.Fatal("empty sort allocated a cell")
 	}
 }
+
+func TestListCellRemoveAtSharesTheRestAndTraps(t *testing.T) {
+	type node ListCell[int, node]
+	rest := ConsCell[int, node](3, nil)
+	xs := ConsCell[int, node](1, ConsCell[int, node](2, rest))
+	got := ListCellRemoveAt[int, node](xs, 1)
+	if got.Head != 1 || got.Tail != rest || got.Len != 2 || xs.Len != 3 {
+		t.Fatal("remove_at must copy the cells before the index and share the ones after it")
+	}
+	if ListCellRemoveAt[int, node](xs, 0) != xs.Tail {
+		t.Fatal("removing the head must answer the tail itself")
+	}
+	for _, index := range []int64{-1, 3} {
+		func() {
+			defer func() {
+				fault, ok := recover().(*Error)
+				want := IndexOutOfRangeText("List", index, 3)
+				if !ok || fault.Msg != want {
+					t.Errorf("remove_at %d: trap %v, want %q", index, fault, want)
+				}
+			}()
+			ListCellRemoveAt[int, node](xs, index)
+		}()
+	}
+}

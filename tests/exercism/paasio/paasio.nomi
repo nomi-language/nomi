@@ -1,0 +1,65 @@
+import std/io.{self, Reader, Writer}
+
+/// What a stream has carried: how many bytes, in how many operations.
+pub struct Stats {
+    bytes: Int = 0
+    operations: Int = 0
+}
+
+impl Stats {
+    /// `stats` after one more operation that carried `bytes` bytes.
+    fn add(stats: Stats, bytes: Int) -> Stats {
+        #Stats{bytes: stats.bytes + bytes, operations: stats.operations + 1}
+    }
+}
+
+/// A reader that counts what is read through it. The reader underneath is a
+/// stream that moves on as it is read; the counts are a value, so each read
+/// answers the meter after it.
+pub struct MeteredReader {
+    reader: Reader
+    stats: Stats = #{}
+}
+
+impl MeteredReader {
+    /// A meter over `reader` that has counted nothing.
+    pub fn new(reader: Reader) -> MeteredReader {
+        #MeteredReader{reader}
+    }
+
+    /// The next bytes of the stream, at most `max`, or `None` at its end,
+    /// with the meter after the read. Every read counts as an operation, the
+    /// one that finds the end too. An error is the reader's, and counts
+    /// nothing.
+    pub fn read(
+        meter: MeteredReader,
+        max: Int = 65536,
+    ) -> Result<#(Maybe<Bytes>, MeteredReader), io.Error> {
+        data = try Reader.read(meter.reader, max)
+        bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
+
+        Ok(#(data, #{..meter, stats: Stats.add(meter.stats, bytes)}))
+    }
+}
+
+/// A writer that counts what is written through it, as `MeteredReader`
+/// counts reads.
+pub struct MeteredWriter {
+    writer: Writer
+    stats: Stats = #{}
+}
+
+impl MeteredWriter {
+    /// A meter over `writer` that has counted nothing.
+    pub fn new(writer: Writer) -> MeteredWriter {
+        #MeteredWriter{writer}
+    }
+
+    /// Writes `data` and answers the meter after the write. An error is the
+    /// writer's, and counts nothing.
+    pub fn write(meter: MeteredWriter, data: Bytes) -> Result<MeteredWriter, io.Error> {
+        try Writer.write(meter.writer, data)
+
+        Ok(#{..meter, stats: Stats.add(meter.stats, Bytes.length(data))})
+    }
+}

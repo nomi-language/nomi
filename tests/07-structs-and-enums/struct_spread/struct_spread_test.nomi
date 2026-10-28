@@ -265,9 +265,8 @@ test "a `..` literal at a struct field updates it, and equals Struct.update" {
     // the instrument here for the same reason it is at the top level: it
     // renders `#Address{...}` for the nominal type and `{...}` for a record.
     // `Display` does not quote a String, which is why `Ada` is bare.
-    assert Display.to_string(
-        spread
-    ) == "#Person{name: Ada, address: #Address{street: 1 Main, city: NYC}}"
+    assert Display.to_string(spread)
+        == "#Person{name: Ada, address: #Address{street: 1 Main, city: NYC}}"
 }
 
 test "a nominal literal at a struct field replaces it, and equals Struct.update" {

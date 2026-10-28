@@ -63,9 +63,8 @@ derive Equatable for Error
 impl Display for Error {
     /// What is wrong, as a compile error at a ``Currency`…` `` literal shows
     /// it.
-    //! assert Display.to_string(
-    //!     #Error.IsoCode{code: "EUR"}
-    //! ) == "`EUR` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`EUR`"
+    //! assert Display.to_string(#Error.IsoCode{code: "EUR"})
+    //!     == "`EUR` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`EUR`"
     //!
     //! assert Display.to_string(
     //!     #Error.NotIso{code: "BTC"}

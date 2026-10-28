@@ -1,0 +1,30 @@
+================================================================================
+A comparison or boolean operator starting a line continues the expression
+================================================================================
+
+fn f() {
+  assert g(x)
+    == "a"
+  ok = a
+    and b
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters)
+    (body
+      (assertion
+        value: (binary_expression
+          (call_expression
+            function: (identifier)
+            (identifier))
+          (string
+            (string_content))))
+      (binding
+        (identifier)
+        (binary_expression
+          (identifier)
+          (identifier))))))

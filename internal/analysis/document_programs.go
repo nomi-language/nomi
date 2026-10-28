@@ -256,12 +256,6 @@ func (dm *DocumentManager) programFor(root, entry, docKey, uri, content, manifes
 	// A file whose expansions read an input that changed is edited, with
 	// its own text unchanged.
 	for _, k := range dm.changedInputs(prev) {
-		if _, own := texts[k]; !own {
-			// A macro's own source changed, a file of another module
-			// the program reads from the disk.
-			reason = "a macro's source file changed"
-			return fresh()
-		}
 		if !slices.Contains(changed, k) {
 			changed = append(changed, k)
 		}
@@ -380,7 +374,7 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 		errs = append(errs, c.entryChecks...)
 		errs = append(errs, entryCoherence(p)...)
 		errs = append(errs, c.implImports[key]...)
-		errs = append(errs, c.entryMacroChecks(p)...)
+		errs = append(errs, c.entryDeclChecks(p)...)
 		errs = append(errs, c.frontEnd...)
 	} else {
 		errs = append(errs, errorsNamingFile(fa.FilePath, fa.Program().Errors)...)
@@ -391,18 +385,11 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 		errs = append(errs, CheckTaskLifetime(fa, own)...)
 		errs = append(errs, MissingImpls(fa.Program(), []*FileAnalysis{fa})...)
 		errs = append(errs, c.implImports[key]...)
-		errs = append(errs, c.macroChecks[key]...)
+		errs = append(errs, c.declChecks[key]...)
 		errs = append(errs, CheckDuplicateTestNames(own)...)
 	}
 	damaged := p.damaged[key]
-	if MacroFailed(p.Nodes) && (key == p.Entry || !InUnbuiltMacroModule(p.Nodes, fa.FilePath)) {
-		checks := c.macroChecks[key]
-		if key == p.Entry {
-			checks = c.entryMacroChecks(p)
-		}
-		errs = MacroErrorsAlone(p.Nodes[key], checks)
-	}
-	fa.TypeErrors = suppressInDamagedSpans(RelocateExpansionErrors(p.Nodes[key], errs), damaged)
+	fa.TypeErrors = suppressInDamagedSpans(errs, damaged)
 	b := builtAnalysis{
 		nodes:      own,
 		errs:       p.Syntax[key],

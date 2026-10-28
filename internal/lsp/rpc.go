@@ -21,7 +21,10 @@ import (
 // (docsched.go). Each request runs on its own goroutine, so a request that
 // waits for analysis holds up neither later edits nor other requests, and
 // it can be cancelled with $/cancelRequest. initialize and shutdown run on
-// the read goroutine, so nothing overtakes them.
+// the read goroutine, so nothing overtakes them. Every message to the
+// client goes through the connection's outbox (outbox.go), which writes on
+// a goroutine of its own, so no handler or publication waits for the
+// client to read.
 
 // Error codes LSP adds to JSON-RPC's.
 const (
@@ -92,15 +95,18 @@ type rpcHandler struct {
 
 	mu       sync.Mutex
 	inflight map[jsonrpc2.ID]context.CancelFunc
+	out      *outbox
 }
 
 func newRPCHandler(s *Server, inner glsp.Handler) *rpcHandler {
-	return &rpcHandler{s: s, inner: inner, inflight: map[jsonrpc2.ID]context.CancelFunc{}}
+	return &rpcHandler{s: s, inner: inner, inflight: map[jsonrpc2.ID]context.CancelFunc{}, out: newOutbox()}
 }
 
 // ServeStream serves one client connection on rw until it closes.
 func (s *Server) ServeStream(rw io.ReadWriteCloser) {
-	conn := jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(rw, jsonrpc2.VSCodeObjectCodec{}), newRPCHandler(s, s.wrapper))
+	h := newRPCHandler(s, s.wrapper)
+	conn := jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(rw, jsonrpc2.VSCodeObjectCodec{}), h)
+	go h.out.run(conn.DisconnectNotify())
 	<-conn.DisconnectNotify()
 }
 
@@ -228,10 +234,10 @@ func (h *rpcHandler) reply(ctx context.Context, conn *jsonrpc2.Conn, id jsonrpc2
 		if !ok {
 			e = &jsonrpc2.Error{Code: jsonrpc2.CodeInternalError, Message: err.Error()}
 		}
-		conn.ReplyWithError(ctx, id, e)
+		h.out.reply(ctx, conn, id, nil, e)
 		return
 	}
-	conn.Reply(ctx, id, result)
+	h.out.reply(ctx, conn, id, result, nil)
 }
 
 // cancel handles $/cancelRequest: the request's context ends, a wait for
@@ -259,7 +265,7 @@ func (h *rpcHandler) glspContext(ctx context.Context, conn *jsonrpc2.Conn, req *
 	gctx := &glsp.Context{
 		Method: req.Method,
 		Notify: func(method string, params any) {
-			conn.Notify(ctx, method, params)
+			h.out.notify(ctx, conn, method, params)
 		},
 		Call: func(method string, params any, result any) {
 			conn.Call(ctx, method, params, result)

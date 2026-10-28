@@ -362,10 +362,9 @@ var typeBodyInputs = []parityInput{
 // tree-sitter must also mark with an ERROR or MISSING node, so an editor shows
 // the error `nomi check` reports. A type body holds one item per line.
 var rejectedInputs = []parityInput{
-	// A keyword declaration's name is a type name only after a marked or
-	// qualified keyword.
+	// A keyword declaration's name is never a type name.
 	{"a misspelled type keyword before a type name", "pub strct Point {\n    x: Int\n}\n"},
-	{"a macro's keyword without its mark before a type name", "pub one_of Size `small`\n"},
+	{"a keyword before a type name", "pub one_of Size `small`\n"},
 	{"a message named by a type name", "message Hi `Hi`\n"},
 	{"two struct fields on one line", "struct P {\n    x: Int    y: Int\n}\n"},
 	{"a struct field after a default on its line", "struct P {\n    x: Int = 1 y: Int\n}\n"},

@@ -1,0 +1,26 @@
+//# A player's scores in a game, oldest first, and what can be read from
+//# them.
+
+/// Every score, oldest first.
+pub fn scores(scores: List<Int>) -> List<Int> {
+    scores
+}
+
+/// The most recent score, or `None` before the first game.
+pub fn latest(scores: List<Int>) -> Maybe<Int> {
+    Iter.last(scores)
+}
+
+/// The highest score, or `None` before the first game.
+pub fn personal_best(scores: List<Int>) -> Maybe<Int> {
+    Iter.max(scores)
+}
+
+/// The three highest scores, highest first, or all of them when there are
+/// fewer than three.
+pub fn personal_top_three(scores: List<Int>) -> List<Int> {
+    scores
+    |> Iter.sort(.Descending)
+    |> Iter.take(3)
+    |> Iter.to_list()
+}

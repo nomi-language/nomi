@@ -17,10 +17,16 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 			break
 		}
 	}
-	// head, tail and concat are cell operations that never read an element,
-	// so a list of retained structs or enums crosses as a scalar list does.
+	// The list operands: the index of remove_at is not one.
+	lists := args.kinds
+	if method == "remove_at" {
+		lists = lists[:1]
+	}
+	// head, tail, concat and remove_at are cell operations that never read an
+	// element, so a list of retained structs or enums crosses as a scalar
+	// list does.
 	// kindInvalid: sentinel — no argument supplied a typed list representation.
-	if lk == kindInvalid && irAllEmptyLists(args.kinds) {
+	if lk == kindInvalid && irAllEmptyLists(lists) {
 		// `List.head([])`: nothing constrains the element, so no value of it
 		// is built or observed, as checkedPreludeArgsUnitHoles argues for an
 		// unconstrained prelude argument. A List of Unit is not a retained
@@ -29,13 +35,20 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 		lk = bl.g.listKind(kindInt)
 	}
 	// A list of any other element with a stored type crosses too: none of
-	// the three reads an element.
+	// them reads an element.
 	// kindInvalid: sentinel — still no typed list representation.
 	if lk == kindInvalid || !(irRetainedListKind(lk) || irListTransportKind(lk) || bl.g.irValType(lk) != nil) {
 		irDeclineNote("a List function without a retained typed list operand")
 		return nil
 	}
 	for i, k := range args.kinds {
+		if method == "remove_at" && i == 1 {
+			if k != kindInt {
+				irDeclineNote("List.remove_at with an index that is not an Int")
+				return nil
+			}
+			continue
+		}
 		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], k, lk)
 		if !ok {
 			return nil

@@ -1,0 +1,5 @@
+import hello_world.hello
+
+test "Say Hi!" {
+    assert hello() == "Hello, World!"
+}

@@ -11,12 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: spiral_matrix.nomi
-/// A square grid of numbers, row by row.
-pub typealias Grid Vector<Vector<Int>>
-
 /// The `size` by `size` grid holding 1 to `size * size`, starting at the top
 /// left corner and spiralling clockwise inwards.
-pub fn spiral_matrix(size: Int) -> Grid {
+pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
@@ -26,7 +23,13 @@ pub fn spiral_matrix(size: Int) -> Grid {
 /// Writes `value` at `position`, then moves on along `heading`, turning
 /// clockwise when the next square is off the grid or already written, until
 /// `last` is written.
-fn fill(grid: Grid, position: #(Int, Int), heading: #(Int, Int), value: Int, last: Int) -> Grid {
+fn fill(
+    grid: Vector<Vector<Int>>,
+    position: #(Int, Int),
+    heading: #(Int, Int),
+    value: Int,
+    last: Int,
+) -> Vector<Vector<Int>> {
     if value > last { return grid }
 
     grid = set_cell(grid, position, value)
@@ -49,18 +52,22 @@ fn turn(#(dr, dc): #(Int, Int)) -> #(Int, Int) {
 }
 
 /// Whether `position` is on the grid and not written yet.
-fn empty?(grid: Grid, position: #(Int, Int)) -> Bool {
+fn empty?(grid: Vector<Vector<Int>>, position: #(Int, Int)) -> Bool {
     cell_at(grid, position) == Some(0)
 }
 
-fn cell_at(grid: Grid, #(row, column): #(Int, Int)) -> Maybe<Int> {
+fn cell_at(grid: Vector<Vector<Int>>, #(row, column): #(Int, Int)) -> Maybe<Int> {
     cells = try Vector.get(grid, row)
     Vector.get(cells, column)
 }
 
 /// `grid` with `value` at `position`, which is on the grid: `fill` only
 /// steps onto a square `empty?` accepted.
-fn set_cell(grid: Grid, #(row, column): #(Int, Int), value: Int) -> Grid {
+fn set_cell(
+    grid: Vector<Vector<Int>>,
+    #(row, column): #(Int, Int),
+    value: Int,
+) -> Vector<Vector<Int>> {
     cells = Vector.at(grid, row) |> Vector.set(column, value)
     Vector.set(grid, row, cells)
 }
@@ -105,7 +112,7 @@ test "spiral_matrix" {
 
 ## How it's written
 
-- The grid is `Vector<Vector<Int>>` (`typealias Grid`), filled by walking the spiral and writing one cell at a time. This is the algorithm the problem describes, and it needs indexed reads (is the next square free?) and indexed updates. A closed form per cell (which ring, which side) or a `Map<#(Int, Int), Int>` of the walk turned into rows were the alternatives; I did not take them, since the brief asked for the natural form and the walk is it.
+- The grid is `Vector<Vector<Int>>`, filled by walking the spiral and writing one cell at a time. This is the algorithm the problem describes, and it needs indexed reads (is the next square free?) and indexed updates. A closed form per cell (which ring, which side) or a `Map<#(Int, Int), Int>` of the walk turned into rows were the alternatives; I did not take them, since the brief asked for the natural form and the walk is it.
 - `0` marks an unwritten square, so "free" is `cell_at(grid, position) == Some(0)`, which is `False` both off the grid and on a written square. One comparison does both checks.
 - The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `#(dr, dc) -> #(dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
 - `set_cell` returns the new `Grid`. It reads the row with `Vector.at` and writes with `Vector.set`, both of which trap on an index outside the vector; `fill` only steps onto a square `empty?` accepted, so the position is always on the grid.

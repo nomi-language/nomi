@@ -1,36 +1,10 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-// `nomi check <dir>` labels a failure by the file that holds the errors:
-// a CSV cell a macro's table read is `FAIL data/rates.csv`, not the
-// entry that imports the table.
-func TestCheckCommand_LabelsAMacroInputsErrorByTheInput(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.CopyFS(dir, os.DirFS(macroFixture)); err != nil {
-		t.Fatal(err)
-	}
-	rates := filepath.Join(dir, "rates")
-	mustWrite(t, filepath.Join(rates, "data", "rates.csv"), "code,basis_points\nusd,9200\ngbp,1.5\n")
-	out, err := runNomi(t, t.TempDir(), "check", rates)
-	if err == nil {
-		t.Fatalf("nomi check passed a Float cell in an Int table:\n%s", out)
-	}
-	csv := filepath.Join(rates, "data", "rates.csv")
-	for _, want := range []string{"FAIL " + csv + "\n", "case branch type mismatch: expected Maybe<Int>, got Maybe<Float>", csv + ":3:5"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("nomi check output lacks %q:\n%s", want, out)
-		}
-	}
-	if strings.Contains(out, "FAIL "+filepath.Join(rates, "main.nomi")) {
-		t.Errorf("nomi check labelled the entry, which holds no error:\n%s", out)
-	}
-}
 
 // Two entries that import one broken file print its errors once, under
 // the file; the second entry's failure says its errors are above.

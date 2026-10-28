@@ -62,10 +62,6 @@ type ExpansionSite struct {
 	Manifest *Manifest
 	// Read reads an input; nil reads the disk.
 	Read InputReader
-	// Macros runs the macros the file's declarations are written
-	// with (macro_expand.go); nil runs none, and each such declaration
-	// is an error.
-	Macros MacroHost
 }
 
 func (s *ExpansionSite) read(path string) (string, bool) {
@@ -163,8 +159,6 @@ func ExpansionInputs(nodes []ast.Node) []ExpansionInput {
 			x = d.Expansion
 		case *ast.OnceBinding:
 			x = d.Expansion
-		case *ast.KeywordDecl:
-			x = d.Expansion
 		}
 		d, ok := x.Detail().(expansionDetail)
 		if !ok {
@@ -204,31 +198,23 @@ func (c *checker) checkExpansionBody(fn *ast.FuncDef) {
 // ExpandDeclarations answers nodes with each keyword declaration expanded
 // at site: a `message` becomes the function it declares and a `noun` the
 // `once` it names, in its place, and the file gains the hidden imports its
-// expansions name std/message by; a
-// declaration written with an imported macro's keyword is followed by
-// the declarations the macro expanded it to (expandMacro). A
-// declaration of any other keyword stays, for the checker to refuse.
-// Expanding again is a no-op: an expanded file holds no `message`
-// declaration, and an expanded macro declaration carries its
-// expansion. A nil site expands messages with no inputs, as a file with no
-// project, and no macro.
+// expansions name std/message by. A declaration of any other keyword
+// stays, for the checker to refuse. Expanding again is a no-op: an
+// expanded file holds no `message` declaration. A nil site expands
+// messages with no inputs, as a file with no project.
 //
 // Each expansion is positioned at the band slot of its declaration's
 // index among the expanded file's source nodes (sourceIndices), the index
 // derive synthesis gives what it synthesizes for a node, so the two never
 // share a slot.
 func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
-	hasMessage, hasMacro := false, false
+	hasMessage := false
 	for _, n := range nodes {
-		if kd, ok := n.(*ast.KeywordDecl); ok && kd.Expansion == nil {
-			if isBuiltinKeyword(kd) {
-				hasMessage = true
-			} else {
-				hasMacro = true
-			}
+		if kd, ok := n.(*ast.KeywordDecl); ok && isBuiltinKeyword(kd) {
+			hasMessage = true
 		}
 	}
-	if !hasMessage && (!hasMacro || site == nil) {
+	if !hasMessage {
 		return nodes
 	}
 	if site == nil {
@@ -236,7 +222,7 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 	}
 	cats := &catalogSet{site: site, files: map[string]*messageCatalog{}}
 	out := make([]ast.Node, 0, len(nodes)+1)
-	if hasMessage && !hasMessageImport(nodes) {
+	if !hasMessageImport(nodes) {
 		out = append(out, messageImports()...)
 	}
 	index := 0
@@ -251,18 +237,15 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 	for _, n := range nodes {
 		kd, ok := n.(*ast.KeywordDecl)
 		switch {
-		case !ok || kd.Expansion != nil:
+		case !ok:
 			add(n)
-		case kd.Module == "" && kd.Keyword == keywordMessage:
+		case kd.Keyword == keywordMessage:
 			add(expandMessage(kd, site, cats, synthSlot(synthOriginDecl, index, synthKindEquatable)))
-		case kd.Module == "" && kd.Keyword == keywordNoun:
+		case kd.Keyword == keywordNoun:
 			add(expandNoun(kd, site, cats, synthSlot(synthOriginDecl, index, synthKindEquatable)))
 		default:
-			add(expandMacro(kd, nodes, site, synthSlot(synthOriginDecl, index, synthKindExpansion))...)
+			add(n)
 		}
-	}
-	if hasMacro {
-		out = checkExpansionCollisions(out)
 	}
 	return out
 }

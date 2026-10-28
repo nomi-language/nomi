@@ -66,9 +66,8 @@ impl Localize for String {
 /// from the start of the text, as `String.length` does.
 //! assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
 //!
-//! assert Display.to_string(
-//!     #NumberParseError.WrongCurrency{expected: Currency`EUR`, found: "zł"}
-//! ) == "expected an amount in EUR, found `zł`"
+//! assert Display.to_string(#NumberParseError.WrongCurrency{expected: Currency`EUR`, found: "zł"})
+//!     == "expected an amount in EUR, found `zł`"
 //
 pub enum NumberParseError {
     /// The text is empty, or only spaces when parsing leniently.
@@ -94,9 +93,8 @@ impl Display for NumberParseError {
     /// What is wrong, for a person to read.
     //! assert Display.to_string(#NumberParseError.Unexpected{at: 5, text: ","}) == "unexpected `,` at 5"
     //!
-    //! assert Display.to_string(
-    //!     #NumberParseError.Unexpected{at: 3, text: ""}
-    //! ) == "the text ends at 3 before the number does"
+    //! assert Display.to_string(#NumberParseError.Unexpected{at: 3, text: ""})
+    //!     == "the text ends at 3 before the number does"
     //
     fn to_string(e: NumberParseError) -> String {
         case e {

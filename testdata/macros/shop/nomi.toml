@@ -1,6 +1,0 @@
-[module]
-name = "shop"
-entry_points = ["main"]
-
-[csvdata]
-dir = "data"

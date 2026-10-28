@@ -182,3 +182,35 @@ func implWithholdAllImplDefs(g *gen) []*implDef {
 	}
 	return out
 }
+
+// A gen built without the stdlib's index (as implWithholdGensOf builds one)
+// declines a `once` whose initializer calls a std owner function, and names
+// the reason, where it used to panic past the decline and close it
+// unnamed: complex-numbers' `once pi = Float.atan2(0.0, -1.0)`. The same
+// program lowered with the stdlib runs.
+func TestIRImplWithhold_AGenWithoutTheStdlibIndexDeclinesAOnceByName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std/io
+
+once pi = Float.atan2(0.0, -1.0)
+
+fn main() {
+    io.inspect(pi > 3.0)
+}
+`
+	prog, err := AnalyzeSource("entry.nomi", src)
+	if err != nil {
+		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
+	}
+	var unnamed []string
+	prevHook := irDeclineUnnamed
+	irDeclineUnnamed = func(fn string) { unnamed = append(unnamed, fn) }
+	defer func() { irDeclineUnnamed = prevHook }()
+	implWithholdGensOf(prog)
+	if len(unnamed) != 0 {
+		t.Fatalf("declined without naming a reason: %v", unnamed)
+	}
+	irRunSource(t, src, "True\n")
+}

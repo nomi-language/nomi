@@ -166,17 +166,9 @@ func CheckAgreement(files map[string][]ast.Node) map[string][]TypeError {
 }
 
 // CheckProgramDeclarations is what the program checks over every file's
-// keyword declarations once every file is checked: each macro's
-// whole-module check (CheckMacroPrograms) and the agreement of nouns
+// keyword declarations once every file is checked: the agreement of nouns
 // and messages (CheckAgreement), by the key of the file each error is
 // reported with.
 func CheckProgramDeclarations(files map[string][]ast.Node) map[string][]TypeError {
-	out := CheckMacroPrograms(files)
-	for key, errs := range CheckAgreement(files) {
-		if out == nil {
-			out = map[string][]TypeError{}
-		}
-		out[key] = append(out[key], errs...)
-	}
-	return out
+	return CheckAgreement(files)
 }

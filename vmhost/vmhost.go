@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
@@ -537,7 +538,7 @@ func (p *Program) reasons(found []vm.Unretained) []string {
 		case vm.OnceNotRetained:
 			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(blockerName(u))))
 		case vm.NoBinding:
-			out = append(out, fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", u.Name))
+			out = append(out, fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", hostadapt.DisplayName(u.Name)))
 		case vm.NoImplementation:
 			out = append(out, fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name))
 		}

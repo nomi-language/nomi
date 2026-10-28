@@ -1,0 +1,61 @@
+import {
+    std/calendar.Date
+    lens_person.{self, Person}
+}
+
+once jane = #Person{
+    name: #{fore_name: "Jane Joanna", sur_name: "Doe"},
+    born: #{
+        at: #{
+            house_number: 22,
+            street: "Implicit Street",
+            place: "Lazy Town",
+            country: "Haskell Republic",
+        },
+        on: Date`1970-03-02`,
+    },
+    address: #{
+        house_number: 1337,
+        street: "Coder Street",
+        place: "Hacker City",
+        country: "Functionland",
+    },
+}
+
+test "bornStreet" {
+    assert lens_person.born_street(jane.born) == "Implicit Street"
+}
+
+test "setCurrentStreet" {
+    moved = lens_person.set_current_street(jane, "Puppy Street")
+
+    assert moved.address.street == "Puppy Street"
+    assert moved == #{..jane, address: #{.., street: "Puppy Street"}}
+}
+
+test "setBirthMonth" {
+    assert Ok(person) = lens_person.set_birth_month(jane, 9)
+
+    assert person.born.on == Date`1970-09-02`
+    assert person.born.at == jane.born.at
+}
+
+test "renameStreets birth" {
+    person = lens_person.rename_streets(jane, String.to_upper)
+
+    assert person.born.at.street == "IMPLICIT STREET"
+}
+
+test "renameStreets current" {
+    person = lens_person.rename_streets(jane, String.to_upper)
+
+    assert person.address.street == "CODER STREET"
+}
+
+// Not canonical: the Haskell track's calendar clips a day past the month's
+// end; std/calendar refuses it.
+test "a birth month without the birth day is an error" {
+    born_on_the_31st = #{..jane, born: #{.., on: Date`1970-03-31`}}
+
+    assert Err(_) = lens_person.set_birth_month(born_on_the_31st, 2)
+}

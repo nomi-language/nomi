@@ -300,7 +300,7 @@ var (
 		{Name: "Panicked", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}},
 		{Name: "Errored", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}},
 	})
-	channelDesc = structDesc("channels.Channel", []rt.FieldSpec{
+	channelDesc = structDesc(rt.ChannelTypeName, []rt.FieldSpec{
 		{Name: "sender", Type: rt.SlotRef}, {Name: "receiver", Type: rt.SlotRef}})
 	startupDesc = structDesc("startup.Startup", []rt.FieldSpec{
 		{Name: "env", Type: rt.SlotRef}, {Name: "args", Type: rt.SlotRef}})

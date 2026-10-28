@@ -411,6 +411,8 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 		return render(sb, v.d, col, indent, localBase, tail, width, broken)
 	case docWithIndent:
 		return render(sb, v.f(indent, width), col, indent, localBase, tail, width, broken)
+	case docWithColumn:
+		return render(sb, v.f(col, indent, width), col, indent, localBase, tail, width, broken)
 	}
 	panic("unknown doc variant")
 }
@@ -525,6 +527,8 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 		return fitsWalk(v.d, rem, inTail)
 	case docWithIndent:
 		return fitsWalk(v.f(0, unboundedWidth), rem, inTail)
+	case docWithColumn:
+		return fitsWalk(v.f(0, 0, unboundedWidth), rem, inTail)
 	case docBrokenTail:
 		return fitsWalk(brokenView(v.d), rem, inTail)
 	}
@@ -554,6 +558,8 @@ func fitsFirstLine(d Doc, rem *int) (ok, hitHard bool) {
 		return fitsFirstLine(v.d, rem)
 	case docWithIndent:
 		return fitsFirstLine(v.f(0, unboundedWidth), rem)
+	case docWithColumn:
+		return fitsFirstLine(v.f(0, 0, unboundedWidth), rem)
 	}
 	return fitsWalk(d, rem, false), false
 }
@@ -613,6 +619,8 @@ func endsAtLineBreak(d Doc) bool {
 		return endsAtLineBreak(v.d)
 	case docWithIndent:
 		return endsAtLineBreak(v.f(0, unboundedWidth))
+	case docWithColumn:
+		return endsAtLineBreak(v.f(0, 0, unboundedWidth))
 	case docBrokenTail:
 		return endsAtLineBreak(brokenView(v.d))
 	}

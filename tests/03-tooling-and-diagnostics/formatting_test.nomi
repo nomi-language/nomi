@@ -100,8 +100,8 @@ pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
 
-pub typealias UserList List<User>
-pub typealias UserMap Map<String, User>
+pub typealias Rule (String) -> Maybe<String>
+pub typealias Span #{start: Int, end: Int, line: Int}
 
 // ---------------------------------------------------------------------------
 // Interfaces and impls

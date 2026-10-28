@@ -171,5 +171,5 @@ quote give the same type.
 [Scalars & Strings](/scalars-and-strings/#regular-expressions) shows what
 you can do with a `Regex`: find, split, replace and read capture groups.
 
-The next chapter, [Macros](/macros/), shows library code that runs while
-your program is checked and writes whole declarations for you.
+The next chapter, [Generating code](/generating-code/), shows how a
+library writes whole declarations for you from data, as ordinary Nomi files.

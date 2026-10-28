@@ -1514,12 +1514,6 @@ func embedsVariant(want, from kind) (*typeDef, *variantDef, bool) {
 // type needs `impl Equatable`, and a type-qualified call is refused by name. If
 // any of those is ever lowered, the impl it dispatches to must be lowered in
 // the same change.
-//
-// The code a macro expanded a declaration to, and a macro file's
-// drivers, are in the band and are not synthesized in this sense: the
-// macro wrote them as source, the checker checked them as source, and
-// they are lowered as the file's own (analysis.IsExpansionLine).
 func isSynthesized(n ast.Node) bool {
-	line := n.LineNum()
-	return analysis.IsSynthesizedLine(line) && !analysis.IsExpansionLine(line)
+	return analysis.IsSynthesizedLine(n.LineNum())
 }

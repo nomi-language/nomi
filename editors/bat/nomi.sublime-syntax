@@ -112,30 +112,11 @@ contexts:
       scope: keyword.declaration.nomi
     # A keyword declaration Nomi builds in (`message cart_items(...)`,
     # `noun item`): its keyword and its name, at the start of a line.
-    - match: '^(?:(pub)\s+)?(message|noun|macro)\s+([a-z_][A-Za-z0-9_?]*)'
+    - match: '^(?:(pub)\s+)?(message|noun)\s+([a-z_][A-Za-z0-9_?]*)'
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
         3: entity.name.function.nomi
-    # A declaration written with a macro's keyword, marked with `!` and
-    # qualified by its file or bare (`sqlkit.query! orders`, `query! orders`):
-    # the keyword and its `!` read as a macro.
-    - match: '^(?:(pub)\s+)?(?:([a-z_][A-Za-z0-9_]*)(\.))?([a-z_][A-Za-z0-9_]*!)\s+([a-z_][A-Za-z0-9_?]*)'
-      captures:
-        1: keyword.declaration.nomi
-        2: entity.name.namespace.nomi
-        3: punctuation.accessor.nomi
-        4: entity.name.function.macro.nomi
-        5: entity.name.function.nomi
-    # One that declares a type (`choices.one_of! Size`): its name reads as
-    # a type's.
-    - match: '^(?:(pub)\s+)?(?:([a-z_][A-Za-z0-9_]*)(\.))?([a-z_][A-Za-z0-9_]*!)\s+([A-Z][A-Za-z0-9_]*)'
-      captures:
-        1: keyword.declaration.nomi
-        2: entity.name.namespace.nomi
-        3: punctuation.accessor.nomi
-        4: entity.name.function.macro.nomi
-        5: entity.name.type.nomi
     # `variant`, `open`, and `derive` are CONTEXTUAL keywords in Nomi
     # — `variant` and `open` only carry meaning inside interface bodies, and
     # `derive` in `derive Iface for T`.
@@ -206,10 +187,10 @@ contexts:
     - match: '\b{{type_ident}}\b'
       scope: storage.type.nomi
     # A capture's parameter, `&1`, and the capture's `&`, written against
-    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`.
+    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`, `&!f(&1)`.
     - match: '&[1-9][0-9]*'
       scope: variable.parameter.nomi
-    - match: '&(?=[(\[#%.A-Za-z])'
+    - match: '&(?=[(\[#%.!A-Za-z])'
       scope: keyword.other.capture.nomi
     - match: '\b_(?!_)[a-zA-Z0-9_]*\??\b'
       scope: comment.discard.nomi

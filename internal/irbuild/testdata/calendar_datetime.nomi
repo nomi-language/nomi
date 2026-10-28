@@ -39,9 +39,8 @@ fn run() -> Result<Unit, Error> {
 
     io.print(
         "seconds_equal = " + Bool.to_string(
-            Instant.to_seconds(DateTime.to_instant(ny)) == Instant.to_seconds(
-                DateTime.to_instant(tokyo)
-            )
+            Instant.to_seconds(DateTime.to_instant(ny))
+                == Instant.to_seconds(DateTime.to_instant(tokyo))
         )
     )
 

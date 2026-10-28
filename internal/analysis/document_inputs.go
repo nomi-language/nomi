@@ -57,10 +57,9 @@ func (dm *DocumentManager) readInput(path string) (string, bool) {
 }
 
 // expansionSite is the site of the file with module key under root, whose
-// manifest is m, reading inputs with read and running macros with the
-// manager's host.
+// manifest is m, reading inputs with read.
 func (dm *DocumentManager) expansionSite(root, key string, m *Manifest, read InputReader) *ExpansionSite {
-	s := &ExpansionSite{ModulePath: key, Manifest: m, Read: read, Macros: dm.Macros}
+	s := &ExpansionSite{ModulePath: key, Manifest: m, Read: read}
 	if m != nil {
 		s.Root = root
 	}
@@ -78,14 +77,11 @@ func (dm *DocumentManager) expandLoaded(projectRoot string, modulePath []string,
 // docPath under root.
 func (dm *DocumentManager) expandDocument(root, docPath string, nodes []ast.Node) []ast.Node {
 	m, _ := LoadManifest(root)
-	site := SiteFor(root, docPath, m, dm.readInput)
-	site.Macros = dm.Macros
-	return ExpandDeclarations(nodes, site)
+	return ExpandDeclarations(nodes, SiteFor(root, docPath, m, dm.readInput))
 }
 
 // IsInput reports whether a program the manager keeps read the file at
-// path as an input of an expansion: a catalog, a file a macro asked
-// for, or a macro's own source file.
+// path as an input of an expansion: a catalog.
 func (dm *DocumentManager) IsInput(path string) bool {
 	_, ok := dm.inputs.read.Load(filepath.Clean(path))
 	return ok
@@ -124,11 +120,6 @@ func (dm *DocumentManager) changedInputs(p *CheckedProgram) []string {
 	}
 	var keys []string
 	for key, nodes := range p.Nodes {
-		if fa := p.Files[key]; fa != nil && changed[filepath.Clean(fa.FilePath)] {
-			// A macro's own source, which the program imports too.
-			keys = append(keys, key)
-			continue
-		}
 		for _, in := range ExpansionInputs(nodes) {
 			if changed[in.Path] {
 				keys = append(keys, key)

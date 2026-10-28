@@ -1,0 +1,126 @@
+import {
+    connect
+    connect.Player
+}
+
+test "winner" {
+    cases: List<#(String, List<String>, Maybe<Player>)> = [
+        #(
+            "an empty board has no winner",
+            [
+                ". . . . .",
+                " . . . . .",
+                "  . . . . .",
+                "   . . . . .",
+                "    . . . . .",
+            ],
+            None,
+        ),
+        #("X can win on a 1x1 board", ["X"], Some(.X)),
+        #("O can win on a 1x1 board", ["O"], Some(.O)),
+        #(
+            "only edges does not make a winner",
+            [
+                "O O O X",
+                " X . . X",
+                "  X . . X",
+                "   X O O O",
+            ],
+            None,
+        ),
+        #(
+            "illegal diagonal does not make a winner",
+            [
+                "X O . .",
+                " O X X X",
+                "  O X O .",
+                "   . O X .",
+                "    X X O O",
+            ],
+            None,
+        ),
+        #(
+            "nobody wins crossing adjacent angles",
+            [
+                "X . . .",
+                " . X O .",
+                "  O . X O",
+                "   . O . X",
+                "    . . O .",
+            ],
+            None,
+        ),
+        #(
+            "X wins crossing from left to right",
+            [
+                ". O . .",
+                " O X X X",
+                "  O X O .",
+                "   X X O X",
+                "    . O X .",
+            ],
+            Some(.X),
+        ),
+        #(
+            "X wins with left-hand dead end fork",
+            [
+                ". . X .",
+                " X X . .",
+                "  . X X X",
+                "   O O O O",
+            ],
+            Some(.X),
+        ),
+        #(
+            "X wins with right-hand dead end fork",
+            [
+                ". . X X",
+                " X X . .",
+                "  . X X .",
+                "   O O O O",
+            ],
+            Some(.X),
+        ),
+        #(
+            "O wins crossing from top to bottom",
+            [
+                ". O . .",
+                " O X X X",
+                "  O O O .",
+                "   X X O X",
+                "    . O X .",
+            ],
+            Some(.O),
+        ),
+        #(
+            "X wins using a convoluted path",
+            [
+                ". X X . .",
+                " X . X . X",
+                "  . X . X .",
+                "   . X X . .",
+                "    O O O O O",
+            ],
+            Some(.X),
+        ),
+        #(
+            "X wins using a spiral path",
+            [
+                "O X X X X X X X X",
+                " O X O O O O O O O",
+                "  O X O X X X X X O",
+                "   O X O X O O O X O",
+                "    O X O X X X O X O",
+                "     O X O O O X O X O",
+                "      O X X X X X O X O",
+                "       O O O O O O O X O",
+                "        X X X X X X X X O",
+            ],
+            Some(.X),
+        ),
+    ]
+
+    subtests cases, #(description, board, expected), description {
+        assert connect.winner(board) == expected
+    }
+}

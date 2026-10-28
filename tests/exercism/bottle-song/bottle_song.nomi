@@ -1,0 +1,63 @@
+//# The counting song "Ten Green Bottles".
+
+/// The words for zero to ten bottles, as the song sings them.
+once numbers = #[
+    "no",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+]
+
+/// The lines of `take_down` verses, starting from `start_bottles` bottles,
+/// with an empty line between two verses.
+pub fn recite(start_bottles: Int, take_down: Int) -> List<String> {
+    start_bottles
+    |> Iter.iterate(&(&1 - 1))
+    |> Iter.take(take_down)
+    |> Iter.with_index()
+    |> Iter.flat_map(fn #(i, bottles) -> {
+        if i == 0 {
+            verse(bottles)
+        } else {
+            [""] + verse(bottles)
+        }
+    })
+    |> Iter.to_list()
+}
+
+/// The verse sung while `bottles` bottles hang on the wall.
+fn verse(bottles: Int) -> List<String> {
+    count = green_bottles(bottles) |> capitalize()
+    hanging = "${count} hanging on the wall,"
+
+    [
+        hanging,
+        hanging,
+        "And if one green bottle should accidentally fall,",
+        "There'll be ${green_bottles(bottles - 1)} hanging on the wall.",
+    ]
+}
+
+/// `bottles` counted in words: "one green bottle", "two green bottles".
+fn green_bottles(bottles: Int) -> String {
+    number = Vector.at(numbers, bottles)
+
+    if bottles == 1 {
+        "${number} green bottle"
+    } else {
+        "${number} green bottles"
+    }
+}
+
+/// `text` with its first letter in upper case.
+fn capitalize(text: String) -> String {
+    first = String.take(text, 1) |> String.to_upper()
+    first + String.drop(text, 1)
+}

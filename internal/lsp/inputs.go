@@ -33,32 +33,14 @@ func isInputURI(uri string) bool {
 }
 
 // followsInput reports whether the server follows uri as an input rather
-// than as a document: a TOML file (isInputURI), or a file a macro's
-// request named, which an analysis read. A macro's own source file is
-// an input too, but a .nomi file stays a document (watchedNomiInput).
+// than as a document: a TOML file (isInputURI).
 func (s *Server) followsInput(uri string) bool {
-	path := uriToPath(uri)
-	switch filepath.Ext(path) {
-	case ".toml":
-		return true
-	case ".nomi":
-		return false
-	}
-	return s.docs.IsInput(path)
-}
-
-// watchedNomiInput rechecks what reads the .nomi file at uri, which changed
-// on disk, when it is an input: a macro's own source file, whose
-// declarations elsewhere expand again.
-func (s *Server) watchedNomiInput(uri string) {
-	if s.docs.IsInput(uriToPath(uri)) {
-		s.inputChanged(uri)
-	}
+	return isInputURI(uri)
 }
 
 // readsInput reports whether an analysis reads the file at uri as an input:
 // a message catalog, under a module's `[i18n].catalogs` directory in a
-// listed locale's, or a file a macro's expansion read. Editing any
+// listed locale's, or one an analysis read. Editing any
 // other TOML file, a Cargo.toml in the same workspace, rechecks nothing.
 func (s *Server) readsInput(uri string) bool {
 	if _, ok := analysis.CatalogAt(uriToPath(uri)); ok {

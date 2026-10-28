@@ -1,0 +1,52 @@
+//# Variable-length quantities: each number written as base-128 digits, one
+//# per byte, with the high bit set on every byte but the number's last.
+
+/// The bytes of `integers`, each written as its variable-length quantity.
+pub fn encode(integers: List<Int>) -> List<Int> {
+    integers
+    |> Iter.flat_map(encode_one)
+    |> Iter.to_list()
+}
+
+/// The base-128 digits of `n`, most significant first, with the high bit set
+/// on all but the last.
+fn encode_one(n: Int) -> List<Int> {
+    digits = Int.to_digits(n, 128)
+    last = Iter.count(digits) - 1
+
+    digits
+    |> Iter.with_index()
+    |> Iter.map(fn #(i, digit) -> {
+        if i == last {
+            digit
+        } else {
+            Int.bitwise_or(digit, 0x80)
+        }
+    })
+    |> Iter.to_list()
+}
+
+/// The numbers `bytes` encode, or an error when the last number's final byte
+/// is missing.
+pub fn decode(bytes: List<Int>) -> Result<List<Int>, String> {
+    #(values, pending) =
+        bytes
+        |> Iter.map_reduce(fn pending: Maybe<Int> = None, byte -> {
+            value = Maybe.with_default(pending, 0) * 0x80 + Int.bitwise_and(byte, 0x7F)
+
+            if Int.bitwise_and(byte, 0x80) == 0 {
+                #(Some(value), None)
+            } else {
+                #(None, Some(value))
+            }
+        })
+
+    if Maybe.some?(pending) {
+        return Err("incomplete sequence")
+    }
+
+    values
+    |> Maybe.values()
+    |> Iter.to_list()
+    |> Ok()
+}

@@ -214,6 +214,7 @@ func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		fmt.Fprintf(stderr, "nomi: %v\n", err)
 		return 1
 	}
+	hosts = projectHosts(hosts, cfg.compiler != nil)
 	if !im.HasMain {
 		if compiled && len(im.Exports) > 0 {
 			fmt.Fprintf(stderr, "nomi: %v. Load it into the reactor `nomi build-vm --reactor` writes\n", ErrNoMain)
@@ -308,13 +309,29 @@ func entryMain(entry *ir.Module) *ir.Func {
 func unretainedReason(u vm.Unretained) string {
 	switch u.Kind {
 	case vm.NoBinding:
-		return fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", u.Name)
+		return fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", hostadapt.DisplayName(u.Name))
 	case vm.NoImplementation:
 		return fmt.Sprintf("[%s] dispatched, and no implementation was retained", u.Name)
 	case vm.OnceNotRetained:
 		return fmt.Sprintf("[%s] once initializer not retained", u.Name)
 	}
 	return fmt.Sprintf("[%s] not retained", u.Name)
+}
+
+// projectHosts is hosts as a machine binds them: std/compiler's table, first
+// when withCompiler, as it is, and every other table, a project's or an
+// embedder's, under its keys' project names (hostadapt.ProjectTable), so no
+// key of theirs answers a std crossing.
+func projectHosts(hosts []HostTable, withCompiler bool) []HostTable {
+	out := make([]HostTable, 0, len(hosts))
+	for i, t := range hosts {
+		if withCompiler && i == 0 {
+			out = append(out, t)
+			continue
+		}
+		out = append(out, hostadapt.ProjectTable(t))
+	}
+	return out
 }
 
 // checkHostKeys requires every Go-bound host key the image names to be

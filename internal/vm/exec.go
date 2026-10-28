@@ -495,6 +495,9 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 	for i, a := range caps {
 		fr.writeParam(c.params[len(args)+i], params[len(args)+i].Temp, a)
 	}
+	if m.countEntries && fr.bad == nil {
+		fr.bad = checkParamKinds(f, args)
+	}
 	var err error
 	switch {
 	case fr.bad != nil:
@@ -1224,6 +1227,9 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			pc++
 		case opTap:
 			m.dbg.tap(fr, ir.Temp(d))
+			pc++
+		case opEnter:
+			c.entries.Add(1)
 			pc++
 
 		default:

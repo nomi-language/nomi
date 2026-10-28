@@ -530,8 +530,8 @@ func (g *gen) portableDefault(d *ifaceDef, m *ifaceMethod) bool {
 			// Nothing for the two scopes to disagree about.
 		case here == nil && there.Kind == analysis.SymbolStruct:
 			// A struct the declaring file names and this one does not
-			// (`#Request{}` in std/macro's `Macro.request`, copied into a
-			// macro that imports no `Request`). A literal's struct is the
+			// (a struct literal in a default argument the declaring file
+			// wrote, copied into a file that imports no such name). A literal's struct is the
 			// type the checker gave it in the declaring file, read from that
 			// file's analysis under namesFrom, so no name of this file can
 			// take its place.

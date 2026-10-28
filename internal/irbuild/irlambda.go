@@ -491,6 +491,13 @@ func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		return held.temp, held.k, true, true
 	}
 	src, k, _, ok := bl.parent.lower(t)
+	if ok && k == kindUnit {
+		// A Unit holds nothing to carry: the closure makes its own, here,
+		// at each use, so no use reads a value another branch made.
+		u := ir.NewUnit(bl.g.irNodePos(t), bl.f.NewTemp())
+		bl.b.Append(u)
+		return u.Dst(), kindUnit, true, true
+	}
 	if !ok || !irCallableValueKind(k) {
 		return ir.NoTemp, kindInvalid, false, false
 	}

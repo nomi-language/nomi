@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -294,4 +295,44 @@ func (g *gen) aliasNamedDef(name string) (d *typeDef, found bool) {
 		return nil, true
 	}
 	return k.def, true
+}
+
+// qualifiedAliasTarget is `shapes.Pt` for `shapes.P` when P is a typealias
+// the file bound to `shapes` declares over a named type `Pt`, reporting
+// whether name was one, so `#shapes.P{...}` is a `shapes.Pt` literal.
+func (g *gen) qualifiedAliasTarget(name string) (string, bool) {
+	dot := strings.LastIndex(name, ".")
+	if dot <= 0 {
+		return "", false
+	}
+	scope := g.moduleScope(name[:dot])
+	if scope == nil {
+		return "", false
+	}
+	target := aliasTargetName(resolvedScopeSymbol(scope, name[dot+1:]))
+	if target == "" {
+		return "", false
+	}
+	return name[:dot] + "." + target, true
+}
+
+// aliasTargetName is the name of the struct, enum or distinct type the
+// typealias sym stands for, or "" when sym is no alias or stands for no
+// such type.
+func aliasTargetName(sym *analysis.Symbol) string {
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != analysis.SymbolTypeAlias {
+		return ""
+	}
+	switch t := sym.Type.(type) {
+	case *analysis.StructType:
+		return t.Name
+	case *analysis.EnumType:
+		return t.Name
+	case *analysis.DistinctType:
+		return t.Name
+	}
+	return ""
 }

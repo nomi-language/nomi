@@ -1,0 +1,4 @@
+code: String,name: String
+usd,US dollar
+gbp,Pound "sterling"
+jpy,Yen ${not interpolated}

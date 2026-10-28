@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 52
-declared-cases 580
+declared-cases 583
 failing 0
 C assertions
 E 0
@@ -47,12 +47,14 @@ T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 53
-H 52cf6d2e0a94f3e84a7e50d69bf8f5dcf01b2dc6d8d3e8231ca4137cfd94f108
+N 55
+H 2c0093c08834db4d577b053b45ca4c2416a53ac00421056a15092b1dbb01760b
 T ok Date.new
 T ok Date.parse
 T ok Date.days_between
 T ok Date.weekday
+T ok Date.leap_year?
+T ok Date.days_in_month
 T ok Date.format
 T ok Date.format_fields
 T ok Date.parse_in
@@ -206,8 +208,8 @@ T ok Decimal.empty_product (impl Productable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 C duration
 E 0
-N 20
-H 5071c1c9f615897fc409dc959f8bd989fe794a7cb817e1f52a389f46d40b5696
+N 22
+H f4b49ebff40a7db31dc4a8070b516fd2b665a05a9573313ba6d52d815bf9e403
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
@@ -221,6 +223,8 @@ T ok Duration.as_seconds
 T ok Duration.as_minutes
 T ok Duration.as_hours
 T ok Duration.format
+T ok Duration.clock
+T ok Duration.parse_clock
 T ok Duration.add (impl Add<Duration, Duration> for Duration)
 T ok Duration.empty_sum (impl Summable for Duration)
 T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
@@ -230,11 +234,13 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 34
-H 4eaa47d672aab29e428f6afd4fb10a88a46fa3ac1c78c9ad884c7d947601168a
+N 36
+H 079015e3013eceb76bb2e2689ec94d25d19b7270da7736b13da1caa5d3bc7228
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
+T ok Float.pi
+T ok Float.e
 T ok Float.nan?
 T ok Float.infinite?
 T ok Float.finite?
@@ -309,6 +315,12 @@ T ok struct Failure
 T ok fs_testing.run
 T ok fs_testing.text
 T ok fs_testing.conformance
+C hash
+E 0
+N 2
+H a2a2bef4df14d37da9f78c1b176adef53cdd1a1d09f5e5e754e978a3cfb0198c
+T ok hash.sha256
+T ok hash.sha256_hex
 C instant
 E 0
 N 9
@@ -324,8 +336,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 35
-H 0c593787bccb839b4368e5f79d43d9802b7e7424c7c857081a490bff9628cd01
+N 36
+H 7c94086232d7dbab36814e8643d2e0ca41d307a54f8a6df3c6d4aa31b94e26b9
 T ok Int.max_value
 T ok Int.min_value
 T ok Int.to_non_zero
@@ -344,6 +356,7 @@ T ok Int.bitwise_not
 T ok Int.shift_left
 T ok Int.shift_right
 T ok Int.modulo
+T ok Int.floor_div
 T ok Int.abs
 T ok Int.sign
 T ok Int.min
@@ -392,8 +405,8 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 52
-H a67cd25469e664314d861b382fc7a508267d1d90d4e431e7d08f0543651f7d74
+N 54
+H c3198a0828caa7e33dc5b876a3c226b501683a4c4926d42ab45cf597acf6caf4
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
@@ -432,6 +445,8 @@ T ok Iter.flat_map
 T ok Iter.chunks
 T ok Iter.windows
 T ok Iter.chunk_by
+T ok Iter.permutations
+T ok Iter.combinations
 T ok Iter.from
 T ok Iter.repeat
 T ok Iter.iterate
@@ -455,12 +470,14 @@ T ok Json.encode
 T ok Json.to_dynamic
 C lists
 E 0
-N 8
-H 1b53fc93c3279d47e14dd27be3122f21495b40cc687c09465cf2b098d4181b1d
+N 10
+H 7f65d4e264552fe7e722e7910d344aae5dad813769601a2ff3207f0e603fa351
 T ok List.next_item
 T ok List.concat
 T ok List.head
 T ok List.tail
+T ok List.remove_at
+T ok List.remove
 T ok List.starts_with?
 T ok List.ends_with?
 T ok List.contains? (impl Contains for List<T>)
@@ -489,26 +506,12 @@ H c6f2113efec00b65698dc88633bbe444211b9005ce9d85df8738b9a186ac8639
 T ok interface Localize
 T ok enum NumberParseError
 T ok NumberParseError.to_string (impl Display for NumberParseError)
-C macro
-E 0
-N 11
-H fe77473709067abb0648a3917486c7355d08bc3373e0d9f2a45da7be6042bf18
-T ok Span.on_line
-T ok Span.line
-T ok Body.span_at
-T ok Input.span_at
-T ok Input.find
-T ok Expansion.error
-T ok struct Source
-T ok Source.string_literal
-T ok macro.config
-T ok macro.pascal_case
-T ok macro.snake_case
 C maps
 E 0
-N 13
-H e0f596e9b4540d789e2482ccb2cdae01bd26c5bbded98ff158a736639b00f252
+N 14
+H 359b523f6b915efdf47c792599ffb26f408f4fef10382e0d74ecf22458d143e4
 T ok Map.get
+T ok Map.at
 T ok Map.put
 T ok Map.remove
 T ok Map.merge

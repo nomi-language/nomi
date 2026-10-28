@@ -20,8 +20,8 @@
 //# | `JSON`, `JSONB` | `SqlJson` | `Json` |
 
 /// A family: the reader `runtime` names it by, its interface (`bound`), and the
-/// Nomi type it reads by default, with the std module that type needs, if
-/// any (`calendar.Date` needs `std/calendar`).
+/// Nomi type it reads by default, with the std module that type is
+/// imported from, if any (`Date` is `std/calendar`'s).
 pub struct Family {
     reader: String
     bound: String
@@ -40,7 +40,7 @@ fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) ->
 //! assert types.of("BIGINT") |> Maybe.map(fn f -> f.nomi) == Some("Int")
 //! assert types.of("varchar(80)") |> Maybe.map(fn f -> f.nomi) == Some("String")
 //! assert types.of("DECIMAL(12, 2)") |> Maybe.map(fn f -> f.nomi) == Some("Decimal")
-//! assert types.of("DATE") |> Maybe.map(fn f -> f.nomi) == Some("calendar.Date")
+//! assert types.of("DATE") |> Maybe.map(fn f -> f.nomi) == Some("Date")
 //! assert types.of("") == None
 //
 pub fn of(declared: String) -> Maybe<Family> {
@@ -70,28 +70,28 @@ pub fn of(declared: String) -> Maybe<Family> {
             Some(family("numeric", "SqlNumeric", "Decimal", None))
 
         "DATE" ->
-            Some(family("date", "SqlDate", "calendar.Date", calendar))
+            Some(family("date", "SqlDate", "Date", calendar))
 
         "TIME" ->
-            Some(family("time", "SqlTime", "calendar.Time", calendar))
+            Some(family("time", "SqlTime", "Time", calendar))
 
         "DATETIME" ->
-            Some(family("timestamp", "SqlTimestamp", "calendar.NaiveDateTime", calendar))
+            Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
 
         "TIMESTAMP" ->
-            Some(family("timestamp", "SqlTimestamp", "calendar.NaiveDateTime", calendar))
+            Some(family("timestamp", "SqlTimestamp", "NaiveDateTime", calendar))
 
         "TIMESTAMPTZ" ->
-            Some(family("timestamptz", "SqlTimestamptz", "instant.Instant", Some("std/instant")))
+            Some(family("timestamptz", "SqlTimestamptz", "Instant", Some("std/instant")))
 
         "UUID" ->
-            Some(family("uuid", "SqlUuid", "uuid.Uuid", Some("std/uuid")))
+            Some(family("uuid", "SqlUuid", "Uuid", Some("std/uuid")))
 
         "JSON" ->
-            Some(family("json", "SqlJson", "json.Json", Some("std/json")))
+            Some(family("json", "SqlJson", "Json", Some("std/json")))
 
         "JSONB" ->
-            Some(family("json", "SqlJson", "json.Json", Some("std/json")))
+            Some(family("json", "SqlJson", "Json", Some("std/json")))
 
         "BLOB" ->
             Some(family("bytes", "SqlBytes", "Bytes", None))
@@ -146,32 +146,16 @@ pub fn precision_and_scale(declared: String) -> Maybe<#(Int, Int)> {
 fn by_affinity(name: String) -> Maybe<Family> {
     if String.contains?(name, "INT") {
         Some(family("int", "SqlInt", "Int", None))
-    } else if String.contains?(name, "CHAR") or String.contains?(name, "CLOB") or String.contains?(
-        name,
-        "TEXT",
-    ) {
+    } else if String.contains?(name, "CHAR")
+        or String.contains?(name, "CLOB")
+        or String.contains?(name, "TEXT") {
         Some(family("text", "SqlText", "String", None))
-    } else if String.contains?(name, "REAL") or String.contains?(name, "FLOA") or String.contains?(
-        name,
-        "DOUB",
-    ) {
+    } else if String.contains?(name, "REAL")
+        or String.contains?(name, "FLOA")
+        or String.contains?(name, "DOUB") {
         Some(family("float", "SqlFloat", "Float", None))
     } else {
         None
-    }
-}
-
-/// The std module a family's Nomi type is named through, by that name.
-//! assert types.of_nomi("calendar.Date") == Some("std/calendar")
-//! assert types.of_nomi("Int") == None
-//
-pub fn of_nomi(type_text: String) -> Maybe<String> {
-    case String.split(type_text, ".") {
-        ["calendar", _] -> Some("std/calendar")
-        ["instant", _] -> Some("std/instant")
-        ["uuid", _] -> Some("std/uuid")
-        ["json", _] -> Some("std/json")
-        _ -> None
     }
 }
 

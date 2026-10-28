@@ -196,8 +196,9 @@ fn tail_color(s: String) -> Color {
 	expectNoStdlibErrors(t, errs)
 }
 
-// A `.Variant` in an arm of an unannotated binding has no expected enum,
-// as before: the arm's result has no expected type.
+// A bare variant in an arm of an unannotated binding has no expected enum
+// from the function. Only an earlier arm that names the enum gives it one
+// (earlierArmsExpected), and here the bare arm comes first.
 func TestReturnTypeScope_DotVariantInBoundArmStillNeedsAType(t *testing.T) {
 	src := `enum Color {
   Red
@@ -205,8 +206,8 @@ func TestReturnTypeScope_DotVariantInBoundArmStillNeedsAType(t *testing.T) {
 }
 fn g(s: String) -> Maybe<Color> {
   c = case s {
-    "a" -> Color.Red
-    _ -> .Blue
+    "a" -> .Red
+    _ -> Color.Blue
   }
   Some(c)
 }`

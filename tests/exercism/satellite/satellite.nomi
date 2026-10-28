@@ -1,0 +1,62 @@
+/// A binary tree with a value at each node.
+pub enum Tree<T> {
+    Leaf
+    Node {left: Tree<T>, value: T, right: Tree<T>}
+}
+
+derive Equatable for Tree<T>
+
+/// Why two traversals describe no tree.
+pub enum Error {
+    DifferentLengths
+    DifferentElements
+    RepeatedItems
+}
+
+/// The tree whose pre-order traversal is `preorder` and whose in-order
+/// traversal is `inorder`. The two must hold the same items, each once.
+pub fn tree_from_traversals<T>(
+    preorder: List<T>,
+    inorder: List<T>,
+) -> Result<Tree<T>, Error> where T: Hashable and Equatable {
+    items = Iter.to_set(preorder)
+
+    if Iter.count(preorder) != Iter.count(inorder) {
+        Err(.DifferentLengths)
+    } else if items != Iter.to_set(inorder) {
+        Err(.DifferentElements)
+    } else if Set.size(items) != Iter.count(preorder) {
+        Err(.RepeatedItems)
+    } else {
+        Ok(build(preorder, inorder))
+    }
+}
+
+/// The tree of two traversals of the same unique items. The first item in
+/// pre-order is the root; the items before it in in-order are its left
+/// subtree, and as many items after it in pre-order are that subtree's
+/// pre-order.
+fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable {
+    case preorder {
+        [] ->
+            .Leaf
+
+        [root, ..rest] -> {
+            left_inorder =
+                inorder
+                |> Iter.take_while(&(&1 != root))
+                |> Iter.to_list()
+
+            size = Iter.count(left_inorder)
+            left_preorder = Iter.take(rest, size) |> Iter.to_list()
+            right_preorder = Iter.drop(rest, size) |> Iter.to_list()
+            right_inorder = Iter.drop(inorder, size + 1) |> Iter.to_list()
+
+            #.Node{
+                left: build(left_preorder, left_inorder),
+                value: root,
+                right: build(right_preorder, right_inorder),
+            }
+        }
+    }
+}

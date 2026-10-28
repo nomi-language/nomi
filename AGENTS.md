@@ -95,13 +95,10 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   matters.
 - **Keyword declarations and their inputs.** A top-level declaration that
   starts with a keyword and a name (`message cart_items(count: Int)
-  `...``, ``sqlkit.query! orders(user_id: Int) Sql`...` ``) is an
-  `ast.KeywordDecl`, read by one rule whatever the keyword: an optional
-  file qualifier (`Module`), the keyword, an optional `!` (`Marked`, which
-  a macro's keyword needs and `message` and `noun` refuse), and an
-  optional typed-literal tag on the body (`BodyTag`); the name may be a
-  type name only after a marked or qualified keyword (`one_of! Size`,
-  `startsKeywordDecl`), since a macro may declare a type. Every path that
+  `...``) is an `ast.KeywordDecl`, read by one rule whatever the keyword;
+  `message` and `noun` are the only keywords Nomi knows, and any other is
+  an error. Nomi has no macros: a library that generates code ships a tool
+  (`nomi tool`) that writes ordinary `.nomi` files. Every path that
   prepares a file expands the ones Nomi builds in
   (`analysis.ExpandDeclarations`, at an `ExpansionSite`: the module root, the
   file's path under it, the manifest and an `InputReader`; `LowerDerives`
@@ -120,85 +117,13 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   inputs, the catalogs, and records each with its text
   (`ExpansionInputs`); `ExpansionOf` and `ExpansionOfNode` are its span map
   (the declaration and each catalog entry). Agreement of nouns and messages
-  is checked over the whole program beside each macro's program check
-  (`analysis.CheckProgramDeclarations`). An error in an input is a `TypeError` whose `File` is
+  is checked over the whole program (`analysis.CheckProgramDeclarations`). An error in an input is a `TypeError` whose `File` is
   the input, which `nomi check` prints with the input's text and the
   language server publishes on its URI (`internal/lsp/inputs.go`). A kept
   program records its inputs (`CheckedProgram.Inputs`); a changed one is an
   edit to the files that read it with their text unchanged, so a catalog
   edit that keeps every message's signature rebuilds one file's bodies
   (`ProgramEdit.Input`, `programFor`, `InputsChanged`).
-- **Macros.** `macro name: Type` (`ast.MacroDecl`, a
-  `SymbolMacro` reached through the file that declares it) adds a
-  keyword whose declarations `ExpandDeclarations` expands through the
-  site's `MacroHost` (`internal/analysis/macro_expand.go`): it
-  resolves the keyword's qualifier (`csvdata.table!` after `import
-  csvdata`, `fileImportNamed`) or item import (`table!` after
-  `import csvdata.table`) to the macro's file (`ImportFile`; one in the declaring module
-  is the staging error) and asks the host, which is vmhost's
-  (`vmhost/macros.go`, set by `frontend.Config.Macros`, which every
-  load's config carries, and by `DocumentManager.Macros` in the language
-  server). The host builds the macro's file as an entry with hidden
-  drivers (`analysis.MacroDrivers`, `name$expand` and friends, under
-  `Config.MacroDrivers`), cached per file while every file it read reads
-  the same; refuses a `request` or `expand` that reaches an effect
-  (`vm.Machine.Effects`); runs them under `macroLimits` (steps and
-  `vm.Limits.Memory`, which alone decide success, and a hang guard,
-  `vm.ErrDeadline`, whose failure is internal and never cached); reads requested files under the
-  declaring module's root through the site's reader; and caches each
-  expansion by a hash of everything it read (compiler version, the build's
-  file texts, the declaration, the `[<module>]` table, the requested files
-  and the sites). A load holds the lowering lock around its front end, so
-  a build inside one lowers under that hold (`macroHost.held`,
-  `lowerNested`). The answer is Nomi source, parsed and kept after the
-  declaration (which keeps `KeywordDecl.Expansion`) at the declaration's
-  band slot of kind `synthKindExpansion`, with the source's own lines
-  (generated line L is band line base+L): the IR builder lowers that kind of
-  slot as code the file wrote (`analysis.IsExpansionLine`), and every
-  file's assembled errors pass through `RelocateExpansionErrors`, which maps
-  a band position to its byte of the source and the span map's span (in an
-  input when the span is there), related locations included; one the map
-  does not cover goes to the declaration, and the front end and the
-  language server drop any band position left (`relatedInBand`). Hygiene
-  (`internal/analysis/macro_hygiene.go`): a top-level name an expansion
-  declares that the file, or an earlier expansion in it, declares or
-  imports too is an error naming both, and that expansion is dropped and
-  declined (`checkExpansionCollisions`, at the end of
-  `ExpandDeclarations`); a bare name its code names that reaches another
-  of the file's names, and that the declaration's types or copied body do
-  not write, is an error at the declaration (`macroHygieneErrors`, in
-  `CheckTypes`: values by `References`, types by the code's type
-  expressions). The contract (`internal/analysis/macro_contract.go`): an
-  expansion declares what its declaration names, a type for a type name
-  and a function for a declaration with parameters or a result, `pub`
-  exactly when the declaration is, the function's parameters ending with
-  the declaration's and its result the declared type or a `Result` of it,
-  types compared resolved; `recordMacroContracts` checks it when the
-  declaring file's signatures are typed (`fileTyping.finish`) and records
-  it with the expansion, so a build that checks none of that file's bodies
-  knows it too, and a mismatch makes `MacroFailed` true. The compiler
-  attaches the declaration's doc comment to what it names
-  (`attachDeclarationDoc`), and `nomi expand` prints it there
-  (`MacroSource`). A
-  declaration the macro declined (diagnostics and no source,
-  `MacroFailed`), whose run the compiler refused or stopped (an
-  effect, a budget, a fault: `MacroResult.Refused`), or whose macro's
-  module did not build (`MacroResult.Unbuilt`), makes the program report its macro declarations'
-  errors alone (`MacroErrorsAlone`), in the front end, the kept
-  program and a document's own build alike; the files of a macro module
-  that did not build keep their own errors (`InUnbuiltMacroModule`). Every file the expansion read, the
-  macro's source included, is an input, so the language server
-  re-expands on a change; a program whose only files of other modules are
-  macros' sources read as inputs is not `unread`, and an edit to one
-  checks the program afresh. `CheckMacroPrograms` runs each
-  macro's `ProgramCheck` over a program's declarations, and the
-  language server asks its `Navigation` inside a body
-  (`internal/lsp/macros.go`); a quick fix whose `Action` names a
-  `Tool` carries the `nomi.runMacroTool` command, which runs `nomi
-  tool` in the declaring module's root only when chosen
-  (`internal/lsp/macro_tools.go`). The fixture is
-  `testdata/macros`: csvdata's `table` used by rates, and choices'
-  `one_of`, which declares an enum, used by cafe.
 - **Language server analysis.** An open document is analyzed as part of a
   whole program the `DocumentManager` keeps per project root and entry
   (`internal/analysis/document_programs.go`): the program of the first entry
@@ -359,7 +284,10 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   a name at a time). Each `rt.Frame` carries the backend it reaches as an
   opaque slot (`rt/files.go`): the machine's (`vm.Machine.WithFiles`,
   `vmhost.WithFileSystem`), else the build's (the disk natively, one
-  in-memory file system on js/wasm, `default_js.go`). `fs_testing.run` and
+  in-memory file system on js/wasm, `default_js.go`). `nomi test`, in
+  process and in a Go-FFI wrapper, gives a test file the disk with its
+  working directory at its module root (`vmhost.TestDir`,
+  `vmhost.DiskFilesAt` over `stdio.OSAt`). `fs_testing.run` and
   `fs.within` replace it for their body (`fs_host.run_on`, a VM intrinsic,
   `internal/vm/sandbox.go`, over an `rt.FileSystem`; `within`'s is
   `Backend.Within`), and tasks inherit it as they inherit `io.capture`. A
@@ -437,7 +365,13 @@ for hovers and diagnostics (`internal/lsp/literal_eval.go`).
   options (`WithHosts`, `WithVirtualFiles`, `WithOutput`, `WithInput`, ...),
   `Program.Run`, `Program.Call`, `Program.Test`, and `Check`. The CLI, REPL,
   tour wasm and FFI wrapper all go through it. A plain user `host fn` or
-  `host type` is answered by an embedder's host table. An embedder's own
+  `host type` is answered by an embedder's host table, keyed by the
+  declaration's key (`frontend.HostKey`). A project's crossing, a `go`
+  binding's included, is named `hostadapt.ProjectName(key)`, and a machine
+  binds every table but std/compiler's under those names
+  (`hostadapt.ProjectTable`), so a project file named like a Go-backed std
+  module (`regex.nomi` binding `compile`) never shares a crossing with
+  std's rows (`TestHosts_AProjectFileNamedLikeAStdModuleRunsBesideIt`). An embedder's own
   files are a `vmhost.FileSystem` (`WithFileSystem`, `vmhost/filesystem.go`,
   adapted to stdio's `Backend`); `DiskFiles` and `NewMemoryFiles` are two.
 - **Go FFI.** A Nomi file declares `gopkg` handles and `go alias.Symbol`
@@ -636,7 +570,7 @@ counts nine.
 
 The modules under `lib/` are Go modules of their own, which root `go test
 ./...` and `go vet ./...` skip. `TestLibModules` (`cmd/nomi`) runs `nomi
-test` on `lib/sql/sqlite` and `lib/sql/sqlkit`, `nomi tool sqlkit prepare
+test` on `lib/sql/sqlite` and `lib/sql/sqlkit`, `nomi tool sqlkit generate
 --check` and `nomi test .` in `lib/sql/examples/shop`, and `go test ./...`
 in `lib/sql/sqlite`, after `go mod download` there puts modernc.org/sqlite
 in the Go module cache (from the network when it is missing). By hand: `go
@@ -764,11 +698,9 @@ proves a stale recheck fails it. `go test ./internal/analysis -run '^$' -fuzz
 mutates a project file and edits it the same way, and
 `TestIncrementalMatchesFullSample` (about 2 seconds) runs a fixed sample of
 those edits under plain `go test`. Its `messages` project holds catalogs on
-disk, and its `macros` project the macro fixture: an edit step whose
-key has an extension (`locales/pl/cart.toml`, `data/rates.csv`,
-`../csvdata/csvdata.nomi`) writes that input and rechecks with an input
-edit, and `TestOpenDocumentCatalogEditsMatchFreshBuilds` and
-`TestOpenDocumentMacroEditsMatchFreshBuilds` hold open documents to
+disk: an edit step whose key has an extension (`locales/pl/cart.toml`)
+writes that input and rechecks with an input edit, and
+`TestOpenDocumentCatalogEditsMatchFreshBuilds` holds open documents to
 fresh builds through the same edits.
 
 **Rotating sets.** Those fixed inputs are the regression baseline; five
@@ -897,7 +829,24 @@ and records every request, response and event, with paths normalized.
 them; a moved transcript needs a named reason like any golden file.
 
 `vm-retained.txt` lists every function the builder retains over the corpus
-with whether the VM ran it (`TestIRRetainedPopulationRuns`). A new corpus file
+with whether the VM ran it on synthesized arguments
+(`TestIRRetainedPopulationRuns`). A function ran when the machine entered its
+body (`vm.Machine.WithEntryCounts`, which compiles an `enter` at pc 0 of
+every function, and `Entries`) and the run did not end in a machine refusal
+(a construct the machine runs no code for, an undeclared local, a callee no
+module retained, a crossing with no binding); a trap, an `Err`, a `todo` or a
+limit is the body's answer. A dispatched call whose receiver's type has no
+retained impl (`vm.DispatchMiss`) counts as a missing callee unless the
+receiver is not a value of the operand's declared type, which the machine
+can decide only for a concrete type; every dispatched operand today is an
+interface value, so every such miss is LINKING. The probe hands an
+interface-typed parameter or field a value of a type the program retains
+an impl of, so such a miss is a real gap. A function not entered on any argument is in the
+`PROBE` bucket. A counting machine also refuses, at a call from Go, a scalar
+argument of the wrong kind, which is what lets
+`TestIRParamShapeAgreesWithTheVM` catch a wrong recorded scalar shape. A
+machine without counting compiles no `enter`
+(`TestEntries_AMachineWithoutCountingCompilesNoEnter`). A new corpus file
 or a builder change moves it; regenerate with
 `NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -run '^TestIRRetainedPopulationRuns$' -count=1`
 (the whole-package regeneration above also rewrites it) and name each moved
@@ -1245,13 +1194,11 @@ block that stops at run time with exit 1 and its failure on stderr, as
 `nomi run` prints it, and `internal/vm`'s whole-program harness excludes a
 record with a nonzero exit (`candidateIDs`).
 ` ```nomi-run no-run ` (output that reads the clock) must compile and is not
-run. ` ```nomi-run manual ` is a block whose run is expensive (a macro
-expands in it): the page runs it once when it is shown, and after an edit
+run. ` ```nomi-run manual ` is a block whose run is expensive (a tool
+runs before it): the page runs it once when it is shown, and after an edit
 only when the reader presses its Run button (or Ctrl+Enter); the doctest
-runs it like any block, and it combines with `error`. ` ```nomi-run expand `
-shows what `nomi expand` prints for its first tab instead of a run
-(`vmhost.ExpandMarked`); the doctest compares that with the expect block,
-and tour.expect does not record it. A file in a live example is editable
+runs it like any block, and it combines with `error`. A file in a live
+example is editable
 only when an edit can change what it prints: Go files, `go.mod`, `go.sum`
 and a `nomi.toml` whose only table is `[module]` are read-only by kind
 (tour-client.mjs's `readOnlyReason`), and ` ```nomi-run read-only:<glob> `
@@ -1261,18 +1208,23 @@ doctest fails a marked file the run reads, an unmarked data file it never
 reads (a successful open of the contents is a read, a listing or metadata
 is not) and a glob that matches no file. ` ```nomi-run tool:<module>/<name> `
 (repeatable) runs `nomi tool <module> <name>` in the block's project before
-each run, as a reader runs `sqlkit prepare` before `nomi run`
+each run, as a reader runs `sqlkit generate` before `nomi run`
 (`vmhost.ToolMarked`, nomi-wasm's `nomiTool`): the files it writes replace
 the block's, in its tabs too, and what it prints comes before the run's
-output. The module is a tour module the block imports, whose Go side only
-the tour's wasm links, so the doctest only checks the block's words and
+output. When the module is a tour module the block imports, whose Go side
+only the tour's wasm links, the doctest only checks the block's words and
 expect block, and `TestTourWasmAnswersTheTourBlocks` runs the tools and
-the block. Any other word after `nomi-run`
+the block. When it is a module the block holds (`generators/choices/`, as
+the Generating Code chapter's blocks hold their generators), the doctest
+runs the tools and the block too, and compares what they print, the
+tests' report included, with the expect block (`checkOwnToolBlock`); the
+tour expectations record the block's run without its tools, over the
+generated files the block holds. Any other word after `nomi-run`
 fails the doctest. A block with a `// FILE: go.mod` section is a project of
 modules (a root module that requires and replaces one under it, such as a
-macro's `macros/csvdata/`): `vmhost.LoadMarked` writes its files under a
-directory and loads them from there, as the same files on disk load, so
-module resolution, a macro's build and the inputs it reads need nothing
+generator's `generators/csvdata/`): `vmhost.LoadMarked` writes its files
+under a directory and loads them from there, as the same files on disk
+load, so module resolution and the files a tool reads need nothing
 special. The doctest and harnesses use a temporary directory; the browser
 uses `/tour` in the in-memory file system `tour/src/lib/go-memfs.js` gives
 Go's `os` in the worker. Diagnostics name files by their path from the

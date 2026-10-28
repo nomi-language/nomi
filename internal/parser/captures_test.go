@@ -10,8 +10,8 @@ import (
 )
 
 // A capture is `&` against a call, a parenthesized expression or a literal,
-// and its body is one postfix-level operand: `&f(&1) + 1` adds to the
-// capture.
+// or the negation of one, and its body is one postfix-level operand:
+// `&f(&1) + 1` adds to the capture.
 func TestParseCapture_Bodies(t *testing.T) {
 	for _, tc := range []struct {
 		src, body string
@@ -33,6 +33,8 @@ func TestParseCapture_Bodies(t *testing.T) {
 		{"&#[&1]", "*ast.VectorLit", false},
 		{"&%[&1]", "*ast.SetLit", false},
 		{"&%{&1 => 0}", "*ast.MapLit", false},
+		{"&!keep?(&1)", "*ast.Unary", false},
+		{"&!(&1 > 2)", "*ast.Unary", false},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
 			c, ok := parseExpr(t, tc.src).(*ast.Capture)
@@ -95,6 +97,9 @@ func TestParseCapture_Errors(t *testing.T) {
 		{"f = &f(&1).x", "a capture is `&` and a call, a parenthesized expression or a literal"},
 		{"x = 5 |> then &x", "a capture is `&` and a call, a parenthesized expression or a literal"},
 		{"f = & (&1 + 1)", "a capture's `&` is written against its body, with no space"},
+		{"f = &!x", "a capture is `&` and a call, a parenthesized expression or a literal"},
+		{"f = &!&1", "a capture is `&` and a call, a parenthesized expression or a literal"},
+		{"f = & !keep?(&1)", "a capture's `&` is written against its body, with no space"},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
 			_, err := Parse(lexer.Lex(tc.src))

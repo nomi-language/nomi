@@ -1,0 +1,111 @@
+import std/duration.Duration
+
+/// What a stopwatch is doing.
+pub enum State {
+    Ready
+    Running
+    Stopped
+}
+
+derive Equatable for State
+
+/// A command the stopwatch's state does not allow.
+pub enum Error {
+    AlreadyRunning
+    StopWhenNotRunning
+    LapWhenNotRunning
+    ResetWhenNotStopped
+}
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .AlreadyRunning -> "cannot start an already running stopwatch"
+            .StopWhenNotRunning -> "cannot stop a stopwatch that is not running"
+            .LapWhenNotRunning -> "cannot lap a stopwatch that is not running"
+            .ResetWhenNotStopped -> "cannot reset a stopwatch that is not stopped"
+        }
+    }
+}
+
+once no_time = Duration.seconds(0)
+
+/// A stopwatch that times laps. It is a value: each command answers the
+/// stopwatch after it, and time passes when `advance` says so.
+pub opaque struct Stopwatch {
+    state: State
+    current: Duration
+    laps: List<Duration>
+}
+
+impl Stopwatch {
+    /// A stopwatch in the ready state, with no time and no laps.
+    pub fn new() -> Stopwatch {
+        #Stopwatch{state: .Ready, current: no_time, laps: []}
+    }
+
+    /// Starts timing from the ready state, or resumes it from the stopped one.
+    pub fn start(watch: Stopwatch) -> Result<Stopwatch, Error> {
+        case watch.state {
+            .Running -> Err(.AlreadyRunning)
+            .Ready or .Stopped -> Ok(#{..watch, state: .Running})
+        }
+    }
+
+    /// Pauses a running stopwatch.
+    pub fn stop(watch: Stopwatch) -> Result<Stopwatch, Error> {
+        case watch.state {
+            .Running -> Ok(#{..watch, state: .Stopped})
+            .Ready or .Stopped -> Err(.StopWhenNotRunning)
+        }
+    }
+
+    /// Ends the current lap of a running stopwatch, adding it to the previous
+    /// laps, and starts the next from no time.
+    pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error> {
+        case watch.state {
+            .Running ->
+                Ok(#{..watch, current: no_time, laps: List.concat(watch.laps, [watch.current])})
+
+            .Ready or .Stopped ->
+                Err(.LapWhenNotRunning)
+        }
+    }
+
+    /// Clears a stopped stopwatch back to a new one.
+    pub fn reset(watch: Stopwatch) -> Result<Stopwatch, Error> {
+        case watch.state {
+            .Stopped -> Ok(Stopwatch.new())
+            .Ready or .Running -> Err(.ResetWhenNotStopped)
+        }
+    }
+
+    /// The stopwatch after `by` has passed: the current lap grows while it
+    /// runs, and nothing changes otherwise.
+    pub fn advance(watch: Stopwatch, by: Duration) -> Stopwatch {
+        case watch.state {
+            .Running -> #{..watch, current: watch.current + by}
+            .Ready or .Stopped -> watch
+        }
+    }
+
+    /// What the stopwatch is doing.
+    pub fn state(watch: Stopwatch) -> State {
+        watch.state
+    }
+
+    /// The time on the current lap.
+    pub fn current_lap(watch: Stopwatch) -> Duration {
+        watch.current
+    }
+
+    /// The times of the finished laps, first first.
+    pub fn previous_laps(watch: Stopwatch) -> List<Duration> {
+        watch.laps
+    }
+
+    /// The time on every lap, the current one included.
+    pub fn total(watch: Stopwatch) -> Duration {
+        Iter.sum(watch.laps) + watch.current
+    }
+}

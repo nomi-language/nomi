@@ -1,0 +1,57 @@
+import std/calendar.{self, Date, DateParts}
+
+/// A person: their name, where and when they were born, and where they live.
+pub struct Person {
+    name: Name
+    born: Born
+    address: Address
+}
+
+/// The fore names and surname of a person.
+pub struct Name {
+    fore_name: String
+    sur_name: String
+}
+
+/// Where and on what day someone was born.
+pub struct Born {
+    at: Address
+    on: Date
+}
+
+/// A postal address.
+pub struct Address {
+    house_number: Int
+    street: String
+    place: String
+    country: String
+}
+
+/// The street of the address where someone was born.
+pub fn born_street(born: Born) -> String {
+    born.at.street
+}
+
+/// `person` living on `street`, at the same house number and place.
+pub fn set_current_street(person: Person, street: String) -> Person {
+    #{..person, address: #{.., street}}
+}
+
+/// `person` born in `month` of the same year, on the same day, or the
+/// calendar's error when that month has no such day.
+pub fn set_birth_month(person: Person, month: Int) -> Result<Person, calendar.Error> {
+    on = person.born.on
+    on = try Date.new(DateParts.year(on), month, DateParts.day(on))
+
+    Ok(#{..person, born: #{.., on}})
+}
+
+/// `person` with `rename` applied to the street they were born on and the
+/// street they live on.
+pub fn rename_streets(person: Person, rename: (String) -> String) -> Person {
+    #{
+        ..person,
+        born: #{.., at: #{.., street: rename(person.born.at.street)}},
+        address: #{.., street: rename(person.address.street)},
+    }
+}

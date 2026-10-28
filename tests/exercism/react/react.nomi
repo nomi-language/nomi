@@ -1,0 +1,145 @@
+/// A spreadsheet of named cells: input cells hold a value that is set, and
+/// compute cells hold a function of other cells that is kept up to date. It
+/// is a value: setting an input answers a new reactor.
+pub opaque struct Reactor {
+    values: Map<String, Int>
+    inputs: Set<String>
+    computed: List<Computed>
+    callbacks: Map<String, String>
+}
+
+/// A compute cell: its name, the cells it reads, in order, and how it
+/// computes its value from theirs.
+struct Computed {
+    name: String
+    inputs: List<String>
+    compute: (Vector<Int>) -> Int
+}
+
+/// Why a cell cannot be made, set or watched.
+pub enum Error {
+    /// A cell of this name already exists.
+    Duplicate String
+    /// No cell has this name.
+    UnknownCell String
+    /// The cell computes its value, so it cannot be set.
+    NotAnInput String
+}
+
+derive Equatable for Error
+
+impl Reactor {
+    /// A reactor with no cells.
+    pub fn new() -> Reactor {
+        #Reactor{values: %{}, inputs: %[], computed: [], callbacks: %{}}
+    }
+
+    /// `reactor` with an input cell `name` holding `value`.
+    pub fn input(reactor: Reactor, name: String, value: Int) -> Result<Reactor, Error> {
+        if Map.contains?(reactor.values, name) {
+            return Err(.Duplicate(name))
+        }
+
+        Ok(#{
+            ..reactor,
+            values: Map.put(reactor.values, name, value),
+            inputs: Set.insert(reactor.inputs, name),
+        })
+    }
+
+    /// `reactor` with a compute cell `name` whose value is `compute` of the
+    /// values of `inputs`, in their order.
+    pub fn compute(
+        reactor: Reactor,
+        name: String,
+        inputs: List<String>,
+        compute: (Vector<Int>) -> Int,
+    ) -> Result<Reactor, Error> {
+        if Map.contains?(reactor.values, name) {
+            return Err(.Duplicate(name))
+        }
+
+        if Some(unknown) = Iter.find(inputs, &!Map.contains?(reactor.values, &1)) {
+            return Err(.UnknownCell(unknown))
+        }
+
+        cell = #Computed{name, inputs, compute}
+
+        Ok(#{
+            ..reactor,
+            values: Map.put(reactor.values, name, value_of(cell, reactor.values)),
+            computed: List.concat(reactor.computed, [cell]),
+        })
+    }
+
+    /// The value of the cell `name`, or `None` when there is none.
+    pub fn value(reactor: Reactor, name: String) -> Maybe<Int> {
+        Map.get(reactor.values, name)
+    }
+
+    /// `reactor` with the input cell `name` set to `value` and every compute
+    /// cell brought up to date, and the callbacks that fire: each callback
+    /// watching a cell whose value changed, with the cell's new value.
+    pub fn set_value(
+        reactor: Reactor,
+        name: String,
+        value: Int,
+    ) -> Result<#(Reactor, Map<String, Int>), Error> {
+        if !Map.contains?(reactor.values, name) {
+            return Err(.UnknownCell(name))
+        }
+
+        if !Set.contains?(reactor.inputs, name) {
+            return Err(.NotAnInput(name))
+        }
+
+        set = Map.put(reactor.values, name, value)
+
+        values = Iter.reduce(reactor.computed, fn values = set, cell -> {
+            Map.put(values, cell.name, value_of(cell, values))
+        })
+
+        fired =
+            reactor.callbacks
+            |> Iter.filter(fn #(_, cell) -> Map.get(values, cell) != Map.get(reactor.values, cell))
+            |> Iter.map(fn #(callback, cell) -> #(callback, Map.at(values, cell)))
+            |> Iter.to_map()
+
+        Ok(#(#{..reactor, values}, fired))
+    }
+
+    /// `reactor` with the callback `callback` watching the cell `cell`.
+    pub fn add_callback(
+        reactor: Reactor,
+        cell: String,
+        callback: String,
+    ) -> Result<Reactor, Error> {
+        if !Map.contains?(reactor.values, cell) {
+            return Err(.UnknownCell(cell))
+        }
+
+        Ok(#{..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
+    }
+
+    /// `reactor` without the callback `callback` on `cell`; the same
+    /// reactor when it is not there.
+    pub fn remove_callback(reactor: Reactor, cell: String, callback: String) -> Reactor {
+        case Map.get(reactor.callbacks, callback) {
+            Some(watched) when watched == cell ->
+                #{..reactor, callbacks: Map.remove(reactor.callbacks, callback)}
+
+            _ ->
+                reactor
+        }
+    }
+}
+
+/// The value `cell` computes from `values`, which hold every cell it reads.
+fn value_of(cell: Computed, values: Map<String, Int>) -> Int {
+    inputs =
+        cell.inputs
+        |> Iter.map(&Map.at(values, &1))
+        |> Iter.to_vector()
+
+    cell.compute(inputs)
+}

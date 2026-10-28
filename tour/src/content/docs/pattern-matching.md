@@ -88,7 +88,7 @@ fn first_two(words: List<String>) -> String {
     case words {
         [] -> "no words"
         [only] -> only
-        [a, b, .._] -> "${a} ${b}"
+        [a, b, ..] -> "${a} ${b}"
     }
 }
 
@@ -121,9 +121,9 @@ dbg line 27: access(%["viewer", "editor"]) = "write and read"
 dbg line 28: access(%["viewer"]) = "read only"
 -->
 
-`[a, b, .._]` matches a list of two or more items and ignores the rest;
-`..rest` would name it. A vector pattern may leave the name out, as `#[.., z]`
-does: it matches a vector of at least one item and
+`[a, b, ..]` matches a list of two or more items and ignores the rest;
+`..rest` would name it. A vector pattern may also put the `..` first, as
+`#[.., z]` does: it matches a vector of at least one item and
 names the last. The compiler checks list and vector arms by length, so
 `first_two` and `last` need no `_` arm.
 

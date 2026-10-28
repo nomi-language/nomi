@@ -1,0 +1,87 @@
+import piecing_it_together.{Clues, Error, Jigsaw, jigsaw_data}
+
+test "jigsaw data" {
+    cases: List<#(String, Clues, Jigsaw)> = [
+        #(
+            "1000 pieces puzzle with 1.6 aspect ratio",
+            #{pieces: Some(1000), aspect_ratio: Some(1.6)},
+            #{
+                pieces: 1000,
+                border: 126,
+                inside: 874,
+                rows: 25,
+                columns: 40,
+                aspect_ratio: 1.6,
+                format: .Landscape,
+            },
+        ),
+        #(
+            "square puzzle with 32 rows",
+            #{rows: Some(32), format: Some(.Square)},
+            #{
+                pieces: 1024,
+                border: 124,
+                inside: 900,
+                rows: 32,
+                columns: 32,
+                aspect_ratio: 1.0,
+                format: .Square,
+            },
+        ),
+        #(
+            "400 pieces square puzzle with only inside pieces and aspect ratio",
+            #{inside: Some(324), aspect_ratio: Some(1.0)},
+            #{
+                pieces: 400,
+                border: 76,
+                inside: 324,
+                rows: 20,
+                columns: 20,
+                aspect_ratio: 1.0,
+                format: .Square,
+            },
+        ),
+        #(
+            "1500 pieces landscape puzzle with 30 rows and 1.6 aspect ratio",
+            #{rows: Some(30), aspect_ratio: Some(1.6666666666666667)},
+            #{
+                pieces: 1500,
+                border: 156,
+                inside: 1344,
+                rows: 30,
+                columns: 50,
+                aspect_ratio: 1.6666666666666667,
+                format: .Landscape,
+            },
+        ),
+        #(
+            "300 pieces portrait puzzle with 70 border pieces",
+            #{pieces: Some(300), border: Some(70), format: Some(.Portrait)},
+            #{
+                pieces: 300,
+                border: 70,
+                inside: 230,
+                rows: 25,
+                columns: 12,
+                aspect_ratio: 0.48,
+                format: .Portrait,
+            },
+        ),
+    ]
+
+    subtests cases, #(description, clues, expected), description {
+        assert jigsaw_data(clues) == Ok(expected)
+    }
+}
+
+test "puzzle with insufficient data" {
+    clues = #Clues{pieces: Some(1500), format: Some(.Landscape)}
+
+    assert jigsaw_data(clues) == Err(Error.InsufficientData)
+}
+
+test "puzzle with contradictory data" {
+    clues = #Clues{rows: Some(100), columns: Some(1000), format: Some(.Square)}
+
+    assert jigsaw_data(clues) == Err(Error.ContradictoryData)
+}

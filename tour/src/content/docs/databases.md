@@ -10,8 +10,8 @@ takes them in order:
   and read the rows that come back. Nothing checks the SQL, or the names of
   the columns you read, until the program runs.
 - **Checked SQL with sqlkit.** You write each query once, with a Nomi name
-  and signature, and sqlkit checks it against your schema while the program
-  is checked. Each query becomes an ordinary typed function.
+  and signature, and sqlkit's `generate` tool checks it against your schema
+  and writes an ordinary typed function for it.
 
 Both use `sqlite`, the driver from
 [`lib/sql`](https://github.com/nomi-language/nomi/tree/main/lib/sql) in the nomi repository. It
@@ -33,8 +33,8 @@ so edit them and they run again. The driver calls Go code, as the
 [FFI](/ffi-and-dynamic/) chapter describes; in the browser its Go side
 calls SQLite's WebAssembly build, and on your machine a build of SQLite
 written in Go. sqlkit's examples are a whole project each, with its
-migrations and the snapshot sqlkit's `prepare` tool writes from them, and
-they run `prepare` in the page as you would on your machine.
+migrations, its queries and the files sqlkit's `generate` tool writes from
+them, and they run `generate` in the page as you would on your machine.
 
 ## Running SQL directly
 
@@ -332,8 +332,10 @@ and `Fake.committed` is the statements that took effect.
 
 Nothing above checks a statement before it runs. A misspelled column, a
 column read as the wrong type, or a `NULL` where you expected a value, is
-an `Err` at run time. sqlkit moves those mistakes to `nomi check` and your
-editor. Add it beside the driver:
+an `Err` at run time. sqlkit moves those mistakes before the program runs.
+You write each query in a `.sql` file with a Nomi name and signature, and
+sqlkit's `generate` tool checks it against your schema and writes an
+ordinary typed function for it. Add sqlkit beside the driver:
 
 ```console
 $ nomi add github.com/nomi-language/nomi/lib/sql/sqlkit
@@ -359,19 +361,22 @@ shop/
 │   ├── migrations/
 │   │   ├── 20261019120000_users_and_orders.sql
 │   │   └── 20261102090000_orders_shipped_on.sql
-│   └── main.snapshot.json
+│   └── queries/
+│       └── queries.sql
 ├── schema.nomi
+├── schema_test.nomi
 ├── queries.nomi
 ├── shop.nomi
 ├── main.nomi
 └── shop_test.nomi
 ```
 
-The migrations describe the tables, `prepare` writes the snapshot from them,
-`schema.nomi` declares the database, `queries.nomi` holds the queries, and
-`shop.nomi` holds operations built from them. The examples below are these
-files, in a file tree beside the editor. Each one runs sqlkit's macros,
-which takes a moment, so it runs when you press Run.
+The migrations describe the tables, and `queries.sql` holds the queries.
+sqlkit's `generate` tool writes `schema.nomi`, `queries.nomi` and
+`schema_test.nomi` from them. `shop.nomi` holds operations built from the
+queries. The examples below are these files, in a file tree beside the
+editor. Each one runs `generate` before it runs, as you would after an
+edit, so it runs when you press Run.
 
 ### Migrations
 
@@ -410,237 +415,45 @@ in. `UNIQUE` means no two users share an email. `REFERENCES users (id)`
 means each order's `user_id` must be some user's `id`. The `CHECK` allows
 only four values in `status`.
 
-### The snapshot
+### Generating the code
 
 The compiler never connects to a database, so `nomi check` and the editor
-need no running database or password. Instead, sqlkit's `prepare` tool
-writes what SQLite says about the schema and the queries to a file, the
-**snapshot**, which is all the compiler reads:
+need no running database or password. Instead, sqlkit's `generate` tool
+asks SQLite about the schema and the queries once, and writes what it
+learns as Nomi code:
 
 ```console
-$ nomi tool sqlkit prepare
-wrote db/main.snapshot.json: 2 tables, 9 queries (0 SQLite rejects)
+$ nomi tool sqlkit generate
+main: wrote schema.nomi, schema_test.nomi, queries.nomi
 ```
 
-`prepare` applies the migrations to an empty SQLite database in memory, and
-asks SQLite to describe each query: its columns, their types, and whether
-each may be `NULL`. Commit the snapshot, and run `prepare` again after you
-change a migration or a query. In an automated check,
-`nomi tool sqlkit prepare --check` writes nothing, and fails when the
-snapshot is not what `prepare` would write.
-
-Most examples below run `prepare` before each run, as you would after an
-edit, so an edit to a migration or to a query's SQL rewrites the snapshot's
-tab before the program is checked. The first line of their output is what
-`prepare` printed. The snapshot's tab is read-only, since `prepare` writes
-it.
-
-### Declaring the database
-
-The shop's `schema.nomi` declares the database with one line,
-`pub sqlkit.database! main`. `sqlkit.database!` is a [macro](/macros/):
-code in the sqlkit library that writes Nomi code while your program is
-checked, marked by the `!`. It reads the migrations in `db/migrations/` and
-the snapshot `db/main.snapshot.json`. Both are at their default paths, so
-the shop's `nomi.toml` says nothing about its database; the
+`generate` applies the migrations to an empty SQLite database in memory,
+and asks SQLite to describe each query: its columns, their types, and
+whether each may be `NULL`. `main` is the database's name; a project with
+no `[sqlkit]` table in its `nomi.toml` has one database, `main`, with its
+migrations in `db/migrations/` and its queries in `db/queries/`. The
 [sqlkit README](https://github.com/nomi-language/nomi/tree/main/lib/sql/sqlkit#readme)
-lists the keys for a project that keeps them elsewhere. From them, it
-writes:
+lists the keys for a project that keeps them elsewhere.
+
+The generated files are ordinary Nomi that you commit, so `nomi check`,
+the editor and code review read them like any other file. Don't edit them:
+run `generate` again after you change a migration or a query. From the
+migrations, `generate` writes `schema.nomi`:
 
 - a struct for each table, named after one of its rows: the table `users`
   holds `User` rows, and `orders` holds `Order` rows;
 - an enum for each column that a `CHECK (column IN (...))` limits;
 - `migrations`, the migration files as a list, for `sqlkit.migrate`.
 
-This example shows what `nomi expand schema.nomi` prints:
+The shop's begins:
 
-```nomi-run manual expand read-only:db/migrations/* read-only:db/main.snapshot.json
-// FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
-
-/// The shop's SQLite database.
-pub sqlkit.database! main
-
-// FILE: db/migrations/20261019120000_users_and_orders.sql
-CREATE TABLE users (
-    id          INTEGER PRIMARY KEY,
-    email       TEXT NOT NULL UNIQUE,
-    name        TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE orders (
-    id          INTEGER PRIMARY KEY,
-    user_id     INTEGER NOT NULL REFERENCES users (id),
-    status      TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),
-    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.
-    total       DECIMAL(12, 2) NOT NULL,
-    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-// FILE: db/migrations/20261102090000_orders_shipped_on.sql
-ALTER TABLE orders ADD COLUMN shipped_on DATE;
-
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
-}
-
-// FILE: nomi.toml
-[module]
-name = "shop"
-entry_points = ["main"]
-```
-<!-- expect
-// sqlkit.database! main (line 7), expanded by the macro database of module sqlkit
+```nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
 import {
-    std/calendar
-    std/instant
+    std/calendar.Date
+    std/instant.Instant
     std/sql
     sqlkit
     sqlkit/runtime
@@ -652,8 +465,8 @@ pub struct Order {
     user_id: Int
     status: OrderStatus
     total: Decimal
-    placed_at: instant.Instant
-    shipped_on: Maybe<calendar.Date>
+    placed_at: Instant
+    shipped_on: Maybe<Date>
 }
 
 /// A row of the table `users`.
@@ -661,7 +474,412 @@ pub struct User {
     id: Int
     email: String
     name: Maybe<String>
-    created_at: instant.Instant
+    created_at: Instant
+}
+```
+
+Each column's SQL type picks its field's Nomi type. `INTEGER` is `Int`,
+`TEXT` is `String`, `DATE` is a calendar `Date`, `TIMESTAMPTZ` (a moment in
+time) is an `Instant`, and `DECIMAL` is a `Decimal`. A nullable column is a
+`Maybe`. The sqlkit README lists every SQL type it reads. SQLite keeps a
+`DECIMAL` as a 64-bit float, so the driver reads `total` back at its
+declared scale, `12.50d`, and refuses a value it could not keep exactly.
+
+Each generated file starts with a header that names what it was made from
+and records a digest of the migrations and queries. `generate` also writes
+`schema_test.nomi`, a test that computes the digest again and fails when a
+migration or a query changed after the last `generate`, so `nomi test`
+catches a forgotten run:
+
+```console
+$ nomi test .
+FAIL schema_test.nomi :: generated sql is current
+```
+
+In an automated check, `nomi tool sqlkit generate --check` writes nothing
+and fails when a generated file is not what `generate` would write.
+
+### Queries
+
+`db/queries/queries.sql` holds the shop's queries. Each starts with an
+annotation that gives it a Nomi name and signature, then its doc comment,
+then its SQL, ending in `;`. The first:
+
+```sql
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, email, name, created_at
+FROM users
+WHERE email = @email;
+```
+
+It has a name and parameters, as a function has, and a result type:
+`-> Maybe<User>` is at most one row, read as a `User`. `@email` marks where
+the parameter goes. `generate` writes this function for it into
+`queries.nomi`:
+
+```nomi
+/// The user with this email, if any.
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
+```
+
+Every query function takes the connection as its first argument, `conn`, and
+wraps the result type in a `Result`. `generate` imports what the signatures
+name: a row struct or enum from `schema.nomi`, and std's types such as
+`Instant`. A type of your own is named by an `-- import:` line at the top of
+the file; the shop's revenue report reads rows of `shop.nomi`'s
+`CustomerRevenue` with `-- import: shop.CustomerRevenue`.
+
+The result type says how many rows to expect:
+
+- `-> T`: exactly one row. No rows, or more than one, is an error.
+- `-> Maybe<T>`: at most one row. No rows is `None`.
+- `-> List<T>`: every row.
+- `-> Rows<T>`: every row, read one at a time with `Rows.fold`, so the rows
+  are never all in memory at once. This one is not wrapped in a `Result`;
+  `Rows.fold` returns one.
+- No result type: a list of anonymous structs, one field per column.
+
+`T` is a struct whose fields are the columns, matched by name. A query that
+returns one column can read it as a plain type instead. SQL that returns no
+rows, such as an `UPDATE`, declares `-> Changed` for the number of rows it
+changed (sqlkit's struct `#Changed{rows: Int}`), or `-> Unit` to ignore the
+count. Two more of the shop's queries:
+
+```sql
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name)
+RETURNING id;
+
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
+```
+
+`RETURNING id` makes the `INSERT` return the new row's id. Passing `None`
+for `name` stores `NULL`. `set_status` takes an `OrderStatus`, so only the
+four allowed values reach the column.
+
+The count is a type of its own so that it can't be mistaken for a column.
+Without the `RETURNING id` line, `insert_user` returns no row, and an `Int`
+result would quietly become the number of rows inserted. Instead `generate`
+stops with an error at the annotation and writes nothing. Here
+`insert_user` has lost that line:
+
+```nomi-run manual error tool:sqlkit/generate
+// FILE: db/queries/queries.sql
+-- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
+-- them, a function for each.
+-- import: shop.CustomerRevenue
+
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, email, name, created_at
+FROM users
+WHERE email = @email;
+
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name);
+
+-- query: insert_order(user_id: Int, total: Decimal) -> Int
+-- Place an order for a user.
+INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
+RETURNING id;
+
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
+
+-- query: order(id: Int) -> Order
+-- One order.
+SELECT id, user_id, status, total, placed_at, shipped_on
+FROM orders
+WHERE id = @id;
+
+-- query: orders_for_user(user_id: Int, limit: Int)
+-- A user's orders, newest first, each with the user's email.
+SELECT o.id, o.status, o.total, o.placed_at, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.user_id = @user_id
+ORDER BY o.placed_at DESC, o.id DESC
+LIMIT @limit;
+
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
+
+-- query: revenue_since(since: Instant) -> List<CustomerRevenue>
+-- Revenue per customer from paid and shipped orders since a moment. SQLite
+-- declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+-- reads back at scale 2.
+SELECT u.id AS user_id, u.email,
+       count(*) AS "order_count!",
+       CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
+GROUP BY u.id, u.email
+ORDER BY revenue DESC;
+
+-- query: all_orders() -> Rows<Order>
+-- Every order, streamed.
+SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
+
+// FILE: main.nomi
+// The shop on a fresh in-memory database: build the schema from the
+// migrations, add a user, place an order, mark it paid, read the user back
+// and count each user's orders with the checked queries.
+import {
+    std/io
+    std/sql.{self, Error}
+    queries
+    schema
+    sqlite
+    sqlkit
+}
+
+fn main() -> Result<Unit, Error> {
+    sql.with_connection(sqlite.memory, fn db -> {
+        try sqlkit.migrate(db, schema.migrations)
+
+        user_id = try queries.insert_user(db, "ada@example.com", Some("Ada"))
+        order_id = try queries.insert_order(db, user_id, 12.50d)
+        changed = try queries.set_status(db, order_id, .Paid)
+        io.print("order ${order_id} is paid (${changed.rows} row changed)")
+
+        Some(user) = try queries.user_by_email(db, "ada@example.com") else {
+            None -> {
+                io.print("no user with that email")
+                return Ok(Unit)
+            }
+        }
+
+        name = user.name |> Maybe.with_default("no name")
+        io.print("user ${user.id}: ${user.email} (${name})")
+
+        _ = try queries.insert_user(db, "grace@example.com", None)
+        counts = try queries.order_counts(db)
+
+        Iter.each(counts, fn c -> {
+            last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
+            io.print("${c.email}: orders ${c.orders}, last order ${last}")
+        })
+
+        Ok(Unit)
+    })
+}
+
+// FILE: queries.nomi
+// Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
+// db/migrations. Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/instant.Instant
+    std/sql
+    schema.{Order, OrderStatus, User}
+    shop.CustomerRevenue
+    sqlkit
+    sqlkit/runtime
+}
+
+/// The user with this email, if any.
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
+
+/// Add a user, answering its id.
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(email), runtime.bind(name)],
+    )
+
+    runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
+}
+
+/// Place an order for a user.
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(user_id), runtime.bind(total)],
+    )
+
+    runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
+}
+
+/// Change an order's status: the number of orders changed.
+pub fn set_status(
+    conn: sql.Conn,
+    id: Int,
+    status: OrderStatus,
+) -> Result<sqlkit.Changed, sql.Error> {
+    statement = runtime.statement(
+        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [runtime.bind(status), runtime.bind(id)],
+    )
+
+    runtime.exec(conn, statement)
+}
+
+/// One order.
+pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [runtime.bind(id)],
+    )
+
+    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+            id: try runtime.int("order", row, 0),
+            user_id: try runtime.int("order", row, 1),
+            status: try runtime.text("order", row, 2),
+            total: try runtime.numeric_scaled("order", row, 3, 2),
+            placed_at: try runtime.timestamptz("order", row, 4),
+            shipped_on: try runtime.date_null("order", row, 5),
+        }))
+}
+
+/// A user's orders, newest first, each with the user's email.
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+    id: Int,
+    status: OrderStatus,
+    total: Decimal,
+    placed_at: Instant,
+    email: String,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
+            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
+            "",
+        ],
+        [runtime.bind(user_id), runtime.bind(limit)],
+    )
+
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+            id: try runtime.int<Int>("orders_for_user", row, 0),
+            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
+            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
+            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
+            email: try runtime.text<String>("orders_for_user", row, 4),
+        }))
+}
+
+/// Every user with the number of orders they placed, including those who
+/// placed none.
+pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+    email: String,
+    last_order: Maybe<Int>,
+    orders: Int,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+        ],
+        [],
+    )
+
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+            email: try runtime.text<String>("order_counts", row, 0),
+            last_order: try runtime.value_null<Int>("order_counts", row, 1),
+            orders: try runtime.value<Int>("order_counts", row, 2),
+        }))
+}
+
+/// Revenue per customer from paid and shipped orders since a moment. SQLite
+/// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+/// reads back at scale 2.
+pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
+            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+        ],
+        [runtime.bind(since)],
+    )
+
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+            user_id: try runtime.int("revenue_since", row, 0),
+            email: try runtime.text("revenue_since", row, 1),
+            order_count: try runtime.value("revenue_since", row, 2),
+            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+        }))
+}
+
+/// Every order, streamed.
+pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [],
+    )
+
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+            id: try runtime.int("all_orders", row, 0),
+            user_id: try runtime.int("all_orders", row, 1),
+            status: try runtime.text("all_orders", row, 2),
+            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
+            placed_at: try runtime.timestamptz("all_orders", row, 4),
+            shipped_on: try runtime.date_null("all_orders", row, 5),
+        }))
+}
+
+// FILE: schema.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/sql
+    sqlkit
+    sqlkit/runtime
+}
+
+/// A row of the table `orders`.
+pub struct Order {
+    id: Int
+    user_id: Int
+    status: OrderStatus
+    total: Decimal
+    placed_at: Instant
+    shipped_on: Maybe<Date>
+}
+
+/// A row of the table `users`.
+pub struct User {
+    id: Int
+    email: String
+    name: Maybe<String>
+    created_at: Instant
 }
 
 /// The values `CHECK (status IN (...))` allows in `orders.status`.
@@ -716,360 +934,54 @@ pub once migrations: List<sqlkit.Migration> = [
         sql: "ALTER TABLE orders ADD COLUMN shipped_on DATE;\n",
     },
 ]
--->
 
-Each column's SQL type picks its field's Nomi type. `INTEGER` is `Int`,
-`TEXT` is `String`, `DATE` is a calendar `Date`, `TIMESTAMPTZ` (a moment in
-time) is an `Instant`, and `DECIMAL` is a `Decimal`. A nullable column is a
-`Maybe`. The sqlkit README lists every SQL type it reads. SQLite keeps a
-`DECIMAL` as a 64-bit float, so the driver reads `total` back at its
-declared scale, `12.50d`, and refuses a value it could not keep exactly.
+// FILE: schema_test.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
+// Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import sqlkit/inputs
 
-A migration changed since the last `prepare` is an error at the
-declaration, in `nomi check` and in the editor. This example has a third
-migration that `prepare` has not seen, and it does not run `prepare`:
-
-```nomi-run manual error read-only:db/main.snapshot.json
-// FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
-
-/// The shop's SQLite database.
-pub sqlkit.database! main
-
-// FILE: db/migrations/20261110090000_users_phone.sql
-ALTER TABLE users ADD COLUMN phone TEXT;
-
-// FILE: db/migrations/20261019120000_users_and_orders.sql
-CREATE TABLE users (
-    id          INTEGER PRIMARY KEY,
-    email       TEXT NOT NULL UNIQUE,
-    name        TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE orders (
-    id          INTEGER PRIMARY KEY,
-    user_id     INTEGER NOT NULL REFERENCES users (id),
-    status      TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),
-    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.
-    total       DECIMAL(12, 2) NOT NULL,
-    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-// FILE: db/migrations/20261102090000_orders_shipped_on.sql
-ALTER TABLE orders ADD COLUMN shipped_on DATE;
-
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
+// Fails when a migration or a query changed after the last
+// `nomi tool sqlkit generate`: run it again. The paths are under the
+// module root, where `nomi test` resolves a test's relative paths.
+test "generated sql is current" {
+    assert inputs.current("db/migrations", "db/queries")
+        == Ok("4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e")
 }
 
-// FILE: nomi.toml
-[module]
-name = "shop"
-entry_points = ["main"]
-```
-<!-- expect
-schema.nomi:7:12: db/main.snapshot.json is out of date: the migrations changed after the last `nomi tool sqlkit prepare`
-schema.nomi:7:12: help: run `nomi tool sqlkit prepare` to describe the migrations again
--->
-
-### Queries
-
-A `sqlkit.query!` declaration is SQL with a Nomi name and signature. The
-first of the shop's queries in `queries.nomi`:
-
-```nomi
+// FILE: shop.nomi
+// The shop's operations, over any `Conn`: a connection, a transaction, or
+// a test's.
 import {
-    schema.User
-    sqlkit
+    std/sql.{self, Conn, Error}
+    queries
+    sqlkit.Rows
 }
 
-/// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, email, name, created_at
-        FROM users
-        WHERE email = @email
-    `
-```
-
-It has a name and parameters, as a function has, and a result type:
-`-> Maybe<User>` is at most one row, read as a `User`. The SQL comes between
-backticks, after a `Sql` tag, which also tells the editor to highlight it as
-SQL. `@email` marks where the parameter goes.
-
-The declaration becomes a function, which `nomi expand queries.nomi` prints.
-Its first line is:
-
-```nomi
-pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
-```
-
-Every query function takes the connection as its first argument, `conn`, and
-wraps the result type in a `Result`.
-
-The result type says how many rows to expect:
-
-- `-> T`: exactly one row. No rows, or more than one, is an error.
-- `-> Maybe<T>`: at most one row. No rows is `None`.
-- `-> List<T>`: every row.
-- `-> Rows<T>`: every row, read one at a time with `Rows.fold`, so the rows
-  are never all in memory at once. This one is not wrapped in a `Result`;
-  `Rows.fold` returns one.
-- No result type: a list of anonymous structs, one field per column.
-
-`T` is a struct whose fields are the columns, matched by name. A query that
-returns one column can read it as a plain type instead. SQL that returns no
-rows, such as an `UPDATE`, declares `-> Changed` for the number of rows it
-changed (sqlkit's struct `#Changed{rows: Int}`), or `-> Unit` to ignore the
-count. Two more of the shop's queries:
-
-```nomi
-/// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-        RETURNING id
-    `
-
-/// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
-```
-
-`RETURNING id` makes the `INSERT` return the new row's id. Passing `None`
-for `name` stores `NULL`. `set_status` takes an `OrderStatus`, so only the
-four allowed values reach the column.
-
-The count is a type of its own so that it can't be mistaken for a column.
-Without the `RETURNING id` line, `insert_user` returns no row, and an `Int`
-result would quietly become the number of rows inserted. Instead it is an
-error. Here `insert_user` has lost that line, and `prepare` has asked
-SQLite what the statement returns:
-
-```nomi-run manual error tool:sqlkit/prepare read-only:db/main.snapshot.json
-// FILE: queries.nomi
-import {
-    std/instant.Instant
-    schema.{Order, OrderStatus, User}
-    sqlkit
+/// Register a user and place their first order, in one transaction: if
+/// the order fails, the user is not registered either.
+pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        user_id = try queries.insert_user(tx, email, None)
+        queries.insert_order(tx, user_id, total)
+    })
 }
 
-/// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, email, name, created_at
-        FROM users
-        WHERE email = @email
-    `
+/// Place an order and mark it paid, in one transaction.
+pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        order_id = try queries.insert_order(tx, user_id, total)
+        _ = try queries.set_status(tx, order_id, .Paid)
+        Ok(order_id)
+    })
+}
 
-/// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-    `
+/// The total of every order, read one row at a time.
+pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
+    queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
+}
 
-/// Place an order for a user.
-pub sqlkit.query! insert_order(user_id: Int, total: Decimal) -> Int Sql`
-        INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
-        RETURNING id
-    `
-
-/// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
-
-/// One order.
-pub sqlkit.query! order(id: Int) -> Order Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on
-        FROM orders
-        WHERE id = @id
-    `
-
-/// A user's orders, newest first, each with the user's email.
-pub sqlkit.query! orders_for_user(user_id: Int, limit: Int) Sql`
-        SELECT o.id, o.status, o.total, o.placed_at, u.email
-        FROM orders o
-        JOIN users u ON u.id = o.user_id
-        WHERE o.user_id = @user_id
-        ORDER BY o.placed_at DESC, o.id DESC
-        LIMIT @limit
-    `
-
-/// Every user with the number of orders they placed, including those who
-/// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
-
-/// Revenue per customer from paid and shipped orders since a moment. SQLite
-/// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
-/// reads back at scale 2.
-pub sqlkit.query! revenue_since(since: Instant) -> List<CustomerRevenue> Sql`
-        SELECT u.id AS user_id, u.email,
-               count(*) AS "order_count!",
-               CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
-        FROM users u
-        JOIN orders o ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
-        GROUP BY u.id, u.email
-        ORDER BY revenue DESC
-    `
-
-/// Every order, streamed.
-pub sqlkit.query! all_orders() -> Rows<Order> Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
-    `
-
-/// A customer's revenue.
+/// A customer's revenue: a row of `queries.revenue_since`.
 pub struct CustomerRevenue {
     user_id: Int
     email: String
@@ -1079,15 +991,6 @@ pub struct CustomerRevenue {
 
 derive Equatable for CustomerRevenue
 
-// FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
-
-/// The shop's SQLite database.
-pub sqlkit.database! main
-
 // FILE: db/migrations/20261019120000_users_and_orders.sql
 CREATE TABLE users (
     id          INTEGER PRIMARY KEY,
@@ -1109,160 +1012,14 @@ CREATE TABLE orders (
 // FILE: db/migrations/20261102090000_orders_shipped_on.sql
 ALTER TABLE orders ADD COLUMN shipped_on DATE;
 
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
-}
-
 // FILE: nomi.toml
 [module]
 name = "shop"
 entry_points = ["main"]
 ```
 <!-- expect
-wrote db/main.snapshot.json: 2 tables, 9 queries (0 SQLite rejects)
-queries.nomi:15:70: `insert_user` returns no rows, so it cannot answer an `Int`; write `-> Changed` for the number of rows it changed, or `-> Unit`
+db/queries/queries.sql:11:62: `insert_user` returns no rows, so it cannot answer an `Int`; write `-> Changed` for the number of rows it changed, or `-> Unit`
+error: 1 problem in the SQL; nothing was written
 -->
 
 Put `RETURNING id` back, or change the result to `-> Changed`, and run it
@@ -1270,308 +1027,76 @@ again.
 
 ### Query parameters
 
-Every `@name` must name a parameter of the declaration, so a misspelled name
-is an error at the name. sqlkit finds it in the SQL's text, with no help
-from the snapshot, so this example does not run `prepare`. Here
-`user_by_email` says `@mail`:
+Every `@name` must name a parameter of the query, so a misspelled name is
+an error at the name. Here `user_by_email` says `@mail`:
 
-```nomi-run manual error read-only:db/migrations/* read-only:db/main.snapshot.json
-// FILE: queries.nomi
-import {
-    std/instant.Instant
-    schema.{Order, OrderStatus, User}
-    sqlkit
-}
+```nomi-run manual error tool:sqlkit/generate
+// FILE: db/queries/queries.sql
+-- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
+-- them, a function for each.
+-- import: shop.CustomerRevenue
 
-/// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, email, name, created_at
-        FROM users
-        WHERE email = @mail
-    `
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, email, name, created_at
+FROM users
+WHERE email = @mail;
 
-/// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-        RETURNING id
-    `
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name)
+RETURNING id;
 
-/// Place an order for a user.
-pub sqlkit.query! insert_order(user_id: Int, total: Decimal) -> Int Sql`
-        INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
-        RETURNING id
-    `
+-- query: insert_order(user_id: Int, total: Decimal) -> Int
+-- Place an order for a user.
+INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
+RETURNING id;
 
-/// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
 
-/// One order.
-pub sqlkit.query! order(id: Int) -> Order Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on
-        FROM orders
-        WHERE id = @id
-    `
+-- query: order(id: Int) -> Order
+-- One order.
+SELECT id, user_id, status, total, placed_at, shipped_on
+FROM orders
+WHERE id = @id;
 
-/// A user's orders, newest first, each with the user's email.
-pub sqlkit.query! orders_for_user(user_id: Int, limit: Int) Sql`
-        SELECT o.id, o.status, o.total, o.placed_at, u.email
-        FROM orders o
-        JOIN users u ON u.id = o.user_id
-        WHERE o.user_id = @user_id
-        ORDER BY o.placed_at DESC, o.id DESC
-        LIMIT @limit
-    `
+-- query: orders_for_user(user_id: Int, limit: Int)
+-- A user's orders, newest first, each with the user's email.
+SELECT o.id, o.status, o.total, o.placed_at, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.user_id = @user_id
+ORDER BY o.placed_at DESC, o.id DESC
+LIMIT @limit;
 
-/// Every user with the number of orders they placed, including those who
-/// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
 
-/// Revenue per customer from paid and shipped orders since a moment. SQLite
-/// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
-/// reads back at scale 2.
-pub sqlkit.query! revenue_since(since: Instant) -> List<CustomerRevenue> Sql`
-        SELECT u.id AS user_id, u.email,
-               count(*) AS "order_count!",
-               CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
-        FROM users u
-        JOIN orders o ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
-        GROUP BY u.id, u.email
-        ORDER BY revenue DESC
-    `
+-- query: revenue_since(since: Instant) -> List<CustomerRevenue>
+-- Revenue per customer from paid and shipped orders since a moment. SQLite
+-- declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+-- reads back at scale 2.
+SELECT u.id AS user_id, u.email,
+       count(*) AS "order_count!",
+       CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
+GROUP BY u.id, u.email
+ORDER BY revenue DESC;
 
-/// Every order, streamed.
-pub sqlkit.query! all_orders() -> Rows<Order> Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
-    `
+-- query: all_orders() -> Rows<Order>
+-- Every order, streamed.
+SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
 
-/// A customer's revenue.
-pub struct CustomerRevenue {
-    user_id: Int
-    email: String
-    order_count: Int
-    revenue: Decimal
-}
-
-derive Equatable for CustomerRevenue
-
-// FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
-
-/// The shop's SQLite database.
-pub sqlkit.database! main
-
-// FILE: db/migrations/20261019120000_users_and_orders.sql
-CREATE TABLE users (
-    id          INTEGER PRIMARY KEY,
-    email       TEXT NOT NULL UNIQUE,
-    name        TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE orders (
-    id          INTEGER PRIMARY KEY,
-    user_id     INTEGER NOT NULL REFERENCES users (id),
-    status      TEXT NOT NULL DEFAULT 'pending'
-                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),
-    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.
-    total       DECIMAL(12, 2) NOT NULL,
-    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-// FILE: db/migrations/20261102090000_orders_shipped_on.sql
-ALTER TABLE orders ADD COLUMN shipped_on DATE;
-
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
-}
-
-// FILE: nomi.toml
-[module]
-name = "shop"
-entry_points = ["main"]
-```
-<!-- expect
-queries.nomi:11:23: `mail` is not a parameter of `user_by_email`
-queries.nomi:11:23: help: its parameters are `email`
-queries.nomi:8:33: the parameter `email` is not used in the SQL of `user_by_email`
-queries.nomi:8:33: help: write `@email` where it is bound, or remove it
--->
-
-Every parameter must be used too, so the same mistake also reports that
-`email` is not used. Change `@mail` back to `@email` and both go away. An
-`@` in a string such as `'ada@example.com'`, or one not followed by a
-letter or `_`, is SQL, not a parameter.
-
-A query's body writes parameters as `@name`, not `${...}`, because it is SQL
-that sqlkit reads and checks, so it uses SQL's own named parameters and stays
-SQL you could paste into a database console. A `${...}` inside a query's
-backticks is an error. Either way, a parameter travels apart from the SQL,
-as in [Parameters](#parameters).
-
-### Calling the queries
-
-This is the whole shop. Its `main.nomi` builds the schema in a fresh
-in-memory database, adds a user, places an order with `insert_order` (a
-query like `insert_user`), marks it paid and reads the user back. Then it
-adds a second user and prints how many orders each one placed. Add a
-column in a new migration, or a column to a query's `SELECT`, and run it
-again: `prepare` rewrites the snapshot, and its tab shows the change.
-
-```nomi-run manual tool:sqlkit/prepare read-only:db/main.snapshot.json
 // FILE: main.nomi
 // The shop on a fresh in-memory database: build the schema from the
 // migrations, add a user, place an order, mark it paid, read the user back
@@ -1617,100 +1142,264 @@ fn main() -> Result<Unit, Error> {
 }
 
 // FILE: queries.nomi
+// Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
+// db/migrations. Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
 import {
     std/instant.Instant
+    std/sql
     schema.{Order, OrderStatus, User}
+    shop.CustomerRevenue
     sqlkit
+    sqlkit/runtime
 }
 
 /// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, email, name, created_at
-        FROM users
-        WHERE email = @email
-    `
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
 
 /// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-        RETURNING id
-    `
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(email), runtime.bind(name)],
+    )
+
+    runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
+}
 
 /// Place an order for a user.
-pub sqlkit.query! insert_order(user_id: Int, total: Decimal) -> Int Sql`
-        INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
-        RETURNING id
-    `
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(user_id), runtime.bind(total)],
+    )
+
+    runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
+}
 
 /// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
+pub fn set_status(
+    conn: sql.Conn,
+    id: Int,
+    status: OrderStatus,
+) -> Result<sqlkit.Changed, sql.Error> {
+    statement = runtime.statement(
+        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [runtime.bind(status), runtime.bind(id)],
+    )
+
+    runtime.exec(conn, statement)
+}
 
 /// One order.
-pub sqlkit.query! order(id: Int) -> Order Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on
-        FROM orders
-        WHERE id = @id
-    `
+pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [runtime.bind(id)],
+    )
+
+    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+            id: try runtime.int("order", row, 0),
+            user_id: try runtime.int("order", row, 1),
+            status: try runtime.text("order", row, 2),
+            total: try runtime.numeric_scaled("order", row, 3, 2),
+            placed_at: try runtime.timestamptz("order", row, 4),
+            shipped_on: try runtime.date_null("order", row, 5),
+        }))
+}
 
 /// A user's orders, newest first, each with the user's email.
-pub sqlkit.query! orders_for_user(user_id: Int, limit: Int) Sql`
-        SELECT o.id, o.status, o.total, o.placed_at, u.email
-        FROM orders o
-        JOIN users u ON u.id = o.user_id
-        WHERE o.user_id = @user_id
-        ORDER BY o.placed_at DESC, o.id DESC
-        LIMIT @limit
-    `
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+    id: Int,
+    status: OrderStatus,
+    total: Decimal,
+    placed_at: Instant,
+    email: String,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
+            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
+            "",
+        ],
+        [runtime.bind(user_id), runtime.bind(limit)],
+    )
+
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+            id: try runtime.int<Int>("orders_for_user", row, 0),
+            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
+            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
+            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
+            email: try runtime.text<String>("orders_for_user", row, 4),
+        }))
+}
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
+pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+    email: String,
+    last_order: Maybe<Int>,
+    orders: Int,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+        ],
+        [],
+    )
+
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+            email: try runtime.text<String>("order_counts", row, 0),
+            last_order: try runtime.value_null<Int>("order_counts", row, 1),
+            orders: try runtime.value<Int>("order_counts", row, 2),
+        }))
+}
 
 /// Revenue per customer from paid and shipped orders since a moment. SQLite
 /// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
 /// reads back at scale 2.
-pub sqlkit.query! revenue_since(since: Instant) -> List<CustomerRevenue> Sql`
-        SELECT u.id AS user_id, u.email,
-               count(*) AS "order_count!",
-               CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
-        FROM users u
-        JOIN orders o ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
-        GROUP BY u.id, u.email
-        ORDER BY revenue DESC
-    `
+pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
+            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+        ],
+        [runtime.bind(since)],
+    )
 
-/// Every order, streamed.
-pub sqlkit.query! all_orders() -> Rows<Order> Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
-    `
-
-/// A customer's revenue.
-pub struct CustomerRevenue {
-    user_id: Int
-    email: String
-    order_count: Int
-    revenue: Decimal
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+            user_id: try runtime.int("revenue_since", row, 0),
+            email: try runtime.text("revenue_since", row, 1),
+            order_count: try runtime.value("revenue_since", row, 2),
+            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+        }))
 }
 
-derive Equatable for CustomerRevenue
+/// Every order, streamed.
+pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [],
+    )
+
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+            id: try runtime.int("all_orders", row, 0),
+            user_id: try runtime.int("all_orders", row, 1),
+            status: try runtime.text("all_orders", row, 2),
+            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
+            placed_at: try runtime.timestamptz("all_orders", row, 4),
+            shipped_on: try runtime.date_null("all_orders", row, 5),
+        }))
+}
 
 // FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/sql
+    sqlkit
+    sqlkit/runtime
+}
 
-/// The shop's SQLite database.
-pub sqlkit.database! main
+/// A row of the table `orders`.
+pub struct Order {
+    id: Int
+    user_id: Int
+    status: OrderStatus
+    total: Decimal
+    placed_at: Instant
+    shipped_on: Maybe<Date>
+}
+
+/// A row of the table `users`.
+pub struct User {
+    id: Int
+    email: String
+    name: Maybe<String>
+    created_at: Instant
+}
+
+/// The values `CHECK (status IN (...))` allows in `orders.status`.
+pub enum OrderStatus {
+    Pending
+    Paid
+    Shipped
+    Cancelled
+}
+
+derive Equatable for OrderStatus
+
+impl Display for OrderStatus {
+    fn to_string(value: OrderStatus) -> String {
+        case value {
+            .Pending -> "pending"
+            .Paid -> "paid"
+            .Shipped -> "shipped"
+            .Cancelled -> "cancelled"
+        }
+    }
+}
+
+impl sql.ToSql for OrderStatus {
+    fn to_sql(value: OrderStatus) -> sql.Value {
+        sql.Value.Text(Display.to_string(value))
+    }
+}
+
+impl sql.FromSql for OrderStatus {
+    fn from_sql(value: sql.Value) -> Result<OrderStatus, String> {
+        case runtime.text_of(value) {
+            Some("pending") -> Ok(OrderStatus.Pending)
+            Some("paid") -> Ok(OrderStatus.Paid)
+            Some("shipped") -> Ok(OrderStatus.Shipped)
+            Some("cancelled") -> Ok(OrderStatus.Cancelled)
+            _ -> Err("OrderStatus")
+        }
+    }
+}
+
+impl sqlkit.SqlText for OrderStatus
+
+/// The migrations of the database `main`, in the order they apply.
+pub once migrations: List<sqlkit.Migration> = [
+    #sqlkit.Migration{
+        path: "db/migrations/20261019120000_users_and_orders.sql",
+        sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
+    },
+    #sqlkit.Migration{
+        path: "db/migrations/20261102090000_orders_shipped_on.sql",
+        sql: "ALTER TABLE orders ADD COLUMN shipped_on DATE;\n",
+    },
+]
+
+// FILE: schema_test.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
+// Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import sqlkit/inputs
+
+// Fails when a migration or a query changed after the last
+// `nomi tool sqlkit generate`: run it again. The paths are under the
+// module root, where `nomi test` resolves a test's relative paths.
+test "generated sql is current" {
+    assert inputs.current("db/migrations", "db/queries")
+        == Ok("4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e")
+}
 
 // FILE: shop.nomi
 // The shop's operations, over any `Conn`: a connection, a transaction, or
@@ -1744,6 +1433,16 @@ pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
     queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
 }
 
+/// A customer's revenue: a row of `queries.revenue_since`.
+pub struct CustomerRevenue {
+    user_id: Int
+    email: String
+    order_count: Int
+    revenue: Decimal
+}
+
+derive Equatable for CustomerRevenue
+
 // FILE: db/migrations/20261019120000_users_and_orders.sql
 CREATE TABLE users (
     id          INTEGER PRIMARY KEY,
@@ -1765,151 +1464,472 @@ CREATE TABLE orders (
 // FILE: db/migrations/20261102090000_orders_shipped_on.sql
 ALTER TABLE orders ADD COLUMN shipped_on DATE;
 
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+```
+<!-- expect
+db/queries/queries.sql:9:15: `mail` is not a parameter of `user_by_email`
+db/queries/queries.sql:9:15: help: its parameters are `email`
+db/queries/queries.sql:5:25: the parameter `email` is not used in the SQL of `user_by_email`
+db/queries/queries.sql:5:25: help: write `@email` where it is bound, or remove it
+error: 2 problems in the SQL; nothing was written
+-->
+
+Every parameter must be used too, so the same mistake also reports that
+`email` is not used. Change `@mail` back to `@email` and both go away. An
+`@` in a string such as `'ada@example.com'`, or one not followed by a
+letter or `_`, is SQL, not a parameter.
+
+A query writes parameters as `@name` because it is SQL that sqlkit reads
+and checks, so it uses SQL's own named parameters and stays SQL you could
+paste into a database console. Either way, a parameter travels apart from
+the SQL, as in [Parameters](#parameters).
+
+### Calling the queries
+
+This is the whole shop. Its `main.nomi` builds the schema in a fresh
+in-memory database, adds a user, places an order with `insert_order` (a
+query like `insert_user`), marks it paid and reads the user back. Then it
+adds a second user and prints how many orders each one placed. Add a
+column in a new migration, or a column to a query's `SELECT`, and run it
+again: `generate` rewrites the generated files, and their tabs show the
+change. The block runs the generated test too.
+
+```nomi-run manual tool:sqlkit/generate
+// FILE: main.nomi
+// The shop on a fresh in-memory database: build the schema from the
+// migrations, add a user, place an order, mark it paid, read the user back
+// and count each user's orders with the checked queries.
+import {
+    std/io
+    std/sql.{self, Error}
+    queries
+    schema
+    sqlite
+    sqlkit
 }
+
+fn main() -> Result<Unit, Error> {
+    sql.with_connection(sqlite.memory, fn db -> {
+        try sqlkit.migrate(db, schema.migrations)
+
+        user_id = try queries.insert_user(db, "ada@example.com", Some("Ada"))
+        order_id = try queries.insert_order(db, user_id, 12.50d)
+        changed = try queries.set_status(db, order_id, .Paid)
+        io.print("order ${order_id} is paid (${changed.rows} row changed)")
+
+        Some(user) = try queries.user_by_email(db, "ada@example.com") else {
+            None -> {
+                io.print("no user with that email")
+                return Ok(Unit)
+            }
+        }
+
+        name = user.name |> Maybe.with_default("no name")
+        io.print("user ${user.id}: ${user.email} (${name})")
+
+        _ = try queries.insert_user(db, "grace@example.com", None)
+        counts = try queries.order_counts(db)
+
+        Iter.each(counts, fn c -> {
+            last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
+            io.print("${c.email}: orders ${c.orders}, last order ${last}")
+        })
+
+        Ok(Unit)
+    })
+}
+
+// FILE: db/queries/queries.sql
+-- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
+-- them, a function for each.
+-- import: shop.CustomerRevenue
+
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, email, name, created_at
+FROM users
+WHERE email = @email;
+
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name)
+RETURNING id;
+
+-- query: insert_order(user_id: Int, total: Decimal) -> Int
+-- Place an order for a user.
+INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
+RETURNING id;
+
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
+
+-- query: order(id: Int) -> Order
+-- One order.
+SELECT id, user_id, status, total, placed_at, shipped_on
+FROM orders
+WHERE id = @id;
+
+-- query: orders_for_user(user_id: Int, limit: Int)
+-- A user's orders, newest first, each with the user's email.
+SELECT o.id, o.status, o.total, o.placed_at, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.user_id = @user_id
+ORDER BY o.placed_at DESC, o.id DESC
+LIMIT @limit;
+
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
+
+-- query: revenue_since(since: Instant) -> List<CustomerRevenue>
+-- Revenue per customer from paid and shipped orders since a moment. SQLite
+-- declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+-- reads back at scale 2.
+SELECT u.id AS user_id, u.email,
+       count(*) AS "order_count!",
+       CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
+GROUP BY u.id, u.email
+ORDER BY revenue DESC;
+
+-- query: all_orders() -> Rows<Order>
+-- Every order, streamed.
+SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
+
+// FILE: queries.nomi
+// Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
+// db/migrations. Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/instant.Instant
+    std/sql
+    schema.{Order, OrderStatus, User}
+    shop.CustomerRevenue
+    sqlkit
+    sqlkit/runtime
+}
+
+/// The user with this email, if any.
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
+
+/// Add a user, answering its id.
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(email), runtime.bind(name)],
+    )
+
+    runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
+}
+
+/// Place an order for a user.
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(user_id), runtime.bind(total)],
+    )
+
+    runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
+}
+
+/// Change an order's status: the number of orders changed.
+pub fn set_status(
+    conn: sql.Conn,
+    id: Int,
+    status: OrderStatus,
+) -> Result<sqlkit.Changed, sql.Error> {
+    statement = runtime.statement(
+        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [runtime.bind(status), runtime.bind(id)],
+    )
+
+    runtime.exec(conn, statement)
+}
+
+/// One order.
+pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [runtime.bind(id)],
+    )
+
+    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+            id: try runtime.int("order", row, 0),
+            user_id: try runtime.int("order", row, 1),
+            status: try runtime.text("order", row, 2),
+            total: try runtime.numeric_scaled("order", row, 3, 2),
+            placed_at: try runtime.timestamptz("order", row, 4),
+            shipped_on: try runtime.date_null("order", row, 5),
+        }))
+}
+
+/// A user's orders, newest first, each with the user's email.
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+    id: Int,
+    status: OrderStatus,
+    total: Decimal,
+    placed_at: Instant,
+    email: String,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
+            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
+            "",
+        ],
+        [runtime.bind(user_id), runtime.bind(limit)],
+    )
+
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+            id: try runtime.int<Int>("orders_for_user", row, 0),
+            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
+            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
+            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
+            email: try runtime.text<String>("orders_for_user", row, 4),
+        }))
+}
+
+/// Every user with the number of orders they placed, including those who
+/// placed none.
+pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+    email: String,
+    last_order: Maybe<Int>,
+    orders: Int,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+        ],
+        [],
+    )
+
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+            email: try runtime.text<String>("order_counts", row, 0),
+            last_order: try runtime.value_null<Int>("order_counts", row, 1),
+            orders: try runtime.value<Int>("order_counts", row, 2),
+        }))
+}
+
+/// Revenue per customer from paid and shipped orders since a moment. SQLite
+/// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+/// reads back at scale 2.
+pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
+            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+        ],
+        [runtime.bind(since)],
+    )
+
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+            user_id: try runtime.int("revenue_since", row, 0),
+            email: try runtime.text("revenue_since", row, 1),
+            order_count: try runtime.value("revenue_since", row, 2),
+            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+        }))
+}
+
+/// Every order, streamed.
+pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [],
+    )
+
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+            id: try runtime.int("all_orders", row, 0),
+            user_id: try runtime.int("all_orders", row, 1),
+            status: try runtime.text("all_orders", row, 2),
+            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
+            placed_at: try runtime.timestamptz("all_orders", row, 4),
+            shipped_on: try runtime.date_null("all_orders", row, 5),
+        }))
+}
+
+// FILE: schema.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/sql
+    sqlkit
+    sqlkit/runtime
+}
+
+/// A row of the table `orders`.
+pub struct Order {
+    id: Int
+    user_id: Int
+    status: OrderStatus
+    total: Decimal
+    placed_at: Instant
+    shipped_on: Maybe<Date>
+}
+
+/// A row of the table `users`.
+pub struct User {
+    id: Int
+    email: String
+    name: Maybe<String>
+    created_at: Instant
+}
+
+/// The values `CHECK (status IN (...))` allows in `orders.status`.
+pub enum OrderStatus {
+    Pending
+    Paid
+    Shipped
+    Cancelled
+}
+
+derive Equatable for OrderStatus
+
+impl Display for OrderStatus {
+    fn to_string(value: OrderStatus) -> String {
+        case value {
+            .Pending -> "pending"
+            .Paid -> "paid"
+            .Shipped -> "shipped"
+            .Cancelled -> "cancelled"
+        }
+    }
+}
+
+impl sql.ToSql for OrderStatus {
+    fn to_sql(value: OrderStatus) -> sql.Value {
+        sql.Value.Text(Display.to_string(value))
+    }
+}
+
+impl sql.FromSql for OrderStatus {
+    fn from_sql(value: sql.Value) -> Result<OrderStatus, String> {
+        case runtime.text_of(value) {
+            Some("pending") -> Ok(OrderStatus.Pending)
+            Some("paid") -> Ok(OrderStatus.Paid)
+            Some("shipped") -> Ok(OrderStatus.Shipped)
+            Some("cancelled") -> Ok(OrderStatus.Cancelled)
+            _ -> Err("OrderStatus")
+        }
+    }
+}
+
+impl sqlkit.SqlText for OrderStatus
+
+/// The migrations of the database `main`, in the order they apply.
+pub once migrations: List<sqlkit.Migration> = [
+    #sqlkit.Migration{
+        path: "db/migrations/20261019120000_users_and_orders.sql",
+        sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
+    },
+    #sqlkit.Migration{
+        path: "db/migrations/20261102090000_orders_shipped_on.sql",
+        sql: "ALTER TABLE orders ADD COLUMN shipped_on DATE;\n",
+    },
+]
+
+// FILE: schema_test.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
+// Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import sqlkit/inputs
+
+// Fails when a migration or a query changed after the last
+// `nomi tool sqlkit generate`: run it again. The paths are under the
+// module root, where `nomi test` resolves a test's relative paths.
+test "generated sql is current" {
+    assert inputs.current("db/migrations", "db/queries")
+        == Ok("4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e")
+}
+
+// FILE: shop.nomi
+// The shop's operations, over any `Conn`: a connection, a transaction, or
+// a test's.
+import {
+    std/sql.{self, Conn, Error}
+    queries
+    sqlkit.Rows
+}
+
+/// Register a user and place their first order, in one transaction: if
+/// the order fails, the user is not registered either.
+pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        user_id = try queries.insert_user(tx, email, None)
+        queries.insert_order(tx, user_id, total)
+    })
+}
+
+/// Place an order and mark it paid, in one transaction.
+pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        order_id = try queries.insert_order(tx, user_id, total)
+        _ = try queries.set_status(tx, order_id, .Paid)
+        Ok(order_id)
+    })
+}
+
+/// The total of every order, read one row at a time.
+pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
+    queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
+}
+
+/// A customer's revenue: a row of `queries.revenue_since`.
+pub struct CustomerRevenue {
+    user_id: Int
+    email: String
+    order_count: Int
+    revenue: Decimal
+}
+
+derive Equatable for CustomerRevenue
+
+// FILE: db/migrations/20261019120000_users_and_orders.sql
+CREATE TABLE users (
+    id          INTEGER PRIMARY KEY,
+    email       TEXT NOT NULL UNIQUE,
+    name        TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE orders (
+    id          INTEGER PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users (id),
+    status      TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),
+    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.
+    total       DECIMAL(12, 2) NOT NULL,
+    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+// FILE: db/migrations/20261102090000_orders_shipped_on.sql
+ALTER TABLE orders ADD COLUMN shipped_on DATE;
 
 // FILE: nomi.toml
 [module]
@@ -1917,11 +1937,13 @@ name = "shop"
 entry_points = ["main"]
 ```
 <!-- expect
-db/main.snapshot.json is up to date: 2 tables, 9 queries (0 SQLite rejects)
+main: up to date
 order 1 is paid (1 row changed)
 user 1: ada@example.com (Ada)
 ada@example.com: orders 1, last order 1
 grace@example.com: orders 0, last order none
+ok generated sql is current
+test result: ok. 1 passed, 0 failed
 -->
 
 `sqlkit.migrate(db, schema.migrations)` runs each migration the database has
@@ -1931,7 +1953,7 @@ to date. If a migration's text changed after it ran, `migrate` runs nothing
 and names the file: write the change as a new migration instead.
 
 From there, each call is an ordinary function call that the compiler has
-checked against the schema. The `Some(user) = ... else` line is
+checked against the generated code. The `Some(user) = ... else` line is
 [binding with `else`](/pattern-matching/#binding-with-else): it handles the
 `None` case on the spot. A caller that does not need a count discards it:
 `_ = try queries.set_status(db, id, .Paid)`.
@@ -1952,16 +1974,15 @@ a user who has none. The last two lines the shop prints come from
 and `count` combine a user's orders into one value each, and `GROUP BY u.id`
 makes one row per user:
 
-```nomi
-/// Every user with the number of orders they placed, including those who
-/// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
+```sql
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
 ```
 
 A column computed by an expression, such as `count(o.id)`, has no SQL type,
@@ -1980,100 +2001,420 @@ is an anonymous struct with the fields `email: String`,
 `last_order: Maybe<Int>` and `orders: Int`. Grace placed no orders, so her
 `last_order` is `None`, which `main` prints as `none`.
 
-A plain column needs no mark. `prepare` asks SQLite which tables a join may
-leave out, so a column from the left-out side of a `LEFT JOIN` is a `Maybe`,
-even when it is `NOT NULL` in its own table. `orders_for_user` in
-`queries.nomi` is a plain `JOIN`, so its `u.email` is a `String`.
+A plain column needs no mark. `generate` asks SQLite which tables a join
+may leave out, so a column from the left-out side of a `LEFT JOIN` is a
+`Maybe`, even when it is `NOT NULL` in its own table. `orders_for_user` in
+`queries.sql` is a plain `JOIN`, so its `u.email` is a `String`.
 
-### Errors in the editor
+### Errors in the SQL
 
-The editor checks queries as you type, because checking needs only the
-snapshot, and shows the same errors as `nomi check` at the SQL they are
-about. Say you misspell `email` in `user_by_email`. The editor first says
-the snapshot does not describe the new SQL, and offers a quick fix that runs
-`prepare`; it never runs `prepare` on its own. Once `prepare` has run,
-SQLite's own error points at the word, as in this example, which runs
-`prepare` first:
+`generate` reports SQLite's own errors at the SQL they are about. Say you
+misspell `email` in `user_by_email`:
 
-```nomi-run manual error tool:sqlkit/prepare read-only:db/main.snapshot.json
-// FILE: queries.nomi
+```nomi-run manual error tool:sqlkit/generate
+// FILE: db/queries/queries.sql
+-- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
+-- them, a function for each.
+-- import: shop.CustomerRevenue
+
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, emial, name, created_at
+FROM users
+WHERE email = @email;
+
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name)
+RETURNING id;
+
+-- query: insert_order(user_id: Int, total: Decimal) -> Int
+-- Place an order for a user.
+INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
+RETURNING id;
+
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
+
+-- query: order(id: Int) -> Order
+-- One order.
+SELECT id, user_id, status, total, placed_at, shipped_on
+FROM orders
+WHERE id = @id;
+
+-- query: orders_for_user(user_id: Int, limit: Int)
+-- A user's orders, newest first, each with the user's email.
+SELECT o.id, o.status, o.total, o.placed_at, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.user_id = @user_id
+ORDER BY o.placed_at DESC, o.id DESC
+LIMIT @limit;
+
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
+
+-- query: revenue_since(since: Instant) -> List<CustomerRevenue>
+-- Revenue per customer from paid and shipped orders since a moment. SQLite
+-- declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+-- reads back at scale 2.
+SELECT u.id AS user_id, u.email,
+       count(*) AS "order_count!",
+       CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
+GROUP BY u.id, u.email
+ORDER BY revenue DESC;
+
+-- query: all_orders() -> Rows<Order>
+-- Every order, streamed.
+SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
+
+// FILE: main.nomi
+// The shop on a fresh in-memory database: build the schema from the
+// migrations, add a user, place an order, mark it paid, read the user back
+// and count each user's orders with the checked queries.
 import {
-    std/instant.Instant
-    schema.{Order, OrderStatus, User}
+    std/io
+    std/sql.{self, Error}
+    queries
+    schema
+    sqlite
     sqlkit
 }
 
+fn main() -> Result<Unit, Error> {
+    sql.with_connection(sqlite.memory, fn db -> {
+        try sqlkit.migrate(db, schema.migrations)
+
+        user_id = try queries.insert_user(db, "ada@example.com", Some("Ada"))
+        order_id = try queries.insert_order(db, user_id, 12.50d)
+        changed = try queries.set_status(db, order_id, .Paid)
+        io.print("order ${order_id} is paid (${changed.rows} row changed)")
+
+        Some(user) = try queries.user_by_email(db, "ada@example.com") else {
+            None -> {
+                io.print("no user with that email")
+                return Ok(Unit)
+            }
+        }
+
+        name = user.name |> Maybe.with_default("no name")
+        io.print("user ${user.id}: ${user.email} (${name})")
+
+        _ = try queries.insert_user(db, "grace@example.com", None)
+        counts = try queries.order_counts(db)
+
+        Iter.each(counts, fn c -> {
+            last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")
+            io.print("${c.email}: orders ${c.orders}, last order ${last}")
+        })
+
+        Ok(Unit)
+    })
+}
+
+// FILE: queries.nomi
+// Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
+// db/migrations. Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/instant.Instant
+    std/sql
+    schema.{Order, OrderStatus, User}
+    shop.CustomerRevenue
+    sqlkit
+    sqlkit/runtime
+}
+
 /// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, emial, name, created_at
-        FROM users
-        WHERE email = @email
-    `
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
 
 /// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-        RETURNING id
-    `
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(email), runtime.bind(name)],
+    )
+
+    runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
+}
 
 /// Place an order for a user.
-pub sqlkit.query! insert_order(user_id: Int, total: Decimal) -> Int Sql`
-        INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
-        RETURNING id
-    `
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(user_id), runtime.bind(total)],
+    )
+
+    runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
+}
 
 /// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
+pub fn set_status(
+    conn: sql.Conn,
+    id: Int,
+    status: OrderStatus,
+) -> Result<sqlkit.Changed, sql.Error> {
+    statement = runtime.statement(
+        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [runtime.bind(status), runtime.bind(id)],
+    )
+
+    runtime.exec(conn, statement)
+}
 
 /// One order.
-pub sqlkit.query! order(id: Int) -> Order Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on
-        FROM orders
-        WHERE id = @id
-    `
+pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [runtime.bind(id)],
+    )
+
+    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+            id: try runtime.int("order", row, 0),
+            user_id: try runtime.int("order", row, 1),
+            status: try runtime.text("order", row, 2),
+            total: try runtime.numeric_scaled("order", row, 3, 2),
+            placed_at: try runtime.timestamptz("order", row, 4),
+            shipped_on: try runtime.date_null("order", row, 5),
+        }))
+}
 
 /// A user's orders, newest first, each with the user's email.
-pub sqlkit.query! orders_for_user(user_id: Int, limit: Int) Sql`
-        SELECT o.id, o.status, o.total, o.placed_at, u.email
-        FROM orders o
-        JOIN users u ON u.id = o.user_id
-        WHERE o.user_id = @user_id
-        ORDER BY o.placed_at DESC, o.id DESC
-        LIMIT @limit
-    `
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+    id: Int,
+    status: OrderStatus,
+    total: Decimal,
+    placed_at: Instant,
+    email: String,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
+            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
+            "",
+        ],
+        [runtime.bind(user_id), runtime.bind(limit)],
+    )
+
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+            id: try runtime.int<Int>("orders_for_user", row, 0),
+            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
+            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
+            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
+            email: try runtime.text<String>("orders_for_user", row, 4),
+        }))
+}
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
+pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+    email: String,
+    last_order: Maybe<Int>,
+    orders: Int,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+        ],
+        [],
+    )
+
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+            email: try runtime.text<String>("order_counts", row, 0),
+            last_order: try runtime.value_null<Int>("order_counts", row, 1),
+            orders: try runtime.value<Int>("order_counts", row, 2),
+        }))
+}
 
 /// Revenue per customer from paid and shipped orders since a moment. SQLite
 /// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
 /// reads back at scale 2.
-pub sqlkit.query! revenue_since(since: Instant) -> List<CustomerRevenue> Sql`
-        SELECT u.id AS user_id, u.email,
-               count(*) AS "order_count!",
-               CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
-        FROM users u
-        JOIN orders o ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
-        GROUP BY u.id, u.email
-        ORDER BY revenue DESC
-    `
+pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
+            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+        ],
+        [runtime.bind(since)],
+    )
+
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+            user_id: try runtime.int("revenue_since", row, 0),
+            email: try runtime.text("revenue_since", row, 1),
+            order_count: try runtime.value("revenue_since", row, 2),
+            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+        }))
+}
 
 /// Every order, streamed.
-pub sqlkit.query! all_orders() -> Rows<Order> Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
-    `
+pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [],
+    )
 
-/// A customer's revenue.
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+            id: try runtime.int("all_orders", row, 0),
+            user_id: try runtime.int("all_orders", row, 1),
+            status: try runtime.text("all_orders", row, 2),
+            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
+            placed_at: try runtime.timestamptz("all_orders", row, 4),
+            shipped_on: try runtime.date_null("all_orders", row, 5),
+        }))
+}
+
+// FILE: schema.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/sql
+    sqlkit
+    sqlkit/runtime
+}
+
+/// A row of the table `orders`.
+pub struct Order {
+    id: Int
+    user_id: Int
+    status: OrderStatus
+    total: Decimal
+    placed_at: Instant
+    shipped_on: Maybe<Date>
+}
+
+/// A row of the table `users`.
+pub struct User {
+    id: Int
+    email: String
+    name: Maybe<String>
+    created_at: Instant
+}
+
+/// The values `CHECK (status IN (...))` allows in `orders.status`.
+pub enum OrderStatus {
+    Pending
+    Paid
+    Shipped
+    Cancelled
+}
+
+derive Equatable for OrderStatus
+
+impl Display for OrderStatus {
+    fn to_string(value: OrderStatus) -> String {
+        case value {
+            .Pending -> "pending"
+            .Paid -> "paid"
+            .Shipped -> "shipped"
+            .Cancelled -> "cancelled"
+        }
+    }
+}
+
+impl sql.ToSql for OrderStatus {
+    fn to_sql(value: OrderStatus) -> sql.Value {
+        sql.Value.Text(Display.to_string(value))
+    }
+}
+
+impl sql.FromSql for OrderStatus {
+    fn from_sql(value: sql.Value) -> Result<OrderStatus, String> {
+        case runtime.text_of(value) {
+            Some("pending") -> Ok(OrderStatus.Pending)
+            Some("paid") -> Ok(OrderStatus.Paid)
+            Some("shipped") -> Ok(OrderStatus.Shipped)
+            Some("cancelled") -> Ok(OrderStatus.Cancelled)
+            _ -> Err("OrderStatus")
+        }
+    }
+}
+
+impl sqlkit.SqlText for OrderStatus
+
+/// The migrations of the database `main`, in the order they apply.
+pub once migrations: List<sqlkit.Migration> = [
+    #sqlkit.Migration{
+        path: "db/migrations/20261019120000_users_and_orders.sql",
+        sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
+    },
+    #sqlkit.Migration{
+        path: "db/migrations/20261102090000_orders_shipped_on.sql",
+        sql: "ALTER TABLE orders ADD COLUMN shipped_on DATE;\n",
+    },
+]
+
+// FILE: schema_test.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
+// Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import sqlkit/inputs
+
+// Fails when a migration or a query changed after the last
+// `nomi tool sqlkit generate`: run it again. The paths are under the
+// module root, where `nomi test` resolves a test's relative paths.
+test "generated sql is current" {
+    assert inputs.current("db/migrations", "db/queries")
+        == Ok("4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e")
+}
+
+// FILE: shop.nomi
+// The shop's operations, over any `Conn`: a connection, a transaction, or
+// a test's.
+import {
+    std/sql.{self, Conn, Error}
+    queries
+    sqlkit.Rows
+}
+
+/// Register a user and place their first order, in one transaction: if
+/// the order fails, the user is not registered either.
+pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        user_id = try queries.insert_user(tx, email, None)
+        queries.insert_order(tx, user_id, total)
+    })
+}
+
+/// Place an order and mark it paid, in one transaction.
+pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error> {
+    sql.transaction(conn, fn tx -> {
+        order_id = try queries.insert_order(tx, user_id, total)
+        _ = try queries.set_status(tx, order_id, .Paid)
+        Ok(order_id)
+    })
+}
+
+/// The total of every order, read one row at a time.
+pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
+    queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
+}
+
+/// A customer's revenue: a row of `queries.revenue_since`.
 pub struct CustomerRevenue {
     user_id: Int
     email: String
@@ -2082,15 +2423,6 @@ pub struct CustomerRevenue {
 }
 
 derive Equatable for CustomerRevenue
-
-// FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
-
-/// The shop's SQLite database.
-pub sqlkit.database! main
 
 // FILE: db/migrations/20261019120000_users_and_orders.sql
 CREATE TABLE users (
@@ -2113,174 +2445,22 @@ CREATE TABLE orders (
 // FILE: db/migrations/20261102090000_orders_shipped_on.sql
 ALTER TABLE orders ADD COLUMN shipped_on DATE;
 
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
-}
-
 // FILE: nomi.toml
 [module]
 name = "shop"
 entry_points = ["main"]
 ```
 <!-- expect
-wrote db/main.snapshot.json: 2 tables, 9 queries (1 SQLite rejects)
-queries.nomi:9:20: no such column: emial
-queries.nomi:9:20: help: reported by SQLite when `nomi tool sqlkit prepare` described `user_by_email`
+db/queries/queries.sql:7:12: no such column: emial
+db/queries/queries.sql:7:12: help: reported by SQLite for `user_by_email`
+error: 1 problem in the SQL; nothing was written
 -->
 
-`prepare` records SQLite's error in the snapshot, which counts it among
-the queries SQLite rejects, and the compiler reports it at the query.
-
-A field of the wrong type is an error at its column, and so is a nullable
-column read into a field that is not a `Maybe`. Inside a query's SQL the
-editor also helps you write it:
-
-- Hovering over a table or a column shows its type and the migration line
-  that created it.
-- Go to definition on a table or a column opens that migration line.
-- Completion offers the tables and their columns.
+A field of the wrong type, or a nullable column read into a field that is
+not a `Maybe`, is an error that `nomi check` and the editor report in the
+generated `queries.nomi`, at the line that reads the column. The editor
+reads the generated code, not the SQL, so it offers no hover or completion
+inside a `.sql` file unless you set up a SQL language server for it.
 
 ### In an application
 
@@ -2291,7 +2471,7 @@ keeps the connection in an app field, so every function reads it as
 up two users through `sign_up` and reads them back with `order_counts`, and
 `main_test.nomi` tests `sign_up` under the same `boot`:
 
-```nomi-run manual tool:sqlkit/prepare read-only:db/main.snapshot.json
+```nomi-run manual tool:sqlkit/generate
 // FILE: main.nomi
 // The shop as an application: boot opens the database once, and every
 // function reads it as `App.db`.
@@ -2360,101 +2540,331 @@ group "sign-up" {
     }
 }
 
+// FILE: db/queries/queries.sql
+-- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
+-- them, a function for each.
+-- import: shop.CustomerRevenue
+
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, email, name, created_at
+FROM users
+WHERE email = @email;
+
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name)
+RETURNING id;
+
+-- query: insert_order(user_id: Int, total: Decimal) -> Int
+-- Place an order for a user.
+INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
+RETURNING id;
+
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
+
+-- query: order(id: Int) -> Order
+-- One order.
+SELECT id, user_id, status, total, placed_at, shipped_on
+FROM orders
+WHERE id = @id;
+
+-- query: orders_for_user(user_id: Int, limit: Int)
+-- A user's orders, newest first, each with the user's email.
+SELECT o.id, o.status, o.total, o.placed_at, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.user_id = @user_id
+ORDER BY o.placed_at DESC, o.id DESC
+LIMIT @limit;
+
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
+
+-- query: revenue_since(since: Instant) -> List<CustomerRevenue>
+-- Revenue per customer from paid and shipped orders since a moment. SQLite
+-- declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+-- reads back at scale 2.
+SELECT u.id AS user_id, u.email,
+       count(*) AS "order_count!",
+       CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
+GROUP BY u.id, u.email
+ORDER BY revenue DESC;
+
+-- query: all_orders() -> Rows<Order>
+-- Every order, streamed.
+SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
+
 // FILE: queries.nomi
+// Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
+// db/migrations. Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
 import {
     std/instant.Instant
+    std/sql
     schema.{Order, OrderStatus, User}
+    shop.CustomerRevenue
     sqlkit
+    sqlkit/runtime
 }
 
 /// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, email, name, created_at
-        FROM users
-        WHERE email = @email
-    `
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
 
 /// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-        RETURNING id
-    `
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(email), runtime.bind(name)],
+    )
+
+    runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
+}
 
 /// Place an order for a user.
-pub sqlkit.query! insert_order(user_id: Int, total: Decimal) -> Int Sql`
-        INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
-        RETURNING id
-    `
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(user_id), runtime.bind(total)],
+    )
+
+    runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
+}
 
 /// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
+pub fn set_status(
+    conn: sql.Conn,
+    id: Int,
+    status: OrderStatus,
+) -> Result<sqlkit.Changed, sql.Error> {
+    statement = runtime.statement(
+        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [runtime.bind(status), runtime.bind(id)],
+    )
+
+    runtime.exec(conn, statement)
+}
 
 /// One order.
-pub sqlkit.query! order(id: Int) -> Order Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on
-        FROM orders
-        WHERE id = @id
-    `
+pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [runtime.bind(id)],
+    )
+
+    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+            id: try runtime.int("order", row, 0),
+            user_id: try runtime.int("order", row, 1),
+            status: try runtime.text("order", row, 2),
+            total: try runtime.numeric_scaled("order", row, 3, 2),
+            placed_at: try runtime.timestamptz("order", row, 4),
+            shipped_on: try runtime.date_null("order", row, 5),
+        }))
+}
 
 /// A user's orders, newest first, each with the user's email.
-pub sqlkit.query! orders_for_user(user_id: Int, limit: Int) Sql`
-        SELECT o.id, o.status, o.total, o.placed_at, u.email
-        FROM orders o
-        JOIN users u ON u.id = o.user_id
-        WHERE o.user_id = @user_id
-        ORDER BY o.placed_at DESC, o.id DESC
-        LIMIT @limit
-    `
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+    id: Int,
+    status: OrderStatus,
+    total: Decimal,
+    placed_at: Instant,
+    email: String,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
+            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
+            "",
+        ],
+        [runtime.bind(user_id), runtime.bind(limit)],
+    )
+
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+            id: try runtime.int<Int>("orders_for_user", row, 0),
+            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
+            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
+            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
+            email: try runtime.text<String>("orders_for_user", row, 4),
+        }))
+}
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
+pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+    email: String,
+    last_order: Maybe<Int>,
+    orders: Int,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+        ],
+        [],
+    )
+
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+            email: try runtime.text<String>("order_counts", row, 0),
+            last_order: try runtime.value_null<Int>("order_counts", row, 1),
+            orders: try runtime.value<Int>("order_counts", row, 2),
+        }))
+}
 
 /// Revenue per customer from paid and shipped orders since a moment. SQLite
 /// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
 /// reads back at scale 2.
-pub sqlkit.query! revenue_since(since: Instant) -> List<CustomerRevenue> Sql`
-        SELECT u.id AS user_id, u.email,
-               count(*) AS "order_count!",
-               CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
-        FROM users u
-        JOIN orders o ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
-        GROUP BY u.id, u.email
-        ORDER BY revenue DESC
-    `
+pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
+            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+        ],
+        [runtime.bind(since)],
+    )
 
-/// Every order, streamed.
-pub sqlkit.query! all_orders() -> Rows<Order> Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
-    `
-
-/// A customer's revenue.
-pub struct CustomerRevenue {
-    user_id: Int
-    email: String
-    order_count: Int
-    revenue: Decimal
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+            user_id: try runtime.int("revenue_since", row, 0),
+            email: try runtime.text("revenue_since", row, 1),
+            order_count: try runtime.value("revenue_since", row, 2),
+            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+        }))
 }
 
-derive Equatable for CustomerRevenue
+/// Every order, streamed.
+pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [],
+    )
+
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+            id: try runtime.int("all_orders", row, 0),
+            user_id: try runtime.int("all_orders", row, 1),
+            status: try runtime.text("all_orders", row, 2),
+            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
+            placed_at: try runtime.timestamptz("all_orders", row, 4),
+            shipped_on: try runtime.date_null("all_orders", row, 5),
+        }))
+}
 
 // FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/sql
+    sqlkit
+    sqlkit/runtime
+}
 
-/// The shop's SQLite database.
-pub sqlkit.database! main
+/// A row of the table `orders`.
+pub struct Order {
+    id: Int
+    user_id: Int
+    status: OrderStatus
+    total: Decimal
+    placed_at: Instant
+    shipped_on: Maybe<Date>
+}
+
+/// A row of the table `users`.
+pub struct User {
+    id: Int
+    email: String
+    name: Maybe<String>
+    created_at: Instant
+}
+
+/// The values `CHECK (status IN (...))` allows in `orders.status`.
+pub enum OrderStatus {
+    Pending
+    Paid
+    Shipped
+    Cancelled
+}
+
+derive Equatable for OrderStatus
+
+impl Display for OrderStatus {
+    fn to_string(value: OrderStatus) -> String {
+        case value {
+            .Pending -> "pending"
+            .Paid -> "paid"
+            .Shipped -> "shipped"
+            .Cancelled -> "cancelled"
+        }
+    }
+}
+
+impl sql.ToSql for OrderStatus {
+    fn to_sql(value: OrderStatus) -> sql.Value {
+        sql.Value.Text(Display.to_string(value))
+    }
+}
+
+impl sql.FromSql for OrderStatus {
+    fn from_sql(value: sql.Value) -> Result<OrderStatus, String> {
+        case runtime.text_of(value) {
+            Some("pending") -> Ok(OrderStatus.Pending)
+            Some("paid") -> Ok(OrderStatus.Paid)
+            Some("shipped") -> Ok(OrderStatus.Shipped)
+            Some("cancelled") -> Ok(OrderStatus.Cancelled)
+            _ -> Err("OrderStatus")
+        }
+    }
+}
+
+impl sqlkit.SqlText for OrderStatus
+
+/// The migrations of the database `main`, in the order they apply.
+pub once migrations: List<sqlkit.Migration> = [
+    #sqlkit.Migration{
+        path: "db/migrations/20261019120000_users_and_orders.sql",
+        sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
+    },
+    #sqlkit.Migration{
+        path: "db/migrations/20261102090000_orders_shipped_on.sql",
+        sql: "ALTER TABLE orders ADD COLUMN shipped_on DATE;\n",
+    },
+]
+
+// FILE: schema_test.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
+// Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import sqlkit/inputs
+
+// Fails when a migration or a query changed after the last
+// `nomi tool sqlkit generate`: run it again. The paths are under the
+// module root, where `nomi test` resolves a test's relative paths.
+test "generated sql is current" {
+    assert inputs.current("db/migrations", "db/queries")
+        == Ok("4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e")
+}
 
 // FILE: shop.nomi
 // The shop's operations, over any `Conn`: a connection, a transaction, or
@@ -2488,6 +2898,16 @@ pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
     queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
 }
 
+/// A customer's revenue: a row of `queries.revenue_since`.
+pub struct CustomerRevenue {
+    user_id: Int
+    email: String
+    order_count: Int
+    revenue: Decimal
+}
+
+derive Equatable for CustomerRevenue
+
 // FILE: db/migrations/20261019120000_users_and_orders.sql
 CREATE TABLE users (
     id          INTEGER PRIMARY KEY,
@@ -2509,164 +2929,19 @@ CREATE TABLE orders (
 // FILE: db/migrations/20261102090000_orders_shipped_on.sql
 ALTER TABLE orders ADD COLUMN shipped_on DATE;
 
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
-}
-
 // FILE: nomi.toml
 [module]
 name = "shop"
 entry_points = ["main"]
 ```
 <!-- expect
-db/main.snapshot.json is up to date: 2 tables, 9 queries (0 SQLite rejects)
+main: up to date
 ada@example.com: 0 orders
 grace@example.com: 0 orders
 ok sign-up / a new user reads back by email
 ok sign-up / the same email twice breaks the unique constraint
-test result: ok. 2 passed, 0 failed
+ok generated sql is current
+test result: ok. 3 passed, 0 failed
 -->
 
 `boot` opens the database the `SHOP_DATABASE` variable names, such as
@@ -2693,9 +2968,10 @@ that builds its own database instead replaces the field with
 A test group's `setup` runs before each test and hands it a value, as the
 [Testing](/testing/#groups-and-setup) chapter explains. In the shop's
 `shop_test.nomi`, the value is a fresh in-memory database with the shop's
-schema. This example runs `prepare`, then the shop's eleven tests:
+schema. This example runs `generate`, then the shop's eleven tests and the
+generated one:
 
-```nomi-run manual tool:sqlkit/prepare read-only:db/main.snapshot.json
+```nomi-run manual tool:sqlkit/generate
 // FILE: shop_test.nomi
 import {
     std/duration.Duration
@@ -2754,9 +3030,8 @@ group "the shop" {
         assert "${total}" == "12.50"
         assert shipped_on == None
 
-        assert queries.order(db, id + 1) == Err(
-            #sql.Error.RowCount{query: "order", expected: "exactly one", found: 0}
-        )
+        assert queries.order(db, id + 1)
+            == Err(#sql.Error.RowCount{query: "order", expected: "exactly one", found: 0})
     }
 
     test "a failed sign-up leaves nothing behind", db {
@@ -2806,13 +3081,13 @@ group "the shop" {
         assert revenue |> Iter.map(fn r -> "${r.revenue}") |> Iter.to_list() == ["12.50", "1.00"]
 
         assert revenue == [
-            #queries.CustomerRevenue{
+            #shop.CustomerRevenue{
                 user_id: ada,
                 email: "ada@example.com",
                 order_count: 2,
                 revenue: 12.50d,
             },
-            #queries.CustomerRevenue{
+            #shop.CustomerRevenue{
                 user_id: grace,
                 email: "grace@example.com",
                 order_count: 1,
@@ -2868,101 +3143,331 @@ group "the shop" {
     }
 }
 
+// FILE: db/queries/queries.sql
+-- The shop's queries. `nomi tool sqlkit generate` writes queries.nomi from
+-- them, a function for each.
+-- import: shop.CustomerRevenue
+
+-- query: user_by_email(email: String) -> Maybe<User>
+-- The user with this email, if any.
+SELECT id, email, name, created_at
+FROM users
+WHERE email = @email;
+
+-- query: insert_user(email: String, name: Maybe<String>) -> Int
+-- Add a user, answering its id.
+INSERT INTO users (email, name) VALUES (@email, @name)
+RETURNING id;
+
+-- query: insert_order(user_id: Int, total: Decimal) -> Int
+-- Place an order for a user.
+INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
+RETURNING id;
+
+-- query: set_status(id: Int, status: OrderStatus) -> Changed
+-- Change an order's status: the number of orders changed.
+UPDATE orders SET status = @status WHERE id = @id;
+
+-- query: order(id: Int) -> Order
+-- One order.
+SELECT id, user_id, status, total, placed_at, shipped_on
+FROM orders
+WHERE id = @id;
+
+-- query: orders_for_user(user_id: Int, limit: Int)
+-- A user's orders, newest first, each with the user's email.
+SELECT o.id, o.status, o.total, o.placed_at, u.email
+FROM orders o
+JOIN users u ON u.id = o.user_id
+WHERE o.user_id = @user_id
+ORDER BY o.placed_at DESC, o.id DESC
+LIMIT @limit;
+
+-- query: order_counts()
+-- Every user with the number of orders they placed, including those who
+-- placed none.
+SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id
+ORDER BY u.email;
+
+-- query: revenue_since(since: Instant) -> List<CustomerRevenue>
+-- Revenue per customer from paid and shipped orders since a moment. SQLite
+-- declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
+-- reads back at scale 2.
+SELECT u.id AS user_id, u.email,
+       count(*) AS "order_count!",
+       CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
+FROM users u
+JOIN orders o ON o.user_id = u.id
+WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
+GROUP BY u.id, u.email
+ORDER BY revenue DESC;
+
+-- query: all_orders() -> Rows<Order>
+-- Every order, streamed.
+SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id;
+
 // FILE: queries.nomi
+// Generated by `nomi tool sqlkit generate` from db/queries/queries.sql and
+// db/migrations. Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
 import {
     std/instant.Instant
+    std/sql
     schema.{Order, OrderStatus, User}
+    shop.CustomerRevenue
     sqlkit
+    sqlkit/runtime
 }
 
 /// The user with this email, if any.
-pub sqlkit.query! user_by_email(email: String) -> Maybe<User> Sql`
-        SELECT id, email, name, created_at
-        FROM users
-        WHERE email = @email
-    `
+pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [runtime.bind(email)],
+    )
+
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+            id: try runtime.int("user_by_email", row, 0),
+            email: try runtime.text("user_by_email", row, 1),
+            name: try runtime.text_null("user_by_email", row, 2),
+            created_at: try runtime.timestamptz("user_by_email", row, 3),
+        }))
+}
 
 /// Add a user, answering its id.
-pub sqlkit.query! insert_user(email: String, name: Maybe<String>) -> Int Sql`
-        INSERT INTO users (email, name) VALUES (@email, @name)
-        RETURNING id
-    `
+pub fn insert_user(conn: sql.Conn, email: String, name: Maybe<String>) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO users (email, name) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(email), runtime.bind(name)],
+    )
+
+    runtime.one(conn, "insert_user", statement, fn row -> runtime.int("insert_user", row, 0))
+}
 
 /// Place an order for a user.
-pub sqlkit.query! insert_order(user_id: Int, total: Decimal) -> Int Sql`
-        INSERT INTO orders (user_id, total) VALUES (@user_id, @total)
-        RETURNING id
-    `
+pub fn insert_order(conn: sql.Conn, user_id: Int, total: Decimal) -> Result<Int, sql.Error> {
+    statement = runtime.statement(
+        ["INSERT INTO orders (user_id, total) VALUES (", ", ", ") RETURNING id"],
+        [runtime.bind(user_id), runtime.bind(total)],
+    )
+
+    runtime.one(conn, "insert_order", statement, fn row -> runtime.int("insert_order", row, 0))
+}
 
 /// Change an order's status: the number of orders changed.
-pub sqlkit.query! set_status(id: Int, status: OrderStatus) -> Changed Sql`
-        UPDATE orders SET status = @status WHERE id = @id
-    `
+pub fn set_status(
+    conn: sql.Conn,
+    id: Int,
+    status: OrderStatus,
+) -> Result<sqlkit.Changed, sql.Error> {
+    statement = runtime.statement(
+        ["UPDATE orders SET status = ", " WHERE id = ", ""],
+        [runtime.bind(status), runtime.bind(id)],
+    )
+
+    runtime.exec(conn, statement)
+}
 
 /// One order.
-pub sqlkit.query! order(id: Int) -> Order Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on
-        FROM orders
-        WHERE id = @id
-    `
+pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ", ""],
+        [runtime.bind(id)],
+    )
+
+    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+            id: try runtime.int("order", row, 0),
+            user_id: try runtime.int("order", row, 1),
+            status: try runtime.text("order", row, 2),
+            total: try runtime.numeric_scaled("order", row, 3, 2),
+            placed_at: try runtime.timestamptz("order", row, 4),
+            shipped_on: try runtime.date_null("order", row, 5),
+        }))
+}
 
 /// A user's orders, newest first, each with the user's email.
-pub sqlkit.query! orders_for_user(user_id: Int, limit: Int) Sql`
-        SELECT o.id, o.status, o.total, o.placed_at, u.email
-        FROM orders o
-        JOIN users u ON u.id = o.user_id
-        WHERE o.user_id = @user_id
-        ORDER BY o.placed_at DESC, o.id DESC
-        LIMIT @limit
-    `
+pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<#{
+    id: Int,
+    status: OrderStatus,
+    total: Decimal,
+    placed_at: Instant,
+    email: String,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ",
+            " ORDER BY o.placed_at DESC, o.id DESC LIMIT ",
+            "",
+        ],
+        [runtime.bind(user_id), runtime.bind(limit)],
+    )
+
+    runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
+            id: try runtime.int<Int>("orders_for_user", row, 0),
+            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
+            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
+            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
+            email: try runtime.text<String>("orders_for_user", row, 4),
+        }))
+}
 
 /// Every user with the number of orders they placed, including those who
 /// placed none.
-pub sqlkit.query! order_counts() Sql`
-        SELECT u.email, max(o.id) AS "last_order?: Int", count(o.id) AS "orders!: Int"
-        FROM users u
-        LEFT JOIN orders o ON o.user_id = u.id
-        GROUP BY u.id
-        ORDER BY u.email
-    `
+pub fn order_counts(conn: sql.Conn) -> Result<List<#{
+    email: String,
+    last_order: Maybe<Int>,
+    orders: Int,
+}>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
+        ],
+        [],
+    )
+
+    runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
+            email: try runtime.text<String>("order_counts", row, 0),
+            last_order: try runtime.value_null<Int>("order_counts", row, 1),
+            orders: try runtime.value<Int>("order_counts", row, 2),
+        }))
+}
 
 /// Revenue per customer from paid and shipped orders since a moment. SQLite
 /// declares no type for a sum; the `CAST` declares it DECIMAL(12, 2), so it
 /// reads back at scale 2.
-pub sqlkit.query! revenue_since(since: Instant) -> List<CustomerRevenue> Sql`
-        SELECT u.id AS user_id, u.email,
-               count(*) AS "order_count!",
-               CAST(sum(o.total) AS DECIMAL(12, 2)) AS "revenue!"
-        FROM users u
-        JOIN orders o ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= @since
-        GROUP BY u.id, u.email
-        ORDER BY revenue DESC
-    `
+pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerRevenue>, sql.Error> {
+    statement = runtime.statement(
+        [
+            "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ",
+            " GROUP BY u.id, u.email ORDER BY revenue DESC",
+        ],
+        [runtime.bind(since)],
+    )
 
-/// Every order, streamed.
-pub sqlkit.query! all_orders() -> Rows<Order> Sql`
-        SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id
-    `
-
-/// A customer's revenue.
-pub struct CustomerRevenue {
-    user_id: Int
-    email: String
-    order_count: Int
-    revenue: Decimal
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+            user_id: try runtime.int("revenue_since", row, 0),
+            email: try runtime.text("revenue_since", row, 1),
+            order_count: try runtime.value("revenue_since", row, 2),
+            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+        }))
 }
 
-derive Equatable for CustomerRevenue
+/// Every order, streamed.
+pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
+    statement = runtime.statement(
+        ["SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id"],
+        [],
+    )
+
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+            id: try runtime.int("all_orders", row, 0),
+            user_id: try runtime.int("all_orders", row, 1),
+            status: try runtime.text("all_orders", row, 2),
+            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
+            placed_at: try runtime.timestamptz("all_orders", row, 4),
+            shipped_on: try runtime.date_null("all_orders", row, 5),
+        }))
+}
 
 // FILE: schema.nomi
-// The shop's database: `User` and `Order` rows, the `OrderStatus` enum,
-// and `migrations`, all generated from db/main.snapshot.json (see them with
-// `nomi expand schema.nomi`).
-import sqlkit
+// Generated by `nomi tool sqlkit generate` from db/migrations. Do not edit:
+// change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import {
+    std/calendar.Date
+    std/instant.Instant
+    std/sql
+    sqlkit
+    sqlkit/runtime
+}
 
-/// The shop's SQLite database.
-pub sqlkit.database! main
+/// A row of the table `orders`.
+pub struct Order {
+    id: Int
+    user_id: Int
+    status: OrderStatus
+    total: Decimal
+    placed_at: Instant
+    shipped_on: Maybe<Date>
+}
+
+/// A row of the table `users`.
+pub struct User {
+    id: Int
+    email: String
+    name: Maybe<String>
+    created_at: Instant
+}
+
+/// The values `CHECK (status IN (...))` allows in `orders.status`.
+pub enum OrderStatus {
+    Pending
+    Paid
+    Shipped
+    Cancelled
+}
+
+derive Equatable for OrderStatus
+
+impl Display for OrderStatus {
+    fn to_string(value: OrderStatus) -> String {
+        case value {
+            .Pending -> "pending"
+            .Paid -> "paid"
+            .Shipped -> "shipped"
+            .Cancelled -> "cancelled"
+        }
+    }
+}
+
+impl sql.ToSql for OrderStatus {
+    fn to_sql(value: OrderStatus) -> sql.Value {
+        sql.Value.Text(Display.to_string(value))
+    }
+}
+
+impl sql.FromSql for OrderStatus {
+    fn from_sql(value: sql.Value) -> Result<OrderStatus, String> {
+        case runtime.text_of(value) {
+            Some("pending") -> Ok(OrderStatus.Pending)
+            Some("paid") -> Ok(OrderStatus.Paid)
+            Some("shipped") -> Ok(OrderStatus.Shipped)
+            Some("cancelled") -> Ok(OrderStatus.Cancelled)
+            _ -> Err("OrderStatus")
+        }
+    }
+}
+
+impl sqlkit.SqlText for OrderStatus
+
+/// The migrations of the database `main`, in the order they apply.
+pub once migrations: List<sqlkit.Migration> = [
+    #sqlkit.Migration{
+        path: "db/migrations/20261019120000_users_and_orders.sql",
+        sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
+    },
+    #sqlkit.Migration{
+        path: "db/migrations/20261102090000_orders_shipped_on.sql",
+        sql: "ALTER TABLE orders ADD COLUMN shipped_on DATE;\n",
+    },
+]
+
+// FILE: schema_test.nomi
+// Generated by `nomi tool sqlkit generate` from db/migrations and db/queries.
+// Do not edit: change the SQL and generate again.
+// inputs sha256: 4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e
+import sqlkit/inputs
+
+// Fails when a migration or a query changed after the last
+// `nomi tool sqlkit generate`: run it again. The paths are under the
+// module root, where `nomi test` resolves a test's relative paths.
+test "generated sql is current" {
+    assert inputs.current("db/migrations", "db/queries")
+        == Ok("4e91efef46c08ed86d9b59853756ef619b71cc1d4f93e016e1a3c987221dd44e")
+}
 
 // FILE: shop.nomi
 // The shop's operations, over any `Conn`: a connection, a transaction, or
@@ -2996,6 +3501,16 @@ pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
     queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
 }
 
+/// A customer's revenue: a row of `queries.revenue_since`.
+pub struct CustomerRevenue {
+    user_id: Int
+    email: String
+    order_count: Int
+    revenue: Decimal
+}
+
+derive Equatable for CustomerRevenue
+
 // FILE: db/migrations/20261019120000_users_and_orders.sql
 CREATE TABLE users (
     id          INTEGER PRIMARY KEY,
@@ -3017,159 +3532,13 @@ CREATE TABLE orders (
 // FILE: db/migrations/20261102090000_orders_shipped_on.sql
 ALTER TABLE orders ADD COLUMN shipped_on DATE;
 
-// FILE: db/main.snapshot.json
-{
-  "format": 2,
-  "database": "main",
-  "dialect": "sqlite",
-  "migrations": "fd5b73c2f9a9f117",
-  "tables": [
-    {
-      "name": "orders",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 8,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 9},
-        {"name": "user_id", "type_name": "INTEGER", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 10},
-        {"name": "status", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": true, "values": ["pending", "paid", "shipped", "cancelled"], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 11},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 14},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 15},
-        {"name": "shipped_on", "type_name": "DATE", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261102090000_orders_shipped_on.sql", "line": 1}
-      ]
-    },
-    {
-      "name": "users",
-      "migration": "db/migrations/20261019120000_users_and_orders.sql",
-      "line": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "nullable": false, "primary_key": true, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 2},
-        {"name": "email", "type_name": "TEXT", "nullable": false, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 3},
-        {"name": "name", "type_name": "TEXT", "nullable": true, "primary_key": false, "has_default": false, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 4},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "nullable": false, "primary_key": false, "has_default": true, "values": [], "migration": "db/migrations/20261019120000_users_and_orders.sql", "line": 5}
-      ]
-    }
-  ],
-  "queries": [
-    {
-      "file": "queries.nomi",
-      "name": "all_orders",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders ORDER BY id",
-      "params": 0,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_order",
-      "sql": "INSERT INTO orders (user_id, total) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "insert_user",
-      "sql": "INSERT INTO users (email, name) VALUES (?1, ?2) RETURNING id",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order",
-      "sql": "SELECT id, user_id, status, total, placed_at, shipped_on FROM orders WHERE id = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "user_id", "type_name": "INTEGER", "table": "orders", "column": "user_id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "shipped_on", "type_name": "DATE", "table": "orders", "column": "shipped_on", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "order_counts",
-      "sql": "SELECT u.email, max(o.id) AS \"last_order\", count(o.id) AS \"orders\" FROM users u LEFT JOIN orders o ON o.user_id = u.id GROUP BY u.id ORDER BY u.email",
-      "params": 0,
-      "columns": [
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "last_order", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "orders", "type_name": "", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "orders_for_user",
-      "sql": "SELECT o.id, o.status, o.total, o.placed_at, u.email FROM orders o JOIN users u ON u.id = o.user_id WHERE o.user_id = ?1 ORDER BY o.placed_at DESC, o.id DESC LIMIT ?2",
-      "params": 2,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "orders", "column": "id", "nullable": false},
-        {"name": "status", "type_name": "TEXT", "table": "orders", "column": "status", "nullable": false},
-        {"name": "total", "type_name": "DECIMAL(12, 2)", "table": "orders", "column": "total", "nullable": false},
-        {"name": "placed_at", "type_name": "TIMESTAMPTZ", "table": "orders", "column": "placed_at", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "revenue_since",
-      "sql": "SELECT u.id AS user_id, u.email, count(*) AS \"order_count\", CAST(sum(o.total) AS DECIMAL(12, 2)) AS \"revenue\" FROM users u JOIN orders o ON o.user_id = u.id WHERE o.status IN ('paid', 'shipped') AND o.placed_at >= ?1 GROUP BY u.id, u.email ORDER BY revenue DESC",
-      "params": 1,
-      "columns": [
-        {"name": "user_id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "order_count", "type_name": "", "table": "", "column": "", "nullable": true},
-        {"name": "revenue", "type_name": "DECIMAL(12, 2)", "table": "", "column": "", "nullable": true}
-      ],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "set_status",
-      "sql": "UPDATE orders SET status = ?1 WHERE id = ?2",
-      "params": 2,
-      "columns": [],
-      "error": null
-    },
-    {
-      "file": "queries.nomi",
-      "name": "user_by_email",
-      "sql": "SELECT id, email, name, created_at FROM users WHERE email = ?1",
-      "params": 1,
-      "columns": [
-        {"name": "id", "type_name": "INTEGER", "table": "users", "column": "id", "nullable": false},
-        {"name": "email", "type_name": "TEXT", "table": "users", "column": "email", "nullable": false},
-        {"name": "name", "type_name": "TEXT", "table": "users", "column": "name", "nullable": true},
-        {"name": "created_at", "type_name": "TIMESTAMPTZ", "table": "users", "column": "created_at", "nullable": false}
-      ],
-      "error": null
-    }
-  ]
-}
-
 // FILE: nomi.toml
 [module]
 name = "shop"
 entry_points = ["main"]
 ```
 <!-- expect
-db/main.snapshot.json is up to date: 2 tables, 9 queries (0 SQLite rejects)
+main: up to date
 ok the shop / a user reads back as its row
 ok the shop / a second user with the same email breaks the unique constraint
 ok the shop / an order reads back with its enum status and decimal total
@@ -3181,7 +3550,8 @@ ok the shop / a total keeps its column's scale, and is exact to 15 digits
 ok the shop / a sum of many small totals is exact
 ok the shop / a status update answers the rows it changed
 ok the shop / revenue since an hour ago counts an order placed now
-test result: ok. 11 passed, 0 failed
+ok generated sql is current
+test result: ok. 12 passed, 0 failed
 -->
 
 `sqlkit.migrate` builds the schema, and the `defer` closes the database when

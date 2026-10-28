@@ -1,0 +1,182 @@
+//# A bank account that many tasks may use at once. Its balance belongs to
+//# one task, the teller, which handles one request at a time; an `Account`
+//# is the address of that task, and each operation is a request and the
+//# teller's answer.
+
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/tasks.Task
+}
+
+/// Why an operation is refused.
+pub enum Error {
+    AccountNotOpen
+    AccountAlreadyOpen
+    AmountNotPositive
+    AmountAboveBalance
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .AccountNotOpen -> "account not open"
+            .AccountAlreadyOpen -> "account already open"
+            .AmountNotPositive -> "amount must be greater than 0"
+            .AmountAboveBalance -> "amount must be less than balance"
+        }
+    }
+}
+
+/// What a caller asks the teller, with the channel to answer on.
+enum Request {
+    Open {reply: Channel<Result<Unit, Error>>}
+    Close {reply: Channel<Result<Unit, Error>>}
+    Deposit {amount: Int, reply: Channel<Result<Unit, Error>>}
+    Withdraw {amount: Int, reply: Channel<Result<Unit, Error>>}
+    Balance {reply: Channel<Result<Int, Error>>}
+}
+
+/// An account: the address of its teller. Copies of it reach the same
+/// balance.
+pub opaque type Account Sender<Request>
+
+impl Account {
+    /// Opens the account with a balance of 0.
+    pub fn open(account: Account) -> Result<Unit, Error> {
+        ask(account, fn reply -> #Request.Open{reply})
+    }
+
+    /// Closes the account. A closed account can be opened again, empty.
+    pub fn close(account: Account) -> Result<Unit, Error> {
+        ask(account, fn reply -> #Request.Close{reply})
+    }
+
+    /// Adds `amount` to the balance.
+    pub fn deposit(account: Account, amount: Int) -> Result<Unit, Error> {
+        ask(account, fn reply -> #Request.Deposit{amount, reply})
+    }
+
+    /// Takes `amount` from the balance, which must hold it.
+    pub fn withdraw(account: Account, amount: Int) -> Result<Unit, Error> {
+        ask(account, fn reply -> #Request.Withdraw{amount, reply})
+    }
+
+    /// The balance of an open account.
+    pub fn balance(account: Account) -> Result<Int, Error> {
+        ask(account, fn reply -> #Request.Balance{reply})
+    }
+}
+
+/// Runs `body` with a new account, not yet open, whose teller runs as a
+/// task beside it, and answers what `body` answers. The teller stops when
+/// `body` returns.
+pub fn with_account<T>(body: (Account) -> T) -> T {
+    inbox = Channel.buffered<Request>(16)
+
+    concurrent {
+        teller = Task.spawn(fn -> serve(inbox.receiver))
+        result = body(Account(inbox.sender))
+        Sender.close(inbox.sender)
+        Task.await(teller)
+        result
+    }
+}
+
+/// Sends the request `request` builds around a fresh reply channel, and
+/// waits for the answer.
+fn ask<T>(account: Account, request: (Channel<T>) -> Request) -> T {
+    Account(teller) = account
+    reply = Channel.buffered<T>(1)
+
+    case Sender.send(teller, request(reply)) {
+        Ok(_) -> Unit
+        Err(_) -> unreachable "the teller listens until the account's body returns"
+    }
+
+    case Receiver.receive(reply.receiver) {
+        Some(answer) -> answer
+        None -> unreachable "the teller answers every request"
+    }
+}
+
+/// The teller: answers requests one at a time until the inbox closes. The
+/// balance is the loop's state, `None` while the account is not open.
+fn serve(inbox: Receiver<Request>) -> Unit {
+    _final = Iter.loop(fn balance = None -> {
+        case Receiver.receive(inbox) {
+            Some(request) -> handle(balance, request)
+            None -> break balance
+        }
+    })
+
+    Unit
+}
+
+/// Answers `request` against `balance` and answers the balance after it.
+fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
+    case request {
+        #Request.Open{reply} ->
+            answer(reply, balance, opened(balance))
+
+        #Request.Close{reply} ->
+            answer(
+                reply,
+                balance,
+                Maybe.to_result(balance, Error.AccountNotOpen)
+                |> Result.map(fn _ -> None),
+            )
+
+        #Request.Deposit{amount, reply} ->
+            answer(reply, balance, deposited(balance, amount))
+
+        #Request.Withdraw{amount, reply} ->
+            answer(reply, balance, withdrawn(balance, amount))
+
+        #Request.Balance{reply} -> {
+            _ = Sender.send(reply.sender, Maybe.to_result(balance, Error.AccountNotOpen))
+            balance
+        }
+    }
+}
+
+/// Sends `reply` whether `next` succeeded, and answers the balance after
+/// it: the new one, or `balance` unchanged.
+fn answer(
+    reply: Channel<Result<Unit, Error>>,
+    balance: Maybe<Int>,
+    next: Result<Maybe<Int>, Error>,
+) -> Maybe<Int> {
+    _ = Sender.send(reply.sender, Result.map(next, fn _ -> Unit))
+    Result.with_default(next, balance)
+}
+
+fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
+    case balance {
+        Some(_) -> Err(.AccountAlreadyOpen)
+        None -> Ok(Some(0))
+    }
+}
+
+fn deposited(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
+    Some(current) = balance else {
+        return Err(.AccountNotOpen)
+    }
+    if amount <= 0 { return Err(.AmountNotPositive) }
+
+    Ok(Some(current + amount))
+}
+
+fn withdrawn(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
+    Some(current) = balance else {
+        return Err(.AccountNotOpen)
+    }
+    if amount <= 0 { return Err(.AmountNotPositive) }
+
+    if amount > current {
+        return Err(.AmountAboveBalance)
+    }
+
+    Ok(Some(current - amount))
+}

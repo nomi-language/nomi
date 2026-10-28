@@ -1,0 +1,144 @@
+//# The label of a resistor with one, four or five color bands: its
+//# resistance in the largest metric unit it reaches, and its tolerance.
+
+/// A band color: the ten digit colors in value order, black 0 to white 9,
+/// and the two that only mark a tolerance.
+pub enum Color {
+    Black
+    Brown
+    Red
+    Orange
+    Yellow
+    Green
+    Blue
+    Violet
+    Grey
+    White
+    Gold
+    Silver
+}
+
+/// The unit a resistance is written in, each a thousand times the one before.
+pub enum Magnitude {
+    Ohms
+    Kiloohms
+    Megaohms
+    Gigaohms
+}
+
+derive Equatable for Magnitude
+
+impl Display for Magnitude {
+    fn to_string(unit: Magnitude) -> String {
+        case unit {
+            .Ohms -> "ohms"
+            .Kiloohms -> "kiloohms"
+            .Megaohms -> "megaohms"
+            .Gigaohms -> "gigaohms"
+        }
+    }
+}
+
+/// A resistor's label: `33 ohms ±2%`. A one-band resistor has no tolerance.
+pub struct Label {
+    value: Decimal
+    unit: Magnitude
+    tolerance: Maybe<Decimal>
+}
+
+derive Equatable for Label
+
+impl Display for Label {
+    fn to_string(label: Label) -> String {
+        case label.tolerance {
+            Some(percent) -> "${label.value} ${label.unit} ±${percent}%"
+            None -> "${label.value} ${label.unit}"
+        }
+    }
+}
+
+/// The label `bands` give: a single black band, two digits, a multiplier
+/// and a tolerance, or three digits, a multiplier and a tolerance. `None`
+/// for any other count of bands, or a band whose color cannot stand there.
+pub fn label(bands: List<Color>) -> Maybe<Label> {
+    case bands {
+        [.Black] ->
+            Some(#{value: 0d, unit: .Ohms, tolerance: None})
+
+        [first, second, multiplier, tolerance] ->
+            make([first, second], multiplier, tolerance)
+
+        [first, second, third, multiplier, tolerance] ->
+            make([first, second, third], multiplier, tolerance)
+
+        _ ->
+            None
+    }
+}
+
+/// The label of the digit bands `digits`, then `multiplier`, the number of
+/// zeros after them, and `tolerance`.
+fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label> {
+    Some(numbers) = digits |> Iter.map(digit) |> Maybe.collect() else {
+        return None
+    }
+
+    Some(zeros) = digit(multiplier) else {
+        return None
+    }
+    Some(percent) = tolerance_of(tolerance) else {
+        return None
+    }
+
+    ohms = Iter.reduce(numbers, fn n = 0, d -> n * 10 + d) * Int.pow(10, zeros)
+    #(value, unit) = in_largest_unit(ohms)
+    Some(#{value, unit, tolerance: Some(percent)})
+}
+
+/// The units above ohms, largest first, with how many ohms each is.
+once units = [#(1_000_000_000, Magnitude.Gigaohms), #(1_000_000, .Megaohms), #(1000, .Kiloohms)]
+
+/// `ohms` in the largest unit it reaches at least one of.
+fn in_largest_unit(ohms: Int) -> #(Decimal, Magnitude) {
+    #(size, unit) =
+        units
+        |> Iter.find(fn #(size, _unit) -> ohms >= size)
+        |> Maybe.with_default(#(1, Magnitude.Ohms))
+
+    Some(value) = Decimal.divide_exact(Int.to_decimal(ohms), Int.to_decimal(size)) else {
+        unreachable "a whole number divided by a power of ten is exact"
+    }
+
+    #(Decimal.normalize(value), unit)
+}
+
+fn digit(color: Color) -> Maybe<Int> {
+    case color {
+        .Black -> Some(0)
+        .Brown -> Some(1)
+        .Red -> Some(2)
+        .Orange -> Some(3)
+        .Yellow -> Some(4)
+        .Green -> Some(5)
+        .Blue -> Some(6)
+        .Violet -> Some(7)
+        .Grey -> Some(8)
+        .White -> Some(9)
+        .Gold or .Silver -> None
+    }
+}
+
+/// The tolerance in percent a band of `color` marks, if it marks one.
+fn tolerance_of(color: Color) -> Maybe<Decimal> {
+    case color {
+        .Grey -> Some(0.05d)
+        .Violet -> Some(0.1d)
+        .Blue -> Some(0.25d)
+        .Green -> Some(0.5d)
+        .Brown -> Some(1d)
+        .Red -> Some(2d)
+        .Gold -> Some(5d)
+        .Silver -> Some(10d)
+        .Black or .Orange or .Yellow or .White -> None
+    }
+}

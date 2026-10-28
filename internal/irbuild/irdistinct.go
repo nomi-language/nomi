@@ -114,8 +114,9 @@ func irEmbedsValueDistinct(v *variantDef) bool {
 // irNominalInner reports whether a distinct's inner is itself a declared
 // type the VM carries: a struct, an enum (`type Wrapped Maybe<Int>`), or
 // another distinct (`type Twice Meters`), a std Set or Vector (`type Ids
-// Set<Int>`), or an rt leaf (`Decimal`, `Byte`, `Bytes`, a host handle such
-// as `Regex`). The distinct record holds that value as it holds a tuple.
+// Set<Int>`), an rt leaf (`Decimal`, `Byte`, `Bytes`, a host handle such
+// as `Regex`), or a task or channel handle (`type Inbox Sender<Request>`).
+// The distinct record holds that value as it holds a tuple.
 func irNominalInner(in kind) bool {
 	if in.tag != tagNamed || in.def == nil {
 		return false
@@ -124,6 +125,11 @@ func irNominalInner(in kind) bool {
 		// An rt leaf the VM holds as one value: `type Money Decimal`, `type
 		// Payload Bytes`, `type Pattern Regex`.
 		return true
+	}
+	_, _, isChannel := channelElem(in)
+	if _, isTask := taskElem(in); isChannel || isTask {
+		// A task or channel handle: `type Inbox Sender<Request>`.
+		return irConcHandleKind(in)
 	}
 	if _, isSet := setElem(in); isSet {
 		return in != kindEmptySet && irRetainedSetKind(in)

@@ -1,0 +1,42 @@
+// `nomi tool csvdata rows <file.csv>...`: how many rows each table has. A
+// tool runs with every effect a program has: this one reads files.
+import {
+    std/fs
+    std/io
+}
+
+struct App {
+    files: List<String>
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(#App{files: startup.args})
+}
+
+fn main() -> Result<Unit, String> {
+    report(App.files)
+}
+
+fn report(paths: List<String>) -> Result<Unit, String> {
+    case paths {
+        [] ->
+            Ok(Unit)
+
+        [path, ..rest] -> {
+            text = case fs.read_text(path) {
+                Ok(t) -> t
+                Err(e) -> return Err("${path}: ${e}")
+            }
+
+            rows =
+                text
+                |> String.lines()
+                |> Iter.drop(1)
+                |> Iter.filter(fn line -> line != "")
+                |> Iter.count()
+
+            io.print("${path}: ${rows} rows")
+            report(rest)
+        }
+    }
+}

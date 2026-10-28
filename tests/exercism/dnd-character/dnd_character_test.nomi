@@ -1,0 +1,78 @@
+import {
+    std/random.{Generator, Seed}
+    dnd_character
+    dnd_character.Character
+}
+
+/// The values `generator` draws from the seeds 1 to 200.
+fn draws<T>(generator: Generator<T>) -> List<T> {
+    1..=200
+    |> Iter.map(fn n -> {
+        #(value, _seed) = Generator.step(generator, Seed.from_int(n))
+        value
+    })
+    |> Iter.to_list()
+}
+
+fn in_range?(score: Int) -> Bool {
+    score >= 3 and score <= 18
+}
+
+fn valid?(character: Character) -> Bool {
+    abilities = [
+        character.strength,
+        character.dexterity,
+        character.constitution,
+        character.intelligence,
+        character.wisdom,
+        character.charisma,
+    ]
+
+    Iter.all?(abilities, in_range?)
+        and character.hitpoints == 10 + dnd_character.modifier(character.constitution)
+}
+
+test "ability modifier" {
+    cases = [
+        #("ability modifier for score 3 is -4", 3, -4),
+        #("ability modifier for score 4 is -3", 4, -3),
+        #("ability modifier for score 5 is -3", 5, -3),
+        #("ability modifier for score 6 is -2", 6, -2),
+        #("ability modifier for score 7 is -2", 7, -2),
+        #("ability modifier for score 8 is -1", 8, -1),
+        #("ability modifier for score 9 is -1", 9, -1),
+        #("ability modifier for score 10 is 0", 10, 0),
+        #("ability modifier for score 11 is 0", 11, 0),
+        #("ability modifier for score 12 is +1", 12, 1),
+        #("ability modifier for score 13 is +1", 13, 1),
+        #("ability modifier for score 14 is +2", 14, 2),
+        #("ability modifier for score 15 is +2", 15, 2),
+        #("ability modifier for score 16 is +3", 16, 3),
+        #("ability modifier for score 17 is +3", 17, 3),
+        #("ability modifier for score 18 is +4", 18, 4),
+    ]
+
+    subtests cases, #(description, score, expected), description {
+        assert dnd_character.modifier(score) == expected
+    }
+}
+
+test "random ability is within range" {
+    assert dnd_character.ability()
+        |> draws()
+        |> Iter.all?(in_range?)
+}
+
+test "random character is valid" {
+    assert dnd_character.character()
+        |> draws()
+        |> Iter.all?(valid?)
+}
+
+test "each ability is only calculated once" {
+    seed = Seed.from_int(7)
+    #(first, _) = Generator.step(dnd_character.character(), seed)
+    #(again, _) = Generator.step(dnd_character.character(), seed)
+
+    assert first == again
+}

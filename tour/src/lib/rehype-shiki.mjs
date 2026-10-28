@@ -264,7 +264,6 @@ export default function rehypeShiki() {
               const props = { ...(child.properties || {}) };
               if (words.includes("error")) props.dataNomiExpect = "error";
               if (words.includes("manual")) props.dataNomiManual = "1";
-              if (words.includes("expand")) props.dataNomiExpand = "1";
               const readOnly = words.filter((w) => w.startsWith("read-only:")).map((w) => w.slice("read-only:".length));
               if (readOnly.length) props.dataNomiReadOnly = readOnly.join(" ");
               // ```nomi-run tool:<module>/<name>: the tools each run runs first.

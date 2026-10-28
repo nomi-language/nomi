@@ -28,3 +28,13 @@ pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int,
 pub fn total_of_all_orders(conn: Conn) -> Result<Decimal, Error> {
     queries.all_orders(conn) |> Rows.fold(0d, fn sum, order -> sum + order.total)
 }
+
+/// A customer's revenue: a row of `queries.revenue_since`.
+pub struct CustomerRevenue {
+    user_id: Int
+    email: String
+    order_count: Int
+    revenue: Decimal
+}
+
+derive Equatable for CustomerRevenue

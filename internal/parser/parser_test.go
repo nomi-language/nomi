@@ -2674,6 +2674,17 @@ func TestParseTypeAlias_SingleType_StillWorks(t *testing.T) {
 	}
 }
 
+func TestParseTypeAlias_TakesNoTypeParameters(t *testing.T) {
+	_, err := Parse(lexer.Lex("typealias Lookup<V> Map<String, V>"))
+	if err == nil {
+		t.Fatal("parsed a generic typealias, want an error")
+	}
+	want := "line 1, col 17: a typealias takes no type parameters; declare a struct or a `type` when the shape deserves a name of its own"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error %q, want it to contain %q", err.Error(), want)
+	}
+}
+
 // New form (no `=`) — explicit coverage for the hard cut.
 func TestParser_TypeAlias_NoEqualsSign(t *testing.T) {
 	tokens := lexer.Lex("pub typealias Handler (String, String) -> Result<String, String>")

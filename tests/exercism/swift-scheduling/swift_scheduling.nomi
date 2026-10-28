@@ -1,0 +1,158 @@
+import std/calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
+
+/// A delivery date description: one of the three fixed words, or the N-th
+/// month or quarter.
+enum Description {
+    Now
+    Asap
+    EndOfWeek
+    Month Int
+    Quarter Int
+}
+
+/// Why a description gives no delivery date.
+pub enum Error {
+    UnknownDescription String
+}
+
+/// When a delivery promised at a meeting that started at `meeting_start` is
+/// due, by its `description`: `NOW`, `ASAP`, `EOW`, `<N>M` for a month from
+/// 1 to 12 or `Q<N>` for a quarter from 1 to 4.
+pub fn delivery_date(
+    meeting_start: NaiveDateTime,
+    description: String,
+) -> Result<NaiveDateTime, Error> {
+    today = NaiveDateTime.to_date(meeting_start)
+    year = Date.year(today)
+
+    case try parse(description) {
+        .Now ->
+            Ok(meeting_start + Hours(2))
+
+        .Asap when NaiveDateTime.hour(meeting_start) < 13 ->
+            Ok(at(today, 17))
+
+        .Asap ->
+            Ok(at(today + Days(1), 13))
+
+        .EndOfWeek ->
+            Ok(end_of_week(today))
+
+        .Month(month) -> {
+            due_year = if Date.month(today) < month {
+                year
+            } else {
+                year + 1
+            }
+
+            Ok(at(first_workday(due_year, month), 8))
+        }
+
+        .Quarter(quarter) -> {
+            due_year = if quarter_of(Date.month(today)) <= quarter {
+                year
+            } else {
+                year + 1
+            }
+
+            Ok(at(last_workday_of_quarter(due_year, quarter), 8))
+        }
+    }
+}
+
+/// The description `text` names, or `UnknownDescription`.
+fn parse(text: String) -> Result<Description, Error> {
+    case text {
+        "NOW" -> Ok(.Now)
+        "ASAP" -> Ok(.Asap)
+        "EOW" -> Ok(.EndOfWeek)
+        _ -> numbered(text) |> Maybe.to_result(Error.UnknownDescription(text))
+    }
+}
+
+/// `<N>M` for a month from 1 to 12, or `Q<N>` for a quarter from 1 to 4.
+fn numbered(text: String) -> Maybe<Description> {
+    month = String.strip_suffix(text, "M") |> Maybe.flat_map(String.to_int)
+    quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
+
+    case #(month, quarter) {
+        #(Some(n), _) when Range.contains?(1..=12, n) -> Some(.Month(n))
+        #(_, Some(n)) when Range.contains?(1..=4, n) -> Some(.Quarter(n))
+        _ -> None
+    }
+}
+
+/// Friday at 17:00 for a meeting from Monday to Wednesday, and Sunday at
+/// 20:00 for one later in the week.
+fn end_of_week(today: Date) -> NaiveDateTime {
+    case Date.weekday(today) {
+        .Monday or .Tuesday or .Wednesday -> at(next_on(today, .Friday), 17)
+        .Thursday or .Friday or .Saturday or .Sunday -> at(next_on(today, .Sunday), 20)
+    }
+}
+
+/// The first day from `day` on, `day` included, that falls on `weekday`.
+fn next_on(day: Date, weekday: Weekday) -> Date {
+    Some(found) =
+        0..7
+        |> Iter.map(&(day + Days(&1)))
+        |> Iter.find(&(Date.weekday(&1) == weekday))
+    else {
+        unreachable "seven days in a row fall on every weekday"
+    }
+
+    found
+}
+
+/// The first Monday to Friday of `month` in `year`.
+fn first_workday(year: Int, month: Int) -> Date {
+    Ok(first) = Date.new(year, month, 1) else {
+        unreachable "every month has a first day"
+    }
+
+    Some(found) =
+        0..7
+        |> Iter.map(&(first + Days(&1)))
+        |> Iter.find(workday?)
+    else {
+        unreachable "seven days in a row hold five workdays"
+    }
+
+    found
+}
+
+/// The last Monday to Friday of `quarter` in `year`.
+fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
+    Ok(last_month) = Date.new(year, quarter * 3, 1) else {
+        unreachable "every quarter ends in a month from 3 to 12"
+    }
+
+    last_day = last_month + Months(1) - Days(1)
+
+    Some(found) =
+        0..7
+        |> Iter.map(&(last_day - Days(&1)))
+        |> Iter.find(workday?)
+    else {
+        unreachable "seven days in a row hold five workdays"
+    }
+
+    found
+}
+
+fn workday?(day: Date) -> Bool {
+    case Date.weekday(day) {
+        .Saturday or .Sunday -> False
+        _ -> True
+    }
+}
+
+/// The quarter, 1 to 4, that `month` falls in.
+fn quarter_of(month: Int) -> Int {
+    (month - 1) / 3 + 1
+}
+
+/// `day` at `hour` o'clock.
+fn at(day: Date, hour: Int) -> NaiveDateTime {
+    NaiveDateTime.at_midnight(day) + Hours(hour)
+}

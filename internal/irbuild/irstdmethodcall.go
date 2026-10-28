@@ -30,7 +30,9 @@ func (bl *irScalarBuilder) stdMethodCallPlan(t *ast.Call, args irQualArgs, owner
 		// An overloaded spelling (`NaiveDateTime.add` over eleven operand
 		// types) names no single function to reference, and a call selects
 		// the one its operand kinds fit, as the operator route does.
-		if _, local := bl.g.types[owner]; !local && args.ok && len(bl.g.std.byType[owner+"."+method]) > 1 {
+		// A gen built without the stdlib's index (std nil) has no
+		// overloads to pick from.
+		if _, local := bl.g.types[owner]; !local && args.ok && bl.g.std != nil && len(bl.g.std.byType[owner+"."+method]) > 1 {
 			if pick := stdPick(bl.g.std.byType[owner+"."+method], args.kinds); pick != nil {
 				return bl.stdFuncPlan(t, args, pick)
 			}

@@ -70,3 +70,29 @@ test "the get siblings answer None where at traps" {
     assert Vector.get(#[1, 2, 3, 4, 5], 7) == None
     assert Bytes.get(String.to_bytes("hi"), 2) == None
 }
+
+test "list remove_at traps on an index outside the list" {
+    result =
+        """
+            fn main() {
+              _ = List.remove_at([1, 2, 3], 3)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, "line 2: index 3 is out of range for a List of length 3")
+}
+
+test "map at traps on a missing key and names it" {
+    result =
+        """
+            fn main() {
+              _ = Map.at(%{"a" => 1}, "z")
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains?(message, `line 2: key "z" is not in the Map`)
+}

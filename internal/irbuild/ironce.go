@@ -171,11 +171,9 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 	sh.entry.Append(sh.slot)
 	sh.prologue = 1
 	// The value a `noun` declaration expanded into keeps its name's position
-	// and has the value it was given in the synthesized band, and a `once` a
-	// macro's expansion declares is in the band whole.
-	declLine, _ := nodePos(decl)
+	// and has the value it was given in the synthesized band.
 	bl := &irScalarBuilder{g: g, sh: sh, f: f, b: sh.entry, returnKind: k, bound: map[string]ir.Temp{}, boundK: map[string]kind{},
-		synthesized: decl.Expansion != nil || analysis.IsExpansionLine(declLine)}
+		synthesized: decl.Expansion != nil}
 	bl.openWithScope(true)
 	if !bl.leading(lead) {
 		return kindInvalid, false

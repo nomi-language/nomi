@@ -42,6 +42,9 @@ type docHidden struct{ d Doc } // see Hidden
 type docWithIndent struct {    // see WithIndent
 	f func(indent, width int) Doc
 }
+type docWithColumn struct { // see WithColumn
+	f func(col, indent, width int) Doc
+}
 type docLineSuffix struct { // see LineSuffix and CommentBefore
 	s      string
 	before bool
@@ -66,6 +69,7 @@ func (docIfBroken) doc()    {}
 func (docLocalBroken) doc() {}
 func (docHidden) doc()      {}
 func (docWithIndent) doc()  {}
+func (docWithColumn) doc()  {}
 func (docLineSuffix) doc()  {}
 func (docInString) doc()    {}
 func (docBrokenTail) doc()  {}
@@ -179,6 +183,12 @@ func Hidden(d Doc) Doc { return docHidden{d: d} }
 // a Group measures its whole content as one line. When an ancestor Group asks
 // whether this document fits flat, it is built at indent 0.
 func WithIndent(f func(indent, width int) Doc) Doc { return docWithIndent{f: f} }
+
+// WithColumn builds a document from the column it starts at, the current
+// indent and the line width, when it renders. An ancestor fits check measures the document f
+// builds at column 0 with an unbounded width, so f must answer one whose
+// flat text is the same at every column.
+func WithColumn(f func(col, indent, width int) Doc) Doc { return docWithColumn{f: f} }
 
 // LineSuffix is a line comment written at the end of the line it renders on,
 // just before the next line break, after whatever else the line holds. It is

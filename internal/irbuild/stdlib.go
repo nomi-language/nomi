@@ -2114,6 +2114,9 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		if k, isGenStruct := genStructSigKind(gt, anchors); isGenStruct {
 			return k
 		}
+		if k, isGenHost := genHostSigKind(gt, anchors); isGenHost {
+			return k
+		}
 	}
 	return kindInvalid
 }
@@ -2159,6 +2162,12 @@ type stdAnchors struct {
 	// annotation can: `ranges.Range.from(n: Int) -> Range<Int>` and
 	// `Range.naturals() -> Range<Int>` resolve here. See stdgensig.go.
 	genStructs map[string]*stdGenStructAnchor
+	// genHosts indexes stdGenHostSpecs by Nomi name, through the anchor a
+	// gen uses (stdGenHostAnchorsOf), so std's own signatures name a
+	// generic std host type as a user's annotation can: a private
+	// `fn f(marks: Vector<String>)` in a shared module resolves here. See
+	// stdgensig.go.
+	genHosts map[string]*stdGenHostAnchor
 	// declared answers "is this name a TYPE in the declaring module" — the
 	// resolver half of analysis.ReceiverTypeParamNames, which needs it to tell a
 	// receiver's type PARAMETER (`Map<K, V>`) from a concrete type argument
@@ -2238,6 +2247,7 @@ func stdBaseAnchors(fa *analysis.FileAnalysis) stdAnchors {
 		preludes:   preludes,
 		synthEnums: stdEnumSynthAnchors(fa),
 		genStructs: stdGenStructAnchorsOf(fa),
+		genHosts:   stdGenHostAnchorsOf(fa),
 		declared:   declared,
 	}
 }

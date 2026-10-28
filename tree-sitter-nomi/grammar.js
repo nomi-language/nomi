@@ -96,6 +96,10 @@ module.exports = grammar({
     // `)` decides, as for `Type(...)` above.
     [$.self_type, $.self_expression],
     [$.list, $.list_pattern],
+    // `if a or b {` is the boolean `or` of two names, and `if A or B = v`
+    // an or pattern, until the `=` or the `{` decides.
+    [$._case_pattern, $._expression],
+    [$.destructuring_binding, $._expression, $._case_pattern],
     // `sql.Error.Closed` after `if` or in a case arm is the pattern or the
     // expression it looks like, until the `=` or `->` decides.
     [$._expression, $.qualified_variant],
@@ -194,52 +198,20 @@ module.exports = grammar({
     _top_item: $ => choice($.keyword_declaration, $._item),
 
     // A declaration by the general rule
-    // `[pub] [module.]keyword[!] name [(params)] [-> type] [[Tag]raw body]`,
-    // whose keyword the grammar does not know: `message cart_items(count:
-    // Int) `...``, `noun item `...``, `sqlkit.query! user(id: Int)
-    // Sql`...``. A macro's keyword carries the `!` (the `mark`),
-    // written against it. Two names in a row, a marked name and a name, or
-    // either with a qualified keyword, at the top level start nothing else;
-    // a line break between them ends a statement, as in the Go parser. A
-    // tagged body is a `raw_tagged_string`,
-    // so the typed-literal injections highlight it by its tag.
-    // `macro name: Type` declares a keyword (the Go parser's
-    // ast.MacroDecl); the grammar reads it by this rule with the
-    // implementing type after a colon. The name may be a type name
-    // (`choices.one_of! Size`, `one_of! Size`) when the keyword is marked
-    // or qualified, since a macro's declaration may declare a type; an
-    // unmarked, unqualified name before a type name starts nothing
-    // (`strct Point`).
+    // `[pub] keyword name [(params)] [-> type] [raw body]`, whose keyword
+    // the grammar does not know: `message cart_items(count: Int) `...``,
+    // `noun item `...``. Two names in a row at the top level start nothing
+    // else; a line break between them ends a statement, as in the Go
+    // parser. The body may carry a tag, which the Go parser reads and the
+    // analysis refuses on `message` and `noun`.
     keyword_declaration: $ => prec.right(seq(
       optional($.pub),
-      choice(
-        seq(
-          optional(seq(field('module', $.identifier), token.immediate('.'))),
-          field('keyword', $.identifier),
-          optional(field('mark', $.macro_mark)),
-          field('name', $.identifier),
-        ),
-        seq(
-          field('module', $.identifier), token.immediate('.'),
-          field('keyword', $.identifier),
-          optional(field('mark', $.macro_mark)),
-          field('name', $.type_identifier),
-        ),
-        seq(
-          field('keyword', $.identifier),
-          field('mark', $.macro_mark),
-          field('name', $.type_identifier),
-        ),
-      ),
-      optional(seq(':', field('implementation', $._type))),
+      field('keyword', $.identifier),
+      field('name', $.identifier),
       optional($.parameters),
       optional(seq('->', field('return_type', $._type))),
       optional(field('body', choice($.raw_string, $.raw_tagged_string))),
     )),
-
-    // The `!` written against a macro's keyword, a node of its own so
-    // highlighters can draw it with the keyword.
-    macro_mark: $ => token.immediate('!'),
 
     // Visibility marker: `pub` makes a top-level declaration part of
     // the module's public surface. Wrapped as an explicit `pub` rule so
@@ -891,6 +863,8 @@ module.exports = grammar({
     // adjacent bare variants (`A` newline `B`) are two variants.
     _enum_payload_type: $ => choice(
       $._enum_payload_simple_type,
+      // `Io io.Error`: a type named through its file.
+      $.qualified_type,
       $._enum_payload_generic_type,
       $._enum_payload_function_type,
       $._enum_payload_tuple_type,
@@ -1690,9 +1664,11 @@ module.exports = grammar({
     // The pattern may be read in its expression spelling, as a case arm's
     // escape reads it, with its `or` and `as`: in `if Shape.Circle(r) = s` the head `Shape.Circle`
     // is a type_field_access by static precedence before the `=` shows the
-    // whole is a pattern. Where both readings parse, the pattern wins.
+    // whole is a pattern. Where both readings parse, the pattern wins, by a
+    // margin above what the literals of an expression reading add up to
+    // (`%{"a" => x} or %{"b" => x}` holds two map constructions).
     if_match_condition: $ => choice(
-      prec.dynamic(20, seq(
+      prec.dynamic(1000, seq(
         field('pattern', $._case_pattern),
         '=',
         field('value', $._expression),
@@ -1808,7 +1784,10 @@ module.exports = grammar({
     _arm_body: $ => choice($.assertion, $._expression),
 
     _case_pattern: $ => prec(2, choice(
-      $.identifier,
+      // A bare name has no precedence over the expression it also reads
+      // as, so `if a or b {` stays the boolean `or` until the `{` decides
+      // (the conflict with _expression below).
+      prec(0, $.identifier),
       $.type_identifier,
       // Qualified bare variant pattern: `Status.Open`, `Color.Red` (no
       // payload). Bare `Open` is the type_identifier alternative above; the
@@ -2192,10 +2171,19 @@ module.exports = grammar({
 
     // A capture: `&` against a function's body, which is one postfix-level
     // operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
-    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`).
+    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`),
+    // or the negation of one (`&!f(&1)`).
     // It binds below a call and above every binary operator, so
     // `&f(&1)(2)` captures both calls and `&f(&1) + 1` adds to the capture.
     capture: $ => prec(10, seq('&', field('body', choice(
+      $._capture_body,
+      alias($._negated_capture_body, $.unary_expression),
+    )))),
+    _negated_capture_body: $ => prec(10, seq('!', choice(
+      $._capture_body,
+      alias($._negated_capture_body, $.unary_expression),
+    ))),
+    _capture_body: $ => prec(10, choice(
       $.call_expression,
       $.paren_expression,
       $.struct_construction,
@@ -2207,7 +2195,7 @@ module.exports = grammar({
       $.vector,
       $.set,
       $.map_construction,
-    )))),
+    )),
     type_identifier: $ => /[A-Z][a-zA-Z0-9_]*/,
 
     // Comments

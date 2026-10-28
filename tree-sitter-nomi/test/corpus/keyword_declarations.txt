@@ -56,30 +56,19 @@ query user_by_email(email: String) -> Maybe<User> `select 1`
       (raw_string_content))))
 
 ================================================================================
-A macro's keyword is qualified by its file, and a body may be tagged
+A body may be tagged
 ================================================================================
 
-pub sqlkit.database! main
-pub sqlkit.query! orders(user_id: Int) Sql`
+query orders(user_id: Int) Sql`
     SELECT id
     FROM orders
     `
-query! user Sql`SELECT 1`
 
 --------------------------------------------------------------------------------
 
 (source_file
   (keyword_declaration
-    (pub)
-    module: (identifier)
     keyword: (identifier)
-    mark: (macro_mark)
-    name: (identifier))
-  (keyword_declaration
-    (pub)
-    module: (identifier)
-    keyword: (identifier)
-    mark: (macro_mark)
     name: (identifier)
     (parameters
       (parameter
@@ -87,68 +76,7 @@ query! user Sql`SELECT 1`
         (type_identifier)))
     body: (raw_tagged_string
       tag: (type_identifier)
-      (raw_string_content)))
-  (keyword_declaration
-    keyword: (identifier)
-    mark: (macro_mark)
-    name: (identifier)
-    body: (raw_tagged_string
-      tag: (type_identifier)
       (raw_string_content))))
-
-================================================================================
-A marked or qualified keyword's declaration may name a type
-================================================================================
-
-pub choices.one_of! Size `small medium large`
-one_of! Kind `a b`
-kit.record! Point(x: Int)
-derive Debug for Point
-
---------------------------------------------------------------------------------
-
-(source_file
-  (keyword_declaration
-    (pub)
-    module: (identifier)
-    keyword: (identifier)
-    mark: (macro_mark)
-    name: (type_identifier)
-    body: (raw_string
-      (raw_string_content)))
-  (keyword_declaration
-    keyword: (identifier)
-    mark: (macro_mark)
-    name: (type_identifier)
-    body: (raw_string
-      (raw_string_content)))
-  (keyword_declaration
-    module: (identifier)
-    keyword: (identifier)
-    mark: (macro_mark)
-    name: (type_identifier)
-    (parameters
-      (parameter
-        name: (identifier)
-        (type_identifier))))
-  (derive_conformance
-    interface: (type_identifier)
-    receiver: (type_identifier)))
-
-================================================================================
-A macro declaration names its implementing type
-================================================================================
-
-pub macro table: CsvTable
-
---------------------------------------------------------------------------------
-
-(source_file
-  (keyword_declaration
-    (pub)
-    keyword: (identifier)
-    name: (identifier)
-    implementation: (type_identifier)))
 
 ================================================================================
 Two names on two lines are two statements

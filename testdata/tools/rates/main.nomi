@@ -1,0 +1,11 @@
+import {
+    std/io
+    tables
+}
+
+fn main() {
+    io.print(Maybe.with_default(tables.rates("usd"), 0))
+    io.print(Maybe.with_default(tables.names("gbp"), "?"))
+    io.print(Maybe.with_default(tables.names("jpy"), "?"))
+    io.print(Maybe.some?(tables.rates("xyz")))
+}

@@ -1,7 +1,6 @@
 package analysis
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -55,10 +54,6 @@ type Manifest struct {
 	// each as its literal writes it (`PTS:0`), in the manifest's order. Nil
 	// or empty allows none.
 	CustomCurrencies []string
-	// Tables holds every table other than Nomi's own (NomiTables), by
-	// name: a macro module's configuration is the table named after it
-	// (MacroConfig).
-	Tables map[string]map[string]any
 }
 
 // CarriedLocales are the locales whose CLDR data the program carries:
@@ -323,36 +318,7 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool) (*Man
 	if m.CustomCurrencies, err = customCurrencies(raw.Money.CustomCurrencies, sourceLabel); err != nil {
 		return nil, err
 	}
-	var tables map[string]any
-	if err := toml.Unmarshal(data, &tables); err == nil {
-		for name, v := range tables {
-			if t, ok := v.(map[string]any); ok && !slices.Contains(NomiTables, name) {
-				if m.Tables == nil {
-					m.Tables = map[string]map[string]any{}
-				}
-				m.Tables[name] = t
-			}
-		}
-	}
 	return m, nil
-}
-
-// NomiTables are the tables of nomi.toml that Nomi itself reads. A macro
-// module's configuration is the table named after the module, so a macro
-// of a module named like one of these cannot be used (expandMacro).
-var NomiTables = []string{"module", "i18n", "money"}
-
-// MacroConfig is the table a macro module named module reads
-// from this manifest, `[module]`, as JSON text: "null" when there is none.
-func (m *Manifest) MacroConfig(module string) string {
-	if m == nil || m.Tables[module] == nil {
-		return "null"
-	}
-	data, err := json.Marshal(m.Tables[module])
-	if err != nil {
-		return "null"
-	}
-	return string(data)
 }
 
 // IsForeignStdlibDir reports whether dir is the root of a standard library

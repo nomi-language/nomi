@@ -273,11 +273,8 @@ impl String {
     //! assert String.join_list(["a", "b", "c"], Locale`pl`) == "a, b i c"
     //! assert String.join_list(["a", "b", "c"], Locale`ja`) == "a、b、c"
     //!
-    //! assert String.join_list(
-    //!     ["3 quarters", "1 dime"],
-    //!     Locale`en`,
-    //!     ListStyle.Unit,
-    //! ) == "3 quarters, 1 dime"
+    //! assert String.join_list(["3 quarters", "1 dime"], Locale`en`, ListStyle.Unit)
+    //!     == "3 quarters, 1 dime"
     //!
     //! items: List<String> = []
     //! assert String.join_list(items, Locale`en`) == ""
@@ -478,7 +475,7 @@ impl String {
     /// non-ASCII letters or marks, as in a Devanagari conjunct or a
     /// Persian word. One anywhere else (`a\u{200d}b`, at either end, beside
     /// a space) is escaped. What a program that writes Nomi source, such as
-    /// a macro, writes a string with, and a String's `Debug`.
+    /// a code generator, writes a string with, and a String's `Debug`.
     //! assert String.to_literal("a\tb") == "\"a\\tb\""
     //! assert String.to_literal("say \"hi\"") == "\"say \\\"hi\\\"\""
     //! assert String.to_literal("\${x} costs $5") == "\"\\\${x} costs $5\""

@@ -1,0 +1,52 @@
+/// The lowest price, in cents, of `basket`, a list of the books in it by
+/// their number in the series, 1 to 5. The largest groups are the cheapest
+/// but for one exchange: two groups of four cost less than a group of five
+/// and one of three, so each such pair is priced as two fours.
+pub fn total(basket: List<Int>) -> Int {
+    groups = group_sizes(basket)
+    swaps = Int.min(groups_of(groups, 5), groups_of(groups, 3))
+    saving = group_price(5) + group_price(3) - 2 * group_price(4)
+
+    full =
+        groups
+        |> Iter.map(fn #(size, count) -> count * group_price(size))
+        |> Iter.sum()
+
+    full - swaps * saving
+}
+
+/// How many groups of each size the largest groups make: with the copies of
+/// each title counted, largest count first, as many groups of five as the
+/// fifth title has copies, then groups of four for the fourth title's
+/// extra copies, and so on.
+fn group_sizes(basket: List<Int>) -> Map<Int, Int> {
+    copies =
+        basket
+        |> Iter.frequencies()
+        |> Map.values()
+        |> Iter.sort(.Descending)
+
+    next = copies |> Iter.drop(1) |> Iter.concat([0])
+
+    Iter.zip(copies, next)
+    |> Iter.with_index()
+    |> Iter.map(fn #(index, #(these, fewer)) -> #(index + 1, these - fewer))
+    |> Iter.to_map()
+}
+
+fn groups_of(groups: Map<Int, Int>, size: Int) -> Int {
+    Map.get(groups, size) |> Maybe.with_default(0)
+}
+
+/// The price, in cents, of a group of `size` different books.
+fn group_price(size: Int) -> Int {
+    discount = case size {
+        2 -> 5
+        3 -> 10
+        4 -> 20
+        5 -> 25
+        _ -> 0
+    }
+
+    size * 800 * (100 - discount) / 100
+}

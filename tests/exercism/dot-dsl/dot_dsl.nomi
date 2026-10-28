@@ -1,0 +1,219 @@
+//# Reads a small part of Graphviz's DOT language: an undirected `graph`
+//# of nodes, edges and graph attributes, each of which may carry
+//# attributes.
+
+/// An attribute's value: a whole number, `true` or `false`, or text,
+/// quoted or not.
+pub enum Value {
+    Number Int
+    Flag Bool
+    Text String
+}
+
+derive Equatable for Value
+
+/// Attributes by name.
+pub typealias Attributes Map<String, Value>
+
+/// A graph: its nodes and edges, each with its attributes, and the graph's
+/// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
+/// is the edge `#("a", "b")`.
+pub struct Graph {
+    nodes: Map<String, Attributes>
+    edges: Map<#(String, String), Attributes>
+    attrs: Attributes
+}
+
+/// Why a text is not a graph.
+pub enum Error {
+    InvalidGraph
+    InvalidEdge
+    InvalidAttribute
+    NodeNameNotAlphanumeric
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .InvalidGraph -> "invalid graph"
+            .InvalidEdge -> "invalid edge"
+            .InvalidAttribute -> "invalid attribute"
+            .NodeNameNotAlphanumeric -> "node name must be alphanumeric"
+        }
+    }
+}
+
+/// One statement inside a graph's braces.
+enum Statement {
+    GraphAttributes Attributes
+    Node {name: String, attributes: Attributes}
+    Edges {names: List<String>, attributes: Attributes}
+}
+
+/// Reads `text`, a `graph { ... }` with one statement on each line between
+/// the braces. A line that starts with `//` or `#` is a comment.
+pub fn parse(text: String) -> Result<Graph, Error> {
+    lines =
+        String.lines(text)
+        |> Iter.map(String.trim)
+        |> Iter.filter(fn line -> line != "" and !comment?(line))
+        |> Iter.to_list()
+
+    ["graph {", ..rest] = lines else {
+        return Err(.InvalidGraph)
+    }
+
+    if Iter.last(rest) != Some("}") {
+        return Err(.InvalidGraph)
+    }
+
+    statements =
+        rest
+        |> Iter.take(Iter.count(rest) - 1)
+        |> Iter.map(statement)
+        |> Result.collect()
+
+    empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
+
+    Ok(Iter.reduce(try statements, add, from: empty))
+}
+
+fn comment?(line: String) -> Bool {
+    String.starts_with?(line, "//") or String.starts_with?(line, "#")
+}
+
+/// Reads one statement, `subject [name=value, ...];`, where the subject is
+/// a node, a chain of edges `a -- b -- c`, or nothing for the graph's own
+/// attributes.
+fn statement(line: String) -> Result<Statement, Error> {
+    Some(line) = String.strip_suffix(line, ";") else {
+        return Err(.InvalidGraph)
+    }
+
+    #(subject, attributes) = case String.split(line, "[") {
+        [subject] ->
+            #(subject, %{})
+
+        [subject, list] -> {
+            Some(inner) = String.strip_suffix(String.trim(list), "]") else {
+                return Err(.InvalidAttribute)
+            }
+
+            #(subject, try attributes_in(inner))
+        }
+
+        _ ->
+            return Err(.InvalidAttribute)
+    }
+
+    case String.words(subject) {
+        [] ->
+            Ok(.GraphAttributes(attributes))
+
+        [name] -> {
+            if !alphanumeric?(name) {
+                return Err(.NodeNameNotAlphanumeric)
+            }
+
+            Ok(#Statement.Node{name, attributes})
+        }
+
+        words ->
+            Ok(#Statement.Edges{names: try edge_names(words), attributes})
+    }
+}
+
+/// The attributes of `name=value, ...`, the text between a statement's
+/// brackets.
+fn attributes_in(list: String) -> Result<Attributes, Error> {
+    pairs =
+        String.split(list, ",")
+        |> Iter.map(fn pair -> {
+            case pair |> String.trim() |> String.split("=") {
+                [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
+                _ -> Err(Error.InvalidAttribute)
+            }
+        })
+        |> Result.collect()
+
+    Ok(Iter.to_map(try pairs))
+}
+
+/// The value written `text`: quoted text, a whole number, `true` or
+/// `false`, or else unquoted text.
+fn value_of(text: String) -> Value {
+    quoted = String.strip_prefix(text, "\"") |> Maybe.flat_map(&String.strip_suffix(&1, "\""))
+
+    case #(quoted, String.to_int(text), text) {
+        #(Some(inner), _, _) -> .Text(inner)
+        #(_, Some(number), _) -> .Number(number)
+        #(_, _, "true") -> .Flag(True)
+        #(_, _, "false") -> .Flag(False)
+        _ -> .Text(text)
+    }
+}
+
+/// The nodes of a chain of edges, `a -- b -- c`, written as words.
+fn edge_names(words: List<String>) -> Result<List<String>, Error> {
+    #(names, links) =
+        words
+        |> Iter.with_index()
+        |> Iter.partition(fn #(index, _word) -> index % 2 == 0)
+
+    names = names |> Iter.map(fn #(_index, word) -> word) |> Iter.to_list()
+
+    valid = Iter.count(names) == Iter.count(links) + 1
+        and Iter.all?(links, fn #(_index, word) -> {
+            word == "--"
+        })
+        and Iter.all?(names, alphanumeric?)
+
+    if valid { Ok(names) } else { Err(.InvalidEdge) }
+}
+
+fn alphanumeric?(name: String) -> Bool {
+    String.to_codepoints(name) |> Iter.all?(fn c -> Codepoint.letter?(c) or Codepoint.digit?(c))
+}
+
+/// `graph` with `statement`'s nodes, edges or attributes added. Attributes
+/// given again for the same node, edge or graph replace those given before.
+fn add(graph: Graph, statement: Statement) -> Graph {
+    case statement {
+        .GraphAttributes(attributes) ->
+            #{..graph, attrs: Map.merge(graph.attrs, attributes)}
+
+        #Statement.Node{name, attributes} ->
+            #{..graph, nodes: with_attributes(graph.nodes, name, attributes)}
+
+        #Statement.Edges{names, attributes} -> {
+            nodes = Iter.reduce(names, fn nodes = graph.nodes, name -> {
+                with_attributes(nodes, name, %{})
+            })
+
+            edges =
+                names
+                |> Iter.windows(2)
+                |> Iter.reduce(fn edges = graph.edges, pair -> {
+                    case Iter.sort(pair) {
+                        [a, b] -> with_attributes(edges, #(a, b), attributes)
+                        _ -> unreachable "a window of two holds two names"
+                    }
+                })
+
+            #{..graph, nodes, edges}
+        }
+    }
+}
+
+/// `entries` with `attributes` merged into those of `key`, which it gains
+/// if it lacks it.
+fn with_attributes<K>(
+    entries: Map<K, Attributes>,
+    key: K,
+    attributes: Attributes,
+) -> Map<K, Attributes> {
+    before = Map.get(entries, key) |> Maybe.with_default(%{})
+    Map.put(entries, key, Map.merge(before, attributes))
+}

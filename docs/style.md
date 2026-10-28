@@ -239,8 +239,8 @@ pub type Handler (String, String) -> Result<String, String>
 pub type Expired
 pub opaque type Counter Int
 
-pub typealias UserList List<User>
-pub typealias UserMap Map<String, User>
+pub typealias Rule (String) -> Maybe<String>
+pub typealias Span #{start: Int, end: Int, line: Int}
 ```
 
 Declarations with bodies get a blank line between them. A bodyless declaration
@@ -1107,7 +1107,7 @@ The threading idiom (`x = f(x)`) always reads the prior `x`, so it is clean.
 When a value is intentionally ignored, use a discard binder: `_`, or `_name`
 when a label makes the ignored value clearer. Discard binders do not enter
 scope, so `_name` cannot be read later. The same holds inside a pattern: write
-`fn #(_word, count) -> count`, `Some(_) -> True` or `[first, .._]`, and leave a struct
+`fn #(_word, count) -> count`, `Some(_) -> True` or `[first, ..]`, and leave a struct
 pattern's unneeded fields out (`#.Suspended{reason}`) rather than binding them.
 
 `assert` and `refute` may stand alone as statements, since the check is the
@@ -1721,82 +1721,26 @@ not `Iter.any?(reserved, fn r -> r == name)`, which spells out the comparison
 `Vector`, `Bytes` or `Iter` lookup is a linear scan, so a value looked up
 repeatedly belongs in a `Set`: convert once with `Iter.to_set` and test that.
 
-## 31. Prefer a capture for a single operation
+## 31. Write generated code a reader can trust
 
-Prefer a capture (spec, *Captures*) when a lambda's body is a single
-operation: one call, one operator or one construction, using its
-parameter once. `&f(&1)` says what the lambda says without a parameter
-name to invent. Write `fn` when the body has more than one step.
+These rules are for the author of a tool that generates Nomi code (`nomi
+tool`), such as sqlkit's `generate`.
 
-Keep `fn x -> ...` when any of these holds:
+- **Write files `nomi fmt` leaves alone.** A reader reviews generated code
+  in a diff, and a formatter pass that rewrites it every time hides the
+  change that matters. Lay the code out as the formatter does.
+- **Say what made the file.** Start each file with a comment that names the
+  tool and its inputs and says not to edit it, and record a checksum of the
+  inputs there: `// inputs sha256: ...`.
+- **Fail before writing.** Check the inputs first, report each problem at
+  its file and line, `db/queries/users.sql:12:5: ...`, and write nothing when
+  there is one, so a half-written set of files never reaches the checker.
+- **Offer `--check` and a test.** `--check` writes nothing and fails when a
+  file is not what the tool would write, for an automated check. A generated
+  test that computes the inputs' checksum again and compares it with the
+  header's makes a plain `nomi test` notice a forgotten run.
 
-- the body takes more than one step (`fn x -> x * 2 + 1`);
-- it uses the parameter twice (`fn n -> n * n`);
-- it takes the parameter apart with a pattern (`fn #(k, v) -> v`);
-- it reads a field off the parameter (`fn o -> o.total > 100`); a bare field
-  read is `.total` (rule 21);
-- it needs a seed (`fn total = 0, x -> total + x`);
-- no expected function type gives the parameter its type (`f = fn x: Int ->
-  x > 2`, where `f = &(&1 > 2)` is an error). A partial capture of a call
-  (`inc = &add(1, &1)`) takes its types from the callee and needs none.
-
-| Lambda | Write |
-|---|---|
-| `fn s -> s > 50` | `&(&1 > 50)` |
-| `fn x -> #Point{x: x, y: 0}` | `&#Point{x: &1, y: 0}` |
-| `fn l -> Set.contains?(letters, l)` | `&Set.contains?(letters, &1)` |
-| `fn v -> divide(100, v)` as a pipe stage | `then &divide(100, &1)` |
-| `fn x -> x * 2 + 1` | unchanged: two steps |
-| `fn o -> o.total > 100` | unchanged: a field read and a comparison |
-| `fn #(k, v) -> v` | unchanged: a pattern |
-
-The language allows more than this rule uses: `&(&1 * 2 + 1)`, `&(&1 *
-&1)` and `&f(&2, &1)` are all functions. A parameter used twice or out of
-order reads better as a lambda whose parameters have names.
-
-## 32. Write macros whose errors land on what the user wrote
-
-These rules are for a macro's author (spec, *Macros*) and for code that uses
-one.
-
-- **State the real type in the declaration.** `pub csvdata.table! rate(code:
-  String) -> Maybe<Int>` tells a reader what `rate` is without reading the
-  macro. The compiler holds the expansion to the declaration's name, `pub`,
-  parameters and result, so the signature cannot drift from what the macro
-  generates. A macro that knows a better type says so: csvdata refuses `->
-  Int`, since a missing key answers `None`.
-- **Name helpers after the declaration.** A helper an expansion declares
-  besides the declaration's own name carries that name as its prefix
-  (`price_rows` for `table! price`), so two declarations in one file do not
-  collide.
-- **Map whole expressions with `Source.mapped`.** An error the checker finds
-  inside a mapped range is reported at the span the user wrote, with the
-  range's hint; one outside every range is reported as a defect of the
-  macro. Map the whole expression a piece of input becomes, not only the
-  copied text: csvdata maps `Some(${value})` to the cell, so a `Float` cell
-  in an `Int` table is a type mismatch at that cell. Map the declaration's
-  parameter and result type text too, so a mismatch names the user's type.
-- **Report your own mistakes at a span.** When the macro can tell the input
-  is wrong, answer `Expansion.error(span, message)` at the piece that is
-  wrong (the body, a word of it, the result type, the tag), not a generic
-  error at the keyword. Keep `Declaration.error` for a problem with the
-  declaration as a whole.
-- **Require a body tag only for another language.** A tag names the body's
-  language so editors highlight it: `` sqlkit.query! orders() Sql`SELECT
-  ...` ``. A body that is a path, a list of words or a size takes no tag,
-  and the macro refuses one (`` a table's body is the path of its CSV file
-  and takes no tag: remove `Csv` ``).
-- **Prefer the qualified form in examples.** `csvdata.table! rate` says
-  where the keyword comes from on the line that uses it. An item import
-  (`import csvdata.table`, then `table! rate`) is fine in a file that writes
-  many declarations, but documentation and examples use the qualified form.
-- **Keep settings in the module's table.** A macro reads its settings from
-  the `[<module>]` table of the declaring module's `nomi.toml` (`[csvdata]`
-  with `dir = "data"`), which it receives as `config`. Do not invent another
-  configuration file, and do not put settings that apply to every
-  declaration into each declaration's body.
-
-## 33. Sort by several keys with one tuple key
+## 32. Sort by several keys with one tuple key
 
 Tuples compare element by element, so a sort by several keys is one
 `Iter.sort_by` whose key is a tuple of them, most significant first. Wrap a
@@ -1815,3 +1759,21 @@ sort is stable and read the keys bottom up. To sort a whole list descending,
 pass `Direction.Descending`. `Iter.sort_with` and `Ordering.chain` remain for
 a comparator that is not a key, such as one that compares by a function of
 both values.
+
+## 33. Use `typealias` only to shorten a long anonymous shape
+
+A `typealias` is another spelling of its target, with no identity of its own.
+Use one to shorten a long anonymous shape that signatures would otherwise
+repeat: an anonymous struct, a function type, a long tuple.
+
+```nomi
+typealias Rule (String) -> Maybe<String>
+typealias Span #{start: Int, end: Int, line: Int}
+```
+
+When the thing deserves a name, a domain concept that functions take and
+return, declare a struct or a `type` instead. A `type` is checked as its own
+type, and a struct names its fields. An alias of a named type
+(`typealias UserList List<User>`) only hides what the reader would see by
+writing `List<User>`. An alias takes no type parameters, and no impl, derive
+or qualified call goes through one.

@@ -137,9 +137,8 @@ test "captures_all lists the groups of every match, left to right" {
 }
 
 test "captures work over Unicode text" {
-    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`) == Some(
-        [Some("café"), Some("crème")]
-    )
+    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`)
+        == Some([Some("café"), Some("crème")])
 
     assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [
         [Some("🙂"), Some("1")],

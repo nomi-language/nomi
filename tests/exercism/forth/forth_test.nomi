@@ -1,0 +1,192 @@
+import forth.{self, Error}
+
+test "parsing and numbers" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("numbers just get pushed onto the stack", ["1 2 3 4 5"], Ok([1, 2, 3, 4, 5])),
+        #("pushes negative numbers onto the stack", ["-1 -2 -3 -4 -5"], Ok([-1, -2, -3, -4, -5])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "addition" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("can add two numbers", ["1 2 +"], Ok([3])),
+        #("errors if there is nothing on the stack", ["+"], Err(.EmptyStack)),
+        #("errors if there is only one value on the stack", ["1 +"], Err(.OnlyOneValue)),
+        #("more than two values on the stack", ["1 2 3 +"], Ok([1, 5])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "subtraction" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("can subtract two numbers", ["3 4 -"], Ok([-1])),
+        #("errors if there is nothing on the stack", ["-"], Err(.EmptyStack)),
+        #("errors if there is only one value on the stack", ["1 -"], Err(.OnlyOneValue)),
+        #("more than two values on the stack", ["1 12 3 -"], Ok([1, 9])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "multiplication" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("can multiply two numbers", ["2 4 *"], Ok([8])),
+        #("errors if there is nothing on the stack", ["*"], Err(.EmptyStack)),
+        #("errors if there is only one value on the stack", ["1 *"], Err(.OnlyOneValue)),
+        #("more than two values on the stack", ["1 2 3 *"], Ok([1, 6])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "division" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("can divide two numbers", ["12 3 /"], Ok([4])),
+        #("performs integer division", ["8 3 /"], Ok([2])),
+        #("errors if dividing by zero", ["4 0 /"], Err(.DivideByZero)),
+        #("errors if there is nothing on the stack", ["/"], Err(.EmptyStack)),
+        #("errors if there is only one value on the stack", ["1 /"], Err(.OnlyOneValue)),
+        #("more than two values on the stack", ["1 12 3 /"], Ok([1, 4])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "combined arithmetic" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("addition and subtraction", ["1 2 + 4 -"], Ok([-1])),
+        #("multiplication and division", ["2 4 * 3 /"], Ok([2])),
+        #("multiplication and addition", ["1 3 4 * +"], Ok([13])),
+        #("addition and multiplication", ["1 3 4 + *"], Ok([7])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "dup" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("copies a value on the stack", ["1 dup"], Ok([1, 1])),
+        #("copies the top value on the stack", ["1 2 dup"], Ok([1, 2, 2])),
+        #("errors if there is nothing on the stack", ["dup"], Err(.EmptyStack)),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "drop" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("removes the top value on the stack if it is the only one", ["1 drop"], Ok([])),
+        #("removes the top value on the stack if it is not the only one", ["1 2 drop"], Ok([1])),
+        #("errors if there is nothing on the stack", ["drop"], Err(.EmptyStack)),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "swap" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #(
+            "swaps the top two values on the stack if they are the only ones",
+            ["1 2 swap"],
+            Ok([2, 1]),
+        ),
+        #(
+            "swaps the top two values on the stack if they are not the only ones",
+            ["1 2 3 swap"],
+            Ok([1, 3, 2]),
+        ),
+        #("errors if there is nothing on the stack", ["swap"], Err(.EmptyStack)),
+        #("errors if there is only one value on the stack", ["1 swap"], Err(.OnlyOneValue)),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "over" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("copies the second element if there are only two", ["1 2 over"], Ok([1, 2, 1])),
+        #("copies the second element if there are more than two", ["1 2 3 over"], Ok([1, 2, 3, 2])),
+        #("errors if there is nothing on the stack", ["over"], Err(.EmptyStack)),
+        #("errors if there is only one value on the stack", ["1 over"], Err(.OnlyOneValue)),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "user-defined words" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("can consist of built-in words", [": dup-twice dup dup ;", "1 dup-twice"], Ok([1, 1, 1])),
+        #("execute in the right order", [": countup 1 2 3 ;", "countup"], Ok([1, 2, 3])),
+        #(
+            "can override other user-defined words",
+            [": foo dup ;", ": foo dup dup ;", "1 foo"],
+            Ok([1, 1, 1]),
+        ),
+        #("can override built-in words", [": swap dup ;", "1 swap"], Ok([1, 1])),
+        #("can override built-in operators", [": + * ;", "3 4 +"], Ok([12])),
+        #(
+            "can use different words with the same name",
+            [": foo 5 ;", ": bar foo ;", ": foo 6 ;", "bar foo"],
+            Ok([5, 6]),
+        ),
+        #(
+            "can define word that uses word with the same name",
+            [": foo 10 ;", ": foo foo 1 + ;", "foo"],
+            Ok([11]),
+        ),
+        #("cannot redefine non-negative numbers", [": 1 2 ;"], Err(.IllegalOperation)),
+        #("cannot redefine negative numbers", [": -1 2 ;"], Err(.IllegalOperation)),
+        #("errors if executing a non-existent word", ["foo"], Err(.UndefinedOperation)),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}
+
+test "user-defined words: only defines locally" {
+    assert forth.evaluate([": + - ;", "1 1 +"]) == Ok([0])
+    assert forth.evaluate(["1 1 +"]) == Ok([2])
+}
+
+test "case-insensitivity" {
+    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+        #("DUP is case-insensitive", ["1 DUP Dup dup"], Ok([1, 1, 1, 1])),
+        #("DROP is case-insensitive", ["1 2 3 4 DROP Drop drop"], Ok([1])),
+        #("SWAP is case-insensitive", ["1 2 SWAP 3 Swap 4 swap"], Ok([2, 3, 4, 1])),
+        #("OVER is case-insensitive", ["1 2 OVER Over over"], Ok([1, 2, 1, 2, 1])),
+        #(
+            "user-defined words are case-insensitive",
+            [": foo dup ;", "1 FOO Foo foo"],
+            Ok([1, 1, 1, 1]),
+        ),
+        #("definitions are case-insensitive", [": SWAP DUP Dup dup ;", "1 swap"], Ok([1, 1, 1, 1])),
+    ]
+
+    subtests cases, #(description, instructions, expected), description {
+        assert forth.evaluate(instructions) == expected
+    }
+}

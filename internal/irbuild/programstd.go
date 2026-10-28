@@ -48,7 +48,6 @@ import (
 var programStdModules = map[string]bool{
 	"fs":          true,
 	"fs_testing":  true,
-	"macro":       true,
 	"message":     true,
 	"money":       true,
 	"path":        true,

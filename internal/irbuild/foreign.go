@@ -467,6 +467,10 @@ func (g *gen) namedType(name string) (*typeDef, bool) {
 	if d, isAlias := g.aliasNamedDef(name); isAlias {
 		return d, d != nil
 	}
+	// `shapes.P` under shapes' `typealias P Pt` names `shapes.Pt`.
+	if target, isAlias := g.qualifiedAliasTarget(name); isAlias {
+		return g.namedType(target)
+	}
 	// A type declared in an enclosing BLOCK, which the name-keyed table below
 	// cannot hold: two bodies may each declare `Point`. Innermost-first, which
 	// is the analyzer's own resolution order. See blocklocaltype.go.

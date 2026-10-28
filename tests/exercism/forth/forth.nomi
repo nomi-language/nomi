@@ -1,0 +1,122 @@
+//# An evaluator for a small subset of Forth: integer arithmetic, four stack
+//# words, and words the program defines.
+
+/// Why a program cannot run.
+pub enum Error {
+    EmptyStack
+    OnlyOneValue
+    DivideByZero
+    IllegalOperation
+    UndefinedOperation
+}
+
+/// One step a word runs: push a number, or one of the built-in words.
+enum Op {
+    Push Int
+    Add
+    Subtract
+    Multiply
+    Divide
+    Dup
+    Drop
+    Swap
+    Over
+}
+
+/// The words every program starts with, each the steps it runs. A program's
+/// own definitions are added to these, and may replace them.
+once builtins: Map<String, List<Op>> = %{
+    "+" => [Op.Add],
+    "-" => [Op.Subtract],
+    "*" => [Op.Multiply],
+    "/" => [Op.Divide],
+    "dup" => [Op.Dup],
+    "drop" => [Op.Drop],
+    "swap" => [Op.Swap],
+    "over" => [Op.Over],
+}
+
+/// The stack, bottom first, after running each line of `instructions` in
+/// turn.
+pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
+    tokens =
+        instructions
+        |> Iter.flat_map(String.words)
+        |> Iter.map(String.to_lower)
+        |> Iter.to_list()
+
+    stack = try run([], builtins, tokens)
+
+    stack
+    |> Iter.reverse()
+    |> Ok()
+}
+
+/// Runs `tokens` on `stack`, top first, with the words defined so far.
+fn run(
+    stack: List<Int>,
+    words: Map<String, List<Op>>,
+    tokens: List<String>,
+) -> Result<List<Int>, Error> {
+    case tokens {
+        [] ->
+            Ok(stack)
+
+        [":", name, ..rest] -> {
+            if String.to_int(name) |> Maybe.some?() {
+                return Err(.IllegalOperation)
+            }
+
+            body = rest |> Iter.take_while(&(&1 != ";")) |> Iter.to_list()
+            after = rest |> Iter.drop(Iter.count(body) + 1) |> Iter.to_list()
+
+            ops =
+                body
+                |> Iter.map(&resolve(words, &1))
+                |> try Result.collect()
+
+            run(stack, Map.put(words, name, Iter.flatten(ops)), after)
+        }
+
+        [word, ..rest] -> {
+            ops = try resolve(words, word)
+            stack = try execute(stack, ops)
+            run(stack, words, rest)
+        }
+    }
+}
+
+/// The steps `word` runs: a number pushes itself, and any other word runs
+/// the steps it was defined with when it was defined.
+fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error> {
+    if Some(n) = String.to_int(word) {
+        return Ok([.Push(n)])
+    }
+
+    Map.get(words, word) |> Maybe.to_result(Error.UndefinedOperation)
+}
+
+fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error> {
+    case ops {
+        [] -> Ok(stack)
+        [op, ..rest] -> execute(try apply(stack, op), rest)
+    }
+}
+
+/// `stack`, top first, after one step.
+fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error> {
+    case #(op, stack) {
+        #(.Push(n), _) -> Ok([n, ..stack])
+        #(_, []) -> Err(.EmptyStack)
+        #(.Dup, [a, ..rest]) -> Ok([a, a, ..rest])
+        #(.Drop, [_, ..rest]) -> Ok(rest)
+        #(_, [_]) -> Err(.OnlyOneValue)
+        #(.Swap, [b, a, ..rest]) -> Ok([a, b, ..rest])
+        #(.Over, [b, a, ..rest]) -> Ok([a, b, a, ..rest])
+        #(.Add, [b, a, ..rest]) -> Ok([a + b, ..rest])
+        #(.Subtract, [b, a, ..rest]) -> Ok([a - b, ..rest])
+        #(.Multiply, [b, a, ..rest]) -> Ok([a * b, ..rest])
+        #(.Divide, [0, _, .._]) -> Err(.DivideByZero)
+        #(.Divide, [b, a, ..rest]) -> Ok([a / b, ..rest])
+    }
+}

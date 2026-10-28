@@ -61,6 +61,8 @@ var infiniteIterTerminals = map[string]iterDrain{
 	"Iter.reverse":         {source: iterSourceArg},
 	"Iter.flatten":         {source: iterSourceArg},
 	"Iter.transpose":       {source: iterSourceArg},
+	"Iter.permutations":    {source: iterArg{0, "items"}},
+	"Iter.combinations":    {source: iterArg{0, "items"}},
 	"Iter.sort":            {source: iterSourceArg},
 	"Iter.sort_by":         {source: iterSourceArg},
 	"Iter.sort_with":       {source: iterSourceArg},

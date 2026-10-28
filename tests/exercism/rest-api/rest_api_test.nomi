@@ -1,0 +1,97 @@
+import {
+    std/json.{FromJson, Json}
+    rest_api.{RestApi, User, Users}
+}
+
+/// `text` read as a `Users` object, or why it could not be.
+fn users(text: String) -> Result<Users, String> {
+    decoded(text)
+}
+
+/// `text` read as JSON into a `T`, or why it could not be.
+fn decoded<T>(text: String) -> Result<T, String> where T: FromJson {
+    json = Json.decode(text) |> try Result.map_err(&Display.to_string(&1))
+    T.from_json(json) |> Result.map_err(&Display.to_string(&1))
+}
+
+once adam_and_bob = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
+
+once bob_owes_chuck = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{"Chuck":3.0},"owed_by":{},"balance":-3.0},{"name":"Chuck","owes":{},"owed_by":{"Bob":3.0},"balance":3.0}]}`
+
+once adam_owes_bob = `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"balance":-3.0},{"name":"Bob","owes":{},"owed_by":{"Adam":3.0},"balance":3.0}]}`
+
+group "user management" {
+    test "no users" {
+        api = try RestApi.new(`{"users":[]}`)
+        answer = try RestApi.get(api, "/users")
+        assert users(answer) == Ok(#{users: []})
+    }
+
+    test "add user" {
+        api = try RestApi.new(`{"users":[]}`)
+        #(answer, _api) = try RestApi.post(api, "/add", `{"user":"Adam"}`)
+        user: User = try decoded(answer)
+
+        assert user == #{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
+    }
+
+    test "get single user" {
+        api = try RestApi.new(adam_and_bob)
+        answer = try RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))
+        users: Users = try decoded(answer)
+
+        expected: Users = try decoded(
+            `{"users":[{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
+        )
+
+        assert users == expected
+    }
+}
+
+test "iou" {
+    cases = [
+        #(
+            "both users have 0 balance",
+            adam_and_bob,
+            `{"lender":"Adam","borrower":"Bob","amount":3.0}`,
+            `{"users":[{"name":"Adam","owes":{},"owed_by":{"Bob":3.0},"balance":3.0},{"name":"Bob","owes":{"Adam":3.0},"owed_by":{},"balance":-3.0}]}`,
+        ),
+        #(
+            "borrower has negative balance",
+            bob_owes_chuck,
+            `{"lender":"Adam","borrower":"Bob","amount":3.0}`,
+            `{"users":[{"name":"Adam","owes":{},"owed_by":{"Bob":3.0},"balance":3.0},{"name":"Bob","owes":{"Adam":3.0,"Chuck":3.0},"owed_by":{},"balance":-6.0}]}`,
+        ),
+        #(
+            "lender has negative balance",
+            bob_owes_chuck,
+            `{"lender":"Bob","borrower":"Adam","amount":3.0}`,
+            `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"balance":-3.0},{"name":"Bob","owes":{"Chuck":3.0},"owed_by":{"Adam":3.0},"balance":0.0}]}`,
+        ),
+        #(
+            "lender owes borrower",
+            adam_owes_bob,
+            `{"lender":"Adam","borrower":"Bob","amount":2.0}`,
+            `{"users":[{"name":"Adam","owes":{"Bob":1.0},"owed_by":{},"balance":-1.0},{"name":"Bob","owes":{},"owed_by":{"Adam":1.0},"balance":1.0}]}`,
+        ),
+        #(
+            "lender owes borrower less than new loan",
+            adam_owes_bob,
+            `{"lender":"Adam","borrower":"Bob","amount":4.0}`,
+            `{"users":[{"name":"Adam","owes":{},"owed_by":{"Bob":1.0},"balance":1.0},{"name":"Bob","owes":{"Adam":1.0},"owed_by":{},"balance":-1.0}]}`,
+        ),
+        #(
+            "lender owes borrower same as new loan",
+            adam_owes_bob,
+            `{"lender":"Adam","borrower":"Bob","amount":3.0}`,
+            `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`,
+        ),
+    ]
+
+    subtests cases, #(description, database, payload, expected), description {
+        assert Ok(api) = RestApi.new(database)
+        assert Ok(#(answer, _api)) = RestApi.post(api, "/iou", payload)
+        assert Ok(wanted) = users(expected)
+        assert users(answer) == Ok(wanted)
+    }
+}

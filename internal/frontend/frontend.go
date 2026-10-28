@@ -60,15 +60,6 @@ type Config struct {
 	// session is the one user: every input's program carries the imports of
 	// the inputs before it, which that input need not use.
 	AllowUnusedImports bool
-	// Macros runs the macros the program's declarations are
-	// written with (analysis.MacroHost); nil runs none, and each such
-	// declaration is an error. vmhost sets it.
-	Macros analysis.MacroHost
-	// MacroDrivers adds to the entry, a macro's file, the hidden
-	// functions the compiler calls to run each macro it declares
-	// (analysis.MacroDrivers). vmhost's macro runner sets it when
-	// it builds a macro module.
-	MacroDrivers bool
 	// AllowUnusedBindings drops unused-binding errors, in the entry and its
 	// siblings. The language server is the one user: it lowers the program
 	// being edited to evaluate its typed literals, and a binding typed but
@@ -116,10 +107,6 @@ type Checker struct {
 	// siblingSyntax holds the syntax errors of every project file the
 	// loader read, by path.
 	siblingSyntax map[string][]parser.ParseError
-	// nodesByPath holds every project file's nodes by its path, for moving
-	// a related location in another file's macro expansion
-	// (relatedInBand).
-	nodesByPath map[string][]ast.Node
 	// rootManifest is the root's nomi.toml once read (manifestRead).
 	rootManifest *analysis.Manifest
 	manifestRead bool
@@ -163,7 +150,7 @@ func (c *Checker) manifest() *analysis.Manifest {
 // a staged one, whose module root is the virtual files' `.`.
 func (c *Checker) site(modulePath string) *analysis.ExpansionSite {
 	m := c.manifest()
-	s := &analysis.ExpansionSite{ModulePath: modulePath, Manifest: m, Macros: c.cfg.Macros}
+	s := &analysis.ExpansionSite{ModulePath: modulePath, Manifest: m}
 	switch {
 	case m == nil:
 	case c.cfg.VirtualManifest == nil:
@@ -200,7 +187,7 @@ func (c *Checker) Loader() analysis.FileLoader {
 		if filepath.Clean(projectRoot) != filepath.Clean(c.root) {
 			// A file of another module: its own root and manifest.
 			m, _ := analysis.LoadManifest(projectRoot)
-			site = &analysis.ExpansionSite{ModulePath: strings.Join(modulePath, "/"), Manifest: m, Macros: c.cfg.Macros}
+			site = &analysis.ExpansionSite{ModulePath: strings.Join(modulePath, "/"), Manifest: m}
 			if m != nil {
 				site.Root = projectRoot
 			}
@@ -282,9 +269,6 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 		return nil, err
 	}
 	nodes = analysis.ExpandDeclarations(nodes, c.site(c.entryModRel))
-	if c.cfg.MacroDrivers {
-		nodes = append(nodes, analysis.MacroDrivers(nodes)...)
-	}
 	nodes, err = lowerDerives(c.diagPath, src, nodes)
 	if err != nil {
 		return nil, err
@@ -330,12 +314,6 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		c.placeEntry,
 	)
 	c.projectFiles = collectProjectFiles(siblingFAs, siblingNodes)
-	c.nodesByPath = map[string][]ast.Node{fa.FilePath: nodes}
-	for key, sibFA := range siblingFAs {
-		if sibFA.FilePath != "" {
-			c.nodesByPath[sibFA.FilePath] = siblingNodes[key]
-		}
-	}
 	errs := c.buildErrors(fa)
 	// The program's own errors (duplicate and orphan impls) are reported with
 	// the entry's, after its build-phase errors, each in the file it names
@@ -388,9 +366,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	if !c.cfg.AllowUnusedImports {
 		errs = append(errs, implImportErrs[fa]...)
 	}
-	// Each macro's whole-module check, over every declaration of its
-	// keyword the program's files expanded, and the agreement of every
-	// noun with every message.
+	// The agreement of every noun with every message.
 	extFiles := map[string][]ast.Node{c.entryModRel: nodes}
 	for _, key := range sibKeys {
 		if !analysis.IsStdlibKey(key) {
@@ -418,7 +394,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		if sibPath == "" {
 			sibPath = key + ".nomi"
 		}
-		own := analysis.RelocateExpansionErrors(siblingNodes[key], sibErrs[key])
+		own := sibErrs[key]
 		if !c.cfg.AllowUnusedImports {
 			own = append(own, implImportErrs[sibFA]...)
 		}
@@ -472,42 +448,37 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 		}
 		return fa, modules, syntax
 	}
-	// A macro that could not expand a declaration is reported alone:
-	// what the rest of the program says follows from what it did not
-	// declare (analysis.MacroFailed).
-	if analysis.MacroFailed(modules) {
-		entryChecks := extChecks[c.entryModRel]
-		if c.entryModRel != "" {
-			entryChecks = append(entryChecks, extChecks[""]...)
-		}
-		alone := c.entryDiagnostics(fa, analysis.MacroErrorsAlone(nodes, entryChecks))
+	// A type declared under a name the language reserves is refused, and
+	// every use of the name still means the built-in, so what the checker
+	// says about those uses follows from the refusal: it is reported alone.
+	if refused := analysis.ReservedNameRefusals(errs); len(refused) > 0 || anyReservedNameRefusal(sibErrs) {
+		ds := c.entryDiagnostics(fa, refused)
 		for _, key := range sibKeys {
-			sibFA := siblingFAs[key]
-			if _, shared := c.sharedStdlib(key, sibFA); shared || key == c.entryModRel {
-				continue
+			if own := analysis.ReservedNameRefusals(sibErrs[key]); len(own) > 0 {
+				sibPath := siblingFAs[key].FilePath
+				if sibPath == "" {
+					sibPath = key + ".nomi"
+				}
+				ds = append(ds, c.fileDiagnostics(sibPath, "", own)...)
 			}
-			sibPath := sibFA.FilePath
-			if sibPath == "" {
-				sibPath = key + ".nomi"
-			}
-			// A file of a macro module that did not build keeps its own
-			// errors: they are why its declarations declare nothing.
-			if analysis.InUnbuiltMacroModule(modules, sibFA.FilePath) {
-				alone = append(alone, sibDiagsOf[key]...)
-				continue
-			}
-			own := analysis.MacroErrorsAlone(siblingNodes[key], extChecks[key])
-			if len(own) == 0 {
-				continue
-			}
-			alone = append(alone, c.fileDiagnostics(sibPath, "", own)...)
 		}
-		return fa, modules, alone
+		return fa, modules, ds
 	}
 	if len(errs) == 0 && len(sibDiags) == 0 {
 		return fa, modules, nil
 	}
-	return fa, modules, append(c.entryDiagnostics(fa, analysis.RelocateExpansionErrors(nodes, errs)), sibDiags...)
+	return fa, modules, append(c.entryDiagnostics(fa, errs), sibDiags...)
+}
+
+// anyReservedNameRefusal reports whether any file's errors refuse a
+// declaration for its reserved name.
+func anyReservedNameRefusal(errsOf map[string][]analysis.TypeError) bool {
+	for _, errs := range errsOf {
+		if len(analysis.ReservedNameRefusals(errs)) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // entryDiagnostics renders the errors reported with the entry fa, each in
@@ -547,11 +518,8 @@ func (c *Checker) fileDiagnostics(path, alias string, errs []analysis.TypeError)
 	return out
 }
 
-// relatedInBand moves each related location of errs that is in another
-// file's macro expansion to what it was made from
-// (analysis.ExpansionRelated), and drops one in code the compiler
-// generated that no expansion holds: a line in the synthesized band is
-// never shown.
+// relatedInBand drops each related location of errs in code the compiler
+// generated: a line in the synthesized band is never shown.
 func (c *Checker) relatedInBand(errs []analysis.TypeError) []analysis.TypeError {
 	var out []analysis.TypeError
 	for i, e := range errs {
@@ -567,11 +535,6 @@ func (c *Checker) relatedInBand(errs []analysis.TypeError) []analysis.TypeError 
 		}
 		var related []analysis.RelatedInfo
 		for _, r := range e.Related {
-			if r.File != "" {
-				if moved, ok := analysis.ExpansionRelated(c.nodesByPath[r.File], r); ok {
-					r = moved
-				}
-			}
 			if !analysis.IsSynthesizedLine(r.Line) {
 				related = append(related, r)
 			}

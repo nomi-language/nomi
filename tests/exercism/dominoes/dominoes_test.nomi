@@ -1,0 +1,53 @@
+import dominoes
+
+/// Whether `chain` is a chain of exactly `stones`: each stone's second half
+/// matches the next one's first, the last stone's matches the first's, and
+/// it holds each stone as often as `stones` does, either way round.
+fn chain_of?(chain: List<#(Int, Int)>, stones: List<#(Int, Int)>) -> Bool {
+    next = chain |> Iter.drop(1) |> Iter.concat(Iter.take(chain, 1))
+    linked = Iter.zip(chain, next) |> Iter.all?(fn #(#(_a, b), #(c, _d)) -> b == c)
+    linked and same_stones?(chain, stones)
+}
+
+fn same_stones?(a: List<#(Int, Int)>, b: List<#(Int, Int)>) -> Bool {
+    a |> Iter.map(unturned) |> Iter.frequencies() == b |> Iter.map(unturned) |> Iter.frequencies()
+}
+
+fn unturned(#(a, b): #(Int, Int)) -> #(Int, Int) {
+    #(Int.min(a, b), Int.max(a, b))
+}
+
+test "can chain" {
+    cases: List<#(String, List<#(Int, Int)>)> = [
+        #("empty input = empty output", []),
+        #("singleton input = singleton output", [#(1, 1)]),
+        #("three elements", [#(1, 2), #(3, 1), #(2, 3)]),
+        #("can reverse dominoes", [#(1, 2), #(1, 3), #(2, 3)]),
+        #("need backtrack", [#(1, 2), #(2, 3), #(3, 1), #(2, 4), #(2, 4)]),
+        #("separate loops", [#(1, 2), #(2, 3), #(3, 1), #(1, 1), #(2, 2), #(3, 3)]),
+        #(
+            "nine elements",
+            [#(1, 2), #(5, 3), #(3, 1), #(1, 2), #(2, 4), #(1, 6), #(2, 3), #(3, 4), #(5, 6)],
+        ),
+    ]
+
+    subtests cases, #(description, stones), description {
+        assert Some(chain) = dominoes.chain(stones)
+        assert chain_of?(chain, stones)
+    }
+}
+
+test "cannot chain" {
+    cases: List<#(String, List<#(Int, Int)>)> = [
+        #("singleton that can't be chained", [#(1, 2)]),
+        #("can't be chained", [#(1, 2), #(4, 1), #(2, 3)]),
+        #("disconnected - simple", [#(1, 1), #(2, 2)]),
+        #("disconnected - double loop", [#(1, 2), #(2, 1), #(3, 4), #(4, 3)]),
+        #("disconnected - single isolated", [#(1, 2), #(2, 3), #(3, 1), #(4, 4)]),
+        #("separate three-domino loops", [#(1, 2), #(2, 3), #(3, 1), #(4, 5), #(5, 6), #(6, 4)]),
+    ]
+
+    subtests cases, #(description, stones), description {
+        assert dominoes.chain(stones) == None
+    }
+}

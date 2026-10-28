@@ -66,10 +66,19 @@ type disk struct {
 	// an absolute path must be under and which current_dir answers. It is ""
 	// for the whole disk.
 	root string
+	// cwd is, outside `fs.within`, the absolute directory a relative path
+	// is under and current_dir answers, in the operating system's form;
+	// "" for the process's working directory.
+	cwd string
 }
 
 // OS is the operating system's whole file system.
 var OS Backend = &disk{ops: hostOS{}}
+
+// OSAt is the operating system's whole file system with relative paths
+// under dir, an absolute directory, instead of the process's working
+// directory: what `nomi test` gives a test file (its module root).
+func OSAt(dir string) Backend { return &disk{ops: hostOS{}, cwd: dir} }
 
 // defaultBackend is a native build's file system: the operating system's.
 func defaultBackend() Backend { return OS }
@@ -78,6 +87,9 @@ func defaultBackend() Backend { return OS }
 // a root relative to it. An absolute path outside the root escapes.
 func (d *disk) native(p string) (string, *rt.IOError) {
 	if d.root == "" {
+		if d.cwd != "" && !filepath.IsAbs(toOS(p)) {
+			return filepath.Join(d.cwd, toOS(p)), nil
+		}
 		return toOS(p), nil
 	}
 	if !filepath.IsAbs(toOS(p)) {
@@ -419,6 +431,9 @@ func (d *disk) MakeTempDir() (string, *rt.IOError) {
 func (d *disk) CurrentDir() (string, *rt.IOError) {
 	if d.root != "" {
 		return d.root, nil
+	}
+	if d.cwd != "" {
+		return fromOS(d.cwd), nil
 	}
 	dir, err := os.Getwd()
 	if err != nil {

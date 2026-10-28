@@ -221,9 +221,6 @@ Where it goes further than the bat syntax:
 - `///` and `//#` lines are documentation comments.
 - A typed literal's tag (`Date"..."`, ``Regex`...` ``) is scoped
   `entity.name.type.literal`.
-- A macro's marked keyword at the start of a declaration
-  (`sqlkit.query! orders`) is `entity.name.function.macro`, its qualifier
-  `entity.name.namespace`; a tagged body is a typed literal like any other.
 - `.name` and `.Variant` with no expression before the dot are the field
   accessor and variant shorthand; after an expression, `.name` is a field and
   `.name(` a qualified call.

@@ -45,10 +45,8 @@ test "a type name is not a conversion function" {
     assert Iter.count(diagnostics) == 2
 
     assert Iter.any?(diagnostics, fn d -> {
-        String.starts_with?(d.message, "`Int` is a type, not a function") and String.contains?(
-            d.message,
-            "`String.to_int`",
-        )
+        String.starts_with?(d.message, "`Int` is a type, not a function")
+            and String.contains?(d.message, "`String.to_int`")
     })
 
     assert Iter.any?(diagnostics, fn d -> {

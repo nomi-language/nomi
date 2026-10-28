@@ -1,0 +1,47 @@
+/// A matrix of numbers read from text, one row per line.
+pub opaque struct Matrix {
+    rows: Vector<Vector<Int>>
+}
+
+/// Why text is not a matrix.
+pub enum Error {
+    NotANumber String
+}
+
+impl Matrix {
+    /// The matrix whose rows are the lines of `text`, each a list of numbers
+    /// separated by spaces, or `NotANumber` with the first word that is not
+    /// one.
+    pub fn parse(text: String) -> Result<Matrix, Error> {
+        rows =
+            text
+            |> String.lines()
+            |> Iter.map(parse_row)
+            |> try Result.collect()
+
+        Ok(#Matrix{rows: Iter.to_vector(rows)})
+    }
+
+    /// The numbers of row `index`, counted from 1, or `None` past the last.
+    pub fn row(matrix: Matrix, index: Int) -> Maybe<List<Int>> {
+        matrix.rows
+        |> Vector.get(index - 1)
+        |> Maybe.map(Iter.to_list)
+    }
+
+    /// The numbers of column `index`, counted from 1, top to bottom, or
+    /// `None` past the last.
+    pub fn column(matrix: Matrix, index: Int) -> Maybe<List<Int>> {
+        matrix.rows
+        |> Iter.map(&Vector.get(&1, index - 1))
+        |> Maybe.collect()
+    }
+}
+
+fn parse_row(line: String) -> Result<Vector<Int>, Error> {
+    line
+    |> String.words()
+    |> Iter.map(fn word -> Maybe.to_result(String.to_int(word), Error.NotANumber(word)))
+    |> Result.collect()
+    |> Result.map(Iter.to_vector)
+}

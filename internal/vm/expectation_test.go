@@ -21,6 +21,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
@@ -286,9 +287,7 @@ func candidateIDs(s *expectation.Set) (ids []string, reportShaped, empty, stops 
 // transcript compared against a whole one would report a producer's retention
 // boundary as a wrong answer.
 func vmRun(path string) (transcript string, reason string) {
-	// A program written with a macro (a tour block whose go.mod requires a
-	// macro module) expands it as every load does.
-	prog, err := irbuild.AnalyzeFile(path, frontend.Config{Macros: vmhost.Macros()})
+	prog, err := irbuild.AnalyzeFile(path, frontend.Config{})
 	if err != nil {
 		return "", "the front end refuses this program, so the record is a diagnostic"
 	}
@@ -746,9 +745,7 @@ func TestVMExpectation_SiblingCallRecordsRunOnlyWhenLinked(t *testing.T) {
 			if !ok {
 				t.Fatalf("%s could not be staged", id)
 			}
-			// A program written with a macro (a tour block whose go.mod requires a
-			// macro module) expands it as every load does.
-			prog, err := irbuild.AnalyzeFile(path, frontend.Config{Macros: vmhost.Macros()})
+			prog, err := irbuild.AnalyzeFile(path, frontend.Config{})
 			if err != nil {
 				t.Fatalf("the front end refuses %s: %v", id, err)
 			}
@@ -861,9 +858,7 @@ func TestVMExpectation_ComparableProgramsCoverScalarControlFlow(t *testing.T) {
 		if _, reason := vmRun(path); reason != "" {
 			continue
 		}
-		// A program written with a macro (a tour block whose go.mod requires a
-		// macro module) expands it as every load does.
-		prog, err := irbuild.AnalyzeFile(path, frontend.Config{Macros: vmhost.Macros()})
+		prog, err := irbuild.AnalyzeFile(path, frontend.Config{})
 		if err != nil {
 			t.Fatalf("%s lowered a moment ago and no longer analyzes: %v", id, err)
 		}
@@ -1020,7 +1015,7 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 			t.Fatalf("a tour block's Go bindings: %v", err)
 		}
 		if hosts != nil {
-			tourHosts.Store(entry, vm.HostTable(hosts))
+			tourHosts.Store(entry, hostadapt.ProjectTable(hosts))
 		}
 		return entry
 	}
@@ -1073,7 +1068,7 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 		t.Fatalf("a tour block's Go bindings: %v", err)
 	}
 	if hosts != nil {
-		tourHosts.Store(entry, vm.HostTable(hosts))
+		tourHosts.Store(entry, hostadapt.ProjectTable(hosts))
 		for _, b := range tourgo.GoBindings(entryName, entrySrc, virtual) {
 			if !ffirun.IsStdPackage(b.ImportPath) {
 				if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module "+b.ImportPath+"\n"), 0o644); err != nil {

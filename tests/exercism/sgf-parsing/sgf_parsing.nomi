@@ -1,0 +1,130 @@
+//# A parser for Smart Game Format (SGF) game trees whose values are all
+//# SGF Text.
+
+/// A node of the game tree: its properties, each key with one or more
+/// values, and the trees that follow it.
+pub struct Tree {
+    properties: Map<String, List<String>>
+    children: List<Tree>
+}
+
+/// Why the text is not a game tree.
+pub enum Error {
+    TreeMissing
+    TreeWithNoNodes
+    PropertiesWithoutDelimiter
+    PropertyMustBeUppercase
+    /// Anything else the grammar does not allow: an unclosed tree or value,
+    /// or text after the tree.
+    Malformed
+}
+
+/// The game tree `encoded` writes.
+pub fn parse(encoded: String) -> Result<Tree, Error> {
+    ['(', ..rest] = String.to_codepoints(encoded) else {
+        return Err(.TreeMissing)
+    }
+    #(tree, rest) = try node(rest)
+    if rest != [] { return Err(.Malformed) }
+    Ok(tree)
+}
+
+/// A node from its `;` on, with what follows it: another node is its one
+/// child, and parenthesized trees are its children. The node that ends a
+/// sequence reads the `)` that closes the sequence's tree.
+fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
+    [';', ..rest] = text else {
+        return Err(.TreeWithNoNodes)
+    }
+    #(properties, rest) = try read_properties(rest, %{})
+
+    #(children, rest) = case rest {
+        [';', .._] -> {
+            #(child, rest) = try node(rest)
+            #([child], rest)
+        }
+
+        _ ->
+            try variations(rest, [])
+    }
+
+    Ok(#(#Tree{properties, children}, rest))
+}
+
+/// The parenthesized trees after a node, up to and including the `)` that
+/// closes the tree the node is in.
+fn variations(
+    text: List<Codepoint>,
+    found: List<Tree>,
+) -> Result<#(List<Tree>, List<Codepoint>), Error> {
+    case text {
+        ['(', ..rest] -> {
+            #(tree, rest) = try node(rest)
+            variations(rest, found + [tree])
+        }
+
+        [')', ..rest] ->
+            Ok(#(found, rest))
+
+        _ ->
+            Err(.Malformed)
+    }
+}
+
+/// A node's properties: each an upper-case key and one or more values.
+fn read_properties(
+    text: List<Codepoint>,
+    found: Map<String, List<String>>,
+) -> Result<#(Map<String, List<String>>, List<Codepoint>), Error> {
+    key = text |> Iter.take_while(Codepoint.letter?) |> Iter.to_list()
+    if key == [] { return Ok(#(found, text)) }
+
+    if !Iter.all?(key, Codepoint.upper?) {
+        return Err(.PropertyMustBeUppercase)
+    }
+
+    rest = text |> Iter.drop(Iter.count(key)) |> Iter.to_list()
+    #(values, rest) = try read_values(rest, [])
+
+    if values == [] {
+        return Err(.PropertiesWithoutDelimiter)
+    }
+
+    read_properties(rest, Map.put(found, String.from_codepoints(key), values))
+}
+
+/// The bracketed values after a key.
+fn read_values(
+    text: List<Codepoint>,
+    found: List<String>,
+) -> Result<#(List<String>, List<Codepoint>), Error> {
+    case text {
+        ['[', ..rest] -> {
+            #(value, rest) = try read_text(rest, "")
+            read_values(rest, found + [value])
+        }
+
+        _ ->
+            Ok(#(found, text))
+    }
+}
+
+/// One value's text, up to its closing `]`. A `\` keeps the character
+/// after it, except that a newline after it is removed; any whitespace
+/// other than a newline becomes a space.
+fn read_text(text: List<Codepoint>, value: String) -> Result<#(String, List<Codepoint>), Error> {
+    case text {
+        [']', ..rest] -> Ok(#(value, rest))
+        ['\\', '\n', ..rest] -> read_text(rest, value)
+        ['\\', c, ..rest] or [c, ..rest] -> read_text(rest, value + plain(c))
+        [] or ['\\'] -> Err(.Malformed)
+    }
+}
+
+fn plain(c: Codepoint) -> String {
+    if c != '\n' and Codepoint.whitespace?(c) {
+        " "
+    } else {
+        "${c}"
+    }
+}

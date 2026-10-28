@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -113,7 +114,7 @@ func (bl *irScalarBuilder) hostTemplateImplPlan(t *ast.Call, args irQualArgs, tp
 			}
 			key := hostImplKey(ib, ef.Name)
 			g.irHostKeys = append(g.irHostKeys, key)
-			return &irQualPlan{token: irHostBinding{ef}, name: key, result: result, host: true}
+			return &irQualPlan{token: irHostBinding{ef}, name: hostadapt.ProjectName(key), result: result, host: true}
 		}
 	}
 	return nil

@@ -1,0 +1,62 @@
+/// Where a laser beam is and the direction it travels in, in degrees
+/// counterclockwise from the positive x axis.
+pub struct Laser {
+    x: Float
+    y: Float
+    angle: Float
+}
+
+/// A crystal at a point, which turns a beam that reaches it by `angle`
+/// degrees.
+pub struct Prism {
+    id: Int
+    x: Float
+    y: Float
+    angle: Float
+}
+
+/// How far a prism may sit off the beam's line, as a share of how far along
+/// it the prism is, and still be hit: a thousandth of a radian.
+once tolerance = 0.001
+
+/// The ids of the prisms the beam from `start` hits, in order, until it
+/// leaves the array.
+//! prisms = [#Prism{id: 1, x: 10.0, y: 0.0, angle: 0.0}]
+//! assert find_sequence(#{x: 0.0, y: 0.0, angle: 0.0}, prisms) == [1]
+//
+pub fn find_sequence(start: Laser, prisms: List<Prism>) -> List<Int> {
+    trace(start, None, prisms, [])
+}
+
+/// The ids hit after `hits`, newest first, by `beam`, which leaves the prism
+/// `from` or, at the start, none.
+fn trace(beam: Laser, from: Maybe<Int>, prisms: List<Prism>, hits: List<Int>) -> List<Int> {
+    case next_hit(beam, from, prisms) {
+        None ->
+            Iter.reverse(hits)
+
+        Some(prism) -> {
+            turned = #Laser{x: prism.x, y: prism.y, angle: beam.angle + prism.angle}
+            trace(turned, Some(prism.id), prisms, [prism.id, ..hits])
+        }
+    }
+}
+
+/// The nearest prism ahead of `beam` on its line, other than the one it
+/// leaves.
+fn next_hit(beam: Laser, from: Maybe<Int>, prisms: List<Prism>) -> Maybe<Prism> {
+    radians = beam.angle * Float.pi / 180.0
+    across = Float.cos(radians)
+    up = Float.sin(radians)
+
+    prisms
+    |> Iter.filter(fn prism -> Some(prism.id) != from)
+    |> Iter.map(fn prism -> {
+        dx = prism.x - beam.x
+        dy = prism.y - beam.y
+        #(prism, dx * across + dy * up, Float.abs(dx * up - dy * across))
+    })
+    |> Iter.filter(fn #(_, along, off) -> along > 0.0 and off < along * tolerance)
+    |> Iter.min_by(fn #(_, along, _) -> along)
+    |> Maybe.map(fn #(prism, _, _) -> prism)
+}

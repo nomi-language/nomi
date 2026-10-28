@@ -1,0 +1,48 @@
+//# A Dungeons & Dragons character with six random abilities, each the best
+//# three of four six-sided dice, and hitpoints from its constitution.
+
+import std/random.Generator
+
+/// A character's six abilities and its hitpoints.
+pub struct Character {
+    strength: Int
+    dexterity: Int
+    constitution: Int
+    intelligence: Int
+    wisdom: Int
+    charisma: Int
+    hitpoints: Int
+}
+
+/// The modifier an ability `score` gives: half its distance from 10,
+/// rounded down.
+pub fn modifier(score: Int) -> Int {
+    Int.floor_div(score - 10, 2)
+}
+
+/// One ability score: four dice rolled, the lowest dropped, the rest added.
+pub fn ability() -> Generator<Int> {
+    Generator.int(1, 6)
+    |> Generator.list(4)
+    |> Generator.map(fn rolls -> rolls |> Iter.sort() |> Iter.drop(1) |> Iter.sum())
+}
+
+/// A character with six abilities drawn in order, strength first.
+pub fn character() -> Generator<Character> {
+    ability()
+    |> Generator.list(6)
+    |> Generator.map(fn scores -> {
+        case scores {
+            [strength, dexterity, constitution, intelligence, wisdom, charisma] -> #{
+                strength,
+                dexterity,
+                constitution,
+                intelligence,
+                wisdom,
+                charisma,
+                hitpoints: 10 + modifier(constitution),
+            }
+            _ -> unreachable "Generator.list(6) draws six scores"
+        }
+    })
+}

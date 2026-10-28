@@ -385,6 +385,8 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"bytes.Bytes.concat":                pairs(blobs...),
 		"bytes.bytes_compare":               pairs(blobs...),
 		"bytes.Bytes.contains?":             holds,
+		"hash.sha256":                       unary(blobs...),
+		"hash.sha256_hex":                   unary(blobs...),
 		"int.Int.to_string":                 unary(ints...),
 		"int.Int.to_float":                  unary(ints...),
 		"int.Int.bitwise_not":               unary(ints...),
