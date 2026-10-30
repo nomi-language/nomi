@@ -26,7 +26,7 @@ fn divide(a: Int, b: Int) -> Int {
   a / b
 }
 
-fn ready?(n: Int) -> Bool {
+fn is_ready(n: Int) -> Bool {
   n > 1
 }
 
@@ -151,52 +151,52 @@ func TestHover_PipeKeywordStages(t *testing.T) {
   io.inspect(n)
 }
 `, "`Int` → `tap fn v -> …` → `Int`\n\n`v` is the `Int`; the lambda runs for its effect and the value passes on unchanged."},
-		{"try in a function", `fn parse(s: String) -> Result<Int, String> {
-  n = s |> String.to_int() |> Maybe.to_result("bad") ▮|> try
+		{"a ? in a function", `fn parse(s: String) -> Result<Int, String> {
+  n = s |> String.to_int() ▮|> Maybe.to_result("bad")?
   Ok(n)
 }
 
 fn main() {
   io.inspect(parse("1"))
 }
-`, "`Result<Int, String>` → `try` → `Int`\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
-		{"try in a lambda", `fn main() {
+`, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
+		{"a ? in a lambda", `fn main() {
   f = fn s: String -> {
-    n = s |> String.to_int() ▮|> try
+    n = s ▮|> String.to_int()?
     Some(n)
   }
   io.inspect(f("1"))
 }
-`, "`Maybe<Int>` → `try` → `Int`\n\nAnswers the success value, or returns `None` from the enclosing lambda."},
-		{"try in a test body", `fn main() {}
+`, "`String` → `String.to_int(s)` → `Maybe<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from the enclosing lambda."},
+		{"a ? in a test body", `fn main() {}
 
 test "parses" {
-  n = "4" |> String.to_int() |> Maybe.to_result("no") ▮|> try
+  n = "4" |> String.to_int() ▮|> Maybe.to_result("no")?
   assert n == 4
 }
-`, "`Result<Int, String>` → `try` → `Int`\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
-		{"try prefixing a call", `fn parse(s: String) -> Maybe<Int> {
-  n = s ▮|> try String.to_int()
+`, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
+		{"a ? after a call", `fn parse(s: String) -> Maybe<Int> {
+  n = s ▮|> String.to_int()?
   Some(n)
 }
 
 fn main() {
   io.inspect(parse("1"))
 }
-`, "`String` → `String.to_int(s)` → `Maybe<Int>` → `try` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from `fn parse`."},
+`, "`String` → `String.to_int(s)` → `Maybe<Int>` → `?` → `Int`\n\n```nomi\nfn to_int(s: String) -> Maybe<Int>\n```\n\nThe piped value fills `s`.\n\nAnswers the success value, or returns `None` from `fn parse`."},
 		{"dbg", `fn main() {
   n = 3 ▮|> dbg
   io.inspect(n)
 }
 `, "`Int` → `dbg` → `Int`\n\nPrints the value with its source line and passes it on unchanged."},
 		{"a bare if", `fn main() {
-  io.inspect(3 |> ready?() ▮|> if { 1 } else { 2 })
+  io.inspect(3 |> is_ready() ▮|> if { 1 } else { 2 })
 }
 `, "`Bool` → `if` → `Int`\n\nBranches on the piped `Bool`."},
 		{"if prefixing its condition", `fn main() {
-  io.inspect(3 ▮|> if ready?() { "y" } else { "n" })
+  io.inspect(3 ▮|> if is_ready() { "y" } else { "n" })
 }
-`, "`Int` → `ready?(n)` → `Bool` → `if` → `String`\n\n```nomi\nfn ready?(n: Int) -> Bool\n```\n\nThe piped value fills `n`.\n\nBranches on the piped `Bool`."},
+`, "`Int` → `is_ready(n)` → `Bool` → `if` → `String`\n\n```nomi\nfn is_ready(n: Int) -> Bool\n```\n\nThe piped value fills `n`.\n\nBranches on the piped `Bool`."},
 		{"case prefixing its subject", `fn main() {
   t = 3
   ▮|> case divide(1) {

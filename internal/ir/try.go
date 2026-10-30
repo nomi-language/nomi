@@ -2,7 +2,7 @@ package ir
 
 import "strconv"
 
-// The `try` class: Nomi's error propagation, which is a non-local exit.
+// The `?` class: Nomi's error propagation, which is a non-local exit.
 //
 // It pairs with `assert`. Both are exits that leave a construct early, and
 // both carry a rendered source text for the same reason: whoever reports the
@@ -12,13 +12,13 @@ import "strconv"
 //
 // # The class contributes one node, and the other two are already here
 //
-// A `try` is three things:
+// A `?` is three things:
 //
 //	refute      is the operand the unwind variant?   ir.MatchVariant (match.go)
 //	exit        leave, carrying it                   Try, here
 //	navigate    read the unwrap variant's payload    ir.Proj (proj.go)
 //
-// So `try` decomposes exactly as a pattern does: a pattern is a sequence, not
+// So `?` decomposes exactly as a pattern does: a pattern is a sequence, not
 // a node, and that holds for a construct that is not a pattern.
 // `internal/irbuild`'s irTry builds the `ir.MatchVariant` through the same
 // constructor a `case` arm uses and takes only the condition from it, because
@@ -26,7 +26,7 @@ import "strconv"
 //
 // # The boundary is not on this node
 //
-// `try` unwinds to the enclosing activation: a lambda is one, so a `try` inside
+// `?` unwinds to the enclosing activation: a lambda is one, so a `?` inside
 // a lambda leaves the lambda and not the enclosing `fn`. There are four boundaries — a `fn`, a lambda, a `concurrent` block and a
 // test body — and they have three different exits, so it is tempting to put the
 // answer on the node.
@@ -53,23 +53,23 @@ type Try struct {
 
 // NewTry propagates out of src when src holds the unwind variant.
 //
-// text is `try E` — or the whole pipe, for `x |> try f()` — as
+// text is `E?` — or the whole pipe, for `x |> f()?` — as
 // `format.RenderNode` renders it. The text is a field for the same reason
-// `Assert.Text` is, and the reason is stronger here because the two SPELLINGS of one `try` render
+// `Assert.Text` is, and the reason is stronger here because the two SPELLINGS of one `?` render
 // differently: the pipe form renders the `*ast.Binary` and the prefix form the
 // `*ast.TryOp`, so irbuild is handed the node to render separately from the node
 // carrying the position. A field the producer fills is where that choice is
 // recorded once.
 //
 // REQUIRED even though only ONE of the four boundaries prints it. A test body's
-// report shows the `try` that ended the case; every other boundary discards the
+// report shows the `?` that ended the case; every other boundary discards the
 // text. Making it optional would make the node's contents depend on a
 // consumer's delivery, the coupling the fault/delivery division prevents, and
 // a producer cannot know which boundary it is in without asking the question
 // this node deliberately does not carry.
 //
 // NO DESTINATION. The unwrapped value is an `ir.Proj` of the unwrap variant's
-// payload, so the read is its own node and this one writes nothing: a `try`
+// payload, so the read is its own node and this one writes nothing: a `?`
 // reads its payload with the same projection an ordinary `case Ok(v)` arm
 // uses.
 func NewTry(pos Pos, src Temp, text string) *Try {

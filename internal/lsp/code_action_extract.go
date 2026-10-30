@@ -28,7 +28,7 @@ import (
 //     `or`, or a pattern: those run the expression conditionally, later, or
 //     more than once;
 //   - the expression may have an effect (it calls a function, or holds
-//     `try`, `dbg`, `assert`, `return`, `break` or `continue`) and the
+//     `?`, `dbg`, `assert`, `return`, `break` or `continue`) and the
 //     statement runs a call or one of those before it;
 //   - the expression takes its type from where it stands (`.Variant`,
 //     `None`-like dot forms, an empty collection, an anonymous struct or a

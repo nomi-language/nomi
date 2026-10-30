@@ -11,22 +11,25 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: matching_brackets.nomi
+//# Checks that every bracket, brace and parenthesis in a text is matched and
+//# nested correctly.
+
 /// Whether every bracket, brace and parenthesis in `text` is closed by its
 /// own kind, in the right order. Other characters are ignored.
-pub fn paired?(text: String) -> Bool {
-    balanced?(String.to_codepoints(text), [])
+pub fn is_paired(text: String) -> Bool {
+    is_balanced(String.to_codepoints(text), [])
 }
 
 /// `awaited` holds the closer each open bracket waits for, innermost first.
-fn balanced?(rest: List<Codepoint>, awaited: List<Codepoint>) -> Bool {
+fn is_balanced(rest: List<Codepoint>, awaited: List<Codepoint>) -> Bool {
     case #(rest, awaited) {
         #([], _) -> awaited == []
-        #(['(', ..rest], _) -> balanced?(rest, [')', ..awaited])
-        #(['[', ..rest], _) -> balanced?(rest, [']', ..awaited])
-        #(['{', ..rest], _) -> balanced?(rest, ['}', ..awaited])
-        #([cp, ..rest], [next, ..awaited]) when cp == next -> balanced?(rest, awaited)
+        #(['(', ..rest], _) -> is_balanced(rest, [')', ..awaited])
+        #(['[', ..rest], _) -> is_balanced(rest, [']', ..awaited])
+        #(['{', ..rest], _) -> is_balanced(rest, ['}', ..awaited])
+        #([cp, ..rest], [next, ..awaited]) when cp == next -> is_balanced(rest, awaited)
         #([')' or ']' or '}', .._], _) -> False
-        #([_, ..rest], _) -> balanced?(rest, awaited)
+        #([_, ..rest], _) -> is_balanced(rest, awaited)
     }
 }
 
@@ -62,7 +65,7 @@ test "checks bracket pairing" {
     ]
 
     subtests cases, #(description, text, expected), description {
-        assert matching_brackets.paired?(text) == expected
+        assert matching_brackets.is_paired(text) == expected
     }
 }
 ```

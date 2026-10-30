@@ -1,3 +1,5 @@
+//# A square matrix of the numbers from 1 up, spiralling clockwise inwards.
+
 /// The `size` by `size` grid holding 1 to `size * size`, starting at the top
 /// left corner and spiralling clockwise inwards.
 pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>> {
@@ -21,7 +23,7 @@ fn fill(
 
     grid = set_cell(grid, position, value)
 
-    heading = if empty?(grid, step(position, heading)) {
+    heading = if is_empty(grid, step(position, heading)) {
         heading
     } else {
         turn(heading)
@@ -39,22 +41,22 @@ fn turn(#(dr, dc): #(Int, Int)) -> #(Int, Int) {
 }
 
 /// Whether `position` is on the grid and not written yet.
-fn empty?(grid: Vector<Vector<Int>>, position: #(Int, Int)) -> Bool {
+fn is_empty(grid: Vector<Vector<Int>>, position: #(Int, Int)) -> Bool {
     cell_at(grid, position) == Some(0)
 }
 
 fn cell_at(grid: Vector<Vector<Int>>, #(row, column): #(Int, Int)) -> Maybe<Int> {
-    cells = try Vector.get(grid, row)
+    cells = Vector.get(grid, row)?
     Vector.get(cells, column)
 }
 
 /// `grid` with `value` at `position`, which is on the grid: `fill` only
-/// steps onto a square `empty?` accepted.
+/// steps onto a square `is_empty` accepted.
 fn set_cell(
     grid: Vector<Vector<Int>>,
     #(row, column): #(Int, Int),
     value: Int,
 ) -> Vector<Vector<Int>> {
-    cells = Vector.at(grid, row) |> Vector.set(column, value)
+    cells = Vector.get(grid, row)! |> Vector.set(column, value)
     Vector.set(grid, row, cells)
 }

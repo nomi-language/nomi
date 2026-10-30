@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"hash/crc32"
 	"math"
+	"math/big"
+	"strconv"
 )
 
 // DecodeImage reads an image EncodeImage wrote. A malformed or truncated
@@ -667,8 +669,16 @@ func (d *decoder) instr(r *rbuf) Instr {
 		return &Compare{pos: d.pos(r), dst: r.temp(), op: CompareOp(r.byte1()),
 			shape: ValShape(r.byte1()), lhs: r.temp(), rhs: r.temp(), rank: r.bool1()}
 	case tagConst:
-		return &Const{pos: d.pos(r), dst: r.temp(), kind: ConstKind(r.byte1()), num: r.sv(),
+		c := &Const{pos: d.pos(r), dst: r.temp(), kind: ConstKind(r.byte1()), num: r.sv(),
 			flt: r.f64(), text: d.str(r.uv()), typ: d.sym(r.uv())}
+		if text := d.str(r.uv()); text != "" {
+			z, ok := new(big.Int).SetString(text, 10)
+			if !ok {
+				r.fail("Int constant " + strconv.Quote(text))
+			}
+			c.big = z
+		}
+		return c
 	case tagBind:
 		return &Bind{pos: d.pos(r), dst: r.temp(), src: r.temp(), sym: d.sym(r.uv())}
 	case tagMatch:

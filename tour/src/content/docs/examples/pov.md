@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: pov.nomi
+//# Reorients a tree from another node's point of view, and finds the path
+//# between two nodes.
+
 /// A tree of labelled nodes. The labels are unique within a tree.
 pub struct Tree {
     label: String
@@ -40,12 +43,9 @@ impl Tree {
 /// `tree`, whose old parent is `above` re-hung as a tree (none at the old
 /// root), rerooted at the node labelled `label`.
 fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
-    if tree.label == label {
-        return Some(#{..tree, children: List.concat(tree.children, above)})
-    }
+    if tree.label == label { return Some(#{..tree, children: List.concat(tree.children, above)}) }
 
-    tree.children
-    |> Iter.map(fn child -> {
+    Iter.find_map(tree.children, fn child -> {
         siblings =
             tree.children
             |> Iter.filter(&(&1.label != child.label))
@@ -53,8 +53,6 @@ fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
 
         reroot(child, label, [#{..tree, children: List.concat(siblings, above)}])
     })
-    |> Maybe.values()
-    |> List.head()
 }
 
 /// The labels from the root of `tree` down to the node labelled `label`,
@@ -63,9 +61,7 @@ fn labels_to(tree: Tree, label: String) -> Maybe<List<String>> {
     if tree.label == label { return Some([label]) }
 
     tree.children
-    |> Iter.map(&labels_to(&1, label))
-    |> Maybe.values()
-    |> List.head()
+    |> Iter.find_map(&labels_to(&1, label))
     |> Maybe.map(fn below -> [tree.label, ..below])
 }
 
@@ -119,7 +115,7 @@ once cousins = #Tree{
 }
 
 test "Reroot a tree so that its root is the specified node." {
-    cases: List<#(String, Tree, String, Maybe<Tree>)> = [
+    cases = [
         #(
             "Results in the same tree if the input tree is a singleton",
             singleton,
@@ -313,6 +309,6 @@ test "Given two nodes, find the path between them" {
 - The carried parent is a `List<Tree>` of none or one rather than a `Maybe<Tree>`, so it joins the children with `List.concat` and needs no case at the old root.
 - A missing label is `None`, from `from_pov` and `path_to` alike. The canonical data's `null` names no error to report, and both lookups are of data the caller passes in.
 - `path_to` reroots at `from` and reads the labels from the new root down to `to` with `labels_to`, so the path through the old root comes for free.
-- Each recursion takes the first child that answers with `Iter.map`, `Maybe.values` and `List.head`. It tries every child even after one answers, which is fine at this size and keeps it one pipe.
+- Each recursion takes the first child that answers with `Iter.find_map`, which stops at that child.
 - The canonical data leaves the order of children open (the cousins case lists `kid-1` before `kid-0`), so the tests compare both trees after `in_label_order`, which sorts every node's children by label.
 - The trees the cases share are `once` values in the test file. The two canonical groups are two tests, each one `subtests` table named by the description column.

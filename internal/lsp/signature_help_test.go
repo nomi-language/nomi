@@ -114,18 +114,18 @@ func TestFindCallContext(t *testing.T) {
 		},
 		{
 			name:      "predicate function name (trailing ?)",
-			content:   `contains?(`,
+			content:   `contains(`,
 			line:      0,
 			char:      10,
-			wantFunc:  "contains?",
+			wantFunc:  "contains",
 			wantParam: 0,
 		},
 		{
 			name:      "predicate function name with first arg",
-			content:   `contains?(xs, `,
+			content:   `contains(xs, `,
 			line:      0,
 			char:      14,
-			wantFunc:  "contains?",
+			wantFunc:  "contains",
 			wantParam: 1,
 		},
 	}

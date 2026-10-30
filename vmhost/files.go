@@ -17,6 +17,10 @@ import (
 type MemoryFiles struct {
 	backendFiles
 	m *stdio.Memory
+	// root is the directory Files and Read name files from: `/work`, which
+	// is the working directory too, except in a block of sibling
+	// projects' file system (BlockFiles).
+	root string
 }
 
 // NewMemoryFiles is an in-memory file system holding files, by path; a
@@ -32,18 +36,64 @@ func NewMemoryFiles(files map[string][]byte) *MemoryFiles {
 	for _, p := range paths {
 		m.Put(p, files[p])
 	}
-	return &MemoryFiles{backendFiles: backendFiles{m}, m: m}
+	return &MemoryFiles{backendFiles: backendFiles{m}, m: m, root: "/work"}
+}
+
+// BlockFiles is the in-memory file system a marked source's run starts
+// from (LoadMarked): its data files under `/work`, by their paths from the
+// block's root. Its working directory is `/work`, except in a block of
+// sibling projects, where it is the project's directory under `/work`
+// (`/work/rates`), as `nomi run` in that directory would have it. Files
+// and Read still name a file by its path from the block's root.
+func BlockFiles(src string) (*MemoryFiles, error) {
+	project, err := virtualproject.FromMarkedSource(src)
+	if err != nil {
+		return nil, err
+	}
+	return blockFiles(project), nil
+}
+
+func blockFiles(project virtualproject.Project) *MemoryFiles {
+	return projectFiles(project, project.DataFiles)
+}
+
+// projectFiles is files, by their paths from a block's root, under `/work`,
+// with the working directory at the block's project.
+func projectFiles(project virtualproject.Project, files map[string]string) *MemoryFiles {
+	if project.Dir == "" {
+		return NewMemoryFiles(DataFileBytes(files))
+	}
+	m := stdio.NewMemory("/work/" + project.Dir)
+	paths := make([]string, 0, len(files))
+	for p := range files {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		m.Put("/work/"+p, []byte(files[p]))
+	}
+	return &MemoryFiles{backendFiles: backendFiles{m}, m: m, root: "/work"}
 }
 
 // Files is every file it holds now, by path: relative to `/work` for one
 // under it, absolute for any other.
-func (f *MemoryFiles) Files() map[string][]byte { return f.m.Relative() }
+func (f *MemoryFiles) Files() map[string][]byte {
+	prefix := f.root + "/"
+	out := map[string][]byte{}
+	for p, data := range f.m.Files() {
+		if rel, under := strings.CutPrefix(p, prefix); under {
+			p = rel
+		}
+		out[p] = data
+	}
+	return out
+}
 
 // Read is each file whose contents a run opened, once each, in the order
 // first read, named as Files names it. A failed open and an operation
 // that reads no contents (a listing, metadata) are not reads.
 func (f *MemoryFiles) Read() []string {
-	prefix := strings.TrimSuffix(f.m.Cwd(), "/") + "/"
+	prefix := f.root + "/"
 	read := f.m.Read()
 	for i, p := range read {
 		if rel, under := strings.CutPrefix(p, prefix); under {

@@ -35,7 +35,7 @@ fn made<T>(n: Int) -> T where T: Zero {
 }
 
 fn has<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
-    C.holds?(c, x)
+    C.holds(c, x)
 }
 
 test "an interface-qualified call reaches each container's impl" {
@@ -49,11 +49,11 @@ test "an interface-qualified call reaches each container's impl" {
 }
 
 test "a generic interface implemented for a container at several type arguments" {
-    assert Holds.holds?([1, 2], 2)
-    assert Holds.holds?(Some(4), "4")
-    assert Holds.holds?(#[5, 6], 6)
-    assert Holds.holds?(#[5, 6], "5")
-    assert !Vector.holds?(#[5], "6")
+    assert Holds.holds([1, 2], 2)
+    assert Holds.holds(Some(4), "4")
+    assert Holds.holds(#[5, 6], 6)
+    assert Holds.holds(#[5, 6], "5")
+    assert !Vector.holds(#[5], "6")
     assert has(#[7], 7)
 }
 

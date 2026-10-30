@@ -290,7 +290,7 @@ func TestStdlib_InstantTimerDuration(t *testing.T) {
 		t.Errorf("instant.Instant type not exported")
 	}
 	instantMethods := lib.Files["instant"].TypeMethods["Instant"]
-	for _, name := range []string{"now", "from_seconds", "to_seconds", "add", "between", "before?"} {
+	for _, name := range []string{"now", "from_seconds", "to_seconds", "add", "between", "is_before"} {
 		if sym := instantMethods[name]; sym == nil {
 			t.Errorf("Instant.%s not exported", name)
 		}

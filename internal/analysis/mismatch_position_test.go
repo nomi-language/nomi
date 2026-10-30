@@ -25,7 +25,7 @@ func TestMismatchErrorsSpanTheOffendingPart(t *testing.T) {
 			"list element type mismatch: Int vs String", "3:13-3:16"},
 		{"list spread tail",
 			"fn main() {\n    _ = [1, ..[\"a\"]]\n}\n",
-			"list spread tail element type mismatch: Int vs String", "2:15-2:20"},
+			"list spread element type mismatch: Int vs String", "2:15-2:20"},
 		{"map value",
 			"fn main() {\n    _ = %{1 => \"a\", 2 => 3}\n}\n",
 			"map value type mismatch: expected String, got Int", "2:26-2:27"},

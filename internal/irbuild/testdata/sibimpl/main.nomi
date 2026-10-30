@@ -43,8 +43,8 @@ fn main() {
     off = Status.inactive("holiday")
     susp = Status.suspend(100, "maintenance")
 
-    io.print("active? ${Bool.to_string(Status.is_active(active))}")
-    io.print("off active? ${Bool.to_string(Status.is_active(off))}")
+    io.print("is_active ${Bool.to_string(Status.is_active(active))}")
+    io.print("off is_active ${Bool.to_string(Status.is_active(off))}")
     io.print(describe(active))
     io.print(describe(off))
     io.print(describe(susp))

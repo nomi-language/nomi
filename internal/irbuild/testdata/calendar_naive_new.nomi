@@ -45,19 +45,19 @@ import {
     std/io
 }
 
-// `try` inside `fn main()` is refused by the builder (`try boundary mismatch`:
+// `?` inside `fn main()` is refused by the builder (`try boundary mismatch`:
 // a Unit-returning body cannot propagate), so the fallible half lives here and
 // main discharges it. A property of `main`, not of these types.
 fn run() -> Result<Unit, Error> {
     // --- every spellable arity, with a written value in a defaultable slot ----
     // All seven written, nanosecond non-zero: the full path, and the fraction
     // rendering that a truncation to six arguments would silently drop.
-    arity7 = try NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 250_000_000)
+    arity7 = NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 250_000_000)?
     // Six written: `second` supplied, `nanosecond` defaulted. A slot swap shows
     // up here and nowhere else.
-    arity6 = try NaiveDateTime.new(2026, 5, 4, 14, 30, 45)
+    arity6 = NaiveDateTime.new(2026, 5, 4, 14, 30, 45)?
     // Five written: both defaults filled. The shape the corpus spells.
-    arity5 = try NaiveDateTime.new(2026, 5, 4, 14, 30)
+    arity5 = NaiveDateTime.new(2026, 5, 4, 14, 30)?
 
     io.print("arity7 = " + NaiveDateTime.to_string(arity7))
     io.print("arity6 = " + NaiveDateTime.to_string(arity6))
@@ -66,9 +66,7 @@ fn run() -> Result<Unit, Error> {
     // The defaulted call and the typed literal are two independently written
     // constructors for one value, so this row is a contradiction between them
     // rather than a restatement of the line above.
-    io.print(
-        "matches_literal = " + Bool.to_string(arity5 == try NaiveDateTime"2026-05-04T14:30:00")
-    )
+    io.print("matches_literal = " + Bool.to_string(arity5 == NaiveDateTime"2026-05-04T14:30:00"?))
 
     // And the six-argument call is NOT the five-argument one, which is what makes
     // `second` observable at all.
@@ -76,7 +74,7 @@ fn run() -> Result<Unit, Error> {
 
     // --- bounds, in both directions ------------------------------------------
     // The accepted boundary in the last slot, one below the rejection below it.
-    nanos_max = try NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 999_999_999)
+    nanos_max = NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 999_999_999)?
     io.print("nanos_max = " + NaiveDateTime.to_string(nanos_max))
 
     // --- the rejections ------------------------------------------------------

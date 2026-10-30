@@ -34,20 +34,20 @@ pub host type Float
 impl Float {
     /// Returns IEEE 754 NaN ("not a number"). Produced by indeterminate
     /// operations like 0.0 / 0.0. NaN propagates through arithmetic and
-    /// comparisons; use `Float.nan?` to test for it.
-    //! assert Float.nan?(Float.nan())
+    /// comparisons; use `Float.is_nan` to test for it.
+    //! assert Float.is_nan(Float.nan())
     //
     pub host fn nan() -> Float
 
     /// Returns IEEE 754 positive infinity. Produced by overflow and by dividing
-    /// a positive Float by 0.0. Use `Float.infinite?` to test for it.
-    //! assert Float.infinite?(Float.positive_infinity())
+    /// a positive Float by 0.0. Use `Float.is_infinite` to test for it.
+    //! assert Float.is_infinite(Float.positive_infinity())
     //
     pub host fn positive_infinity() -> Float
 
     /// Returns IEEE 754 negative infinity. Produced by overflow and by dividing
-    /// a negative Float by 0.0. Use `Float.infinite?` to test for it.
-    //! assert Float.infinite?(Float.negative_infinity())
+    /// a negative Float by 0.0. Use `Float.is_infinite` to test for it.
+    //! assert Float.is_infinite(Float.negative_infinity())
     //
     pub host fn negative_infinity() -> Float
 
@@ -66,34 +66,36 @@ impl Float {
     pub once e = 2.718281828459045
 
     /// True if x is NaN.
-    //! assert Float.nan?(Float.nan())
-    //! refute Float.nan?(1.0)
+    //! assert Float.is_nan(Float.nan())
+    //! refute Float.is_nan(1.0)
     //
-    pub host fn nan?(x: Float) -> Bool
+    pub host fn is_nan(x: Float) -> Bool
 
     /// True if x is +Infinity or -Infinity.
-    //! assert Float.infinite?(Float.positive_infinity())
-    //! refute Float.infinite?(42.0)
+    //! assert Float.is_infinite(Float.positive_infinity())
+    //! refute Float.is_infinite(42.0)
     //
-    pub fn infinite?(x: Float) -> Bool {
+    pub fn is_infinite(x: Float) -> Bool {
         x == Float.positive_infinity() or x == Float.negative_infinity()
     }
 
     /// True if x is a finite real number — not NaN, not ±Infinity.
-    //! assert Float.finite?(42.0)
-    //! refute Float.finite?(Float.nan())
-    //! refute Float.finite?(Float.negative_infinity())
+    //! assert Float.is_finite(42.0)
+    //! refute Float.is_finite(Float.nan())
+    //! refute Float.is_finite(Float.negative_infinity())
     //
-    pub fn finite?(x: Float) -> Bool {
-        !Float.nan?(x) and !Float.infinite?(x)
+    pub fn is_finite(x: Float) -> Bool {
+        !Float.is_nan(x) and !Float.is_infinite(x)
     }
 
-    /// Converts a Float to an Int by truncating toward zero. Returns None for
-    /// NaN, ±Infinity, and values outside Int64's range (~±9.22e18). Use
+    /// Converts a Float to an Int by truncating toward zero, exactly at any
+    /// magnitude. Returns None for NaN and ±Infinity. Use
     /// `Float.round`/`floor`/`ceil` first if a different rounding rule is needed.
     //! assert Float.to_int(3.7) == Maybe.Some(3)
     //! assert Float.to_int(-3.7) == Maybe.Some(-3)
     //! assert Float.to_int(42.0) == Maybe.Some(42)
+    //! assert Float.to_int(1.0e20) == Maybe.Some(100_000_000_000_000_000_000)
+    //! assert Float.to_int(Float.nan()) == Maybe.None
     //
     pub host fn to_int(x: Float) -> Maybe<Int>
 
@@ -158,7 +160,7 @@ impl Float {
     //! assert Float.abs(-1.5) == 1.5
     //! assert Float.to_string(Float.abs(-0.0)) == "0.0"
     //! assert Float.abs(Float.negative_infinity()) == Float.positive_infinity()
-    //! assert Float.nan?(Float.abs(Float.nan()))
+    //! assert Float.is_nan(Float.abs(Float.nan()))
     //
     pub fn abs(x: Float) -> Float {
         if float_bits(x) < 0 { -x } else { x }
@@ -172,23 +174,23 @@ impl Float {
     /// caller picks it. Two equal infinities are equal; a NaN is equal within
     /// no tolerance to anything, itself included, though `Float.nan() ==
     /// Float.nan()` holds. A negative or NaN tolerance traps.
-    //! assert Float.equal_within?(Float.pow(8.0, 4.0 / 3.0), 16.0, 1e-12)
+    //! assert Float.equal_within(Float.pow(8.0, 4.0 / 3.0), 16.0, 1e-12)
     //! refute Float.pow(8.0, 4.0 / 3.0) == 16.0
-    //! assert Float.equal_within?(1.5, 1.5, 0.0)
-    //! refute Float.equal_within?(1.0, 1.1, 0.05)
-    //! assert Float.equal_within?(Float.positive_infinity(), Float.positive_infinity(), 0.0)
-    //! refute Float.equal_within?(Float.positive_infinity(), Float.negative_infinity(), 1e300)
-    //! refute Float.equal_within?(Float.nan(), Float.nan(), 1.0)
+    //! assert Float.equal_within(1.5, 1.5, 0.0)
+    //! refute Float.equal_within(1.0, 1.1, 0.05)
+    //! assert Float.equal_within(Float.positive_infinity(), Float.positive_infinity(), 0.0)
+    //! refute Float.equal_within(Float.positive_infinity(), Float.negative_infinity(), 1e300)
+    //! refute Float.equal_within(Float.nan(), Float.nan(), 1.0)
     //
-    pub fn equal_within?(a: Float, b: Float, tolerance: Float) -> Bool {
+    pub fn equal_within(a: Float, b: Float, tolerance: Float) -> Bool {
         require_tolerance(tolerance)
         // `==` holds for two NaNs, so NaN is ruled out first.
-        !Float.nan?(a) and !Float.nan?(b) and (a == b or Float.abs(a - b) <= tolerance)
+        !Float.is_nan(a) and !Float.is_nan(b) and (a == b or Float.abs(a - b) <= tolerance)
     }
 
     /// Returns the sign of `x` as -1, 0, or +1. Both zeros give 0, and so does
     /// NaN, which is neither less than nor greater than zero; test for it with
-    /// `Float.nan?` first when it must be told apart from zero.
+    /// `Float.is_nan` first when it must be told apart from zero.
     //! assert Float.sign(-1.5) == -1
     //! assert Float.sign(-0.0) == 0
     //! assert Float.sign(Float.positive_infinity()) == 1
@@ -207,12 +209,12 @@ impl Float {
     /// `a`.
     //! assert Float.min(1.5, -2.0) == -2.0
     //! assert Float.to_string(Float.min(0.0, -0.0)) == "-0.0"
-    //! assert Float.nan?(Float.min(Float.nan(), 1.0))
+    //! assert Float.is_nan(Float.min(Float.nan(), 1.0))
     //
     pub fn min(a: Float, b: Float) -> Float {
         case {
-            Float.nan?(a) -> a
-            Float.nan?(b) -> b
+            Float.is_nan(a) -> a
+            Float.is_nan(b) -> b
             a < b -> a
             a > b -> b
             // Equal, so either the same value or the two zeros.
@@ -226,12 +228,12 @@ impl Float {
     /// return `a`.
     //! assert Float.max(1.5, -2.0) == 1.5
     //! assert Float.to_string(Float.max(-0.0, 0.0)) == "0.0"
-    //! assert Float.nan?(Float.max(1.0, Float.nan()))
+    //! assert Float.is_nan(Float.max(1.0, Float.nan()))
     //
     pub fn max(a: Float, b: Float) -> Float {
         case {
-            Float.nan?(a) -> a
-            Float.nan?(b) -> b
+            Float.is_nan(a) -> a
+            Float.is_nan(b) -> b
             a > b -> a
             a < b -> b
             // Equal, so either the same value or the two zeros.
@@ -249,7 +251,7 @@ impl Float {
     //! assert Float.pow(2.0, 10.0) == 1024.0
     //! assert Float.pow(4.0, 0.5) == 2.0
     //! assert Float.pow(Float.nan(), 0.0) == 1.0
-    //! assert Float.nan?(Float.pow(-8.0, 1.0 / 3.0))
+    //! assert Float.is_nan(Float.pow(-8.0, 1.0 / 3.0))
     //! assert Float.pow(0.0, -1.0) == Float.positive_infinity()
     //
     pub host fn pow(x: Float, y: Float) -> Float
@@ -257,7 +259,7 @@ impl Float {
     /// The square root of `x`: NaN for a negative `x`, `-0.0` for `-0.0`,
     /// and +Infinity for +Infinity.
     //! assert Float.sqrt(2.25) == 1.5
-    //! assert Float.nan?(Float.sqrt(-1.0))
+    //! assert Float.is_nan(Float.sqrt(-1.0))
     //! assert Float.to_string(Float.sqrt(-0.0)) == "-0.0"
     //
     pub host fn sqrt(x: Float) -> Float
@@ -275,7 +277,7 @@ impl Float {
     //! assert Float.log(1.0) == 0.0
     //! assert Float.log(Float.exp(2.0)) == 2.0
     //! assert Float.log(0.0) == Float.negative_infinity()
-    //! assert Float.nan?(Float.log(-1.0))
+    //! assert Float.is_nan(Float.log(-1.0))
     //
     pub host fn log(x: Float) -> Float
 
@@ -296,7 +298,7 @@ impl Float {
     /// The sine of the angle `x` in radians. NaN for an infinity or NaN.
     //! assert Float.sin(0.0) == 0.0
     //! assert Float.sin(Float.atan2(1.0, 0.0)) == 1.0
-    //! assert Float.nan?(Float.sin(Float.positive_infinity()))
+    //! assert Float.is_nan(Float.sin(Float.positive_infinity()))
     //
     pub host fn sin(x: Float) -> Float
 
@@ -308,7 +310,7 @@ impl Float {
 
     /// The tangent of the angle `x` in radians. NaN for an infinity or NaN.
     //! assert Float.tan(0.0) == 0.0
-    //! assert Float.nan?(Float.tan(Float.negative_infinity()))
+    //! assert Float.is_nan(Float.tan(Float.negative_infinity()))
     //
     pub host fn tan(x: Float) -> Float
 
@@ -418,7 +420,7 @@ host fn float_parse_percent_in(
 host fn float_bits(x: Float) -> Int
 
 /// Traps unless `tolerance` is zero or more, naming it: the check
-/// `Float.equal_within?` makes before it compares.
+/// `Float.equal_within` makes before it compares.
 host fn require_tolerance(tolerance: Float) -> Unit
 
 impl Display for Float {
@@ -476,7 +478,7 @@ impl Debug for Float {
 }
 
 impl Equatable for Float {
-    fn equal?(a: Float, b: Float) -> Bool {
+    fn equal(a: Float, b: Float) -> Bool {
         a == b
     }
 }
@@ -487,7 +489,7 @@ impl Hashable for Float {
     // but their bit patterns differ: signed zero (`-0.0 == 0.0`) and NaN (which
     // is reflexively equal under Nomi's structural `==`, yet has many encodings).
     fn hash(x: Float) -> Int {
-        if Float.nan?(x) {
+        if Float.is_nan(x) {
             float_bits(Float.nan())
         } else if x == 0.0 {
             0
@@ -505,7 +507,7 @@ impl Comparable for Float {
     // Float has THREE comparison behaviours, and they do not all agree. Read
     // this before "fixing" any one of them, because two of the three are forced:
     //
-    //   `==` / `equal?`   reflexive on NaN    `nan == nan` is True
+    //   `==` / `equal`   reflexive on NaN    `nan == nan` is True
     //   `compare` (here)  a total order       `compare(nan, nan)` is Equal
     //   `<` `<=` `>` `>=` IEEE                `nan <= nan` is False
     //
@@ -524,9 +526,9 @@ impl Comparable for Float {
     // with the same hashing motivation; Nomi's `==` is Java's `.equals()`.
     fn compare(a: Float, b: Float) -> Ordering {
         case {
-            Float.nan?(a) and Float.nan?(b) -> Equal
-            Float.nan?(a) -> Greater
-            Float.nan?(b) -> Less
+            Float.is_nan(a) and Float.is_nan(b) -> Equal
+            Float.is_nan(a) -> Greater
+            Float.is_nan(b) -> Less
             a < b -> Less
             a == b -> Equal
             _ -> Greater

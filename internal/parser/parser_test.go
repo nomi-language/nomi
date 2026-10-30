@@ -2748,7 +2748,7 @@ func TestParser_TypeAlias_OldFormRejected(t *testing.T) {
 // --- Try Operator ---
 
 func TestParseTryOperator(t *testing.T) {
-	tokens := lexer.Lex("try x")
+	tokens := lexer.Lex("x?")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -2768,7 +2768,7 @@ func TestParseTryOperator(t *testing.T) {
 }
 
 func TestParseTryAfterCall(t *testing.T) {
-	tokens := lexer.Lex("try foo(42)")
+	tokens := lexer.Lex("foo(42)?")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -2784,23 +2784,17 @@ func TestParseTryAfterCall(t *testing.T) {
 }
 
 func TestParseTryInPipe(t *testing.T) {
-	// x |> foo() |> try
-	// Should parse as: (x |> foo()) |> try
-	tokens := lexer.Lex("x |> foo() |> try")
+	// `x |> foo()?` is the stage `x |> foo()` and then a `?` stage.
+	tokens := lexer.Lex("x |> foo()?")
 	nodes, err := Parse(tokens)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
 	stmt := nodes[0].(*ast.ExprStmt)
-	// The outermost should be a Binary with op "|>"
 	bin, ok := stmt.Expr.(*ast.Binary)
-	if !ok {
+	if !ok || bin.Op != "|>" {
 		t.Fatalf("expected Binary (pipe), got %T", stmt.Expr)
 	}
-	if bin.Op != "|>" {
-		t.Errorf("expected pipe operator, got %q", bin.Op)
-	}
-	// The left side of the outer pipe should also be a pipe
 	leftPipe, ok := bin.Left.(*ast.Binary)
 	if !ok {
 		t.Fatalf("expected Binary (inner pipe), got %T", bin.Left)
@@ -2808,21 +2802,23 @@ func TestParseTryInPipe(t *testing.T) {
 	if _, ok := leftPipe.Right.(*ast.Call); !ok {
 		t.Fatalf("expected Call on inner pipe RHS, got %T", leftPipe.Right)
 	}
-	// The right side of the outer pipe should be a bare TryOp.
 	tryOp, ok := bin.Right.(*ast.TryOp)
 	if !ok {
 		t.Fatalf("expected TryOp on pipe RHS, got %T", bin.Right)
 	}
 	if tryOp.Expr != nil {
-		t.Fatalf("expected bare TryOp in pipe, got operand %T", tryOp.Expr)
+		t.Fatalf("expected a `?` stage, got operand %T", tryOp.Expr)
+	}
+	if tryOp.Line != 1 || tryOp.Col != 11 {
+		t.Errorf("the `?` stage is at (%d,%d), want (1,11)", tryOp.Line, tryOp.Col)
 	}
 }
 
-// --- Prefix `try` keyword (the only error-propagation spelling) ---
+// --- Postfix `?` ---
 
 func TestParseTryKeywordCall(t *testing.T) {
-	// `try foo()` parses to a TryOp wrapping the call foo().
-	expr := parseExpr(t, "try foo()")
+	// `foo()?` parses to a TryOp wrapping the call foo().
+	expr := parseExpr(t, "foo()?")
 	tryOp, ok := expr.(*ast.TryOp)
 	if !ok {
 		t.Fatalf("expected TryOp, got %T", expr)
@@ -2837,9 +2833,9 @@ func TestParseTryKeywordCall(t *testing.T) {
 }
 
 func TestParseTryKeywordPipePrecedence(t *testing.T) {
-	// `try a() |> b()` parses as `(try a()) |> b()` — try binds the a()
+	// `a()? |> b()` parses as `(a()?) |> b()` — try binds the a()
 	// stage only, never the whole pipe.
-	expr := parseExpr(t, "try a() |> b()")
+	expr := parseExpr(t, "a()? |> b()")
 	bin, ok := expr.(*ast.Binary)
 	if !ok {
 		t.Fatalf("expected Binary (pipe) at top, got %T", expr)
@@ -2857,8 +2853,8 @@ func TestParseTryKeywordPipePrecedence(t *testing.T) {
 }
 
 func TestParseTryKeywordArithmeticPrecedence(t *testing.T) {
-	// `try a() + b()` parses as `(try a()) + b()` — try binds tighter than +.
-	expr := parseExpr(t, "try a() + b()")
+	// `a()? + b()` parses as `(a()?) + b()` — try binds tighter than +.
+	expr := parseExpr(t, "a()? + b()")
 	bin, ok := expr.(*ast.Binary)
 	if !ok {
 		t.Fatalf("expected Binary (+) at top, got %T", expr)
@@ -2872,7 +2868,7 @@ func TestParseTryKeywordArithmeticPrecedence(t *testing.T) {
 }
 
 func TestParseDbgKeywordPipePrecedence(t *testing.T) {
-	// `dbg a() |> b()` parses as `dbg (a() |> b())` — unlike `try`, `dbg`
+	// `dbg a() |> b()` parses as `dbg (a() |> b())` — unlike `?`, `dbg`
 	// observes the whole expression to its right unless parentheses narrow it.
 	expr := parseExpr(t, "dbg a() |> b()")
 	dbg, ok := expr.(*ast.Dbg)
@@ -2913,21 +2909,20 @@ func TestParseDbgCanBeNarrowedWithParens(t *testing.T) {
 }
 
 func TestParseTryKeywordWithTrailingQuestion(t *testing.T) {
-	// `try foo()?` — the postfix `?` operator was removed, so a trailing `?`
-	// is now a parse error (the lexer emits ILLEGAL for the stray glyph).
-	tokens := lexer.Lex("try foo()?")
-	_, err := Parse(tokens)
-	if err == nil {
-		t.Fatalf("expected a parse error for trailing `?`, got none")
+	// `foo()??` propagates twice: a Maybe<Maybe<T>> or a nested Result.
+	expr := parseExpr(t, "foo()??")
+	outer, ok := expr.(*ast.TryOp)
+	if !ok {
+		t.Fatalf("expected TryOp, got %T", expr)
 	}
-	if !strings.Contains(err.Error(), "?") {
-		t.Errorf("expected error to reference the stray `?` glyph, got %q", err.Error())
+	if _, ok := outer.Expr.(*ast.TryOp); !ok {
+		t.Fatalf("expected TryOp inside TryOp, got %T", outer.Expr)
 	}
 }
 
 func TestParseTryKeywordFieldChain(t *testing.T) {
-	// `try a.b.c` parses as `try (a.b.c)` — applies to the whole field chain.
-	expr := parseExpr(t, "try a.b.c")
+	// `a.b.c?` parses as `(a.b.c)?` — applies to the whole field chain.
+	expr := parseExpr(t, "a.b.c?")
 	tryOp, ok := expr.(*ast.TryOp)
 	if !ok {
 		t.Fatalf("expected TryOp at top, got %T", expr)
@@ -2945,40 +2940,31 @@ func TestParseTryKeywordFieldChain(t *testing.T) {
 }
 
 func TestParseTryKeywordPosition(t *testing.T) {
-	// TryOp.Line/Col point at the `try` keyword token.
-	expr := parseExpr(t, "try foo()")
+	// TryOp.Line/Col point at the `?`.
+	expr := parseExpr(t, "foo()?")
 	tryOp := expr.(*ast.TryOp)
-	if tryOp.Line != 1 || tryOp.Col != 1 {
-		t.Errorf("expected try token at (1,1), got (%d,%d)", tryOp.Line, tryOp.Col)
+	if tryOp.Line != 1 || tryOp.Col != 6 {
+		t.Errorf("expected the `?` at (1,6), got (%d,%d)", tryOp.Line, tryOp.Col)
 	}
 }
 
-func TestPostfixQuestionIsParseError(t *testing.T) {
-	// The postfix `?` operator was removed: `foo()?` is now a parse error.
-	// `try` is the only error-propagation spelling.
-	tokens := lexer.Lex("foo()?")
-	_, err := Parse(tokens)
-	if err == nil {
-		t.Fatalf("expected a parse error for postfix `?`, got none")
+func TestTryIsAName(t *testing.T) {
+	// `try` and `try_send` are ordinary identifiers.
+	for _, src := range []string{"try", "try_send"} {
+		tokens := lexer.Lex(src)
+		if tokens[0].Type != token.IDENT || tokens[0].Lexeme != src {
+			t.Fatalf("%s: got %s %q, want an IDENT", src, tokens[0].Type, tokens[0].Lexeme)
+		}
 	}
-	if !strings.Contains(err.Error(), "?") {
-		t.Errorf("expected error to reference the stray `?` glyph, got %q", err.Error())
+	// `try` binds a value and names a function.
+	nodes := parse(t, "fn try(x: Int) -> Int {\n    x\n}\ntry = try(1)")
+	if fn, ok := nodes[0].(*ast.FuncDef); !ok || fn.Name != "try" {
+		t.Fatalf("first node is %#v, want fn try", nodes[0])
 	}
-}
-
-func TestLexerTryLongestMatch(t *testing.T) {
-	// `try_send` is a single IDENT, not the `try` keyword + `_send`.
-	tokens := lexer.Lex("try_send = 1")
-	if tokens[0].Type != token.IDENT {
-		t.Fatalf("expected IDENT for try_send, got %s", tokens[0].Type)
-	}
-	if tokens[0].Lexeme != "try_send" {
-		t.Errorf("expected lexeme 'try_send', got %q", tokens[0].Lexeme)
-	}
-	// Bare `try` is the keyword.
-	kw := lexer.Lex("try")
-	if kw[0].Type != token.TRY {
-		t.Fatalf("expected TRY keyword for bare 'try', got %s", kw[0].Type)
+	if call, ok := parseExpr(t, "try(1)").(*ast.Call); !ok {
+		t.Fatalf("try(1) is not a call")
+	} else if id, ok := call.Func.(*ast.Ident); !ok || id.Name != "try" {
+		t.Fatalf("callee is %#v", call.Func)
 	}
 }
 

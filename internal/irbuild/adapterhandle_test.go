@@ -41,7 +41,7 @@ func TestAdapterWall_TheCoLocatedAdapterLowersEndToEnd(t *testing.T) {
 		"regex.Regex.pattern",
 		"regex.Regex.find_in",
 		"regex.Regex.replace_all",
-		"regex.Regex.contained_in?",
+		"regex.Regex.is_contained_in",
 		"regex.Regex.find_all_in",
 		"regex.Regex.split_in",
 		// The Nomi bodies over the handle.

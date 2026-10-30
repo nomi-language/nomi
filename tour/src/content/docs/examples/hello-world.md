@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: hello_world.nomi
+//# The classic first program.
+
 /// The greeting every program starts with.
 pub fn hello() -> String {
     "Hello, World!"

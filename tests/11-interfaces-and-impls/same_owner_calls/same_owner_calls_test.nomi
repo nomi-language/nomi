@@ -67,7 +67,7 @@ test "self is not an expression qualifier" {
 
     assert Iter.count(diagnostics) == 1
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "`self` is an interface type placeholder, not an expression qualifier",
     )
@@ -119,5 +119,5 @@ test "ambiguous same-owner interface functions require qualification" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "ambiguous")
+    assert test_helpers.has_diagnostic(diagnostics, "ambiguous")
 }

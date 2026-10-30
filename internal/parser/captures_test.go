@@ -33,7 +33,7 @@ func TestParseCapture_Bodies(t *testing.T) {
 		{"&#[&1]", "*ast.VectorLit", false},
 		{"&%[&1]", "*ast.SetLit", false},
 		{"&%{&1 => 0}", "*ast.MapLit", false},
-		{"&!keep?(&1)", "*ast.Unary", false},
+		{"&!keep(&1)", "*ast.Unary", false},
 		{"&!(&1 > 2)", "*ast.Unary", false},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestParseCapture_Errors(t *testing.T) {
 		{"f = & (&1 + 1)", "a capture's `&` is written against its body, with no space"},
 		{"f = &!x", "a capture is `&` and a call, a parenthesized expression or a literal"},
 		{"f = &!&1", "a capture is `&` and a call, a parenthesized expression or a literal"},
-		{"f = & !keep?(&1)", "a capture's `&` is written against its body, with no space"},
+		{"f = & !keep(&1)", "a capture's `&` is written against its body, with no space"},
 	} {
 		t.Run(tc.src, func(t *testing.T) {
 			_, err := Parse(lexer.Lex(tc.src))

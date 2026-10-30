@@ -16,4 +16,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/intergalactic-tran
 
 ## Friction
 
-- [verbose] There are no bitwise operators, so reading bit `i` of a byte is `Int.bitwise_and(Int.shift_right(byte, 7 - i), 1)` and making room for the parity bit `Int.shift_left(data, 1)`, where Rust, Go and Python write `byte >> (7 - i) & 1` and `data << 1`.
+- [verbose] There are no bitwise operators, so reading bit `i` of a byte is `Int.shift_right(byte, 7 - i) |> Int.bitwise_and(1)` and making room for the parity bit `Int.shift_left(data, 1)`, where Rust, Go and Python write `byte >> (7 - i) & 1` and `data << 1`.

@@ -117,7 +117,7 @@ struct Bad {
 
 impl Hashable for Bad {
   fn hash(b: Bad) -> Int {
-    b.n * 4611686018427387904
+    b.n / (b.n - b.n)
   }
 }
 
@@ -129,7 +129,7 @@ fn main() {
 	if b, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("a key fault reported as the VM's limit: %q", b.Reasons)
 	}
-	if out != "start\n" || err == nil || err.Error() != "line 9: integer overflow: 4 * 4611686018427387904" {
+	if out != "start\n" || err == nil || err.Error() != "line 9: division by zero" {
 		t.Fatalf("output %q, error %v", out, err)
 	}
 }

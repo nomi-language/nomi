@@ -31,14 +31,14 @@ func (c *checker) wholeResultHint(expected, got Type, expr ast.Node) string {
 			return ""
 		}
 		return c.typef("`%s` is the whole `%s`, so its `Ok` type is still `%s`; "+
-			"to pass the error on, write `Err(e) -> Err(e)`, or unwrap with `try`",
+			"to pass the error on, write `Err(e) -> Err(e)`, or propagate it with `?`",
 			id.Name, have, have.TypeArgs[0])
 	case want.Name == "Maybe" && len(want.TypeArgs) == 1:
 		if TypesEqual(resolveTypeVar(want.TypeArgs[0]), resolveTypeVar(have.TypeArgs[0])) {
 			return ""
 		}
 		return c.typef("`%s` is the whole `%s`, so its `Some` type is still `%s`; "+
-			"to pass the absence on, write `None -> None`, or unwrap with `try`",
+			"to pass the absence on, write `None -> None`, or propagate it with `?`",
 			id.Name, have, have.TypeArgs[0])
 	}
 	return ""

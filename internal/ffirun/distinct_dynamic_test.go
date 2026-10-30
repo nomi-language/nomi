@@ -281,7 +281,7 @@ fn main() {
   io.inspect(echo(d) |> Dynamic.path("a") |> Result.flat_map(fn l -> Dynamic.index(l, 1)) |> Result.flat_map(Dynamic.as_string))
   io.inspect(seven() |> Dynamic.as_int())
   io.inspect(echo_named(d) |> Dynamic.field("n") |> Result.flat_map(Dynamic.as_float))
-  io.inspect(echo_empty(d) |> Dynamic.has?("a"))
+  io.inspect(echo_empty(d) |> Dynamic.has("a"))
   io.inspect(echo_rt(d) |> Dynamic.field("n") |> Result.flat_map(Dynamic.as_float))
   io.inspect(built() |> Dynamic.path("k") |> Result.flat_map(fn l -> Dynamic.index(l, 1)) |> Result.flat_map(Dynamic.as_string))
   io.inspect(tail([seven()]) |> Iter.map(Dynamic.as_string) |> Iter.to_list())

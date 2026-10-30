@@ -1214,7 +1214,7 @@ func TestHover_FileFunctionRendersConcreteSignature(t *testing.T) {
 	inputWithMarker := `import std/int.{Int, PositiveInt}
 
 fn main() {
-  p = try Int.to_positive(5)
+  p = Int.to_positive(5)?
   PositiveInt.▮to_non_zero(p)
 }
 `
@@ -1250,18 +1250,18 @@ func TestHover_DerivedTypeQualifiedImplMethods(t *testing.T) {
 		{
 			name: "maybe equal",
 			input: `test "hover" {
-  assert Maybe.▮equal?(Some(4), Some(4))
+  assert Maybe.▮equal(Some(4), Some(4))
 }
 `,
-			wantParts: []string{"fn equal?", "Maybe<Int>", "Bool"},
+			wantParts: []string{"fn equal", "Maybe<Int>", "Bool"},
 		},
 		{
 			name: "result equal",
 			input: `test "hover" {
-  assert Result.▮equal?(Ok(4), Ok(4))
+  assert Result.▮equal(Ok(4), Ok(4))
 }
 `,
-			wantParts: []string{"fn equal?", "Result<Int, _>", "Bool"},
+			wantParts: []string{"fn equal", "Result<Int, _>", "Bool"},
 		},
 		{
 			name: "maybe hash",
@@ -1304,7 +1304,7 @@ func TestHover_DerivedTypeQualifiedImplMethods(t *testing.T) {
 
 func TestHover_ImplMethodParamUsageRendersConcreteType(t *testing.T) {
 	inputWithMarker := `interface Equal {
-  fn equal?(a: self, b: self) -> Bool
+  fn equal(a: self, b: self) -> Bool
 }
 
 enum Maybe<T> {
@@ -1313,7 +1313,7 @@ enum Maybe<T> {
 }
 
 impl Equal for Maybe<T> {
-  fn equal?(a: Maybe<T>, b: Maybe<T>) -> Bool {
+  fn equal(a: Maybe<T>, b: Maybe<T>) -> Bool {
     a == ▮b
   }
 }
@@ -2129,30 +2129,34 @@ func TestHover_SelfMarkerDrillThrough(t *testing.T) {
 	}
 }
 
-// Hovering over the `try` in `try r` (where r: Result<Int, String>) should show
-// the unwrapped success type, the Err payload propagated on failure, and
-// the enclosing fn the `try` unwinds to. The checker registers a synthetic
-// symbol at the `try` token's position; renderHover dispatches on it.
-func TestHover_TryOp_Result(t *testing.T) {
-	src := "enum Result<T, E> { Ok T; Err E }\n" +
-		"fn calc(r: Result<Int, String>) -> Int {\n" +
-		"  v = try r\n" +
-		"  v + 1\n" +
-		"}"
+// hoverAtMark checks src, which has one `▮` before the token to hover, and
+// answers the hover there.
+func hoverAtMark(t *testing.T, marked string) string {
+	t.Helper()
+	src, pos := hoverMarkerPosition(t, marked)
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
 	analysis.BuildTypes(file, nodes)
 	analysis.CheckTypes(file, nodes)
-
-	// `  v = try r` — `try` starts at column 7 on line 3 (1-based).
-	pos := analysis.Pos{Line: 3, Col: 7}
 	sym := file.SymbolAt(pos)
 	if sym == nil {
-		t.Fatal("expected a symbol at the `try` keyword position")
+		t.Fatalf("no symbol at the marked token in:\n%s", marked)
 	}
-	got := renderHover(sym)
-	expected := "```nomi\ntry: Result<Int, String> -> Int\n```\n\nOn `Err: String`, unwinds to `fn calc`."
+	return renderHover(sym)
+}
+
+// Hovering over the `?` in `r?` (where r: Result<Int, String>) shows the
+// unwrapped success type, the Err payload propagated on failure, and the
+// enclosing fn the `?` unwinds to. The checker registers a synthetic symbol
+// at the `?`'s position; renderHover dispatches on it.
+func TestHover_TryOp_Result(t *testing.T) {
+	got := hoverAtMark(t, "enum Result<T, E> { Ok T; Err E }\n"+
+		"fn calc(r: Result<Int, String>) -> Int {\n"+
+		"  v = r▮?\n"+
+		"  v + 1\n"+
+		"}")
+	expected := "```nomi\n?: Result<Int, String> -> Int\n```\n\nOn `Err: String`, unwinds to `fn calc`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -2161,85 +2165,91 @@ func TestHover_TryOp_Result(t *testing.T) {
 // Same as above but for Maybe<T>: prose says `On None` (no payload type)
 // instead of `On Err: <type>`.
 func TestHover_TryOp_Maybe(t *testing.T) {
-	src := "enum Maybe<T> { Some T; None }\n" +
-		"fn lookup(m: Maybe<Int>) -> Int {\n" +
-		"  v = try m\n" +
-		"  v + 1\n" +
-		"}"
-	tokens := lexer.Lex(src)
-	nodes, _ := parser.ParseWithRecovery(tokens)
-	file := buildFile(nodes)
-	analysis.BuildTypes(file, nodes)
-	analysis.CheckTypes(file, nodes)
-
-	// `  v = try m` — `try` starts at column 7 on line 3 (1-based).
-	pos := analysis.Pos{Line: 3, Col: 7}
-	sym := file.SymbolAt(pos)
-	if sym == nil {
-		t.Fatal("expected a symbol at the `try` keyword position")
-	}
-	got := renderHover(sym)
-	expected := "```nomi\ntry: Maybe<Int> -> Int\n```\n\nOn `None`, unwinds to `fn lookup`."
+	got := hoverAtMark(t, "enum Maybe<T> { Some T; None }\n"+
+		"fn lookup(m: Maybe<Int>) -> Int {\n"+
+		"  v = m▮?\n"+
+		"  v + 1\n"+
+		"}")
+	expected := "```nomi\n?: Maybe<Int> -> Int\n```\n\nOn `None`, unwinds to `fn lookup`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
 }
 
-// `x |> f() |> try` — pipe-stage try unwraps the previous stage. Hover on
-// the `try` in that form must still resolve.
+// `x |> f()?`: the `?` stage unwraps the stage's result.
 func TestHover_TryOp_InPipe(t *testing.T) {
-	src := "enum Result<T, E> { Ok T; Err E }\n" +
-		"fn parse(_s: String) -> Result<Int, String> { Result.Ok(0) }\n" +
-		"fn run(s: String) -> Result<Int, String> {\n" +
-		"  n = s |> parse() |> try\n" +
-		"  Result.Ok(n + 1)\n" +
-		"}"
-	tokens := lexer.Lex(src)
-	nodes, _ := parser.ParseWithRecovery(tokens)
-	file := buildFile(nodes)
-	analysis.BuildTypes(file, nodes)
-	analysis.CheckTypes(file, nodes)
-
-	// `  n = s |> parse() |> try` — `try` starts at column 24 on line 4
-	// (1-based): 2 spaces + "n = s |> parse() |> " is 23 columns.
-	pos := analysis.Pos{Line: 4, Col: 24}
-	sym := file.SymbolAt(pos)
-	if sym == nil {
-		t.Fatal("expected a symbol at the piped `try` keyword position")
-	}
-	got := renderHover(sym)
-	expected := "```nomi\ntry: Result<Int, String> -> Int\n```\n\nOn `Err: String`, unwinds to `fn run`."
+	got := hoverAtMark(t, "enum Result<T, E> { Ok T; Err E }\n"+
+		"fn parse(_s: String) -> Result<Int, String> { Result.Ok(0) }\n"+
+		"fn run(s: String) -> Result<Int, String> {\n"+
+		"  n = s |> parse()▮?\n"+
+		"  Result.Ok(n + 1)\n"+
+		"}")
+	expected := "```nomi\n?: Result<Int, String> -> Int\n```\n\nOn `Err: String`, unwinds to `fn run`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
 }
 
-// `try` inside a lambda unwinds to the lambda boundary, not the enclosing fn
+// A `?` inside a lambda unwinds to the lambda boundary, not the enclosing fn
 // (Nomi has no non-local returns). Hover should reflect that.
 func TestHover_TryOp_InLambda(t *testing.T) {
-	src := "enum Result<T, E> { Ok T; Err E }\n" +
-		"fn outer() -> (Result<Int, String>) -> Int {\n" +
-		"  fn r -> {\n" +
-		"    v = try r\n" +
-		"    v + 1\n" +
-		"  }\n" +
-		"}"
-	tokens := lexer.Lex(src)
-	nodes, _ := parser.ParseWithRecovery(tokens)
-	file := buildFile(nodes)
-	analysis.BuildTypes(file, nodes)
-	analysis.CheckTypes(file, nodes)
-
-	// `    v = try r` on line 4 — `try` starts at column 9 (4 spaces + "v = " = 8).
-	pos := analysis.Pos{Line: 4, Col: 9}
-	sym := file.SymbolAt(pos)
-	if sym == nil {
-		t.Fatal("expected a symbol at the `try` keyword position")
-	}
-	got := renderHover(sym)
-	expected := "```nomi\ntry: Result<Int, String> -> Int\n```\n\nOn `Err: String`, unwinds to `lambda`."
+	got := hoverAtMark(t, "enum Result<T, E> { Ok T; Err E }\n"+
+		"fn outer() -> (Result<Int, String>) -> Result<Int, String> {\n"+
+		"  fn r -> {\n"+
+		"    v = r▮?\n"+
+		"    Result.Ok(v + 1)\n"+
+		"  }\n"+
+		"}")
+	expected := "```nomi\n?: Result<Int, String> -> Int\n```\n\nOn `Err: String`, unwinds to `lambda`."
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
+	}
+}
+
+// A `?` in a test body unwinds to the test.
+func TestHover_TryOp_InTest(t *testing.T) {
+	got := hoverAtMark(t, "enum Maybe<T> { Some T; None }\n"+
+		"fn find() -> Maybe<Int> { Maybe.Some(1) }\n"+
+		"test \"finds\" {\n"+
+		"  v = find()▮?\n"+
+		"  assert v == 1\n"+
+		"}")
+	expected := "```nomi\n?: Maybe<Int> -> Int\n```\n\nOn `None`, unwinds to `test \"finds\"`."
+	if got != expected {
+		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
+	}
+}
+
+// A postfix `!` gets the same kind of hover: what it unwraps, and that it
+// traps on the Err or None.
+func TestHover_Bang(t *testing.T) {
+	for name, c := range map[string]struct{ src, want string }{
+		"maybe in a function": {
+			"enum Maybe<T> { Some T; None }\n" +
+				"fn first(m: Maybe<Int>) -> Int {\n" +
+				"  m▮!\n" +
+				"}",
+			"```nomi\n!: Maybe<Int> -> Int\n```\n\nOn `None`, traps.",
+		},
+		"result in a lambda": {
+			"enum Result<T, E> { Ok T; Err E }\n" +
+				"fn outer() -> (Result<Int, String>) -> Int {\n" +
+				"  fn r -> r▮! + 1\n" +
+				"}",
+			"```nomi\n!: Result<Int, String> -> Int\n```\n\nOn `Err: String`, traps.",
+		},
+		"a pipe stage": {
+			"enum Result<T, E> { Ok T; Err E }\n" +
+				"fn parse(_s: String) -> Result<Int, String> { Result.Ok(0) }\n" +
+				"fn run(s: String) -> Int {\n" +
+				"  s |> parse()▮!\n" +
+				"}",
+			"```nomi\n!: Result<Int, String> -> Int\n```\n\nOn `Err: String`, traps.",
+		},
+	} {
+		if got := hoverAtMark(t, c.src); got != c.want {
+			t.Errorf("%s: got:\n%s\n\nexpected:\n%s", name, got, c.want)
+		}
 	}
 }
 
@@ -2522,7 +2532,7 @@ func TestHover_Assertion_PipelineBool(t *testing.T) {
   3.7
   |> Float.round()
   |> Float.to_int()
-  |> Maybe.equal?(Some(4))
+  |> Maybe.equal(Some(4))
   |> ▮assert
 }
 `

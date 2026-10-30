@@ -382,6 +382,31 @@ function fetchProgram(href) {
 }
 
 // sink hands text to callback as written, or line by line to fallback.
+// An Int crosses as a JSON number of any length, since an Int is exact at
+// any size. decodeValue answers one a JavaScript number holds exactly, up to
+// Number.MAX_SAFE_INTEGER in magnitude, as a number, and a larger one as a
+// BigInt, read from the number's own digits. An engine without JSON.parse's
+// source text gives a number, as JSON.parse always has.
+function decodeValue(text) {
+  return JSON.parse(text, (_key, value, context) =>
+    typeof value === "number" && !Number.isSafeInteger(value) && context !== undefined &&
+    /^-?\d+$/.test(context.source)
+      ? BigInt(context.source)
+      : value);
+}
+
+// encodeValues is the JSON text of a call's arguments, a BigInt written as
+// its digits.
+function encodeValues(values) {
+  return JSON.stringify(values, (_key, value) => {
+    if (typeof value !== "bigint") return value;
+    if (typeof JSON.rawJSON !== "function") {
+      throw new TypeError("call: a BigInt argument needs JSON.rawJSON, which this JavaScript engine lacks");
+    }
+    return JSON.rawJSON(value.toString());
+  });
+}
+
 function sink(callback, fallback) {
   if (typeof callback === "function") return { write: (text) => callback(text), flush() {} };
   let buffered = "";
@@ -515,7 +540,7 @@ export async function load(url, options = {}) {
         if (typeof name !== "string") return Promise.reject(new TypeError("call: the function name must be a string"));
         let text;
         try {
-          text = JSON.stringify(callArgs);
+          text = encodeValues(callArgs);
         } catch (e) {
           return Promise.reject(e);
         }
@@ -523,7 +548,7 @@ export async function load(url, options = {}) {
         const unit = exported.some((x) => x.name === name && x.result === "");
         const id = nextId++;
         return new Promise((res, rej) => {
-          pending.set(id, { resolve: (value) => res(unit ? undefined : JSON.parse(value)), reject: rej });
+          pending.set(id, { resolve: (value) => res(unit ? undefined : decodeValue(value)), reject: rej });
           worker.postMessage({ type: "call", id, name, args: text });
         });
       },

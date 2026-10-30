@@ -28,6 +28,40 @@ fn main() {
 `, "null\n3\nOk([1])\n[true]\n")
 }
 
+// One qualifier imported at the top of several blocks names, in each, the
+// file that block imports: a function's, another function's, a lambda's
+// enclosing block and a binding's block.
+func TestBlockImport_OneQualifierOfTwoFiles(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+fn a() -> Int {
+    import std/duration as d
+    d.Duration.as_micros(d.Duration.seconds(1))
+}
+
+fn b() -> String {
+    import std/json as d
+    d.Json.encode(d.Json.Null)
+}
+
+fn c() -> List<String> {
+    import std/json as d
+    [1, 2] |> Iter.map(fn _ -> d.Json.encode(d.Json.Bool(True))) |> Iter.to_list()
+}
+
+fn main() {
+    io.print(Int.to_string(a()))
+    io.print(b())
+    io.inspect(c())
+    w = {
+        import std/duration as d
+        d.Duration.as_millis(d.Duration.seconds(2))
+    }
+    io.print(Int.to_string(w))
+}
+`, "1000000\nnull\n[\"true\", \"true\"]\n2000\n")
+}
+
 // A project file imported only at the top of a block is part of the program
 // as a file-level import's is: discovery follows the block's import, and
 // the call through its qualifier runs, from the entry and from a file the

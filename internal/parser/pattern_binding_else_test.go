@@ -170,3 +170,45 @@ func TestPatternBindingElse_ParseErrors(t *testing.T) {
 		}
 	}
 }
+
+// A vector pattern with elements after its `..` is a binding's pattern as it
+// is a case arm's, with or without a name for the rest, and the else is kept.
+func TestPatternBindingElse_VectorPatternWithTails(t *testing.T) {
+	for src, rest := range map[string]bool{
+		"#[1, .., 3] = v else {\n    return False\n}":       false,
+		"#[a, ..mid, z] = v else {\n    return False\n}":    true,
+		"#[Some(a), .., #(b, _)] = v else { return False }": false,
+	} {
+		pb := parsePatternBinding(t, src)
+		vp, ok := pb.Pattern.(*ast.VectorPattern)
+		if !ok || !vp.Spread || len(vp.Heads) != 1 || len(vp.Tails) != 1 || (vp.Rest != nil) != rest {
+			t.Errorf("%q: pattern %#v", src, pb.Pattern)
+		}
+		if pb.Else == nil || pb.Else.Block == nil {
+			t.Errorf("%q: want an else block, got %#v", src, pb.Else)
+		}
+	}
+}
+
+// A list pattern with elements after its `..` is a binding's pattern as it
+// is a case arm's, with or without a name for the rest, and the else is kept.
+func TestPatternBindingElse_ListPatternWithTails(t *testing.T) {
+	for src, rest := range map[string]bool{
+		"[first, .., last] = xs else {\n    return 0\n}":               false,
+		"[\"graph {\", ..body, \"}\"] = lines else {\n    return 0\n}": true,
+		"[Some(a), .., #(b, _)] = xs else { return 0 }":                false,
+	} {
+		pb := parsePatternBinding(t, src)
+		lp, ok := pb.Pattern.(*ast.ListPattern)
+		if !ok || lp.TailSpread == nil || len(lp.Heads) != 1 || len(lp.Tails) != 1 {
+			t.Errorf("%q: pattern %#v", src, pb.Pattern)
+			continue
+		}
+		if _, named := lp.TailSpread.(*ast.IdentPattern); named != rest || lp.BareRest == rest {
+			t.Errorf("%q: rest %#v, BareRest %v", src, lp.TailSpread, lp.BareRest)
+		}
+		if pb.Else == nil || pb.Else.Block == nil {
+			t.Errorf("%q: want an else block, got %#v", src, pb.Else)
+		}
+	}
+}

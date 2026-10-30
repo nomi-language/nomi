@@ -27,14 +27,14 @@
 //
 // `recordCallArgs` includes literal arguments only when the callee returns
 // Bool — a predicate's literal inputs are what the reader wants (`assert
-// even?(5)` shows `5 = 5`), an ordinary call's are noise (`assert double(3) ==
+// is_even(5)` shows `5 = 5`), an ordinary call's are noise (`assert double(3) ==
 // 7` must not print `3 = 3`). The builder decides that from the callee's
 // declared return type, so it has to read the SELECTED implementation's
-// result. `bump` returns Int and `even_sum?` returns Bool, so the `3` is
+// result. `bump` returns Int and `has_even_sum` returns Bool, so the `3` is
 // dropped in one report and printed in the other, a few lines apart.
 interface Bumper {
     fn bump(c: self, by: Int) -> Int
-    fn even_sum?(c: self, by: Int) -> Bool
+    fn has_even_sum(c: self, by: Int) -> Bool
 }
 
 struct Counter {
@@ -46,7 +46,7 @@ impl Bumper for Counter {
         c.n + by
     }
 
-    fn even_sum?(c: Counter, by: Int) -> Bool {
+    fn has_even_sum(c: Counter, by: Int) -> Bool {
         (c.n + by) % 2 == 0
     }
 }
@@ -86,7 +86,7 @@ test "an interface-qualified impl call records its arguments" {
 
 test "a Bool-returning impl call records its LITERAL arguments too" {
     c = #Counter{n: 5}
-    assert Bumper.even_sum?(c, 2)
+    assert Bumper.has_even_sum(c, 2)
 }
 
 test "an Int-returning impl call drops its literal argument" {

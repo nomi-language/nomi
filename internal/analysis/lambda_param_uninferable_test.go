@@ -51,9 +51,9 @@ fn main() {
 // its body or a later call (spec, "A later use never types a parameter").
 func TestLambdaParamUninferable_HintShowsTheAnnotation(t *testing.T) {
 	errs := checkWithStdlib(`
-fn leap?(year: Int) -> Bool {
-  divisible? = fn n -> year % n == 0
-  divisible?(4) and (!divisible?(100) or divisible?(400))
+fn is_leap(year: Int) -> Bool {
+  is_divisible = fn n -> year % n == 0
+  is_divisible(4) and (!is_divisible(100) or is_divisible(400))
 }
 `)
 	if len(errs) == 0 {
@@ -61,7 +61,7 @@ fn leap?(year: Int) -> Bool {
 	}
 	want := "cannot infer type for parameter n\n" +
 		"help: annotate the parameter with its type, as in `fn n: T -> ...`; a later use of the lambda does not give it one"
-	if got := diagText(errs[0]); got != want || errs[0].Line != 3 || errs[0].Col != 19 {
-		t.Fatalf("first error at %d:%d:\n%s\nwant at 3:19:\n%s", errs[0].Line, errs[0].Col, got, want)
+	if got := diagText(errs[0]); got != want || errs[0].Line != 3 || errs[0].Col != 21 {
+		t.Fatalf("first error at %d:%d:\n%s\nwant at 3:21:\n%s", errs[0].Line, errs[0].Col, got, want)
 	}
 }

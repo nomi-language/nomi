@@ -41,7 +41,7 @@ pub struct Tally {
 }
 
 impl Equatable for Tally {
-    fn equal?(a: Tally, b: Tally) -> Bool {
+    fn equal(a: Tally, b: Tally) -> Bool {
         a.n == b.n
     }
 }

@@ -28,20 +28,15 @@ import {
 pub host type Map<K, V>
 
 impl Map<K, V> {
-    /// Gets a value by key. Returns Some(value) if the key is present, None otherwise.
+    /// Gets a value by key. Returns Some(value) if the key is present, None
+    /// otherwise. When the program guarantees the key is there, as it does
+    /// for a key it took from the map itself, `Map.get(m, key)!` answers the
+    /// value and traps on a missing key.
     //! assert Map.get(%{"a" => 1, "b" => 2}, "a") == Some(1)
     //! assert Map.get(%{"a" => 1, "b" => 2}, "z") == None
+    //! assert Map.get(%{"a" => 1, "b" => 2}, "b")! == 2
     //
     pub host fn get<K, V>(m: Map<K, V>, key: K) -> Maybe<V>
-
-    /// The value under `key`, which must be present. A missing key traps
-    /// with the key as `Debug` writes it: `key "z" is not in the Map`.
-    /// Use `Map.get` when whether the key is there is data (input, a lookup
-    /// that may miss), and `Map.at` when the program guarantees it, as it
-    /// does for a key it took from the map itself.
-    //! assert Map.at(%{"a" => 1, "b" => 2}, "b") == 2
-    //
-    pub host fn at<K, V>(m: Map<K, V>, key: K) -> V
 
     /// Returns a new map with the key-value pair added or updated.
     //! assert Map.put(%{"a" => 1}, "b", 2) == %{"a" => 1, "b" => 2}
@@ -59,6 +54,48 @@ impl Map<K, V> {
     //! assert Map.merge(%{"a" => 1}, %{"a" => 9, "b" => 2}) == %{"a" => 9, "b" => 2}
     //
     pub host fn merge<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
+
+    /// Merges two maps, combining the values of a key both hold:
+    /// `combine(a_value, b_value)` is its value in the result. A key only
+    /// one map holds keeps its value. The order is `Map.merge`'s: `a`'s
+    /// keys, then the keys only `b` holds, in `b`'s order.
+    //! assert Map.merge_with(%{"a" => 1, "b" => 2}, %{"b" => 10, "c" => 3}, Int.add) == %{
+    //!     "a" => 1,
+    //!     "b" => 12,
+    //!     "c" => 3,
+    //! }
+    //!
+    //! assert Map.merge_with(%{"x" => [1]}, %{"x" => [2]}, fn a, b -> a + b) == %{"x" => [1, 2]}
+    //
+    pub fn merge_with<K, V>(a: Map<K, V>, b: Map<K, V>, combine: (V, V) -> V) -> Map<K, V> {
+        Iter.reduce(b, from: a, fn merged, #(key, value) -> {
+            case Map.get(a, key) {
+                Some(mine) -> Map.put(merged, key, combine(mine, value))
+                None -> Map.put(merged, key, value)
+            }
+        })
+    }
+
+    /// Changes the value under `key` to `f` of it. When `key` is missing,
+    /// `f` is applied to `default`, and the key is added at the end. So
+    /// `default` is the value a missing key is taken to have, and counting
+    /// is `Map.update(counts, word, 0, &(&1 + 1))`. Elixir's `Map.update`
+    /// differs: it stores a missing key's default unchanged.
+    //! assert Map.update(%{"a" => 1}, "a", 0, &(&1 + 1)) == %{"a" => 2}
+    //! assert Map.update(%{"a" => 1}, "b", 0, &(&1 + 1)) == %{"a" => 1, "b" => 1}
+    //!
+    //! tally =
+    //!     ["x", "y", "x"]
+    //!     |> Iter.reduce(fn counts: Map<String, Int> = %{}, word -> {
+    //!         Map.update(counts, word, 0, &(&1 + 1))
+    //!     })
+    //!
+    //! assert tally == %{"x" => 2, "y" => 1}
+    //
+    pub fn update<K, V>(m: Map<K, V>, key: K, default: V, f: (V) -> V) -> Map<K, V> {
+        before = Map.get(m, key) |> Maybe.with_default(default)
+        Map.put(m, key, f(before))
+    }
 
     /// Returns the next key-value pair and remaining map, or None if empty.
     /// Drives the `Iter` implementation for `Map`.
@@ -106,14 +143,14 @@ impl Map<K, V> {
 
 impl Contains for Map<K, V> {
     /// True if `x` is a key of the map: a hash lookup. A value is not a key.
-    //! assert Map.contains?(%{"a" => 1}, "a")
-    //! refute Map.contains?(%{"a" => 1}, "z")
-    //! refute Map.contains?(%{"a" => "b"}, "b")
+    //! assert Map.contains(%{"a" => 1}, "a")
+    //! refute Map.contains(%{"a" => 1}, "z")
+    //! refute Map.contains(%{"a" => "b"}, "b")
     //! empty: Map<String, Int> = %{}
-    //! refute Map.contains?(empty, "a")
+    //! refute Map.contains(empty, "a")
     //
-    fn contains?(c: Map<K, V>, x: K) -> Bool {
-        Map.get(c, x) |> Maybe.some?()
+    fn contains(c: Map<K, V>, x: K) -> Bool {
+        Map.get(c, x) |> Maybe.is_some()
     }
 }
 
@@ -165,7 +202,7 @@ impl Equatable for Map<K, V> {
     // order-insensitively. Lets a record with a Map field `derive Equatable`.
     // Map is Hashable but intentionally not Comparable: there is no natural
     // total order for maps.
-    fn equal?(a: Map<K, V>, b: Map<K, V>) -> Bool {
+    fn equal(a: Map<K, V>, b: Map<K, V>) -> Bool {
         a == b
     }
 }

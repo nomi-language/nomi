@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // Range literals over user element types, built, rendered, tested with
-// `Range.contains?` and walked with `Range.step_by`. The VM's range hosts take
+// `Range.contains` and walked with `Range.step_by`. The VM's range hosts take
 // the element's comparator and step function as function values, and for a
 // user type both are the program's own impl bodies: elemComparator and
 // elemStepper choose them, this file's or the declaring file's. A user

@@ -103,6 +103,12 @@ type FileDecls struct {
 	// own; Program() holds the build's.
 	ImplBlockReceiver     map[*ast.FuncDef]string
 	ImplBlockInterfaceKey map[*ast.FuncDef]string
+	// ImplBlockReceiverModule records, for each item FuncDef of an impl
+	// block whose header names its receiver through a module
+	// (`impl Html for users.User`), that module's name as the file binds
+	// it. ImplBlockReceiver holds the base name alone, which this file's
+	// scope may bind to a type of its own (implReceiverOrigin).
+	ImplBlockReceiverModule map[*ast.FuncDef]string
 	// ImplBlockReceiverExtern and ImplBlockInterfaceKeyExtern are the
 	// `host fn` parallel of ImplBlockReceiver and ImplBlockInterfaceKey,
 	// which are FuncDef-typed and so exclude the `host fn` items of an

@@ -28,9 +28,9 @@ func TestDecimalStdFaultsNameTheirFunction(t *testing.T) {
 		f    func()
 		want string
 	}{
-		{"divide by zero", func() { DecimalDivide(IntToDecimal(1), IntToDecimal(0), 2, RoundHalfEven) },
+		{"divide by zero", func() { DecimalDivide(IntToDecimal(SmallInt(1)), IntToDecimal(SmallInt(0)), 2, RoundHalfEven) },
 			"Decimal.divide: decimal: division by zero"},
-		{"divide inexact under Unnecessary", func() { DecimalDivide(IntToDecimal(1), IntToDecimal(3), 2, RoundUnnecessary) },
+		{"divide inexact under Unnecessary", func() { DecimalDivide(IntToDecimal(SmallInt(1)), IntToDecimal(SmallInt(3)), 2, RoundUnnecessary) },
 			"Decimal.divide: decimal: division of 1 by 3 is not exact at scale 2 but mode is Unnecessary"},
 		{"round inexact under Unnecessary", func() { DecimalRound(mustParse(t, "1.55"), 1, RoundUnnecessary) },
 			"Decimal.round: decimal: rounding necessary to reach scale 1 but mode is Unnecessary"},
@@ -51,7 +51,7 @@ func TestDecimalStdFaultsNameTheirFunction(t *testing.T) {
 // DecimalCompare answers an Ordering whose tag is OrderingTag's for the
 // variant it names.
 func TestDecimalCompareAnswersOrderingTags(t *testing.T) {
-	if got := DecimalCompare(IntToDecimal(1), IntToDecimal(2)).Tag; got != OrderingTag("Less") {
+	if got := DecimalCompare(IntToDecimal(SmallInt(1)), IntToDecimal(SmallInt(2))).Tag; got != OrderingTag("Less") {
 		t.Errorf("DecimalCompare(1, 2) has tag %d, want Less (%d)", got, OrderingTag("Less"))
 	}
 }

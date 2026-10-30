@@ -42,22 +42,22 @@ import {
     std/io
 }
 
-// `try` inside `fn main()` is refused by the builder (`try boundary mismatch`:
+// `?` inside `fn main()` is refused by the builder (`try boundary mismatch`:
 // a Unit-returning body cannot propagate), so the fallible half lives here and
 // main discharges it. A property of `main`, not of these types.
 fn run() -> Result<Unit, Error> {
     // 2026-11-01 01:30 in New York is the FOLD: clocks go back at 02:00 EDT, so
     // this wall reading happens twice, an hour apart.
-    fold = try NaiveDateTime"2026-11-01T01:30:00"
+    fold = NaiveDateTime"2026-11-01T01:30:00"?
     // 2026-03-08 02:30 in New York is the GAP: clocks jump 02:00 EST -> 03:00
     // EDT, so this wall reading never happens at all.
-    gap = try NaiveDateTime"2026-03-08T02:30:00"
+    gap = NaiveDateTime"2026-03-08T02:30:00"?
 
     // --- the fold, under every resolving mode plus the default ---------------
-    fold_default = try DateTime.in_zone(fold, "America/New_York")
-    fold_compatible = try DateTime.in_zone(fold, "America/New_York", Disambiguation.Compatible)
-    fold_earlier = try DateTime.in_zone(fold, "America/New_York", Disambiguation.Earlier)
-    fold_later = try DateTime.in_zone(fold, "America/New_York", Disambiguation.Later)
+    fold_default = DateTime.in_zone(fold, "America/New_York")?
+    fold_compatible = DateTime.in_zone(fold, "America/New_York", Disambiguation.Compatible)?
+    fold_earlier = DateTime.in_zone(fold, "America/New_York", Disambiguation.Earlier)?
+    fold_later = DateTime.in_zone(fold, "America/New_York", Disambiguation.Later)?
 
     // The offsets are the observable: -04:00 is EDT (before the transition),
     // -05:00 is EST (after it). Same wall reading in every line.
@@ -89,9 +89,9 @@ fn run() -> Result<Unit, Error> {
     }
 
     // --- the gap, which is the only place the DEFAULT is distinguishable -----
-    gap_default = try DateTime.in_zone(gap, "America/New_York")
-    gap_earlier = try DateTime.in_zone(gap, "America/New_York", Disambiguation.Earlier)
-    gap_later = try DateTime.in_zone(gap, "America/New_York", Disambiguation.Later)
+    gap_default = DateTime.in_zone(gap, "America/New_York")?
+    gap_earlier = DateTime.in_zone(gap, "America/New_York", Disambiguation.Earlier)?
+    gap_later = DateTime.in_zone(gap, "America/New_York", Disambiguation.Later)?
 
     io.print("gap_default = " + DateTime.to_string(gap_default))
     io.print("gap_earlier = " + DateTime.to_string(gap_earlier))
@@ -112,7 +112,7 @@ fn run() -> Result<Unit, Error> {
     // --- two zones, one instant ---------------------------------------------
     // Re-projecting the post-transition reading into Tokyo changes every
     // rendered component and changes the value not at all.
-    tokyo = try DateTime.with_zone(fold_later, "Asia/Tokyo")
+    tokyo = DateTime.with_zone(fold_later, "Asia/Tokyo")?
     io.print("tokyo = " + DateTime.to_string(tokyo))
     io.print("tokyo_equals_later = " + Bool.to_string(tokyo == fold_later))
     io.print("tokyo_equals_earlier = " + Bool.to_string(tokyo == fold_earlier))

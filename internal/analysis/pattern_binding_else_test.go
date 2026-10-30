@@ -96,7 +96,7 @@ func TestPatternBindingElse_EachFormChecks(t *testing.T) {
     }) |> Iter.to_list()
 }`,
 		"try in the else": `fn f(r: Result<Int, String>, other: Result<Int, String>) -> Result<Int, String> {
-    Ok(n) = r else { try other }
+    Ok(n) = r else { other? }
     Ok(n)
 }`,
 	} {
@@ -246,7 +246,7 @@ fn f(c: Check) -> Int {
 // A variant binding with no else, `Ok(x) = r`, is a pattern that can fail.
 // The parser reads `Name(x) = value` as a distinct-type destructure, and the
 // checker reports it as the refutable binding it is. On `Ok` over a Result
-// and `Some` over a Maybe the hint points at `try`, which is usually meant.
+// and `Some` over a Maybe the hint points at `?`, which is usually meant.
 // Each case fails if the source starts being accepted.
 func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
 	refutable := func(ty string) string {
@@ -260,17 +260,17 @@ func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
     Ok(x) = r
     Ok(x)
 }`, "19:5", refutable("Result<Int, String>"),
-			"`Ok(x)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `x = try ...`"},
+			"`Ok(x)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `x = ...?`"},
 		"Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int> {
     Some(x) = m
     Some(x)
 }`, "19:5", refutable("Maybe<Int>"),
-			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = try ...`"},
+			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = ...?`"},
 		"dotted Some over a Maybe": {`fn f(m: Maybe<Int>) -> Maybe<Int> {
     .Some(x) = m
     Some(x)
 }`, "19:5", refutable("Maybe<Int>"),
-			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = try ...`"},
+			"`Some(x)` does not match `None`. To unwrap the `Maybe` and return early on `None`, write `x = ...?`"},
 		"Err over a Result": {`fn f(r: Result<Int, String>) -> String {
     Err(e) = r
     e
@@ -280,19 +280,19 @@ func TestPatternBinding_RefutableVariantWithoutElse(t *testing.T) {
     s
 }`, "19:5", refutable("LoadError"), ""},
 		// The program from a user's report: a pipe, whose hint is the
-		// `|> try` stage, ending in `Maybe.to_result`, whose Result was
+		// a `?` stage stage, ending in `Maybe.to_result`, whose Result was
 		// copied before std/results.nomi filled in its variants.
 		"a pipe ending in Maybe.to_result": {`import std/io
 
 fn main() -> Result<Unit, String> {
     Ok(balance) =
-        try io.read_line()
+        io.read_line()?
         |> String.to_int()
         |> Maybe.to_result("is not a number!")
     io.print(Int.to_string(balance))
     Ok(Unit)
 }`, "4:5", refutable("Result<Int, String>"),
-			"`Ok(balance)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `balance = ...` and end the pipe with `|> try`"},
+			"`Ok(balance)` does not match an `Err`. To unwrap the `Result` and return early on `Err`, write `balance = ...` and end the pipe's last stage with `?`"},
 	} {
 		src := elseDecls + "\n" + tc.body + "\n"
 		if strings.HasPrefix(tc.body, "import") {

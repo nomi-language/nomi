@@ -7,13 +7,15 @@ description: "Lay a set of domino stones in a ring, turning each as needed, so t
 
 Lay a set of domino stones in a ring, turning each as needed, so that touching halves match and the two free ends match each other.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/dominoes) (MIT). Listed under [Collections & Algorithms](/examples/?subject=collections-and-algorithms).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/dominoes) (MIT). Listed under [Collections & Algorithms](/examples/?subject=collections-and-algorithms).
 
 ```nomi-run
 // FILE: dominoes.nomi
-/// The `stones`, each the dots on its two halves, laid in a chain, each turned as it must be, where touching
-/// halves match and the two free ends match each other; `None` when no
-/// order makes one.
+//# Lays a set of dominoes in a closed chain, where touching halves match.
+
+/// The `stones`, each the dots on its two halves, laid in a chain, each
+/// turned as it must be, where touching halves match and the two free ends
+/// match each other; `None` when no order makes one.
 pub fn chain(stones: List<#(Int, Int)>) -> Maybe<List<#(Int, Int)>> {
     case stones {
         [] -> Some([])
@@ -30,17 +32,13 @@ fn extend(
     laid: List<#(Int, Int)>,
     left: List<#(Int, Int)>,
 ) -> Maybe<List<#(Int, Int)>> {
-    if left == [] and start == end {
-        return Some(Iter.reverse(laid))
-    }
+    if left == [] and start == end { return Some(Iter.reverse(laid)) }
 
     left
     |> picks()
     |> Iter.flat_map(fn #(#(a, b), others) -> [#(#(a, b), others), #(#(b, a), others)])
     |> Iter.filter(fn #(#(a, _b), _others) -> a == end)
-    |> Iter.map(fn #(#(a, b), others) -> extend(start, b, [#(a, b), ..laid], others))
-    |> Iter.find(Maybe.some?)
-    |> Maybe.flat_map(fn found -> found)
+    |> Iter.find_map(fn #(#(a, b), others) -> extend(start, b, [#(a, b), ..laid], others))
 }
 
 /// Each stone of `stones` with the stones other than it.
@@ -56,13 +54,13 @@ import dominoes
 /// Whether `chain` is a chain of exactly `stones`: each stone's second half
 /// matches the next one's first, the last stone's matches the first's, and
 /// it holds each stone as often as `stones` does, either way round.
-fn chain_of?(chain: List<#(Int, Int)>, stones: List<#(Int, Int)>) -> Bool {
+fn is_chain_of(chain: List<#(Int, Int)>, stones: List<#(Int, Int)>) -> Bool {
     next = chain |> Iter.drop(1) |> Iter.concat(Iter.take(chain, 1))
-    linked = Iter.zip(chain, next) |> Iter.all?(fn #(#(_a, b), #(c, _d)) -> b == c)
-    linked and same_stones?(chain, stones)
+    linked = Iter.zip(chain, next) |> Iter.all(fn #(#(_a, b), #(c, _d)) -> b == c)
+    linked and has_same_stones(chain, stones)
 }
 
-fn same_stones?(a: List<#(Int, Int)>, b: List<#(Int, Int)>) -> Bool {
+fn has_same_stones(a: List<#(Int, Int)>, b: List<#(Int, Int)>) -> Bool {
     a |> Iter.map(unturned) |> Iter.frequencies() == b |> Iter.map(unturned) |> Iter.frequencies()
 }
 
@@ -71,7 +69,7 @@ fn unturned(#(a, b): #(Int, Int)) -> #(Int, Int) {
 }
 
 test "can chain" {
-    cases: List<#(String, List<#(Int, Int)>)> = [
+    cases = [
         #("empty input = empty output", []),
         #("singleton input = singleton output", [#(1, 1)]),
         #("three elements", [#(1, 2), #(3, 1), #(2, 3)]),
@@ -86,12 +84,12 @@ test "can chain" {
 
     subtests cases, #(description, stones), description {
         assert Some(chain) = dominoes.chain(stones)
-        assert chain_of?(chain, stones)
+        assert is_chain_of(chain, stones)
     }
 }
 
 test "cannot chain" {
-    cases: List<#(String, List<#(Int, Int)>)> = [
+    cases = [
         #("singleton that can't be chained", [#(1, 2)]),
         #("can't be chained", [#(1, 2), #(4, 1), #(2, 3)]),
         #("disconnected - simple", [#(1, 1), #(2, 2)]),
@@ -109,14 +107,8 @@ test "cannot chain" {
 ## How it's written
 
 - This is the exercise's second level: `chain` returns the chain itself, `Maybe<List<Stone>>`, not only whether one exists. A stone is a `#(Int, Int)`, as the canonical comments suggest for a language with pairs. It is written out rather than named with a `typealias`: an alias is for shortening a long anonymous shape, and a pair is short.
-- The search is a depth-first backtrack. The first stone starts the chain, and `extend` tries every stone left, either way round, whose first half matches the free end, and recurses. The candidates are a lazy pipeline ended by `Iter.find`, so the search stops at the first chain that closes and backs out of a dead end by moving on to the next candidate. A chain that uses every stone closes when its two ends match.
+- The search is a depth-first backtrack. The first stone starts the chain, and `extend` tries every stone left, either way round, whose first half matches the free end, and recurses. The candidates are a lazy pipeline ended by `Iter.find_map`, so the search stops at the first chain that closes and backs out of a dead end by moving on to the next candidate. A chain that uses every stone closes when its two ends match.
 - The chain is built last stone first, with `[stone, ..laid]`, and reversed once at the end, so each step is a cons.
 - `picks` pairs each stone with the stones other than it, the list with that stone taken out by `List.remove_at`.
-- The canonical data lists only whether a chain exists, since a set has many chains. The test file checks a found chain with `chain_of?`, the four properties the canonical comments give: each stone's second half matches the next one's first and the last one's matches the first's (one zip of the chain with itself rotated by one), and it holds the same stones as often as the input, either way round (the frequencies of each stone with its smaller half first). Matching frequencies make the counts equal too.
+- The canonical data lists only whether a chain exists, since a set has many chains. The test file checks a found chain with `is_chain_of`, the four properties the canonical comments give: each stone's second half matches the next one's first and the last one's matches the first's (one zip of the chain with itself rotated by one), and it holds the same stones as often as the input, either way round (the frequencies of each stone with its smaller half first). Matching frequencies make the counts equal too.
 - The cases are two `subtests` tables, the seven that chain and the six that do not, since they assert different things.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no `Iter.find_map` and no `Maybe.flatten`. The search maps each candidate to a `Maybe` of a chain and wants the first `Some`, which is `Iter.find(Maybe.some?)` and then `Maybe.flat_map(fn found -> found)` to undo the double `Maybe`. Rust has `Iterator::find_map`, Elixir `Enum.find_value` and Gleam `list.find_map`.

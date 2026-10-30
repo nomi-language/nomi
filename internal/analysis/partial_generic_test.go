@@ -91,23 +91,40 @@ func TestPartialGeneric_TakesTheExpectedParameterTypesButNotAnyResult(t *testing
 }
 
 // A generic function named as a value whose parameter would take the
-// expected one only by a nested conversion is refused, and the help names
-// the capture that fits: bare `Iter.flatten` is no `(List<List<Int>>) ->
-// List<Int>`, and `&Iter.flatten(&1)` is one.
+// expected one only by a conversion inside a container is refused, and the
+// help names the capture that fits: bare `total` is no `(List<List<Int>>)
+// -> Int`, and `&total(&1)` is one.
 func TestPartialGeneric_AFunctionValueThatDoesNotFitNamesTheCapture(t *testing.T) {
-	const hint = "\nhelp: a function value's parameter takes a List where an Iter is declared only at the top, not inside another type; write the capture `&Iter.flatten(&1)`, whose parameters are the ones expected here"
+	const total = "fn total<T>(rows: List<Iter<T>>) -> Int {\n  rows |> Iter.map(Iter.count) |> Iter.sum()\n}\n\n"
+	const hint = "\nhelp: a function value's parameter takes a List where an Iter is declared only at the top or as an Iter's element, not inside another type; write the capture `&total(&1)`, whose parameters are the ones expected here"
 	for _, tc := range []struct{ name, body, want, at string }{
-		{"an argument", "  _ = Maybe.map(Some([[1], [2]]), Iter.flatten)",
-			"argument 2: expected (List<List<Int>>) -> U, got (Iter<Iter<U>>) -> List<U>" + hint, "Iter.flatten"},
-		{"an annotated binding", "  f: (List<List<Int>>) -> List<Int> = Iter.flatten\n  _ = f",
-			"type mismatch: expected (List<List<Int>>) -> List<Int>, got (Iter<Iter<U>>) -> List<U>" + hint, "Iter.flatten"},
+		{"an argument", "  _ = Maybe.map(Some([[1], [2]]), total)",
+			"argument 2: expected (List<List<Int>>) -> U, got (List<Iter<T>>) -> Int" + hint, "total"},
+		{"an annotated binding", "  f: (List<List<Int>>) -> Int = total\n  _ = f",
+			"type mismatch: expected (List<List<Int>>) -> Int, got (List<Iter<T>>) -> Int" + hint, "total"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			src := "fn main() {\n" + tc.body + "\n}\n"
+			src := total + "fn main() {\n" + tc.body + "\n}\n"
 			_, errs := checkSourceWithStdlib(src)
 			expectDiagAt(t, src, errs, tc.want, tc.at)
 		})
 	}
+}
+
+// An Iter's element takes a List as the top does: `Iter.flatten` is an
+// `(Iter<Iter<U>>) -> List<U>`, which stands where a function of a List of
+// Lists is expected, as `Iter.flatten(lists)` takes the lists.
+func TestPartialGeneric_AnIterElementTakesAList(t *testing.T) {
+	_, errs := checkSourceWithStdlib(`
+fn main() {
+  found: Result<List<List<String>>, String> = Ok([["a"], ["b"]])
+  _ = Result.map(found, Iter.flatten)
+  f: (List<List<Int>>) -> List<Int> = Iter.flatten
+  g: (List<Vector<Int>>) -> List<Int> = Iter.flatten
+  _ = #(f([[1]]), g([#[1]]))
+}
+`)
+	expectNoStdlibErrors(t, errs)
 }
 
 // The mirror: where the capture would not fit either, as for a result the
@@ -115,5 +132,5 @@ func TestPartialGeneric_AFunctionValueThatDoesNotFitNamesTheCapture(t *testing.T
 func TestPartialGeneric_NoCaptureHintWhereTheCaptureWouldNotFit(t *testing.T) {
 	src := "fn main() {\n  f: (List<List<Int>>) -> List<String> = Iter.flatten\n  _ = f\n}\n"
 	_, errs := checkSourceWithStdlib(src)
-	expectDiagAt(t, src, errs, "type mismatch: expected (List<List<Int>>) -> List<String>, got (Iter<Iter<U>>) -> List<U>", "Iter.flatten")
+	expectDiagAt(t, src, errs, "type mismatch: expected (List<List<Int>>) -> List<String>, got (Iter<Iter<Int>>) -> List<Int>", "Iter.flatten")
 }

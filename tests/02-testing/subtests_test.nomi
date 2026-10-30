@@ -5,7 +5,7 @@ struct Point {
     y: Int
 }
 
-fn palindrome?(s: String) -> Bool {
+fn is_palindrome(s: String) -> Bool {
     String.reverse(s) == s
 }
 
@@ -13,7 +13,7 @@ test "each row runs the body once" {
     cases = [#("abba", True), #("abc", False), #("x", True), #("", True)]
 
     subtests cases, #(line, known_palindrome) {
-        assert palindrome?(line) == known_palindrome
+        assert is_palindrome(line) == known_palindrome
     }
 }
 
@@ -112,7 +112,7 @@ test "subtests is a name everywhere else" {
 }
 
 fn check_palindrome(line: String, known_palindrome: Bool) -> Result<Unit, AssertionFailure> {
-    assert palindrome?(line) == known_palindrome
+    assert is_palindrome(line) == known_palindrome
 
     Ok(Unit)
 }
@@ -130,7 +130,7 @@ test "a row may be named by a column it carries" {
     ]
 
     subtests cases, #(description, line, known_palindrome), description {
-        assert palindrome?(line) == known_palindrome
+        assert is_palindrome(line) == known_palindrome
     }
 }
 

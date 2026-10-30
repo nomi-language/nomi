@@ -84,7 +84,7 @@ fn kinds(d: Dynamic) -> String {
     Err(e) -> show_error(e)
   }
   nothing = case Dynamic.field(d, "nothing") {
-    Ok(v) -> Bool.to_string(Dynamic.null?(v))
+    Ok(v) -> Bool.to_string(Dynamic.is_null(v))
     Err(e) -> show_error(e)
   }
   pi + " " + on + " " + tags + " " + keys + " " + nothing
@@ -98,9 +98,9 @@ fn run(d: Dynamic) {
   io.print(int_at(d, "inner.n"))
   io.print(tag_at(d, 1))
   io.print(tag_at(d, 5))
-  io.print(Dynamic.has?(d, "age"))
-  io.print(Dynamic.has?(d, "missing"))
-  io.print(Dynamic.null?(d))
+  io.print(Dynamic.has(d, "age"))
+  io.print(Dynamic.has(d, "missing"))
+  io.print(Dynamic.is_null(d))
   io.print(Dynamic.inspect(d))
 }
 

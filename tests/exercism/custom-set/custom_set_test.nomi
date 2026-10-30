@@ -1,30 +1,30 @@
 import custom_set.CustomSet
 
 test "Returns true if the set contains no elements" {
-    cases: List<#(String, List<Int>, Bool)> = [
+    cases = [
         #("sets with no elements are empty", [], True),
         #("sets with elements are not empty", [1], False),
     ]
 
     subtests cases, #(description, set, expected), description {
-        assert CustomSet.from(set) |> CustomSet.empty?() == expected
+        assert CustomSet.from(set) |> CustomSet.is_empty() == expected
     }
 }
 
 test "Sets can report if they contain an element" {
-    cases: List<#(String, List<Int>, Int, Bool)> = [
+    cases = [
         #("nothing is contained in an empty set", [], 1, False),
         #("when the element is in the set", [1, 2, 3], 1, True),
         #("when the element is not in the set", [1, 2, 3], 4, False),
     ]
 
     subtests cases, #(description, set, element, expected), description {
-        assert CustomSet.from(set) |> CustomSet.contains?(element) == expected
+        assert CustomSet.from(set) |> CustomSet.contains(element) == expected
     }
 }
 
 test "A set is a subset if all of its elements are contained in the other set" {
-    cases: List<#(String, List<Int>, List<Int>, Bool)> = [
+    cases = [
         #("empty set is a subset of another empty set", [], [], True),
         #("empty set is a subset of non-empty set", [], [1], True),
         #("non-empty set is not a subset of empty set", [1], [], False),
@@ -39,12 +39,12 @@ test "A set is a subset if all of its elements are contained in the other set" {
     ]
 
     subtests cases, #(description, set1, set2, expected), description {
-        assert CustomSet.subset?(CustomSet.from(set1), CustomSet.from(set2)) == expected
+        assert CustomSet.is_subset(CustomSet.from(set1), CustomSet.from(set2)) == expected
     }
 }
 
 test "Sets are disjoint if they share no elements" {
-    cases: List<#(String, List<Int>, List<Int>, Bool)> = [
+    cases = [
         #("the empty set is disjoint with itself", [], [], True),
         #("empty set is disjoint with non-empty set", [], [1], True),
         #("non-empty set is disjoint with empty set", [1], [], True),
@@ -53,12 +53,12 @@ test "Sets are disjoint if they share no elements" {
     ]
 
     subtests cases, #(description, set1, set2, expected), description {
-        assert CustomSet.disjoint?(CustomSet.from(set1), CustomSet.from(set2)) == expected
+        assert CustomSet.is_disjoint(CustomSet.from(set1), CustomSet.from(set2)) == expected
     }
 }
 
 test "Sets with the same elements are equal" {
-    cases: List<#(String, List<Int>, List<Int>, Bool)> = [
+    cases = [
         #("empty sets are equal", [], [], True),
         #("empty set is not equal to non-empty set", [], [1, 2, 3], False),
         #("non-empty set is not equal to empty set", [1, 2, 3], [], False),
@@ -74,7 +74,7 @@ test "Sets with the same elements are equal" {
 }
 
 test "Unique elements can be added to a set" {
-    cases: List<#(String, List<Int>, Int, List<Int>)> = [
+    cases = [
         #("add to empty set", [], 3, [3]),
         #("add to non-empty set", [1, 2, 4], 3, [1, 2, 3, 4]),
         #("adding an existing element does not change the set", [1, 2, 3], 3, [1, 2, 3]),
@@ -86,7 +86,7 @@ test "Unique elements can be added to a set" {
 }
 
 test "Intersection returns a set of all shared elements" {
-    cases: List<#(String, List<Int>, List<Int>, List<Int>)> = [
+    cases = [
         #("intersection of two empty sets is an empty set", [], [], []),
         #("intersection of an empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         #("intersection of a non-empty set and an empty set is an empty set", [1, 2, 3, 4], [], []),
@@ -111,7 +111,7 @@ test "Intersection returns a set of all shared elements" {
 }
 
 test "Difference (or Complement) of a set is a set of all elements that are only in the first set" {
-    cases: List<#(String, List<Int>, List<Int>, List<Int>)> = [
+    cases = [
         #("difference of two empty sets is an empty set", [], [], []),
         #("difference of empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         #(
@@ -136,7 +136,7 @@ test "Difference (or Complement) of a set is a set of all elements that are only
 }
 
 test "Union returns a set of all elements in either set" {
-    cases: List<#(String, List<Int>, List<Int>, List<Int>)> = [
+    cases = [
         #("union of empty sets is an empty set", [], [], []),
         #("union of an empty set and non-empty set is the non-empty set", [], [2], [2]),
         #("union of a non-empty set and empty set is the non-empty set", [1, 3], [], [1, 3]),

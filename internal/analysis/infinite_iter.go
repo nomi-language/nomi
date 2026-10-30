@@ -7,7 +7,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// The compile-time half of the `infinite?` protocol (rt/seqendless.go).
+// The compile-time half of the `is_infinite` protocol (rt/seqendless.go).
 //
 // The runtime traps when a terminal that has to reach the end of its source
 // (`Iter.to_list`, `Iter.count`, `String.join`, ...) receives a sequence
@@ -116,19 +116,20 @@ type iterAdapterRule struct {
 // Every other function, `Iter.take` and `Iter.take_while` among them, ends
 // the analysis.
 var infiniteIterAdapters = map[string]iterAdapterRule{
-	"Iter.map":        {iterKeeps, iterCallbackArg},
-	"Iter.filter":     {iterKeeps, &iterArg{1, "pred"}},
-	"Iter.drop":       {iterKeeps, nil},
-	"Iter.drop_while": {iterKeeps, &iterArg{1, "pred"}},
-	"Iter.with_index": {iterKeeps, nil},
-	"Iter.scan":       {iterKeeps, iterCallbackArg},
-	"Iter.chunk_by":   {iterKeeps, &iterArg{1, "key_fn"}},
-	"Iter.flat_map":   {iterKeeps, iterCallbackArg},
-	"Iter.chunks":     {iterChunks, nil},
-	"Iter.windows":    {iterChunks, nil},
-	"Iter.cycle":      {iterCycles, nil},
-	"Iter.concat":     {iterEither, nil},
-	"Iter.zip":        {iterBoth, nil},
+	"Iter.map":         {iterKeeps, iterCallbackArg},
+	"Iter.filter":      {iterKeeps, &iterArg{1, "pred"}},
+	"Iter.drop":        {iterKeeps, nil},
+	"Iter.drop_while":  {iterKeeps, &iterArg{1, "pred"}},
+	"Iter.with_index":  {iterKeeps, nil},
+	"Iter.intersperse": {iterKeeps, nil},
+	"Iter.scan":        {iterKeeps, iterCallbackArg},
+	"Iter.chunk_by":    {iterKeeps, &iterArg{1, "key_fn"}},
+	"Iter.flat_map":    {iterKeeps, iterCallbackArg},
+	"Iter.chunks":      {iterChunks, nil},
+	"Iter.windows":     {iterChunks, nil},
+	"Iter.cycle":       {iterCycles, nil},
+	"Iter.concat":      {iterEither, nil},
+	"Iter.zip":         {iterBoth, nil},
 }
 
 // InfiniteIterTables lists the names of the std functions the check knows,
@@ -145,10 +146,6 @@ func InfiniteIterTables() (terminals, adapters, sources []string) {
 	sources = []string{"Iter.repeat", "Iter.from", "Iter.iterate", "Range.from", "Range.naturals", "Range.step_by"}
 	return terminals, adapters, sources
 }
-
-// rangeEndlessMin is rt's: an unbounded Int range that starts within this
-// many steps of `Int.max_value` ends.
-const rangeEndlessMin = 1 << 48
 
 // infiniteIterCheck walks a file's bodies for terminals that drain a source
 // it can see never ends.
@@ -289,13 +286,9 @@ func (c *infiniteIterCheck) endlessCall(call *ast.Call, piped ast.Node, depth in
 		}
 		return &endlessAt{key, call}
 	case "Range.from":
-		// rt's rangeEndless: a range that starts within rangeEndlessMin of
-		// `Int.max_value` ends, and any other, a negative start included,
-		// never does.
-		if n, ok := intLiteral(args.at(iterArg{0, "n"})); ok && uint64(math.MaxInt64)-uint64(n) >= rangeEndlessMin {
-			return &endlessAt{"Range.from", call}
-		}
-		return nil
+		// rt's rangeEndless: an Int has no largest value, so an unbounded
+		// range never ends.
+		return &endlessAt{"Range.from", call}
 	case "Range.naturals":
 		return &endlessAt{"Range.naturals", call}
 	case "Range.step_by":
@@ -339,25 +332,14 @@ func (c *infiniteIterCheck) endlessCall(call *ast.Call, piped ast.Node, depth in
 
 // endlessStepBy is `Range.step_by(r, by)` over an unbounded Range the check
 // can see, with a literal step. rt's stepByEndless calls it endless unless
-// the step does not move or the range reaches the end of Int within
-// rangeEndlessMin steps; a start and a step this small leave more room than
-// that in either direction.
+// the step does not move.
 func (c *infiniteIterCheck) endlessStepBy(args iterArgs, depth int) *endlessAt {
 	r := c.endless(args.at(iterArg{0, "r"}), depth)
 	if r == nil || (r.name != "Range.from" && r.name != "Range.naturals") {
 		return nil
 	}
-	start := int64(0)
-	if call, ok := r.at.(*ast.Call); ok && c.s.stdFunctionKey(call) == "Range.from" {
-		if n, ok := intLiteral(iterArgs(call.Args).at(iterArg{0, "n"})); ok {
-			start = n
-		} else {
-			// Piped into Range.from: its start is the piped value.
-			return nil
-		}
-	}
 	by, ok := intLiteral(args.at(iterArg{1, "by"}))
-	if !ok || by == 0 || by > 1<<10 || by < -(1<<10) || start > 1<<60 || start < -(1<<60) {
+	if !ok || by == 0 {
 		return nil
 	}
 	return &endlessAt{"Range.step_by", r.at}
@@ -367,12 +349,15 @@ func (c *infiniteIterCheck) endlessStepBy(args iterArgs, depth int) *endlessAt {
 func intLiteral(n ast.Node) (int64, bool) {
 	switch node := n.(type) {
 	case *ast.IntLit:
+		if node.Big != nil {
+			return 0, false
+		}
 		return node.Value, true
 	case *ast.GroupedExpr:
 		return intLiteral(node.Expr)
 	case *ast.Unary:
 		if node.Op == "-" {
-			if v, ok := node.Right.(*ast.IntLit); ok && v.Value != math.MinInt64 {
+			if v, ok := node.Right.(*ast.IntLit); ok && v.Big == nil && v.Value != math.MinInt64 {
 				return -v.Value, true
 			}
 		}
@@ -389,11 +374,11 @@ func nonEmptyCountedLiteral(n ast.Node) bool {
 	case *ast.ListLit:
 		return node.TypeName == nil && len(node.Items) > 0
 	case *ast.VectorLit:
-		return node.TypeName == nil && node.Spread == nil && len(node.Items) > 0
+		return node.TypeName == nil && len(node.Spreads) == 0 && len(node.Items) > 0
 	case *ast.SetLit:
-		return node.TypeName == nil && node.Spread == nil && len(node.Items) > 0
+		return node.TypeName == nil && len(node.Spreads) == 0 && len(node.Items) > 0
 	case *ast.MapLit:
-		return node.TypeName == nil && node.Spread == nil && len(node.Entries) > 0
+		return node.TypeName == nil && len(node.Spreads) == 0 && len(node.Entries) > 0
 	}
 	return false
 }

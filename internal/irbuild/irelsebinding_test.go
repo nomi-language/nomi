@@ -9,7 +9,7 @@ import (
 // (testdata/binding_else.nomi): a block or arms that leave, a fallback for
 // the pattern's payload (a name, a tuple, a struct variant's fields or its
 // whole record), arms mixing the two, a guard, a rebinding of the value's own
-// name, a nested or list or map or tuple pattern whose else leaves, `try` in
+// name, a nested or list or map or tuple pattern whose else leaves, `?` in
 // the else, and the exits of a lambda (`return`), an Iter.each callback
 // (`continue`) and an inline Iter.loop (`break v`, `return v`). No function
 // is BLOCKED, and the output matches the golden record.

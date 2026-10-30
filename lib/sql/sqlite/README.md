@@ -16,13 +16,13 @@ import {
 
 fn main() -> Result<Unit, Error> {
     sql.with_connection(fn -> sqlite.open("notes.db"), fn db -> {
-        _ = try Conn.exec(
+        _ = Conn.exec(
             db,
             Sql"CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)",
-        )
+        )?
 
-        _ = try Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"hello"})")
-        rows = try Conn.query(db, Sql"SELECT body FROM notes")
+        _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"hello"})")?
+        rows = Conn.query(db, Sql"SELECT body FROM notes")?
 
         Iter.each(rows, fn row -> {
             io.print(
@@ -103,7 +103,10 @@ decimal again. So the driver:
   more than 15 digits at that scale, which a float may already have rounded.
 
 Each refusal is `sql.Error.Database` with the code `SQLITE_MISMATCH` and a
-message naming the parameter or column and the fix. So a `DECIMAL(p, s)`
+message naming the parameter or column and the fix. An `Int` parameter past
+the signed 64-bit range of an SQLite `INTEGER` is refused the same way: a
+Nomi `Int` is exact at any size, and SQLite would keep such a value as a
+float or as text, which reads back as another value. So a `DECIMAL(p, s)`
 column with `p` at most 15 keeps every value exactly, at its scale;
 `nomi tool sqlkit generate` warns about one declared wider, or with no
 scale. Keep an amount that needs more digits, or that SQL adds up over many

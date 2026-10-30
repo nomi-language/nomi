@@ -55,10 +55,10 @@ pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
     tokens =
         instructions
         |> Iter.flat_map(String.words)
-        |> Iter.map(String.to_lower)
+        |> Iter.map(String.lowercase)
         |> Iter.to_list()
 
-    stack = try run([], builtins, tokens)
+    stack = run([], builtins, tokens)?
 
     stack
     |> Iter.reverse()
@@ -76,9 +76,7 @@ fn run(
             Ok(stack)
 
         [":", name, ..rest] -> {
-            if String.to_int(name) |> Maybe.some?() {
-                return Err(.IllegalOperation)
-            }
+            if String.to_int(name) |> Maybe.is_some() { return Err(.IllegalOperation) }
 
             body = rest |> Iter.take_while(&(&1 != ";")) |> Iter.to_list()
             after = rest |> Iter.drop(Iter.count(body) + 1) |> Iter.to_list()
@@ -86,14 +84,14 @@ fn run(
             ops =
                 body
                 |> Iter.map(&resolve(words, &1))
-                |> try Result.collect()
+                |> Result.collect()?
 
             run(stack, Map.put(words, name, Iter.flatten(ops)), after)
         }
 
         [word, ..rest] -> {
-            ops = try resolve(words, word)
-            stack = try execute(stack, ops)
+            ops = resolve(words, word)?
+            stack = execute(stack, ops)?
             run(stack, words, rest)
         }
     }
@@ -102,9 +100,7 @@ fn run(
 /// The steps `word` runs: a number pushes itself, and any other word runs
 /// the steps it was defined with when it was defined.
 fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error> {
-    if Some(n) = String.to_int(word) {
-        return Ok([.Push(n)])
-    }
+    if Some(n) = String.to_int(word) { return Ok([.Push(n)]) }
 
     Map.get(words, word) |> Maybe.to_result(Error.UndefinedOperation)
 }
@@ -112,7 +108,7 @@ fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error
 fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error> {
     case ops {
         [] -> Ok(stack)
-        [op, ..rest] -> execute(try apply(stack, op), rest)
+        [op, ..rest] -> execute(apply(stack, op)?, rest)
     }
 }
 
@@ -149,9 +145,9 @@ test "parsing and numbers" {
 }
 
 test "addition" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can add two numbers", ["1 2 +"], Ok([3])),
-        #("errors if there is nothing on the stack", ["+"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["+"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 +"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 2 3 +"], Ok([1, 5])),
     ]
@@ -162,9 +158,9 @@ test "addition" {
 }
 
 test "subtraction" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can subtract two numbers", ["3 4 -"], Ok([-1])),
-        #("errors if there is nothing on the stack", ["-"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["-"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 -"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 12 3 -"], Ok([1, 9])),
     ]
@@ -175,9 +171,9 @@ test "subtraction" {
 }
 
 test "multiplication" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can multiply two numbers", ["2 4 *"], Ok([8])),
-        #("errors if there is nothing on the stack", ["*"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["*"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 *"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 2 3 *"], Ok([1, 6])),
     ]
@@ -188,10 +184,10 @@ test "multiplication" {
 }
 
 test "division" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can divide two numbers", ["12 3 /"], Ok([4])),
         #("performs integer division", ["8 3 /"], Ok([2])),
-        #("errors if dividing by zero", ["4 0 /"], Err(.DivideByZero)),
+        #("errors if dividing by zero", ["4 0 /"], Err(Error.DivideByZero)),
         #("errors if there is nothing on the stack", ["/"], Err(.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 /"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 12 3 /"], Ok([1, 4])),
@@ -216,10 +212,10 @@ test "combined arithmetic" {
 }
 
 test "dup" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("copies a value on the stack", ["1 dup"], Ok([1, 1])),
         #("copies the top value on the stack", ["1 2 dup"], Ok([1, 2, 2])),
-        #("errors if there is nothing on the stack", ["dup"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["dup"], Err(Error.EmptyStack)),
     ]
 
     subtests cases, #(description, instructions, expected), description {
@@ -228,10 +224,10 @@ test "dup" {
 }
 
 test "drop" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("removes the top value on the stack if it is the only one", ["1 drop"], Ok([])),
         #("removes the top value on the stack if it is not the only one", ["1 2 drop"], Ok([1])),
-        #("errors if there is nothing on the stack", ["drop"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["drop"], Err(Error.EmptyStack)),
     ]
 
     subtests cases, #(description, instructions, expected), description {
@@ -240,7 +236,7 @@ test "drop" {
 }
 
 test "swap" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #(
             "swaps the top two values on the stack if they are the only ones",
             ["1 2 swap"],
@@ -251,7 +247,7 @@ test "swap" {
             ["1 2 3 swap"],
             Ok([1, 3, 2]),
         ),
-        #("errors if there is nothing on the stack", ["swap"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["swap"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 swap"], Err(.OnlyOneValue)),
     ]
 
@@ -261,10 +257,10 @@ test "swap" {
 }
 
 test "over" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("copies the second element if there are only two", ["1 2 over"], Ok([1, 2, 1])),
         #("copies the second element if there are more than two", ["1 2 3 over"], Ok([1, 2, 3, 2])),
-        #("errors if there is nothing on the stack", ["over"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["over"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 over"], Err(.OnlyOneValue)),
     ]
 
@@ -274,7 +270,7 @@ test "over" {
 }
 
 test "user-defined words" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can consist of built-in words", [": dup-twice dup dup ;", "1 dup-twice"], Ok([1, 1, 1])),
         #("execute in the right order", [": countup 1 2 3 ;", "countup"], Ok([1, 2, 3])),
         #(
@@ -294,7 +290,7 @@ test "user-defined words" {
             [": foo 10 ;", ": foo foo 1 + ;", "foo"],
             Ok([11]),
         ),
-        #("cannot redefine non-negative numbers", [": 1 2 ;"], Err(.IllegalOperation)),
+        #("cannot redefine non-negative numbers", [": 1 2 ;"], Err(Error.IllegalOperation)),
         #("cannot redefine negative numbers", [": -1 2 ;"], Err(.IllegalOperation)),
         #("errors if executing a non-existent word", ["foo"], Err(.UndefinedOperation)),
     ]
@@ -333,7 +329,7 @@ test "case-insensitivity" {
 
 - The program is one list of lower-cased tokens, every line's words in order, so a definition is read the same wherever it falls and case never matters again.
 - A word means a list of `Op` steps (`Push(n)`, `Add`, `Dup`, ...), and the dictionary is a `Map<String, List<Op>>` that starts as `builtins`, each built-in word one step. A definition resolves its body against the dictionary as it stands and stores the steps, so a later redefinition of a word it uses changes nothing, and `: foo foo 1 + ;` reads the old `foo`. Built-in words are entries like any other, so overriding `swap` or `+` needs no special case.
-- `run` walks the tokens with list patterns, `[":", name, ..rest]` for a definition and `[word, ..rest]` for anything else, and threads the stack and the dictionary through its own recursion. Each step can fail, so `execute` is a recursive function with `try` rather than an `Iter.reduce`, whose state would have to be a `Result`.
+- `run` walks the tokens with list patterns, `[":", name, ..rest]` for a definition and `[word, ..rest]` for anything else, and threads the stack and the dictionary through its own recursion. Each step can fail, so `execute` is a recursive function with `?` rather than an `Iter.reduce`, whose state would have to be a `Result`.
 - The stack is a `List<Int>` with its top first, so every built-in is one list pattern. `apply` matches the step and the stack as a tuple, `#(op, stack)`: an empty stack and a stack of one are an arm each before the arms that need two values, and the compiler checks the `case` covers every step and stack.
 - Errors are an `Error` enum, one variant per canonical message.
 - A number cannot be redefined: a definition whose name `String.to_int` reads is `IllegalOperation`. `String.to_int` reads `-1` too, so negative numbers push themselves, as the canonical data asks, though its prose says a number is digits only.

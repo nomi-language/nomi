@@ -36,7 +36,7 @@ test "a derived enum's FromJson reads what its ToJson writes" {
         Shape.Dot,
     ]
 
-    texts = Iter.map(shapes, fn s -> Json.encode(ToJson.to_json(s))) |> Iter.to_list()
+    texts = Iter.map(shapes, Json.encode_as) |> Iter.to_list()
 
     assert texts == [
         "{\"Circle\":{\"radius\":2.5}}",
@@ -62,12 +62,12 @@ test "a derived enum's FromJson names what it could not read" {
 
 test "vectors and sets cross as JSON arrays" {
     v = #[1, 2, 3]
-    assert Json.encode(ToJson.to_json(v)) == "[1,2,3]"
+    assert Json.encode_as(v) == "[1,2,3]"
     back: Result<Vector<Int>, Json.ShapeError> = FromJson.from_json(ToJson.to_json(v))
     assert back == Ok(v)
 
     s = %["a"]
-    assert Json.encode(ToJson.to_json(s)) == "[\"a\"]"
+    assert Json.encode_as(s) == "[\"a\"]"
 
     twice: Result<Set<Int>, Json.ShapeError> = FromJson.from_json(
         Json.Arr([Json.Int(2), Json.Int(2)])

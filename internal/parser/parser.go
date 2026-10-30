@@ -982,24 +982,23 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 			}
 		}
 	case *ast.VectorLit:
-		for _, item := range v.Items {
+		for _, item := range v.Operands() {
 			if line, col, ok := firstNestedAssertion(item); ok {
 				return line, col, true
 			}
 		}
 	case *ast.SetLit:
-		for _, item := range v.Items {
+		for _, item := range v.Operands() {
 			if line, col, ok := firstNestedAssertion(item); ok {
 				return line, col, true
 			}
 		}
 	case *ast.ListSpreadLit:
-		for _, item := range v.Heads {
+		for _, item := range v.Operands() {
 			if line, col, ok := firstNestedAssertion(item); ok {
 				return line, col, true
 			}
 		}
-		return firstNestedAssertion(v.TailSpread)
 	case *ast.TupleLit:
 		for _, item := range v.Items {
 			if line, col, ok := firstNestedAssertion(item); ok {
@@ -1007,6 +1006,11 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 			}
 		}
 	case *ast.MapLit:
+		for _, s := range v.Spreads {
+			if line, col, ok := firstNestedAssertion(s.Head); ok {
+				return line, col, true
+			}
+		}
 		for _, entry := range v.Entries {
 			if line, col, ok := firstNestedAssertion(entry.Key); ok {
 				return line, col, true
@@ -1048,6 +1052,8 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 	case *ast.Tap:
 		return firstNestedAssertion(v.Fn())
 	case *ast.TryOp:
+		return firstNestedAssertion(v.Expr)
+	case *ast.Unwrap:
 		return firstNestedAssertion(v.Expr)
 	case *ast.Dbg:
 		return firstNestedAssertion(v.Expr)
@@ -1784,6 +1790,28 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 				continue
 			}
 		}
+		// A postfix `!`, `Map.get(m, k)!`, unwraps the expression's Result
+		// or Maybe. It is written against the expression, on its line; a
+		// `!` that starts the next line is a negation.
+		if bang := p.peek(); bang.Type == token.BANG && p.pos > 0 && p.tokens[p.pos-1].Line == bang.Line && postfixBangAllowed(p.tokens[p.pos-1]) {
+			p.advance()
+			left = &ast.Unwrap{Expr: left, Line: bang.Line, Col: bang.Col}
+			continue
+		}
+		// A postfix `?`, `parse(text)?`, propagates the expression's Err or
+		// None out of the enclosing function and is otherwise its payload.
+		// Like `!`, it is written against the expression, on its line. A
+		// `?` after a pipe stage the stage itself did not take (`|> if c {
+		// a } else { b }?`) is a `?` stage of the pipe.
+		if q := p.peek(); q.Type == token.QUESTION && p.pos > 0 && p.tokens[p.pos-1].Line == q.Line && postfixQuestionAllowed(p.tokens[p.pos-1]) {
+			p.advance()
+			if b, isPipe := left.(*ast.Binary); isPipe && b.Op == "|>" {
+				left = pipeNode(left, &ast.TryOp{Line: q.Line, Col: q.Col}, q.Line, q.Col)
+			} else {
+				left = &ast.TryOp{Expr: left, Line: q.Line, Col: q.Col}
+			}
+			continue
+		}
 		// Turbofish: `f<T>(...)` — explicit type args on a call. Speculatively
 		// parse a `<Type, ...>` list immediately followed by `(`; otherwise `<`
 		// is the comparison operator handled below. Restricted to callable
@@ -1935,13 +1963,41 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 		if err != nil {
 			return nil, err
 		}
+		right, tries := peelQuestions(right)
 		for _, tr := range leadingForRight {
 			if hasTrivia, ok := right.(ast.HasTrivia); ok {
 				hasTrivia.AddLeading(tr)
 			}
 		}
-		return pipeNode(left, right, pipeTok.Line, pipeTok.Col), nil
+		return questionStages(pipeNode(left, right, pipeTok.Line, pipeTok.Col), tries), nil
 	}
+}
+
+// peelQuestions takes the `?`s off a pipe stage: `x |> f()?` is the stage
+// `f()` and then a `?` stage, since the `?` propagates the stage's result,
+// not a value `f()` would return without the piped argument. It answers
+// the stage and its `?`s, innermost first.
+func peelQuestions(stage ast.Node) (ast.Node, []*ast.TryOp) {
+	var tries []*ast.TryOp
+	for {
+		try, isTry := stage.(*ast.TryOp)
+		if !isTry || try.Expr == nil {
+			break
+		}
+		tries = append([]*ast.TryOp{try}, tries...)
+		stage = try.Expr
+	}
+	return stage, tries
+}
+
+// questionStages appends a `?` stage to pipe for each of tries.
+func questionStages(pipe ast.Node, tries []*ast.TryOp) ast.Node {
+	for _, try := range tries {
+		q := &ast.TryOp{Line: try.Line, Col: try.Col}
+		q.Span = ast.Span{StartLine: q.Line, StartCol: q.Col, EndLine: q.Line, EndCol: q.Col + 1}
+		pipe = pipeNode(pipe, q, q.Line, q.Col)
+	}
+	return pipe
 }
 
 // parsePipeLambdaStage parses `|> then fn v -> body`, the stage that applies
@@ -1953,6 +2009,17 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 	start := p.pos
 	tok := p.peek()
 	p.advance() // consume THEN or TAP
+	// `|> then? fn v -> ...` applies the lambda and propagates its result's
+	// Err or None: the `then` stage, then a `?` stage.
+	var question *token.Token
+	if q := p.peek(); !p.atEnd() && q.Type == token.QUESTION && q.Line == tok.Line && q.Col == tok.Col+len(tok.Lexeme) {
+		if tok.Type == token.TAP {
+			return nil, ParseError{Line: q.Line, Col: q.Col, Message: "`tap` passes its input on unchanged, so there is no result for a `?` to propagate",
+				Hints: []string{"handle the failure inside the lambda, or use `then?` to replace the value"}}
+		}
+		question = &q
+		p.advance()
+	}
 	var stage interface {
 		ast.Node
 		AddLeading(ast.Trivia)
@@ -1995,7 +2062,13 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 	for _, tr := range leadingForRight {
 		stage.AddLeading(tr)
 	}
-	return pipeNode(left, stage, pipeTok.Line, pipeTok.Col), nil
+	result := pipeNode(left, stage, pipeTok.Line, pipeTok.Col)
+	if question != nil {
+		q := &ast.TryOp{Line: question.Line, Col: question.Col}
+		q.Span = ast.Span{StartLine: q.Line, StartCol: q.Col, EndLine: q.Line, EndCol: q.Col + 1}
+		result = pipeNode(result, q, q.Line, q.Col)
+	}
+	return result, nil
 }
 
 func (p *Parser) parsePipeValueKeywordStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
@@ -2025,13 +2098,14 @@ func (p *Parser) parsePipeValueKeywordStage(left ast.Node, pipeTok token.Token, 
 	if err != nil {
 		return nil, err
 	}
+	stage, tries := peelQuestions(stage)
 	for _, tr := range leadingForRight {
 		if hasTrivia, ok := stage.(ast.HasTrivia); ok {
 			hasTrivia.AddLeading(tr)
 		}
 	}
 
-	result := pipeNode(left, stage, pipeTok.Line, pipeTok.Col)
+	result := questionStages(pipeNode(left, stage, pipeTok.Line, pipeTok.Col), tries)
 	for i := len(keywords) - 1; i >= 0; i-- {
 		result = pipeNode(result, keywords[i], keywords[i].LineNum(), 0)
 	}
@@ -2167,7 +2241,7 @@ func (p *Parser) atPipeValueKeyword() bool {
 	}
 	tok := p.peek()
 	switch tok.Type {
-	case token.TRY, token.ASSERT, token.REFUTE, token.DBG:
+	case token.ASSERT, token.REFUTE, token.DBG:
 		return true
 	default:
 		return false
@@ -2185,8 +2259,6 @@ func (p *Parser) parseBarePipeValueKeywordInner() ast.Node {
 	tok := p.peek()
 	p.advance()
 	switch tok.Type {
-	case token.TRY:
-		return &ast.TryOp{Line: tok.Line, Col: tok.Col}
 	case token.ASSERT:
 		return &ast.Assertion{Line: tok.Line, Col: tok.Col}
 	case token.REFUTE:
@@ -2284,8 +2356,6 @@ func pipeNode(left, right ast.Node, line, col int) *ast.Binary {
 
 func pipeKeywordName(n ast.Node) string {
 	switch v := n.(type) {
-	case *ast.TryOp:
-		return "`try`"
 	case *ast.Dbg:
 		return "`dbg`"
 	case *ast.Assertion:
@@ -2479,11 +2549,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 	switch tok.Type {
 	case token.INT:
 		p.advance()
-		val, err := intLiteralValue(tok, p.negatedLiteral(p.pos-1), false)
-		if err != nil {
-			return nil, err
-		}
-		return &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
+		return intLiteral(tok)
 
 	case token.FLOAT:
 		p.advance()
@@ -2569,27 +2635,6 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 			return nil, err
 		}
 		return &ast.Unary{Op: "!", Right: right, Line: tok.Line, Col: tok.Col}, nil
-
-	case token.TRY:
-		// Prefix `try` error-propagation keyword: `try EXPR` produces an
-		// ast.TryOp. The bare form is accepted only so `value |> try`
-		// can use the same pipe-stage model as `dbg`/`assert`;
-		// the checker rejects bare `try` outside a pipe. With an operand,
-		// it binds exactly one postfix-level expression to its right —
-		// calls, field access, and index (all prec >= tryOperandPrecedence,
-		// looser than `*`) attach to the operand, while `+`/`|>`/etc.
-		// (lower precedence) stay outside. So `try a() |> b()` is
-		// `(try a()) |> b()`, `try a() + b()` is `(try a()) + b()`, and
-		// `try a.b.c` is `try (a.b.c)`. Line/Col point at `try`.
-		p.advance()
-		if p.atEnd() || p.peek().Line != tok.Line || !canStartRangeOperand(p.peek().Type) {
-			return &ast.TryOp{Line: tok.Line, Col: tok.Col}, nil
-		}
-		operand, err := p.parseExpr(tryOperandPrecedence)
-		if err != nil {
-			return nil, err
-		}
-		return &ast.TryOp{Expr: operand, Line: tok.Line, Col: tok.Col}, nil
 
 	case token.ASSERT, token.REFUTE:
 		return p.parseAssertion()
@@ -2880,160 +2925,96 @@ func codepointLit(tok token.Token) *ast.CodepointLit {
 	return &ast.CodepointLit{Value: r, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
 }
 
-// parseListLit parses a list literal: [ expr, expr, ... ] or [ expr | tail ]
+// parseListLit parses a list literal: `[expr, expr, ...]`, or one with
+// spreads, `[x, ..xs]`, `[..xs, y, ..ys]`.
 func (p *Parser) parseListLit() (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume LBRACKET
-	items, endTrivia, spread, err := p.parseCollectionItems(tok, token.RBRACKET, "list literal", spreadLast, "")
+	items, endTrivia, spreads, err := p.parseCollectionItems(tok, token.RBRACKET, "list literal", spreadsAnywhere)
 	if err != nil {
 		return nil, err
 	}
-	if spread != nil {
-		return &ast.ListSpreadLit{Heads: items, TailSpread: spread.head, Line: tok.Line, Col: tok.Col}, nil
+	if len(spreads) > 0 {
+		return &ast.ListSpreadLit{Items: items, Spreads: spreads, Line: tok.Line, Col: tok.Col}, nil
 	}
 	return &ast.ListLit{Items: items, EndTrivia: endTrivia, Line: tok.Line, Col: tok.Col}, nil
 }
 
-// collSpread says where a collection literal takes a `..` spread.
-type collSpread int
-
-const (
-	// spreadNone: no spread. refuseSpread, when set, is the error for one;
-	// when empty, `..` is parsed as an element, which refuses it.
-	spreadNone collSpread = iota
-	// spreadLast: a list's `..tail`, which must be the last element.
-	spreadLast
-	// spreadFirst: a set's `..base`, which must be the first element.
-	spreadFirst
-	// spreadEnds: a vector's spread, named or bare, first or last.
-	spreadEnds
-)
-
-// itemSpread is a collection literal's spread: its head (a *CurrentValue
-// for a bare `..`) and the `..` token.
-type itemSpread struct {
-	head ast.Node
-	at   token.Token
-	// last is set for a spread written after the elements.
-	last bool
-}
+// spreadsAnywhere, as parseCollectionItems' refuseSpread, takes a `..`
+// spread at any element and any number of them.
+const spreadsAnywhere = "\x00anywhere"
 
 // parseCollectionItems parses the comma-separated elements of a list,
 // vector or set literal after its opening bracket, through the closing
 // one, close. tok is the literal's first token and what names the literal,
-// for errors. mode says where a `..` spread may stand (collSpread); a `..`
-// anywhere else is refuseSpread's error, or, when that is empty, parsed as
-// an element, which refuses it. A spread with nothing after its `..` but a
-// comma or the closing bracket is bare: its head is an *ast.CurrentValue.
+// for errors. refuseSpread says what a `..` spread is: spreadsAnywhere
+// takes one at any element, any number of them; any other text is the
+// error for one; the empty text parses it as an element, which refuses it.
+// A spread with nothing after its `..` but a comma or the closing bracket
+// is bare: its head is an *ast.CurrentValue, and a literal takes one.
 //
-// The comments before the closing bracket of a literal with no tail spread
-// are returned as endTrivia; the others are the elements' ItemComments.
-func (p *Parser) parseCollectionItems(tok token.Token, close token.TokenType, what string, mode collSpread, refuseSpread string) (items []ast.Node, endTrivia []ast.Trivia, spread *itemSpread, err error) {
+// The comments before the closing bracket are returned as endTrivia,
+// except in a list literal with a spread, whose node has no EndTrivia:
+// there they go below its last element or spread. The others are the
+// elements' and spreads' ItemComments.
+func (p *Parser) parseCollectionItems(tok token.Token, close token.TokenType, what string, refuseSpread string) (items []ast.Node, endTrivia []ast.Trivia, spreads []ast.Spread, err error) {
 	closeText := "]"
 	if close == token.RBRACE {
 		closeText = "}"
 	}
 	var lc listComments
 	lc.open(p)
+	var bare *ast.CurrentValue
 	for {
 		p.skipListBreaks()
 		p.listAfter(&lc)
 		p.skipListBreaks()
 		if !p.atEnd() && p.peek().Type == close {
-			endTrivia = lc.end()
-			p.advance()
-			return items, endTrivia, spread, nil
-		}
-		atSpread := !p.atEnd() && p.peek().Type == token.DOTDOT
-		if atSpread && mode == spreadEnds && (spread != nil || len(items) > 0) {
-			// A vector's spread after its elements: `#[x, ..v]` or
-			// the bare `#[x, ..]`.
-			spreadTok := p.peek()
-			p.advance() // consume DOTDOT
-			head, err := p.spreadHead(spreadTok, close)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			// The spread is an item before the comments after it are read,
-			// so a comment ending its line is its own and not the previous
-			// element's.
-			lc.item(nodeComments(head))
-			p.listAfter(&lc)
-			p.skipListBreaks()
-			if spread != nil {
-				return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "a vector literal takes one spread `..`; join two vectors with `Vector.concat`")
-			}
-			if p.atEnd() || p.peek().Type != close {
-				return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "vector spread `..` must be the first or the last element")
-			}
-			lc.close()
-			p.advance()
-			return items, nil, &itemSpread{head: head, at: spreadTok, last: true}, nil
-		}
-		if atSpread && (mode == spreadFirst || mode == spreadEnds) && spread == nil && len(items) == 0 {
-			spreadTok := p.peek()
-			p.advance() // consume DOTDOT
-			head, err := p.spreadHead(spreadTok, close)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			spread = &itemSpread{head: head, at: spreadTok}
-			lc.item(nodeComments(head))
-			p.listAfter(&lc)
-			p.skipListBreaks()
-			if p.atEnd() {
-				return nil, nil, nil, errorAt(tok.Line, tok.Col, "expected '%s' to close %s", closeText, what)
-			}
-			if p.peek().Type == close {
+			if len(spreads) > 0 && close == token.RBRACKET && what == "list literal" {
+				lc.close()
+			} else {
 				endTrivia = lc.end()
-				p.advance()
-				return items, endTrivia, spread, nil
 			}
-			if p.peek().Type != token.COMMA {
-				return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '%s' in %s", closeText, what)
-			}
-			p.advance() // consume COMMA
-			continue
+			p.advance()
+			return items, endTrivia, spreads, nil
 		}
-		if atSpread && (mode == spreadLast || refuseSpread != "") {
-			if mode != spreadLast {
+		var item ast.Node
+		if !p.atEnd() && p.peek().Type == token.DOTDOT && refuseSpread != "" {
+			if refuseSpread != spreadsAnywhere {
 				return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "%s", refuseSpread)
 			}
-			// Spread tail: `..expr` with no LHS is the optional spread
-			// element. Bare `..` here is unambiguous because the infix range
-			// operator requires a left operand. The spread must be the last
-			// element of the literal.
+			// A spread: `..expr` with no left operand, or the bare `..`.
+			// The infix range operator always has a left operand, so a
+			// `..` here is never a range.
 			spreadTok := p.peek()
 			p.advance() // consume DOTDOT
-			tail, err := p.spreadHead(spreadTok, close)
+			head, err := p.spreadHead(spreadTok, close)
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			lc.item(nodeComments(tail))
-			p.listAfter(&lc)
-			p.skipListBreaks()
-			if p.atEnd() || p.peek().Type != close {
-				return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "list spread `..` must be the last element")
+			if cv, ok := head.(*ast.CurrentValue); ok {
+				if bare != nil {
+					return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "%s takes one bare `..`", what)
+				}
+				bare = cv
 			}
-			lc.close()
-			p.advance()
-			return items, nil, &itemSpread{head: tail, at: spreadTok}, nil
-		}
-		item, err := p.parseExpr(1)
-		if err != nil {
-			return nil, nil, nil, err
+			spreads = append(spreads, ast.Spread{Head: head, At: len(items), Line: spreadTok.Line, Col: spreadTok.Col})
+			item = head
+		} else {
+			item, err = p.parseExpr(1)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			items = append(items, item)
 		}
 		lc.item(nodeComments(item))
-		items = append(items, item)
 		p.listAfter(&lc)
 		p.skipListBreaks()
 		if p.atEnd() {
 			return nil, nil, nil, errorAt(tok.Line, tok.Col, "expected '%s' to close %s", closeText, what)
 		}
 		if p.peek().Type == close {
-			endTrivia = lc.end()
-			p.advance()
-			return items, endTrivia, spread, nil
+			continue
 		}
 		if p.peek().Type != token.COMMA {
 			return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or '%s' in %s", closeText, what)
@@ -3241,47 +3222,37 @@ func (p *Parser) parseTupleLit(hash token.Token, typeName ast.TypeExpr) (ast.Nod
 
 // parseVectorLit parses a vector literal, `#[expr, expr, ...]`, or with the
 // name of a type built on a vector, `#Path[...]`. hash is the `#`, consumed
-// with the name; the cursor is on the `[`. A spread names no type: its base
+// with the name; the cursor is on the `[`. A spread names no type: its head
 // carries it.
 func (p *Parser) parseVectorLit(hash token.Token, typeName ast.TypeExpr) (ast.Node, error) {
 	p.advance() // consume LBRACKET
-	mode, refuse := spreadEnds, ""
+	refuse := spreadsAnywhere
 	if typeName != nil {
-		mode, refuse = spreadNone, "vector spread `..` has no named form; write `#[..base, item]` — the spread head carries the type"
+		refuse = "vector spread `..` has no named form; write `#[..base, item]` — the spread head carries the type"
 	}
-	items, endTrivia, spread, err := p.parseCollectionItems(hash, token.RBRACKET, "vector literal", mode, refuse)
+	items, endTrivia, spreads, err := p.parseCollectionItems(hash, token.RBRACKET, "vector literal", refuse)
 	if err != nil {
 		return nil, err
 	}
-	lit := &ast.VectorLit{TypeName: typeName, Items: items, EndTrivia: endTrivia, Line: hash.Line, Col: hash.Col}
-	if spread != nil {
-		lit.Spread, lit.SpreadLast, lit.SpreadLine, lit.SpreadCol = spread.head, spread.last, spread.at.Line, spread.at.Col
-	}
-	return lit, nil
+	return &ast.VectorLit{TypeName: typeName, Items: items, Spreads: spreads, EndTrivia: endTrivia, Line: hash.Line, Col: hash.Col}, nil
 }
 
 // parseSetLit parses a set literal, `%[expr, expr, ...]`, or with the name
 // of a type built on a set, `%Tags[...]`. pct is the `%`, consumed with the
-// name; the cursor is on the `[`.
+// name; the cursor is on the `[`. Its spreads (`%[..s, x]`, `%[x, ..s, ..t]`,
+// or, at a field or key of an update, `%[.., x]`) are unioned with its
+// elements.
 func (p *Parser) parseSetLit(pct token.Token, typeName ast.TypeExpr) (ast.Node, error) {
 	p.advance() // consume LBRACKET
-	// Set update by spread: `%[..base, x]` or, at a field or key of an
-	// update, `%[.., x]`. One spread, written first, as a map's: a set
-	// keeps its elements in insertion order, so the base's elements stay
-	// where they are and new ones follow.
-	mode, refuse := spreadFirst, "set spread `..` must be the first element"
+	refuse := spreadsAnywhere
 	if typeName != nil {
-		mode, refuse = spreadNone, "set spread `..` has no named form; write `%[..base, item]` — the spread head carries the type"
+		refuse = "set spread `..` has no named form; write `%[..base, item]` — the spread head carries the type"
 	}
-	items, endTrivia, spread, err := p.parseCollectionItems(pct, token.RBRACKET, "set literal", mode, refuse)
+	items, endTrivia, spreads, err := p.parseCollectionItems(pct, token.RBRACKET, "set literal", refuse)
 	if err != nil {
 		return nil, err
 	}
-	lit := &ast.SetLit{TypeName: typeName, Items: items, EndTrivia: endTrivia, Line: pct.Line, Col: pct.Col}
-	if spread != nil {
-		lit.Spread, lit.SpreadLine, lit.SpreadCol = spread.head, spread.at.Line, spread.at.Col
-	}
-	return lit, nil
+	return &ast.SetLit{TypeName: typeName, Items: items, Spreads: spreads, EndTrivia: endTrivia, Line: pct.Line, Col: pct.Col}, nil
 }
 
 // bareSpreadEnds reports whether the `..` just consumed is a bare spread:
@@ -3331,12 +3302,12 @@ func (p *Parser) skipSeparatorsOnly() {
 const prefixPrecedence = 10
 
 // tryOperandPrecedence is the minimum infix precedence consumed by the
-// operand of a prefix `try`. It sits just above `*`/`/`/`%` (STAR, 9) and
-// at-or-below calls/field access, so `try` grabs exactly one postfix-level
+// operand of a prefix `?`. It sits just above `*`/`/`/`%` (STAR, 9) and
+// at-or-below calls/field access, so `?` grabs exactly one postfix-level
 // operand: field access (DOT, 12) and calls (LPAREN, 11) attach to the
 // operand, while `*`/`/`/`%` (9) and every lower-precedence binary operator
-// (`+`, `|>`, …) stay outside it. Thus `try a() |> b()` is `(try a()) |> b()`
-// and `try a.b.c` is `try (a.b.c)`.
+// (`+`, `|>`, …) stay outside it. Thus `a()? |> b()` is `(a()?) |> b()`
+// and `a.b.c?` is `(a.b.c)?`.
 const tryOperandPrecedence = 10
 
 // canStartRangeOperand reports whether the given token type can begin
@@ -4471,7 +4442,10 @@ func (p *Parser) withBindingElse(start int, node, value ast.Node, line, col int)
 	after := p.pos
 	p.pos = start
 	pattern, err := p.parseSinglePattern()
-	if err != nil || p.atEnd() || p.peek().Type != token.EQ {
+	if err != nil {
+		return nil, err
+	}
+	if p.atEnd() || p.peek().Type != token.EQ {
 		// `name: T = value else { ... }`: a name always matches.
 		return nil, errorAt(p.tokens[after].Line, p.tokens[after].Col, "this pattern always matches; remove the else")
 	}
@@ -4585,11 +4559,11 @@ func (p *Parser) parseCaseArmHead(hasValue bool) (ast.Node, ast.Node, error) {
 			pattern = &ast.WildcardPattern{Line: tok.Line, Col: tok.Col}
 		case token.INT:
 			p.advance()
-			val, e := intLiteralValue(tok, false, true)
+			lit, e := intLiteral(tok)
 			if e != nil {
 				return nil, nil, e
 			}
-			pattern = &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}
+			pattern = lit
 		case token.FLOAT:
 			p.advance()
 			val, e := strconv.ParseFloat(tok.Lexeme, 64)
@@ -5083,13 +5057,11 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 	// the infix form requires a left operand that would already have been
 	// consumed by the enclosing parseExpr.
 	//
-	// THE POSITION RULE IS THE OPPOSITE OF THE LIST'S, on purpose. A list
-	// spread must be LAST because a List is cons cells: prepending is O(1)
-	// and appending is O(n), so `[0, ..xs]` is the cheap direction. Order
-	// in a record update is pure notation, and base-then-overrides is the
-	// only order under which "a later field wins" is true. Hence one
-	// spread, written FIRST, and the diagnostic below is the mirror of
-	// "list spread `..` must be the last element".
+	// THE POSITION RULE DIFFERS FROM A COLLECTION'S, on purpose. A list,
+	// vector, set or map literal takes spreads anywhere, since joining
+	// collections is what its spreads do. Order in a record update is pure
+	// notation, and base-then-overrides is the only order under which "a
+	// later field wins" is true. Hence one spread, written FIRST.
 	separated := true
 	var sp updateSpread
 	if !p.atEnd() && p.peek().Type == token.DOTDOT {
@@ -5701,6 +5673,23 @@ func tupleIndexDigits(s string) bool {
 func isTurbofishCallable(left ast.Node) bool {
 	switch left.(type) {
 	case *ast.Ident, *ast.FieldAccess, *ast.TypeIdent:
+		return true
+	}
+	return false
+}
+
+// postfixBangAllowed reports whether a `!` right after prev can be the
+// postfix unwrap: prev ends an operand. After an operator or an opening
+// bracket a `!` is a negation.
+func postfixBangAllowed(prev token.Token) bool {
+	switch prev.Type {
+	case token.IDENT, token.TYPE_IDENT, token.RPAREN, token.RBRACKET, token.RBRACE, token.BANG, token.QUESTION,
+		token.INT, token.FLOAT, token.DECIMAL, token.CODEPOINT_LITERAL, token.PLACEHOLDER,
+		token.STRING, token.STRING_LITERAL, token.STRING_END,
+		token.TRIPLE_STRING_LITERAL, token.TRIPLE_STRING_END,
+		token.RAW_STRING_LITERAL, token.RAW_TRIPLE_STRING_LITERAL,
+		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
+		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL:
 		return true
 	}
 	return false
@@ -7670,11 +7659,11 @@ func (p *Parser) parseNegativeLiteralPattern() (ast.Node, error) {
 	switch next.Type {
 	case token.INT:
 		p.advance()
-		val, err := intLiteralValue(next, true, true)
+		lit, err := intLiteral(next)
 		if err != nil {
 			return nil, err
 		}
-		return &ast.IntLit{Value: -val, Lexeme: "-" + next.Lexeme, Line: minusTok.Line, Col: minusTok.Col}, nil
+		return lit.Negated(minusTok.Line, minusTok.Col), nil
 	case token.FLOAT:
 		p.advance()
 		val, err := strconv.ParseFloat(next.Lexeme, 64)
@@ -7833,11 +7822,7 @@ func (p *Parser) parseSinglePatternInner() (ast.Node, error) {
 		return p.parsePercentPattern()
 	case token.INT:
 		p.advance()
-		val, err := intLiteralValue(tok, p.negatedLiteral(p.pos-1), true)
-		if err != nil {
-			return nil, err
-		}
-		return &ast.IntLit{Value: val, Lexeme: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
+		return intLiteral(tok)
 	case token.FLOAT:
 		p.advance()
 		val, err := strconv.ParseFloat(tok.Lexeme, 64)
@@ -8051,9 +8036,9 @@ func (p *Parser) skipNewlines() {
 	}
 }
 
-// parseMapLit parses a map literal, `%{key => value, ...}`, or a map
-// update, `%{..base, key => value, ...}`. pct is the `%`, consumed; the
-// cursor is on the `{`.
+// parseMapLit parses a map literal, `%{key => value, ...}`, or one with
+// spreads, `%{..base, key => value, ...}`, `%{"a" => 1, ..m, ..n}`. pct is
+// the `%`, consumed; the cursor is on the `{`.
 func (p *Parser) parseMapLit(pct token.Token) (ast.Node, error) {
 	p.advance() // consume LBRACE
 	opening := p.collectLeadingTrivia()
@@ -8064,18 +8049,18 @@ func (p *Parser) parseMapLit(pct token.Token) (ast.Node, error) {
 			return nil, err
 		}
 		opening = rest
-		lit.Spread, lit.SpreadLine, lit.SpreadCol = sp.head, sp.line, sp.col
+		lit.Spreads = []ast.Spread{{Head: sp.head, Line: sp.line, Col: sp.col}}
 		if !sp.separated {
 			if next, ok := p.nextPastTrivia(); ok && next.Type != token.RBRACE {
 				return nil, sp.missingComma(next)
 			}
 		}
 	}
-	entries, endTrivia, err := p.parseMapLitEntries(pct.Line, opening)
+	entries, spreads, endTrivia, err := p.parseMapLitEntries(pct.Line, opening, lit.Spreads)
 	if err != nil {
 		return nil, err
 	}
-	lit.Entries, lit.EndTrivia = entries, endTrivia
+	lit.Entries, lit.Spreads, lit.EndTrivia = entries, spreads, endTrivia
 	return lit, nil
 }
 
@@ -8397,12 +8382,12 @@ func (p *Parser) parseStructPatternBody(typeName ast.TypeExpr, line, col int) (a
 func (p *Parser) parseTypePrefixedMapLit(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
 	p.advance() // consume LBRACE
 	p.skipSeparatorsOnly()
-	if !p.atEnd() && p.peek().Type == token.DOTDOT {
-		return nil, errorAt(p.peek().Line, p.peek().Col, "map spread `..` has no named form; write `%%{..base, key => value}` — the spread head carries the type")
-	}
-	entries, endTrivia, err := p.parseMapLitEntries(line, nil)
+	entries, spreads, endTrivia, err := p.parseMapLitEntries(line, nil, nil)
 	if err != nil {
 		return nil, err
+	}
+	if len(spreads) > 0 {
+		return nil, errorAt(spreads[0].Line, spreads[0].Col, "map spread `..` has no named form; write `%%{..base, key => value}` — the spread head carries the type")
 	}
 	return &ast.MapLit{TypeName: typeName, Entries: entries, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
@@ -8474,36 +8459,44 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			p.advance()
 			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: nil, EndTrivia: lc.end(), Line: line, Col: col}, nil
 		}
-		// Spread tail: `..pat` with no preceding element. Patterns don't
-		// have a range operator, so DOTDOT here unambiguously starts the
-		// spread. Must be the last element of the pattern.
+		// The spread: `..pat` with no preceding element. Patterns don't
+		// have a range operator, so DOTDOT here unambiguously starts it.
+		// Elements may follow it (`[first, ..mid, last]`), and then the
+		// rest is a name, `_` or nothing.
 		if !p.atEnd() && p.peek().Type == token.DOTDOT {
 			spreadTok := p.peek()
 			p.advance() // consume DOTDOT
 			p.skipNewlines()
-			if !p.atEnd() && p.peek().Type == token.RBRACKET {
-				// `[first, ..]`: the rest is ignored, as `.._` ignores it.
-				lc.close()
-				p.advance()
-				rest := &ast.WildcardPattern{Line: spreadTok.Line, Col: spreadTok.Col}
-				return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: true, Line: line, Col: col}, nil
+			var rest ast.Node
+			bare := !p.atEnd() && (p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA)
+			if bare {
+				// `[first, ..]` or `[first, .., last]`: the rest is
+				// ignored, as `.._` ignores it.
+				rest = &ast.WildcardPattern{Line: spreadTok.Line, Col: spreadTok.Col}
+			} else {
+				tail, err := p.parseSinglePattern()
+				if err != nil {
+					return nil, err
+				}
+				lc.item(nodeComments(tail))
+				rest = tail
 			}
-			if !p.atEnd() && p.peek().Type == token.COMMA {
-				return nil, errorAt(spreadTok.Line, spreadTok.Col, "list pattern spread `..` must be the last element")
-			}
-			tail, err := p.parseSinglePattern()
-			if err != nil {
-				return nil, err
-			}
-			lc.item(nodeComments(tail))
 			p.listAfter(&lc)
 			p.skipListBreaks()
-			if p.atEnd() || p.peek().Type != token.RBRACKET {
-				return nil, errorAt(spreadTok.Line, spreadTok.Col, "list pattern spread `..` must be the last element")
+			if !p.atEnd() && p.peek().Type == token.RBRACKET {
+				lc.close()
+				p.advance()
+				return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, Line: line, Col: col}, nil
 			}
-			lc.close()
-			p.advance()
-			return &ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: tail, Line: line, Col: col}, nil
+			if p.atEnd() || p.peek().Type != token.COMMA {
+				return nil, errorAt(openTok.Line, openTok.Col, "expected ']' in list pattern")
+			}
+			switch rest.(type) {
+			case *ast.IdentPattern, *ast.WildcardPattern:
+			default:
+				return nil, errorAt(spreadTok.Line, spreadTok.Col, "a list pattern's `..` takes a name, `_` or nothing when elements follow it")
+			}
+			return p.parseListPatternTails(&ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, Line: line, Col: col}, openTok, &lc)
 		}
 		pat, err := p.parseSinglePattern()
 		if err != nil {
@@ -8527,6 +8520,45 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 	}
 }
 
+// parseListPatternTails parses the elements after a list pattern's `..`,
+// `[first, ..mid, last]`, with the parser on the comma after the rest. They
+// are pat's Tails; the comments before `]` are its EndTrivia.
+func (p *Parser) parseListPatternTails(pat *ast.ListPattern, openTok token.Token, lc *listComments) (ast.Node, error) {
+	for {
+		if p.atEnd() {
+			return nil, errorAt(openTok.Line, openTok.Col, "expected ']' in list pattern")
+		}
+		if p.peek().Type == token.RBRACKET {
+			pat.EndTrivia = lc.end()
+			p.advance()
+			return pat, nil
+		}
+		if p.peek().Type != token.COMMA {
+			return nil, errorAt(p.peek().Line, p.peek().Col, "expected ',' or ']' in list pattern")
+		}
+		p.advance() // consume COMMA
+		p.skipListBreaks()
+		p.listAfter(lc)
+		p.skipListBreaks()
+		if !p.atEnd() && p.peek().Type == token.RBRACKET {
+			pat.EndTrivia = lc.end()
+			p.advance()
+			return pat, nil
+		}
+		if !p.atEnd() && p.peek().Type == token.DOTDOT {
+			return nil, errorAt(p.peek().Line, p.peek().Col, "a list pattern takes one `..`")
+		}
+		elem, err := p.parseSinglePattern()
+		if err != nil {
+			return nil, err
+		}
+		lc.item(nodeComments(elem))
+		pat.Tails = append(pat.Tails, elem)
+		p.listAfter(lc)
+		p.skipListBreaks()
+	}
+}
+
 // parseTypePrefixedListLit parses a type-prefixed list literal:
 // TypeName[item, item, ...]. The LBRACKET is the current token.
 //
@@ -8538,56 +8570,74 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 func (p *Parser) parseTypePrefixedListLit(typeName ast.TypeExpr, line, col int) (ast.Node, error) {
 	openTok := p.peek()
 	p.advance() // consume LBRACKET
-	items, endTrivia, _, err := p.parseCollectionItems(openTok, token.RBRACKET, "list literal", spreadNone, "")
+	items, endTrivia, _, err := p.parseCollectionItems(openTok, token.RBRACKET, "list literal", "")
 	if err != nil {
 		return nil, err
 	}
 	return &ast.ListLit{TypeName: typeName, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
 
-// parseMapLitEntries parses `key => value, ...` entries up to and
-// including the closing RBRACE. Caller has already consumed LBRACE and
-// the leading whitespace/newlines; opening is the comments it took there.
-// Returns the comments that sit between the last entry and `}` as
-// endTrivia, for MapLit.EndTrivia. An entry's other comments are its
-// key's ItemComments.
-func (p *Parser) parseMapLitEntries(line int, opening []ast.Trivia) ([]ast.MapEntry, []ast.Trivia, error) {
+// parseMapLitEntries parses `key => value, ...` entries and `..m` spreads
+// up to and including the closing RBRACE, after spreads, those the caller
+// parsed already. Caller has already consumed LBRACE and the leading
+// whitespace/newlines; opening is the comments it took there. Returns the
+// comments that sit between the last entry and `}` as endTrivia, for
+// MapLit.EndTrivia. An entry's other comments are its key's ItemComments,
+// and a spread's its head's.
+func (p *Parser) parseMapLitEntries(line int, opening []ast.Trivia, spreads []ast.Spread) ([]ast.MapEntry, []ast.Spread, []ast.Trivia, error) {
 	var entries []ast.MapEntry
+	bare := ast.UpdateHole(&ast.MapLit{Spreads: spreads}) != nil
 	lc := listComments{pending: commentsOnly(opening)}
 	lc.open(p)
 	for !p.atEnd() && p.peek().Type != token.RBRACE {
-		// `%{"a" => 1, ..m}` or `%{..m, "a" => 1, ..n}`: the one spread a map
-		// literal takes is its first element.
-		if p.peek().Type == token.DOTDOT {
-			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "map spread `..` must be the first element")
-		}
-		key, err := p.parseExpr(1)
-		if err != nil {
-			return nil, nil, err
-		}
-		lc.item(nodeComments(key))
-		if p.atEnd() || p.peek().Type != token.FAT_ARROW {
-			return nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map literal")
-		}
-		p.advance() // consume FAT_ARROW
-		val, err := p.parseExpr(1)
-		if err != nil {
-			return nil, nil, err
-		}
-		entries = append(entries, ast.MapEntry{Key: key, Value: val})
 		end := p.pos
+		if p.peek().Type == token.DOTDOT {
+			// A spread: `..m`, or the bare `..` at a field or key of an
+			// update.
+			spreadTok := p.peek()
+			p.advance() // consume DOTDOT
+			head, err := p.spreadHead(spreadTok, token.RBRACE)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			if _, ok := head.(*ast.CurrentValue); ok {
+				if bare {
+					return nil, nil, nil, errorAt(spreadTok.Line, spreadTok.Col, "map literal takes one bare `..`")
+				}
+				bare = true
+			}
+			lc.item(nodeComments(head))
+			spreads = append(spreads, ast.Spread{Head: head, At: len(entries), Line: spreadTok.Line, Col: spreadTok.Col})
+			end = p.pos
+		} else {
+			key, err := p.parseExpr(1)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			lc.item(nodeComments(key))
+			if p.atEnd() || p.peek().Type != token.FAT_ARROW {
+				return nil, nil, nil, errorAt(p.peek().Line, p.peek().Col, "expected '=>' in map literal")
+			}
+			p.advance() // consume FAT_ARROW
+			val, err := p.parseExpr(1)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			entries = append(entries, ast.MapEntry{Key: key, Value: val})
+			end = p.pos
+		}
 		if err := p.listSeparators(&lc); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if !p.commaSince(end) && !p.atEnd() && p.peek().Type != token.RBRACE {
-			return nil, nil, missingEntryComma(p.peek())
+			return nil, nil, nil, missingEntryComma(p.peek())
 		}
 	}
 	if p.atEnd() || p.peek().Type != token.RBRACE {
-		return nil, nil, p.errorOnLine(line, "expected '}' to close map literal")
+		return nil, nil, nil, p.errorOnLine(line, "expected '}' to close map literal")
 	}
 	p.advance() // consume RBRACE
-	return entries, lc.end(), nil
+	return entries, spreads, lc.end(), nil
 }
 
 func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {

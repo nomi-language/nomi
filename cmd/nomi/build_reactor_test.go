@@ -51,7 +51,7 @@ export fn divide(a: Int, b: Int) -> Int {
 }
 
 export fn shout(text: String) {
-    io.print(String.to_upper(text))
+    io.print(String.uppercase(text))
 }
 `
 

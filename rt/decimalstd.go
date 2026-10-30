@@ -26,8 +26,8 @@ import (
 // once.
 
 // IntToDecimal is `Int.to_decimal`: exact, scale 0, total.
-func IntToDecimal(n int64) Decimal {
-	return Decimal{Mantissa: big.NewInt(n), Scale: 0}
+func IntToDecimal(n Int) Decimal {
+	return Decimal{Mantissa: n.Big(), Scale: 0}
 }
 
 // StringToDecimal is `String.to_decimal`, and None matters here: it
@@ -40,19 +40,14 @@ func StringToDecimal(s string) Maybe[Decimal] {
 	return Some(d)
 }
 
-// DecimalToInt is `Decimal.to_int`: truncate toward zero, then range-check.
-//
-// That order is observable. `-9223372036854775808.5` is below Int64's minimum,
-// yet truncating toward zero lands exactly on it, so this answers Some where a
-// range-check-first implementation answers None. A half-step past a boundary is
-// the only input that can tell the two apart, which is why one is pinned.
-func DecimalToInt(d Decimal) Maybe[int64] {
+// DecimalToInt is `Decimal.to_int`: the whole part, truncated toward zero.
+// Exact and total: an Int holds a whole number of any size.
+func DecimalToInt(d Decimal) Int {
 	trunc, _ := d.Round(0, RoundDown)
-	m := trunc.Mantissa
-	if m == nil || !m.IsInt64() {
-		return None[int64]()
+	if trunc.Mantissa == nil {
+		return SmallInt(0)
 	}
-	return Some(m.Int64())
+	return BigIntOf(trunc.Mantissa)
 }
 
 // DecimalToFloat is `Decimal.to_float`: total and lossy by nature.

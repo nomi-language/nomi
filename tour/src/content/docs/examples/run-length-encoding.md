@@ -11,6 +11,8 @@ Encode runs of repeated characters as a count and the character, and decode them
 
 ```nomi-run
 // FILE: run_length_encoding.nomi
+//# Run-length encoding and decoding of text.
+
 import std/regex.Regex
 
 /// `text` with each run of a repeated character written as its length and

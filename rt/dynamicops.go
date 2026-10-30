@@ -3,6 +3,7 @@ package rt
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -134,7 +135,8 @@ func DynamicField(d Dynamic, name string) Result[Dynamic, DynamicDecodeError] {
 // A negative index takes the out-of-bounds arm rather than a third one, because
 // "list with at least 0 elements" is the honest expectation for `index(d, -1)`
 // and inventing a fourth message for it would be a vocabulary nobody reads.
-func DynamicIndex(d Dynamic, i int64) Result[Dynamic, DynamicDecodeError] {
+func DynamicIndex(d Dynamic, at Int) Result[Dynamic, DynamicDecodeError] {
+	i := at.Saturated()
 	list, ok := d.Inner.([]any)
 	if !ok {
 		return dynamicErr(dynamicPathIndex(i), "list", dynamicTypeName(d.Inner))
@@ -200,17 +202,14 @@ func DynamicAsString(d Dynamic) Result[string, DynamicDecodeError] {
 // 2^63 — so `n > math.MaxInt64` is false for n == 2^63 even though the int64
 // cast overflows. Testing `>= float64(1<<63)` compares against the rounded-up
 // boundary directly, which is what rejects 2^63.
-func dynamicIntFromFloat(n float64) Result[int64, DynamicDecodeError] {
+func dynamicIntFromFloat(n float64) Result[Int, DynamicDecodeError] {
 	if math.IsNaN(n) || math.IsInf(n, 0) {
-		return dynamicErrOf[int64](nil, "Int", "Float (NaN/Inf)")
+		return dynamicErrOf[Int](nil, "Int", "Float (NaN/Inf)")
 	}
 	if n != math.Trunc(n) {
-		return dynamicErrOf[int64](nil, "Int", "Float with fractional part")
+		return dynamicErrOf[Int](nil, "Int", "Float with fractional part")
 	}
-	if n < -float64(1<<63) || n >= float64(1<<63) {
-		return dynamicErrOf[int64](nil, "Int", "Float (out of int64 range)")
-	}
-	return Ok[int64, DynamicDecodeError](int64(n))
+	return Ok[Int, DynamicDecodeError](floatInt(n))
 }
 
 // DynamicAsInt is `std/dynamic.Dynamic.as_int`.
@@ -225,45 +224,42 @@ func dynamicIntFromFloat(n float64) Result[int64, DynamicDecodeError] {
 // sign bit under an int64 cast, so an unguarded conversion answers a negative
 // number for a positive input. uint8/uint16/uint32 fit losslessly and need no
 // guard, which is why they have none.
-func DynamicAsInt(d Dynamic) Result[int64, DynamicDecodeError] {
+func DynamicAsInt(d Dynamic) Result[Int, DynamicDecodeError] {
+	ok := func(v Value) Result[Int, DynamicDecodeError] { return Ok[Int, DynamicDecodeError](IntOf(v)) }
 	switch n := d.Inner.(type) {
 	case int:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case int8:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case int16:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case int32:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case int64:
-		return Ok[int64, DynamicDecodeError](n)
+		return ok(n)
 	case uint:
-		if uint64(n) > math.MaxInt64 {
-			return dynamicErrOf[int64](nil, "Int", "Uint (out of int64 range)")
-		}
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(IntFromUint64(uint64(n)))
 	case uintptr:
-		if uint64(n) > math.MaxInt64 {
-			return dynamicErrOf[int64](nil, "Int", "Uintptr (out of int64 range)")
-		}
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(IntFromUint64(uint64(n)))
 	case uint8:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case uint16:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case uint32:
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(int64(n))
 	case uint64:
-		if n > math.MaxInt64 {
-			return dynamicErrOf[int64](nil, "Int", "Uint64 (out of int64 range)")
+		return ok(IntFromUint64(n))
+	case *big.Int:
+		if n == nil {
+			return dynamicErrOf[Int](nil, "Int", "nil *big.Int")
 		}
-		return Ok[int64, DynamicDecodeError](int64(n))
+		return ok(IntFromBig(n))
 	case float64:
 		return dynamicIntFromFloat(n)
 	case float32:
 		return dynamicIntFromFloat(float64(n))
 	default:
-		return dynamicErrOf[int64](nil, "Int", dynamicTypeName(d.Inner))
+		return dynamicErrOf[Int](nil, "Int", dynamicTypeName(d.Inner))
 	}
 }
 
@@ -361,10 +357,10 @@ func DynamicAsDict(d Dynamic) Result[Map[string, Dynamic], DynamicDecodeError] {
 
 // --- predicates ------------------------------------------------------------
 
-// DynamicIsNull is `std/dynamic.Dynamic.null?`. Never fails, so no Result.
+// DynamicIsNull is `std/dynamic.Dynamic.is_null`. Never fails, so no Result.
 func DynamicIsNull(d Dynamic) bool { return d.Inner == nil }
 
-// DynamicHas is `std/dynamic.Dynamic.has?`: True iff d is a dict with that key.
+// DynamicHas is `std/dynamic.Dynamic.has`: True iff d is a dict with that key.
 //
 // False for a non-dict and for a missing key alike, and the conflation is
 // deliberate: the use case is "decode if present", where allocating a dynamic.Error to

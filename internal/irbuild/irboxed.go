@@ -59,7 +59,8 @@ type irBoxPlan struct {
 }
 
 // irBoxedImpl is one dispatch entry a container box needs: method's impl for
-// the box's type is fn, a body owner retains.
+// the box's type is fn, a body owner retains. A nil method is std's Display,
+// recorded for an erased rendering to find by the box's name.
 type irBoxedImpl struct {
 	method, typ, fn *ir.Symbol
 	owner           *gen
@@ -235,15 +236,89 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 	if _, _, container := stdRecvParts(have); !container {
 		return nil
 	}
-	if d.nomi == "Display" && !g.irDisplayErasedContainer(existential(d), have) {
-		return nil
+	var display *irBoxedImpl
+	if d.nomi == "Display" {
+		structural := g.irDisplayErasedContainer(existential(d), have)
+		if !structural || irHoldsBoxedEnum(have) {
+			// A container whose text is not its shape around its elements'
+			// (a Maybe, a Result, a Set), or one holding an `embeds` enum's
+			// values, whose runtime type is the struct each embeds, so a
+			// structural rendering would select the struct's impl. The box
+			// renders through std's impl instantiated at the container's
+			// own kind, as `"${v}"` does.
+			fn, owner := g.irContainerDisplayInstance(have)
+			if fn == nil {
+				return nil
+			}
+			display = &irBoxedImpl{fn: fn, owner: owner}
+		}
 	}
 	vt := g.irValType(have)
 	if vt == nil || vt.Erased() {
 		return nil
 	}
 	name := vt.String()
-	return &irBoxPlan{typ: g.irTypes().Symbol(irBoxTypeToken{name}, name)}
+	p := &irBoxPlan{typ: g.irTypes().Symbol(irBoxTypeToken{name}, name)}
+	if display != nil {
+		display.typ = p.typ
+		p.impls = []irBoxedImpl{*display}
+	}
+	return p
+}
+
+// irHoldsBoxedEnum reports whether a value of kind k holds, at any depth of
+// its containers, tuples and records, a value of an enum that boxes
+// (irBoxedEnum).
+func irHoldsBoxedEnum(k kind) bool {
+	if irBoxedEnum(k) {
+		return true
+	}
+	var parts []kind
+	if _, ps, container := stdRecvParts(k); container {
+		parts = ps
+	} else if (irRetainedRecordKind(k) || irRetainedTupleKind(k)) && k.comp != nil {
+		parts = k.comp.parts
+	}
+	for _, p := range parts {
+		if irHoldsBoxedEnum(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// irDisplayInstanceContainer reports whether have is a std container whose
+// Display std answers with an impl instantiated at have, and whose text is
+// not structural (irDisplayErasedContainer): a Maybe, a Result or a Set.
+func (g *gen) irDisplayInstanceContainer(have kind) bool {
+	if _, _, container := stdRecvParts(have); !container || g.stdModule != "" {
+		return false
+	}
+	fn, _ := g.irContainerDisplayInstance(have)
+	return fn != nil
+}
+
+// irContainerDisplayInstance is std's `Display.to_string` for the container
+// kind have, instantiated at have, and the gen that builds it; nil when std
+// has no such instance.
+func (g *gen) irContainerDisplayInstance(have kind) (*ir.Symbol, *gen) {
+	f := g.stdGenericTemplate(irContainerBaseName(have), "to_string")
+	if f == nil {
+		return nil, nil
+	}
+	tps, ib := g.stdInsts.stdTemplateParams(f)
+	if ib == nil || ib.Interface == nil || typeText(ib.Interface) != "Display" {
+		return nil, nil
+	}
+	args, ok := g.stdInstSolve(f, tps, ib, []kind{have}, kindString, have)
+	if !ok {
+		return nil, nil
+	}
+	inst, _ := g.stdInsts.instantiate(f, tps, args, nil, g)
+	if inst == nil {
+		return nil, nil
+	}
+	return inst.sym, inst.gen
 }
 
 // sameIfaceInstance reports whether a and b are one interface at one set of
@@ -338,6 +413,12 @@ func (g *gen) noteBoxedImpls(p *irBoxPlan) {
 func (g *gen) irRecordBoxedImpls() {
 	for _, e := range g.boxes.impls {
 		if e.owner == nil || e.owner.irMod == nil || e.owner.irMod.FuncFor(e.fn) == nil {
+			continue
+		}
+		if e.method == nil {
+			// std's Display, which an erased rendering finds by the box's
+			// name (ir.Module.ImplementDisplay).
+			g.irMod.ImplementDisplay(e.typ, e.fn)
 			continue
 		}
 		g.irMod.Implement(e.method, e.typ, e.fn)

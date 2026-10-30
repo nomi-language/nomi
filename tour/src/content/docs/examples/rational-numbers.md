@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: rational_numbers.nomi
+//# Rational numbers and their arithmetic.
+
 /// A fraction kept in lowest terms with a positive denominator, so two
 /// equal rationals have the same fields and `==` compares them.
 pub opaque struct Rational {
@@ -231,7 +233,7 @@ test "a real number to a rational power" {
     ]
 
     subtests cases, #(description, x, r, expected), description {
-        assert Float.equal_within?(Rational.raise(x, rational(r)), expected, 1e-12)
+        assert Float.equal_within(Rational.raise(x, rational(r)), expected, 1e-12)
     }
 }
 
@@ -263,5 +265,5 @@ test "reduction to lowest terms" {
 - The four operations are `Add`, `Subtract`, `Multiply` and `Divide` impls, so the tests write `a + b` and `a / b`. Each builds its result with `Rational.new`, which reduces it. The impl functions name their parameters `lhs` and `rhs`, as the interfaces do; the checker requires the interface's names.
 - `Rational.pow` raises the reciprocal for a negative exponent, with `Int.pow` on each part. `Rational.raise` raises a `Float` to a rational power through `Float.pow` and the exponent as a `Float`.
 - `Rational.numerator` and `Rational.denominator` read the parts, since the struct is opaque. The reduction cases check the parts, which is what "reduced" means; the other cases compare rationals.
-- The real-power cases compare with `Float.equal_within?(actual, expected, 1e-12)`: eight to the power 4/3 is `15.999999999999998`, not the canonical `16.0`, and rounding to a fixed number of places does not fit the canonical `0.3333333333333333`.
+- The real-power cases compare with `Float.equal_within(actual, expected, 1e-12)`: eight to the power 4/3 is `15.999999999999998`, not the canonical `16.0`, and rounding to a fixed number of places does not fit the canonical `0.3333333333333333`.
 - The tests write each rational as the canonical `#(numerator, denominator)` pair and build it with a `rational` helper, so every row reads like the canonical data. Each canonical group is one `subtests` table.

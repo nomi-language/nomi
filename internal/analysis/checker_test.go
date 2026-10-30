@@ -2864,13 +2864,13 @@ fn demo() -> Int {
 
 // --- TryOp (try keyword) tests ---
 
-// These two assert what `try` UNWRAPS — that `v` is usable as an Int. The
+// These two assert what `?` UNWRAPS — that `v` is usable as an Int. The
 // enclosing function declares a Result boundary, since spec §9 requires one
-// for `try` to propagate into.
+// for `?` to propagate into.
 func TestCheckTryOpResult(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
 fn demo(r: Result<Int, String>) -> Result<Int, String> {
-  v = try r
+  v = r?
   Result.Ok(v + 1)
 }`
 	_, errs := checkSource(src)
@@ -2880,7 +2880,7 @@ fn demo(r: Result<Int, String>) -> Result<Int, String> {
 func TestCheckTryOpMaybe(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
 fn demo(m: Maybe<Int>) -> Maybe<Int> {
-  v = try m
+  v = m?
   Maybe.Some(v + 1)
 }`
 	_, errs := checkSource(src)
@@ -2893,7 +2893,7 @@ fn safe_div(a: Int, b: Int) -> Result<Int, String> {
   if b == 0 { Result.Err("div by zero") } else { Result.Ok(a / b) }
 }
 fn calc(a: Int, b: Int) -> Result<Int, String> {
-  result = try safe_div(a, b)
+  result = safe_div(a, b)?
   Result.Ok(result + 1)
 }`
 	_, errs := checkSource(src)
@@ -2912,8 +2912,7 @@ fn to_result(m: Maybe<Int>) -> Result<Int, String> {
 fn demo(m: Maybe<Int>) -> Result<Int, String> {
   n =
     m
-    |> to_result()
-    |> try
+    |> to_result()?
   Result.Ok(n + 1)
 }`
 	_, errs := checkSource(src)
@@ -2930,7 +2929,7 @@ fn to_result(m: Maybe<Int>) -> Result<Int, String> {
   }
 }
 fn demo(m: Maybe<Int>) -> Result<Int, String> {
-  n = m |> try to_result()
+  n = m |> to_result()?
   Result.Ok(n)
 }`
 	_, errs := checkSource(src)
@@ -2968,21 +2967,21 @@ fn map<T, U>(m: Maybe<T>, f: (T) -> U) -> Maybe<U> {
 
 func TestCheckTryOpNonResultMaybe(t *testing.T) {
 	src := `fn demo() -> Int {
-  v = try 42
+  v = 42?
   v
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "try requires a Result or Maybe")
+	expectError(t, errs, "`?` requires a Result or Maybe")
 }
 
 func TestCheckTryOpWrongEnum(t *testing.T) {
 	src := `enum Color { Red; Green; Blue }
 fn demo() -> Color {
-  c = try Color.Red
+  c = Color.Red?
   c
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "try requires a Result or Maybe")
+	expectError(t, errs, "`?` requires a Result or Maybe")
 }
 
 // --- Argument count mismatch tests ---
@@ -3888,11 +3887,11 @@ func TestNaming_FunctionSnakeCase_OK(t *testing.T) {
 //
 // The two positions are checked in two different places and a fix to one does
 // NOT cover the other: the LITERAL is checked in checker.checkStructLit, the
-// TYPE in ResolveTypeExpr. A parameter annotated `#{ok?: Int, ok_PRED: Int}`
+// TYPE in ResolveTypeExpr. A parameter annotated `#{is_ok: Int, ok_PRED: Int}`
 // reaches the IR builder with no literal anywhere, which is why both are pinned.
 //
 // `ok_PRED` is the spelling that motivated this: `internal/irbuild` spells a
-// trailing `?` as a `_PRED` suffix, so an unchecked `ok_PRED` beside `ok?` is
+// trailing `?` as a `_PRED` suffix, so an unchecked `ok_PRED` beside `is_ok` is
 // two Nomi names arriving at one spelling there.
 
 func TestNaming_AnonStructLiteralField_Rejected(t *testing.T) {
@@ -3916,7 +3915,7 @@ func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
 	// A trailing `?` IS snake_case (spec §4, the predicate convention), so the
 	// rule must not reject it — only the `_PRED` spelling that collides with it.
 	src := `fn f() -> Int {
-  a = #{ok?: 1, count: 2}
+  a = #{is_ok: 1, count: 2}
   a.count
 }`
 	_, errs := checkSource(src)
@@ -3925,7 +3924,7 @@ func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
 
 func TestNaming_AnonStructPredCollisionField_Rejected(t *testing.T) {
 	src := `fn f() -> Int {
-  a = #{ok?: 1, ok_PRED: 2}
+  a = #{is_ok: 1, ok_PRED: 2}
   a.ok_PRED
 }`
 	_, errs := checkSource(src)
@@ -3946,8 +3945,8 @@ func TestNaming_FunctionParamSnakeCase_OK(t *testing.T) {
 
 func TestNaming_PredicateFunctionName_OK(t *testing.T) {
 	// A single trailing `?` (predicate convention) is a valid snake_case
-	// identifier — `fn empty?()` must NOT trip the snake_case check.
-	src := `fn empty?() -> Int { 0 }`
+	// identifier — `fn is_empty()` must NOT trip the snake_case check.
+	src := `fn is_empty() -> Int { 0 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3955,7 +3954,7 @@ func TestNaming_PredicateFunctionName_OK(t *testing.T) {
 func TestNaming_PredicateBinding_OK(t *testing.T) {
 	// A `?`-suffixed binding name is accepted too (the suffix attaches to any
 	// identifier, not just fn names).
-	src := `fn f() -> Int { ready? = 0; ready? }`
+	src := `fn f() -> Int { is_ready = 0; is_ready }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3963,7 +3962,7 @@ func TestNaming_PredicateBinding_OK(t *testing.T) {
 func TestNaming_PredicateParam_OK(t *testing.T) {
 	// A `?`-suffixed parameter name is accepted too — the suffix attaches to
 	// any identifier, including function parameters.
-	src := `fn check(ready?: Bool) -> Bool { ready? }`
+	src := `fn check(is_ready: Bool) -> Bool { is_ready }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -4207,14 +4206,6 @@ func TestNaming_ModuleImportAliasPascalCase_Rejected(t *testing.T) {
 		"iter": `pub fn count() {}`,
 	})
 	expectError(t, errs, `import alias "Seq" must be snake_case`)
-}
-
-func TestNaming_FunctionImportAliasPredicateSuffix_Rejected(t *testing.T) {
-	src := `import strings.{contains? as has?}`
-	_, errs := checkSourceWithModules(t, src, map[string]string{
-		"strings": `pub fn contains?() {}`,
-	})
-	expectError(t, errs, `import alias "has?" must be snake_case`)
 }
 
 func TestNaming_ImportBlockFunctionAliasPascalCase_Rejected(t *testing.T) {

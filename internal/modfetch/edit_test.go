@@ -12,7 +12,7 @@ func TestAddLocal_WritesRequireAndReplace(t *testing.T) {
 	p := newTestProxy(t)
 	publishGreet(t, p, "v0.1.0")
 	app, _ := setup(t, p)
-	lib := filepath.Join(app, "generators", "csvdata")
+	lib := filepath.Join(app, "csvdata")
 	writeFile(t, filepath.Join(lib, "go.mod"), "module csvdata\n\ngo 1.27.0\n\nrequire example.com/strutil v1.0.0\n")
 	writeFile(t, filepath.Join(lib, "nomi.toml"), "[module]\nname = \"csvdata\"\n")
 
@@ -20,14 +20,14 @@ func TestAddLocal_WritesRequireAndReplace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddLocal: %v", err)
 	}
-	if added.Module.Path != "csvdata" || added.Module.Version != "v0.0.0" || added.Replace != "./generators/csvdata" {
+	if added.Module.Path != "csvdata" || added.Module.Version != "v0.0.0" || added.Replace != "./csvdata" {
 		t.Fatalf("AddLocal answered %+v", added)
 	}
 	goMod := readFile(t, filepath.Join(app, "go.mod"))
 	for _, want := range []string{
 		"\tcsvdata v0.0.0\n",
 		"\texample.com/strutil v1.0.0 // indirect\n",
-		"replace csvdata => ./generators/csvdata\n",
+		"replace csvdata => ./csvdata\n",
 	} {
 		if !strings.Contains(goMod, want) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)

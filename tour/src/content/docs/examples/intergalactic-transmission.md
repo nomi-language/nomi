@@ -11,6 +11,8 @@ Send a message seven bits to a byte, each byte ending in a parity bit that makes
 
 ```nomi-run
 // FILE: intergalactic_transmission.nomi
+//# Sends a message as bytes with a parity bit each, and reads it back.
+
 /// The bytes that carry `message`: its bits seven at a time, the last seven
 /// padded with zeros, each followed by a parity bit that makes the byte's
 /// count of ones even.
@@ -36,7 +38,7 @@ pub fn receive(transmission: List<Int>) -> Result<List<Int>, String> {
     data =
         transmission
         |> Iter.map(data_bits)
-        |> try Result.collect()
+        |> Result.collect()?
 
     data
     |> Iter.flatten()
@@ -60,7 +62,7 @@ fn data_bits(byte: Int) -> Result<List<Int>, String> {
 
 /// The eight bits of `byte`, most significant first.
 fn bits(byte: Int) -> Iter<Int> {
-    Iter.map(0..8, fn i -> Int.bitwise_and(Int.shift_right(byte, 7 - i), 1))
+    Iter.map(0..8, fn i -> Int.shift_right(byte, 7 - i) |> Int.bitwise_and(1))
 }
 
 /// The number whose bits, most significant first, are `bits`.
@@ -187,4 +189,4 @@ test "decode received messages" {
 
 Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
 
-- **Longer than it should be.** There are no bitwise operators, so reading bit `i` of a byte is `Int.bitwise_and(Int.shift_right(byte, 7 - i), 1)` and making room for the parity bit `Int.shift_left(data, 1)`, where Rust, Go and Python write `byte >> (7 - i) & 1` and `data << 1`.
+- **Longer than it should be.** There are no bitwise operators, so reading bit `i` of a byte is `Int.shift_right(byte, 7 - i) |> Int.bitwise_and(1)` and making room for the parity bit `Int.shift_left(data, 1)`, where Rust, Go and Python write `byte >> (7 - i) & 1` and `data << 1`.

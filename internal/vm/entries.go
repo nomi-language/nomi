@@ -76,7 +76,7 @@ func checkParamKinds(f *ir.Func, args []any) error {
 		case ir.KindBool:
 			_, ok = a.(bool)
 		case ir.KindInt:
-			_, ok = a.(int64)
+			ok = rt.IsInt(a)
 		case ir.KindFloat:
 			_, ok = a.(float64)
 		case ir.KindByte:

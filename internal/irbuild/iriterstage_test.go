@@ -26,7 +26,7 @@ fn main() {
   io.inspect([[1], [2, 3]] |> Iter.flatten())
   io.inspect([1, 2, 3, 4, 5] |> Iter.chunks(2) |> Iter.to_list())
   io.inspect([1, 1, 2, 1] |> Iter.chunk_by(fn x -> x) |> Iter.to_list())
-  io.inspect(Iter.empty?([]))
+  io.inspect(Iter.is_empty([]))
 }
 `
 
@@ -100,7 +100,7 @@ fn main() {
   io.print(%["solo"] |> String.join(", "))
   io.print(#["x", "y"] |> String.join("+"))
   io.print("héllo" |> String.join("."))
-  io.print("héllo" |> Iter.map(String.to_upper) |> String.join())
+  io.print("héllo" |> Iter.map(String.uppercase) |> String.join())
   io.print(1..=3 |> Iter.map(Int.to_string) |> String.join("-"))
   io.print(#Countdown{from: 3} |> Iter.map(Int.to_string) |> String.join(","))
   io.print(Iter.from(1) |> Iter.filter(fn x -> x % 2 == 0) |> Iter.map(Int.to_string) |> Iter.take(3) |> String.join(" "))
@@ -126,8 +126,8 @@ fn main() {
   io.inspect(Set.union(a, b))
   io.inspect(Set.intersection(a, b))
   io.inspect(Set.difference(a, b))
-  io.inspect(Set.subset?(%[1, 2], a))
-  io.inspect(Set.subset?(%[1, 9], a))
+  io.inspect(Set.is_subset(%[1, 2], a))
+  io.inspect(Set.is_subset(%[1, 9], a))
   io.inspect(Iter.to_set([5, 4, 5]))
   io.inspect(List.compare([1, 2, 3], [1, 2, 4]))
   io.inspect(List.compare([1, 2], [1, 2]))

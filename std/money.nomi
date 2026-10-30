@@ -18,7 +18,7 @@
 //# The amount keeps every digit it has: adding, subtracting and multiplying
 //# by a count are exact, and only `Money.round` and `Money.multiply_by`, a
 //# product with a Decimal rate, round, to the currency's minor digits. Two amounts in different currencies do not add: `+` and `-`
-//# trap and name both, as `Int` overflow traps. Std has no exchange rates;
+//# trap and name both. Std has no exchange rates;
 //# a library that has them converts and checks the currency first.
 //# `Money.format` writes an amount as a reader of a locale writes it, and
 //# `Money.parse_in` reads one back, strictly by default.
@@ -129,12 +129,26 @@ pub enum CurrencyDisplay {
 
 derive Equatable for CurrencyDisplay
 
+/// How `Money.format` writes a negative amount: with the locale's
+/// `Standard` currency pattern (`-$10.00` in `en`), or with its
+/// `Accounting` one, which some locales write in parentheses (`($10.00)`
+/// in `en`, as a ledger shows a debit) and most write as the standard
+/// one. JavaScript's `Intl.NumberFormat` calls this `currencySign`.
+pub enum CurrencySign {
+    Standard
+    Accounting
+}
+
+derive Equatable for CurrencySign
+
 impl Money {
     /// The amount as a reader of `locale` writes it, with the currency where
     /// the locale's pattern puts it. The amount shows the currency's minor
     /// digits, more when it has more, and never loses one: format a rounded
     /// amount (`Money.round`) to round it. A symbol made of letters is kept
-    /// apart from the digits (`BTC 0.50000000`).
+    /// apart from the digits (`BTC 0.50000000`). `sign: .Accounting` writes
+    /// it in the locale's accounting pattern (`CurrencySign`), which a
+    /// `Name` display has none of.
     //! eur = Money`12.5 EUR`
     //! assert Money.format(eur, Locale`en`) == "€12.50"
     //! assert Money.format(eur, Locale`pl`) == "12,50\u{a0}€"
@@ -142,11 +156,18 @@ impl Money {
     //! assert Money.format(eur, Locale`en`, display: .Name) == "12.50 euros"
     //! assert Money.format(Money`1234 JPY`, Locale`ja`) == "￥1,234"
     //! assert Money.format(Money`0.5 BTC:8`, Locale`en`) == "BTC\u{a0}0.50000000"
+    //!
+    //! debit = Money`-10 USD`
+    //! assert Money.format(debit, Locale`en`) == "-$10.00"
+    //! assert Money.format(debit, Locale`en`, sign: .Accounting) == "($10.00)"
+    //! assert Money.format(Money`10 USD`, Locale`en`, sign: .Accounting) == "$10.00"
+    //! assert Money.format(Money`-10 EUR`, Locale`de`, sign: .Accounting) == "-10,00\u{a0}€"
     //
     pub fn format(
         money: Money,
         locale: Locale,
         display: CurrencyDisplay = CurrencyDisplay.Symbol,
+        sign: CurrencySign = CurrencySign.Standard,
     ) -> String {
         shown = case display {
             CurrencyDisplay.Symbol -> 0
@@ -155,7 +176,12 @@ impl Money {
             CurrencyDisplay.Name -> 3
         }
 
-        money_format.format(money.amount, money.currency, locale, shown)
+        accounting = case sign {
+            CurrencySign.Standard -> False
+            CurrencySign.Accounting -> True
+        }
+
+        money_format.format(money.amount, money.currency, locale, shown, accounting)
     }
 
     /// The amount rounded to its currency's minor digits, half to even
@@ -191,7 +217,7 @@ impl Money {
     //! assert Money.multiply_by(Money`999 JPY`, 0.08d) == Money`80 JPY`
     //! assert Money.multiply_by(Money`-10.05 EUR`, 0.5d) == Money`-5.02 EUR`
     //!
-    //! rate = try Float.to_decimal(0.0825, 4, RoundingMode.HalfEven)
+    //! rate = Float.to_decimal(0.0825, 4, RoundingMode.HalfEven)?
     //! assert Money.multiply_by(Money`40.00 USD`, rate) == Money`3.30 USD`
     //
     pub fn multiply_by(
@@ -229,11 +255,11 @@ impl Money {
     }
 
     /// Whether the amount is zero, at any scale and in any currency.
-    //! assert Money.zero?(Money`0.00 EUR`)
-    //! refute Money.zero?(Money`0.01 EUR`)
+    //! assert Money.is_zero(Money`0.00 EUR`)
+    //! refute Money.is_zero(Money`0.01 EUR`)
     //
-    pub fn zero?(money: Money) -> Bool {
-        Decimal.zero?(money.amount)
+    pub fn is_zero(money: Money) -> Bool {
+        Decimal.is_zero(money.amount)
     }
 
     /// The lesser of two amounts in one currency (ties return `a`): what a
@@ -281,13 +307,13 @@ impl Money {
         currency: Currency,
         lenient: Bool = False,
     ) -> Result<Money, NumberParseError> {
-        amount = try money_format.parse(text, locale, currency, lenient)
+        amount = money_format.parse(text, locale, currency, lenient)?
         Ok(#Money{amount, currency})
     }
 
     /// Whether the amount is the sum of no amounts, `Money.empty_sum()`.
-    fn empty?(money: Money) -> Bool {
-        money.currency == Currency`XXX` and Decimal.zero?(money.amount)
+    fn is_empty(money: Money) -> Bool {
+        money.currency == Currency`XXX` and Decimal.is_zero(money.amount)
     }
 }
 
@@ -299,9 +325,9 @@ impl Add<Money, Money> for Money {
     //! assert Money`12.50 EUR` + Money`0.75 EUR` == Money`13.25 EUR`
     //
     fn add(lhs: Money, rhs: Money) -> Money {
-        if Money.empty?(lhs) {
+        if Money.is_empty(lhs) {
             rhs
-        } else if Money.empty?(rhs) {
+        } else if Money.is_empty(rhs) {
             lhs
         } else {
             money_format.require_same("Money.add", lhs.currency, rhs.currency)
@@ -316,7 +342,7 @@ impl Subtract<Money, Money> for Money {
     //! assert Money`12.50 EUR` - Money`20 EUR` == Money`-7.50 EUR`
     //
     fn subtract(lhs: Money, rhs: Money) -> Money {
-        if Money.empty?(rhs) {
+        if Money.is_empty(rhs) {
             lhs
         } else {
             money_format.require_same("Money.subtract", lhs.currency, rhs.currency)
@@ -375,7 +401,7 @@ impl Literal for Money {
     //! assert Money"12.50" == Err(#Error.NoCurrency{amount: "12.50"})
     //
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Money, Error> {
-        interpolated = Iter.any?(fragments, fn frag -> {
+        interpolated = Iter.any(fragments, fn frag -> {
             case frag {
                 .Static(_) -> False
                 .Dynamic(_) -> True
@@ -426,7 +452,7 @@ impl Display for Money {
     fn to_string(money: Money) -> String {
         currency = money.currency
 
-        if Currency.iso?(currency) {
+        if Currency.is_iso(currency) {
             "${money.amount} ${currency}"
         } else {
             "${money.amount} ${currency}:${Currency.minor_digits(currency)}"

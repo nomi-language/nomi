@@ -19,8 +19,8 @@ fn main() {
     io.print("size = ${Map.size(m)}")
     io.print("get a = ${found(m, "a")}")
     io.print("get z = ${found(m, "z")}")
-    io.print("has a = ${Map.contains?(m, "a")}")
-    io.print("has z = ${Map.contains?(m, "z")}")
+    io.print("has a = ${Map.contains(m, "a")}")
+    io.print("has z = ${Map.contains(m, "z")}")
 
     // put over a NEW key appends; put over an existing key keeps its position.
     io.print("put c = ${Map.put(m, "c", 3)}")
@@ -84,8 +84,8 @@ fn main() {
     // becomes visible, because an IEEE hash would lose the NaN key entirely.
     zero = 0.0
     nan = zero / zero
-    io.print("nan key = ${Map.contains?(%{nan => 1}, nan)}")
-    io.print("neg zero key = ${Map.contains?(%{zero => 1}, -zero)}")
+    io.print("nan key = ${Map.contains(%{nan => 1}, nan)}")
+    io.print("neg zero key = ${Map.contains(%{zero => 1}, -zero)}")
     io.print("nan is one key = ${Map.size(%{nan => 1, nan => 2})}")
 
     // Bool keys: two inhabitants, and they must not collide.
@@ -95,7 +95,7 @@ fn main() {
     io.print("counted = ${total(%{"a" => 1, "b" => 2, "c" => 3})}")
     io.print("built = ${build()}")
     io.print("map keyed = ${Map.size(%{%{"a" => 1} => "inner"})}")
-    io.print("map key found = ${Map.contains?(%{%{"a" => 1} => "inner"}, %{"a" => 1})}")
+    io.print("map key found = ${Map.contains(%{%{"a" => 1} => "inner"}, %{"a" => 1})}")
 
     // Evaluation ORDER: entries left to right, key before value.
     io.print("order = ${%{note("k1") => note("v1"), note("k2") => note("v2")}}")

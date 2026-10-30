@@ -4,7 +4,7 @@ import {
 }
 
 test "winner" {
-    cases: List<#(String, List<String>, Maybe<Player>)> = [
+    cases = [
         #(
             "an empty board has no winner",
             [
@@ -16,7 +16,7 @@ test "winner" {
             ],
             None,
         ),
-        #("X can win on a 1x1 board", ["X"], Some(.X)),
+        #("X can win on a 1x1 board", ["X"], Some(Player.X)),
         #("O can win on a 1x1 board", ["O"], Some(.O)),
         #(
             "only edges does not make a winner",

@@ -1,3 +1,5 @@
+//# Picks the best poker hands from a list of hands.
+
 /// Why a hand cannot be scored.
 pub enum Error {
     InvalidHand String
@@ -39,15 +41,13 @@ pub fn best_hands(hands: List<String>) -> Result<List<String>, Error> {
     scored =
         hands
         |> Iter.map(fn hand -> score(hand) |> Result.map(&#(hand, &1)))
-        |> try Result.collect()
+        |> Result.collect()?
 
-    Some(best) = scored |> Iter.map(fn #(_hand, score) -> score) |> Iter.max() else {
-        return Ok([])
-    }
+    Some(best) = scored |> Iter.map(.1) |> Iter.max() else { return Ok([]) }
 
     scored
     |> Iter.filter(fn #(_hand, score) -> score == best)
-    |> Iter.map(fn #(hand, _score) -> hand)
+    |> Iter.map(.0)
     |> Iter.to_list()
     |> Ok()
 }
@@ -58,9 +58,7 @@ fn score(hand: String) -> Result<Score, Error> {
         return Err(.InvalidHand(hand))
     }
 
-    if Iter.count(cards) != 5 {
-        return Err(.InvalidHand(hand))
-    }
+    if Iter.count(cards) != 5 { return Err(.InvalidHand(hand)) }
 
     // Each rank with how many cards show it, the largest group first and
     // the higher rank first among groups of one size.
@@ -70,8 +68,8 @@ fn score(hand: String) -> Result<Score, Error> {
         |> Iter.frequencies()
         |> Iter.sort_by(.Descending, fn #(rank, count) -> #(count, rank))
 
-    counts = groups |> Iter.map(fn #(_rank, count) -> count) |> Iter.to_list()
-    ranks = groups |> Iter.map(fn #(rank, _count) -> rank) |> Iter.to_list()
+    counts = groups |> Iter.map(.1) |> Iter.to_list()
+    ranks = groups |> Iter.map(.0) |> Iter.to_list()
     flush = cards |> Iter.map(.suit) |> Iter.to_set() |> Set.size() == 1
 
     Ok(
@@ -112,7 +110,7 @@ fn card(text: String) -> Maybe<Card> {
         digits -> pip_rank(digits)
     }
 
-    if Iter.contains?(["S", "H", "D", "C"], suit) {
+    if List.contains(["S", "H", "D", "C"], suit) {
         rank |> Maybe.map(&#Card{rank: &1, suit})
     } else {
         None
@@ -121,11 +119,9 @@ fn card(text: String) -> Maybe<Card> {
 
 /// The rank of a numbered card, 2 to 10.
 fn pip_rank(digits: String) -> Maybe<Int> {
-    Some(n) = String.to_int(digits) else {
-        return None
-    }
+    Some(n) = String.to_int(digits) else { return None }
 
-    if Range.contains?(2..=10, n) {
+    if Range.contains(2..=10, n) {
         Some(n)
     } else {
         None

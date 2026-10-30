@@ -169,12 +169,12 @@ func TestSubtests_RejectedPlacementsAndExits(t *testing.T) {
 			name: "try in a row",
 			src: `test "t" {
     subtests [Some(1)], m {
-        n = try m
+        n = m?
         assert n > 0
     }
 }`,
-			line: 3, col: 13,
-			msg:  "`try` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to",
+			line: 3, col: 14,
+			msg:  "`?` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to",
 			hint: "assert the shape instead: `assert Ok(value) = expr` binds value or fails the row",
 		},
 		{
@@ -222,12 +222,12 @@ test "t" {
 }
 
 test "t" {
-    subtests [1, 2], n, try label(n) {
+    subtests [1, 2], n, label(n)? {
         assert n > 0
     }
 }`,
-			line: 6, col: 25,
-			msg:  "`try` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
+			line: 6, col: 33,
+			msg:  "`?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs",
 			hint: "handle the Result or Maybe inside the name with `case`, or compute the name in a function",
 		},
 		{
@@ -332,7 +332,7 @@ fn f(xs: List<Int>) -> Result<Unit, AssertionFailure> {
             break
         })
         assert first == Unit
-        assert Iter.all?(xs, fn x -> {
+        assert Iter.all(xs, fn x -> {
             if x > 5 {
                 return False
             }

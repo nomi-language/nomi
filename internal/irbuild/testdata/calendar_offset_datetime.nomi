@@ -26,7 +26,7 @@
 // for those, and rt's own calendar_offset_test.go pins them at the
 // representation level.
 //
-// The nine Nomi-bodied `Add` rungs, all ten `Subtract` rungs, `equal?`, `hash`,
+// The nine Nomi-bodied `Add` rungs, all ten `Subtract` rungs, `equal`, `hash`,
 // `compare`, `between`, `inspect` and `from_fragments` are lowered Nomi
 // bodies, so `- Months(1)` reaching the wrong `+ Months(-1)` prints a wrong
 // value here.
@@ -61,15 +61,12 @@ fn run() -> Result<Unit, Error> {
     // offset and `from_instant` names a MOMENT at one. The last two differ in
     // totality, which is why std declares one returning a Result and the other
     // not.
-    literal = try OffsetDateTime"2026-05-04T14:30:00.25-05:00"
-    parsed = try OffsetDateTime.parse("2026-05-04T14:30:00.25-05:00")
+    literal = OffsetDateTime"2026-05-04T14:30:00.25-05:00"?
+    parsed = OffsetDateTime.parse("2026-05-04T14:30:00.25-05:00")?
     io.print("literal = " + OffsetDateTime.to_string(literal))
     io.print("parsed_equal = " + Bool.to_string(literal == parsed))
 
-    built = try OffsetDateTime.with_offset(
-        try NaiveDateTime"2026-05-04T09:00:00",
-        Duration.hours(-5),
-    )
+    built = OffsetDateTime.with_offset(NaiveDateTime"2026-05-04T09:00:00"?, Duration.hours(-5))?
 
     io.print("with_offset = " + OffsetDateTime.to_string(built))
 
@@ -82,7 +79,7 @@ fn run() -> Result<Unit, Error> {
     // `Z` is a spelling of `+00:00` on the way in and renders as `+00:00` on the
     // way out, which is asymmetric on purpose: the type stores seconds and has no
     // memory of how the offset was written.
-    io.print("zulu = " + OffsetDateTime.to_string(try OffsetDateTime"1985-04-12T23:20:50.52Z"))
+    io.print("zulu = " + OffsetDateTime.to_string(OffsetDateTime"1985-04-12T23:20:50.52Z"?))
 
     // --- THE TWO REJECTIONS, both about the OFFSET and neither about the
     // reading, because the reading arrives already validated ------------------
@@ -94,7 +91,7 @@ fn run() -> Result<Unit, Error> {
     io.print(
         "sub_second_offset = " + describe(
             OffsetDateTime.with_offset(
-                try NaiveDateTime"2026-05-04T09:00:00",
+                NaiveDateTime"2026-05-04T09:00:00"?,
                 Duration.milliseconds(500),
             )
         )
@@ -102,7 +99,7 @@ fn run() -> Result<Unit, Error> {
 
     io.print(
         "offset_too_large = " + describe(
-            OffsetDateTime.with_offset(try NaiveDateTime"2026-05-04T09:00:00", Duration.hours(19))
+            OffsetDateTime.with_offset(NaiveDateTime"2026-05-04T09:00:00"?, Duration.hours(19))
         )
     )
 
@@ -121,7 +118,7 @@ fn run() -> Result<Unit, Error> {
     io.print("second = " + Int.to_string(OffsetDateTime.second(literal)))
     io.print("nanosecond = " + Int.to_string(OffsetDateTime.nanosecond(literal)))
 
-    crossing = try OffsetDateTime"2026-05-04T23:30:00-05:00"
+    crossing = OffsetDateTime"2026-05-04T23:30:00-05:00"?
     io.print("crossing_day = " + Int.to_string(OffsetDateTime.day(crossing)))
     io.print("crossing_hour = " + Int.to_string(OffsetDateTime.hour(crossing)))
 
@@ -145,8 +142,8 @@ fn run() -> Result<Unit, Error> {
     // transition: the same `America/New_York` gives -05:00 in January and -04:00
     // in June, so a projection that read a constant offset would print one of
     // these twice.
-    winter = try DateTime"2026-01-15T12:00:00-05:00[America/New_York]"
-    summer = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    winter = DateTime"2026-01-15T12:00:00-05:00[America/New_York]"?
+    summer = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"?
     io.print("to_offset_winter = " + OffsetDateTime.to_string(DateTime.to_offset(winter)))
     io.print("to_offset_summer = " + OffsetDateTime.to_string(DateTime.to_offset(summer)))
 
@@ -163,7 +160,7 @@ fn run() -> Result<Unit, Error> {
     // is 2027-01-31 — while every civil sub-day rung and the `Duration` rung move
     // the reading by a different amount. No two lines below may print the same
     // text.
-    eom = try OffsetDateTime"2026-01-31T09:15:00-05:00"
+    eom = OffsetDateTime"2026-01-31T09:15:00-05:00"?
     io.print("add_years = " + OffsetDateTime.to_string(eom + Years(1)))
     io.print("add_months = " + OffsetDateTime.to_string(eom + Months(1)))
     io.print("add_weeks = " + OffsetDateTime.to_string(eom + Weeks(2)))
@@ -178,12 +175,12 @@ fn run() -> Result<Unit, Error> {
 
     // The leap-year variant of the same clamp, so `add_months` cannot be a
     // lowering that clamps to a constant 28.
-    leap = try OffsetDateTime"2024-01-31T09:15:00-05:00"
+    leap = OffsetDateTime"2024-01-31T09:15:00-05:00"?
     io.print("add_months_leap = " + OffsetDateTime.to_string(leap + Months(1)))
 
     io.print(
         "add_years_leap = " + OffsetDateTime.to_string(
-            try OffsetDateTime"2024-02-29T09:15:00-05:00" + Years(1)
+            OffsetDateTime"2024-02-29T09:15:00-05:00"? + Years(1)
         )
     )
 
@@ -192,7 +189,7 @@ fn run() -> Result<Unit, Error> {
     // Every one of these is a lowered Nomi body. March 31st going back a month
     // is the negative-direction clamp, where
     // the month index has to floor rather than normalize forward.
-    march = try OffsetDateTime"2026-03-31T09:15:00-05:00"
+    march = OffsetDateTime"2026-03-31T09:15:00-05:00"?
     io.print("sub_months = " + OffsetDateTime.to_string(march - Months(1)))
     io.print("sub_years = " + OffsetDateTime.to_string(march - Years(2)))
     io.print("sub_weeks = " + OffsetDateTime.to_string(march - Weeks(1)))
@@ -214,7 +211,7 @@ fn run() -> Result<Unit, Error> {
     // agree below a month — `+ Days(1)` and `+ Duration.hours(24)` are the same
     // value here and they differ for `DateTime` across a spring-forward. Pinning
     // the agreement is what stops a reader concluding the two ladders are one.
-    day_base = try OffsetDateTime"2026-03-07T12:00:00-05:00"
+    day_base = OffsetDateTime"2026-03-07T12:00:00-05:00"?
     io.print("civil_day = " + OffsetDateTime.to_string(day_base + Days(1)))
     io.print("physical_day = " + OffsetDateTime.to_string(day_base + Duration.hours(24)))
 
@@ -224,8 +221,8 @@ fn run() -> Result<Unit, Error> {
     // False for the pair below, so these two lines fail for a structural lowering
     // of `==` and for nothing else. `hash` has to agree with it, and `compare`
     // has to order by the instant as well.
-    ny = try OffsetDateTime"2026-05-04T14:30:00-05:00"
-    london = try OffsetDateTime"2026-05-04T20:30:00+01:00"
+    ny = OffsetDateTime"2026-05-04T14:30:00-05:00"?
+    london = OffsetDateTime"2026-05-04T20:30:00+01:00"?
     io.print("same_moment = " + Bool.to_string(ny == london))
 
     io.print(

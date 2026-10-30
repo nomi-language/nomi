@@ -1,5 +1,5 @@
-//# The module's second entry point, listed in `nomi.toml`. It prints the
-//# sample list.
+//# The module's second entry point, a tool under `tools/`, which needs no
+//# line in `nomi.toml`. It prints the sample list.
 
 import {
     std/io

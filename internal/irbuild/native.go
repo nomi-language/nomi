@@ -33,7 +33,7 @@ import (
 //
 // # Faults
 //
-// A Nomi runtime fault (integer overflow, a zero divisor) is an rt trap, which
+// A Nomi runtime fault (a zero divisor, a failed host function) is an rt trap, which
 // the VM reports as a fault. See rt/trap.go.
 
 // kind is a Nomi type as this builder represents it.
@@ -424,6 +424,9 @@ type gen struct {
 	// of a block binds, built on first use by moduleScope; a name two blocks
 	// bind to different files maps to nil.
 	blockImports map[string]*analysis.Scope
+	// importScopes is the files each `import` statement binds, by name,
+	// built on first use by importBindings.
+	importScopes map[*ast.ImportStmt]map[string]*analysis.Scope
 
 	// nomiLine is the Nomi line the next lowered statement is attributed to.
 	nomiLine int
@@ -519,7 +522,10 @@ type gen struct {
 	// irliteralcell.go.
 	literalCells map[*ast.TaggedString]*ir.Symbol
 	literalSites []LiteralSite
-	onceOrder    []*onceDef
+	// bangRenders holds the function that renders a failed `!` call's error,
+	// by the error's kind (unwrap.go); nil for a kind with no rendering.
+	bangRenders map[kind]*ir.Symbol
+	onceOrder   []*onceDef
 	// types is the module's struct and enum declarations, by Nomi name. The
 	// *typeDef a name resolves to IS the type's identity everywhere downstream
 	// (see types.go), so this map is the only place a type NAME is looked up.
@@ -1160,7 +1166,7 @@ func (g *gen) declareFuncs() {
 // members are indexed (resolveImplMembers), because a synthesized body may
 // call an impl another file declares: `derive Equatable for Rec` over a field
 // of a type another file declares compares that field with the other file's
-// `Equatable.equal?`. Lowered before that index exists, the call found no
+// `Equatable.equal`. Lowered before that index exists, the call found no
 // candidate and the whole derived block was refused.
 func (g *gen) settleImpls() {
 	g.emitSynthImpls(g.implOrder)

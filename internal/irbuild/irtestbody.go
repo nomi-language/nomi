@@ -417,6 +417,9 @@ func (bl *irScalarBuilder) testLeaving(s ast.Node) (leaves, ok bool) {
 		e = st.Expr
 	case *ast.Binding:
 		e = st.Value
+	case *ast.Assertion:
+		// `assert "x" == { io.print("y")  return }`: nothing is judged.
+		e = st.Expr
 	default:
 		return false, false
 	}
@@ -572,10 +575,6 @@ func (bl *irScalarBuilder) testReturn(r *ast.Return) bool {
 // ends in the return (`Err(e) -> return Err(e)` in a binding's `case`) is
 // diverged, and its region's exit is the other arms'.
 func (bl *irScalarBuilder) testExit(r *ast.Return) bool {
-	if bl.recording > 0 {
-		irDeclineNote("a return in a test body the builder reads back")
-		return false
-	}
 	if !isNilNode(r.Value) {
 		val, k, _, ok := bl.lower(r.Value)
 		if !ok {
@@ -596,7 +595,7 @@ func (bl *irScalarBuilder) testExit(r *ast.Return) bool {
 //
 // The exit is an `ir.Try` whose boundary is the test body: the VM's runner
 // reads an AssertionFailure a try carried out of a test body back into the
-// failure's report (internal/vm/testrun.go), the path `try testing.check(e)`
+// failure's report (internal/vm/testrun.go), the path `testing.check(e)?`
 // already takes. Only an `Err` whose payload is an AssertionFailure fails the
 // case, and this type is the only one whose `Err` carries one.
 func (bl *irScalarBuilder) testVerdict(at ast.Node, val ir.Temp, k kind) bool {
@@ -1112,7 +1111,7 @@ func tripleQuoted(n ast.Node) bool {
 // ordinary call's literal arguments are noise — `assert double(3) == 7`
 // explains nothing by printing `3 = 3` — while a call returning a BOOL is a
 // PREDICATE whose literal inputs are precisely what the reader wants:
-// `assert even?(5)` shows `5 = 5`. The builder decides it from the callee's
+// `assert is_even(5)` shows `5 = 5`. The builder decides it from the callee's
 // declared return type.
 //
 // `skipAssertionArg` IS CALLED RATHER THAN RESTATED, so the classification of

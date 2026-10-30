@@ -25,27 +25,25 @@ type arithCase struct {
 // arithCases is every operator-and-domain combination the model admits.
 //
 // The fault column is not a restatement of the model: it is read off the
-// operations' behaviour — rt's overflow predicates and Decimal operations,
-// and the VM's arithmetic over them — operator by operator.
+// operations' behaviour — rt's Int and Decimal operations, and the VM's
+// arithmetic over them — operator by operator.
 func arithCases() []arithCase {
-	checked := ir.IntArith(ir.OverflowFaults)
+	exact := ir.IntArith(ir.OverflowExact)
 	wrapping := ir.IntArith(ir.OverflowWraps)
 	flt := ir.FloatArith()
 	dec := ir.DecimalArith()
 	return []arithCase{
-		// Int, checked. `+ - *` and unary `-` fault on overflow; `/` faults on a
-		// zero divisor AND on MinInt64 / -1; `%` faults on a zero divisor only,
-		// because Go's `%` answers MinInt64 % -1 without a panic (the answer
-		// is 0).
-		{ir.OpAdd, checked, "Int +", ir.ShapeIntChecked, ir.FaultOverflow},
-		{ir.OpSub, checked, "Int -", ir.ShapeIntChecked, ir.FaultOverflow},
-		{ir.OpMul, checked, "Int *", ir.ShapeIntChecked, ir.FaultOverflow},
-		{ir.OpDiv, checked, "Int /", ir.ShapeIntChecked, ir.FaultDivByZero | ir.FaultOverflow},
-		{ir.OpRem, checked, "Int %", ir.ShapeIntChecked, ir.FaultDivByZero},
-		{ir.OpNeg, checked, "Int neg", ir.ShapeIntChecked, ir.FaultOverflow},
+		// Int, exact. An Int is exact at any size, so `+ - *` and unary `-`
+		// never fault; `/` and `%` fault on a zero divisor only.
+		{ir.OpAdd, exact, "Int +", ir.ShapeIntExact, 0},
+		{ir.OpSub, exact, "Int -", ir.ShapeIntExact, 0},
+		{ir.OpMul, exact, "Int *", ir.ShapeIntExact, 0},
+		{ir.OpDiv, exact, "Int /", ir.ShapeIntExact, ir.FaultDivByZero},
+		{ir.OpRem, exact, "Int %", ir.ShapeIntExact, ir.FaultDivByZero},
+		{ir.OpNeg, exact, "Int neg", ir.ShapeIntExact, 0},
 
 		// Int, modular. `derive Hashable`'s synthesized mixers. Three
-		// operators and no others, because rt has three wrapping functions.
+		// operators and no others.
 		{ir.OpAdd, wrapping, "Int wrapping +", ir.ShapeIntWrapping, 0},
 		{ir.OpSub, wrapping, "Int wrapping -", ir.ShapeIntWrapping, 0},
 		{ir.OpMul, wrapping, "Int wrapping *", ir.ShapeIntWrapping, 0},
@@ -93,7 +91,7 @@ func TestArith_SixShapesAllReachableAndNoneStored(t *testing.T) {
 		seen[a.Shape()] = append(seen[a.Shape()], c.label)
 	}
 	all := []ir.Shape{
-		ir.ShapeIntChecked, ir.ShapeIntWrapping, ir.ShapeFloatNative,
+		ir.ShapeIntExact, ir.ShapeIntWrapping, ir.ShapeFloatNative,
 		ir.ShapeFloatDiv, ir.ShapeFloatMod, ir.ShapeDecimal,
 	}
 	for _, s := range all {
@@ -112,11 +110,11 @@ func TestArith_SixShapesAllReachableAndNoneStored(t *testing.T) {
 	// differ ONLY in the overflow discipline must land on different shapes,
 	// and two that differ only in the operator within one domain must not
 	// necessarily. Without the first, Shape could be a constant per domain.
-	add := ir.NewArith(ir.At("a.nomi", 1, 1), 1, ir.OpAdd, ir.IntArith(ir.OverflowFaults), 2, 3)
+	add := ir.NewArith(ir.At("a.nomi", 1, 1), 1, ir.OpAdd, ir.IntArith(ir.OverflowExact), 2, 3)
 	wrap := ir.NewArith(ir.At("a.nomi", 1, 1), 1, ir.OpAdd, ir.IntArith(ir.OverflowWraps), 2, 3)
 	if add.Shape() == wrap.Shape() {
-		t.Error("a checked Int `+` and a modular Int `+` have the same shape; the first " +
-			"faults on overflow and the second wraps")
+		t.Error("an exact Int `+` and a modular Int `+` have the same shape; the first " +
+			"answers exactly and the second wraps")
 	}
 }
 
@@ -153,16 +151,16 @@ func TestArith_FaultPointIsRecordedWithoutADeliveryChoice(t *testing.T) {
 	}
 	t.Logf("%d of %d operations can fault at their own position", faulting, faulting+clean)
 
-	// The overflow discipline is the ONE fact a producer supplies that the
-	// front end's type answer does not force, and it is a property of the
-	// SOURCE CONSTRUCT rather than of a consumer: `derive Hashable`
-	// synthesizes modular mixers, a programmer's `+` is checked.
+	// The discipline is the ONE fact a producer supplies that the front
+	// end's type answer does not force, and it is a property of the SOURCE
+	// CONSTRUCT rather than of a consumer: `derive Hashable` synthesizes
+	// modular mixers, a programmer's `+` is exact.
 	if got := ir.IntArith(ir.OverflowWraps); got.Domain() != ir.DomainInt {
 		t.Errorf("IntArith reports domain %s", got.Domain())
 	}
 	if got := recovered(func() { ir.IntArith(0) }); got == "" {
 		t.Error("IntArith accepted an unset discipline, so an Int operation can be built " +
-			"without saying whether overflow is a fault")
+			"without saying whether it is exact or wraps")
 	}
 }
 
@@ -207,24 +205,16 @@ func TestArith_UnrepresentableCombinationsAreRejected(t *testing.T) {
 	pos := ir.At("a.nomi", 1, 1)
 	wrapping := ir.IntArith(ir.OverflowWraps)
 
-	// rt has WrapAddInt, WrapSubInt and WrapMulInt and nothing else, so a
-	// modular `/`, `%` or unary `-` has no emitted shape. Measured, not
-	// assumed: rtArithSignatures below would find them if they existed.
-	sigs := rtArithSignatures(t)
-	for _, name := range []string{"WrapQuoInt", "WrapRemInt", "WrapNegInt"} {
-		if _, ok := sigs[name]; ok {
-			t.Errorf("rt declares %s, so the modular discipline now covers more operators "+
-				"than this package admits", name)
-		}
-	}
+	// The modular discipline covers `+`, `-` and `*` and nothing else, so a
+	// modular `/`, `%` or unary `-` has no emitted shape.
 	for _, op := range []ir.ArithOp{ir.OpDiv, ir.OpRem} {
 		if got := recovered(func() { ir.NewArith(pos, 1, op, wrapping, 2, 3) }); got == "" {
-			t.Errorf("a modular Int `%s` was accepted; rt has no wrapping form of it",
+			t.Errorf("a modular Int `%s` was accepted; there is no wrapping form of it",
 				op.Symbol())
 		}
 	}
 	if got := recovered(func() { ir.NewUnaryArith(pos, 1, ir.OpNeg, wrapping, 2) }); got == "" {
-		t.Error("a modular Int unary `-` was accepted; rt has no WrapNegInt")
+		t.Error("a modular Int unary `-` was accepted; there is no wrapping negation")
 	}
 	// PLANT A POSITIVE: the three that DO exist must be accepted.
 	for _, op := range []ir.ArithOp{ir.OpAdd, ir.OpSub, ir.OpMul} {
@@ -278,91 +268,21 @@ func TestArith_UnrepresentableCombinationsAreRejected(t *testing.T) {
 	}
 }
 
-// TestArith_OperatorSpellingMatchesTheTrapMessage guards the one string this
-// class shares with rt's trap text.
-//
-// `rt.overflowText` formats "line %d: integer overflow: %d %s %d" with the
-// operator spelled the way the source spells it. The trap text is right only
-// if the spelling agrees, and the golden files police the rest.
-func TestArith_OperatorSpellingMatchesTheTrapMessage(t *testing.T) {
+// TestArith_OperatorSpelling holds each operator to its source spelling,
+// which IR dumps and messages print.
+func TestArith_OperatorSpelling(t *testing.T) {
 	for _, tc := range []struct {
 		op   ir.ArithOp
 		want string
 	}{
 		{ir.OpAdd, "+"}, {ir.OpSub, "-"}, {ir.OpMul, "*"},
 		{ir.OpDiv, "/"}, {ir.OpRem, "%"},
-		// Unary minus reports as `-`, because the VM checks it as the
-		// subtraction `0 - a` and the message names the subtraction it
-		// performed.
 		{ir.OpNeg, "-"},
 	} {
 		if got := tc.op.Symbol(); got != tc.want {
 			t.Errorf("%s spells itself %q, want %q", tc.op, got, tc.want)
 		}
 	}
-	// The operator strings rt.OverflowError is called with, read from the
-	// VM's own source, must be a subset of what ArithOp can spell.
-	spellable := map[string]bool{}
-	for _, op := range []ir.ArithOp{ir.OpAdd, ir.OpSub, ir.OpMul, ir.OpDiv, ir.OpRem, ir.OpNeg} {
-		spellable[op.Symbol()] = true
-	}
-	found := 0
-	for _, lit := range vmOverflowOperatorLiterals(t) {
-		if !spellable[lit] {
-			t.Errorf("internal/vm reports an overflow of the operator %q, which no ArithOp spells", lit)
-			continue
-		}
-		found++
-	}
-	if found == 0 {
-		t.Fatal("no operator literal was found in internal/vm's rt.OverflowError calls, so the " +
-			"agreement above was not measured")
-	}
-	t.Logf("%d operator spellings in internal/vm's overflow reports, all spellable by ArithOp", found)
-}
-
-// vmOverflowOperatorLiterals collects the operator strings internal/vm's
-// non-test sources pass to rt.OverflowError.
-func vmOverflowOperatorLiterals(t *testing.T) []string {
-	t.Helper()
-	entries, err := os.ReadDir(filepath.Join("..", "vm"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var out []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
-			continue
-		}
-		path := filepath.Join("..", "vm", e.Name())
-		src, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		f, err := parser.ParseFile(token.NewFileSet(), path, src, parser.SkipObjectResolution)
-		if err != nil {
-			t.Fatal(err)
-		}
-		ast.Inspect(f, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			sel, ok := call.Fun.(*ast.SelectorExpr)
-			if !ok || sel.Sel.Name != "OverflowError" {
-				return true
-			}
-			for _, a := range call.Args {
-				lit, ok := a.(*ast.BasicLit)
-				if !ok || lit.Kind != token.STRING {
-					continue
-				}
-				out = append(out, strings.Trim(lit.Value, `"`))
-			}
-			return true
-		})
-	}
-	return out
 }
 
 // --- instruments ------------------------------------------------------------

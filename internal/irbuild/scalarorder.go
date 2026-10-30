@@ -9,7 +9,7 @@ package irbuild
 //
 //   - std/bool.nomi's ordering is `derive Comparable for Bool`, and the
 //     synthesized body does not lower. The `True`/`False` singletons are not
-//     the cause: they have `stdHostSpecs` rows, and `bool.Bool.equal?`,
+//     the cause: they have `stdHostSpecs` rows, and `bool.Bool.equal`,
 //     `bool.Bool.inspect` and `bool.Bool.to_string` all lower. The identical
 //     shape lowers for a USER declaration (`type Lo; type Hi; enum Rung {
 //     embeds Lo; embeds Hi }` with `derive Comparable` on all three), so the

@@ -25,11 +25,11 @@ fn first<T>(xs: List<T>) -> Maybe<T> {
 }
 
 fn main() {
-    io.inspect(Result.ok?(ident(Ok(1))))
-    io.inspect(Maybe.some?(ident(None)))
-    io.inspect(ident(Err("e")) |> Result.ok?())
+    io.inspect(Result.is_ok(ident(Ok(1))))
+    io.inspect(Maybe.is_some(ident(None)))
+    io.inspect(ident(Err("e")) |> Result.is_ok())
     io.inspect(count_all([]))
-    io.inspect(Maybe.some?(first([])))
+    io.inspect(Maybe.is_some(first([])))
     f: (Int) -> Int = fn x -> x + 1
     held = #(1, Ok(f)).1
     io.inspect(held)

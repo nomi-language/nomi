@@ -391,7 +391,7 @@ func TestMarkTailCalls_TryOpExprNotTail(t *testing.T) {
 	// try f() unwraps Result; the call's value is pattern-matched between the
 	// call's return and the function's return. The sub-expr is NOT tail.
 	src := `fn f() -> Int {
-  try recurse()
+  recurse()?
 }
 fn recurse() -> Result<Int, String> { Ok(0) }
 `

@@ -1,3 +1,2 @@
 [module]
 name = "sqlkit"
-entry_points = ["tools/generate"]

@@ -5,11 +5,11 @@
 import protocols.{Labeled, Name, Point, Show, Spot}
 
 fn has<T>(xs: List<T>, x: T) -> Bool where T: Equatable {
-    List.contains?(xs, x)
+    List.contains(xs, x)
 }
 
 fn same<T>(a: T, b: T) -> Bool where T: Equatable {
-    Equatable.equal?(a, b)
+    Equatable.equal(a, b)
 }
 
 fn kinds<T>(xs: List<T>) -> Int where T: Hashable {
@@ -22,16 +22,16 @@ fn hashes_alike<T>(a: T, b: T) -> Bool where T: Hashable {
     Hashable.hash(a) == Hashable.hash(b)
 }
 
-test "List.contains? and Iter.contains? find a value by its own equality" {
+test "List.contains and Iter.contains find a value by its own equality" {
     xs: List<Show> = [#Point{x: 1, y: 2}, #Name{text: "Ada"}, 3, [4]]
     spot: Show = #Spot{x: 1, y: 2}
     ada: Show = #Name{text: "ADA"}
     four: Show = [4]
-    assert !List.contains?(xs, spot)
-    assert List.contains?(xs, ada)
-    assert List.contains?(xs, four)
-    assert Iter.contains?(xs, ada)
-    assert !Iter.contains?(xs, spot)
+    assert !List.contains(xs, spot)
+    assert List.contains(xs, ada)
+    assert List.contains(xs, four)
+    assert Iter.contains(xs, ada)
+    assert !Iter.contains(xs, spot)
 }
 
 test "a generic function bounded by Equatable takes interface values" {
@@ -43,8 +43,8 @@ test "a generic function bounded by Equatable takes interface values" {
     assert !has(xs, point)
     assert same(ada, #Name{text: "ADA"})
     assert !same(point, spot)
-    assert Equatable.equal?(ada, ada)
-    assert !Equatable.equal?(point, spot)
+    assert Equatable.equal(ada, ada)
+    assert !Equatable.equal(point, spot)
 }
 
 test "a generic function bounded by Hashable takes interface values" {
@@ -74,7 +74,7 @@ test "a derived Equatable and Hashable compare an interface-typed field by its v
     d = #Labeled{label: #Spot{x: 1, y: 2}, count: 1}
     assert a == b
     assert c != d
-    assert Equatable.equal?(a, b)
+    assert Equatable.equal(a, b)
     assert Hashable.hash(a) == Hashable.hash(b)
     m = %{a => "ada", c => "point"}
     assert Map.get(m, b) == Some("ada")

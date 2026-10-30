@@ -103,9 +103,9 @@ var sweepConstructs = []sweepConstruct{
 	{"compare", func(t sweepType) bool { return t.ordered }, "assert Comparable.compare($A, $B) == Ordering.Less"},
 	{"sort", func(t sweepType) bool { return t.ordered }, "assert Iter.sort([$B, $A]) == [$A, $B]"},
 	{"list compare", func(t sweepType) bool { return t.ordered }, "assert List.compare([$A], [$B]) == Ordering.Less"},
-	// Two values the hand-written `equal?` calls equal are one element and
+	// Two values the hand-written `equal` calls equal are one element and
 	// one key, at the top and nested.
-	{"hand set", sweepHand, "s = Iter.to_set([#H{k: 1, note: \"x\"}, #H{k: 1, note: \"y\"}, $B])\n  assert Set.size(s) == 2\n  assert Set.contains?(s, #H{k: 2, note: \"z\"})"},
+	{"hand set", sweepHand, "s = Iter.to_set([#H{k: 1, note: \"x\"}, #H{k: 1, note: \"y\"}, $B])\n  assert Set.size(s) == 2\n  assert Set.contains(s, #H{k: 2, note: \"z\"})"},
 	{"hand map key", sweepHand, "m = %{#H{k: 1, note: \"x\"} => 1}\n  assert Map.get(m, #H{k: 1, note: \"y\"}) == Some(1)\n  assert Map.size(Map.put(m, #H{k: 1, note: \"z\"}, 2)) == 1"},
 	{"hand nested", sweepHand, "s = Iter.to_set([[#H{k: 1, note: \"x\"}], [#H{k: 1, note: \"y\"}]])\n  assert Set.size(s) == 1\n  assert %[$A] == Iter.to_set([#H{k: 1, note: \"q\"}])"},
 	{"hand derived holder", sweepHand, "assert Set.size(Iter.to_set([#Keep{h: #H{k: 1, note: \"x\"}}, #Keep{h: #H{k: 1, note: \"y\"}}])) == 1"},
@@ -142,7 +142,7 @@ struct H {
 }
 
 impl Equatable for H {
-  fn equal?(a: H, b: H) -> Bool {
+  fn equal(a: H, b: H) -> Bool {
     a.k == b.k
   }
 }

@@ -1,7 +1,7 @@
 //# The running program's process: how it ends. A `main` that returns
 //# `Err(#Exit{code: 2, message: "usage: count <file>"})` prints the message
 //# to stderr and exits with status 2. There is no function that exits on
-//# the spot: returning `Exit` through `try` ends the program the way
+//# the spot: returning `Exit` through `?` ends the program the way
 //# returning from `main` does, so `defer`s run and supervisors drain first.
 
 import {

@@ -12,7 +12,7 @@
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
 records 55
-declared-cases 304
+declared-cases 302
 failing 55
 C anon_struct.nomi
 E 1
@@ -368,7 +368,7 @@ T
 C decimal.nomi
 E 1
 N 14
-H c24b182d35922cf1987f6464ec729119d055c37323f9d8a93357023766f40b6f
+H b15c1cb3933fa346b5231f3d7c98c40227d8d55a451788fab4cf5a53e0fa3000
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: literals keep their scale and render it
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: arithmetic is exact, which is what a Float cannot be
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: equality is scale-insensitive while scale is significant
@@ -379,11 +379,11 @@ T ok <root>/internal/irbuild/testdata/decimal.nomi :: normalize strips fractiona
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: every rounding mode, on a tie and on both signs
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: divide rounds at a named scale
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: conversions are explicit and total only where they can be
-T ok <root>/internal/irbuild/testdata/decimal.nomi :: Int64's boundary round-trips, and one step past it does not
+T ok <root>/internal/irbuild/testdata/decimal.nomi :: Int64's boundary round-trips, and so does a step past it
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: min and max pick by value, not by scale
 T ok <root>/internal/irbuild/testdata/decimal.nomi :: a decimal literal pattern matches by value, not by scale
 T FAIL <root>/internal/irbuild/testdata/decimal.nomi :: a failing Decimal comparison renders both operands
-T   line 260: assertion failed
+T   line 248: assertion failed
 T     assert left == right
 T     values:
 T       left
@@ -573,7 +573,7 @@ T
 C impl_call_operand_row.nomi
 E 1
 N 7
-H 31663533e5dd50e35e778ed7edf107dba35050d284bfe02f24f625557d1657e7
+H f550c765ecffdf1438d3091166c776e270234a613c82097477eb99e51c267f9e
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a type-qualified impl call records its arguments
 T   line 79: assertion failed
 T     assert Counter.bump(c, step()) == 99
@@ -596,7 +596,7 @@ T       Bumper.bump(c, step())
 T         = 7
 T FAIL <root>/internal/irbuild/testdata/impl_call_operand_row.nomi :: a Bool-returning impl call records its LITERAL arguments too
 T   line 89: assertion failed
-T     assert Bumper.even_sum?(c, 2)
+T     assert Bumper.has_even_sum(c, 2)
 T     values:
 T       c
 T         = #Counter{n: 5}
@@ -857,21 +857,21 @@ T
 C pipe_stage_keyword_report.nomi
 E 1
 N 5
-H 1f67c9bbdf67c6379de73c65aeb697504b0e47e4736fe4ce2aed736fd70c4f12
+H 6439cc685d5b2566d275ded229c54367628a83901e9df24d4c96b053c23d08c4
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
 T   line 48: assertion failed
 T     assert flag
 T     defined as:
 T       12
-T       |> if Int.equal?(12) { False } else { True }
+T       |> if Int.equal(12) { False } else { True }
 T     pipeline values:
 T       12
 T         = 12
 T       12
-T       |> Int.equal?(12)
+T       |> Int.equal(12)
 T         = True
 T       12
-T       |> if Int.equal?(12) { False } else { True }
+T       |> if Int.equal(12) { False } else { True }
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a bare case stage reports two pipeline rows
 T   line 59: assertion failed
@@ -897,7 +897,7 @@ T     assert flag
 T     defined as:
 T       [1, 2, 3]
 T       |> Iter.count()
-T       |> if Int.equal?(3) { False } else { True }
+T       |> if Int.equal(3) { False } else { True }
 T     pipeline values:
 T       [1, 2, 3]
 T         = [1, 2, 3]
@@ -906,11 +906,11 @@ T       |> Iter.count()
 T         = 3
 T       [1, 2, 3]
 T       |> Iter.count()
-T       |> Int.equal?(3)
+T       |> Int.equal(3)
 T         = True
 T       [1, 2, 3]
 T       |> Iter.count()
-T       |> if Int.equal?(3) { False } else { True }
+T       |> if Int.equal(3) { False } else { True }
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a piped case scrutinee contributes no values row
 T   line 72: assertion failed
@@ -943,18 +943,18 @@ T
 C pipe_stages.nomi
 E 1
 N 4
-H 8cb058a54efa51fe0c97a2c4bdc9b2b0ea9e7f6be93a6dde06aacdaeb6792148
+H f6209cb7290c801a85d8aaf5e250e932fdd45db3dc3fe2c8f153eb5608bf50bb
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a pipeline-bound name prints its stages uncompacted
 T   line 62: assertion failed
 T     assert found
 T     defined as:
 T       "Ada Lovelace"
-T       |> String.contains?("Grace")
+T       |> String.contains("Grace")
 T     pipeline values:
 T       "Ada Lovelace"
 T         = "Ada Lovelace"
 T       "Ada Lovelace"
-T       |> String.contains?("Grace")
+T       |> String.contains("Grace")
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a three-stage binding prints one row per cumulative prefix
 T   line 71: assertion failed
@@ -962,7 +962,7 @@ T     assert shouted
 T     defined as:
 T       "ada"
 T       |> shout()
-T       |> String.contains?("GRACE")
+T       |> String.contains("GRACE")
 T     pipeline values:
 T       "ada"
 T         = "ada"
@@ -971,37 +971,32 @@ T       |> shout()
 T         = "ADA"
 T       "ada"
 T       |> shout()
-T       |> String.contains?("GRACE")
+T       |> String.contains("GRACE")
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: a piped check carries its stages on the whole-subject row
 T   line 75: pattern did not match
 T     assert Ok(True) = piped_check()
-T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", pipeline: [#AssertionPipelineStage{expression: "\"Ada Lovelace\"", value: "\"Ada Lovelace\""}, #AssertionPipelineStage{expression: "\"Ada Lovelace\"\n|> String.contains?(\"Grace\")", value: "False"}], value: "False"}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "\"Ada Lovelace\"\n|> String.contains(\"Grace\")", keyword: "check", line: 43, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"\n|> String.contains(\"Grace\")", pipeline: [#AssertionPipelineStage{expression: "\"Ada Lovelace\"", value: "\"Ada Lovelace\""}, #AssertionPipelineStage{expression: "\"Ada Lovelace\"\n|> String.contains(\"Grace\")", value: "False"}], value: "False"}]})
 T FAIL <root>/internal/irbuild/testdata/pipe_stages.nomi :: an unpiped check beside it carries no pipeline at all
 T   line 79: pattern did not match
 T     assert Ok(True) = unpiped_check()
-T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains?(\"Ada Lovelace\", \"Grace\")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"", pipeline: [], value: "\"Ada Lovelace\""}, #AssertionValue{expression: "\"Grace\"", pipeline: [], value: "\"Grace\""}]})
+T     actual: Err(#AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains(\"Ada Lovelace\", \"Grace\")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [#AssertionValue{expression: "\"Ada Lovelace\"", pipeline: [], value: "\"Ada Lovelace\""}, #AssertionValue{expression: "\"Grace\"", pipeline: [], value: "\"Grace\""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
 C scalar_operator_traps.nomi
 E 1
-N 8
-H 1c23f0e7e2c5f9160dd8edfb7d87741d25b933b34d468bf7540204faaef7ce28
+N 6
+H 16c9b0163deb3f8ca0ab0dc6718195882cb61c811f669469f538b8032a127537
 T ok <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: the written-out impls agree on every non-trapping answer
+T ok <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: the written-out impls are exact past 64 bits, as the operators are
 T ok <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: a Float divide by zero is IEEE and does not trap
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an impl-form Add overflow blames the call's own line
-T   line 37: integer overflow: 9223372036854775807 + 1
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an operator Add overflow blames the operator's own line
-T   line 42: integer overflow: 9223372036854775807 + 1
 T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an impl-form Divide by zero blames the call's own line
-T   line 46: division by zero
+T   line 38: division by zero
 T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an operator divide by zero blames the operator's own line
-T   line 50: division by zero
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an impl-form Subtract overflow blames the call's own line
-T   line 58: integer overflow: -9223372036854775807 - 2
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an impl-form Multiply overflow blames the call's own line
-T   line 63: integer overflow: 9223372036854775807 * 2
-T test result: FAILED. 2 passed, 6 failed
+T   line 42: division by zero
+T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an operator remainder by zero blames the operator's own line
+T   line 46: division by zero
+T test result: FAILED. 3 passed, 3 failed
 T
 C sibimpl/report_test.nomi
 E 1
@@ -1048,11 +1043,11 @@ T
 C stdlib_trap_tests.nomi
 E 1
 N 5
-H 9d5b8e81b4a385860d80cc3b6237d24fbbb75faaa442b19c0239f3a7db5503cc
+H 92db5d4aa53e3ed3794180493c5f785215d618308be0981097ca82eed0a0a52d
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap in a test body
 T   line 11: division by zero
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap through a program function
-T   line 7: integer overflow: 0 - -9223372036854775808
+T   line 7: division by zero
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a lambda the stdlib runs
 T   line 19: division by zero
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a host function's trap
@@ -1104,14 +1099,14 @@ T
 C subtests_names_report.nomi
 E 1
 N 12
-H 421a12a4a115841d5c698ae78a6a00d3ce76af451cffcdcdcf40929d2c741121
+H a2d2c1148529f7961644a2a151a00911e8872fa4aaed3ebac9480b35d7f38103
 T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a failed row reports its name
 T   subtest "year divisible by 400 is leap year": line 20: assertion failed
-T     assert leap_year?(year) == expected
+T     assert is_leap_year(year) == expected
 T     values:
 T       year
 T         = 2000
-T       leap_year?(year)
+T       is_leap_year(year)
 T         = False
 T       expected
 T         = True
@@ -1151,23 +1146,23 @@ T
 C subtests_report.nomi
 E 1
 N 14
-H 9f3c5a009ba68e9f35a13537409d0a3587fb51134def097dfeb1344c6f22fc0e
+H 64f5c2270318b8a9b4b3a5a8f88823a7cc03af50f9958b7daf61d6d0ba1a4897
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
 T   subtest #("abc", True): line 18: assertion failed
-T     assert palindrome?(line) == known_palindrome
+T     assert is_palindrome(line) == known_palindrome
 T     values:
 T       line
 T         = "abc"
-T       palindrome?(line)
+T       is_palindrome(line)
 T         = False
 T       known_palindrome
 T         = True
 T   subtest #("ab", True): line 18: assertion failed
-T     assert palindrome?(line) == known_palindrome
+T     assert is_palindrome(line) == known_palindrome
 T     values:
 T       line
 T         = "ab"
-T       palindrome?(line)
+T       is_palindrome(line)
 T         = False
 T       known_palindrome
 T         = True
@@ -1216,10 +1211,10 @@ T
 C tests_call_boundary.nomi
 E 1
 N 1
-H 824039a9e8b2e81cf5b5932b9b9871acfd203ebe19b48c181accbf7dfeda806f
+H de306ba68b0cd2b58012748edfde7228e2ca25c6e22fbcf7cee41ec0f2ce2b85
 T FAIL <root>/internal/irbuild/testdata/tests_call_boundary.nomi :: a callee's comparisons stay inside it
 T   line 12: assertion failed
-T     assert holds?(3, 4)
+T     assert holds(3, 4)
 T     values:
 T       3
 T         = 3
@@ -1301,7 +1296,7 @@ T
 C tests_group_failure.nomi
 E 1
 N 5
-H 51d317a5974ed4943c7ee55e57a63817c1dedf9c2879b10493e97c90cb18853b
+H 4ba7765e3f147b6a58467af45f4a278d9feaf07b87030c73f07e4adbf5cf9a7d
 T FAIL <root>/internal/irbuild/testdata/tests_group_failure.nomi :: totals / a failure names its group and its own line
 T   line 22: assertion failed
 T     assert (3 + 3) == want
@@ -1318,7 +1313,7 @@ T       got
 T         = 14
 T FAIL <root>/internal/irbuild/testdata/tests_group_failure.nomi :: totals / a bare name shows how it was defined
 T   line 32: assertion failed
-T     assert enough?
+T     assert is_enough
 T     defined as:
 T       want > 100
 T ok <root>/internal/irbuild/testdata/tests_group_failure.nomi :: totals / a passing case beside a failing one still reports ok
@@ -1348,10 +1343,10 @@ T
 C tests_lambda_boundary.nomi
 E 1
 N 5
-H 93337c3a302243377064f1b9f66f73eedca86fc1473d1cd58e3a42b9765728d7
+H b13449f375ed01f4c109aec54b16da6340b5e89f2bc1a8808891f2015750c015
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a lambda body's comparison stays out of the report
 T   line 22: assertion failed
-T     assert applies?(2, fn x -> x * 5 > 90)
+T     assert applies(2, fn x -> x * 5 > 90)
 T     values:
 T       2
 T         = 2
@@ -1369,7 +1364,7 @@ T       2 > 3
 T         = False
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a case scrutinee inside a lambda body stays out too
 T   line 39: assertion failed
-T     assert applies?(2, fn v -> {
+T     assert applies(2, fn v -> {
 T         case v {
 T             1 -> True
 T             _ -> v > 90
@@ -1380,7 +1375,7 @@ T       2
 T         = 2
 T FAIL <root>/internal/irbuild/testdata/tests_lambda_boundary.nomi :: a call through a function value records its arguments
 T   line 53: assertion failed
-T     assert small?(w)
+T     assert is_small(w)
 T     values:
 T       w
 T         = 5
@@ -1563,20 +1558,20 @@ T
 C tests_trap.nomi
 E 1
 N 2
-H 6396a0358204d4909272fcbbe3a12327ba326d5e2b4eb4a9ebc5306deac4543b
-T FAIL <root>/internal/irbuild/testdata/tests_trap.nomi :: an overflow inside a test
-T   line 5: integer overflow: 9223372036854775807 + 1
+H b79a8570b654d913ab5b71fdb8c71c81279fa4532794eb9595b17dfb03cad290
+T FAIL <root>/internal/irbuild/testdata/tests_trap.nomi :: a fault inside a test
+T   line 6: division by zero
 T ok <root>/internal/irbuild/testdata/tests_trap.nomi :: the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T
 C try_attached.nomi
 E 1
 N 3
-H 76caa28ddc3037a4e623968c5a2411070185836fc9d164855cc19792e199a609
+H fabcb86521592f156d203511655c39a67a89fc80e9797bfd62542bd482ffb3ed
 T ok <root>/internal/irbuild/testdata/try_attached.nomi :: passing //! test lines 26-27
 T FAIL <root>/internal/irbuild/testdata/try_attached.nomi :: propagating //! test lines 33-34
 T   line 33: test returned early
-T     try parse(-1)
+T     parse(-1)?
 T     returned:
 T       Err("negative")
 T ok <root>/internal/irbuild/testdata/try_attached.nomi :: an ordinary test declaration is the other test boundary spelling
@@ -1585,7 +1580,7 @@ T
 C try_check_in_test.nomi
 E 1
 N 5
-H 9c6e184d84695470a10444ab023f6e581661d1063a491dbafdc3dcfc164926c8
+H 421c38264d016c93fb3dc7c21f14b0a52abbc6e5ab2e8c85ff5460a5f197ce21
 T ok <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a passing check unwraps and the case runs on
 T   after the passing check
 T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing check reports the check and not an early return
@@ -1596,9 +1591,9 @@ T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: a failing chec
 T   line 72: check failed
 T     check shape(-3)
 T     actual: Err("bad -3")
-T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: an ordinary try still reports test returned early
+T FAIL <root>/internal/irbuild/testdata/try_check_in_test.nomi :: an ordinary `?` still reports test returned early
 T   line 80: test returned early
-T     try parse(-1)
+T     parse(-1)?
 T     returned:
 T       Err("negative -1")
 T ok <root>/internal/irbuild/testdata/try_check_in_test.nomi :: the case after a propagating one still runs
@@ -1607,30 +1602,30 @@ T
 C try_in_test.nomi
 E 1
 N 7
-H c378aaca5f77d04bbb1006f79013904f2098379cce670ff6841d8f17cc798b4a
-T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: try succeeds
-T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try propagates
-T   before the try
+H ef59cae28faae4715a2b4d523a2b014997cf9608f0ce271cfd1a91a0e538b895
+T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: succeeds?
+T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: propagates?
+T   before the ?
 T   line 50: test returned early
-T     try parse(-1)
+T     parse(-1)?
 T     returned:
 T       Err("negative -1")
-T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try propagates None
+T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: propagates? None
 T   line 57: test returned early
-T     try find(4)
+T     find(4)?
 T     returned:
 T       None
-T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try inside a nested construct
+T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: `?` inside a nested construct
 T   line 66: test returned early
-T     try parse(-7)
+T     parse(-7)?
 T     returned:
 T       Err("negative -7")
-T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: try in pipe position
+T FAIL <root>/internal/irbuild/testdata/try_in_test.nomi :: `?` in pipe position
 T   line 75: test returned early
-T     -1 |> try parse()
+T     -1 |> parse()?
 T     returned:
 T       Err("negative -1")
-T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: try inside a lambda
+T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: `?` inside a lambda
 T   after the lambda
 T ok <root>/internal/irbuild/testdata/try_in_test.nomi :: the case after a propagating one still runs
 T test result: FAILED. 3 passed, 4 failed

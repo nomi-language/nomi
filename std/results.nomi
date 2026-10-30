@@ -35,10 +35,10 @@ pub enum Result<T, E> {
 
 impl Result<T, E> {
     /// Returns True when the value is Ok.
-    //! assert Result.ok?(Result.Ok(3))
-    //! refute Result.ok?(Result.Err("bad"))
+    //! assert Result.is_ok(Result.Ok(3))
+    //! refute Result.is_ok(Result.Err("bad"))
     //
-    pub fn ok?<T, E>(result: Result<T, E>) -> Bool {
+    pub fn is_ok<T, E>(result: Result<T, E>) -> Bool {
         case result {
             Ok(_) -> True
             Err(_) -> False
@@ -46,10 +46,10 @@ impl Result<T, E> {
     }
 
     /// Returns True when the value is Err.
-    //! refute Result.err?(Result.Ok(3))
-    //! assert Result.err?(Result.Err("bad"))
+    //! refute Result.is_err(Result.Ok(3))
+    //! assert Result.is_err(Result.Err("bad"))
     //
-    pub fn err?<T, E>(result: Result<T, E>) -> Bool {
+    pub fn is_err<T, E>(result: Result<T, E>) -> Bool {
         case result {
             Ok(_) -> False
             Err(_) -> True
@@ -211,7 +211,7 @@ impl Display for Infallible {
 }
 
 impl Equatable for Infallible {
-    fn equal?(a: Infallible, _b: Infallible) -> Bool {
+    fn equal(a: Infallible, _b: Infallible) -> Bool {
         a
     }
 }

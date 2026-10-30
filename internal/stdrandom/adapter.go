@@ -15,6 +15,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/nomi-language/nomi/rt"
 )
@@ -32,13 +33,55 @@ func splitmix64(state uint64) (out uint64, next uint64) {
 
 // FFIBetween returns an unbiased integer in the inclusive range [from, to]
 // and the advanced state. The caller has checked from <= to
-// (FFIRequireIntRange). The span is counted in uint64, so a range wider than
-// Int can hold, up to all of Int, draws without overflow: a range of all 2^64
-// values takes the raw output, and any other draws an offset below its width
-// by rejection sampling, which removes modulo bias, and adds it to from
-// modulo 2^64. A reversed range answers from with the state unchanged
-// rather than inventing a value.
-func FFIBetween(state, from, to int64) (value int64, next int64) {
+// (FFIRequireIntRange). A range whose bounds fit int64 is drawn by
+// between64; a wider one by bigBetween. A reversed range answers from with
+// the state unchanged rather than inventing a value.
+func FFIBetween(state int64, from, to rt.Int) (value rt.Int, next int64) {
+	f, fromFits := from.Int64()
+	t, toFits := to.Int64()
+	if fromFits && toFits {
+		v, s := between64(state, f, t)
+		return rt.SmallInt(v), s
+	}
+	return bigBetween(state, from.Big(), to.Big())
+}
+
+// bigBetween draws a value in [lo, hi] for bounds of any size: as many 64-bit
+// outputs as the width needs, cut to the width's bit length, and drawn again
+// when past the width, which removes the bias a remainder would add. Each try
+// succeeds with probability above one half.
+func bigBetween(state int64, lo, hi *big.Int) (rt.Int, int64) {
+	if lo.Cmp(hi) > 0 {
+		return rt.BigIntOf(lo), state
+	}
+	width := new(big.Int).Sub(hi, lo)
+	width.Add(width, big.NewInt(1))
+	n := width.BitLen()
+	mask := new(big.Int).Lsh(big.NewInt(1), uint(n))
+	mask.Sub(mask, big.NewInt(1))
+	s := uint64(state)
+	r, word := new(big.Int), new(big.Int)
+	for {
+		r.SetUint64(0)
+		for drawn := 0; drawn < n; drawn += 64 {
+			var z uint64
+			z, s = splitmix64(s)
+			r.Lsh(r, 64)
+			r.Or(r, word.SetUint64(z))
+		}
+		r.And(r, mask)
+		if r.Cmp(width) < 0 {
+			return rt.BigIntOf(r.Add(r, lo)), int64(s)
+		}
+	}
+}
+
+// between64 is FFIBetween for int64 bounds. The span is counted in uint64, so
+// a range wider than int64 can hold, up to all of it, draws without
+// overflow: a range of all 2^64 values takes the raw output, and any other
+// draws an offset below its width by rejection sampling, which removes modulo
+// bias, and adds it to from modulo 2^64.
+func between64(state, from, to int64) (value int64, next int64) {
 	if from > to {
 		return from, state
 	}
@@ -67,8 +110,8 @@ func below(s, n uint64) (uint64, uint64) {
 // `Generator.int` makes before it builds a generator: it traps unless
 // from <= to. The caller chose both bounds and can compare them first, so a
 // reversed range is a broken promise (spec §17), not an Err.
-func FFIRequireIntRange(from, to int64) rt.Unit {
-	if from > to {
+func FFIRequireIntRange(from, to rt.Int) rt.Unit {
+	if rt.IntCompare(from.Value(), to.Value()) > 0 {
 		rt.Trap(IntRangeText(from, to))
 	}
 	return rt.Unit{}
@@ -76,8 +119,8 @@ func FFIRequireIntRange(from, to int64) rt.Unit {
 
 // IntRangeText is the trap a reversed `Generator.int` range raises:
 // `Generator.int: from 6 is greater than to 1`.
-func IntRangeText(from, to int64) string {
-	return fmt.Sprintf("Generator.int: from %d is greater than to %d", from, to)
+func IntRangeText(from, to rt.Int) string {
+	return fmt.Sprintf("Generator.int: from %s is greater than to %s", from, to)
 }
 
 // FFIRequireFloatRange is std/random's `require_float_range`, the check

@@ -59,6 +59,8 @@ func canonText(v rt.Value, shapeOnly bool) string {
 	switch x := v.(type) {
 	case int64:
 		return scalar("Int", fmt.Sprint(x))
+	case *rt.BigInt:
+		return scalar("BigInt", x.String())
 	case float64:
 		if math.IsNaN(x) {
 			return scalar("Float", "NaN")

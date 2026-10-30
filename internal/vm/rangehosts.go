@@ -48,7 +48,7 @@ func rangeHost(contains bool) hostFn {
 		}
 		cmp, ok := args[2].(*functionValue)
 		if !ok || cmp == nil || cmp.body == nil || cmp.arity != 2 {
-			return nil, fmt.Errorf("vm: Range.contains? requires a binary comparator")
+			return nil, fmt.Errorf("vm: Range.contains requires a binary comparator")
 		}
 		var compareErr error
 		held := rt.RangeContains(nil, r, args[1], func(_ *rt.Frame, a, b any) rt.Ordering {
@@ -160,25 +160,25 @@ func rangeKnownCount(m *Machine, _ ir.Pos, args []any) (out any, err error) {
 			out, err = nil, failure.err
 		}
 	}()
-	return countValue(rt.RangeKnownCount(m.hostFrame, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
+	return maybeOf(rt.RangeKnownCount(m.hostFrame, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
 		return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "range comparator")
-	}, func(runtime *rt.Frame, a, b any) rt.Maybe[int64] {
+	}, func(runtime *rt.Frame, a, b any) rt.Maybe[any] {
 		return rangeSteps(m.iterInvoke(steps, runtime, a, b))
 	})), nil
 }
 
-// rangeSteps reads `Discrete.steps_between`'s Maybe<Int> answer.
-func rangeSteps(res any) rt.Maybe[int64] {
+// rangeSteps reads `Discrete.steps_between`'s Maybe<Int> answer, an Int of
+// any size.
+func rangeSteps(res any) rt.Maybe[any] {
 	payload, isSome, ok := maybeParts(res)
 	if !ok {
 		panic(iterationFailure{fmt.Errorf("vm: range distance returned %T, want Maybe", res)})
 	}
 	if !isSome {
-		return rt.None[int64]()
+		return rt.None[any]()
 	}
-	n, isInt := payload.(int64)
-	if !isInt {
+	if !rt.IsInt(payload) {
 		panic(iterationFailure{fmt.Errorf("vm: range distance returned Some(%T), want Int", payload)})
 	}
-	return rt.Some(n)
+	return rt.Some[any](payload)
 }

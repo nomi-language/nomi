@@ -84,7 +84,7 @@ test "impl block where clauses constrain generic receiver impls" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `Plain`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `Plain`")
 }
 
 test "type-parameter-qualified dispatch is ambiguous across duplicate function names" {
@@ -105,7 +105,7 @@ test "type-parameter-qualified dispatch is ambiguous across duplicate function n
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "is ambiguous")
+    assert test_helpers.has_diagnostic(diagnostics, "is ambiguous")
 }
 
 test "type-parameter-qualified dispatch requires the function on the bound" {
@@ -118,7 +118,7 @@ test "type-parameter-qualified dispatch requires the function on the bound" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "declares function 'nope'")
+    assert test_helpers.has_diagnostic(diagnostics, "declares function 'nope'")
 }
 
 test "type-parameter-qualified dispatch requires an interface bound" {
@@ -131,7 +131,7 @@ test "type-parameter-qualified dispatch requires an interface bound" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "has no interface bound")
+    assert test_helpers.has_diagnostic(diagnostics, "has no interface bound")
 }
 
 test "type-qualified dispatch is ambiguous when multiple interfaces declare the function" {
@@ -171,5 +171,5 @@ test "type-qualified dispatch is ambiguous when multiple interfaces declare the 
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "ambiguous")
+    assert test_helpers.has_diagnostic(diagnostics, "ambiguous")
 }

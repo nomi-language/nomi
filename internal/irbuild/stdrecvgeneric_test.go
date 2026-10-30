@@ -168,8 +168,8 @@ func TestReceiverGenericityIsPerSignatureNotPerBlock(t *testing.T) {
 			"`hash(m: Map<K, V>) -> Int` names both of `impl Hashable for Map<K, V>`'s " +
 				"receiver-contributed parameters, so the rule must fire. The corpus reaches " +
 				"it from 12-derives-and-standard-interfaces/collections_test.nomi."},
-		{"lists.List.equal?", "stdlib generic function",
-			"`equal?(a: List<T>, b: List<T>) -> Bool` — a CONTAINER over the parameter " +
+		{"lists.List.equal", "stdlib generic function",
+			"`equal(a: List<T>, b: List<T>) -> Bool` — a CONTAINER over the parameter " +
 				"rather than the bare parameter, which is what the population is dominated " +
 				"by and what a head-only mention test would miss."},
 		{"iter.Seq.each_while", "stdlib generic function",
@@ -405,4 +405,42 @@ func parseStdTypeExprUnchecked(t *testing.T, src string) ast.TypeExpr {
 	}
 	t.Fatalf("no `fn f` in the parsed program for `x: %s`", src)
 	return nil
+}
+
+// A program impl of a function with no `self` operand for a std container,
+// called qualified by the container, takes the instance the checked result
+// holds: `Maybe.make(1)` typed `Result<Maybe<Int>, String>` for
+// `make(n: Int) -> Result<self, String>`, and `List.make(2)` at a List of
+// Maybes.
+func TestStdRecvGeneric_SelflessCallQualifiedByTheContainer(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+interface Make {
+    fn make(n: Int) -> Result<self, String>
+}
+
+impl Make for Int {
+    fn make(n: Int) -> Result<Int, String> {
+        Ok(n)
+    }
+}
+
+impl Make for Maybe<T> where T: Make {
+    fn make(n: Int) -> Result<Maybe<T>, String> {
+        T.make(n) |> Result.map(Some)
+    }
+}
+
+impl Make for List<T> where T: Make {
+    fn make(n: Int) -> Result<List<T>, String> {
+        T.make(n) |> Result.map(fn x -> [x, x])
+    }
+}
+
+fn main() {
+    r: Result<Maybe<Int>, String> = Maybe.make(1)
+    io.print(Debug.inspect(r))
+    l: Result<List<Maybe<Int>>, String> = List.make(2)
+    io.print(Debug.inspect(l))
+}`, "Ok(Some(1))\nOk([Some(2), Some(2)])\n")
 }

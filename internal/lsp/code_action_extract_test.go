@@ -62,7 +62,7 @@ func TestExtractVariable_Refused(t *testing.T) {
 		// A case arm runs only when its pattern matches.
 		"case arm": "m = String.to_int(\"1\")\nn = case m {\n    Some(v) -> Int.to_str‸ing(v)\n    None -> \"\"\n}\n\nio.inspect(n)\n",
 		// The right side of `and` runs only when the left is true.
-		"and": "xs = [1]\nok = Iter.empty?(xs) and Iter.count‸(xs) > 0\nio.inspect(ok)\n",
+		"and": "xs = [1]\nok = Iter.is_empty(xs) and Iter.count‸(xs) > 0\nio.inspect(ok)\n",
 		// A pipe stage is not a value.
 		"pipe stage": "n = [1] |> Iter.co‸unt()\n\nio.inspect(n)\n",
 		// An earlier call in the statement would run after it.

@@ -88,7 +88,7 @@ pub enum %[1]s {
 fn mk(s: String) -> Result<Int, %[1]s> { Err(%[1]s.Bad(s)) }
 
 fn main() {
-  io.print("equal?: ${Equatable.equal?(mk("a"), mk("b"))}")
+  io.print("equal: ${Equatable.equal(mk("a"), mk("b"))}")
 }
 `
 	for _, name := range []string{"Error", "Zonk"} {
@@ -113,11 +113,11 @@ pub enum Error {
 }
 
 impl Equatable for Error {
-  fn equal?(_a: Error, _b: Error) -> Bool { True }
+  fn equal(_a: Error, _b: Error) -> Bool { True }
 }
 
 fn main() {
-  io.print("equal?: ${Equatable.equal?(Error.Bad("a"), Error.Bad("b"))}")
+  io.print("equal: ${Equatable.equal(Error.Bad("a"), Error.Bad("b"))}")
 }
 `
 	for _, m := range implIdentityErrs(t, src) {
@@ -151,7 +151,7 @@ fn mk(s: String) -> Result<Int, Error> { Err(Error.Bad(s)) }
 fn main() {
   d = DateTime"2026-01-01T12:00:00[America/New_York]"
   io.print("x: ${d}")
-  io.print("equal?: ${Equatable.equal?(mk("a"), mk("b"))}")
+  io.print("equal: ${Equatable.equal(mk("a"), mk("b"))}")
 }
 `
 	msgs := implIdentityErrs(t, src)
@@ -302,5 +302,114 @@ fn main() {
 `
 	if msgs := implIdentityErrs(t, src); len(msgs) != 0 {
 		t.Fatalf("the user's own Duration.add should check, got %q", msgs)
+	}
+}
+
+// implIdentityProjectErrs is implIdentityErrs over a project whose entry is
+// main.nomi beside files, with each coherence error's hints after it.
+func implIdentityProjectErrs(t *testing.T, src string, files map[string]string) []string {
+	t.Helper()
+	tmp := t.TempDir()
+	for name, text := range files {
+		if err := os.WriteFile(filepath.Join(tmp, name), []byte(text), 0644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "main.nomi"), []byte(src), 0644); err != nil {
+		t.Fatalf("write main.nomi: %v", err)
+	}
+	entryNodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
+	loader := func(root string, mod []string) ([]ast.Node, error) {
+		data, err := os.ReadFile(filepath.Join(root, filepath.Join(mod...)) + ".nomi")
+		if err != nil {
+			return nil, err
+		}
+		nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
+		return nodes, nil
+	}
+	lib := std.Load()
+	fa, _, _ := analysis.BuildProjectWithCache(entryNodes, lib.Primitives, lib.Modules, lib.Files, tmp, loader)
+	if fa == nil {
+		t.Fatal("expected non-nil FileAnalysis")
+	}
+	var msgs []string
+	for _, e := range fa.TypeErrors {
+		msgs = append(msgs, e.Message)
+	}
+	for _, e := range analysis.CheckTypes(fa, entryNodes) {
+		msgs = append(msgs, e.Message)
+	}
+	for _, e := range analysis.FinalizeCoherence(fa) {
+		msgs = append(msgs, e.Message+" | "+strings.Join(e.Hints, " | "))
+	}
+	return msgs
+}
+
+// An impl for another file's type, written through its module
+// (`impl Html for users.User`), is that type's impl even when the
+// implementing file declares a `User` of its own: the receiver's identity is
+// the module the header names, not the name in the file's scope. With an
+// impl for each `User` the program checks, and neither impl collides with
+// the other.
+func TestMissingImpl_AQualifiedReceiverIsTheOtherFilesType(t *testing.T) {
+	users := map[string]string{"users.nomi": "pub struct User {\n  name: String\n}\n"}
+	const both = `import { std/io  users }
+
+interface Html {
+  fn to_html(value: self) -> String
+}
+
+struct User {
+  id: Int
+}
+
+impl Html for users.User {
+  fn to_html(u: users.User) -> String { u.name }
+}
+
+impl Html for User {
+  fn to_html(u: User) -> String { "${u.id}" }
+}
+
+fn main() {
+  io.print(Html.to_html(#users.User{name: "ann"}))
+  io.print(Html.to_html(#User{id: 1}))
+}
+`
+	if msgs := implIdentityProjectErrs(t, both, users); len(msgs) != 0 {
+		t.Fatalf("an impl for each User was rejected: %v", msgs)
+	}
+
+	// Only the entry's User has the impl: the missing one names the other
+	// file's type by its module, since a bare `User` would name the type
+	// that has it.
+	const one = `import { std/io  users }
+
+interface Html {
+  fn to_html(value: self) -> String
+}
+
+struct User {
+  id: Int
+}
+
+impl Html for User {
+  fn to_html(u: User) -> String { "${u.id}" }
+}
+
+fn main() {
+  io.print(Html.to_html(#users.User{name: "ann"}))
+}
+`
+	msgs := implIdentityProjectErrs(t, one, users)
+	found := false
+	for _, m := range msgs {
+		if strings.Contains(m, "no impl of `Html` for `users.User`") &&
+			strings.Contains(m, "write an `impl Html for users.User` block") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the missing impl for users.User was not reported by its qualified name: %v", msgs)
 	}
 }

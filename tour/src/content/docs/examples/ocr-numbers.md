@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: ocr_numbers.nomi
+//# Reads digits drawn with pipes and underscores, three columns by four rows
+//# each.
+
 /// Why rows cannot be read.
 pub enum Error {
     LinesNotMultipleOfFour
@@ -36,7 +39,7 @@ once digits = font |> glyphs() |> Iter.zip("0123456789") |> Iter.to_map()
 pub fn convert(rows: List<String>) -> Result<String, Error> {
     if Iter.count(rows) % 4 != 0 {
         Err(.LinesNotMultipleOfFour)
-    } else if Iter.any?(rows, &(String.length(&1) % 3 != 0)) {
+    } else if Iter.any(rows, &(String.length(&1) % 3 != 0)) {
         Err(.ColumnsNotMultipleOfThree)
     } else {
         rows

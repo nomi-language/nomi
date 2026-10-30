@@ -314,10 +314,7 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 			s.walkBody(owner, item, inConcurrent)
 		}
 	case *ast.SetLit:
-		if node.Spread != nil {
-			s.walkBody(owner, node.Spread, inConcurrent)
-		}
-		for _, item := range node.Items {
+		for _, item := range node.Operands() {
 			s.walkBody(owner, item, inConcurrent)
 		}
 	case *ast.TupleLit:
@@ -325,8 +322,8 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 			s.walkBody(owner, item, inConcurrent)
 		}
 	case *ast.MapLit:
-		if node.Spread != nil {
-			s.walkBody(owner, node.Spread, inConcurrent)
+		for _, sp := range node.Spreads {
+			s.walkBody(owner, sp.Head, inConcurrent)
 		}
 		for _, entry := range node.Entries {
 			s.walkBody(owner, entry.Key, inConcurrent)
@@ -346,6 +343,8 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 			s.walkBody(owner, br.Body, inConcurrent)
 		}
 	case *ast.TryOp:
+		s.walkBody(owner, node.Expr, inConcurrent)
+	case *ast.Unwrap:
 		s.walkBody(owner, node.Expr, inConcurrent)
 	case *ast.Dbg:
 		s.walkBody(owner, node.Expr, inConcurrent)
@@ -625,10 +624,7 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 				walk(item, enclosing, inConcurrent)
 			}
 		case *ast.SetLit:
-			if node.Spread != nil {
-				walk(node.Spread, enclosing, inConcurrent)
-			}
-			for _, item := range node.Items {
+			for _, item := range node.Operands() {
 				walk(item, enclosing, inConcurrent)
 			}
 		case *ast.TupleLit:
@@ -636,8 +632,8 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 				walk(item, enclosing, inConcurrent)
 			}
 		case *ast.MapLit:
-			if node.Spread != nil {
-				walk(node.Spread, enclosing, inConcurrent)
+			for _, sp := range node.Spreads {
+				walk(sp.Head, enclosing, inConcurrent)
 			}
 			for _, entry := range node.Entries {
 				walk(entry.Key, enclosing, inConcurrent)
@@ -657,6 +653,8 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 				walk(br.Body, enclosing, inConcurrent)
 			}
 		case *ast.TryOp:
+			walk(node.Expr, enclosing, inConcurrent)
+		case *ast.Unwrap:
 			walk(node.Expr, enclosing, inConcurrent)
 		case *ast.Dbg:
 			walk(node.Expr, enclosing, inConcurrent)

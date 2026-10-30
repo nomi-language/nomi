@@ -126,7 +126,7 @@ func canEnd(t token.TokenType) bool {
 		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
-		token.RETURN, token.BREAK, token.CONTINUE, token.ASSERT, token.REFUTE, token.TRY, token.DBG,
+		token.RETURN, token.BREAK, token.CONTINUE, token.ASSERT, token.REFUTE, token.DBG,
 		token.TODO, token.EXPORT, token.UNDERSCORE, token.COMMENT, token.DOC_COMMENT, token.TEST_PROMPT:
 		return true
 	}
@@ -307,7 +307,7 @@ func operand(t token.TokenType) bool {
 	case token.EQ, token.COMMA, token.LPAREN, token.LBRACKET, token.PLUS, token.MINUS, token.STAR,
 		token.PERCENT, token.EQEQ, token.BANGEQ, token.LTEQ, token.GTEQ,
 		token.AND, token.OR, token.RETURN, token.FAT_ARROW, token.PIPE, token.BANG,
-		token.IF, token.CASE, token.ASSERT, token.REFUTE, token.TRY, token.BAR, token.DOTDOT, token.DOTDOTEQ:
+		token.IF, token.CASE, token.ASSERT, token.REFUTE, token.BAR, token.DOTDOT, token.DOTDOTEQ:
 		return true
 	}
 	return false

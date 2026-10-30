@@ -35,6 +35,11 @@ type Project struct {
 	// EntryName is then the entry's path (`main.nomi`), and EntrySource
 	// its text.
 	Files map[string]string
+	// Dir is set for a block of sibling projects (projectsDir): the
+	// top-level directory of the project it runs (`rates`). Files,
+	// EntryName, DataFiles and TestFiles still name files by their path
+	// from the block's root (`rates/tables.nomi`), as its tabs do.
+	Dir string
 	// First is the path of the source's first section, the tab a reader
 	// sees first (`tables.nomi`), when it has any.
 	First string
@@ -198,7 +203,9 @@ func namesModules(files map[string]string) bool {
 // as they would be on disk, and its entry, the first file of the root
 // module (one in no directory holding a `nomi.toml` or `go.mod` of its own)
 // that declares `fn main`, else fallbackEntry over the root module's Nomi
-// files in the block's order (order is the sections' paths as marked).
+// files in the block's order (order is the sections' paths as marked). In
+// a block of sibling projects, the root module is the project projectsDir
+// picks.
 func fromModuleFiles(marked map[string]string, order []string, forced string) (Project, string, []string, error) {
 	files := make(map[string]string, len(marked))
 	moduleDirs := map[string]bool{}
@@ -217,8 +224,19 @@ func fromModuleFiles(marked map[string]string, order []string, forced string) (P
 			moduleDirs[path.Dir(clean)] = true
 		}
 	}
+	project, err := projectsDir(files, order)
+	if err != nil {
+		return Project{}, "", nil, err
+	}
+	rootDir := "."
+	if project != "" {
+		rootDir = project
+	}
 	inRoot := func(name string) bool {
-		for dir := path.Dir(name); dir != "."; dir = path.Dir(dir) {
+		if project != "" && !strings.HasPrefix(name, project+"/") {
+			return false
+		}
+		for dir := path.Dir(name); dir != rootDir; dir = path.Dir(dir) {
 			if moduleDirs[dir] {
 				return false
 			}
@@ -245,15 +263,48 @@ func fromModuleFiles(marked map[string]string, order []string, forced string) (P
 		entry = fallbackEntry(files, roots)
 	}
 	if entry == "" {
+		if project != "" {
+			return Project{}, "", nil, fmt.Errorf("no Nomi file is in the block's project %s/", project)
+		}
 		return Project{}, "", nil, fmt.Errorf("no Nomi file is in the block's root module")
 	}
 	data := map[string]string{}
 	for name, body := range files {
-		if !isNomiSource(name) && name != "nomi.toml" {
+		if !isNomiSource(name) && name != path.Join(rootDir, "nomi.toml") {
 			data[name] = body
 		}
 	}
-	return Project{EntrySource: files[entry], EntryName: entry, DataFiles: data, Files: files}, entry, roots, nil
+	return Project{EntrySource: files[entry], EntryName: entry, DataFiles: data, Files: files, Dir: project}, entry, roots, nil
+}
+
+// projectsDir is the project directory of a block of sibling projects: one
+// with no go.mod at its root and a go.mod in two or more of its top-level
+// directories, each a module of its own beside the others (an app, and a
+// library its go.mod replaces with `../shared`). Its project is the
+// top-level directory of its first section, the file a reader sees first,
+// and every file is in one of its top-level directories. The entry rule
+// alone cannot pick the project, since a generator's tool declares `fn
+// main` too. It answers "" for a block whose root is its project.
+func projectsDir(files map[string]string, order []string) (string, error) {
+	if _, ok := files["go.mod"]; ok {
+		return "", nil
+	}
+	modules := map[string]bool{}
+	for name := range files {
+		if dir, base := path.Split(name); base == "go.mod" && dir != "" && strings.Count(dir, "/") == 1 {
+			modules[dir] = true
+		}
+	}
+	if len(modules) < 2 {
+		return "", nil
+	}
+	for _, name := range order {
+		if !strings.Contains(path.Clean(name), "/") {
+			return "", fmt.Errorf("// FILE: %s is in none of the block's projects: in a block of several projects, each file is in a top-level directory", name)
+		}
+	}
+	dir, _, _ := strings.Cut(path.Clean(order[0]), "/")
+	return dir, nil
 }
 
 // FromSources builds a virtual project from a map keyed by import path without

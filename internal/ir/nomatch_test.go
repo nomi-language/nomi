@@ -117,8 +117,8 @@ func TestNoMatch_TheTrapIsAnInstructionThatFaults(t *testing.T) {
 	}
 	// The three pre-existing bits still print, because adding a fourth to the
 	// table is where a table-driven String silently loses a row.
-	if got := (ir.FaultOverflow | ir.FaultDivByZero).String(); got != "overflow|div0" {
-		t.Errorf("existing bits print %q, want %q", got, "overflow|div0")
+	if got := (ir.FaultDivByZero | ir.FaultUndefined).String(); got != "div0|undefined" {
+		t.Errorf("existing bits print %q, want %q", got, "div0|undefined")
 	}
 }
 

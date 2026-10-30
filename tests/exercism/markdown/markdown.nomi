@@ -16,7 +16,7 @@ pub fn parse(markdown: String) -> String {
     markdown
     |> String.lines()
     |> Iter.map(block)
-    |> Iter.chunk_by(item?)
+    |> Iter.chunk_by(is_item)
     |> Iter.map(render_run)
     |> String.join()
 }
@@ -24,9 +24,7 @@ pub fn parse(markdown: String) -> String {
 /// What `line` is: a heading of one to six `#`s and a space, an item after
 /// `* `, or else a paragraph.
 fn block(line: String) -> Block {
-    if Some(text) = String.strip_prefix(line, "* ") {
-        return .Item(text)
-    }
+    if Some(text) = String.strip_prefix(line, "* ") { return .Item(text) }
 
     case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
         Some([Some(marks), Some(text)]) -> #.Heading{level: String.length(marks), text}
@@ -34,7 +32,7 @@ fn block(line: String) -> Block {
     }
 }
 
-fn item?(block: Block) -> Bool {
+fn is_item(block: Block) -> Bool {
     case block {
         .Item(_) -> True
         _ -> False
@@ -64,6 +62,6 @@ fn render(block: Block) -> String {
 /// so its double underscores are not read as two italic marks.
 fn emphasize(text: String) -> String {
     text
-    |> then &Regex.replace_all(Regex`__(.+?)__`, &1, "<strong>$1</strong>")
-    |> then &Regex.replace_all(Regex`_(.+?)_`, &1, "<em>$1</em>")
+    |> Regex.replace_all(Regex`__(.+?)__`, "<strong>$1</strong>")
+    |> Regex.replace_all(Regex`_(.+?)_`, "<em>$1</em>")
 }

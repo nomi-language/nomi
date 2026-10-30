@@ -134,9 +134,7 @@ impl Currency {
     //! assert Currency.custom("1UP", 0) == Err(#Error.Malformed{text: "1UP"})
     //
     pub fn custom(code: String, minor_digits: Int) -> Result<Currency, Error> {
-        if minor_digits < 0 {
-            return Err(#Error.Digits{digits: minor_digits})
-        }
+        if minor_digits < 0 { return Err(#Error.Digits{digits: minor_digits}) }
 
         case currency_check(code, minor_digits) {
             0 -> Ok(Currency("${code}:${minor_digits}"))
@@ -167,12 +165,12 @@ impl Currency {
     }
 
     /// Whether the currency is an ISO 4217 one, not a custom one.
-    //! assert Currency.iso?(Currency`EUR`)
-    //! refute Currency.iso?(Currency`BTC:8`)
+    //! assert Currency.is_iso(Currency`EUR`)
+    //! refute Currency.is_iso(Currency`BTC:8`)
     //
-    pub fn iso?(currency: Currency) -> Bool {
+    pub fn is_iso(currency: Currency) -> Bool {
         Currency(text) = currency
-        !String.contains?(text, ":")
+        !String.contains(text, ":")
     }
 }
 

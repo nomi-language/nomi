@@ -1,3 +1,6 @@
+//# Solves alphametics puzzles such as `SEND + MORE == MONEY`, where each
+//# letter stands for a different digit.
+
 /// A letter of the puzzle and what it adds to the sum: `weight` is the
 /// total of its place values, positive in the addends and negative in the
 /// result, so a solution makes the weighted digits add up to zero.
@@ -12,9 +15,7 @@ struct Letter {
 /// letter and no leading zero in a word of more than one letter; `None`
 /// when no digits do.
 pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
-    [left, right] = String.split(puzzle, "==") else {
-        return None
-    }
+    [left, right] = String.split(puzzle, "==") else { return None }
 
     addends = left |> String.split("+") |> Iter.map(fn word -> #(String.trim(word), 1))
 
@@ -45,7 +46,7 @@ fn letter(name: String, uses: List<#(String, Int, Bool)>) -> Letter {
     #Letter{
         name,
         weight: uses |> Iter.map(fn #(_name, value, _leading) -> value) |> Iter.sum(),
-        leading: Iter.any?(uses, fn #(_name, _value, leading) -> leading),
+        leading: Iter.any(uses, fn #(_name, _value, leading) -> leading),
     }
 }
 
@@ -60,25 +61,21 @@ fn assign(
     total: Int,
     digits: Map<String, Int>,
 ) -> Maybe<Map<String, Int>> {
-    [letter, ..rest] = letters else {
-        return if total == 0 { Some(digits) } else { None }
-    }
+    [letter, ..rest] = letters else { return if total == 0 { Some(digits) } else { None } }
 
     0..=9
-    |> Iter.filter(fn digit -> !Set.contains?(used, digit) and !(letter.leading and digit == 0))
+    |> Iter.filter(fn digit -> !Set.contains(used, digit) and !(letter.leading and digit == 0))
     |> Iter.map(fn digit -> #(digit, total + letter.weight * digit))
-    |> Iter.filter(fn #(_digit, after) -> reachable?(after, rest))
-    |> Iter.map(fn #(digit, after) -> {
+    |> Iter.filter(fn #(_digit, after) -> is_reachable(after, rest))
+    |> Iter.find_map(fn #(digit, after) -> {
         assign(rest, Set.insert(used, digit), after, Map.put(digits, letter.name, digit))
     })
-    |> Iter.find(Maybe.some?)
-    |> Maybe.flat_map(fn found -> found)
 }
 
 /// Whether the letters `rest` could still bring `total` to zero: each adds
 /// at most nine times its weight when the weight is positive, and takes
 /// away at most nine times its size when it is negative.
-fn reachable?(total: Int, rest: List<Letter>) -> Bool {
+fn is_reachable(total: Int, rest: List<Letter>) -> Bool {
     weights = Iter.map(rest, .weight)
     gains = weights |> Iter.filter(&(&1 > 0)) |> Iter.sum()
     losses = weights |> Iter.filter(&(&1 < 0)) |> Iter.sum()

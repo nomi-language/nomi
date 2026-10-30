@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The `infinite?` answer, per source and per adapter, and the trap a
+// The `is_infinite` answer, per source and per adapter, and the trap a
 // terminal raises on it. The corpus pins the same through programs
 // (tests/13-iterators-and-pipes/infinite_test.nomi and the failure fixture
 // internal/irbuild/testdata/infinite_iter_traps.nomi); this pins the
@@ -67,26 +67,16 @@ func TestSeqEndlessPerSourceAndAdapter(t *testing.T) {
 		{"cycle of an empty list", SeqCycle(empty), ""},
 		{"cycle of an uncounted source", SeqCycle(SeqFilter(finite, keep)), ""},
 		{"cycle of an infinite source", SeqCycle(repeat), "Iter.repeat"},
+		// An Int has no largest value, so an unbounded Int range never ends,
+		// wherever it starts.
 		{"an unbounded range", RangeSeq(unbounded, intCmp, next), "Range.from"},
-		{"an unbounded range near Int.max_value", RangeSeq(nearMax, intCmp, next), ""},
+		{"an unbounded range near 2^63", RangeSeq(nearMax, intCmp, next), "Range.from"},
 		{"step_by of an unbounded range", StepByRangeSeq(unbounded, int64(2), intCmp, step), "Range.step_by"},
 		{"step_by that does not move", StepByRangeSeq(unbounded, int64(0), intCmp, step), ""},
-		{"step_by down from the top", StepByRangeSeq(Range[int64]{Start: math.MaxInt64, End: None[int64]()}, int64(-1), intCmp, step), "Range.step_by"},
-		{"step_by up near the top", StepByRangeSeq(nearMax, int64(1), intCmp, step), ""},
+		{"step_by down from 2^63 - 1", StepByRangeSeq(Range[int64]{Start: math.MaxInt64, End: None[int64]()}, int64(-1), intCmp, step), "Range.step_by"},
+		{"step_by up near 2^63", StepByRangeSeq(nearMax, int64(1), intCmp, step), "Range.step_by"},
 		{"an unbounded range from -1", RangeSeq(Range[int64]{Start: -1, End: None[int64]()}, intCmp, next), "Range.from"},
-		{"an unbounded range from Int.min_value", RangeSeq(Range[int64]{Start: math.MinInt64, End: None[int64]()}, intCmp, next), "Range.from"},
-		{"an unbounded range just below the threshold", RangeSeq(Range[int64]{Start: math.MaxInt64 - rangeEndlessMin, End: None[int64]()}, intCmp, next), "Range.from"},
-		{"an unbounded range just above the threshold", RangeSeq(Range[int64]{Start: math.MaxInt64 - rangeEndlessMin + 1, End: None[int64]()}, intCmp, next), ""},
-		{"an unbounded range from Int.max_value", RangeSeq(Range[int64]{Start: math.MaxInt64, End: None[int64]()}, intCmp, next), ""},
-		{"step_by up from -1", StepByRangeSeq(Range[int64]{Start: -1, End: None[int64]()}, int64(1), intCmp, step), "Range.step_by"},
-		{"step_by up from Int.min_value", StepByRangeSeq(Range[int64]{Start: math.MinInt64, End: None[int64]()}, int64(3), intCmp, step), "Range.step_by"},
 		{"step_by down from -1", StepByRangeSeq(Range[int64]{Start: -1, End: None[int64]()}, int64(-2), intCmp, step), "Range.step_by"},
-		{"step_by down from 0", StepByRangeSeq(Range[int64]{Start: 0, End: None[int64]()}, int64(-1), intCmp, step), "Range.step_by"},
-		{"step_by down near Int.min_value", StepByRangeSeq(Range[int64]{Start: math.MinInt64 + 5, End: None[int64]()}, int64(-1), intCmp, step), ""},
-		{"step_by down just above the threshold", StepByRangeSeq(Range[int64]{Start: math.MinInt64 + rangeEndlessMin, End: None[int64]()}, int64(-1), intCmp, step), "Range.step_by"},
-		{"step_by down just below the threshold", StepByRangeSeq(Range[int64]{Start: math.MinInt64 + rangeEndlessMin - 1, End: None[int64]()}, int64(-1), intCmp, step), ""},
-		{"step_by up just below the threshold", StepByRangeSeq(Range[int64]{Start: math.MaxInt64 - rangeEndlessMin, End: None[int64]()}, int64(1), intCmp, step), "Range.step_by"},
-		{"step_by up just above the threshold", StepByRangeSeq(Range[int64]{Start: math.MaxInt64 - rangeEndlessMin + 1, End: None[int64]()}, int64(1), intCmp, step), ""},
 	} {
 		if got := SeqEndless(fr, c.seq); got != c.want {
 			t.Errorf("%s: SeqEndless = %q, want %q", c.name, got, c.want)

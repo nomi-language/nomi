@@ -17,7 +17,7 @@ func debugFixture() *Func {
 	b.MarkStmt(at(2), StmtStatement)
 	one := NewInt(at(2), f.NewTemp(), 1)
 	b.Append(one)
-	sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowFaults), pa, one.Dst())
+	sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowExact), pa, one.Dst())
 	b.Append(sum)
 	f.AddVar("sum", sum.Dst(), "Int", Spanning(lintFile(), 2, 1, 3, 1), Pos{})
 	b.MarkStmt(at(3), StmtStatement)

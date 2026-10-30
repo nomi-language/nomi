@@ -43,7 +43,7 @@ import std/io
 //     stage body leaves the enclosing FUNCTION (`early`), and a `return` inside
 //     a pipe stage body that is itself inside a LAMBDA leaves the LAMBDA
 //     (`lambda_early`), which is observable because the caller keeps printing.
-//     `try` in the same two positions unwinds to the same two boundaries
+//     `?` in the same two positions unwinds to the same two boundaries
 //     (`propagate`, `lambda_try`). Those four are the interaction this shape
 //     makes reachable for the first time, and getting one wrong is a wrong
 //     ANSWER rather than a refusal.
@@ -73,7 +73,7 @@ fn loud_bool(tag: String, b: Bool) -> Bool {
 // two-node chain.
 fn label(n: Int) -> String {
     n
-    |> if Int.equal?(42) { "answer" } else { "other" }
+    |> if Int.equal(42) { "answer" } else { "other" }
 }
 
 // The BARE `if`: one node, and the piped value is already the Bool.
@@ -87,7 +87,7 @@ fn yes_no(b: Bool) -> String {
 // ORDINARY `if` and only its head is a pipe stage.
 fn size(n: Int) -> String {
     n
-    |> if Int.equal?(0) {
+    |> if Int.equal(0) {
         "zero"
     } else if n > 100 {
         "big"
@@ -131,13 +131,13 @@ fn overlap(n: Int) -> String {
 // of its own, so `x |> if n > 10 { … }` becomes `x |> (n > 10)` and evalPipe
 // rejects it at run time with "right side of |> must be a function call or
 // function reference". Measured on this fixture.
-fn big?(n: Int) -> Bool {
+fn is_big(n: Int) -> Bool {
     n > 10
 }
 
 fn mixed(n: Int) -> String {
     n
-    |> if big?() { Some("large") } else { None }
+    |> if is_big() { Some("large") } else { None }
     |> case {
         Some(word) -> "yes:${word}"
         None -> "no"
@@ -148,7 +148,7 @@ fn mixed(n: Int) -> String {
 fn early(n: Int) -> String {
     tag =
         n
-        |> if Int.equal?(7) {
+        |> if Int.equal(7) {
             return "returned early"
         } else {
             "fell through"
@@ -157,13 +157,13 @@ fn early(n: Int) -> String {
     "tag=${tag}"
 }
 
-// `try` inside a pipe stage body unwinds to the FUNCTION's boundary.
+// `?` inside a pipe stage body unwinds to the FUNCTION's boundary.
 fn propagate(s: String) -> Result<Int, String> {
     doubled =
         s
         |> case {
             "" -> 0
-            _ -> try parse_id(s)
+            _ -> parse_id(s)?
         }
 
     Ok(doubled * 2)
@@ -202,7 +202,7 @@ fn main() {
         }}")
 
     io.print("once if = ${loud_bool("if", True) |> if { "t" } else { "f" }}")
-    io.print("once kw = ${loud_int("kw", 42) |> if Int.equal?(42) { "eq" } else { "ne" }}")
+    io.print("once kw = ${loud_int("kw", 42) |> if Int.equal(42) { "eq" } else { "ne" }}")
 
     // A LAMBDA whose body is a pipe stage carrying a `return`: the `return` is
     // LAMBDA-scoped, so `Iter.map` receives its value and the loop continues.
@@ -210,7 +210,7 @@ fn main() {
         [1, 7, 9]
         |> Iter.map(fn n: Int -> {
             n
-            |> if Int.equal?(7) {
+            |> if Int.equal(7) {
                 return "seven"
             } else {
                 "n${n}"
@@ -226,7 +226,7 @@ fn main() {
     // bare name would print all three rows.
     flag =
         12
-        |> if Int.equal?(12) { True } else { False }
+        |> if Int.equal(12) { True } else { False }
 
     io.print("flag = ${flag}")
 }

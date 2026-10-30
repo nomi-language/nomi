@@ -198,7 +198,8 @@ func (c *checker) checkExpansionBody(fn *ast.FuncDef) {
 // ExpandDeclarations answers nodes with each keyword declaration expanded
 // at site: a `message` becomes the function it declares and a `noun` the
 // `once` it names, in its place, and the file gains the hidden imports its
-// expansions name std/message by. A declaration of any other keyword
+// expansions name std/message by, and the one a `derive ToJson` or
+// `derive FromJson` names std/json by (withJsonImport). A declaration of any other keyword
 // stays, for the checker to refuse. Expanding again is a no-op: an
 // expanded file holds no `message` declaration. A nil site expands
 // messages with no inputs, as a file with no project.
@@ -208,6 +209,9 @@ func (c *checker) checkExpansionBody(fn *ast.FuncDef) {
 // derive synthesis gives what it synthesizes for a node, so the two never
 // share a slot.
 func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
+	// A derived ToJson or FromJson names std/json through a hidden import
+	// too, added here so the file's imports hold it wherever they are read.
+	nodes = withJsonImport(nodes)
 	hasMessage := false
 	for _, n := range nodes {
 		if kd, ok := n.(*ast.KeywordDecl); ok && isBuiltinKeyword(kd) {

@@ -20,7 +20,7 @@ func irRunSource(t *testing.T, src, want string) {
 // enum holding a function, the stdlib generics over one (`Maybe.with_default`,
 // `Result.with_default`, `Maybe.map`, `Result.map`), the Iter family over a
 // list of functions and producing one (`Iter.count`, `map`, `filter`,
-// `reduce`, `each`, `any?`), `Debug.inspect` of a list of functions, a user
+// `reduce`, `each`, `any`), `Debug.inspect` of a list of functions, a user
 // generic at `List<fn>` given an empty list, and a list of functions held in
 // a struct field, an enum payload and a `Result`'s `Ok`.
 func TestIRGenericAtFunctionType_Runs(t *testing.T) {
@@ -75,7 +75,7 @@ fn main() {
     io.inspect(composed(1))
     adders = Iter.map([1, 2], fn n -> fn x: Int -> x + n) |> Iter.to_list()
     io.inspect(Iter.map(adders, fn f -> f(1)) |> Iter.to_list())
-    io.inspect(Iter.any?(fs, fn f -> f(0) == 1))
+    io.inspect(Iter.any(fs, fn f -> f(0) == 1))
     Iter.each(fs, fn f -> io.inspect(f(100)))
     io.inspect(first_or([], inc)(7))
     io.inspect(first_or(fs, inc)(7))

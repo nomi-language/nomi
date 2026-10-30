@@ -328,6 +328,58 @@ func (bl *irScalarBuilder) stdHostDebugPlan(operand ast.Node, src ir.Temp, k kin
 // type, so an enum whose derived Debug delegates to its embedded values names
 // their impls too; a written enum Debug has no such delegation and declines.
 // It answers false for any leaf outside that domain or with no nominal leaf.
+// debugImplSym is the Debug body of k, a named type: its impl in this file,
+// the impl another file's generic instance was built against, or another
+// file's type's impl, written or synthesized. synth says the impl is
+// synthesized; ok is false when no lowerable body renders k.
+func (bl *irScalarBuilder) debugImplSym(k kind) (sym *ir.Symbol, synth, ok bool) {
+	og, self := bl.g, k
+	d := bl.g.implsByIface["Debug"][k]
+	if d == nil && k.def != nil && k.def.instOrigin != nil {
+		// Another file's generic instance: the owner built its impl
+		// against its own instance def.
+		og, d = bl.g.instanceImpl(k.def, "Debug", "inspect")
+		self = named(k.def.instOrigin)
+	}
+	if d == nil && k.tag == tagNamed && k.def != nil && k.def.instOrigin == nil {
+		// Another file's type: the Debug impl its declaring file holds,
+		// written or synthesized, which `Debug.inspect(x)` reaches the
+		// same way (qualSiblingIfaceImplPlan).
+		site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", "Debug")
+		if site == nil || len(params) != 1 || params[0] != k || result != kindString {
+			return nil, false, false
+		}
+		return owning.irCalleeSym(site.item, site.symName), site.synth, true
+	}
+	if d == nil || !d.lowerable {
+		return nil, false, false
+	}
+	it := d.items["inspect"]
+	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != 1 || it.params[0] != self || it.result != kindString {
+		return nil, false, false
+	}
+	return og.irCalleeSym(it, self.nomi()+".inspect"), d.synth, true
+}
+
+// boxedEnumDebugImpls names the Debug body of k, an `embeds` enum with a
+// hand-written `impl Debug`, for a value of it held boxed as an interface's
+// existential: the box names the enum (irBoxPlan), and the renderer offers
+// the box to the impl recorded under that name before it looks inside
+// (rt.DebugText), so a value widened into an `embeds` variant renders
+// through the enum's impl and not the embedded type's. A synthesized Debug
+// renders each embedded value through its own impl, which nestedDebugImpls
+// names.
+func (bl *irScalarBuilder) boxedEnumDebugImpls(k kind) ([]ir.DebugImpl, bool) {
+	if !irBoxedEnum(k) {
+		return nil, false
+	}
+	sym, synth, ok := bl.debugImplSym(k)
+	if !ok || synth {
+		return nil, false
+	}
+	return []ir.DebugImpl{{Type: bl.g.irImplTypeSym(k).Name(), Fn: sym}}, true
+}
+
 func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 	var impls []ir.DebugImpl
 	// seen is keyed by runtime type name and instance key: two instances of
@@ -349,34 +401,12 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 	// an empty impl list still names a whole rendering.
 	sawStructural := false
 	register := func(k kind) (bool, bool) {
-		og, self := bl.g, k
-		d := bl.g.implsByIface["Debug"][k]
-		if d == nil && k.def != nil && k.def.instOrigin != nil {
-			// Another file's generic instance: the owner built its impl
-			// against its own instance def.
-			og, d = bl.g.instanceImpl(k.def, "Debug", "inspect")
-			self = named(k.def.instOrigin)
-		}
-		if d == nil && k.tag == tagNamed && k.def != nil && k.def.instOrigin == nil {
-			// Another file's type: the Debug impl its declaring file holds,
-			// written or synthesized, which `Debug.inspect(x)` reaches the
-			// same way (qualSiblingIfaceImplPlan).
-			site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", "Debug")
-			if site == nil || len(params) != 1 || params[0] != k || result != kindString {
-				return false, false
-			}
-			add(k, owning.irCalleeSym(site.item, site.symName))
-			return site.synth, true
-		}
-		if d == nil || !d.lowerable {
+		sym, synth, ok := bl.debugImplSym(k)
+		if !ok {
 			return false, false
 		}
-		it := d.items["inspect"]
-		if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != 1 || it.params[0] != self || it.result != kindString {
-			return false, false
-		}
-		add(k, og.irCalleeSym(it, self.nomi()+".inspect"))
-		return d.synth, true
+		add(k, sym)
+		return synth, true
 	}
 	var walk func(k kind) bool
 	// attempt walks k and keeps what it registered only if the walk

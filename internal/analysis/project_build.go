@@ -819,7 +819,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	typed := make([]fileTyped, len(built))
 	for i, fb := range built {
 		typed[i].from = len(fb.fa.TypeErrors)
-		typed[i].fileTyping = startFileTyping(fb.fa, fb.nodes, stdlibScopes)
+		typed[i].fileTyping = startFileTyping(fb.fa, fb.nodes)
 		typed[i].typeDeclarations()
 	}
 	for _, ft := range typed {

@@ -134,10 +134,18 @@ func (m *Machine) debugImplHook(fr *frame, n *ir.Render) rt.DebugHook {
 			}
 			switch x.Desc.Kind {
 			case rt.KindStruct, rt.KindEnum, rt.KindDistinct:
+			case rt.KindBoxed:
+				// A box names the static type its value had where it
+				// became an interface value; an impl recorded under that
+				// name takes the value inside.
+				typeName = x.Desc.Name
+				v = rt.Unbox(x)
 			default:
 				return "", false, nil
 			}
-			typeName, inst = x.Desc.Name, x.Desc.Inst
+			if x.Desc.Kind != rt.KindBoxed {
+				typeName, inst = x.Desc.Name, x.Desc.Inst
+			}
 		case rt.HostHandle:
 			typeName = x.TypeName
 		default:

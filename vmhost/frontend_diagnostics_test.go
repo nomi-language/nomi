@@ -196,7 +196,7 @@ func TestSyntaxErrorStillRefusedByRunAndCheck(t *testing.T) {
 
 // A user `impl Equatable for Int` must be rejected as a duplicate of
 // std/int's: `==` on an Int cannot dispatch to it, so accepting it leaves
-// `Equatable.equal?(1, 1)` answering the user's impl while `1 == 1` answers
+// `Equatable.equal(1, 1)` answering the user's impl while `1 == 1` answers
 // structurally.
 //
 // `Int`, `String`, `Float`, `Byte` and `Bytes` resolve to a shared
@@ -220,12 +220,12 @@ func TestUserImplForAPrimitiveIsADuplicateOfStdlibs(t *testing.T) {
 		qualRcv string
 		home    string
 	}{
-		{"Equatable", "equal?", "Int", "Bool", "False", "int.Int", "std/int"},
-		{"Equatable", "equal?", "String", "Bool", "False", "strings.String", "std/strings"},
-		{"Equatable", "equal?", "Float", "Bool", "False", "float.Float", "std/float"},
-		{"Equatable", "equal?", "Byte", "Bool", "False", "bytes.Byte", "std/bytes"},
-		{"Equatable", "equal?", "Bytes", "Bool", "False", "bytes.Bytes", "std/bytes"},
-		{"Equatable", "equal?", "Bool", "Bool", "False", "bool.Bool", "std/bool"},
+		{"Equatable", "equal", "Int", "Bool", "False", "int.Int", "std/int"},
+		{"Equatable", "equal", "String", "Bool", "False", "strings.String", "std/strings"},
+		{"Equatable", "equal", "Float", "Bool", "False", "float.Float", "std/float"},
+		{"Equatable", "equal", "Byte", "Bool", "False", "bytes.Byte", "std/bytes"},
+		{"Equatable", "equal", "Bytes", "Bool", "False", "bytes.Bytes", "std/bytes"},
+		{"Equatable", "equal", "Bool", "Bool", "False", "bool.Bool", "std/bool"},
 		// `String` is absent from Hashable: std/strings spells its `hash` as
 		// a `host fn`, which this check cannot see; see
 		// TestExternStdImplsCannotBeReplaced.
@@ -322,7 +322,7 @@ func TestImplCollisionAnchorsAtAPositionTheUserCanOpen(t *testing.T) {
 		t.Run(recv, func(t *testing.T) {
 			src := "import {\n  std/io\n}\n\n" +
 				"impl Equatable for " + recv + " {\n" +
-				"  fn equal?(a: " + recv + ", b: " + recv + ") -> Bool { False }\n" +
+				"  fn equal(a: " + recv + ", b: " + recv + ") -> Bool { False }\n" +
 				"}\n" +
 				"fn main() {\n  io.print(\"x\")\n}\n"
 			err := checkEntry(t, src)

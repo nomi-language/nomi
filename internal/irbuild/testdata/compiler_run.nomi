@@ -54,7 +54,7 @@ fn main() {
     // type-correct and traps when it runs.
     io.print(
         "trap = " + out(
-            "import std/io\n\nfn main() {\n  io.print(Debug.inspect(9223372036854775807 + 1))\n}\n"
+            "import std/io\n\nfn main() {\n  zero = 0\n  io.print(Debug.inspect(1 / zero))\n}\n"
         )
     )
 

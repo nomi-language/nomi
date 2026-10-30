@@ -11,12 +11,15 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: etl.nomi
+//# Turns the legacy Scrabble score table, letters by score, into a score for
+//# each letter.
+
 /// Turns the legacy table, a score for each list of upper-case letters, into
 /// a score for each lower-case letter.
 pub fn transform(legacy: Map<Int, List<String>>) -> Map<String, Int> {
     legacy
     |> Iter.flat_map(fn #(score, letters) -> {
-        Iter.map(letters, fn letter -> #(String.to_lower(letter), score))
+        Iter.map(letters, fn letter -> #(String.lowercase(letter), score))
     })
     |> Iter.to_map()
 }

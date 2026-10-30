@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: flatten_array.nomi
+//# Flattens a nested array into one list of its values, dropping nulls.
+
 /// One element of a nested array: a value, an array of elements, or null.
 pub enum Nested {
     Value Int
@@ -38,9 +40,9 @@ fn values(element: Nested) -> List<Int> {
 import flatten_array.{self, Nested}
 
 test "flatten" {
-    cases: List<#(String, List<Nested>, List<Int>)> = [
+    cases = [
         #("empty", [], []),
-        #("no nesting", [.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
+        #("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
         #("flattens a nested array", [
             .Array([.Array([])]),
         ], []),

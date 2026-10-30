@@ -368,6 +368,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 
 	case *ast.IntLit:
 		c := ir.NewInt(bl.g.irPos(line, col), bl.f.NewTemp(), t.Value)
+		if t.Big != nil {
+			c = ir.NewBigInt(bl.g.irPos(line, col), c.Dst(), t.Big)
+		}
 		bl.b.Append(c)
 		return c.Dst(), kindInt, true, true
 
@@ -519,7 +522,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		return bl.listMake(t, t.Items, nil)
 	case *ast.ListSpreadLit:
-		return bl.listMake(t, t.Heads, t.TailSpread)
+		if len(t.Spreads) == 1 && t.Spreads[0].At == len(t.Items) {
+			// `[x, ..xs]`: the elements consed onto the spread.
+			return bl.listMake(t, t.Items, t.Spreads[0].Head)
+		}
+		return bl.listSpreadLit(t)
 	case *ast.TupleLit:
 		if t.TypeName != nil {
 			// `#Pair(1, "x")`: the distinct type over the tuple.
@@ -680,6 +687,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			}
 		}
 		return bl.call(t)
+
+	case *ast.Unwrap:
+		return bl.unwrap(t)
 
 	case *ast.Dbg:
 		// `dbg E`, built from existing IR nodes; the operand is fenced to the scalar domain because
@@ -1820,10 +1830,6 @@ func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore fun
 		if !isBlock || !bl.g.blockLeaves(block) {
 			return n, restore, true
 		}
-		if bl.recording > 0 {
-			irDeclineNote("a block that leaves inside an assertion subject")
-			return n, restore, false
-		}
 		undo = append(undo, bl.g.enterBlockTypes(block))
 		lead, inner := bl.g.irScalarBlock(block, "")
 		bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
@@ -1845,7 +1851,7 @@ func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore fun
 // exitingOperand finds an exiting region that n always evaluates: n itself,
 // or an operand evaluated whatever the values before it, as in `calls(case x
 // { 0 -> return 10  _ -> return 20 })`, `noisy(1) + if c { return 1 } else
-// { return 2 }`, a struct field, a list item, a pipe's source or a `try`'s
+// { return 2 }`, a struct field, a list item, a pipe's source or a `?`'s
 // operand. Nothing that reads the region's value can run, so the builder
 // lowers prefix, the operands evaluated before the region in Nomi's order,
 // for their effects, then the region as the block's tail, and drops the
@@ -1903,6 +1909,8 @@ func (g *gen) exitingOperand(n ast.Node) (prefix []ast.Node, region ast.Node, ok
 		return in(v.Expr)
 	case *ast.TryOp:
 		return in(v.Expr)
+	case *ast.Unwrap:
+		return in(v.Expr)
 	case *ast.FieldAccess:
 		return in(v.Object)
 	case *ast.StructLit:
@@ -1959,11 +1967,19 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			// and identity come from the typeDef blocklocaltype.go resolved,
 			// visible while the block's type scope is pushed.
 			continue
-		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
+		case *ast.Assertion:
 			// An assertion in an ordinary `fn`, whose failure is the
 			// function's `Err(AssertionFailure)`; `leading` checks the
 			// checker's boundary.
-			*ast.Assertion, *ast.PatternDestructure, *ast.Subtests,
+			if prefix, region, ok := g.exitingOperand(st.Expr); ok {
+				// `assert "x" == { io.print("y")  return }`: the subject
+				// never finishes, so nothing is judged and nothing after
+				// the assertion runs, as for a binding of it.
+				return append(lead, prefix...), region
+			}
+			lead = append(lead, st)
+		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
+			*ast.PatternDestructure, *ast.Subtests,
 			// A pattern binding, whose else branches off the block.
 			*ast.PatternBinding:
 			lead = append(lead, st)
@@ -2009,6 +2025,13 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		if prefix, region, ok := g.exitingOperand(b.Value); ok {
 			// `_ = calls(case x { 0 -> return 1  _ -> return 2 })` ending
 			// a block, as a leading binding of one does.
+			return append(lead, prefix...), region
+		}
+	}
+	if a, isAssertion := n.(*ast.Assertion); isAssertion {
+		if prefix, region, ok := g.exitingOperand(a.Expr); ok {
+			// An assertion whose subject never finishes ending a block, as
+			// a leading one does.
 			return append(lead, prefix...), region
 		}
 	}

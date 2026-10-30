@@ -4,7 +4,7 @@ struct Feed {
 }
 
 impl Equatable for Feed {
-    fn equal?(a: Feed, b: Feed) -> Bool {
+    fn equal(a: Feed, b: Feed) -> Bool {
         a.name == b.name
     }
 }

@@ -40,7 +40,7 @@ pub fn recite(start: Int, end: Int) -> List<String> {
 }
 
 fn verse(day: Int) -> String {
-    ordinal = Vector.at(ordinals, day - 1)
+    ordinal = Vector.get(ordinals, day - 1)!
     "On the ${ordinal} day of Christmas my true love gave to me: ${gifts(day)}."
 }
 

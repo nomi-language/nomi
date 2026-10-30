@@ -308,7 +308,7 @@ In a callback, `return value` makes `value` the result for this element, and
 the iteration moves on to the next one. Here `map` puts 300 where 30 would
 have gone. A bare `return` gives `Unit`.
 
-`try` follows the same rule. Inside a lambda, a `try` that fails returns from
+`?` follows the same rule. Inside a lambda, a `?` that fails returns from
 the lambda.
 
 A lambda can't return from the function it is written in. To stop a whole
@@ -333,7 +333,7 @@ Iteration is built from three pieces:
   (`map`, `filter`, `reduce`, `take_while`, `find`, `count` and the rest)
   works on that type. Two more functions are optional. A type that knows how
   many elements it has can say so with `known_count`. A type that never ends
-  can say so with `infinite?`, and then `Iter.to_list`, `Iter.count` and the
+  can say so with `is_infinite`, and then `Iter.to_list`, `Iter.count` and the
   other functions that need every element stop with an error instead of
   running forever.
 - **[`Iter.loop`](/reference/iter/#iterloop)**, for any loop with its own

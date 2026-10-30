@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: pythagorean_triplet.nomi
+//# The Pythagorean triplets whose sides sum to a given number.
+
 /// Every Pythagorean triplet `#(a, b, c)`, with `a < b < c`, whose sides sum
 /// to `n`, smallest `a` first.
 pub fn triplets_with_sum(n: Int) -> List<#(Int, Int, Int)> {

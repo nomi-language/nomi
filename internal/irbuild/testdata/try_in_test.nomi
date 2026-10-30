@@ -1,8 +1,8 @@
-// `try` inside a `test` body, which is a boundary of its own and not a harder
+// `?` inside a `test` body, which is a boundary of its own and not a harder
 // case of the `fn`/lambda one.
 //
-// A `try` whose operand is `Err`/`None` does not return a value anywhere: it
-// FAILS THE CASE, with `line N: test returned early`, the `try` expression as
+// A `?` whose operand is `Err`/`None` does not return a value anywhere: it
+// FAILS THE CASE, with `line N: test returned early`, the `?` expression as
 // the formatter renders it, and the propagated variant's structural rendering.
 // The run then continues with the next case. So the observable difference between
 // lowering this right and lowering it as an ordinary `return` is the whole
@@ -11,20 +11,20 @@
 //
 // Four properties this file exists to pin, each in a case:
 //
-//   - The success path unwraps and the case runs on (`try succeeds`).
-//   - The propagate path ends the case where the `try` is, so a print AFTER it
-//     does not happen while a print BEFORE it does (`try propagates`).
-//   - The `try`'s own line is reported even when it is nested inside an `if`
-//     several statements down (`try inside a nested construct`).
-//   - A `try` inside a LAMBDA in a test body unwinds the LAMBDA, so the case
+//   - The success path unwraps and the case runs on (`succeeds?`).
+//   - The propagate path ends the case where the `?` is, so a print AFTER it
+//     does not happen while a print BEFORE it does (`propagates?`).
+//   - The `?`'s own line is reported even when it is nested inside an `if`
+//     several statements down (`` `?` inside a nested construct ``).
+//   - A `?` inside a LAMBDA in a test body unwinds the LAMBDA, so the case
 //     keeps running and observes the failure as an ordinary value
-//     (`try inside a lambda`). That is the row a lowering which hoisted every
-//     test-body `try` to the test function would fail, and it fails on the
+//     (`` `?` inside a lambda ``). That is the row a lowering which hoisted every
+//     test-body `?` to the test function would fail, and it fails on the
 //     ANSWER: the case would go from `ok` to `FAIL`.
 //
 // The two spellings' TEXT differs and both are pinned: the prefix arm renders
-// the `try` node (`try parse(-1)`) and the pipe arm renders the whole pipe
-// (`-1 |> try parse()`).
+// the `?` node (`parse(-1)?`) and the pipe arm renders the whole pipe
+// (`-1 |> parse()?`).
 import std/io
 
 fn parse(n: Int) -> Result<Int, String> {
@@ -39,31 +39,31 @@ fn find(n: Int) -> Maybe<Int> {
     if n == 3 { Some(30) } else { None }
 }
 
-test "try succeeds" {
-    v = try parse(4)
+test "succeeds?" {
+    v = parse(4)?
 
     assert v == 8
 }
 
-test "try propagates" {
-    io.print("before the try")
-    v = try parse(-1)
+test "propagates?" {
+    io.print("before the ?")
+    v = parse(-1)?
 
-    io.print("after the try")
+    io.print("after the ?")
     assert v == 0
 }
 
-test "try propagates None" {
-    v = try find(4)
+test "propagates? None" {
+    v = find(4)?
 
     assert v == 0
 }
 
-test "try inside a nested construct" {
-    base = try parse(2)
+test "`?` inside a nested construct" {
+    base = parse(2)?
 
     if base > 0 {
-        inner = try parse(-7)
+        inner = parse(-7)?
 
         assert inner == 0
     } else {
@@ -71,15 +71,15 @@ test "try inside a nested construct" {
     }
 }
 
-test "try in pipe position" {
-    v = -1 |> try parse()
+test "`?` in pipe position" {
+    v = -1 |> parse()?
 
     assert v == 0
 }
 
-test "try inside a lambda" {
+test "`?` inside a lambda" {
     f = fn x: Int -> {
-        v = try parse(x)
+        v = parse(x)?
 
         Ok(v + 7)
     }

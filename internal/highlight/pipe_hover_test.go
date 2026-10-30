@@ -16,7 +16,7 @@ func TestAnalyze_PipeHovers(t *testing.T) {
 	const src = `import std/io
 
 fn parse(s: String) -> Result<Int, String> {
-  n = s |> String.to_int() |> Maybe.to_result("bad") |> try
+  n = s |> String.to_int() |> Maybe.to_result("bad")?
   Ok(n)
 }
 
@@ -33,7 +33,7 @@ fn main() {
 }
 
 test "parses" {
-  n = "4" |> String.to_int() |> Maybe.to_result("no") |> try
+  n = "4" |> String.to_int() |> Maybe.to_result("no")?
   assert n == 4
 }
 `
@@ -55,8 +55,8 @@ test "parses" {
 		{"tap", "  |> tap fn v", 1, "`Int` → `tap fn v -> …` → `Int`\n\n`v` is the `Int`; the lambda runs for its effect and the value passes on unchanged."},
 		{"then", "  |> then fn v", 1, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage answers the lambda's result."},
 		{"dbg", "  |> dbg", 1, "`Int` → `dbg` → `Int`\n\nPrints the value with its source line and passes it on unchanged."},
-		{"try in a function", `  n = s |> String.to_int()`, 3, "`Result<Int, String>` → `try` → `Int`\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
-		{"try in a test", `  n = "4" |>`, 3, "`Result<Int, String>` → `try` → `Int`\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
+		{"a ? in a function", `  n = s |> String.to_int()`, 2, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `fn parse`."},
+		{"a ? in a test", `  n = "4" |>`, 2, "`Maybe<Int>` → `Maybe.to_result(maybe, error)` → `Result<Int, String>` → `?` → `Int`\n\n```nomi\nfn to_result(maybe: Maybe<Int>, error: String) -> Result<Int, String>\n```\n\nThe piped value fills `maybe`.\n\nAnswers the success value, or returns the `Err` from `test \"parses\"`."},
 		{"a pipe inside a lambda", "  xs = [1, 2]", 2, "`Int` → `Int.to_string(n)` → `String`\n\n```nomi\nfn to_string(n: Int) -> String\n```\n\nThe piped value fills `n`."},
 		{"a stage that fails to type", "  io.inspect(#(total", 1, "`String` → `nope()`"},
 	}

@@ -1,15 +1,15 @@
 test "take drop and take_while materialize expected values" {
     assert Iter.take([1, 2, 3, 4], 2)
         |> Iter.to_list()
-        |> List.equal?([1, 2])
+        |> List.equal([1, 2])
 
     assert Iter.drop([1, 2, 3, 4], 2)
         |> Iter.to_list()
-        |> List.equal?([3, 4])
+        |> List.equal([3, 4])
 
     assert Iter.take_while([1, 2, 3, 4, 5], &(&1 < 4))
         |> Iter.to_list()
-        |> List.equal?([1, 2, 3])
+        |> List.equal([1, 2, 3])
 }
 
 test "take_while callbacks can continue or break with keep decisions" {

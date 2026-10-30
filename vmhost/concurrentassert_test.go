@@ -10,7 +10,7 @@ import (
 )
 
 // An assertion inside a `concurrent` block exits the block as
-// Err(AssertionFailure), as `try` does (spec §36): the block's in-flight
+// Err(AssertionFailure), as `?` does (spec §36): the block's in-flight
 // tasks are cancelled, the block's value is the Err, and a test whose final
 // value is that Err fails with the assertion's report. The slow task would
 // sleep five seconds and print; it is cancelled, so neither happens.

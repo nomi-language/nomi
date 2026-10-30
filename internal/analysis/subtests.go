@@ -15,12 +15,12 @@ import (
 // boundary to check: the row is theirs.
 //
 // A row is not a function. Every row runs to its end, in order, so `return`,
-// `break`, `continue` and `try` written directly in the body are errors
+// `break`, `continue` and `?` written directly in the body are errors
 // (rejectRowExit); inside a lambda or a nested fn in the body they leave that,
 // as anywhere.
 
 // subtestsRowBoundary is the boundary the checker names for an assertion or a
-// `try` in a `subtests` body: the hover says a failure unwinds to it, and the
+// `?` in a `subtests` body: the hover says a failure unwinds to it, and the
 // IR builder reads it back (internal/irbuild's isSubtestsRowBoundary).
 const subtestsRowBoundary = "subtests row"
 
@@ -191,7 +191,7 @@ func (c *checker) subtestsRowType(rowsTy Type) (Type, bool) {
 	return nil, true
 }
 
-// rejectRowExit reports `return`, `break`, `continue` or `try` written
+// rejectRowExit reports `return`, `break`, `continue` or `?` written
 // directly in a `subtests` body, and says whether it did. Every row runs to
 // its end, so there is nothing for any of them to leave.
 func (c *checker) rejectRowExit(kw string, line, col int) bool {
@@ -206,8 +206,8 @@ func (c *checker) rejectRowExit(kw string, line, col int) bool {
 	case "break", "continue":
 		msg = fmt.Sprintf("`%s` cannot be used in a `subtests` body: every row runs, in order", kw)
 		hint = "choose the rows before the statement, as in `subtests rows |> Iter.filter(keep), row { ... }`"
-	case "try":
-		msg = "`try` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to"
+	case "?":
+		msg = "`?` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to"
 		hint = "assert the shape instead: `assert Ok(value) = expr` binds value or fails the row"
 	default:
 		return false

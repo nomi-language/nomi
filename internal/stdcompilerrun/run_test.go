@@ -78,7 +78,7 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 	t.Run("a runtime trap is an error", func(t *testing.T) {
 		// Type-correct, and it faults when it RUNS. The arm no analyzer reaches.
 		errContains(t, "import std/io\n\nfn main() {\n"+
-			"  io.print(Debug.inspect(9223372036854775807 + 1))\n}\n", "integer overflow")
+			"  zero = 0\n  io.print(Debug.inspect(1 / zero))\n}\n", "division by zero")
 	})
 	t.Run("partial output is DISCARDED on a fault", func(t *testing.T) {
 		// The program prints before it traps, and the answer is an error rather

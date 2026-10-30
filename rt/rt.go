@@ -18,10 +18,11 @@
 //
 // # One implementation, not two agreeing ones
 //
-// rt owns the native-typed core (AddOverflows, OverflowError, FormatFloat over
-// int64 and float64), and everything that needs one of those rules calls it.
-// `9223372036854775807 + 1` therefore traps with byte-identical text wherever
-// it happens because the same lines run, not because a test says so. One
+// rt owns the native-typed core (IntAdd and its siblings over Int values,
+// DivByZeroError, FormatFloat over float64), and everything that needs one
+// of those rules calls it. `9223372036854775807 + 1` is therefore
+// 9223372036854775808 wherever it happens because the same lines run, not
+// because a test says so. One
 // thing in this package is genuinely a second encoding of a rule stated
 // elsewhere, and it is called out where it is defined: FormatBool (std
 // derives "True"/"False" from a Nomi `impl Display`).

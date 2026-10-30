@@ -90,8 +90,8 @@ impl Add<Rate, Decimal> for Decimal {
 }
 
 impl Contains<Rate> for String {
-    fn contains?(c: String, x: Rate) -> Bool {
-        String.contains?(c, Decimal.to_string(x.per_unit))
+    fn contains(c: String, x: Rate) -> Bool {
+        String.contains(c, Decimal.to_string(x.per_unit))
     }
 }
 `
@@ -127,7 +127,7 @@ fn main() {
     _c: Decimal = 2.5d * 2.5d
     _d: Decimal = Decimal.multiply(1d, r)
     _e: Decimal = scale(1d, r)
-    _f: Bool = String.contains?("x4", r) and Contains.contains?("x", r) and String.contains?("ab", "a")
+    _f: Bool = String.contains("x4", r) and Contains.contains("x", r) and String.contains("ab", "a")
 }
 `, "fx", "shares")
 	library(files, "fx", "rate", fxRate)
@@ -143,13 +143,13 @@ func TestLocalTypeArgument_ContainsForStringAtALocalTag(t *testing.T) {
 }
 
 impl Contains<Tag> for String {
-    fn contains?(c: String, x: Tag) -> Bool {
+    fn contains(c: String, x: Tag) -> Bool {
         c == x.name
     }
 }
 
 fn main() {
-    _ok = String.contains?("a", #Tag{name: "a"})
+    _ok = String.contains("a", #Tag{name: "a"})
 }
 `)))
 }
@@ -228,7 +228,7 @@ fn main() {
 }
 
 impl Contains<Tagged<T>> for List<T> {
-    fn contains?(c: List<T>, x: Tagged<T>) -> Bool {
+    fn contains(c: List<T>, x: Tagged<T>) -> Bool {
         dbg c
         dbg x
         False
@@ -265,7 +265,7 @@ fn main() {
 }
 
 impl Contains<Rate> for List<Rate> {
-    fn contains?(c: List<Rate>, x: Rate) -> Bool {
+    fn contains(c: List<Rate>, x: Rate) -> Bool {
         dbg c
         x.per_unit > 0d
     }
@@ -332,8 +332,8 @@ fn main() {
 		{
 			name: "a std type argument",
 			files: appModule(`impl Contains<Int> for String {
-    fn contains?(c: String, x: Int) -> Bool {
-        String.contains?(c, Int.to_string(x))
+    fn contains(c: String, x: Int) -> Bool {
+        String.contains(c, Int.to_string(x))
     }
 }
 

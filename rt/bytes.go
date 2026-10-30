@@ -59,11 +59,12 @@ type Bytes string
 func ByteInRange(n int64) bool { return n >= 0 && n <= 255 }
 
 // IntToByte is `Int.to_byte`.
-func IntToByte(n int64) Maybe[Byte] {
-	if !ByteInRange(n) {
+func IntToByte(n Int) Maybe[Byte] {
+	x, ok := n.Int64()
+	if !ok || !ByteInRange(x) {
 		return None[Byte]()
 	}
-	return Some(Byte(n))
+	return Some(Byte(x))
 }
 
 // ByteToInt is `Byte.to_int`.
@@ -77,21 +78,14 @@ func ByteToInt(b Byte) int64 { return int64(b) }
 // `[]rune` answers 2 and every other row still passes.
 func BytesLength(data Bytes) int64 { return int64(len(data)) }
 
-// BytesGet is `Bytes.get`: the byte at index, or None when out of range.
-func BytesGet(data Bytes, index int64) Maybe[Byte] {
+// BytesGet is `Bytes.get`: the byte at index, or None when out of range. An
+// index past int64's range is past any buffer.
+func BytesGet(data Bytes, at Int) Maybe[Byte] {
+	index := at.Saturated()
 	if index < 0 || index >= int64(len(data)) {
 		return None[Byte]()
 	}
 	return Some(Byte(data[index]))
-}
-
-// BytesAt is `Bytes.at`: the byte at index. An index outside the buffer traps
-// with IndexOutOfRangeText; `Bytes.get` is the total sibling.
-func BytesAt(data Bytes, index int64) Byte {
-	if index < 0 || index >= int64(len(data)) {
-		Trap(IndexOutOfRangeText("Bytes", index, int64(len(data))))
-	}
-	return Byte(data[index])
 }
 
 // BytesSliceBounds is `Bytes.slice`'s clamp, resolved against a length.
@@ -116,9 +110,10 @@ func BytesSliceBounds(length, start, end int64) (int64, int64) {
 	return start, end
 }
 
-// BytesSlice is `Bytes.slice`.
-func BytesSlice(data Bytes, start, end int64) Bytes {
-	s, e := BytesSliceBounds(int64(len(data)), start, end)
+// BytesSlice is `Bytes.slice`. A bound past int64's range clamps as one past
+// the buffer does.
+func BytesSlice(data Bytes, start, end Int) Bytes {
+	s, e := BytesSliceBounds(int64(len(data)), start.Saturated(), end.Saturated())
 	return data[s:e]
 }
 

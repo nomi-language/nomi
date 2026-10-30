@@ -1,3 +1,5 @@
+//# Scores a game of ten-pin bowling, roll by roll.
+
 /// A game of bowling: the rolls so far, each one valid when it was rolled.
 pub struct Game {
     rolls: List<Int>
@@ -21,9 +23,7 @@ impl Game {
     pub fn roll(game: Game, pins: Int) -> Result<Game, Error> {
         if pins < 0 { return Err(.NegativeRoll) }
 
-        Some(standing) = pins_standing(game.rolls, frame: 1) else {
-            return Err(.GameOver)
-        }
+        Some(standing) = pins_standing(game.rolls, frame: 1) else { return Err(.GameOver) }
         if pins > standing { return Err(.TooManyPins) }
         Ok(#{rolls: List.concat(game.rolls, [pins])})
     }

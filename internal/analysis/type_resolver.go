@@ -291,7 +291,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		for _, f := range n.Fields {
 			// Spec §4 again, and the TYPE half of the same gap the literal
 			// path had: a parameter or binding annotated
-			// `#{ok?: Int, ok_PRED: Int}` reaches the IR builder without ever
+			// `#{is_ok: Int, ok_PRED: Int}` reaches the IR builder without ever
 			// involving an anon struct LITERAL, so checking only the literal
 			// would leave the same collision reachable by a second route.
 			// Shares isSnakeCase with checker.requireSnakeCase rather than

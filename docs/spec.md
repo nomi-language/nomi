@@ -76,7 +76,7 @@ Nomi rejects redeclaration aggressively, but allows ordinary bindings to shadow 
   ```nomi
   fn normalize(name: String) -> String {
       name = String.trim(name) // shadow the parameter
-      name = String.to_lower(name) // shadow the local
+      name = String.lowercase(name) // shadow the local
       name
   }
   ```
@@ -102,7 +102,7 @@ A binding may carry an optional inline type annotation: `name: Type = value`. Th
 ```nomi
 m: Map<String, Int> = %{} // types the empty literal
 
-count: Int = try parse_int("42") // assertion: Int or compile error
+count: Int = parse_int("42")? // assertion: Int or compile error
 
 f: (Int) -> Int = fn x -> x + 1 // annotation drives lambda param types
 ```
@@ -156,9 +156,7 @@ This is deliberately stricter than full inference: a binding's type is *not* res
 A name a pattern binds (in a `case` arm, an `if Pattern = value`, a destructure, or a binding with `else`) is held to a narrower rule, checked once the whole file is: its type must not be wholly unknown. `Maybe.to_result(None, "none")` is `Result<?, String>`, so `Ok(z)` would bind `z` to a type nothing fixes, and that is an error at `z` unless the binding's `else` fallback or a later use of `z` fixes it. A name whose type only contains an unknown part, such as `a` in `#(a, b) = #(None, 1)`, is accepted.
 
 ```nomi
-Ok(z) = Maybe.to_result(None, "none") else {
-    return
-} // ✗ the type of 'z' is not determined
+Ok(z) = Maybe.to_result(None, "none") else { return } // ✗ the type of 'z' is not determined
 
 Some(n) = None else { 0 } // ✓ the fallback makes n an Int
 ```
@@ -181,7 +179,7 @@ An unsolved type argument that no value has is not an error: the element of an e
 
 ### `once` Bindings
 
-`once name [: T] = expression` declares a value that is computed lazily and cached forever. It appears at file scope or in an inherent `impl` block. The right-hand side evaluates the first time the binding is accessed; the result is stored and reused on every subsequent access. Use sites read like ordinary values — `config.value`, `Int.max_value`, not `config.value()` or `Int.max_value()`. `once` is the language's only "set once, never changes" declaration; trivial constants and lazily-computed values share the same syntax.
+`once name [: T] = expression` declares a value that is computed lazily and cached forever. It appears at file scope or in an inherent `impl` block. The right-hand side evaluates the first time the binding is accessed; the result is stored and reused on every subsequent access. Use sites read like ordinary values — `config.value`, `Money.zero_usd`, not `config.value()` or `Money.zero_usd()`. `once` is the language's only "set once, never changes" declaration; trivial constants and lazily-computed values share the same syntax.
 
 ```nomi
 pub once max_retries = 3 // trivial constant — type inferred
@@ -189,10 +187,12 @@ once compiled_email_regex = Regex.compile("^[^@]+@[^@]+$")
 once route_table: Map<String, Handler> = build_route_table()
 once schema = parse_schema(schema_source_string)
 
-host type Int
+pub struct Money {
+    cents: Int
+}
 
-impl Int {
-    pub once max_value = 9223372036854775807
+impl Money {
+    pub once zero_usd = #Money{cents: 0}
 }
 ```
 
@@ -200,9 +200,9 @@ Rules:
 
 - **Type annotation is optional.** Inferred from the value when omitted; required in cases where the value's type is genuinely ambiguous (rare in practice). An inferred type holds at every read, in any file and above the declaration. Unannotated bindings whose values read each other have no type to infer, and each is rejected at its declaration with the cycle (`once 'a' has no type annotation and its value depends on its own type (a → b → a)`); annotating one of them settles the others.
 - **Container-level only.** `once` cannot appear inside a function body or an interface `impl Iface for Type` block; the parser points at a file-scope or inherent-impl declaration instead. Block-scoped lazy bindings would be a separate design.
-- **File scope or an inherent `impl Type` block.** `once` bindings live beside types and functions, or as items of an inherent impl block (`impl Int { pub once max_value = ... }`) — not inside the type declaration itself.
+- **File scope or an inherent `impl Type` block.** `once` bindings live beside types and functions, or as items of an inherent impl block (`impl Money { pub once zero_usd = ... }`) — not inside the type declaration itself.
 - **No purity enforcement.** The RHS may be any expression valid at file scope. A `once` binding is lazy memoization, no more — like any other function call, the RHS can do whatever the function call could do. The only guarantee is "evaluated at most once." Any side effects in the RHS happen exactly once, on first access.
-- **No early exits.** An initializer is not a function body, so it has nothing for `try`, `return`, `break`, `continue` or an assertion to exit. One written directly in the initializer is a compile error at the keyword (`once port = try parse(text)` is `` `try` cannot be used in the initializer of `once port`: a `once` has no function to return from ``); bind the `Result` or `Maybe` and handle it where it is read, or compute the value inside a function. A lambda, a nested `fn` or a `concurrent` block inside the initializer is a boundary of its own, and an exit there leaves it as it does anywhere else.
+- **No early exits.** An initializer is not a function body, so it has nothing for a `?`, `return`, `break`, `continue` or an assertion to exit. One written directly in the initializer is a compile error at the `?` or the keyword (`once port = parse(text)?` is `` `?` cannot be used in the initializer of `once port`: a `once` has no function to return from ``); bind the `Result` or `Maybe` and handle it where it is read, or compute the value inside a function. A lambda, a nested `fn` or a `concurrent` block inside the initializer is a boundary of its own, and an exit there leaves it as it does anywhere else.
 - **Cycles are rejected at evaluation time.** If `once a` transitively reads itself while forcing, the runtime reports a cyclic-binding error rather than stack-overflowing.
 - **Exportable like other container members.** `once` bindings can carry the `pub` modifier (see §3).
 - **A function value has no defaults.** A `once` that holds a lambda or a partial capture is a value, not a declaration: a call through it passes every argument, as a call through a parameter does (§5, *Default Arguments*).
@@ -251,7 +251,7 @@ Rules:
 - **Applicable to.** `fn`, `struct`, `enum`, `type` (distinct), `interface`, `typealias`, `once`, `host fn`, `host type`, and `import` (a re-export; see below). Structs, enums, and distinct types may also take `opaque` after `pub`: `pub opaque struct Name { ... }`, `pub opaque enum Name { ... }`, or `pub opaque type Name InnerType` (primitive-distinct).
 - **Not applicable to.** Interface implementation functions (inherit visibility from the implemented interface), struct fields (inherit from the struct), enum variants (inherit from the enum), and anything declared inside a body, a function's, a lambda's, a test's or a `once` initializer's, which is always block-scoped: `pub` there is the error `` `pub` applies to top-level declarations only ``.
 - **Not `export`.** `export fn` (§5, *Exported Functions*) makes a function callable from outside the program, which is a different thing from visible to other files; the two do not combine.
-- **Root-level public functions are file API.** A file can publish root-level `pub fn` and `pub host fn`; callers reach them through the imported file API object (`users.find(...)`, `io.print(...)`). Functions and `once`s declared in an `impl` block are not file API: they are reached through their owner (`Duration.seconds(1)`, `Int.max_value`, `Int.to_string(n)`, `Display.to_string(n)`), and a file-qualified spelling such as `duration.seconds(1)` is an error that names the owner.
+- **Root-level public functions are file API.** A file can publish root-level `pub fn` and `pub host fn`; callers reach them through the imported file API object (`users.find(...)`, `io.print(...)`). Functions and `once`s declared in an `impl` block are not file API: they are reached through their owner (`Duration.seconds(1)`, `Money.zero_usd`, `Int.to_string(n)`, `Display.to_string(n)`), and a file-qualified spelling such as `duration.seconds(1)` is an error that names the owner.
 - **Private declarations are invisible to other files.** No other file can name a private function, type or interface in any spelling: a call (`other.helper()`), a type annotation or type argument (`x: other.Hidden`, `List<other.Hidden>`), a struct literal or pattern head (`#other.Hidden{v: 1}`), an enum variant or constructor (`other.Color.Red`), an interface bound or `impl other.Shape for ...` header, or a selective import (`import other.Hidden`). A file-qualified spelling is the error "file 'other' has no member 'Hidden'", and an import is "'Hidden' is private and cannot be imported". A file may still pass its own private type as the type argument of another file's public generic (`other.ident(#Point{x: 1})`, `#other.Span{start: p, stop: q}`): only the declaring file names the type.
 - **Std's internals.** A std file's private declaration is std's own, and so are the internal modules `std/message_format` and `std/money_format`, the host functions behind std/message and std/money. A program naming one is the error `` `message.compiled` is internal to std/message `` (`` `std/money_format` is internal to std/money `` for an import), and the reference does not list them. The function a `message` or `noun` declaration expands into (§41) reaches std/message's private constructors through a hidden import no source can name.
 - **No renames at the declaration site.** A declaration is published under its own name. An imported name is re-exported under its local name, the alias when it has one, by `pub import` (see *Re-exporting imported names* below).
@@ -343,7 +343,9 @@ Rules:
 
 Visibility is declared by the optional `pub` modifier on each declaration (see §3). PascalCase is a style rule for types and enum variants, not a visibility mechanism. The lexer enforces the leading-character rule (lowercase identifiers are `IDENT`, uppercase are `TYPE_IDENT`); the analyzer further checks that PascalCase names contain no underscores and snake_case names contain no uppercase letters, so violations like `Http_Request` or `userName` are flagged at compile time.
 
-A snake_case identifier may carry a single trailing `?` (the predicate convention) — `empty?`, `starts_with?`, `String.contains?`. The `?` attaches only when glued to the identifier's tail (no intervening whitespace), only one is allowed, and only at the very end. It applies to lowercase identifiers only — types, enum variants, and numbers never take a trailing `?` — and to any kind of identifier (function names, bindings, and parameters), not just functions.
+An identifier is letters, digits and `_`; a `?` right after one is the postfix `?` (§9), so `f?(x)` propagates `f` and calls its payload. A function, binding or field that answers a `Bool` is named for what it asks. A state or an adjective takes `is_` or `has_`: `is_empty`, `is_leap_year`, `has_tests`. A verb stays bare: `contains`, `starts_with`, `any`, `matches`.
+
+A `!` written right after an expression, `Map.get(m, k)!`, unwraps its `Result` or `Maybe` and traps on a failure (§5 *Unwrapping with `!`*). A `?` there, `Map.get(m, k)?`, passes the failure to the caller (§9 *Propagating with `?`*).
 
 A binding-position identifier that starts with a single `_` is a discard name. It still follows snake_case spelling, but it intentionally does not enter scope.
 
@@ -362,8 +364,8 @@ fn add(x: Int, y: Int) -> Int {
 - Function bodies always render across multiple lines — `fn add(x: Int, y: Int) -> Int { x + y }` reformats to the multi-line shape shown above. This matches the dominant convention from gofmt, Prettier, dart format, zig fmt, swift-format, and rustfmt's default. Empty bodies stay flat as `{}`. The rule applies to top-level `fn`s, impl-block functions, and interface default functions; inline expression-position blocks like `if cond { x }` keep their flat form (see §11).
 - Last expression is the return value
 - `return` keyword for early exit — `return value` exits the nearest function boundary with `value`. This applies equally to named functions (`fn name(...)`) and lambdas (`fn ... -> ...`). Nomi has no non-local control flow: `return`, `break` and `continue` each leave only the function they are written in, with no exceptions (§12 *Named Functions as Callbacks*). Bare `return` is valid when the function returns `Unit`. A bare `return` that the body would reach its end without is a compiler error: one that is the last statement of a function, lambda or test body, reached through the last statement of a block, either branch of a final `if` or any arm of a final `case` (`` this `return` does nothing: it is the last statement of `reset` ``), and a final `if` or `case` whose every branch is empty or a bare `return` (`` this `if` does nothing: every branch returns and nothing follows it ``). A bare `return` after a `dbg`, or after an assertion outside a test body, is not one: it discards that statement's value. A tail `return value` is legal, and `nomi fmt` rewrites it to `value`. A statement after one that always exits can never run, and is a compiler error at that statement whose help is "remove it". A statement always exits when it is a `return`, `break` or `continue` (`unreachable code after return`); an `unreachable`, which always traps (`` unreachable code after `unreachable` ``, §5 *Unreachable Code*); an `if` with an `else` whose every branch always exits (`` unreachable code: the `if` above returns in every branch ``); a `case` whose every arm always exits (`` unreachable code: the `case` above returns in every arm ``); or a block statement that holds one (`unreachable code: the block above always returns`). An `Iter.loop` statement whose callback holds no `break` of its own, a lambda or a named step passed as the callback, never finishes, and counts the same way (`unreachable code after a loop that never breaks`, with the help "remove it, or give the loop a `break` that ends it"); see §12 *`loop`*. A `todo` statement is `Unit` and does not exit, so code after a stub stays legal while it is written, and no other call counts as an exit. An `if` or `case` whose branches all exit and one of which traps says it `exits` in every branch, and one whose branches all trap says it `traps`.
-- `try x` is sugar for `case x { Ok(val) -> val, Err(e) -> return Err(e) }` (and similarly for `Maybe`). Since `return` exits the nearest function boundary, `try` inside a lambda returns from that lambda, not from an outer function.
-- `defer call(args)` evaluates the call's operands where it stands and runs the call when the block it is written in ends, the most recently registered first. A function's or a lambda's body is such a block, so a `defer` in a lambda runs when that invocation of the lambda ends, and one in an `Iter.loop` or other iteration callback runs at the end of each iteration, before the next starts. Every way out of the block runs them: reaching its end, `return`, a callback's `break` or `continue`, `try` propagating a failure, and a trap.
+- `x?` is sugar for `case x { Ok(val) -> val, Err(e) -> return Err(e) }` (and similarly for `Maybe`). Since `return` exits the nearest function boundary, a `?` inside a lambda returns from that lambda, not from an outer function (§9 *Propagating with `?`*).
+- `defer call(args)` evaluates the call's operands where it stands and runs the call when the block it is written in ends, the most recently registered first. A function's or a lambda's body is such a block, so a `defer` in a lambda runs when that invocation of the lambda ends, and one in an `Iter.loop` or other iteration callback runs at the end of each iteration, before the next starts. Every way out of the block runs them: reaching its end, `return`, a callback's `break` or `continue`, a `?` propagating a failure, and a trap.
 - `->` separates the parameter list from the return type: `fn add(x: Int, y: Int) -> Int`. In a generic function the return type comes before the `where` clause: `fn shown<T>(x: T) -> String where T: Display { ... }`.
 - Data-first convention — the primary data argument comes first (works naturally with `|>`)
 - Named functions are first-class values. Reference without parens, call with parens:
@@ -427,7 +429,7 @@ middle(1, 2) // error: missing argument for parameter 'c' (positional can't skip
 
 An omitted default is evaluated once per call, after the written arguments, in parameter order; a default may refer to earlier parameters.
 
-A default is not part of the function's body, so `try`, `return`, `break`, `continue` or an assertion written directly in it is a compile error at the keyword: `fn f(x: Int = try parse(s))` is `` `try` cannot be used in the default of parameter 'x': a default has no function to return from ``. A lambda's defaults follow the same rule. An exit inside a lambda that the default builds is the lambda's own.
+A default is not part of the function's body, so a `?`, `return`, `break`, `continue` or an assertion written directly in it is a compile error at the `?` or the keyword: `fn f(x: Int = parse(s)?)` is `` `?` cannot be used in the default of parameter 'x': a default has no function to return from ``. A lambda's defaults follow the same rule. An exit inside a lambda that the default builds is the lambda's own.
 
 The one exception is the **trailing-lambda routing** described in the next subsection: a lambda passed as the final positional argument can skip earlier defaulted slots without naming.
 
@@ -635,9 +637,7 @@ failures = Iter.loop(fn attempts = 0 -> {
 Iter.loop(fn state = #(n / 2.0, 0.0) -> {
     #(guess, prev) = state
 
-    if Float.equal_within?(guess, prev, 0.0001) {
-        break state
-    }
+    if Float.equal_within(guess, prev, 0.0001) { break state }
 
     next = (guess + n / guess) / 2.0
     #(next, guess)
@@ -665,7 +665,7 @@ Type annotations use `(Args) -> Return` for function types — `fn` defines func
 fn handler(db: database.Db) -> (Request) -> Response
 ```
 
-**A function value fits a function type when it accepts every argument and its result fits.** A function of type `(P1) -> R1` may stand where `(P2) -> R2` is expected when each `P2` fits its `P1` (parameters are contravariant) and `R1` fits `R2` (results are covariant). Inside a function type, one type fits another when they are the same, when a concrete type meets an interface it implements (a `List<Int>` where an `Iter<Int>` is expected, an `Int` where a `Display` is), when a type meets an enum that `embeds` it, or when both are function types that fit by this rule. Type arguments are compared exactly: a `List<(Display) -> String>` is not a `List<(Float) -> String>`. The rule holds at every position a function value flows into: an argument, an annotated binding, a list element, a field, a result and a generic parameter.
+**A function value fits a function type when it accepts every argument and its result fits.** A function of type `(P1) -> R1` may stand where `(P2) -> R2` is expected when each `P2` fits its `P1` (parameters are contravariant) and `R1` fits `R2` (results are covariant). Inside a function type, one type fits another when they are the same, when a concrete type meets an interface it implements (a `List<Int>` where an `Iter<Int>` is expected, an `Int` where a `Display` is), when a type meets an enum that `embeds` it, or when both are function types that fit by this rule. Type arguments are compared exactly, `Iter`'s element aside: a `List<(Display) -> String>` is not a `List<(Float) -> String>`. An `Iter` only hands its elements out, so its element fits by this rule too: `Iter.flatten`, an `(Iter<Iter<U>>) -> List<U>`, stands where a `(List<List<String>>) -> List<String>` is expected, as `Iter.flatten(lists)` takes the lists. The rule holds at every position a function value flows into: an argument, an annotated binding, a list element, a field, a result and a generic parameter.
 
 ```nomi
 fn shown(x: Display) -> String {
@@ -713,10 +713,10 @@ these:
   `&(&1 % 2 == 0)`, `&(&2)`, `&(!&1)`;
 - a literal or a construction: `&#Point{x: &1, y: 0}`, `&#(&1, 0)`,
   `&#.Circle{radius: &1}`, `&%{&1 => 0}`, `&[&1, 0]`, `&#[&1]`, `&%[&1]`;
-- the negation of one of these: `&!Iter.empty?(&1)` is
-  `fn xs -> !Iter.empty?(xs)`, and `&!(&1 > 2)` is `&(!(&1 > 2))`.
+- the negation of one of these: `&!Iter.is_empty(&1)` is
+  `fn xs -> !Iter.is_empty(xs)`, and `&!(&1 > 2)` is `&(!(&1 > 2))`.
 
-The body is one postfix-level operand, as a prefix `try`'s is. So
+The body is one postfix-level operand. So
 `&f(&1)(2)` captures the call `f(&1)(2)`, and `&f(&1) + 1` adds 1 to a
 capture, which is a type error; the function of the sum is
 `&(f(&1) + 1)`. Anything else after `&` is the parse error `` a capture
@@ -959,8 +959,8 @@ fn area(shape: Shape) -> Float {
 ### Unreachable Code: `unreachable`
 
 `unreachable "reason"` is the program's claim that it never reaches a point:
-an invariant it guarantees itself, which no `at`-style function already
-states (§17). Reaching it is a bug in the program, and it traps:
+an invariant it guarantees itself, which no `!` already states (§5
+*Unwrapping with `!`*, §17). Reaching it is a bug in the program, and it traps:
 
 ```nomi
 fn position(student: Student) -> Int {
@@ -1004,6 +1004,83 @@ It is not for data from outside the program. A value read from input, a file
 or the network that a function cannot handle is a `Maybe` or a `Result` to
 report (§17); `unreachable` after `String.to_int(line)` claims something the
 program does not control.
+
+When the claim is that one value is there, a postfix `!` states it where
+the value is read (*Unwrapping with `!`* below): `Date.new(year, 1, 1)!`
+rather than
+`Ok(date) = Date.new(year, 1, 1) else { unreachable "1 January exists" }`.
+Its trap quotes the expression and shows its error. Keep `unreachable` for a
+reason the reader cannot see from the expression: a search that cannot miss
+because of how the list was built, an arm a `case` cannot reach.
+
+### Unwrapping with `!`
+
+A `!` written right after an expression, `expr!`, unwraps it. The expression
+is a `Result<T, E>` or a `Maybe<T>`; the `!`'s value is the `T` in `Ok` or
+`Some`, and an `Err` or a `None` traps at the `!`'s line. It states that the
+value is there, so a failure is a bug, as an `unreachable` is.
+
+```nomi
+fn half(n: Int) -> Result<Int, String> {
+    if n % 2 == 0 {
+        Ok(n / 2)
+    } else {
+        Err("${n} is odd")
+    }
+}
+
+fn main() {
+    ages = %{"Ada" => 36, "Grace" => 45}
+    dbg Map.get(ages, "Ada")!
+    dbg half(10)!
+    dbg "42" |> String.to_int()!
+    found = Map.get(ages, "Grace")
+    dbg found! + 1
+}
+```
+
+- **Any expression takes it.** A call of any form (`half(4)!`,
+  `io.read(path)!`, `Map.get(m, k)!`, `Date.new(2024, 1, 1)!`,
+  `T.parse(text)!`, `Row.get<Int>(row, "n")!`, `f(x)!` through a function
+  value), a field (`user.nickname!`), a name (`found!`) and a parenthesized
+  expression (`(a |> b())!`). It binds as tightly as a call or a field
+  access, so `user.address!.city` reads the payload's `city` and
+  `f(x)!.y` the payload's `y`. As a pipe stage it unwraps the stage's result:
+  `text |> String.to_int()! |> Int.abs()`. In a capture, `&half(&1)!` is
+  `fn x -> half(x)!` and takes its parameter's type from where it is used.
+- **It is written against the expression.** The `!` follows the expression
+  with no space, on its line; a `!` that starts the next line is a negation
+  that starts a statement. `!=` is not-equal, so `x!= y` compares `x` and `y`;
+  to compare an unwrapped value, write a space: `x! == y`. A prefix `!` still
+  negates, so `!found!` is the negation of `found!`.
+- **What it accepts.** The expression must be a `Result` or a `Maybe`.
+  Anything else is an error at the `!`: `` `!` unwraps a Result or a Maybe,
+  and `count(1)` is Int ``, whose help says to remove the `!`. For a `Bool`,
+  the help says to write an `assert` instead. A `?` after a `!` applies to
+  the payload, so `half(4)!?` is the error `` `?` requires a Result or
+  Maybe, got Int `` unless the payload is a `Result` or a `Maybe` itself.
+- **The trap.** It quotes the expression as written, on one line and cut
+  after 60 characters with `...`. An `Err(e)` shows `e`, as its `Display`
+  writes it when its type implements `Display` and as its `Debug` writes it
+  otherwise; a `None` says it found nothing:
+
+  ```text
+  line 4: `half(3)` failed: 3 is odd
+  line 7: `Date.new(2024, 13, 1)` failed: invalid value: month out of range: 13
+  line 9: `Map.get(counts, "z")` found nothing
+  line 3: `user.nickname` found nothing
+  ```
+
+  The line is the `!`'s, even when the `!` is inside the standard library
+  (§22 *Where a trap is reported*). On success it costs the test of the
+  value's variant and nothing more.
+- **When to use it.** For a value that is there in this program: constant
+  arguments (`Date.new(2024, 1, 1)!`), a key taken from the map itself, an
+  index the code computed in range, input already validated. It is never a
+  way to skip handling a failure that can happen; data from outside the
+  program is a `Maybe` or a `Result` to report (§17). To pass such a
+  failure to the caller, write `?` in place of the `!` (§9 *Propagating
+  with `?`*).
 
 ### Exported Functions
 
@@ -1346,24 +1423,28 @@ stages after it stay in the pipeline:
 ```nomi
 total =
     orders
-    |> Iter.filter(.paid?)
+    |> Iter.filter(.is_paid)
     |> then fn paid -> Iter.count(paid) * 100 / Iter.count(orders)
     |> dbg
 ```
 
 Braces keep a pipe inside the body:
-`|> then fn v -> { v |> Iter.filter(.paid?) |> Iter.count() }`. A parameter of a
+`|> then fn v -> { v |> Iter.filter(.is_paid) |> Iter.count() }`. A parameter of a
 bare `then` body used in a later stage is an error that says where the body
 ended. A lambda is not a stage without `then`: `xs |> fn n -> n * 2` is the error
 `` a lambda is not a pipe stage: write `then fn n -> ...` ``, and the language
 server offers a quick fix that inserts the `then`. A capture is not a
 stage without `then` either: `x |> &f(&1)` is `` a capture is not a pipe
 stage: write `then &f(&1)` ``. `then` is a reserved word and stands only
-after `|>`; a keyword stage does not prefix it (`|> try then fn v -> ...`
-is an error), so a `try` after a `then` is its own stage. `nomi fmt` puts
-each stage of a pipeline with a `then` lambda on its own line; a `then`
-capture, which ends with its body, does not move the pipeline off one
-line.
+after `|>`. `nomi fmt` puts each stage of a pipeline with a `then` lambda on
+its own line; a `then` capture, which ends with its body, does not move the
+pipeline off one line.
+
+`then?` is a `then` stage followed by a `?`: `text |> then? fn t ->
+parse(t, 16)` and `text |> then? &parse(&1, 16)` apply the function and
+propagate an `Err` or `None` in its result (§9 *Propagating with `?`*). A
+`?` at the end of the lambda's body belongs to the body and exits the
+lambda, as in any lambda.
 
 **The `tap` stage:** `x |> tap fn v -> body` runs the lambda on the piped value
 for its effect and passes the value on unchanged, and so does `x |> tap
@@ -1378,7 +1459,7 @@ fn main() {
         "go north now"
         |> String.words()
         |> tap fn words -> io.print("got ${Iter.count(words)} words")
-        |> Iter.map(String.to_upper)
+        |> Iter.map(String.uppercase)
         |> String.join(" ")
 
     io.print(shout)
@@ -1388,51 +1469,37 @@ fn main() {
 This prints `got 3 words`, then `GO NORTH NOW`. The lambda is a `then`
 lambda in every other way: it takes one parameter, which may be a
 destructuring pattern; its bare body ends at the next `|>`, and braces keep a
-pipe inside it; a keyword stage does not prefix it (`|> try tap fn v -> ...` is
-an error), so a `try` before or after a `tap` is its own stage. `tap` is a
-reserved word and stands only after `|>`.
+pipe inside it. `tap` is a reserved word and stands only after `|>`. `tap?`
+is the error `` `tap` passes its input on unchanged, so there is no result
+for a `?` to propagate ``, whose help says to handle the failure inside the
+lambda or use `then?` to replace the value.
 
 The lambda must return `Unit`, because the stage discards its result. A body
 whose value is not `Unit` is the error `` `tap` passes its input on unchanged,
 so its lambda must return Unit; got Int ``, whose help says to use `then` to
 replace the value. A body may end in a `dbg` observation (`tap fn v -> dbg v`), as
-a `Unit` function body may. `try` and `return` inside the lambda exit the
-lambda, as they do in any lambda, so a body that uses `try` answers a
+a `Unit` function body may. A `?` and `return` inside the lambda exit the
+lambda, as they do in any lambda, so a body that uses `?` answers a
 `Result` or a `Maybe` and is rejected: handle the failure inside the body, or
-use `then`. `nomi fmt` stacks a pipeline with a `tap` lambda as it does one
+use `then?`. `nomi fmt` stacks a pipeline with a `tap` lambda as it does one
 with a `then` lambda.
 
-**Keyword stages:** `dbg` and `try` are unary pipe stages. Read them as
-built-in one-argument functions over the current pipe value, written without
-parentheses. The bare form is canonical when the current pipe value is already
-the value being consumed:
-
-```nomi
-value
-|> try
-```
-
-When the keyword consumes the result of a single call stage, prefix that
-stage. The formatter normalizes a trailing bare keyword into this form:
+**A `?` after a stage** propagates that stage's `Err` or `None` and passes
+the value inside on to the next stage (§9 *Propagating with `?`*):
 
 ```nomi
 id
-|> try User.get()
+|> User.get()?
+|> User.profile()
 ```
 
-Assertions wrap the pipeline from the head rather than sitting at the tail:
-
-```nomi
-assert message
-    |> String.contains?("ready")
-```
-
-`if` and `case` also consume one pipe value. They can be bare stages, or they
-can prefix the single operation that computes their condition/scrutinee:
+**Keyword stages:** `dbg`, `if` and `case` consume one pipe value. They can be
+bare stages, or they can prefix the single call stage that computes their
+operand, condition or scrutinee:
 
 ```nomi
 status
-|> if Status.ready?() { "ready" } else { "blocked" }
+|> if Status.is_ready() { "go" } else { "wait" }
 
 input
 |> case parse_id() {
@@ -1442,9 +1509,15 @@ input
 ```
 
 `input |> case parse_id() {` and `input |> parse_id() |> case {` are the same
-program, and `nomi fmt` keeps whichever was written. Unlike `try`, it does not
-move a stage into a keyword's subject. The arms or branches sit one indent in
-from the line the `|>` is on.
+program, and `nomi fmt` keeps whichever was written. The arms or branches sit
+one indent in from the line the `|>` is on.
+
+Assertions wrap the pipeline from the head rather than sitting at the tail:
+
+```nomi
+assert message
+    |> String.contains("ready")
+```
 
 **Debugging pipes:** `dbg` prints a source-located Debug rendering and returns
 the value, so you can insert it anywhere in a pipe chain without breaking the
@@ -1478,8 +1551,6 @@ nomi build: 2 dbgs remain:
 
 `io.inspect(value)` remains the ordinary file-level function for explicitly
 printing a Debug rendering as a `Unit`-returning side effect.
-
-See §9 *The `try` Keyword* for how `try` works outside pipes.
 
 ## 7. Types
 
@@ -1599,7 +1670,7 @@ full = #Response{status: 200, body: "hi"} // all explicit
 
 Fields without defaults must always be provided. Use constructor functions when you need validation or transformation logic beyond simple defaults.
 
-A field default has no function to exit, so `try`, `return`, `break`, `continue` or an assertion written directly in it is a compile error at the keyword (`` `try` cannot be used in the default of field 'port' of Config: a default has no function to return from ``).
+A field default has no function to exit, so a `?`, `return`, `break`, `continue` or an assertion written directly in it is a compile error at the `?` or the keyword (`` `?` cannot be used in the default of field 'port' of Config: a default has no function to return from ``).
 
 A struct-shaped enum variant's fields take defaults the same way, and a default expression runs per construction, only when its field is omitted:
 
@@ -1812,7 +1883,7 @@ updated = Struct.update(user, #{name: "Bob", age: 42})
 user
 |> Struct.update(#{name: "Bob"})
 |> users.validate()
-|> try users.save()
+|> users.save()?
 ```
 
 **Nested updates.** A bare `..`, written with no base, stands for the value already at the field or key the literal is written at. A literal holding one is that value with the changes written, and a literal without one is a whole new value that replaces the field:
@@ -1847,9 +1918,11 @@ The `..` works at any field or key of an update, for every value that has a spre
 |---|---|---|
 | a struct | `#{.., f: v}` | the struct with `f` replaced, as `#{..old, f: v}` |
 | a map | `%{.., k => v}` | `Map.merge(old, %{k => v})` |
-| a list | `[x, ..]` | `[x, ..old]`; the `..` is last, as in any list spread |
-| a set | `%[.., x]` | `Set.union(old, %[x])`; the `..` is first, as in a set spread |
+| a list | `[x, ..]` or `[.., x]` | `[x, ..old]` or `[..old, x]` |
+| a set | `%[.., x]` | `Set.union(old, %[x])` |
 | a vector | `#[.., x]` or `#[x, ..]` | `Vector.concat(old, #[x])` or `Vector.concat(#[x], old)` |
+
+The bare `..` may stand anywhere a spread may, beside other spreads (`%{.., k => v, ..defaults}`), and a literal takes one: a second is `list literal takes one bare \`..\`` (or `vector`, `set`, `map`). In a map, an entry written before every spread has no current value, since nothing before it holds its key.
 
 **Where a bare `..` is legal.** Only as the spread of a literal written as the value at a field or key of a literal that is itself an update: one with a named spread (`#{..base, ...}`, `%{..base, ...}`), one that is a bare-`..` literal, or the literal patch of a `Struct.update` call (whose fields are always update positions, since an update is partial). Anywhere else there is no current value, and the `..` is the error `a bare \`..\` has no value to update here`: at the top of a plain literal (`x = #{.., a: 1}`), in a list element (`[#{.., a: 1}]`, which has no key), in an operand of `+` or `Map.merge` (which stay shallow), in a call argument, and in a patch passed to any function other than `Struct.update`. The top-level spread always names its base. A literal whose `..` is followed by nothing (`#{..}`, `[..]`) is `an update with nothing after \`..\` changes nothing; leave this field or key out`.
 
@@ -1885,7 +1958,7 @@ updated = #{..point, x: 9}
 
 **Exactly one spread, and it must be the first element.** Two spreads and a spread after a field are both `struct spread \`..\` must be the first element`.
 
-**Position differs from the list spread, and the reason is representation on one side and notation on the other.** A list spread must be *last* (§19): a `List` is cons cells, so prepending is O(1) and appending is O(n), and `[0, ..xs]` is the cheap direction that syntax should make easy. Order in a record update is pure notation — nothing is cheaper either way — and base-then-overrides is the only order under which "a later field wins" is true.
+**Position differs from the collection spreads.** A list, vector, set or map literal takes spreads anywhere, any number of them (§19 *Literal forms*), since joining collections is what those spreads do. A record update joins nothing: its order is pure notation, and base-then-overrides is the only order under which "a later field wins" is true.
 
 **The fields are checked exactly as an ordinary struct literal's are**, by the same validator: an unknown field name is a compile error, and each value is checked against the head's declared field type, so an interface-typed or type-parameter field stays as lenient here as in `#Cfg{...}`. One rule differs, and only in an update: a *missing* field is never an error, because the spread supplies every field. A field written as a literal with a bare `..` updates that field's current value (*Nested updates* above).
 
@@ -1931,9 +2004,9 @@ Pipes thread a value through a sequence of qualified functions as the first argu
 
 ```nomi
 id
-|> try users.get()
+|> users.get()?
 |> users.validate()
-|> try users.save()
+|> users.save()?
 ```
 
 No methods — behavior is defined as functions in files, inherent `impl Type { ... }` blocks, interface impl blocks, or interfaces, and every call is a *qualified prefix call*, never a value-dot `x.func()`. The qualifier is the name before `.`, and it names a file, a type, an interface, or a bounded type parameter. A file-level function is qualified by its file (`io.print(x)`, `timer.sleep(d)`). A function declared in an `impl` block is qualified by its owner: an inherent function by its type (`String.trim(s)`, `Duration.seconds(1)`), an interface implementation function by the implementing type (`User.to_string(x)`) or by the interface (`Display.to_string(x)`). File qualification never reaches into an `impl` block: `users.to_string(u)` is an error that names the owner (`file 'users' has no member 'to_string': it implements Display for User, so call it as User.to_string(...) or Display.to_string(...)`). In an interface-qualified call, the implementation is selected for the concrete type bound to `self` by the call arguments, or by an explicit target type argument for functions such as `FromJson.from_json<User>(json)`. This is more verbose than `x.func()`, but it buys three things:
@@ -2200,7 +2273,7 @@ Concrete consequences:
 
 **Diagnostics.** Three failure modes:
 
-- *No determinable enum type at this position.* The position has no annotation/signature to walk to, and no enclosing call/case/binding determines an enum. Example: `c = .Red` with `c` never used in a typed position. Resolution: annotate the binding, or qualify the variant; in a literal with no expected type, qualifying an earlier element of the same position is enough. Once an element of such a literal has a variant this error refuses, the later elements' variants are not reported with it: in `[#(.Small, [Color.Red]), #(.Large, [.Blue])]` the one error is at `.Small`, whose hint names `Size.Small`, since qualifying it resolves the rest. An argument whose parameter type is a type parameter of the called function that nothing has solved determines no enum either: in `total = String.to_int(s) |> Maybe.to_result(.SyntaxError) |> try`, `to_result`'s error type is fixed only by the later `try`. The error says no enum is known there and names the qualified variant (`Error.SyntaxError`) when one enum in scope declares it.
+- *No determinable enum type at this position.* The position has no annotation/signature to walk to, and no enclosing call/case/binding determines an enum. Example: `c = .Red` with `c` never used in a typed position. Resolution: annotate the binding, or qualify the variant; in a literal with no expected type, qualifying an earlier element of the same position is enough. Once an element of such a literal has a variant this error refuses, the later elements' variants are not reported with it: in `[#(.Small, [Color.Red]), #(.Large, [.Blue])]` the one error is at `.Small`, whose hint names `Size.Small`, since qualifying it resolves the rest. An argument whose parameter type is a type parameter of the called function that nothing has solved determines no enum either: in `total = String.to_int(s) |> Maybe.to_result(.SyntaxError)?`, `to_result`'s error type is fixed only by the `?` after the stage. The error says no enum is known there and names the qualified variant (`Error.SyntaxError`) when one enum in scope declares it.
 - *Expected type isn't an enum.* The walk found an expected type, but it's not an enum. Example: `b: Box = .Red`. Resolution: check the binding's type, or qualify.
 - *No such variant on the enum.* The expected type is an enum, but the named variant doesn't exist on it. Example: `c: Color = .Purple`. Resolution: pick a valid variant.
 
@@ -2489,8 +2562,8 @@ enum Result<T, E> {
 Owner functions on `Maybe`, called `Maybe.map(m, f)` and so on:
 
 ```nomi
-fn some?(maybe: Maybe<T>) -> Bool
-fn none?(maybe: Maybe<T>) -> Bool
+fn is_some(maybe: Maybe<T>) -> Bool
+fn is_none(maybe: Maybe<T>) -> Bool
 fn map(maybe: Maybe<T>, f: (T) -> U) -> Maybe<U>
 fn flat_map(maybe: Maybe<T>, f: (T) -> Maybe<U>) -> Maybe<U>
 fn with_default(maybe: Maybe<T>, default: T) -> T
@@ -2502,8 +2575,8 @@ fn to_result(maybe: Maybe<T>, error: E) -> Result<T, E>
 Owner functions on `Result`, called `Result.map(r, f)` and so on:
 
 ```nomi
-fn ok?(result: Result<T, E>) -> Bool
-fn err?(result: Result<T, E>) -> Bool
+fn is_ok(result: Result<T, E>) -> Bool
+fn is_err(result: Result<T, E>) -> Bool
 fn map(result: Result<T, E>, f: (T) -> U) -> Result<U, E>
 fn map_err(result: Result<T, E>, f: (E) -> F) -> Result<T, F>
 fn flat_map(result: Result<T, E>, f: (T) -> Result<U, E>) -> Result<U, E>
@@ -2511,87 +2584,126 @@ fn with_default(result: Result<T, E>, default: T) -> T
 fn to_maybe(result: Result<T, E>) -> Maybe<T>
 ```
 
-### The `try` Keyword
+### Propagating with `?`
 
-Works on both `Result` and `Maybe`. A prefix keyword that unwraps the success value or returns early from the nearest function boundary (the enclosing `fn` or lambda). A `once` initializer and a parameter or field default have no such boundary, and a `try` written directly in one is a compile error (§2, *`once` Bindings*). `try x` is sugar for a pattern match with `return`:
+A `?` written after an expression passes its failure to the caller. The
+expression is a `Result` or a `Maybe`. On `Ok(v)` or `Some(v)` the `?`'s value
+is `v`. On `Err(e)` or `None`, the nearest function boundary (the enclosing
+`fn`, lambda or test) returns `Err(e)` or `None` on the spot. `x?` is sugar for
+a pattern match with `return`:
 
 ```text
-try x  ≡  case x { Ok(v) -> v, Err(e) -> return Err(e) }
+x?  ≡  case x { Ok(v) -> v, Err(e) -> return Err(e) }
 ```
 
-(and similarly for `Maybe`: unwrap `Some`, or `return None`).
+and for a `Maybe`, `Some(v) -> v, None -> return None`. Its companion `!`
+(§5 *Unwrapping with `!`*) traps instead, for a failure that would be a bug.
 
 ```nomi
 // With Result: unwrap Ok or return Err
 fn process(id: Int) -> Result<User, String> {
-    user = try users.get(id)
+    user = users.get(id)?
     profile = users.get_profile(user)
-    try email.send(profile)
+    email.send(profile)?
 }
 
 // With Maybe: unwrap Some or return None
 fn find_name(id: Int) -> Maybe<String> {
-    user = try users.find(id)
+    user = users.find(id)?
     Some(user.name)
 }
 
-// Works with pipes too — prefix the fallible stage with `try`
+// In a pipe, a `?` after a stage propagates that stage's failure
 id
-|> try users.get()
+|> users.get()?
 |> users.get_profile()
-|> try email.send()
+|> email.send()?
 ```
 
-The propagated value must inhabit the nearest function boundary's declared result type. Three clauses, all checked at the `try` and all naming both sides:
+- **It binds as tightly as a call.** A `?` applies to the expression right
+  before it, as a call's parentheses, a field access and a postfix `!` do:
+  `f(x)?`, `load()?.name` reads the loaded value's `name`,
+  `user.address?.city` the address's `city`, and `a.b()?.c()?` propagates
+  from each call. After a `!` it applies to the payload, so `half(4)!?` is
+  the error `` `?` requires a Result or Maybe, got Int `` unless the payload
+  is itself a `Result` or a `Maybe`. A prefix `!` negates the `?`'s value:
+  `!ready(x)?` is `!(ready(x)?)`. `nomi fmt` writes the `?` against its
+  expression, with no space.
+- **In a pipe it follows a stage.** `text |> parse()? |> validate()?`
+  propagates from each stage, and the stage after a `?` gets the unwrapped
+  value. A `?` may follow a call stage or the closing brace of an `if` or
+  `case` stage (`|> case { ... }?`). A `?` inside a stage's parentheses,
+  `t |> (String.to_int()?)`, is the error `` a `?` inside a stage's
+  parentheses applies before the pipe passes its value: write the `?` after
+  the stage, as in `|> f()?` ``. `|> then? fn v -> ...` applies the lambda
+  and propagates its result's failure, and `tap?` is an error (§6).
+- **A lambda is a boundary.** A `?` inside a lambda returns from the lambda,
+  not from the function around it, so the lambda's own result must be a
+  `Result` or a `Maybe`. A test body is a boundary too: a failing `?` ends the
+  test with a report of the `?` and the value it returned (§36). So is a
+  `concurrent` block (§20).
+- **Some places have no boundary.** A `once` initializer, a parameter or
+  field default, and a `subtests` row or row name are not functions, and a
+  `?` written directly in one is a compile error at the `?`:
+  `` `?` cannot be used in the initializer of `once port`: a `once` has no
+  function to return from `` (§2 *`once` Bindings*, §5 *Default Arguments*,
+  §7 *Default Values*, §36). A lambda inside one is a boundary of its own.
 
-1. **the boundary must be a `Result` or a `Maybe`** — a function returning `Int`, or one with no declared return type (whose result is `Unit`), has nothing for the propagated value to inhabit;
-2. **the flavours must agree** — `Result` if `try` is applied to a `Result`, `Maybe` if applied to a `Maybe`. Inside a lambda this means the lambda's return type, not the outer function's;
+The propagated value must inhabit the nearest function boundary's declared result type. Three clauses, all checked at the `?` and all naming both sides:
+
+1. **the boundary must be a `Result` or a `Maybe`.** A function returning `Int`, or one with no declared return type (whose result is `Unit`), has nothing for the propagated value to inhabit: `` `?` cannot propagate a Result out of a function returning Int: the enclosing function must return a Result or a Maybe ``.
+2. **the flavours must agree.** A `?` on a `Result` needs a `Result` boundary, and one on a `Maybe` a `Maybe` boundary: `` `?` on a Maybe cannot propagate out of a function returning Result<Int, String>: the enclosing function must return a Maybe ``. Inside a lambda this means the lambda's return type, not the outer function's.
 3. **when both sides are `Result`s, the ERROR TYPES must be the same type.**
 
-Clause 3 matters because `try` propagates the operand's `Err` payload out of the boundary unchanged. An error type the boundary does not declare would leave the signature not describing the value, and the failure would surface far away (`Display.to_string: no implementation for type 'json.Json.DecodeError'`) naming neither the `try` nor the boundary. All three are diagnostics at the `try`:
+Clause 3 matters because `?` propagates the operand's `Err` payload out of the boundary unchanged. An error type the boundary does not declare would leave the signature not describing the value, and the failure would surface far away (`Display.to_string: no implementation for type 'json.Json.DecodeError'`) naming neither the `?` nor the boundary. All three are diagnostics at the `?`:
 
 ```nomi
-// REJECTED — Json.decode fails with a Json.DecodeError and this
+// REJECTED: Json.decode fails with a Json.DecodeError and this
 // function promises String, so the Err path would carry a value the
 // signature does not describe.
-//   try error type mismatch: expected String, got Json.DecodeError
+//   `?` error type mismatch: expected String, got Json.DecodeError
+//   (the enclosing function returns Result<Int, String>); convert the
+//   error before the `?`, for example with Result.map_err
 fn decode_len(s: String) -> Result<Int, String> {
-    parsed = try Json.decode(s)
+    parsed = Json.decode(s)?
 
     Ok(String.length(Json.encode(parsed)))
 }
 
-// ACCEPTED — the error is converted AT THE SITE, so the declared type
+// ACCEPTED: the error is converted AT THE SITE, so the declared type
 // describes every value the function can produce.
 fn decode_len(s: String) -> Result<Int, String> {
-    parsed = try Result.map_err(Json.decode(s), fn e: Json.DecodeError -> Display.to_string(e))
+    parsed =
+        Json.decode(s)
+        |> Result.map_err(fn e: Json.DecodeError -> Display.to_string(e))?
 
     Ok(String.length(Json.encode(parsed)))
 }
 ```
 
-There is no implicit conversion at the `try` boundary — no `From`-style widening, no coercion to a common supertype. `Result.map_err` is the conversion, and it is written where the mismatch is. The one relaxation is the ordinary one: an INTERFACE-typed declared error side accepts a concrete implementer of that interface, exactly as an interface-typed parameter does.
+There is no implicit conversion at the `?`: no `From`-style widening, no coercion to a common supertype. `Result.map_err` is the conversion, and it is written where the mismatch is. The one relaxation is the ordinary one: an INTERFACE-typed declared error side accepts a concrete implementer of that interface, exactly as an interface-typed parameter does.
 
-At a boundary without a declared return type — a `concurrent` block or an unannotated lambda — the error side of the result is **inferred from the `try` sites** inside it. A block whose tail is `Ok(...)` pins only the success type; the error type comes from the `try`-unwrapped `Result`s, so this needs no annotation:
+At a boundary without a declared return type (a `concurrent` block or an unannotated lambda) the error side of the result is **inferred from the `?` sites** inside it. A block whose tail is `Ok(...)` pins only the success type; the error type comes from the `Result`s its `?`s unwrap, so this needs no annotation:
 
 ```nomi
-// outcome: Result<Int, String> — the String is inferred from `try Task.await(t)`
+// outcome: Result<Int, String>; the String is inferred from `Task.await(t)?`
 outcome = concurrent {
     t = Task.spawn(fn -> fetch()) // fetch(): Result<Int, String>
-    Ok(try Task.await(t))
+    Ok(Task.await(t)?)
 }
 ```
 
-`try` sites that unwrap `Result`s with incompatible error types in the same boundary are rejected (the boundary's error type would be ambiguous). A `try` on a `Maybe` contributes no error type, so `Maybe`-tailed boundaries are unaffected. When no `try` site fixes the error type, as in a `concurrent` block whose only `try` is `try Ok(3)`, it stays open, as `Ok(1)`'s does (see "Determined type arguments"), and the result is a value like any other: it can be matched, compared and interpolated.
+`?` sites that unwrap `Result`s with incompatible error types in the same boundary are the error `` inconsistent error types in `?` expressions: String vs Int ``, since the boundary's error type would be ambiguous. A `?` on a `Maybe` contributes no error type, so `Maybe`-tailed boundaries are unaffected. When no `?` site fixes the error type, as in a `concurrent` block whose only `?` is `Ok(3)?`, it stays open, as `Ok(1)`'s does (see "Determined type arguments"), and the result is a value like any other: it can be matched, compared and interpolated.
 
-Clause 3 therefore does not arise at an inferring boundary — the error type IS the `try` sites' — but clauses 1 and 2 still do, and they are checked against the result the body PRODUCED rather than against a declaration:
+Clause 3 therefore does not arise at an inferring boundary, where the error type IS the `?` sites', but clauses 1 and 2 still do, and they are checked against the result the body PRODUCED rather than against a declaration:
 
 ```nomi
-// REJECTED — the lambda's result is Int, so the propagated Err has
+// REJECTED: the lambda's result is Int, so the propagated Err has
 // nowhere to go and the caller would receive it where it expects an Int.
-//   `try` cannot propagate a Result out of a lambda whose result is Int
+//   `?` cannot propagate a Result out of a lambda whose result is Int:
+//   the lambda must produce a Result or a Maybe
 _ = fn x: Int -> {
-    v = try parse(x) // parse(x): Result<Int, String>
+    v = parse(x)? // parse(x): Result<Int, String>
 
     v
 }
@@ -2689,7 +2801,7 @@ Every `case` must be exhaustive: its unguarded arms together must match every va
 - `_` and a bare binding (`n -> ...`) match everything.
 - An enum is covered when every variant is, and a variant is covered when the arms naming it cover its payload. `Some(Ok(_))`, `Some(Err(_))` and `None` together cover a `Maybe<Result<T, E>>`.
 - A tuple, struct or distinct value is covered when its components are, taken together. `#(Some(_), _)`, `#(None, Some(_))` and `#(None, None)` cover a `#(Maybe<A>, Maybe<B>)`; a struct pattern that only binds its fields covers the struct.
-- A list is covered by length: `[]` and `[head, ..tail]` cover every list, while `[]` and `[x]` miss lists of two or more. A vector is covered the same way: `#[]` and `#[first, ..rest]` cover every vector, and so does `#[..all]`.
+- A list is covered by length: `[]` and `[head, ..tail]` cover every list, while `[]` and `[x]` miss lists of two or more. Elements after the `..` are tested against the list's last elements, so `[]`, `[_]` and `[_, .., _]` cover every list. A vector is covered the same way: `#[]` and `#[first, ..rest]` cover every vector, and so does `#[..all]`.
 - A literal (`0`, `"a"`, `'x'`), a string prefix (`"a" + rest`), a map pattern or a set pattern never covers its type, since the compiler does not enumerate the values of `Int`, `Float`, `Decimal`, `String`, `Byte`, `Codepoint`, `Map` or `Set`. Where one of those decides the match, some arm needs `_` or a binding in that position.
 - An `or` pattern covers what its alternatives cover together: `Some(.Red or .Green)`, `Some(.Blue)` and `None` cover a `Maybe<Color>`.
 - An arm with a `when` guard never counts toward coverage.
@@ -2868,7 +2980,7 @@ A narrowed value can still be passed to functions expecting the original enum ty
 
 ### List Destructuring
 
-Lists can be destructured in patterns using `..` to spread the tail after a comma-separated head list:
+Lists can be destructured in patterns using `..` to spread the tail after a comma-separated head list, and elements after the `..` match the list's last elements:
 
 ```nomi
 case items {
@@ -2897,11 +3009,22 @@ case grid {
     [[first, .._], .._] -> first // first element of first row
     _ -> default
 }
+
+// the last element, and the elements between the first and the last
+case lines {
+    [.., "}"] -> "closed"
+    ["graph {", ..body, "}"] -> "a graph of ${Iter.count(body)} lines"
+    _ -> "open"
+}
 ```
 
-`.._` ignores the tail, and so does a bare `..` (`[first, ..]`), as in a vector pattern. `..rest`, `.._` and `..` must appear last in the list pattern. Note: structs don't need a spread — partial matching is already the default (see Struct Destructuring above).
+`.._` ignores the tail, and so does a bare `..` (`[first, ..]`), as in a vector pattern. Note: structs don't need a spread — partial matching is already the default (see Struct Destructuring above).
 
-List patterns are refutable — a `_` catch-all or `[]` base case is required for exhaustiveness.
+- **One `..`, anywhere among the elements.** Elements before it match from the front and elements after it from the end. After it comes a pattern for the rest, which is a `List`, or nothing. With elements after it, the rest is a name, `_` or nothing (`[first, ..mid, last]`, `[1, .., 9]`), and anything else is the parse error ``a list pattern's `..` takes a name, `_` or nothing when elements follow it``. A second `..` is the parse error ``a list pattern takes one `..` ``.
+- **A rest at the end shares the list's cells.** `[x, ..rest]` takes no copy, so a recursive walk over it is linear.
+- **Elements after the `..` walk the list.** A List is cons cells that know their length, so reaching its last elements takes one walk to them, and a name for the rest before them (`..mid`) is a copy of those elements, made in one more walk. `[first, .., last]` is linear in the list's length, where `[first, ..rest]` reads two cells.
+
+List patterns are refutable — a `_` catch-all or `[]` base case is required for exhaustiveness. Coverage counts the elements after the `..` as a vector pattern's are: `[]`, `[_]` and `[_, .., _]` cover every list, while `[1, .., 3]` can fail, so as a binding it takes an `else` and alone in a `case` it is ``non-exhaustive case on List<Int>: missing []``.
 
 ### Vector Destructuring
 
@@ -2941,7 +3064,7 @@ case v {
 - **One `..`, anywhere among the elements.** It is followed by a name, which binds the elements between the heads and the tails as a `Vector`, by `_`, or by nothing. A second `..` is the parse error ``a vector pattern takes one `..` ``, and anything else after it is ``the rest of a vector pattern is a name, `_` or nothing``.
 - **Without a `..`, the pattern matches only vectors of its length.** `#[a, b]` matches a two-element vector, and `#[]` the empty one.
 - **The rest shares the vector's storage.** Binding it takes no copy, so a recursive walk over `#[x, ..rest]` is linear.
-- **Coverage is by length, as a list's is**: `#[]` and `#[x, ..rest]` cover every vector, and `#[]` with `#[x]` is ``non-exhaustive case on Vector<Int>: missing #[_, _, ..]``. `#[..all]` covers every vector.
+- **Coverage is by length, as a list's is**: `#[]` and `#[x, ..rest]` cover every vector, and `#[]` with `#[x]` is ``non-exhaustive case on Vector<Int>: missing #[_, _, ..]``. `#[..all]` covers every vector. Elements after the `..` are tested against the vector's last elements: `#[]`, `#[_]` and `#[_, .., _]` cover every vector, while `#[1, .., 3]` can fail, so as a binding it takes an `else` and alone in a `case` it is ``non-exhaustive case on Vector<Int>: missing #[]``.
 - **Elements are patterns** and nest as any pattern does: `#[#(n, s), ..]`, `#[Some(x), ..]`, `#[] or #[_]`, `#[4, ..] as v`. A vector pattern stands in a `case` arm, `if Pattern = expr`, a binding with `else` and `assert Pattern = expr`. It is refutable, so as a parameter pattern it is the error `refutable pattern in parameter`, as a list pattern is.
 - **A type built on a vector names itself after the `#`**, as its literal does: `#Path[a, .., z]` takes a `type Path Vector<Int>` apart, and `#.Items[x, ..]` a vector-payload variant.
 - A vector pattern over a value that is not a vector is the error `vector pattern requires a vector, got Set<String>`.
@@ -2999,9 +3122,7 @@ stand in for, so every path through the `else` leaves:
 
 ```nomi
 fn address(config: Map<String, String>) -> String {
-    %{"host" => host, "port" => port} = config else {
-        return "no address"
-    }
+    %{"host" => host, "port" => port} = config else { return "no address" }
 
     "${host}:${port}"
 }
@@ -3057,7 +3178,7 @@ case s {
 - **An element is a value to look up, never a place to bind.** `%[_, ..]` is the error ``an element of a set pattern is a value to look up, not a place to bind: `_` names no value; `..` matches the other elements``, and an element naming nothing in scope, `%[role, ..]`, is ``an element of a set pattern is a value to look up, not a place to bind: `role` is not in scope, and `..role` binds the other elements``.
 - **The `..` comes last**: `%[..rest, 1]` is the parse error ``set pattern `..` must be the last element``.
 - **A constant element is named once.** `%["a", "a", ..]` is ``element `"a"` is given twice in this set pattern; test it once``. Each element is checked against the set's element type (`set pattern element type mismatch: expected String, got Int`), and a set pattern over a value that is not a set is `set pattern requires a set, got Vector<Int>`.
-- **A set pattern never covers every set.** A `case` over a set needs a `_` arm (`` non-exhaustive case: add a `_` arm ``). A binding takes an `else`, and since a set pattern has no single payload, every path through it leaves. Without one, `%["admin", ..rest] = s` is the error `` this pattern can fail to match a value of type Set<String> ``, with the help `` a set pattern does not match a set that lacks one of its elements. Handle that with `else { ... }`, or test one element with `Set.contains?` ``.
+- **A set pattern never covers every set.** A `case` over a set needs a `_` arm (`` non-exhaustive case: add a `_` arm ``). A binding takes an `else`, and since a set pattern has no single payload, every path through it leaves. Without one, `%["admin", ..rest] = s` is the error `` this pattern can fail to match a value of type Set<String> ``, with the help `` a set pattern does not match a set that lacks one of its elements. Handle that with `else { ... }`, or test one element with `Set.contains` ``.
 - **A type built on a set names itself after the `%`**: `%Tags["a", ..others]` takes a `type Tags Set<String>` apart.
 
 ### Distinct Type Destructuring
@@ -3131,9 +3252,7 @@ A binding whose pattern can fail may be followed by `else` and a braced block th
 
 ```nomi
 // A block that leaves
-Some(email) = user.email else {
-    return Err("user ${id} has no email")
-}
+Some(email) = user.email else { return Err("user ${id} has no email") }
 
 // Case arms over the value that did not match, each leaving
 Ok(user) = load(id) else {
@@ -3144,9 +3263,7 @@ Ok(user) = load(id) else {
 // A fallback value instead of leaving
 Some(email) = user.email else { "none" }
 
-Ok(#(width, height)) = parse_size(text) else {
-    #(80, 24)
-}
+Ok(#(width, height)) = parse_size(text) else { #(80, 24) }
 
 // Arms mixing a fallback with leaving
 Ok(port) = parse_port(text) else {
@@ -3164,8 +3281,8 @@ The braces hold case arms when their first item is `pattern ->` (or `pattern whe
 - A pattern with no single payload to stand in for — a list pattern such as `[first, ..rest]`, a vector pattern such as `#[first, ..rest]`, a map pattern such as `%{"port" => p}`, a set pattern such as `%["admin", ..rest]`, a nested refutable pattern such as `Ok(Some(x))`, a literal, a tuple with a refutable part — requires every path to leave. A path that produces a value is the error `this pattern has no single payload a fallback could stand in for; every path through `else` must return, break or continue`.
 - A pattern that always matches takes no `else`: `#(x, y) = pair else { ... }` is the error `this pattern always matches; remove the else`.
 - A single-variant enum's pattern always matches, as it does as a parameter (§5 *Parameter Destructuring*): for `enum Only { One Int }`, `Only.One(p) = only` binds `p` to the Int with no `else`, and over a struct-shaped variant `Rec.Fields(r) = rec` binds `r` to the anonymous struct of its fields.
-- A pattern that can fail requires one. `Some(n) = maybe` alone is the error `this pattern can fail to match a value of type Maybe<Int>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr``. On `Ok(x)` over a `Result` or `Some(x)` over a `Maybe` its help points at `try`, which unwraps the value and returns early on `Err` or `None`: write `x = try ...`, or, when the value is a pipe, end it with `|> try`.
-- `try` inside the `else` behaves as it does anywhere: it exits the enclosing function or lambda. `return` inside a lambda's `else` exits the lambda.
+- A pattern that can fail requires one. `Some(n) = maybe` alone is the error `this pattern can fail to match a value of type Maybe<Int>; add `else { ... }` to handle a value it does not match, or match it with `case` or `if Pattern = expr``. On `Ok(x)` over a `Result` or `Some(x)` over a `Maybe` its help points at `?`, which unwraps the value and returns early on `Err` or `None`: write `x = ...?`, or, when the value is a pipe, write `x = ...` and end the pipe's last stage with `?`.
+- A `?` inside the `else` behaves as it does anywhere: it exits the enclosing function or lambda. `return` inside a lambda's `else` exits the lambda.
 
 ```nomi
 import std/io
@@ -3201,7 +3318,7 @@ fn main() {
 }
 ```
 
-Which to reach for: `try` passes an error up unchanged; a binding `else` handles or replaces one step's failure in place, or supplies a fallback; `case` when both outcomes continue; `if Pattern = expr` when only the success branch needs the names.
+Which to reach for: `?` passes an error up unchanged; a binding `else` handles or replaces one step's failure in place, or supplies a fallback; `case` when both outcomes continue; `if Pattern = expr` when only the success branch needs the names.
 
 ## 11. If/Else
 
@@ -3271,11 +3388,9 @@ if should_log { io.print(msg) }
 
 ```nomi
 fn process(items: List<Item>) -> Result<Summary, String> {
-    validated = try validate(items)
+    validated = validate(items)?
 
-    if Iter.empty?(validated) {
-        return Ok(EmptySummary)
-    }
+    if Iter.is_empty(validated) { return Ok(EmptySummary) }
 
     // continue processing without nesting into else
     build_summary(validated)
@@ -3299,7 +3414,7 @@ Nomi has two iteration mechanisms: **stdlib higher-order functions** for collect
 
 ### Collection Iteration
 
-**Every generic iteration op is an `Iter` owner function** over any `Iter<T>`: `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.each`, `Iter.find`, `Iter.count`, `Iter.sort`, `Iter.reverse`, and the rest. The adapters (`map`/`filter`/`take`/`drop`/`flat_map`/…) are **lazy** — they return new iterators that fuse, building no intermediate collection. The terminals (`reduce`/`each`/`find`/`any?`/`all?`/`empty?`/`count`/`sort`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) **consume** the iterator. There are no eager collection-adapter functions: to get a container back from a chain, append an explicit materialize step. An `Iter<String>` is joined into one `String` with `String.join`.
+**Every generic iteration op is an `Iter` owner function** over any `Iter<T>`: `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.each`, `Iter.find`, `Iter.count`, `Iter.sort`, `Iter.reverse`, and the rest. The adapters (`map`/`filter`/`take`/`drop`/`flat_map`/…) are **lazy** — they return new iterators that fuse, building no intermediate collection. The terminals (`reduce`/`each`/`find`/`any`/`all`/`is_empty`/`count`/`sort`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) **consume** the iterator. There are no eager collection-adapter functions: to get a container back from a chain, append an explicit materialize step. An `Iter<String>` is joined into one `String` with `String.join`.
 
 ```nomi
 // transform (lazy — materialize with Iter.to_list)
@@ -3321,7 +3436,7 @@ The one rule: **generic over any iterable → `Iter.X`; specific to a container'
 
 ### `break` and `continue` in Callbacks
 
-`break` and `continue` work inside iteration callbacks — the callbacks passed to the closed, analyzer-enforced set of iteration functions: `Iter.map`, `Iter.scan`, `Iter.filter`, `Iter.take_while`, `Iter.drop_while`, `Iter.flat_map`, `Iter.iterate`, `Iter.reduce`, `Iter.map_reduce`, `Iter.each`, `Iter.find`, `Iter.any?`, `Iter.all?`, `Map.map_values` and `Map.map_keys`, plus `Iter.loop`. `break` or `continue` anywhere outside an iteration callback is a compiler error — there's no iteration context.
+`break` and `continue` work inside iteration callbacks — the callbacks passed to the closed, analyzer-enforced set of iteration functions: `Iter.map`, `Iter.scan`, `Iter.filter`, `Iter.take_while`, `Iter.drop_while`, `Iter.flat_map`, `Iter.iterate`, `Iter.reduce`, `Iter.map_reduce`, `Iter.each`, `Iter.find`, `Iter.any`, `Iter.all`, `Map.map_values` and `Map.map_keys`, plus `Iter.loop`. `break` or `continue` anywhere outside an iteration callback is a compiler error — there's no iteration context.
 
 The keywords are the entire surface of the iteration control protocol. A callback's bare last expression means "here's my result for this element," `continue` means "skip this element," `break` means "stop iterating" (`break value` means "stop, producing this value"). These lower to a compiler/runtime-internal signal that the iteration machinery interprets — the signal has no surface spelling: it is not a Nomi type, and there is nothing to import, construct, or pattern-match.
 
@@ -3388,7 +3503,7 @@ names =
     |> Iter.to_list()
 ```
 
-The other callbacks read the value the same way. In `find`, `any?` and `all?` it is the predicate's answer for this element: `break True` in `find` answers `Some` of this element, and a bare `break` answers what has accumulated, which is `None` for `find`, `False` for `any?` and `True` for `all?`. In `drop_while` it is the drop decision: `break False` emits this element and ends the sequence, and `break True` or a bare `break` ends it with nothing more. In `flat_map` it is this element's expansion, emitted before the sequence ends. In `Map.map_values` and `Map.map_keys` it is this entry's new value or key; `continue` leaves the entry out, and a bare `break` keeps the entries made so far. In `scan` it is this element's new state, yielded before the sequence ends; `continue` yields nothing and keeps the state, and a bare `break` ends the sequence without yielding. In `map_reduce` it is this element's `#(output, next_state)`, kept before the call answers; `continue` adds no output and keeps the state, and a bare `break` answers the outputs and state so far.
+The other callbacks read the value the same way. In `find`, `any` and `all` it is the predicate's answer for this element: `break True` in `find` answers `Some` of this element, and a bare `break` answers what has accumulated, which is `None` for `find`, `False` for `any` and `True` for `all`. In `drop_while` it is the drop decision: `break False` emits this element and ends the sequence, and `break True` or a bare `break` ends it with nothing more. In `flat_map` it is this element's expansion, emitted before the sequence ends. In `Map.map_values` and `Map.map_keys` it is this entry's new value or key; `continue` leaves the entry out, and a bare `break` keeps the entries made so far. In `scan` it is this element's new state, yielded before the sequence ends; `continue` yields nothing and keeps the state, and a bare `break` ends the sequence without yielding. In `map_reduce` it is this element's `#(output, next_state)`, kept before the call answers; `continue` adds no output and keeps the state, and a bare `break` answers the outputs and state so far.
 
 **`loop`** follows the same rules:
 
@@ -3586,9 +3701,7 @@ fn square_root(n: Float) -> Float {
     #(_, guess) = Iter.loop(fn state = #(n / 2.0, 0.0) -> {
         #(guess, prev) = state
 
-        if Float.equal_within?(guess, prev, 0.0001) {
-            break state
-        }
+        if Float.equal_within(guess, prev, 0.0001) { break state }
 
         next = (guess + n / guess) / 2.0
         #(next, guess)
@@ -3708,7 +3821,7 @@ Tail position does **not** cross:
 
 - **Lambda body boundaries.** A lambda has its own tail context. In `fn f(xs: List<Int>) -> Int { Iter.reduce(xs, fn acc = 0, x -> f(rest(x))) }`, the call to `Iter.reduce` is `f`'s tail position and gets trampolined, but the call to `f` *inside the lambda* is the lambda's tail, not `f`'s. `Iter.reduce` invokes the lambda fresh on each iteration, so there is no growing chain that crossing the boundary could collapse. This rule is universal across TCO'd languages (Scheme, Clojure, Erlang, Haskell, OCaml). The practical guidance: when you want to "iterate by recursing through `Iter.each`," reach for `loop` instead.
 - Default-value expressions. They run before the body, not as part of it.
-- The operand of `try`. The keyword performs a pattern-match between the call's return and the function's return, so the call inside `try expr` is not directly the enclosing function's tail.
+- The operand of `?`. The `?` performs a pattern-match between the call's return and the function's return, so the call in `f(x)?` is not directly the enclosing function's tail.
 
 **Host functions** (host-provided / builtin) are unaffected. They execute one Go function and return — there is no Nomi-stack frame to trampoline. Interface-dispatch shims look like host functions but resolve at runtime to user-defined functions; those participate in TCO via an internal handoff back to the trampoline, so `Iface.some_fn(x)` calls behave identically to direct calls for the purposes of this guarantee.
 
@@ -3841,11 +3954,11 @@ interface Iter<T> {
 
 The `Iter` interface defines a **push** iterator: `each_while` walks the collection and hands each element to `yield`, which returns `False` to ask it to stop. `each_while` returns `True` when the source ran to exhaustion and `False` when a consumer stopped it early. The source drives its own loop, so no `self` appears in the signature and nothing is rebuilt per element. Works naturally with immutability since `each_while` reads a value it never mutates. This is Go's `iter.Seq` shape, so a Nomi iterator and a Go `for range` speak the same protocol.
 
-`List<T>` implements `Iter<T>` — `each_while` walks the cons chain. `Vector<T>` also implements `Iter<T>`, retaining its O(1) known count while walking its slice window by index. `Map<K, V>` implements `Iter<#(K, V)>`. `String` implements `Iter<String>` and iterates by grapheme cluster, one user-visible character per element. Ranges over `Discrete` values such as `Int` and `Codepoint` also implement it, so everything composes under one protocol.
+`List<T>` implements `Iter<T>` — `each_while` walks the cons chain. `Vector<T>` also implements `Iter<T>`, retaining its O(1) known count while walking its slice window by index. `Map<K, V>` implements `Iter<#(K, V)>`. `String` implements `Iter<String>` and iterates by grapheme cluster, one user-visible character per element. `Maybe<T>` implements `Iter<T>` as zero or one elements: `Some(x)` yields `x` and `None` yields nothing, so `Iter.to_list(Some(3))` is `[3]` and `Iter.flat_map(xs, f)` with an `f` that answers a `Maybe` keeps the `Some` values. Ranges over `Discrete` values such as `Int` and `Codepoint` also implement it, so everything composes under one protocol.
 
 `List`, `Vector`, and `Map` also implement `Equatable` and `Hashable` (structural; map equality and hashing are order-insensitive), so a type with a collection field can write `derive Equatable` / `derive Hashable`. `List<T>` and `Vector<T>` additionally implement `Comparable` (lexicographic) when `T` does, so a List of anonymous structs has no order: `List.compare`, `<`, `Comparable.compare` and `Iter.sort` over one are compile errors, as `<` on an anonymous struct is. A List of tuples whose elements are `Comparable` orders like any other. `Map` is intentionally **not** `Comparable` — it has no natural total order (matching Rust's `HashMap`).
 
-A tuple is `Equatable` and `Hashable` structurally, and `Comparable` when every element is, lexicographically: the first elements decide unless they are `Equal`, then the second, and so on, and an element after the deciding one is never compared (as Rust derives `Hash`, `Eq` and `Ord` for tuples). So `#(1, "b") < #(2, "a")` and `#(1, "a") < #(1, "b")`, `Iter.sort` of tuples and `Iter.max` over them work, and a tuple is the key for a sort by several fields: `Iter.sort_by(rows, fn r -> #(r.team, r.name))`. A tuple with an element that is not `Comparable` is not, and ordering one is a compile error naming the element type. An anonymous record is not `Comparable`. `Hashable.hash(#(a, b, c))` is the `derive Hashable` mix over the slots, `(Hashable.hash(a) * 31 + Hashable.hash(b)) * 31 + Hashable.hash(c)` with wrapping arithmetic, each slot hashed by its own type's impl — the same number a positional variant carrying those slots mixes before its variant index. So `Hashable.hash(#(1, 2)) == 33`. An anonymous record is `Equatable` and `Hashable` the same way, over its fields in name order, so `#{b: 2, a: 1}` hashes as `#(1, 2)` does, and `Equatable.equal?` over two tuples or two records is `==`.
+A tuple is `Equatable` and `Hashable` structurally, and `Comparable` when every element is, lexicographically: the first elements decide unless they are `Equal`, then the second, and so on, and an element after the deciding one is never compared (as Rust derives `Hash`, `Eq` and `Ord` for tuples). So `#(1, "b") < #(2, "a")` and `#(1, "a") < #(1, "b")`, `Iter.sort` of tuples and `Iter.max` over them work, and a tuple is the key for a sort by several fields: `Iter.sort_by(rows, fn r -> #(r.team, r.name))`. A tuple with an element that is not `Comparable` is not, and ordering one is a compile error naming the element type. An anonymous record is not `Comparable`. `Hashable.hash(#(a, b, c))` is the `derive Hashable` mix over the slots, `(Hashable.hash(a) * 31 + Hashable.hash(b)) * 31 + Hashable.hash(c)` with wrapping arithmetic, each slot hashed by its own type's impl — the same number a positional variant carrying those slots mixes before its variant index. So `Hashable.hash(#(1, 2)) == 33`. An anonymous record is `Equatable` and `Hashable` the same way, over its fields in name order, so `#{b: 2, a: 1}` hashes as `#(1, 2)` does, and `Equatable.equal` over two tuples or two records is `==`.
 
 ### Interface Body Items — the Kinds
 
@@ -3863,7 +3976,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `infinite?`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any?`/`all?`/`empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `infinite?` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
+> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `is_infinite`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any`/`all`/`is_empty`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `is_infinite` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False) -> String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -4462,11 +4575,11 @@ enum's `impl Display`, not the one of the struct it embeds.
 
 A value of interface type, a generic interface's instance (`Has<Int>`)
 included, therefore satisfies an `Equatable` or `Hashable` bound with that
-meaning: `List.contains?(scales, s)`, `Iter.contains?`, `Iter.chunk_by` with
+meaning: `List.contains(scales, s)`, `Iter.contains`, `Iter.chunk_by` with
 an interface-valued key, `Iter.to_set`, a function of your own `where T:
 Equatable` or `where T: Hashable` given a `Scale`, and a `derive Equatable`
 or `derive Hashable` on a struct with a `Scale` field each compare and hash
-the held values that way. `Equatable.equal?(a, b)` on two `Scale` values is
+the held values that way. `Equatable.equal(a, b)` on two `Scale` values is
 `a == b`, and `Hashable.hash(s)` is the hash a `Set<Scale>` gives `s`, so two
 values `==` calls equal hash alike. An `Iter<T>` value is the exception: it
 is a function and has no equality (§30).
@@ -4518,11 +4631,11 @@ Interface arguments may be inferred from the implementation function signatures 
 A type may implement one generic interface at several type arguments: `impl Contains<String> for String`, `impl Contains<Regex> for String` and `impl Contains<Codepoint> for String` are three impls, as are `impl Add<Days, Day> for Day` and `impl Add<Weeks, Day> for Day`. The operator interfaces follow the same rule as every other generic interface. Two rules keep the impls apart:
 
 - **Each writes its type arguments.** An impl whose header leaves them to be inferred beside another impl of the interface for the type is the error `` `Box` implements `Holds` more than once, so each impl writes its type arguments in its header ``, whose help is the header to write (`` write `impl Holds<Int> for Box` ``).
-- **No two overlap.** Either every impl names its interface type arguments with distinct concrete types, or there is exactly one impl, which may be generic in them. `impl Holds<T> for Wrap<T>` beside `impl Holds<Int> for Wrap<T>` is the error `` overlapping impls: `Holds<T>` for `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which `Wrap` also implements ``. Two impls at the same arguments are a duplicate impl, `` duplicate impl: `Holds<Int>` is implemented for `Box` by modules main (function `holds?`); a type implements an interface once at each set of type arguments ``.
+- **No two overlap.** Either every impl names its interface type arguments with distinct concrete types, or there is exactly one impl, which may be generic in them. `impl Holds<T> for Wrap<T>` beside `impl Holds<Int> for Wrap<T>` is the error `` overlapping impls: `Holds<T>` for `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which `Wrap` also implements ``. Two impls at the same arguments are a duplicate impl, `` duplicate impl: `Holds<Int>` is implemented for `Box` by modules main (function `holds`); a type implements an interface once at each set of type arguments ``.
 
-The orphan rule applies to each impl as to any other (§*Foreign Types*): the interface, the receiver, or a type heading an input type argument is the module's own. So `impl Contains<Tag> for String` is allowed in the module that declares `Tag`, since `contains?` takes a `Tag`, and `impl Contains<Int> for String` outside std is an orphan impl.
+The orphan rule applies to each impl as to any other (§*Foreign Types*): the interface, the receiver, or a type heading an input type argument is the module's own. So `impl Contains<Tag> for String` is allowed in the module that declares `Tag`, since `contains` takes a `Tag`, and `impl Contains<Int> for String` outside std is an orphan impl.
 
-A call takes the impl its arguments' types choose, statically, and calls it directly: `String.contains?(s, "x")`, `Contains.contains?(s, '-')`, a pipe stage `` s |> String.contains?(Regex`\d`) ``, a partial capture `&String.contains?(&1, "x")` where a `(String) -> Bool` is expected, an operator, and a generic call whose bound `where C: Contains<T>` the call solves (`all_present(s, ["a"])` takes `Contains<String>`) all select the same way. A type argument that no parameter names, only the result, is chosen by the type the result is expected to have, as a generic call's result-only type parameter is (§2): with `impl Make<Int> for Factory` and `impl Make<String> for Factory`, `n: Int = Factory.make(f)` calls the first. When the arguments and the expected type do not choose one impl, the call is an error that names the candidates: `Box.holds?(b, .Red)` with `Holds` implemented at `Color` and `Shade` is `` `Holds.holds?` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it ``, an unannotated `Factory.make(f)` is `` `Make.make` for `Factory` has impls at `Int` and `String`; only the result's type tells them apart, and nothing here expects one: annotate the result ``, and an argument no impl takes is `` `Holds.holds?` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float` ``. An argument whose type its parameter decides (`.Variant`, a partial capture's open `&1` with nothing expected) does not choose.
+A call takes the impl its arguments' types choose, statically, and calls it directly: `String.contains(s, "x")`, `Contains.contains(s, '-')`, a pipe stage `` s |> String.contains(Regex`\d`) ``, a partial capture `&String.contains(&1, "x")` where a `(String) -> Bool` is expected, an operator, and a generic call whose bound `where C: Contains<T>` the call solves (`all_present(s, ["a"])` takes `Contains<String>`) all select the same way. A type argument that no parameter names, only the result, is chosen by the type the result is expected to have, as a generic call's result-only type parameter is (§2): with `impl Make<Int> for Factory` and `impl Make<String> for Factory`, `n: Int = Factory.make(f)` calls the first. When the arguments and the expected type do not choose one impl, the call is an error that names the candidates: `Box.holds(b, .Red)` with `Holds` implemented at `Color` and `Shade` is `` `Holds.holds` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it ``, an unannotated `Factory.make(f)` is `` `Make.make` for `Factory` has impls at `Int` and `String`; only the result's type tells them apart, and nothing here expects one: annotate the result ``, and an argument no impl takes is `` `Holds.holds` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float` ``. An argument whose type its parameter decides (`.Variant`, a partial capture's open `&1` with nothing expected) does not choose.
 
 A value held as an instantiation, `h: Holds<Int>` or a `List<Holds<Int>>`, takes any type with an impl at those arguments, and a call through it dispatches to that impl; a type implementing two instantiations is held as either.
 
@@ -4530,7 +4643,7 @@ A value held as an instantiation, `h: Holds<Int>` or a `List<Holds<Int>>`, takes
 import std/io
 
 interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 }
 
 struct Box {
@@ -4539,32 +4652,32 @@ struct Box {
 }
 
 impl Holds<Int> for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n == x
     }
 }
 
 impl Holds<String> for Box {
-    fn holds?(b: Box, x: String) -> Bool {
+    fn holds(b: Box, x: String) -> Bool {
         b.s == x
     }
 }
 
 fn held_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
-    C.holds?(c, x)
+    C.holds(c, x)
 }
 
 fn first_text(hs: List<Holds<String>>) -> Bool {
     case hs {
-        [h, .._] -> Holds.holds?(h, "a")
+        [h, .._] -> Holds.holds(h, "a")
         [] -> False
     }
 }
 
 fn main() {
     b = #Box{n: 1, s: "a"}
-    io.print(Bool.to_string(Box.holds?(b, 1))) // True: Holds<Int>
-    io.print(Bool.to_string(Holds.holds?(b, "b"))) // False: Holds<String>
+    io.print(Bool.to_string(Box.holds(b, 1))) // True: Holds<Int>
+    io.print(Bool.to_string(Holds.holds(b, "b"))) // False: Holds<String>
     io.print(Bool.to_string(held_by(b, "a"))) // True: the bound at String
     io.print(Bool.to_string(first_text([b]))) // True
 }
@@ -4612,16 +4725,16 @@ Or **bound a type parameter** by the interface. Where an interface-typed paramet
 
 ```nomi
 // `I` is some concrete iterator; `T` names its element type
-fn saw_any?<T, I>(it: I) -> Bool where I: Iter<T> {
+fn saw_any<T, I>(it: I) -> Bool where I: Iter<T> {
     // `each_while` answers False when a consumer stopped the source, so
     // refusing every element asks "did this source have anything?".
     Iter.each_while(it, fn _x -> False) == False
 }
 
-saw_any?([10, 20, 30]) // True — I = List<Int>, T = Int
+saw_any([10, 20, 30]) // True — I = List<Int>, T = Int
 ```
 
-This `<T>` is the same one the impl receiver names, seen from the other direction. When a type implements a generic interface once, the interface's type parameter is *determined* by the implementor, so the impl may leave it unwritten (`impl Iter for List<T>`, not `impl Iter<T> for List<T>`); a type that implements the interface at several type arguments writes them on each impl (§*Several instantiations for one type*). Where the parameter earns a name is where the implementor is *unknown*: an interface-typed parameter (`container: Container<T>`) or a bound (`I: Iter<T>`), abstracting over an arbitrary conformer and projecting its element type. The projection resolves by inference: `saw_any?([10, 20, 30])` pins `I = List<Int>` and `T = Int` from the argument, because List's one impl of `Iter` makes the element type a function of the implementor. A type parameter that only a bound and the result name is projected the same way, wherever the call sits: `plus(Day(10), Days(4))` for `fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>` is a `Day`, because `impl Add<Days, Day> for Day` is Day's impl of `Add` at `Days`. When the subject has several impls, the call's arguments and expected type choose among them, and a bound they leave open is the error `` `Box` implements `Holds` at `Int` and `String`, and the call's arguments do not choose one for this bound: annotate them ``. This is the multi-parameter interface encoding of associated types: there is no separate associated-type declaration or projection syntax (no `I::Item`).
+This `<T>` is the same one the impl receiver names, seen from the other direction. When a type implements a generic interface once, the interface's type parameter is *determined* by the implementor, so the impl may leave it unwritten (`impl Iter for List<T>`, not `impl Iter<T> for List<T>`); a type that implements the interface at several type arguments writes them on each impl (§*Several instantiations for one type*). Where the parameter earns a name is where the implementor is *unknown*: an interface-typed parameter (`container: Container<T>`) or a bound (`I: Iter<T>`), abstracting over an arbitrary conformer and projecting its element type. The projection resolves by inference: `saw_any([10, 20, 30])` pins `I = List<Int>` and `T = Int` from the argument, because List's one impl of `Iter` makes the element type a function of the implementor. A type parameter that only a bound and the result name is projected the same way, wherever the call sits: `plus(Day(10), Days(4))` for `fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>` is a `Day`, because `impl Add<Days, Day> for Day` is Day's impl of `Add` at `Days`. When the subject has several impls, the call's arguments and expected type choose among them, and a bound they leave open is the error `` `Box` implements `Holds` at `Int` and `String`, and the call's arguments do not choose one for this bound: annotate them ``. This is the multi-parameter interface encoding of associated types: there is no separate associated-type declaration or projection syntax (no `I::Item`).
 
 ### Foreign Types
 
@@ -4853,14 +4966,14 @@ Name collisions between specific imports are a compiler error.
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
 - Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like the short name of any module with no file of that name at its root, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
-- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.ok?`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
+- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.is_ok`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
 
 ```nomi
 fn shout(message: String) {
     import std/io.print
 
-    print(String.to_upper(message))
+    print(String.uppercase(message))
 }
 ```
 
@@ -4957,9 +5070,9 @@ Resolution rules per `X`:
 
 ### Primitive Types
 
-`Int` (64-bit integer), `Float` (64-bit IEEE 754 floating point), `Decimal` (arbitrary-precision, exact base-10), `Bool`, `String` (UTF-8, always), `Unit`. All primitive types implement `Display` and `Debug` — see §16 *Display and Debug* for the per-type rendering rules.
+`Int` (an integer of any size, exact), `Float` (64-bit IEEE 754 floating point), `Decimal` (arbitrary-precision, exact base-10), `Bool`, `String` (UTF-8, always), `Unit`. All primitive types implement `Display` and `Debug` — see §16 *Display and Debug* for the per-type rendering rules.
 
-`Int` is the single integer type — 64-bit, signed, two's-complement. There are no sized (`Int32`) or unsigned (`UInt`) variants; this follows the one-`Int` simplicity of Elm and Gleam, with specific widths added only if a concrete FFI/interop need arises. `Int.min_value` / `Int.max_value` give the bounds. Bitwise operations are stdlib functions in `std/int` — `Int.bitwise_and` / `or` / `xor` / `not` and `Int.shift_left` / `shift_right` — rather than operators, matching the functional-language convention (Gleam `int.bitwise_*`, Elm `Bitwise.*`).
+`Int` is the single integer type: signed, exact at any size, with no largest or smallest value. There are no sized (`Int32`) or unsigned (`UInt`) variants and no separate big-integer type; this follows Python's and Elixir's one unbounded integer and the one-`Int` simplicity of Elm and Gleam. A value that fits in 64 bits costs what a machine integer costs, and arithmetic past that grows the value instead of overflowing (§22 *Integer arithmetic is exact*), so an Int literal may have any number of digits. Where an Int meets something that holds a fixed number of bits (a Go binding, a `Duration`, a database column), a value that does not fit is an error there. Bitwise operations are stdlib functions in `std/int` — `Int.bitwise_and` / `or` / `xor` / `not` and `Int.shift_left` / `shift_right` — rather than operators, matching the functional-language convention (Gleam `int.bitwise_*`, Elm `Bitwise.*`).
 
 `Float` follows the IEEE 754 binary64 format. That includes the three special values **NaN**, **+Infinity**, and **-Infinity** — they are valid `Float` values (not separate types), produced by IEEE 754 arithmetic and constructable directly. See *Float Special Values* below.
 
@@ -4971,7 +5084,7 @@ Resolution rules per `X`:
 - **Scale is display-significant, equality is value-based (Model C).** A `Decimal` remembers its scale for display — `1.50d` prints `"1.50"`, `Decimal.scale(1.50d) == 2` — but `==`, `Comparable`, `Hashable`, and pattern matching are *scale-insensitive*: `1.50d == 1.5d` is `True`, and the two are one `Map`/`Set` key. This is the same value-vs-representation split `Float` already has (`-0.0 == +0.0`, reflexive `NaN == NaN`), not a new principle. Two `==`-equal decimals remain observably distinguishable via `Decimal.scale` / display.
 - **Literals** carry a `d` (or `D`) suffix, and the literal's text determines its scale: `1.50d` → scale 2, `1.5d` → scale 1, `5d` → scale 0. Underscore digit separators are allowed between two digits, as in Int and Float literals (`1_000.00d`; `1__0.5d` and `1_d` are errors); exponent notation is not. Runtime/parsed values come from `String.to_decimal`.
 
-The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `divide_exact` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `zero?` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the `Add`, `Subtract` and `Multiply` impls. `Decimal.format` and `Decimal.format_percent` (with fraction-digit limits and a `RoundingMode`), `Decimal.parse_in` and `Decimal.parse_percent_in` format and parse it for a locale (§41). `Money` (`std/money`, §41 *Money*) pairs a `Decimal` amount with a `Currency` and builds on `Decimal` without changing it.
+The arithmetic, conversion, and shaping functions live in `std/decimal` (`from_int` / `from_string` / `to_string` / `to_int` / `to_float` / `from_float` / `divide` / `divide_exact` / `round` / `normalize` / `scale` / `abs` / `negate` / `sign` / `is_zero` / `compare` / `min` / `max`), along with the `RoundingMode` enum (`Up | Down | Ceiling | Floor | HalfUp | HalfDown | HalfEven | Unnecessary`), display/debug/equality/hash/order impls, and the `Add`, `Subtract` and `Multiply` impls. `Decimal.format` and `Decimal.format_percent` (with fraction-digit limits and a `RoundingMode`), `Decimal.parse_in` and `Decimal.parse_percent_in` format and parse it for a locale (§41). `Money` (`std/money`, §41 *Money*) pairs a `Decimal` amount with a `Currency` and builds on `Decimal` without changing it.
 
 `Unit` is the type for functions that don't return a meaningful value. Can be omitted from function signatures:
 
@@ -5015,7 +5128,7 @@ String.to_codepoints("é")
 - `Maybe<T>` — `Some(value)` or `None`. Replaces null.
 - `Result<T, E>` — `Ok(value)` or `Err(error)`. For fallible operations.
 - `List<T>` — linked list. Primary collection type.
-- `Map<K, V>` — key-value collection. Keys may be any *keyable* value — primitives, tuples, lists, structs, distinct types — not just primitives; keys match by Nomi's `==`, so e.g. a `#(Int, Int)` or a record can be a key. (A function value, an `Iter`, a handle to running state such as a `Task` or a `Sender`, or a value holding one has no equality (§30), so it can't be a key: a literal, call or pipe that builds such a `Map` or `Set` is a compile error.) Because key matching uses Nomi's `==`, Float keys behave consistently with it: `NaN` is retrievable (reflexive) and `-0.0` / `+0.0` are the same key. **A key of a declared type with a hand-written `impl Equatable` matches through that impl, at any depth** — as the key itself, or inside a tuple, a list, a struct field or an enum payload — so two values its `equal?` calls equal are one key, exactly as `==` would say. The bucket is chosen by the type's hand-written `impl Hashable` when it has one; a type whose `Equatable` is hand-written and whose `Hashable` is not hashes by its type alone, so equal values always share a bucket and `equal?` decides (correct by construction, at the cost of that type's keys sharing one bucket). Every other value — a derived impl included — keys by structural hash and structural equality, which is what a derived `Equatable`/`Hashable` answers. An `impl Hashable` must give equal values equal hashes; one that does not is the author's broken contract, as in Rust and Java.
+- `Map<K, V>` — key-value collection. Keys may be any *keyable* value — primitives, tuples, lists, structs, distinct types — not just primitives; keys match by Nomi's `==`, so e.g. a `#(Int, Int)` or a record can be a key. (A function value, an `Iter`, a handle to running state such as a `Task` or a `Sender`, or a value holding one has no equality (§30), so it can't be a key: a literal, call or pipe that builds such a `Map` or `Set` is a compile error.) Because key matching uses Nomi's `==`, Float keys behave consistently with it: `NaN` is retrievable (reflexive) and `-0.0` / `+0.0` are the same key. **A key of a declared type with a hand-written `impl Equatable` matches through that impl, at any depth** — as the key itself, or inside a tuple, a list, a struct field or an enum payload — so two values its `equal` calls equal are one key, exactly as `==` would say. The bucket is chosen by the type's hand-written `impl Hashable` when it has one; a type whose `Equatable` is hand-written and whose `Hashable` is not hashes by its type alone, so equal values always share a bucket and `equal` decides (correct by construction, at the cost of that type's keys sharing one bucket). Every other value — a derived impl included — keys by structural hash and structural equality, which is what a derived `Equatable`/`Hashable` answers. An `impl Hashable` must give equal values equal hashes; one that does not is the author's broken contract, as in Rust and Java.
 - `Set<T>` — an insertion-ordered collection of unique values, backed by `Map` (elements may be any keyable value, same as map keys, and are unique under `==` by the same rule). Literal syntax: `%[1, 2, 3]`; empty sets need type context (`empty: Set<Int> = %[]`). `Equatable`/`Hashable` but not `Comparable`.
 - `#(A, B, ...)` — tuples. Positional, fixed-size, heterogeneous. No single-element tuples: `(A)` is `A`.
 - `#{name: A, age: B, ...}` — anonymous structs. Named fields, fixed-size, heterogeneous.
@@ -5395,13 +5508,13 @@ fn first<A>(list: List<A>) -> Maybe<A> {
 A function's type parameters are solved at each call from its arguments and
 the type its result is expected to have, so each one must appear in a
 parameter's type, in the return type, or in a `where` bound on a type
-parameter that does (`fn any?<I, T>(items: I) -> Bool where I: Iter<T>`). One
+parameter that does (`fn any<I, T>(items: I) -> Bool where I: Iter<T>`). One
 that appears nowhere else is a compile error at its declaration: in
 `fn f<U>(x: Int) -> Int`, ``type parameter `U` is not used in the signature of
 `f`, so no call can determine it``. A `where` bound alone does not count.
 
 A function in an inherent `impl Span<T>` block may use the block's `T`
-directly (`fn longer?(span: Span<T>, other: Span<T>) -> Bool`) or declare its
+directly (`fn is_longer(span: Span<T>, other: Span<T>) -> Bool`) or declare its
 own, which shadows the block's (`fn first<T>(span: Span<T>) -> T`). Either way
 the rule above applies to the parameters the function declares.
 
@@ -5461,7 +5574,7 @@ Iter.to_list("héllo") // ["h", "é", "l", "l", "o"]
 
 String.slice("café", 0, 3) // "caf"
 
-String.contains?("héllo", "éll") // True
+String.contains("héllo", "éll") // True
 
 String.to_bytes("café")
 |> Iter.map(Byte.to_int)
@@ -5612,14 +5725,14 @@ The literal is infallible: its type is std's `Codepoint` whatever the file has i
 
 | Function | Answers |
 |---|---|
-| `Codepoint.letter?(cp) -> Bool` | Unicode general category L (Lu, Ll, Lt, Lm, Lo), Go's `unicode.IsLetter`. `é`, `ж` and `中` are letters; U+0301 COMBINING ACUTE ACCENT is not. |
-| `Codepoint.digit?(cp) -> Bool` | ASCII `'0'` through `'9'` only. Arabic-Indic `٣` and full-width `１` are not digits here. |
-| `Codepoint.to_digit(cp) -> Maybe<Int>` | `Some(0)` through `Some(9)` for ASCII `'0'` through `'9'`, `None` for everything `digit?` rejects. |
-| `Codepoint.whitespace?(cp) -> Bool` | The Unicode White_Space property, Go's `unicode.IsSpace`: `' '`, `'\t'`, `'\n'`, U+00A0, U+3000 and the rest. |
-| `Codepoint.upper?(cp) -> Bool` | General category Lu, Go's `unicode.IsUpper`. |
-| `Codepoint.lower?(cp) -> Bool` | General category Ll, Go's `unicode.IsLower`. |
+| `Codepoint.is_letter(cp) -> Bool` | Unicode general category L (Lu, Ll, Lt, Lm, Lo), Go's `unicode.IsLetter`. `é`, `ж` and `中` are letters; U+0301 COMBINING ACUTE ACCENT is not. |
+| `Codepoint.is_digit(cp) -> Bool` | ASCII `'0'` through `'9'` only. Arabic-Indic `٣` and full-width `１` are not digits here. |
+| `Codepoint.to_digit(cp) -> Maybe<Int>` | `Some(0)` through `Some(9)` for ASCII `'0'` through `'9'`, `None` for everything `is_digit` rejects. |
+| `Codepoint.is_whitespace(cp) -> Bool` | The Unicode White_Space property, Go's `unicode.IsSpace`: `' '`, `'\t'`, `'\n'`, U+00A0, U+3000 and the rest. |
+| `Codepoint.is_upper(cp) -> Bool` | General category Lu, Go's `unicode.IsUpper`. |
+| `Codepoint.is_lower(cp) -> Bool` | General category Ll, Go's `unicode.IsLower`. |
 
-`digit?` and `to_digit` are ASCII-only on purpose: a phone number, a checksum or a number to parse means ASCII digits. There is no function for Unicode decimal digits (category Nd). A title-case letter such as `ǅ` (U+01C5, category Lt) is a letter but neither `upper?` nor `lower?`, and so is a letter without case, such as `中`. The Unicode answers come from the Go toolchain's tables, so they follow its Unicode version.
+`is_digit` and `to_digit` are ASCII-only on purpose: a phone number, a checksum or a number to parse means ASCII digits. There is no function for Unicode decimal digits (category Nd). A title-case letter such as `ǅ` (U+01C5, category Lt) is a letter but neither `is_upper` nor `is_lower`, and so is a letter without case, such as `中`. The Unicode answers come from the Go toolchain's tables, so they follow its Unicode version.
 
 ```nomi
 String.to_codepoints("Call 555-0134")
@@ -5770,7 +5883,7 @@ At each `${expr}` slot, the analyzer checks that the slot expression's type impl
 
 **Raw typed literals are checked at compile time.** A raw body never interpolates, so the handler's input is fixed text. When the handler can fail (it returns `Result<T, E>`), the compiler runs it while checking the program, and the literal's type is `T`:
 
-- `Ok(v)`: the literal is a `T`. `` Regex`\d+` `` is a `Regex`, so it needs no `try`, and `` once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
+- `Ok(v)`: the literal is a `T`. `` Regex`\d+` `` is a `Regex`, so it needs no `?`, and `` once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
 - `Err(e)`: the literal is a compile error at the literal, carrying the handler's message (the `Display` rendering of `e`, or its `Debug` rendering when `E` has no `Display`): `` Regex`[` `` is ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
 - A handler that reaches an effect (output, files, the clock, tasks, an app field), or that does not finish within the compiler's step limit, cannot be run at compile time, and the literal is a compile error saying so. Write such a literal with double quotes and handle its `Result`.
 
@@ -5789,7 +5902,7 @@ fn main() {
 }
 ```
 
-`try` on a backtick literal checked at compile time is the ordinary "try requires a Result or Maybe" error, with a hint that the literal is already a `T`.
+A `?` on a backtick literal checked at compile time is the ordinary `` `?` requires a Result or Maybe `` error, whose hint says the literal is already a `T` and to remove the `?`.
 
 The quote style alone decides this. A double-quoted typed literal keeps its handler's result type, interpolated or not: `Regex"\\d+"` and `Regex"room ${n}"` are both `Result<Regex, String>`, built when the program runs. A handler that cannot fail (returns `T` itself) gives the same type in both forms.
 
@@ -5842,7 +5955,7 @@ fn main() {
 }
 ```
 
-`Date` is opaque — outside callers can't bypass parsing. Because parsing is fallible, a double-quoted `Date"…"` is a `Result<Date, Error>` at the use site above; callers `case`-match or `try`-unwrap there. A backtick `` Date`2026-05-04` `` is checked at compile time and is a `Date`. The `Literal` conformance makes `Date` itself the tag; `from_fragments` is the fixed function name. The same shape — opaque type, fallible parse, `Display`-or-domain interface for slots — applies to `Time`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`, plus user-defined cases like `Url`, `Regex`, `Json`, etc.
+`Date` is opaque — outside callers can't bypass parsing. Because parsing is fallible, a double-quoted `Date"…"` is a `Result<Date, Error>` at the use site above; callers match it with `case` or unwrap it with `?` there. A backtick `` Date`2026-05-04` `` is checked at compile time and is a `Date`. The `Literal` conformance makes `Date` itself the tag; `from_fragments` is the fixed function name. The same shape — opaque type, fallible parse, `Display`-or-domain interface for slots — applies to `Time`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`, plus user-defined cases like `Url`, `Regex`, `Json`, etc.
 
 **Worked example: `Box` (a domain type as its own tag).** A user-defined type backs a tag by implementing `Literal`:
 
@@ -5886,13 +5999,18 @@ fn length(s: String) -> Int                                          // grapheme
 fn slice(s: String, start: Int, end: Int) -> String                  // grapheme indices
 fn pad_start(s: String, width: Int, fill: String = " ") -> String    // to `width` graphemes; never truncates
 fn pad_end(s: String, width: Int, fill: String = " ") -> String
-fn contains?(c: String, x: String) -> Bool                         // Contains<String> impl: a substring
-fn contains?(c: String, x: Regex) -> Bool                          // Contains<Regex> impl: a match anywhere
-fn contains?(c: String, x: Codepoint) -> Bool                      // Contains<Codepoint> impl: it occurs
-fn starts_with?<M>(s: String, prefix: M) -> Bool where M: Matcher
-fn ends_with?<M>(s: String, suffix: M) -> Bool where M: Matcher
-fn to_upper(s: String) -> String                                     // Unicode-aware, locale-independent
-fn to_lower(s: String) -> String
+fn contains(c: String, x: String) -> Bool                         // Contains<String> impl: a substring
+fn contains(c: String, x: Regex) -> Bool                          // Contains<Regex> impl: a match anywhere
+fn contains(c: String, x: Codepoint) -> Bool                      // Contains<Codepoint> impl: it occurs
+fn starts_with<M>(s: String, prefix: M) -> Bool where M: Matcher
+fn ends_with<M>(s: String, suffix: M) -> Bool where M: Matcher
+fn uppercase(s: String) -> String                                    // Unicode-aware, locale-independent
+fn lowercase(s: String) -> String
+fn capitalize(s: String) -> String                                   // first grapheme in title case, the rest lowercased
+fn snake_case(s: String) -> String                                   // words lowercased, joined by `_`: `userId` is `user_id`
+fn kebab_case(s: String) -> String                                   // words lowercased, joined by `-`
+fn pascal_case(s: String) -> String                                  // words capitalized, joined: `HTTPServer` is `HttpServer`
+fn camel_case(s: String) -> String                                   // pascal_case with the first word lowercased
 fn trim(s: String) -> String
 fn split<M>(s: String, separator: M) -> List<String> where M: Matcher
 fn replace<M>(s: String, old: M, new: String) -> String where M: Matcher  // every match; `new` is literal
@@ -5913,9 +6031,11 @@ fn strip_suffix(s: String, suffix: String) -> Maybe<String>
 fn join(parts: Iter<String>, separator: String = "") -> String       // any Iter<String>, driven once
 ```
 
-The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text, a `Regex` (`std/regex`) matches its pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. `String.contains?` is String's `Contains` impl at the same three types, chosen by the needle's type (§*Several instantiations for one type*), so a `String` also satisfies `where C: Contains<String>` (§*Membership: `Contains`*). Each Matcher function answers one of these operations with the matcher first (`contained_in?`, `prefix_of?`, `suffix_of?`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all` expands `$1` capture references. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups. Each match gives one entry per group from group 1 in the order the pattern opens them (the whole match is `String.find`'s answer, not an entry), `Some` of the text for a group that took part, even an empty one, and `None` for one that did not: `` String.captures("b", Regex`(a)|(b)`) `` is `Some([None, Some("b")])`. `String.split` and the other Matcher search functions are generic, so naming one as a value needs a function type to settle `M`: `split: (String, String) -> List<String> = String.split`.
+The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text, a `Regex` (`std/regex`) matches its pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. `String.contains` is String's `Contains` impl at the same three types, chosen by the needle's type (§*Several instantiations for one type*), so a `String` also satisfies `where C: Contains<String>` (§*Membership: `Contains`*). Each Matcher function answers one of these operations with the matcher first (`is_contained_in`, `is_prefix_of`, `is_suffix_of`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all(text, re, replacement)` expands `$1` capture references, and takes the text first as the String functions do, so it is a pipe stage over the text. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups. Each match gives one entry per group from group 1 in the order the pattern opens them (the whole match is `String.find`'s answer, not an entry), `Some` of the text for a group that took part, even an empty one, and `None` for one that did not: `` String.captures("b", Regex`(a)|(b)`) `` is `Some([None, Some("b")])`. `String.split` and the other Matcher search functions are generic, so naming one as a value needs a function type to settle `M`: `split: (String, String) -> List<String> = String.split`.
 
 `String` also implements `Iter<String>` (one grapheme cluster per step), so every `Iter` owner function works on a string. To map or filter graphemes, run the generic adapter and join the result back into a `String`: `Iter.map(s, f) |> String.join()`, `Iter.filter(s, p) |> String.join()`. `String.join` takes any `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a separator that defaults to `""`. `String.reverse`/`String.length` stay container-specific (native, by grapheme cluster).
+
+`String.snake_case`, `kebab_case`, `pascal_case` and `camel_case` split a string into words by one rule. A word ends at `_`, `-` and whitespace, which are dropped (a run of them is one break, and those at either end are dropped); before an upper-case letter that follows a lower-case letter or a digit (`userId` is `user`, `Id`; `v2Api` is `v2`, `Api`); and before the last of a run of capitals that a lower-case letter follows, which ends an acronym (`HTTPServer` is `HTTP`, `Server`). A digit stays with the word before it (`parseHTTP2Request` is `parse`, `HTTP2`, `Request`). Upper and lower case are Unicode's, and nothing is transliterated. `snake_case` and `kebab_case` lower-case every word; `pascal_case` capitalizes each word as `String.capitalize` does, so an acronym is not kept (`HttpServer`); `camel_case` is `pascal_case` with the first word lower-cased.
 
 ### Byte and Bytes Functions
 
@@ -5932,7 +6052,7 @@ fn concat(a: Bytes, b: Bytes) -> Bytes
 fn to_list(data: Bytes) -> List<Byte>
 fn from_list(items: List<Byte>) -> Bytes
 fn to_string(data: Bytes) -> Result<String, String> // UTF-8 decode
-fn contains?(c: Bytes, x: Byte) -> Bool            // Contains<Byte> impl; linear scan
+fn contains(c: Bytes, x: Byte) -> Bool            // Contains<Byte> impl; linear scan
 ```
 
 `Bytes` implements `Contains<Byte>`, `Iter<Byte>`, `Add<Bytes, Bytes>`,
@@ -5964,10 +6084,10 @@ An impl that renders its own receiver through the function it defines never retu
 help: Debug.inspect(foo) renders its fields
 ```
 
-The same holds for equality, ordering and hashing. In `impl Equatable for P`, `fn equal?(a: P, b: P)` may not compare its own arguments with `==` or `!=`, or pass them to `Equatable.equal?` or `P.equal?`; in `impl Comparable for P`, `fn compare(a: P, b: P)` may not compare them with `<`, `>`, `<=` or `>=`, or pass them to `Comparable.compare` or `P.compare`; in `impl Hashable for P`, `fn hash(p: P)` may not pass `p` to `Hashable.hash` or `P.hash`. Each dispatches back to the function being defined with the values it was given, so it calls itself forever, and is a compile error at the comparison whose help says to compare the fields instead or to write `derive Equatable for P`. A plain binding of an argument is the same value. Comparing or hashing a field is legal, even a field of type `P`, as in a tree whose `equal?` compares its children with `==`:
+The same holds for equality, ordering and hashing. In `impl Equatable for P`, `fn equal(a: P, b: P)` may not compare its own arguments with `==` or `!=`, or pass them to `Equatable.equal` or `P.equal`; in `impl Comparable for P`, `fn compare(a: P, b: P)` may not compare them with `<`, `>`, `<=` or `>=`, or pass them to `Comparable.compare` or `P.compare`; in `impl Hashable for P`, `fn hash(p: P)` may not pass `p` to `Hashable.hash` or `P.hash`. Each dispatches back to the function being defined with the values it was given, so it calls itself forever, and is a compile error at the comparison whose help says to compare the fields instead or to write `derive Equatable for P`. A plain binding of an argument is the same value. Comparing or hashing a field is legal, even a field of type `P`, as in a tree whose `equal` compares its children with `==`:
 
 ```
-`a == b` calls P's `equal?`, the function being defined, with its own arguments, so it calls itself forever
+`a == b` calls P's `equal`, the function being defined, with its own arguments, so it calls itself forever
 help: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`
 ```
 
@@ -6059,7 +6179,7 @@ For a declared type, the compile error names the type that lacks an impl, so the
 
 ## 17. Error Handling
 
-`Result` type with `Ok`/`Err` for fallible operations. `try` keyword for propagation. `case` for explicit handling:
+`Result` type with `Ok`/`Err` for fallible operations. A postfix `?` propagates a failure (§9 *Propagating with `?`*). `case` handles it explicitly:
 
 ```nomi
 case users.get(id) {
@@ -6068,13 +6188,13 @@ case users.get(id) {
 }
 ```
 
-Or with `try` for the happy path:
+Or with `?` for the happy path:
 
 ```nomi
 fn process(id: Int) -> Result<Bool, String> {
-    user = try users.get(id)
+    user = users.get(id)?
     profile = users.get_profile(user)
-    try email.send(profile)
+    email.send(profile)?
 }
 ```
 
@@ -6083,9 +6203,9 @@ Or piped:
 ```nomi
 fn process(id: Int) -> Result<Bool, String> {
     id
-    |> try users.get()
+    |> users.get()?
     |> users.get_profile()
-    |> try email.send()
+    |> email.send()?
 }
 ```
 
@@ -6097,7 +6217,7 @@ fn process(id: Int) -> Result<Bool, String> {
         Err(e) -> return Err("loading user ${id}: ${e}")
     }
 
-    try email.send(users.get_profile(user))
+    email.send(users.get_profile(user))?
 }
 ```
 
@@ -6113,9 +6233,9 @@ APIs written in Nomi:
   off the edge (`Vector.get`, `Iter.first`), or a quotient whose termination
   depends on the divisor's value (`Decimal.divide_exact`; Decimal has no `/`).
 - **A trap** when the caller broke a promise it could have checked: a divisor
-  it chose (`/`, §22), arithmetic past 64 bits (§22 *Integer overflow traps*),
-  an index it computed (`Vector.at`, `Vector.set`), a key it knows is present
-  (`Map.at`), a range whose bounds it
+  it chose (`/`, §22), a `Duration` past the 292 years it holds (§22 *Integer
+  arithmetic is exact*), an index it computed (`Vector.get(...)!`, `Vector.set`), a key it knows is present
+  (`Map.get(...)!`, §5 *Unwrapping with `!`*), a range whose bounds it
   picked (`Generator.int`, §40), a `todo` it left in (§5 *Unwritten
   Code*), or an `unreachable` whose invariant it broke (§5 *Unreachable
   Code*). A trap means the program has a bug. It is not a situation to
@@ -6123,28 +6243,25 @@ APIs written in Nomi:
 - **Every trapping operation has a total way around it**: a sibling that
   returns `Maybe`, or a cheap check the caller can make first. `Int.divide`
   takes a `NonZeroInt` that `Int.to_non_zero` makes, `Vector.get` answers
-  `None` where `Vector.at` traps, and
-  `Vector.length` is the check before `Vector.set`. When wrapping is the
-  intent, `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` never
-  overflow.
+  `None` where `Vector.get(...)!` traps, and
+  `Vector.length` is the check before `Vector.set`.
 - **A trap is never caught inside the program.** It ends the task it happens
   in. `nomi run` prints it and exits with status 1, `nomi test` fails the case
   and goes on to the next, and a spawned task's trap is its `Failed` outcome
   (§20 *Failures And Restarts*), which a supervisor may restart. A program
-  handles what it expects with `Maybe` and `Result`, through `try`, `case` and
+  handles what it expects with `Maybe` and `Result`, through `?`, `case` and
   a binding `else`.
 
 A trap's text names the broken promise: `line 4: division by zero`,
-`line 7: integer overflow: 9223372036854775807 + 1`,
 `line 9: index 7 is out of range for a Vector of length 5`. The line is the
 program's own, even when the trap happens inside the standard library
 (§22 *Where a trap is reported*).
 
 The naming convention follows from the rule. A function named **`get`**
 returns a `Maybe`, because what it looks for may not be there (`Map.get`,
-`Vector.get`, `Bytes.get`, `Iter.get`). A function named **`at`** returns the
-value itself and traps when the position or key does not exist (`Vector.at`,
-`Bytes.at`, `Map.at`): the caller is promising it does.
+`Vector.get`, `Bytes.get`, `Iter.get`). A caller that promises it is there
+writes `Map.get(m, k)!`, which answers the value itself and traps
+when the position or key does not exist (§5 *Unwrapping with `!`*).
 
 A map pattern follows the rule too. Whether a key is present is data, so
 `%{"port" => p} = config` is refutable: it needs an `else`, a `case` or an
@@ -6161,7 +6278,7 @@ Line comments:
 Doc comments use triple-slash (`///`) and attach to the declaration that follows:
 
 ```nomi
-/// 64-bit integer.
+/// An integer of any size.
 host type Int
 
 /// Returns the absolute value of n.
@@ -6248,12 +6365,14 @@ Every literal of a built-in shape except a list starts with that shape's symbol:
 |---|---|---|---|---|
 | struct | `#{x: 1}` | `#Point{x: 1}`, `#geo.Point{x: 1}`, `#Shape.Circle{radius: 1.0}`, `#.Circle{radius: 1.0}` | `#{..p, x: 2}`, `#{.., x: 2}` | `#{x, y}`, `#Point{x, y}`, `#.Circle{radius}` |
 | tuple | `#(a, b)` | `#Pair(1, "x")` | | `#(a, b)`, `#Pair(a, b)` |
-| vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[..v, x]`, `#[x, ..v]`, `#[.., x]` | `#[first, ..rest]`, `#[.., last]`, `#[a, b]`, `#Path[a, ..]` |
-| list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[x, ..xs]`, `[x, ..]` | `[first, ..rest]`, `[a, b]` |
-| map | `%{"k" => v}`, `%{}` | `%Kvs{"k" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` | `%{..m, k => v}`, `%{.., k => v}` | `%{"k" => v}`, `%Kvs{"k" => v}` |
-| set | `%[1, 2]`, `%[]` | `%Tags["a"]` | `%[..s, x]`, `%[.., x]` | `%["admin", ..rest]`, `%["admin", ..]`, `%[1, 2]` |
+| vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[..v, x]`, `#[x, ..v, ..w]`, `#[.., x]` | `#[first, ..rest]`, `#[.., last]`, `#[a, b]`, `#Path[a, ..]` |
+| list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[x, ..xs]`, `[..xs, x, ..ys]`, `[x, ..]` | `[first, ..rest]`, `[a, b]` |
+| map | `%{"k" => v}`, `%{}` | `%Kvs{"k" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` | `%{..m, k => v}`, `%{k => v, ..m, ..n}`, `%{.., k => v}` | `%{"k" => v}`, `%Kvs{"k" => v}` |
+| set | `%[1, 2]`, `%[]` | `%Tags["a"]` | `%[..s, x]`, `%[x, ..s, ..t]`, `%[.., x]` | `%["admin", ..rest]`, `%["admin", ..]`, `%[1, 2]` |
 
 - A spread has no named form: the base already carries the type (`#Point{..q, x: 1}` is `struct spread \`..\` has no named form; write \`#{..base, field: value}\``).
+- A list, vector, set or anonymous map literal takes any number of `..` spreads, anywhere among its elements: `[1, ..xs, 2, ..ys]`, `%[..s, ..t]`, `%{"a" => 1, ..m, ..n}`. The literal is its parts joined in the order written. A list's and a vector's parts are concatenated, and a set's are unioned. A map's apply left to right: a later key replaces an earlier key's value and keeps the earlier key's position, as Map's `+` does, so `%{"a" => 0, ..m}` is `m` with a default for `"a"`, and `%{..m, "a" => 0}` is `m` with `"a"` replaced. Each spread must be a collection of the literal's own type (`set spread \`..\` requires a set, got List<Int>`; `map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>`). A vector, set or map literal of one spread and no element is that spread's value, and is the error `a set spread with no elements is its base value; write \`s\`` (or `vector`, `map`), while `%[..s, ..t]` joins two sets. The spreads are evaluated first, from left to right, then the elements from left to right. Each expression runs once.
+- A spread shares the collection it spreads, and costs only the elements added, where the collection allows it: a list's last spread when nothing follows it (`[x, ..xs]` puts `x` in front of `xs`), and a set's or map's first spread (`%[..s, x]` inserts `x` into `s`, and `%{..m, k => v}` puts `k` into `m`). Any other spread is copied, as `xs + [3]`, `Set.union` and Map's `+` copy: `[..xs, 3]` is O(n) in `xs`, and `%{"a" => 0, ..m}` merges all of `m`. A vector spread is one `Vector.concat` wherever it stands.
 - Types are written without a symbol, except a tuple's and an anonymous struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `#(Int, Int)`, `#{x: Int}`.
 - A plain `{` only opens a block, and a name followed by `{` never starts a literal. `Point{x: 1}`, `.Circle{radius: 1.0}`, `Kvs{"a" => 1}` and `Map{"a" => 1}` are parse errors, and `Vector[1]` and `Set[1]` are list literals naming a type that is not a list type.
 - A payload variant and a distinct type over a scalar are calls, not literals: `Some(1)`, `.Circle(2.0)`, `UserId(5)`.
@@ -6261,16 +6380,16 @@ Every literal of a built-in shape except a list starts with that shape's symbol:
 ### Membership: `Contains`
 
 Every collection answers "does it hold this value?" with one function name,
-`contains?`. The collections implement the prelude interface `Contains`
+`contains`. The collections implement the prelude interface `Contains`
 (`std/contains`):
 
 ```nomi
 interface Contains<T> {
-    fn contains?(c: self, x: T) -> Bool
+    fn contains(c: self, x: T) -> Bool
 }
 ```
 
-| Implementor | `contains?(c, x)` is true when | Cost |
+| Implementor | `contains(c, x)` is true when | Cost |
 |---|---|---|
 | `Set<T>` | `x` is a member | hash lookup |
 | `Map<K, V>`, at its key type `K` | `x` is a key; a value is not a key | hash lookup |
@@ -6284,40 +6403,40 @@ interface Contains<T> {
 
 `String` implements `Contains` at three type arguments, and a call takes the
 one its argument's type chooses (§*Several instantiations for one type*):
-`String.contains?(s, "x")`, `` Contains.contains?(s, Regex`\d`) `` and
-`String.contains?(s, '-')` are three impls. `Iter` answers membership under the
-same name without implementing `Contains`: `Iter.contains?(source, x)`, where
+`String.contains(s, "x")`, `` Contains.contains(s, Regex`\d`) `` and
+`String.contains(s, '-')` are three impls. `Iter` answers membership under the
+same name without implementing `Contains`: `Iter.contains(source, x)`, where
 `T: Equatable`, scans any iterable, a lazy pipeline included (§*`std/iter`*).
 
 ```nomi
-Set.contains?(%["admin"], "admin") // True
+Set.contains(%["admin"], "admin") // True
 
-Map.contains?(%{"a" => 1}, "a") // True
+Map.contains(%{"a" => 1}, "a") // True
 
-Map.contains?(%{"a" => 1}, 1) // compile error: 1 is not a key type
+Map.contains(%{"a" => 1}, 1) // compile error: 1 is not a key type
 
-Range.contains?(1..5, 5) // False: the end is excluded
+Range.contains(1..5, 5) // False: the end is excluded
 
-List.contains?([1, 2, 3], 2) // True
+List.contains([1, 2, 3], 2) // True
 
-String.contains?("a-b", '-') // True
+String.contains("a-b", '-') // True
 
-Iter.contains?(Iter.from(0), 1_000) // True, and stops there
+Iter.contains(Iter.from(0), 1_000) // True, and stops there
 ```
 
-A linear scan stops at its first match, so `Iter.contains?` ends on an
+A linear scan stops at its first match, so `Iter.contains` ends on an
 infinite source that holds `x`. It compares each element with `==`: a struct
 with a hand-written `impl Equatable` is compared by it, and every other value
 in the runtime, with no Nomi call per element. Float equality is reflexive
-(§*Float Special Values*), so `List.contains?([Float.nan()], Float.nan())` is
-`True` and `List.contains?([0.0], -0.0)` is `True`, as for a `Set` or a `Map`
+(§*Float Special Values*), so `List.contains([Float.nan()], Float.nan())` is
+`True` and `List.contains([0.0], -0.0)` is `True`, as for a `Set` or a `Map`
 key. For repeated lookups in a `List`, `Vector` or `Bytes`, build a `Set` once.
 
 A generic function takes any implementor with a bound:
 
 ```nomi
 fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
-    Iter.all?(wanted, &C.contains?(c, &1))
+    Iter.all(wanted, &C.contains(c, &1))
 }
 ```
 
@@ -6339,11 +6458,11 @@ numbers = [1, 2, 3, 4, 5]
 - Literal syntax: `[1, 2, 3]`
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new lists
-- `List.contains?(xs, x)` is the `Contains` impl, a linear scan (§*Membership: `Contains`*)
-- `List.remove_at(xs, i)` is the list without its element at index `i`, and traps on an index outside the list as `Vector.at` does; `List.remove(xs, x)` is the list without its first element `==` to `x`. Both are O(n)
-- `..tail` after a comma spreads (cons): `[item, ..list]` is O(1), supports structural sharing. The spread must be the last element (`list spread ".." must be the last element`), because cons cells make prepending O(1) and appending O(n). The spread must be a list, since the heads are consed onto it: an `Iter`, a range or any other collection is the error ``list spread `..` requires a list, got Iter<Int>``, whose help names `Iter.to_list` (`[heading, ..Iter.to_list(lines)]`). The struct-update spread (§7) must be *first* instead; the rules differ because a list's is about representation and a record's is about notation.
-- At a field or key of an update, a bare `..` tail is the list already there: `#{..account, log: [t, ..]}` puts `t` in front of the old `log` (§7 *Nested updates*). A missing map key starts from `[]`.
-- A spread construction evaluates its tail first, then its head expressions from left to right. Each expression runs once. A plain list literal evaluates its elements from left to right.
+- `List.contains(xs, x)` is the `Contains` impl, a linear scan (§*Membership: `Contains`*)
+- `List.remove_at(xs, i)` is the list without its element at index `i`, and traps on an index outside the list as `Vector.set` does; `List.remove(xs, x)` is the list without its first element `==` to `x`. Both are O(n)
+- `..xs` spreads a list into a list literal, anywhere and any number of times (*Literal forms*): `[item, ..list]` conses `item` onto `list`, O(1) with structural sharing, while `[..list, item]` and `[..a, ..b]` copy every list but a last spread, as `list + [item]` does. A list pattern may have elements after its `..` (List Destructuring). A spread must be a list: an `Iter`, a range or any other collection is the error ``list spread `..` requires a list, got Iter<Int>``, whose help names `Iter.to_list` (`[heading, ..Iter.to_list(lines)]`).
+- At a field or key of an update, a bare `..` is the list already there: `#{..account, log: [t, ..]}` puts `t` in front of the old `log`, and `[.., t]` puts it at the end (§7 *Nested updates*). A missing map key starts from `[]`.
+- A literal with spreads evaluates its spreads first, from left to right, then its elements from left to right. Each expression runs once. A plain list literal evaluates its elements from left to right.
 - Works in both construction and pattern matching:
   ```nomi
   list = [1, ..[2, ..[3, ..[]]]] // [1, 2, 3]
@@ -6357,7 +6476,7 @@ numbers = [1, 2, 3, 4, 5]
 
 #### List Operations
 
-`List`'s owner API is small: it carries only the ops that read or rebuild a `List`'s cons structure (`head`, `tail`, `concat`, `next_item`), the `Contains` impl (`contains?`), and the `Iter` protocol (`each_while`, `known_count`). **Every generic operation — transform, filter, reduce, sort, count, index access — is an `Iter` owner function** over any `Iter<T>`, and a `List` is an `Iter<T>`. The adapters are lazy and fuse; end a chain with `Iter.to_list()` to materialize a `List` back (one allocation, at the visible step):
+`List`'s owner API is small: it carries only the ops that read or rebuild a `List`'s cons structure (`head`, `tail`, `concat`, `next_item`), the `Contains` impl (`contains`), and the `Iter` protocol (`each_while`, `known_count`). **Every generic operation — transform, filter, reduce, sort, count, index access — is an `Iter` owner function** over any `Iter<T>`, and a `List` is an `Iter<T>`. The adapters are lazy and fuse; end a chain with `Iter.to_list()` to materialize a `List` back (one allocation, at the visible step):
 
 ```nomi
 names = ["Alice", "Bob"]
@@ -6384,7 +6503,7 @@ fn head(list: List<T>) -> Maybe<T>          // first element (cons-list idiom)
 fn tail(list: List<T>) -> Maybe<List<T>>    // all but the first
 fn concat(a: List<T>, b: List<T>) -> List<T>
 fn next_item(list: List<T>) -> Maybe<#(T, List<T>)> // head and tail together
-fn contains?(c: List<T>, x: T) -> Bool where T: Equatable // Contains impl; linear scan
+fn contains(c: List<T>, x: T) -> Bool where T: Equatable // Contains impl; linear scan
 ```
 
 Plus the `Iter` protocol — `each_while`, and `known_count` (O(1), read from the cached length). Everything else is generic and lives on `Iter`:
@@ -6394,7 +6513,7 @@ Iter.count(xs) // O(1) via known_count
 
 Iter.first(xs) / Iter.last(xs) / Iter.get(xs, i)
 
-Iter.empty?(xs) / Iter.not_empty?(xs)
+Iter.is_empty(xs) / !Iter.is_empty(xs)
 
 Iter.reverse(xs) // → List
 
@@ -6420,7 +6539,7 @@ Iter.scan(xs, f, from: start) / Iter.map_reduce(xs, fn acc = start, x -> #(out, 
 
 Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 
-Iter.any?(xs, p) / Iter.all?(xs, p) / Iter.contains?(xs, x)
+Iter.any(xs, p) / Iter.all(xs, p) / Iter.contains(xs, x)
 
 Iter.sort(xs) / Iter.sort_by(xs, key) / Iter.sort_with(xs, cmp)
 
@@ -6448,32 +6567,29 @@ empty: Vector<Int> = #[]
   not a list type, an error
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new vectors
-- `Vector.get`, `Vector.at`, `Vector.push`, `Vector.set`, `Vector.concat`,
-  `Vector.length` and `Vector.contains?` (the `Contains` impl, a linear scan)
+- `Vector.get`, `Vector.push`, `Vector.set`, `Vector.concat`,
+  `Vector.length` and `Vector.contains` (the `Contains` impl, a linear scan)
   are container-specific operations. Converting is `Iter`'s
   job: `Iter.to_list(v)` and `Iter.to_vector(xs)`
 - Indexes start at 0. `Vector.get(v, i)` answers `None` for an index outside
-  `0 <= i < length`; `Vector.at(v, i)` returns the element and traps on such an
-  index, and so does `Vector.set(v, i, x)`, which returns the new vector. The
-  trap reads `line 9: index 7 is out of range for a Vector of length 5`, at the
-  line of the call. Use `get`
-  when the index comes from data and may miss, and `at` and `set` when the
+  `0 <= i < length`, and `Vector.get(v, i)!` (§5 *Unwrapping with `!`*) answers the
+  element and traps on such an index:
+  ``line 9: `Vector.get(v, 7)` found nothing``. `Vector.set(v, i, x)`
+  returns the new vector and traps on such an index too:
+  `line 9: index 7 is out of range for a Vector of length 5`. Use `get` when
+  the index comes from data and may miss, and `get(...)!` and `set` when the
   program guarantees it (§17 *Traps, `Maybe` and `Result`*)
 - `#[..v, x]` is `Vector.concat(v, #[x])` and `#[x, ..v]` is
-  `Vector.concat(#[x], v)`, written as a literal. A vector takes its spread at
-  either end, since appending and prepending are both a concatenation; a list
-  takes it last (`[x, ..xs]`) and a map or set first (`%{..m, k => v}`,
-  `%[..s, x]`). One spread per literal: a `..` between elements is `vector
-  spread ".." must be the first or the last element`, and a second spread
-  (`#[..a, ..b]`) is `a vector literal takes one spread ".."; join two vectors
-  with \`Vector.concat\``, since `Vector.concat(a, b)` already says it. The
-  spread must be a vector (`vector spread ".." requires a vector, got
-  List<String>`, whose help names `Iter.to_vector`), each element has its
-  element type, with the coercions a vector literal's elements take, and an
-  empty `#[]` spread takes the elements' type. A spread with no elements is
-  `a vector spread with no elements is its base value; write \`v\``. The
-  spread is evaluated first, then the elements from left to right, as in a
-  list spread. At a field or key of an update the spread may be a bare `..`,
+  `Vector.concat(#[x], v)`, written as a literal. A vector takes spreads
+  anywhere, any number of them, as every collection literal does (*Literal
+  forms*): `#[..a, x, ..b]` joins `a`, `#[x]` and `b`. A spread must be a
+  vector (`vector spread ".." requires a vector, got List<String>`, whose
+  help names `Iter.to_vector`), each element has its element type, with the
+  coercions a vector literal's elements take, and an empty `#[]` spread takes
+  the elements' type. A spread with no elements is `a vector spread with no
+  elements is its base value; write \`v\``. The spreads are evaluated
+  first, then the elements from left to right, as in a list. At a field or
+  key of an update a spread may be a bare `..`,
   the vector already there (§7 *Nested updates*): `#[.., x]` is
   `Vector.concat(old, #[x])` and `#[x, ..]` is `Vector.concat(#[x], old)`. A
   missing map key starts from `#[]`.
@@ -6506,18 +6622,18 @@ empty: Set<String> = %[]
   with none, its binding needs an annotation
 - Homogeneous — all elements must be the same type
 - Immutable — operations return new sets
-- `Set.insert`, `Set.remove`, `Set.contains?` (the `Contains` impl, a hash
-  lookup), `Set.union`, `Set.intersection`, `Set.difference`, `Set.subset?`,
+- `Set.insert`, `Set.remove`, `Set.contains` (the `Contains` impl, a hash
+  lookup), `Set.union`, `Set.intersection`, `Set.difference`, `Set.is_subset`,
   and `Set.size` are container-specific operations
 - `a + b` is `Set.union(a, b)` and `a - b` is `Set.difference(a, b)`; both
   operands are sets, so one element is `s + %[x]`
-- `%[..s, x]` is `Set.union(s, %[x])` written as a literal: one spread, first,
-  as a map update's (`set spread ".." must be the first element`), so the
-  base's elements keep their places and new ones follow. The spread goes
-  first because `%[..s, x]` is one insert into `s`, while putting elements
-  before an existing set would rebuild it; write `Set.union(%[x], s)` for that
-  order. It requires a set
-  (`set spread ".." requires a set, got List<Int>`) and at least one element
+- `%[..s, x]` is `Set.union(s, %[x])` written as a literal, so the base's
+  elements keep their places and new ones follow. A set takes spreads
+  anywhere, any number of them (*Literal forms*): `%[x, ..s, ..t]` is the
+  union of `%[x]`, `s` and `t` in that order. A first spread is shared, so
+  `%[..s, x]` is one insert into `s`, while `%[x, ..s]` builds a new set. A
+  spread requires a set (`set spread ".." requires a set, got List<Int>`),
+  and a literal of one spread needs an element
   (`a set spread with no elements is its base value; write \`s\``). At a field
   or key of an update, the bare `%[.., x]` adds to the set already there (§7
   *Nested updates*); a missing map key starts from `%[]`
@@ -6544,19 +6660,19 @@ updated = Map.merge(ages, %{"Alice" => 31, "Bob" => 26}) // new map with values 
 - Literal syntax: `%{key => value}`. The empty map is `%{}`, which takes its key and value types from the expected type; there is no empty constructor. A map-distinct type or a map-payload variant writes its name after the `%`: `%Kvs{"a" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` (§15 *Distinct Types Over Tuples and Maps*).
 - `%{` and `%Name{` always open a map literal and `#{` and `#Name{` a struct literal, so `%Kvs{}` is always the empty map and `#Point{}` always a struct. A plain `{` is a block, never a map, and a name followed by `{` never starts a literal (`Map{"a" => 1}` is a parse error). Where an operand begins, `%{`, `%[` and `%Name` start a literal, written with no space after the `%`; after an operand, `%` is the remainder operator (`a % b`).
 - Keys are always expressions — string literals require quotes, bare identifiers are evaluated as variables, and any keyable value works (tuples, variants, lists, structs, distinct types), not just scalars
-- `Map.get` returns `Maybe` since key might not exist. `Map.at` returns the value itself and traps on a missing key (`line 9: key "z" is not in the Map`), for a key the program guarantees is there (§17 *Traps, `Maybe` and `Result`*)
+- `Map.get` returns `Maybe` since key might not exist. For a key the program guarantees is there, `Map.get(m, k)!` (§5 *Unwrapping with `!`*) answers the value itself and traps on a missing key: ``line 9: `Map.get(m, "z")` found nothing`` (§17 *Traps, `Maybe` and `Result`*)
 - `Map.put` adds a single key-value pair, `Map.merge` combines two maps (second map wins on conflicts)
 - `a + b` is `Map.merge(a, b)`; both operands are maps, so one entry is `m + %{k => v}`. There is no `Map - Map`
 - Operations return new maps
 - Maps iterate in insertion order. `Map.put(m, k, v)` appends the entry at the end when `k` is new, or preserves position when `k` already exists (only the value is updated). `Map.merge(a, b)` preserves `a`'s order, then appends any new keys from `b` in `b`'s order.
-- `%{..m, k => v}` is `Map.merge(m, %{k => v})`, written as a literal (see *Map update by spread* below)
+- `%{..m, k => v}` is `Map.merge(m, %{k => v})`, written as a literal, and a map literal takes spreads anywhere (see *Map update by spread* below)
 
 ```nomi
 %{"name" => "Alice"} // string literal key
 
 %{key => "Alice"} // variable key — evaluates key
 
-%{String.to_lower(k) => "Alice"} // any expression as key
+%{String.lowercase(k) => "Alice"} // any expression as key
 
 %{#(1, 2) => "origin"} // composite key — tuple
 
@@ -6567,7 +6683,7 @@ updated = Map.merge(ages, %{"Alice" => 31, "Bob" => 26}) // new map with values 
 
 #### Map update by spread
 
-`%{..base, key => value}` is `Map.merge(base, %{key => value})` written as a literal: the base's entries, then the literal's, a literal key replacing the base's value and keeping its position, a new key appended in the order written.
+`%{..base, key => value}` is `Map.merge(base, %{key => value})` written as a literal: the base's entries, then the literal's, a literal key replacing the base's value and keeping its position, a new key appended in the order written. Spreads may stand anywhere among the entries, any number of them, and the parts apply left to right, a later key winning: `%{"theme" => "light", ..prefs}` is `prefs` with a default theme, and `%{..defaults, ..prefs}` is `defaults + prefs`.
 
 ```nomi
 defaults = %{"theme" => "light", "font" => "mono"}
@@ -6578,9 +6694,8 @@ prefs = %{..defaults, "theme" => "dark", "size" => "12"}
 
 The rules mirror the struct spread's (§7 *Struct update by spread*):
 
-- **Exactly one spread, and it is the first element.** A spread after an entry, or a second spread, is `map spread \`..\` must be the first element`.
-- **At least one entry follows it.** `%{..m}` is `a map spread with no entries is its base value; write \`m\``.
-- **The result has the base's type.** The base must be a `Map<K, V>` (`map spread \`..\` requires a map, got Point` otherwise), and each entry's key must be a `K` and its value a `V`, with the coercions any map literal's entries get from an expected type: `None` for a `Maybe<V>`, `[]` for a `List<T>`. A key or value of the wrong type is `map spread key type mismatch: expected String, got Int` (or `value`). A base whose types are still open, such as `%{}`, takes them from the entries: `%{..%{}, "a" => 1}` is a `Map<String, Int>`.
+- **A literal of one spread has an entry.** `%{..m}` is `a map spread with no entries is its base value; write \`m\``.
+- **The result has the first spread's type.** Each spread must be a `Map<K, V>` (`map spread \`..\` requires a map, got Point` otherwise), of one type (`map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>`), and each entry's key must be a `K` and its value a `V`, with the coercions any map literal's entries get from an expected type: `None` for a `Maybe<V>`, `[]` for a `List<T>`. A key or value of the wrong type is `map spread key type mismatch: expected String, got Int` (or `value`). A base whose types are still open, such as `%{}`, takes them from the entries: `%{..%{}, "a" => 1}` is a `Map<String, Int>`.
 - **A key may repeat the base's; it may not repeat the literal's.** Replacing a base key is the point of the form, but two equal constant keys among the literal's entries are the error *Repeated keys* below describes.
 
 **An entry replaces the value at its key whole**, even when that value is itself a map, unless the value is written with a bare `..` (§7 *Nested updates*). The `..` stands for the value already at the key, so only the entries or fields written change; where the base lacks the key, it starts from an empty collection or builds a struct from its field defaults:
@@ -6674,9 +6789,11 @@ fn at(m: Map<K, V>, key: K) -> V                  // traps on a missing key
 fn put(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 fn remove(m: Map<K, V>, key: K) -> Map<K, V>
 fn merge(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
+fn merge_with(a: Map<K, V>, b: Map<K, V>, combine: (V, V) -> V) -> Map<K, V>   // combine(a_value, b_value) on a shared key
+fn update(m: Map<K, V>, key: K, default: V, f: (V) -> V) -> Map<K, V>   // f of the value, or of default when key is missing
 fn keys(m: Map<K, V>) -> List<K>
 fn values(m: Map<K, V>) -> List<V>
-fn contains?(c: Map<K, V>, x: K) -> Bool          // Contains<K> impl: x is a key
+fn contains(c: Map<K, V>, x: K) -> Bool          // Contains<K> impl: x is a key
 fn size(m: Map<K, V>) -> Int                       // O(1); the generic count is Iter.count
 fn map_next(m: Map<K, V>) -> Maybe<#(#(K, V), Map<K, V>)> // first entry and the rest
 
@@ -6699,7 +6816,7 @@ ages
 
 ### Range
 
-A comparable range, written with `..` (half-open) or `..=` (closed). Both forms require a left and right operand of the same `Comparable` type (see §32 Ranges). Unbounded ranges are integer-only and built with `Range.from(n)` / `Range.naturals()`. `Range<T>` implements `Iter<T>` when `T` also implements `Discrete`, so `Int` and `Codepoint` ranges work with `Iter` owner functions without allocating a list; ranges over successor-less types like `String`, `Float`, and `Decimal` are interval values for queries like `Range.contains?`.
+A comparable range, written with `..` (half-open) or `..=` (closed). Both forms require a left and right operand of the same `Comparable` type (see §32 Ranges). Unbounded ranges are integer-only and built with `Range.from(n)` / `Range.naturals()`. `Range<T>` implements `Iter<T>` when `T` also implements `Discrete`, so `Int` and `Codepoint` ranges work with `Iter` owner functions without allocating a list; ranges over successor-less types like `String`, `Float`, and `Decimal` are interval values for queries like `Range.contains`.
 
 ```nomi
 Iter.known_count(1..5) // Some(4)
@@ -6708,11 +6825,11 @@ Iter.known_count(1..=5) // Some(5)
 
 Iter.known_count(Range.from(1)) // None — unbounded
 
-Range.contains?(1..5, 3) // True
+Range.contains(1..5, 3) // True
 
-Range.contains?("a".."m", "h") // True
+Range.contains("a".."m", "h") // True
 
-Range.contains?(1.25d..=2.50d, 1.50d) // True
+Range.contains(1.25d..=2.50d, 1.50d) // True
 
 Iter.to_list(1..5) // [1, 2, 3, 4]
 
@@ -6731,14 +6848,14 @@ Range.from(1) |> Iter.take(5) |> Iter.to_list() // [1, 2, 3, 4, 5]
 #### Range functions (container-specific)
 
 ```nomi
-fn contains?(c: Range<T>, x: T) -> Bool    // Contains impl: two comparisons
-fn bounded?<T>(r: Range<T>) -> Bool
+fn contains(c: Range<T>, x: T) -> Bool    // Contains impl: two comparisons
+fn is_bounded<T>(r: Range<T>) -> Bool
 fn from(n: Int) -> Range<Int>              // unbounded ascending from n
 fn naturals() -> Range<Int>                // unbounded from 0
-fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S>
+fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S>   // down from the start when by moves it down
 ```
 
-Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete`: `Iter.known_count(r)` reports `Some(n)` for bounded discrete ranges that can count steps and `None` for an unbounded one (the safe, non-consuming bounded count). Everything else is generic over iterables — materialize with `Iter.to_list(r)` (traps on an unbounded range, which is `Iter.infinite?`; bound with `Iter.take` first), count with `Iter.count(r)`.
+Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete`: `Iter.known_count(r)` reports `Some(n)` for bounded discrete ranges that can count steps and `None` for an unbounded one (the safe, non-consuming bounded count). Everything else is generic over iterables — materialize with `Iter.to_list(r)` (traps on an unbounded range, which is `Iter.is_infinite`; bound with `Iter.take` first), count with `Iter.count(r)`.
 
 ### Iter Interface
 
@@ -6757,19 +6874,19 @@ interface Iter<T> {
 
     // True if this iterator never ends on its own, so a terminal that must
     // reach its end could never answer. False means it may end.
-    open fn infinite?(_collection: self) -> Bool {
+    open fn is_infinite(_collection: self) -> Bool {
         False
     }
 }
 ```
 
-`each_while` walks the collection and pushes each element to `yield`; returning `False` from `yield` asks the source to stop, and `each_while` itself answers `True` when the source ran out and `False` when a consumer stopped it. That single Bool is the whole early-termination mechanism: `Iter.take(3)` over an infinite source stops it by refusing a fourth element, and `find`/`any?`/`all?`/`first` stop at the first decisive one. Because `each_while` reads a value it never mutates, Nomi iterators are replayable. An `Iter<T>` is an ordinary value: a binding, a parameter or result, a struct field, a tuple or record part, a `Some`/`Ok` or enum payload, a list element and a closure capture can all hold one. Holding it runs nothing, and each consumer runs it from its start, so a field read twice with `Iter.to_list` yields the same list twice. Any source can enter a position declared `Iter<T>` — a `List`, `Vector`, `Set`, `Map`, `String`, `Bytes`, range or a user type that implements `Iter` — and it keeps its own `known_count` there: `Iter.known_count(xs)` for an `xs: Iter<Int>` holding `[1, 2, 3]` is `Some(3)`. `List`, `Vector`, `Map`, `String` (via the grapheme iterator), and ranges over `Discrete` values all implement `Iter<T>` — so they feed the `Iter` owner functions directly. `List`/`Vector`/`Map`/`Set` and bounded ranges whose element type can count steps override `known_count`; everything else inherits the `None` default.
+`each_while` walks the collection and pushes each element to `yield`; returning `False` from `yield` asks the source to stop, and `each_while` itself answers `True` when the source ran out and `False` when a consumer stopped it. That single Bool is the whole early-termination mechanism: `Iter.take(3)` over an infinite source stops it by refusing a fourth element, and `find`/`any`/`all`/`first` stop at the first decisive one. Because `each_while` reads a value it never mutates, Nomi iterators are replayable. An `Iter<T>` is an ordinary value: a binding, a parameter or result, a struct field, a tuple or record part, a `Some`/`Ok` or enum payload, a list element and a closure capture can all hold one. Holding it runs nothing, and each consumer runs it from its start, so a field read twice with `Iter.to_list` yields the same list twice. Any source can enter a position declared `Iter<T>` — a `List`, `Vector`, `Set`, `Map`, `String`, `Bytes`, `Maybe`, range or a user type that implements `Iter` — and it keeps its own `known_count` there: `Iter.known_count(xs)` for an `xs: Iter<Int>` holding `[1, 2, 3]` is `Some(3)`. `List`, `Vector`, `Map`, `String` (via the grapheme iterator), and ranges over `Discrete` values all implement `Iter<T>` — so they feed the `Iter` owner functions directly. `List`/`Vector`/`Map`/`Set`/`Maybe` and bounded ranges whose element type can count steps override `known_count`; everything else inherits the `None` default.
 
-**Infinite iterators.** `infinite?` says that an iterator never ends. `Iter.repeat`, `Iter.from`, `Iter.iterate` (whose step cannot `break`), `Range.from` and `Range.naturals` (unless the start is within 2^48 of `Int.max_value`, where the range ends), `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle` of a source that is infinite or knows a non-zero count answer `True`; a user type answers `False` unless its `impl Iter` writes `infinite?`. The adapters carry the answer when the pipeline is built, so it costs nothing per element:
+**Infinite iterators.** `is_infinite` says that an iterator never ends. `Iter.repeat`, `Iter.from`, `Iter.iterate` (whose step cannot `break`), `Range.from` and `Range.naturals` (an Int has no largest value, so they never end), `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle` of a source that is infinite or knows a non-zero count answer `True`; a user type answers `False` unless its `impl Iter` writes `is_infinite`. The adapters carry the answer when the pipeline is built, so it costs nothing per element:
 
 | Adapter | Infinite when |
 |---|---|
-| `map`, `filter`, `drop`, `drop_while`, `with_index`, `scan`, `chunk_by`, `flat_map` | the source is, unless the callback can `break` |
+| `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `flat_map` | the source is, unless the callback can `break` |
 | `chunks(n)` | the source is and `n > 0` |
 | `cycle` | the source is, or knows a count above zero |
 | `concat(a, b)` | either is |
@@ -6778,13 +6895,13 @@ interface Iter<T> {
 
 `filter` of an infinite source stays infinite even when nothing passes, since driving it to its end never finishes either way. `flat_map` is infinite only through its outer source: an inner iterator is not known until it runs. When in doubt the answer is `False`, so a pipeline that might end is never refused. `Iter.take(n)` also answers `known_count`: `n` over an infinite source, and the lesser of `n` and the source's count when it has one.
 
-A terminal that has to reach the end of its source asks `infinite?` before taking anything from it and traps on `True` (§17 *Traps, `Maybe` and `Result`*), naming the terminal the program called and the source that never ends, at the program's own line:
+A terminal that has to reach the end of its source asks `is_infinite` before taking anything from it and traps on `True` (§17 *Traps, `Maybe` and `Result`*), naming the terminal the program called and the source that never ends, at the program's own line:
 
 ```text
 line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 ```
 
-Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `transpose`, `permutations`, `combinations`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any?`, `all?`, `contains?`, `get`, `empty?`, `not_empty?`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `infinite?`, a `take_while` whose predicate never fails) still runs until it is stopped.
+Those terminals are `to_list`, `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`, `transpose`, `permutations`, `combinations`, `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`, `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their callback cannot `break`. The terminals that may stop early do not trap: `first`, `find`, `any`, `all`, `contains`, `get`, `is_empty`, `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback can `break`. An iterator that never ends without saying so (a user type that does not write `is_infinite`, a `take_while` whose predicate never fails) still runs until it is stopped.
 
 When the whole pipeline is written where the terminal is, the checker reports the trap as a compile error instead, with the same words, at the terminal and naming the source:
 
@@ -6796,7 +6913,7 @@ fn coins(coin: Int) -> List<Int> {
 }
 ```
 
-It follows the rules above through pipes, nested calls (`Iter.to_list(Iter.map(Iter.from(0), f))`) and local bindings whose value is such a pipeline, through any number of them (`xs = Iter.from(0)`, then `ys = Iter.map(xs, f)`, then `Iter.sum(ys)`). It reads only what the source spells: a `Range.from` whose start is an `Int` literal at least 2^48 below `Int.max_value`, negative included, `Range.step_by` of such a `Range.from` starting between -2^60 and 2^60, or of `Range.naturals`, by a literal step between -1024 and 1024 other than 0, `Iter.chunks` with a literal size above 0, and `Iter.cycle` of an infinite source or of a non-empty list, vector, set or map literal. A callback with `break` or `continue` in it, or one it cannot see into, ends the analysis, as `take` and `take_while` do. A parameter, a field, a `once`, a function's result and a user `impl Iter` are not followed, and the runtime trap still catches them. The language server offers to put `|> Iter.take(todo)` before such a pipe stage.
+It follows the rules above through pipes, nested calls (`Iter.to_list(Iter.map(Iter.from(0), f))`) and local bindings whose value is such a pipeline, through any number of them (`xs = Iter.from(0)`, then `ys = Iter.map(xs, f)`, then `Iter.sum(ys)`). It reads only what the source spells: a `Range.from`, `Range.step_by` of a `Range.from` or of `Range.naturals` by a literal step other than 0, `Iter.chunks` with a literal size above 0, and `Iter.cycle` of an infinite source or of a non-empty list, vector, set or map literal. A callback with `break` or `continue` in it, or one it cannot see into, ends the analysis, as `take` and `take_while` do. A parameter, a field, a `once`, a function's result and a user `impl Iter` are not followed, and the runtime trap still catches them. The language server offers to put `|> Iter.take(todo)` before such a pipe stage.
 
 Implementing it means walking your own structure and stopping as soon as `yield` says to:
 
@@ -6831,19 +6948,19 @@ Nomi separates iteration by one rule:
 > **Generic over any iterable → `Iter.X`. Specific to a container's structure → that container's owner.**
 
 1. **Generic ops** live on `Iter` over any `Iter<T>` — every transform, filter, reduce, sort, count, index access, and materializer. The adapters (`map`/`filter`/`take`/…) are lazy: each returns a new iterator so pipelines fuse without building intermediate collections. The terminals (`reduce`/`find`/`sort`/`count`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) consume the iterator. Strings are joined with `String.join`, which takes any `Iter<String>`.
-2. **Container-specific ops** stay on the container owner — exactly the work a generic adapter can't express because it reads or rebuilds the container's structure: `Map.map_values`/`map_keys`/`merge`/`get`/`at`/`put`/`size`, `Set.union`/`intersection`/`difference`/`insert`/`size`, `List.concat`/`head`/`tail`/`remove_at`/`remove`, `Vector.get`/`at`/`push`/`set`/`concat`/`length`, `String.split`/`replace`/`slice`/`join`, native `String.reverse`.
+2. **Container-specific ops** stay on the container owner — exactly the work a generic adapter can't express because it reads or rebuilds the container's structure: `Map.map_values`/`map_keys`/`merge`/`get`/`put`/`size`, `Set.union`/`intersection`/`difference`/`insert`/`size`, `List.concat`/`head`/`tail`/`remove_at`/`remove`, `Vector.get`/`push`/`set`/`concat`/`length`, `String.split`/`replace`/`slice`/`join`, native `String.reverse`.
 
 There are **no eager collection-adapter functions** (`List.map`, `Set.filter`, … don't exist): to get a container back from a chain, append an explicit materialize step — `Iter.map(xs, f) |> Iter.to_list()`, `Iter.filter(s, p) |> Iter.to_set()`. The cost (one allocation) is then visible at the call site.
 
 ### `std/iter`
 
-The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the two `open` defaults `known_count` (`Maybe<Int>`; `None` unless a type stores its size) and `infinite?` (`Bool`; `False` unless the source never ends). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
+The `std/iter` file hosts the `Iter<T>` interface and its owner functions. The protocol surface is only `each_while` (required) and the two `open` defaults `known_count` (`Maybe<Int>`; `None` unless a type stores its size) and `is_infinite` (`Bool`; `False` unless the source never ends). Every generic iteration op lives on `Iter`, reached `Iter.X(...)`:
 
 - **Adapters** (lazy, return `Iter<...>` — one closure over the upstream's push loop, allocated when the chain is built rather than rebuilt per element, so pipelines fuse): `map`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`/`chunks`/`chunk_by`.
-- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any?`/`all?`/`contains?`/`empty?`/`not_empty?`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
+- **Terminals** (consume, produce a scalar): `reduce`/`find`/`each`/`any`/`all`/`contains`/`is_empty`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`sort_with`/`partition`/`group_by`/`frequencies`.
 - **Materializers / constructors** (consume or seed): `to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`/`from`/`repeat`/`iterate`.
 
-Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while`, `Iter.known_count` and `Iter.infinite?`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it traps on an infinite source (*Infinite iterators* above) — bound it with `Iter.take(n)` first.
+Because they're owner functions, `Iter.map` / `Iter.reduce` are not dispatch calls — the protocol functions remain `Iter.each_while`, `Iter.known_count` and `Iter.is_infinite`. `Iter.count` is O(1) on any source that stores or can compute its count (`List`/`Vector`/`Map`/`Set`/`Maybe`/bounded countable ranges, via `known_count`) and an O(n) fold otherwise; like every full-consuming terminal it traps on an infinite source (*Infinite iterators* above) — bound it with `Iter.take(n)` first.
 
 **Infinite constructors** (return iterators, consume nothing):
 
@@ -6866,6 +6983,7 @@ fn drop(source: Iter<T>, n: Int) -> Iter<T>
 fn drop_while(source: Iter<T>, f: (T) -> Bool) -> Iter<T>
 fn cycle(source: Iter<T>) -> Iter<T>
 fn concat(a: Iter<T>, b: Iter<T>) -> Iter<T>
+fn intersperse(source: Iter<T>, separator: T) -> Iter<T>   // separator between each two neighbours
 fn with_index(source: Iter<T>) -> Iter<#(Int, T)>
 fn zip<A, B>(a: Iter<A>, b: Iter<B>) -> Iter<#(A, B)>
 fn chunks(source: Iter<T>, size: Int) -> Iter<List<T>>
@@ -6881,11 +6999,11 @@ fn map_reduce<T, U, A>(source: Iter<T>, f: (A, T) -> #(U, A)) -> #(List<U>, A)  
 fn each(source: Iter<T>, f: (T) -> Unit) -> Unit
 fn find(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>
 fn find_index(source: Iter<T>, f: (T) -> Bool) -> Maybe<Int>   // index of the first match; stops there
-fn any?(source: Iter<T>, f: (T) -> Bool) -> Bool
-fn all?(source: Iter<T>, f: (T) -> Bool) -> Bool
-fn contains?<T>(source: Iter<T>, x: T) -> Bool where T: Equatable   // an element == x; stops at the first
-fn empty?(source: Iter<T>) -> Bool
-fn not_empty?(source: Iter<T>) -> Bool
+fn find_map<T, U>(source: Iter<T>, f: (T) -> Maybe<U>) -> Maybe<U>   // the first Some f gives; stops there
+fn any(source: Iter<T>, f: (T) -> Bool) -> Bool
+fn all(source: Iter<T>, f: (T) -> Bool) -> Bool
+fn contains<T>(source: Iter<T>, x: T) -> Bool where T: Equatable   // an element == x; stops at the first
+fn is_empty(source: Iter<T>) -> Bool
 fn first(source: Iter<T>) -> Maybe<T>
 fn last(source: Iter<T>) -> Maybe<T>
 fn get(source: Iter<T>, index: Int) -> Maybe<T>   // O(index); None past the end
@@ -6929,16 +7047,14 @@ To join an `Iter<String>` into one `String`, use `String.join(parts, separator)`
 
 `Iter.sum(xs)` adds the elements with `+`, left to right, from
 `T.empty_sum()`, so it is `Iter.reduce(xs, fn total = T.empty_sum(), x -> total +
-x)` exactly, Float rounding included, and an Int total past the Int range traps
-as `+` does. Its bound is `where T: Add<T, T> and Summable` (§22), so an empty
+x)` exactly, Float rounding included. Its bound is `where T: Add<T, T> and Summable` (§22), so an empty
 source sums to the type's empty sum, and a type without the two impls is a
 compile error at the call: `Iter.sum([True])` reports `` Bool does not implement
 Summable (required by `where T: Summable`) ``. Summing Maps follows Map's `+`:
 a later map wins on a shared key.
 `Iter.product(xs)` is the same fold over `*` from `T.empty_product()`,
 bounded by `where T: Multiply<T, T> and Productable`: `Iter.product([2, 3,
-4])` is 24, an empty source gives the type's empty product, and an Int product
-past the Int range traps as `*` does.
+4])` is 24, and an empty source gives the type's empty product.
 
 ```nomi
 Iter.reduce([3, 1, 2], fn sum = 0, n -> sum + n) // 6
@@ -6964,7 +7080,7 @@ String.join([1, 2, 3], ", ") // type error: Iter<String> expected, got Iter<Int>
 
 This works for built-in iteration sources (`List`, `Vector`, `Map`, `String`, `Range`) and for any user-defined `Iter` impl — the unifier consults file-local impl element types first, then the package-wide stdlib registry.
 
-`break` and `continue` work in all `Iter` callbacks — same semantics as everywhere else (see §12). Short-circuit terminals (`find`, `any?`, `all?`, `empty?`, `first`) terminate on infinite sources when the predicate permits; full-consuming terminals (`count`, `reduce`, `last`, `sort`, `to_list`, …) trap on one that is `Iter.infinite?` and never finish on one that never ends without saying so — bound the source with `Iter.take(n)` first.
+`break` and `continue` work in all `Iter` callbacks — same semantics as everywhere else (see §12). Short-circuit terminals (`find`, `any`, `all`, `is_empty`, `first`) terminate on infinite sources when the predicate permits; full-consuming terminals (`count`, `reduce`, `last`, `sort`, `to_list`, …) trap on one that is `Iter.is_infinite` and never finish on one that never ends without saying so — bound the source with `Iter.take(n)` first.
 
 `Iter.zip` truncates to the shorter iterator:
 
@@ -7042,7 +7158,7 @@ Layer 1 covers the foundational primitives: `concurrent { }` blocks, `Task.spawn
 
 ### concurrent
 
-`concurrent` is a keyword that creates a structured-concurrency scope. It is a block expression (not a function call) — its value is the last expression in the block. Control flow inside the block is lambda-scoped: `return` / `try` / `break` / `continue` exit the block, not the enclosing function. Any non-normal exit cancels every task still running in the block before propagating outward. All tasks are guaranteed to complete (or be cancelled) before the block returns.
+`concurrent` is a keyword that creates a structured-concurrency scope. It is a block expression (not a function call) — its value is the last expression in the block. Control flow inside the block is lambda-scoped: `return`, `?`, `break` and `continue` exit the block, not the enclosing function. Any non-normal exit cancels every task still running in the block before propagating outward. All tasks are guaranteed to complete (or be cancelled) before the block returns.
 
 A failed `assert` or `refute` in the block's own body exits the block the same way, as `Err(AssertionFailure)`, so a block holding one must produce `Result<_, AssertionFailure>`; any other block value is a compile error at the assertion. Inside a test, a block that is the body's final value then fails the case with the assertion's report. A spawned task's body is a lambda, and an assertion in a lambda is a compile error: assert in a `fn` that returns `Result<_, AssertionFailure>`, spawn that, and the failure is the task's `Completed(Err(...))`, which the code that awaits it handles. This is Go's rule that a test fails only from its own goroutine (`t.FailNow` from another one is invalid) and Rust's, where a panic in a spawned thread reaches the test only through `join`.
 
@@ -7050,14 +7166,14 @@ A failed `assert` or `refute` in the block's own body exits the block the same w
 result = concurrent {
     user = Task.spawn(fn -> fetch_user(42))
     order = Task.spawn(fn -> fetch_order(101))
-    Ok(#(try Task.await(user), try Task.await(order)))
+    Ok(#(Task.await(user)?, Task.await(order)?))
 }
 // only reached when both tasks are done
 ```
 
 ### Task
 
-`Task<T>` is the opaque handle returned by `Task.spawn`. It carries a single type parameter — the body's return type. Errors-as-values via `Result<T, E>` are the universal Nomi idiom, so a fallible task body returns `Result<T, E>` and `try Task.await(t)` propagates errors the same way `try fetch_user(42)` does. Besides `Task.await`, a handle can be cancelled with `Task.cancel` and inspected with `Task.outcome` (see *Failures And Restarts* below).
+`Task<T>` is the opaque handle returned by `Task.spawn`. It carries a single type parameter — the body's return type. Errors-as-values via `Result<T, E>` are the universal Nomi idiom, so a fallible task body returns `Result<T, E>` and `Task.await(t)?` propagates errors the same way `fetch_user(42)?` does. Besides `Task.await`, a handle can be cancelled with `Task.cancel` and inspected with `Task.outcome` (see *Failures And Restarts* below).
 
 `Task<T>` lives in `std/tasks`; import it with `import std/tasks.Task`. Task operations are owner functions on `Task`: `Task.spawn(...)`, `Task.await(...)`, `Task.spawn_all(...)`, `Task.await_all(...)`, `Task.outcome(...)`, and `Task.cancel(...)`.
 
@@ -7084,11 +7200,11 @@ concurrent {
 
 ### Task.await
 
-`Task.await(task)` blocks until a task completes and returns its value (`T` from `Task<T>`). For a `Task<Result<T, E>>`, use `try Task.await(t)` to propagate errors:
+`Task.await(task)` blocks until a task completes and returns its value (`T` from `Task<T>`). For a `Task<Result<T, E>>`, use `Task.await(t)?` to propagate errors:
 
 ```nomi
-// try — propagate the task's Err, cancel siblings, exit the concurrent block with Err
-u = try Task.await(user)
+// ? propagates the task's Err, cancels siblings, exits the concurrent block with Err
+u = Task.await(user)?
 
 // case — handle the result explicitly, no cancellation
 u = case Task.await(user) {
@@ -7112,8 +7228,8 @@ concurrent {
     a = Task.spawn(fn -> fetch_user(42))
     b = Task.spawn(fn -> fetch_order(101))
 
-    // try propagates Err and cancels b as cleanup
-    u = try Task.await(a)
+    // propagates? Err and cancels b as cleanup
+    u = Task.await(a)?
 
     // case handles the error — b is not affected
     o = case Task.await(b) {
@@ -7129,8 +7245,8 @@ concurrent {
 
 Cancellation has two shapes; user code observes them differently.
 
-- **Internal cancellation** — the `concurrent { }` block exits non-normally (via `try`, `return`, `break`, or `continue`) and cancels every still-running sibling as cleanup. This is invisible to user code: the cancelled task's body just stops executing at the next safe point and its goroutine wrapper unwinds silently. There is no `finally` and no exception type — immutability means there's nothing to clean up at the value level.
-- **Ancestor cancellation** — the active app context fires because of an earlier `with App.context = Context.with_timeout(App.context, d)` override or because the embedder cancels the runtime root. Ancestor cancellation surfaces naturally through cancellation-aware operations: `timer.sleep`, `Sender.send` / `Receiver.receive`, and context-aware HTTP requests all `select` on the context's done channel and return an `Err` (or `None`) when the context fires. That outcome becomes the task body's return value — a normal task return — and `try Task.await(t)` propagates it through the concurrent block. Pure-compute code that never reads the context ignores deadlines and runs to completion, matching Go's behavior. The language guarantees cancellation is observed only at those cancellation-aware operations. A program must not depend on where, between two cancellation-aware operations, a cancelled task stops.
+- **Internal cancellation** — the `concurrent { }` block exits non-normally (via `?`, `return`, `break`, or `continue`) and cancels every still-running sibling as cleanup. This is invisible to user code: the cancelled task's body just stops executing at the next safe point and its goroutine wrapper unwinds silently. There is no `finally` and no exception type — immutability means there's nothing to clean up at the value level.
+- **Ancestor cancellation** — the active app context fires because of an earlier `with App.context = Context.with_timeout(App.context, d)` override or because the embedder cancels the runtime root. Ancestor cancellation surfaces naturally through cancellation-aware operations: `timer.sleep`, `Sender.send` / `Receiver.receive`, and context-aware HTTP requests all `select` on the context's done channel and return an `Err` (or `None`) when the context fires. That outcome becomes the task body's return value — a normal task return — and `Task.await(t)?` propagates it through the concurrent block. Pure-compute code that never reads the context ignores deadlines and runs to completion, matching Go's behavior. The language guarantees cancellation is observed only at those cancellation-aware operations. A program must not depend on where, between two cancellation-aware operations, a cancelled task stops.
 
 Put `with App.context = Context.with_timeout(App.context, d)` before a `concurrent` block to give the whole block a deadline:
 
@@ -7373,8 +7489,8 @@ Every concurrent task in Nomi is either owned by a `concurrent` block or by a su
 concurrent {
     user = Task.spawn(fn -> fetch_user(id))
     order = Task.spawn(fn -> fetch_order(id))
-    u = try Task.await(user)
-    o = try Task.await(order)
+    u = Task.await(user)?
+    o = Task.await(order)?
     Ok(build_response(u, o))
 }
 ```
@@ -7389,8 +7505,8 @@ concurrent {
         Iter.map(urls, fn url -> {
             Task.spawn(fn -> {
                 url
-                |> try fetch()
-                |> try parse()
+                |> fetch()?
+                |> parse()?
                 |> then &Sender.send(ch.sender, &1)
                 |> Result.map_err(fn _ -> "channel closed")
             })
@@ -7404,8 +7520,8 @@ concurrent {
                     break acc
 
                 Some(page) -> {
-                    count = try acc
-                    try database.save(db, page)
+                    count = acc?
+                    database.save(db, page)?
                     Ok(count + 1)
                 }
             }
@@ -7548,25 +7664,34 @@ interface Productable {
 }
 ```
 
-**Integer overflow traps.** `Int` is 64-bit. The arithmetic operators `+`, `-`, `*` (and `/` in the single `MinInt64 / -1` case) raise a runtime error on signed overflow rather than wrapping silently — the same fail-loud stance as division by zero. When modular (wrapping) arithmetic is the intent — hashing, checksums, ring counters — use the explicit `Int.wrapping_add` / `Int.wrapping_sub` / `Int.wrapping_mul` functions, which wrap two's-complement. `derive Hashable` uses wrapping multiply internally for exactly this reason. Unary `-` traps on `Int.min_value`, whose magnitude is one past `Int.max_value`, and so does `Int.abs(Int.min_value)`, with the same error. An overflow is a trap, by the rule in §17 *Traps, `Maybe` and `Result`*: the program asked for a number that does not fit.
+**Integer arithmetic is exact.** An `Int` holds a whole number of any size. `+`, `-`, `*`, unary `-`, `/` and `%` answer exactly and never overflow: `9_223_372_036_854_775_807 + 1 == 9_223_372_036_854_775_808`, `Int.pow(2, 100) == 1_267_650_600_228_229_401_496_703_205_376`, and `-(-9_223_372_036_854_775_808)` is `9_223_372_036_854_775_808`. A value that fits in 64 bits costs what a machine integer costs; a larger one grows as it needs to. When 64-bit modular arithmetic is the intent (a hash, a checksum defined over 64 bits), `Int.wrapping_add`, `Int.wrapping_sub` and `Int.wrapping_mul` answer the low 64 bits of the exact result as a signed 64-bit Int (`Int.wrapping_add(9_223_372_036_854_775_807, 1) == -9_223_372_036_854_775_808`); `derive Hashable` mixes with them, so a hash stays a 64-bit number.
+
+Where a value must fit a machine integer, the edge says so:
+
+- An index, a count or a size reads an Int past 64 bits as past any collection: `List.get(xs, Int.pow(10, 30))` is `None`, `Iter.take(xs, Int.pow(10, 30))` takes all of `xs`, and `Vector.get(v, Int.pow(10, 30))!` traps as any index out of range does.
+- A Go function bound with `go` (§33) that takes `int64`, `int` or a narrower integer refuses an Int it cannot hold: the call fails with an error naming the binding and the value (`ffx.triple: arg 0: unmarshal to int64: value 123456789012345678901234567890 overflows`). A Go `uint64` result past 64 signed bits is an exact Int, and a Go `*big.Int` parameter or result takes any Int.
+- `Duration` and `Instant` count nanoseconds in 64 bits, about 292 years either way, as clocks and timers do. A constructor or an operator whose answer is past that traps (`Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way`); `Duration.parse` answers `Err(.OutOfRange)`.
+- `Date` and the other calendar functions that take a count (`Date.add_days`) refuse one past 64 bits as a Go binding does.
+- JSON (§*JSON*) reads an integer of any length as an exact `Int` and writes an Int as its digits. A call from JavaScript into an `export fn` (§5 *Exported Functions*) passes an Int past `Number.MAX_SAFE_INTEGER` as a `BigInt`, both ways.
+- A database driver refuses an `Int` its engine cannot store: SQLite's `INTEGER` is 64 bits, so lib/sql/sqlite answers `Err(sql.Error.Database)` with the code `SQLITE_MISMATCH` for a parameter past that.
 
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Int.to_decimal` / `Decimal.to_float` / `Float.to_decimal`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
-**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign, and both answer `0` for `Int.min_value` and `-1`. `Int.floor_div(a, b)` is the floored division it pairs with, so `b * Int.floor_div(a, b) + Int.modulo(a, b) == a` (`Int.floor_div(-7, 2) == -4`); it traps where `/` does. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
+**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign. `Int.floor_div(a, b)` is the floored division it pairs with, so `b * Int.floor_div(a, b) + Int.modulo(a, b) == a` (`Int.floor_div(-7, 2) == -4`); it traps where `/` does. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
 
-**Integer powers, roots and digits.** `Int.pow(n, exp)` is exact and traps on overflow as `*` does, and on a negative `exp`, whose answer is a fraction (`Float.pow` gives one). `Int.sqrt(n)` is the root rounded down and traps on a negative `n`. `Int.gcd` and `Int.lcm` are never negative (`Int.gcd(0, 0) == 0`, `Int.lcm(n, 0) == 0`) and trap only when the answer is past the Int range. `Int.to_digits(n, base = 10)` lists a non-negative `n`'s digits most significant first (`[0]` for 0) and traps on a negative `n` or a base below 2; `Int.from_digits(digits, base = 10)` reads them back as a `Maybe<Int>`, `None` for a digit outside the base or a number past the Int range, as `String.to_int` answers for text that is no Int.
+**Integer powers, roots and digits.** `Int.pow(n, exp)` is exact and traps on a negative `exp`, whose answer is a fraction (`Float.pow` gives one), and on a power of more bits than memory holds. `Int.sqrt(n)` is the root rounded down and traps on a negative `n`. `Int.gcd` and `Int.lcm` are never negative (`Int.gcd(0, 0) == 0`, `Int.lcm(n, 0) == 0`). `Int.to_digits(n, base = 10)` lists a non-negative `n`'s digits most significant first (`[0]` for 0) and traps on a negative `n` or a base below 2; `Int.from_digits(digits, base = 10)` reads them back as a `Maybe<Int>`, `None` for a digit outside the base, as `String.to_int` answers for text that is no Int. The bitwise functions (`Int.bitwise_and` and the rest) read an Int as two's complement with as many bits as it needs, a negative one with endless leading ones, and `Int.shift_left(a, n)` is `a` times 2 to the `n`, so no bit is shifted out.
 
-**Where a trap is reported.** A runtime fault (overflow, a zero divisor, a `case` with no arm, a call past the depth limit, a failed host function) prints `line N:` and then the fault's own text. `N` is a line of the program's own code: the line of the operation that faulted, or, when the fault happens inside the standard library, the line of the program's call into the standard library that led to it, however many std calls deep the fault is. The text after the line is the fault's own and does not name the std function; the call on line `N` does. So both of these programs print `line 2: integer overflow: 0 - -9223372036854775808`:
+**Where a trap is reported.** A runtime fault (a zero divisor, a `case` with no arm, a call past the depth limit, a failed host function) prints `line N:` and then the fault's own text. `N` is a line of the program's own code: the line of the operation that faulted, or, when the fault happens inside the standard library, the line of the program's call into the standard library that led to it, however many std calls deep the fault is. The text after the line is the fault's own and does not name the std function; the call on line `N` does. So both of these programs print `line 2: division by zero`:
 
 ```
 fn main() {
-    _ = -Int.min_value
+    _ = 7 % 0
 }
 ```
 
 ```
 fn main() {
-    _ = Int.abs(Int.min_value)
+    _ = Int.modulo(7, 0)
 }
 ```
 
@@ -7582,14 +7707,15 @@ A lambda of the program that faults while a std function runs it (`Iter.map(xs, 
 **Logical:**
 `and` `or` (keywords) `!` (negation)
 
-`and` and `or` short-circuit: the right operand runs only when the left does not decide the answer. `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else { b }`. So the right operand may leave instead of answering: a block ending in `return`, `break` or `continue`, an `if` or `case` every arm of which leaves, a failing `try` or a trap. When it leaves, the expression has no value on that path, and its value is the left operand's on the other. `ok = ready? or { return Err("not ready") }` returns early when `ready?` is `False` and binds `ok` to `True` otherwise; `_ = n < limit or { break }` ends an `Iter` callback's iteration.
+`and` and `or` short-circuit: the right operand runs only when the left does not decide the answer. `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else { b }`. So the right operand may leave instead of answering: a block ending in `return`, `break` or `continue`, an `if` or `case` every arm of which leaves, a failing `?` or a trap. When it leaves, the expression has no value on that path, and its value is the left operand's on the other. `ok = is_ready or { return Err("not ready") }` returns early when `is_ready` is `False` and binds `ok` to `True` otherwise; `_ = n < limit or { break }` ends an `Iter` callback's iteration.
 
 `&&` and `||` are not operators. `a && b` is a parse error at the `&&` that says to write `a and b`, and `a || b` is a parse error at the `||` that says to write `a or b`.
 
 **Other:**
 
 - `|>` — pipe
-- `try` — unwrap Result/Maybe (prefix keyword)
+- `?` (postfix): unwrap a Result or Maybe, or return its Err or None (§9)
+- `!` (postfix): unwrap a Result or Maybe, or trap (§5)
 - `=` — binding
 - `.` — member access
 - `+` — `Add` addition/concatenation
@@ -7639,7 +7765,7 @@ f = fn x: Int -> x * 2
 Stdlib types and functions are declared in `.nomi` files using the `host` keyword. This tells the compiler the signature exists but the implementation is provided by the runtime (Go host):
 
 ```nomi
-/// 64-bit integer.
+/// An integer of any size.
 host type Int
 
 /// Returns the absolute value of n.
@@ -7652,7 +7778,7 @@ host fn abs(n: Int) -> Int
 - User-facing Go interop binds ordinary Go packages through `gopkg` declarations. A declaration such as `gopkg "example.com/app/ffi" as ffi` introduces a compile-time package handle whose import path is resolved by Go's normal module machinery. The path must be a valid Go import path. A Go standard library package (`gopkg "strings"`) needs no `go.mod` and no Go package of the project's own: its source is the Go toolchain's, and a script binding only the standard library runs from a directory with no `go.mod` at all. A package internal to the standard library (`internal/abi`) is a check error, since no other module may import it. Any other path must be provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or a package of a module that `go.mod` requires or replaces. Any other is a check error at the path, such as `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`, or one naming the project's module for a path outside all of those. A file held in memory rather than on disk (a sibling an embedder passes with the source it loads, such as a tour example's tab) has no `go.mod` above it: its bindings are answered by the host table its program is loaded with, and one the table does not answer is a load error naming it. A Go type binding must be opaque. It may remain private as a raw implementation handle (`opaque type RawConn go ffi.Conn`) behind a Nomi facade, or it may be intentionally public as a public opaque foreign type (`pub opaque type Regex go ffi.Regex`) when the module deliberately commits to that Go-backed representation. Public opaque foreign types can be named and passed across the module boundary but cannot be constructed, unwrapped, or inspected structurally. A Go function binding maps an exported Go function into a local Nomi function name: `fn open_raw(path: String) -> Result<RawConn, String> go ffi.OpenRaw`. The alias in `go alias.Symbol` must be one a `gopkg` declaration of the same file introduces; any other is a check error at the alias. A `gopkg` is a top-level declaration, as the bindings that use it are; one inside a body is the error `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
 - A program with `gopkg` bindings needs a Go toolchain: `nomi run`, `nomi check` and `nomi test` build a cached Go wrapper that links the bound packages (see [`implementation-notes.md`](implementation-notes.md#go-ffi-wrapper)). With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that (§31, *Dependencies*). A bound package may be in a module from the Go module cache, a dependency's included; its adapters are generated from its source there. The wrapper builds with `CGO_ENABLED=0`, so a `gopkg` naming a package that needs cgo, itself or through a package it imports, is a check error at the path: `` gopkg "example.com/app/wrap": needs cgo: it imports example.com/cdriver/internal/csql (...), whose files import "C", and Go bindings build with CGO_ENABLED=0 ``. Pure-Nomi programs and tests need no toolchain.
 - Every std declaration is a bare `host fn` / `host type`, so importing any std module, Go-backed ones such as `std/regex` included, needs no Go toolchain — see "The rule: `host` for the standard library, `go` for user FFI" below. A user's own Go binding is declared in Nomi source with `gopkg` and `go alias.Symbol`; there is no Go-side registration function. A Go program that embeds Nomi answers the `host fn`s its program declares from a host table passed to `vmhost.Load` (`vmhost.WithHosts`). A plain `host type` in such a program is an opaque handle: the table's functions create and read its values, which Nomi code passes around and stores and reads only through those functions, and the type itself needs no registration. A table answers each function by its declaration's key: its name in the entry file, `module.name` in a sibling file. A program's own host functions never answer a standard library call, nor the reverse, even when a file of the program shares a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std/regex`'s.
-- Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int` and the sized signed widths project to `Int`, as do the unsigned widths other than `uint8` when the value fits `int64`; every narrowing is range-checked in both directions rather than truncated), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth; the Go struct may be the bound package's or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`), while a struct of a Go standard library package crosses only from a bound standard library package), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A Go type alias (`type ID = core.ID`, `type Check = func(string) bool`) is its target and projects as the target does. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace` or a required module in the Go module cache, of the packages a bound package's signatures and struct fields name, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
+- Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int`, the sized signed widths and the unsigned widths other than `uint8` project to `Int` too, and so does Go's `*big.Int`, which holds any Int; an Int is exact at any size, so every narrowing to a fixed-width Go integer is range-checked rather than truncated, and an Int past the width is an error naming the binding; a Go `uint64` past 2^63 - 1 is an exact Int), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth; the Go struct may be the bound package's or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`), while a struct of a Go standard library package crosses only from a bound standard library package), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A Go type alias (`type ID = core.ID`, `type Check = func(string) bool`) is its target and projects as the target does. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace` or a required module in the Go module cache, of the packages a bound package's signatures and struct fields name, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
 - A distinct type, opaque or not, crosses as its inner type does, at every depth: `type Id Int` crosses as `int64` (or any Go integer width an `Int` takes), `type Ids List<Int>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int` as `int64`, in a parameter, a result, a `List`, `Maybe`, `Map` or `Result`, a tuple, a struct field and a callback's own parameters and result. The value Go returns is wrapped in the declared distinct again. That is what gives `Duration` and `Instant` (both `opaque type ... Int` in the stdlib) a second legal Go spelling alongside `time.Duration` and `time.Time`: an `int64` slot carries either one. A marker (`type Expired`, no inner type) holds no value and has no Go projection.
 - The projection is checked in the FORWARD direction only. For each declared Nomi type the boundary computes the Go type it projects to and compares that against the Go type actually bound, read from the bound Go declaration's signature: a scalar by its row of the table above, `Dynamic` against a Go empty interface or `rt.Dynamic`, a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure, an opaque binding by the Go type it binds, and a struct of the binding's file field by field. A distinct type declared in the binding's file, and std's `Duration` and `Instant`, is compared through its inner type. The check does not read the declarations of another file: a name declared there fills a Go struct slot on trust, its fields held to the Go struct's by the adapter generator, and fills no other slot, so a binding that passes a distinct of another file declares it in that file. The inverse direction is deliberately NOT checked: a Go type does not determine the Nomi type it must be (`int64` is `Int` and equally every distinct over `Int`, a Go struct is any Nomi struct with matching fields), so an inverse check would reject declarations that work. Disagreements the forward rule proves (a declared `String` against a Go `int64`, a `Dynamic` against a Go `int64`, a `type Name String` against a Go `int64`, in a parameter, a return, a tuple element, a `Result` payload, a struct field, or a callback's own argument or return) are rejected at load, naming both sides and what the declaration projects to.
 
@@ -7668,7 +7794,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.to_upper`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.uppercase`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -7676,11 +7802,11 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 
 | Module | What it holds |
 |---|---|
-| `int`, `float`, `decimal`, `bool`, `unit`, `code_points` | Primitives: `Int` (bitwise ops, wrapping arithmetic, `NonZeroInt`/`PositiveInt`), `Float` (special values, rounding), `Decimal` and `RoundingMode`, `Bool`, `Unit`, `Codepoint` |
+| `int`, `float`, `decimal`, `bool`, `unit`, `code_points` | Primitives: `Int` (bitwise ops, 64-bit modular arithmetic, `NonZeroInt`/`PositiveInt`), `Float` (special values, rounding), `Decimal` and `RoundingMode`, `Bool`, `Unit`, `Codepoint` |
 | `strings`, `bytes`, `matcher` | `String` (grapheme-based text, `NormalForm`), `Byte`, `Bytes`, and `Matcher`, what String's search functions accept |
 | `lists`, `vectors`, `maps`, `sets`, `ranges` | `List`, `Vector`, `Map`, `Set`, `Range` and their container-specific owner functions |
 | `iter` | The `Iter` interface and every generic iteration owner function, plus `Iter.loop` |
-| `maybe`, `results` | `Maybe`, `Result`, `Infallible` |
+| `maybe`, `results` | `Maybe` (an `Iter` of zero or one elements), `Result`, `Infallible` |
 | `add`, `subtract`, `multiply`, `divide`, `comparable`, `equatable`, `hashable`, `discrete`, `steppable`, `variants`, `display`, `debug`, `structs`, `type` | The core interfaces, `Ordering`, `Direction`, and `Type<T>` |
 | `io` | Standard output and error (`print`, `write` with no trailing newline, `inspect`, `eprint`, `ewrite`), `read_line`, the stream types `Reader` and `Writer` with the standard streams as values, `File` (reads and writes at a position), `Error`, and `capture` and `replay`, which run a function against given input and collect what it prints (§36); *Standard streams* below |
 | `fs`, `path` | Files and directories by path (`read_text`, `write_text` with a `WriteMode`, `lines`, `with_reader`, `with_writer`, `list`, `walk`, `glob`, `metadata`, symlinks, `open_file`, `within`, ...), and paths as `String`s with `/` on every system; *Files* below |
@@ -7690,9 +7816,9 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 | `duration`, `instant`, `calendar` | `Duration`, `Instant` (`Instant.now`), and the civil date-time types (§39) |
 | `random` | Pure, seeded random generation (§40) |
 | `locale`, `plural`, `localize` | `Locale` with a ``Locale`pt-BR` `` typed literal, CLDR fallback chains and negotiation; `PluralCategory` and CLDR's cardinal and ordinal plural rules; `Localize` and `NumberParseError`, for the locale-aware `format`, `format_percent` and `parse_in` functions of `Int`, `Float` and `Decimal` and `String.join_list` (§41) |
-| `collation` | `Collator`, `Strength` and `CaseFirst`: ordering strings as a locale orders them (the Unicode Collation Algorithm with CLDR's tailorings) and their sort keys; `String.to_upper_in`, `to_lower_in` and `fold_case` are in `strings` (§41) |
-| `json`, `toml`, `dynamic` | `Json` with `ToJson`/`FromJson` and their derives, the `Toml` typed literal, `Dynamic` for untyped host data |
-| `regex` | `Regex`, with a `Regex"..."` typed literal. A `Regex` is a `Matcher`, so `String.contains?`, `String.find`, `String.find_all`, `String.split` and the other search functions take one; `String.captures` and `String.captures_all` take only a `Regex` and answer its capture groups; `Regex.replace_all` (`$1` expansion) is its own |
+| `collation` | `Collator`, `Strength` and `CaseFirst`: ordering strings as a locale orders them (the Unicode Collation Algorithm with CLDR's tailorings) and their sort keys; `String.uppercase_in`, `lowercase_in` and `fold_case` are in `strings` (§41) |
+| `json`, `toml`, `dynamic` | `Json` with `ToJson`/`FromJson` and their derives, `Json.decode_as<T>(text) -> Result<T, Json.Error>` from JSON text to a typed value in one call (`Json.Error` is `Decode Json.DecodeError` or `Shape Json.ShapeError`) and `Json.encode_as<T>(value) -> String` back to compact JSON text, the `Toml` typed literal, `Dynamic` for untyped host data |
+| `regex` | `Regex`, with a ``Regex`...` `` typed literal. A `Regex` is a `Matcher`, so `String.contains`, `String.find`, `String.find_all`, `String.split` and the other search functions take one; `String.captures` and `String.captures_all` take only a `Regex` and answer its capture groups; `Regex.replace_all` (`$1` expansion) is its own |
 | `literals` | `Literal` and `Fragment`, for typed-literal authors (§16) |
 | `assertions`, `testing` | `AssertionFailure`, `Assertable`, `testing.check`, test `Clock` (§36) |
 | `compiler` | The compiler as a library: `check`, `run`, `hover` |
@@ -7703,7 +7829,7 @@ Not in the stdlib: math functions beyond the numeric types' own (no trigonometry
 
 `io.print(x)` and `io.write(x)` write `x`'s `Display` text to standard output, `print` with a newline after it; `io.inspect(x)` writes its `Debug` text and a newline. `io.eprint(x)` and `io.ewrite(x)` are `print` and `write` for standard error. Each call is one write: two tasks printing at once never interleave inside a line.
 
-`io.read_line() -> Result<Maybe<String>, io.Error>` reads the next line of standard input, without its `\n` and a `\r` before it. It answers `Ok(None)` at the end of the input, so a loop ends on `Ok(Some(line)) = io.read_line() else { break }` and a `try io.read_line()` does not treat the end as a failure. A last line with no newline is still a line. A line that is not UTF-8 is `Err(#io.Error.InvalidText{path: "<stdin>", offset})`, `offset` the byte offset of its first bad sequence within the line; the lines after it read as usual.
+`io.read_line() -> Result<Maybe<String>, io.Error>` reads the next line of standard input, without its `\n` and a `\r` before it. It answers `Ok(None)` at the end of the input, so a loop ends on `Ok(Some(line)) = io.read_line() else { break }` and a `io.read_line()?` does not treat the end as a failure. A last line with no newline is still a line. A line that is not UTF-8 is `Err(#io.Error.InvalidText{path: "<stdin>", offset})`, `offset` the byte offset of its first bad sequence within the line; the lines after it read as usual.
 
 The three standard streams are also values: `once` constants `io.stdin: Reader`, `io.stdout: Writer` and `io.stderr: Writer`, of the host types `io.Reader` and `io.Writer`, written with no parentheses (`Writer.print(io.stderr, "warning")`). A stream value names the stream outside the program and never changes; using it moves the stream on, and where a use goes is decided when it is made, so a value read before an `io.capture` began writes into the capture inside it. `Reader.read_line(r)` on standard input answers what `io.read_line()` answers and reads from the same buffer. A write to `io.stdout` lands in order with `io.print`'s. Inside `io.capture` the handles reach the capture as `io.print` and `io.read_line` do. A read of standard input that is waiting for input is a safe point: a task cancelled while it waits (`Task.cancel`, the teardown of its `concurrent` block, a supervisor drain) unwinds there at once, as one waiting on a channel does, and what arrives afterwards is answered to the next read, a partial line included.
 
@@ -7723,14 +7849,14 @@ A writer over a file is buffered: `Writer.flush(w)` sends what it holds on, and 
 - `fs.open(path) -> Result<Reader, io.Error>` and `fs.create(path, mode: .Replace) -> Result<Writer, io.Error>` open a file as a stream. `fs.with_reader(path, body)` opens it, calls `body: (Reader) -> Result<T, io.Error>` and closes the reader however `body` ends. `fs.with_writer(path, mode: .Replace, body)` creates it and calls `body: (Writer) -> Result<T, io.Error>`; after an `Ok` it closes the writer and answers a failed close as its error, and after an `Err` or a trap it gives the write up, so an atomic write leaves the old file. `body` is the last parameter, so a lambda written last routes to it whether or not `mode` is named before it (§5, *Lambdas at Call Sites*).
 - `fs.open_file(path, access: Access = .Read) -> Result<io.File, io.Error>` opens a file for reads and writes at a position. `Access` is `Read` (a write is `PermissionDenied`), `ReadWrite` (the file must exist) or `Create` (made empty when missing, kept when not). An `io.File` is not a stream: it has no buffer, every call is one operation on the file, and a write is in the file when the call returns. `File.read(f, max: 65536)` and `File.write(f, data)` start at the file's position and move it past what they read or wrote; `File.read_at(f, position, max)` and `File.write_at(f, position, data)` name their own and leave it; `File.seek(f, position)`, `File.position(f)`, `File.size(f)` and `File.truncate(f, size)` move, read and change it, all `-> Result<_, io.Error>`. A read at or past the end is `Ok(None)`, and a write past the end fills the gap with zero bytes. `File.close` closes it, after which every call is `Closed`; `fs.with_file(path, access: .Read, body)` opens it, calls `body: (io.File) -> Result<T, io.Error>` and closes it however `body` ends, answering a failed close after an `Ok`.
 - `fs.list(dir) -> Result<List<Entry>, io.Error>` is a directory's entries sorted by name, each an `Entry {path, name, kind}` whose `path` is `dir` and `name` joined with `/` and whose `kind` is a `Kind` (`File`, `Directory`, `Symlink`, `Other`). A name that is not UTF-8 fails the listing with `InvalidPath`, naming the entry with U+FFFD in place of each bad sequence. A symlink is listed as `Symlink` whatever it points to. `fs.create_dir(path, parents: False)` makes a directory; with `parents: True` it makes the missing ones above it and is content when the directory exists. `fs.remove(path)` removes a file, a symlink or an empty directory (`DirectoryNotEmpty` otherwise), `fs.remove_all(path)` removes a tree, following no symlink in it, and is `Ok` when nothing is there, `fs.rename(from, to)` replaces a file at `to` and moves a symlink rather than what it points to, and `fs.copy(from, to)` copies a file over `to`, reading through a symlink at `from`.
-- `fs.walk(root) -> Iter<Result<Entry, io.Error>>` is every entry under `root`, depth first: each directory's entries in name order, a directory's own entries right after it. It follows no symlink. Each run lists the directories again; a directory that cannot be listed is an `Err` item where its entries would be and the walk goes on, and a name that is not UTF-8 is an `InvalidPath` item. `fs.glob(pattern) -> Result<List<String>, io.Error>` is the paths that match `pattern` by `path.match?`'s rule (`*` within a name, `?`, `[set]`, a `**` name for any number of directories, a name starting with `.` only for a pattern name starting with `.`), sorted: the entries `fs.walk` finds under the longest leading part of the pattern with no wildcard, no deeper than the pattern reaches when it has no `**`. A pattern with no wildcard answers itself when something is at it, and nothing under a missing directory is `Ok([])`.
-- `fs.metadata(path) -> Result<Metadata, io.Error>` follows symlinks and answers `Metadata {kind, size, modified: Instant, mode}`; `fs.link_metadata(path)` describes a symlink as itself (`kind: Symlink`, the size of its target's text). `fs.create_symlink(path, target)` makes a symlink at `path` to `target` as written, which need not exist (a relative target is resolved from the link's directory when followed), `fs.read_link(path) -> Result<String, io.Error>` is that target (`Other` with code `EINVAL` for anything else), and `fs.set_mode(path, mode)` sets the permission bits, 0 to `0o777` (`Other` with `EINVAL` outside), following a symlink. Reads, writes, `metadata` and `exists?` follow symlinks; a path through more than 40 is `Other` with code `ELOOP`. `fs.exists?(path) -> Result<Bool, io.Error>` is `Ok(False)` for `NotFound` alone, since a refusal is not absence.
+- `fs.walk(root) -> Iter<Result<Entry, io.Error>>` is every entry under `root`, depth first: each directory's entries in name order, a directory's own entries right after it. It follows no symlink. Each run lists the directories again; a directory that cannot be listed is an `Err` item where its entries would be and the walk goes on, and a name that is not UTF-8 is an `InvalidPath` item. `fs.glob(pattern) -> Result<List<String>, io.Error>` is the paths that match `pattern` by `path.matches`'s rule (`*` within a name, `?`, `[set]`, a `**` name for any number of directories, a name starting with `.` only for a pattern name starting with `.`), sorted: the entries `fs.walk` finds under the longest leading part of the pattern with no wildcard, no deeper than the pattern reaches when it has no `**`. A pattern with no wildcard answers itself when something is at it, and nothing under a missing directory is `Ok([])`.
+- `fs.metadata(path) -> Result<Metadata, io.Error>` follows symlinks and answers `Metadata {kind, size, modified: Instant, mode}`; `fs.link_metadata(path)` describes a symlink as itself (`kind: Symlink`, the size of its target's text). `fs.create_symlink(path, target)` makes a symlink at `path` to `target` as written, which need not exist (a relative target is resolved from the link's directory when followed), `fs.read_link(path) -> Result<String, io.Error>` is that target (`Other` with code `EINVAL` for anything else), and `fs.set_mode(path, mode)` sets the permission bits, 0 to `0o777` (`Other` with `EINVAL` outside), following a symlink. Reads, writes, `metadata` and `exists` follow symlinks; a path through more than 40 is `Other` with code `ELOOP`. `fs.exists(path) -> Result<Bool, io.Error>` is `Ok(False)` for `NotFound` alone, since a refusal is not absence.
 - `fs.temp_dir() -> String` is where temporary directories go, and `fs.with_temp_dir(body)` makes a fresh one, calls `body: (String) -> Result<T, io.Error>` with its path, and removes it and everything in it however `body` ends. A `wasip1/wasm` module reaches only the directories its runtime preopens, so its temporary directory is the first of `TMPDIR`, `/tmp` and the working directory that it can reach; with none, `fs.temp_dir()` answers `/tmp` and `fs.with_temp_dir` answers `Err(#io.Error.Unsupported{operation: "fs.with_temp_dir", target: "wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working directory)"})` without calling `body`.
 - `fs.within(dir, body)` calls `body: () -> Result<T, io.Error>` with every std/fs call in it, and in the tasks it starts, confined to the directory `dir` (`NotFound` or `NotADirectory` when `dir` is not one). Inside, a relative path is under `dir`, an absolute path must be under it, and `fs.current_dir()` answers `dir` made absolute. A path that leads outside `dir`, by `..` or through a symlink, and any absolute symlink, is `InvalidPath` with the reason `the path leads outside the directory fs.within confines calls to`, and reaches nothing. `fs.with_temp_dir` inside is `Unsupported {operation: "fs.with_temp_dir", target: "fs.within"}`. A `within` inside another confines further. On the operating system's file system it is Go's `os.Root`, which resolves each name under the directory as it opens it, so a symlink changed during the call cannot lead out either.
 
 The functions reach the file system the running call is given. A native program and a `wasip1/wasm` module reach the operating system's (under WASI, the directories the runner opens for it). A `js/wasm` module reaches one in memory, whose working directory is `/work`: empty under Go's Node loader, and seeded by `run`'s `files` option in the browser (§25, *Web pages*). Inside `fs_testing.run` (§36) every call reaches that call's sandbox. Tasks reach the file system of the frame they were started on.
 
-`std/path` reads paths as text and never touches the file system, so a typed literal's handler may call it. A path uses `/` on every operating system; on Windows std/fs accepts `\` too and answers `/`, and a drive is written `C:/Users`. `path.join(base, name)` and `path.join_all(parts)` join with `/` and clean; `path.clean(p)` is Go's `path.Clean` (repeated `/`s, `.` and `..` resolved by reading the text, `"."` for an empty path); `path.parent(p) -> Maybe<String>`, `path.base(p)`, `path.extension(p) -> Maybe<String>` (`Some("gz")` for `log.tar.gz`, `None` for `.bashrc`) and `path.stem(p)` take a path apart; `path.absolute?(p)` is a leading `/` or a drive; `path.relative(from, to) -> Maybe<String>` is the path from one directory to another; and `path.match?(pattern, p)` matches a glob a name at a time, `*` and `?` within a name, `[a-z]` and `[!abc]` sets, `**` any number of names, a name starting with `.` only by a pattern name starting with `.`.
+`std/path` reads paths as text and never touches the file system, so a typed literal's handler may call it. A path uses `/` on every operating system; on Windows std/fs accepts `\` too and answers `/`, and a drive is written `C:/Users`. `path.join(base, name)` and `path.join_all(parts)` join with `/` and clean; `path.clean(p)` is Go's `path.Clean` (repeated `/`s, `.` and `..` resolved by reading the text, `"."` for an empty path); `path.parent(p) -> Maybe<String>`, `path.base(p)`, `path.extension(p) -> Maybe<String>` (`Some("gz")` for `log.tar.gz`, `None` for `.bashrc`) and `path.stem(p)` take a path apart; `path.is_absolute(p)` is a leading `/` or a drive; `path.relative(from, to) -> Maybe<String>` is the path from one directory to another; and `path.matches(pattern, p)` matches a glob a name at a time, `*` and `?` within a name, `[a-z]` and `[!abc]` sets, `**` any number of names, a name starting with `.` only by a pattern name starting with `.`.
 
 `std/hash` computes cryptographic hashes of bytes: `hash.sha256(data: Bytes) -> Bytes` is the 32-byte SHA-256 digest (FIPS 180-4), and `hash.sha256_hex(data: Bytes) -> String` the same as the 64 lowercase hexadecimal digits `sha256sum` prints. Text is hashed as its UTF-8 bytes, `hash.sha256_hex(String.to_bytes("abc"))`. Both are pure, so a typed literal's handler may call them.
 
@@ -7934,7 +8060,8 @@ A `.nomi` script runs exactly as `nomi run` would run it, including the
 project root discovery below. A script alone in a directory such as `~/bin` is
 its own project, and sibling scripts do not affect it unless it imports them.
 A `.nomi` script inside a module (a `nomi.toml` above it) is held to that
-module's `entry_points`, so it must be listed there.
+module's entry points, so it must be listed in `entry_points` unless it is
+one of the module's tools under `tools/`.
 
 **Extensionless scripts.** A file without the `.nomi` extension is a program
 when it starts with `#!`, so a command can be named like any other:
@@ -7966,14 +8093,19 @@ needs no `go.mod`.
 
 Runs from a Nomi module — a directory containing both `go.mod` and
 `nomi.toml`. The manifest's `[module].name` is the module's short
-name; its `entry_points` is the inventory of files that contain
-`fn main`. The project root is the directory containing `nomi.toml`.
+name; its `entry_points` lists the files that contain `fn main`, other
+than its tools. Every `.nomi` file under the module's `tools/` directory is
+a tool, which `nomi tool <module> <name>` runs, and an entry point without
+being listed. Test files there are not tools, and neither is a file in an
+`internal/` directory there, which is where a tool's helpers go. Listing a
+tool in `entry_points` is allowed and changes nothing. The project root is
+the directory containing `nomi.toml`.
 
 ```toml
 # nomi.toml
 [module]
 name = "my_app"
-entry_points = ["main", "tools/seed"]
+entry_points = ["main"]
 ```
 
 ```
@@ -7982,7 +8114,7 @@ my_project/
   nomi.toml          # Nomi-side identity + entry points
   main.nomi          # entry — declares fn main + optional fn boot
   tools/
-    seed.nomi        # entry — second binary
+    seed.nomi        # a tool, an entry run by nomi tool my_app seed
   math.nomi          # library file (no fn main)
   models/
     user.nomi
@@ -7996,9 +8128,9 @@ nomi run main             # runs main.nomi
 nomi run tools/seed       # runs tools/seed.nomi
 ```
 
-The compiler enforces the manifest-vs-source invariant: every file
-listed in `entry_points` must have exactly one `fn main`, and every
-file not listed must have zero. Files inside `internal/` are
+The compiler enforces the manifest-vs-source invariant: every entry
+point, each file listed in `entry_points` and each tool, must have
+exactly one `fn main`, and every other file must have zero. Files inside `internal/` are
 reachable only from files rooted at the parent of that `internal/`
 (intra-module) and unreachable from any other module (regardless of
 `pub`). See §14's *Module boundaries* note.
@@ -8033,7 +8165,7 @@ fn main() -> Result<Unit, String> {
 
 prints `error: config file not found` to stderr and exits 1.
 
-To choose the exit status, `main` returns std/process's `Exit`, a struct with the fields `code: Int = 1` and `message: String = ""`, in its `Err`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to stderr when it is not empty, with no `error: ` before it, and exits with `e.code`; an `Exit` with code 0 exits 0, its message printed all the same. A code outside 0 to 255 is a trap, `exit code 300 is outside 0 to 255`, and exits 1. The same holds for an entry boot declared `-> Result<App, Exit>` that returns `Err`: main does not run and the program exits with the code. Before the program exits, supervised tasks drain and boot's deferred calls run, as when `main` returns `Ok`, so the message prints after them. Only std's `Exit` does this: a program's own type named `Exit` is an ordinary error and prints with `error: `. There is no function that exits on the spot; returning `Exit` through `try` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(#Exit{code: 2, message: "usage: count <file>"})`.
+To choose the exit status, `main` returns std/process's `Exit`, a struct with the fields `code: Int = 1` and `message: String = ""`, in its `Err`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to stderr when it is not empty, with no `error: ` before it, and exits with `e.code`; an `Exit` with code 0 exits 0, its message printed all the same. A code outside 0 to 255 is a trap, `exit code 300 is outside 0 to 255`, and exits 1. The same holds for an entry boot declared `-> Result<App, Exit>` that returns `Err`: main does not run and the program exits with the code. Before the program exits, supervised tasks drain and boot's deferred calls run, as when `main` returns `Ok`, so the message prints after them. Only std's `Exit` does this: a program's own type named `Exit` is an ordinary error and prints with `error: `. There is no function that exits on the spot; returning `Exit` through `?` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(#Exit{code: 2, message: "usage: count <file>"})`.
 
 ```
 import std/process.Exit
@@ -8069,9 +8201,7 @@ fn boot(startup: Startup) -> Result<App, String> {
 }
 
 fn main() -> Result<Unit, String> {
-    if App.name == "" {
-        return Err("the name is empty")
-    }
+    if App.name == "" { return Err("the name is empty") }
 
     io.print("Hello, ${App.name}!")
     Ok(Unit)
@@ -8130,7 +8260,7 @@ for any error type `E`. A boot that needs no startup input takes no parameter.
 Boot builds the application value, an ordinary struct, and returns it in `Ok`,
 or returns `Err` when the program cannot start. A boot that cannot fail still
 returns a `Result`, so adding a step that can fail never changes its
-signature, and `try` works in its body as in any function that returns a
+signature, and `?` works in its body as in any function that returns a
 `Result`. The struct name is not reserved, and no interface implementation is
 required. The struct in the `Ok` of an entry boot of the project is an
 *application type*. It may declare at most one top-level field of
@@ -8208,7 +8338,7 @@ meaning.
 replacement lasts from that line to the end of the enclosing block, the extent
 a `defer` registered on the same line would have, and it reaches every
 function called in that extent. However the block exits (reaching its end,
-`return`, `try`, or a failure), the previous value comes back. The value must
+`return`, `?`, or a failure), the previous value comes back. The value must
 have the field's declared type, and a `.Variant` value resolves against it. A
 struct-literal value needs no parentheses: `with App.store = #FakeStore{}`.
 
@@ -8323,7 +8453,7 @@ stderr and exit with status 1, the text being `Display.to_string(e)` when `e`'s
 type implements `Display` and `Debug.inspect(e)` otherwise. A program with
 exported functions answers that error in place of the booted program (§5). In
 a `group`, a boot that returns `Err` fails each test it serves before the
-test's body runs, with the report of a `try` that ended the test early: the
+test's body runs, with the report of a `?` that ended the test early: the
 `boot` line, and the `Err` it returned (§36). A trap in boot is a fault, as a
 trap anywhere is.
 
@@ -8343,7 +8473,7 @@ fn name_from(args: List<String>) -> Result<String, String> {
 
 fn boot(startup: Startup) -> Result<App, String> {
     defer io.print("boot cleanup")
-    name = try name_from(startup.args)
+    name = name_from(startup.args)?
     Ok(#App{name})
 }
 ```
@@ -8478,7 +8608,7 @@ Structural equality everywhere. `==` compares values deeply, not references.
 #(1, "hello") == #(1, "hello") // True
 ```
 
-**NaN equality is reflexive.** IEEE 754 says `NaN != NaN`, but Nomi's `==` is reflexive on `Float` so that pattern matching, `Maybe`/`Result` equality, and structural equality on containers all behave consistently — `nan == nan` is `True`, and `Some(nan) == Some(nan)` is `True`. This deviates from IEEE 754 in `==` only; the underlying Float64 representation and arithmetic are unchanged. To test for NaN-ness specifically, use `Float.nan?(x)`. `==` on `Float` compares every bit, so a computed result rarely equals a written one exactly (`Float.pow(8.0, 4.0 / 3.0)` is `15.999999999999998`); `Float.equal_within?(a, b, tolerance)` compares within an absolute tolerance the caller picks, is `False` when either operand is NaN, and traps on a negative or NaN tolerance.
+**NaN equality is reflexive.** IEEE 754 says `NaN != NaN`, but Nomi's `==` is reflexive on `Float` so that pattern matching, `Maybe`/`Result` equality, and structural equality on containers all behave consistently — `nan == nan` is `True`, and `Some(nan) == Some(nan)` is `True`. This deviates from IEEE 754 in `==` only; the underlying Float64 representation and arithmetic are unchanged. To test for NaN-ness specifically, use `Float.is_nan(x)`. `==` on `Float` compares every bit, so a computed result rarely equals a written one exactly (`Float.pow(8.0, 4.0 / 3.0)` is `15.999999999999998`); `Float.equal_within(a, b, tolerance)` compares within an absolute tolerance the caller picks, is `False` when either operand is NaN, and traps on a negative or NaN tolerance.
 
 **Functions and Iters cannot be compared.** Using `==` or `!=` on a function or an `Iter<T>` is a compiler error: a function's only identity is its closure, and an `Iter` is a function over its source, so comparing two would either compare closures or run both sources. A value that holds one — a struct field, a tuple or record part, a list element, a `Maybe`/`Result` or enum payload — is also incomparable, and `==` on it is a compiler error naming the part (`` `==` cannot compare `Feed`: it holds `Iter<Int>`, and an Iter has no equality ``). A struct or enum with its own `impl Equatable` compares through that impl, so write one to compare such a type by its other fields; to compare an Iter's elements, materialize it with `Iter.to_list` first. A `Set` finds its elements and a `Map` its keys by equality, so such a value cannot be either: building a `Set` or `Map` over one (`%[it]`, `%{f => 1}`) is a compiler error at the expression that builds it (`` `Iter<Int>` cannot be a Set element: an Iter has no equality or hashing ``).
 
@@ -8502,7 +8632,7 @@ a == a
 
 ### Custom equality via `impl Equatable`
 
-`==` on a type *without* an `impl Equatable` block uses the structural fallback above — no declaration needed. A hand-written `impl Equatable` block **overrides** the structural default: `==` / `!=` on a struct type with a registered `Equatable.equal?` route through that impl. That's how `std/calendar`'s `OffsetDateTime` / `DateTime` get instant-only equality (same moment in two zones is `==`; the zone is display metadata, not identity — see §39). Primitives keep the direct-comparison path and never dispatch.
+`==` on a type *without* an `impl Equatable` block uses the structural fallback above — no declaration needed. A hand-written `impl Equatable` block **overrides** the structural default: `==` / `!=` on a struct type with a registered `Equatable.equal` route through that impl. That's how `std/calendar`'s `OffsetDateTime` / `DateTime` get instant-only equality (same moment in two zones is `==`; the zone is display metadata, not identity — see §39). Primitives keep the direct-comparison path and never dispatch.
 
 The override holds wherever the value sits. `==` on a container, a tuple, or a struct or enum whose own `Equatable` is derived or absent compares each nested value of such a type through its impl (as a derived impl's field-by-field `==` does; Rust's derived `PartialEq` is the same rule), and a `Map` key or `Set` element matches the same way (see `Map<K, V>` in the collections list for how the bucket is chosen). So `[a] == [b]`, `Some(a) == Some(b)`, `%[a, b]` and `Map.get(%{a => 1}, b)` all agree with `a == b`.
 
@@ -8526,7 +8656,7 @@ struct Point {
 // help: add `derive Comparable` to `Point` or write an `impl Comparable for Point` block
 ```
 
-Add `derive Comparable` (field-by-field lexicographic, §38.1) or a hand-written `Comparable.compare` function and the operators work, routed through `Comparable.compare`. The stdlib declares `Comparable` for the naturally-ordered types — `Int`, `Float`, `Decimal`, `String`, `Bool`, `List` (lexicographic), `Duration`, and the `std/calendar` ladder — while `Map` is deliberately non-`Comparable` (no natural total order) and opaque `Instant` exposes `Instant.before?` instead. A **tuple** is `Comparable` when its elements are, lexicographically (§13): its order is its positions, which a reader sees at every use, so it has none of a struct's field-order hazard. An **anonymous struct** (`#{x: 1} < #{x: 2}`) is a compile-time error here, and unrecoverably so: there is no declaration to attach an impl (or `derive Comparable`) to, so the diagnostic reads `no impl of `Comparable` for `#{x: Int}` … anonymous struct types cannot implement `Comparable` rather than suggesting a fix. (Equality is unaffected — `#{x: 1} == #{x: 1}` works via the structural fallback.) This is Python's line (positional containers compare, records don't), and the opt-in posture matches Rust/Haskell; OCaml/Erlang-style universal compare is a known footgun Nomi declines.
+Add `derive Comparable` (field-by-field lexicographic, §38.1) or a hand-written `Comparable.compare` function and the operators work, routed through `Comparable.compare`. The stdlib declares `Comparable` for the naturally-ordered types — `Int`, `Float`, `Decimal`, `String`, `Bool`, `List` (lexicographic), `Duration`, and the `std/calendar` ladder — while `Map` is deliberately non-`Comparable` (no natural total order) and opaque `Instant` exposes `Instant.is_before` instead. A **tuple** is `Comparable` when its elements are, lexicographically (§13): its order is its positions, which a reader sees at every use, so it has none of a struct's field-order hazard. An **anonymous struct** (`#{x: 1} < #{x: 2}`) is a compile-time error here, and unrecoverably so: there is no declaration to attach an impl (or `derive Comparable`) to, so the diagnostic reads `no impl of `Comparable` for `#{x: Int}` … anonymous struct types cannot implement `Comparable` rather than suggesting a fix. (Equality is unaffected — `#{x: 1} == #{x: 1}` works via the structural fallback.) This is Python's line (positional containers compare, records don't), and the opt-in posture matches Rust/Haskell; OCaml/Erlang-style universal compare is a known footgun Nomi declines.
 
 ## 31. Module & Dependency Management
 
@@ -8548,13 +8678,14 @@ A Nomi module's identity lives in two files at the module root:
   and a Nomi project commits it and `go.sum` without editing either.
 - **`nomi.toml`** — the Nomi-side identity (`[module].name`, the
   module's short name used by other modules' import paths) and the
-  entry-point inventory (`[module].entry_points`).
+  entry points other than the module's tools (`[module].entry_points`;
+  every file under `tools/` is an entry point without being listed, §26).
 
 ```toml
 # nomi.toml
 [module]
 name = "my_app"
-entry_points = ["main", "tools/seed"]
+entry_points = ["main"]
 ```
 
 ```
@@ -8725,9 +8856,10 @@ The `nomi` CLI is the single tool:
   changes and reloading it when a static file changes.
 - `nomi fmt [-w|-l|-d] <paths>` — format Nomi source.
 - `nomi tool <module> <name> [args]` — run a module's tool: the program
-  `tools/<name>.nomi` at the module's root, which its `entry_points` list,
-  with the arguments after its name. It is an ordinary program with every
-  effect, run in the current directory, and runs only when someone runs it.
+  `tools/<name>.nomi` at the module's root, with the arguments after its
+  name. A tool is an entry point without being listed in `entry_points`. It is an ordinary program, run in the
+  current directory with the same access to files, the network and output
+  that `nomi run` gives a program, and runs only when someone runs it.
   `<module>` is the current module's name or one its `go.mod` requires. It
   is how a module ships a code generator, such as sqlkit's `nomi tool
   sqlkit generate` (§43), which writes ordinary `.nomi` files a program
@@ -8745,9 +8877,9 @@ The `nomi` CLI is the single tool:
   never replace either. The module path is the `go.mod`'s when there is
   one (a different argument is refused), and the argument otherwise, which
   is then required. `entry_points` lists the module-relative name of every
-  file under the directory with a top-level `fn main` (test files, hidden
-  directories and directories with their own `nomi.toml` are skipped), or
-  `["main"]` when there is none. It writes no source file, refuses a
+  file under the directory with a top-level `fn main` (tools, test files,
+  hidden directories and directories with their own `nomi.toml` are
+  skipped), or `["main"]` when there is none and there are no tools. It writes no source file, refuses a
   directory that holds both files, and prints what it wrote.
 - `nomi add <module>[@version]` — require a module in `go.mod` (its latest
   release when no version is given, else a full version such as `v1.2.3`),
@@ -8857,13 +8989,13 @@ y = 3.14
 
 z = x + y // error: cannot add Int and Float
 
-z = Int.to_float(x) + y // fine — total: every Int64 → Float64
+z = Int.to_float(x) + y // fine — total: the nearest Float
 
 w = Float.to_int(y) // Maybe<Int> — truncates toward zero;
-// None on NaN, ±Infinity, or out of Int64 range
+// None on NaN or ±Infinity
 ```
 
-`Float.to_int` returns `Maybe<Int>` because some Float values have no Int64 representation (`NaN`, `±Infinity`, `|x| > 2^63`). For other rounding rules, compose with `Float.round` (half-to-even), `Float.floor`, or `Float.ceil` first — each returns a `Float`, leaving the conversion as a single concern.
+`Float.to_int` returns `Maybe<Int>` because some Float values have no Int (`NaN`, `±Infinity`); every finite Float has one, exactly, at any magnitude. For other rounding rules, compose with `Float.round` (half-to-even), `Float.floor`, or `Float.ceil` first — each returns a `Float`, leaving the conversion as a single concern.
 
 ### Float Special Values
 
@@ -8886,11 +9018,11 @@ Float.negative_infinity() // -Inf
 Tested via predicates:
 
 ```nomi
-Float.nan?(x) // True if x is NaN
+Float.is_nan(x) // True if x is NaN
 
-Float.infinite?(x) // True if x is +Infinity or -Infinity
+Float.is_infinite(x) // True if x is +Infinity or -Infinity
 
-Float.finite?(x) // True if x is a real number — not NaN, not ±Infinity
+Float.is_finite(x) // True if x is a real number — not NaN, not ±Infinity
 ```
 
 Float division by zero **does not error** — it produces the IEEE 754 value:
@@ -8903,7 +9035,7 @@ Float division by zero **does not error** — it produces the IEEE 754 value:
 0.0 / 0.0 // NaN
 ```
 
-Int division by zero still errors at the operator (`1 / 0` is a runtime error), because Int has no spare bit patterns to encode "no value" — every Int64 is a valid integer. Code that wants total integer division validates the divisor first with `Int.to_non_zero(y) -> Maybe<NonZeroInt>`, then calls `Int.divide(x, nz) -> Int`. The infix operator stays direct, and the fallible step is named at the boundary where the divisor becomes known-safe.
+Int division by zero still errors at the operator (`1 / 0` is a runtime error), because Int has no value to encode "no value" — every Int is a valid integer. Code that wants total integer division validates the divisor first with `Int.to_non_zero(y) -> Maybe<NonZeroInt>`, then calls `Int.divide(x, nz) -> Int`. The infix operator stays direct, and the fallible step is named at the boundary where the divisor becomes known-safe.
 
 NaN and ±Infinity propagate through arithmetic and through the rounding helpers (`Float.round`, `floor`, `ceil`, `trunc`) per IEEE 754 — `Float.round(NaN)` is `NaN`, `Float.floor(+Inf)` is `+Inf`, etc.
 
@@ -8918,7 +9050,7 @@ NaN and ±Infinity propagate through arithmetic and through the rounding helpers
   either infinity is `+Inf`, and the abs of NaN is NaN.
 - `Float.sign` is 0 for both zeros, and 0 for NaN too: NaN is neither less
   than nor greater than zero, and no `Float` function traps on a NaN operand.
-  Check `Float.nan?` first where NaN must be told apart from zero.
+  Check `Float.is_nan` first where NaN must be told apart from zero.
 - `Float.min` and `Float.max` are IEEE 754-2019's `minimum` and `maximum`:
   NaN if either operand is NaN, and `-0.0` is the lesser zero, so
   `Float.min(0.0, -0.0)` is `-0.0` and `Float.max(-0.0, 0.0)` is `0.0`. For
@@ -8931,7 +9063,7 @@ three are forced, so this is a documented consequence rather than a wart to file
 
 | | Behaviour | On NaN |
 |---|---|---|
-| `==` / `!=`, `Equatable.equal?` | **reflexive** | `nan == nan` is `True` |
+| `==` / `!=`, `Equatable.equal` | **reflexive** | `nan == nan` is `True` |
 | `Comparable.compare` | **a total order**, NaN at the top | `compare(nan, nan)` is `Equal` |
 | `<` `<=` `>` `>=` | **IEEE** | `nan <= nan` is `False` |
 
@@ -8975,7 +9107,7 @@ Range.from(1) // unbounded ascending from 1 — pair with Iter.take
 Range.naturals() // unbounded ascending from 0
 ```
 
-Reversed integer bounds (`5..1`) produce an empty range — use `Iter.reverse(1..=5)` for descending iteration.
+Reversed integer bounds (`5..1`) produce an empty range. To count down, step by a negative amount: `Range.step_by(r, by)` walks the way `by` moves the start, so `Range.step_by(5..=1, -1)` yields 5, 4, 3, 2, 1, and `Range.step_by(5..1, -1)` leaves out the end, 1, as any half-open range does. A range whose end lies the other way from the step yields nothing (`Range.step_by(1..=5, -1)`), and so does a step that does not move (`Range.step_by(1..=5, 0)`). The walk is lazy, so `Range.step_by(9999..=1000, -1)` builds no list.
 
 The opaque struct backing the literals — the fields are internal; interact through the constructors, the `Iter` impl, and the query functions below:
 
@@ -8987,18 +9119,18 @@ opaque struct Range<T> where T: Comparable {
 }
 ```
 
-`end` is `None` only when the value is built via `Range.from(N)` or `Range.naturals()`; in that case `inclusive` carries no meaning and is canonically `False`. `Range<T>` implements `Iter<T>` when `T` implements `Discrete`, because iteration needs a successor operation. Bounded discrete ranges terminate; unbounded integer ranges don't (they are `Iter.infinite?`, and a terminal that must reach their end traps), so bound them with `Iter.take(N)` downstream — `Range.from(1) |> Iter.take(10) |> Iter.to_list()`. Non-discrete ranges are interval values: use `Range.contains?("a".."m", "h")`, `Range.bounded?(0.0..=1.0)`, `Range.contains?(1.25d..=2.50d, 1.50d)`, and similar queries.
+`end` is `None` only when the value is built via `Range.from(N)` or `Range.naturals()`; in that case `inclusive` carries no meaning and is canonically `False`. `Range<T>` implements `Iter<T>` when `T` implements `Discrete`, because iteration needs a successor operation. Bounded discrete ranges terminate; unbounded integer ranges don't (they are `Iter.is_infinite`, and a terminal that must reach their end traps), so bound them with `Iter.take(N)` downstream — `Range.from(1) |> Iter.take(10) |> Iter.to_list()`. Non-discrete ranges are interval values: use `Range.contains("a".."m", "h")`, `Range.is_bounded(0.0..=1.0)`, `Range.contains(1.25d..=2.50d, 1.50d)`, and similar queries.
 
 Container-specific functions (`std/ranges`):
 
 ```nomi
 fn from(n: Int) -> Range<Int>              // unbounded ascending from n
 fn naturals() -> Range<Int>                // unbounded ascending from 0
-fn contains?(c: Range<T>, x: T) -> Bool    // Contains impl
-fn bounded?<T>(r: Range<T>) -> Bool
+fn contains(c: Range<T>, x: T) -> Bool    // Contains impl
+fn is_bounded<T>(r: Range<T>) -> Bool
 ```
 
-Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete` — `Iter.known_count(r)` is `Some(n)` for bounded discrete ranges that can count steps, `None` for an unbounded one (the safe bounded count). Generic ops are `Iter` owner functions: `Iter.to_list(r)` (traps on unbounded, which is `Iter.infinite?`; bound with `Iter.take` first), `Iter.count(r)`.
+Plus the `Iter` protocol for ranges whose endpoint type implements `Discrete` — `Iter.known_count(r)` is `Some(n)` for bounded discrete ranges that can count steps, `None` for an unbounded one (the safe bounded count). Generic ops are `Iter` owner functions: `Iter.to_list(r)` (traps on unbounded, which is `Iter.is_infinite`; bound with `Iter.take` first), `Iter.count(r)`.
 
 Range operator precedence sits above pipes and below arithmetic — `1+2..5+6` groups as `(1+2)..(5+6)`. Pipe precedence sits above comparison, so `xs |> Iter.to_list() == [1, 2, 3]` groups as `(xs |> Iter.to_list()) == [1, 2, 3]`; range comparisons still group naturally as `(1..5) == (1..5)`. Range operands must have the same `Comparable` type.
 
@@ -9006,7 +9138,7 @@ Range operator precedence sits above pipes and below arithmetic — `1+2..5+6` g
 
 Braces `{ }` form block expressions. The last expression in a block is its value. This is consistent with function bodies, `case` branches, and `if/else` — all of which are already blocks.
 
-Expressions are separated by newlines. Semicolons are supported but not required — the compiler inserts them at newlines (like Go). Explicit semicolons allow multiple expressions on one line: `{ try database.save(db, page); count + 1 }`. The formatter normalizes multi-expression blocks to use newlines.
+Expressions are separated by newlines. Semicolons are supported but not required — the compiler inserts them at newlines (like Go). Explicit semicolons allow multiple expressions on one line: `{ database.save(db, page)?; count + 1 }`. The formatter normalizes multi-expression blocks to use newlines.
 
 A newline ends an expression only where the expression could end. A line that starts with an operator no expression can start with, `|>`, a comparison (`==`, `!=`, `<`, `<=`, `>`, `>=`), `and` or `or`, continues the expression on the line above, so a long comparison or condition breaks before its operator:
 
@@ -9016,11 +9148,11 @@ test "a long comparison" {
         == "Ingrid, you are the 22nd customer we serve today. Thank you!"
 }
 
-fn rectangle?(grid: Grid, top: Int, left: Int, bottom: Int, right: Int) -> Bool {
+fn is_rectangle(grid: Grid, top: Int, left: Int, bottom: Int, right: Int) -> Bool {
     bottom > top
         and right > left
-        and corners_meet?(grid, top, left, bottom, right)
-        and sides_whole?(grid, top, left, bottom, right)
+        and corners_meet(grid, top, left, bottom, right)
+        and has_whole_sides(grid, top, left, bottom, right)
 }
 ```
 
@@ -9440,7 +9572,7 @@ after its body and its owned work:
 ```nomi
 group "store" {
     setup {
-        db = try sqlite.open("tasks.tsv")
+        db = sqlite.open("tasks.tsv")?
         defer sqlite.close(db)
         db
     }
@@ -9467,8 +9599,8 @@ Assertions are language forms, not functions:
 
 ```nomi
 test "membership" {
-    assert Set.contains?(roles, "admin")
-    refute Set.contains?(roles, "banned")
+    assert Set.contains(roles, "admin")
+    refute Set.contains(roles, "banned")
 }
 ```
 
@@ -9556,10 +9688,10 @@ whole pipeline is the assertion subject:
 
 ```nomi
 assert "Ada Lovelace"
-    |> String.contains?("Ada")
+    |> String.contains("Ada")
 
 refute "Grace Hopper"
-    |> String.contains?("Ada")
+    |> String.contains("Ada")
 ```
 
 `assert expr` and `refute expr` propagate `AssertionFailure` to the nearest
@@ -9599,11 +9731,11 @@ assert [left, right] = pair
 assert Err(Error.InvalidFormat(reason)) = Date"not-a-date"
 ```
 
-In tests, use `try` when a fallible value is setup for the rest of the test.
-The test runner reports the `try` source and returned value if setup exits
+In tests, use `?` when a fallible value is setup for the rest of the test.
+The test runner reports the `?`'s source and returned value if setup exits
 early. Use a pattern assertion when the returned shape is itself part of the
 test's claim, such as `assert Err(Error.InvalidFormat(_)) = Date.parse(text)`.
-A `try` or an assertion in a `group`'s `setup` block behaves the same
+A `?` or an assertion in a `group`'s `setup` block behaves the same
 way: the setup runs inside each case it serves, so an early exit there fails
 that case with the same report, and none of the case's body runs.
 
@@ -9621,7 +9753,7 @@ test "determines palindromes" {
     cases = [#("abba", True), #("abc", False), #("x", True)]
 
     subtests cases, #(line, known_palindrome) {
-        assert palindrome?(line) == known_palindrome
+        assert is_palindrome(line) == known_palindrome
     }
 }
 ```
@@ -9638,11 +9770,11 @@ one row). Were the second row above `#("abc", True)`, the test would report:
 ```text
 FAIL palindrome_test.nomi :: determines palindromes
   subtest #("abc", True): line 5: assertion failed
-    assert palindrome?(line) == known_palindrome
+    assert is_palindrome(line) == known_palindrome
     values:
       line
         = "abc"
-      palindrome?(line)
+      is_palindrome(line)
         = False
       known_palindrome
         = True
@@ -9654,7 +9786,7 @@ row, as it fails a test body, so a row may end with a helper that asserts:
 
 ```nomi
 fn check_row(line: String, known_palindrome: Bool) -> Result<Unit, AssertionFailure> {
-    assert palindrome?(line) == known_palindrome
+    assert is_palindrome(line) == known_palindrome
     Ok(Unit)
 }
 
@@ -9682,24 +9814,24 @@ test "leap years" {
     ]
 
     subtests cases, #(description, year, expected), description {
-        assert leap_year?(year) == expected
+        assert is_leap_year(year) == expected
     }
 }
 ```
 
 A failed row's report shows its name, rendered as a String literal, where the
 rendered row would be; the rest of the report is unchanged. Two rows may share
-a name, and each failed one is listed under it. Were `leap_year?(2000)`
+a name, and each failed one is listed under it. Were `is_leap_year(2000)`
 `False`, the test above would report:
 
 ```text
 FAIL leap_test.nomi :: leap years
   subtest "year divisible by 400 is leap year": line 8: assertion failed
-    assert leap_year?(year) == expected
+    assert is_leap_year(year) == expected
     values:
       year
         = 2000
-      leap_year?(year)
+      is_leap_year(year)
         = False
       expected
         = True
@@ -9709,9 +9841,9 @@ FAIL leap_test.nomi :: leap years
 `_` and a `_`-prefixed name discard a column with or without a name, so a
 description column may still be left out of a pattern
 (`subtests cases, #(_, year, expected) { ... }`). The name runs on its own,
-before its row, so `return`, `break`, `continue`, `try` and an assertion
+before its row, so `return`, `break`, `continue`, `?` and an assertion
 written directly in it are errors, such as
-``` `try` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs ```.
+``` `?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs ```.
 A name that traps fails its row, and the row's body does not run. That row is
 reported under the rendered row, with the header
 `its name trapped:` and the trap's text, without the trap's own `line N:`
@@ -9751,8 +9883,9 @@ or inside another `subtests` body
 (`` `subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case ``).
 
 A row is not a function, and every row runs to its end, so `return`, `break`,
-`continue` and `try` written directly in the body are errors, such as
-`` `return` cannot be used in a `subtests` body: a row is not a function, and each row runs to its end ``.
+`continue` and `?` written directly in the body are errors, such as
+`` `return` cannot be used in a `subtests` body: a row is not a function, and each row runs to its end ``
+and `` `?` cannot be used in a `subtests` body: a row is not a function, so there is nothing to return the Err or None to ``.
 Inside a lambda or a nested `fn` in the body they leave that, as anywhere.
 
 Each row a test runs is a case in the `test result:` totals. A test that runs
@@ -10036,7 +10169,7 @@ propagates. `fs_testing.conformance(root) -> List<ConformanceFailure>` runs
 std/fs's rules (each `WriteMode`, `NotFound` for a missing parent, sorted
 listings, `remove` of a directory with entries, `remove_all` of a missing
 path, `rename` over a file, an atomic write that fails, line splitting,
-`InvalidText`, closed handles, `exists?`, walks and globs, symlinks followed
+`InvalidText`, closed handles, `exists`, walks and globs, symlinks followed
 and not, a dangling one and a loop, `set_mode`, a `File`'s reads and writes
 at a position, and `fs.within`'s confinement) in fresh directories under the
 empty directory `root`, and answers the ones broken; std's own tests run it
@@ -10224,7 +10357,7 @@ struct Point {
 }
 
 impl Equatable for Point {
-    fn equal?(a: Point, b: Point) -> Bool {
+    fn equal(a: Point, b: Point) -> Bool {
         a.x == b.x and a.y == b.y
     }
 }
@@ -10249,7 +10382,7 @@ The user never writes the synthesized functions; they exist at compile time and 
 
 Imports cover the names the file's **visible text** writes — and a `derive Comparable for Point` declaration *names* `Comparable` in the source. So each derived interface resolves through ordinary scope: it counts as a use of the protocol name, go-to-def on it jumps to the interface declaration, and naming a protocol that isn't in scope is a compile error pointing at the line with the exact import to add (``` `Comparable` is not in scope — import `std/comparable.Comparable` ```). Derive options are visible text too: `derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}` keeps the owner imports for `ToJson` and `Json` live; importing `Json.{self, Case.Camel}` and writing `rename_all: Camel` keeps both `Json` and the imported variant live instead. Prelude-exported protocols are in scope automatically for user files; protocols that are not in the prelude, such as `ToJson` and `FromJson`, are imported explicitly. `Debug` is the one exemption: it is compiler-known universally (§38.2), so `derive Debug for Type` carries no scope requirement.
 
-Names referenced only by the **synthesized** code resolve through the compiler-known route, never through the deriving file's imports: the synthesized impl headers, the `Ordering` type (named in the `compare` return *and* as the qualifier of the `Ordering.Less`/`Equal`/`Greater` value and pattern references the body emits — qualifying through the type is what keeps the variants out of the prelude), `True` / `False` in synthesized bodies, and the interface-qualified recursion calls (`Equatable.equal?(...)`, `Comparable.compare(...)`, …). When synthesis creates an ordinary module call internally, it carries its own synthetic support import; for example `derive FromJson` bodies use `Map.get` without requiring the source file to import `std/maps`. Derive is compiler machinery; its output resolves like compiler output. A file deriving a protocol therefore imports exactly the protocol names its `derive Iface for Type` declarations write — nothing extra for the synthesis internals. Hand-written `impl Display for T { ... }` blocks still require `Display` in scope.
+Names referenced only by the **synthesized** code resolve through the compiler-known route, never through the deriving file's imports: the synthesized impl headers, the `Ordering` type (named in the `compare` return *and* as the qualifier of the `Ordering.Less`/`Equal`/`Greater` value and pattern references the body emits — qualifying through the type is what keeps the variants out of the prelude), `True` / `False` in synthesized bodies, and the interface-qualified recursion calls (`Equatable.equal(...)`, `Comparable.compare(...)`, …). When synthesis creates an ordinary module call internally, it carries its own synthetic support import; for example `derive FromJson` bodies use `Map.get` without requiring the source file to import `std/maps`. Derive is compiler machinery; its output resolves like compiler output. A file deriving a protocol therefore imports exactly the protocol names its `derive Iface for Type` declarations write — nothing extra for the synthesis internals. Hand-written `impl Display for T { ... }` blocks still require `Display` in scope.
 
 #### v1 derivable protocols
 
@@ -10260,8 +10393,8 @@ Names referenced only by the **synthesized** code resolve through the compiler-k
 | `Comparable` | Lexicographic by field declaration order, short-circuiting on first non-equal. For enums: earlier-declared variant < later-declared, ties broken by payload comparison. |
 | `Debug` | Structural string in literal-shape form. For struct `#Point{x: 3, y: 4}` → `"#Point{x: 3, y: 4}"`. For enum `Shape.Circle(5.0)` → `"Circle(5.0)"` (the variant, with no enum-name prefix). |
 | `Display` | Same structural shape as `Debug`, but nested `String` values render **unquoted** — `#C{name: bob}` where Debug emits `#C{name: "bob"}`. A convenience default; authors usually hand-write a `Display.to_string` function for real user-facing presentation (see below). |
-| `ToJson` | Struct fields encode as JSON object keys; distinct wrappers encode through their inner value; enums encode as strings for bare variants and externally-tagged objects for payload variants. `#ToJson.Options{rename_all: ...}` controls generated field keys with a `Json.Case` variant. |
-| `FromJson` | Struct fields decode from JSON objects with missing `Maybe<T>` fields as `None` and missing defaulted fields from their declaration defaults; distinct wrappers decode through their inner value; enums decode what derived `ToJson` writes: a bare variant from the string of its name, a payload variant from an object whose key is its name (an array for a tuple payload, an object of the fields for a struct variant), with an error naming the variant and field that did not match. Callers name the target with the implementing type (`User.from_json(value)`), an explicit target type argument on the interface (`FromJson.from_json<User>(value)`), or an expected target type (`user: User = try FromJson.from_json(value)`). `#FromJson.Options{rename_all: ...}` controls expected field keys with a `Json.Case` variant. |
+| `ToJson` | Struct fields encode as JSON object keys; distinct wrappers encode through their inner value; enums encode as strings for bare variants and externally-tagged objects for payload variants. To JSON text, `Json.encode_as(value)` converts and encodes in one call. `#ToJson.Options{rename_all: ...}` controls generated field keys with a `Json.Case` variant. |
+| `FromJson` | Struct fields decode from JSON objects with missing `Maybe<T>` fields as `None` and missing defaulted fields from their declaration defaults; distinct wrappers decode through their inner value; enums decode what derived `ToJson` writes: a bare variant from the string of its name, a payload variant from an object whose key is its name (an array for a tuple payload, an object of the fields for a struct variant), with an error naming the variant and field that did not match. Callers name the target with the implementing type (`User.from_json(value)`), an explicit target type argument on the interface (`FromJson.from_json<User>(value)`), or an expected target type (`user: User = FromJson.from_json(value)?`). From JSON text, `Json.decode_as` decodes and converts in one call, the same ways (`Json.decode_as<User>(text)`, `user: User = Json.decode_as(text)?`), and its error, `Json.Error`, holds either step's. `#FromJson.Options{rename_all: ...}` controls expected field keys with a `Json.Case` variant. |
 | `Variants` | Enums only, and only an enum without type parameters whose variants all carry no data. `variants()` takes no argument and returns a `List` of every variant in declaration order, the order derived `Comparable` ranks them in: `derive Variants for Coin` gives `Coin.variants() == [Coin.Penny, Coin.Nickel, Coin.Dime, Coin.Quarter]`. Generic code calls it through a bound (`T.variants()` with `where T: Variants`). Deriving it for a struct, a distinct type, a generic enum, or an enum with a variant that carries data is a compile error at the derive that names the reason (`` `derive Variants for Shape`: variant `Shape.Circle` carries data, and `Variants` lists only variants that carry none; ... ``). |
 
 `Display` **is** derivable — `derive Display` synthesizes the same structural shape as `derive Debug`, except nested strings render unquoted (`#C{name: bob}` where Debug emits `#C{name: "bob"}`). It's a convenience for throwaway / structural output and for generic code that just needs *some* `Display` impl to satisfy a bound. Real user-facing presentation usually wants a per-type opinion rather than the structural dump, so authors typically hand-write a `Display.to_string` function instead — the same split Rust draws between `Debug` (`#[derive]`-friendly) and `Display` (hand-written), except Nomi *also* lets you derive `Display` when the structural form is good enough.
@@ -10306,7 +10439,7 @@ Spec note: `derive Debug` on a type with sensitive fields (tokens, passwords, cr
 
 #### Host types
 
-The `derive` entry on a declared `host type` is the author's **assertion that the type has trivial structure** — a zero-sized singleton with exactly one inhabitant (the `True`/`False` shape). The declaration carries no payload shape the synthesizer can see (internals are host-side), so the synthesized bodies are constants: `Equatable.equal?` returns `True`, `Comparable.compare` returns `Equal`, and `Hashable.hash` returns `0` (all values equal ⇒ equal hashes, so the equals/hash agreement law holds by construction). `Debug` / `Display` derives render the bare type name — the same rendering as universal Debug's host-type default (§38.2), so `derive Debug` on a host type is the explicit spelling of what happens automatically. There are no field-type requirements to check — the assertion is vacuously consistent. A **value-carrying** host type (the `Instant` class of types) would get semantically wrong impls from these constant bodies — that is the rule, not a gap: value-carrying host types hand-write host-backed impls (`host fn` items satisfying `impl` entries), as every such stdlib type does.
+The `derive` entry on a declared `host type` is the author's **assertion that the type has trivial structure** — a zero-sized singleton with exactly one inhabitant (the `True`/`False` shape). The declaration carries no payload shape the synthesizer can see (internals are host-side), so the synthesized bodies are constants: `Equatable.equal` returns `True`, `Comparable.compare` returns `Equal`, and `Hashable.hash` returns `0` (all values equal ⇒ equal hashes, so the equals/hash agreement law holds by construction). `Debug` / `Display` derives render the bare type name — the same rendering as universal Debug's host-type default (§38.2), so `derive Debug` on a host type is the explicit spelling of what happens automatically. There are no field-type requirements to check — the assertion is vacuously consistent. A **value-carrying** host type (the `Instant` class of types) would get semantically wrong impls from these constant bodies — that is the rule, not a gap: value-carrying host types hand-write host-backed impls (`host fn` items satisfying `impl` entries), as every such stdlib type does.
 
 #### Manual + derive collision
 
@@ -10379,7 +10512,8 @@ Plus the two adjacent types in sibling modules:
   `Duration` from `b` to `a` (`Instant.between(b, a)`).
 - **`Duration`** (`std/duration`) — exact elapsed time, in
   nanoseconds at the storage layer. Construct with unit functions such as
-  `Duration.seconds(5)`; hours/minutes/seconds exist here, while
+  `Duration.seconds(5)`, or with a literal as `Display` writes it,
+  ``Duration`1h30m` ``; hours/minutes/seconds exist here, while
   months/years do not (those aren't exact units).
 
 The five-type ladder mirrors `java.time` (`LocalDate`, `LocalTime`,
@@ -10394,28 +10528,28 @@ make the unsafe form the easier reach.
 ### Construction
 
 Every type has a same-named `Literal` handler — the
-typed-literal form is the primary construction path. Parse failure
-yields `Err`:
+typed-literal form is the primary construction path. A backtick literal
+is checked when the program compiles; a double-quoted one yields `Err`
+when its text does not parse:
 
 ```nomi
 import {
-    std/calendar.{Date, DateTime, Error}
+    std/calendar.{Date, DateTime}
     std/io
 }
 
-fn main() -> Result<Unit, Error> {
-    d = try Date"2026-05-04"
-    dt = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+fn main() {
+    d = Date`2026-05-04`
+    dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
     io.print(d) // 2026-05-04
     io.print(dt) // 2026-06-15T12:00:00-04:00[America/New_York]
-    Ok(Unit)
 }
 
 ```
 
 `DateTime`'s typed literal uses **RFC 9557 bracket notation** — the
 IANA zone bracket is required. A bare offset (no bracket) parses via
-`OffsetDateTime"…"` instead. The bracket distinguishes "anchored in a
+``OffsetDateTime`…` `` instead. The bracket distinguishes "anchored in a
 zone" from "anchored at a fixed offset."
 
 Programmatic constructors:
@@ -10450,13 +10584,13 @@ transitions.
   `Microseconds(...)` / `Nanoseconds(...)`** — civil period
   arithmetic. Adjusts the wall reading and, for zoned `DateTime`, re-resolves
   through the zone. Months and years clamp end-of-month
-  (`Date"2026-01-31" + Months(1)` → `Date"2026-02-28"`).
+  (``Date`2026-01-31` + Months(1)`` → ``Date`2026-02-28` ``).
 
 The headline example, where civil and physical diverge across a
 spring-forward transition:
 
 ```nomi
-start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
 
 start + Hours(24) // → noon Mar 8 EDT (23h physical)
 
@@ -10552,9 +10686,9 @@ ordering. Two values with the same underlying nanos but different
 offsets / zones compare equal:
 
 ```nomi
-ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
-paris = try DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
+paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
 
 ny == paris // → True (same instant)
 ```
@@ -10582,18 +10716,19 @@ Every calendar type carries a `Literal` handler,
 so the literal form is the primary user-facing constructor:
 
 ```
-Date"YYYY-MM-DD"
-Time"HH:MM:SS[.fff…]"
-NaiveDateTime"YYYY-MM-DDTHH:MM:SS[.fff…]"
-OffsetDateTime"YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM"  // or trailing Z
-DateTime"YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]"
+Date`YYYY-MM-DD`
+Time`HH:MM:SS[.fff…]`
+NaiveDateTime`YYYY-MM-DDTHH:MM:SS[.fff…]`
+OffsetDateTime`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM`  // or trailing Z
+DateTime`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`
 ```
 
 The bracket on `DateTime` is **required** — bare-offset forms without
-the bracket parse via `OffsetDateTime` instead. A double-quoted literal's
-parse failure returns `Err(calendar.Error)`; `try`-unwrap at the call
-site. A backtick literal (`` Date`2026-05-04` ``) is parsed at compile
-time: it is a `Date`, and a malformed one is a compile error. See §16
+the bracket parse via `OffsetDateTime` instead. A backtick literal
+(`` Date`2026-05-04` ``) is parsed at compile time: it is a `Date`, and a
+malformed one is a compile error. A double-quoted literal
+(`Date"2026-${month}-04"`) is parsed at run time, and its parse failure
+returns `Err(calendar.Error)`; unwrap it with `?` at the call site. See §16
 Typed Literals for the underlying mechanism.
 
 A calendar value writes itself for a reader in a locale with `format` (a
@@ -10949,7 +11084,7 @@ formatting in it:
 
 ```nomi
 fn choose_language(locale: Locale) -> Result<Unit, LoadError> {
-    try Locale.load(locale)
+    Locale.load(locale)?
     with App.locale = locale
     render_page()
     Ok(Unit)
@@ -11167,17 +11302,23 @@ is meaningful only beside keys of the same collator and Nomi release.
 
 ```nomi
 // String
-fn to_upper_in(s: String, locale: Locale) -> String
-fn to_lower_in(s: String, locale: Locale) -> String
+fn uppercase_in(s: String, locale: Locale) -> String
+fn lowercase_in(s: String, locale: Locale) -> String
+fn capitalize_in(s: String, locale: Locale) -> String
 fn fold_case(s: String) -> String
 ```
 
-`to_upper_in` and `to_lower_in` apply Unicode's full case mappings
+`uppercase_in` and `lowercase_in` apply Unicode's full case mappings
 (SpecialCasing: `ß` upper-cases to `SS`, and a capital sigma ending a word
 lower-cases to `ς`) and the rules of the locale's language: Turkish and
 Azeri map `i` to `İ` and `I` to `ı`, and Lithuanian keeps the dot of an
-`i` under an accent. `String.to_upper` and `String.to_lower` stay
-independent of any language. `fold_case` is Unicode's full case folding,
+`i` under an accent. `String.uppercase` and `String.lowercase` stay
+independent of any language. `capitalize_in` writes the first grapheme in
+title case and lowers the rest, with the same rules (Turkish `istanbul`
+becomes `İstanbul`); `String.capitalize` does the same with Unicode's full
+mappings and no language's rules. Title case differs from upper case for
+the letters that stand for two: `ǆ` becomes `ǅ`, and `ß` becomes `Ss`.
+`fold_case` is Unicode's full case folding,
 the same in every language: two strings that differ only in case fold to
 the same string.
 
@@ -11193,7 +11334,7 @@ fn parse(text: String) -> Result<Currency, Error>                  // `EUR`, or 
 fn custom(code: String, minor_digits: Int) -> Result<Currency, Error>
 fn code(currency: Currency) -> String
 fn minor_digits(currency: Currency) -> Int
-fn iso?(currency: Currency) -> Bool
+fn is_iso(currency: Currency) -> Bool
 
 pub struct Money {                // std/money
     amount: Decimal
@@ -11207,7 +11348,12 @@ pub enum CurrencyDisplay {
     Name
 }
 
-fn format(money: Money, locale: Locale, display: CurrencyDisplay = CurrencyDisplay.Symbol) -> String
+pub enum CurrencySign {
+    Standard
+    Accounting
+}
+
+fn format(money: Money, locale: Locale, display: CurrencyDisplay = CurrencyDisplay.Symbol, sign: CurrencySign = CurrencySign.Standard) -> String
 fn round(money: Money, mode: RoundingMode = RoundingMode.HalfEven) -> Money
 fn parse_in(text: String, locale: Locale, currency: Currency, lenient: Bool = False) -> Result<Money, NumberParseError>
 
@@ -11260,14 +11406,14 @@ impl Literal for Money          // Money`12.50 EUR`, Money`1200 PTS:0`
   `#Money{...}` from the fields.
 - **Arithmetic.** `Money` implements `Add`, `Subtract`, `Multiply<Int,
   Money>` and `Summable`, all exact. Two amounts in two currencies trap,
-  naming both, as `Int` overflow does: `Money.add: the amounts are in two
+  naming both: `Money.add: the amounts are in two
   currencies, EUR and PLN`, and `PTS:0 and PTS:2` for two custom currencies
   of one code. `Money.empty_sum()` is zero in `XXX`, ISO's code for no
   currency, which `+` leaves the other amount alone for, so `Iter.sum` of a
   list of amounts is their total in their currency. Two amounts are equal
   when their currencies are and their amounts are equal numbers. Std has no
   exchange rates; a library that converts checks `m.currency` first.
-  `Money.abs`, `negate`, `sign`, `zero?`, `min` and `max` work on the amount
+  `Money.abs`, `negate`, `sign`, `is_zero`, `min` and `max` work on the amount
   and keep the currency; `min` and `max` of two currencies trap as `+` does
   (`Money.min: the amounts are in two currencies, EUR and PLN`).
 - **Rounding.** `Money.round` rounds the amount to its currency's minor
@@ -11285,6 +11431,10 @@ impl Literal for Money          // Money`12.50 EUR`, Money`1200 PTS:0`
   nothing. A symbol made of letters is kept apart from the digits by CLDR's
   `alphaNextToNumber` pattern (`BTC 0.50000000` in `en`, U+00A0). A custom
   currency has no symbol or name in CLDR, so every display writes its code.
+  `sign: .Accounting` writes the locale's accounting currency pattern
+  instead of its standard one: `en` puts a negative amount in parentheses
+  (`($10.00)`), and most locales write it as the standard pattern does. A
+  `Name` display has no accounting form and writes its sign as usual.
   `Money` implements `Localize` with `format` and `Display` as the amount
   and the currency as its literal writes them, the same everywhere
   (`12.50 EUR`, `-5.00 USD`, `1200 PTS:0`).
@@ -11302,6 +11452,8 @@ Money.format(Money`12.50 EUR`, Locale`pl`) // "12,50 €" (U+00A0)
 Money.format(Money`1500 JPY`, Locale`ja`) // "￥1,500"
 
 Money.format(Money`2 EUR`, Locale`en`, display: .Name) // "2.00 euros"
+
+Money.format(Money`-10 USD`, Locale`en`, sign: .Accounting) // "($10.00)"
 
 Money.format(#Money{amount: total, currency: eur}, Locale`en`) // computed values: the fields
 
@@ -11411,7 +11563,9 @@ unit list pattern: `1 hour, 30 minutes` in `en`, `1 godzina i 30 minut` in
 `pl`. A length is counted in hours, since a day is civil; zero is `0
 seconds`. `Duration` implements `Localize` with it. `Duration.clock` writes
 the same text in every locale, as a stopwatch shows it (`00:01:28`), and
-`Duration.parse_clock` reads that back.
+`Duration.parse_clock` reads that back. `Duration.parse` reads what
+`Display` writes (`1h30m`, `1s500ms`, `-5m`, `0s`), and ``Duration`1m28s` ``
+is a typed literal that reads the same text, checked at compile time.
 
 `TimeUnit.format_relative` writes `count` units from now: `in 3 days` and
 `3 days ago` in `en`, `vor 3 Tagen` in `de`, `za 3 tygodnie` and `za 5
@@ -11885,11 +12039,29 @@ s = Sql"SELECT id FROM orders WHERE " + Statement.join(filters, Sql" AND ")
 // "${s}" == "SELECT id FROM orders WHERE status = ?1 AND total >= ?2"
 ```
 
-`Statement.values(items)`, for any `T: ToSql`, is `(?1, ?2, ...)` for SQL's
-`IN`, and `(NULL)`, which matches no row, for an empty list.
-`Statement.where_all(conditions)` is ` WHERE ` and the conditions joined by
-`AND` (`where_any`: `OR`), each parenthesized when there is more than one,
-and the empty statement for no conditions.
+`join` and the builders below take an `Iter`, so a list or a pipe passes:
+
+- `Statement.list(statements)` is `(a, b, c)`, the statements joined by
+  `, ` in parentheses, for a row of a multi-row `INSERT`. No statements is
+  `()`.
+- `Statement.values(items)`, for any `T: ToSql`, is the `list` of each item
+  as a parameter, `(?1, ?2, ...)`, for SQL's `IN`, and `(NULL)`, which
+  matches no row, for no items.
+- `Statement.all(conditions)` is the conditions joined by `AND`
+  (`Statement.any`: `OR`). With more than one, each is parenthesized, so
+  they nest. One condition is itself. An empty statement among them is left
+  out, and no conditions is the empty statement.
+- `Statement.where_all(conditions)` is ` WHERE ` and `all` of them
+  (`where_any`: `any`), or the empty statement when that is empty.
+
+```nomi
+paid = Sql"status = ${"paid"}"
+
+urgent = Statement.any([Sql"total >= ${20}", Sql"rush = ${True}"])
+
+s = Statement.where_all([paid, urgent])
+// "${s}" == " WHERE (status = ?1) AND ((total >= ?2) OR (rush = ?3))"
+```
 
 ### Values
 
@@ -11951,7 +12123,7 @@ value as a `T`: NULL read as a type that is not a `Maybe` is
 `Err(.UnexpectedNull{query, column})`, and any other value `T` cannot hold is
 `Err(.Decode{query, column, expected, found})`, where `expected` is what
 `from_sql` answered and `found` the value's `Value.kind`. `T` is inferred from
-the expected type (`n: Int = try Row.get(row, "n")`) or given
+the expected type (`n: Int = Row.get(row, "n")?`) or given
 (`Row.get<Int>(row, "n")`).
 
 ### Errors
@@ -12095,7 +12267,7 @@ body runs it in `sql.with_connection`, which answers a failed close.
 ```nomi
 group "sessions" {
     setup {
-        conn = try sqlite.open("app.db")
+        conn = sqlite.open("app.db")?
         defer sql.close_quietly(conn)
         conn
     }
@@ -12117,7 +12289,7 @@ fn new(dialect: Dialect = Dialect.Other("fake"), answer: (Statement, List<Statem
 fn log(fake: Fake) -> List<String>
 fn statements(fake: Fake) -> List<Statement>
 fn committed(fake: Fake) -> List<Statement>
-fn closed?(fake: Fake) -> Bool
+fn is_closed(fake: Fake) -> Bool
 ```
 
 `answer` gets the statement and the statements in effect as the connection
@@ -12131,7 +12303,7 @@ transaction command as a driver would send it: `BEGIN`, `COMMIT` and
 `ROLLBACK TO SAVEPOINT sp1` for a savepoint, numbered by depth, and `CLOSE` for
 the first `close`. `committed` is the statements in effect outside every
 transaction; a close discards those of every transaction still open.
-`closed?` is whether `close` was called on the fake or on a `Conn` its `begin`
+`is_closed` is whether `close` was called on the fake or on a `Conn` its `begin`
 returned. Every `Conn` that `begin` returns shares its connection's record,
 and the fake follows `Conn`'s rules.
 

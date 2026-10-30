@@ -34,9 +34,7 @@ pub fn largest_product(digits: String, span: Int) -> Result<Int, Error> {
         return Err(.NotADigit)
     }
 
-    if span > Iter.count(numbers) {
-        return Err(.SpanTooLong)
-    }
+    if span > Iter.count(numbers) { return Err(.SpanTooLong) }
 
     if span == 0 { return Ok(1) }
 

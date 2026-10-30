@@ -31,9 +31,10 @@ const (
 	// not run it.
 	InfoNoRun = "no-run"
 	// InfoManual marks a block whose run is expensive (a tool runs before
-	// it), so the tour runs it only when the reader presses its Run button,
-	// not on every edit. A doctest runs it like any other block, and it
-	// combines with InfoError.
+	// it, or it computes a lot), so the tour runs it only when the reader
+	// presses its Run button: on page load its output panel shows the
+	// block's expect block, which it must have. A doctest runs it like any
+	// other block, and it combines with InfoError.
 	InfoManual = "manual"
 	// InfoReadOnly, followed by a glob (`read-only:photos/*`), marks the
 	// data files the glob matches as files whose contents the program never

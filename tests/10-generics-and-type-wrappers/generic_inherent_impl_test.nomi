@@ -16,7 +16,7 @@ impl Span<T> {
         #Span{start: span.stop, stop: span.start}
     }
 
-    fn longer?<T>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
+    fn is_longer<T>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
         span.stop > other.stop
     }
 
@@ -46,7 +46,7 @@ impl Tree<T> {
 test "a generic struct with an inherent impl builds from a literal" {
     numbers = #Span{start: 1, stop: 5}
     assert Span.first(numbers) == 1
-    assert Span.longer?(numbers, #Span{start: 1, stop: 3})
+    assert Span.is_longer(numbers, #Span{start: 1, stop: 3})
     assert Span.first(Span.swap(numbers)) == 5
 }
 

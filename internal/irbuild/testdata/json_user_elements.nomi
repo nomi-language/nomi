@@ -27,17 +27,17 @@ fn shape(text: String) -> Json {
 }
 
 fn main() -> Result<Unit, Json.ShapeError> {
-    notes: List<Note> = try FromJson.from_json(shape("[{\"title\": \"b\"}, {\"title\": \"a\"}]"))
+    notes: List<Note> = FromJson.from_json(shape("[{\"title\": \"b\"}, {\"title\": \"a\"}]"))?
     dbg notes
-    turbo = try FromJson.from_json<List<Note>>(shape("[{\"title\": \"c\"}]"))
+    turbo = FromJson.from_json<List<Note>>(shape("[{\"title\": \"c\"}]"))?
     dbg turbo
-    by_key: Map<String, Note> = try FromJson.from_json(shape("{\"k\": {\"title\": \"d\"}}"))
+    by_key: Map<String, Note> = FromJson.from_json(shape("{\"k\": {\"title\": \"d\"}}"))?
     dbg by_key
-    maybe: Maybe<Note> = try FromJson.from_json(shape("{\"title\": \"e\"}"))
+    maybe: Maybe<Note> = FromJson.from_json(shape("{\"title\": \"e\"}"))?
     dbg maybe
-    none: Maybe<Note> = try FromJson.from_json(Json.Null)
+    none: Maybe<Note> = FromJson.from_json(Json.Null)?
     dbg none
-    nested: List<List<Note>> = try FromJson.from_json(shape("[[{\"title\": \"f\"}], []]"))
+    nested: List<List<Note>> = FromJson.from_json(shape("[[{\"title\": \"f\"}], []]"))?
     dbg nested
     bad: Result<List<Note>, Json.ShapeError> = FromJson.from_json(shape("[{\"title\": 1}]"))
     dbg bad
@@ -46,6 +46,6 @@ fn main() -> Result<Unit, Json.ShapeError> {
     dbg Json.encode(ToJson.to_json([by_key]))
     dbg Json.encode(ToJson.to_json([maybe, none]))
     dbg Iter.sort(notes)
-    dbg Iter.to_set(notes) |> Set.contains?(#Note{title: "a"})
+    dbg Iter.to_set(notes) |> Set.contains(#Note{title: "a"})
     Ok(Unit)
 }

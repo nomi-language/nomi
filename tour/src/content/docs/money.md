@@ -101,7 +101,7 @@ a cart's prices is in the cart's currency.
 ## Mixing currencies
 
 Adding dollars to euros gives a number with no meaning, so it stops the
-program, as an `Int` overflow does. The message names both currencies:
+program, as a division by zero does. The message names both currencies:
 
 ```nomi-run error
 import {

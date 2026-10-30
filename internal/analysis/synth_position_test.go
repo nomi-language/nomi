@@ -279,7 +279,7 @@ func TestBuildImplBlockTypes_SynthSignatureErrorsReportTheDeclaration(t *testing
 		},
 	}
 
-	errs := buildImplBlockTypes(fa, nil, NewTypeRegistry(), block)
+	errs := buildImplBlockTypes(fa, NewTypeRegistry(), block)
 	if len(errs) == 0 {
 		t.Fatal("no diagnostics: the planted unresolvable signature types resolved, so this row proves nothing")
 	}
@@ -315,7 +315,7 @@ func TestBuildImplBlockTypes_AHandWrittenBlockKeepsItsSignaturePosition(t *testi
 			{Line: 12, Col: 3}: {Name: "inspect", Kind: SymbolFunction, Pos: Pos{Line: 12, Col: 3}},
 		},
 	}
-	errs := buildImplBlockTypes(fa, nil, NewTypeRegistry(), block)
+	errs := buildImplBlockTypes(fa, NewTypeRegistry(), block)
 	if len(errs) == 0 {
 		t.Fatal("no diagnostics: the planted unresolvable return type resolved, so this row proves nothing")
 	}

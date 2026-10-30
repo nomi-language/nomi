@@ -21,8 +21,8 @@ import (
 // print to stdlib.expect; this test holds that they run.
 var stdlibBacklogCases = []struct{ cause, module, decl string }{
 	// `Maybe.None` written as a field access with no expected type.
-	{"Maybe.None field access", "maybe", "impl / some?"},
-	{"Maybe.None field access", "maybe", "impl / none?"},
+	{"Maybe.None field access", "maybe", "impl / is_some"},
+	{"Maybe.None field access", "maybe", "impl / is_none"},
 	// A bare variant operand typed by the call's solved signature, and the
 	// prelude plans inside an assertion subject.
 	{"prelude with_default / to_result", "maybe", "impl / with_default"},
@@ -39,7 +39,7 @@ var stdlibBacklogCases = []struct{ cause, module, decl string }{
 	// Lists of Byte, and `==` over Bytes.
 	{"Byte lists", "strings", "impl / to_bytes"},
 	{"Byte lists", "bytes", "impl / length"},
-	{"Byte lists", "bytes", "impl / at"},
+	{"Byte lists", "bytes", "impl / get"},
 	{"Byte lists", "bytes", "impl / slice"},
 	{"Byte lists", "bytes", "impl / concat"},
 	{"Byte lists", "bytes", "impl / to_list"},
@@ -50,24 +50,22 @@ var stdlibBacklogCases = []struct{ cause, module, decl string }{
 	{"Byte lists", "bytes", "impl / add"},
 	{"Byte lists", "bytes", "impl / inspect"},
 	// A defaulted std function called short (`Time.new(h, m)`) inside
-	// its own module's test body, the module's once cells (`Int.max_value`)
-	// and bare siblings (`day_nanos`) read there, `Task.spawn_all` over a
+	// its own module's test body, bare siblings (`day_nanos`) read there,
+	// `Task.spawn_all` over a
 	// List source, and `.Completed(42)` where an Outcome<Int> is expected.
 	{"std sibling called bare in its own test", "calendar", "day_nanos"},
 	{"std short call / sibling in a std test", "calendar", "impl / in_zone"},
 	{"std short call / sibling in a std test", "calendar", "impl / new"},
 	{"std short call / sibling in a std test", "calendar", "impl / parse"},
-	{"std once read in a test body", "int", "impl / max_value"},
-	{"std once read in a test body", "int", "impl / min_value"},
-	{"std once read in a test body", "int", "impl / wrapping_add"},
-	{"std once read in a test body", "int", "impl / wrapping_sub"},
+	{"std host fn read in a test body", "int", "impl / wrapping_add"},
+	{"std host fn read in a test body", "int", "impl / wrapping_sub"},
 	{"Task.spawn_all over a List", "tasks", "impl / await_all"},
 	{"dot-variant prelude constructor", "tasks", "impl / outcome"},
 	{"Task.spawn_all over a List", "tasks", "impl / spawn_all"},
-	// A std marker value (`ChannelClosed`) and `Range.contains?` over a
+	// A std marker value (`ChannelClosed`) and `Range.contains` over a
 	// Decimal range with its host comparator.
 	{"std marker value", "channels", "impl / close"},
-	{"Decimal Range.contains?", "ranges", "impl / contains?"},
+	{"Decimal Range.contains", "ranges", "impl / contains"},
 	// A bound lambda whose `if` takes the checker's result type, a std
 	// generic instance over `[]` and a Maybe of a tuple, and a Vector
 	// intrinsic (vm-backlog-generics).
@@ -141,8 +139,8 @@ const stdlibBacklogUserSource = `import std/channels.{Channel, Sender, ChannelCl
 import std/tasks.{Task}
 
 test "Maybe.None as a field access" {
-  assert Maybe.none?(Maybe.None)
-  refute Maybe.some?(Maybe.None)
+  assert Maybe.is_none(Maybe.None)
+  refute Maybe.is_some(Maybe.None)
 }
 
 test "a bare variant typed by the call" {
@@ -161,8 +159,8 @@ test "untyped empty lists" {
 }
 
 test "lists of Byte and Bytes equality" {
-  a = try Int.to_byte(97)
-  b = try Int.to_byte(98)
+  a = Int.to_byte(97)?
+  b = Int.to_byte(98)?
   assert Bytes.from_list([a, b]) |> Bytes.to_list() == [a, b]
   refute Bytes.from_list([a]) == Bytes.from_list([b])
   assert Display.to_string(Bytes.from_list([a, b])) == "Bytes(2)"
@@ -184,10 +182,10 @@ test "Task.spawn_all over a List" {
   assert results == [2, 4, 6]
 }
 
-test "Decimal Range.contains?" {
-  assert Range.contains?(1.25d..=2.50d, 2.50d)
-  refute Range.contains?(1.25d..2.50d, 2.50d)
-  refute Range.contains?(1.25d..2.50d, 1.2d)
+test "Decimal Range.contains" {
+  assert Range.contains(1.25d..=2.50d, 2.50d)
+  refute Range.contains(1.25d..2.50d, 2.50d)
+  refute Range.contains(1.25d..2.50d, 1.2d)
 }
 `
 

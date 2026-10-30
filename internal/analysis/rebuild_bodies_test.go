@@ -125,13 +125,10 @@ func graftBodies(nodes, fresh []ast.Node) {
 }
 
 // TestRebuildBodiesMatchesFull rebuilds the bodies of every file of every
-// multi-file corpus project, every single-file corpus program, orderProject
-// and the dungeon when it is on disk.
+// multi-file corpus project, every single-file corpus program and
+// orderProject.
 func TestRebuildBodiesMatchesFull(t *testing.T) {
 	projects := []incrementalProject{orderIncremental()}
-	if _, err := os.Stat(dungeonDir); err == nil {
-		projects = append(projects, dungeonProject(t))
-	}
 	corpus, err := corpusProjects()
 	if err != nil {
 		t.Fatal(err)

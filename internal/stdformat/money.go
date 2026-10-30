@@ -154,8 +154,10 @@ type currencyIn struct {
 	iso                  bool
 	digits               int
 	// std and alpha are the locale's currency patterns: the standard one,
-	// and the one for a symbol made of letters next to the digits.
-	std, alpha *cldrdata.Pattern
+	// and the one for a symbol made of letters next to the digits. acct and
+	// acctAlpha are the accounting ones, which most locales write as the
+	// standard ones and some put a negative amount in parentheses with.
+	std, alpha, acct, acctAlpha *cldrdata.Pattern
 }
 
 var currencyPatterns = newPatternCache(cldrdata.ParseCurrencyPattern, "¤#,##0.00")
@@ -180,12 +182,17 @@ func currencyFor(d *cldrdata.Data, locale string, n numbers, code string, digits
 	if pats == "" {
 		pats = get(cldrdata.RecordKey("currency-pattern", "latn"))
 	}
-	std, alpha, _ := strings.Cut(pats, "\t")
-	c.std = currencyPatterns.get(std)
-	c.alpha = c.std
-	if alpha != "" {
-		c.alpha = currencyPatterns.get(alpha)
+	fields := strings.Split(pats, "\t")
+	pattern := func(i int, otherwise *cldrdata.Pattern) *cldrdata.Pattern {
+		if i < len(fields) && fields[i] != "" {
+			return currencyPatterns.get(fields[i])
+		}
+		return otherwise
 	}
+	c.std = pattern(0, currencyPatterns.get(""))
+	c.alpha = pattern(1, c.std)
+	c.acct = pattern(2, c.std)
+	c.acctAlpha = pattern(3, c.alpha)
 	return c
 }
 
@@ -206,35 +213,44 @@ func (c currencyIn) marker(display int) string {
 // patternFor is the pattern marker is written in: the alpha pattern when
 // the standard one puts marker right against the digits and its character
 // there is not a symbol or a space (UTS #35 currency spacing), so `BTC` is
-// kept apart from `0.5`.
-func (c currencyIn) patternFor(marker string) *cldrdata.Pattern {
+// kept apart from `0.5`. With accounting it chooses between the accounting
+// patterns the same way.
+func (c currencyIn) patternFor(marker string, accounting bool) *cldrdata.Pattern {
+	base, alpha := c.std, c.alpha
+	if accounting {
+		base, alpha = c.acct, c.acctAlpha
+	}
 	if marker == "" {
-		return c.std
+		return base
 	}
 	first, _ := utf8.DecodeRuneInString(marker)
 	last, _ := utf8.DecodeLastRuneInString(marker)
 	letterish := func(r rune) bool { return !unicode.IsSymbol(r) && !unicode.Is(unicode.Z, r) }
-	pre, suf := c.std.PositivePrefix, c.std.PositiveSuffix
+	pre, suf := base.PositivePrefix, base.PositiveSuffix
 	if n := len(pre); n > 0 && pre[n-1].Symbol == 'C' && letterish(last) {
-		return c.alpha
+		return alpha
 	}
 	if len(suf) > 0 && suf[0].Symbol == 'C' && letterish(first) {
-		return c.alpha
+		return alpha
 	}
-	return c.std
+	return base
 }
 
 // FFIFormatMoney is `money_format.money_format_raw`: amount (a Decimal's
-// text) in the currency of code, written as display says.
-func FFIFormatMoney(fr *rt.Frame, locale, amount, code string, digits int64, iso bool, display int64) string {
-	return Money(stdlocale.Data(fr), locale, amount, code, int(digits), iso, int(display))
+// text) in the currency of code, written as display says, in the locale's
+// accounting pattern when accounting is set.
+func FFIFormatMoney(fr *rt.Frame, locale, amount, code string, digits int64, iso bool, display int64, accounting bool) string {
+	return Money(stdlocale.Data(fr), locale, amount, code, int(digits), iso, int(display), accounting)
 }
 
 // Money writes amount (a Decimal's text) in the currency of code, with
 // digits minor digits, as a reader of locale writes it: at least the
 // currency's minor digits, every digit the amount has, and the currency as
-// display shows it (0 symbol, 1 narrow symbol, 2 code, 3 name).
-func Money(d *cldrdata.Data, locale, amount, code string, digits int, iso bool, display int) string {
+// display shows it (0 symbol, 1 narrow symbol, 2 code, 3 name). With
+// accounting it is written in the locale's accounting pattern, which in
+// some locales puts a negative amount in parentheses (`($10.00)` in en);
+// a name display has no accounting form and writes its sign as usual.
+func Money(d *cldrdata.Data, locale, amount, code string, digits int, iso bool, display int, accounting bool) string {
 	n := numbersFor(d, locale)
 	c := currencyFor(d, locale, n, code, digits, iso)
 	neg, intDigits, frac := decimalParts(amount)
@@ -248,7 +264,7 @@ func Money(d *cldrdata.Data, locale, amount, code string, digits int, iso bool, 
 		return c.named(d, locale, n, neg, intDigits, frac)
 	}
 	marker := c.marker(display)
-	p := c.patternFor(marker)
+	p := c.patternFor(marker, accounting)
 	if len(intDigits) < p.MinInteger {
 		intDigits = strings.Repeat("0", p.MinInteger-len(intDigits)) + intDigits
 	}
@@ -397,7 +413,7 @@ func containsString(xs []string, x string) bool {
 func (c currencyIn) parseStrict(n numbers, text string, markers []string) (parsed, *rt.NumberParseError) {
 	var first *rt.NumberParseError
 	for _, m := range markers {
-		v, err := n.parse(text, concrete(c.patternFor(m), m), false, false)
+		v, err := n.parse(text, concrete(c.patternFor(m, false), m), false, false)
 		if err == nil {
 			return v, nil
 		}

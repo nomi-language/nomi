@@ -319,9 +319,9 @@ func (bl *irScalarBuilder) ifaceContainerCall(t *ast.Call, args irQualArgs, ifac
 	if base == "" {
 		return no()
 	}
-	if iface == "Contains" && method == "contains?" {
-		// `Contains.contains?(set, x)`: each container's impl is the
-		// intrinsic its type-qualified call reaches (`Set.contains?`), so the
+	if iface == "Contains" && method == "contains" {
+		// `Contains.contains(set, x)`: each container's impl is the
+		// intrinsic its type-qualified call reaches (`Set.contains`), so the
 		// interface-qualified call is that call.
 		var plan *irQualPlan
 		switch base {
@@ -541,7 +541,17 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 				return no()
 			}
 		}
-		if mod != "" {
+		if mod != "" && bl.stdModuleInterface(mod, owner) {
+			// `display.Display.to_string(x)`: a std interface named
+			// through its module is the interface the bare `Display`
+			// names, which the interface route dispatches. Where this
+			// file declares a type or interface of that name, the bare
+			// name is that declaration, so the call is resolved from the
+			// interface's own.
+			if !bl.g.stdOwnerUnshadowed(owner) {
+				return bl.stdModuleIfaceCall(t, mod, owner, method)
+			}
+		} else if mod != "" {
 			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, bl.g.stdOwnerUnshadowed(owner)); handled {
 				return v, rk, mobile, ok
 			}
@@ -651,7 +661,7 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 		return v, rk, mobile, ok
 	}
 	bl.qualPreResolve(ti, nil, true, method)
-	if method == "equal?" && len(t.Args) == 2 && (ti.Name == "List" || ti.Name == "Maybe" || ti.Name == "Result" || ti.Name == "Vector" || ti.Name == "Map") {
+	if method == "equal" && len(t.Args) == 2 && (ti.Name == "List" || ti.Name == "Maybe" || ti.Name == "Result" || ti.Name == "Vector" || ti.Name == "Map") {
 		if _, shadowed := bl.g.namedType(ti.Name); !shadowed {
 			return bl.containerEqualCall(t, ti.Name)
 		}
@@ -670,8 +680,8 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			}
 		}
 	}
-	if ti.Name == "Equatable" && method == "equal?" && len(t.Args) == 2 && bl.g.stdModule != "" {
-		// `Equatable.equal?(a.max_age, b.max_age)` in a std body (a derived
+	if ti.Name == "Equatable" && method == "equal" && len(t.Args) == 2 && bl.g.stdModule != "" {
+		// `Equatable.equal(a.max_age, b.max_age)` in a std body (a derived
 		// impl's field over a `Maybe<Int>`): a std module holds no generic
 		// instance, and the container's equality is the structural
 		// comparison containerEqualCall lowers.
@@ -944,7 +954,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 	if d, isIface := bl.g.ifaceNamed(owner); isIface && d != nil {
 		return bl.concreteInterfacePlan(t, args, d, method)
 	}
-	if p := bl.foreignIfacePlan(t, args, owner, method); p != nil {
+	if p := bl.foreignIfacePlan(t, args, owner, method, nil); p != nil {
 		return p
 	}
 	k := bl.g.qualifierKind(owner)
@@ -967,7 +977,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 				continue
 			}
 			if defs := bl.g.instImpls[d.ifaceName][k]; len(defs) > 1 {
-				// `Box.holds?(b, 1)` where Box implements Holds at several
+				// `Box.holds(b, 1)` where Box implements Holds at several
 				// type arguments: one of them, the call's own.
 				if d != defs[0] {
 					continue
@@ -986,7 +996,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 				continue
 			}
 			if impl := bl.g.dispatchedImpl(t); impl != nil && d.instArgs != nil && !blockWrites(d.decl, impl) {
-				// `String.contains?(s, "x")` beside the program's
+				// `String.contains(s, "x")` beside the program's
 				// `impl Contains<Rate> for String`: the receiver's other
 				// impls of the interface are std's, which the front end
 				// chose and the stdlib route answers.
@@ -1076,7 +1086,7 @@ func (bl *irScalarBuilder) siblingReceiverPlan(t *ast.Call, args irQualArgs, own
 		return nil
 	}
 	if _, undeclared := undeclaredRecvOwner(args.kinds[0]); undeclared && bl.g.stdModule == "" {
-		// `Contains.contains?(s, rate)`: a program's impl of a std
+		// `Contains.contains(s, rate)`: a program's impl of a std
 		// interface for a receiver no file declares, which the orphan
 		// rule admits through a type argument the program declares
 		// (`impl Contains<Rate> for String`), in whichever file writes it.
@@ -1267,6 +1277,12 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		filled = &full
 		args = full
 		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
+	}
+	if widened, changed := bl.qualWidenEmbeds(t, args, params); changed {
+		// `sql.Statement.join([a, b], sep)`: the list enters its
+		// `Iter<Statement>` parameter as the sequence.
+		filled = &widened
+		args = widened
 	}
 	if !bl.qualSignature(t, args, params, result) {
 		return nil
@@ -1888,6 +1904,114 @@ func (bl *irScalarBuilder) qualDottedOwner(n ast.Node) (owner, stdModule string,
 	return inner.Field.Name, std, true
 }
 
+// stdModuleInterface reports whether std module mod declares an interface
+// named name.
+func (bl *irScalarBuilder) stdModuleInterface(mod, name string) bool {
+	sym := stdDeclaringSymbol(bl.g.fa, "std/"+mod, name)
+	return sym != nil && sym.Kind == analysis.SymbolInterface
+}
+
+// stdModuleIfaceCall lowers `mod.Iface.method(args)`, a function of std
+// module mod's interface Iface, in a file whose own type, template or
+// interface takes the name Iface (`calendar.DateParts.year(d)` beside a
+// `struct DateParts`). The bare spelling's route reads the owner through
+// this file's tables, where the name is that declaration, so this call is
+// resolved from the interface's declaration instead: the program's impl of
+// that interface the call selects, else the module's own impl for a std
+// receiver.
+func (bl *irScalarBuilder) stdModuleIfaceCall(t *ast.Call, mod, iface, method string) (ir.Temp, kind, bool, bool) {
+	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	decl := stdDeclaringSymbol(bl.g.fa, "std/"+mod, iface)
+	if decl == nil || decl.Kind != analysis.SymbolInterface || decl.Node == nil {
+		return no()
+	}
+	args := bl.irQualLowerArgs(t)
+	if !args.ok || len(args.kinds) == 0 {
+		return no()
+	}
+	plan := bl.ifaceImplPlanOf(t, args, decl.Node, iface, method)
+	if plan == nil {
+		plan = bl.stdModuleIfacePlan(t, args, mod, iface, method)
+	}
+	if plan == nil {
+		return no()
+	}
+	return bl.qualEmit(t, args, plan)
+}
+
+// ifaceImplPlanOf plans the call of a program's impl of the interface
+// declared at ifaceDecl, spelled iface in the impl tables: this file's impl
+// the call's signature selects (foreignIfacePlan), or another file's for the
+// receiver operand. An impl of another interface of the same name is not
+// one.
+func (bl *irScalarBuilder) ifaceImplPlanOf(t *ast.Call, args irQualArgs, ifaceDecl ast.Node, iface, method string) *irQualPlan {
+	if p := bl.foreignIfacePlan(t, args, iface, method, ifaceDecl); p != nil {
+		return p
+	}
+	recv := args.kinds[0]
+	if recv.tag != tagNamed || recv.def == nil {
+		return nil
+	}
+	site := bl.g.siblingImplSite(recv.def, method, iface)
+	if site == nil || site.unit < 0 || bl.g.reg == nil || site.unit >= len(bl.g.reg.gens) ||
+		!implsInterface(bl.g.reg.gens[site.unit], site.block, ifaceDecl) {
+		return nil
+	}
+	return bl.qualSiblingIfaceImplPlan(t, args, recv.def, method, iface)
+}
+
+// implsInterface reports whether ib, an impl block of the file og lowers,
+// implements the interface declared at ifaceDecl: the declaration the
+// checker resolved its header to, or for a header the front end wrote (a
+// `derive`), whose position holds no reference to an interface, the
+// declaration its name has in that file's scope.
+func implsInterface(og *gen, ib *ast.ImplBlock, ifaceDecl ast.Node) bool {
+	if og == nil || og.fa == nil || ib == nil || ib.Interface == nil {
+		return false
+	}
+	scope := og.fa.ModuleScope
+	te := ib.Interface
+	if q, qualified := te.(*ast.QualifiedType); qualified {
+		scope = qualifierScope(og.fa, &ast.Ident{Name: q.Module, Line: q.ModuleLine, Col: q.ModuleCol})
+		te = q.Member
+	}
+	var name string
+	var line, col int
+	switch h := te.(type) {
+	case *ast.SimpleType:
+		name, line, col = h.Name, h.Line, h.Col
+	case *ast.GenericType:
+		name, line, col = h.Name, h.Line, h.Col
+	default:
+		return false
+	}
+	sym := resolveSymbol(og.fa.References[analysis.Pos{Line: line, Col: col}])
+	if sym == nil || sym.Kind != analysis.SymbolInterface {
+		sym = resolvedScopeSymbol(scope, name)
+	}
+	return sym != nil && sym.Node == ifaceDecl
+}
+
+// stdModuleIfacePlan plans the call of std module mod's own impl of its
+// interface iface for a std receiver, from that module's functions only.
+func (bl *irScalarBuilder) stdModuleIfacePlan(t *ast.Call, args irQualArgs, mod, iface, method string) *irQualPlan {
+	if bl.g.std == nil {
+		return nil
+	}
+	var fs []*stdFunc
+	for _, f := range bl.g.std.byIface[iface+"."+method][args.kinds[0]] {
+		if f.module == mod {
+			fs = append(fs, f)
+		}
+	}
+	f := stdPick(fs, args.kinds)
+	p := bl.stdFuncPlan(t, args, f)
+	if p == nil {
+		p = bl.shadowedIfacePlan(t, args, f)
+	}
+	return p
+}
+
 // stdModuleOwnerCall lowers `mod.Owner.method(args)`, the method std module
 // mod's type Owner declares, from that module's declarations only, so a
 // declaration of the same name elsewhere cannot capture it. handled is false
@@ -1982,16 +2106,18 @@ func (g *gen) stdOwnerUnshadowed(owner string) bool {
 }
 
 // qualWidenEmbeds widens each operand of an embedded type whose parameter is
-// the enum that embeds it into its `embeds` variant, as a direct call's
-// operand is (coerceEmpty). changed is false when no operand needed it, and
-// args is then unchanged.
+// the enum that embeds it into its `embeds` variant, and views each source
+// whose parameter is an `Iter<T>` as that sequence (`Statement.join(parts,
+// sep)` over a list), as a direct call's operand is (coerceEmpty). changed
+// is false when no operand needed it, and args is then unchanged.
 func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params []kind) (irQualArgs, bool) {
 	if !args.ok || len(args.kinds) != len(params) {
 		return args, false
 	}
 	var out irQualArgs
 	for i, k := range args.kinds {
-		if k == params[i] || !irEmbeddedIn(params[i], k) {
+		seq := params[i].tag == tagSeq && params[i].comp != nil
+		if k == params[i] || (!irEmbeddedIn(params[i], k) && !seq) {
 			continue
 		}
 		if out.temps == nil {

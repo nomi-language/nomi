@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: complex_numbers.nomi
+//# Complex numbers and their arithmetic.
+
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex {
     real: Float
@@ -53,9 +55,9 @@ impl Complex {
 
     /// Whether each part of `a` is within `tolerance` of the same part of
     /// `b`.
-    pub fn equal_within?(a: Complex, b: Complex, tolerance: Float) -> Bool {
-        Float.equal_within?(a.real, b.real, tolerance)
-            and Float.equal_within?(a.imaginary, b.imaginary, tolerance)
+    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool {
+        Float.equal_within(a.real, b.real, tolerance)
+            and Float.equal_within(a.imaginary, b.imaginary, tolerance)
     }
 
     /// `x` as a complex number with no imaginary part.
@@ -285,7 +287,7 @@ group "Arithmetic" {
         ]
 
         subtests cases, #(description, z1, z2, expected), description {
-            assert Complex.equal_within?(z1 / z2, expected, tolerance)
+            assert Complex.equal_within(z1 / z2, expected, tolerance)
         }
     }
 }
@@ -346,7 +348,7 @@ test "Complex exponential function" {
     ]
 
     subtests cases, #(description, z, expected), description {
-        assert Complex.equal_within?(Complex.exp(z), expected, tolerance)
+        assert Complex.equal_within(Complex.exp(z), expected, tolerance)
     }
 }
 
@@ -387,7 +389,7 @@ test "Operations between real numbers and complex numbers" {
     ]
 
     subtests cases, #(description, actual, expected), description {
-        assert Complex.equal_within?(actual, expected, tolerance)
+        assert Complex.equal_within(actual, expected, tolerance)
     }
 }
 ```
@@ -398,6 +400,6 @@ test "Operations between real numbers and complex numbers" {
 - The arithmetic is the operator interfaces, as rational-numbers does it: `impl Add<Complex, Complex> for Complex` and the same for `Subtract`, `Multiply` and `Divide`, so the tests write `z1 + z2`.
 - The canonical cases that mix a real number with a complex one are four more impls on `Complex` with a `Float` right-hand side and four on `Float` with a `Complex` right-hand side, so `Complex.new(1.0, 2.0) + 5.0` and `5.0 + Complex.new(1.0, 2.0)` both work. Each lifts the `Float` with `Complex.from_real` and uses the complex operator.
 - `exp` is `e^a * (cos(b) + i * sin(b))` from std/float's `exp`, `cos` and `sin`.
-- The canonical data asks for a tolerance on results that are not whole numbers. `Complex.equal_within?` holds both parts to it through `Float.equal_within?`, and the division, exponential and mixed cases use it with `1e-12`.
+- The canonical data asks for a tolerance on results that are not whole numbers. `Complex.equal_within` holds both parts to it through `Float.equal_within`, and the division, exponential and mixed cases use it with `1e-12`.
 - The canonical inputs write pi and e as the strings `"pi"` and `"e"`, and ln(2) as `"ln(2)"`. The tests write std/float's `Float.pi` and `Float.e`, and `Float.log(2.0)`.
 - Each canonical group is a test with one `subtests` table; the four arithmetic tests sit in a `group "Arithmetic"`, as the canonical data nests them. The mixed cases are one table whose actual column is the expression itself (`5.0 * Complex.new(2.0, 5.0)`), since the rows mix operand types.

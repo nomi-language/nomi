@@ -101,8 +101,8 @@ test "a Set keeps one of each equal value" {
     ]
 
     assert Set.size(s) == 5
-    assert Set.contains?(s, #Name{text: "ADA"})
-    assert !Set.contains?(s, #Name{text: "Bob"})
+    assert Set.contains(s, #Name{text: "ADA"})
+    assert !Set.contains(s, #Name{text: "Bob"})
     tags: Set<Show> = %[#Tag{text: "x"}, #Tag{text: "X"}, #Tag{text: "y"}]
     assert Set.size(tags) == 2
     assert Set.size(Set.insert(tags, #Tag{text: "Y"})) == 2

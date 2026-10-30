@@ -1,9 +1,9 @@
 import flatten_array.{self, Nested}
 
 test "flatten" {
-    cases: List<#(String, List<Nested>, List<Int>)> = [
+    cases = [
         #("empty", [], []),
-        #("no nesting", [.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
+        #("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
         #("flattens a nested array", [
             .Array([.Array([])]),
         ], []),

@@ -556,8 +556,9 @@ func TestRunCommand_TasksProject(t *testing.T) {
 	}
 }
 
-// TestRunCommand_ModuleProjectEntryPoints runs both entry points that
-// testdata/modules/todo's nomi.toml lists. Each imports a file under an
+// TestRunCommand_ModuleProjectEntryPoints runs both entry points of
+// testdata/modules/todo: main, which its nomi.toml lists, and the tool
+// tools/seed, which it need not list. Each imports a file under an
 // `internal/` directory it may reach, and main also imports a sibling Nomi
 // module, stringkit, through a go.mod replace with no Go code on either side.
 func TestRunCommand_ModuleProjectEntryPoints(t *testing.T) {
@@ -1009,15 +1010,15 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"test \"regex literals compile and match\" {\n"+
 		"  digits = Regex`\\d+`\n"+
 		"  assert Regex.pattern(digits) == `\\d+`\n"+
-		"  assert String.contains?(\"room 42\", digits)\n"+
-		"  refute String.contains?(\"room\", digits)\n"+
+		"  assert String.contains(\"room 42\", digits)\n"+
+		"  refute String.contains(\"room\", digits)\n"+
 		"}\n\n"+
 		"test \"regex search helpers return Nomi shapes\" {\n"+
 		"  digits = Regex`\\d+`\n"+
 		"  assert String.find(\"a12b34\", digits) == Some(\"12\")\n"+
 		"  assert String.find(\"abc\", digits) == None\n"+
 		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
-		"  assert Regex.replace_all(digits, \"a12b34\", \"#\") == \"a#b#\"\n"+
+		"  assert Regex.replace_all(\"a12b34\", digits, \"#\") == \"a#b#\"\n"+
 		"}\n\n"+
 		"test \"invalid double-quoted regex literals return Err\" {\n"+
 		"  assert Err(_msg) = Regex\"[\"\n"+
@@ -1060,14 +1061,14 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	badPath := filepath.Join(dir, "bad_test.nomi")
 	mustWrite(t, badPath, "import std/regex.Regex\n\n"+
 		"test \"an invalid backtick literal does not compile\" {\n"+
-		"  assert String.contains?(\"[\", Regex`[`)\n"+
+		"  assert String.contains(\"[\", Regex`[`)\n"+
 		"}\n")
 	for _, cmd := range []string{"check", "test"} {
 		out, err = runNomi(t, cacheRoot, cmd, badPath)
 		if err == nil {
 			t.Fatalf("nomi %s admits an invalid backtick regex:\n%s", cmd, out)
 		}
-		if want := "bad_test.nomi:4:32"; !strings.Contains(out, want) || !strings.Contains(out, "typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[`") {
+		if want := "bad_test.nomi:4:31"; !strings.Contains(out, want) || !strings.Contains(out, "typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[`") {
 			t.Fatalf("nomi %s: expected the literal's error at %s, got:\n%s", cmd, want, out)
 		}
 	}
@@ -1651,7 +1652,7 @@ func TestTestCommand_TryEarlyReturnShowsSourceAndValue(t *testing.T) {
 }
 
 test "formats parsed id" {
-  id = try parse_id("42x")
+  id = parse_id("42x")?
   assert id == 42
 }
 `)
@@ -1660,10 +1661,10 @@ test "formats parsed id" {
 		t.Fatalf("expected nomi test to fail, output:\n%s", out)
 	}
 	if !strings.Contains(out, "line 6: test returned early") ||
-		!strings.Contains(out, `try parse_id("42x")`) ||
+		!strings.Contains(out, `parse_id("42x")?`) ||
 		!strings.Contains(out, "returned:") ||
 		!strings.Contains(out, `Err("expected a numeric id")`) {
-		t.Fatalf("expected try early-return context, got:\n%s", out)
+		t.Fatalf("expected early?-return context, got:\n%s", out)
 	}
 }
 
@@ -1679,7 +1680,7 @@ func TestTestCommand_AssertionFailureShowsPipelineValues(t *testing.T) {
 test "fails" {
   passes =
     [1, 2, 3]
-    |> Iter.any?(fn n -> n == 4)
+    |> Iter.any(fn n -> n == 4)
 
   assert passes
 }
@@ -1690,7 +1691,7 @@ test "fails" {
 	}
 	if !strings.Contains(out, "pipeline values:") ||
 		!strings.Contains(out, "[1, 2, 3]") ||
-		!strings.Contains(out, "Iter.any?") ||
+		!strings.Contains(out, "Iter.any") ||
 		!strings.Contains(out, "= False") {
 		t.Fatalf("expected assertion pipeline values, got:\n%s", out)
 	}
@@ -1802,7 +1803,7 @@ func TestTestCommand_AssertionFailureShowsOrPredicateDecider(t *testing.T) {
 
 test "fails" {
   left = False
-  assert left or Maybe.some?(None)
+  assert left or Maybe.is_some(None)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -1811,7 +1812,7 @@ test "fails" {
 	}
 	if !strings.Contains(out, "left") ||
 		!strings.Contains(out, "= False") ||
-		!strings.Contains(out, "Maybe.some?(None)\n        = False") {
+		!strings.Contains(out, "Maybe.is_some(None)\n        = False") {
 		t.Fatalf("expected or decider values, got:\n%s", out)
 	}
 	if strings.Contains(out, "None\n        = None") {
@@ -1830,7 +1831,7 @@ func TestTestCommand_AssertionFailureShowsNegatedPredicateInput(t *testing.T) {
 
 test "fails" {
   value: Maybe<Int> = None
-  assert !Maybe.none?(value)
+  assert !Maybe.is_none(value)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -1854,7 +1855,7 @@ func TestTestCommand_RefuteFailureShowsPredicateInput(t *testing.T) {
 
 test "fails" {
   outcome = Ok(42)
-  refute Result.ok?(outcome)
+  refute Result.is_ok(outcome)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -1879,7 +1880,7 @@ func TestTestCommand_AssertionFailureShowsPredicateCallValues(t *testing.T) {
 
 test "fails" {
   body = "created"
-  assert String.contains?(body, "ok")
+  assert String.contains(body, "ok")
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -1906,7 +1907,7 @@ func TestTestCommand_AssertionFailureDoesNotLeakCallbackComparisons(t *testing.T
 
 test "fails" {
   items = [1, 2, 3]
-  assert Iter.any?(items, fn n -> n == 4)
+  assert Iter.any(items, fn n -> n == 4)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)
@@ -2118,7 +2119,7 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 	cacheRoot := t.TempDir()
 	stdPath := copyStdTree(t, t.TempDir())
 	calendar := filepath.Join(stdPath, "calendar.nomi")
-	const prompt = "//! assert try Time.new(8, 30) == try Time\"08:30:00\""
+	const prompt = "//! assert Time.new(8, 30)? == Time`08:30:00`"
 	line := strconv.Itoa(lineNumberContaining(t, calendar, prompt))
 
 	out, err := runNomiWithStd(t, cacheRoot, stdPath, "test", calendar, "--line", line)
@@ -2127,13 +2128,13 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 	}
 
 	t.Run("edited prompt", func(t *testing.T) {
-		replaceInFile(t, calendar, "Time.new(8, 30) ==", "Time.new(8, 31) ==")
-		defer replaceInFile(t, calendar, "Time.new(8, 31) ==", "Time.new(8, 30) ==")
+		replaceInFile(t, calendar, "Time.new(8, 30)? ==", "Time.new(8, 31)? ==")
+		defer replaceInFile(t, calendar, "Time.new(8, 31)? ==", "Time.new(8, 30)? ==")
 		out, err := runNomiWithStd(t, cacheRoot, stdPath, "test", calendar, "--line", line)
 		if err == nil {
 			t.Fatalf("an edited prompt that no longer holds passed, so the embedded one ran:\n%s", out)
 		}
-		if !strings.Contains(out, "assert try Time.new(8, 31) == try Time\"08:30:00\"") ||
+		if !strings.Contains(out, "assert Time.new(8, 31)? == Time`08:30:00`") ||
 			!strings.Contains(out, "0 passed, 1 failed") {
 			t.Fatalf("the edited prompt did not fail as itself:\n%s", out)
 		}
@@ -2601,7 +2602,7 @@ func vmCorpusNonPassing(out string) string {
 
 func TestColorizeNomiLinePreservesStringLiteralSource(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "always")
-	line := `String.contains?(diagnostic.message, "type 'List' has no member 'empty'x")`
+	line := `String.contains(diagnostic.message, "type 'List' has no member 'empty'x")`
 	got := termcolor.StripANSI(termcolor.NomiLineFor(os.Stdout, line))
 	if got != line {
 		t.Fatalf("colorized line did not preserve source\nwant: %q\n got: %q", line, got)
@@ -2959,7 +2960,7 @@ pub fn open_raw(path: String) -> Result<sqlite.Conn, String> {
 }
 
 pub fn open_store(path: String) -> Result<Store, String> {
-  conn = try open_raw(path)
+  conn = open_raw(path)?
   case sqlite.exec(conn, "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)", []) {
     Err(e) -> {
       sqlite.close(conn)
@@ -3000,11 +3001,11 @@ pub fn close_store(store: Store) -> Unit {
 }
 
 fn main() -> Result<Unit, String> {
-  s = try store.open_store("driver.db")
-  _ = try store.add(s, "first")
-  _ = try store.add(s, "second")
-  count = try store.cell(s, "SELECT COUNT(*) FROM notes")
-  head = try store.cell(s, "SELECT title FROM notes ORDER BY id LIMIT 1")
+  s = store.open_store("driver.db")?
+  _ = store.add(s, "first")?
+  _ = store.add(s, "second")?
+  count = store.cell(s, "SELECT COUNT(*) FROM notes")?
+  head = store.cell(s, "SELECT title FROM notes ORDER BY id LIMIT 1")?
   io.print("count ${count}")
   io.print("head ${head}")
   store.close_store(s)
@@ -3077,14 +3078,14 @@ fn singleton(b: Byte) -> Bytes go ffi.Singleton
 
 fn main() -> Result<Unit, String> {
   prefixed = add_prefix(String.to_bytes("hi"))
-  text = try Bytes.to_string(prefixed)
+  text = Bytes.to_string(prefixed)?
   io.print(text)
   io.print(Byte.to_int(first(prefixed)))
 
   // Int.to_byte answers a Maybe, and try propagates into the enclosing
   // boundary's own kind -- a Result here -- so this one is a case, not a try.
   case Int.to_byte(65) {
-    Some(a) -> io.print(try Bytes.to_string(singleton(a)))
+    Some(a) -> io.print(Bytes.to_string(singleton(a))?)
     None -> io.print("not a byte")
   }
 
@@ -3388,8 +3389,8 @@ fn validate_nonempty(s: String) -> Result<Unit, String> go ffi.ValidateNonEmpty
 fn validate_custom(s: String) -> Result<Unit, String> go ffi.ValidateCustom
 
 fn main() -> Result<Unit, String> {
-  io.print(try parse_direct("123"))
-  io.print(try parse_positive("5"))
+  io.print(parse_direct("123")?)
+  io.print(parse_positive("5")?)
 
   negative = case parse_positive("-1") {
     Ok(_) -> "ok"

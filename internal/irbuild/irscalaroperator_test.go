@@ -22,22 +22,32 @@ fn main() {
 `, "left\nright\n13\n5\n12\n4\n4.0\n0.5\n3.75\n0.25\nab\n")
 }
 
-func TestIRScalarOperator_OverflowBlamesCall(t *testing.T) {
+func TestIRScalarOperator_AZeroDivisorBlamesTheCall(t *testing.T) {
 	verifyIterFault(t, `import std/io
-fn overflow() -> Int {
- big = 9223372036854775807
- Add.add(big, 1)
+fn divide() -> Int {
+ zero = 0
+ Divide.divide(20, zero)
 }
-fn main() { io.print(overflow()) }
-`, "line 4: integer overflow: 9223372036854775807 + 1", "")
+fn main() { io.print(divide()) }
+`, "line 4: division by zero", "")
+}
+
+// The written-out impls are exact past 64 bits, as the operators are.
+func TestIRScalarOperator_ExactPast64Bits(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+fn main() {
+ io.print(Add.add(9223372036854775807, 1))
+ io.print(Subtract.subtract((-9223372036854775807 - 1), 1))
+ io.print(Multiply.multiply(9223372036854775807, 2))
+ io.print(Divide.divide((-9223372036854775807 - 1), -1))
+}
+`, "9223372036854775808\n-9223372036854775809\n18446744073709551614\n9223372036854775808\n")
 }
 
 func TestIRScalarOperator_CheckedFaults(t *testing.T) {
 	for _, tc := range []struct{ expression, fault string }{
-		{"Subtract.subtract((-9223372036854775807 - 1), 1)", "integer overflow"},
-		{"Multiply.multiply(9223372036854775807, 2)", "integer overflow"},
-		{"Divide.divide((-9223372036854775807 - 1), -1)", "integer overflow"},
 		{"Int.divide(1, 0)", "division by zero"},
+		{"Divide.divide(1, 0)", "division by zero"},
 	} {
 		t.Run(tc.expression, func(t *testing.T) {
 			verifyIterFault(t, "import std/io\nfn main() {\n io.print("+tc.expression+")\n}\n", "line 3: "+tc.fault, "")

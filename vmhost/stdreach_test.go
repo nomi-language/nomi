@@ -108,7 +108,7 @@ struct Tag {
 }
 
 impl Equatable for Tag {
-  fn equal?(a: Tag, b: Tag) -> Bool {
+  fn equal(a: Tag, b: Tag) -> Bool {
     a.name == b.name
   }
 }
@@ -119,7 +119,7 @@ fn main() {
   io.print([#Tag{name: "x", note: "1"}] == [#Tag{name: "x", note: "2"}])
 }
 `, "True\nTrue\nTrue\n"},
-		{"a hand-written Equatable with no Hashable keys by equal?", `import std/io
+		{"a hand-written Equatable with no Hashable keys by equal", `import std/io
 
 struct Loose {
   name: String
@@ -127,7 +127,7 @@ struct Loose {
 }
 
 impl Equatable for Loose {
-  fn equal?(a: Loose, b: Loose) -> Bool {
+  fn equal(a: Loose, b: Loose) -> Bool {
     a.name == b.name
   }
 }

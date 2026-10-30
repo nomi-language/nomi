@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: transpose.nomi
+//# Transposes lines of text, rows into columns.
+
 /// The lines of `lines` read down its columns: the nth line of the result is
 /// the nth character of each line. A line shorter than one below it is padded
 /// with spaces on the right first, so a character never moves left; nothing

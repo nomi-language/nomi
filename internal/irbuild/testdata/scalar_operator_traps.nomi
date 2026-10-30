@@ -1,7 +1,7 @@
 // THE TRAP-MESSAGE FIXTURE for the scalar operator impls.
 //
 // A trap is OBSERVABLE OUTPUT, and it is the one thing lowering
-// `Subtract.subtract(9, 4)` can get silently wrong: the fault text carries a
+// `Divide.divide(9, 4)` can get silently wrong: the fault text carries a
 // SOURCE LINE, and the operator spelling and the written-out spelling do not
 // blame the same one.
 //
@@ -18,30 +18,22 @@
 //   1. WHICH LINE each spelling blames. The impl form blames its own CALL,
 //      carried by `t.Line` in scalararith.go; the operator form blames the
 //      operator.
-//   2. THE FAULT TEXT ITSELF, which rt owns in ONE place: rt.overflowText and
-//      rt.divByZeroText, reached through rt.OverflowError and
-//      rt.DivByZeroError, so this fixture cannot be satisfied by two agreeing
-//      copies of a rule. There is one copy.
+//   2. THE FAULT TEXT ITSELF, which rt owns in ONE place: rt.divByZeroText,
+//      reached through rt.DivByZeroError, so this fixture cannot be satisfied
+//      by two agreeing copies of a rule. There is one copy.
 //   3. THE ORDER of the trapping and non-trapping cases, because `nomi test`
 //      runs cases in declaration order and a trap ends only its own case.
 //
-// EVERY TRAPPING CASE MOVES WHEN A LINE ABOVE IT MOVES. The test reads the six
-// fault rows against each other (six DISTINCT real lines) rather than against
-// six literals.
+// An Int is exact at any size, so a zero divisor is the one fault Int
+// arithmetic has: `+`, `-` and `*` answer past 64 bits, in both spellings.
 //
-// THE PAIRED NEGATIVE: each impl case's OPERATOR twin must blame a DIFFERENT
+// EVERY TRAPPING CASE MOVES WHEN A LINE ABOVE IT MOVES. The test reads the
+// three fault rows against each other (three DISTINCT real lines) rather than
+// against three literals.
+//
+// THE PAIRED NEGATIVE: the impl case's OPERATOR twin must blame a DIFFERENT
 // line, so a lowering that took the position from the wrong node would make
 // the pair agree, and only the pair sees it.
-fn overflow_via_impl() -> Int {
-    big = 9223372036854775807
-    Add.add(big, 1)
-}
-
-fn overflow_via_operator() -> Int {
-    big = 9223372036854775807
-    big + 1
-}
-
 fn zero_divide_via_impl() -> Int {
     Divide.divide(20, 0)
 }
@@ -50,17 +42,8 @@ fn zero_divide_via_operator() -> Int {
     20 / 0
 }
 
-fn subtract_overflow_via_impl() -> Int {
-    // Written as MinInt64+1 minus 2 rather than as MinInt64 minus 1, because the
-    // literal -9223372036854775808 is unary minus applied to a magnitude Int
-    // cannot hold and the front end rejects it.
-    small = -9223372036854775807
-    Subtract.subtract(small, 2)
-}
-
-fn multiply_overflow_via_impl() -> Int {
-    big = 9223372036854775807
-    Multiply.multiply(big, 2)
+fn zero_remainder_via_operator() -> Int {
+    20 % 0
 }
 
 test "the written-out impls agree on every non-trapping answer" {
@@ -82,6 +65,15 @@ test "the written-out impls agree on every non-trapping answer" {
     assert String.add("ab", "cd") == "abcd"
 }
 
+test "the written-out impls are exact past 64 bits, as the operators are" {
+    big = 9223372036854775807
+    assert Add.add(big, 1) == big + 1
+    assert Add.add(big, 1) == 9_223_372_036_854_775_808
+    assert Subtract.subtract(-big, 2) == -9_223_372_036_854_775_809
+    assert Multiply.multiply(big, 2) == 18_446_744_073_709_551_614
+    assert Divide.divide(Multiply.multiply(big, 2), 2) == big
+}
+
 test "a Float divide by zero is IEEE and does not trap" {
     // Not an oversight and not symmetric with Int: a Float `/` is IEEE
     // division, so a zero divisor is +/-Infinity and 0.0/0.0 is NaN. The
@@ -99,14 +91,6 @@ test "a Float divide by zero is IEEE and does not trap" {
     assert nan == nan
 }
 
-test "an impl-form Add overflow blames the call's own line" {
-    assert overflow_via_impl() == 0
-}
-
-test "an operator Add overflow blames the operator's own line" {
-    assert overflow_via_operator() == 0
-}
-
 test "an impl-form Divide by zero blames the call's own line" {
     assert zero_divide_via_impl() == 0
 }
@@ -115,10 +99,6 @@ test "an operator divide by zero blames the operator's own line" {
     assert zero_divide_via_operator() == 0
 }
 
-test "an impl-form Subtract overflow blames the call's own line" {
-    assert subtract_overflow_via_impl() == 0
-}
-
-test "an impl-form Multiply overflow blames the call's own line" {
-    assert multiply_overflow_via_impl() == 0
+test "an operator remainder by zero blames the operator's own line" {
+    assert zero_remainder_via_operator() == 0
 }

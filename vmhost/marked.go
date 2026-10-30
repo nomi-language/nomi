@@ -28,6 +28,16 @@ import (
 // directory of the in-memory file system its worker gives Go
 // (tour/src/lib/go-memfs.js); a test passes a temporary one.
 //
+// A source may instead hold several projects side by side, each a
+// top-level directory with a go.mod of its own (virtualproject's
+// projectsDir): the first section's directory is the project, entered at
+// its entry, and the others are modules its go.mod replaces
+// (`../csvdata`). Its run's relative paths start at the project's
+// directory, as `nomi run` there has them. A diagnostic still names a file
+// by its path from dir (`rates/tables.nomi`, `csvdata/csvdata.nomi`), as
+// the block's tabs name it, rather than from the project
+// (`../csvdata/csvdata.nomi`).
+//
 // The block's tests are every Nomi file's that declares them, as `nomi
 // test` runs a project's: the entry's, and each other test file's
 // (virtualproject.Project.TestFiles), loaded entered at that file, whose
@@ -64,7 +74,7 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 // names modules is written under dir, unless root is where an earlier load
 // of the same block wrote it, and answers the root it is loaded from.
 func loadMarkedProject(project virtualproject.Project, dir, root string, opts []Option) (*Program, string, error) {
-	opts = append([]Option{WithFileSystem(NewMemoryFiles(DataFileBytes(project.DataFiles)))}, opts...)
+	opts = append([]Option{WithFileSystem(blockFiles(project))}, opts...)
 	if project.Files == nil {
 		opts = append([]Option{WithVirtualFiles(project.VirtualFiles), WithVirtualManifest(project.Manifest)}, opts...)
 		p, err := LoadSource(project.EntryName, project.EntrySource, opts...)

@@ -19,15 +19,23 @@ import {
 
 /// `amount` in `currency` as a reader of `locale` writes it, with the
 /// currency shown as `display` says: 0 its symbol, 1 its narrow symbol, 2
-/// its code, 3 its name. What `Money.format` calls.
-pub fn format(amount: Decimal, currency: Currency, locale: Locale, display: Int) -> String {
+/// its code, 3 its name; in the locale's accounting pattern when
+/// `accounting`. What `Money.format` calls.
+pub fn format(
+    amount: Decimal,
+    currency: Currency,
+    locale: Locale,
+    display: Int,
+    accounting: Bool,
+) -> String {
     money_format_raw(
         locale,
         Display.to_string(amount),
         Currency.code(currency),
         Currency.minor_digits(currency),
-        Currency.iso?(currency),
+        Currency.is_iso(currency),
         display,
+        accounting,
     )
 }
 
@@ -44,7 +52,7 @@ pub fn parse(
         locale,
         Currency.code(currency),
         Currency.minor_digits(currency),
-        Currency.iso?(currency),
+        Currency.is_iso(currency),
         lenient,
     )
 
@@ -73,7 +81,7 @@ pub fn require_same(operation: String, a: Currency, b: Currency) -> Unit {
 }
 
 fn label(c: Currency) -> String {
-    if Currency.iso?(c) {
+    if Currency.is_iso(c) {
         Currency.code(c)
     } else {
         "${Currency.code(c)}:${Currency.minor_digits(c)}"
@@ -87,6 +95,7 @@ host fn money_format_raw(
     digits: Int,
     iso: Bool,
     display: Int,
+    accounting: Bool,
 ) -> String
 
 host fn money_parse_raw(

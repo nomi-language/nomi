@@ -147,6 +147,11 @@ type writer struct {
 const maxDepth = 8
 
 // ts is t as a TypeScript type.
+// intTS is an Int in TypeScript. An Int is exact at any size, and nomi.js
+// hands one past Number.MAX_SAFE_INTEGER to JavaScript as a BigInt, and takes
+// a BigInt argument as the Int it holds.
+const intTS = "number | bigint"
+
 func (w *writer) ts(t analysis.Type, depth int) string {
 	if depth > maxDepth {
 		return "unknown"
@@ -159,7 +164,9 @@ func (w *writer) ts(t analysis.Type, depth int) string {
 		return "unknown"
 	case *analysis.PrimitiveType:
 		switch v.Name_ {
-		case "Int", "Float":
+		case "Int":
+			return intTS
+		case "Float":
 			return "number"
 		case "String":
 			return "string"
@@ -304,7 +311,9 @@ func (w *writer) texpr(te ast.TypeExpr, env map[string]analysis.Type, depth int)
 			return w.ts(bound, depth+1)
 		}
 		switch t.Name {
-		case "Int", "Float":
+		case "Int":
+			return intTS
+		case "Float":
 			return "number"
 		case "String":
 			return "string"

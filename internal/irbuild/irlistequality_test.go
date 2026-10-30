@@ -32,7 +32,7 @@ fn find(list: List<Int>, target: Int) -> Maybe<Int> {
   )
  }
 }
-fn process(list: List<Int>) -> Maybe<Int> { val = try find(list, 3); Some(val * 10) }
+fn process(list: List<Int>) -> Maybe<Int> { val = find(list, 3)?; Some(val * 10) }
 fn main() {
  io.inspect(process([1, 2, 3, 4]))
  io.inspect(process([1, 2, 4, 5]))
@@ -49,10 +49,10 @@ func TestIRListEquality_VectorsAndMapsCompareStructurally(t *testing.T) {
 fn main() {
  io.print(#[1, 2] == #[1, 2])
  io.print(#[1, 2] != #[2, 1])
- io.print(Vector.equal?(#[0.0 / 0.0], #[0.0 / 0.0]))
+ io.print(Vector.equal(#[0.0 / 0.0], #[0.0 / 0.0]))
  io.print(%{"a" => 1, "b" => 2} == %{"b" => 2, "a" => 1})
  io.print(%{"a" => 1} != %{"a" => 2})
- io.print(Map.equal?(%{1 => "x"}, %{1 => "x"}))
+ io.print(Map.equal(%{1 => "x"}, %{1 => "x"}))
 }
 `, "True\nTrue\nTrue\nTrue\nTrue\nTrue\n")
 }

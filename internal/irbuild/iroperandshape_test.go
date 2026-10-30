@@ -536,7 +536,7 @@ func TestIROperandShape_TheDerivationCatchesAPlant(t *testing.T) {
 	a, b, d := clean.NewTemp(), clean.NewTemp(), clean.NewTemp()
 	cb.Append(ir.NewInt(pos, a, 2))
 	cb.Append(ir.NewInt(pos, b, 3))
-	cb.Append(ir.NewArith(pos, d, ir.OpAdd, ir.IntArith(ir.OverflowFaults), a, b))
+	cb.Append(ir.NewArith(pos, d, ir.OpAdd, ir.IntArith(ir.OverflowExact), a, b))
 	cb.SetTerm(ir.NewReturn(pos, d))
 	if err := ir.Lint(clean); err != nil {
 		t.Fatalf("THE CONTROL FAILED, so the plant below measures nothing: %v", err)
@@ -553,7 +553,7 @@ func TestIROperandShape_TheDerivationCatchesAPlant(t *testing.T) {
 	sa, sb, sd := bad.NewTemp(), bad.NewTemp(), bad.NewTemp()
 	bb.Append(ir.NewString(pos, sa, "two"))
 	bb.Append(ir.NewInt(pos, sb, 3))
-	bb.Append(ir.NewArith(pos, sd, ir.OpAdd, ir.IntArith(ir.OverflowFaults), sa, sb))
+	bb.Append(ir.NewArith(pos, sd, ir.OpAdd, ir.IntArith(ir.OverflowExact), sa, sb))
 	bb.SetTerm(ir.NewReturn(pos, sd))
 
 	found := false
@@ -626,7 +626,7 @@ func TestIROperandShape_TheDerivationAndTheRuleAgreeThroughAParameter(t *testing
 			one, sum := f.NewTemp(), f.NewTemp()
 			lhs := arm.read(f, b, pt)
 			b.Append(ir.NewInt(pos, one, 1))
-			b.Append(ir.NewArith(pos, sum, ir.OpAdd, ir.IntArith(ir.OverflowFaults),
+			b.Append(ir.NewArith(pos, sum, ir.OpAdd, ir.IntArith(ir.OverflowExact),
 				lhs, one))
 			b.SetTerm(ir.NewReturn(pos, sum))
 			return f

@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: binary_search_tree.nomi
+//# A binary search tree, built by inserting values one at a time.
+
 /// A binary search tree: every value in a node's left subtree is at most
 /// its value, and every value in its right subtree is greater.
 pub enum Tree<T> {
@@ -58,8 +60,8 @@ impl Tree<T> {
 import binary_search_tree.Tree
 
 test "data is inserted" {
-    cases: List<#(String, List<Int>, Tree<Int>)> = [
-        #("data is retained", [4], #.Node{left: .Leaf, value: 4, right: .Leaf}),
+    cases = [
+        #("data is retained", [4], #Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
         #(
             "smaller number at left node",
             [4, 2],
@@ -131,4 +133,4 @@ test "can sort data" {
 - `derive Equatable for Tree<T>` lets the shape cases compare the built tree with the expected one, written as nested `#.Node{...}` literals.
 - The functions are in `impl Tree<T>`, called `Tree.from(values)` and `Tree.sorted(tree)` after `import binary_search_tree.Tree`. Each names the block's `T`, so a call takes it from its tree or its values, and `where T: Comparable` narrows the two that compare.
 - An empty tree is `.Leaf` wherever a `Tree<T>` is expected: in `insert`'s new node and in every expected tree of the tests. `from` starts its `Iter.reduce` from `Tree.Leaf`, qualified, since nothing there says what type the starting value has.
-- The two canonical properties are two `subtests` tables. The shape table is annotated `List<#(String, List<Int>, Tree<Int>)>` so each `#.Node{...}` and `.Leaf` is a `Tree<Int>`.
+- The two canonical properties are two `subtests` tables. The shape table names the enum once, in its first row's `#Tree.Node{...}`; the bare `#.Node{...}` and `.Leaf` in the later rows and inside each node take `Tree<Int>` from it.

@@ -57,34 +57,34 @@ impl Set<T> {
     //! assert Set.intersection(%[1, 2], %[2, 3]) == %[2]
     //
     pub fn intersection<T>(a: Set<T>, b: Set<T>) -> Set<T> {
-        Iter.filter(a, &Set.contains?(b, &1)) |> Iter.to_set()
+        Iter.filter(a, &Set.contains(b, &1)) |> Iter.to_set()
     }
 
     /// Elements in `a` but not `b`. `a - b` is the same call.
     //! assert Set.difference(%[1, 2, 3], %[2]) == %[1, 3]
     //
     pub fn difference<T>(a: Set<T>, b: Set<T>) -> Set<T> {
-        Iter.filter(a, fn e -> !Set.contains?(b, e)) |> Iter.to_set()
+        Iter.filter(a, fn e -> !Set.contains(b, e)) |> Iter.to_set()
     }
 
     /// True if every element of `a` is also in `b`.
-    //! assert Set.subset?(%[1, 2], %[1, 2, 3])
-    //! refute Set.subset?(%[1, 4], %[1, 2, 3])
+    //! assert Set.is_subset(%[1, 2], %[1, 2, 3])
+    //! refute Set.is_subset(%[1, 4], %[1, 2, 3])
     //
-    pub fn subset?<T>(a: Set<T>, b: Set<T>) -> Bool {
-        Iter.to_list(a) |> Iter.all?(&Set.contains?(b, &1))
+    pub fn is_subset<T>(a: Set<T>, b: Set<T>) -> Bool {
+        Iter.to_list(a) |> Iter.all(&Set.contains(b, &1))
     }
 }
 
 impl Contains for Set<T> {
     /// True if `x` is a member of the set: a hash lookup.
-    //! assert Set.contains?(%[1, 2], 1)
-    //! refute Set.contains?(%[1, 2], 9)
+    //! assert Set.contains(%[1, 2], 1)
+    //! refute Set.contains(%[1, 2], 9)
     //! empty: Set<Int> = %[]
-    //! refute Set.contains?(empty, 1)
+    //! refute Set.contains(empty, 1)
     //
-    fn contains?(c: Set<T>, x: T) -> Bool {
-        Map.contains?(c.items, x)
+    fn contains(c: Set<T>, x: T) -> Bool {
+        Map.contains(c.items, x)
     }
 }
 
@@ -126,7 +126,7 @@ impl Debug for Set<T> {
 }
 
 impl Equatable for Set<T> {
-    fn equal?(a: Set<T>, b: Set<T>) -> Bool {
+    fn equal(a: Set<T>, b: Set<T>) -> Bool {
         a == b
     }
 }

@@ -18,7 +18,7 @@ func TestNamedCallback_FunctionValuesRun(t *testing.T) {
   a + b
 }
 
-pub fn small?(n: Int) -> Bool {
+pub fn is_small(n: Int) -> Bool {
   n < 3
 }
 `,
@@ -64,7 +64,7 @@ test "a top-level fn as an adapter" {
 test "an imported fn" {
   assert Iter.reduce([1, 2, 3], fn acc = 0, n -> plus(acc, n)) == 6
   assert Iter.reduce([1, 2, 3], fn acc = 0, n -> util.plus(acc, n)) == 6
-  assert Iter.filter([1, 2, 3, 4], util.small?) |> Iter.to_list() == [1, 2]
+  assert Iter.filter([1, 2, 3, 4], util.is_small) |> Iter.to_list() == [1, 2]
 }
 
 test "an owner-qualified impl fn" {
@@ -278,7 +278,7 @@ impl Date {
     #Date{year, month, day}
   }
 
-  fn same?(a: Date, b: Date, strict: Bool = True) -> Bool {
+  fn is_same(a: Date, b: Date, strict: Bool = True) -> Bool {
     a.year == b.year and (!strict or a.day == b.day)
   }
 }
@@ -295,7 +295,7 @@ test "a named argument past an omitted default" {
 test "a failing named call reports the written arguments" {
   y = 2026
   d = 4
-  assert Date.same?(Date.new(y, day: d), Date.new(y), strict: True)
+  assert Date.is_same(Date.new(y, day: d), Date.new(y), strict: True)
 }
 `
 	out := irTestBodyVM(t, src, 3)

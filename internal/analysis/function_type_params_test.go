@@ -40,13 +40,13 @@ func TestFunctionTypeParams_LowercaseInImplIsRejected(t *testing.T) {
 }
 
 impl Span<T> {
-    fn longer?<t>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
+    fn is_longer<t>(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
         span.stop > other.stop
     }
 }
 `
 	_, errs := checkSourceWithStdlib(src)
-	wantOneTypeParamError(t, errs, 7, 16,
+	wantOneTypeParamError(t, errs, 7, 18,
 		`type parameter "t" must be PascalCase`,
 		"a type parameter is a type name, so it starts with an uppercase letter, such as `T`")
 }
@@ -148,12 +148,12 @@ impl Span<T> {
         #(span.start, u)
     }
 
-    fn longer?(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
+    fn is_longer(span: Span<T>, other: Span<T>) -> Bool where T: Comparable {
         span.stop > other.stop
     }
 }
 
-fn any_items?<I, T>(items: I) -> Bool where I: Iter<T> {
+fn has_any_items<I, T>(items: I) -> Bool where I: Iter<T> {
     Iter.count(items) > 0
 }
 

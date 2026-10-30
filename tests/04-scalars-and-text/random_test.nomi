@@ -36,43 +36,55 @@ test "random generators compose dependent draws" {
 
 test "weighted generators require positive total weight" {
     assert Generator.weighted(#(0.0, "never"), [])
-        |> Result.err?()
+        |> Result.is_err()
 }
 
 test "weighted generators reject negative weights" {
     assert Generator.weighted(#(-1.0, "bad"), [])
-        |> Result.err?()
+        |> Result.is_err()
 }
 
-test "an integer range as wide as Int draws in range" {
+test "an integer range of any width draws in range" {
     seed = Seed.from_int(2026)
+    top = Int.pow(2, 63) - 1
 
     #(all, _) =
-        Generator.int(Int.min_value, Int.max_value)
+        Generator.int(-top - 1, top)
         |> Generator.list(8)
         |> Generator.step(seed)
 
     assert Iter.count(all) == 8
-    assert all |> Iter.any?(&(&1 < 0))
-    assert all |> Iter.any?(&(&1 > 0))
+    assert all |> Iter.any(&(&1 < 0))
+    assert all |> Iter.any(&(&1 > 0))
 
     #(wide, _) =
-        Generator.int(-5, Int.max_value)
+        Generator.int(-5, top)
         |> Generator.list(8)
         |> Generator.step(seed)
 
-    assert wide |> Iter.all?(&(&1 >= -5))
-    assert wide |> Iter.any?(&(&1 > Int.max_value / 2))
+    assert wide |> Iter.all(&(&1 >= -5))
+    assert wide |> Iter.any(&(&1 > top / 2))
 
     #(low, _) =
-        Generator.int(Int.min_value, 0)
+        Generator.int(-top - 1, 0)
         |> Generator.list(8)
         |> Generator.step(seed)
 
-    assert low |> Iter.all?(&(&1 <= 0))
+    assert low |> Iter.all(&(&1 <= 0))
 
-    #(top, _) = Generator.int(Int.max_value, Int.max_value) |> Generator.step(seed)
-    assert top == Int.max_value
+    #(one, _) = Generator.int(top, top) |> Generator.step(seed)
+    assert one == top
+
+    huge = Int.pow(10, 40)
+
+    #(past, _) =
+        Generator.int(-huge, huge)
+        |> Generator.list(16)
+        |> Generator.step(seed)
+
+    assert past |> Iter.all(&(&1 >= -huge and &1 <= huge))
+    assert past |> Iter.any(&(&1 > Int.pow(10, 30)))
+    assert past |> Iter.any(&(&1 < -Int.pow(10, 30)))
 }
 
 test "a float range wider than a Float can span draws in range" {
@@ -81,7 +93,7 @@ test "a float range wider than a Float can span draws in range" {
         |> Generator.list(8)
         |> Generator.step(Seed.from_int(2026))
 
-    assert xs |> Iter.all?(fn x -> Float.finite?(x) and x >= -1.0e308 and x < 1.0e308)
-    assert xs |> Iter.any?(&(&1 < 0.0))
-    assert xs |> Iter.any?(&(&1 > 0.0))
+    assert xs |> Iter.all(fn x -> Float.is_finite(x) and x >= -1.0e308 and x < 1.0e308)
+    assert xs |> Iter.any(&(&1 < 0.0))
+    assert xs |> Iter.any(&(&1 > 0.0))
 }

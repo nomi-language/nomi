@@ -1,6 +1,9 @@
 package ir
 
-import "strconv"
+import (
+	"math/big"
+	"strconv"
+)
 
 // The `const` class: a value with no operands.
 //
@@ -37,7 +40,8 @@ const (
 	ConstUnit ConstKind = iota + 1
 	// ConstBool is a Bool literal.
 	ConstBool
-	// ConstInt is an Int literal.
+	// ConstInt is an Int literal: an int64 (Int), or a value past int64's
+	// range (Big).
 	ConstInt
 	// ConstFloat is a Float literal.
 	ConstFloat
@@ -94,6 +98,8 @@ type Const struct {
 	flt  float64
 	text string
 	typ  *Symbol
+	// big is a ConstInt's value when it does not fit int64; nil otherwise.
+	big *big.Int
 }
 
 // NewUnit is `#rt.Unit{}`.
@@ -112,6 +118,17 @@ func NewBool(pos Pos, dst Temp, v bool) *Const {
 func NewInt(pos Pos, dst Temp, v int64) *Const {
 	c := newConst(pos, dst, ConstInt, "NewInt")
 	c.num = v
+	return c
+}
+
+// NewBigInt is an Int literal of any size. A value that fits int64 is the
+// constant NewInt builds, so a big constant is never one an int64 holds.
+func NewBigInt(pos Pos, dst Temp, v *big.Int) *Const {
+	if v.IsInt64() {
+		return NewInt(pos, dst, v.Int64())
+	}
+	c := newConst(pos, dst, ConstInt, "NewBigInt")
+	c.big = new(big.Int).Set(v)
 	return c
 }
 
@@ -191,8 +208,12 @@ func (c *Const) Kind() ConstKind { return c.kind }
 // Bool is the value of a ConstBool.
 func (c *Const) Bool() bool { return c.kind == ConstBool && c.num != 0 }
 
-// Int is the value of a ConstInt.
+// Int is the value of a ConstInt that fits int64.
 func (c *Const) Int() int64 { return c.num }
+
+// Big is the value of a ConstInt past int64's range, or nil. The caller must
+// not change it.
+func (c *Const) Big() *big.Int { return c.big }
 
 // Float is the value of a ConstFloat.
 func (c *Const) Float() float64 { return c.flt }
@@ -239,6 +260,10 @@ func (c *Const) String() string {
 	case ConstBool:
 		s += " " + strconv.FormatBool(c.Bool())
 	case ConstInt:
+		if c.big != nil {
+			s += " " + c.big.String()
+			break
+		}
 		s += " " + strconv.FormatInt(c.num, 10)
 	case ConstFloat:
 		s += " " + strconv.FormatFloat(c.flt, 'g', -1, 64)

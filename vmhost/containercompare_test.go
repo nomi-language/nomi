@@ -54,7 +54,7 @@ fn main() {
   io.inspect(Bool.compare(False, True))
   io.inspect(Hashable.hash(True))
   io.inspect(List.hash([[1]]))
-  io.inspect(Set.equal?(%[1, 2], %[2, 1]))
+  io.inspect(Set.equal(%[1, 2], %[2, 1]))
   io.inspect(Hashable.hash(%[1, 2]) == Hashable.hash(%{1 => True, 2 => True}))
   io.inspect(Iter.sort([True, False, True]))
 }

@@ -105,3 +105,38 @@ fn main() {
 }
 `, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\n#Team{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
 }
+
+// A Vector of an interface's existential holds each item as the value it
+// erases, as a List does: a declared `Vector<Display>`, a vector literal
+// passed where an `Iter<Display>` is declared, and the element-agnostic
+// operations over one.
+func TestIRVector_OfExistential(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+struct Point {
+    x: Int
+}
+
+impl Display for Point {
+    fn to_string(p: Point) -> String {
+        "P${p.x}"
+    }
+}
+
+fn show(xs: Iter<Display>) -> String {
+    xs |> Iter.map(Display.to_string) |> String.join(",")
+}
+
+fn main() {
+    v: Vector<Display> = #[1, 2]
+    io.print(Int.to_string(Iter.count(v)))
+    io.print(show(v))
+    io.print(show(#[3, 4]))
+    w: Vector<Display> = #[#Point{x: 5}, "s", 1.5]
+    io.print(show(w))
+    io.print(Int.to_string(Vector.length(Vector.push(w, 7))))
+    io.print(show(Vector.push(w, 7)))
+    io.inspect(w)
+    io.print(Debug.inspect(Vector.get(v, 0)))
+}`, "2\n1,2\n3,4\nP5,s,1.5\n4\nP5,s,1.5,7\n#[#Point{x: 5}, \"s\", 1.5]\nSome(1)\n")
+}

@@ -1747,7 +1747,7 @@ func (g *gen) noEquatableImpl(k kind) bool {
 	if g.implsByIface["Equatable"][k] != nil {
 		return false
 	}
-	if g.std != nil && len(g.std.byIface["Equatable.equal?"][k]) > 0 {
+	if g.std != nil && len(g.std.byIface["Equatable.equal"][k]) > 0 {
 		return false
 	}
 	return true

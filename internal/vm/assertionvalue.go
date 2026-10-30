@@ -107,7 +107,7 @@ func nomiFailureOf(v any) (rt.NomiAssertionFailure, bool) {
 		}
 		return rtSliceList(out)
 	}
-	line, _ := field("line").(int64)
+	line := intIndex(field("line"))
 	f := rt.NomiAssertionFailure{
 		Line: line, Keyword: str(field("keyword")), Expression: str(field("expression")),
 		Reason: str(field("reason")), Actual: maybeStr(field("actual")),

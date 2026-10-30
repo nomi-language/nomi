@@ -1,3 +1,5 @@
+//# Converts a number, written as digits in one base, to its digits in another.
+
 /// Why a number cannot be rebased.
 pub enum Error {
     InvalidInputBase
@@ -9,17 +11,11 @@ pub enum Error {
 /// in `input_base`, written in `output_base`. Zero, and an empty list of
 /// digits, come out as `[0]`.
 pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error> {
-    if input_base < 2 {
-        return Err(.InvalidInputBase)
-    }
+    if input_base < 2 { return Err(.InvalidInputBase) }
 
-    if Iter.any?(digits, fn d -> d < 0 or d >= input_base) {
-        return Err(.InvalidDigit)
-    }
+    if Iter.any(digits, fn d -> !Range.contains(0..input_base, d)) { return Err(.InvalidDigit) }
 
-    if output_base < 2 {
-        return Err(.InvalidOutputBase)
-    }
+    if output_base < 2 { return Err(.InvalidOutputBase) }
 
     number = Iter.reduce(digits, fn total = 0, d -> total * input_base + d)
     Ok(Int.to_digits(number, output_base))

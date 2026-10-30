@@ -544,6 +544,14 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 	return n.Dst(), want, true
 }
 
+// erasesUnboxed reports whether a value of kind have is, unchanged, a value
+// of the existential want: it erases into want (irErases) and enters it
+// without a box (irBoxedErasure), so a source of such values is viewed as
+// a source of want's.
+func (bl *irScalarBuilder) erasesUnboxed(want, have kind) bool {
+	return irExistentialKind(want) && bl.g.irErases(want, have) && !bl.g.irBoxedErasure(want, have)
+}
+
 // emptyRetypes reports whether a value of kind have is a value of kind want
 // once each empty collection in it takes want's type there: have is an
 // untyped empty list, map, set or vector and want that collection, or both
@@ -717,7 +725,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 	if vl, isVector := at.(*ast.VectorLit); isVector && len(vl.Items) != 0 {
 		// `#[[1]]` where a `Vector<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`, as a list literal's does.
-		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && (irTypedWithin(elem) || elem.tag == tagSeq) {
+		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && (irTypedWithin(elem) || elem.tag == tagSeq || irExistentialKind(elem)) {
 			return bl.vectorMakeOf(vl, elem)
 		}
 	}

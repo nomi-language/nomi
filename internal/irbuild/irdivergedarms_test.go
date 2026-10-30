@@ -395,7 +395,7 @@ fn main() {
 
 // An `if` or `case` every arm of which leaves, used as an operand: an
 // argument, an operand of `+`, a struct field, a list item, a pipe's source,
-// a `try`'s operand, an `if` condition, a `case` subject, an arm's value
+// a `?`'s operand, an `if` condition, a `case` subject, an arm's value
 // and an Iter.loop or callback tail. The
 // construct that would read it never runs; the operands evaluated before it
 // do, in order, and nothing after it does.
@@ -493,21 +493,21 @@ fn parse(s: String) -> Result<Int, String> {
 }
 
 fn tried(x: Int) -> Result<Int, String> {
-    n = try parse(case x {
+    n = parse(case x {
         0 -> return Ok(100)
         _ -> return Err("no")
-    })
+    })?
     Ok(n)
 }
 
 fn tried_arm(s: String) -> Result<Int, String> {
-    n = try parse(case s {
+    n = parse(case s {
         "" -> return Err("empty")
         _ -> {
-            m = try parse(s)
+            m = parse(s)?
             return Ok(m * 2)
         }
-    })
+    })?
     Ok(n)
 }
 

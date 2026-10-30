@@ -103,26 +103,24 @@ fn main() {
     ) {
         Ok(hover) -> {
             io.print(
-                "signature_is_one_line = " + Bool.to_string(
-                    !String.contains?(hover.signature, "\n")
-                )
+                "signature_is_one_line = " + Bool.to_string(!String.contains(hover.signature, "\n"))
             )
 
             io.print(
                 "signature_has_no_fence = " + Bool.to_string(
-                    !String.contains?(hover.signature, "```")
+                    !String.contains(hover.signature, "```")
                 )
             )
 
             io.print(
                 "markdown_starts_fenced = " + Bool.to_string(
-                    String.starts_with?(hover.markdown, "```")
+                    String.starts_with(hover.markdown, "```")
                 )
             )
 
             io.print(
                 "markdown_contains_signature = " + Bool.to_string(
-                    String.contains?(hover.markdown, hover.signature)
+                    String.contains(hover.markdown, hover.signature)
                 )
             )
         }

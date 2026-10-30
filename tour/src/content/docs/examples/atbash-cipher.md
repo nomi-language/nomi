@@ -36,7 +36,7 @@ pub fn decode(phrase: String) -> String {
 /// inverse, so this both encodes and decodes.
 fn translate(text: String) -> List<String> {
     text
-    |> String.to_lower()
+    |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.map(swap)
     |> Maybe.values()
@@ -45,7 +45,7 @@ fn translate(text: String) -> List<String> {
 }
 
 fn swap(cp: Codepoint) -> Maybe<Codepoint> {
-    if Codepoint.digit?(cp) {
+    if Codepoint.is_digit(cp) {
         Some(cp)
     } else {
         Map.get(mirror, cp)

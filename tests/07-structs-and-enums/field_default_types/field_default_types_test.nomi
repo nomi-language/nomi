@@ -28,8 +28,8 @@ import std/compiler.{self, Diagnostic}
 // `03-tooling-and-diagnostics` cases spell it: those share the helper across
 // several files, this one does not, and a sibling file is its own corpus
 // record.
-fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String) -> Bool {
-    Iter.any?(diagnostics, fn diagnostic -> String.contains?(diagnostic.message, text))
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+    Iter.any(diagnostics, fn diagnostic -> String.contains(diagnostic.message, text))
 }
 
 interface Clock {
@@ -80,7 +80,7 @@ test "a scalar default of the wrong type is refused at the declaration" {
     // One diagnostic, not merely at least one: the rule reports at the
     // declaration and must not also cascade into the construction site.
     assert Iter.count(diagnostics) == 1
-    assert has_diagnostic?(diagnostics, "field 'port' of Cfg: expected Int, got String")
+    assert has_diagnostic(diagnostics, "field 'port' of Cfg: expected Int, got String")
 }
 
 test "an interface-typed default that does not implement is refused at the declaration" {
@@ -105,7 +105,7 @@ test "an interface-typed default that does not implement is refused at the decla
     )
 
     assert Iter.count(diagnostics) == 1
-    assert has_diagnostic?(diagnostics, "field 'ticker' of Cfg: expected Ticker, got NoTicker")
+    assert has_diagnostic(diagnostics, "field 'ticker' of Cfg: expected Ticker, got NoTicker")
 }
 
 test "an enum record variant's field default is checked too" {
@@ -123,7 +123,7 @@ test "an enum record variant's field default is checked too" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert has_diagnostic?(diagnostics, "field 'since' of Status.Active: expected Int, got String")
+    assert has_diagnostic(diagnostics, "field 'since' of Status.Active: expected Int, got String")
 }
 
 // A default for a field typed by a bare type parameter cannot be checked
@@ -145,7 +145,7 @@ test "a concrete default for a type-parameter field is refused" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert has_diagnostic?(diagnostics, "field 'v' of Holder: expected T, got Int")
+    assert has_diagnostic(diagnostics, "field 'v' of Holder: expected T, got Int")
 }
 
 test "correct defaults still construct, dispatch and solve through a type parameter" {

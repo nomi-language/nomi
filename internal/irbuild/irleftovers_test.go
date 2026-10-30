@@ -30,11 +30,11 @@ fn known(n: Int) -> Maybe<Int> {
 }
 
 fn empty(n: Int) -> Bool {
-  Iter.empty?(1..n)
+  Iter.is_empty(1..n)
 }
 
 fn full(n: Int) -> Bool {
-  Iter.not_empty?(1..n)
+  !Iter.is_empty(1..n)
 }
 
 fn main() {
@@ -260,22 +260,22 @@ const irLeftoversTestBodySource = `fn double(n: Int) -> Int {
   n * 2
 }
 
-fn big?(n: Int) -> Bool {
+fn is_big(n: Int) -> Bool {
   n > 100
 }
 
 test "a piped binding asserted bare" {
-  ok = 4 |> double() |> big?()
+  ok = 4 |> double() |> is_big()
   assert ok
 }
 
 test "a piped binding refuted bare" {
-  small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any?(fn x -> x > 4)
+  small = [1, 2, 3] |> Iter.map(fn x -> x * 2) |> Iter.any(fn x -> x > 4)
   refute small
 }
 
 test "a piped binding that passes" {
-  fine = 60 |> double() |> big?()
+  fine = 60 |> double() |> is_big()
   assert fine
 }
 

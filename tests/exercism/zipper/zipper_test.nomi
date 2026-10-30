@@ -23,7 +23,7 @@ fn initial_tree() -> Tree<Int> {
 /// The zipper on the initial tree after each operation in turn, or `None`
 /// once a move finds no node.
 fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
-    start = Some(Zipper.from_tree(initial_tree()))
+    start = initial_tree() |> Zipper.from_tree() |> Some()
 
     Iter.reduce(operations, fn zipper = start, operation -> {
         Maybe.flat_map(zipper, &apply(&1, operation))

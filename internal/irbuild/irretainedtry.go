@@ -42,7 +42,7 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 		carried[i] = u.payloads[i].k
 	}
 	if testBoundary {
-		// An AssertionFailure payload (`try testing.check(e)`) reports the
+		// An AssertionFailure payload (`testing.check(e)?`) reports the
 		// failed check itself: the VM's runner reads the propagated failure
 		// back into its report.
 		if _, anchored := assertionFailureKind(); !anchored {

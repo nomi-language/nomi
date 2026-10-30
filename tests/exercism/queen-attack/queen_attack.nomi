@@ -1,3 +1,5 @@
+//# Whether two queens on a chessboard can attack each other.
+
 /// A queen on an 8 by 8 board, at a zero-based row and column.
 pub opaque struct Queen {
     row: Int
@@ -17,7 +19,7 @@ impl Queen {
     }
 
     /// Reports whether two queens share a row, a column or a diagonal.
-    pub fn can_attack?(white: Queen, black: Queen) -> Bool {
+    pub fn can_attack(white: Queen, black: Queen) -> Bool {
         rows = Int.abs(white.row - black.row)
         columns = Int.abs(white.column - black.column)
         rows == 0 or columns == 0 or rows == columns

@@ -23,7 +23,7 @@ func errText(e rt.NumberParseError) string {
 	return fmt.Sprintf("tag %d", e.Tag)
 }
 
-func intResult(r rt.Result[int64, rt.NumberParseError]) string {
+func intResult(r rt.Result[rt.Int, rt.NumberParseError]) string {
 	if r.Tag == rt.TagOk {
 		return fmt.Sprint(r.Ok)
 	}
@@ -66,7 +66,8 @@ func TestParseInt(t *testing.T) {
 		{"en", "-", false, `Unexpected{at: 1, text: ""}`},
 		{"en", "9223372036854775807", false, "9223372036854775807"},
 		{"en", "-9223372036854775808", false, "-9223372036854775808"},
-		{"en", "9223372036854775808", false, "OutOfRange"},
+		{"en", "9223372036854775808", false, "9223372036854775808"},
+		{"en", "123,456,789,012,345,678,901,234", false, "123456789012345678901234"},
 		{"ar-EG", "١٬٢٣٤", false, "1234"},
 		{"ar-EG", "1234", false, "1234"}, // ASCII digits for the locale's
 		{"ar-EG", "؜-٥", false, "-5"},
@@ -170,7 +171,7 @@ func TestFormatThenParseRoundTrips(t *testing.T) {
 	for _, loc := range locales {
 		for _, n := range ints {
 			for _, grouping := range []bool{true, false} {
-				text := FFIFormatInt(fr, loc, n, grouping, 1)
+				text := FFIFormatInt(fr, loc, rt.SmallInt(n), grouping, 1)
 				for _, lenient := range []bool{false, true} {
 					if got := intResult(FFIParseInt(fr, text, loc, lenient)); got != fmt.Sprint(n) {
 						t.Errorf("%s: %d formats as %q, which parses (lenient %v) as %s", loc, n, text, lenient, got)

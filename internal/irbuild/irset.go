@@ -53,8 +53,11 @@ func (bl *irScalarBuilder) setMake(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
 // expected element kind each item is lowered against.
 func (bl *irScalarBuilder) setMakeOf(t *ast.SetLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if t.Spread != nil {
+	if len(t.Spreads) == 1 && t.Spreads[0].At == 0 {
 		return bl.setUpdate(t)
+	}
+	if len(t.Spreads) > 0 {
+		return bl.setSpreadLit(t)
 	}
 	if len(t.Items) == 0 {
 		n := ir.NewEmptySet(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
@@ -89,7 +92,7 @@ func (bl *irScalarBuilder) setCallPlan(t *ast.Call, args irQualArgs, method stri
 		return nil
 	}
 	switch method {
-	case "size", "contains?", "insert", "remove", "union", "intersection", "difference", "subset?":
+	case "size", "contains", "insert", "remove", "union", "intersection", "difference", "is_subset":
 	default:
 		return nil
 	}

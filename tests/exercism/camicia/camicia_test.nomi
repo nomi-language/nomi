@@ -9,8 +9,13 @@ fn deck(cards: String) -> List<String> {
 }
 
 test "simulate game" {
-    cases: List<#(String, List<String>, List<String>, Game)> = [
-        #("two cards, one trick", deck("2"), deck("3"), #{status: .Finished, cards: 2, tricks: 1}),
+    cases = [
+        #(
+            "two cards, one trick",
+            deck("2"),
+            deck("3"),
+            #Game{status: .Finished, cards: 2, tricks: 1},
+        ),
         #(
             "three cards, one trick",
             deck("2 4"),

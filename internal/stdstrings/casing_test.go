@@ -36,6 +36,22 @@ func TestCaseMappingInALanguage(t *testing.T) {
 		{LowerIn, "el", "ΟΔΟΣ", "οδος"},
 		{LowerIn, "el", "ΟΔΟΣ ΣΟΦΙΑΣ.", "οδος σοφιας."},
 		{LowerIn, "el", "Σ", "σ"},
+		// Capitalize title-cases the first grapheme and lowers the rest.
+		{Capitalize, "", "hello WORLD", "Hello world"},
+		{Capitalize, "", "ǆemal", "ǅemal"},
+		{Capitalize, "", "ǄEMAL", "ǅemal"},
+		{Capitalize, "", "ßa", "Ssa"},
+		{Capitalize, "", "ﬁsh", "Fish"},
+		{Capitalize, "", "éCOLE", "École"},
+		{Capitalize, "", "", ""},
+		{Capitalize, "", "1st PLACE", "1st place"},
+		{Capitalize, "el", "ΟΔΟΣ", "Οδος"},
+		{Capitalize, "", "ΑΣ", "Ας"},
+		{Capitalize, "tr", "istanbul", "İstanbul"},
+		{Capitalize, "tr", "iSTANBUL", "İstanbul"},
+		{Capitalize, "en", "iSTANBUL", "Istanbul"},
+		{Capitalize, "tr", "IRMAK", "Irmak"},
+		{Capitalize, "lt", "i\u0307\u0301s", "I\u0301s"},
 	} {
 		if got := tc.fn(tc.s, tc.lang); got != tc.w {
 			t.Errorf("%q in %s: %q (%U), want %q (%U)", tc.s, tc.lang, got, []rune(got), tc.w, []rune(tc.w))

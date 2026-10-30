@@ -6,13 +6,13 @@ pub fn prime(n: Int) -> Maybe<Int> {
     if n < 1 { return None }
 
     Iter.from(2)
-    |> Iter.filter(prime?)
+    |> Iter.filter(is_prime)
     |> Iter.get(n - 1)
 }
 
 /// Whether `number` has no divisor between 2 and its square root.
-fn prime?(number: Int) -> Bool {
+fn is_prime(number: Int) -> Bool {
     Iter.from(2)
     |> Iter.take_while(fn d -> d * d <= number)
-    |> Iter.all?(fn d -> number % d != 0)
+    |> Iter.all(fn d -> number % d != 0)
 }

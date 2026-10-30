@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: killer_sudoku_helper.nomi
+//# The digit combinations a killer sudoku cage of a given size and sum can
+//# hold.
+
 /// Every set of `size` different digits from 1 to 9, none of them in
 /// `exclude`, that adds up to `sum`. Each combination is in increasing order,
 /// and the combinations are in lexicographic order.
@@ -18,7 +21,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //
 pub fn combinations(sum: Int, size: Int, exclude: List<Int> = []) -> List<List<Int>> {
     1..=9
-    |> Iter.filter(fn digit -> !List.contains?(exclude, digit))
+    |> Iter.filter(fn digit -> !List.contains(exclude, digit))
     |> Iter.combinations(size)
     |> Iter.filter(fn combination -> Iter.sum(combination) == sum)
     |> Iter.to_list()

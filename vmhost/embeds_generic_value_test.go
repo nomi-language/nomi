@@ -110,7 +110,7 @@ fn main() {
   io.inspect(l != [s, Shape.Dot])
   st = %[c]
   sw: Set<Shape> = st
-  io.inspect(Set.contains?(sw, s))
+  io.inspect(Set.contains(sw, s))
   mp = %{c => #Circle{r: 5}}
   mw: Map<Shape, Shape> = mp
   io.inspect(Map.get(mw, s))

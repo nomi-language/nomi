@@ -1,17 +1,6 @@
 import {
-    std/json.{FromJson, Json}
+    std/json.Json
     rest_api.{RestApi, User, Users}
-}
-
-/// `text` read as a `Users` object, or why it could not be.
-fn users(text: String) -> Result<Users, String> {
-    decoded(text)
-}
-
-/// `text` read as JSON into a `T`, or why it could not be.
-fn decoded<T>(text: String) -> Result<T, String> where T: FromJson {
-    json = Json.decode(text) |> try Result.map_err(&Display.to_string(&1))
-    T.from_json(json) |> Result.map_err(&Display.to_string(&1))
 }
 
 once adam_and_bob = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
@@ -22,27 +11,27 @@ once adam_owes_bob = `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"
 
 group "user management" {
     test "no users" {
-        api = try RestApi.new(`{"users":[]}`)
-        answer = try RestApi.get(api, "/users")
-        assert users(answer) == Ok(#{users: []})
+        api = RestApi.new(`{"users":[]}`)?
+        answer = RestApi.get(api, "/users")?
+        assert Json.decode_as<Users>(answer) == Ok(#{users: []})
     }
 
     test "add user" {
-        api = try RestApi.new(`{"users":[]}`)
-        #(answer, _api) = try RestApi.post(api, "/add", `{"user":"Adam"}`)
-        user: User = try decoded(answer)
+        api = RestApi.new(`{"users":[]}`)?
+        #(answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
+        user: User = Json.decode_as(answer)?
 
         assert user == #{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
     }
 
     test "get single user" {
-        api = try RestApi.new(adam_and_bob)
-        answer = try RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))
-        users: Users = try decoded(answer)
+        api = RestApi.new(adam_and_bob)?
+        answer = RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))?
+        users: Users = Json.decode_as(answer)?
 
-        expected: Users = try decoded(
+        expected: Users = Json.decode_as(
             `{"users":[{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
-        )
+        )?
 
         assert users == expected
     }
@@ -91,7 +80,7 @@ test "iou" {
     subtests cases, #(description, database, payload, expected), description {
         assert Ok(api) = RestApi.new(database)
         assert Ok(#(answer, _api)) = RestApi.post(api, "/iou", payload)
-        assert Ok(wanted) = users(expected)
-        assert users(answer) == Ok(wanted)
+        assert Ok(wanted) = Json.decode_as<Users>(expected)
+        assert Json.decode_as<Users>(answer) == Ok(wanted)
     }
 }

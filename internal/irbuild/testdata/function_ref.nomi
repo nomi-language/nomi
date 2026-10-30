@@ -79,7 +79,7 @@ fn apply_sn(f: (String, Int) -> String, s: String, n: Int) -> String {
 // forwards its own parameters, and a thunk forwarding one argument agrees with
 // every permutation of itself. Both directions of the discriminator are here on
 // purpose: `String.slice` is heterogeneous so a reversal is a type error,
-// and `String.contains?` is homogeneous so a reversal is a wrong ANSWER that
+// and `String.contains` is homogeneous so a reversal is a wrong ANSWER that
 // only the output comparison can see. Measured: with neither of these, reversing
 // the thunk's argument list left the whole guard set green.
 fn apply3(f: (String, Int, Int) -> String, s: String, a: Int, b: Int) -> String {
@@ -156,10 +156,10 @@ fn main() {
     io.print("codepoints       = ${Display.to_string(codes)}")
 
     sliced = apply3(String.slice, "hello world", 0, 5)
-    has = apply_ss(String.contains?, "hello world", "world")
-    missing = apply_ss(String.contains?, "world", "hello world")
+    has = apply_ss(String.contains, "hello world", "world")
+    missing = apply_ss(String.contains, "world", "hello world")
     io.print("slice via value  = ${sliced}")
-    io.print("contains? value  = ${has}")
+    io.print("contains value  = ${has}")
     io.print("reversed         = ${missing}")
 
     // 7. Held in a data structure and read back out.

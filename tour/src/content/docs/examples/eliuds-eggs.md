@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: eliuds_eggs.nomi
+//# Counts the eggs in Eliud's coop from the number its display shows.
+
 /// Counts the 1 bits in the binary form of a non-negative `number`: the
 /// eggs in Eliud's coop, one bit per nest.
 pub fn egg_count(number: Int) -> Int {

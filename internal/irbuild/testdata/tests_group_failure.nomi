@@ -9,7 +9,7 @@
 // the one operand a setup lowering can get wrong while every passing case
 // still passes.
 //
-// The last failing case is deliberately a BARE NAME: `enough?` is a name a
+// The last failing case is deliberately a BARE NAME: `is_enough` is a name a
 // binding introduced, so the report adds a `defined as:` row carrying the
 // defining expression's source text. The builder records that text at the
 // binding and the formatter would render the same AST, so it is two statements
@@ -28,8 +28,8 @@ group "totals" {
     }
 
     test "a bare name shows how it was defined", #{want} {
-        enough? = want > 100
-        assert enough?
+        is_enough = want > 100
+        assert is_enough
     }
 
     test "a passing case beside a failing one still reports ok", #{want} {

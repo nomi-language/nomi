@@ -27,7 +27,7 @@ test "if without else rejects non-Unit branch results" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "if without else returns Unit")
+    assert test_helpers.has_diagnostic(diagnostics, "if without else returns Unit")
 }
 
 test "if without else allows Unit side effects" {
@@ -93,7 +93,7 @@ test "if pattern bindings are scoped to the then branch" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "undefined variable 'name'")
+    assert test_helpers.has_diagnostic(diagnostics, "undefined variable 'name'")
 }
 
 test "else if chains select the first matching branch" {
@@ -113,9 +113,7 @@ test "else if chains select the first matching branch" {
 }
 
 fn parse_id(input: String) -> Result<Int, String> {
-    if String.length(input) == 0 {
-        return Err("empty")
-    }
+    if String.length(input) == 0 { return Err("empty") }
 
     Ok(42)
 }

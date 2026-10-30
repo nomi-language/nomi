@@ -7,10 +7,13 @@ description: "Solve a letter-sum puzzle such as `SEND + MORE == MONEY`: give eac
 
 Solve a letter-sum puzzle such as `SEND + MORE == MONEY`: give each letter a different digit so the sum is true, with no word of more than one letter starting with zero.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/alphametics) (MIT). Listed under [Collections & Algorithms](/examples/?subject=collections-and-algorithms).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/alphametics) (MIT). Listed under [Collections & Algorithms](/examples/?subject=collections-and-algorithms).
 
 ```nomi-run
 // FILE: alphametics.nomi
+//# Solves alphametics puzzles such as `SEND + MORE == MONEY`, where each
+//# letter stands for a different digit.
+
 /// A letter of the puzzle and what it adds to the sum: `weight` is the
 /// total of its place values, positive in the addends and negative in the
 /// result, so a solution makes the weighted digits add up to zero.
@@ -25,9 +28,7 @@ struct Letter {
 /// letter and no leading zero in a word of more than one letter; `None`
 /// when no digits do.
 pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
-    [left, right] = String.split(puzzle, "==") else {
-        return None
-    }
+    [left, right] = String.split(puzzle, "==") else { return None }
 
     addends = left |> String.split("+") |> Iter.map(fn word -> #(String.trim(word), 1))
 
@@ -58,7 +59,7 @@ fn letter(name: String, uses: List<#(String, Int, Bool)>) -> Letter {
     #Letter{
         name,
         weight: uses |> Iter.map(fn #(_name, value, _leading) -> value) |> Iter.sum(),
-        leading: Iter.any?(uses, fn #(_name, _value, leading) -> leading),
+        leading: Iter.any(uses, fn #(_name, _value, leading) -> leading),
     }
 }
 
@@ -73,25 +74,21 @@ fn assign(
     total: Int,
     digits: Map<String, Int>,
 ) -> Maybe<Map<String, Int>> {
-    [letter, ..rest] = letters else {
-        return if total == 0 { Some(digits) } else { None }
-    }
+    [letter, ..rest] = letters else { return if total == 0 { Some(digits) } else { None } }
 
     0..=9
-    |> Iter.filter(fn digit -> !Set.contains?(used, digit) and !(letter.leading and digit == 0))
+    |> Iter.filter(fn digit -> !Set.contains(used, digit) and !(letter.leading and digit == 0))
     |> Iter.map(fn digit -> #(digit, total + letter.weight * digit))
-    |> Iter.filter(fn #(_digit, after) -> reachable?(after, rest))
-    |> Iter.map(fn #(digit, after) -> {
+    |> Iter.filter(fn #(_digit, after) -> is_reachable(after, rest))
+    |> Iter.find_map(fn #(digit, after) -> {
         assign(rest, Set.insert(used, digit), after, Map.put(digits, letter.name, digit))
     })
-    |> Iter.find(Maybe.some?)
-    |> Maybe.flat_map(fn found -> found)
 }
 
 /// Whether the letters `rest` could still bring `total` to zero: each adds
 /// at most nine times its weight when the weight is positive, and takes
 /// away at most nine times its size when it is negative.
-fn reachable?(total: Int, rest: List<Letter>) -> Bool {
+fn is_reachable(total: Int, rest: List<Letter>) -> Bool {
     weights = Iter.map(rest, .weight)
     gains = weights |> Iter.filter(&(&1 > 0)) |> Iter.sum()
     losses = weights |> Iter.filter(&(&1 < 0)) |> Iter.sum()
@@ -102,7 +99,7 @@ fn reachable?(total: Int, rest: List<Letter>) -> Bool {
 import alphametics
 
 test "solve" {
-    cases: List<#(String, String, Maybe<Map<String, Int>>)> = [
+    cases = [
         #("puzzle with three letters", "I + BB == ILL", Some(%{"I" => 1, "B" => 9, "L" => 0})),
         #("solution must have unique value for each letter", "A == B", None),
         #("leading zero solution is invalid", "ACA + DD == BD", None),
@@ -179,13 +176,7 @@ test "solve" {
 
 - `solve` answers `Maybe<Map<String, Int>>`, each letter's digit or `None`, as the canonical data maps letters to digits or gives `null`.
 - The puzzle becomes one equation. Each letter's `weight` is the sum of its place values, positive in the addends and negative in the result (`S` in `SEND + MORE == MONEY` weighs 1000, `M` 1000 - 10000), so a solution is digits whose weighted sum is zero. The 199 addends of the largest case fold into ten weights before the search starts, and the search never reads the words again.
-- The search is a depth-first backtrack over the letters, heaviest first. After each digit, `reachable?` checks that the letters left could still bring the total back to zero, at most nine times each positive weight up and nine times each negative weight down, and the search backs out when they cannot. Taking the heavy letters first makes that bound cut early: the 199-addend case visits about 2,800 assignments and runs in about 30 ms on the VM. An earlier version took the letters by their lowest column and checked the total modulo that column's place value, as a column-by-column solver does; in the 199-addend puzzle all ten letters end some word, so every letter sits in the units column, it could not prune until the last letter, and it took 4.7 seconds.
+- The search is a depth-first backtrack over the letters, heaviest first. After each digit, `is_reachable` checks that the letters left could still bring the total back to zero, at most nine times each positive weight up and nine times each negative weight down, and the search backs out when they cannot. Taking the heavy letters first makes that bound cut early: the 199-addend case visits about 2,800 assignments and runs in about 30 ms on the VM. An earlier version took the letters by their lowest column and checked the total modulo that column's place value, as a column-by-column solver does; in the 199-addend puzzle all ten letters end some word, so every letter sits in the units column, it could not prune until the last letter, and it took 4.7 seconds.
 - A letter that leads a word of more than one letter is marked `leading` and never gets 0.
 - `places` lists each letter of a word with its place value, from `Iter.reverse` and `Iter.with_index`, and `Iter.group_by` gathers a letter's uses into one `Letter`.
 - The ten canonical cases are one `subtests` table named by the description column.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no `Iter.find_map` and no `Maybe.flatten`. `assign` maps each digit to the search below it, a `Maybe`, and wants the first `Some`, which is `Iter.find(Maybe.some?)` and then `Maybe.flat_map(fn found -> found)`. Rust has `Iterator::find_map`, Elixir `Enum.find_value` and Gleam `list.find_map`.

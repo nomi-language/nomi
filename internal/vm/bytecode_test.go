@@ -85,7 +85,7 @@ fn main() {
 }
 
 // A call to a function whose whole body is one crossing over its parameters
-// compiles to that crossing at the call site. `String.contains?` and
+// compiles to that crossing at the call site. `String.contains` and
 // `String.split` are generic over a Matcher, and their String instances
 // forward to String's host functions with the arguments swapped; with a
 // String needle the call costs one opHost, as the host fn it replaced did,
@@ -100,11 +100,11 @@ func TestBytecode_AHostForwarderRunsAsItsCrossing(t *testing.T) {
 fn probe(s: String, re: Regex) -> Bool {
     parts = String.split(s, ",")
     words = String.split(s, re)
-    String.contains?(s, "b") and Iter.count(parts) == Iter.count(words)
+    String.contains(s, "b") and Iter.count(parts) == Iter.count(words)
 }
 
 fn main() -> Result<Unit, String> {
-    probe("a,b", try Regex.compile(",")) |> io.print()
+    probe("a,b", Regex.compile(",")?) |> io.print()
     Ok(Unit)
 }
 `)
@@ -119,7 +119,7 @@ fn main() -> Result<Unit, String> {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, host := range []string{"strings.String.split_in", "Regex.split_in", "strings.String.contained_in?"} {
+	for _, host := range []string{"strings.String.split_in", "Regex.split_in", "strings.String.is_contained_in"} {
 		if !strings.Contains(listing, host) {
 			t.Errorf("probe does not cross to %s at its call site:\n%s", host, listing)
 		}

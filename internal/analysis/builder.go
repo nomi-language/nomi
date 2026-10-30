@@ -3261,10 +3261,22 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	if n.Interface != nil {
 		ifaceKey = n.Interface.TypeString()
 	}
+	module := ""
+	if q, qualified := n.Receiver.(*ast.QualifiedType); qualified && !ast.IsPublic(q.Module) {
+		// A capitalized qualifier names a type (`Json.Case`), whose
+		// nested name the base name keeps.
+		module = q.Module
+	}
 	for _, fn := range implBlockFuncDefs(n) {
 		b.file.ImplBlockReceiver[fn] = recv
 		if ifaceKey != "" {
 			b.file.ImplBlockInterfaceKey[fn] = ifaceKey
+		}
+		if module != "" {
+			if b.file.ImplBlockReceiverModule == nil {
+				b.file.ImplBlockReceiverModule = make(map[*ast.FuncDef]string)
+			}
+			b.file.ImplBlockReceiverModule[fn] = module
 		}
 	}
 	if exts := implBlockExternFuncs(n); len(exts) > 0 {
@@ -3481,9 +3493,6 @@ func (b *builder) walkImplBlockBodies(n *ast.ImplBlock, scope *Scope) {
 	receiverDisplay := ""
 	if n.Receiver != nil {
 		receiverDisplay = n.Receiver.TypeString()
-	}
-	if IsSynthesizedLine(n.Line) {
-		scope = synthSupportScope(b.file, b.stdlibScopes, scope)
 	}
 	inner := b.defineTypeParams(mergeImplScopeTypeParams(inferReceiverTypeParams(n.Receiver, scope), n.Generics), scope)
 	if inner == scope {
@@ -4564,6 +4573,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.Dbg:
 		b.walkNode(n.Expr, scope)
 
+	case *ast.Unwrap:
+		b.walkNode(n.Expr, scope)
+
 	case *ast.TestDecl:
 		b.walkTestDecl(n, scope)
 
@@ -4846,10 +4858,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)
 		}
-		if n.Spread != nil {
-			b.walkNode(n.Spread, scope)
-		}
-		for _, item := range n.Items {
+		for _, item := range n.Operands() {
 			b.walkNode(item, scope)
 		}
 
@@ -4877,8 +4886,8 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		if n.TypeName != nil {
 			b.walkTypeExpr(n.TypeName, scope)
 		}
-		if n.Spread != nil {
-			b.walkNode(n.Spread, scope)
+		for _, sp := range n.Spreads {
+			b.walkNode(sp.Head, scope)
 		}
 		for _, entry := range n.Entries {
 			b.walkNode(entry.Key, scope)
@@ -4911,11 +4920,8 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.ListSpreadLit:
-		for _, head := range n.Heads {
-			b.walkNode(head, scope)
-		}
-		if n.TailSpread != nil {
-			b.walkNode(n.TailSpread, scope)
+		for _, item := range n.Operands() {
+			b.walkNode(item, scope)
 		}
 
 	case *ast.ImportStmt:
@@ -5576,6 +5582,9 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 		if n.TailSpread != nil {
 			b.definePatternOwned(n.TailSpread, scope, owner)
+		}
+		for _, t := range n.Tails {
+			b.definePatternOwned(t, scope, owner)
 		}
 
 	case *ast.MapPattern:

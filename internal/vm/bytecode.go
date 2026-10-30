@@ -20,7 +20,7 @@ package vm
 //     function's callee table, compiled on first use.
 //  4. It records a site per instruction: its position, whether it can fault,
 //     and the offset of its block's fault handler. Faults, call-depth errors
-//     and `try` propagation read positions from the site table, so a fault's
+//     and `?` propagation read positions from the site table, so a fault's
 //     text and line are the instruction's own, as they were in the walker.
 //
 // # INSTRUCTION FORMAT
@@ -41,7 +41,7 @@ package vm
 // operands boxed from their banks into rt values and unboxed back into
 // the destination's bank. Those handlers are the machine's implementations of
 // iteration, assertions, construction of structs, records, tuples and
-// collections, projections off them, `try`, defers, once cells, app fields,
+// collections, projections off them, `?`, defers, once cells, app fields,
 // Context, Debug and Display rendering, dispatched, indirect and host calls.
 // The boxing seam is here so an instruction kind can move from `opIR` to a
 // typed opcode one kind at a time.
@@ -64,12 +64,13 @@ const (
 	opLoadW         // dst | kw           word constant
 	opLoadS         // dst | ks           string constant
 	opLoadR         // dst | kr           shared value: a payload-free variant
+	opLoadI         // dst | kr           Int constant of word rt.BigWord; kr is its shadow
 	opOnce          // dstT | cell | idx  a forced once's value, else the handler
 	opMovW          // dst | src
 	opMovS          // dst | src
 	opMovR          // dst | src
 	opXMov          // dstT | srcT        a move across banks, through a box
-	opAddI          // dst | a | b        checked
+	opAddI          // dst | a | b        exact
 	opSubI          // dst | a | b
 	opMulI          // dst | a | b
 	opDivI          // dst | a | b
@@ -622,6 +623,17 @@ func (cp *compiler) typed(in ir.Instr) bool {
 			cp.emit(cp.op(opNop, 0))
 			return true
 		case d.bank() == bankW && n.Kind() == ir.ConstInt && cp.kind(n.Dst()) == ir.KindInt:
+			if big := n.Big(); big != nil || uint64(n.Int()) == rt.BigWord {
+				// The word a big Int occupies, with its value beside it:
+				// nil for math.MinInt64 itself.
+				var shadow any
+				if big != nil {
+					shadow = rt.IntFromBig(big)
+				}
+				cp.c.kr = append(cp.c.kr, shadow)
+				cp.emit(cp.op(opLoadI, uint32(d.reg())), uint32(len(cp.c.kr)-1))
+				return true
+			}
 			cp.emit(cp.op(opLoadW, uint32(d.reg())), cp.word(uint64(n.Int())))
 			return true
 		case d.bank() == bankW && n.Kind() == ir.ConstFloat && cp.kind(n.Dst()) == ir.KindFloat:
@@ -1124,7 +1136,7 @@ func (m *Machine) Disassemble(name string) (string, error) {
 }
 
 var opNames = [...]string{
-	opNop: "nop", opLoadW: "loadw", opLoadS: "loads", opLoadR: "loadr", opOnce: "once",
+	opNop: "nop", opLoadW: "loadw", opLoadS: "loads", opLoadR: "loadr", opLoadI: "loadi", opOnce: "once",
 	opMovW: "movw", opMovS: "movs", opMovR: "movr", opXMov: "xmov",
 	opAddI: "addi", opSubI: "subi", opMulI: "muli", opDivI: "divi", opRemI: "remi", opNegI: "negi",
 	opAddIW: "addiw", opSubIW: "subiw", opMulIW: "muliw", opNegIW: "negiw",

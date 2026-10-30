@@ -29,7 +29,7 @@ fn read(n: Int) -> Result<Input, String> {
 }
 
 // `value |> Result.Ok()` should infer the error type from the return type, not
-// leave a free E. Mirrors the `try expr |> Ok()` symptom from the same gap, in
+// leave a free E. Mirrors the `expr? |> Ok()` symptom from the same gap, in
 // the pipe path.
 func TestPipeOkInfersErrorTypeFromReturn_OK(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }

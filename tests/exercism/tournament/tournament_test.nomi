@@ -1,7 +1,4 @@
-import {
-    tournament
-    tournament.Error
-}
+import tournament.{self, Error}
 
 test "just the header if no input" {
     assert tournament.tally([]) == Ok(["Team                           | MP |  W |  D |  L |  P"])

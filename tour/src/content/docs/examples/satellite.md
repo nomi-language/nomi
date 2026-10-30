@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: satellite.nomi
+//# Rebuilds a binary tree from its preorder and inorder traversals.
+
 /// A binary tree with a value at each node.
 pub enum Tree<T> {
     Leaf
@@ -83,8 +85,8 @@ fn leaf(value: String) -> Tree<String> {
 }
 
 test "rebuilds the tree" {
-    cases: List<#(String, List<String>, List<String>, Tree<String>)> = [
-        #("Empty tree", [], [], .Leaf),
+    cases = [
+        #("Empty tree", [], [], Tree.Leaf),
         #("Tree with one item", ["a"], ["a"], leaf("a")),
         #(
             "Tree with many items",

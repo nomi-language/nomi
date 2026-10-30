@@ -179,8 +179,8 @@ func (m *Machine) rowName(name *functionValue, item any, runtime *rt.Frame) (tex
 	return s, nil, nil
 }
 
-// rowVerdict is the AssertionFailure a `try` whose boundary is a test body
-// carried out of it: `try testing.check(e)`, or a case's or a row's final
+// rowVerdict is the AssertionFailure a `?` whose boundary is a test body
+// carried out of it: `testing.check(e)?`, or a case's or a row's final
 // `Result<_, AssertionFailure>` statement (irbuild's testVerdict). The case
 // runner (testFn) and a `subtests` row read it back the same way.
 func rowVerdict(err error) (*rt.AssertionFailure, bool) {

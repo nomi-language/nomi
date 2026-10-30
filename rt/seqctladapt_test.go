@@ -360,7 +360,7 @@ func TestSeqCtlTerminalsAndStages(t *testing.T) {
 		{"emit-stop false answers false", at(1, CtlEmitStop, false, big), false},
 	} {
 		if got := SeqAnyCtl(fr, src(), tc.f); got != tc.want {
-			t.Errorf("any? %s gave %v, want %v", tc.name, got, tc.want)
+			t.Errorf("any %s gave %v, want %v", tc.name, got, tc.want)
 		}
 	}
 	// all? accumulates True until an element fails.
@@ -375,7 +375,7 @@ func TestSeqCtlTerminalsAndStages(t *testing.T) {
 		{"emit-stop false answers false", at(1, CtlEmitStop, false, below(9)), false},
 	} {
 		if got := SeqAllCtl(fr, src(), tc.f); got != tc.want {
-			t.Errorf("all? %s gave %v, want %v", tc.name, got, tc.want)
+			t.Errorf("all %s gave %v, want %v", tc.name, got, tc.want)
 		}
 	}
 }

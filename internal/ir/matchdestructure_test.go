@@ -232,12 +232,14 @@ func TestProjElemSuffix_AreStructuralReadsAtAConstantPosition(t *testing.T) {
 	// `MatchListMin(0)` is not a question. The asymmetry is the point: the
 	// navigation is total and only the test is refutable.
 	NewProjSuffix(pos, 1, 9, 0, ValUnknown)
+	// A negative suffix position counts from the end: -2 is the last two
+	// cells, which a list pattern's tails read.
+	NewProjSuffix(pos, 1, 9, -2, ValUnknown)
 	for _, tc := range []struct {
 		what string
 		call func()
 	}{
 		{"a negative element position", func() { NewProjElem(pos, 1, 9, -1, ValUnknown) }},
-		{"a negative suffix position", func() { NewProjSuffix(pos, 1, 9, -1, ValUnknown) }},
 	} {
 		func() {
 			defer func() {

@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: matrix.nomi
+//# A matrix read from text, and its rows and columns.
+
 /// A matrix of numbers read from text, one row per line.
 pub opaque struct Matrix {
     rows: Vector<Vector<Int>>
@@ -30,7 +32,7 @@ impl Matrix {
             text
             |> String.lines()
             |> Iter.map(parse_row)
-            |> try Result.collect()
+            |> Result.collect()?
 
         Ok(#Matrix{rows: Iter.to_vector(rows)})
     }
@@ -54,7 +56,7 @@ impl Matrix {
 fn parse_row(line: String) -> Result<Vector<Int>, Error> {
     line
     |> String.words()
-    |> Iter.map(fn word -> Maybe.to_result(String.to_int(word), Error.NotANumber(word)))
+    |> Iter.map(fn word -> String.to_int(word) |> Maybe.to_result(Error.NotANumber(word)))
     |> Result.collect()
     |> Result.map(Iter.to_vector)
 }
@@ -114,7 +116,7 @@ test "a word that is not a number is an error" {
 }
 
 test "an index past the last row or column is None" {
-    matrix = try Matrix.parse("1 2\n3 4")
+    matrix = Matrix.parse("1 2\n3 4")?
 
     assert Matrix.row(matrix, 3) == None
     assert Matrix.column(matrix, 0) == None
@@ -126,4 +128,4 @@ test "an index past the last row or column is None" {
 - `Matrix.parse` reads the text once into an opaque struct of a `Vector<Vector<Int>>`, so `row` and `column` index it and never parse again. Each line is split with `String.words`, which ignores the different widths of the numbers.
 - A word that is not a number is `Err(Error.NotANumber(word))`, through `Maybe.to_result` per word and `Result.collect` per row and over the rows. The canonical data has no such case; the test file adds one, marked not canonical.
 - `row` and `column` count from 1, as the canonical data does, and answer `Maybe<List<Int>>`: an index past the last row or column is `None`, which the test file also checks outside the canonical cases. `column` is `Vector.get` on every row, gathered with `Maybe.collect`, so it is `None` if any row is too short.
-- The row and column groups are one `subtests` table each, named by the description column. A row's body takes the matrix apart with `assert Ok(matrix) = Matrix.parse(text)`, since `try` cannot leave a `subtests` row.
+- The row and column groups are one `subtests` table each, named by the description column. A row's body takes the matrix apart with `assert Ok(matrix) = Matrix.parse(text)`, since a `?` cannot leave a `subtests` row.

@@ -1,3 +1,5 @@
+//# A set built without the standard library's `Set`.
+
 /// A set of values, kept as a list in ascending order with no value twice.
 /// Two sets with the same values hold the same list, so they are equal.
 pub opaque struct CustomSet<T> {
@@ -9,27 +11,27 @@ derive Equatable for CustomSet<T>
 impl CustomSet<T> {
     /// The set of `values`, each kept once.
     pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
-        Iter.reduce(values, fn set = #CustomSet{items: []}, value -> CustomSet.add(set, value))
+        Iter.reduce(values, CustomSet.add, from: #CustomSet{items: []})
     }
 
     /// Whether `set` holds no values.
-    pub fn empty?(set: CustomSet<T>) -> Bool {
-        Iter.empty?(set.items)
+    pub fn is_empty(set: CustomSet<T>) -> Bool {
+        Iter.is_empty(set.items)
     }
 
     /// Whether `set` holds `element`.
-    pub fn contains?(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
-        List.contains?(set.items, element)
+    pub fn contains(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
+        List.contains(set.items, element)
     }
 
     /// Whether every value of `set` is in `other`.
-    pub fn subset?(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        Iter.all?(set.items, &CustomSet.contains?(other, &1))
+    pub fn is_subset(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+        Iter.all(set.items, &CustomSet.contains(other, &1))
     }
 
     /// Whether `set` and `other` share no value.
-    pub fn disjoint?(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        !Iter.any?(set.items, &CustomSet.contains?(other, &1))
+    pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+        !Iter.any(set.items, &CustomSet.contains(other, &1))
     }
 
     /// `set` with `element` in it.
@@ -40,14 +42,14 @@ impl CustomSet<T> {
     /// The values in both `set` and `other`.
     pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
         #CustomSet{
-            items: set.items |> Iter.filter(&CustomSet.contains?(other, &1)) |> Iter.to_list(),
+            items: set.items |> Iter.filter(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 
     /// The values in `set` that are not in `other`.
     pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
         #CustomSet{
-            items: set.items |> Iter.filter(&(!CustomSet.contains?(other, &1))) |> Iter.to_list(),
+            items: set.items |> Iter.filter(&(!CustomSet.contains(other, &1))) |> Iter.to_list(),
         }
     }
 

@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: flower_field.nomi
+//# Annotates a flower field with the number of flowers next to each empty
+//# square.
+
 once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #(1, 0), #(1, 1)]
 
 /// Writes the count of adjacent flowers into each empty square of a board of
@@ -49,7 +52,7 @@ fn annotate_square(
 
     count =
         neighbours
-        |> Iter.filter(fn #(dr, dc) -> Set.contains?(flowers, #(row + dr, column + dc)))
+        |> Iter.filter(fn #(dr, dc) -> Set.contains(flowers, #(row + dr, column + dc)))
         |> Iter.count()
 
     if count == 0 {

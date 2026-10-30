@@ -26,6 +26,6 @@ test "verifies ISBN-10 numbers" {
     ]
 
     subtests cases, #(description, isbn, expected), description {
-        assert isbn_verifier.valid?(isbn) == expected
+        assert isbn_verifier.is_valid(isbn) == expected
     }
 }

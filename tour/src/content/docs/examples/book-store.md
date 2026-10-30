@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: book_store.nomi
+//# The cheapest price of a basket of books from a five-book series, where
+//# groups of different books get a discount.
+
 /// The lowest price, in cents, of `basket`, a list of the books in it by
 /// their number in the series, 1 to 5. The largest groups are the cheapest
 /// but for one exchange: two groups of four cost less than a group of five
@@ -68,7 +71,7 @@ fn group_price(size: Int) -> Int {
 import book_store
 
 test "total" {
-    cases: List<#(String, List<Int>, Int)> = [
+    cases = [
         #("Only a single book", [1], 800),
         #("Two of the same book", [2, 2], 1600),
         #("Empty basket", [], 0),

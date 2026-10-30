@@ -492,8 +492,8 @@ func (s *shapeSearch) pattern(n ast.Node) string {
 	switch p := n.(type) {
 	case *ast.ListPattern:
 		kind = "list pattern"
-		matches = lengthPhrase(what, len(p.Heads), p.TailSpread != nil)
-		binds = append(append(binds, p.Heads...), p.TailSpread)
+		matches = lengthPhrase(what, len(p.Heads)+len(p.Tails), p.TailSpread != nil)
+		binds = append(append(append(binds, p.Heads...), p.TailSpread), p.Tails...)
 	case *ast.VectorPattern:
 		kind = "vector pattern"
 		matches = lengthPhrase(what, len(p.Heads)+len(p.Tails), p.Spread)

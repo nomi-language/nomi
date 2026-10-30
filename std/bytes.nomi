@@ -27,7 +27,7 @@ pub host type Byte
 
 impl Byte {
     /// Converts a Byte to its Int value.
-    //! b = try Int.to_byte(255)
+    //! b = Int.to_byte(255)?
     //! assert Byte.to_int(b) == 255
     //
     pub host fn to_int(b: Byte) -> Int
@@ -46,7 +46,7 @@ impl Debug for Byte {
 }
 
 impl Equatable for Byte {
-    fn equal?(a: Byte, b: Byte) -> Bool {
+    fn equal(a: Byte, b: Byte) -> Bool {
         a == b
     }
 }
@@ -62,47 +62,39 @@ pub host type Bytes
 
 impl Bytes {
     /// Number of bytes in the buffer.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! assert Bytes.length(Bytes.from_list([a, b])) == 2
     //
     pub host fn length(data: Bytes) -> Int
 
     /// Returns the byte at zero-based `index`, or None when the index is
-    /// outside the buffer.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    /// outside the buffer. For an index that must exist, `Bytes.get(data,
+    /// index)!` answers the byte and traps on any other index.
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! data = Bytes.from_list([a, b])
     //! assert data |> Bytes.get(0) |> Maybe.map(Byte.to_int) == Some(97)
     //! assert Bytes.get(data, 2) == None
+    //! assert data |> Bytes.get(1)! |> Byte.to_int() == 98
     //
     pub host fn get(data: Bytes, index: Int) -> Maybe<Byte>
 
-    /// Returns the byte at zero-based `index`, which must be in
-    /// `0 <= index < length`. Any other index traps: `index 2 is out of range
-    /// for a Bytes of length 2`. `Bytes.get` answers None instead.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
-    //! data = Bytes.from_list([a, b])
-    //! assert data |> Bytes.at(1) |> Byte.to_int() == 98
-    //
-    pub host fn at(data: Bytes, index: Int) -> Byte
-
     /// Returns bytes from start index to end index (start inclusive, end
     /// exclusive). Out-of-range bounds are clamped.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
-    //! c = try Int.to_byte(99)
-    //! d = try Int.to_byte(100)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
+    //! c = Int.to_byte(99)?
+    //! d = Int.to_byte(100)?
     //! assert Bytes.slice(Bytes.from_list([a, b, c, d]), 1, 3) == Bytes.from_list([b, c])
     //
     pub host fn slice(data: Bytes, start: Int, end: Int) -> Bytes
 
     /// Concatenates two byte buffers.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
-    //! c = try Int.to_byte(99)
-    //! d = try Int.to_byte(100)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
+    //! c = Int.to_byte(99)?
+    //! d = Int.to_byte(100)?
     //!
     //! assert Bytes.concat(Bytes.from_list([a, b]), Bytes.from_list([c, d]))
     //!     == Bytes.from_list([a, b, c, d])
@@ -110,8 +102,8 @@ impl Bytes {
     pub host fn concat(a: Bytes, b: Bytes) -> Bytes
 
     /// Materializes a byte buffer as a list of Byte values.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //!
     //! assert Bytes.from_list([a, b])
     //! |> Bytes.to_list()
@@ -121,16 +113,16 @@ impl Bytes {
     pub host fn to_list(data: Bytes) -> List<Byte>
 
     /// Builds a byte buffer from a list of Byte values.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! assert Bytes.from_list([a, b]) |> Bytes.to_list() == [a, b]
     //
     pub host fn from_list(items: List<Byte>) -> Bytes
 
     /// Decodes bytes as UTF-8 text.
-    //! h = try Int.to_byte(104)
-    //! e = try Int.to_byte(195)
-    //! accent = try Int.to_byte(169)
+    //! h = Int.to_byte(104)?
+    //! e = Int.to_byte(195)?
+    //! accent = Int.to_byte(169)?
     //! assert Bytes.from_list([h, e, accent]) |> Bytes.to_string() == Ok("hé")
     //
     pub host fn to_string(data: Bytes) -> Result<String, String>
@@ -138,8 +130,8 @@ impl Bytes {
 
 impl Iter for Bytes {
     /// Pushes each byte to `yield`, stopping when it returns False.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //!
     //! assert Bytes.from_list([a, b])
     //! |> Iter.map(Byte.to_int)
@@ -151,22 +143,22 @@ impl Iter for Bytes {
 impl Contains for Bytes {
     /// True if a byte of the buffer equals `x`. A linear scan that the runtime
     /// runs.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
-    //! z = try Int.to_byte(122)
-    //! assert Bytes.contains?(Bytes.from_list([a, b]), b)
-    //! refute Bytes.contains?(Bytes.from_list([a, b]), z)
-    //! refute Bytes.contains?(Bytes.from_list([]), a)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
+    //! z = Int.to_byte(122)?
+    //! assert Bytes.contains(Bytes.from_list([a, b]), b)
+    //! refute Bytes.contains(Bytes.from_list([a, b]), z)
+    //! refute Bytes.contains(Bytes.from_list([]), a)
     //
-    host fn contains?(c: Bytes, x: Byte) -> Bool
+    host fn contains(c: Bytes, x: Byte) -> Bool
 }
 
 impl Add<Bytes, Bytes> for Bytes {
     /// Concatenates two byte buffers.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
-    //! c = try Int.to_byte(99)
-    //! d = try Int.to_byte(100)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
+    //! c = Int.to_byte(99)?
+    //! d = Int.to_byte(100)?
     //! assert Bytes.from_list([a, b]) + Bytes.from_list([c, d]) == Bytes.from_list([a, b, c, d])
     //
     fn add(lhs: Bytes, rhs: Bytes) -> Bytes {
@@ -178,8 +170,8 @@ impl Summable for Bytes {
     /// The sum of no byte buffers: the empty buffer. Summing Bytes
     /// concatenates them in order.
     //! assert Bytes.length(Bytes.empty_sum()) == 0
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! assert Bytes.from_list([a]) + Bytes.empty_sum() == Bytes.from_list([a])
     //! assert Iter.sum([Bytes.from_list([a]), Bytes.from_list([b])]) == Bytes.from_list([a, b])
     //
@@ -189,8 +181,8 @@ impl Summable for Bytes {
 }
 
 impl Display for Bytes {
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! assert Display.to_string(Bytes.from_list([a, b])) == "Bytes(2)"
     //
     fn to_string(data: Bytes) -> String {
@@ -199,8 +191,8 @@ impl Display for Bytes {
 }
 
 impl Debug for Bytes {
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! assert Debug.inspect(Bytes.from_list([a, b])) == "<<97, 98>>"
     //! assert Debug.inspect(Bytes.from_list([])) == "<<>>"
     //
@@ -226,7 +218,7 @@ fn join_debug_parts(parts: List<String>) -> String {
 }
 
 impl Equatable for Bytes {
-    fn equal?(a: Bytes, b: Bytes) -> Bool {
+    fn equal(a: Bytes, b: Bytes) -> Bool {
         a == b
     }
 }
@@ -234,8 +226,8 @@ impl Equatable for Bytes {
 impl Comparable for Bytes {
     /// Orders octet by octet; a prefix sorts first. A collator's sort keys
     /// (`Collator.sort_key`) compare this way.
-    //! a = try Int.to_byte(97)
-    //! b = try Int.to_byte(98)
+    //! a = Int.to_byte(97)?
+    //! b = Int.to_byte(98)?
     //! assert Bytes.from_list([a, b]) < Bytes.from_list([b])
     //! assert Bytes.from_list([a]) < Bytes.from_list([a, b])
     //
@@ -257,7 +249,7 @@ host fn bytes_compare(a: Bytes, b: Bytes) -> Int
 impl Hashable for Bytes {
     /// FNV-1a 64-bit hash of the octets, reinterpreted as an Int, as
     /// `String`'s is. Stable within one runtime process.
-    //! a = try Int.to_byte(97)
+    //! a = Int.to_byte(97)?
     //! assert Hashable.hash(Bytes.from_list([a])) == Hashable.hash(Bytes.from_list([a]))
     //
     host fn hash(data: Bytes) -> Int

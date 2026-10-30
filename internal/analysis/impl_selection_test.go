@@ -19,7 +19,7 @@ import (
 // holdsBox is a user interface with three instantiations for one user type.
 const holdsBox = `
 pub interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 }
 
 pub enum Color {
@@ -33,25 +33,25 @@ pub struct Box {
 }
 
 impl Holds<Int> for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n == x
     }
 }
 
 impl Holds<String> for Box {
-    fn holds?(b: Box, x: String) -> Bool {
+    fn holds(b: Box, x: String) -> Bool {
         b.s == x
     }
 }
 
 impl Holds<Color> for Box {
-    fn holds?(b: Box, x: Color) -> Bool {
+    fn holds(b: Box, x: Color) -> Bool {
         b.n == 0 and x == .Red
     }
 }
 
 fn via<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
-    C.holds?(c, x)
+    C.holds(c, x)
 }
 `
 
@@ -91,12 +91,12 @@ func TestImplSelection_EveryCallFormChoosesByTheArgument(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
 fn main() {
     b = #Box{n: 1, s: "a"}
-    direct: Bool = Box.holds?(b, 1)
-    qualified: Bool = Holds.holds?(b, "a")
-    variant: Bool = Box.holds?(b, Color.Red)
-    piped: Bool = b |> Box.holds?("b")
+    direct: Bool = Box.holds(b, 1)
+    qualified: Bool = Holds.holds(b, "a")
+    variant: Bool = Box.holds(b, Color.Red)
+    piped: Bool = b |> Box.holds("b")
     bounded: Bool = via(b, 2)
-    partial: (String) -> Bool = &Holds.holds?(b, &1)
+    partial: (String) -> Bool = &Holds.holds(b, &1)
     _ok = direct and qualified and !variant and !piped and !bounded and !partial("z")
 }
 `, nil)
@@ -138,8 +138,8 @@ fn main() {
 
 func TestImplSelection_AnUndeterminedArgumentIsAnError(t *testing.T) {
 	for name, call := range map[string]string{
-		"variant":     "Box.holds?(b, .Red)",
-		"placeholder": "&Holds.holds?(b, &1)",
+		"variant":     "Box.holds(b, .Red)",
+		"placeholder": "&Holds.holds(b, &1)",
 	} {
 		t.Run(name, func(t *testing.T) {
 			errs := buildProjectExpectingErrors(t, holdsBox+`
@@ -148,7 +148,7 @@ fn main() {
     _x = `+call+`
 }
 `, nil)
-			expectRejected(t, errs, "`Holds.holds?` for `Box` has impls at `Int`, `String` and `Color`; the argument's type does not choose one: annotate it")
+			expectRejected(t, errs, "`Holds.holds` for `Box` has impls at `Int`, `String` and `Color`; the argument's type does not choose one: annotate it")
 		})
 	}
 }
@@ -157,10 +157,10 @@ func TestImplSelection_NoImplTakesTheArgument(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
 fn main() {
     b = #Box{n: 1, s: "a"}
-    _x = Box.holds?(b, 1.5)
+    _x = Box.holds(b, 1.5)
 }
 `, nil)
-	expectRejected(t, errs, "`Holds.holds?` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float`")
+	expectRejected(t, errs, "`Holds.holds` for `Box` has impls at `Int`, `String` and `Color`, and none takes `Float`")
 }
 
 func TestImplSelection_ABoundTheCallLeavesOpenIsAnError(t *testing.T) {
@@ -261,7 +261,7 @@ fn main() {
 func TestImplSelection_AGenericImplBesideAConcreteOneOverlaps(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 pub interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 }
 
 pub struct Wrap<T> {
@@ -269,13 +269,13 @@ pub struct Wrap<T> {
 }
 
 impl Holds<T> for Wrap<T> where T: Equatable {
-    fn holds?(b: Wrap<T>, x: T) -> Bool {
+    fn holds(b: Wrap<T>, x: T) -> Bool {
         b.v == x
     }
 }
 
 impl Holds<Int> for Wrap<T> {
-    fn holds?(b: Wrap<T>, x: Int) -> Bool {
+    fn holds(b: Wrap<T>, x: Int) -> Bool {
         x == 0
     }
 }
@@ -289,7 +289,7 @@ fn main() {
 func TestImplSelection_TheSameArgumentsTwiceAreADuplicate(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 pub interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 }
 
 pub struct Box {
@@ -297,13 +297,13 @@ pub struct Box {
 }
 
 impl Holds<Int> for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n == x
     }
 }
 
 impl Holds<Int> for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n != x
     }
 }
@@ -317,7 +317,7 @@ fn main() {
 func TestImplSelection_SeveralImplsEachWriteTheirArguments(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, `
 pub interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 }
 
 pub struct Box {
@@ -325,13 +325,13 @@ pub struct Box {
 }
 
 impl Holds for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n == x
     }
 }
 
 impl Holds<String> for Box {
-    fn holds?(b: Box, x: String) -> Bool {
+    fn holds(b: Box, x: String) -> Bool {
         x == ""
     }
 }
@@ -349,23 +349,23 @@ func TestImplSelection_OrphanRulePerInstantiation(t *testing.T) {
 	t.Run("own interface at a std receiver", func(t *testing.T) {
 		errs := buildProjectExpectingErrors(t, `
 pub interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 }
 
 impl Holds<Int> for String {
-    fn holds?(b: String, x: Int) -> Bool {
+    fn holds(b: String, x: Int) -> Bool {
         String.length(b) == x
     }
 }
 
 impl Holds<Bool> for String {
-    fn holds?(b: String, x: Bool) -> Bool {
+    fn holds(b: String, x: Bool) -> Bool {
         x
     }
 }
 
 fn main() {
-    _ok = String.holds?("ab", 2) and Holds.holds?("", True)
+    _ok = String.holds("ab", 2) and Holds.holds("", True)
 }
 `, nil)
 		expectSelectionClean(t, errs)
@@ -380,8 +380,8 @@ fn main() {
 			"go.mod":    "module tags\n\ngo 1.27.0\n",
 			"main.nomi": `
 impl Contains<Int> for String {
-    fn contains?(c: String, x: Int) -> Bool {
-        String.contains?(c, Int.to_string(x))
+    fn contains(c: String, x: Int) -> Bool {
+        String.contains(c, Int.to_string(x))
     }
 }
 
@@ -417,7 +417,7 @@ func TestImplSelection_AnArgumentFromAnotherFile(t *testing.T) {
 import shapes.{Circle, Square}
 
 pub interface Fits<T> {
-    fn fits?(b: self, x: T) -> Bool
+    fn fits(b: self, x: T) -> Bool
 }
 
 pub struct Hole {
@@ -425,20 +425,20 @@ pub struct Hole {
 }
 
 impl Fits<Circle> for Hole {
-    fn fits?(b: Hole, x: Circle) -> Bool {
+    fn fits(b: Hole, x: Circle) -> Bool {
         x.r * 2 <= b.size
     }
 }
 
 impl Fits<Square> for Hole {
-    fn fits?(b: Hole, x: Square) -> Bool {
+    fn fits(b: Hole, x: Square) -> Bool {
         x.side <= b.size
     }
 }
 
 fn main() {
     h = #Hole{size: 4}
-    _ok = Hole.fits?(h, #Circle{r: 2}) and !Fits.fits?(h, #Square{side: 5})
+    _ok = Hole.fits(h, #Circle{r: 2}) and !Fits.fits(h, #Square{side: 5})
 }
 `, map[string]string{"shapes": `
 pub struct Circle {

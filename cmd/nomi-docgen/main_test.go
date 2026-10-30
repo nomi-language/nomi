@@ -263,7 +263,7 @@ func TestRenderModuleIncludesPublicNamespaceAndTypeBodyAPIs(t *testing.T) {
 
 	stringsPage := renderModuleWithLinks(lib, "strings", links)
 	for _, want := range []string{
-		`### <span class="nomi-ref-owner">String.</span><span class="nomi-ref-name">contains?</span>`,
+		`### <span class="nomi-ref-owner">String.</span><span class="nomi-ref-name">contains</span>`,
 		`### <span class="nomi-ref-owner">String.</span><span class="nomi-ref-name">compare</span>`,
 		`### <span class="nomi-ref-owner">String.</span><span class="nomi-ref-name">to_string</span>`,
 	} {

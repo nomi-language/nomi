@@ -42,8 +42,6 @@ test "once bindings are available across the file" {
 test "once bindings can hold declared values" {
     assert fallback_status == Status.Ready
     assert root_user_id == UserId(1)
-    assert Int.max_value == 9223372036854775807
-    assert Int.min_value == Int.wrapping_add(Int.max_value, 1)
 }
 
 test "ordinary local bindings can shadow file once bindings" {
@@ -63,7 +61,7 @@ test "duplicate same-scope once bindings are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "'dup' is already defined in this scope")
+    assert test_helpers.has_diagnostic(diagnostics, "'dup' is already defined in this scope")
 }
 
 test "type body once bindings are rejected" {
@@ -81,7 +79,7 @@ test "type body once bindings are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "once bindings are declarations outside type bodies",
     )
@@ -104,7 +102,7 @@ test "impl block once bindings are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "interface impl blocks hold only `fn` / `host fn` implementation items",
     )

@@ -22,7 +22,7 @@ import (
 //
 // A backtick typed literal whose handler can fail (`Regex`\d+``, whose
 // `from_fragments` returns `Result<Regex, String>`) has the handler's
-// success type, so it needs no `try`. Its body never interpolates, so the
+// success type, so it needs no `?`. Its body never interpolates, so the
 // handler's input is fixed text, and every load runs each such literal's
 // handler before anything else runs: `nomi check`, `nomi run`, `nomi test`,
 // the REPL, the tour and the language server's lowering all go through
@@ -49,7 +49,7 @@ const (
 const InvalidLiteralCode = "invalid-literal"
 
 // literalHint closes a literal diagnostic the handler could not be run for.
-const literalHint = "a backtick typed literal is checked at compile time; to check it when the program runs instead, write it with double quotes and handle its Result with `try` or `case`"
+const literalHint = "a backtick typed literal is checked at compile time; to check it when the program runs instead, write it with double quotes and handle its Result with `?` or `case`"
 
 // checkLiterals runs the handler of every backtick typed literal the lowering
 // checks at compile time, and answers the diagnostics of the ones that fail,

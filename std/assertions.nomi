@@ -3,7 +3,7 @@
 //#
 //# `assert condition` returns `True` when a Bool condition is `True`. When the
 //# condition is `False`, the runtime constructs an `AssertionFailure` and
-//# propagates it as `Result.Err`, the same way `try` propagates an `Err`.
+//# propagates it as `Result.Err`, the same way `?` propagates an `Err`.
 //# `refute condition` returns `False` when the condition is `False`.
 //#
 //# `assert result` requires `Ok(_)`, while `refute result` requires `Err(_)`.
@@ -121,7 +121,7 @@ impl AssertionFailure {
     //!     details: [],
     //! }
     //!
-    //! assert String.contains?(AssertionFailure.format(failure), "assert False")
+    //! assert String.contains(AssertionFailure.format(failure), "assert False")
     //
     pub host fn format(failure: AssertionFailure) -> String
 }

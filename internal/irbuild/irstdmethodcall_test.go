@@ -8,7 +8,7 @@ func TestIRStdMethodCall_EffectsAndSiblingCaller(t *testing.T) {
 	verifyLambdaProgram(t, `import { std/io std/instant.Instant lib }
 fn mark(n: Int) -> Int { io.print(n) return n }
 fn main() {
-  io.inspect(Instant.before?(
+  io.inspect(Instant.is_before(
     Instant.from_seconds(mark(1)),
     Instant.from_seconds(mark(2) + 3)
   ))

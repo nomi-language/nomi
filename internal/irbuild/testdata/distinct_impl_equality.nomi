@@ -11,7 +11,7 @@
 // SYNTHESIZED, and provenance keeps it on the structural path. Routing it
 // would cost a Nomi function call per comparison for an answer structural
 // comparison already gives. A derive is
-// not reliably structural either — it recurses through `Equatable.equal?`,
+// not reliably structural either — it recurses through `Equatable.equal`,
 // so a distinct wrapping a struct with a custom impl diverges under a derive
 // too; that is a separate open item and not what this fixture pins.
 import {
@@ -26,7 +26,7 @@ enum Color {
 }
 
 impl Equatable for Color {
-    fn equal?(a: Color, b: Color) -> Bool {
+    fn equal(a: Color, b: Color) -> Bool {
         _ = b
         _ = a
         True
@@ -36,7 +36,7 @@ impl Equatable for Color {
 type Tag Int
 
 impl Equatable for Tag {
-    fn equal?(a: Tag, b: Tag) -> Bool {
+    fn equal(a: Tag, b: Tag) -> Bool {
         _ = b
         _ = a
         True

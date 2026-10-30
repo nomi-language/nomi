@@ -100,7 +100,7 @@ import (
 )
 
 // FormatVersion is the blob format this package reads.
-const FormatVersion = "6"
+const FormatVersion = "7"
 
 // Record keys of a locale section's single records. The others are keyed by
 // kind and their first field ("symbols\tlatn", "list\tor-short").
@@ -242,7 +242,7 @@ var localeKinds = map[string]kindSpec{
 	"list":     {5, 1, PartLists},
 	KeyGenders: {1, 0, PartGrammar}, KeyCases: {1, 0, PartGrammar},
 	"currency-symbol": {2, 1, PartCurrencies}, "currency-narrow": {2, 1, PartCurrencies},
-	"currency-names": {7, 1, PartCurrencyNames}, "currency-pattern": {3, 1, PartCurrencies},
+	"currency-names": {7, 1, PartCurrencyNames}, "currency-pattern": {5, 1, PartCurrencies},
 	"currency-unit": {6, 0, PartCurrencyNames},
 	"months":        {13, 1, PartDates}, "days": {8, 1, PartDates}, "day-periods": {3, 1, PartDates},
 	"eras": {3, 1, PartDates}, "date-format": {2, 1, PartDates}, "time-format": {2, 1, PartDates},

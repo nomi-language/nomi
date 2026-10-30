@@ -40,7 +40,7 @@ func listHost(key string) hostFn {
 
 // listRemoveAtHost is `List.remove_at`: rt.ListCellRemoveAt, whose trap on
 // an index outside the list becomes this machine's fault here, as
-// `Vector.at`'s does in vectorHost.
+// `Vector.set`'s does in vectorHost.
 func listRemoveAtHost(_ *Machine, _ ir.Pos, args []any) (v any, err error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("vm: List.remove_at: expected 2 operands, got %d", len(args))
@@ -49,12 +49,16 @@ func listRemoveAtHost(_ *Machine, _ ir.Pos, args []any) (v any, err error) {
 	if !ok {
 		return nil, fmt.Errorf("vm: List.remove_at: operand 1 is %T, want List", args[0])
 	}
-	index, ok := args[1].(int64)
-	if !ok {
+	if !rt.IsInt(args[1]) {
 		return nil, fmt.Errorf("vm: List.remove_at: operand 2 is %T, want Int", args[1])
 	}
 	defer recoverTrap(&err)
-	return rt.ListCellRemoveAt[any, list](xs, index), nil
+	if _, small := args[1].(int64); !small {
+		// An index past int64's range is past any List; the fault names the
+		// index itself, not its clamp.
+		rt.Trap(rt.IndexOutOfRangeValueText("List", args[1], rt.ListCellCount[any, list](xs)))
+	}
+	return rt.ListCellRemoveAt[any, list](xs, rt.IntSaturated(args[1])), nil
 }
 
 // recoverTrap turns rt's trap, raised by an rt kernel a host calls, into
@@ -69,17 +73,17 @@ func recoverTrap(err *error) {
 	}
 }
 
-// listContainsHost is `List.contains?`: rt's cell walk comparing each element
+// listContainsHost is `List.contains`: rt's cell walk comparing each element
 // with x as `==` does (keys.go), so a List of declared records reaches their
 // own Equatable and every other element is compared in rt, with no Nomi call.
 func listContainsHost(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
 	defer recoverKey(&err)
 	if len(args) != 2 {
-		return nil, fmt.Errorf("vm: List.contains?: expected 2 operands, got %d", len(args))
+		return nil, fmt.Errorf("vm: List.contains: expected 2 operands, got %d", len(args))
 	}
 	xs, ok := args[0].(*list)
 	if !ok {
-		return nil, fmt.Errorf("vm: List.contains?: operand 1 is %T, want List", args[0])
+		return nil, fmt.Errorf("vm: List.contains: operand 1 is %T, want List", args[0])
 	}
 	return rt.ListCellContains[any, list](xs, args[1], mach.keysOver(nil, args[1]).EqualFunc()), nil
 }

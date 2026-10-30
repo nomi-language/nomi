@@ -1,3 +1,5 @@
+//# Run-length encoding and decoding of text.
+
 import std/regex.Regex
 
 /// `text` with each run of a repeated character written as its length and

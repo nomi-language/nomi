@@ -8,9 +8,11 @@ import {
     hashable.Hashable
     int.Int
     iter.Iter
+    lists.List
+    literals.{Fragment, Literal}
     locale.Locale
     localize.{Localize, NumberParseError}
-    maybe.Maybe.{self, Some}
+    maybe.Maybe.{self, None, Some}
     multiply.Multiply
     results.Result.{self, Err, Ok}
     strings.String
@@ -30,14 +32,26 @@ import {
 /// with `Date`; civil calendar and wall-clock arithmetic use calendar period
 /// types from `std/calendar`. It pairs with `Instant` and backs
 /// `timer.sleep` / `Context.with_timeout`.
+///
+/// A Duration holds a signed 64-bit count of nanoseconds, about 292 years
+/// either way, which is what clocks, timers and Go's `time.Duration` count
+/// in. A constructor or an operator whose answer is past that faults, naming
+/// the length it was asked for.
 pub opaque type Duration Int
+
+// The nanoseconds a Duration holds at most and at least.
+once max_nanos = 9_223_372_036_854_775_807
+once min_nanos = -9_223_372_036_854_775_808
+
+// `ns` when a Duration holds it; a fault naming it otherwise.
+host fn nanos_in_range(ns: Int) -> Int
 
 impl Duration {
     /// Construct a `Duration` from whole nanoseconds.
     //! assert Duration.as_nanos(Duration.nanoseconds(42)) == 42
     //
     pub fn nanoseconds(n: Int) -> Duration {
-        Duration(n)
+        Duration(nanos_in_range(n))
     }
 
     /// Construct a `Duration` from whole microseconds.
@@ -45,14 +59,14 @@ impl Duration {
     //! assert Duration.as_nanos(Duration.microseconds(2)) == 2000
     //
     pub fn microseconds(n: Int) -> Duration {
-        Duration(n * 1_000)
+        Duration(nanos_in_range(n * 1_000))
     }
 
     /// Construct a `Duration` from whole milliseconds.
     //! assert Duration.as_millis(Duration.milliseconds(1500)) == 1500
     //
     pub fn milliseconds(n: Int) -> Duration {
-        Duration(n * 1_000_000)
+        Duration(nanos_in_range(n * 1_000_000))
     }
 
     /// Construct a `Duration` from whole seconds.
@@ -60,21 +74,22 @@ impl Duration {
     //! assert Duration.seconds(5) == Duration.milliseconds(5000)
     //
     pub fn seconds(n: Int) -> Duration {
-        Duration(n * 1_000_000_000)
+        Duration(nanos_in_range(n * 1_000_000_000))
     }
 
     /// Construct a `Duration` from whole minutes.
     //! assert Duration.as_seconds(Duration.minutes(3)) == 180
     //
     pub fn minutes(n: Int) -> Duration {
-        Duration(n * 60_000_000_000)
+        Duration(nanos_in_range(n * 60_000_000_000))
     }
 
-    /// Construct a `Duration` from whole hours.
+    /// Construct a `Duration` from whole hours. A count past about 292 years
+    /// faults.
     //! assert Duration.to_string(Duration.hours(1)) == "1h"
     //
     pub fn hours(n: Int) -> Duration {
-        Duration(n * 3_600_000_000_000)
+        Duration(nanos_in_range(n * 3_600_000_000_000))
     }
 
     /// Total whole nanoseconds in the Duration (the exact magnitude).
@@ -194,44 +209,88 @@ impl Duration {
     //! assert Duration.parse_clock(Duration.clock(d, fraction_digits: 3)) == Ok(d)
     //
     pub fn parse_clock(text: String) -> Result<Duration, NumberParseError> {
-        if String.length(text) == 0 {
-            return Err(NumberParseError.Empty)
-        }
+        if String.length(text) == 0 { return Err(NumberParseError.Empty) }
 
         negative = String.take(text, 1) == "-"
         hours_at = if negative { 1 } else { 0 }
         hours_end = digits_end(text, hours_at)
 
-        if hours_end == hours_at {
-            return Err(unexpected(text, hours_at))
-        }
+        if hours_end == hours_at { return Err(unexpected(text, hours_at)) }
 
-        _ = try mark(text, hours_end, ":")
-        minutes = try sixty(text, hours_end + 1)
-        _ = try mark(text, hours_end + 3, ":")
-        seconds = try sixty(text, hours_end + 4)
-        nanos = try fraction(text, hours_end + 6)
-
-        whole_limit = Int.max_value / 1_000_000_000
-        nanos_limit = Int.max_value % 1_000_000_000 + (if negative { 1 } else { 0 })
+        _ = mark(text, hours_end, ":")?
+        minutes = sixty(text, hours_end + 1)?
+        _ = mark(text, hours_end + 3, ":")?
+        seconds = sixty(text, hours_end + 4)?
+        nanos = fraction(text, hours_end + 6)?
 
         Some(hours) = number(text, hours_at, hours_end - hours_at) else {
             return Err(NumberParseError.OutOfRange)
         }
 
-        if hours > whole_limit / 3600 {
-            return Err(NumberParseError.OutOfRange)
-        }
+        magnitude = (hours * 3600 + minutes * 60 + seconds) * 1_000_000_000 + nanos
+        in_range(if negative { -magnitude } else { magnitude })
+    }
 
-        whole = hours * 3600 + minutes * 60 + seconds
+    /// Reads a length written as `Display` writes it: an optional `-`, then
+    /// counts, each followed by its unit, largest unit first and each at
+    /// most once: `h`, `m`, `s`, `ms`, `µs` and `ns` (`1h30m`, `1s500ms`,
+    /// `-5m`, `0s`). A count below the hours stays below the next unit up,
+    /// so 90 minutes is `1h30m`, not `90m`. The error says where the text
+    /// stops being that, at a position counted in grapheme clusters, or that
+    /// the length does not fit a `Duration` (`.OutOfRange`). A
+    /// ``Duration`1m28s` `` literal reads its text the same way.
+    //! assert Duration.parse("1m28s") == Ok(Duration.seconds(88))
+    //! assert Duration.parse("-1h30m15s250ms") == Ok(Duration.milliseconds(-5_415_250))
+    //! assert Duration.parse("0s") == Ok(Duration.seconds(0))
+    //! assert Duration.parse("90m") == Err(#NumberParseError.Unexpected{at: 0, text: "90"})
+    //! assert Duration.parse("5s1m") == Err(#NumberParseError.Unexpected{at: 3, text: "m"})
+    //! assert Duration.parse("5") == Err(#NumberParseError.Unexpected{at: 1, text: ""})
+    //! assert Duration.parse("") == Err(NumberParseError.Empty)
+    //!
+    //! least = Duration.nanoseconds(-9_223_372_036_854_775_808)
+    //! assert Duration.parse(Duration.to_string(least)) == Ok(least)
+    //
+    pub fn parse(text: String) -> Result<Duration, NumberParseError> {
+        if String.length(text) == 0 { return Err(NumberParseError.Empty) }
 
-        if whole > whole_limit or (whole == whole_limit and nanos > nanos_limit) {
-            Err(NumberParseError.OutOfRange)
-        } else if negative {
-            Ok(Duration(0 - whole * 1_000_000_000 - nanos))
-        } else {
-            Ok(Duration(whole * 1_000_000_000 + nanos))
-        }
+        negative = String.take(text, 1) == "-"
+        #(hours, rest) = parts(text, if negative { 1 } else { 0 }, -1, 0, 0)?
+        magnitude = hours * 3_600_000_000_000 + rest
+        in_range(if negative { -magnitude } else { magnitude })
+    }
+}
+
+// A parsed length as a Duration, or `.OutOfRange` when a Duration does not
+// hold it.
+fn in_range(ns: Int) -> Result<Duration, NumberParseError> {
+    if ns > max_nanos or ns < min_nanos {
+        Err(NumberParseError.OutOfRange)
+    } else {
+        Ok(Duration(ns))
+    }
+}
+
+impl Literal for Duration {
+    /// ``Duration`1m28s` `` is `Duration.seconds(88)`: the text as `Display`
+    /// writes it, which `Duration.parse` reads. A raw literal is checked
+    /// when the program is checked, so a malformed one is a compile error
+    /// at the literal.
+    //! assert Duration`1m28s` == Duration.seconds(88)
+    //! assert Duration`1h30m15s250ms` == Duration.milliseconds(5_415_250)
+    //! assert Duration`-5m` == Duration.minutes(-5)
+    //! assert Duration`500ms` == Duration.milliseconds(500)
+    //! assert Duration`0s` == Duration.seconds(0)
+    //! assert Duration"2h" == Ok(Duration.hours(2))
+    //
+    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Duration, NumberParseError> {
+        body = Iter.reduce(fragments, fn acc = "", frag -> {
+            case frag {
+                .Static(s) -> acc + s
+                .Dynamic(v) -> acc + v
+            }
+        })
+
+        Duration.parse(body)
     }
 }
 
@@ -256,7 +315,7 @@ impl Add<Duration, Duration> for Duration {
     //! assert Duration.seconds(1) + Duration.milliseconds(500) == Duration.milliseconds(1500)
     //
     fn add(Duration(a), Duration(b)) -> Duration {
-        Duration(a + b)
+        Duration(nanos_in_range(a + b))
     }
 }
 
@@ -277,7 +336,7 @@ impl Subtract<Duration, Duration> for Duration {
     //! assert Duration.seconds(1) - Duration.seconds(3) == Duration.seconds(-2)
     //
     fn subtract(Duration(a), Duration(b)) -> Duration {
-        Duration(a - b)
+        Duration(nanos_in_range(a - b))
     }
 }
 
@@ -287,7 +346,7 @@ impl Multiply<Int, Duration> for Duration {
     //! assert Duration.seconds(2) * 3 == Duration.seconds(6)
     //
     fn multiply(Duration(ns), rhs: Int) -> Duration {
-        Duration(ns * rhs)
+        Duration(nanos_in_range(ns * rhs))
     }
 }
 
@@ -296,7 +355,7 @@ impl Divide<Int, Duration> for Duration {
     //! assert Duration.seconds(6) / 3 == Duration.seconds(2)
     //
     fn divide(Duration(ns), rhs: Int) -> Duration {
-        Duration(ns / rhs)
+        Duration(nanos_in_range(ns / rhs))
     }
 }
 
@@ -307,7 +366,9 @@ impl Display for Duration {
     //! assert Duration.to_string(Duration.milliseconds(1500)) == "1s500ms"
     //! assert Duration.to_string(Duration.minutes(90)) == "1h30m"
     //! assert Duration.to_string(Duration.nanoseconds(0)) == "0s"
-    //! assert Duration.to_string(Duration.nanoseconds(Int.min_value)) == "-2562047h47m16s854ms775µs808ns"
+    //!
+    //! assert Duration.to_string(Duration.nanoseconds(-9_223_372_036_854_775_808))
+    //!     == "-2562047h47m16s854ms775µs808ns"
     //
     host fn to_string(d: Duration) -> String
 }
@@ -331,6 +392,62 @@ impl Debug for Duration {
     }
 }
 
+// The parts of a length `Duration.parse` reads from `at`, after the unit
+// whose rank is `after`: the hours, and the nanoseconds of the smaller
+// units, added to `hours` and `rest`.
+fn parts(
+    text: String,
+    at: Int,
+    after: Int,
+    hours: Int,
+    rest: Int,
+) -> Result<#(Int, Int), NumberParseError> {
+    if after >= 0 and at == String.length(text) { return Ok(#(hours, rest)) }
+
+    digits = digits_end(text, at)
+
+    if digits == at { return Err(unexpected(text, at)) }
+
+    unit_end = digits + (String.drop(text, digits)
+    |> Iter.take_while(fn m -> !is_ascii_digit(m))
+    |> Iter.count())
+
+    name = String.slice(text, digits, unit_end)
+
+    Some(#(rank, size, below)) = unit(name) else {
+        return Err(#NumberParseError.Unexpected{at: digits, text: name})
+    }
+
+    if rank <= after { return Err(#NumberParseError.Unexpected{at: digits, text: name}) }
+
+    Some(count) = number(text, at, digits - at) else { return Err(NumberParseError.OutOfRange) }
+
+    if below > 0 and count >= below {
+        return Err(#NumberParseError.Unexpected{at, text: String.slice(text, at, digits)})
+    }
+
+    if rank == 0 {
+        parts(text, unit_end, rank, count, rest)
+    } else {
+        parts(text, unit_end, rank, hours, rest + count * size)
+    }
+}
+
+// A unit `Display` writes: its rank, largest first, its length in
+// nanoseconds, and the count it stays below (0 for the hours, which have
+// no bound).
+fn unit(name: String) -> Maybe<#(Int, Int, Int)> {
+    case name {
+        "h" -> Some(#(0, 3_600_000_000_000, 0))
+        "m" -> Some(#(1, 60_000_000_000, 60))
+        "s" -> Some(#(2, 1_000_000_000, 60))
+        "ms" -> Some(#(3, 1_000_000, 1000))
+        "µs" -> Some(#(4, 1_000, 1000))
+        "ns" -> Some(#(5, 1, 1000))
+        _ -> None
+    }
+}
+
 // `Duration.clock`'s field of two digits at least.
 fn two_digits(n: Int) -> String {
     n |> Int.to_string() |> String.pad_start(2, "0")
@@ -338,11 +455,11 @@ fn two_digits(n: Int) -> String {
 
 // The index after the run of ASCII digits in `text` that starts at `at`.
 fn digits_end(text: String, at: Int) -> Int {
-    at + (String.drop(text, at) |> Iter.take_while(ascii_digit?) |> Iter.count())
+    at + (String.drop(text, at) |> Iter.take_while(is_ascii_digit) |> Iter.count())
 }
 
-fn ascii_digit?(mark: String) -> Bool {
-    String.length(mark) == 1 and String.contains?("0123456789", mark)
+fn is_ascii_digit(mark: String) -> Bool {
+    String.length(mark) == 1 and String.contains("0123456789", mark)
 }
 
 // The number the `count` digits at `at` write, or None when it does not fit

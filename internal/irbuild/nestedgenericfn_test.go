@@ -7,7 +7,7 @@ import (
 
 // A generic fn declared in a body runs at each type argument tuple it is
 // called at: called directly, through a pipe, from a lambda and from a
-// non-generic nested fn's `try`; named as a value; capturing the value a
+// non-generic nested fn's `?`; named as a value; capturing the value a
 // name held where the fn was declared; with a `where` bound; called from
 // another generic nested fn's body, two deep; inside a generic function's
 // instance; at two instances of one generic struct, which render alike;
@@ -57,7 +57,7 @@ fn main() {
     io.inspect(Iter.map([1, 2], fn n -> pair(n, k)) |> Iter.to_list())
     io.inspect(Iter.map([True], ok) |> Iter.to_list())
     fn attempt() -> Result<Box<Int>, String> {
-        b = try ok(#Box{v: 1})
+        b = ok(#Box{v: 1})?
         Ok(b)
     }
     io.inspect(attempt())

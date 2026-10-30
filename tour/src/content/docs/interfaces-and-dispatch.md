@@ -536,11 +536,10 @@ fn main() -> Result<Unit, Json.ShapeError> {
 
     dbg Json.encode(shape)
 
-    user = try User.from_json(shape)
+    user = User.from_json(shape)?
 
     user
-    |> ToJson.to_json()
-    |> Json.encode()
+    |> Json.encode_as()
     |> dbg
 
     Ok(Unit)
@@ -549,12 +548,15 @@ fn main() -> Result<Unit, Json.ShapeError> {
 ```
 <!-- expect
 dbg line 18: Json.encode(shape) = "{\"firstName\":\"Ada\",\"age\":36}"
-dbg line 25:
+dbg line 24:
   user
-  |> ToJson.to_json()
-  |> Json.encode()
+  |> Json.encode_as()
   = "{\"firstName\":\"Ada\",\"age\":36}"
 -->
+
+`Json.encode_as` writes a value as JSON text in one call, `ToJson.to_json`
+and then `Json.encode`. `Json.decode_as` is the other direction: it reads
+the text back as a `User`.
 
 ### Choosing a dispatch surface
 
@@ -566,7 +568,7 @@ For a `User` declared in `users.nomi`, you would usually write the type:
 ```nomi
 encoded = User.to_json(user)
 
-user = try User.from_json(encoded)
+user = User.from_json(encoded)?
 ```
 
 The interface's name helps when the type's name would be ambiguous, or in
@@ -576,13 +578,13 @@ argument to go by, so this form names the type in `<...>`:
 ```nomi
 encoded = ToJson.to_json(user)
 
-user = try FromJson.from_json<User>(encoded)
+user = FromJson.from_json<User>(encoded)?
 ```
 
 A type annotation on the binding works too:
 
 ```nomi
-user: User = try FromJson.from_json(encoded)
+user: User = FromJson.from_json(encoded)?
 ```
 
 ### Structural equality
@@ -615,7 +617,7 @@ two reasons.
 
 The first is generic bounds. A function with `where T: Equatable` accepts only
 types that implement `Equatable`. Built-in `==` doesn't count. `List`'s
-`contains?` is one: `impl Contains for List<T> where T: Equatable`. Without
+`contains` is one: `impl Contains for List<T> where T: Equatable`. Without
 the derive, this call is a compile error:
 
 ```nomi-run error
@@ -625,12 +627,12 @@ struct Point {
 }
 
 fn main() {
-    dbg List.contains?([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
+    dbg List.contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
 }
 ```
 <!-- expect
 main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)
-main.nomi:7:9: help: add `derive Equatable` to `Point` or write an `impl Equatable for Point` block with `fn equal?(a: Point, b: Point) -> Bool`
+main.nomi:7:9: help: add `derive Equatable` to `Point` or write an `impl Equatable for Point` block with `fn equal(a: Point, b: Point) -> Bool`
 -->
 
 Add `derive Equatable for Point` and the call compiles.
@@ -831,8 +833,8 @@ error, reported before anything runs.
 A generic interface is the one exception: a type may implement it once at
 each set of type arguments. `String` implements `Contains<String>`,
 `Contains<Regex>` and `Contains<Codepoint>`, and each call takes the impl its
-argument's type chooses, so `String.contains?(s, "x")` and
-`String.contains?(s, '-')` call different impls. Each such impl writes its
+argument's type chooses, so `String.contains(s, "x")` and
+`String.contains(s, '-')` call different impls. Each such impl writes its
 type arguments in its header, and a generic impl such as
 `impl Holds<T> for Wrap<T>` must stand alone.
 

@@ -15,7 +15,7 @@ import (
 //
 // "Convert from pipe" folds a pipeline back into the nested form: a call
 // stage takes the value as its first argument, or where its `_` stands; a
-// bare `try`, `dbg`, `assert` or `refute` stage prefixes the value; a bare
+// bare `?`, `dbg`, `assert` or `refute` stage prefixes the value; a bare
 // `case` or `if` stage takes it as its subject or condition. A pipeline
 // with a `then` stage is not converted: the nested form would have to call
 // a lambda literal, which reads worse than the pipe it replaces.

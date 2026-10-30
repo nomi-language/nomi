@@ -206,7 +206,7 @@ func TestStdBuffer_ChangedTextStaysInItsOwnBuffer(t *testing.T) {
 				t.Errorf("the changed std buffer reports %v, want the one note", p.msgs)
 			}
 
-			edited := regexUser + "\nfn other() -> Bool {\n    Regex.compile(\"b\") |> Result.ok?()\n}\n"
+			edited := regexUser + "\nfn other() -> Bool {\n    Regex.compile(\"b\") |> Result.is_ok()\n}\n"
 			c.change(uri, 2, edited)
 			for {
 				p := c.waitDiagnostics(uri)

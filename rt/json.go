@@ -94,8 +94,8 @@ type Json struct {
 	Tag uint8
 	// String is the payload of `String String`.
 	String string
-	// Int is the payload of `Int Int`.
-	Int int64
+	// Int is the payload of `Int Int`, of any size.
+	Int Int
 	// Float is the payload of `Float Float`.
 	Float float64
 	// Bool is the payload of `Bool Bool`.
@@ -145,12 +145,25 @@ type JsonShapeError struct {
 	Got      string
 }
 
+// JsonError is Nomi's `std/json.Json.Error`, what `Json.decode_as` answers
+// when its text is not a `T`: `Decode` holds the parse failure and `Shape`
+// the shape failure, the two errors the two steps answer on their own.
+type JsonError struct {
+	// Tag is 1..2 in std's declaration order. 0 means never constructed.
+	Tag uint8
+	// Decode is the payload of `Decode Json.DecodeError`.
+	Decode JsonDecodeError
+	// Shape is the payload of `Shape Json.ShapeError`.
+	Shape JsonShapeError
+}
+
 // --- decode ----------------------------------------------------------------
 
 // JsonDecode is `std/json.Json.decode`: parse JSON text into a `Json` tree.
 //
-// Numbers are decoded as `Int` when they fit in int64 with no fractional part or
-// exponent, otherwise as `Float`. Object keys are inserted in sorted order,
+// Numbers are decoded as `Int`, exactly and at any size, when they have no
+// fractional part or exponent, otherwise as `Float`. Object keys are inserted
+// in sorted order,
 // which is what makes `encode(decode(s))` reproducible — Go's map iteration is
 // randomized, so the sort is the determinism and not a nicety.
 func JsonDecode(source string) Result[Json, JsonDecodeError] {
@@ -305,23 +318,25 @@ func (e *jsonNumberRangeError) Error() string {
 // JsonFromNumber is the Int-or-Float decision for one JSON number token, and the
 // only place that decision exists.
 //
-// Int64 first — that preserves a whole-number source as `Int`. The Float64
-// fallback handles fractional and exponent forms, and integers that overflow
-// int64. Exported and returning the three cases separately (`isInt`, the two
-// payloads, an error) so a caller walking its own value shape makes the same
-// decision here rather than a second time: the split is observable — it
-// decides whether `case jv { Int(n) -> … }` matches — and two implementations
-// of an observable rule drift apart.
-func JsonFromNumber(lexeme string) (i int64, f float64, isInt bool, err error) {
-	n := json.Number(lexeme)
-	if v, convErr := n.Int64(); convErr == nil {
-		return v, 0, true, nil
+// A token with no fraction and no exponent is an `Int`, exactly and at any
+// size: JSON text sets no limit on an integer's digits, and neither does an
+// `Int`. The Float64 fallback handles fractional and exponent forms. Exported
+// and returning the three cases separately (`isInt`, the two payloads, an
+// error) so a caller walking its own value shape makes the same decision here
+// rather than a second time: the split is observable — it decides whether
+// `case jv { Int(n) -> … }` matches — and two implementations of an
+// observable rule drift apart.
+func JsonFromNumber(lexeme string) (i Int, f float64, isInt bool, err error) {
+	if !strings.ContainsAny(lexeme, ".eE") {
+		if v, ok := ParseIntValue(lexeme); ok {
+			return IntOf(v), 0, true, nil
+		}
 	}
-	v, convErr := n.Float64()
+	v, convErr := json.Number(lexeme).Float64()
 	if convErr != nil {
-		return 0, 0, false, JsonNumberOutOfRange(lexeme)
+		return Int{}, 0, false, JsonNumberOutOfRange(lexeme)
 	}
-	return 0, v, false, nil
+	return Int{}, v, false, nil
 }
 
 // jsonFromAny walks the `any` tree `json.Decoder.Decode` produces under
@@ -469,8 +484,8 @@ func JsonEncodeString(s string) string {
 	return string(b)
 }
 
-// JsonEncodeInt is a JSON integer.
-func JsonEncodeInt(v int64) string { return strconv.FormatInt(v, 10) }
+// JsonEncodeInt is a JSON integer: its digits, at any size.
+func JsonEncodeInt(v Int) string { return v.String() }
 
 // JsonEncodeFloat is a JSON number from a Float. NaN and ±Inf are not valid
 // JSON; the design accepts that lossiness rather than erroring — see
@@ -493,8 +508,8 @@ func JsonEncodeBool(b bool) string {
 //
 // The inverse of jsonFromAny, kept one declaration away from it so the two
 // walks stay in step. Note that `Int` produces int64 rather than int, which
-// matches json.Number.Int64()'s return type. JsonToDynamic (dynamicops.go) is
-// its caller.
+// matches json.Number.Int64()'s return type, and a *big.Int for an Int past
+// int64's range. JsonToDynamic (dynamicops.go) is its caller.
 func JsonToAny(jv Json) any {
 	switch jv.Tag {
 	case TagJsonNull:
@@ -504,7 +519,10 @@ func JsonToAny(jv Json) any {
 	case TagJsonString:
 		return jv.String
 	case TagJsonInt:
-		return jv.Int
+		if n, ok := jv.Int.Int64(); ok {
+			return n
+		}
+		return jv.Int.Big()
 	case TagJsonFloat:
 		return jv.Float
 	case TagJsonArr:

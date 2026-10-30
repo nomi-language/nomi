@@ -13,7 +13,7 @@ type Pair #(Int, String)
 type Tag #(Int, String)
 
 impl Equatable for Tag {
-    fn equal?(a: Tag, b: Tag) -> Bool {
+    fn equal(a: Tag, b: Tag) -> Bool {
         #Tag(x, _) = a
         #Tag(y, _) = b
         x == y
@@ -36,7 +36,7 @@ fn main() {
     io.print("nested-list=${[[#Pair(1, "a")]] == [[#Pair(1, "a")]]}")
     io.print("vector=${#[#Pair(1, "a")] == #[#Pair(1, "a")]}")
     io.print("set=${%[#Pair(1, "a"), #Pair(2, "b")] == %[#Pair(2, "b"), #Pair(1, "a")]}")
-    io.print("set-has=${Set.contains?(%[#Pair(1, "a")], #Pair(1, "a"))}")
+    io.print("set-has=${Set.contains(%[#Pair(1, "a")], #Pair(1, "a"))}")
 
     io.print(
         "map-key=${Map.get(%{#Pair(1, "a") => "one"}, #Pair(1, "a")) |> Maybe.with_default("?")}"
@@ -59,7 +59,7 @@ fn main() {
     io.print("tag-result=${tagged == Ok(#Tag(1, "q"))}")
     tags = %[#Tag(1, "a"), #Tag(1, "b")]
     io.print("tag-set-size=${Set.size(tags)}")
-    io.print("tag-set-has=${Set.contains?(tags, #Tag(1, "zzz"))}")
+    io.print("tag-set-has=${Set.contains(tags, #Tag(1, "zzz"))}")
 
     io.print(
         "tag-map-key=${Map.get(%{#Tag(3, "x") => "three"}, #Tag(3, "y"))

@@ -3,9 +3,9 @@ package irbuild
 import "testing"
 
 // A right operand of `and` or `or` that leaves runs as the `if` the
-// operator is: `ready? or { return Err(..) }` in a Result function, `x and {
+// operator is: `is_ready or { return Err(..) }` in a Result function, `x and {
 // return 1 }`, a `case` whose arms all leave, the same `case` as a call's
-// argument, in parentheses and under `!`, a chain `a or b or { return c }`, a `try` that fails, and
+// argument, in parentheses and under `!`, a chain `a or b or { return c }`, a `?` that fails, and
 // `continue` and `break` in an `Iter.map` callback. Where the operand does
 // not run, the value is the left operand's.
 func TestIRShortCircuitLeavingOperand_Runs(t *testing.T) {
@@ -14,8 +14,8 @@ func TestIRShortCircuitLeavingOperand_Runs(t *testing.T) {
 	}
 	const src = `import std/io
 
-fn check(ready?: Bool) -> Result<Int, String> {
-    ok = ready? or {
+fn check(is_ready: Bool) -> Result<Int, String> {
+    ok = is_ready or {
         return Err("x")
     }
     Ok(if ok { 1 } else { 0 })
@@ -77,7 +77,7 @@ fn half(n: Int) -> Result<Int, String> {
 }
 
 fn halves(n: Int) -> Result<Bool, String> {
-    ok = n > 0 and try half(n) > 0
+    ok = n > 0 and half(n)? > 0
     Ok(ok)
 }
 

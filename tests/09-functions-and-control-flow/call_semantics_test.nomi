@@ -195,7 +195,7 @@ test "a positional before a named argument does not skip its slot" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "already has a value")
+    assert String.contains(message, "already has a value")
 }
 
 test "trailing lambdas route across defaulted parameters and pipes" {

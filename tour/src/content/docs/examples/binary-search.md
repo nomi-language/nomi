@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: binary_search.nomi
+//# Binary search for a value in a sorted vector.
+
 /// The index of `value` in `items`, which must be sorted, found by halving
 /// the range it could be in.
 pub fn find<T>(items: Vector<T>, value: T) -> Result<Int, String> where T: Comparable {
@@ -24,12 +26,10 @@ fn search<T>(
     low: Int,
     high: Int,
 ) -> Result<Int, String> where T: Comparable {
-    if low >= high {
-        return Err("value not in array")
-    }
+    if low >= high { return Err("value not in array") }
 
     middle = (low + high) / 2
-    item = Vector.at(items, middle)
+    item = Vector.get(items, middle)!
 
     case Comparable.compare(value, item) {
         .Less -> search(items, value, low, middle)
@@ -95,5 +95,5 @@ test "reports a missing value" {
 - The function is generic over `T: Comparable` and branches on `Comparable.compare` returning `Ordering`, so all three outcomes are one exhaustive `case`.
 - A missing value is `Err("value not in array")`, the canonical message. `Maybe<Int>` would have been as natural for "not found".
 - Recursion over a half-open range `low..high`; each recursive call is in tail position.
-- The middle element is read with `Vector.at(items, middle)`, which returns the element and traps on an index outside the vector. `middle` is in `low..high` by construction, so there is no miss to handle.
+- The middle element is read with `Vector.get(items, middle)!`, which returns the element and traps on an index outside the vector. `middle` is in `low..high` by construction, so there is no miss to handle.
 - Two `subtests` tables: found values, and missing values, which assert a different shape.

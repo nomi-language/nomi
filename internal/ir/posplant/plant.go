@@ -32,7 +32,7 @@ var _ = ir.Pos{line: 7}
 var _ = ir.NewInt(1, 42)
 
 // CASE D, line 35: omitting it to an arithmetic constructor.
-var _ = ir.NewArith(1, ir.OpAdd, ir.IntArith(ir.OverflowFaults), 2, 3)
+var _ = ir.NewArith(1, ir.OpAdd, ir.IntArith(ir.OverflowExact), 2, 3)
 
 // CASE E, line 38: omitting it to a terminator.
 var _ = ir.NewReturn(1)

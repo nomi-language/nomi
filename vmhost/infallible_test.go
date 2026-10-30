@@ -20,7 +20,7 @@ fn get() -> Result<Int, Infallible> {
 }
 
 fn bumped() -> Result<Int, Infallible> {
-    n = try get()
+    n = get()?
     Ok(n + 1)
 }
 
@@ -30,7 +30,7 @@ fn main() {
     io.print(Debug.inspect(r == Ok(3)))
     io.print(Debug.inspect(r == Ok(4)))
     s = %[r]
-    io.print(Debug.inspect(Set.contains?(s, Ok(3))))
+    io.print(Debug.inspect(Set.contains(s, Ok(3))))
     m = %{r => "three"}
     io.print(Debug.inspect(Map.get(m, Ok(3))))
     n = case r {
@@ -257,14 +257,14 @@ fn main() {
     io.print(Display.to_string(Some(r)))
     io.print(Debug.inspect(Hashable.hash(r) == Hashable.hash(get())))
     io.print(Debug.inspect(hashed(r) == Hashable.hash(r)))
-    io.print(Debug.inspect(Equatable.equal?(r, Ok(3))))
-    io.print(Debug.inspect(Equatable.equal?(r, Ok(4))))
+    io.print(Debug.inspect(Equatable.equal(r, Ok(3))))
+    io.print(Debug.inspect(Equatable.equal(r, Ok(4))))
     io.print(Debug.inspect(r != Ok(4)))
     failed: Result<Infallible, String> = Err("bad")
     io.print(Display.to_string(failed))
     io.print("${failed}")
     io.print(Debug.inspect(Map.get(%{failed => 1}, Err("bad"))))
-    io.print(Debug.inspect(Set.contains?(%[failed], Err("bad"))))
+    io.print(Debug.inspect(Set.contains(%[failed], Err("bad"))))
 }
 `)
 	if err != nil {
@@ -294,7 +294,7 @@ fn mixed(x: Infallible) -> Int {
 }
 
 fn same(x: Infallible, y: Infallible) -> Bool {
-    Equatable.equal?(x, y)
+    Equatable.equal(x, y)
 }
 
 fn get() -> Result<Int, Infallible> {
@@ -354,7 +354,7 @@ fn main() {
     io.print(Debug.inspect(xs |> Iter.map(Display.to_string) |> Iter.to_list()))
     io.print(Debug.inspect(xs |> Iter.map(Hashable.hash) |> Iter.to_list()))
     io.print(Debug.inspect(xs |> Iter.map(Infallible.to_string) |> Iter.to_list()))
-    io.print(Debug.inspect(xs |> Iter.map(fn x -> Equatable.equal?(x, x)) |> Iter.to_list()))
+    io.print(Debug.inspect(xs |> Iter.map(fn x -> Equatable.equal(x, x)) |> Iter.to_list()))
     io.print(Debug.inspect(Set.size(Iter.to_set(xs))))
 }
 `)

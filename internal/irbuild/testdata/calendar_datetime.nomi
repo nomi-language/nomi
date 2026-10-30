@@ -24,13 +24,13 @@ import {
     std/io
 }
 
-// `try` inside `fn main()` is refused by the builder (`try boundary mismatch`,
+// `?` inside `fn main()` is refused by the builder (`try boundary mismatch`,
 // a Unit-returning body cannot propagate), so the fallible half lives in a
 // Result-returning function and main discharges it with a `case`. That is a
 // property of `main`, not of these types.
 fn run() -> Result<Unit, Error> {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"?
+    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
 
     // Two zones, one instant. The renderings differ and the values do not.
     io.print("ny = " + DateTime.to_string(ny))
@@ -86,7 +86,7 @@ fn run() -> Result<Unit, Error> {
 
     // `from_instant_in` is total once the zone is known, and the epoch renders
     // in UTC as itself.
-    epoch = try DateTime.from_instant_in(Instant.from_seconds(0), "UTC")
+    epoch = DateTime.from_instant_in(Instant.from_seconds(0), "UTC")?
     io.print("epoch = " + DateTime.to_string(epoch))
 
     // Debug goes through Display for this type, and the type is OPAQUE — so it
@@ -102,7 +102,7 @@ fn run() -> Result<Unit, Error> {
     // not lower yet. rt/calendar_test.go pins the instant-only ORDER at the
     // representation level instead, and putting it here would refuse the whole
     // fixture rather than one line.
-    earlier = try DateTime"2026-06-15T11:00:00-04:00[America/New_York]"
+    earlier = DateTime"2026-06-15T11:00:00-04:00[America/New_York]"?
     io.print("earlier_ne = " + Bool.to_string(earlier != ny))
     io.print("tokyo_ne = " + Bool.to_string(tokyo != ny))
     Ok(Unit)

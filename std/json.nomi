@@ -26,7 +26,8 @@ import {
 ///
 /// **Number representation note:** JSON has a single number type. `Json`
 /// distinguishes `Int(Int)` from `Float(Float)` at parse time based on whether
-/// the source has a decimal point, exponent, or would overflow `Int`. This
+/// the source has a decimal point or an exponent. An integer of any length is
+/// an exact `Int`, as JSON text allows. This
 /// makes integer fields easy to pattern-match while still preserving fractional
 /// values. Text round-trips are not representation-preserving for this split:
 /// `encode(Json.Float(36.0))` emits `36`.
@@ -45,13 +46,16 @@ impl Json {
     /// a structured `Json.DecodeError` on syntax errors, type errors, or
     /// trailing content past the first value.
     ///
-    /// Numbers are decoded as `Int` when they fit in int64 with no
-    /// fractional part / exponent; otherwise as `Float`. See the
+    /// Numbers are decoded as `Int`, exactly and at any size, when they
+    /// have no fractional part or exponent; otherwise as `Float`. See the
     /// `Json` doc-comment for the rationale.
     //! assert Json.decode("{\"ok\":true,\"n\":42}")
     //!     == Result.Ok(%Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)})
     //!
-    //! assert Result.err?(Json.decode("{"))
+    //! assert Json.decode("123456789012345678901234567890")
+    //!     == Result.Ok(Json.Int(123_456_789_012_345_678_901_234_567_890))
+    //!
+    //! assert Result.is_err(Json.decode("{"))
     //
     pub host fn decode(source: String) -> Result<Json, Json.DecodeError>
 
@@ -61,6 +65,8 @@ impl Json {
     /// Number-rendering note: `Float(36.0)` renders as `"36"`, not `"36.0"`.
     /// The `Int`/`Float` distinction captured by `decode` therefore does
     /// not necessarily survive a text round-trip.
+    //! assert Json.encode(Json.Int(Int.pow(2, 70))) == "1180591620717411303424"
+    //!
     //! assert Json.encode(%Json.Obj{"ok" => Json.Bool(True), "n" => Json.Int(42)})
     //!     == "{\"ok\":true,\"n\":42}"
     //
@@ -72,6 +78,49 @@ impl Json {
     //! assert Dynamic.as_string(dyn) == Result.Ok("hello")
     //
     pub host fn to_dynamic(jv: Json) -> Dynamic
+
+    /// Reads JSON text as a `T` in one step: `Json.decode`, then
+    /// `T.from_json`. An `Err` is a `Json.Error`, `Decode` when the text is
+    /// not JSON and `Shape` when its JSON is not a `T`. Give `T` with a
+    /// binding's annotation or as `Json.decode_as<T>(text)`.
+    //! assert Json.decode_as<List<Int>>("[1, 2, 3]") == Ok([1, 2, 3])
+    //!
+    //! names: Result<Map<String, Int>, Json.Error> = Json.decode_as(`{"a": 1}`)
+    //! assert names == Ok(%{"a" => 1})
+    //!
+    //! shape = Json.decode_as<List<Int>>("[1, true]") |> Result.map_err(&Display.to_string(&1))
+    //! assert shape == Err("[1]: expected int, got bool")
+    //!
+    //! syntax = Json.decode_as<List<Int>>("[1,") |> Result.map_err(&Display.to_string(&1))
+    //!
+    //! assert syntax
+    //!     == Err("json decode error at line 1, col 4: unexpected end of input: incomplete JSON value")
+    //
+    pub fn decode_as<T>(text: String) -> Result<T, Json.Error> where T: FromJson {
+        case Json.decode(text) {
+            Ok(json) ->
+                case T.from_json(json) {
+                    Ok(value) -> Ok(value)
+                    Err(e) -> Err(Json.Error.Shape(e))
+                }
+
+            Err(e) ->
+                Err(Json.Error.Decode(e))
+        }
+    }
+
+    /// Writes a `T` as compact JSON text in one step: `T.to_json`, then
+    /// `Json.encode`. It is the other direction of `Json.decode_as`, and
+    /// `Json.decode_as` reads its text back as the same value.
+    //! assert Json.encode_as([1, 2, 3]) == "[1,2,3]"
+    //! assert Json.encode_as(%{"a" => Some(1), "b" => None}) == `{"a":1,"b":null}`
+    //!
+    //! text = Json.encode_as(%{"a" => [1, 2]})
+    //! assert Json.decode_as<Map<String, List<Int>>>(text) == Ok(%{"a" => [1, 2]})
+    //
+    pub fn encode_as<T>(value: T) -> String where T: ToJson {
+        Json.encode(T.to_json(value))
+    }
 
     /// Human-readable shape name used in `Json.ShapeError` messages.
     pub fn kind(jv: Json) -> String {
@@ -156,6 +205,24 @@ pub struct Json.DecodeError {
 impl Display for Json.DecodeError {
     fn to_string(e: Json.DecodeError) -> String {
         "json decode error at line ${e.line}, col ${e.col}: ${e.message}"
+    }
+}
+
+/// Why `Json.decode_as` could not read its text as a `T`: the text is not
+/// JSON (`Decode`, with `Json.decode`'s error), or its JSON does not have
+/// `T`'s shape (`Shape`, with `T.from_json`'s error). `Display` writes the
+/// error it holds.
+pub enum Json.Error {
+    Decode Json.DecodeError
+    Shape Json.ShapeError
+}
+
+impl Display for Json.Error {
+    fn to_string(e: Json.Error) -> String {
+        case e {
+            Json.Error.Decode(d) -> Display.to_string(d)
+            Json.Error.Shape(s) -> Display.to_string(s)
+        }
     }
 }
 
@@ -424,18 +491,9 @@ impl FromJson for Map<String, V> where V: FromJson {
 // for each exported signature (internal/irbuild/exports.go); no Nomi code
 // calls them.
 fn export_argument<T>(text: String) -> Result<T, String> where T: FromJson {
-    case Json.decode(text) {
-        Ok(json) ->
-            case T.from_json(json) {
-                Ok(value) -> Ok(value)
-                Err(e) -> Err(Display.to_string(e))
-            }
-
-        Err(e) ->
-            Err(Display.to_string(e))
-    }
+    Json.decode_as<T>(text) |> Result.map_err(&Display.to_string(&1))
 }
 
 fn export_result<T>(value: T) -> String where T: ToJson {
-    Json.encode(ToJson.to_json(value))
+    Json.encode_as(value)
 }

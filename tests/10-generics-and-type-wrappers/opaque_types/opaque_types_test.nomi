@@ -12,10 +12,7 @@ fn describe(maybe_email: Maybe<Email>) -> String {
 }
 
 test "opaque distinct types expose smart constructors and accessors" {
-    inbox = case email.from_string("inbox@example.com") {
-        Some(e) -> [e]
-        None -> []
-    }
+    inbox = Iter.to_list(email.from_string("inbox@example.com"))
 
     assert describe(email.from_string("alice@example.com")) == "valid: alice@example.com"
 

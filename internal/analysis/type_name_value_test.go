@@ -190,7 +190,7 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 		`x = [1] |> Iter.map(Some) |> Iter.to_list()`,
 		`x: List<Result<Int, String>> = Iter.map([1], Ok) |> Iter.to_list()`,
 		`x: List<Result<Int, String>> = Iter.map(["e"], Err) |> Iter.to_list()`,
-		`x = Result.map_err(Err("e"), Label) |> Result.ok?()`,
+		`x = Result.map_err(Err("e"), Label) |> Result.is_ok()`,
 		`x = Maybe.map(Some(1), Id)`,
 		"f: (Int) -> Maybe<Int> = Some\n  x = f(3)",
 		"f: (String) -> Result<Int, String> = Err\n  x = f(\"e\")",

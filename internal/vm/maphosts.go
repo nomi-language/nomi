@@ -8,16 +8,14 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// mapHost is `Map.get`, `Map.at`, `Map.put`, `Map.size` and the rest over
-// rt's persistent map, hashed and compared by the machine's key kernels
-// (keys.go). `Map.at` traps on a missing key with rt.KeyMissingText, the
-// key as a debugger shows it.
+// mapHost is `Map.get`, `Map.put`, `Map.size` and the rest over rt's
+// persistent map, hashed and compared by the machine's key kernels (keys.go).
 func mapHost(key string) hostFn {
 	return func(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
 		defer recoverKey(&err)
 		arity := 1
 		switch key {
-		case "Map.get", "Map.at", "Map.remove", "Map.contains?", "Map.merge", "Map.map_values", "Map.map_keys":
+		case "Map.get", "Map.remove", "Map.contains", "Map.merge", "Map.map_values", "Map.map_keys":
 			arity = 2
 		case "Map.put":
 			arity = 3
@@ -42,16 +40,11 @@ func mapHost(key string) hostFn {
 				return some(v), nil
 			}
 			return noneValue, nil
-		case "Map.at":
-			if v, found := mapLookup(k, m, args[1]); found {
-				return v, nil
-			}
-			return nil, &Fault{err: &rt.Error{Msg: rt.KeyMissingText("Map", rt.Inspect(args[1]).Text())}}
 		case "Map.put":
 			return mapPut(k, m, args[1], args[2]), nil
 		case "Map.remove":
 			return mapRemove(k, m, args[1]), nil
-		case "Map.contains?":
+		case "Map.contains":
 			_, found := mapLookup(k, m, args[1])
 			return found, nil
 		case "Map.merge":

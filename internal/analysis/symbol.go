@@ -60,12 +60,12 @@ const (
 	// SymbolTestDecl is a synthetic, hover-only Symbol attached to a `test`
 	// or `group` keyword.
 	SymbolTestDecl
-	// SymbolTryOp is a synthetic, hover-only Symbol attached to the `try`
-	// prefix keyword. Carries the operand's input type
-	// (Result<T,E> or Maybe<T>) and a description of the boundary the `try`
-	// unwinds to (enclosing fn name, or "lambda"), so hover can render
-	// the success type, the propagated Err / None branch, and the
-	// boundary in one place. See ast.TryOp and analysis.TryOpInfo.
+	// SymbolTryOp is a synthetic, hover-only Symbol attached to a postfix
+	// `?` or `!` (TryOpInfo.Bang). Carries the operand's input type
+	// (Result<T,E> or Maybe<T>) and, for `?`, the boundary it unwinds to
+	// (enclosing fn name, or "lambda"), so hover can render the success
+	// type, the Err / None branch, and what happens on it in one place.
+	// See ast.TryOp, ast.Unwrap and analysis.TryOpInfo.
 	SymbolTryOp
 	// SymbolControlFlow is a synthetic, hover-only Symbol attached to
 	// expression control-flow keywords such as `if` and `case`.
@@ -83,15 +83,18 @@ const (
 // content. Populated by checker.checkTryOp before unwrapping the operand's
 // type; consumed by lsp/hover.go's renderHover.
 type TryOpInfo struct {
-	// InputTy is the operand's static type before the `try` strips a layer
-	// — Result<T,E> or Maybe<T>. The hover renderer splits this into the
+	// InputTy is the operand's static type before the `?` strips a layer:
+	// Result<T,E> or Maybe<T>. The hover renderer splits this into the
 	// success type and the Err / None branch.
 	InputTy Type
-	// Boundary names the enclosing fn or lambda the `try` unwinds to on
+	// Boundary names the enclosing fn or lambda the `?` unwinds to on
 	// failure: "fn name" for an enclosing FuncDef, "lambda" inside a
 	// lambda body. `return` follows the same scoping rule: Nomi has no
 	// non-local returns.
 	Boundary string
+	// Bang is set for a postfix `!`, which traps on the Err or None
+	// instead of unwinding.
+	Bang bool
 }
 
 // AssertionInfo holds the per-site data a SymbolAssertion needs to render

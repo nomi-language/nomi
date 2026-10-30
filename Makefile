@@ -1,6 +1,6 @@
 NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
 
-.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full publish-main
 
 test: test-std test-programs test-go
 
@@ -35,6 +35,16 @@ test-tour:
 	NOMI_REQUIRE_TOUR_WASM=1 go test ./vmhost -run TestTourWasm
 	go test ./vmhost -run 'TestTourGrammar|TestTourRunWorker'
 	go test ./internal/wasmsmoke
+	npm --prefix tour test
+
+# The full check before a batch is published (FUZZTIME, STEPS: see the
+# script), and the publish itself: next squashed onto main with a message
+# built from next-notes.txt.
+check-full:
+	./scripts/check-full.sh
+
+publish-main:
+	./scripts/publish-main.sh
 
 fmt:
 	go run ./cmd/nomi fmt -w std tests

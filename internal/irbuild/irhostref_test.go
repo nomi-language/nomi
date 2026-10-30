@@ -17,11 +17,11 @@ fn main() {
 func TestIRHostRef_IterationCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
- xs = ["ONE", "Two", "THREE"] |> Iter.map(String.to_lower) |> Iter.to_list()
+ xs = ["ONE", "Two", "THREE"] |> Iter.map(String.lowercase) |> Iter.to_list()
  dbg xs
  lengths = ["café", "", "hello"] |> Iter.map(String.length) |> Iter.to_list()
  dbg lengths
- contains: (String, String) -> Bool = String.contains?
+ contains: (String, String) -> Bool = String.contains
  io.print(contains("abc", "b"))
 }
 `, "dbg line 4: xs = [\"one\", \"two\", \"three\"]\ndbg line 6: lengths = [4, 0, 5]\nTrue\n")
@@ -50,5 +50,5 @@ fn main() {
  io.inspect(wrapped("no"))
  io.inspect(wrapped("9223372036854775808"))
 }
-`, "Some(42)\nNone\nNone\n")
+`, "Some(42)\nNone\nSome(9223372036854775808)\n")
 }

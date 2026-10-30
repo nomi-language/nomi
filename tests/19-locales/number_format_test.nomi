@@ -81,7 +81,7 @@ test "strict parsing rejects with typed errors" {
 
     assert Int.parse_in(" 12", Locale`en`) == Err(#NumberParseError.Unexpected{at: 0, text: " "})
     assert Int.parse_in("12.0", Locale`en`) == Err(#NumberParseError.Unexpected{at: 2, text: "."})
-    assert Int.parse_in("9223372036854775808", Locale`en`) == Err(NumberParseError.OutOfRange)
+    assert Int.parse_in("9223372036854775808", Locale`en`) == Ok(9_223_372_036_854_775_808)
 
     assert Decimal.parse_percent_in("12.5", Locale`en`)
         == Err(#NumberParseError.Unexpected{at: 4, text: ""})
@@ -99,10 +99,10 @@ test "lenient parsing accepts more" {
         == Err(#NumberParseError.Unexpected{at: 2, text: " "})
 }
 
-fn round_trips?(locale: Locale) -> Bool {
+fn round_trips(locale: Locale) -> Bool {
     ints =
         [0, -7, 1234, 1234567890]
-        |> Iter.all?(fn n -> Int.parse_in(Int.format(n, locale), locale) == Ok(n))
+        |> Iter.all(fn n -> Int.parse_in(Int.format(n, locale), locale) == Ok(n))
 
     decimal = Decimal.parse_in(Decimal.format(-1234.50d, locale), locale) == Ok(-1234.50d)
     ints and decimal
@@ -110,7 +110,7 @@ fn round_trips?(locale: Locale) -> Bool {
 
 test "a format reads back as its value" {
     assert [Locale`en`, Locale`de`, Locale`fr`, Locale`hi`, Locale`ar-EG`, Locale`ja`]
-        |> Iter.all?(&round_trips?(&1))
+        |> Iter.all(&round_trips(&1))
 }
 
 test "a decimal's digits are limited and rounded as the options say" {

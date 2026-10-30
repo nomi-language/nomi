@@ -1,7 +1,7 @@
 // Named `subtests` rows: a failed row's report shows its name as a String
 // literal where the rendered row would be, a name that traps fails its row
 // under the rendered row, and a row with no name reports as before.
-fn leap_year?(year: Int) -> Bool {
+fn is_leap_year(year: Int) -> Bool {
     year % 4 == 0 and year % 100 != 0
 }
 
@@ -17,7 +17,7 @@ test "a failed row reports its name" {
     ]
 
     subtests cases, #(description, year, expected), description {
-        assert leap_year?(year) == expected
+        assert is_leap_year(year) == expected
     }
 }
 

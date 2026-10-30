@@ -403,30 +403,30 @@ func outOfRange() rt.NumberParseError {
 }
 
 // FFIParseInt is `Int.parse_in`.
-func FFIParseInt(fr *rt.Frame, text, locale string, lenient bool) rt.Result[int64, rt.NumberParseError] {
+func FFIParseInt(fr *rt.Frame, text, locale string, lenient bool) rt.Result[rt.Int, rt.NumberParseError] {
 	n := numbersFor(stdlocale.Data(fr), locale)
 	v, err := n.parse(text, n.decimal, lenient, false)
 	if err != nil {
-		return rt.Result[int64, rt.NumberParseError]{Tag: rt.TagErr, Err: *err}
+		return rt.Result[rt.Int, rt.NumberParseError]{Tag: rt.TagErr, Err: *err}
 	}
 	if v.infinite || v.nan {
-		return rt.Result[int64, rt.NumberParseError]{Tag: rt.TagErr, Err: outOfRange()}
+		return rt.Result[rt.Int, rt.NumberParseError]{Tag: rt.TagErr, Err: outOfRange()}
 	}
 	if v.hasDecimalSign {
 		// An Int has no fraction, even a zero one.
 		items := graphemes(text)
 		at := firstMatch(items, n.sym.decimal)
-		return rt.Result[int64, rt.NumberParseError]{Tag: rt.TagErr, Err: *unexpected(items[at])}
+		return rt.Result[rt.Int, rt.NumberParseError]{Tag: rt.TagErr, Err: *unexpected(items[at])}
 	}
 	digits := v.intDigits
 	if v.neg {
 		digits = "-" + digits
 	}
-	x, perr := strconv.ParseInt(digits, 10, 64)
-	if perr != nil {
-		return rt.Result[int64, rt.NumberParseError]{Tag: rt.TagErr, Err: outOfRange()}
+	x, ok := rt.ParseIntValue(digits)
+	if !ok {
+		return rt.Result[rt.Int, rt.NumberParseError]{Tag: rt.TagErr, Err: outOfRange()}
 	}
-	return rt.Result[int64, rt.NumberParseError]{Tag: rt.TagOk, Ok: x}
+	return rt.Result[rt.Int, rt.NumberParseError]{Tag: rt.TagOk, Ok: rt.IntOf(x)}
 }
 
 // firstMatch is the index of the first item where sym starts, or 0.

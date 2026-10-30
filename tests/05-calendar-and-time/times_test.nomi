@@ -5,7 +5,7 @@ import {
 }
 
 test "times parse and expose components" {
-    assert Ok(t) = Time"09:30:00"
+    t = Time`09:30:00`
 
     assert Time.to_string(t) == "09:30:00"
     assert Time.hour(t) == 9
@@ -14,36 +14,36 @@ test "times parse and expose components" {
 }
 
 test "time display preserves meaningful subsecond precision" {
-    assert Ok(frac) = Time"23:45:12.5"
+    frac = Time`23:45:12.5`
 
     assert Time.to_string(frac) == "23:45:12.5"
 }
 
 test "times support duration arithmetic with midnight wrapping" {
-    assert Ok(base) = Time"09:30:00"
-    assert Ok(late) = Time"23:30:00"
-    assert Ok(early) = Time"00:30:00"
-    assert Ok(morning) = Time"11:30:00"
-    assert Ok(after_midnight) = Time"01:30:00"
-    assert Ok(before_midnight) = Time"23:30:00"
+    base = Time`09:30:00`
+    late = Time`23:30:00`
+    early = Time`00:30:00`
+    morning = Time`11:30:00`
+    after_midnight = Time`01:30:00`
+    before_midnight = Time`23:30:00`
 
     assert base + Duration.hours(2) == morning
     assert late + Duration.hours(2) == after_midnight
     assert early + Duration.hours(-1) == before_midnight
-    assert base - Duration.minutes(45) == try Time"08:45:00"
+    assert base - Duration.minutes(45) == Time`08:45:00`
 }
 
 test "time equality uses time of day" {
-    assert Ok(a) = Time"09:30:00"
-    assert Ok(b) = Time"09:30:00"
+    a = Time`09:30:00`
+    b = Time`09:30:00`
 
     assert a == b
 }
 
 test "times sort chronologically" {
-    assert Ok(t1) = Time"09:30:00"
-    assert Ok(t2) = Time"08:15:00"
-    assert Ok(t3) = Time"10:00:00"
+    t1 = Time`09:30:00`
+    t2 = Time`08:15:00`
+    t3 = Time`10:00:00`
 
     sorted = Iter.sort([t1, t2, t3])
     assert List.head(sorted) == Some(t2)

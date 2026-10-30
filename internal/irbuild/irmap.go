@@ -202,11 +202,14 @@ func (bl *irScalarBuilder) mapMakeOf(t *ast.MapLit, wants []kind) (ir.Temp, kind
 		anon.TypeName = nil
 		return bl.attachedVariant(t, t.TypeName, &anon)
 	}
-	if t.Spread != nil {
+	if len(t.Spreads) == 1 && t.Spreads[0].At == 0 {
 		if len(t.Entries) == 0 {
 			return no()
 		}
 		return bl.mapUpdate(t, wants)
+	}
+	if len(t.Spreads) > 0 {
+		return bl.mapSpreadLit(t)
 	}
 	if len(t.Entries) == 0 {
 		return bl.emptyMapLit(t, wants)
@@ -236,13 +239,15 @@ func (bl *irScalarBuilder) emptyMapLit(t *ast.MapLit, wants []kind) (ir.Temp, ki
 	return n.Dst(), kindEmptyMap, true, true
 }
 
-// mapUpdate builds `%{..base, key => value}`: the base, then the entries as
-// a map literal, then `Map.merge(base, literal)`, so the entries win and
-// keep the order Map.merge gives them. The checker typed the literal as the
-// base's `Map<K, V>`, which is the kind both operands are lowered to.
+// mapUpdate builds `%{..base, key => value}`, a map literal with one spread
+// written first: the base, then the entries as a map literal, then
+// `Map.merge(base, literal)`, so the entries win and keep the order
+// Map.merge gives them. The checker typed the literal as the base's
+// `Map<K, V>`, which is the kind both operands are lowered to.
 func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	base, bk, _, ok := bl.lower(t.Spread)
+	spread := t.Spreads[0].Head
+	base, bk, _, ok := bl.lower(spread)
 	if !ok {
 		return no()
 	}
@@ -254,7 +259,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 	if mapHasHole(t) {
 		// An entry updates the value at its key, which it reads from the
 		// base: the base is read once per such entry and merged once.
-		base = bl.holdTemp(t.Spread, base, bk)
+		base = bl.holdTemp(spread, base, bk)
 		lit, lk, _, ok = bl.mapEntriesOver(t, wants, base, bk)
 	} else {
 		lit, lk, _, ok = bl.mapEntries(t, wants)
@@ -264,7 +269,7 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 	}
 	if bk == kindEmptyMap {
 		// `%{..%{}, "a" => 1}`: the entries say what the base holds.
-		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
+		if base, bk, ok = bl.coerceEmpty(spread, base, bk, lk); !ok {
 			return no()
 		}
 	}

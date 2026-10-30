@@ -92,7 +92,7 @@ fn less() -> Bool {
 fn shout(message: String) {
   import std/io.print
 
-  print(String.to_upper(message))
+  print(String.uppercase(message))
 }
 
 /// Three.

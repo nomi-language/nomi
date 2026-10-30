@@ -24,7 +24,7 @@ impl Literal for Upper {
   fn from_fragments(fragments: List<Fragment<String>>) -> Upper {
     text = Iter.reduce(fragments, fn acc = "", frag ->
       case frag {
-        .Static(s) -> acc + String.to_upper(s)
+        .Static(s) -> acc + String.uppercase(s)
         .Dynamic(v) -> acc + v
       }
     )
@@ -114,13 +114,13 @@ func TestIRTestBody_ExternHostsCrossByBindingName(t *testing.T) {
 	const src = `import std/calendar.Date
 
 test "formats parsed date" {
-  d = try Date.parse("2026-05-04")
+  d = Date.parse("2026-05-04")?
 
   assert Date.to_string(d) == "2026-05-04"
 }
 
 test "a wrong date" {
-  d = try Date.parse("2026-05-04")
+  d = Date.parse("2026-05-04")?
 
   assert Date.to_string(d) == "2026-05-05"
 }

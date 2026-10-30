@@ -33,10 +33,10 @@ fn main() {
     s = [t1, t2, t1] |> Iter.to_set()
 
     io.print(Set.size(s))
-    io.print(Set.contains?(s, #Tier{level: 1, name: "z"}))
+    io.print(Set.contains(s, #Tier{level: 1, name: "z"}))
     m = [#(t1, "one"), #(t2, "two")] |> Iter.to_map()
 
-    io.print(Map.contains?(m, #Tier{level: 1, name: "z"}))
+    io.print(Map.contains(m, #Tier{level: 1, name: "z"}))
 
     io.print(
         [t1, t2]
@@ -46,8 +46,8 @@ fn main() {
     )
 
     r = #Doodad{n: 1}..=#Doodad{n: 7}
-    io.print(Range.contains?(r, #Doodad{n: 7}))
-    io.print(Range.contains?(r, #Doodad{n: 8}))
+    io.print(Range.contains(r, #Doodad{n: 7}))
+    io.print(Range.contains(r, #Doodad{n: 8}))
 
     io.print(
         r
@@ -57,7 +57,7 @@ fn main() {
     )
 
     span = #Span{n: 2}..#Span{n: 6}
-    io.print(Range.contains?(span, #Span{n: 6}))
+    io.print(Range.contains(span, #Span{n: 6}))
 
     io.print(
         span

@@ -56,8 +56,15 @@ func (c *checker) genericFuncRef(node ast.Node, ty Type) (*FuncType, []*TypePara
 			return nil, nil, "", false
 		}
 		pos, name = Pos{Line: n.Field.Line, Col: n.Field.Col}, n.Field.Name
-		if owner, isType := n.Object.(*ast.TypeIdent); isType {
+		switch owner := n.Object.(type) {
+		case *ast.TypeIdent:
 			qualified = owner.Name + "." + n.Field.Name
+		case *ast.FieldAccess:
+			// `display.Display.to_string`: an interface named through its
+			// module.
+			if module, isIdent := owner.Object.(*ast.Ident); isIdent && owner.Field != nil {
+				qualified = module.Name + "." + owner.Field.Name + "." + n.Field.Name
+			}
 		}
 	default:
 		return nil, nil, "", false
@@ -223,8 +230,9 @@ func (c *checker) namesSeededIterFunc(node ast.Node) string {
 // noteFuncRefCapture records, for the mismatch the enclosing check reports
 // at node, the partial capture that fits where the function value does
 // not: a function value's parameter takes a List where an `Iter` is
-// declared only at the top, so `Iter.flatten` is no `(List<List<Int>>) ->
-// List<Int>`, while `&Iter.flatten(&1)` is one (checkPartialCapture). It
+// declared only at the top or as an Iter's element, so `total` for
+// `fn total<T>(rows: List<Iter<T>>) -> Int` is no `(List<List<Int>>) ->
+// Int`, while `&total(&1)` is one (checkPartialCapture). It
 // is recorded when every expected parameter is a known type that enters
 // the callee's parameter as a direct call's argument would.
 func (c *checker) noteFuncRefCapture(node ast.Node, ft, want *FuncType) {
@@ -250,7 +258,7 @@ func (c *checker) noteFuncRefCapture(node ast.Node, ft, want *FuncType) {
 		c.funcRefCaptures = map[ast.Node]string{}
 	}
 	c.funcRefCaptures[node] = fmt.Sprintf(
-		"a function value's parameter takes a List where an Iter is declared only at the top, not inside another type; write the capture `&%s(%s)`, whose parameters are the ones expected here",
+		"a function value's parameter takes a List where an Iter is declared only at the top or as an Iter's element, not inside another type; write the capture `&%s(%s)`, whose parameters are the ones expected here",
 		format.RenderNode(ungroupExpr(node)), strings.Join(holes, ", "))
 }
 

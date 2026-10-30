@@ -67,7 +67,7 @@ test "annotation mismatches are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "type mismatch: expected Int, got String")
+    assert test_helpers.has_diagnostic(diagnostics, "type mismatch: expected Int, got String")
 }
 
 test "annotated bindings expose the annotated hover signature" {

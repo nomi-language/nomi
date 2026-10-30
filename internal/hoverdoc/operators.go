@@ -9,7 +9,7 @@ import (
 
 // Hover on an operator: what it does at that site. An arithmetic operator
 // shows its operand and result types, what the operator does on them (Int
-// traps on overflow, Decimal has no division) and the impl the
+// is exact at any size, Decimal has no division) and the impl the
 // checker chose (FileAnalysis.OperatorImpls), named with its file. `==` and
 // `!=` say whether equality is structural or an `Equatable` impl's, the
 // ordering operators name the `Comparable` impl, `and` and `or` say when
@@ -88,7 +88,7 @@ func (s *shapeSearch) renderUnary(u *ast.Unary) string {
 	}
 	out := "Negation: `" + spelled + "` → `" + spelled + "`"
 	if operand == analysis.TypeInt {
-		out += "\n\nChecked: traps on `Int.min_value`."
+		out += "\n\nExact at any size."
 	}
 	return out
 }
@@ -161,7 +161,7 @@ func arithmeticNote(op string, t analysis.Type) string {
 		case "%":
 			return "Remainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero."
 		}
-		return "Checked: traps on overflow."
+		return "Exact at any size: never overflows."
 	case analysis.TypeFloat:
 		if op == "%" {
 			return "Remainder: takes the dividend's sign."
@@ -346,7 +346,7 @@ func (s *shapeSearch) implFile(m ast.ImplMethodDecl) string {
 
 // OperatorImplAt is the impl function the operator at pos uses: the `fn
 // add` of the impl the checker chose, a std scalar's `host fn`, or the
-// `compare` or `equal?` of a hand-written impl. It is nil anywhere else,
+// `compare` or `equal` of a hand-written impl. It is nil anywhere else,
 // and for a derived impl, which has no function in the source.
 func OperatorImplAt(fa *analysis.FileAnalysis, nodes []ast.Node, pos analysis.Pos) ast.ImplMethodDecl {
 	if fa == nil || len(fa.OperatorImpls) == 0 {

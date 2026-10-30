@@ -231,7 +231,7 @@ fn early(x: Int) -> Int {
 }
 
 fn tried(x: Int) -> Result<Int, String> {
-    _ = try check(x)
+    _ = check(x)?
     tried(x)
 }
 
@@ -287,9 +287,9 @@ fn main() {
 	}
 }
 
-// An `equal?`, `compare` or `hash` that compares or hashes its own arguments
+// An `equal`, `compare` or `hash` that compares or hashes its own arguments
 // through the operator or call that dispatches back to it calls itself
-// forever. `a == b` inside P's `equal?` passed the checker and was declined
+// forever. `a == b` inside P's `equal` passed the checker and was declined
 // by the builder.
 func TestRecursiveProtocol_OwnArgumentsAreRejected(t *testing.T) {
 	src := `import std/io
@@ -299,9 +299,9 @@ struct P {
 }
 
 impl Equatable for P {
-    fn equal?(a: P, b: P) -> Bool {
+    fn equal(a: P, b: P) -> Bool {
         same = b
-        a.x == b.x or a == b or b != a or Equatable.equal?(a, same) or P.equal?(b, a)
+        a.x == b.x or a == b or b != a or Equatable.equal(a, same) or P.equal(b, a)
     }
 }
 
@@ -321,14 +321,14 @@ fn main() {
     io.print(#P{x: 1} == #P{x: 2})
 }
 `
-	const eq = " calls P's `equal?`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`"
+	const eq = " calls P's `equal`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`a.field == b.field`), or write `derive Equatable for P`"
 	const cmp = " calls P's `compare`, the function being defined, with its own arguments, so it calls itself forever\nhelp: compare the fields instead (`Comparable.compare(a.field, b.field)`), or write `derive Comparable for P`"
 	const hash = " calls P's `hash`, the function being defined, with its own arguments, so it calls itself forever\nhelp: hash the fields instead (`Hashable.hash(p.field)`), or write `derive Hashable for P`"
 	checkDiagnostics(t, src, []wantDiag{
 		{10, 23, "`a == b`" + eq},
 		{10, 33, "`b != a`" + eq},
-		{10, 43, "`Equatable.equal?(a, same)`" + eq},
-		{10, 72, "`P.equal?(b, a)`" + eq},
+		{10, 43, "`Equatable.equal(a, same)`" + eq},
+		{10, 71, "`P.equal(b, a)`" + eq},
 		{16, 12, "`a < b`" + cmp},
 		{16, 21, "`b >= a`" + cmp},
 		{16, 53, "`Comparable.compare(a, b)`" + cmp},
@@ -348,7 +348,7 @@ enum Tree {
 }
 
 impl Equatable for Tree {
-    fn equal?(a: Tree, b: Tree) -> Bool {
+    fn equal(a: Tree, b: Tree) -> Bool {
         case #(a, b) {
             #(.Leaf, .Leaf) -> True
             #(.Node(l, x), .Node(r, y)) -> x == y and l == r
@@ -391,7 +391,7 @@ func TestRecursiveProtocol_Code(t *testing.T) {
 }
 
 impl Equatable for P {
-    fn equal?(a: P, b: P) -> Bool {
+    fn equal(a: P, b: P) -> Bool {
         a == b
     }
 }

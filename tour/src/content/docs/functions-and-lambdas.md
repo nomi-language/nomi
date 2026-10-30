@@ -97,7 +97,7 @@ A capture writes a small function in place: `&`, then the function's body.
 `fn x -> #Point{x: x, y: 0}`.
 
 The body after `&` is a call, a parenthesized expression or a literal, or
-one of those negated (`&!Iter.empty?(&1)`), so any other operator goes in
+one of those negated (`&!Iter.is_empty(&1)`), so any other operator goes in
 parentheses. A call that takes the `&1`, `&2`, ... as
 its own arguments, in order, is a partial application: `&Int.max(&1, 2)`
 is `fn x -> Int.max(x, 2)`, and its parameters are the callee's, with
@@ -348,6 +348,11 @@ If the program does reach it, the guarantee was wrong, so the program stops
 with `line 4: unreachable: names are never empty`. Use it only for what the
 program itself makes true. A name a user typed can be empty, and that case
 needs a real answer.
+
+When the guarantee is that one call succeeds, a
+[postfix `!`](/pattern-matching/#calls-that-cannot-fail) says it after the
+call: `Date.new(2024, 1, 1)!`. Keep `unreachable` for a reason the reader cannot see
+from the call, like the one above.
 
 [Pipes](/pipes/) is next. It shows how `|>` joins these calls into code that
 reads from top to bottom.

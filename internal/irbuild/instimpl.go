@@ -427,7 +427,7 @@ func implMethodName(impl ast.ImplMethodDecl) string {
 // pickInstImpl selects, among one receiver's impls of a generic interface at
 // several type arguments, the one the call t takes, and its item for method.
 // The front end's choice decides when the call records one; otherwise (a
-// bounded call in a generic instance, `C.contains?(c, x)` with C and T
+// bounded call in a generic instance, `C.contains(c, x)` with C and T
 // bound) the operands' kinds decide, and then the result's.
 func (bl *irScalarBuilder) pickInstImpl(t *ast.Call, defs []*implDef, method string, args irQualArgs) (*implDef, *implItem) {
 	item := func(d *implDef) *implItem {

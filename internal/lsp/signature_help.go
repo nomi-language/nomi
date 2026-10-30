@@ -225,11 +225,7 @@ func extractFuncName(content string, parenPos int) string {
 }
 
 func isIdentByte(c byte) bool {
-	// `?` is the trailing predicate marker the lexer absorbs into an
-	// identifier (e.g. `empty?`, `contains?`). It is trailing-only in valid
-	// source, so including it in a backward char-scan cannot over-match
-	// across token boundaries.
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '?'
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 // countCommas counts top-level commas between start and end offsets in content.

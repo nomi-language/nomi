@@ -79,12 +79,12 @@ type preludeSpec struct {
 	// params are the declared type parameter names, in declaration order.
 	params   []string
 	variants []preludeVariantSpec
-	// tryOperand marks a spec `try` is defined over.
+	// tryOperand marks a spec `?` is defined over.
 	//
 	// It is a DECLARED fact rather than a derived one because shape cannot
 	// answer it. A shape test ("two variants, the first carries one payload")
 	// is satisfied by `Fragment<T>` too (`Static String`, `Dynamic T`), so
-	// `try frag` would lower as "unwind on Dynamic, unwrap Static": a wrong
+	// `frag?` would lower as "unwind on Dynamic, unwrap Static": a wrong
 	// answer, held off only by a front-end check the builder never
 	// re-evaluates.
 	//
@@ -102,7 +102,7 @@ type preludeSpec struct {
 	// test would admit `assert frag` and lower it as "holds when Static" — a
 	// wrong answer held off only by a front-end check the builder never
 	// re-evaluates. It is a SEPARATE fact from tryOperand even though the two
-	// flags coincide: `try` unwraps a payload and an assertion validates a
+	// flags coincide: `?` unwraps a payload and an assertion validates a
 	// shape, and they are one set because both are defined over the prelude's
 	// carrying/empty pair rather than because either is defined in terms of the
 	// other.
@@ -662,15 +662,15 @@ func (g *gen) preludeTypeOf(t *ast.GenericType) (kind, bool) {
 // That position is INFORMATION-FREE, and not merely unknown: no value of that
 // type exists anywhere in the program, because if one did it would have solved
 // the variable. The corpus proves the "if one did" half by OMISSION —
-// `Result.equal?(Ok(4), Err("bad"))` appears in
+// `Result.equal(Ok(4), Err("bad"))` appears in
 // 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi and does
-// NOT refuse, because `equal?`'s two parameters share one E and `Err` supplies
+// NOT refuse, because `equal`'s two parameters share one E and `Err` supplies
 // what `Ok` left open. Wherever a sibling position holds the missing half the
 // front end has already closed it, so every site that reaches this function is
 // one where nothing can close it.
 //
 // And the answer does not depend on the choice: `case Ok(4) { Ok(n) -> n }`
-// binds 4, `Result.equal?(Ok(4), Ok(4))` is True and `Result.hash(Ok(4))` is
+// binds 4, `Result.equal(Ok(4), Ok(4))` is True and `Result.hash(Ok(4))` is
 // stable, at EVERY instantiation of the open side. Same answer at two
 // instantiations means a constant, which is the same reasoning `None` already
 // rests on: kindBareNone renders `rt.None[rt.Unit]` (prelude.go's bareNoneCode)

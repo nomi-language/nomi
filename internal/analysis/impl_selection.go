@@ -14,8 +14,8 @@ import (
 // one receiver. The impls of an interface for a receiver either all name
 // distinct type arguments, or there is exactly one, which may be generic in
 // them (checkImplInstantiations). A call picks one statically, from the
-// types of its arguments: every call form, `String.contains?(s, x)`,
-// `Contains.contains?(s, x)`, a pipe stage, an operator and a bound a generic
+// types of its arguments: every call form, `String.contains(s, x)`,
+// `Contains.contains(s, x)`, a pipe stage, an operator and a bound a generic
 // call solves, asks selectImpl. A type argument no parameter names is chosen
 // by the type the call's result is expected to have, as any generic call's
 // result-only type parameter is. When neither chooses one impl the call is an
@@ -329,7 +329,7 @@ func noImplMessage(iface *InterfaceType, method string, recv Type, cands []implC
 
 // multiImplCallee is the generic interface function a call's callee names
 // when its receiver may implement that interface at several type arguments:
-// `Contains.contains?` (interface-qualified) or `String.contains?`
+// `Contains.contains` (interface-qualified) or `String.contains`
 // (type-qualified). qualifier is the receiver type a type-qualified callee
 // names, nil when the argument must say.
 func (c *checker) multiImplCallee(fn ast.Node) (iface *InterfaceType, m *MethodSig, qualifier string, ok bool) {
@@ -417,7 +417,7 @@ func typeMentionsParam(t Type, p *TypeParam_) bool {
 }
 
 // implementedInterface is the declaration of an interface recvName
-// implements: the one this file names, else std's, which `String.contains?`
+// implements: the one this file names, else std's, which `String.contains`
 // reaches in a std file that never imports `Contains`.
 func (c *checker) implementedInterface(recvName, name string) *InterfaceType {
 	if it, ok := c.reg.Lookup(name).(*InterfaceType); ok && it != nil {
@@ -533,7 +533,7 @@ func (c *checker) selectCallImpl(n *ast.Call, expected Type, piped ast.Node, pip
 		}
 		pos++
 	}
-	// A partial application (`Holds.holds?(b, &1)` where a `(String) ->
+	// A partial application (`Holds.holds(b, &1)` where a `(String) ->
 	// Bool` is expected): each placeholder takes the expected function's
 	// parameter of its number, and the call's result is that function's.
 	var partial *FuncType
@@ -622,7 +622,7 @@ func (c *checker) selectCallImpl(n *ast.Call, expected Type, piped ast.Node, pip
 	}
 	var self Type = recv
 	if qualifier == "" && recvAt >= 0 {
-		// `Contains.contains?(s, x)`: the receiver flows into the
+		// `Contains.contains(s, x)`: the receiver flows into the
 		// interface at the chosen arguments, as an interface-qualified
 		// call's receiver always does, so its conformance is recorded.
 		self = &InterfaceType{

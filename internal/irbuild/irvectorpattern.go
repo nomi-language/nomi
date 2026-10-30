@@ -16,7 +16,7 @@ import (
 //
 // A set pattern, `%["admin", ..rest]`, tests membership as a map pattern
 // tests keys: each element is an expression, evaluated in pattern order, and
-// `Set.contains?` asks for it. Without a `..` the set holds exactly those
+// `Set.contains` asks for it. Without a `..` the set holds exactly those
 // elements: the rest, the set without them, must be empty. A named rest is
 // the set without them.
 
@@ -163,7 +163,7 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 			}
 		}
 		held := v
-		found := host(e, "Set.contains?", kindBool, subj, held)
+		found := host(e, "Set.contains", kindBool, subj, held)
 		present := bl.f.NewBlock(bl.g.irNodePos(e), "set element")
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(e), found, present.ID(), next.ID()))
 		bl.b = present

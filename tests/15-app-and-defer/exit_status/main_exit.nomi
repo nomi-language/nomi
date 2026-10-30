@@ -24,7 +24,7 @@ fn count(path: Maybe<String>) -> Result<Int, Exit> {
 
 fn main() -> Result<Unit, Exit> {
     io.print("starting")
-    n = try count(None)
+    n = count(None)?
     io.print("never printed: ${n}")
     Ok(Unit)
 }

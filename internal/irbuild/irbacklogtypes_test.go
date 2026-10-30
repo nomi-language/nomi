@@ -8,7 +8,7 @@ import (
 // Value shapes and call forms a VM-only test body retains, one case per
 // shape: prelude constructors whose
 // unconstrained type arguments read as Unit, a bare None with no expected
-// type, Result.equal?, the prelude predicates as variant tests, one prelude
+// type, Result.equal, the prelude predicates as variant tests, one prelude
 // wrapper nested in another, a tuple pattern in a variant payload, a bare std
 // variant constructor, literal-attach forms, a user enum's List and Map
 // payloads, user enum map values, partial application, a distinct lambda
@@ -70,16 +70,16 @@ test "unsolved prelude arguments and bare variants" {
   refute Ok(1) == Ok(2)
   assert None
     |> Debug.inspect()
-    |> String.equal?("None")
-  assert Result.equal?(Ok(4), Ok(4))
-  refute Result.equal?(Ok(4), Err("bad"))
+    |> String.equal("None")
+  assert Result.equal(Ok(4), Ok(4))
+  refute Result.equal(Ok(4), Err("bad"))
 }
 
 test "prelude predicates" {
-  assert Result.err?(Err("x"))
-  refute Result.ok?(Err("x"))
-  assert Maybe.some?(Some(1))
-  refute Maybe.none?(Some(1))
+  assert Result.is_err(Err("x"))
+  refute Result.is_ok(Err("x"))
+  assert Maybe.is_some(Some(1))
+  refute Maybe.is_none(Some(1))
 }
 
 test "nested prelude payloads and tuple payload patterns" {
@@ -161,7 +161,7 @@ test "lists of a distinct compare structurally" {
 }
 
 test "failing reports" {
-  assert Result.err?(Ok(1))
+  assert Result.is_err(Ok(1))
 }
 `
 	got, exit := irShapesRun(t, src, []string{
@@ -194,7 +194,7 @@ test "failing reports" {
 	}
 	want.WriteString(`FAIL <path> :: failing reports
   line 144: assertion failed
-    assert Result.err?(Ok(1))
+    assert Result.is_err(Ok(1))
     values:
       Ok(1)
         = Ok(1)

@@ -27,7 +27,7 @@ test "duplicate impl blocks report coherence diagnostics" {
 
     assert Iter.count(diagnostics) == 1
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "duplicate impl: `Display` is implemented for `Dog`",
     )
@@ -99,7 +99,7 @@ test "duplicate type-owned functions report coherence diagnostics" {
         },
     })
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "duplicate type-owned function: `Cookie.new` is defined 2 times",
     )

@@ -18,7 +18,7 @@ func TestFormat_PipeStageKeepsItsParentheses(t *testing.T) {
 			"        |> Iter.count()\n" +
 			"}\n",
 		"under try": "fn main() {\n" +
-			"    xs = \" 4 \" |> try (String.to_int())\n" +
+			"    xs = \" 4 \" |> (String.to_int())?\n" +
 			"}\n",
 	} {
 		t.Run(name, func(t *testing.T) {

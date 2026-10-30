@@ -74,12 +74,12 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 		{"a Maybe into a stage that takes its payload",
 			"  _ = \"4\" |> String.to_int() |> Int.to_string()\n",
 			"`Int.to_string` takes an Int as its first argument, but the pipe passes a Maybe<Int>\n" +
-				"help: a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or unwrap it with `try` in a function that returns a Maybe",
+				"help: a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Maybe",
 			"Int.to_string", "String.to_int()"},
 		{"a Result into a stage that takes its payload",
 			"  res: Result<Int, String> = Ok(4)\n  _ = res |> Int.to_string()\n",
 			"`Int.to_string` takes an Int as its first argument, but the pipe passes a Result<Int, String>\n" +
-				"help: a Result may be an Err; handle it before this stage: give a fallback with `|> Result.with_default(...)`, match it with `case`, or unwrap it with `try` in a function that returns a Result",
+				"help: a Result may be an Err; handle it before this stage: give a fallback with `|> Result.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Result",
 			"Int.to_string", "res"},
 		{"an Int into a Float stage",
 			"  _ = 3 |> half()\n",

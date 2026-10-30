@@ -12,14 +12,14 @@ import {
 
 fn main() -> Result<Unit, Error> {
     sql.with_connection(sqlite.memory, fn db -> {
-        try sqlkit.migrate(db, schema.migrations)
+        sqlkit.migrate(db, schema.migrations)?
 
-        user_id = try queries.insert_user(db, "ada@example.com", Some("Ada"))
-        order_id = try queries.insert_order(db, user_id, 12.50d)
-        changed = try queries.set_status(db, order_id, .Paid)
+        user_id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
+        order_id = queries.insert_order(db, user_id, 12.50d)?
+        changed = queries.set_status(db, order_id, .Paid)?
         io.print("order ${order_id} is paid (${changed.rows} row changed)")
 
-        Some(user) = try queries.user_by_email(db, "ada@example.com") else {
+        Some(user) = queries.user_by_email(db, "ada@example.com")? else {
             None -> {
                 io.print("no user with that email")
                 return Ok(Unit)
@@ -29,8 +29,8 @@ fn main() -> Result<Unit, Error> {
         name = user.name |> Maybe.with_default("no name")
         io.print("user ${user.id}: ${user.email} (${name})")
 
-        _ = try queries.insert_user(db, "grace@example.com", None)
-        counts = try queries.order_counts(db)
+        _ = queries.insert_user(db, "grace@example.com", None)?
+        counts = queries.order_counts(db)?
 
         Iter.each(counts, fn c -> {
             last = c.last_order |> Maybe.map(fn id -> "${id}") |> Maybe.with_default("none")

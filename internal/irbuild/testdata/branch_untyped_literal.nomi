@@ -104,9 +104,9 @@ fn if_empty(keep: Bool, n: Int) -> List<Int> {
 // An `else if` chain, so the untyped arm is reconciled through ifInto's
 // recursive else route rather than through its block route.
 fn if_chain(n: Int) -> List<Int> {
-    if Int.equal?(n, 0) {
+    if Int.equal(n, 0) {
         []
-    } else if Int.equal?(n, 1) {
+    } else if Int.equal(n, 1) {
         [1]
     } else {
         [n, n]

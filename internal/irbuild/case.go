@@ -216,8 +216,8 @@ func (g *gen) probePattern(p ast.Node) {
 	}
 }
 
-// probeListPattern names the blockers inside a list pattern — every head and
-// the spread tail. Split out because listArm needs it too: when the type
+// probeListPattern names the blockers inside a list pattern — every head,
+// the spread and every tail. Split out because listArm needs it too: when the type
 // prefix fails to resolve, the body has not been walked and the file's blocker
 // set would be short by however much the body holds.
 func (g *gen) probeListPattern(pat *ast.ListPattern) {
@@ -225,6 +225,9 @@ func (g *gen) probeListPattern(pat *ast.ListPattern) {
 		g.probePattern(sub)
 	}
 	g.probePattern(pat.TailSpread)
+	for _, sub := range pat.Tails {
+		g.probePattern(sub)
+	}
 }
 
 func (g *gen) probeStructFields(pat *ast.StructPattern) {

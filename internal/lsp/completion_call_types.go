@@ -38,7 +38,7 @@ func (r *completionRequest) callType(call *ast.Call, piped *ast.Binary) analysis
 // pipeType is the type of a pipe `left |> stage` the checker has not
 // typed: a stage call (`|> Iter.to_list()`) or a bare function
 // (`|> Iter.to_list`) called with the piped value. A keyword stage
-// (`try`, `dbg`, `case`) is not read.
+// (`?`, `dbg`, `case`) is not read.
 func (r *completionRequest) pipeType(p *ast.Binary) analysis.Type {
 	switch stage := p.Right.(type) {
 	case *ast.Call:

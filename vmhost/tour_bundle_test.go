@@ -17,6 +17,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -368,6 +371,11 @@ func modTime(t *testing.T, path string) string {
 // terms the user reported it in — this block, this expected output, this
 // actual output — rather than as two hashes.
 //
+// It also times each block's run, as the page's run budget does, and fails a
+// block that takes more than half of that budget under node
+// (tourRunLimits), since the page stops a slower run with "execution timed
+// out".
+//
 // Blocks containing tests are compared on their ERROR channel only. nomiRun
 // concatenates the test report onto program output, and reproducing that
 // composition here would duplicate cmd/nomi-wasm's formatting rather than
@@ -404,10 +412,19 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 		// Tools are the block's tool: words, which the page runs before
 		// each run (nomiTool), its output first.
 		Tools []doctest.Tool `json:"tools,omitempty"`
+		// RetryOverMs runs the block again when its first run took longer.
+		RetryOverMs float64 `json:"retryOverMs,omitempty"`
+	}
+	runLimit, manualLimit := tourRunLimits(t)
+	limitOf := func(b tourBlock) float64 {
+		if b.block.HasInfo(doctest.InfoManual) {
+			return manualLimit
+		}
+		return runLimit
 	}
 	probes := make([]probe, 0, len(blocks))
 	for _, b := range blocks {
-		probes = append(probes, probe{Name: b.name, Source: b.block.Code, Tools: b.block.Tools()})
+		probes = append(probes, probe{Name: b.name, Source: b.block.Code, Tools: b.block.Tools(), RetryOverMs: limitOf(b)})
 	}
 	answers := runUnderNode(t, node, probes)
 	if len(answers) != len(probes) {
@@ -421,6 +438,22 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 			t.Fatalf("answer %d is for %q, expected %q", i, got.Name, b.name)
 		}
 		t.Run(b.name, func(t *testing.T) {
+			if limit := limitOf(b); got.Ms > limit {
+				t.Errorf(`TOUR BLOCK RUNS TOO LONG FOR THE BROWSER.
+
+  block %s
+  run   %.0f ms under node, the faster of two runs, each the lesser
+        of its wall time and the process's CPU time
+  limit %.0f ms, half the page's run budget of %.0f ms
+
+The page stops a run that takes longer than its budget (RUN_BUDGET_MS, or
+MANUAL_RUN_BUDGET_MS for a manual block, in tour/src/lib/tour-client.mjs)
+and shows "execution timed out", and a browser runs the wasm slower than
+node does. Make the program cheaper. A block that cannot be cheap enough
+can be a manual block (an example's NOTES.md says so with a "Run: manual"
+line under its subject).`,
+					b.name, got.Ms, limit, 2*limit)
+			}
 			if b.block.HasInfo(doctest.InfoError) {
 				// An error block fails on purpose: its expect block holds
 				// what the page shows, the compile error or the run's output
@@ -464,7 +497,9 @@ TestTourDoctests), so the browser and the source tree disagree. Fix: %s`,
 					b.name, got.Error, rebuildInstruction)
 				return
 			}
-			if b.hasTests {
+			// A manual block's expect block holds its tests' report too,
+			// since its page shows it as the recorded output.
+			if b.hasTests && !b.block.HasInfo(doctest.InfoManual) {
 				return
 			}
 			if b.block.Expected == nil {
@@ -488,12 +523,20 @@ TestTourDoctests holds the in-process VM to. Fix: %s`,
 		switch {
 		case b.block.HasInfo(doctest.InfoError):
 			errors++
-		case b.hasTests:
+		case b.hasTests && !b.block.HasInfo(doctest.InfoManual):
 			withTests++
 		default:
 			compared++
 		}
 	}
+	slowest := make([]nodeAnswer, len(answers))
+	copy(slowest, answers)
+	sort.Slice(slowest, func(i, j int) bool { return slowest[i].Ms > slowest[j].Ms })
+	var times strings.Builder
+	for _, a := range slowest[:min(10, len(slowest))] {
+		fmt.Fprintf(&times, "\n  %6.0f ms  %s", a.Ms, a.Name)
+	}
+	t.Logf("slowest runs under node (limit %.0f ms, %.0f ms for a manual block):%s", runLimit, manualLimit, times.String())
 	t.Logf("staged wasm ran %d tour blocks: %d output-compared against their <!-- expect --> block (%d of them stop on purpose, output and failure compared), %d test-carrying (error channel only), %d error blocks (error compared against their <!-- expect --> block)",
 		len(blocks), compared, stops, withTests, errors)
 }
@@ -689,6 +732,33 @@ func onlyListedBlocked(errText string) bool {
 	return blocked
 }
 
+// tourRunLimits are the longest a tour block's run may take under node, for
+// a block and for a manual block: half the page's run budgets, RUN_BUDGET_MS
+// and MANUAL_RUN_BUDGET_MS in tour-client.mjs, read from that file so the two
+// cannot drift apart. The page kills a run that outlasts its budget and shows
+// "execution timed out". Half leaves room for a browser, whose wasm engine
+// and worker run the same module slower than node, and for a slower machine
+// than the one that measured the block.
+func tourRunLimits(t *testing.T) (run, manual float64) {
+	t.Helper()
+	data, err := os.ReadFile("../tour/src/lib/tour-client.mjs")
+	if err != nil {
+		t.Fatalf("read the tour client: %v", err)
+	}
+	budget := func(name string) float64 {
+		m := regexp.MustCompile(`(?m)^const ` + name + ` = (\d+);`).FindSubmatch(data)
+		if m == nil {
+			t.Fatalf("tour-client.mjs declares no `const %s = <ms>;`", name)
+		}
+		ms, err := strconv.ParseFloat(string(m[1]), 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ms
+	}
+	return budget("RUN_BUDGET_MS") / 2, budget("MANUAL_RUN_BUDGET_MS") / 2
+}
+
 type tourBlock struct {
 	name     string
 	block    doctest.Block
@@ -753,6 +823,10 @@ type nodeAnswer struct {
 	Name   string `json:"name"`
 	Output string `json:"output"`
 	Error  string `json:"error"`
+	// Ms is how long the block's nomiRun took, in milliseconds: the
+	// faster of two runs when the first took longer than the probe's
+	// retryOverMs.
+	Ms float64 `json:"ms"`
 }
 
 // runUnderNode loads the staged bundle in one node process and calls its
@@ -832,6 +906,22 @@ const go = new Go();
   }
   const probes = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
   const answers = [];
+  // A run's time is the lesser of its wall time and the process's CPU
+  // time over it. On a loaded machine the wall time counts the time other
+  // processes had the CPU, and the CPU time does not; while V8 still
+  // compiles the module on its own threads, the CPU time counts that too,
+  // and the wall time does not. The run itself is on one thread, so its
+  // own time is no more than either.
+  let lastRunMs = 0;
+  const run = globalThis.nomiRun;
+  globalThis.nomiRun = (source) => {
+    const wall = performance.now();
+    const cpu = process.cpuUsage();
+    const r = run(source);
+    const used = process.cpuUsage(cpu);
+    lastRunMs = Math.min(performance.now() - wall, (used.user + used.system) / 1000);
+    return r;
+  };
   for (const p of probes) {
     if (!p.hover && !globalThis.sqlite3 && JSON.parse(globalThis.nomiTourModules(p.source)).includes("sqlite")) {
       globalThis.sqlite3ApiConfig = {
@@ -867,8 +957,17 @@ const go = new Go();
         if (r.error) return { name: p.name, output: printed, error: r.error };
         source = r.source;
       }
+      // Only the run is timed: the page starts its run budget when the
+      // worker answers the semantic tokens, after any tools have run. A run
+      // over retryOverMs runs again and the faster time counts, so one
+      // stall does not fail the block.
       const r = globalThis.nomiRun(source);
-      return { name: p.name, output: printed + r.output, error: r.error };
+      let ms = lastRunMs;
+      if (p.retryOverMs && ms > p.retryOverMs) {
+        globalThis.nomiRun(source);
+        ms = Math.min(ms, lastRunMs);
+      }
+      return { name: p.name, output: printed + r.output, error: r.error, ms };
     } catch (err) {
       return { name: p.name, output: "", error: "host threw: " + String(err) };
     }

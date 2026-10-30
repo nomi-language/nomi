@@ -17,19 +17,19 @@ func TestCompletion_PipeOffersFunctionsTakingTheValue(t *testing.T) {
 			"a List is an Iter",
 			"fn f(xs: List<Int>) -> Int {\n    xs |> " + cursorMark + "\n}\n",
 			[]string{"Iter.map", "Iter.filter", "Iter.count", "List.head", "List.concat", "dbg"},
-			[]string{"Iter.repeat", "Iter.iterate", "String.trim", "if_missing", "try"},
+			[]string{"Iter.repeat", "Iter.iterate", "String.trim", "if_missing"},
 		},
 		{
 			"a String",
 			"fn f(s: String) -> String {\n    s |> " + cursorMark + "\n}\n",
-			[]string{"String.trim", "String.to_upper", "Display.to_string"},
+			[]string{"String.trim", "String.uppercase", "Display.to_string"},
 			[]string{"List.head", "Duration.seconds"},
 		},
 		{
 			"typed prefix filters on the function name",
 			"fn f(s: String) -> String {\n    s |> tri" + cursorMark + "\n}\n",
 			[]string{"String.trim"},
-			[]string{"String.to_upper"},
+			[]string{"String.uppercase"},
 		},
 		{
 			"the file's own functions whose first parameter fits",
@@ -133,32 +133,4 @@ func TestCompletion_PipeKeywordStages(t *testing.T) {
 	uri := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
 	items = completeIn(t, s, uri, "import lib\n\nfn main() {\n    _ = \"a\" |> "+cursorMark+"\n}\n").Items
 	labelsBefore(t, items, "lib.shout", "dbg")
-}
-
-// `try` is a stage only over a Result or a Maybe, so it is offered when the
-// piped value is one, or when its type is not known, and not otherwise.
-func TestCompletion_PipeOffersTryOnlyWhereItApplies(t *testing.T) {
-	tests := []struct {
-		name, src string
-		offered   bool
-	}{
-		{"a Result", "fn f(r: Result<Int, String>) -> Result<Int, String> {\n    n = r |> " + cursorMark + "\n    Ok(n)\n}\n", true},
-		{"a Maybe", "fn f(m: Maybe<Int>) -> Maybe<Int> {\n    n = m |> " + cursorMark + "\n    Some(n)\n}\n", true},
-		{"a call returning a Maybe", "fn f(s: String) -> Maybe<Int> {\n    n = s |> String.to_int() |> " + cursorMark + "\n    Some(n)\n}\n", true},
-		{"an unknown type", "fn f() -> Maybe<Int> {\n    n = nope |> " + cursorMark + "\n    Some(n)\n}\n", true},
-		{"an Int", "fn f(n: Int) -> Int {\n    n |> " + cursorMark + "\n}\n", false},
-		{"a String", "fn f(s: String) -> String {\n    s |> " + cursorMark + "\n}\n", false},
-		{"a List", "fn f(xs: List<Int>) -> Int {\n    xs |> " + cursorMark + "\n}\n", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			items := complete(t, tt.src)
-			labelsInclude(t, items, "dbg")
-			if tt.offered {
-				labelsInclude(t, items, "try")
-			} else {
-				labelsExclude(t, items, "try")
-			}
-		})
-	}
 }

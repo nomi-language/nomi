@@ -11,7 +11,7 @@ import (
 // own receiver through the function it is defining.
 const RecursiveRenderCode = "recursive-render"
 
-// RecursiveProtocolCode tags an Equatable `equal?`, Comparable `compare` or
+// RecursiveProtocolCode tags an Equatable `equal`, Comparable `compare` or
 // Hashable `hash` implementation that compares or hashes its own arguments
 // through the function it is defining.
 const RecursiveProtocolCode = "recursive-protocol"
@@ -353,11 +353,11 @@ func (r *selfRecursion) renderErrors() []TypeError {
 	return errs
 }
 
-// protocolErrors applies the protocol rule to an Equatable `equal?`,
+// protocolErrors applies the protocol rule to an Equatable `equal`,
 // Comparable `compare` or Hashable `hash` implementation: comparing its own
 // arguments with the operator that dispatches to it (`a == b` and `a != b`
-// in `equal?`, `a < b` and the other orderings in `compare`), or calling it
-// through its interface or its type (`Equatable.equal?(a, b)`,
+// in `equal`, `a < b` and the other orderings in `compare`), or calling it
+// through its interface or its type (`Equatable.equal(a, b)`,
 // `P.hash(p)`) with its own arguments, calls the function being defined
 // with values it was given, which takes the same path again. Like the render
 // rule it applies wherever the comparison appears in the body. Comparing a
@@ -365,21 +365,21 @@ func (r *selfRecursion) renderErrors() []TypeError {
 func (r *selfRecursion) protocolErrors() []TypeError {
 	if r.iface == nil || IsStdlibKey(r.fa.Origin) {
 		// The stdlib's collections (`Set` is a struct there) compare in
-		// the runtime, so their `equal?` is `a == b`.
+		// the runtime, so their `equal` is `a == b`.
 		return nil
 	}
 	switch r.recvDecl.(type) {
 	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef:
 		// A declared type, whose `==` and orderings dispatch to its impls.
 		// A host type's (`Int`, `List`) are the runtime's own, so its
-		// `equal?` may be `a == b`.
+		// `equal` may be `a == b`.
 	default:
 		return nil
 	}
 	var ops map[string]bool
 	var verb, example string
 	switch {
-	case r.iface.Name == "Equatable" && r.fn.Name == "equal?" && len(r.fn.Params) == 2:
+	case r.iface.Name == "Equatable" && r.fn.Name == "equal" && len(r.fn.Params) == 2:
 		ops = map[string]bool{"==": true, "!=": true}
 		verb, example = "compare", "%s.field == %s.field"
 	case r.iface.Name == "Comparable" && r.fn.Name == "compare" && len(r.fn.Params) == 2:
@@ -553,6 +553,8 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		return r.mustRecurse(x.Value, true, clean)
 	case *ast.TryOp:
 		return r.mustRecurse(x.Expr, false, clean)
+	case *ast.Unwrap:
+		return r.mustRecurse(x.Expr, false, clean)
 	case *ast.Dbg:
 		return r.mustRecurse(x.Expr, false, clean)
 	case *ast.Then:
@@ -597,10 +599,7 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 	case *ast.VectorLit:
 		return r.mustRecurseSeq(x.Operands(), clean)
 	case *ast.SetLit:
-		if x.Spread != nil {
-			return r.mustRecurseSeq(append([]ast.Node{x.Spread}, x.Items...), clean)
-		}
-		return r.mustRecurseSeq(x.Items, clean)
+		return r.mustRecurseSeq(x.Operands(), clean)
 	case *ast.TupleLit:
 		return r.mustRecurseSeq(x.Items, clean)
 	case *ast.If:
@@ -751,7 +750,7 @@ func (r *selfRecursion) primitive(n ast.Node) bool {
 }
 
 // mayExit over-approximates whether evaluating n may leave the function
-// early without faulting: a `return`, a `try`, a binding's `else`, and
+// early without faulting: a `return`, a `?`, a binding's `else`, and
 // every node kind not listed. A lambda or nested `fn` exits only itself.
 func (r *selfRecursion) mayExit(n ast.Node) bool {
 	if v, ok := r.exits[n]; ok {
@@ -788,6 +787,8 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 	case *ast.PatternBinding:
 		return x.Else != nil || r.mayExit(x.Value)
 	case *ast.Dbg:
+		return r.mayExit(x.Expr)
+	case *ast.Unwrap:
 		return r.mayExit(x.Expr)
 	case *ast.Then:
 		return r.mayExit(x.Fn())

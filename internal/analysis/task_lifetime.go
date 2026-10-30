@@ -285,10 +285,7 @@ func (tl *taskLifetime) tailEscapes(expr ast.Node, taskBindings []taskBinding) b
 		}
 		return false
 	case *ast.SetLit:
-		if node.Spread != nil && tl.tailEscapes(node.Spread, taskBindings) {
-			return true
-		}
-		for _, item := range node.Items {
+		for _, item := range node.Operands() {
 			if tl.tailEscapes(item, taskBindings) {
 				return true
 			}

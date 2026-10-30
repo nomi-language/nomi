@@ -19,7 +19,7 @@
 //     struct and generic functions, derives (Equatable, Hashable,
 //     Comparable, Display, ToJson), an inherent impl block, impls of
 //     interfaces declared in other files, an unannotated `once` that other
-//     files read, `case`, `try`, pipes and Iter chains;
+//     files read, `case`, `?`, pipes and Iter chains;
 //   - where two units import each other, types that refer to each other
 //     across the two files: one's Link holds the other's Nodes, and a
 //     Node's parent is a Link;
@@ -456,7 +456,7 @@ impl Money {
     }
 
     /// Whether the amount is zero.
-    pub fn zero?(m: Money) -> Bool {
+    pub fn is_zero(m: Money) -> Bool {
         m.cents == 0
     }
 }
@@ -797,8 +797,8 @@ pub fn checked%[1]d(n: Int) -> Result<Int, String> {
 
 /// n doubled twice over.
 pub fn doubled%[1]d(n: Int) -> Result<Int, String> {
-    a = try checked%[1]d(n)
-    b = try checked%[1]d(a)
+    a = checked%[1]d(n)?
+    b = checked%[1]d(a)?
     Ok(a + b)
 }
 

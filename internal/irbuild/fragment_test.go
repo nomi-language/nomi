@@ -114,13 +114,13 @@ func TestFragmentInternKeyCarriesTheTypeArguments(t *testing.T) {
 // TestTryOperandSetsAgreeWithTheChecker is a tripwire on an AGREEMENT, not a
 // guard on live behaviour.
 //
-// "Which enums may be a `try` operand" is written down twice: the checker
+// "Which enums may be a `?` operand" is written down twice: the checker
 // admits an operand by name (analysis.TryOperandTypeNames), and the builder
 // carries `tryOperand` on each spec. Nothing but this test makes them agree.
 //
 // The builder side cannot be derived from shape: `Fragment<T>` is
 // `Static String` / `Dynamic T`, two variants with the first carrying one
-// payload, so a shape rule would lower `try frag` as "unwind on Dynamic,
+// payload, so a shape rule would lower `frag?` as "unwind on Dynamic,
 // unwrap Static", a wrong answer. The front end blocks that, so this guards
 // the agreement rather than reachable behaviour.
 func TestTryOperandSetsAgreeWithTheChecker(t *testing.T) {

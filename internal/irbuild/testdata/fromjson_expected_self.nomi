@@ -19,14 +19,14 @@ fn parse(source: String) -> Result<Json, Json.ShapeError> {
 // annotation is what names the implementation. Each function's own return type
 // names a different type, which must not be the one chosen.
 fn count(source: String) -> Result<Int, Json.ShapeError> {
-    parsed = try parse(source)
-    ids: List<Int> = try FromJson.from_json(parsed)
+    parsed = parse(source)?
+    ids: List<Int> = FromJson.from_json(parsed)?
     Ok(Iter.count(ids))
 }
 
 fn title(source: String) -> Result<String, Json.ShapeError> {
-    parsed = try parse(source)
-    note: Note = try FromJson.from_json(parsed)
+    parsed = parse(source)?
+    note: Note = FromJson.from_json(parsed)?
     Ok(note.text)
 }
 

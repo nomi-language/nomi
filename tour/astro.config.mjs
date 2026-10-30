@@ -2,6 +2,8 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import rehypeShiki from './src/lib/rehype-shiki.mjs';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import examplesSidebar from './src/content/docs/examples/_sidebar.json' with { type: 'json' };
 
 const referenceItems = [
@@ -100,7 +102,10 @@ export default defineConfig({
 		// analyzer, matching Zed) and turns complete programs into run-on-type
 		// editors. All served statically from public/nomi/ — no Vite/wasm bundling.
 		syntaxHighlight: false,
-		rehypePlugins: [rehypeShiki],
+		// The plugin's own text is part of the config, so an edit to it
+		// clears the content layer's cache of rendered pages, which Astro
+		// otherwise keys by each page's text alone.
+		rehypePlugins: [[rehypeShiki, { source: createHash('sha256').update(readFileSync(new URL('./src/lib/rehype-shiki.mjs', import.meta.url))).digest('hex') }]],
 	},
 	integrations: [
 		starlight({
@@ -152,7 +157,7 @@ export default defineConfig({
 						{ label: 'Collections', link: '/collections/' },
 						{ label: 'Iteration & Loops', link: '/iteration-and-loops/' },
 						{ label: 'Structs, Enums, Distinct Types', link: '/structs-enums-distinct/' },
-						{ label: 'Pattern Matching, Maybe, Result & Try', link: '/pattern-matching/' },
+						{ label: 'Pattern Matching, Maybe & Result', link: '/pattern-matching/' },
 						{ label: 'Testing', link: '/testing/' },
 						{ label: 'Generics', link: '/generics/' },
 						{ label: 'Interfaces & Dispatch', link: '/interfaces-and-dispatch/' },

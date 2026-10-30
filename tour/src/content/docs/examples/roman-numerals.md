@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: roman_numerals.nomi
+//# Writes numbers as Roman numerals.
+
 once numerals = [
     #(1000, "M"),
     #(900, "CM"),

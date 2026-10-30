@@ -427,7 +427,7 @@ func setItems(v any) (vmap, error) {
 // so a widened struct dispatches as itself.
 func runtimeTypeName(v any) string {
 	switch v.(type) {
-	case int64:
+	case int64, *rt.BigInt:
 		return "Int"
 	case float64:
 		return "Float"
@@ -447,12 +447,29 @@ func runtimeTypeName(v any) string {
 	return ""
 }
 
+// intIndex is v, an Int, as an int64 for a position, an index or a count,
+// clamped past int64's range (rt.IntSaturated); 0 for a value that is no Int.
+func intIndex(v any) int64 {
+	if rt.IsInt(v) {
+		return rt.IntSaturated(v)
+	}
+	return 0
+}
+
 // --- registers -----------------------------------------------------------
 
-// boxWord is a word register's value as the rt value of its type.
-func boxWord(w uint64, ty *ir.ValType) any {
+// boxWord is a word register's value as the rt value of its type. big is the
+// register's shadow, which holds the value of an Int whose word is
+// rt.BigWord, or nil.
+func boxWord(w uint64, big any, ty *ir.ValType) any {
+	if w != rt.BigWord {
+		big = nil
+	}
 	switch ty.Kind() {
 	case ir.KindInt:
+		if big != nil {
+			return big
+		}
 		return int64(w)
 	case ir.KindFloat:
 		return math.Float64frombits(w)
@@ -465,6 +482,9 @@ func boxWord(w uint64, ty *ir.ValType) any {
 		if d := descOfType(ty); d != nil && len(d.Fields) == 1 && d.NW == 1 {
 			r := d.New()
 			r.W[0] = w
+			if b, ok := big.(*rt.BigInt); ok {
+				r.SetBigSlot(0, b)
+			}
 			return r
 		}
 		// A distinct over a distinct over a word (`type Wrapped Meters`):
@@ -472,33 +492,39 @@ func boxWord(w uint64, ty *ir.ValType) any {
 		// inner distinct boxed, as unboxWord reads it.
 		if d := descOfType(ty); d != nil && len(d.Fields) == 1 && d.NR == 1 && ty.Elem(0).Kind() == ir.KindDistinct {
 			r := d.New()
-			r.R[0] = boxWord(w, ty.Elem(0))
+			r.R[0] = boxWord(w, big, ty.Elem(0))
 			return r
 		}
 	}
 	panic("vm: a word register holds a " + ty.String())
 }
 
-// unboxWord is the word a scalar value occupies.
-func unboxWord(v any) (uint64, bool) {
+// unboxWord is the word a scalar value occupies, and the shadow beside it: a
+// big Int's value, or nil.
+func unboxWord(v any) (uint64, any, bool) {
 	switch x := v.(type) {
 	case int64:
-		return uint64(x), true
+		return uint64(x), nil, true
+	case *rt.BigInt:
+		return rt.BigWord, x, true
 	case float64:
-		return math.Float64bits(x), true
+		return math.Float64bits(x), nil, true
 	case bool:
-		return b2w(x), true
+		return b2w(x), nil, true
 	case rt.Byte:
-		return uint64(x), true
+		return uint64(x), nil, true
 	case *rt.Record:
 		if x != nil && x.Desc.Kind == rt.KindDistinct && len(x.Desc.Fields) == 1 {
 			if len(x.W) == 1 {
-				return x.W[0], true
+				if x.W[0] == rt.BigWord {
+					return x.W[0], bigValue(x.BigSlot(0)), true
+				}
+				return x.W[0], nil, true
 			}
 			return unboxWord(x.Field(0))
 		}
 	}
-	return 0, false
+	return 0, nil, false
 }
 
 func boxStr(s string, ty *ir.ValType) any {

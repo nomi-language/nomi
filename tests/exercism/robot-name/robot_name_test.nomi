@@ -4,11 +4,11 @@ import {
 }
 
 /// Whether `name` is two uppercase letters and three digits.
-fn well_formed?(name: String) -> Bool {
+fn is_well_formed(name: String) -> Bool {
     case String.to_codepoints(name) {
         [a, b, c, d, e] -> {
-            letter? = &Range.contains?('A'..='Z', &1)
-            Iter.all?([a, b], letter?) and Iter.all?([c, d, e], Codepoint.digit?)
+            is_letter = &Range.contains('A'..='Z', &1)
+            Iter.all([a, b], is_letter) and Iter.all([c, d, e], Codepoint.is_digit)
         }
 
         _ ->
@@ -31,11 +31,11 @@ fn names(factory: Factory, count: Int) -> List<String> {
 }
 
 group "robot name" {
-    setup Factory.new(Seed.from_int(42))
+    setup Seed.from_int(42) |> Factory.new()
 
     test "has a name", factory {
         assert Ok(#(robot, _factory)) = Factory.build(factory)
-        assert well_formed?(Robot.name(robot))
+        assert is_well_formed(Robot.name(robot))
     }
 
     test "name is the same each time", factory {
@@ -53,7 +53,7 @@ group "robot name" {
         assert Ok(#(robot, factory)) = Factory.build(factory)
         assert Ok(#(reset, _factory)) = Factory.reset(factory, robot)
         assert Robot.name(reset) != Robot.name(robot)
-        assert well_formed?(Robot.name(reset))
+        assert is_well_formed(Robot.name(reset))
     }
 
     test "a thousand robots all have different names", factory {
@@ -61,6 +61,7 @@ group "robot name" {
     }
 
     test "the same seed names the same robots", factory {
-        assert names(factory, 5) == names(Factory.new(Seed.from_int(42)), 5)
+        again = Seed.from_int(42) |> Factory.new()
+        assert names(factory, 5) == names(again, 5)
     }
 }

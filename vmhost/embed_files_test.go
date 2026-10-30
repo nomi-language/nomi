@@ -143,14 +143,14 @@ const embedFilesSrc = `import {
 
 fn main() -> Result<Unit, io.Error> {
     io.print(fs.read_text("seed.txt"))
-    try fs.with_writer("out.txt", mode: .ReplaceAtomically, fn w -> io.Writer.write_text(w, "written"))
-    try fs.create_dir("d/e", parents: True)
-    try fs.write_text("d/e/f.txt", "deep")
+    fs.with_writer("out.txt", mode: .ReplaceAtomically, fn w -> io.Writer.write_text(w, "written"))?
+    fs.create_dir("d/e", parents: True)?
+    fs.write_text("d/e/f.txt", "deep")?
     io.print(fs.list("d") |> Result.map(fn es -> es |> Iter.map(fn e -> e.name) |> Iter.to_list()))
-    io.print((try fs.metadata("d/e/f.txt")).size)
+    io.print((fs.metadata("d/e/f.txt")?).size)
     io.print(fs.with_file("d/e/f.txt", fn f -> File.read_at(f, 1, max: 2)) == Ok(Some(String.to_bytes("ee"))))
-    try fs.rename("d/e/f.txt", "moved.txt")
-    try fs.remove_all("d")
+    fs.rename("d/e/f.txt", "moved.txt")?
+    fs.remove_all("d")?
     io.print(fs.read_text("missing.txt"))
     io.print(fs.read_text("/secret/key"))
     io.print(fs.within("/work", fn -> Ok(1)))
@@ -212,9 +212,9 @@ func TestEmbedFiles_DiskFilesWrapped(t *testing.T) {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    text = try fs.read_text("` + filepath.ToSlash(filepath.Join(dir, "in.txt")) + `")
-    try fs.write_text("` + filepath.ToSlash(filepath.Join(dir, "out.txt")) + `", text + "!")
-    m = try fs.metadata("` + filepath.ToSlash(filepath.Join(dir, "out.txt")) + `")
+    text = fs.read_text("` + filepath.ToSlash(filepath.Join(dir, "in.txt")) + `")?
+    fs.write_text("` + filepath.ToSlash(filepath.Join(dir, "out.txt")) + `", text + "!")?
+    m = fs.metadata("` + filepath.ToSlash(filepath.Join(dir, "out.txt")) + `")?
     io.print(m.size)
     Ok(Unit)
 }

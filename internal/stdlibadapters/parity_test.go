@@ -335,9 +335,15 @@ func formatCases() map[string][]argSet {
 			a(s("de-u-co-phonebk;3;false;1;false"), s("Müller"), s("Mueller"))),
 		"collation.collator_sort_key_raw": sets(a(s("en;1;false;1;false"), s("Ab")), a(s("sv;3;false;1;false"), s(""))),
 		"collation.collator_inspect_raw":  sets(a(s("sv;3;false;1;false")), a(s("de-u-co-phonebk;1;true;2;true"))),
-		"String.to_upper_in":              sets(a(s("istanbul"), loc("tr")), a(s("straße"), loc("de")), a(s("i̇́"), loc("lt"))),
-		"String.to_lower_in":              sets(a(s("DİYARBAKIR"), loc("tr")), a(s("Í"), loc("lt")), a(s("ΟΔΟΣ"), loc("el"))),
+		"String.uppercase_in":             sets(a(s("istanbul"), loc("tr")), a(s("straße"), loc("de")), a(s("i̇́"), loc("lt"))),
+		"String.lowercase_in":             sets(a(s("DİYARBAKIR"), loc("tr")), a(s("Í"), loc("lt")), a(s("ΟΔΟΣ"), loc("el"))),
 		"String.fold_case":                sets(a(s("Straße")), a(s("ΣΑΣ"))),
+		"String.snake_case":               sets(a(s("userId")), a(s("parseHTTP2Request")), a(s("__v2-Api  x")), a(s("")), a(s("ÉCOLENormale"))),
+		"String.kebab_case":               sets(a(s("userId")), a(s("HTTPServer")), a(s("-a-"))),
+		"String.pascal_case":              sets(a(s("extra_large")), a(s("HTTPServer")), a(s("ǆemal bey")), a(s(""))),
+		"String.camel_case":               sets(a(s("user_id")), a(s("HTTPServer")), a(s("v2 api"))),
+		"String.capitalize":               sets(a(s("hello WORLD")), a(s("ǆemal")), a(s("")), a(s("ΑΣ"))),
+		"String.capitalize_in":            sets(a(s("istanbul"), loc("tr")), a(s("IRMAK"), loc("tr")), a(s("istanbul"), loc("en"))),
 		"locale.locale_available":         sets(a()),
 		"locale.locale_loaded_raw":        sets(a()),
 		"locale.locale_load_raw":          sets(a(s("pl")), a(s("en"))),
@@ -372,11 +378,13 @@ func moneyDateCases() map[string][]argSet {
 		"currency.currency_code_of": sets(a(s("EUR")), a(s("BTC:8")), a(s(""))),
 		"currency.currency_digits_of": sets(a(s("EUR")), a(s("JPY")), a(s("BHD")), a(s("BTC:8")), a(s("PTS:x")),
 			a(s("XYZ"))),
-		"money_format.money_format_raw": sets(a(loc("en"), s("12.5"), s("EUR"), i(2), true, i(0)),
-			a(loc("pl"), s("1234.5"), s("EUR"), i(2), true, i(0)), a(loc("en-CA"), s("5"), s("USD"), i(2), true, i(1)),
-			a(loc("de"), s("-3"), s("USD"), i(2), true, i(2)), a(loc("en"), s("1"), s("USD"), i(2), true, i(3)),
-			a(loc("ja"), s("1500"), s("JPY"), i(0), true, i(0)), a(loc("en"), s("0.5"), s("BTC"), i(8), false, i(0)),
-			a(loc("ar-EG"), s("12.5"), s("EGP"), i(2), true, i(0))),
+		"money_format.money_format_raw": sets(a(loc("en"), s("12.5"), s("EUR"), i(2), true, i(0), false),
+			a(loc("pl"), s("1234.5"), s("EUR"), i(2), true, i(0), false), a(loc("en-CA"), s("5"), s("USD"), i(2), true, i(1), false),
+			a(loc("de"), s("-3"), s("USD"), i(2), true, i(2), false), a(loc("en"), s("1"), s("USD"), i(2), true, i(3), false),
+			a(loc("ja"), s("1500"), s("JPY"), i(0), true, i(0), false), a(loc("en"), s("0.5"), s("BTC"), i(8), false, i(0), false),
+			a(loc("ar-EG"), s("12.5"), s("EGP"), i(2), true, i(0), false),
+			a(loc("en"), s("-10"), s("USD"), i(2), true, i(0), true), a(loc("en"), s("-0.5"), s("BTC"), i(8), false, i(0), true),
+			a(loc("de"), s("-10"), s("EUR"), i(2), true, i(0), true)),
 		"money_format.money_parse_raw": sets(a(s("12,50 €"), loc("pl"), s("EUR"), i(2), true, false),
 			a(s("€12.505"), loc("en"), s("EUR"), i(2), true, false), a(s("12,50 zł"), loc("pl"), s("EUR"), i(2), true, false),
 			a(s("12.50"), loc("en"), s("EUR"), i(2), true, false), a(s(" 12.50 "), loc("en"), s("EUR"), i(2), true, true),
@@ -556,10 +564,10 @@ func (p *parity) regex() {
 		for _, input := range []string{"xaab ab", "12-34 and 5-6", "", "ééé"} {
 			p.check("Regex.pattern", argSet{args: a(re)})
 			p.check("Regex.find_in", argSet{args: a(re, s(input))})
-			p.check("Regex.replace_all", argSet{args: a(re, s(input), s("<$1>"))})
-			p.check("Regex.contained_in?", argSet{args: a(re, s(input))})
-			p.check("Regex.prefix_of?", argSet{args: a(re, s(input))})
-			p.check("Regex.suffix_of?", argSet{args: a(re, s(input))})
+			p.check("Regex.replace_all", argSet{args: a(s(input), re, s("<$1>"))})
+			p.check("Regex.is_contained_in", argSet{args: a(re, s(input))})
+			p.check("Regex.is_prefix_of", argSet{args: a(re, s(input))})
+			p.check("Regex.is_suffix_of", argSet{args: a(re, s(input))})
 			p.check("Regex.split_in", argSet{args: a(re, s(input))})
 			p.check("Regex.find_all_in", argSet{args: a(re, s(input))})
 			p.check("Regex.replace_in", argSet{args: a(re, s(input), s("<$1>"))})

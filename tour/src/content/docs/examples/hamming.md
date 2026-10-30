@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: hamming.nomi
+//# The Hamming distance between two DNA strands.
+
 /// The number of positions at which two DNA strands differ. Strands of
 /// different lengths have no Hamming distance.
 pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {

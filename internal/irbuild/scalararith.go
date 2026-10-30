@@ -19,8 +19,8 @@ import (
 // # Which line a fault names
 //
 // The trapping Int forms carry a source line in their fault text
-// (`line 6: integer overflow: 9223372036854775807 + 1`), and a written-out
-// `Int.add(a, b)` has no operator to blame. It has a CALL to blame: `t.Line`
+// (`line 6: division by zero`), and a written-out `Int.divide(a, b)` has no
+// operator to blame. It has a CALL to blame: `t.Line`
 // reaches every `rt` call that can fault, so a fault names the call's own
 // source line. Line 0 is not a position any file has, and nothing here passes
 // it.
@@ -34,16 +34,15 @@ import (
 // gets). A row of that shape cannot carry a line: there is no parameter to put
 // one in. The Decimal family goes through this arm for the same reason.
 //
-// scalarEqualCall lowers `Equatable.equal?` on a scalar the same way, with no
+// scalarEqualCall lowers `Equatable.equal` on a scalar the same way, with no
 // registry row, and textQualifiedCall lowers `Int.to_string`. Three things
 // follow:
 //
-//   - NO NEW rt SYMBOL. The overflow contract keeps ONE implementation. rt owns
-//     the predicates (AddOverflows, SubOverflows, MulOverflows, QuoOverflows) and
-//     the text (OverflowError, DivByZeroError), and this arm emits a call to the
-//     SAME rt.AddInt the operator emits, differing only in the constant it passes
-//     for `line`. A second entry point would be a second thing to keep in
-//     agreement.
+//   - NO NEW rt SYMBOL. Int arithmetic keeps ONE implementation. rt owns the
+//     operations (IntAdd and its siblings) and the text (DivByZeroError), and
+//     this arm emits the SAME `ir.Arith` the operator emits, differing only in
+//     the position it carries. A second entry point would be a second thing to
+//     keep in agreement.
 //   - The nine keys stay unbound and exempted, so
 //     TestStdlibRefusesUnmappedHostFnsByName keeps holding its line for the
 //     stdlib index. implCall's chain answers these calls before the index is

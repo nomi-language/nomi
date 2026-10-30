@@ -224,7 +224,8 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 
 // innerSourceElem is the element a flat_map result or a flatten element of
 // kind k pushes when k is a source the view reads rather than a List or an
-// Iter: a String, Bytes, a Range, a Set, a Vector, a Map or a user source.
+// Iter: a String, Bytes, a Range, a Set, a Vector, a Maybe, a Map or a user
+// source.
 func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
 	if k == kindString {
 		return kindString, true
@@ -239,6 +240,9 @@ func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
 		return member, true
 	}
 	if elem, ok := vectorElem(k); ok && k != kindEmptyVector {
+		return elem, true
+	}
+	if elem, ok := maybeIterElem(k); ok {
 		return elem, true
 	}
 	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {

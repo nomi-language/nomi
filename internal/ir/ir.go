@@ -19,7 +19,7 @@
 //     Block.Append and Block.SetTerm reject a node whose position is invalid.
 //
 //  3. An assertion's rendered source text is a field on the node:
-//     `Assert.Text`, `Record.Text` and `Try.Text`. `try` carries one because
+//     `Assert.Text`, `Record.Text` and `Try.Text`. `?` carries one because
 //     whoever reports a non-local exit prints where it left from. The
 //     renderer is one function (`format.RenderNode`); which node to render is
 //     the producer's choice, and it is recorded here. See assert.go and

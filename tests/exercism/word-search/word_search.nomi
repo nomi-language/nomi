@@ -1,3 +1,5 @@
+//# Finds words in a grid of letters, in any of eight directions.
+
 /// A letter's place in the puzzle, counted from 1 at the top left.
 pub struct Position {
     column: Int
@@ -37,7 +39,7 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
     |> Iter.with_index()
     |> Iter.flat_map(fn #(row, line) -> Iter.map(0..Vector.length(line), &#(row, &1)))
     |> Iter.flat_map(fn cell -> Iter.map(directions, &#(cell, &1)))
-    |> Iter.find(fn #(cell, step) -> reads?(letters, spelling, cell, step))
+    |> Iter.find(fn #(cell, step) -> reads(letters, spelling, cell, step))
     |> Maybe.map(fn #(#(row, column), #(down, across)) -> {
         #Span{
             start: #{column: column + 1, row: row + 1},
@@ -49,7 +51,7 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
 /// Whether `spelling` reads from the cell at `row` and `column`, stepping
 /// `down` rows and `across` columns between letters, without leaving the
 /// grid.
-fn reads?(
+fn reads(
     letters: Vector<Vector<String>>,
     spelling: List<String>,
     #(row, column): #(Int, Int),
@@ -57,7 +59,7 @@ fn reads?(
 ) -> Bool {
     spelling
     |> Iter.with_index()
-    |> Iter.all?(fn #(i, letter) -> {
+    |> Iter.all(fn #(i, letter) -> {
         letter_at(letters, row + down * i, column + across * i) == Some(letter)
     })
 }

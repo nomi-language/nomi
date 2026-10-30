@@ -11,27 +11,27 @@ fn parse_id(s: String) -> Result<Int, String> {
 }
 
 fn parsed_id(s: String) -> Result<Int, String> {
-    id = s |> try parse_id()
+    id = s |> parse_id()?
 
     Ok(id)
 }
 
 test "head assertions can validate pipeline results" {
     assert "Ada Lovelace"
-        |> String.contains?("Ada")
+        |> String.contains("Ada")
 
     refute "Ada Lovelace"
-        |> String.contains?("Grace")
+        |> String.contains("Grace")
 
     result = testing.check(
         "Ada Lovelace"
-        |> String.contains?("Ada")
+        |> String.contains("Ada")
     )
 
     assert result == Ok(True)
 }
 
-test "keyword-prefixed try unwraps the decorated stage result" {
+test "keyword-prefixed `?` unwraps the decorated stage result" {
     assert parsed_id("42") == Ok(42)
     assert parsed_id("wat") == Err("expected numeric id")
 }
@@ -39,7 +39,7 @@ test "keyword-prefixed try unwraps the decorated stage result" {
 test "keyword-prefixed if branches on the decorated Bool stage" {
     label =
         42
-        |> if Int.equal?(42) { "answer" } else { "other" }
+        |> if Int.equal(42) { "answer" } else { "other" }
 
     assert label == "answer"
 }
@@ -47,7 +47,7 @@ test "keyword-prefixed if branches on the decorated Bool stage" {
 test "keyword-prefixed if can use multiline branches" {
     label =
         "Ada"
-        |> if String.contains?("A") {
+        |> if String.contains("A") {
             "initialed"
         } else {
             "plain"

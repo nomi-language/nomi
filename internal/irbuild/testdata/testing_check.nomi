@@ -7,7 +7,7 @@
 //
 // ONE shape is deliberately ABSENT and is a gap elsewhere, not here:
 // `Debug.inspect` refuses as `qualified call`. `failure.actual == None`,
-// `xs == []` and `Result.ok?` all lower; substitutes stay anyway, and so must
+// `xs == []` and `Result.is_ok` all lower; substitutes stay anyway, and so must
 // this block's LENGTH: pins count it.
 import {
     std/assertions.AssertionBinding
@@ -90,8 +90,8 @@ test "a bound-name subject carries its defining expression" {
 // result the literal inputs are the interesting part.
 test "a predicate subject records its call arguments" {
     body = "created"
-    assert Err(failure) = testing.check(String.contains?(body, "ok"))
-    assert failure.expression == "String.contains?(body, \"ok\")"
+    assert Err(failure) = testing.check(String.contains(body, "ok"))
+    assert failure.expression == "String.contains(body, \"ok\")"
     assert [observed, needle] = failure.values
     assert observed.expression == "body"
     assert observed.value == "\"created\""

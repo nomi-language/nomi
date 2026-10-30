@@ -35,8 +35,8 @@ fn main() {
     inspect(write_text("PATH", "saved"))
     inspect(read_text("PATH"))
     inspect(shape_error_root("Int", Json.Null))
-    print(Result.ok?(check(1 == 1)))
-    print(Result.ok?(verify(1 == 2)))
+    print(Result.is_ok(check(1 == 1)))
+    print(Result.is_ok(verify(1 == 2)))
 }
 `, "PATH", path)
 	got, err := runCaptureProgram(t, src, "")

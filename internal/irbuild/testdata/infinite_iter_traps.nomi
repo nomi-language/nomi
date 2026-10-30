@@ -3,7 +3,7 @@
 // test called and the source that never ends, at the test's own line. A
 // terminal std writes over `Iter.reduce` (`Iter.max`, `Maybe.values`) is
 // named as called, and so is one a program function reaches. A user source
-// that writes `infinite?` lives here rather than in the corpus, whose
+// that writes `is_infinite` lives here rather than in the corpus, whose
 // retained-function probe would drive its endless `each_while`. The checker
 // rejects each of these pipelines written out whole, so each source here
 // reaches its terminal through `hide`.
@@ -22,7 +22,7 @@ impl Iter for Ticks {
         }
     }
 
-    fn infinite?(_t: Ticks) -> Bool {
+    fn is_infinite(_t: Ticks) -> Bool {
         True
     }
 }
@@ -39,9 +39,9 @@ fn collect(xs: Iter<Int>) -> List<Int> {
 }
 
 test "a user source that says it is infinite" {
-    assert Iter.infinite?(#Ticks{n: 0})
-    assert Ticks.infinite?(#Ticks{n: 0})
-    assert #Ticks{n: 0} |> Iter.map(&(&1 * 2)) |> Iter.infinite?()
+    assert Iter.is_infinite(#Ticks{n: 0})
+    assert Ticks.is_infinite(#Ticks{n: 0})
+    assert #Ticks{n: 0} |> Iter.map(&(&1 * 2)) |> Iter.is_infinite()
     assert #Ticks{n: 5} |> Iter.take(2) |> Iter.to_list() == [5, 6]
     assert Iter.find(#Ticks{n: 0}, &(&1 > 3)) == Some(4)
 }

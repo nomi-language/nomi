@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 52
-declared-cases 583
+declared-cases 598
 failing 0
 C assertions
 E 0
@@ -26,19 +26,18 @@ H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
 T ok enum Bool
 C bytes
 E 0
-N 17
-H 067edd418d343e150519e81b0c56e73b6fb5a760a8f9a468ef724078406f79df
+N 16
+H 5e9ef14ee966025cfaf2aaad23d21f895b2d785b47c8a2268f881f9ccdf09645
 T ok Byte.to_int
 T ok Bytes.length
 T ok Bytes.get
-T ok Bytes.at
 T ok Bytes.slice
 T ok Bytes.concat
 T ok Bytes.to_list
 T ok Bytes.from_list
 T ok Bytes.to_string
 T ok Bytes.each_while (impl Iter for Bytes)
-T ok Bytes.contains? (impl Contains for Bytes)
+T ok Bytes.contains (impl Contains for Bytes)
 T ok Bytes.add (impl Add<Bytes, Bytes> for Bytes)
 T ok Bytes.empty_sum (impl Summable for Bytes)
 T ok Bytes.to_string Display (impl Display for Bytes)
@@ -48,12 +47,12 @@ T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
 N 55
-H 2c0093c08834db4d577b053b45ca4c2416a53ac00421056a15092b1dbb01760b
+H fddf52fa8607229d9036151a4fa0985f7c776a0487f050f3d062744e63597e60
 T ok Date.new
 T ok Date.parse
 T ok Date.days_between
 T ok Date.weekday
-T ok Date.leap_year?
+T ok Date.is_leap_year
 T ok Date.days_in_month
 T ok Date.format
 T ok Date.format_fields
@@ -116,14 +115,14 @@ T ok Receiver.receive
 C code_points
 E 0
 N 12
-H 0d7cd92b8368c6742491e4425d3e586e3109ed0bfdcc2de1c0bad9d1eee9e98e
+H b1001ec497b52362cca6c060d1180e4bdb2aaed8c38450155696243913754a21
 T ok Codepoint.to_int
-T ok Codepoint.letter?
-T ok Codepoint.digit?
+T ok Codepoint.is_letter
+T ok Codepoint.is_digit
 T ok Codepoint.to_digit
-T ok Codepoint.whitespace?
-T ok Codepoint.upper?
-T ok Codepoint.lower?
+T ok Codepoint.is_whitespace
+T ok Codepoint.is_upper
+T ok Codepoint.is_lower
 T ok Codepoint.to_string (impl Display for Codepoint)
 T ok Codepoint.inspect (impl Debug for Codepoint)
 T ok Codepoint.next (impl Discrete for Codepoint)
@@ -171,18 +170,18 @@ T ok Context.value
 C currency
 E 0
 N 7
-H 43a2ad540099e1f4ea5edea5aee6848689031c72aa8801fecb9ad1a8fad2d274
+H 18e06365498d2f25d2810a3b3e7ddc232caa0349b1e4c23a9b6509e08fdc2744
 T ok type Currency
 T ok Currency.parse
 T ok Currency.custom
 T ok Currency.code
 T ok Currency.minor_digits
-T ok Currency.iso?
+T ok Currency.is_iso
 T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
 N 23
-H c6d8aa7019d131b7d532d4c241cdc8855386f7aa7df9cc7109f38cb06a8bfda5
+H efd1bb84190840a3ccbb3776c4630e5ae6ce3a61f35992f75377156c599db549
 T ok Decimal.to_int
 T ok Decimal.to_float
 T ok Decimal.divide
@@ -195,7 +194,7 @@ T ok Decimal.scale
 T ok Decimal.abs
 T ok Decimal.negate
 T ok Decimal.sign
-T ok Decimal.zero?
+T ok Decimal.is_zero
 T ok Decimal.min
 T ok Decimal.max
 T ok Decimal.format
@@ -208,8 +207,8 @@ T ok Decimal.empty_product (impl Productable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 C duration
 E 0
-N 22
-H f4b49ebff40a7db31dc4a8070b516fd2b665a05a9573313ba6d52d815bf9e403
+N 24
+H 7c0eb3847feb51e280a20328c399abc87f29f727b7fa37dc92880da320fa3517
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
@@ -225,6 +224,8 @@ T ok Duration.as_hours
 T ok Duration.format
 T ok Duration.clock
 T ok Duration.parse_clock
+T ok Duration.parse
+T ok Duration.from_fragments (impl Literal for Duration)
 T ok Duration.add (impl Add<Duration, Duration> for Duration)
 T ok Duration.empty_sum (impl Summable for Duration)
 T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
@@ -235,15 +236,15 @@ T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
 N 36
-H 079015e3013eceb76bb2e2689ec94d25d19b7270da7736b13da1caa5d3bc7228
+H e37c192160019e37c2c8397b7a48f14c9d08954718a86aa2a9eb58532d749ef4
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
 T ok Float.pi
 T ok Float.e
-T ok Float.nan?
-T ok Float.infinite?
-T ok Float.finite?
+T ok Float.is_nan
+T ok Float.is_infinite
+T ok Float.is_finite
 T ok Float.to_int
 T ok Float.to_decimal
 T ok Float.round
@@ -251,7 +252,7 @@ T ok Float.floor
 T ok Float.ceil
 T ok Float.trunc
 T ok Float.abs
-T ok Float.equal_within?
+T ok Float.equal_within
 T ok Float.sign
 T ok Float.min
 T ok Float.max
@@ -275,7 +276,7 @@ T ok Float.empty_product (impl Productable for Float)
 C fs
 E 0
 N 31
-H a438675eec3acb40f6f33c4f5c2e29fd86c7855644cd491776459b6245ea88fd
+H ee0e710c3e0c93bba03f449e168bd9676f31efb5c1019275c61b4d1d27b61ce0
 T ok enum WriteMode
 T ok fs.read
 T ok fs.read_text
@@ -303,7 +304,7 @@ T ok fs.link_metadata
 T ok fs.create_symlink
 T ok fs.read_link
 T ok fs.set_mode
-T ok fs.exists?
+T ok fs.exists
 T ok fs.temp_dir
 T ok fs.with_temp_dir
 T ok fs.current_dir
@@ -324,22 +325,21 @@ T ok hash.sha256_hex
 C instant
 E 0
 N 9
-H deb5f724ec2546cc1784a608126041fb2cd29b9d4519c3ecb3ed411875a9feb3
+H b30e07c1f9e120a29deb75bfd7e54fcd958a1f0bf206758bb746fe78e757bc78
 T ok Instant.from_seconds
 T ok Instant.to_seconds
 T ok Instant.from_nanos
 T ok Instant.as_nanos
 T ok Instant.between
-T ok Instant.before?
+T ok Instant.is_before
 T ok Instant.add (impl Add<Duration, Instant> for Instant)
 T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Instant> for Instant)
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 36
-H 7c94086232d7dbab36814e8643d2e0ca41d307a54f8a6df3c6d4aa31b94e26b9
-T ok Int.max_value
-T ok Int.min_value
+N 35
+H 62528502384133d2a6af36dcad0629c273530703b8eb07ca7b12b37e8b3ac6d7
+T ok type Int
 T ok Int.to_non_zero
 T ok Int.to_positive
 T ok Int.to_float
@@ -405,23 +405,23 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 54
-H c3198a0828caa7e33dc5b876a3c226b501683a4c4926d42ab45cf597acf6caf4
+N 55
+H 5d7e655fbf2b2de0d669fa5bcdbfb9e31a2c8316e7b1b2e35156a39dbd5eeb53
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
 T ok Iter.map_reduce
 T ok Iter.find
+T ok Iter.find_map
 T ok Iter.find_index
 T ok Iter.sort_with
 T ok Iter.sort
 T ok Iter.sort_by
 T ok Iter.each
-T ok Iter.any?
-T ok Iter.contains?
-T ok Iter.all?
-T ok Iter.empty?
-T ok Iter.not_empty?
+T ok Iter.any
+T ok Iter.contains
+T ok Iter.all
+T ok Iter.is_empty
 T ok Iter.first
 T ok Iter.last
 T ok Iter.get
@@ -435,6 +435,7 @@ T ok Iter.with_index
 T ok Iter.take
 T ok Iter.cycle
 T ok Iter.concat
+T ok Iter.intersperse
 T ok Iter.zip
 T ok Iter.take_while
 T ok Iter.map
@@ -463,24 +464,26 @@ T ok Iter.sum
 T ok Iter.product
 C json
 E 0
-N 3
-H c06ad0e100905842abdce7fd97a35978c7bb297bc0022b768109d4cff243498d
+N 5
+H b0f9b7cab9e76fde69b38305ff374ecb2363ad06c7a3f1c6aff1d1d0d237b3db
 T ok Json.decode
 T ok Json.encode
 T ok Json.to_dynamic
+T ok Json.decode_as
+T ok Json.encode_as
 C lists
 E 0
 N 10
-H 7f65d4e264552fe7e722e7910d344aae5dad813769601a2ff3207f0e603fa351
+H d538c14eb253d083c5d0f4b4849a93bc631064b418ab0fe819788ef51d009af4
 T ok List.next_item
 T ok List.concat
 T ok List.head
 T ok List.tail
 T ok List.remove_at
 T ok List.remove
-T ok List.starts_with?
-T ok List.ends_with?
-T ok List.contains? (impl Contains for List<T>)
+T ok List.starts_with
+T ok List.ends_with
+T ok List.contains (impl Contains for List<T>)
 T ok List.empty_sum (impl Summable for List<T>)
 C locale
 E 0
@@ -508,20 +511,21 @@ T ok enum NumberParseError
 T ok NumberParseError.to_string (impl Display for NumberParseError)
 C maps
 E 0
-N 14
-H 359b523f6b915efdf47c792599ffb26f408f4fef10382e0d74ecf22458d143e4
+N 15
+H 7d803e79be33b8a16cae7a6ee9921cb5ec0118c94372e8b7342684eedb24cb18
 T ok Map.get
-T ok Map.at
 T ok Map.put
 T ok Map.remove
 T ok Map.merge
+T ok Map.merge_with
+T ok Map.update
 T ok Map.map_next
 T ok Map.size
 T ok Map.keys
 T ok Map.values
 T ok Map.map_values
 T ok Map.map_keys
-T ok Map.contains? (impl Contains for Map<K, V>)
+T ok Map.contains (impl Contains for Map<K, V>)
 T ok Map.add (impl Add<Map<K, V>, Map<K, V>> for Map<K, V>)
 T ok Map.empty_sum (impl Summable for Map<K, V>)
 C matcher
@@ -531,21 +535,22 @@ H 90184696d8d380b04e0ccff629ad1df93c1ddaca7d61ee18d9d2f1d7931c48aa
 T ok interface Matcher
 C maybe
 E 0
-N 9
-H fafdc048127cf3b6aace5f2642b97340c2e94e68c6f82a81b162206f2c68a4d8
+N 10
+H 5dbbf504d1e78dce1761d0196a79c8c91cb85348d8cf18bab76ee395ce7438e6
 T ok enum Maybe
-T ok Maybe.some?
-T ok Maybe.none?
+T ok Maybe.is_some
+T ok Maybe.is_none
 T ok Maybe.map
 T ok Maybe.with_default
 T ok Maybe.to_result
 T ok Maybe.flat_map
 T ok Maybe.collect
 T ok Maybe.values
+T ok Maybe.each_while (impl Iter for Maybe<T>)
 C money
 E 0
 N 18
-H 9038cb4d9b88fc3c1c3d37b8fbae0a03399036d87d69187b4ddded9b38e1b966
+H 814942cba668504252f8b05a52a500ce6111c4430349d64dd63708be536bf4bc
 T ok struct Money
 T ok Money.format
 T ok Money.round
@@ -553,7 +558,7 @@ T ok Money.multiply_by
 T ok Money.abs
 T ok Money.negate
 T ok Money.sign
-T ok Money.zero?
+T ok Money.is_zero
 T ok Money.min
 T ok Money.max
 T ok Money.parse_in
@@ -567,17 +572,17 @@ T ok Error.to_string (impl Display for Error)
 C path
 E 0
 N 10
-H b908d89dcc209670c9e8e57159763836d5eb0299cabfcfa1308a7dabbb640cb2
+H 57c1770e1de5dc6715c77e256fe504f69bbcd68b182fb0769db6bf6ed17e03c8
 T ok path.join
 T ok path.join_all
 T ok path.clean
-T ok path.absolute?
+T ok path.is_absolute
 T ok path.parent
 T ok path.base
 T ok path.extension
 T ok path.stem
 T ok path.relative
-T ok path.match?
+T ok path.matches
 C plural
 E 0
 N 5
@@ -615,12 +620,12 @@ T ok Generator.list
 C ranges
 E 0
 N 5
-H 9b978ec0d04e95364f1a59fab9d3e0c93188018df94f946feb5210a8398de35a
+H e02e00b53deb89a471c72344bcaa5e1526f372b46e2e32dc584fa6727ba28efc
 T ok Range.from
 T ok Range.naturals
 T ok Range.step_by
-T ok Range.bounded?
-T ok Range.contains? (impl Contains for Range<T>)
+T ok Range.is_bounded
+T ok Range.contains (impl Contains for Range<T>)
 C regex
 E 0
 N 5
@@ -633,10 +638,10 @@ T ok Regex.inspect (impl Debug for Regex)
 C results
 E 0
 N 10
-H 1a97ff7bc35f35d4d9becb6aea8069a4a607591546fe5e2910d05e817e289026
+H 8313988f80a4dd4c580ab83814fa4cfefd7714fd8bb55fdb836cfba38c547e84
 T ok enum Result
-T ok Result.ok?
-T ok Result.err?
+T ok Result.is_ok
+T ok Result.is_err
 T ok Result.map
 T ok Result.with_default
 T ok Result.flat_map
@@ -652,25 +657,28 @@ T ok struct Reverse
 C sets
 E 0
 N 11
-H 1d187e89ab14db45af0ce4b458be0618c0c684c84da7ec714477121ffbfeffb7
+H b196d351d7b4a5e157f3dacbb013d0dfc3d07b353c94b45a8cdc49bb603ac1e7
 T ok Set.insert
 T ok Set.remove
 T ok Set.size
 T ok Set.union
 T ok Set.intersection
 T ok Set.difference
-T ok Set.subset?
-T ok Set.contains? (impl Contains for Set<T>)
+T ok Set.is_subset
+T ok Set.contains (impl Contains for Set<T>)
 T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C sql
 E 0
-N 17
-H 580dc31b45776f1612efb00e8fbd661d98d23eb6a48cf704a778571f5d3eeb42
+N 20
+H a7c50742e49d86ec5a3f2272d1c10a7833c6e52af309c92c6954336cb02fb44b
 T ok struct Statement
 T ok Statement.join
+T ok Statement.list
 T ok Statement.values
+T ok Statement.all
+T ok Statement.any
 T ok Statement.where_all
 T ok Statement.where_any
 T ok Sql.from_fragments (impl Literal for Sql)
@@ -688,27 +696,35 @@ T ok sql.close_quietly
 C sql_testing
 E 0
 N 6
-H f074506ac4094c3a4439aff397339c7fa247b2d5db4a5350a11a61061cff628b
+H 5b64721d49411552f149e8c0e880ddb59a077f062e88b99d56cb43b45ed7403c
 T ok struct Fake
 T ok Fake.new
 T ok Fake.committed
-T ok Fake.closed?
+T ok Fake.is_closed
 T ok sql_testing.conformance
 T ok sql_testing.rules
 C strings
 E 0
-N 40
-H 2925088b12f7a6880a1f7873774c3103341063ab57a5c6555130049187f17604
-T ok String.contains? Contains<String> (impl Contains<String> for String)
-T ok String.contains? Contains<Regex> (impl Contains<Regex> for String)
-T ok String.contains? Contains<Codepoint> (impl Contains<Codepoint> for String)
-T ok String.starts_with?
-T ok String.ends_with?
-T ok String.to_upper
-T ok String.to_lower
-T ok String.to_upper_in
-T ok String.to_lower_in
+N 48
+H d1544ea0be8c44697cf1e036d328761d80c5e47e363f6f87ab14053feeda2d5b
+T ok String.contains Contains<String> (impl Contains<String> for String)
+T ok String.contains Contains<Regex> (impl Contains<Regex> for String)
+T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
+T ok String.starts_with
+T ok String.ends_with
+T ok String.uppercase
+T ok String.lowercase
+T ok String.is_upper
+T ok String.is_lower
+T ok String.capitalize
+T ok String.uppercase_in
+T ok String.lowercase_in
+T ok String.capitalize_in
 T ok String.fold_case
+T ok String.snake_case
+T ok String.kebab_case
+T ok String.pascal_case
+T ok String.camel_case
 T ok String.replace
 T ok String.repeat
 T ok String.reverse
@@ -793,15 +809,14 @@ H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
 T ok interface Variants
 C vectors
 E 0
-N 10
-H fb7cc37d93199c951548ab3d88dbc4e18c899650e7c7743e8cc2e3a168eeed53
+N 9
+H 8e4970d72db73c14fb46503d5eecf4224cd5ff57ef061717a8b6b4899626cb85
 T ok Vector.length
 T ok Vector.get
-T ok Vector.at
 T ok Vector.push
 T ok Vector.set
 T ok Vector.concat
 T ok Vector.next_item
-T ok Vector.contains? (impl Contains for Vector<T>)
+T ok Vector.contains (impl Contains for Vector<T>)
 T ok Vector.add (impl Add<Vector<T>, Vector<T>> for Vector<T>)
 T ok Vector.empty_sum (impl Summable for Vector<T>)

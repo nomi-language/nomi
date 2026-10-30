@@ -4,7 +4,7 @@ description: "Put a type name in front of a string, and that type's code turns t
 ---
 
 A typed literal is a type name followed by a string, such as
-`Date"2026-06-15"` from [Dates & Times](/dates-and-times/). The type's own
+``Date`2026-06-15` `` from [Dates & Times](/dates-and-times/). The type's own
 code turns the string into a value. This is ordinary Nomi code, and you can
 write it for your own types.
 
@@ -121,7 +121,7 @@ runs it while it checks your program. `Regex` from `std/regex` is one such
 type:
 
 - If it returns `Ok(v)`, the literal is the value itself. `` Regex`\d+` `` is
-  a `Regex`, not a `Result`. It needs no `try`, and you can use it anywhere,
+  a `Regex`, not a `Result`. It needs no `?`, and you can use it anywhere,
   including in a top-level `once`.
 - If it returns `Err(e)`, the literal is a compile error with that error's
   message. `nomi check`, `nomi run` and your editor all report
@@ -130,7 +130,7 @@ type:
 
 A double-quoted literal is built when the program runs, so it stays a
 `Result`, with or without `${...}`. Use it when the pattern comes from a
-value, and unwrap it with `try` or `case`:
+value, and unwrap it with `?` or `case`:
 
 ```nomi-run
 import std/regex.Regex
@@ -139,7 +139,7 @@ once digits = Regex`\d+`
 
 fn main() -> Result<Unit, String> {
     word = "floor"
-    floor = try Regex"${word} \\d+"
+    floor = Regex"${word} \\d+"?
     text = "room 42, floor 7"
 
     dbg String.find_all(text, digits)

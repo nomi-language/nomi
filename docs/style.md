@@ -27,15 +27,29 @@ s
 |> Iter.to_set()
 ```
 
+A constructor is a function call like any other, so a constructor whose
+argument is another call is a nested call too:
+
+```nomi
+// no
+MeteredReader.new(Reader.from_text("hello"))
+
+// yes
+"hello" |> Reader.from_text() |> MeteredReader.new()
+```
+
+The same goes for `Seed.from_int(42) |> Factory.new()` and
+`Reactor.new() |> Reactor.input("input", 1)`.
+
 **Every stage is a call.** The pipe passes its value as the first argument
 of the call after `|>`, so a stage keeps its parentheses even when nothing
 else goes in them: `|> Iter.to_list()`, `|> io.print()`, `|> Ok()`. A name
 without parentheses is a function reference, as it is in
 `Iter.map(xs, io.print)`, so `x |> io.print` is a compile error that names
 the call to write. The exceptions are the keyword stages (`|> dbg`,
-`|> try`, `|> if`, `|> case`, `|> todo`), `|> then fn v -> ...`, which
-applies a lambda to the value, and `|> tap fn v -> ...`, which runs one on the
-value and passes it on. Reach for `then` for a small step no named function
+`|> if`, `|> case`, `|> todo`), `|> then fn v -> ...`, which applies a
+lambda to the value, and `|> tap fn v -> ...`, which runs one on the value
+and passes it on. A `?` after a stage, `|> parse()?`, is part of that stage. Reach for `then` for a small step no named function
 covers; once the step has a name worth giving, write the function and call
 it.
 
@@ -107,15 +121,27 @@ Iter.to_set([1, 2, 3])
   `Iter.count(s)`. A lone call is never a pipe.
 - A composite literal also stays direct when there is only one operation and
   the call is the whole expression: `Iter.reduce([1, 2, 3], fn acc = 0, n -> acc + n)`.
-- An incidental, non-subject argument stays nested:
-  `Map.put(m, k, compute(v))`. `compute(v)` is a value being stored, not the
-  pipeline subject. Reach for `|> then &f(a, &1)` only when the nested call
-  is the subject and its value goes elsewhere than the first argument.
+- A nested call that is not the first argument stays nested:
+  `Map.put(m, k, compute(v))`, `Cipher.decode(cipher, Cipher.encode(cipher, plaintext))`.
+  `compute(v)` is a value being stored, not the pipeline subject. Reach for
+  `|> then &f(a, &1)` only when the nested call is the subject and its value
+  goes elsewhere than the first argument.
+- A recursive call with several arguments may keep a nested first argument
+  too, so that its arguments line up with the parameters they replace:
+  `search(Iter.to_list(next), Set.union(seen, next), moves + 1, sizes, goal)`.
+- A short nested call inside a literal stays nested:
+  `#(Reverse.of(Standing.points(s)), s.team)`, not
+  `#(Standing.points(s) |> Reverse.of(), s.team)`. A pipe reads well as a
+  literal's whole field value, not as one short element among others.
 
 **Operators and fields:**
 
 - A `|>` chain can feed equality or ordering directly:
   `xs |> Iter.to_list() == [1, 2, 3]`.
+- A `|>` chain can be an operand of `and` or `or` directly:
+  `Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any(&(&1 == run))`.
+  Don't bind it first: a binding runs the chain even when the other operand
+  already decides the answer, and the operator would not.
 - For arithmetic, concatenation and other expression-building operators, bind
   the pipeline first (`inner = xs |> Iter.map(Int.to_string) |> Iter.to_list()`),
   then build the expression from the binding.
@@ -168,7 +194,7 @@ s = %[1, 2, 3]
 
 Set.size(s) |> io.print() // expect: 3
 
-Set.contains?(s, 2) |> io.print() // expect: True
+Set.contains(s, 2) |> io.print() // expect: True
 
 s
 |> Iter.map(fn x -> x * 2)
@@ -176,8 +202,15 @@ s
 |> io.print() // expect: [2, 4, 6]
 ```
 
-A short `if`/`else` whose branches are single expressions collapses to one line
-when it fits.
+A guard, an `if` with no `else` whose block is one statement
+(`if n < 0 { return 0 }`), goes on one line when the whole statement fits the
+100 columns at its indent, and so does a binding `else` whose block is one
+statement (`Some(n) = String.to_int(word) else { return None }`). A run of
+guards then stays a run of one-line statements. `fmt` measures the line as it
+writes it, so the same guard may break inside a deeper block. An `if`/`else`
+whose branches are single expressions goes on one line only when it is at
+most 50 columns. In each case `fmt`
+joins one written across lines when it fits, and breaks one that does not.
 
 `fmt` lays out the arms of a `case` together, in one of two ways. When every
 arm fits on one line as `pattern -> body` and no arm's body is a block, the
@@ -300,7 +333,7 @@ declarations (`Days`, `Months`).
 
 This is a house style. Keep a different order when the local narrative is
 clearer, for example a tiny helper type right next to the one function that
-builds it.
+builds it, or a `once` right above the one function that reads it.
 
 Attached tests (`//!`) stay with the declaration they exercise, even if that
 means a test appears before later functions. The ordering rule is for
@@ -353,14 +386,16 @@ type: `Int.to_float`, `Int.to_decimal`, `Float.to_int`, `String.to_int`,
 `String.to_decimal`, `Int.to_codepoint`. `from_` is for building a value out
 of its units, an encoding or a collection, on the type it builds:
 `Instant.from_seconds`, `Uuid.from_bytes`, `Int.from_digits`,
-`String.from_codepoints`, `Bytes.from_list`.
+`String.from_codepoints`, `Bytes.from_list`. A function that answers a
+value of the type it takes is named for what it does, with no `to_`:
+`String.trim`, `String.uppercase`, `String.fold_case`, `String.snake_case`.
 
 A function that reads or changes text by a locale's conventions ends in
 `_in` when its name without the suffix is, or would be, the same operation
 by no locale's conventions: `Date.parse` reads ISO 8601 (`2024-03-15`) and
 `Date.parse_in` a reader's (`15.03.24` in `de`), and `Int.parse_in` is to
-`String.to_int` what `Date.parse_in` is to `Date.parse`; `String.to_upper`
-is Unicode's default casing and `String.to_upper_in` the locale's;
+`String.to_int` what `Date.parse_in` is to `Date.parse`; `String.uppercase`
+is Unicode's default casing and `String.uppercase_in` the locale's;
 `Money.parse_in` reads what `Money.format` writes, beside the `12.50 EUR`
 its `Display` writes. A function that only means something in a locale
 takes one with no suffix: every `format` and `format_*` (a value's text in
@@ -371,10 +406,11 @@ before the options: `Decimal.parse_in(text, locale, lenient: True)`,
 `TimeUnit.format_relative(3, locale, TimeUnit.Day)`. Std follows the rule,
 and a library that formats for a reader should too.
 
-Boolean-returning functions and predicate bindings may end in `?`, in the
-Ruby/Scheme idiom: `empty?`, `valid?`, `Set.contains?`, `String.contains?`. `?` is
-the only such marker; there is no `!` form. Reach for it when the name reads as
-a yes/no question about its subject; a plain snake_case name is equally fine.
+Name a function, binding or field that answers a `Bool` for what it asks. A
+state or an adjective takes `is_` or `has_`: `is_empty`, `is_valid`,
+`is_leap_year`, `has_children`. A verb stays bare: `Set.contains`,
+`String.starts_with`, `Iter.any`, `path.matches`. A `?` after an expression
+propagates a failure (§16), so it is no part of a name.
 
 ## 5. No `let`
 
@@ -455,8 +491,10 @@ the function is declared:
   (`Int.to_string(n)`), interface-qualified (`Display.to_string(x)`) or through
   a bounded type parameter (`T.to_string(x)`). Use the interface qualifier when
   the contract is the useful thing to name, or when two interfaces share a
-  function name on the same type. Bare dispatch (`to_string(n)`) and
-  file-qualified dispatch (`int.to_string(n)`) are errors.
+  function name on the same type. When the value's type is known, call
+  through the type: `Date.year(on)`, not `DateParts.year(on)`. Bare dispatch
+  (`to_string(n)`) and file-qualified dispatch (`int.to_string(n)`) are
+  errors.
 
 Inside an `impl` block, a sibling function of the same block may be called
 bare:
@@ -554,7 +592,8 @@ such as how to implement an interface (`Iter`'s doc comment shows a custom
 assertion can show the point.
 
 Describe a whole file with `//#` lines at its top, in every file, not only in
-`std/`. A plain `//` comment directly above the first declaration reads as
+`std/`. A test file may leave it out: its name says which file it tests, and
+its tests' names say what they check. A plain `//` comment directly above the first declaration reads as
 that declaration's comment, and `nomi fmt` keeps the two together; `//#`
 attaches to nothing, so it stays the file's.
 
@@ -663,7 +702,7 @@ test "leap years" {
     ]
 
     subtests cases, #(description, year, expected), description {
-        assert leap_year?(year) == expected
+        assert is_leap_year(year) == expected
     }
 }
 ```
@@ -671,6 +710,22 @@ test "leap years" {
 Name rows with a column rather than a string built from the other columns
 when the table already carries one, and leave the name out when the rendered
 row says enough.
+
+When the table's type needs one variant or struct name to settle, write the
+name in the first row that needs it and leave the other rows bare, rather
+than annotating the table:
+
+```nomi
+cases = [
+    #("single bit one to decimal", 2, [1], 10, Ok([1])),
+    #("input base is one", 1, [0], 10, Err(Error.InvalidInputBase)),
+    #("input base is zero", 0, [], 10, Err(.InvalidInputBase)),
+    #("negative digit", 2, [1, -1, 1, 0, 1, 0], 10, Err(.InvalidDigit)),
+]
+```
+
+Annotate the table when a column is an anonymous struct, which has no name
+to write, or when several columns would each need a name.
 
 Write separate tests instead when the rows need different setup or different
 assertions: a `subtests` body that branches on its row is several tests in
@@ -744,29 +799,29 @@ assert found == Some(3)
 
 For one-shot checks where a binding would only name the plumbing, let the
 pipeline compute the assertion subject and put `assert` or `refute` at the
-head. Prefer an existing predicate or equality function (`String.contains?`,
-`String.equal?`, `Result.ok?`) over a throwaway lambda. When a predicate has
-semantic weight or several conditions, give it a `?`-suffixed name and assert
-that instead; keep `then` stages for tiny local transformations. Indent the
+head. Prefer an existing predicate or equality function (`String.contains`,
+`String.equal`, `Result.is_ok`) over a throwaway lambda. When a predicate has
+semantic weight or several conditions, give it a predicate's name (§4) and
+assert that instead; keep `then` stages for tiny local transformations. Indent the
 stages under the asserted operand, which distinguishes it from a statement-level
 pipeline:
 
 ```nomi
 assert "  ADA LOVELACE  "
     |> String.trim()
-    |> String.to_lower()
-    |> String.equal?("ada lovelace")
+    |> String.lowercase()
+    |> String.equal("ada lovelace")
 
 assert values
     |> Iter.map(normalize)
-    |> Iter.all?(valid?)
+    |> Iter.all(is_valid)
 ```
 
 **A boot's error is the error of what it calls.** A boot returns
 `Result<App, E>`. When its steps fail with one error type, such as a
-database's `sql.Error`, make that `E` and `try` each step. A boot whose steps
-fail with different types converts them at each `try` with `Result.map_err`
-to a type of its own. A boot that cannot fail says `Result<App, String>` and
+database's `sql.Error`, make that `E` and end each step with `?`. A boot whose
+steps fail with different types converts them before each `?` with
+`Result.map_err` to a type of its own. A boot that cannot fail says `Result<App, String>` and
 returns `Ok(...)`.
 
 **Boot with no startup input when the tests need none.** A boot that reads no
@@ -866,7 +921,7 @@ test "missing members are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "type 'List' has no member 'empty'")
+    assert test_helpers.has_diagnostic(diagnostics, "type 'List' has no member 'empty'")
 }
 ```
 
@@ -1047,20 +1102,32 @@ command =
 Do not use `tap` to hide work that computes something: if the lambda's result
 matters, it is a `then` stage or a named function.
 
-**Keyword stages.** `try` can prefix the fallible stage it unwraps:
+**End a fallible stage with `?`.** Write the `?` right after the stage whose
+failure it passes up, so each stage reads as one step:
 
 ```nomi
-user =
-    id
-    |> try User.get()
+order =
+    text
+    |> parse()?
+    |> validate()?
 ```
 
-`if` and `case` can consume a piped value directly, or prefix the stage that
-produces their subject:
+When a `then` lambda's result is what can fail, write `then?`. A `?` at the
+end of the lambda's body exits the lambda, not the function:
+
+```nomi
+port =
+    text
+    |> String.trim()
+    |> then? fn t -> parse_port(t, config)
+```
+
+**Keyword stages.** `if` and `case` can consume a piped value directly, or
+prefix the stage that produces their subject:
 
 ```nomi
 status
-|> if Status.ready?() { "ready" } else { "blocked" }
+|> if Status.is_ready() { "go" } else { "wait" }
 
 input
 |> case parse_id() {
@@ -1078,14 +1145,14 @@ suffixed names:
 // no: invented ladder
 fn normalize(name: String) -> String {
     name_trimmed = String.trim(name)
-    name_lower = String.to_lower(name_trimmed)
+    name_lower = String.lowercase(name_trimmed)
     name_lower
 }
 
 // yes: thread the binding
 fn normalize(name: String) -> String {
     name = String.trim(name)
-    name = String.to_lower(name)
+    name = String.lowercase(name)
     name
 }
 ```
@@ -1118,15 +1185,15 @@ assert parse_id("42")
 
 assert Err(message) = parse_id("wat")
 
-assert String.contains?(message, "numeric")
+assert String.contains(message, "numeric")
 ```
 
-Inside tests, use `try` for fallible setup when the happy-path value is what
+Inside tests, use `?` for fallible setup when the happy-path value is what
 the rest of the test needs. Use a pattern assertion when the returned shape is
 itself under test:
 
 ```nomi
-t = try Time.parse("09:30:00")
+t = Time.parse("09:30:00")?
 
 assert Time.to_string(t) == "09:30:00"
 
@@ -1142,14 +1209,14 @@ without a zone, not a moment in history.
 
 ```nomi
 // yes: a real moment, anchored
-appointment = try DateTime"2026-06-15T14:30:00-04:00[America/New_York]"
+appointment = DateTime`2026-06-15T14:30:00-04:00[America/New_York]`
 
 // only for wall time without a zone, which is rare
-template_time = try NaiveDateTime"2026-06-15T14:30:00"
+template_time = NaiveDateTime`2026-06-15T14:30:00`
 ```
 
-If you find yourself writing `NaiveDateTime"…"`, check whether you want a
-`DateTime"…"` with a zone. The naive type fits recurring schedule templates,
+If you find yourself writing a `NaiveDateTime` literal, check whether you want a
+`DateTime` with a zone. The naive type fits recurring schedule templates,
 form input before zone resolution, and naturally zone-less data such as
 birthdays. It does not fit "the meeting is at 2:30pm": meetings happen in time
 zones.
@@ -1200,7 +1267,7 @@ struct Span<T> where T: Comparable {
 }
 
 impl Span<T> {
-    fn longer?(a: Span<T>, b: Span<T>) -> Bool {
+    fn is_longer(a: Span<T>, b: Span<T>) -> Bool {
         a.stop > b.stop
     }
 }
@@ -1303,11 +1370,15 @@ helper returns.
 
 ## 16. Pick the tool by what happens on failure
 
-Four constructs take a value apart when it might not have the shape you want.
+Five constructs take a value apart when it might not have the shape you want.
 Choose by what the failure path does:
 
-- **`try`** passes the error up unchanged. Use it when the caller should see
-  this step's error as it is.
+- **`?`** passes the error up unchanged. Use it when the function returns a
+  `Result` or a `Maybe` and the caller should handle this step's failure as
+  it is. In a pipe, write it after the stage: `text |> parse()? |>
+  validate()?`.
+- **`!`** traps. Use it when a failure would be a bug, not something to
+  handle (§28).
 - **A binding `else`** (`Pattern = value else { ... }`) handles or replaces
   one step's failure in place: it returns a different error, skips a loop
   item, or supplies a fallback, and the success path continues unindented.
@@ -1316,8 +1387,8 @@ Choose by what the failure path does:
   miss does nothing.
 
 ```nomi
-// try: the caller gets load's error as it is
-user = try load(id)
+// ?: the caller gets load's error as it is
+user = load(id)?
 
 // else: the error is replaced with one that says which user
 Ok(user) = load(id) else {
@@ -1345,28 +1416,26 @@ if Some(email) = user.email { send(email) }
 ```
 
 Prefer a binding `else` to a `case` whose failure arm only leaves: the
-`case` would nest the whole success path one level in. Prefer `try` to an
+`case` would nest the whole success path one level in. Prefer `?` to an
 `else` whose arm returns the same error unchanged
 (`Err(e) -> return Err(e)`).
 
 To turn a missing value into an error, use a binding `else` when the value
-is bound for the lines that follow, and `Maybe.to_result` then `try` when the
-lookup is one stage of a pipe. Name the variant with its enum in
+is bound for the lines that follow, and `Maybe.to_result` with a `?` after it
+when the lookup is one stage of a pipe. Name the variant with its enum in
 `to_result`: nothing at that position fixes the error type, so `.NotFound`
 alone cannot be resolved there.
 
 ```nomi
 // bound for later lines
-Some(user) = Map.get(users, id) else {
-    return Err(.NotFound)
-}
+Some(user) = Map.get(users, id) else { return Err(.NotFound) }
 
 // one stage of a pipe
 count =
     word
     |> String.trim()
     |> String.to_int()
-    |> try Maybe.to_result(Error.NotANumber)
+    |> Maybe.to_result(Error.NotANumber)?
 ```
 
 ## 17. Leave out a struct literal's type name where the context names it
@@ -1424,11 +1493,11 @@ when the field gets a whole new value.
 A codepoint literal (`'a'`) is a `Codepoint`, not a character of text. Reach
 for it when the code works at the codepoint level: enumerating ASCII
 (`'a'..='z'`), scanning `String.to_codepoints` output, or matching delimiters
-in a `case`. Write `'a'` rather than `try Int.to_codepoint(97)`: the literal
+in a `case`. Write `'a'` rather than `Int.to_codepoint(97)?`: the literal
 is infallible and says which character it is.
 
 ```nomi
-fn delimiter?(cp: Codepoint) -> Bool {
+fn is_delimiter(cp: Codepoint) -> Bool {
     case cp {
         ',' -> True
         ';' -> True
@@ -1438,7 +1507,7 @@ fn delimiter?(cp: Codepoint) -> Bool {
 }
 ```
 
-Keep text in strings, a one-character one included: `String.starts_with?(s,
+Keep text in strings, a one-character one included: `String.starts_with(s,
 "#")`, not a comparison against `'#'`, and `"é"`, which has no codepoint
 literal at all. Converting back and forth (`Codepoint.to_string('a')`) is a
 sign the value wanted to be a string.
@@ -1478,9 +1547,20 @@ cities = users |> Iter.map(.address.city) |> Iter.to_list()
 ```
 
 Keep the lambda when its body does more than read fields: a computation
-(`fn u -> u.age + 1`), a call (`fn u -> String.to_upper(u.name)`), or a condition
+(`fn u -> u.age + 1`), a call (`fn u -> String.uppercase(u.name)`), or a condition
 (`fn u -> u.age > 18`). Don't pipe into an accessor; read the field from the
 value: `user.name`, not `user |> .name`, which is an error.
+
+A tuple's elements are read the same way, `.0` and `.1`, when the tuple was
+built a line or two above, where the reader can see what each part is:
+
+```nomi
+message |> Iter.zip(zigzag(rails)) |> Iter.sort_by(.1) |> Iter.map(.0)
+```
+
+When the tuple was built far from where it is read, such as in another
+function or a `once`, take it apart in the lambda instead, so the names say
+what the parts are: `Iter.map(roster, fn #(name, _grade) -> name)`.
 
 ## 22. Pass a constructor, not `fn x -> Some(x)`
 
@@ -1619,7 +1699,8 @@ total = Iter.reduce(orders, add_order, from: 0)
 ```
 
 not `Iter.reduce(orders, fn total = 0, o -> add_order(total, o))`, a lambda
-that only passes its parameters on. `Iter.loop` takes a named step the same
+that only passes its parameters on. A capture is passed the same way, with
+`from:`: `Iter.reduce(counts, &Map.merge_with(&1, &2, Int.add), from: %{})`. `Iter.loop` takes a named step the same
 way, `Iter.loop(step, from: start)`.
 
 ## 28. Return `Maybe` for data, trap for a broken promise
@@ -1637,8 +1718,9 @@ could have known (spec §17, *Traps, `Maybe` and `Result`*):
 - Give every trapping function a total way around it: a sibling that returns
   `Maybe`, or a cheap check the caller can run first.
 
-Name the pair by the convention std uses: `get` returns a `Maybe`, and `at`
-returns the value and traps when the position does not exist.
+Write the function once, returning a `Maybe` or a `Result`, as std's `get`
+does. A caller that knows the call cannot fail writes a postfix `!` after it,
+`Vector.get(v, i)!`, which answers the value and traps when the call fails.
 
 ```nomi
 // the index comes from data: the miss is an answer
@@ -1648,7 +1730,7 @@ case Vector.get(row, column) {
 }
 
 // the index is within bounds by construction: a miss is a bug
-middle = Vector.at(sorted, Vector.length(sorted) / 2)
+middle = Vector.get(sorted, Vector.length(sorted) / 2)!
 ```
 
 Don't return a `Maybe` whose `None` every caller must unwrap with an
@@ -1656,10 +1738,21 @@ Don't return a `Maybe` whose `None` every caller must unwrap with an
 report at its line. Don't trap on data from outside the program either; a
 missing key in a config file is something to report, not a crash.
 
-When a `Maybe` or a `case` arm can only miss because of a bug in your own
-code, and no `at`-style function already states the promise, write
-`unreachable` with the invariant as its reason. A made-up default would hide
-the bug instead:
+Use `!` when a failure would be a bug and the expression itself explains
+it: constant arguments (`Date.new(2024, 1, 1)!`), a key taken from the map
+itself, an index the code computed in range, input already validated. Its
+trap quotes the expression and shows the error, so the reader of the trap
+needs nothing more:
+
+```nomi
+fn first_of_january(year: Int) -> Date {
+    Date.new(year, 1, 1)!
+}
+```
+
+When a `Maybe` or a `case` arm can only miss because of an invariant the
+reader cannot see from the call, write a binding `else` with `unreachable` and
+the invariant as its reason. A made-up default would hide the bug instead:
 
 ```nomi
 // every student is in Student.variants(), so the search cannot miss
@@ -1674,15 +1767,16 @@ fn position(student: Student) -> Int {
 `Maybe.with_default(0)` in its place answers 0 for a student someone forgot
 to list, and nothing flags it. The reason is the claim a reader checks, so
 state the invariant, not the symptom: "every student is listed", not "not
-found". Never use it for data from outside the program: an `unreachable`
-after parsing a line of input claims something the program does not
-control.
+found". Never use either for data from outside the program: an
+`unreachable` or a `!` after parsing a line of input claims something the
+program does not control, and a failure that can really happen is a `Maybe`
+or a `Result` to handle.
 
 ## 29. Take a vector apart with a pattern when its shape decides
 
 When the code branches on a vector's length or reads its first or last
 elements, match it with a vector pattern instead of `Vector.length` and
-`Vector.at`. The pattern says which shapes the code handles, and the
+`Vector.get(...)!`. The pattern says which shapes the code handles, and the
 compiler checks that it handles them all:
 
 ```nomi
@@ -1695,31 +1789,36 @@ fn describe(v: Vector<Int>) -> String {
 }
 ```
 
-Keep `Vector.at` and `Vector.get` for an index that comes from arithmetic,
+Keep `Vector.get(...)!` and `Vector.get` for an index that comes from arithmetic,
 such as a grid's row and column. A set pattern tests membership, so reach
 for one when an arm needs several elements present at once
 (`%["admin", "owner", ..]`) or binds the rest; to test one element,
-`Set.contains?` is shorter.
+`Set.contains` is shorter.
 
-## 30. Test membership with `contains?`
+## 30. Test membership with `contains`
 
-Every collection answers membership with `contains?`: `Set.contains?`,
-`Map.contains?` (a key), `Range.contains?`, `List.contains?`,
-`Vector.contains?`, `Bytes.contains?`, `String.contains?` and, for any
-iterable, `Iter.contains?`.
+Every collection answers membership with `contains`: `Set.contains`,
+`Map.contains` (a key), `Range.contains`, `List.contains`,
+`Vector.contains`, `Bytes.contains`, `String.contains` and, for any
+iterable, `Iter.contains`.
 
 ```nomi
-if List.contains?(reserved, name) {
+if List.contains(reserved, name) {
     Err("${name} is reserved")
 } else {
     Ok(name)
 }
 ```
 
-not `Iter.any?(reserved, fn r -> r == name)`, which spells out the comparison
-`contains?` makes. Keep `Iter.any?` for a predicate other than `==`. A `List`,
+not `Iter.any(reserved, fn r -> r == name)`, which spells out the comparison
+`contains` makes. Keep `Iter.any` for a predicate other than `==`. A `List`,
 `Vector`, `Bytes` or `Iter` lookup is a linear scan, so a value looked up
 repeatedly belongs in a `Set`: convert once with `Iter.to_set` and test that.
+
+A bounds check is a range membership test too:
+`!Range.contains(1..=64, square)`, not `square < 1 or square > 64`. The
+range states the valid values once, and its `..` or `..=` says whether the
+upper bound is one of them.
 
 ## 31. Write generated code a reader can trust
 
@@ -1777,3 +1876,41 @@ type, and a struct names its fields. An alias of a named type
 (`typealias UserList List<User>`) only hides what the reader would see by
 writing `List<User>`. An alias takes no type parameters, and no impl, derive
 or qualified call goes through one.
+
+## 34. Write a typed literal of fixed text with backticks
+
+A typed literal whose text is fixed uses backticks. The compiler runs its
+handler when it checks the program, so a bad literal is a compile error at the
+literal, and a good one is the value itself, with no `?`.
+
+```nomi
+// yes: checked when the program compiles
+release = Date`2026-05-04`
+
+// no: built at run time, and the Result needs unwrapping
+release = Date"2026-05-04"?
+```
+
+Use double quotes for a literal that interpolates (`Date"2026-${month}-04"`),
+or whose handler has an effect and so cannot run at compile time; the compiler
+says when that is the case. A test that checks a bad literal's `Err` at run
+time keeps double quotes too, since a backtick literal with that text would
+not compile.
+
+## 35. Write a `case` of conditions with no subject
+
+A `case` whose arms all test conditions matches nothing, so it has no
+subject:
+
+```nomi
+case {
+    count < 10 -> Err(.TooFewDigits)
+    count == 10 -> Ok(digits)
+    _ -> Err(.TooManyDigits)
+}
+```
+
+not `case digits { _ when count < 10 -> ... }`, where every arm matches
+the subject with `_` and only the guards decide. Keep the subject when an
+arm's pattern reads it, and write a condition there as that arm's `when`
+guard.

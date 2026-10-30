@@ -77,100 +77,100 @@ test "variant payloads support every payload shape" {
 
     assert Token.Eof
         |> Debug.inspect()
-        |> String.equal?("Eof")
+        |> String.equal("Eof")
 
     assert 42
         |> Token.Number()
         |> Debug.inspect()
-        |> String.equal?("Number(42)")
+        |> String.equal("Number(42)")
 
     assert "hi"
         |> Token.Word()
         |> Debug.inspect()
-        |> String.equal?("Word(\"hi\")")
+        |> String.equal("Word(\"hi\")")
 
     assert True
         |> Token.Flag()
         |> Debug.inspect()
-        |> String.equal?("Flag(True)")
+        |> String.equal("Flag(True)")
 
     assert 7
         |> UserId()
         |> Token.User()
         |> Debug.inspect()
-        |> String.equal?("User(UserId(7))")
+        |> String.equal("User(UserId(7))")
 
     assert #(10, 20)
         |> Token.Position()
         |> Debug.inspect()
-        |> String.equal?("Position(10, 20)")
+        |> String.equal("Position(10, 20)")
 
     assert #(1, 2)
         |> Pair()
         |> Token.Coord()
         |> Debug.inspect()
-        |> String.equal?("Coord(#Pair(1, 2))")
+        |> String.equal("Coord(#Pair(1, 2))")
 
     assert bag_payload
         |> Token.Bag()
         |> Debug.inspect()
-        |> String.equal?("Bag(%{\"a\" => 1})")
+        |> String.equal("Bag(%{\"a\" => 1})")
 
     assert %{"b" => 2}
         |> Kvs()
         |> Token.Counts()
         |> Debug.inspect()
-        |> String.equal?("Counts(Kvs(%{\"b\" => 2}))")
+        |> String.equal("Counts(Kvs(%{\"b\" => 2}))")
 
     assert [1, 2, 3]
         |> Token.Sequence()
         |> Debug.inspect()
-        |> String.equal?("Sequence([1, 2, 3])")
+        |> String.equal("Sequence([1, 2, 3])")
 
     assert [4, 5, 6]
         |> Items()
         |> Token.Many()
         |> Debug.inspect()
-        |> String.equal?("Many(Items([4, 5, 6]))")
+        |> String.equal("Many(Items([4, 5, 6]))")
 
     assert #Circle{radius: 3.0}
         |> Token.Tagged()
         |> Debug.inspect()
-        |> String.equal?("Tagged(#Circle{radius: 3.0})")
+        |> String.equal("Tagged(#Circle{radius: 3.0})")
 
     assert #Token.Card{rank: 7, suit: "hearts"}
         |> Debug.inspect()
-        |> String.equal?("#Card{rank: 7, suit: \"hearts\"}")
+        |> String.equal("#Card{rank: 7, suit: \"hearts\"}")
 
     assert computed == 10
 
     assert Some(99)
         |> Token.Inner()
         |> Debug.inspect()
-        |> String.equal?("Inner(Some(99))")
+        |> String.equal("Inner(Some(99))")
 
     assert None
         |> Token.Inner()
         |> Debug.inspect()
-        |> String.equal?("Inner(None)")
+        |> String.equal("Inner(None)")
 
     assert #Person{name: "Alice"}
         |> Token.Render()
         |> Debug.inspect()
-        |> String.equal?("Render(#Person{name: \"Alice\"})")
+        |> String.equal("Render(#Person{name: \"Alice\"})")
 
     assert #Robot{id: 42}
         |> Token.Render()
         |> Debug.inspect()
-        |> String.equal?("Render(#Robot{id: 42})")
+        |> String.equal("Render(#Robot{id: 42})")
 
     assert r
         |> Debug.inspect()
-        |> String.equal?("#Rect{width: 4.0, height: 5.0}")
+        |> String.equal("#Rect{width: 4.0, height: 5.0}")
 
     assert e
         |> Debug.inspect()
-        |> String.equal?("Expired")
+        |> String.equal("Expired")
 }
 
 fn describe(t: Token) -> String {
@@ -243,9 +243,7 @@ test "a struct-shaped variant's payload matches a record pattern" {
     assert box_area(#Box.Sized{w: 1, h: 3}) == 3
     assert box_area(Box.Empty) == 0
 
-    .Sized(#{w, h: _}) = #Box.Sized{w: 4, h: 5} else {
-        return
-    }
+    .Sized(#{w, h: _}) = #Box.Sized{w: 4, h: 5} else { return }
 
     assert w == 4
 

@@ -80,7 +80,7 @@ impl Rows<T> {
         })
 
         Sender.close(state.sender)
-        try ran
+        ran?
 
         case Receiver.receive(state.receiver) {
             Some(result) -> result
@@ -124,23 +124,23 @@ derive Equatable for Migration
 /// `Error.Database{code: "sqlkit"}` naming its file: write the change as a
 /// new migration.
 pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error> {
-    _ = try Conn.exec(
+    _ = Conn.exec(
         conn,
         Sql"CREATE TABLE IF NOT EXISTS nomi_migrations (version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
-    )
+    )?
 
-    rows = try Conn.query(conn, Sql"SELECT version, checksum FROM nomi_migrations")
+    rows = Conn.query(conn, Sql"SELECT version, checksum FROM nomi_migrations")?
 
     records =
         rows
         |> Iter.map(fn row -> {
-            version = try Row.get<String>(row, "version")
-            sum = try Row.get<String>(row, "checksum")
+            version = Row.get<String>(row, "version")?
+            sum = Row.get<String>(row, "checksum")?
             Ok(#(version, sum))
         })
         |> Result.collect()
 
-    applied = (try records) |> Iter.to_map()
+    applied = (records?) |> Iter.to_map()
 
     changed = Iter.find(migrations, fn m -> {
         case Map.get(applied, version_of(m)) {
@@ -163,7 +163,7 @@ pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Erro
 
     pending =
         migrations
-        |> Iter.filter(fn m -> Maybe.none?(Map.get(applied, version_of(m))))
+        |> Iter.filter(fn m -> Maybe.is_none(Map.get(applied, version_of(m))))
         |> Iter.to_list()
 
     apply_each(conn, pending)
@@ -176,18 +176,18 @@ fn apply_each(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error
             Ok(Unit)
 
         [first, ..rest] -> {
-            try sql.transaction(conn, fn tx -> {
-                _ = try Conn.exec(tx, #Statement{parts: [first.sql], params: []})
+            sql.transaction(conn, fn tx -> {
+                _ = Conn.exec(tx, #Statement{parts: [first.sql], params: []})?
                 version = version_of(first)
                 sum = checksum.of(first.sql)
 
-                _ = try Conn.exec(
+                _ = Conn.exec(
                     tx,
                     Sql"INSERT INTO nomi_migrations (version, checksum) VALUES (${version}, ${sum})",
-                )
+                )?
 
                 Ok(Unit)
-            })
+            })?
 
             apply_each(conn, rest)
         }

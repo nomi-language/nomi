@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: simple_linked_list.nomi
+//# A singly linked list, used as a stack.
+
 /// A singly linked list that is last in, first out: `push` puts a value at
 /// the head, and `pop` and `peek` read the head. It is a value, so every
 /// operation answers a list and shares the nodes it did not change.

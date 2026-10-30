@@ -1,3 +1,5 @@
+//# Draws a diamond of letters from `A` to a given letter and back.
+
 /// The rows of a diamond of letters from `A` to `widest` and back, each
 /// padded with spaces to the diamond's width. `widest` is an uppercase
 /// ASCII letter.

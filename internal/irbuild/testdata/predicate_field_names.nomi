@@ -6,12 +6,12 @@ import std/io
 // program writes this shape, which is why the builder
 // shipped it.
 struct Flags {
-    ok?: Int
+    is_ok: Int
     ok_: Int
 }
 
 // The same collision one level out: a predicate function beside its twin.
-fn ready?() -> Int {
+fn is_ready() -> Int {
     10
 }
 
@@ -20,8 +20,8 @@ fn ready_() -> Int {
 }
 
 impl Flags {
-    fn score?(f: Flags) -> Int {
-        f.ok?
+    fn score_of(f: Flags) -> Int {
+        f.is_ok
     }
 
     fn score_(f: Flags) -> Int {
@@ -30,11 +30,11 @@ impl Flags {
 }
 
 fn main() {
-    f = #Flags{ok?: 1, ok_: 2}
-    io.print("ok? = " + Int.to_string(f.ok?))
+    f = #Flags{is_ok: 1, ok_: 2}
+    io.print("is_ok = " + Int.to_string(f.is_ok))
     io.print("ok_ = " + Int.to_string(f.ok_))
-    io.print("sum = " + Int.to_string(f.ok? + f.ok_))
-    io.print("fns = " + Int.to_string(ready?() + ready_()))
-    io.print("impl = " + Int.to_string(Flags.score?(f) + Flags.score_(f)))
+    io.print("sum = " + Int.to_string(f.is_ok + f.ok_))
+    io.print("fns = " + Int.to_string(is_ready() + ready_()))
+    io.print("impl = " + Int.to_string(Flags.score_of(f) + Flags.score_(f)))
     io.print("debug = " + Debug.inspect(f))
 }

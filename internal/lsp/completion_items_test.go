@@ -242,8 +242,7 @@ func TestCompletion_TextEditReplacesTheWord(t *testing.T) {
 		{"typed prefix", "fn f() -> Int {\n    total = 1\n    tot" + cursorMark + "\n}\n", "total", 4, 7},
 		{"word continues past the cursor", "fn f() -> Int {\n    total = 1\n    to" + cursorMark + "tl\n}\n", "total", 4, 8},
 		{"non-ASCII earlier on the line", "fn f() -> String {\n    total = \"é\"\n    x = \"ééé\" + tot" + cursorMark + "\n}\n", "total", 16, 19},
-		{"predicate name typed through its ?", "fn empty?(s: String) -> Bool {\n    s == \"\"\n}\n\nfn f() -> Bool {\n    empty?" + cursorMark + "\n}\n", "empty?", 4, 10},
-		{"predicate name before its ?", "fn empty?(s: String) -> Bool {\n    s == \"\"\n}\n\nfn f() -> Bool {\n    emp" + cursorMark + "ty?\n}\n", "empty?", 4, 10},
+		{"a name before a ?", "fn find(s: String) -> Maybe<Int> {\n    String.to_int(s)\n}\n\nfn f() -> Maybe<Int> {\n    fi" + cursorMark + "nd?\n}\n", "find", 4, 8},
 		{"after a dot", "fn f(s: String) -> String {\n    String.tr" + cursorMark + "\n}\n", "trim", 11, 13},
 	}
 	for _, tt := range tests {

@@ -71,7 +71,7 @@ impl List<T> {
     }
 
     /// The list without the element at zero-based `index`, which must be in
-    /// `0 <= index < length`. Any other index traps, as `Vector.at` does:
+    /// `0 <= index < length`. Any other index traps:
     /// `index 7 is out of range for a List of length 5`. O(n): the elements
     /// before `index` are copied, and the ones after it are shared.
     //! assert List.remove_at(["a", "b", "c"], 1) == ["a", "c"]
@@ -93,20 +93,20 @@ impl List<T> {
 
     /// True if `list` begins with the elements of `prefix`, in order, each
     /// `==` to its counterpart. Every list starts with `[]`. The list form of
-    /// `String.starts_with?`.
-    //! assert List.starts_with?([1, 2, 3], [1, 2])
-    //! refute List.starts_with?([1, 2, 3], [2, 3])
-    //! assert List.starts_with?([1, 2], [])
-    //! refute List.starts_with?([1], [1, 2])
+    /// `String.starts_with`.
+    //! assert List.starts_with([1, 2, 3], [1, 2])
+    //! refute List.starts_with([1, 2, 3], [2, 3])
+    //! assert List.starts_with([1, 2], [])
+    //! refute List.starts_with([1], [1, 2])
     //
-    pub fn starts_with?<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable {
+    pub fn starts_with<T>(list: List<T>, prefix: List<T>) -> Bool where T: Equatable {
         case prefix {
             [] ->
                 True
 
             [p, ..ps] ->
                 case list {
-                    [x, ..xs] -> if x == p { starts_with?(xs, ps) } else { False }
+                    [x, ..xs] -> if x == p { starts_with(xs, ps) } else { False }
                     [] -> False
                 }
         }
@@ -114,19 +114,19 @@ impl List<T> {
 
     /// True if `list` ends with the elements of `suffix`, in order, each `==`
     /// to its counterpart. Every list ends with `[]`. The list form of
-    /// `String.ends_with?`.
-    //! assert List.ends_with?([1, 2, 3], [2, 3])
-    //! refute List.ends_with?([1, 2, 3], [1, 2])
-    //! assert List.ends_with?([1, 2], [])
-    //! refute List.ends_with?([3], [2, 3])
+    /// `String.ends_with`.
+    //! assert List.ends_with([1, 2, 3], [2, 3])
+    //! refute List.ends_with([1, 2, 3], [1, 2])
+    //! assert List.ends_with([1, 2], [])
+    //! refute List.ends_with([3], [2, 3])
     //
-    pub fn ends_with?<T>(list: List<T>, suffix: List<T>) -> Bool where T: Equatable {
+    pub fn ends_with<T>(list: List<T>, suffix: List<T>) -> Bool where T: Equatable {
         extra = Iter.count(list) - Iter.count(suffix)
 
         if extra < 0 {
             False
         } else {
-            starts_with?(drop_front(list, extra), suffix)
+            starts_with(drop_front(list, extra), suffix)
         }
     }
 }
@@ -153,11 +153,11 @@ impl Contains for List<T> where T: Equatable {
     /// True if an element of the list is `==` to `x`. A linear scan that the
     /// runtime runs, comparing each element as `==` does; convert to a `Set`
     /// for repeated lookups.
-    //! assert List.contains?([1, 2, 3], 2)
-    //! refute List.contains?([1, 2, 3], 9)
-    //! refute List.contains?([], 1)
+    //! assert List.contains([1, 2, 3], 2)
+    //! refute List.contains([1, 2, 3], 9)
+    //! refute List.contains([], 1)
     //
-    host fn contains?(c: List<T>, x: T) -> Bool
+    host fn contains(c: List<T>, x: T) -> Bool
 }
 
 impl Add<List<T>, List<T>> for List<T> {
@@ -204,7 +204,7 @@ impl Debug for List<T> {
 impl Equatable for List<T> {
     // Structural equality via the built-in `==` (recursive, element-wise). Lets a
     // record with a List field `derive Equatable`.
-    fn equal?(a: List<T>, b: List<T>) -> Bool {
+    fn equal(a: List<T>, b: List<T>) -> Bool {
         a == b
     }
 }

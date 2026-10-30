@@ -22,7 +22,7 @@ fn main() {
   _ = List.head({})
   _ = Map.size(1.5)
   _ = first_or(3, 1)
-  _ = Maybe.some?(4)
+  _ = Maybe.is_some(4)
   _ = Set.size(%[1])
   _ = first_or([1], 2)
   _ = List.head(1..3 |> Iter.to_list())
@@ -37,7 +37,7 @@ fn main() {
 		"9:17 argument 1: expected List<T>, got Unit",
 		"10:16 argument 1: expected Map<K, V>, got Float",
 		"11:16 argument 1: expected List<T>, got Int",
-		"12:19 argument 1: expected Maybe<T>, got Int",
+		"12:21 argument 1: expected Maybe<T>, got Int",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -61,7 +61,7 @@ fn first<T>(xs: Vector<T>) -> Maybe<T> {
 
 fn main() {
   _ = Vector.get("", 0)
-  _ = Vector.at(1, 0)
+  _ = Vector.get(1, 0)!
   _ = Task.await(1)
   _ = Vector.length([1])
   _ = List.head(#[1])
@@ -79,7 +79,7 @@ fn main() {
 	}
 	want := []string{
 		"11:18 argument 1: expected Vector<T>, got String",
-		"12:17 argument 1: expected Vector<T>, got Int",
+		"12:18 argument 1: expected Vector<T>, got Int",
 		"13:18 argument 1: expected Task<T>, got Int",
 		"14:21 argument 1: expected Vector<T>, got List<Int>",
 		"15:17 argument 1: expected List<T>, got Vector<Int>",

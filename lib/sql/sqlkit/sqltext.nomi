@@ -83,8 +83,8 @@ fn at(chars: Vector<String>, i: Int) -> String {
 fn token_at(chars: Vector<String>, i: Int, c: String) -> #(Kind, Int) {
     next = at(chars, i + 1)
 
-    if space?(c) {
-        #(Kind.Space, skip(chars, i + 1, space?))
+    if is_space(c) {
+        #(Kind.Space, skip(chars, i + 1, is_space))
     } else if c == "-" and next == "-" {
         #(Kind.Space, skip(chars, i + 2, fn ch -> ch != "\n" and ch != "\r\n"))
     } else if c == "/" and next == "*" {
@@ -93,32 +93,32 @@ fn token_at(chars: Vector<String>, i: Int, c: String) -> #(Kind, Int) {
         #(Kind.Text, quote_end(chars, i + 1, "'"))
     } else if c == "\"" {
         #(Kind.Quoted, quote_end(chars, i + 1, "\""))
-    } else if c == "@" and name_start?(next) {
-        #(Kind.Param, skip(chars, i + 2, word?))
+    } else if c == "@" and is_name_start(next) {
+        #(Kind.Param, skip(chars, i + 2, is_word))
     } else if c == "@" and next == "@" {
         // Postgres's `@@` is an operator, so `@@name` is not a parameter.
         #(Kind.Punct, i + 2)
     } else if c == "$" and next == "{" {
         close = skip(chars, i + 2, fn ch -> ch != "}")
         #(Kind.Interpolation, Int.min(close + 1, Vector.length(chars)))
-    } else if word?(c) {
-        #(Kind.Word, skip(chars, i + 1, word?))
+    } else if is_word(c) {
+        #(Kind.Word, skip(chars, i + 1, is_word))
     } else {
         #(Kind.Punct, i + 1)
     }
 }
 
-fn space?(c: String) -> Bool {
+fn is_space(c: String) -> Bool {
     c == " " or c == "\n" or c == "\t" or c == "\r\n" or c == "\r"
 }
 
-fn word?(c: String) -> Bool {
-    String.contains?("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", c)
+fn is_word(c: String) -> Bool {
+    String.contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", c)
         and c != ""
 }
 
-fn name_start?(c: String) -> Bool {
-    String.contains?("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_", c) and c != ""
+fn is_name_start(c: String) -> Bool {
+    String.contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_", c) and c != ""
 }
 
 fn skip(chars: Vector<String>, i: Int, keep: (String) -> Bool) -> Int {
@@ -183,9 +183,9 @@ pub fn override(token: Token) -> Maybe<Override> {
         _ -> #(inner, None)
     }
 
-    #(column, nullable) = if String.ends_with?(head, "!") {
+    #(column, nullable) = if String.ends_with(head, "!") {
         #(cut_suffix(head, "!"), Some(False))
-    } else if String.ends_with?(head, "?") {
+    } else if String.ends_with(head, "?") {
         #(cut_suffix(head, "?"), Some(True))
     } else {
         #(head, None)
@@ -341,7 +341,7 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
             #(items, current, depth, state) = acc
 
             upper = if token.kind == Kind.Word {
-                String.to_upper(token.text)
+                String.uppercase(token.text)
             } else {
                 ""
             }
@@ -356,11 +356,11 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
                     }
 
                 1 ->
-                    if depth == 0 and ends_list?(upper) {
+                    if depth == 0 and ends_list(upper) {
                         break #([current, ..items], [], depth, 2)
                     } else if depth == 0 and token.text == "," and token.kind == Kind.Punct {
                         #([current, ..items], [], depth, 1)
-                    } else if upper == "DISTINCT" and Iter.empty?(solid(current)) {
+                    } else if upper == "DISTINCT" and Iter.is_empty(solid(current)) {
                         #(items, current, depth, 1)
                     } else {
                         #(items, [token, ..current], depth + nesting(token), 1)
@@ -382,7 +382,7 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
     all
     |> Iter.reverse()
     |> Iter.map(fn item -> item |> Iter.reverse() |> trim())
-    |> Iter.filter(fn item -> !Iter.empty?(item))
+    |> Iter.filter(fn item -> !Iter.is_empty(item))
     |> Iter.to_list()
 }
 
@@ -398,8 +398,8 @@ fn nesting(token: Token) -> Int {
     }
 }
 
-fn ends_list?(upper: String) -> Bool {
-    Iter.contains?(
+fn ends_list(upper: String) -> Bool {
+    Iter.contains(
         [
             "FROM",
             "WHERE",
@@ -447,12 +447,12 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
     words = solid(item) |> Iter.to_vector()
 
     text_at = fn i: Int -> {
-        Vector.get(words, i) |> Maybe.map(fn t -> String.to_upper(t.text)) |> Maybe.with_default("")
+        Vector.get(words, i)
+        |> Maybe.map(fn t -> String.uppercase(t.text))
+        |> Maybe.with_default("")
     }
 
-    if text_at(0) != "CAST" or text_at(1) != "(" {
-        return None
-    }
+    if text_at(0) != "CAST" or text_at(1) != "(" { return None }
 
     // The closing parenthesis, and the last `AS` directly inside the cast.
     #(close, as_at, _) = Iter.reduce(
@@ -468,7 +468,7 @@ pub fn cast_type(item: List<Token>) -> Maybe<String> {
 
                 if after == 0 {
                     #(i, as_at, after)
-                } else if depth == 1 and String.to_upper(t.text) == "AS" and t.kind == Kind.Word {
+                } else if depth == 1 and String.uppercase(t.text) == "AS" and t.kind == Kind.Word {
                     #(close, i, after)
                 } else {
                     #(close, as_at, after)
@@ -520,21 +520,25 @@ pub fn table_names(tokens: List<Token>) -> List<#(String, String)> {
     Iter.from(0)
     |> Iter.take(count)
     |> Iter.flat_map(fn i -> {
-        upper = String.to_upper(word_at(words, i))
+        upper = String.uppercase(word_at(words, i))
 
         if upper == "FROM" or upper == "JOIN" {
             table = word_at(words, i + 1)
             next = word_at(words, i + 2)
 
-            alias = if String.to_upper(next) == "AS" {
+            alias = if String.uppercase(next) == "AS" {
                 word_at(words, i + 3)
-            } else if name?(next) and !keyword?(next) {
+            } else if is_name(next) and !is_keyword(next) {
                 next
             } else {
                 table
             }
 
-            if name?(table) { [#(table, alias)] } else { [] }
+            if is_name(table) {
+                [#(table, alias)]
+            } else {
+                []
+            }
         } else {
             []
         }
@@ -550,8 +554,8 @@ fn word_at(words: Vector<Token>, i: Int) -> String {
     }
 }
 
-fn keyword?(word: String) -> Bool {
-    Iter.contains?(
+fn is_keyword(word: String) -> Bool {
+    Iter.contains(
         [
             "ON",
             "USING",
@@ -573,32 +577,32 @@ fn keyword?(word: String) -> Bool {
             "EXCEPT",
             "INTERSECT",
         ],
-        String.to_upper(word),
+        String.uppercase(word),
     )
 }
 
 /// Whether the SQL joins with `RIGHT` or `FULL`, whose left side may be
 /// NULL, which sqlkit does not track table by table.
-pub fn right_or_full_join?(tokens: List<Token>) -> Bool {
-    Iter.any?(tokens, fn t -> {
+pub fn is_right_or_full_join(tokens: List<Token>) -> Bool {
+    Iter.any(tokens, fn t -> {
         t.kind == Kind.Word
-            and (String.to_upper(t.text) == "RIGHT" or String.to_upper(t.text) == "FULL")
+            and (String.uppercase(t.text) == "RIGHT" or String.uppercase(t.text) == "FULL")
     })
 }
 
 /// Whether `word` can be a Nomi field name: lower case letters, digits
 /// and `_`, not starting with a digit.
-//! assert sqltext.name?("order_count")
-//! refute sqltext.name?("count(*)")
-//! refute sqltext.name?("2x")
+//! assert sqltext.is_name("order_count")
+//! refute sqltext.is_name("count(*)")
+//! refute sqltext.is_name("2x")
 //
-pub fn name?(word: String) -> Bool {
+pub fn is_name(word: String) -> Bool {
     first = String.slice(word, 0, 1)
 
     word != ""
-        and !String.contains?("0123456789", first)
-        and Iter.all?(word, fn c -> {
-            String.contains?("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+        and !String.contains("0123456789", first)
+        and Iter.all(word, fn c -> {
+            String.contains("abcdefghijklmnopqrstuvwxyz0123456789_", c)
         })
 }
 

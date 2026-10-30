@@ -62,9 +62,7 @@ pub fn read(config: Json) -> List<Database> {
         _ -> %{}
     }
 
-    if Map.size(tables) == 0 {
-        return [defaults("main")]
-    }
+    if Map.size(tables) == 0 { return [defaults("main")] }
 
     tables
     |> Map.keys()

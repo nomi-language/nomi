@@ -57,7 +57,7 @@ var encodedFields = map[reflect.Type]string{
 	reflect.TypeFor[ir.Record]():        "pos val kind text suppress before after",
 	reflect.TypeFor[ir.Iter]():          "pos dst op over sig args",
 	reflect.TypeFor[ir.Compare]():       "pos dst op shape lhs rhs rank",
-	reflect.TypeFor[ir.Const]():         "pos dst kind num flt text typ",
+	reflect.TypeFor[ir.Const]():         "pos dst kind num flt text typ big",
 	reflect.TypeFor[ir.Bind]():          "pos dst src sym",
 	reflect.TypeFor[ir.Match]():         "pos dst subj arg kind sym text idx embeds",
 	reflect.TypeFor[ir.NoMatch]():       "pos",

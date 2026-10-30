@@ -7,31 +7,21 @@ import (
 )
 
 // A `once` binding of a stdlib module: one declared inside an `impl` block,
-// read as `Type.name` (`Int.max_value`, `Int.min_value`), and one declared at
-// file level, read file-qualified (`io.stdin`, `io.stdout`, `io.stderr`).
+// read as `Type.name`, and one declared at file level, read file-qualified
+// (`io.stdin`, `io.stdout`, `io.stderr`) or, when private, by the file's own
+// bodies (std/duration's `max_nanos`, std/uuid's `sign_bit`).
 //
-// # The population is FIVE
-//
-// Int's two and std/io's three standard streams are the only `once`
-// bindings in std/*.nomi. A stream's value is a marker naming the stream
-// (rt.IOStdout), so caching it changes nothing about where a write goes:
-// that is decided at each write, which is why `io.capture` still redirects
-// a stream read before it began. User code reads Int's two
-// (01-foundations/once_bindings/once_bindings_test.nomi), and so do two stdlib
-// bodies: `impl Discrete for Int`'s `next` (int.nomi:203) and `impl Steppable
-// for Int`'s `step_by` (int.nomi:221-223), which lower only because these do.
+// A stream's value is a marker naming the stream (rt.IOStdout), so caching it
+// changes nothing about where a write goes: that is decided at each write,
+// which is why `io.capture` still redirects a stream read before it began.
 //
 // # Why the value is emitted, rather than mapped to a Go constant
 //
-// `Int.min_value` is `Int.wrapping_add(Int.max_value, 1)` — the language cannot
-// spell the value as a literal at all, because a bare literal parses its
-// magnitude and that magnitude overflows. A registry row pairing the Nomi name
-// with Go's `math.MinInt64` would therefore be a SECOND encoding of a value the
-// Nomi source already defines, and the two would agree by inspection rather than
-// by construction. This lowers the declaration instead: the RHS is built as an
-// ordinary function body, so the value the program computes is the value the
-// Nomi source computes, through rt.WrapAddInt — the function
-// `Int.wrapping_add` crosses into.
+// A registry row pairing a Nomi name with a Go constant would be a SECOND
+// encoding of a value the Nomi source already defines, and the two would agree
+// by inspection rather than by construction. This lowers the declaration
+// instead: the RHS is built as an ordinary function body, so the value the
+// program computes is the value the Nomi source computes.
 //
 // # Semantics come from rt.OnceCell
 //
@@ -43,13 +33,13 @@ import (
 //
 // The cell's name is `Type.name` (`typeName + "." + n.Name`), and it is not a
 // free choice: rt.CyclicOnceText renders that name in the cycle diagnostic, and
-// the golden files record it. A cell named `max_value` here would print a
-// different diagnostic for the same cycle.
+// the golden files record it. A cell named without its type here would print
+// a different diagnostic for the same cycle.
 //
 // # Ordering: onces settle in the LEAST fixed point, never in the recursive one
 //
-// A stdlib function may read a once (`Discrete.next`) and a once's RHS may call a
-// function (`min_value`), so the two settle in one interleaved fixed point — see
+// A stdlib function may read a once (`Duration.parse`) and a once's RHS may call
+// a function, so the two settle in one interleaved fixed point — see
 // stdLeastFixedPoint, which tries the onces first each round because a once RHS
 // reading a SIBLING once needs it published, and declaration order gives that
 // within a single round.

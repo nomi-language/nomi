@@ -5,7 +5,7 @@
 // # What the recorded output can and cannot see here
 //
 // Almost every line of behaviour in this file is std's own Nomi source.
-// `Range.contains?` and `bounded?` are `case r.end` in std/ranges.nomi;
+// `Range.contains` and `is_bounded` are `case r.end` in std/ranges.nomi;
 // `Discrete.next`, `Discrete.steps_between` and `Steppable.step_by` at each
 // element type are ordinary Nomi in std/int.nomi, std/code_points.nomi and
 // std/decimal.nomi and they LOWER, so the VM runs std's own successor
@@ -35,7 +35,7 @@
 // Contract: cover both orders of anything asymmetric. Done for the bound polarity
 // (`..` and `..=` at identical endpoints), for the degenerate range (`3..3` is
 // empty, `3..=3` is one element — the one place the two differ at the SAME
-// operands), for reversal (`5..1` and `5..=1`), for `contains?` at the lower bound
+// operands), for reversal (`5..1` and `5..=1`), for `contains` at the lower bound
 // against the upper (the lower is always inclusive and the upper is not), and for
 // `steps_between`'s argument order.
 //
@@ -80,8 +80,8 @@ fn show_bool(b: Bool) -> String {
 /// Two Codepoints and a stepped walk over the range between them, rendered as
 /// their scalar values so ORDER and LENGTH are both in the output.
 fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
-    a = try Int.to_codepoint(from)
-    b = try Int.to_codepoint(to)
+    a = Int.to_codepoint(from)?
+    b = Int.to_codepoint(to)?
 
     Some(
         show_ints(
@@ -94,8 +94,8 @@ fn cp_steps(from: Int, to: Int, by: Int) -> Maybe<String> {
 
 /// The plain inclusive walk over a Codepoint range, same rendering.
 fn cp_walk(from: Int, to: Int) -> Maybe<String> {
-    a = try Int.to_codepoint(from)
-    b = try Int.to_codepoint(to)
+    a = Int.to_codepoint(from)?
+    b = Int.to_codepoint(to)?
 
     Some(
         show_ints(
@@ -138,25 +138,24 @@ fn main() {
     io.print(show_ints(Iter.to_list(5..1)))
     io.print(show_ints(Iter.to_list(5..=1)))
 
-    // --- 4. SATURATION: the last element is YIELDED, not dropped ------------
-    // `Discrete.next(Int.max_value)` is None, and std yields `r.start` one last
-    // time rather than stopping. Rendered as an OFFSET from max_value so the
-    // output does not depend on the platform's Int width being printed in full.
-    // Inclusive gets three elements and exclusive two — the same polarity
-    // distinction, at the one place where the walk exits through the SATURATION
-    // branch instead of the bound branch.
+    // --- 4. PAST 64 BITS: a range walks across the boundary ----------------
+    // An Int has no largest value, so `Discrete.next` always answers and a
+    // range ends at its bound, past 2^63 as anywhere else. Rendered as an
+    // OFFSET from the bound. Inclusive gets three elements and exclusive two.
+    top = 9_223_372_036_854_775_808
+
     io.print(
         show_ints(
-            Int.max_value - 2..=Int.max_value
-            |> Iter.map(&(Int.max_value - &1))
+            top - 2..=top
+            |> Iter.map(&(top - &1))
             |> Iter.to_list()
         )
     )
 
     io.print(
         show_ints(
-            Int.max_value - 2..Int.max_value
-            |> Iter.map(&(Int.max_value - &1))
+            top - 2..top
+            |> Iter.map(&(top - &1))
             |> Iter.to_list()
         )
     )
@@ -220,39 +219,39 @@ fn main() {
     // --- 8. bounded? NEEDS NO ELEMENT METHOD -------------------------------
     // `case r.end` and nothing more, which is the observable form of "a Range
     // value needs no dictionary".
-    io.print(show_bool(Range.bounded?(1..5)))
-    io.print(show_bool(Range.bounded?(1..=5)))
-    io.print(show_bool(Range.bounded?(Range.from(1))))
-    io.print(show_bool(Range.bounded?(Range.naturals())))
+    io.print(show_bool(Range.is_bounded(1..5)))
+    io.print(show_bool(Range.is_bounded(1..=5)))
+    io.print(show_bool(Range.is_bounded(Range.from(1))))
+    io.print(show_bool(Range.is_bounded(Range.naturals())))
 
     // --- 9. contains? AT BOTH BOUNDS, and the bounds are ASYMMETRIC ---------
     // The LOWER bound is always inclusive; the UPPER depends on the operator. So
     // `1` is in every range starting at 1, and `5` is in `1..=5` but not `1..5`.
     // Both sides of both bounds, plus one value outside each.
-    io.print(show_bool(Range.contains?(1..5, 0)))
-    io.print(show_bool(Range.contains?(1..5, 1)))
-    io.print(show_bool(Range.contains?(1..5, 3)))
-    io.print(show_bool(Range.contains?(1..5, 5)))
-    io.print(show_bool(Range.contains?(1..5, 6)))
-    io.print(show_bool(Range.contains?(1..=5, 5)))
-    io.print(show_bool(Range.contains?(1..=5, 6)))
+    io.print(show_bool(Range.contains(1..5, 0)))
+    io.print(show_bool(Range.contains(1..5, 1)))
+    io.print(show_bool(Range.contains(1..5, 3)))
+    io.print(show_bool(Range.contains(1..5, 5)))
+    io.print(show_bool(Range.contains(1..5, 6)))
+    io.print(show_bool(Range.contains(1..=5, 5)))
+    io.print(show_bool(Range.contains(1..=5, 6)))
     // An unbounded range checks only the lower bound.
-    io.print(show_bool(Range.contains?(Range.from(1), 0)))
-    io.print(show_bool(Range.contains?(Range.from(1), 1)))
-    io.print(show_bool(Range.contains?(Range.from(1), 100)))
+    io.print(show_bool(Range.contains(Range.from(1), 0)))
+    io.print(show_bool(Range.contains(Range.from(1), 1)))
+    io.print(show_bool(Range.contains(Range.from(1), 100)))
 
     // --- 10. NON-DISCRETE ELEMENTS ARE INTERVAL VALUES ---------------------
     // `String` and `Float` are Comparable and NOT Discrete, so these ranges can
     // be queried and cannot be iterated — std's documented point, and the reason
-    // `contains?` takes the ordering and no successor. Both bounds again.
-    io.print(show_bool(Range.contains?("a".."m", "a")))
-    io.print(show_bool(Range.contains?("a".."m", "h")))
-    io.print(show_bool(Range.contains?("a".."m", "m")))
-    io.print(show_bool(Range.contains?("a".."m", "z")))
-    io.print(show_bool(Range.contains?("a"..="m", "m")))
-    io.print(show_bool(Range.contains?(0.0..1.0, 1.0)))
-    io.print(show_bool(Range.contains?(0.0..=1.0, 1.0)))
-    io.print(show_bool(Range.contains?(0.0..=1.0, -0.5)))
+    // `contains` takes the ordering and no successor. Both bounds again.
+    io.print(show_bool(Range.contains("a".."m", "a")))
+    io.print(show_bool(Range.contains("a".."m", "h")))
+    io.print(show_bool(Range.contains("a".."m", "m")))
+    io.print(show_bool(Range.contains("a".."m", "z")))
+    io.print(show_bool(Range.contains("a"..="m", "m")))
+    io.print(show_bool(Range.contains(0.0..1.0, 1.0)))
+    io.print(show_bool(Range.contains(0.0..=1.0, 1.0)))
+    io.print(show_bool(Range.contains(0.0..=1.0, -0.5)))
 
     // --- 11. step_by, AND THE ZERO STEP THAT STOPS WITHOUT EMITTING --------
     // `Range.step_by(1..=9, 0)` is `[]` — not `[1]`, and not a hang. That is the
@@ -358,6 +357,6 @@ fn main() {
         )
     )
 
-    io.print("${1..=5 |> Iter.any?(&(&1 == 3))}")
-    io.print("${1..5 |> Iter.all?(&(&1 < 5))}")
+    io.print("${1..=5 |> Iter.any(&(&1 == 3))}")
+    io.print("${1..5 |> Iter.all(&(&1 < 5))}")
 }

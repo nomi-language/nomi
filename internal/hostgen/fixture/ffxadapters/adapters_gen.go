@@ -132,35 +132,35 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 		"ffx.box_value":       b.fn10,
 		"ffx.check":           b.fn12,
 		"ffx.echo":            b.fn18,
-		"ffx.flip":            b.fn36,
-		"ffx.halve":           b.fn39,
-		"ffx.later":           b.fn42,
-		"ffx.mirror":          b.fn43,
-		"ffx.narrow":          b.fn44,
-		"ffx.negate":          b.fn53,
-		"ffx.new_box":         b.fn54,
-		"ffx.nothing":         b.fn56,
-		"ffx.nothing_or_fail": b.fn57,
-		"ffx.octets":          b.fn58,
-		"ffx.points":          b.fn61,
-		"ffx.query":           b.fn63,
-		"ffx.run":             b.fn67,
-		"ffx.shout":           b.fn69,
-		"ffx.sizes":           b.fn72,
-		"ffx.triple":          b.fn75,
-		"ffx.triple_or_fail":  b.fn76,
-		"ffx.visit":           b.fn77,
-		"ffx.zero_time":       b.fn79,
+		"ffx.flip":            b.fn35,
+		"ffx.halve":           b.fn38,
+		"ffx.later":           b.fn41,
+		"ffx.mirror":          b.fn42,
+		"ffx.narrow":          b.fn43,
+		"ffx.negate":          b.fn52,
+		"ffx.new_box":         b.fn53,
+		"ffx.nothing":         b.fn55,
+		"ffx.nothing_or_fail": b.fn56,
+		"ffx.octets":          b.fn57,
+		"ffx.points":          b.fn60,
+		"ffx.query":           b.fn62,
+		"ffx.run":             b.fn66,
+		"ffx.shout":           b.fn68,
+		"ffx.sizes":           b.fn71,
+		"ffx.triple":          b.fn74,
+		"ffx.triple_or_fail":  b.fn75,
+		"ffx.visit":           b.fn76,
+		"ffx.zero_time":       b.fn78,
 	}, nil
 }
 
 // in3 reads a Int as Go int64.
 func (b *bound) in3(fr *rt.Frame, v rt.Value) (out int64, err error) {
-	x, ok := v.(int64)
-	if !ok {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
-	return int64(x), nil
+	x := v
+	return hostadapt.ToSigned[int64](x, "int64")
 }
 
 // in2 reads a (Int) -> Int as Go func(int64) int64.
@@ -169,7 +169,7 @@ func (b *bound) in2(fr *rt.Frame, v rt.Value) (out func(int64) int64, err error)
 		return out, fmt.Errorf("expected a function, got nil")
 	}
 	return func(p0 int64) int64 {
-		res, err := b.env.Call(fr, v, []rt.Value{int64(p0)})
+		res, err := b.env.Call(fr, v, []rt.Value{rt.Value(int64(p0))})
 		if err != nil {
 			panic(hostadapt.CallbackFailure(err, "func(int64) int64"))
 		}
@@ -183,7 +183,7 @@ func (b *bound) in2(fr *rt.Frame, v rt.Value) (out func(int64) int64, err error)
 
 // out4 builds a Int from Go int64.
 func (b *bound) out4(v int64) (rt.Value, error) {
-	return int64(v), nil
+	return rt.Value(int64(v)), nil
 }
 
 // fn1 adapts ffx.apply: apply(f: (Int) -> Int, x: Int) -> Int
@@ -280,17 +280,13 @@ func (b *bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, err
 	}
 	ok := b.d0.NewVariant(0)
-	ok.W[0] = rt.IntWord(v0.(int64))
+	ok.SetIntSlot(0, v0)
 	return ok, nil
 }
 
 // out9 builds a Int from Go uint64.
 func (b *bound) out9(v uint64) (rt.Value, error) {
-	x, err := hostadapt.FromUnsigned(v, "uint64")
-	if err != nil {
-		return nil, err
-	}
-	return x, nil
+	return rt.IntFromUint64(uint64(v)), nil
 }
 
 // fn8 adapts ffx.biggest: biggest() -> Int
@@ -341,8 +337,8 @@ func (b *bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 // out14 builds a Point from Go fixture.Point.
 func (b *bound) out14(v fixture.Point) (rt.Value, error) {
 	r := b.d1.New()
-	r.W[0] = rt.IntWord(int64(v.X))
-	r.W[1] = rt.IntWord(int64(v.Y))
+	r.SetIntSlot(0, rt.Value(int64(v.X)))
+	r.SetIntSlot(1, rt.Value(int64(v.Y)))
 	return r, nil
 }
 
@@ -384,18 +380,26 @@ func (b *bound) in16(fr *rt.Frame, v rt.Value) (out fixture.Point, err error) {
 		return out, err
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d1, 0, 0, "x")
+		x, err := hostadapt.IntValueField(r, b.d1, 0, 0, "x")
 		if err != nil {
 			return out, err
 		}
-		out.X = int64(x)
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "x", err)
+		}
+		out.X = y
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d1, 1, 1, "y")
+		x, err := hostadapt.IntValueField(r, b.d1, 1, 1, "y")
 		if err != nil {
 			return out, err
 		}
-		out.Y = int64(x)
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "y", err)
+		}
+		out.Y = y
 	}
 	return out, nil
 }
@@ -505,21 +509,29 @@ func (b *bound) in19(fr *rt.Frame, v rt.Value) (out fixture.Tagged, err error) {
 		out.Name = string(x)
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d2, 1, 0, "x")
+		x, err := hostadapt.IntValueField(r, b.d2, 1, 0, "x")
 		if err != nil {
 			return out, err
 		}
-		out.Point.X = int64(x)
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "x", err)
+		}
+		out.Point.X = y
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d2, 2, 1, "y")
+		x, err := hostadapt.IntValueField(r, b.d2, 2, 1, "y")
 		if err != nil {
 			return out, err
 		}
-		out.Point.Y = int64(x)
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "y", err)
+		}
+		out.Point.Y = y
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d2, 3, 2, "small")
+		x, err := hostadapt.IntValueField(r, b.d2, 3, 2, "small")
 		if err != nil {
 			return out, err
 		}
@@ -530,7 +542,7 @@ func (b *bound) in19(fr *rt.Frame, v rt.Value) (out fixture.Tagged, err error) {
 		out.Small = y
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d2, 4, 3, "wide")
+		x, err := hostadapt.IntValueField(r, b.d2, 4, 3, "wide")
 		if err != nil {
 			return out, err
 		}
@@ -605,8 +617,8 @@ func (b *bound) in19(fr *rt.Frame, v rt.Value) (out fixture.Tagged, err error) {
 	return out, nil
 }
 
-// out26 builds a Instant from Go time.Time.
-func (b *bound) out26(v time.Time) (rt.Value, error) {
+// out25 builds a Instant from Go time.Time.
+func (b *bound) out25(v time.Time) (rt.Value, error) {
 	r := b.d3.New()
 	n, err := hostadapt.InstantNanos(v)
 	if err != nil {
@@ -616,23 +628,23 @@ func (b *bound) out26(v time.Time) (rt.Value, error) {
 	return r, nil
 }
 
-// out28 builds a Duration from Go time.Duration.
-func (b *bound) out28(v time.Duration) (rt.Value, error) {
+// out27 builds a Duration from Go time.Duration.
+func (b *bound) out27(v time.Duration) (rt.Value, error) {
 	r := b.d4.New()
 	r.W[0] = rt.IntWord(int64(v))
 	return r, nil
 }
 
-// out31 builds a String from Go string.
-func (b *bound) out31(v string) (rt.Value, error) {
+// out30 builds a String from Go string.
+func (b *bound) out30(v string) (rt.Value, error) {
 	return string(v), nil
 }
 
-// out30 builds a List<String> from Go []string.
-func (b *bound) out30(v []string) (rt.Value, error) {
+// out29 builds a List<String> from Go []string.
+func (b *bound) out29(v []string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
-		x, err := b.out31(v[i])
+		x, err := b.out30(v[i])
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
@@ -641,17 +653,17 @@ func (b *bound) out30(v []string) (rt.Value, error) {
 	return xs, nil
 }
 
-// out33 builds a Maybe<Point> from Go *fixture.Point.
-func (b *bound) out33(v *fixture.Point) (rt.Value, error) {
+// out32 builds a Maybe<Point> from Go *fixture.Point.
+func (b *bound) out32(v *fixture.Point) (rt.Value, error) {
 	if v == nil {
 		return b.d5.NewVariant(1), nil
 	}
 	r := b.d5.NewVariant(0)
-	w34, err := b.out14(*v)
+	w33, err := b.out14(*v)
 	if err != nil {
 		return nil, err
 	}
-	r.R[0] = w34
+	r.R[0] = w33
 	return r, nil
 }
 
@@ -659,36 +671,32 @@ func (b *bound) out33(v *fixture.Point) (rt.Value, error) {
 func (b *bound) out24(v fixture.Tagged) (rt.Value, error) {
 	r := b.d2.New()
 	r.S[0] = string(v.Name)
-	r.W[0] = rt.IntWord(int64(v.Point.X))
-	r.W[1] = rt.IntWord(int64(v.Point.Y))
-	r.W[2] = rt.IntWord(int64(v.Small))
-	w25, err := hostadapt.FromUnsigned(v.Wide, "uint32")
-	if err != nil {
-		return nil, fmt.Errorf("field %q: %w", "wide", err)
-	}
-	r.W[3] = rt.IntWord(w25)
+	r.SetIntSlot(0, rt.Value(int64(v.Point.X)))
+	r.SetIntSlot(1, rt.Value(int64(v.Point.Y)))
+	r.SetIntSlot(2, rt.Value(int64(v.Small)))
+	r.SetIntSlot(3, rt.IntFromUint64(uint64(v.Wide)))
 	r.W[4] = rt.FloatWord(float64(v.Ratio))
-	w27, err := b.out26(v.When)
+	w26, err := b.out25(v.When)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "at", err)
 	}
-	r.R[0] = w27
-	w29, err := b.out28(v.Wait)
+	r.R[0] = w26
+	w28, err := b.out27(v.Wait)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "wait", err)
 	}
-	r.R[1] = w29
+	r.R[1] = w28
 	r.S[1] = string(rt.Bytes(v.Raw))
-	w32, err := b.out30(v.Tags)
+	w31, err := b.out29(v.Tags)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "tags", err)
 	}
-	r.R[2] = w32
-	w35, err := b.out33(v.Near)
+	r.R[2] = w31
+	w34, err := b.out32(v.Near)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "near", err)
 	}
-	r.R[3] = w35
+	r.R[3] = w34
 	return r, nil
 }
 
@@ -710,8 +718,8 @@ func (b *bound) fn18(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// in37 reads a Byte as Go uint8.
-func (b *bound) in37(fr *rt.Frame, v rt.Value) (out uint8, err error) {
+// in36 reads a Byte as Go uint8.
+func (b *bound) in36(fr *rt.Frame, v rt.Value) (out uint8, err error) {
 	x, ok := v.(rt.Byte)
 	if !ok {
 		return out, hostadapt.Want("Byte", v)
@@ -719,31 +727,31 @@ func (b *bound) in37(fr *rt.Frame, v rt.Value) (out uint8, err error) {
 	return uint8(x), nil
 }
 
-// out38 builds a Byte from Go uint8.
-func (b *bound) out38(v uint8) (rt.Value, error) {
+// out37 builds a Byte from Go uint8.
+func (b *bound) out37(v uint8) (rt.Value, error) {
 	return rt.Byte(v), nil
 }
 
-// fn36 adapts ffx.flip: flip(b: Byte) -> Byte
-func (b *bound) fn36(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn35 adapts ffx.flip: flip(b: Byte) -> Byte
+func (b *bound) fn35(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.flip", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.flip", 1, len(args))
 	}
-	a0, err := b.in37(fr, args[0])
+	a0, err := b.in36(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.flip", 0, err)
 	}
 	r0 := fixture.Flip(a0)
-	v0, err := b.out38(r0)
+	v0, err := b.out37(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in40 reads a Float as Go float32.
-func (b *bound) in40(fr *rt.Frame, v rt.Value) (out float32, err error) {
+// in39 reads a Float as Go float32.
+func (b *bound) in39(fr *rt.Frame, v rt.Value) (out float32, err error) {
 	x, ok := v.(float64)
 	if !ok {
 		return out, hostadapt.Want("Float", v)
@@ -751,31 +759,31 @@ func (b *bound) in40(fr *rt.Frame, v rt.Value) (out float32, err error) {
 	return hostadapt.ToFloat32[float32](x, "float32")
 }
 
-// out41 builds a Float from Go float32.
-func (b *bound) out41(v float32) (rt.Value, error) {
+// out40 builds a Float from Go float32.
+func (b *bound) out40(v float32) (rt.Value, error) {
 	return float64(v), nil
 }
 
-// fn39 adapts ffx.halve: halve(f: Float) -> Float
-func (b *bound) fn39(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn38 adapts ffx.halve: halve(f: Float) -> Float
+func (b *bound) fn38(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.halve", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.halve", 1, len(args))
 	}
-	a0, err := b.in40(fr, args[0])
+	a0, err := b.in39(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.halve", 0, err)
 	}
 	r0 := fixture.Halve(a0)
-	v0, err := b.out41(r0)
+	v0, err := b.out40(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn42 adapts ffx.later: later(t: Instant, by: Duration) -> Instant
-func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn41 adapts ffx.later: later(t: Instant, by: Duration) -> Instant
+func (b *bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.later", &err)
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("ffx.later", 2, len(args))
@@ -789,15 +797,15 @@ func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("ffx.later", 1, err)
 	}
 	r0 := fixture.Later(a0, a1)
-	v0, err := b.out26(r0)
+	v0, err := b.out25(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn43 adapts ffx.mirror: mirror(p: Maybe<Point>) -> Maybe<Point>
-func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn42 adapts ffx.mirror: mirror(p: Maybe<Point>) -> Maybe<Point>
+func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.mirror", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.mirror", 1, len(args))
@@ -807,120 +815,120 @@ func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("ffx.mirror", 0, err)
 	}
 	r0 := fixture.Mirror(a0)
-	v0, err := b.out33(r0)
+	v0, err := b.out32(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in45 reads a Int as Go int8.
-func (b *bound) in45(fr *rt.Frame, v rt.Value) (out int8, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in44 reads a Int as Go int8.
+func (b *bound) in44(fr *rt.Frame, v rt.Value) (out int8, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToSigned[int8](x, "int8")
 }
 
-// in46 reads a Int as Go int16.
-func (b *bound) in46(fr *rt.Frame, v rt.Value) (out int16, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in45 reads a Int as Go int16.
+func (b *bound) in45(fr *rt.Frame, v rt.Value) (out int16, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToSigned[int16](x, "int16")
 }
 
-// in47 reads a Int as Go int32.
-func (b *bound) in47(fr *rt.Frame, v rt.Value) (out int32, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in46 reads a Int as Go int32.
+func (b *bound) in46(fr *rt.Frame, v rt.Value) (out int32, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToSigned[int32](x, "int32")
 }
 
-// in48 reads a Int as Go int.
-func (b *bound) in48(fr *rt.Frame, v rt.Value) (out int, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in47 reads a Int as Go int.
+func (b *bound) in47(fr *rt.Frame, v rt.Value) (out int, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToSigned[int](x, "int")
 }
 
-// in49 reads a Int as Go uint.
-func (b *bound) in49(fr *rt.Frame, v rt.Value) (out uint, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in48 reads a Int as Go uint.
+func (b *bound) in48(fr *rt.Frame, v rt.Value) (out uint, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToUnsigned[uint](x, "uint")
 }
 
-// in50 reads a Int as Go uint16.
-func (b *bound) in50(fr *rt.Frame, v rt.Value) (out uint16, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in49 reads a Int as Go uint16.
+func (b *bound) in49(fr *rt.Frame, v rt.Value) (out uint16, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToUnsigned[uint16](x, "uint16")
 }
 
-// in51 reads a Int as Go uint32.
-func (b *bound) in51(fr *rt.Frame, v rt.Value) (out uint32, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in50 reads a Int as Go uint32.
+func (b *bound) in50(fr *rt.Frame, v rt.Value) (out uint32, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToUnsigned[uint32](x, "uint32")
 }
 
-// in52 reads a Int as Go uint64.
-func (b *bound) in52(fr *rt.Frame, v rt.Value) (out uint64, err error) {
-	x, ok := v.(int64)
-	if !ok {
+// in51 reads a Int as Go uint64.
+func (b *bound) in51(fr *rt.Frame, v rt.Value) (out uint64, err error) {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
+	x := v
 	return hostadapt.ToUnsigned[uint64](x, "uint64")
 }
 
-// fn44 adapts ffx.narrow: narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> Int
-func (b *bound) fn44(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn43 adapts ffx.narrow: narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> Int
+func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.narrow", &err)
 	if len(args) != 8 {
 		return nil, hostadapt.Arity("ffx.narrow", 8, len(args))
 	}
-	a0, err := b.in45(fr, args[0])
+	a0, err := b.in44(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 0, err)
 	}
-	a1, err := b.in46(fr, args[1])
+	a1, err := b.in45(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 1, err)
 	}
-	a2, err := b.in47(fr, args[2])
+	a2, err := b.in46(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 2, err)
 	}
-	a3, err := b.in48(fr, args[3])
+	a3, err := b.in47(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 3, err)
 	}
-	a4, err := b.in49(fr, args[4])
+	a4, err := b.in48(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 4, err)
 	}
-	a5, err := b.in50(fr, args[5])
+	a5, err := b.in49(fr, args[5])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 5, err)
 	}
-	a6, err := b.in51(fr, args[6])
+	a6, err := b.in50(fr, args[6])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 6, err)
 	}
-	a7, err := b.in52(fr, args[7])
+	a7, err := b.in51(fr, args[7])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.narrow", 7, err)
 	}
@@ -932,8 +940,8 @@ func (b *bound) fn44(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn53 adapts ffx.negate: negate(b: Bool) -> Bool
-func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn52 adapts ffx.negate: negate(b: Bool) -> Bool
+func (b *bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.negate", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.negate", 1, len(args))
@@ -950,13 +958,13 @@ func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// out55 builds a Box from Go *fixture.Box.
-func (b *bound) out55(v *fixture.Box) (rt.Value, error) {
+// out54 builds a Box from Go *fixture.Box.
+func (b *bound) out54(v *fixture.Box) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "ffx.Box", Value: v}, nil
 }
 
-// fn54 adapts ffx.new_box: new_box(n: Int) -> Box
-func (b *bound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn53 adapts ffx.new_box: new_box(n: Int) -> Box
+func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.new_box", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.new_box", 1, len(args))
@@ -966,15 +974,15 @@ func (b *bound) fn54(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("ffx.new_box", 0, err)
 	}
 	r0 := fixture.NewBox(a0)
-	v0, err := b.out55(r0)
+	v0, err := b.out54(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn56 adapts ffx.nothing: nothing() -> Unit
-func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn55 adapts ffx.nothing: nothing() -> Unit
+func (b *bound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.nothing", &err)
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("ffx.nothing", 0, len(args))
@@ -983,8 +991,8 @@ func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return rt.Unit{}, nil
 }
 
-// fn57 adapts ffx.nothing_or_fail: nothing_or_fail(fail: Bool) -> Result<Unit, String>
-func (b *bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn56 adapts ffx.nothing_or_fail: nothing_or_fail(fail: Bool) -> Result<Unit, String>
+func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.nothing_or_fail", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.nothing_or_fail", 1, len(args))
@@ -1004,8 +1012,8 @@ func (b *bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return ok, nil
 }
 
-// in59 reads a Bytes as Go []fixture.MyByte.
-func (b *bound) in59(fr *rt.Frame, v rt.Value) (out []fixture.MyByte, err error) {
+// in58 reads a Bytes as Go []fixture.MyByte.
+func (b *bound) in58(fr *rt.Frame, v rt.Value) (out []fixture.MyByte, err error) {
 	x, ok := v.(rt.Bytes)
 	if !ok {
 		return out, hostadapt.Want("Bytes", v)
@@ -1019,8 +1027,8 @@ func (b *bound) in59(fr *rt.Frame, v rt.Value) (out []fixture.MyByte, err error)
 	}(), nil
 }
 
-// out60 builds a Bytes from Go []fixture.MyByte.
-func (b *bound) out60(v []fixture.MyByte) (rt.Value, error) {
+// out59 builds a Bytes from Go []fixture.MyByte.
+func (b *bound) out59(v []fixture.MyByte) (rt.Value, error) {
 	return func() rt.Bytes {
 		out := make([]byte, len(v))
 		for i := range len(v) {
@@ -1030,26 +1038,26 @@ func (b *bound) out60(v []fixture.MyByte) (rt.Value, error) {
 	}(), nil
 }
 
-// fn58 adapts ffx.octets: octets(b: Bytes) -> Bytes
-func (b *bound) fn58(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn57 adapts ffx.octets: octets(b: Bytes) -> Bytes
+func (b *bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.octets", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.octets", 1, len(args))
 	}
-	a0, err := b.in59(fr, args[0])
+	a0, err := b.in58(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.octets", 0, err)
 	}
 	r0 := fixture.Octets(a0)
-	v0, err := b.out60(r0)
+	v0, err := b.out59(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out62 builds a List<Point> from Go []fixture.Point.
-func (b *bound) out62(v []fixture.Point) (rt.Value, error) {
+// out61 builds a List<Point> from Go []fixture.Point.
+func (b *bound) out61(v []fixture.Point) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out14(v[i])
@@ -1061,8 +1069,8 @@ func (b *bound) out62(v []fixture.Point) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn61 adapts ffx.points: points(n: Int) -> List<Point>
-func (b *bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn60 adapts ffx.points: points(n: Int) -> List<Point>
+func (b *bound) fn60(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.points", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.points", 1, len(args))
@@ -1072,23 +1080,23 @@ func (b *bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("ffx.points", 0, err)
 	}
 	r0 := fixture.Points(a0)
-	v0, err := b.out62(r0)
+	v0, err := b.out61(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// out65 builds a Map<String, List<String>> from Go map[string][]string.
-func (b *bound) out65(v map[string][]string) (rt.Value, error) {
+// out64 builds a Map<String, List<String>> from Go map[string][]string.
+func (b *bound) out64(v map[string][]string) (rt.Value, error) {
 	conv := make([]rt.MapEntry[any, any], 0, len(v))
 	for _, e := range hostadapt.SortedEntries(v) {
 		gk, gv := e.Key, e.Val
-		k, err := b.out31(gk)
+		k, err := b.out30(gk)
 		if err != nil {
 			return nil, fmt.Errorf("key %v: %w", gk, err)
 		}
-		x, err := b.out30(gv)
+		x, err := b.out29(gv)
 		if err != nil {
 			return nil, fmt.Errorf("value at %v: %w", gk, err)
 		}
@@ -1097,20 +1105,20 @@ func (b *bound) out65(v map[string][]string) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// out64 builds a Query from Go fixture.Query.
-func (b *bound) out64(v fixture.Query) (rt.Value, error) {
+// out63 builds a Query from Go fixture.Query.
+func (b *bound) out63(v fixture.Query) (rt.Value, error) {
 	r := b.d7.New()
 	r.S[0] = string(v.Path)
-	w66, err := b.out65(v.Params)
+	w65, err := b.out64(v.Params)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "params", err)
 	}
-	r.R[0] = w66
+	r.R[0] = w65
 	return r, nil
 }
 
-// fn63 adapts ffx.query: query(path: String, words: List<String>) -> Query
-func (b *bound) fn63(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn62 adapts ffx.query: query(path: String, words: List<String>) -> Query
+func (b *bound) fn62(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.query", &err)
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("ffx.query", 2, len(args))
@@ -1124,15 +1132,15 @@ func (b *bound) fn63(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arg("ffx.query", 1, err)
 	}
 	r0 := fixture.MakeQuery(a0, a1)
-	v0, err := b.out64(r0)
+	v0, err := b.out63(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in68 reads a () -> Result<Unit, String> as Go func() error.
-func (b *bound) in68(fr *rt.Frame, v rt.Value) (out func() error, err error) {
+// in67 reads a () -> Result<Unit, String> as Go func() error.
+func (b *bound) in67(fr *rt.Frame, v rt.Value) (out func() error, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
@@ -1159,13 +1167,13 @@ func (b *bound) in68(fr *rt.Frame, v rt.Value) (out func() error, err error) {
 	}, nil
 }
 
-// fn67 adapts ffx.run: run(f: () -> Result<Unit, String>) -> Result<Unit, String>
-func (b *bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn66 adapts ffx.run: run(f: () -> Result<Unit, String>) -> Result<Unit, String>
+func (b *bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.run", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.run", 1, len(args))
 	}
-	a0, err := b.in68(fr, args[0])
+	a0, err := b.in67(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.run", 0, err)
 	}
@@ -1180,8 +1188,8 @@ func (b *bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return ok, nil
 }
 
-// in70 reads a String as Go fixture.Label.
-func (b *bound) in70(fr *rt.Frame, v rt.Value) (out fixture.Label, err error) {
+// in69 reads a String as Go fixture.Label.
+func (b *bound) in69(fr *rt.Frame, v rt.Value) (out fixture.Label, err error) {
 	x, ok := v.(string)
 	if !ok {
 		return out, hostadapt.Want("String", v)
@@ -1189,31 +1197,31 @@ func (b *bound) in70(fr *rt.Frame, v rt.Value) (out fixture.Label, err error) {
 	return fixture.Label(x), nil
 }
 
-// out71 builds a String from Go fixture.Label.
-func (b *bound) out71(v fixture.Label) (rt.Value, error) {
+// out70 builds a String from Go fixture.Label.
+func (b *bound) out70(v fixture.Label) (rt.Value, error) {
 	return string(v), nil
 }
 
-// fn69 adapts ffx.shout: shout(s: String) -> String
-func (b *bound) fn69(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn68 adapts ffx.shout: shout(s: String) -> String
+func (b *bound) fn68(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.shout", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.shout", 1, len(args))
 	}
-	a0, err := b.in70(fr, args[0])
+	a0, err := b.in69(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.shout", 0, err)
 	}
 	r0 := fixture.Shout(a0)
-	v0, err := b.out71(r0)
+	v0, err := b.out70(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// in73 reads a Map<String, List<String>> as Go map[string][]string.
-func (b *bound) in73(fr *rt.Frame, v rt.Value) (out map[string][]string, err error) {
+// in72 reads a Map<String, List<String>> as Go map[string][]string.
+func (b *bound) in72(fr *rt.Frame, v rt.Value) (out map[string][]string, err error) {
 	m, ok := v.(rt.Map[any, any])
 	if !ok {
 		return out, hostadapt.Want("Map<String, List<String>>", v)
@@ -1234,12 +1242,12 @@ func (b *bound) in73(fr *rt.Frame, v rt.Value) (out map[string][]string, err err
 	return out, nil
 }
 
-// out74 builds a Map<String, Int> from Go map[string]int64.
-func (b *bound) out74(v map[string]int64) (rt.Value, error) {
+// out73 builds a Map<String, Int> from Go map[string]int64.
+func (b *bound) out73(v map[string]int64) (rt.Value, error) {
 	conv := make([]rt.MapEntry[any, any], 0, len(v))
 	for _, e := range hostadapt.SortedEntries(v) {
 		gk, gv := e.Key, e.Val
-		k, err := b.out31(gk)
+		k, err := b.out30(gk)
 		if err != nil {
 			return nil, fmt.Errorf("key %v: %w", gk, err)
 		}
@@ -1252,26 +1260,26 @@ func (b *bound) out74(v map[string]int64) (rt.Value, error) {
 	return rt.MapOf(rt.Hash, rt.Equal, conv), nil
 }
 
-// fn72 adapts ffx.sizes: sizes(m: Map<String, List<String>>) -> Map<String, Int>
-func (b *bound) fn72(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn71 adapts ffx.sizes: sizes(m: Map<String, List<String>>) -> Map<String, Int>
+func (b *bound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.sizes", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.sizes", 1, len(args))
 	}
-	a0, err := b.in73(fr, args[0])
+	a0, err := b.in72(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.sizes", 0, err)
 	}
 	r0 := fixture.Sizes(a0)
-	v0, err := b.out74(r0)
+	v0, err := b.out73(r0)
 	if err != nil {
 		return nil, err
 	}
 	return v0, nil
 }
 
-// fn75 adapts ffx.triple: triple(n: Int) -> #(Int, String, Bool)
-func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn74 adapts ffx.triple: triple(n: Int) -> #(Int, String, Bool)
+func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.triple", 1, len(args))
@@ -1282,14 +1290,14 @@ func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	r0, r1, r2 := fixture.Triple(a0)
 	tup := b.d8.New()
-	tup.W[0] = rt.IntWord(int64(r0))
+	tup.SetIntSlot(0, rt.Value(int64(r0)))
 	tup.S[0] = string(r1)
 	tup.W[1] = rt.BoolWord(bool(r2))
 	return tup, nil
 }
 
-// fn76 adapts ffx.triple_or_fail: triple_or_fail(n: Int) -> Result<#(Int, String), String>
-func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn75 adapts ffx.triple_or_fail: triple_or_fail(n: Int) -> Result<#(Int, String), String>
+func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple_or_fail", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("ffx.triple_or_fail", 1, len(args))
@@ -1305,20 +1313,20 @@ func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return rec, nil
 	}
 	tup := b.d9.New()
-	tup.W[0] = rt.IntWord(int64(r0))
+	tup.SetIntSlot(0, rt.Value(int64(r0)))
 	tup.S[0] = string(r1)
 	ok := b.d6.NewVariant(0)
 	ok.R[0] = tup
 	return ok, nil
 }
 
-// in78 reads a (Int) -> Unit as Go func(int64).
-func (b *bound) in78(fr *rt.Frame, v rt.Value) (out func(int64), err error) {
+// in77 reads a (Int) -> Unit as Go func(int64).
+func (b *bound) in77(fr *rt.Frame, v rt.Value) (out func(int64), err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
 	return func(p0 int64) {
-		res, err := b.env.Call(fr, v, []rt.Value{int64(p0)})
+		res, err := b.env.Call(fr, v, []rt.Value{rt.Value(int64(p0))})
 		if err != nil {
 			panic(hostadapt.CallbackFailure(err, "func(int64)"))
 		}
@@ -1326,13 +1334,13 @@ func (b *bound) in78(fr *rt.Frame, v rt.Value) (out func(int64), err error) {
 	}, nil
 }
 
-// fn77 adapts ffx.visit: visit(f: (Int) -> Unit, n: Int) -> Unit
-func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn76 adapts ffx.visit: visit(f: (Int) -> Unit, n: Int) -> Unit
+func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.visit", &err)
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("ffx.visit", 2, len(args))
 	}
-	a0, err := b.in78(fr, args[0])
+	a0, err := b.in77(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Arg("ffx.visit", 0, err)
 	}
@@ -1344,14 +1352,14 @@ func (b *bound) fn77(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return rt.Unit{}, nil
 }
 
-// fn79 adapts ffx.zero_time: zero_time() -> Instant
-func (b *bound) fn79(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn78 adapts ffx.zero_time: zero_time() -> Instant
+func (b *bound) fn78(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.zero_time", &err)
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("ffx.zero_time", 0, len(args))
 	}
 	r0 := fixture.ZeroTime()
-	v0, err := b.out26(r0)
+	v0, err := b.out25(r0)
 	if err != nil {
 		return nil, err
 	}

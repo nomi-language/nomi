@@ -265,8 +265,8 @@ func TestDeriveMultiArgChecksEachInterface(t *testing.T) {
 	src := `struct HalfImpl { x: Int }
 
 impl Equatable for HalfImpl {
-  fn equal?(a: HalfImpl, b: HalfImpl) -> Bool {
-    Equatable.equal?(a.x, b.x)
+  fn equal(a: HalfImpl, b: HalfImpl) -> Bool {
+    Equatable.equal(a.x, b.x)
   }
 }
 

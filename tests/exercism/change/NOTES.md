@@ -16,12 +16,12 @@ Adapted from Exercism problem-specifications (MIT), exercises/change.
 
 ## Indexing
 
-Two indexed reads, both `Vector.at`.
+Two indexed reads, both `Vector.get(...)!`.
 
 | Read | Where | Result | Real use for a miss? |
 |---|---|---|---|
-| `Vector.at(table, amount - coin)` | `best` | the fewest coins for the rest, a `Maybe` | No: the filter keeps `coin <= amount`, and the table holds every amount below `amount` |
-| `Vector.at(fewest, target)` | `find_fewest_coins` | the answer, a `Maybe` | No: the table holds every amount from 0 to `target`, and a negative target has returned |
+| `Vector.get(table, amount - coin)!` | `best` | the fewest coins for the rest, a `Maybe` | No: the filter keeps `coin <= amount`, and the table holds every amount below `amount` |
+| `Vector.get(fewest, target)!` | `find_fewest_coins` | the answer, a `Maybe` | No: the table holds every amount from 0 to `target`, and a negative target has returned |
 
 ## Friction
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -154,4 +155,75 @@ func TestTimeoutFromEnv() time.Duration {
 // time out.
 func (p *Program) SetTestTimeout(d time.Duration, hint string) {
 	p.testTimeout, p.testTimeoutHint = d, hint
+}
+
+// CaseReport renders the VM's case results as the tour's playground shows them after a block's
+// output, in `nomi test`'s words: a case the
+// VM could not run prints one `BLOCKED <case> <blocker>` line per blocker (the
+// diagnostic `nomi check` gives, its hints indented under it) and
+// counts toward the summary's blocked number. What a case printed is
+// indented under its line. A test that ran a `subtests` table counts its rows
+// as cases (CaseResult.Cases) and names their count on its ok line.
+func CaseReport(cases []CaseResult) string {
+	if len(cases) == 0 {
+		return ""
+	}
+	passed, failed, blocked := 0, 0, 0
+	var report strings.Builder
+	for _, c := range cases {
+		name := c.Name
+		if name == "" {
+			name = "main"
+		}
+		switch {
+		case c.Blocked != nil:
+			blocked++
+			for _, blocker := range c.Blocked {
+				first, more, _ := strings.Cut(blocker, "\n")
+				fmt.Fprintf(&report, "BLOCKED %s %s\n", name, first)
+				if more != "" {
+					report.WriteString(indentLines(more, "  "))
+					report.WriteByte('\n')
+				}
+			}
+			writeCaseOutput(&report, c.Output)
+		case c.Err != nil:
+			passed += c.Cases - c.FailedCases
+			failed += c.FailedCases
+			fmt.Fprintf(&report, "FAIL %s\n", name)
+			writeCaseOutput(&report, c.Output)
+			report.WriteString(indentLines(FormatFailure(c.Err), "  "))
+			report.WriteByte('\n')
+		default:
+			passed += c.Cases
+			fmt.Fprintf(&report, "ok %s\n", OKLine(name, c.Count()))
+			writeCaseOutput(&report, c.Output)
+		}
+	}
+	verdict := "ok"
+	switch {
+	case failed > 0:
+		verdict = "FAILED"
+	case blocked > 0:
+		verdict = "BLOCKED"
+	}
+	fmt.Fprintf(&report, "test result: %s. %d passed, %d failed", verdict, passed, failed)
+	if blocked > 0 {
+		fmt.Fprintf(&report, ", %d blocked", blocked)
+	}
+	return report.String()
+}
+
+// writeCaseOutput writes what a case printed under its line, indented two
+// spaces with blank lines left blank, as `nomi test` does.
+func writeCaseOutput(report *strings.Builder, output string) {
+	if output == "" {
+		return
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(output, "\n"), "\n") {
+		if line != "" {
+			report.WriteString("  " + line)
+		}
+		report.WriteByte('\n')
+	}
 }

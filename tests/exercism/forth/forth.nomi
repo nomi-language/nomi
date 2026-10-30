@@ -42,10 +42,10 @@ pub fn evaluate(instructions: List<String>) -> Result<List<Int>, Error> {
     tokens =
         instructions
         |> Iter.flat_map(String.words)
-        |> Iter.map(String.to_lower)
+        |> Iter.map(String.lowercase)
         |> Iter.to_list()
 
-    stack = try run([], builtins, tokens)
+    stack = run([], builtins, tokens)?
 
     stack
     |> Iter.reverse()
@@ -63,9 +63,7 @@ fn run(
             Ok(stack)
 
         [":", name, ..rest] -> {
-            if String.to_int(name) |> Maybe.some?() {
-                return Err(.IllegalOperation)
-            }
+            if String.to_int(name) |> Maybe.is_some() { return Err(.IllegalOperation) }
 
             body = rest |> Iter.take_while(&(&1 != ";")) |> Iter.to_list()
             after = rest |> Iter.drop(Iter.count(body) + 1) |> Iter.to_list()
@@ -73,14 +71,14 @@ fn run(
             ops =
                 body
                 |> Iter.map(&resolve(words, &1))
-                |> try Result.collect()
+                |> Result.collect()?
 
             run(stack, Map.put(words, name, Iter.flatten(ops)), after)
         }
 
         [word, ..rest] -> {
-            ops = try resolve(words, word)
-            stack = try execute(stack, ops)
+            ops = resolve(words, word)?
+            stack = execute(stack, ops)?
             run(stack, words, rest)
         }
     }
@@ -89,9 +87,7 @@ fn run(
 /// The steps `word` runs: a number pushes itself, and any other word runs
 /// the steps it was defined with when it was defined.
 fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error> {
-    if Some(n) = String.to_int(word) {
-        return Ok([.Push(n)])
-    }
+    if Some(n) = String.to_int(word) { return Ok([.Push(n)]) }
 
     Map.get(words, word) |> Maybe.to_result(Error.UndefinedOperation)
 }
@@ -99,7 +95,7 @@ fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error
 fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error> {
     case ops {
         [] -> Ok(stack)
-        [op, ..rest] -> execute(try apply(stack, op), rest)
+        [op, ..rest] -> execute(apply(stack, op)?, rest)
     }
 }
 

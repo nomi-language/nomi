@@ -450,38 +450,6 @@ func readProject(dir, name string) (incrementalProject, error) {
 	return p, err
 }
 
-// dungeonDir is a game of about 500 lines in five files, outside this
-// repository. A test that reads it skips when it is not there.
-const dungeonDir = "/Users/davidbaldwin/Code/nomi/dungeon"
-
-// dungeonProject reads the dungeon into memory, or skips tb.
-func dungeonProject(tb testing.TB) incrementalProject {
-	tb.Helper()
-	if _, err := os.Stat(dungeonDir); err != nil {
-		tb.Skipf("no dungeon project at %s", dungeonDir)
-	}
-	p, err := readProject(dungeonDir, "dungeon")
-	if err != nil {
-		tb.Fatal(err)
-	}
-	return p
-}
-
-// dungeonEdits edit the dungeon's files where another file reads them.
-var dungeonEdits = []editStep{
-	replace("body only", "world", `.North -> "north"`, `.North -> "the north"`),
-	replace("signature", "world", "pub fn parse(word: String) -> Maybe<Direction> {", "pub fn parse(word: String, strict: Bool) -> Maybe<Direction> {"),
-	restore("signature back", "world"),
-	replace("once annotation dropped, same type", "world", "pub once directions: List<Direction> = [.North, .South, .East, .West]", "pub once directions = [Direction.North, Direction.South, Direction.East, Direction.West]"),
-	replace("once value, new type", "world", "pub once directions = [Direction.North, Direction.South, Direction.East, Direction.West]", "pub once directions = Direction.North"),
-	restore("once back", "world"),
-	replace("impl removed", "world", "impl Display for Item {", "impl Item {\n    fn unused_display(item: Item) -> String {\n        \"\"\n    }\n}\n\nimpl Item {"),
-	restore("impl back", "world"),
-	replace("entry body only", "main", `io.print("You wake up in the dark. Type 'help' for commands.")`, `io.print("You wake up. Type 'help' for commands.")`),
-	replace("entry unparseable", "main", "fn turn(state: Game, line: String) -> Game {", "fn turn(state: Game, line: String: Game {"),
-	restore("entry parses again", "main"),
-}
-
 // layeredProject is a project whose imports form layers, so that an edit to
 // one file has importers that are not every file: util, which model, view
 // and the entry import; model, which view and the entry import; view and
@@ -623,7 +591,7 @@ func rateProject() incrementalProject {
 fn main() {
     r = #Rate{per_unit: 4d}
     io.print(Decimal.to_string(2.5d * r))
-    io.print(Bool.to_string(String.contains?("x4", r)))
+    io.print(Bool.to_string(String.contains("x4", r)))
 }
 `,
 		"rate": `pub struct Rate {
@@ -637,8 +605,8 @@ impl Multiply<Rate, Decimal> for Decimal {
 }
 
 impl Contains<Rate> for String {
-    fn contains?(c: String, x: Rate) -> Bool {
-        String.contains?(c, Decimal.to_string(x.per_unit))
+    fn contains(c: String, x: Rate) -> Bool {
+        String.contains(c, Decimal.to_string(x.per_unit))
     }
 }
 `,
@@ -655,11 +623,11 @@ var rateEdits = []editStep{
 		"impl Multiply<Decimal, Rate> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {\n        #Rate{per_unit: lhs * rhs}"),
 	restore("impl header back", "rate"),
 	replace("impl removed", "rate",
-		"impl Contains<Rate> for String {\n    fn contains?(c: String, x: Rate) -> Bool {\n        String.contains?(c, Decimal.to_string(x.per_unit))\n    }\n}\n", ""),
+		"impl Contains<Rate> for String {\n    fn contains(c: String, x: Rate) -> Bool {\n        String.contains(c, Decimal.to_string(x.per_unit))\n    }\n}\n", ""),
 	restore("impl back", "rate"),
 	replace("impl header names no local type", "rate",
-		"impl Contains<Rate> for String {\n    fn contains?(c: String, x: Rate) -> Bool {\n        String.contains?(c, Decimal.to_string(x.per_unit))",
-		"impl Contains<Decimal> for String {\n    fn contains?(c: String, x: Decimal) -> Bool {\n        String.contains?(c, Decimal.to_string(x))"),
+		"impl Contains<Rate> for String {\n    fn contains(c: String, x: Rate) -> Bool {\n        String.contains(c, Decimal.to_string(x.per_unit))",
+		"impl Contains<Decimal> for String {\n    fn contains(c: String, x: Decimal) -> Bool {\n        String.contains(c, Decimal.to_string(x))"),
 	// The program's orphan-impl error is about rate, and moves with it.
 	replace("body only, the orphan impl below moves", "rate", "        lhs * rhs.per_unit\n", "        per = rhs.per_unit\n        lhs * per\n"),
 	restore("impl header and body back", "rate"),
@@ -813,24 +781,6 @@ func TestIncrementalMatchesFull(t *testing.T) {
 			runChecked(t, p, genericEdits(key, p.texts[key]), recheck)
 		}
 	})
-	t.Run("dungeon", func(t *testing.T) {
-		p := dungeonProject(t)
-		cur := map[string]string{}
-		for key, text := range p.texts {
-			cur[key] = text
-		}
-		for _, s := range dungeonEdits {
-			text, ok := s.change(cur[s.key], p.texts[s.key])
-			if !ok {
-				t.Skipf("the dungeon at %s has changed: %s no longer applies to %s", dungeonDir, s.kind, s.key)
-			}
-			cur[s.key] = text
-		}
-		runChecked(t, p, dungeonEdits, recheck)
-		for _, key := range []string{"game", "command"} {
-			runChecked(t, p, genericEdits(key, p.texts[key]), recheck)
-		}
-	})
 	projects, err := corpusProjects()
 	if err != nil {
 		t.Fatal(err)
@@ -939,9 +889,6 @@ func TestDumpProgramIsStable(t *testing.T) {
 		t.Fatal(err)
 	}
 	projects = append(projects, corpus[0], corpus[len(corpus)/2], corpus[len(corpus)-1])
-	if _, err := os.Stat(dungeonDir); err == nil {
-		projects = append(projects, dungeonProject(t))
-	}
 	for _, p := range projects {
 		first := analysis.DumpProgramForTest(fullCheck(p, p.texts))
 		if second := analysis.DumpProgramForTest(fullCheck(p, p.texts)); second != first {
@@ -1084,39 +1031,5 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 		if p.name == withTypeError.name && len(got) < 2 || p.name == order.name && len(got) == 0 {
 			t.Errorf("%s: the front end prints %d diagnostics, want the program's errors", p.name, len(got))
 		}
-	}
-}
-
-// BenchmarkRecheckDungeon times a recheck of the dungeon (dungeonDir), copied
-// to a temporary directory, after an edit that alternates between two texts
-// of one file: a body-only edit to game.nomi, which rebuilds that file's
-// bodies; a signature edit to game.nomi, which the entry imports; a
-// signature edit to world.nomi, which every other file imports; a signature
-// edit to the entry; and a body-only edit to the entry.
-func BenchmarkRecheckDungeon(b *testing.B) {
-	p := dungeonProject(b)
-	dir := writeProject(b, p)
-	for _, bench := range []struct {
-		name, key, old, new string
-	}{
-		{"body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
-		{"signature", "game", "fn strength(game: Game) -> Int {", "fn strength(game: Game, _bonus: Int = 0) -> Int {"},
-		{"leaf signature", "world", "pub fn room(place: Place) -> Room {", "pub fn room(place: Place, _lit: Bool = True) -> Room {"},
-		{"entry signature", "main", "fn turn(state: Game, line: String) -> Game {", "fn turn(state: Game, line: String, _echo: Bool = False) -> Game {"},
-		{"entry body", "main", "You wake up in the dark.", "You wake up."},
-	} {
-		b.Run(bench.name, func(b *testing.B) {
-			edited := strings.Replace(p.texts[bench.key], bench.old, bench.new, 1)
-			if edited == p.texts[bench.key] {
-				b.Skipf("the dungeon has changed: %q is not in %s", bench.old, bench.key)
-			}
-			dm := newManager()
-			prog := dm.CheckProgram(dir, p.entry, p.texts)
-			texts := []string{edited, p.texts[bench.key]}
-			b.ResetTimer()
-			for i := range b.N {
-				prog = dm.Recheck(prog, analysis.ProgramEdit{Key: bench.key, Text: texts[i%2]})
-			}
-		})
 	}
 }

@@ -22,7 +22,7 @@ fn main() {
     case Regex.compile("a+") {
         Ok(re) -> {
             c2 = Context.with_value(c, re)
-            io.inspect(Maybe.some?(Context.value(c2, Regex)))
+            io.inspect(Maybe.is_some(Context.value(c2, Regex)))
             io.inspect(Context.value(c2, Duration))
         }
         Err(_) -> io.print("bad")

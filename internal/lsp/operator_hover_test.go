@@ -24,8 +24,8 @@ struct Tag {
 }
 
 impl Equatable for Tag {
-  fn equal?(a: Tag, b: Tag) -> Bool {
-    String.to_lower(a.name) == String.to_lower(b.name)
+  fn equal(a: Tag, b: Tag) -> Bool {
+    String.lowercase(a.name) == String.lowercase(b.name)
   }
 }
 
@@ -44,11 +44,11 @@ fn bigger<T>(a: T, b: T) -> Bool where T: Comparable {
 func TestHover_Operators(t *testing.T) {
 	runShapeHoverCases(t, operatorHoverDecls, []shapeHoverCase{
 		{"Int +", "fn main() {\n  io.inspect(1 ▮+ 2)\n}\n",
-			[]string{"`Int` + `Int` → `Int`", "Checked: traps on overflow.", "`impl Add<Int, Int> for Int` in `std/int`."}, nil},
+			[]string{"`Int` + `Int` → `Int`", "Exact at any size: never overflows.", "`impl Add<Int, Int> for Int` in `std/int`."}, nil},
 		{"Int -", "fn main() {\n  io.inspect(1 ▮- 2)\n}\n",
-			[]string{"`Int` - `Int` → `Int`", "Checked: traps on overflow.", "`impl Subtract<Int, Int> for Int`"}, nil},
+			[]string{"`Int` - `Int` → `Int`", "Exact at any size: never overflows.", "`impl Subtract<Int, Int> for Int`"}, nil},
 		{"Int *", "fn main() {\n  io.inspect(3 ▮* 2)\n}\n",
-			[]string{"`Int` * `Int` → `Int`", "Checked: traps on overflow.", "`impl Multiply<Int, Int> for Int`"}, nil},
+			[]string{"`Int` * `Int` → `Int`", "Exact at any size: never overflows.", "`impl Multiply<Int, Int> for Int`"}, nil},
 		{"Int / chooses Divide<Int, Int>, not Divide<NonZeroInt, Int>", "fn main() {\n  io.inspect(7 ▮/ 2)\n}\n",
 			[]string{"`Int` / `Int` → `Int`", "Truncates toward zero; traps on division by zero.", "`impl Divide<Int, Int> for Int`"}, []string{"NonZeroInt"}},
 		{"Int %", "fn main() {\n  io.inspect(-7 ▮% 3)\n}\n",
@@ -88,7 +88,7 @@ func TestHover_Operators(t *testing.T) {
 		{"..=", "fn main() {\n  io.inspect(0..▮=3)\n}\n",
 			[]string{"```nomi\nRange<Int>\n```", "Inclusive"}, nil},
 		{"unary - on Int", "fn main() {\n  n = 3\n  io.inspect(▮-n)\n}\n",
-			[]string{"Negation: `Int` → `Int`", "Checked: traps on `Int.min_value`."}, nil},
+			[]string{"Negation: `Int` → `Int`", "Exact at any size."}, nil},
 		{"unary - on Float", "fn main() {\n  f = 3.0\n  io.inspect(▮-f)\n}\n",
 			[]string{"Negation: `Float` → `Float`"}, []string{"traps"}},
 		{"inside a capture", "fn main() {\n  io.inspect([1, 5] |> Iter.filter(&(&1 ▮> 2)) |> Iter.to_list())\n}\n",

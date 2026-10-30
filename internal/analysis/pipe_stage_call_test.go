@@ -80,7 +80,7 @@ func TestPipeStage_CallsLambdasAndKeywordsAreAccepted(t *testing.T) {
 		"x = 3 |> dbg",
 		"x = True |> if { 1 } else { 0 }",
 		"x = 3 |> case {\n    3 -> True\n    _ -> False\n  }",
-		"x = Some(3) |> try",
+		"x = Some(3) |> Maybe.map(fn v -> v)?",
 		"x = [1, 2] |> Iter.map(double) |> Iter.to_list()",
 	} {
 		src := pipeStageDecls + "fn demo() -> Maybe<Unit> {\n  " + stmt + "\n  _ = x\n  Some(Unit)\n}\n"

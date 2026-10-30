@@ -76,9 +76,7 @@ fn main() {
     // --- map destructuring -----------------------------------------------------
     cfg = %{"host" => "localhost", "port" => "8080", "mode" => "debug"}
 
-    %{"host" => host, "port" => port} = cfg else {
-        return
-    }
+    %{"host" => host, "port" => port} = cfg else { return }
 
     io.print("host = ${host}")
     io.print("port = ${port}")
@@ -93,9 +91,7 @@ fn main() {
     // reused as a key. Both are evaluated against the enclosing scope.
     prefix = "ho"
 
-    %{"${prefix}st" => interpolated} = cfg else {
-        return
-    }
+    %{"${prefix}st" => interpolated} = cfg else { return }
 
     io.print("interpolated = ${interpolated}")
 
@@ -124,9 +120,7 @@ fn main() {
     io.print("pair key = ${from_pair}")
 
     // Entries are read LEFT TO RIGHT, and each key expression is evaluated once.
-    %{note("host") => a, note("mode") => b} = cfg else {
-        return
-    }
+    %{note("host") => a, note("mode") => b} = cfg else { return }
 
     io.print("ordered = ${a} ${b}")
 

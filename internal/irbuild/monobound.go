@@ -10,9 +10,9 @@ import (
 // # The population, and why nothing else could serve it
 //
 // `fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T>` and
-// `fn saw_any?<T, I>(it: I) -> Bool where I: Iter<T>`
+// `fn saw_any<T, I>(it: I) -> Bool where I: Iter<T>`
 // (`11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi`).
-// `T` is named by no parameter annotation, and in `saw_any?` by no return
+// `T` is named by no parameter annotation, and in `saw_any` by no return
 // annotation either. Every channel monoTypeArgs already had is therefore silent
 // about it:
 //

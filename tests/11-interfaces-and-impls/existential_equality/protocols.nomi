@@ -60,14 +60,14 @@ impl Show for Name {
 }
 
 impl Equatable for Name {
-    fn equal?(a: Name, b: Name) -> Bool {
-        String.to_lower(a.text) == String.to_lower(b.text)
+    fn equal(a: Name, b: Name) -> Bool {
+        String.lowercase(a.text) == String.lowercase(b.text)
     }
 }
 
 impl Hashable for Name {
     fn hash(n: Name) -> Int {
-        Hashable.hash(String.to_lower(n.text))
+        Hashable.hash(String.lowercase(n.text))
     }
 }
 
@@ -78,8 +78,8 @@ impl Show for Tag {
 }
 
 impl Equatable for Tag {
-    fn equal?(a: Tag, b: Tag) -> Bool {
-        String.to_lower(a.text) == String.to_lower(b.text)
+    fn equal(a: Tag, b: Tag) -> Bool {
+        String.lowercase(a.text) == String.lowercase(b.text)
     }
 }
 
@@ -132,7 +132,7 @@ impl Show for Glyph {
 }
 
 impl Equatable for Glyph {
-    fn equal?(a: Glyph, b: Glyph) -> Bool {
+    fn equal(a: Glyph, b: Glyph) -> Bool {
         case a {
             #.Circle{r: _} ->
                 case b {

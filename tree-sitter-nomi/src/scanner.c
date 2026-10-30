@@ -58,7 +58,7 @@ enum TokenType {
     ATTACHED_COMMENT_TEST_PROMPT,
     ATTACHED_COMMENT_TEST_LINE_PROMPT,
     ATTACHED_TEST_PROMPT_GROUP_END,
-    // Zero-width, before the operand of `dbg`, `try`, `return`, `break` or
+    // Zero-width, before the operand of `dbg`, `return`, `break` or
     // `todo` when the operand starts on the keyword's line.
     SAME_LINE,
     // The contextual keyword `subtests` at the start of a statement, emitted
@@ -333,9 +333,9 @@ static bool line_continues(TSLexer *lexer) {
             advance(lexer);
             return lexer->lookahead == '=';
         case 'a':
-            return at_word(lexer, "and") && lexer->lookahead != '?';
+            return at_word(lexer, "and");
         case 'o':
-            return at_word(lexer, "or") && lexer->lookahead != '?';
+            return at_word(lexer, "or");
         case 'e':
             return at_word(lexer, "else");
         case 'w':
@@ -345,9 +345,9 @@ static bool line_continues(TSLexer *lexer) {
     }
 }
 
-// Whether `c` can start the operand of `dbg`, `try`, `return`, `break` or
-// `todo`. A closing delimiter, a comma or the end of input cannot, and neither
-// can `|>`, which pipes the bare keyword on (`value |> try |> f`).
+// Whether `c` can start the operand of `dbg`, `return`, `break` or `todo`. A
+// closing delimiter, a comma or the end of input cannot, and neither can
+// `|>`, which pipes the bare keyword on (`value |> dbg |> f`).
 static bool starts_operand(TSLexer *lexer) {
     int32_t c = lexer->lookahead;
     if (c == 0 || c == ')' || c == ']' || c == '}' || c == ',') return false;
@@ -595,7 +595,7 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
         return scan_host_keyword(lexer);
     }
 
-    // The operand of `dbg`, `try`, `return`, `break` and `todo` must start on
+    // The operand of `dbg`, `return`, `break` and `todo` must start on
     // the keyword's line, as in the Go parser: `n |> dbg` then a line
     // `same = dbg n` is two statements.
     if (valid_symbols[SAME_LINE] && !line_break) {

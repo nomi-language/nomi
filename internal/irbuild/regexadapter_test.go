@@ -90,7 +90,7 @@ func TestAdapterWall_AdapterSignaturesNeedShims(t *testing.T) {
 	idx := stdlibLowering()
 	for _, key := range []string{
 		"regex.Regex.compile", "regex.Regex.find_in", "regex.Regex.find_all_in",
-		"regex.Regex.split_in", "regex.Regex.pattern", "regex.Regex.contained_in?",
+		"regex.Regex.split_in", "regex.Regex.pattern", "regex.Regex.is_contained_in",
 	} {
 		f, known := idx.byKey[key]
 		if !known || !f.lowerable() {

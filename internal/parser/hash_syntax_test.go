@@ -29,7 +29,7 @@ func shapeOf(t *testing.T, src string) string {
 				out = append(out, "tuple-destructure")
 			case *ast.MapLit:
 				switch {
-				case n.Spread != nil:
+				case len(n.Spreads) > 0:
 					out = append(out, "map-update")
 				case n.TypeName != nil:
 					out = append(out, "typed-map")
@@ -265,13 +265,13 @@ func literalKinds(t *testing.T, src string) string {
 		ast.Inspect(n, func(n ast.Node) bool {
 			switch n := n.(type) {
 			case *ast.VectorLit:
-				if n.Spread != nil {
+				if len(n.Spreads) > 0 {
 					out = append(out, "vector-spread")
 				} else {
 					out = append(out, named("vector", n.TypeName))
 				}
 			case *ast.SetLit:
-				if n.Spread != nil {
+				if len(n.Spreads) > 0 {
 					out = append(out, "set-spread")
 				} else {
 					out = append(out, named("set", n.TypeName))

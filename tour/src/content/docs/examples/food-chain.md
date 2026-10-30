@@ -7,7 +7,7 @@ description: "Recite the cumulative song about the old lady who swallowed a fly,
 
 Recite the cumulative song about the old lady who swallowed a fly, where each verse swallows a bigger animal to catch the one before.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/food-chain) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/food-chain) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
 
 ```nomi-run
 // FILE: food_chain.nomi
@@ -47,33 +47,22 @@ once closing = "I don't know why she swallowed the fly. Perhaps she'll die."
 /// an empty line between two verses.
 pub fn recite(start: Int, end: Int) -> List<String> {
     start..=end
-    |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, number) -> {
-        if i == 0 {
-            verse(number)
-        } else {
-            [""] + verse(number)
-        }
-    })
-    |> Iter.to_list()
+    |> Iter.map(verse)
+    |> Iter.intersperse([""])
+    |> Iter.flatten()
 }
 
 /// Verse `number`: the new animal, what she said about it, and every animal
 /// caught back down to the fly.
 fn verse(number: Int) -> List<String> {
-    if number > Iter.count(animals) {
-        return horse_verse
-    }
+    if number > Iter.count(animals) { return horse_verse }
 
     swallowed = animals |> Iter.take(number) |> Iter.reverse()
     [newest, .._] = swallowed else {
         unreachable "every verse up to the cow swallows at least the fly"
     }
 
-    reaction = case newest.reaction {
-        Some(line) -> [line]
-        None -> []
-    }
+    reaction = Iter.to_list(newest.reaction)
 
     chain =
         swallowed
@@ -279,13 +268,8 @@ test "food chain" {
 
 - The song is data: a list of `Animal` structs with a name, the line sung when she swallows it, and a `detail` that follows its name when it is the one caught. Only the spider has a detail ("that wriggled and jiggled and tickled inside her"), so the field defaults to `""`, and the fly, about which nothing is sung, leaves its `reaction` at its default, `None`.
 - A verse takes the animals swallowed so far, newest first. The chain of "She swallowed the X to catch the Y" lines zips that list with itself shifted by one, so each line pairs a predator with its prey and no line is built by index.
+- A `Maybe` is an `Iter` of zero or one elements, so `Iter.to_list(newest.reaction)` is the reaction's line, or no line for the fly.
 - The horse is not an `Animal`: its verse is the opening and "She's dead, of course!", with no chain and no closing line, so it is a fixed `horse_verse` that `verse` answers for any number past the cow.
 - The newest animal is taken with a list pattern, `[newest, .._] = swallowed`, whose `else` is `unreachable`, since every verse up to the cow swallows the fly at least (style §28).
 - `recite` answers lines with an empty line between two verses, as bottle-song does.
 - The ten canonical cases are one `subtests` table of the canonical lines written out.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no `Iter.intersperse`, so the empty line between verses comes from `Iter.with_index` and an `if` on the first index, as in bottle-song. Elixir has `Enum.intersperse`, Haskell `intercalate`, Rust `Itertools::intersperse`.

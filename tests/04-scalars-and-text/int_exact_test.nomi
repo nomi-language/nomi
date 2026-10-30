@@ -1,0 +1,92 @@
+import std/compiler
+
+struct Account {
+    id: Int
+    balance: Int
+}
+
+enum Amount {
+    Exact Int
+    Unknown
+}
+
+fn factorial(n: Int) -> Int {
+    if n <= 1 { 1 } else { n * factorial(n - 1) }
+}
+
+fn describe(n: Int) -> String {
+    case n {
+        0 -> "zero"
+        18_446_744_073_709_551_616 -> "two to the 64"
+        -9_223_372_036_854_775_808 -> "minus two to the 63"
+        _ -> "other"
+    }
+}
+
+test "int arithmetic is exact past 64 bits" {
+    top = 9_223_372_036_854_775_807
+    assert top + 1 == 9_223_372_036_854_775_808
+    assert top * top == 85_070_591_730_234_615_847_396_907_784_232_501_249
+    assert -(-9_223_372_036_854_775_808) == 9_223_372_036_854_775_808
+    assert Int.abs(-9_223_372_036_854_775_808) == 9_223_372_036_854_775_808
+    assert factorial(30) == 265_252_859_812_191_058_636_308_480_000_000
+    assert factorial(30) / factorial(28) == 870
+    assert factorial(30) % 1_000_000_007 == 109_361_473
+    assert -factorial(25) / 7 == -2_215_887_149_047_283_712_000_000
+}
+
+test "a big value that comes back into range is an ordinary Int again" {
+    big = Int.pow(2, 64) + 5
+    small = big - Int.pow(2, 64)
+    assert small == 5
+    assert %{5 => "five"} |> Map.get(small) == Some("five")
+    assert %[small] == %[5]
+    assert Hashable.hash(small) == Hashable.hash(5)
+    assert Int.to_string(small) == "5"
+}
+
+test "big values compare, hash and key maps by value" {
+    a = Int.pow(10, 20) + 1
+    b = 100_000_000_000_000_000_001
+    assert a == b
+    assert a < a + 1
+    assert -a < a
+    assert Hashable.hash(a) == Hashable.hash(b)
+    totals = %{a => "first"}
+    assert Map.get(totals, b) == Some("first")
+    assert Iter.sort([a + 1, -a, 3, a]) == [-a, 3, a, a + 1]
+}
+
+test "big values live in structs, enums and patterns" {
+    account = #Account{id: 1, balance: Int.pow(10, 25)}
+    richer = Struct.update(account, #{balance: account.balance * 2})
+    assert richer.balance == 20_000_000_000_000_000_000_000_000
+    assert account == #Account{id: 1, balance: 10_000_000_000_000_000_000_000_000}
+    assert Amount.Exact(Int.pow(2, 70)) == Amount.Exact(1_180_591_620_717_411_303_424)
+    assert describe(Int.pow(2, 64)) == "two to the 64"
+    assert describe(-Int.pow(2, 63)) == "minus two to the 63"
+    assert describe(Int.pow(2, 65)) == "other"
+}
+
+test "int modulo by zero traps as the remainder does" {
+    remainder =
+        """
+            fn main() {
+              _ = 7 % 0
+            }
+            """
+        |> compiler.run()
+
+    modulo =
+        """
+            fn main() {
+              _ = Int.modulo(7, 0)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(remainder_message) = remainder
+    assert Err(modulo_message) = modulo
+    assert remainder_message == "line 2: division by zero"
+    assert modulo_message == "line 2: division by zero"
+}

@@ -21,17 +21,13 @@ derive Equatable for Step
 
 /// The reactor that holds `cells`, made in order.
 fn build(cells: List<Cell>) -> Result<Reactor, Error> {
-    cells
-    |> Iter.reduce(fn reactor = Ok(Reactor.new()), cell -> {
-        Result.flat_map(reactor, fn reactor -> {
-            case cell {
-                .Input(#(name, value)) ->
-                    Reactor.input(reactor, name, value)
+    Iter.reduce(cells, fn reactor = Ok(Reactor.new()), cell -> {
+        reactor = reactor?
 
-                .Compute(#(name, inputs, compute)) ->
-                    Reactor.compute(reactor, name, inputs, compute)
-            }
-        })
+        case cell {
+            .Input(#(name, value)) -> Reactor.input(reactor, name, value)
+            .Compute(#(name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)
+        }
     })
 }
 
@@ -43,26 +39,23 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error> {
         steps
         |> Iter.map_reduce(fn reactor = reactor, step -> {
             case step {
-                .Value(#(cell, _)) -> {
+                .Value(#(cell, _)) ->
                     case Reactor.value(reactor, cell) {
                         Some(value) -> #(Ok(Step.Value(cell, value)), reactor)
                         None -> #(Err(Error.UnknownCell(cell)), reactor)
                     }
-                }
 
-                .Set(#(cell, value, _)) -> {
+                .Set(#(cell, value, _)) ->
                     case Reactor.set_value(reactor, cell, value) {
                         Ok(#(next, fired)) -> #(Ok(Step.Set(cell, value, fired)), next)
                         Err(error) -> #(Err(error), reactor)
                     }
-                }
 
-                .AddCallback(#(cell, callback)) -> {
+                .AddCallback(#(cell, callback)) ->
                     case Reactor.add_callback(reactor, cell, callback) {
                         Ok(next) -> #(Ok(Step.AddCallback(cell, callback)), next)
                         Err(error) -> #(Err(error), reactor)
                     }
-                }
 
                 .RemoveCallback(#(cell, callback)) ->
                     #(
@@ -76,7 +69,7 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error> {
 }
 
 test "react" {
-    cases: List<#(String, List<Cell>, List<Step>)> = [
+    cases = [
         #(
             "input cells have a value",
             [Cell.Input("input", 10)],
@@ -91,7 +84,7 @@ test "react" {
             "compute cells calculate initial value",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0) + 1),
+                Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)! + 1),
             ],
             [Step.Value("output", 2)],
         ),
@@ -101,7 +94,7 @@ test "react" {
                 Cell.Input("one", 1),
                 Cell.Input("two", 2),
                 Cell.Compute("output", ["one", "two"], fn v -> {
-                    Vector.at(v, 0) + Vector.at(v, 1) * 10
+                    Vector.get(v, 0)! + Vector.get(v, 1)! * 10
                 }),
             ],
             [Step.Value("output", 21)],
@@ -110,7 +103,7 @@ test "react" {
             "compute cells update value when dependencies are changed",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0) + 1),
+                Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)! + 1),
             ],
             [Step.Set("input", 3, %{}), Step.Value("output", 4)],
         ),
@@ -118,10 +111,10 @@ test "react" {
             "compute cells can depend on other compute cells",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("times_two", ["input"], fn v -> Vector.at(v, 0) * 2),
-                Cell.Compute("times_thirty", ["input"], fn v -> Vector.at(v, 0) * 30),
+                Cell.Compute("times_two", ["input"], fn v -> Vector.get(v, 0)! * 2),
+                Cell.Compute("times_thirty", ["input"], fn v -> Vector.get(v, 0)! * 30),
                 Cell.Compute("output", ["times_two", "times_thirty"], fn v -> {
-                    Vector.at(v, 0) + Vector.at(v, 1)
+                    Vector.get(v, 0)! + Vector.get(v, 1)!
                 }),
             ],
             [Step.Value("output", 32), Step.Set("input", 3, %{}), Step.Value("output", 96)],
@@ -130,7 +123,7 @@ test "react" {
             "compute cells fire callbacks",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0) + 1),
+                Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)! + 1),
             ],
             [Step.AddCallback("output", "callback1"), Step.Set("input", 3, %{"callback1" => 4})],
         ),
@@ -139,7 +132,7 @@ test "react" {
             [
                 Cell.Input("input", 1),
                 Cell.Compute("output", ["input"], fn v -> {
-                    if Vector.at(v, 0) < 3 { 111 } else { 222 }
+                    if Vector.get(v, 0)! < 3 { 111 } else { 222 }
                 }),
             ],
             [
@@ -152,7 +145,7 @@ test "react" {
             "callbacks do not report already reported values",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0) + 1),
+                Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)! + 1),
             ],
             [
                 Step.AddCallback("output", "callback1"),
@@ -164,8 +157,8 @@ test "react" {
             "callbacks can fire from multiple cells",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("plus_one", ["input"], fn v -> Vector.at(v, 0) + 1),
-                Cell.Compute("minus_one", ["input"], fn v -> Vector.at(v, 0) - 1),
+                Cell.Compute("plus_one", ["input"], fn v -> Vector.get(v, 0)! + 1),
+                Cell.Compute("minus_one", ["input"], fn v -> Vector.get(v, 0)! - 1),
             ],
             [
                 Step.AddCallback("plus_one", "callback1"),
@@ -177,7 +170,7 @@ test "react" {
             "callbacks can be added and removed",
             [
                 Cell.Input("input", 11),
-                Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0) + 1),
+                Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)! + 1),
             ],
             [
                 Step.AddCallback("output", "callback1"),
@@ -192,7 +185,7 @@ test "react" {
             "removing a callback multiple times doesn't interfere with other callbacks",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0) + 1),
+                Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)! + 1),
             ],
             [
                 Step.AddCallback("output", "callback1"),
@@ -207,11 +200,11 @@ test "react" {
             "callbacks should only be called once even if multiple dependencies change",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("plus_one", ["input"], fn v -> Vector.at(v, 0) + 1),
-                Cell.Compute("minus_one1", ["input"], fn v -> Vector.at(v, 0) - 1),
-                Cell.Compute("minus_one2", ["minus_one1"], fn v -> Vector.at(v, 0) - 1),
+                Cell.Compute("plus_one", ["input"], fn v -> Vector.get(v, 0)! + 1),
+                Cell.Compute("minus_one1", ["input"], fn v -> Vector.get(v, 0)! - 1),
+                Cell.Compute("minus_one2", ["minus_one1"], fn v -> Vector.get(v, 0)! - 1),
                 Cell.Compute("output", ["plus_one", "minus_one2"], fn v -> {
-                    Vector.at(v, 0) * Vector.at(v, 1)
+                    Vector.get(v, 0)! * Vector.get(v, 1)!
                 }),
             ],
             [Step.AddCallback("output", "callback1"), Step.Set("input", 4, %{"callback1" => 10})],
@@ -220,10 +213,10 @@ test "react" {
             "callbacks should not be called if dependencies change but output value doesn't change",
             [
                 Cell.Input("input", 1),
-                Cell.Compute("plus_one", ["input"], fn v -> Vector.at(v, 0) + 1),
-                Cell.Compute("minus_one", ["input"], fn v -> Vector.at(v, 0) - 1),
+                Cell.Compute("plus_one", ["input"], fn v -> Vector.get(v, 0)! + 1),
+                Cell.Compute("minus_one", ["input"], fn v -> Vector.get(v, 0)! - 1),
                 Cell.Compute("always_two", ["plus_one", "minus_one"], fn v -> {
-                    Vector.at(v, 0) - Vector.at(v, 1)
+                    Vector.get(v, 0)! - Vector.get(v, 1)!
                 }),
             ],
             [
@@ -246,21 +239,21 @@ test "react" {
 // Not canonical: the canonical cells are all well made and every operation
 // names a cell that exists.
 test "a cell's name is used once" {
-    reactor = try Reactor.input(Reactor.new(), "input", 1)
+    reactor = Reactor.new() |> Reactor.input("input", 1)?
 
     assert Err(Error.Duplicate("input")) = Reactor.input(reactor, "input", 2)
 }
 
 test "a compute cell reads only cells that exist" {
-    result = Reactor.compute(Reactor.new(), "output", ["input"], fn v -> Vector.at(v, 0))
+    result = Reactor.new() |> Reactor.compute("output", ["input"], fn v -> Vector.get(v, 0)!)
 
     assert Err(Error.UnknownCell("input")) = result
 }
 
 test "only an input cell can be set" {
-    reactor = try build(
-        [Cell.Input("input", 1), Cell.Compute("output", ["input"], fn v -> Vector.at(v, 0))]
-    )
+    reactor = build(
+        [Cell.Input("input", 1), Cell.Compute("output", ["input"], fn v -> Vector.get(v, 0)!)]
+    )?
 
     assert Err(Error.NotAnInput("output")) = Reactor.set_value(reactor, "output", 2)
     assert Err(Error.UnknownCell("missing")) = Reactor.set_value(reactor, "missing", 2)

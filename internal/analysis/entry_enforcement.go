@@ -9,19 +9,20 @@ import (
 // CheckEntryPlacement enforces the manifest-vs-source invariant for
 // executable entry callbacks:
 //
-//   - every file whose module-relative path is in
-//     manifest.EntryPoints must contain an entry callback;
-//   - every file NOT listed must contain zero entry callbacks.
+//   - every entry point of the module (Manifest.IsEntry: a file listed in
+//     entry_points, or a tool under tools/) must contain an entry
+//     callback;
+//   - every other file must contain zero entry callbacks.
 //
 // Returns one TypeError per violation. With a nil manifest (no
-// nomi.toml), the check is skipped — single-file `nomi run` mode and
+// nomi.toml), the check is skipped: single-file `nomi run` mode and
 // ad-hoc test fixtures keep their existing behavior.
 //
 // `entryNodes` is the entry file's top-level node slice;
 // `entryModRel` is the entry file's module-relative path (e.g.
 // "main" for <root>/main.nomi, "cmd/foo/main" for
 // <root>/cmd/foo/main.nomi). Pass "" when the caller doesn't
-// know the entry's module-relative path — the entry-side check is
+// know the entry's module-relative path; the entry-side check is then
 // skipped (sibling files in `files` are still enforced).
 //
 // `files` is the discovered sibling map (keyed by "/"-joined module
@@ -43,18 +44,23 @@ func CheckEntryPlacement(
 	if manifest == nil {
 		return nil
 	}
-	declared := make(map[string]bool, len(manifest.EntryPoints))
-	for _, e := range manifest.EntryPoints {
-		declared[e] = true
-	}
-
 	var errs []TypeError
 
 	check := func(modulePath string, nodes []ast.Node) {
 		entryNode := findEntryFuncDef(nodes)
 		hasEntry := entryNode != nil
+		isEntry := manifest.IsEntry(modulePath)
 		switch {
-		case declared[modulePath] && !hasEntry:
+		case isEntry && !hasEntry && IsToolFile(modulePath):
+			// Line/Col 1,1 is a placeholder: the discrepancy comes from
+			// the file's place under tools/, not from any .nomi node.
+			errs = append(errs, TypeError{
+				Line: 1, Col: 1,
+				Message: fmt.Sprintf(
+					"%s is a tool, since it is under tools/, but has no entry callback; add `fn main() { ... }`, or move a helper file into tools/internal/",
+					modulePath),
+			})
+		case isEntry && !hasEntry:
 			// Line/Col 1,1 is a placeholder: the discrepancy originates
 			// in nomi.toml, not at any .nomi node. Matches the
 			// manifest-load TypeError convention in buildProjectWithCache;
@@ -62,14 +68,14 @@ func CheckEntryPlacement(
 			errs = append(errs, TypeError{
 				Line: 1, Col: 1,
 				Message: fmt.Sprintf(
-					"%s is declared in nomi.toml entry_points but has no entry callback — add `fn main() { ... }`, or remove %q from entry_points",
+					"%s is declared in nomi.toml entry_points but has no entry callback; add `fn main() { ... }`, or remove %q from entry_points",
 					modulePath, modulePath),
 			})
-		case !declared[modulePath] && hasEntry:
+		case !isEntry && hasEntry:
 			errs = append(errs, TypeError{
 				Line: entryNode.Line, Col: entryNode.Col,
 				Message: fmt.Sprintf(
-					"entry callback in %s but file is not declared in nomi.toml entry_points — add %q to entry_points or move the entry callback to an entry file",
+					"entry callback in %s but file is not declared in nomi.toml entry_points; add %q to entry_points, or move the entry callback to an entry file or to a tool under tools/",
 					modulePath, modulePath),
 			})
 		}

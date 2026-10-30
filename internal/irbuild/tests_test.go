@@ -24,7 +24,7 @@ import (
 // expression that happens to render identically are treated the same way.
 //
 // A PREDICATE's literal arguments are the exception, and tests_call_boundary
-// pins it: `holds?(3, 4)` does show `3 = 3`, because for a Bool-returning call
+// pins it: `holds(3, 4)` does show `3 = 3`, because for a Bool-returning call
 // the literal inputs are the interesting part.
 func TestTests_LiteralOperandsAreSuppressed(t *testing.T) {
 	got := vmReference(fixture("tests_fail.nomi"))

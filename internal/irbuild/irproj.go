@@ -45,7 +45,7 @@ func (g *gen) irProjSlot(at ast.Node, obj expr, i int, k kind) expr {
 }
 
 // irProjPayload reads payload i of a KNOWN variant — the tag has already been
-// established by a pattern match, a `try` or an attach.
+// established by a pattern match, a `?` or an attach.
 func (g *gen) irProjPayload(at ast.Node, subj expr, d *typeDef, v *variantDef, i int, k kind) expr {
 	if v.kind == "embedded" && v.embeds != nil && i == 0 {
 		// An `embeds` variant's value is the embedded value itself in the VM,

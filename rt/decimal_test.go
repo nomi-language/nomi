@@ -512,7 +512,7 @@ func TestDivRound(t *testing.T) {
 		{"-1", "3", 0, RoundHalfUp, "0"},    // -0.333.. → 0 (zero quotient, negative)
 		{"-1", "3", 0, RoundUp, "-1"},       // away from zero
 		{"-2", "3", 0, RoundHalfUp, "-1"},   // -0.666.. → -1
-		{"1", "8", 1, RoundHalfEven, "0.1"}, // 0.125 → 0.1 (kept digit 1 odd? cmp<0 so down)
+		{"1", "8", 1, RoundHalfEven, "0.1"}, // 0.125 → 0.1 (kept digit 1 is_odd cmp<0 so down)
 	}
 	for _, tt := range tests {
 		a := mustParse(t, tt.a)

@@ -7,7 +7,7 @@ import (
 
 // Grouped cases take the routes a named function's body takes: comparisons
 // beyond scalars, prelude constructors, channel and task calls inside an
-// assertion subject, annotated bindings, `Iter.any?`/`Iter.all?`, concurrent
+// assertion subject, annotated bindings, `Iter.any`/`Iter.all`, concurrent
 // blocks and `Instant.now`. Each fixture runs on the VM through
 // irTestGroupVM against its golden record.
 
@@ -144,21 +144,21 @@ group "tasks" {
     _ = Supervisor.spawn(App.work, fn -> report("audited 7"))
     _ = Supervisor.flush(App.work)
     seen = drain()
-    assert Iter.any?(seen, fn m -> m == "audited 7")
-    assert Iter.all?(seen, fn m -> String.contains?(m, "audited"))
-    refute Iter.any?(seen, fn m -> m == "missing")
+    assert Iter.any(seen, fn m -> m == "audited 7")
+    assert Iter.all(seen, fn m -> String.contains(m, "audited"))
+    refute Iter.any(seen, fn m -> m == "missing")
   }
 
   test "a failing any shows its operand" {
     _ = Supervisor.spawn(App.work, fn -> report("x"))
     _ = Supervisor.flush(App.work)
-    assert drain() |> Iter.all?(fn m -> m == "y")
+    assert drain() |> Iter.all(fn m -> m == "y")
   }
 }
 `
 
 // supervisors_test.nomi's shapes: an annotated binding, Outcome equality over
-// `Task.outcome` in a subject, `Iter.any?`/`Iter.all?`, and the empty-seeded
+// `Task.outcome` in a subject, `Iter.any`/`Iter.all`, and the empty-seeded
 // branching loop in `drain`.
 func TestIRGroupGaps_OutcomeAnyAllAndAnEmptySeededLoop(t *testing.T) {
 	run := irTestGroupVM(t, irGroupGapsTaskSource, 4)
@@ -202,7 +202,7 @@ group "virtual clock" {
       short = Task.spawn(fn -> short_fail())
       long = Task.spawn(fn -> long_sleep())
       _l = long
-      Ok(try Task.await(short))
+      Ok(Task.await(short)?)
     }
 
     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
@@ -242,11 +242,11 @@ fn collect(n: Int) -> List<Int> {
 }
 
 fn has_big(xs: List<Int>) -> Bool {
-  Iter.any?(xs, fn n -> n > 2)
+  Iter.any(xs, fn n -> n > 2)
 }
 
 fn all_small(xs: List<Int>) -> Bool {
-  Iter.all?(xs, fn n -> n < 3)
+  Iter.all(xs, fn n -> n < 3)
 }
 
 fn main() {
@@ -258,7 +258,7 @@ fn main() {
 `
 
 // An empty seed takes the checker's parameter type in a named function, and
-// `Iter.any?`/`Iter.all?` read back as native writes them.
+// `Iter.any`/`Iter.all` read back as native writes them.
 func TestIRGroupGaps_EmptySeededLoopAndAnyAllAgree(t *testing.T) {
 	verifyLambdaProgram(t, irGroupGapsLoopProgram, "[2, 1, 0]\nFalse\nTrue\nFalse\n")
 }

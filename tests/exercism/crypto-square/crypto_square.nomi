@@ -15,16 +15,16 @@ pub fn ciphertext(plaintext: String) -> String {
     |> String.pad_end(rows * columns)
     |> Iter.chunks(columns)
     |> Iter.transpose()
-    |> Iter.map(&String.join(&1))
+    |> Iter.map(String.join)
     |> String.join(" ")
 }
 
 /// `text` in lower case, with everything but letters and digits removed.
 fn normalize(text: String) -> String {
     text
-    |> String.to_lower()
+    |> String.lowercase()
     |> String.to_codepoints()
-    |> Iter.filter(fn cp -> Codepoint.letter?(cp) or Codepoint.digit?(cp))
+    |> Iter.filter(fn cp -> Codepoint.is_letter(cp) or Codepoint.is_digit(cp))
     |> Iter.to_list()
     |> String.from_codepoints()
 }

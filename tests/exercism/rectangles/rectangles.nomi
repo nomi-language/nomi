@@ -1,3 +1,5 @@
+//# Counts the rectangles in an ASCII diagram.
+
 /// How many rectangles the ASCII diagram `lines` draws: four `+` corners
 /// joined by sides of `-` along the rows and `|` down the columns, where a
 /// `+` may also stand in a side.
@@ -22,30 +24,30 @@ pub fn count(lines: List<String>) -> Int {
 
     corners
     |> Iter.flat_map(fn top_left -> Iter.map(corners, &#(top_left, &1)))
-    |> Iter.filter(fn #(top_left, bottom_right) -> rectangle?(grid, top_left, bottom_right))
+    |> Iter.filter(fn #(top_left, bottom_right) -> is_rectangle(grid, top_left, bottom_right))
     |> Iter.count()
 }
 
 /// Whether `top_left` and `bottom_right` are opposite corners of a
 /// rectangle: below and right of each other, the other two corners `+`, and
 /// every side whole.
-fn rectangle?(
+fn is_rectangle(
     grid: Vector<Vector<String>>,
     #(top, left): #(Int, Int),
     #(bottom, right): #(Int, Int),
 ) -> Bool {
     bottom > top
         and right > left
-        and Iter.all?([#(top, right), #(bottom, left)], fn #(row, column) -> {
+        and Iter.all([#(top, right), #(bottom, left)], fn #(row, column) -> {
             symbol_at(grid, row, column) == Some("+")
         })
-        and Iter.all?([top, bottom], &across?(grid, &1, left, right))
-        and Iter.all?([left, right], &down?(grid, &1, top, bottom))
+        and Iter.all([top, bottom], &is_line_across(grid, &1, left, right))
+        and Iter.all([left, right], &is_line_down(grid, &1, top, bottom))
 }
 
 /// Whether row `row` is a side from column `left` to column `right`.
-fn across?(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Bool {
-    Iter.all?(left..=right, fn column -> {
+fn is_line_across(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Bool {
+    Iter.all(left..=right, fn column -> {
         case symbol_at(grid, row, column) {
             Some("-" or "+") -> True
             _ -> False
@@ -54,8 +56,8 @@ fn across?(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Boo
 }
 
 /// Whether column `column` is a side from row `top` to row `bottom`.
-fn down?(grid: Vector<Vector<String>>, column: Int, top: Int, bottom: Int) -> Bool {
-    Iter.all?(top..=bottom, fn row -> {
+fn is_line_down(grid: Vector<Vector<String>>, column: Int, top: Int, bottom: Int) -> Bool {
+    Iter.all(top..=bottom, fn row -> {
         case symbol_at(grid, row, column) {
             Some("|" or "+") -> True
             _ -> False

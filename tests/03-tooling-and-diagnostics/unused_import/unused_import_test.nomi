@@ -17,7 +17,7 @@ test "unused imports report the unused item" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "imported name 'List' is unused")
+    assert test_helpers.has_diagnostic(diagnostics, "imported name 'List' is unused")
 
-    refute test_helpers.has_diagnostic?(diagnostics, "imported name 'IO' is unused")
+    refute test_helpers.has_diagnostic(diagnostics, "imported name 'IO' is unused")
 }

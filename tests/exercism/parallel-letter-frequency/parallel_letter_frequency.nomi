@@ -1,3 +1,6 @@
+//# Counts the letters of many texts, several texts at a time on separate
+//# tasks.
+
 import std/tasks.Task
 
 /// How many texts are counted at once.
@@ -14,23 +17,16 @@ pub fn frequency(texts: List<String>) -> Map<String, Int> {
         |> Task.await_all()
     }
 
-    Iter.reduce(counts, add_counts, from: %{})
+    Iter.reduce(counts, &Map.merge_with(&1, &2, Int.add), from: %{})
 }
 
 /// How often each letter appears in `text`, ignoring case.
 fn letter_counts(text: String) -> Map<String, Int> {
     text
-    |> String.to_lower()
+    |> String.lowercase()
     |> String.to_codepoints()
-    |> Iter.filter(Codepoint.letter?)
+    |> Iter.filter(Codepoint.is_letter)
     |> Iter.map(Codepoint.to_string)
     |> Iter.frequencies()
 }
 
-/// `total` with each letter's count in `counts` added to it.
-fn add_counts(total: Map<String, Int>, counts: Map<String, Int>) -> Map<String, Int> {
-    Iter.reduce(counts, fn sum = total, #(letter, count) -> {
-        before = Map.get(sum, letter) |> Maybe.with_default(0)
-        Map.put(sum, letter, before + count)
-    })
-}

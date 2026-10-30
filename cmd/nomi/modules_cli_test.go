@@ -26,7 +26,7 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 	publishFiles(t, proxy, "example.com/strings2", "v1.2.0", map[string]string{
 		"go.mod":        "module example.com/strings2\n\ngo 1.22\n",
 		"nomi.toml":     "[module]\nname = \"strings2\"\n",
-		"strings2.nomi": "import strings2/twice\n\npub fn shout(s: String) -> String {\n    twice.twice(String.to_upper(s))\n}\n",
+		"strings2.nomi": "import strings2/twice\n\npub fn shout(s: String) -> String {\n    twice.twice(String.uppercase(s))\n}\n",
 		"twice.nomi":    "pub fn twice(s: String) -> String {\n    \"${s}${s}\"\n}\n",
 	})
 	app := filepath.Join(tmp, "app")

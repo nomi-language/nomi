@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: grade_school.nomi
+//# A school roster: students added by grade, and listed by grade and name.
+
 /// A school's roster: each student's grade, keyed by name. A name is
 /// enrolled at most once, in one grade.
 pub opaque struct School {
@@ -31,7 +33,7 @@ impl School {
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
     /// the name is on the roster already, in this grade or another.
     pub fn add(school: School, name: String, grade: Int) -> Result<School, Error> {
-        if Map.contains?(school.grades, name) {
+        if Map.contains(school.grades, name) {
             Err(.AlreadyEnrolled)
         } else {
             Ok(#School{grades: Map.put(school.grades, name, grade)})
@@ -98,7 +100,7 @@ test "adding students" {
 }
 
 test "the roster" {
-    cases: List<#(String, List<#(String, Int)>, List<String>)> = [
+    cases = [
         #("Roster is empty when no student is added", [], []),
         #("Student is added to the roster", [#("Aimee", 2)], ["Aimee"]),
         #(
@@ -153,7 +155,7 @@ test "the roster" {
 }
 
 test "one grade" {
-    cases: List<#(String, List<#(String, Int)>, Int, List<String>)> = [
+    cases = [
         #("Grade is empty if no students in the roster", [], 1, []),
         #(
             "Grade is empty if no students in that grade",

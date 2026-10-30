@@ -1,6 +1,6 @@
 import {
     std/maybe.Maybe.{None as Nothing, Some as Just}
-    std/strings.String.{length as len, starts_with? as has}
+    std/strings.String.{length as len, starts_with as has}
 }
 
 once default_greeting: String = "Hello"

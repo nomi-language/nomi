@@ -372,7 +372,7 @@ Attached test with prompted triple string
 //!     IO.print("ok")
 //!   }
 //! """
-//! assert String.not_empty?(source)
+//! assert String.is_not_empty(source)
 fn fixture() -> String { "" }
 
 --------------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 //# literal (``Regex"room ${word}"``) is compiled when it runs and is a
 //# `Result<Regex, String>`.
 //# A `Regex` is a `Matcher`, so String's search functions take one in place of
-//# a plain string. Test for a match with ``String.contains?(text, Regex`\d+`)``,
+//# a plain string. Test for a match with ``String.contains(text, Regex`\d+`)``,
 //# collect every match with `String.find_all(text, re)`, and split around
 //# matches with ``String.split(text, Regex`,\s*`)``. Find the first match with
 //# `String.find(text, re)`, and read its capture groups with
@@ -35,8 +35,8 @@ import {
 ///
 /// A `Regex` is a `Matcher`: test, find, collect and split with the String
 /// functions.
-//! assert String.contains?("order 66", Regex`\d+`)
-//! assert String.contains?("room", Regex`\d+`) == False
+//! assert String.contains("order 66", Regex`\d+`)
+//! assert String.contains("room", Regex`\d+`) == False
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
 //! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
@@ -45,7 +45,7 @@ pub host type Regex
 
 impl Regex {
     /// Compile a pattern into a `Regex`.
-    //! assert Regex.pattern(try Regex.compile("a+")) == "a+"
+    //! assert Regex.pattern(Regex.compile("a+")?) == "a+"
     //! assert Err(_msg) = Regex.compile("(")
     //
     pub host fn compile(pattern: String) -> Result<Regex, String>
@@ -55,25 +55,30 @@ impl Regex {
     //
     pub host fn pattern(re: Regex) -> String
 
-    /// Replace every non-overlapping match with `replacement`.
+    /// Replace every non-overlapping match of `re` in `text` with
+    /// `replacement`.
     ///
     /// Replacement text follows Go's `regexp` rules, so `$1`, `${name}`, and
     /// friends expand capture groups.
-    //! assert Regex.replace_all(Regex`\d+`, "order 66", "#") == "order #"
-    //! assert Regex.replace_all(Regex`(\w+)@(\w+)`, "ann@home", "$2:$1") == "home:ann"
+    ///
+    /// The text comes first, so a pipe of text can end in it:
+    /// ``text |> Regex.replace_all(Regex`\s+`, " ")``.
+    //! assert Regex.replace_all("order 66", Regex`\d+`, "#") == "order #"
+    //! assert Regex.replace_all("ann@home", Regex`(\w+)@(\w+)`, "$2:$1") == "home:ann"
+    //! assert "a  b   c" |> Regex.replace_all(Regex`\s+`, " ") == "a b c"
     //
-    pub host fn replace_all(re: Regex, value: String, replacement: String) -> String
+    pub host fn replace_all(text: String, re: Regex, replacement: String) -> String
 }
 
 impl Matcher for Regex {
     /// True if the regex matches anywhere in `text`.
-    host fn contained_in?(re: Regex, text: String) -> Bool
+    host fn is_contained_in(re: Regex, text: String) -> Bool
 
     /// True if a match starts at the beginning of `text`.
-    host fn prefix_of?(re: Regex, text: String) -> Bool
+    host fn is_prefix_of(re: Regex, text: String) -> Bool
 
     /// True if a match ends at the end of `text`.
-    host fn suffix_of?(re: Regex, text: String) -> Bool
+    host fn is_suffix_of(re: Regex, text: String) -> Bool
 
     /// Splits around every non-overlapping match.
     host fn split_in(re: Regex, text: String) -> List<String>
@@ -112,19 +117,19 @@ impl Display for Regex {
 // Whether m occurs in text. Generic, so a program builds it after every std
 // module is lowered: std/strings and this file import each other, and this
 // file's bodies are lowered before String's own functions exist to call.
-fn occurs?<M>(m: M, text: String) -> Bool where M: Matcher {
-    M.contained_in?(m, text)
+fn occurs<M>(m: M, text: String) -> Bool where M: Matcher {
+    M.is_contained_in(m, text)
 }
 
 impl Debug for Regex {
     /// The typed literal that builds this regex: raw, unless the pattern holds
     /// a backtick, which a raw literal cannot.
     //! assert Debug.inspect(Regex`\d+`) == "Regex`\\d+`"
-    //! assert Debug.inspect(try Regex.compile("a`b")) == "Regex\"a`b\""
+    //! assert Debug.inspect(Regex.compile("a`b")?) == "Regex\"a`b\""
     fn inspect(re: Regex) -> String {
         pattern = Regex.pattern(re)
 
-        if occurs?("`", pattern) {
+        if occurs("`", pattern) {
             "Regex${Debug.inspect(pattern)}"
         } else {
             "Regex`${pattern}`"

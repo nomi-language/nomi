@@ -78,8 +78,8 @@ test "Maybe.map transforms a Some and leaves a None alone" {
 
     assert Maybe.map(some, &(&1 * 2)) == Some(10)
     assert Maybe.map(none_int(), &(&1 * 2)) == none_int()
-    assert Maybe.none?(Maybe.map(none_int(), &(&1 * 2)))
-    assert Maybe.some?(Maybe.map(some, &(&1 * 2)))
+    assert Maybe.is_none(Maybe.map(none_int(), &(&1 * 2)))
+    assert Maybe.is_some(Maybe.map(some, &(&1 * 2)))
 }
 
 test "Maybe.map may change the payload TYPE" {
@@ -125,7 +125,7 @@ test "a bare None receiver takes its type from the callback's parameter" {
         |> Maybe.with_default(0)
 
     assert n == 0
-    assert Maybe.none?(Maybe.map(None, fn x: Int -> x * 2))
+    assert Maybe.is_none(Maybe.map(None, fn x: Int -> x * 2))
 }
 
 test "Maybe.flat_map flattens rather than nesting" {
@@ -139,7 +139,7 @@ test "Maybe.flat_map can turn a present value into an absent one" {
     negative: Maybe<Int> = Some(-4)
 
     assert Maybe.flat_map(negative, &positive_half(&1)) == none_int()
-    assert Maybe.none?(Maybe.flat_map(negative, &positive_half(&1)))
+    assert Maybe.is_none(Maybe.flat_map(negative, &positive_half(&1)))
 }
 
 test "Result.map transforms an Ok and carries the Err VALUE across" {
@@ -147,7 +147,7 @@ test "Result.map transforms an Ok and carries the Err VALUE across" {
 
     assert Result.map(good, &(&1 * 2)) == Ok(14)
     assert Result.map(err_int(), &(&1 * 2)) == Err("oops")
-    assert Result.err?(Result.map(err_int(), &(&1 * 2)))
+    assert Result.is_err(Result.map(err_int(), &(&1 * 2)))
     assert Result.with_default(Result.map(err_int(), &(&1 * 2)), 0) == 0
 }
 
@@ -192,7 +192,7 @@ test "Result.map_err transforms the error and carries the Ok PAYLOAD across" {
 
     assert Result.map_err(good, fn e: String -> e + "!") == Ok(3)
     assert Result.map_err(err_int(), fn e: String -> e + "!") == Err("oops!")
-    assert Result.ok?(Result.map_err(good, fn e: String -> e + "!"))
+    assert Result.is_ok(Result.map_err(good, fn e: String -> e + "!"))
 }
 
 test "Result.map_err may change the error TYPE" {

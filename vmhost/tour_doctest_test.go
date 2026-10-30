@@ -79,6 +79,13 @@ func TestTourDoctests(t *testing.T) {
 				t.Errorf("%s: %s", name, msg)
 				continue
 			}
+			// A manual block runs nothing when its page loads: the page
+			// shows its expect block as the recorded output until the
+			// reader presses Run (rehype-shiki.mjs, tour-client.mjs).
+			if b.HasInfo(doctest.InfoManual) && b.Expected == nil {
+				t.Errorf("%s: a manual block's page shows its <!-- expect ... --> block until the reader runs it, so it needs one:\n%s", name, b.Code)
+				continue
+			}
 			if tools := b.Tools(); len(tools) > 0 {
 				t.Run(name, func(t *testing.T) { checkTourToolBlock(t, b, tools) })
 				continue
@@ -151,9 +158,17 @@ func TestTourDoctests(t *testing.T) {
 					}
 					t.Fatalf("Run failed for tour block:\n%s\n\nerror: %v\n\nIf it stops on purpose, mark its fence `nomi-run error` and give it an <!-- expect ... --> block holding what the tour shows:\n%s", b.Code, err, shown)
 				}
+				// A manual block's expect block holds what its page shows,
+				// its tests' report included, since the page shows it as
+				// the block's recorded output before any run.
+				report := ""
 				if hasTests {
 					var testOut bytes.Buffer
-					for _, result := range p.Cases(&testOut, vmhost.TestOptions{}) {
+					cases := p.Cases(&testOut, vmhost.TestOptions{})
+					if b.HasInfo(doctest.InfoManual) {
+						report = vmhost.CaseReport(cases) + "\n"
+					}
+					for _, result := range cases {
 						if result.Blocked != nil {
 							if _, listed := tourBlockedOnVM[result.Name]; listed {
 								delete(unblocked, result.Name)
@@ -170,7 +185,7 @@ func TestTourDoctests(t *testing.T) {
 				if b.Expected == nil && out.String() != "" {
 					t.Fatalf("tour block produced output but has no hidden <!-- expect ... --> block:\n%s\n\noutput:\n%s", b.Code, out.String())
 				}
-				shown := doctest.Shown(out.String(), failure)
+				shown := doctest.Shown(out.String()+report, failure)
 				if err := doctest.CheckOutput(b.Expected, shown); err != nil {
 					if failure != "" {
 						t.Fatalf("Run failed for tour block, and not as its <!-- expect --> block says:\n%s\n\n%s\n\nthe tour shows:\n%s", b.Code, err, shown)
@@ -212,8 +227,9 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 
 // checkTourToolBlock holds a ```nomi-run tool:<module>/<name> block to
 // what this binary can check of it. A tool of a module the block holds
-// (one under a directory of its own, which its go.mod requires) is Nomi
-// alone, so this binary runs the tools and the block (checkOwnToolBlock).
+// (the block's own, or one under a directory of its own, which its go.mod
+// requires) is Nomi alone, so this binary runs the tools and the block
+// (checkOwnToolBlock).
 // Otherwise its tools are tour modules' (the block imports each one), whose
 // Go side only the tour's wasm links, so the block's run, which the tools'
 // files feed, is TestTourWasmAnswersTheTourBlocks' to compare with its
@@ -275,17 +291,15 @@ func checkOwnToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 			}
 			if hasTests && failure == "" {
 				// The page prints the tests' report after the run's
-				// output (cmd/nomi-wasm's formatCaseResults); every case
-				// here must pass.
+				// output (vmhost.CaseReport); every case here must pass.
 				var testOut bytes.Buffer
 				cases := p.Cases(&testOut, vmhost.TestOptions{})
 				for _, result := range cases {
 					if result.Blocked != nil || result.Err != nil {
 						t.Fatalf("tour block test %q does not pass:\n%s\n\noutput:\n%s", result.Name, b.Code, testOut.String())
 					}
-					fmt.Fprintf(&out, "ok %s\n", result.Name)
 				}
-				fmt.Fprintf(&out, "test result: ok. %d passed, 0 failed\n", len(cases))
+				fmt.Fprintln(&out, vmhost.CaseReport(cases))
 			}
 		}
 	}
@@ -299,6 +313,20 @@ func checkOwnToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 	if err := doctest.CheckOutput(b.Expected, shown); err != nil {
 		t.Fatalf("the block's tools and run show something else:\n%s\n\n%s\n\nthe page shows:\n%s", b.Code, err, shown)
 	}
+}
+
+// A tour block of sibling projects, rates/ and csvdata/, runs as the page
+// runs it: csvdata's tool in rates/, then rates' program and its test.
+func TestTourDoctest_SiblingProjectsBlock(t *testing.T) {
+	code := strings.TrimSuffix(siblingsBlock(t, func(s string) string { return strings.Replace(s, "9200", "9300", 1) }), "\n")
+	page := "```nomi-run manual tool:csvdata/generate\n" + code + "\n```\n<!-- expect\n" +
+		"wrote tables.nomi, tables_test.nomi\n9300\nPound \"sterling\"\nYen ${not interpolated}\nFalse\n" +
+		"ok generated tables are current\ntest result: ok. 1 passed, 0 failed\n-->\n"
+	blocks := doctest.ExtractBlocks(page, "nomi-run")
+	if len(blocks) != 1 {
+		t.Fatalf("%d blocks", len(blocks))
+	}
+	checkOwnToolBlock(t, blocks[0], blocks[0].Tools())
 }
 
 // tourRunFailure runs a block that compiles and answers what the tour shows
@@ -340,11 +368,10 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 // is written to disk.
 func tourFileSystem(t *testing.T, b doctest.Block) (*vmhost.MemoryFiles, []string) {
 	t.Helper()
-	seed, err := vmhost.DataFiles(b.Code)
+	files, err := vmhost.BlockFiles(b.Code)
 	if err != nil {
 		t.Fatalf("the block's files do not split:\n%s\n\nerror: %v", b.Code, err)
 	}
-	files := vmhost.NewMemoryFiles(vmhost.DataFileBytes(seed))
 	names := virtualproject.FileNames(b.Code)
 	for _, name := range names {
 		if path.Base(name) == "go.mod" {

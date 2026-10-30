@@ -25,7 +25,7 @@ import std/io
 // parameter's type variable unsolved because nothing constrains it, so the
 // placeholder in iter.go's source arm does not reach it: that arm supplies an
 // element type for the WALK, not for a lambda's parameter. Both corpus sites of
-// this key are callback-free (`Iter.empty?([])` and `[] |> Iter.chunks(2)`), so
+// this key are callback-free (`Iter.is_empty([])` and `[] |> Iter.chunks(2)`), so
 // nothing is left unfinished by that boundary — it is written down so the next
 // reader does not read the placeholder as covering more than it does.
 //
@@ -45,11 +45,11 @@ fn lookup_f(m: Map<Float, String>, key: Float) -> String {
 fn main() {
     // EMPTY LIST as an Iter source. Every terminal must answer for an empty
     // walk.
-    io.print("${Iter.empty?([])}")
-    io.print("${Iter.not_empty?([])}")
+    io.print("${Iter.is_empty([])}")
+    io.print("${!Iter.is_empty([])}")
     io.print("${Iter.count([])}")
-    io.print("${[] |> Iter.chunks(2) |> Iter.to_list() |> List.equal?([])}")
-    io.print("${[] |> Iter.to_list() |> List.equal?([])}")
+    io.print("${[] |> Iter.chunks(2) |> Iter.to_list() |> List.equal([])}")
+    io.print("${[] |> Iter.to_list() |> List.equal([])}")
 
     // EMPTY MAP, built by `put` and read back.
     list_keyed =

@@ -28,16 +28,16 @@ pub fn ciphertext(plaintext: String) -> String {
     |> String.pad_end(rows * columns)
     |> Iter.chunks(columns)
     |> Iter.transpose()
-    |> Iter.map(&String.join(&1))
+    |> Iter.map(String.join)
     |> String.join(" ")
 }
 
 /// `text` in lower case, with everything but letters and digits removed.
 fn normalize(text: String) -> String {
     text
-    |> String.to_lower()
+    |> String.lowercase()
     |> String.to_codepoints()
-    |> Iter.filter(fn cp -> Codepoint.letter?(cp) or Codepoint.digit?(cp))
+    |> Iter.filter(fn cp -> Codepoint.is_letter(cp) or Codepoint.is_digit(cp))
     |> Iter.to_list()
     |> String.from_codepoints()
 }
@@ -91,6 +91,6 @@ test "crypto square" {
 
 - The rectangle is never a grid of cells. The normalized text is padded with spaces to fill the rectangle (`String.pad_end`), cut into rows with `Iter.chunks`, and turned into columns with `Iter.transpose`; each column is joined into a word and the words are joined with spaces. The padding is where the canonical trailing spaces come from.
 - The width is the integer square root rounded up, `Int.sqrt` plus one when the length is not a square, and the height is the length divided by the width, rounded up. That pair is the smallest rectangle with the width at most one more than the height.
-- Normalizing works on codepoints: `String.to_lower`, then keep each `Codepoint.letter?` or `Codepoint.digit?`.
+- Normalizing works on codepoints: `String.lowercase`, then keep each `Codepoint.is_letter` or `Codepoint.is_digit`.
 - Empty text returns `""` before the width is worked out, so nothing divides by a width of zero.
 - The canonical cases are one `subtests` table. The canonical data replaces its "54 character plaintext results in 7 chunks" case with one that says 8 chunks and expects the same text (`reimplements`); the table holds only the replacement.

@@ -7,10 +7,12 @@ description: "Track IOUs between roommates behind a small JSON API: list users, 
 
 Track IOUs between roommates behind a small JSON API: list users, add one, and record a loan, keeping each user's debts and balance.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/rest-api) (MIT). Listed under [Parsing & Validation](/examples/?subject=parsing-and-validation).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/rest-api) (MIT). Listed under [Parsing & Validation](/examples/?subject=parsing-and-validation).
 
 ```nomi-run
 // FILE: rest_api.nomi
+//# A small REST API for an IOU tracker between roommates, over JSON.
+
 import std/json.{FromJson, Json, ToJson}
 
 /// A roommate: who they owe and how much, who owes them, and the
@@ -61,8 +63,8 @@ derive FromJson for Iou
 /// Why a request has no answer.
 pub enum Error {
     /// The payload or the database is not JSON of the expected shape; the
-    /// text says where.
-    InvalidJson String
+    /// error says where.
+    InvalidJson Json.Error
     /// No method answers this URL.
     NotFound String
     UnknownUser String
@@ -78,7 +80,7 @@ pub opaque struct RestApi {
 impl RestApi {
     /// The tracker over `database`, a JSON object `{"users": [...]}`.
     pub fn new(database: String) -> Result<RestApi, Error> {
-        database: Users = try read(database)
+        database: Users = Json.decode_as(database) |> Result.map_err(Error.InvalidJson)?
 
         Ok(
             #RestApi{
@@ -94,7 +96,7 @@ impl RestApi {
 
         names = case payload {
             Some(text) -> {
-                query: UserNames = try read(text)
+                query: UserNames = Json.decode_as(text) |> Result.map_err(Error.InvalidJson)?
                 query.users
             }
 
@@ -102,8 +104,8 @@ impl RestApi {
                 Map.keys(api.users)
         }
 
-        users = names |> Iter.map(&find(api, &1)) |> try Result.collect()
-        Ok(write(#Users{users: Iter.sort_by(users, .name)}))
+        users = names |> Iter.map(&find(api, &1)) |> Result.collect()?
+        Ok(Json.encode_as(#Users{users: Iter.sort_by(users, .name)}))
     }
 
     /// Answers a `POST` of `payload` to `url`, and the tracker after it.
@@ -112,20 +114,18 @@ impl RestApi {
     pub fn post(api: RestApi, url: String, payload: String) -> Result<#(String, RestApi), Error> {
         case url {
             "/add" -> {
-                request: NewUser = try read(payload)
+                request: NewUser = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
 
-                if Map.contains?(api.users, request.user) {
-                    return Err(.UserExists(request.user))
-                }
+                if Map.contains(api.users, request.user) { return Err(.UserExists(request.user)) }
 
                 user = #User{name: request.user}
-                Ok(#(write(user), #RestApi{users: Map.put(api.users, user.name, user)}))
+                Ok(#(Json.encode_as(user), #RestApi{users: Map.put(api.users, user.name, user)}))
             }
 
             "/iou" -> {
-                iou: Iou = try read(payload)
-                lender = try find(api, iou.lender)
-                borrower = try find(api, iou.borrower)
+                iou: Iou = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
+                lender = find(api, iou.lender)?
+                borrower = find(api, iou.borrower)?
                 net = net_owed(lender, borrower.name) + iou.amount
                 lender = with_net(lender, borrower.name, net)
                 borrower = with_net(borrower, lender.name, -net)
@@ -134,7 +134,7 @@ impl RestApi {
                     api.users |> Map.put(lender.name, lender) |> Map.put(borrower.name, borrower)
 
                 answer = #Users{users: Iter.sort_by([lender, borrower], .name)}
-                Ok(#(write(answer), #RestApi{users}))
+                Ok(#(Json.encode_as(answer), #RestApi{users}))
             }
 
             _ ->
@@ -172,36 +172,15 @@ fn with_net(user: User, other: String, net: Float) -> User {
         owed_by
     }
 
-    balance = Iter.sum(Map.values(owed_by)) - Iter.sum(Map.values(owes))
-    #{..user, owes, owed_by, balance}
-}
-
-/// `text` read as JSON into a `T`.
-fn read<T>(text: String) -> Result<T, Error> where T: FromJson {
-    json = Json.decode(text) |> try Result.map_err(&Error.InvalidJson(Display.to_string(&1)))
-    T.from_json(json) |> Result.map_err(&Error.InvalidJson(Display.to_string(&1)))
-}
-
-/// `value` written as JSON text.
-fn write<T>(value: T) -> String where T: ToJson {
-    Json.encode(ToJson.to_json(value))
+    owed = owed_by |> Map.values() |> Iter.sum()
+    owing = owes |> Map.values() |> Iter.sum()
+    #{..user, owes, owed_by, balance: owed - owing}
 }
 
 // FILE: rest_api_test.nomi
 import {
-    std/json.{FromJson, Json}
+    std/json.Json
     rest_api.{RestApi, User, Users}
-}
-
-/// `text` read as a `Users` object, or why it could not be.
-fn users(text: String) -> Result<Users, String> {
-    decoded(text)
-}
-
-/// `text` read as JSON into a `T`, or why it could not be.
-fn decoded<T>(text: String) -> Result<T, String> where T: FromJson {
-    json = Json.decode(text) |> try Result.map_err(&Display.to_string(&1))
-    T.from_json(json) |> Result.map_err(&Display.to_string(&1))
 }
 
 once adam_and_bob = `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
@@ -212,27 +191,27 @@ once adam_owes_bob = `{"users":[{"name":"Adam","owes":{"Bob":3.0},"owed_by":{},"
 
 group "user management" {
     test "no users" {
-        api = try RestApi.new(`{"users":[]}`)
-        answer = try RestApi.get(api, "/users")
-        assert users(answer) == Ok(#{users: []})
+        api = RestApi.new(`{"users":[]}`)?
+        answer = RestApi.get(api, "/users")?
+        assert Json.decode_as<Users>(answer) == Ok(#{users: []})
     }
 
     test "add user" {
-        api = try RestApi.new(`{"users":[]}`)
-        #(answer, _api) = try RestApi.post(api, "/add", `{"user":"Adam"}`)
-        user: User = try decoded(answer)
+        api = RestApi.new(`{"users":[]}`)?
+        #(answer, _api) = RestApi.post(api, "/add", `{"user":"Adam"}`)?
+        user: User = Json.decode_as(answer)?
 
         assert user == #{name: "Adam", owes: %{}, owed_by: %{}, balance: 0.0}
     }
 
     test "get single user" {
-        api = try RestApi.new(adam_and_bob)
-        answer = try RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))
-        users: Users = try decoded(answer)
+        api = RestApi.new(adam_and_bob)?
+        answer = RestApi.get(api, "/users", Some(`{"users":["Bob"]}`))?
+        users: Users = Json.decode_as(answer)?
 
-        expected: Users = try decoded(
+        expected: Users = Json.decode_as(
             `{"users":[{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`
-        )
+        )?
 
         assert users == expected
     }
@@ -281,8 +260,8 @@ test "iou" {
     subtests cases, #(description, database, payload, expected), description {
         assert Ok(api) = RestApi.new(database)
         assert Ok(#(answer, _api)) = RestApi.post(api, "/iou", payload)
-        assert Ok(wanted) = users(expected)
-        assert users(answer) == Ok(wanted)
+        assert Ok(wanted) = Json.decode_as<Users>(expected)
+        assert Json.decode_as<Users>(answer) == Ok(wanted)
     }
 }
 ```
@@ -291,14 +270,8 @@ test "iou" {
 
 - Every request and answer is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the answers), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `#User{name: request.user}`.
 - `RestApi` is a value, an opaque struct of the users by name. `RestApi.new(database)` reads the database; `RestApi.get(api, url, payload)` answers the text; `RestApi.post(api, url, payload)` answers the text and the tracker after the request, since nothing changes in place.
-- Each failure is an `Error` variant: JSON that is not of the expected shape (with std/json's message), an unknown URL, an unknown user, and a user added twice. The canonical data has no failing case.
+- Each failure is an `Error` variant: JSON that is not of the expected shape (holding std/json's `Json.Error`), an unknown URL, an unknown user, and a user added twice. The canonical data has no failing case.
 - A loan is kept as one number per pair: what the borrower owes the lender, less what the lender already owed the borrower, plus the new amount. `with_net` writes that number into one side of each user's maps, or neither when it is zero, and works the balance out again from the maps, so the canonical "lender owes borrower" cases need no case analysis.
-- `read` and `write` are the two steps between text and a typed value: `Json.decode` and `T.from_json`, and `ToJson.to_json` and `Json.encode`.
+- Text becomes a typed value in one call, `Json.decode_as`, whose `T` comes from the binding's annotation (`iou: Iou = ...`), and its `Json.Error` becomes `Error.InvalidJson` with `Result.map_err`. `Json.encode_as` is the other direction, from a value to text.
 - The tests compare answers as values, not text. `Json.encode` writes `Float(3.0)` as `3`, and the canonical data writes `3.0`; the two are the same JSON number, so each answer and each expected text are read back into `Users` or `User` and compared with `==`. The JSON is written in backtick raw strings, so its quotes need no escapes.
-- The canonical "user management" group is a `group` of three tests, since each case sends a different request; the six "iou" cases are one `subtests` table. A `subtests` row cannot `try`, so the table takes each step apart with `assert Ok(...) = ...`.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** std/json has no one call from JSON text to a typed value. `Json.decode` answers a `Json` tree or a `Json.DecodeError`, and `T.from_json` a `T` or a `Json.ShapeError`, two error types with nothing in common, so the solution and the tests each write a generic `read`/`decoded` that runs both and turns each error into text. std has the same function privately, for exported functions (`export_argument`). Rust's `serde_json::from_str::<T>` and Go's `json.Unmarshal` are one call with one error.
+- The canonical "user management" group is a `group` of three tests, since each case sends a different request; the six "iou" cases are one `subtests` table. A `subtests` row cannot use `?`, so the table takes each step apart with `assert Ok(...) = ...`.

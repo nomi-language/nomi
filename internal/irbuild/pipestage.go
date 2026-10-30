@@ -35,7 +35,7 @@ import (
 //
 // The report does the compaction, not this: rt.WriteAssertionFailure strips a
 // preceding stage's text off an observed VALUE's pipeline rows and leaves a
-// BINDING's alone, so the same stage list prints `|> Iter.any?(...)` in one
+// BINDING's alone, so the same stage list prints `|> Iter.any(...)` in one
 // place and the whole two-line prefix in the other. Feeding either one
 // pre-compacted would produce a green differential and wrong text against the
 // other.
@@ -52,15 +52,15 @@ import (
 //     lambda argument) is not on the spine: pipeStageValues keeps a stage
 //     per spine prefix only, so `x |> f(y |> g())` records `x` and the
 //     whole chain.
-//   - A stage that is not a call, a `then`, a `tap`, an `if` or a `case`. `|> try`
+//   - A stage that is not a call, a `then`, a `tap`, an `if` or a `case`. a `?` stage
 //     and `|> dbg` are what is left, and both are refused as pipe stages in
 //     their own right.
 //
 //     `|> if` and `|> case` are admitted: a stage is recorded for EVERY stage
 //     shape, so the stage sequence of a keyword stage is a function of the
 //     spine exactly as a call chain's is. A failing bare-name `assert` over
-//     `12 |> if Int.equal?(12) { False } else { True }` prints THREE rows —
-//     `12`, `12 |> Int.equal?(12)`, and the whole chain rendered back in the
+//     `12 |> if Int.equal(12) { False } else { True }` prints THREE rows —
+//     `12`, `12 |> Int.equal(12)`, and the whole chain rendered back in the
 //     KEYWORD spelling — and the bare `Some(3) |> case { … }` prints two.
 //     See testdata/pipe_stage_keyword_report.nomi, whose assertions fail on
 //     purpose so the report text itself is compared.

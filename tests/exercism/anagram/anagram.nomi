@@ -1,3 +1,5 @@
+//# Picks the anagrams of a word out of a list of candidates.
+
 /// The candidates that are anagrams of `subject`, in their original order.
 /// Letter case does not matter, and a word is not an anagram of itself.
 pub fn find(subject: String, candidates: List<String>) -> List<String> {

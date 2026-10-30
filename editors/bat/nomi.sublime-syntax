@@ -5,9 +5,9 @@ file_extensions: [nomi]
 scope: source.nomi
 
 variables:
-  ident: '[a-z_][a-zA-Z0-9_]*\??'
+  ident: '[a-z_][a-zA-Z0-9_]*'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|unreachable|where|with'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with'
 
 contexts:
   main:
@@ -112,7 +112,7 @@ contexts:
       scope: keyword.declaration.nomi
     # A keyword declaration Nomi builds in (`message cart_items(...)`,
     # `noun item`): its keyword and its name, at the start of a line.
-    - match: '^(?:(pub)\s+)?(message|noun)\s+([a-z_][A-Za-z0-9_?]*)'
+    - match: '^(?:(pub)\s+)?(message|noun)\s+([a-z_][A-Za-z0-9_]*)'
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
@@ -155,7 +155,16 @@ contexts:
     # access-scope metadata, not a namespace name.
     - match: '\binternal(?=/)'
       scope: entity.other.attribute-name.nomi
-    - match: '\b(if|else|case|when|break|continue|return|concurrent|try|then|tap|assert|refute|dbg|todo|unreachable)\b'
+    - match: '\b(if|else|case|when|break|continue|return|concurrent|then|tap|assert|refute|dbg|todo|unreachable)\b'
+      scope: keyword.control.nomi
+    # A postfix `!`, written right after an operand (`Map.get(m, k)!`), can
+    # stop the program as `unreachable` does. A prefix `!` and `!=` stay
+    # operators.
+    - match: '(?<=[A-Za-z0-9_?!)\]}"])!(?!=)'
+      scope: keyword.control.nomi
+    # A postfix `?`, written right after an operand (`parse(s)?`), can
+    # return from the function as `return` does.
+    - match: '(?<=[A-Za-z0-9_?!)\]}"])\?'
       scope: keyword.control.nomi
     - match: '\b(and|or)\b'
       scope: keyword.operator.word.nomi
@@ -192,7 +201,7 @@ contexts:
       scope: variable.parameter.nomi
     - match: '&(?=[(\[#%.!A-Za-z])'
       scope: keyword.other.capture.nomi
-    - match: '\b_(?!_)[a-zA-Z0-9_]*\??\b'
+    - match: '\b_(?!_)[a-zA-Z0-9_]*\b'
       scope: comment.discard.nomi
     - match: '\b{{ident}}(?=\s*\()'
       scope: variable.function.nomi

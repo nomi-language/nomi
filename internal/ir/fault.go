@@ -28,7 +28,7 @@ package ir
 //     no consumer could tell was wrong.
 //   - AN EDGE PER BLOCK. Taken. It is the exception-table shape — one handler
 //     covering a straight run of instructions — and it says exactly what
-//     varies: a `try`'s body has a handler, the code after it does not, and
+//     varies: a `?`'s body has a handler, the code after it does not, and
 //     the boundary between them is a block boundary already.
 //
 // NO EDGE MEANS THE FAULT LEAVES THE FUNCTION, and that is recorded rather
@@ -37,7 +37,7 @@ package ir
 // what the VM does, so the default is the behaviour and not an absence.
 //
 // WHAT IS NOT TAKEN. No producer SETS a fault edge, because no Nomi construct
-// catches a fault: `try` is Nomi's non-local exit
+// catches a fault: `?` is Nomi's non-local exit
 // over `Result`/`Maybe` and is a different mechanism, and an assertion's
 // failure is a Render plus a report rather than a caught trap. So the
 // population of set edges is empty in production and the lint rule below is

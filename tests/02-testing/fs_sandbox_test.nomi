@@ -9,9 +9,9 @@ import {
 }
 
 fn sort_file(input: String, output: String) -> Result<Int, io.Error> {
-    lines = try Result.collect(fs.lines(input))
+    lines = Result.collect(fs.lines(input))?
     sorted = Iter.sort(lines)
-    try fs.write_text(output, String.join(sorted, "\n") + "\n", mode: .ReplaceAtomically)
+    fs.write_text(output, String.join(sorted, "\n") + "\n", mode: .ReplaceAtomically)?
     Ok(Iter.count(sorted))
 }
 
@@ -126,7 +126,7 @@ test "with_writer streams a copy with a header" {
             fs.with_writer(
                 "out.txt",
                 fn w -> {
-                    try Writer.write_text(w, "# generated\n")
+                    Writer.write_text(w, "# generated\n")?
                     Reader.copy_to(r, w)
                 },
                 mode: .ReplaceAtomically,
@@ -205,7 +205,7 @@ test "a task inside within is confined too" {
     case ran.value {
         Ok(#(inside, outside)) -> {
             assert inside == Ok("a")
-            assert Result.ok?(outside) == False
+            assert Result.is_ok(outside) == False
         }
 
         Err(e) ->

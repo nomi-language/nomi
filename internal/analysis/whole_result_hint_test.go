@@ -33,7 +33,7 @@ fn take(r: Result<Tx, String>) -> Int {
 
 `
 	const resultHelp = "`err` is the whole `Result<Int, String>`, so its `Ok` type is still `Int`; " +
-		"to pass the error on, write `Err(e) -> Err(e)`, or unwrap with `try`"
+		"to pass the error on, write `Err(e) -> Err(e)`, or propagate it with `?`"
 	for _, tc := range []struct {
 		name, fn, message, help string
 	}{
@@ -96,7 +96,7 @@ fn take(r: Result<Tx, String>) -> Int {
 `,
 			"case branch type mismatch: expected Maybe<Tx>, got Maybe<Int>",
 			"`none` is the whole `Maybe<Int>`, so its `Some` type is still `Int`; " +
-				"to pass the absence on, write `None -> None`, or unwrap with `try`",
+				"to pass the absence on, write `None -> None`, or propagate it with `?`",
 		},
 		{
 			"error types differ",

@@ -413,7 +413,7 @@ group "numbers" {
   }
 
   test "uses setup", value {
-    parsed = try parse()
+    parsed = parse()?
     assert parsed == value
   }
 }
@@ -430,7 +430,7 @@ group "numbers" {
 		{Line: 8, Col: 1}:   "group",
 		{Line: 9, Col: 3}:   "setup",
 		{Line: 13, Col: 3}:  "test",
-		{Line: 14, Col: 14}: "try",
+		{Line: 14, Col: 21}: "?",
 		{Line: 15, Col: 5}:  "assert",
 	}
 	for _, tok := range semtokens.Collect(fa) {

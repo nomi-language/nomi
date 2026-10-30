@@ -21,7 +21,7 @@ pub enum Probe.Local {
     Off
 }
 
-fn local_on?(l: Probe.Local) -> Bool {
+fn is_local_on(l: Probe.Local) -> Bool {
     case l {
         .On -> True
         .Off -> False
@@ -45,8 +45,8 @@ test "the dot-shorthand still reads the annotation" {
 
 test "a dotted name declared in this file resolves the same way" {
     l = Probe.Local.On
-    assert local_on?(l)
-    refute local_on?(Probe.Local.Off)
+    assert is_local_on(l)
+    refute is_local_on(Probe.Local.Off)
 }
 
 test "a stdlib dotted enum takes its own name as the qualifier" {

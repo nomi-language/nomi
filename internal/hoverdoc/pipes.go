@@ -18,10 +18,9 @@ import (
 // shows nothing, and one whose stage failed to type shows the incoming type
 // and the stage without a result.
 
-// pipe claims both characters of the `|>` of b. The parser gives a
-// keyword-prefixed stage (`|> try f()`) and a stage-prefixed `if` or `case`
-// (`|> case f() {`) a second pipe around the first, at the keyword or at
-// column 0; that pipe has no `|>` of its own, and the hover of the `|>`
+// pipe claims both characters of the `|>` of b. The parser gives a `?`
+// stage (`|> f()?`) and a stage-prefixed `if` or `case` (`|> case f() {`) a
+// second pipe around the first, at the `?` or the keyword or at column 0; that pipe has no `|>` of its own, and the hover of the `|>`
 // before it describes both.
 func (s *shapeSearch) pipe(b *ast.Binary) {
 	if pipeWithoutOperator(b) {
@@ -49,6 +48,8 @@ func pipeWithoutOperator(b *ast.Binary) bool {
 	switch r := b.Right.(type) {
 	case *ast.If:
 		return r.StagePrefix && r.Line == b.Line && r.Col == b.Col
+	case *ast.TryOp:
+		return r.Expr == nil && r.Line == b.Line && r.Col == b.Col
 	case *ast.Case:
 		return r.StagePrefix && r.Line == b.Line && r.Col == b.Col
 	}
@@ -117,6 +118,13 @@ func (s *shapeSearch) describeStage(b *ast.Binary, in string) pipeStage {
 	switch r := b.Right.(type) {
 	case *ast.Call:
 		return s.callStage(r, in, out)
+	case *ast.Unwrap:
+		// `|> String.to_int()!`: the call's result, unwrapped.
+		if call, isCall := r.Expr.(*ast.Call); isCall {
+			st := s.callStage(call, in, out)
+			st.text += "!"
+			return st
+		}
 	case *ast.Then:
 		if r.Capture != nil {
 			return pipeStage{text: "then " + format.RenderNode(r.Capture), out: out,
@@ -205,12 +213,12 @@ func lambdaBinds(l *ast.Lambda, in string) string {
 	return "`" + p.Name + "` is the `" + in + "`"
 }
 
-// tryStage is a `try` stage: it unwraps a Result or a Maybe, or returns the
+// tryStage is a `?` stage: it unwraps a Result or a Maybe, or returns the
 // failure from the function, lambda or test that encloses it.
 func (s *shapeSearch) tryStage(t *ast.TryOp, in, out string) pipeStage {
-	st := pipeStage{text: "try", out: out}
+	st := pipeStage{text: "?", out: out}
 	if t.Expr != nil {
-		st.text, st.out = "try …", ""
+		st.text, st.out = "…?", ""
 		return st
 	}
 	failure := "the failure"

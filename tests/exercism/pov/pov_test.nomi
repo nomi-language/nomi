@@ -47,7 +47,7 @@ once cousins = #Tree{
 }
 
 test "Reroot a tree so that its root is the specified node." {
-    cases: List<#(String, Tree, String, Maybe<Tree>)> = [
+    cases = [
         #(
             "Results in the same tree if the input tree is a singleton",
             singleton,

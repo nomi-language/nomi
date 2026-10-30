@@ -21,7 +21,7 @@
 // own.
 //
 // Note the rendered text of a keyword stage's last row is the KEYWORD spelling
-// (`|> if Int.equal?(12) { False } else { True }`), not the desugared double
+// (`|> if Int.equal(12) { False } else { True }`), not the desugared double
 // pipe — the formatter renders the parser's two nodes back to the one the user
 // wrote, through format.RenderNode.
 //
@@ -43,7 +43,7 @@ fn wrap(n: Int) -> Maybe<Int> {
 test "a keyword-prefixed if stage reports three pipeline rows" {
     flag =
         12
-        |> if Int.equal?(12) { False } else { True }
+        |> if Int.equal(12) { False } else { True }
 
     assert flag
 }
@@ -63,7 +63,7 @@ test "a call stage before a keyword stage reports cumulative prefixes" {
     flag =
         [1, 2, 3]
         |> Iter.count()
-        |> if Int.equal?(3) { False } else { True }
+        |> if Int.equal(3) { False } else { True }
 
     assert flag
 }

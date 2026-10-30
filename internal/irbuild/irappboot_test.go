@@ -134,7 +134,7 @@ fn show() -> String { "${App.label}@${App.level}" }
 
 fn louder() -> String {
   with App.level = App.level + 10
-  with App.label = String.to_lower("LOUD")
+  with App.label = String.lowercase("LOUD")
   io.print(App.level)
   io.print(show())
   deeper()

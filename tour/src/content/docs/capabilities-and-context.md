@@ -40,7 +40,7 @@ listening on :8080
 program cannot start, for example because a setting is missing or a database
 does not open. The error type is yours to choose; `String` is the plainest.
 A `boot` that cannot fail still returns `Result`, so adding a step that can
-fail later does not change its signature, and `try` works in its body. A
+fail later does not change its signature, and `?` works in its body. A
 `boot` that returns the struct without a `Result` is a compile error.
 
 `boot` goes in the same file as `main`. This `boot` takes no parameter. To
@@ -153,7 +153,7 @@ fn greet(name: String) {
 -->
 
 When the block ends, the field gets its old value back. This happens however
-the block ends: at its last line, through `return`, or through `try`. So a
+the block ends: at its last line, through `return`, or through a `?`. So a
 function you call can't change the fields you see.
 
 To replace a field for only part of a function, move that part into a
@@ -215,19 +215,19 @@ fn close(w: Writer, name: String) -> Unit {
 
 fn main() -> Result<Unit, io.Error> {
     {
-        notes = try fs.create("notes.txt")
+        notes = fs.create("notes.txt")?
         defer close(notes, "notes.txt")
 
-        log = try fs.create("log.txt")
+        log = fs.create("log.txt")?
         defer close(log, "log.txt")
 
-        notes |> try Writer.print("buy milk")
-        log |> try Writer.print("wrote a note")
+        notes |> Writer.print("buy milk")?
+        log |> Writer.print("wrote a note")?
         io.print("body")
     }
 
-    io.write(try fs.read_text("notes.txt"))
-    io.write(try fs.read_text("log.txt"))
+    io.write(fs.read_text("notes.txt")?)
+    io.write(fs.read_text("log.txt")?)
     Ok(Unit)
 }
 ```
@@ -243,9 +243,9 @@ wrote a note
 opened in. Both run when the inner block ends, before `main` reads the
 files back, so each file holds what was written to it.
 
-Opening something can fail. When it returns a `Result`, open it with `try`
+Opening something can fail. When it returns a `Result`, open it with `?`
 and then defer the cleanup, as `main` does with `fs.create`. If opening
-fails, `try` returns before the `defer` line runs, so there is nothing to
+fails, the `?` returns before the `defer` line runs, so there is nothing to
 close. Calls deferred earlier in the block still run.
 
 ## Boot cleanup and initialization
@@ -282,7 +282,7 @@ fn setting(startup: Startup, key: String) -> Result<String, String> {
 fn boot(startup: Startup) -> Result<App, String> {
     io.print("opening the log")
     defer io.print("closing the log")
-    database = try setting(startup, "TOUR_DATABASE_PATH")
+    database = setting(startup, "TOUR_DATABASE_PATH")?
     Ok(#App{database})
 }
 

@@ -541,7 +541,7 @@ func (g *gen) testCase(c testCaseDecl) {
 	plan := g.irTestBody(c, name)
 	testDecline := irTakeDecline()
 	// rt.TestFailure, not *rt.AssertionFailure: a test body has two
-	// value-shaped exits, because a `try` that propagates inside one ends the
+	// value-shaped exits, because a `?` that propagates inside one ends the
 	// case as an rt.EarlyReturnFailure (try.go). A failing assertion still
 	// returns its own concrete pointer unchanged — the interface widens what
 	// MAY be returned without changing any existing return site.

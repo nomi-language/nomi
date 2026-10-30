@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/lexer"
 )
 
 // Map update by spread: `%{..base, key => value}`, which means
@@ -34,10 +33,10 @@ func TestParseMapSpread(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected *ast.MapLit for %q, got %T", tc.src, expr)
 			}
-			if lit.Spread == nil {
-				t.Fatalf("expected a spread head, got none")
+			if len(lit.Spreads) != 1 || lit.Spreads[0].At != 0 {
+				t.Fatalf("expected one spread first, got %+v", lit.Spreads)
 			}
-			if got := typeString(lit.Spread); got != tc.spread {
+			if got := typeString(lit.Spreads[0].Head); got != tc.spread {
 				t.Errorf("spread head type = %s, want %s", got, tc.spread)
 			}
 			if len(lit.Entries) != tc.entries {
@@ -46,7 +45,7 @@ func TestParseMapSpread(t *testing.T) {
 			if lit.TypeName != nil {
 				t.Errorf("a spread literal is always anonymous, got TypeName %v", lit.TypeName)
 			}
-			if lit.SpreadLine == 0 || lit.SpreadCol == 0 {
+			if lit.Spreads[0].Line == 0 || lit.Spreads[0].Col == 0 {
 				t.Errorf("spread position unset; the diagnostics and hover need it")
 			}
 		})
@@ -59,32 +58,5 @@ func TestParseMapSpreadAloneIsTheStructForm(t *testing.T) {
 	expr := parseExpr(t, "#{..m}")
 	if lit, ok := expr.(*ast.StructLit); !ok || lit.Spread == nil {
 		t.Fatalf("expected a struct spread for `#{..m}`, got %T", expr)
-	}
-}
-
-func TestParseMapSpreadRejectsBadPositions(t *testing.T) {
-	cases := map[string]struct {
-		src       string
-		want      string
-		line, col int
-	}{
-		"after an entry":         {`%{"a" => 1, ..m}`, "map spread `..` must be the first element", 1, 17},
-		"second spread later":    {`%{..m, "a" => 1, ..n}`, "map spread `..` must be the first element", 1, 22},
-		"two spreads then entry": {`%{..m, ..n, "a" => 1}`, "map spread `..` must be the first element", 1, 12},
-	}
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			_, err := Parse(lexer.Lex("x = " + tc.src))
-			if err == nil {
-				t.Fatalf("expected a parse error for %q", tc.src)
-			}
-			pe, ok := err.(ParseError)
-			if !ok {
-				t.Fatalf("error is %T, want ParseError: %v", err, err)
-			}
-			if pe.Message != tc.want || pe.Line != tc.line || pe.Col != tc.col {
-				t.Errorf("error = %d:%d %q, want %d:%d %q", pe.Line, pe.Col, pe.Message, tc.line, tc.col, tc.want)
-			}
-		})
 	}
 }

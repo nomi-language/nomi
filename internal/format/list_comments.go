@@ -208,46 +208,14 @@ func emitTupleItems(elems []Doc, v *ast.TupleLit) Doc {
 	return emitBracedList(open, ")", elems)
 }
 
-// mapKeys is each entry's key, which holds the entry's comments as a list
-// item.
-func mapKeys(entries []ast.MapEntry) []ast.Node {
-	out := make([]ast.Node, len(entries))
-	for i, e := range entries {
-		out[i] = e.Key
-	}
-	return out
-}
-
-// mapLitItems is the nodes holding a map literal's comments as list items:
-// the spread's head first, when there is one, then each entry's key.
-// setLitItems is a set literal's list items: its spread, when it has one,
-// then its elements.
-func setLitItems(v *ast.SetLit) []ast.Node {
-	if v.Spread == nil {
-		return v.Items
-	}
-	return append([]ast.Node{v.Spread}, v.Items...)
-}
-
-// setLitElems is the document of each of setLitItems, the spread's with
-// its `..`, each element's from child.
-func setLitElems(v *ast.SetLit, child func(ast.Node) Doc) []Doc {
-	elems := make([]Doc, 0, len(v.Items)+1)
-	if v.Spread != nil {
-		elems = append(elems, Concat(Text(".."), child(v.Spread)))
-	}
-	for _, it := range v.Items {
-		elems = append(elems, child(it))
-	}
-	return elems
-}
-
-// vectorLitElems is the document of each of v.Operands(), the spread's
-// with its `..`, each element's from child.
-func vectorLitElems(v *ast.VectorLit, child func(ast.Node) Doc) []Doc {
-	elems := make([]Doc, 0, len(v.Items)+1)
-	for _, it := range v.Operands() {
-		if it == v.Spread {
+// spreadOperandDocs is the document of each of a literal's elements and
+// spreads in the order written (ast.Operands), a spread's with its `..`,
+// each from child.
+func spreadOperandDocs(items []ast.Node, spreads []ast.Spread, child func(ast.Node) Doc) []Doc {
+	ops := ast.Operands(items, spreads)
+	elems := make([]Doc, 0, len(ops))
+	for _, it := range ops {
+		if ast.IsSpreadHead(it, spreads) {
 			elems = append(elems, Concat(Text(".."), child(it)))
 			continue
 		}
@@ -256,12 +224,44 @@ func vectorLitElems(v *ast.VectorLit, child func(ast.Node) Doc) []Doc {
 	return elems
 }
 
-func mapLitItems(v *ast.MapLit) []ast.Node {
-	keys := mapKeys(v.Entries)
-	if v.Spread == nil {
-		return keys
+// endsInSpread reports whether a literal of n elements with spreads is
+// written ending in a spread.
+func endsInSpread(n int, spreads []ast.Spread) bool {
+	return len(spreads) > 0 && spreads[len(spreads)-1].At == n
+}
+
+// firstOperandLine is the line of a literal's first element or spread, 0
+// for an empty literal.
+func firstOperandLine(items []ast.Node, spreads []ast.Spread) int {
+	switch {
+	case len(spreads) > 0 && spreads[0].At == 0:
+		return spreads[0].Line
+	case len(items) > 0:
+		return nodeStartLine(items[0])
 	}
-	return append([]ast.Node{v.Spread}, keys...)
+	return 0
+}
+
+// mapLitParts is a map literal's list items in the order written, the
+// nodes holding their comments (a spread's head, an entry's key), and the
+// document of each: a spread's with its `..`, an entry's `key => value`.
+func mapLitParts(v *ast.MapLit, child func(ast.Node) Doc) ([]ast.Node, []Doc) {
+	nodes := make([]ast.Node, 0, len(v.Entries)+len(v.Spreads))
+	docs := make([]Doc, 0, len(v.Entries)+len(v.Spreads))
+	spreads := v.Spreads
+	for i := 0; i <= len(v.Entries); i++ {
+		for len(spreads) > 0 && spreads[0].At == i {
+			nodes = append(nodes, spreads[0].Head)
+			docs = append(docs, Concat(Text(".."), child(spreads[0].Head)))
+			spreads = spreads[1:]
+		}
+		if i < len(v.Entries) {
+			e := v.Entries[i]
+			nodes = append(nodes, e.Key)
+			docs = append(docs, Concat(child(e.Key), Text(" => "), child(e.Value)))
+		}
+	}
+	return nodes, docs
 }
 
 // structPatternComments is each field's comments.

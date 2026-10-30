@@ -165,7 +165,35 @@ func TestMoneyIsWrittenAsTheLocaleWritesIt(t *testing.T) {
 		{"en", "12.505", "EUR", 2, true, displaySymbol, "€12.505"},
 		{"en", "-0", "USD", 2, true, displaySymbol, "$0.00"},
 	} {
-		if got := Money(d, c.locale, c.amount, c.code, c.digits, c.iso, c.display); got != c.want {
+		if got := Money(d, c.locale, c.amount, c.code, c.digits, c.iso, c.display, false); got != c.want {
+			t.Errorf("%s %s %s: %q, want %q", c.locale, c.amount, c.code, got, c.want)
+		}
+	}
+}
+
+// With accounting, Money writes the locale's accounting pattern: en puts a
+// negative amount in parentheses, letters next to digits keep their space,
+// a positive amount is as the standard pattern writes it, and a locale
+// whose accounting pattern is its standard one writes a minus sign.
+func TestMoneyInAccountingStyle(t *testing.T) {
+	d := cldrfull.Full()
+	for _, c := range []struct {
+		locale, amount, code string
+		digits               int
+		iso                  bool
+		display              int
+		want                 string
+	}{
+		{"en", "-10", "USD", 2, true, displaySymbol, "($10.00)"},
+		{"en", "10", "USD", 2, true, displaySymbol, "$10.00"},
+		{"en", "-1234.5", "USD", 2, true, displayNarrow, "($1,234.50)"},
+		{"en", "-0.5", "BTC", 8, false, displaySymbol, "(BTC 0.50000000)"},
+		{"en", "-12.5", "EUR", 2, true, displayCode, "(EUR 12.50)"},
+		{"en", "-2", "EUR", 2, true, displayName, "-2.00 euros"},
+		{"de", "-10", "EUR", 2, true, displaySymbol, "-10,00 €"},
+		{"en", "-0", "USD", 2, true, displaySymbol, "$0.00"},
+	} {
+		if got := Money(d, c.locale, c.amount, c.code, c.digits, c.iso, c.display, true); got != c.want {
 			t.Errorf("%s %s %s: %q, want %q", c.locale, c.amount, c.code, got, c.want)
 		}
 	}
@@ -183,7 +211,7 @@ func TestMoneyReadsBackWhatItWrites(t *testing.T) {
 				if digits == 0 {
 					amount, want = "-1234567", "-1234567"
 				}
-				text := Money(d, locale, amount, code, digits, true, display)
+				text := Money(d, locale, amount, code, digits, true, display, false)
 				got, err := ParseMoney(d, text, locale, code, digits, true, false)
 				if err != nil || got != want {
 					t.Errorf("%s %s display %d: %q reads as %q, %v", locale, code, display, text, got, err)

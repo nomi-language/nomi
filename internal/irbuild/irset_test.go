@@ -23,7 +23,7 @@ type Meter Int
 fn main() {
   s = %[Meter(1), Meter(2), Meter(1)]
   io.print(Set.size(s))
-  io.print(Set.contains?(s, Meter(2)))
+  io.print(Set.contains(s, Meter(2)))
 }
 `, "2\nTrue\n")
 }
@@ -36,15 +36,15 @@ fn main() {
   two = 2
   s = %[one, two, 3, two, one]
   io.print(Set.size(s))
-  io.print(Set.contains?(s, 2))
-  io.print(Set.contains?(s, 9))
+  io.print(Set.contains(s, 2))
+  io.print(Set.contains(s, 9))
   more = add(s, 4)
   fewer = Set.remove(more, 2)
   io.inspect(s)
   io.inspect(more)
   io.inspect(fewer)
   io.inspect(Set.insert(fewer, 2))
-  has = fn n: Int -> Set.contains?(fewer, n)
+  has = fn n: Int -> Set.contains(fewer, n)
   io.print(has(2))
   io.print(has(4))
 }
@@ -58,14 +58,14 @@ fn main() {
   s: Set<Int> = %[]
   io.inspect(s)
   io.print(Set.size(empty()))
-  io.print(Set.contains?(s, 1))
+  io.print(Set.contains(s, 1))
   io.inspect(Set.insert(s, 1))
   nan = 0.0 / 0.0
   zero = 0.0
   fs = %[nan, nan, -0.0, zero]
   io.print(Set.size(fs))
-  io.print(Set.contains?(fs, nan))
-  io.print(Set.contains?(fs, 0.0))
+  io.print(Set.contains(fs, nan))
+  io.print(Set.contains(fs, 0.0))
   a = "a"
   io.inspect(%[a, "b", a])
   yes = True
@@ -81,7 +81,7 @@ fn set(s: Set<Int>) -> Set<Int> { io.print("set") s }
 fn main() {
   s = %[mark(1), mark(2), mark(1)]
   more = Set.insert(set(s), mark(3))
-  io.print(Set.contains?(set(more), mark(2)))
+  io.print(Set.contains(set(more), mark(2)))
   io.inspect(s)
 }
 `, "1\n2\n1\nset\n3\nset\n2\nTrue\n%[1, 2]\n")

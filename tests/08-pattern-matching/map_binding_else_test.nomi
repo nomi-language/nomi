@@ -1,7 +1,5 @@
 fn address(config: Map<String, String>) -> String {
-    %{"host" => host, "port" => port} = config else {
-        return "no address"
-    }
+    %{"host" => host, "port" => port} = config else { return "no address" }
 
     "${host}:${port}"
 }

@@ -46,8 +46,8 @@ fn run() -> Result<Unit, Error> {
     // clamped to a constant 28 would print the same answer for both years, and a
     // lowering that normalized forward the way a naive date library does would
     // print `2011-03-03` and `2012-03-02`.
-    common = try NaiveDateTime"2011-01-31T09:15:00"
-    leap = try NaiveDateTime"2012-01-31T09:15:00"
+    common = NaiveDateTime"2011-01-31T09:15:00"?
+    leap = NaiveDateTime"2012-01-31T09:15:00"?
     io.print("clamp_common = " + NaiveDateTime.to_string(common + Months(1)))
     io.print("clamp_leap = " + NaiveDateTime.to_string(leap + Months(1)))
 
@@ -55,10 +55,10 @@ fn run() -> Result<Unit, Error> {
     // in a common year, so it clamps to the 28th — and through the NEGATIVE
     // direction, where the month index has to floor toward negative infinity:
     // March 31st minus one month is February 28th, not a normalized March 3rd.
-    feb29 = try NaiveDateTime"2012-02-29T09:15:00"
+    feb29 = NaiveDateTime"2012-02-29T09:15:00"?
     io.print("clamp_year = " + NaiveDateTime.to_string(feb29 + Years(1)))
     io.print("clamp_year_back = " + NaiveDateTime.to_string(feb29 - Years(4)))
-    march = try NaiveDateTime"2011-03-31T09:15:00"
+    march = NaiveDateTime"2011-03-31T09:15:00"?
     io.print("clamp_back = " + NaiveDateTime.to_string(march - Months(1)))
 
     // Clamping is ORDER-dependent and the order is load-bearing: clamp first,
@@ -78,7 +78,7 @@ fn run() -> Result<Unit, Error> {
     // `+ Hours(24)` is the third answer and it agrees with `+ Days(24 hours'
     // worth)` rather than with the Duration: a civil hour shifts the wall reading
     // like every other civil unit.
-    ny = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    ny = DateTime"2026-03-07T12:00:00-05:00[America/New_York]"?
     io.print("civil_day = " + DateTime.to_string(ny + Days(1)))
     io.print("physical_day = " + DateTime.to_string(ny + Duration.hours(24)))
     io.print("civil_hours = " + DateTime.to_string(ny + Hours(24)))
@@ -92,7 +92,7 @@ fn run() -> Result<Unit, Error> {
     // over and they agree. That agreement is a fact about the absence of a zone,
     // not a sign the operations are the same one — pinning it is what stops a
     // future lowering from "simplifying" the naive civil rungs into Durations.
-    naive = try NaiveDateTime"2026-03-07T12:00:00"
+    naive = NaiveDateTime"2026-03-07T12:00:00"?
     io.print("naive_civil = " + NaiveDateTime.to_string(naive + Days(1)))
     io.print("naive_physical = " + NaiveDateTime.to_string(naive + Duration.hours(24)))
 
@@ -102,14 +102,14 @@ fn run() -> Result<Unit, Error> {
     // displayed in New York and in Los Angeles compares equal and hashes the
     // same. A field-by-field `==` is what a naive lowering uses, and it is WRONG here:
     // the two values differ in the `Zone` field.
-    la = try DateTime"2026-03-07T09:00:00-08:00[America/Los_Angeles]"
+    la = DateTime"2026-03-07T09:00:00-08:00[America/Los_Angeles]"?
     io.print("same_moment = " + Bool.to_string(ny == la))
     io.print("ny_text = " + DateTime.to_string(ny))
     io.print("la_text = " + DateTime.to_string(la))
 
     // And the negative control, so `same_moment` cannot be a lowering that says
     // True for everything.
-    later = try DateTime"2026-03-07T10:00:00-08:00[America/Los_Angeles]"
+    later = DateTime"2026-03-07T10:00:00-08:00[America/Los_Angeles]"?
     io.print("different_moment = " + Bool.to_string(ny == later))
 
     // --- THE REST OF THE LADDER ----------------------------------------------
@@ -120,7 +120,7 @@ fn run() -> Result<Unit, Error> {
     // them has an rt symbol and none should: an rt function nothing calls is
     // scaffolding. They lower through the ordinary path, and these lines are what
     // proves that path is wired rather than merely admitted.
-    base = try NaiveDateTime"2026-05-04T14:30:00.500000000"
+    base = NaiveDateTime"2026-05-04T14:30:00.500000000"?
     io.print("weeks = " + NaiveDateTime.to_string(base + Weeks(2)))
     io.print("hours = " + NaiveDateTime.to_string(base + Hours(3)))
     io.print("minutes = " + NaiveDateTime.to_string(base + Minutes(45)))

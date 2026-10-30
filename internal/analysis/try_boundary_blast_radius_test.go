@@ -20,9 +20,9 @@ import (
 // check without a row here fails to be counted rather than silently vanishing
 // from the census.
 var tryBoundaryDiagnostics = []string{
-	"try error type mismatch:",
+	"`?` error type mismatch:",
 	"`try` on a ",
-	"`try` cannot propagate a ",
+	"`?` cannot propagate a ",
 }
 
 func isTryBoundaryDiagnostic(msg string) bool {
@@ -34,7 +34,7 @@ func isTryBoundaryDiagnostic(msg string) bool {
 	return false
 }
 
-// TestTryBoundary_TreeIsClean is BOTH the blast-radius census for the `try`
+// TestTryBoundary_TreeIsClean is BOTH the blast-radius census for the `?`
 // boundary rule and the standing guard that the tree stays converted.
 //
 // It runs the production analysis pipeline — analysis.DocumentManager, which is

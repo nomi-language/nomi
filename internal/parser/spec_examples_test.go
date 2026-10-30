@@ -58,17 +58,7 @@ const specPath = "../../docs/spec.md"
 // syntax the implementation does not accept. Each key is a substring that
 // occurs in exactly one spec block. These are findings, not fragments; the
 // value is why the block does not parse.
-var specDivergences = map[string]string{
-	"Rectangle #(Float, Float)    // payload is a tuple": "a trailing `//` comment on an enum variant line. A parser INCONSISTENCY, not a language rule: " +
-		"all four variant kinds reject one (bare -> `expected type name, got a comment`; positional, struct-shaped and " +
-		"`embeds` -> `enum variants are newline- or semicolon-separated`), while a struct field and an interface " +
-		"requirement line both accept one. Two arms are implicated — `parser.go:5330`'s same-line separator check " +
-		"excludes RBRACE/NEWLINE/SEMICOLON/COMMA but not COMMENT, and `parseEnumVariant` reads a same-line COMMENT " +
-		"after a bare name as the start of a payload type — but the fix is larger than the arms: `ast.EnumVariant` " +
-		"has `LeadingComments` and (struct-shaped only) `EndTrivia` and no trailing-comment field, so accepting the " +
-		"comment without somewhere to keep it would make `nomi fmt` delete it. Parser arms + AST field + formatter " +
-		"emission + a fmt round-trip test.",
-}
+var specDivergences = map[string]string{}
 
 var (
 	sigLineRe  = regexp.MustCompile(`^\s*(pub\s+)?fn\s+[A-Za-z_][A-Za-z0-9_]*\??\s*(<[^>]*>)?\s*\(`)
@@ -237,7 +227,7 @@ func TestSpecExamples_PinnedDivergencesStillFail(t *testing.T) {
 		for key := range specDivergences {
 			if strings.Contains(b.code, key) {
 				seen[key]++
-				if b.class == "program" || b.class == "elided" || b.class == "signature" {
+				if b.class != "divergent" {
 					t.Errorf("%s:%d: pinned divergence %q now classifies as %q — remove the pin",
 						specPath, b.line, key, b.class)
 				}

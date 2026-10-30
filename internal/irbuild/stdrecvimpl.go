@@ -436,10 +436,42 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 			}
 		}
 	}
-	if ft := bl.g.checkedCallSignature(t); ft != nil && ft.Return != nil {
-		return at(bl.g.project(ft.Return))
+	ft := bl.g.checkedCallSignature(t)
+	if ft == nil || ft.Return == nil {
+		return nil
 	}
-	return nil
+	result := bl.g.project(ft.Return)
+	if p := at(result); p != nil {
+		return p
+	}
+	// `Maybe.make(1)` typed `Result<Maybe<Int>, String>`, for an impl of
+	// `make(n: Int) -> Result<self, String>`: the instance is a part of the
+	// checked result. Each part the owner names is tried, and the one whose
+	// impl answers exactly the checked result is the call's.
+	var found *irQualPlan
+	var foundAt kind
+	ambiguous := false
+	var walk func(k kind)
+	walk = func(k kind) {
+		_, parts, container := stdRecvParts(k)
+		if !container && irRetainedTupleKind(k) {
+			parts = k.comp.parts
+		}
+		for _, part := range parts {
+			if name, ok := undeclaredRecvOwner(part); ok && name == owner && part != foundAt {
+				if p := at(part); p != nil && p.result == result {
+					ambiguous = ambiguous || found != nil
+					found, foundAt = p, part
+				}
+			}
+			walk(part)
+		}
+	}
+	walk(result)
+	if ambiguous {
+		return nil
+	}
+	return found
 }
 
 // ownerKind is the kind of the type t's qualifier names, owner: a builtin

@@ -11,7 +11,7 @@ import (
 
 // TestProgramOfModulesAnswersEachTab holds a block that names modules (a
 // project whose go.mod requires the csvdata module under
-// generators/csvdata/, as the tour's Generating code chapter lays it out)
+// csvdata/, as the tour's Generating code chapter lays it out)
 // to an analysis of its files as written under a directory: a call in
 // main.nomi into the table the generator wrote hovers with its function,
 // and the other module's own file, analyzed as its module's, has tokens.
@@ -27,17 +27,17 @@ func TestProgramOfModulesAnswersEachTab(t *testing.T) {
 		"\n// FILE: tables.nomi\n" + read("rates/tables.nomi") +
 		"\n// FILE: data/rates.csv\n" + read("rates/data/rates.csv") +
 		"\n// FILE: nomi.toml\n" + read("rates/nomi.toml") +
-		"\n// FILE: go.mod\n" + strings.Replace(read("rates/go.mod"), "../csvdata", "./generators/csvdata", 1) +
-		"\n// FILE: generators/csvdata/csvdata.nomi\n" + read("csvdata/csvdata.nomi") +
-		"\n// FILE: generators/csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n" +
-		"\n// FILE: generators/csvdata/go.mod\n" + read("csvdata/go.mod")
+		"\n// FILE: go.mod\n" + strings.Replace(read("rates/go.mod"), "../csvdata", "./csvdata", 1) +
+		"\n// FILE: csvdata/csvdata.nomi\n" + read("csvdata/csvdata.nomi") +
+		"\n// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n" +
+		"\n// FILE: csvdata/go.mod\n" + read("csvdata/go.mod")
 	prog := highlight.AnalyzeProgram(src, t.TempDir(), std.Shared())
 
 	got := prog.HoverIn("main.nomi", 7, colOf(t, prog, "main.nomi", 7, "rates"))
 	if !strings.Contains(got, "fn rates(code: String) -> Maybe<Int>") {
 		t.Errorf("hover on tables.rates in main.nomi = %q; want the function the generator wrote", got)
 	}
-	for _, name := range []string{"main.nomi", "tables.nomi", "generators/csvdata/csvdata.nomi"} {
+	for _, name := range []string{"main.nomi", "tables.nomi", "csvdata/csvdata.nomi"} {
 		if toks := prog.SemanticTokensIn(name); len(toks) == 0 {
 			t.Errorf("%s has no semantic tokens", name)
 		}

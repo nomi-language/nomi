@@ -41,8 +41,8 @@ fn main() {
         case xs {
             [] -> . Ok(0)
             [x, ..rest] -> {
-                n = try parse(x)
-                rest_total = try total(rest)
+                n = parse(x)?
+                rest_total = total(rest)?
                 .Ok(n + rest_total)
             }
         }
@@ -130,8 +130,8 @@ test "a recursive nested fn with try" {
             [] ->
                 .Ok(0)
             [x, ..rest] -> {
-                n = try parse(x)
-                rest_total = try total(rest)
+                n = parse(x)?
+                rest_total = total(rest)?
                 Ok(n + rest_total)
             }
         }

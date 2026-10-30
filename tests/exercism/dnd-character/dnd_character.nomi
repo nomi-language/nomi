@@ -32,17 +32,18 @@ pub fn character() -> Generator<Character> {
     ability()
     |> Generator.list(6)
     |> Generator.map(fn scores -> {
-        case scores {
-            [strength, dexterity, constitution, intelligence, wisdom, charisma] -> #{
-                strength,
-                dexterity,
-                constitution,
-                intelligence,
-                wisdom,
-                charisma,
-                hitpoints: 10 + modifier(constitution),
-            }
-            _ -> unreachable "Generator.list(6) draws six scores"
+        [strength, dexterity, constitution, intelligence, wisdom, charisma] = scores else {
+            unreachable "Generator.list(6) draws six scores"
+        }
+
+        #{
+            strength,
+            dexterity,
+            constitution,
+            intelligence,
+            wisdom,
+            charisma,
+            hitpoints: 10 + modifier(constitution),
         }
     })
 }

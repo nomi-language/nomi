@@ -23,7 +23,7 @@ test "vectors support random access" {
     assert Vector.get(v, 2) == Some("c")
     assert Vector.get(v, -1) == None
     assert Vector.get(v, 3) == None
-    assert Vector.at(v, 1) == "b"
+    assert Vector.get(v, 1)! == "b"
 }
 
 test "vectors push set and concat return new vectors" {
@@ -54,7 +54,7 @@ test "vectors iterate with generic Iter operations" {
 
     found =
         #["ada", "grace", "katherine"]
-        |> Iter.find(&String.contains?(&1, "ace"))
+        |> Iter.find(&String.contains(&1, "ace"))
 
     assert doubled == [2, 4, 6]
     assert found == Some("grace")
@@ -66,8 +66,8 @@ test "vectors compare display debug and hash structurally" {
     c = #[1, 2, 4]
 
     assert a == b
-    assert Vector.equal?(a, b)
-    refute Vector.equal?(a, c)
+    assert Vector.equal(a, b)
+    refute Vector.equal(a, c)
     assert Vector.compare(a, c) == Ordering.Less
     assert Vector.to_string(a) == "#[1, 2, 3]"
     assert Vector.inspect(#["a", "b"]) == "#[\"a\", \"b\"]"

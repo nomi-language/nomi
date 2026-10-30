@@ -436,7 +436,7 @@ fn main() -> Int {
 func TestFormat_PipeTryPrefixStaysPrefix(t *testing.T) {
 	src := `fn main(m: Maybe<Int>) -> Result<Int, String> {
     m
-    |> try to_result()
+    |> to_result()?
     |> Ok()
 }
 `
@@ -481,12 +481,12 @@ func TestFormat_Pipe_BindingRHS_MultilinePipe_BreaksAfterEquals(t *testing.T) {
 }
 
 func TestFormat_Pipe_BindingRHS_TryHeadKeepsPipeAligned(t *testing.T) {
-	src := `value = try source
+	src := `value = source?
 |> parse()
 |> normalize()
 `
 	want := `value =
-    try source
+    source?
     |> parse()
     |> normalize()
 `
@@ -501,24 +501,24 @@ func TestFormat_Assertion_PipeOperandIndentsContinuations(t *testing.T) {
     assert []
     |> Iter.chunks(2)
     |> Iter.to_list()
-    |> List.equal?([])
+    |> List.equal([])
 
-    refute []
+    assert []
     |> Iter.chunks(2)
     |> Iter.to_list()
-    |> Iter.not_empty?()
+    |> Iter.is_empty()
 }
 `
 	want := `test "chunking" {
     assert []
         |> Iter.chunks(2)
         |> Iter.to_list()
-        |> List.equal?([])
+        |> List.equal([])
 
-    refute []
+    assert []
         |> Iter.chunks(2)
         |> Iter.to_list()
-        |> Iter.not_empty?()
+        |> Iter.is_empty()
 }
 `
 	got, _ := Format(src)
@@ -574,7 +574,7 @@ func TestFormat_Pipe_CallArgPipeStacks(t *testing.T) {
 	src := `test "render" {
     assert Token.Bag([#("a", 1)] |> Iter.to_map())
         |> Debug.inspect()
-        |> String.equal?("Bag")
+        |> String.equal("Bag")
 }
 `
 	want := `test "render" {
@@ -583,7 +583,7 @@ func TestFormat_Pipe_CallArgPipeStacks(t *testing.T) {
         |> Iter.to_map()
     )
         |> Debug.inspect()
-        |> String.equal?("Bag")
+        |> String.equal("Bag")
 }
 `
 	got, _ := Format(src)
@@ -1656,10 +1656,10 @@ pub host fn loop(f: (S) -> S) -> S
 }
 
 func TestFormat_AttachedAssertionBreaksWhenPromptedExpressionWraps(t *testing.T) {
-	src := `//! assert Codepoint.step_by(try code_points.from_int(65), 2) == Some(Codepoint(67))
+	src := `//! assert Codepoint.step_by(code_points.from_int(65)?, 2) == Some(Codepoint(67))
 fn step_by() -> Unit { Unit }
 `
-	want := `//! assert Codepoint.step_by(try code_points.from_int(65), 2) == Some(Codepoint(67))
+	want := `//! assert Codepoint.step_by(code_points.from_int(65)?, 2) == Some(Codepoint(67))
 fn step_by() -> Unit {
     Unit
 }
@@ -1941,6 +1941,27 @@ func TestFormat_TestSetupExpression(t *testing.T) {
 	}
 }
 
+// A blank line inside a one-expression setup block does not keep the
+// braces: the first pass drops it, so a second would write the bare form.
+// A comment does keep them.
+func TestFormat_TestSetupBlankLineDoesNotKeepBraces(t *testing.T) {
+	bare := func(expr string) string {
+		return "group \"g\" {\n    setup " + expr + "\n\n    test \"t\" {\n        assert\n    }\n}\n"
+	}
+	for _, c := range []struct{ setup, want string }{
+		{"(\"\")\n\n", bare(`""`)},
+		{"\"\"\n\n", bare(`""`)},
+		{"\n\n\"\"", bare(`""`)},
+		{"(f(1))\n\n", bare("f(1)")},
+		{"#(1, 2)\n\n", bare("#(1, 2)")},
+		{"{ \"\" }\n\n", bare(`""`)},
+		{"\"\"\n\n// c\n", "group \"g\" {\n    setup {\n        \"\"\n\n        // c\n    }\n\n    test \"t\" {\n        assert\n    }\n}\n"},
+	} {
+		src := "group \"g\" {\n    setup {" + c.setup + "}\n    test \"t\" {\n        assert\n    }\n}\n"
+		formatWithTwice(t, src, c.want)
+	}
+}
+
 func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
 	src := `group "fixture" {
     setup {
@@ -2209,7 +2230,7 @@ func TestFormat_If_MultilineCallBody_Collapses(t *testing.T) {
 func TestFormat_If_WidthBoundary_50Inline_51Broken(t *testing.T) {
 	// Flat if/else width = 18 (fixed structure) + len(cond)+len(then)+len(else).
 	// With cond="c", else="e", a 30-char then body hits exactly 50 → inline;
-	// 31 → 51 → broken. Locks the singleLineIfElseMaxWidth = 50 cap.
+	// 31 → 51 → broken. Locks the singleLineValueIfMaxWidth = 50 cap.
 	at50 := "x = if c { " + strings.Repeat("a", 30) + " } else { e }\n"
 	got, _ := Format(at50)
 	if got != at50 {
@@ -2220,6 +2241,56 @@ func TestFormat_If_WidthBoundary_50Inline_51Broken(t *testing.T) {
 	got, _ = Format(at51)
 	if !strings.Contains(got, "} else {\n") {
 		t.Errorf("expected broken at 51 cols, got:\n%s", got)
+	}
+}
+
+func TestFormat_If_ValueIfElseOver50Breaks(t *testing.T) {
+	// A value if/else keeps the 50-column cap even when the line has room.
+	src := "fn f(n: Int) -> String {\n    if n > 10 { \"a big number\" } else { \"a small number\" }\n}\n"
+	want := "fn f(n: Int) -> String {\n    if n > 10 {\n        \"a big number\"\n    } else {\n        \"a small number\"\n    }\n}\n"
+	got, _ := Format(src)
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestFormat_If_GuardWidthBoundary_LineWidth(t *testing.T) {
+	// A guard, an if with no else, goes on one line when the whole line fits
+	// the 100-column width, indentation included. `if c { ` is 7 columns and
+	// ` }` is 2, so a 91-character body makes 100.
+	at100 := "if c { " + strings.Repeat("a", 91) + " }\n"
+	got, _ := Format(at100)
+	if got != at100 {
+		t.Errorf("expected inline at 100 cols, got:\n%s", got)
+	}
+	at101 := "if c { " + strings.Repeat("a", 92) + " }\n"
+	got, _ = Format(at101)
+	if got == at101 {
+		t.Errorf("expected broken at 101 cols, got:\n%s", got)
+	}
+
+	// One level in, the same guard has four columns fewer.
+	indented := "fn f(c: Bool) {\n    if c { " + strings.Repeat("a", 87) + " }\n}\n"
+	got, _ = Format(indented)
+	if got != indented {
+		t.Errorf("expected inline at 100 cols with the indent, got:\n%s", got)
+	}
+	over := "fn f(c: Bool) {\n    if c { " + strings.Repeat("a", 88) + " }\n}\n"
+	got, _ = Format(over)
+	if got == over {
+		t.Errorf("expected broken at 101 cols with the indent, got:\n%s", got)
+	}
+}
+
+func TestFormat_If_GuardStaysOnOneLine(t *testing.T) {
+	src := "fn f(n: Int) -> Result<Int, String> {\n" +
+		"    if n < 0 { return Err(\"the count must not be negative, and this one is\") }\n" +
+		"    if n > 99 { return Err(\"the count must be below a hundred\") }\n" +
+		"    Ok(n)\n" +
+		"}\n"
+	got, _ := Format(src)
+	if got != src {
+		t.Errorf("got:\n%s\nwant:\n%s", got, src)
 	}
 }
 
@@ -2832,18 +2903,18 @@ func TestFormat_PartialApp_Pipe(t *testing.T) {
 // reports ("`assert` must be placed at the head of the pipeline"); the
 // formatter prints it as written. Rewriting it to the head form would change
 // the syntax tree, which `nomi fmt` must not do (SameMeaning). A keyword
-// never decorates another keyword stage either: `|> try dbg f()` is the
-// stages `f()`, `dbg` and `try`, and `try dbg` alone does not parse.
+// never decorates another keyword stage either, and a `?` after one is
+// written against it: `|> dbg f()?` is the stages `f()`, `dbg` and `?`.
 func TestFormat_KeywordPipeStagesKeepTheirSyntaxTree(t *testing.T) {
 	cases := []struct{ src, want string }{
 		{`"" |> assert` + "\n", `"" |> assert` + "\n"},
 		{"x |> refute\n", "x |> refute\n"},
 		{"x |> assert f()\n", "x |> f() |> assert\n"},
-		{"x |> try assert f()\n", "x |> f() |> assert |> try\n"},
-		{"x |> try dbg f()\n", "x |> f() |> dbg |> try\n"},
+		{"x |> assert f()?\n", "x |> f()? |> assert\n"},
+		{"x |> dbg f()?\n", "x |> f()? |> dbg\n"},
 		{
-			"test \"t\" {\n    \"Ada\"\n    |> String.contains?(\"Ada\")\n    |> assert\n}\n",
-			"test \"t\" {\n    \"Ada\"\n    |> String.contains?(\"Ada\")\n    |> assert\n}\n",
+			"test \"t\" {\n    \"Ada\"\n    |> String.contains(\"Ada\")\n    |> assert\n}\n",
+			"test \"t\" {\n    \"Ada\"\n    |> String.contains(\"Ada\")\n    |> assert\n}\n",
 		},
 	}
 	for _, c := range cases {
@@ -3382,16 +3453,16 @@ func TestFormat_TripleStringSingleArgWrapperInStructField(t *testing.T) {
 }
 
 func TestFormat_Try(t *testing.T) {
-	// `try x` prefix — round-trip through a function body.
-	src := "fn f() -> Result<Int, Error> { y = try x \n y }\n"
+	// `x?` prefix — round-trip through a function body.
+	src := "fn f() -> Result<Int, Error> { y = x? \n y }\n"
 	got, _ := Format(src)
-	if !strings.Contains(got, "try x") {
+	if !strings.Contains(got, "x?") {
 		t.Errorf("expected try x in output, got %q", got)
 	}
 }
 
 func TestFormat_Try_Binding(t *testing.T) {
-	src := "x = try safe_div(10, 2)\n"
+	src := "x = safe_div(10, 2)?\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)

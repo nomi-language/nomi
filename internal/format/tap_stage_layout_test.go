@@ -24,10 +24,6 @@ func TestFormat_TapStageStacksThePipeline(t *testing.T) {
 			"fn main() -> Int {\n    3 |> tap fn n -> { io.print(\"${n}\") }\n}\n",
 			"fn main() -> Int {\n    3\n    |> tap fn n -> { io.print(\"${n}\") }\n}\n",
 		},
-		"a trailing try stays its own stage": {
-			"fn main() -> Maybe<Int> {\n    x = Some(2) |> tap fn n -> io.print(\"${n}\") |> try\n    Some(x)\n}\n",
-			"fn main() -> Maybe<Int> {\n    x =\n        Some(2)\n        |> tap fn n -> io.print(\"${n}\")\n        |> try\n\n    Some(x)\n}\n",
-		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

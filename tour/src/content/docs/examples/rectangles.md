@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: rectangles.nomi
+//# Counts the rectangles in an ASCII diagram.
+
 /// How many rectangles the ASCII diagram `lines` draws: four `+` corners
 /// joined by sides of `-` along the rows and `|` down the columns, where a
 /// `+` may also stand in a side.
@@ -35,30 +37,30 @@ pub fn count(lines: List<String>) -> Int {
 
     corners
     |> Iter.flat_map(fn top_left -> Iter.map(corners, &#(top_left, &1)))
-    |> Iter.filter(fn #(top_left, bottom_right) -> rectangle?(grid, top_left, bottom_right))
+    |> Iter.filter(fn #(top_left, bottom_right) -> is_rectangle(grid, top_left, bottom_right))
     |> Iter.count()
 }
 
 /// Whether `top_left` and `bottom_right` are opposite corners of a
 /// rectangle: below and right of each other, the other two corners `+`, and
 /// every side whole.
-fn rectangle?(
+fn is_rectangle(
     grid: Vector<Vector<String>>,
     #(top, left): #(Int, Int),
     #(bottom, right): #(Int, Int),
 ) -> Bool {
     bottom > top
         and right > left
-        and Iter.all?([#(top, right), #(bottom, left)], fn #(row, column) -> {
+        and Iter.all([#(top, right), #(bottom, left)], fn #(row, column) -> {
             symbol_at(grid, row, column) == Some("+")
         })
-        and Iter.all?([top, bottom], &across?(grid, &1, left, right))
-        and Iter.all?([left, right], &down?(grid, &1, top, bottom))
+        and Iter.all([top, bottom], &is_line_across(grid, &1, left, right))
+        and Iter.all([left, right], &is_line_down(grid, &1, top, bottom))
 }
 
 /// Whether row `row` is a side from column `left` to column `right`.
-fn across?(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Bool {
-    Iter.all?(left..=right, fn column -> {
+fn is_line_across(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Bool {
+    Iter.all(left..=right, fn column -> {
         case symbol_at(grid, row, column) {
             Some("-" or "+") -> True
             _ -> False
@@ -67,8 +69,8 @@ fn across?(grid: Vector<Vector<String>>, row: Int, left: Int, right: Int) -> Boo
 }
 
 /// Whether column `column` is a side from row `top` to row `bottom`.
-fn down?(grid: Vector<Vector<String>>, column: Int, top: Int, bottom: Int) -> Bool {
-    Iter.all?(top..=bottom, fn row -> {
+fn is_line_down(grid: Vector<Vector<String>>, column: Int, top: Int, bottom: Int) -> Bool {
+    Iter.all(top..=bottom, fn row -> {
         case symbol_at(grid, row, column) {
             Some("|" or "+") -> True
             _ -> False
@@ -217,6 +219,6 @@ test "rectangles" {
 ## How it's written
 
 - The diagram is a `Vector` of rows, each a `Vector` of one-grapheme strings, and `symbol_at` reads a cell as a `Maybe`, so a line shorter than the others, as in "two rectangles without shared parts", reads as no symbol rather than a trap.
-- `count` lists every `+` once, pairs every corner with every other, and counts the pairs that are the top left and bottom right of a rectangle. `rectangle?` asks that the second is below and right of the first, that the other two corners are `+`, and that the two rows and two columns between them are whole sides, each an `Iter.all?` over the corners or the sides.
-- `across?` and `down?` walk one side and accept `-` or `+` along a row and `|` or `+` down a column, one `case` arm joined by `or` (`Some("-" or "+")`). A `+` in the middle of a side is where another line crosses it, which "rectangles must have four sides" and the large input rely on.
+- `count` lists every `+` once, pairs every corner with every other, and counts the pairs that are the top left and bottom right of a rectangle. `is_rectangle` asks that the second is below and right of the first, that the other two corners are `+`, and that the two rows and two columns between them are whole sides, each an `Iter.all` over the corners or the sides.
+- `is_line_across` and `is_line_down` walk one side and accept `-` or `+` along a row and `|` or `+` down a column, one `case` arm joined by `or` (`Some("-" or "+")`). A `+` in the middle of a side is where another line crosses it, which "rectangles must have four sides" and the large input rely on.
 - The 14 canonical cases are one `subtests` table named by the description column, each diagram written one line per row so it reads as the picture.

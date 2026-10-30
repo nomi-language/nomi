@@ -18,13 +18,13 @@ import {
 /// holding `Unit` can be compared, hashed, kept in a `Set` or used as a
 /// `Map` key.
 //! assert Unit == Unit
-//! assert Equatable.equal?(Unit, Unit)
+//! assert Equatable.equal(Unit, Unit)
 //! assert Hashable.hash(Unit) == Hashable.hash(Unit)
 //
 pub host type Unit
 
 impl Equatable for Unit {
-    fn equal?(_a: Unit, _b: Unit) -> Bool {
+    fn equal(_a: Unit, _b: Unit) -> Bool {
         True
     }
 }

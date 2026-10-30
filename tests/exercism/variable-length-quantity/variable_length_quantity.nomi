@@ -41,9 +41,7 @@ pub fn decode(bytes: List<Int>) -> Result<List<Int>, String> {
             }
         })
 
-    if Maybe.some?(pending) {
-        return Err("incomplete sequence")
-    }
+    if Maybe.is_some(pending) { return Err("incomplete sequence") }
 
     values
     |> Maybe.values()

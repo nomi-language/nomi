@@ -17,11 +17,11 @@
 //#
 //# path.clean("a/./b/../c") // "a/c"
 //#
-//# path.absolute?("/etc") // True
+//# path.is_absolute("/etc") // True
 //#
 //# path.relative("/a/b", "/a/c/d") // Some("../c/d")
 //#
-//# path.match?("src/**/*.nomi", "src/x/y.nomi") // True
+//# path.matches("src/**/*.nomi", "src/x/y.nomi") // True
 //# ```
 
 import {
@@ -89,7 +89,7 @@ pub fn join_all(parts: List<String>) -> String {
 //! assert clean("./") == "."
 //
 pub fn clean(p: String) -> String {
-    rooted = String.starts_with?(p, "/")
+    rooted = String.starts_with(p, "/")
 
     kept =
         String.split(p, "/")
@@ -126,21 +126,21 @@ fn names_reversed(clean_path: String) -> List<String> {
 /// Whether `p` starts at the root: `/` first, or a drive such as `C:/`.
 ///
 /// ```nomi
-/// path.absolute?("/etc") // True
+/// path.is_absolute("/etc") // True
 /// ```
-//! assert absolute?("/etc")
-//! assert absolute?("C:/Users")
-//! refute absolute?("etc/hosts")
-//! refute absolute?("")
+//! assert is_absolute("/etc")
+//! assert is_absolute("C:/Users")
+//! refute is_absolute("etc/hosts")
+//! refute is_absolute("")
 //
-pub fn absolute?(p: String) -> Bool {
-    String.starts_with?(p, "/") or drive?(p)
+pub fn is_absolute(p: String) -> Bool {
+    String.starts_with(p, "/") or has_drive(p)
 }
 
 /// Whether `p` starts with a drive letter, a colon and `/`.
-fn drive?(p: String) -> Bool {
+fn has_drive(p: String) -> Bool {
     case String.to_codepoints(String.slice(p, 0, 3)) {
-        [letter, ':', '/'] -> Codepoint.letter?(letter)
+        [letter, ':', '/'] -> Codepoint.is_letter(letter)
         _ -> False
     }
 }
@@ -160,7 +160,7 @@ fn drive?(p: String) -> Bool {
 //
 pub fn parent(p: String) -> Maybe<String> {
     cleaned = clean(p)
-    rooted = String.starts_with?(cleaned, "/")
+    rooted = String.starts_with(cleaned, "/")
 
     case #(names_reversed(cleaned), rooted) {
         #([], _) -> None
@@ -251,7 +251,7 @@ pub fn relative(from: String, to: String) -> Maybe<String> {
     start = clean(from)
     end = clean(to)
 
-    if String.starts_with?(start, "/") != String.starts_with?(end, "/") {
+    if String.starts_with(start, "/") != String.starts_with(end, "/") {
         None
     } else {
         climb(
@@ -269,7 +269,7 @@ fn climb(from: List<String>, to: List<String>) -> Maybe<String> {
         #([a, ..from_rest], [b, ..to_rest]) when a == b ->
             climb(from_rest, to_rest)
 
-        _ when Iter.contains?(from, "..") ->
+        _ when Iter.contains(from, "..") ->
             None
 
         _ -> {
@@ -291,20 +291,20 @@ fn climb(from: List<String>, to: List<String>) -> Maybe<String> {
 /// not reach hidden files. Neither side is cleaned.
 ///
 /// ```nomi
-/// path.match?("src/**/*.nomi", "src/x/y.nomi") // True
+/// path.matches("src/**/*.nomi", "src/x/y.nomi") // True
 /// ```
-//! assert match?("src/**/*.nomi", "src/x/y.nomi")
-//! assert match?("src/**/*.nomi", "src/y.nomi")
-//! assert match?("*.txt", "notes.txt")
-//! refute match?("*.txt", "data/notes.txt")
-//! assert match?("log-?.txt", "log-1.txt")
-//! assert match?("[a-c]*", "beta")
-//! refute match?("[!a-c]*", "beta")
-//! refute match?("*", ".hidden")
-//! assert match?(".*", ".hidden")
-//! assert match?("**", "a/b/c")
+//! assert matches("src/**/*.nomi", "src/x/y.nomi")
+//! assert matches("src/**/*.nomi", "src/y.nomi")
+//! assert matches("*.txt", "notes.txt")
+//! refute matches("*.txt", "data/notes.txt")
+//! assert matches("log-?.txt", "log-1.txt")
+//! assert matches("[a-c]*", "beta")
+//! refute matches("[!a-c]*", "beta")
+//! refute matches("*", ".hidden")
+//! assert matches(".*", ".hidden")
+//! assert matches("**", "a/b/c")
 //
-pub fn match?(pattern: String, p: String) -> Bool {
+pub fn matches(pattern: String, p: String) -> Bool {
     match_names(String.split(pattern, "/"), String.split(p, "/"))
 }
 
@@ -320,11 +320,11 @@ fn match_names(patterns: List<String>, names: List<String>) -> Bool {
             if match_names(rest, names) {
                 True
             } else {
-                !String.starts_with?(name, ".") and match_names(patterns, more)
+                !String.starts_with(name, ".") and match_names(patterns, more)
             }
 
         #([pattern, ..rest], [name, ..more]) ->
-            if hidden_matches?(pattern, name)
+            if matches_hidden(pattern, name)
                 and match_name(String.to_codepoints(pattern), String.to_codepoints(name)) {
                 match_names(rest, more)
             } else {
@@ -337,8 +337,8 @@ fn match_names(patterns: List<String>, names: List<String>) -> Bool {
 }
 
 /// A name that starts with `.` needs a pattern that starts with `.`.
-fn hidden_matches?(pattern: String, name: String) -> Bool {
-    !String.starts_with?(name, ".") or String.starts_with?(pattern, ".")
+fn matches_hidden(pattern: String, name: String) -> Bool {
+    !String.starts_with(name, ".") or String.starts_with(pattern, ".")
 }
 
 /// Whether one name matches one pattern name, codepoint by codepoint.

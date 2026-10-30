@@ -329,7 +329,7 @@ impl Reader {
     /// Everything left in the stream; after it the reader is at its end.
     ///
     /// ```nomi
-    /// data = try Reader.read_all(r)
+    /// data = Reader.read_all(r)?
     /// ```
     //! r = Reader.from_text("a\nbc")
     //! _ = Reader.read_line(r)
@@ -343,14 +343,14 @@ impl Reader {
     /// read began.
     ///
     /// ```nomi
-    /// text = try Reader.read_all_text(io.stdin)
+    /// text = Reader.read_all_text(io.stdin)?
     /// ```
     //! import std/io
     //!
     //! run = capture("one\ntwo\n", fn -> Reader.read_all_text(io.stdin))
     //! assert run.value == Result.Ok("one\ntwo\n")
     //!
-    //! high = try Int.to_byte(255)
+    //! high = Int.to_byte(255)?
     //! bad = Reader.from_bytes(Bytes.concat(String.to_bytes("hi"), Bytes.from_list([high])))
     //! assert Reader.read_all_text(bad) == Result.Err(#Error.InvalidText{path: "<bytes>", offset: 2})
     //
@@ -361,7 +361,7 @@ impl Reader {
     /// has to fit in memory.
     ///
     /// ```nomi
-    /// copied = try Reader.copy_to(io.stdin, io.stdout)
+    /// copied = Reader.copy_to(io.stdin, io.stdout)?
     /// ```
     //! import std/io
     //!
@@ -375,7 +375,7 @@ impl Reader {
     /// after the first. Closing standard input does nothing.
     ///
     /// ```nomi
-    /// try Reader.close(r)
+    /// Reader.close(r)?
     /// ```
     //! r = Reader.from_text("x")
     //! assert Reader.close(r) == Result.Ok(Unit)
@@ -389,7 +389,7 @@ impl Reader {
     /// failed close.
     ///
     /// ```nomi
-    /// r = try fs.open("notes.txt")
+    /// r = fs.open("notes.txt")?
     ///
     /// defer Reader.close_quietly(r)
     /// ```
@@ -533,7 +533,7 @@ impl Writer {
     /// standard streams are not buffered, so flushing one does nothing.
     ///
     /// ```nomi
-    /// try Writer.flush(w)
+    /// Writer.flush(w)?
     /// ```
     //! import std/io
     //!
@@ -547,7 +547,7 @@ impl Writer {
     /// after the first. Closing a standard stream does nothing.
     ///
     /// ```nomi
-    /// try Writer.close(w)
+    /// Writer.close(w)?
     /// ```
     //! import std/io
     //!
@@ -560,7 +560,7 @@ impl Writer {
     /// and reports a failed close.
     ///
     /// ```nomi
-    /// w = try fs.create("out.txt")
+    /// w = fs.create("out.txt")?
     ///
     /// defer Writer.close_quietly(w)
     /// ```
@@ -591,7 +591,7 @@ impl File {
     /// `Ok(None)` at or past the end. `max` must be at least 1.
     ///
     /// ```nomi
-    /// header = try File.read(f, max: 16)
+    /// header = File.read(f, max: 16)?
     /// ```
     pub fn read(f: File, max: Int = 65536) -> Result<Maybe<Bytes>, Error> {
         file_read(f, max)
@@ -601,7 +601,7 @@ impl File {
     /// The file's position stays where it was.
     ///
     /// ```nomi
-    /// record = try File.read_at(f, 512 * n, max: 512)
+    /// record = File.read_at(f, 512 * n, max: 512)?
     /// ```
     pub host fn read_at(f: File, position: Int, max: Int) -> Result<Maybe<Bytes>, Error>
 
@@ -609,7 +609,7 @@ impl File {
     /// with `Access.Read` is `PermissionDenied`.
     ///
     /// ```nomi
-    /// try File.write(f, String.to_bytes("hello"))
+    /// File.write(f, String.to_bytes("hello"))?
     /// ```
     pub host fn write(f: File, data: Bytes) -> Result<Unit, Error>
 
@@ -617,16 +617,16 @@ impl File {
     /// with zero bytes. The file's position stays where it was.
     ///
     /// ```nomi
-    /// try File.write_at(f, 0, header)
+    /// File.write_at(f, 0, header)?
     /// ```
     pub host fn write_at(f: File, position: Int, data: Bytes) -> Result<Unit, Error>
 
     /// Moves the position to `position`, counted in bytes from the start.
-    /// From the end is `File.seek(f, try File.size(f) - n)`, and from here
-    /// `File.seek(f, try File.position(f) + n)`.
+    /// From the end is `File.seek(f, File.size(f)? - n)`, and from here
+    /// `File.seek(f, File.position(f)? + n)`.
     ///
     /// ```nomi
-    /// try File.seek(f, 0)
+    /// File.seek(f, 0)?
     /// ```
     pub host fn seek(f: File, position: Int) -> Result<Unit, Error>
 
@@ -640,7 +640,7 @@ impl File {
     /// longer size adds zero bytes. The position stays where it was.
     ///
     /// ```nomi
-    /// try File.truncate(f, 0)
+    /// File.truncate(f, 0)?
     /// ```
     pub host fn truncate(f: File, size: Int) -> Result<Unit, Error>
 

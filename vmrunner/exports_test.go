@@ -87,7 +87,7 @@ export fn huge() -> Int {
 }
 
 export fn shout(text: String) {
-    io.print(String.to_upper(text))
+    io.print(String.uppercase(text))
 }
 
 export fn letters() -> Int {

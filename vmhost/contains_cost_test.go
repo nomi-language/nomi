@@ -12,7 +12,7 @@ import (
 // The machine's step budget counts each call, backward branch and iteration
 // element a run makes, so a scan of 20 000 list elements or 3 000 vector
 // elements fits in a budget of 1 000 steps when it runs in rt, while the same
-// list scan written as `Iter.any?` with a lambda uses at least one step per
+// list scan written as `Iter.any` with a lambda uses at least one step per
 // element and runs out. The vector is a literal because `Iter.to_vector`
 // costs a step per element it collects.
 func TestContains_AListOrVectorScanMakesNoNomiCallPerElement(t *testing.T) {
@@ -46,9 +46,9 @@ fn vector_words() -> Vector<String> {
 	}
 
 	for _, body := range []string{
-		`    refute List.contains?(words(), "b")`,
-		`    refute Contains.contains?(words(), "b")`,
-		`    refute Vector.contains?(vector_words(), "b")`,
+		`    refute List.contains(words(), "b")`,
+		`    refute Contains.contains(words(), "b")`,
+		`    refute Vector.contains(vector_words(), "b")`,
 	} {
 		got := run(t, body)
 		if got[1] != "" {
@@ -60,7 +60,7 @@ fn vector_words() -> Vector<String> {
 	}
 
 	// The control: the same scan with a Nomi predicate per element.
-	if got := run(t, `    refute Iter.any?(words(), fn w -> w == "b")`); got[1] == "" {
-		t.Fatalf("Iter.any? with a lambda finished in 1 000 steps, so the budget does not count per-element calls and the test above checks nothing")
+	if got := run(t, `    refute Iter.any(words(), fn w -> w == "b")`); got[1] == "" {
+		t.Fatalf("Iter.any with a lambda finished in 1 000 steps, so the budget does not count per-element calls and the test above checks nothing")
 	}
 }

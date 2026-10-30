@@ -54,7 +54,7 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		}
 		return true
 	}
-	nestedHeads := false
+	nestedHeads := len(pat.Tails) > 0
 	for _, head := range pat.Heads {
 		if !simple(head) && !flatTuple(head) {
 			nestedHeads = true
@@ -122,11 +122,14 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 }
 
 // listCaseTestNested is listCaseTest for heads that test their element
-// (`[.Num(a), 0, ..rest]`): after the length test each head is projected and
-// matched in order, and any failed
-// element test selects the next arm. The builder ends in arm.
+// (`[.Num(a), 0, ..rest]`) and for a pattern with tails (`[first, ..mid,
+// last]`): after the length test each head is projected and matched in
+// order, then each tail, read from the list's last cells, and any failed
+// element test selects the next arm. A rest before tails is a copy of the
+// elements between them (ir.ProjListSlice). The builder ends in arm.
 func (bl *irScalarBuilder) listCaseTestNested(pat *ast.ListPattern, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	spread := !isNilNode(pat.TailSpread)
+	fixed := len(pat.Heads) + len(pat.Tails)
 	if spread {
 		switch pat.TailSpread.(type) {
 		case *ast.IdentPattern, *ast.WildcardPattern:
@@ -136,9 +139,9 @@ func (bl *irScalarBuilder) listCaseTestNested(pat *ast.ListPattern, subj ir.Temp
 	}
 	var match *ir.Match
 	if spread {
-		match = ir.NewMatchListMinInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, len(pat.Heads))
+		match = ir.NewMatchListMinInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, fixed)
 	} else {
-		match = ir.NewMatchListLenInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, len(pat.Heads))
+		match = ir.NewMatchListLenInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, fixed)
 	}
 	bl.b.Append(match)
 	bl.side(match.Dst(), irScalarSide{k: kindBool})
@@ -155,7 +158,26 @@ func (bl *irScalarBuilder) listCaseTestNested(pat *ast.ListPattern, subj ir.Temp
 			return false
 		}
 	}
-	if spread {
+	if len(pat.Tails) > 0 {
+		last := ir.NewProjSuffix(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, -len(pat.Tails), irParamShape(k))
+		bl.b.Append(last)
+		bl.side(last.Dst(), irScalarSide{k: k})
+		for j, tail := range pat.Tails {
+			proj := ir.NewProjElem(bl.g.irNodePos(pat), bl.f.NewTemp(), last.Dst(), j, irParamShape(elem))
+			bl.b.Append(proj)
+			bl.side(proj.Dst(), irScalarSide{k: elem})
+			target := bl.f.NewBlock(bl.g.irNodePos(tail), "list element")
+			if !bl.patternValueTest(tail, proj.Dst(), elem, target, next) {
+				return false
+			}
+		}
+		if id, ok := pat.TailSpread.(*ast.IdentPattern); ok {
+			mid := ir.NewProjListSlice(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, len(pat.Heads), len(pat.Tails), irParamShape(k))
+			bl.b.Append(mid)
+			bl.side(mid.Dst(), irScalarSide{k: k})
+			bl.patternBinding(id, id.Name, mid.Dst(), k)
+		}
+	} else if spread {
 		suffix := ir.NewProjSuffix(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, len(pat.Heads), irParamShape(k))
 		bl.b.Append(suffix)
 		bl.side(suffix.Dst(), irScalarSide{k: k})

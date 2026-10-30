@@ -18,7 +18,7 @@ enum Level {
 }
 
 impl Equatable for Level {
-    fn equal?(_a: Level, _b: Level) -> Bool {
+    fn equal(_a: Level, _b: Level) -> Bool {
         False
     }
 }

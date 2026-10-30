@@ -14,11 +14,11 @@ fn draws<T>(generator: Generator<T>) -> List<T> {
     |> Iter.to_list()
 }
 
-fn in_range?(score: Int) -> Bool {
-    score >= 3 and score <= 18
+fn is_in_range(score: Int) -> Bool {
+    Range.contains(3..=18, score)
 }
 
-fn valid?(character: Character) -> Bool {
+fn is_valid(character: Character) -> Bool {
     abilities = [
         character.strength,
         character.dexterity,
@@ -28,7 +28,7 @@ fn valid?(character: Character) -> Bool {
         character.charisma,
     ]
 
-    Iter.all?(abilities, in_range?)
+    Iter.all(abilities, is_in_range)
         and character.hitpoints == 10 + dnd_character.modifier(character.constitution)
 }
 
@@ -60,13 +60,13 @@ test "ability modifier" {
 test "random ability is within range" {
     assert dnd_character.ability()
         |> draws()
-        |> Iter.all?(in_range?)
+        |> Iter.all(is_in_range)
 }
 
 test "random character is valid" {
     assert dnd_character.character()
         |> draws()
-        |> Iter.all?(valid?)
+        |> Iter.all(is_valid)
 }
 
 test "each ability is only calculated once" {

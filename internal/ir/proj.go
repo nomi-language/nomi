@@ -55,7 +55,7 @@ import "strconv"
 // `ProjElem` and `ProjSuffix` read past the front of a list, which is in
 // bounds only because an `ir.Match` list-length test already passed;
 // `ProjPayload` has the same property, where the tag is
-// established by a pattern match, a `try` or an attach. The IR expresses the
+// established by a pattern match, a `?` or an attach. The IR expresses the
 // dependency by ORDER, which is what a linear representation is for.
 type ProjKind uint8
 
@@ -74,7 +74,7 @@ const (
 	ProjSlot
 	// ProjPayload reads one payload of a known enum variant by index. `Sym` is
 	// the enum and `Text` the variant: the subject's tag is already known,
-	// because a pattern match or a `try` has established it. Owner:
+	// because a pattern match or a `?` has established it. Owner:
 	// payloadValue.
 	ProjPayload
 	// ProjEnumField reads a field NAME off an enum value WITHOUT knowing the
@@ -105,7 +105,10 @@ const (
 	ProjElem
 	// ProjSuffix reads the List of everything from a CONSTANT position on —
 	// the `..rest` of `[a, b, ..rest]`, with `Index` the number of heads
-	// before it.
+	// before it. A negative `Index` counts from the end: the List of the
+	// last -Index elements, which a list pattern's tails are read from
+	// (`[first, .., last]`). That suffix is found by one walk, since every
+	// cell knows its length.
 	//
 	// A SUFFIX AND NOT A COPY: the consumer reads the `Index`'th tail of the
 	// list, so `[h, ..t]` allocates nothing. That is a property of the
@@ -135,6 +138,15 @@ const (
 	// a recursive `#[x, ..rest]` walk is linear (rt.VectorSlice). Owner:
 	// vectorCaseTest.
 	ProjVectorSlice
+	// ProjListSlice reads the List of a List's elements from position
+	// `Index` up to `Drop` elements before its end: the `..mid` of
+	// `[a, ..mid, z]`, with `Index` the heads and `Drop` the tails.
+	//
+	// A COPY, unlike ProjSuffix: the elements before the last `Drop` cells
+	// are new cells, made in one walk (rt.ListCellSlice). It is in bounds
+	// only after a MatchListMin test of `Index`+`Drop` passed. Owner:
+	// listCaseTest.
+	ProjListSlice
 )
 
 func (k ProjKind) String() string {
@@ -161,6 +173,8 @@ func (k ProjKind) String() string {
 		return "vectorelem"
 	case ProjVectorSlice:
 		return "vectorslice"
+	case ProjListSlice:
+		return "listslice"
 	}
 	return "proj?"
 }
@@ -182,8 +196,8 @@ type Proj struct {
 	// embeds is the embedded type of an `embeds` variant's payload; nil
 	// otherwise.
 	embeds *Symbol
-	// drop is how many elements a ProjVectorSlice leaves off the end; zero
-	// for every other kind.
+	// drop is how many elements a ProjVectorSlice or a ProjListSlice leaves
+	// off the end; zero for every other kind.
 	drop int
 }
 
@@ -286,7 +300,8 @@ func NewProjElem(pos Pos, dst, subj Temp, i int, shape ValShape) *Proj {
 	return p
 }
 
-// NewProjSuffix reads the List of everything from constant position i on.
+// NewProjSuffix reads the List of everything from constant position i on,
+// or, for a negative i, the List of the last -i elements.
 //
 // i may be zero: `[..rest]` binds the whole list, and that is a real pattern
 // rather than a degenerate one — unlike `ir.MatchListMin(0)`, whose question
@@ -299,9 +314,6 @@ func NewProjElem(pos Pos, dst, subj Temp, i int, shape ValShape) *Proj {
 // `ValUnknown` is still admitted, because a producer that declines to state a
 // shape is the rule `ir.Param` establishes and not a hole.
 func NewProjSuffix(pos Pos, dst, subj Temp, i int, shape ValShape) *Proj {
-	if i < 0 {
-		panic("ir.NewProjSuffix: negative suffix position " + strconv.Itoa(i))
-	}
 	if shape != ValUnknown && shape != ValContainer {
 		panic("ir.NewProjSuffix: a List's suffix is a List, not " + shape.String())
 	}
@@ -334,8 +346,24 @@ func NewProjVectorSlice(pos Pos, dst, subj Temp, from, drop int, shape ValShape)
 	return p
 }
 
-// Drop is how many elements a ProjVectorSlice leaves off the end of its
-// subject.
+// NewProjListSlice reads the List of subj's elements from position from up
+// to drop elements before its end, copied. Its result is a List, so, as for
+// NewProjSuffix, the shape is checked.
+func NewProjListSlice(pos Pos, dst, subj Temp, from, drop int, shape ValShape) *Proj {
+	if from < 0 || drop < 0 {
+		panic("ir.NewProjListSlice: negative bound " + strconv.Itoa(from) + ", " + strconv.Itoa(drop))
+	}
+	if shape != ValUnknown && shape != ValContainer {
+		panic("ir.NewProjListSlice: a List's slice is a List, not " + shape.String())
+	}
+	p := newProj(pos, dst, subj, ProjListSlice, shape, "NewProjListSlice")
+	p.idx = from
+	p.drop = drop
+	return p
+}
+
+// Drop is how many elements a ProjVectorSlice or a ProjListSlice leaves off
+// the end of its subject.
 func (p *Proj) Drop() int { return p.drop }
 
 // NewProjStrSuffix reads the String of subj's bytes from byte offset i on.
@@ -383,7 +411,8 @@ func (p *Proj) Sym() *Symbol { return p.sym }
 func (p *Proj) Name() string { return p.text }
 
 // Index is the tuple component, the payload position, a list element's
-// position, a suffix's start, or a string suffix's starting byte. Zero for the named kinds, which select by
+// position, a suffix's start (from the end when negative), a slice's start,
+// or a string suffix's starting byte. Zero for the named kinds, which select by
 // name.
 func (p *Proj) Index() int { return p.idx }
 
@@ -441,7 +470,7 @@ func (p *Proj) String() string {
 	switch p.kind {
 	case ProjSlot, ProjElem, ProjSuffix, ProjStrSuffix, ProjVectorElem:
 		s += "." + strconv.Itoa(p.idx)
-	case ProjVectorSlice:
+	case ProjVectorSlice, ProjListSlice:
 		s += "." + strconv.Itoa(p.idx) + ".." + strconv.Itoa(p.drop)
 	case ProjPayload:
 		s += " " + p.sym.Name() + "." + p.text + "[" + strconv.Itoa(p.idx) + "]"

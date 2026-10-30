@@ -1,3 +1,6 @@
+//# A small `grep`: searches files for lines that match a string, with the
+//# canonical flags.
+
 import {
     std/fs
     std/io
@@ -30,7 +33,7 @@ pub fn grep(
     files
     |> Iter.map(&search(&1, pattern, options, named))
     |> Result.collect()
-    |> Result.map(&Iter.flatten(&1))
+    |> Result.map(Iter.flatten)
 }
 
 /// What `grep` answers for one file.
@@ -40,16 +43,16 @@ fn search(
     options: Options,
     named: Bool,
 ) -> Result<List<String>, io.Error> {
-    text = try fs.read_text(file)
+    text = fs.read_text(file)?
 
     found =
         String.lines(text)
         |> Iter.with_index()
-        |> Iter.filter(fn #(_index, line) -> matches?(line, pattern, options))
+        |> Iter.filter(fn #(_index, line) -> matches(line, pattern, options))
         |> Iter.to_list()
 
     if options.file_names {
-        Ok(if Iter.empty?(found) { [] } else { [file] })
+        Ok(if Iter.is_empty(found) { [] } else { [file] })
     } else {
         found
         |> Iter.map(fn #(index, line) -> {
@@ -68,9 +71,9 @@ fn search(
     }
 }
 
-fn matches?(line: String, pattern: String, options: Options) -> Bool {
+fn matches(line: String, pattern: String, options: Options) -> Bool {
     #(line, pattern) = if options.ignore_case {
-        #(String.to_lower(line), String.to_lower(pattern))
+        #(String.fold_case(line), String.fold_case(pattern))
     } else {
         #(line, pattern)
     }
@@ -78,7 +81,7 @@ fn matches?(line: String, pattern: String, options: Options) -> Bool {
     found = if options.whole_line {
         line == pattern
     } else {
-        String.contains?(line, pattern)
+        String.contains(line, pattern)
     }
 
     found != options.invert

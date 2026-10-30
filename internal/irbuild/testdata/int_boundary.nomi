@@ -1,0 +1,58 @@
+import std/io
+
+/// An Int crosses the 64-bit boundary without noticing it: the VM holds a
+/// value that fits int64 in a word and a larger one beside it, and every
+/// operation here moves a value from one side to the other through a runtime
+/// value, so no constant folding can answer it.
+fn over(n: Int) -> Int {
+    n + 1
+}
+
+fn under(n: Int) -> Int {
+    n - 1
+}
+
+/// Wrapping arithmetic at the boundary: the low 64 bits, as std/int
+/// documents for `Int.wrapping_add` and `Int.wrapping_sub`.
+fn wrap_round_trip(top: Int, bottom: Int) -> Bool {
+    Int.wrapping_add(top, 1) == bottom and Int.wrapping_sub(bottom, 1) == top
+}
+
+/// `Discrete.next` and `Steppable.step_by` answer past the boundary as
+/// anywhere else.
+fn next_of(n: Int) -> String {
+    show(Int.next(n))
+}
+
+fn step_of(n: Int, by: Int) -> String {
+    show(Int.step_by(n, by))
+}
+
+fn show(m: Maybe<Int>) -> String {
+    case m {
+        Some(v) -> "Some(${v})"
+        None -> "None"
+    }
+}
+
+fn main() {
+    top = 9_223_372_036_854_775_807
+    bottom = -9_223_372_036_854_775_808
+    io.print("${top}")
+    io.print("${bottom}")
+    io.print("${wrap_round_trip(top, bottom)}")
+    io.print("${top - bottom}")
+
+    io.print(next_of(top))
+    io.print(next_of(0))
+    io.print(step_of(top, 1))
+    io.print(step_of(bottom, -1))
+    io.print(step_of(5, 3))
+
+    io.print("${over(1)}")
+    io.print("${under(1)}")
+    io.print("${over(top)}")
+    io.print("${under(bottom)}")
+    io.print("${under(over(top)) == top}")
+    io.print("${over(under(bottom)) == bottom}")
+}

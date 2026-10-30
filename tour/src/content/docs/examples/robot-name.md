@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: robot_name.nomi
+//# Robots with random, unique names such as `RX837`.
+
 import std/random.{Generator, Seed}
 
 once letters = Iter.to_vector('A'..='Z')
@@ -52,13 +54,11 @@ impl Factory {
     /// A new robot with a name no robot of this factory has had, or
     /// `NamesExhausted` when every name has been given.
     pub fn build(factory: Factory) -> Result<#(Robot, Factory), Error> {
-        if Set.size(factory.given) == name_count {
-            return Err(.NamesExhausted)
-        }
+        if Set.size(factory.given) == name_count { return Err(.NamesExhausted) }
 
         #(name, seed) = Generator.step(names(), factory.seed)
 
-        if Set.contains?(factory.given, name) {
+        if Set.contains(factory.given, name) {
             Factory.build(#{..factory, seed})
         } else {
             Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))
@@ -78,8 +78,8 @@ impl Factory {
 fn names() -> Generator<String> {
     Generator.int(0, name_count - 1)
     |> Generator.map(fn n -> {
-        first = Vector.at(letters, n / 26_000)
-        second = Vector.at(letters, n / 1000 % 26)
+        first = Vector.get(letters, n / 26_000)!
+        second = Vector.get(letters, n / 1000 % 26)!
         digits = Int.to_string(n % 1000) |> String.pad_start(3, "0")
         String.from_codepoints([first, second]) + digits
     })
@@ -92,11 +92,11 @@ import {
 }
 
 /// Whether `name` is two uppercase letters and three digits.
-fn well_formed?(name: String) -> Bool {
+fn is_well_formed(name: String) -> Bool {
     case String.to_codepoints(name) {
         [a, b, c, d, e] -> {
-            letter? = &Range.contains?('A'..='Z', &1)
-            Iter.all?([a, b], letter?) and Iter.all?([c, d, e], Codepoint.digit?)
+            is_letter = &Range.contains('A'..='Z', &1)
+            Iter.all([a, b], is_letter) and Iter.all([c, d, e], Codepoint.is_digit)
         }
 
         _ ->
@@ -119,11 +119,11 @@ fn names(factory: Factory, count: Int) -> List<String> {
 }
 
 group "robot name" {
-    setup Factory.new(Seed.from_int(42))
+    setup Seed.from_int(42) |> Factory.new()
 
     test "has a name", factory {
         assert Ok(#(robot, _factory)) = Factory.build(factory)
-        assert well_formed?(Robot.name(robot))
+        assert is_well_formed(Robot.name(robot))
     }
 
     test "name is the same each time", factory {
@@ -141,7 +141,7 @@ group "robot name" {
         assert Ok(#(robot, factory)) = Factory.build(factory)
         assert Ok(#(reset, _factory)) = Factory.reset(factory, robot)
         assert Robot.name(reset) != Robot.name(robot)
-        assert well_formed?(Robot.name(reset))
+        assert is_well_formed(Robot.name(reset))
     }
 
     test "a thousand robots all have different names", factory {
@@ -149,7 +149,8 @@ group "robot name" {
     }
 
     test "the same seed names the same robots", factory {
-        assert names(factory, 5) == names(Factory.new(Seed.from_int(42)), 5)
+        again = Seed.from_int(42) |> Factory.new()
+        assert names(factory, 5) == names(again, 5)
     }
 }
 ```

@@ -26,7 +26,7 @@ fn scale<T>(x: T, r: Rate) -> T where T: Multiply<Rate, T> {
 }
 
 fn has<C>(c: C, r: Rate) -> Bool where C: Contains<Rate> {
-    C.contains?(c, r)
+    C.contains(c, r)
 }
 
 fn main() {
@@ -40,10 +40,10 @@ fn main() {
     io.print(Decimal.to_string(Decimal.multiply(d, r)))
     io.print(Decimal.to_string(Multiply.multiply(d, s)))
     io.print(Decimal.to_string(scale(d, r)))
-    io.print(Bool.to_string(String.contains?("x4y", r)))
-    io.print(Bool.to_string(Contains.contains?("x5y", r)))
+    io.print(Bool.to_string(String.contains("x4y", r)))
+    io.print(Bool.to_string(Contains.contains("x5y", r)))
     io.print(Bool.to_string(has("x4y", r)))
-    io.print(Bool.to_string(String.contains?("x4y", "4")))
+    io.print(Bool.to_string(String.contains("x4y", "4")))
     io.print(Int.to_string(300 * Pct(50)))
 }
 
@@ -90,8 +90,8 @@ impl Add<Rate, Decimal> for Decimal {
 }
 
 impl Contains<Rate> for String {
-    fn contains?(c: String, x: Rate) -> Bool {
-        String.contains?(c, Decimal.to_string(x.per_unit))
+    fn contains(c: String, x: Rate) -> Bool {
+        String.contains(c, Decimal.to_string(x.per_unit))
     }
 }
 // FILE: fx/nomi.toml

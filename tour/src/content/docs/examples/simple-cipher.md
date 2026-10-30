@@ -39,7 +39,7 @@ impl Cipher {
     pub fn random(seed: Seed) -> #(Cipher, Seed) {
         #(letters, next) =
             Generator.int(0, letter_count - 1)
-            |> Generator.map(&Vector.at(alphabet, &1))
+            |> Generator.map(&Vector.get(alphabet, &1)!)
             |> Generator.list(random_key_length)
             |> Generator.step(seed)
 
@@ -77,7 +77,7 @@ fn shift(cipher: Cipher, text: String, direction: Int) -> String {
     |> Iter.zip(key)
     |> Iter.map(fn #(letter, by) -> {
         moved = number(letter) + direction * number(by)
-        Vector.at(alphabet, Int.modulo(moved, letter_count))
+        Vector.get(alphabet, Int.modulo(moved, letter_count))!
     })
     |> Iter.to_list()
     |> String.from_codepoints()
@@ -96,18 +96,19 @@ import {
 
 group "random key cipher" {
     setup {
-        #(cipher, _seed) = Cipher.random(Seed.from_int(2026))
+        #(cipher, _seed) = Seed.from_int(2026) |> Cipher.random()
         cipher
     }
 
     test "Can encode", cipher {
         plaintext = "aaaaaaaaaa"
+        key_start = Cipher.key(cipher) |> String.take(10)
 
-        assert Cipher.encode(cipher, plaintext) == String.take(Cipher.key(cipher), 10)
+        assert Cipher.encode(cipher, plaintext) == key_start
     }
 
     test "Can decode", cipher {
-        ciphertext = String.take(Cipher.key(cipher), 10)
+        ciphertext = Cipher.key(cipher) |> String.take(10)
 
         assert Cipher.decode(cipher, ciphertext) == "aaaaaaaaaa"
     }
@@ -119,10 +120,10 @@ group "random key cipher" {
     }
 
     test "Key is made only of lowercase letters", cipher {
-        letters = String.to_codepoints(Cipher.key(cipher))
+        letters = Cipher.key(cipher) |> String.to_codepoints()
 
-        assert Iter.not_empty?(letters)
-        assert Iter.all?(letters, &Range.contains?('a'..='z', &1))
+        refute Iter.is_empty(letters)
+        assert Iter.all(letters, &Range.contains('a'..='z', &1))
     }
 }
 
@@ -135,7 +136,7 @@ test "substitution cipher encodes" {
     ]
 
     subtests cases, #(description, key, plaintext, expected), description {
-        assert Cipher.encode(Cipher.new(key), plaintext) == expected
+        assert Cipher.new(key) |> Cipher.encode(plaintext) == expected
     }
 }
 
@@ -147,7 +148,7 @@ test "substitution cipher decodes" {
     ]
 
     subtests cases, #(description, key, ciphertext, expected), description {
-        assert Cipher.decode(Cipher.new(key), ciphertext) == expected
+        assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected
     }
 }
 

@@ -46,7 +46,7 @@ enum Answer {
   Value Int
 }
 impl Equatable for Answer {
-  fn equal?(_a: Answer, _b: Answer) -> Bool { True }
+  fn equal(_a: Answer, _b: Answer) -> Bool { True }
 }
 fn main() {
   io.print(Answer.Value(1) == Answer.Value(2))

@@ -74,7 +74,7 @@ func (t SlotType) Bank() Bank {
 // the VM's bytecode compiler knows the static type instead.
 func SlotTypeOf(v any) SlotType {
 	switch v.(type) {
-	case int64:
+	case int64, *BigInt:
 		return SlotInt
 	case float64:
 		return SlotFloat
@@ -436,7 +436,7 @@ func (r *Record) SlotValue(f *FieldDesc) any { return r.slot(f) }
 func (r *Record) slot(f *FieldDesc) any {
 	switch f.Type {
 	case SlotInt:
-		return int64(r.W[f.Slot])
+		return r.IntSlot(f.Slot)
 	case SlotFloat:
 		return math.Float64frombits(r.W[f.Slot])
 	case SlotBool:
@@ -455,9 +455,10 @@ func (r *Record) setSlot(f *FieldDesc, v any) {
 	ok := true
 	switch f.Type {
 	case SlotInt:
-		var x int64
-		x, ok = v.(int64)
-		r.W[f.Slot] = uint64(x)
+		ok = IsInt(v)
+		if ok {
+			r.SetIntSlot(f.Slot, v)
+		}
 	case SlotFloat:
 		var x float64
 		x, ok = v.(float64)
@@ -494,8 +495,74 @@ func (r *Record) Clone() *Record {
 	c := allocRecord(r.Desc, r.Tag, r.Layout())
 	copy(c.W, r.W)
 	copy(c.S, r.S)
+	if len(r.R) > len(c.R) {
+		// The big slots of a record holding a big Int come along.
+		c.R = make([]any, len(r.R))
+	}
 	copy(c.R, r.R)
 	return c
+}
+
+// --- Int slots -------------------------------------------------------------
+//
+// An Int field is a word slot. A value that fits int64 is the word itself. A
+// big value (*BigInt) is rt.BigWord in the word and the value in the record's
+// big slots: R past the layout's own references, one per word slot, which a
+// record grows only when it holds a big Int. So a record that holds none, every
+// record of a program that never leaves int64, has the layout it always had.
+// A word of BigWord with no big value beside it is math.MinInt64, so code
+// that writes an int64 word straight into W stays right.
+
+// IntSlot is the Int in word slot slot.
+func (r *Record) IntSlot(slot int) Value {
+	w := r.W[slot]
+	if w == BigWord {
+		if b := r.BigSlot(slot); b != nil {
+			return b
+		}
+	}
+	return int64(w)
+}
+
+// BigSlot is the big value beside word slot slot, or nil when the slot holds
+// an int64.
+func (r *Record) BigSlot(slot int) *BigInt {
+	nr := r.Layout().NR
+	if len(r.R) > nr {
+		b, _ := r.R[nr+slot].(*BigInt)
+		return b
+	}
+	return nil
+}
+
+// SetIntSlot writes the Int v into word slot slot.
+func (r *Record) SetIntSlot(slot int, v Value) {
+	if b, ok := v.(*BigInt); ok {
+		r.W[slot] = BigWord
+		r.SetBigSlot(slot, b)
+		return
+	}
+	r.W[slot] = uint64(v.(int64))
+	r.SetBigSlot(slot, nil)
+}
+
+// SetBigSlot writes the value beside word slot slot: b for a big Int, whose
+// word the caller writes as BigWord, or nil for an int64.
+func (r *Record) SetBigSlot(slot int, b *BigInt) {
+	l := r.Layout()
+	if len(r.R) <= l.NR {
+		if b == nil {
+			return
+		}
+		grown := make([]any, l.NR+l.NW)
+		copy(grown, r.R)
+		r.R = grown
+	}
+	if b == nil {
+		r.R[l.NR+slot] = nil
+		return
+	}
+	r.R[l.NR+slot] = b
 }
 
 // With is the immutable update behind struct spread and `Struct.update`: a

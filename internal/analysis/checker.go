@@ -110,15 +110,15 @@ type checker struct {
 	fileStructDecls   map[string][]*Symbol // every struct this file declares, block-local ones included, by name; built on first use by structDeclSymbol
 	attachedTestScope *Scope               // declaration-associated fallback scope while checking an attached test body
 	// tryBoundary describes the innermost enclosing fn or lambda for
-	// purposes of `try` (and `return`) unwinding. Push/pop in checkFunc
+	// purposes of `?` (and `return`) unwinding. Push/pop in checkFunc
 	// and checkLambda(Expecting); read in checkTryOp when registering
 	// the SymbolTryOp hover marker. Empty when not inside any function
-	// body (top-level expressions don't legally contain `try`).
+	// body (top-level expressions don't legally contain `?`).
 	tryBoundary string
 	// subtestsRow is the `subtests` statement whose body is being checked,
 	// and nil inside any boundary within it (enterBoundaryExits). A failed
 	// assertion there ends the row, so it has no boundary of its own to
-	// check, and `return`, `break`, `continue` and `try` have nothing to
+	// check, and `return`, `break`, `continue` and `?` have nothing to
 	// leave (subtests.go).
 	subtestsRow *ast.Subtests
 	// subtestsRowAsserts is set when an assertion is checked directly in the
@@ -136,8 +136,8 @@ type checker struct {
 	// testBoundaryOverride lets attached tests reuse the ordinary test-checking
 	// path while presenting a declaration-oriented boundary in assertion hovers.
 	testBoundaryOverride string
-	// tryUnwinds accumulates one entry per `try` site within the innermost
-	// `try`-boundary that INFERS its own result type — a `concurrent` block or
+	// tryUnwinds accumulates one entry per `?` site within the innermost
+	// `?`-boundary that INFERS its own result type — a `concurrent` block or
 	// a lambda. Pushed/restored by checkBoundaryBody, appended by
 	// unwrapTryResult (and by the two assertion sites, whose failure is a
 	// propagating Err of its own), consumed by resolveBoundaryErr to check the
@@ -145,12 +145,12 @@ type checker struct {
 	//
 	// It carries the operand's FLAVOUR and not only its error type, because
 	// spec §9's boundary rule has three clauses and two of them are about the
-	// flavour: a `try` on a `Maybe` contributes no error type at all, so an
+	// flavour: a `?` on a `Maybe` contributes no error type at all, so an
 	// error-type-only accumulator cannot see a `Maybe` propagating out of a
 	// boundary that produces neither a `Maybe` nor anything else.
 	//
 	// nil outside such a boundary, and that is load-bearing rather than
-	// incidental: a function's `try` sites are pinned by its DECLARED return
+	// incidental: a function's `?` sites are pinned by its DECLARED return
 	// type, so they neither accumulate nor need resolving — checkTryBoundary
 	// checks them against the declaration instead, and reads exactly this
 	// field to tell the two regimes apart. checkFunc therefore drops the
@@ -1317,6 +1317,8 @@ func nodeLineCol(n ast.Node) (int, int) {
 		return v.Line, v.Col
 	case *ast.TryOp:
 		return v.Line, v.Col
+	case *ast.Unwrap:
+		return nodeLineCol(v.Expr)
 	case *ast.Dbg:
 		return v.Line, v.Col
 	case *ast.Then:
@@ -2271,7 +2273,7 @@ func isSnakeCase(s string) bool {
 	if s == "_" {
 		return true
 	}
-	// A single trailing `?` (predicate convention, e.g. `empty?`) is allowed
+	// A single trailing `?` (predicate convention, e.g. `is_empty`) is allowed
 	// on any identifier; the lexer guarantees the `?` only ever appears at the
 	// end, so stripping one before the body check is sufficient.
 	s = strings.TrimSuffix(s, "?")
@@ -2393,16 +2395,16 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 	c.currentFnDecl = fn
 	defer func() { c.currentFnDecl = prevFnDecl }()
 
-	// `try` (and `return`) inside this body unwind to the function itself.
+	// `?` (and `return`) inside this body unwind to the function itself.
 	// Push the boundary so checkTryOp can label the SymbolTryOp marker.
 	prevBoundary := c.tryBoundary
 	c.tryBoundary = "fn " + fn.Name
 	defer func() { c.tryBoundary = prevBoundary }()
 	defer c.enterBoundaryExits()()
 
-	// A declared return type PINS this body's `try` sites, so they neither
+	// A declared return type PINS this body's `?` sites, so they neither
 	// accumulate nor need resolving — and a nested `fn` inside a lambda must
-	// not contribute its own `try` error types to the LAMBDA's accumulator,
+	// not contribute its own `?` error types to the LAMBDA's accumulator,
 	// which is what happens if the pointer is left live across the boundary.
 	// Dropping it is also what makes `c.tryUnwinds == nil` mean exactly "the
 	// innermost boundary declares its own result", which checkTryBoundary
@@ -3340,6 +3342,8 @@ func exprStartLineCol(n ast.Node) (int, int) {
 	switch e := n.(type) {
 	case *ast.Call:
 		return exprStartLineCol(e.Func)
+	case *ast.Unwrap:
+		return exprStartLineCol(e.Expr)
 	case *ast.Binary:
 		return exprStartLineCol(e.Left)
 	case *ast.Unary:
@@ -3354,7 +3358,7 @@ func exprStartLineCol(n ast.Node) (int, int) {
 // checkConcurrentBlock type-checks `concurrent { body }` — the
 // structured-concurrency scope from spec §20. Semantically it's a
 // lambda-shaped value: the body is a fresh expression scope whose
-// last statement supplies the block's type, and `return`/`try`
+// last statement supplies the block's type, and `return`/`?`
 // unwind to the block boundary (not the enclosing fn). The runtime
 // behaviour (task spawning, cancellation cascade, safe-point checks)
 // is layered on by the VM and rt; layer 1 only needs the type-check
@@ -3365,7 +3369,7 @@ func exprStartLineCol(n ast.Node) (int, int) {
 // by analysis/concurrent_scope.go and analysis/task_lifetime.go,
 // which run as separate passes after CheckTypes.
 func (c *checker) checkConcurrentBlock(n *ast.ConcurrentBlock) Type {
-	// `try` and `return` inside a concurrent block unwind to the block
+	// `?` and `return` inside a concurrent block unwind to the block
 	// boundary, not the enclosing fn, the same rule lambdas follow (Nomi
 	// has no non-local returns). Push the boundary
 	// before walking the body, restore on the way out.
@@ -3397,7 +3401,7 @@ func (c *checker) checkConcurrentBlock(n *ast.ConcurrentBlock) Type {
 }
 
 // tryUnwind is one early-exit site's contribution to an INFERRING
-// `try`-boundary (a `concurrent` block or a lambda), which is the only kind of
+// `?`-boundary (a `concurrent` block or a lambda), which is the only kind of
 // boundary whose result type is not written down anywhere.
 //
 // Flavour is the operand's prelude enum name — a member of
@@ -3405,11 +3409,11 @@ func (c *checker) checkConcurrentBlock(n *ast.ConcurrentBlock) Type {
 // `Maybe`. Line/Col locate the site so a diagnostic lands on it rather than on
 // the block.
 //
-// Assertion marks the entries that are NOT `try` sites: an `assert` inside a
+// Assertion marks the entries that are NOT `?` sites: an `assert` inside a
 // `concurrent` block also propagates an `Err`, of `AssertionFailure`, and has
 // contributed to this accumulator since it existed. It is flagged because the
 // flavour/result check (checkInferredBoundaryFlavour) must speak only about
-// `try`: a diagnostic reading "`try` cannot propagate…" pointed at an `assert`
+// `?`: a diagnostic reading "`?` cannot propagate…" pointed at an `assert`
 // names a keyword the user did not write.
 //
 // An assertion inside a `concurrent` block exits the block as
@@ -3439,8 +3443,8 @@ func (c *checker) checkBoundaryBody(body *ast.Block, expected Type, line, col in
 	c.returnUnwinds = prevReturns
 	bodyTy = c.resolveBoundaryReturns(bodyTy, returns, line, col)
 	// A callback body that produces no value, one that only `continue`s,
-	// still has the result its callee declares, so its `try` sites must fit
-	// that: a `try` in an `Iter.each` callback ending in `continue` has a
+	// still has the result its callee declares, so its `?` sites must fit
+	// that: a `?` in an `Iter.each` callback ending in `continue` has a
 	// Unit result to propagate into, which spec §9 rejects.
 	if bodyTy != nil && resolveTypeVar(bodyTy) == Type(TypeInfallible) &&
 		c.returnTy != nil && !ContainsTypeParam(c.returnTy) && !containsTypeVar(c.returnTy) {
@@ -3535,11 +3539,11 @@ func (c *checker) recordBoundaryReturn(n *ast.Return, ty Type) {
 // `concurrent` block and a lambda declare no result type, so the rule is
 // checked against the result the body produced.
 //
-// bodyTy is the boundary's body/result type; unwinds are its `try` sites.
+// bodyTy is the boundary's body/result type; unwinds are its `?` sites.
 //
 //   - Clause 1 and 2 (the result must be a `Result`/`Maybe`, and the flavours
-//     must agree) are reported at the offending `try`. Without them a lambda
-//     whose result is `Int` could carry a propagating `try` and hand an
+//     must agree) are reported at the offending `?`. Without them a lambda
+//     whose result is `Int` could carry a propagating `?` and hand an
 //     `Err`/`None` to a caller expecting an `Int` — the same soundness hole
 //     checkTryBoundary closes for a `fn`, reached through the boundary that has
 //     no declaration to check against.
@@ -3547,9 +3551,9 @@ func (c *checker) recordBoundaryReturn(n *ast.Return, ty Type) {
 //     accumulated error types are unified together, then bound into the
 //     result's error side when it is still an unresolved variable, or
 //     validated against it when it is already concrete. This direction is why
-//     `Ok(try f())` in a `concurrent` block needs no annotation.
+//     `Ok(f()?)` in a `concurrent` block needs no annotation.
 //
-// A boundary with no `try` sites, and a nil bodyTy, pass through unchanged.
+// A boundary with no `?` sites, and a nil bodyTy, pass through unchanged.
 func (c *checker) resolveBoundaryErr(bodyTy Type, unwinds []tryUnwind, line, col int) Type {
 	if len(unwinds) == 0 || bodyTy == nil {
 		return bodyTy
@@ -3574,13 +3578,13 @@ func (c *checker) resolveBoundaryErr(bodyTy Type, unwinds []tryUnwind, line, col
 	if len(errTypes) == 0 {
 		return bodyTy
 	}
-	// Unify the accumulated `try` error types together; a conflict means the
+	// Unify the accumulated `?` error types together; a conflict means the
 	// boundary's error type would be ambiguous, which is ill-typed.
 	merged := errTypes[0]
 	for _, e := range errTypes[1:] {
 		if c.unify(merged, e, nil) != nil {
 			c.addError(line, col, c.typef(
-				"inconsistent error types in try expressions: %s vs %s", merged, e))
+				"inconsistent error types in `?` expressions: %s vs %s", merged, e))
 			return bodyTy
 		}
 	}
@@ -3596,13 +3600,13 @@ func (c *checker) resolveBoundaryErr(bodyTy Type, unwinds []tryUnwind, line, col
 		rt.TypeArgs[1] = resolveTypeVar(rt.TypeArgs[1])
 	} else if c.unify(errSide, merged, nil) != nil {
 		c.addError(line, col, c.typef(
-			"inconsistent error types in try expressions: %s vs %s", errSide, merged))
+			"inconsistent error types in `?` expressions: %s vs %s", errSide, merged))
 	}
 	return bodyTy
 }
 
 // checkInferredBoundaryFlavour reports whether an inferring boundary's result
-// can hold what its `try` sites propagate, emitting a diagnostic at the
+// can hold what its `?` sites propagate, emitting a diagnostic at the
 // offending site when it cannot. Returns false when the caller must stop.
 //
 // Deliberately silent on two shapes rather than guessing:
@@ -3633,7 +3637,7 @@ func (c *checker) checkInferredBoundaryFlavour(bodyTy Type, rt *EnumType, result
 		return false
 	}
 	// An assertion exits its boundary as `Err(AssertionFailure)`, like a
-	// `try`, so a `concurrent` block holding one must produce a `Result`.
+	// `?`, so a `concurrent` block holding one must produce a `Result`.
 	// Its error side is unified with AssertionFailure below.
 	if !resultIsEnum || rt.Name != "Result" {
 		for _, u := range unwinds {
@@ -3646,7 +3650,7 @@ func (c *checker) checkInferredBoundaryFlavour(bodyTy Type, rt *EnumType, result
 			}
 		}
 	}
-	// Only `try` sites are policed below.
+	// Only `?` sites are policed below.
 	tries := make([]tryUnwind, 0, len(unwinds))
 	for _, u := range unwinds {
 		if !u.Assertion {
@@ -3663,7 +3667,7 @@ func (c *checker) checkInferredBoundaryFlavour(bodyTy Type, rt *EnumType, result
 	if !resultIsEnum || !isTryOperandName(rt.Name) {
 		u := tries[0]
 		c.addError(u.Line, u.Col, fmt.Sprintf(
-			"`try` cannot propagate a %s out of a %s whose result is %s: the %s must produce a Result or a Maybe",
+			"`?` cannot propagate a %s out of a %s whose result is %s: the %s must produce a Result or a Maybe",
 			u.Flavour, kind, bodyTy, kind))
 		return false
 	}
@@ -3672,7 +3676,7 @@ func (c *checker) checkInferredBoundaryFlavour(bodyTy Type, rt *EnumType, result
 			continue
 		}
 		c.addError(u.Line, u.Col, fmt.Sprintf(
-			"`try` on a %s cannot propagate out of a %s whose result is %s: the %s must produce a %s",
+			"`?` on a %s cannot propagate out of a %s whose result is %s: the %s must produce a %s",
 			u.Flavour, kind, bodyTy, kind, u.Flavour))
 		return false
 	}
@@ -3890,7 +3894,7 @@ func (c *checker) resultType(okTy, errTy Type) Type {
 }
 
 // assertionFailureType is the ERROR side of an assertion's Result: what
-// `testing.check` returns as `Err`, and what a `try`-propagated `assert`
+// `testing.check` returns as `Err`, and what a `?`-propagated `assert`
 // carries.
 //
 // The CANONICAL declaration wins over every scope, and that is the fix rather
@@ -4045,7 +4049,7 @@ func (c *checker) checkTestDeclWithContext(n *ast.TestDecl, contextTy Type) Type
 		}
 		var groupContextTy Type = TypeUnit
 		if n.Setup != nil {
-			// A setup body runs inside each case it serves, so a `try` or an
+			// A setup body runs inside each case it serves, so a `?` or an
 			// assertion in it ends that case, as one in the case's body does.
 			// A `return value` in it ends the setup with that value, as a
 			// lambda's does, so its result joins the tail with every return.
@@ -4447,7 +4451,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		if n.TypeName != nil {
 			return c.checkNode(n)
 		}
-		if n.Spread != nil {
+		if len(n.Spreads) > 0 {
 			return c.checkSetUpdateLit(n, expected)
 		}
 		if elemTy, ok := setElemType(expected); ok {
@@ -4496,7 +4500,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		// Skip the literal-attach path (n.TypeName != nil); that's the
 		// variant/distinct construction site and routes through checkMapLit
 		// independently.
-		if n.Spread != nil {
+		if len(n.Spreads) > 0 {
 			return c.checkMapUpdateLit(n, expected)
 		}
 		if mt, ok := expected.(*MapType); ok && n.TypeName == nil {
@@ -4658,50 +4662,30 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 	return &MapType{Key: keyTy, Val: valTy}
 }
 
-// checkMapUpdateLit checks a map update, `%{..base, key => value}`, which
-// means `Map.merge(base, %{key => value})`. The base must be a `Map<K, V>`,
-// and the result has its type. Each entry's key must be a K and its value a
-// V, with the coercions a map literal's entries get under an expected type
-// (`None` for a `Maybe`, `[]` for a list). An open base, such as
-// `%{}`, takes its K and V from the entries. expected, when
-// non-nil, is the type the position expects, pushed into the base.
+// checkMapUpdateLit checks a map literal with spreads, `%{..base, key =>
+// value}` or `%{"a" => 1, ..m, ..n}`: the spread maps and the entries
+// applied left to right, a later key replacing an earlier one's value. The
+// first spread must be a `Map<K, V>`, every other spread one too, and each
+// entry's key a K and its value a V, with the coercions a map literal's
+// entries get under an expected type (`None` for a `Maybe`, `[]` for a
+// list). The result has the first spread's type; an open one, such as
+// `%{}`, takes its K and V from the rest. expected, when non-nil, is the
+// type the position expects, pushed into each spread.
 func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
-	var head Type
-	if expected != nil {
-		head = c.checkNodeExpecting(n.Spread, expected)
-	} else {
-		head = c.checkNode(n.Spread)
-	}
-	head = resolveTypeVar(head)
-	mt, ok := head.(*MapType)
-	line, col := n.SpreadLine, n.SpreadCol
-	if line == 0 {
-		line, col = n.Line, n.Col
-	}
-	if ok && len(n.Entries) == 0 {
-		// A spread that changes no entry is its base value, as a struct
-		// or set spread that changes nothing is.
-		if _, bare := n.Spread.(*ast.CurrentValue); bare {
-			c.addError(line, col, emptyUpdateMessage)
-			return head
-		}
-		base := "the value itself"
-		if id, isIdent := n.Spread.(*ast.Ident); isIdent {
-			base = "`" + id.Name + "`"
-		}
-		c.addError(line, col, "a map spread with no entries is its base value; write "+base)
-		return head
-	}
+	head, ok := c.checkSpreadHeads(n.Spreads, expected, mapSpreads)
 	if !ok {
-		if head != nil {
-			c.addError(line, col, fmt.Sprintf(
-				"map spread `..` requires a map, got %s", formatTypeForError(head)))
-		}
 		for _, entry := range n.Entries {
 			c.checkNode(entry.Key)
 			c.checkNode(entry.Value)
 		}
 		return nil
+	}
+	mt := head.(*MapType)
+	if len(n.Entries) == 0 && len(n.Spreads) == 1 {
+		// A spread that changes no entry is its base value, as a struct
+		// or set spread that changes nothing is.
+		c.reportEmptySpread(n.Spreads[0], "a map spread with no entries")
+		return head
 	}
 	fits := func(want, got Type) bool {
 		if c.litOpenElemFits(want, got) {
@@ -4709,15 +4693,19 @@ func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 		}
 		return containsTypeVar(want) && c.unify(want, got, nil) == nil
 	}
-	for _, entry := range n.Entries {
+	for i, entry := range n.Entries {
 		kt := c.checkNodeExpecting(entry.Key, mt.Key)
 		if kt != nil && !fits(mt.Key, kt) {
 			line, col := nodeLineCol(entry.Key)
 			c.addMismatch(line, col, mt.Key, kt, c.typef("map spread key type mismatch: expected %s, got %s", resolveTypeVar(mt.Key), kt))
 		}
-		// An entry's value is an update position: the base may lack the
-		// key, so a bare `..` there may have no value to start from.
-		c.atUpdatePosition(entry.Value, resolveTypeVar(mt.Val), true)
+		// An entry after a spread is an update position: the maps
+		// before it may lack the key, so a bare `..` there may have no
+		// value to start from. An entry before every spread has no value
+		// to update.
+		if n.Spreads[0].At <= i {
+			c.atUpdatePosition(entry.Value, resolveTypeVar(mt.Val), true)
+		}
 		vt := c.checkNodeExpecting(entry.Value, mt.Val)
 		if vt != nil && !fits(mt.Val, vt) {
 			line, col := nodeLineCol(entry.Value)
@@ -4729,12 +4717,87 @@ func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 			c.report(err)
 		}
 	}
-	if len(n.Entries) == 0 {
-		if _, bare := n.Spread.(*ast.CurrentValue); bare {
-			c.addError(n.SpreadLine, n.SpreadCol, emptyUpdateMessage)
+	return mt
+}
+
+// spreadShape is what a list, vector, set or map literal's spreads must
+// be, for checkSpreadHeads.
+type spreadShape struct {
+	// name is the literal's kind as its errors name it: "map".
+	name string
+	// of answers whether a spread's type is of the kind.
+	of func(Type) bool
+	// make is the hint for a spread of another collection, empty for none.
+	hint string
+}
+
+var (
+	mapSpreads    = spreadShape{name: "map", of: func(t Type) bool { _, ok := t.(*MapType); return ok }}
+	setSpreads    = spreadShape{name: "set", of: func(t Type) bool { _, ok := setElemType(t); return ok }}
+	vectorSpreads = spreadShape{name: "vector", of: func(t Type) bool { _, ok := vectorElemType(t); return ok },
+		hint: "make a vector of another collection's elements with `Iter.to_vector`, as in `xs |> Iter.to_vector()`"}
+)
+
+// checkSpreadHeads checks the spreads of a vector, set or map literal, in
+// the order written. The first spread's type is the literal's, and must be
+// of shape; each later spread is checked against it and must have it.
+// expected, when not nil, is the type the position expects, pushed into
+// every spread but a bare `..`. It answers the literal's type, resolved,
+// and false after an error that leaves the literal with none.
+func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape spreadShape) (Type, bool) {
+	var lit Type
+	for i, sp := range spreads {
+		_, bare := sp.Head.(*ast.CurrentValue)
+		want := expected
+		if i > 0 && lit != nil && !containsTypeVar(lit) {
+			want = lit
+		}
+		var ty Type
+		if want != nil && !bare && !ContainsTypeParam(want) && (i == 0 || !containsTypeVar(want)) {
+			ty = c.checkNodeExpecting(sp.Head, want)
+		} else {
+			ty = c.checkNode(sp.Head)
+		}
+		ty = resolveTypeVar(ty)
+		if ty == nil {
+			return nil, false
+		}
+		if !shape.of(ty) {
+			e := TypeError{Line: sp.Line, Col: sp.Col, Message: fmt.Sprintf("%s spread `..` requires a %s, got %s", shape.name, shape.name, formatTypeForError(ty))}
+			if !bare && shape.hint != "" {
+				e = e.WithHint(shape.hint)
+			}
+			c.report(e)
+			return nil, false
+		}
+		if lit == nil {
+			lit = ty
+			continue
+		}
+		if err := UnifyWithImpls(lit, ty, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+			c.addError(sp.Line, sp.Col, c.typef("%s spread type mismatch: expected %s, got %s", shape.name, resolveTypeVar(lit), ty))
+			return nil, false
 		}
 	}
-	return mt
+	if lit == nil {
+		return nil, false
+	}
+	return resolveTypeVar(lit), true
+}
+
+// reportEmptySpread reports the one spread of a literal with no element:
+// the literal is the spread's value, so it is written as that value. what
+// names the literal ("a map spread with no entries").
+func (c *checker) reportEmptySpread(sp ast.Spread, what string) {
+	if _, bare := sp.Head.(*ast.CurrentValue); bare {
+		c.addError(sp.Line, sp.Col, emptyUpdateMessage)
+		return
+	}
+	base := "the value itself"
+	if id, ok := sp.Head.(*ast.Ident); ok {
+		base = "`" + id.Name + "`"
+	}
+	c.addError(sp.Line, sp.Col, what+" is its base value; write "+base)
 }
 
 func (c *checker) checkNode(node ast.Node) Type {
@@ -4978,6 +5041,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 
 	case *ast.TryOp:
 		return c.checkTryOp(n)
+
+	case *ast.Unwrap:
+		return c.checkUnwrap(n)
 
 	case *ast.ExprStmt:
 		return c.checkNode(n.Expr)
@@ -5522,11 +5588,7 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	// off the synth band on the way out. See repointSynthDiagnostics.
 	defer c.repointSynthDiagnostics(n, len(c.errors))
 	c.registerImplBlockHover(n)
-	if IsSynthesizedLine(n.Line) {
-		prevReg := c.reg
-		c.reg = synthSupportRegistry(c.fa, c.fa.Program().StdlibModuleScopes, c.reg)
-		defer func() { c.reg = prevReg }()
-	} else {
+	if !IsSynthesizedLine(n.Line) {
 		c.checkImplReceiverDeclared(n)
 		if n.Interface != nil {
 			c.checkImplInterfaceArgsResolve(n)
@@ -6478,6 +6540,9 @@ func (c *checker) rejectAssertionOperand(a *ast.Assertion, op string) {
 }
 
 func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
+	if stage, ok := n.Right.(*ast.Unwrap); ok && n.Op == "|>" {
+		return c.checkUnwrapStage(n, stage)
+	}
 	if n.Op != "|>" {
 		for _, side := range []ast.Node{n.Left, n.Right} {
 			if a, isAssert := ungroupExpr(side).(*ast.Assertion); isAssert && !a.Check {
@@ -6544,7 +6609,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	}
 
 	// For pipes, collect the function type and explicit args separately.
-	// Bare keyword stages (`x |> dbg`, `x |> try`) consume the already-computed
+	// Bare keyword stages (`x |> dbg`, a `?` stage) consume the already-computed
 	// left value directly; keyword-with-operand forms on the RHS are rejected so
 	// each pipe stage has one obvious input.
 	var pipeCall *ast.Call
@@ -6566,7 +6631,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if try, ok := ungroupExpr(rhs).(*ast.TryOp); ok {
 			pipeTry = try
 			if try.Expr != nil {
-				c.addError(try.Line, try.Col, "right side of `|>` must be bare `try`; pipe into the fallible call first")
+				c.addError(try.Line, try.Col, "a `?` inside a stage's parentheses applies before the pipe passes its value: write the `?` after the stage, as in `|> f()?`")
 			} else {
 				c.registerTryOpHover(try, left)
 				right = c.unwrapTryResult(left, try, n.Left)
@@ -6638,7 +6703,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if pipeDbg {
 			// Already handled: bare `dbg` as a pipe stage is transparent.
 		} else if pipeTry != nil {
-			// Already handled: bare `try` as a pipe stage unwraps the piped
+			// Already handled: bare `?` as a pipe stage unwraps the piped
 			// Result/Maybe.
 		} else if pipeAssertion != nil {
 			// Already diagnosed: assert/refute own a pipeline from the head.
@@ -6752,7 +6817,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		// instant-only). The recorder skips interfaces / type-params /
 		// type-vars; primitives (Int / Float / Decimal / String / Bool)
 		// take the direct comparison path and never dispatch, so
-		// their `impl Equatable` bodies (`fn equal?(a: Int, b: Int):
+		// their `impl Equatable` bodies (`fn equal(a: Int, b: Int):
 		// Bool { a == b }`) can't recurse. The recording is *weak* —
 		// see RecordingKindEqualityOperator — so a `==` on a distinct
 		// type without an `impl Equatable` (e.g. `pub type Id Int`)
@@ -6760,7 +6825,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		// falls back to structural `rt.Equal`.
 		c.recordConformanceRecording(left, "Equatable",
 			Recording{Pos: c.recPos(n.Line, n.Col), Kind: RecordingKindEqualityOperator, Op: n.Op})
-		c.recordComparisonImpl(n, left, "Equatable", "equal?")
+		c.recordComparisonImpl(n, left, "Equatable", "equal")
 		return TypeBool
 
 	case "<", ">", "<=", ">=":
@@ -6873,7 +6938,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			if ty, handled := c.checkPipedTypeNameCall(pipeCall, n.Left, left, right); handled {
 				return ty
 			}
-			// `s |> String.contains?(Regex`x`)`: the stage's impl, chosen
+			// `s |> String.contains(Regex`x`)`: the stage's impl, chosen
 			// from the piped value and the stage's own arguments.
 			if sel, handled := c.selectCallImpl(pipeCall, expected, n.Left, left); handled {
 				if sel == nil {
@@ -9634,7 +9699,7 @@ func (c *checker) calleeIsNamelessValue(funcNode ast.Node) bool {
 		}
 		_, literal := inner.(*ast.Lambda)
 		return !literal
-	case *ast.Call, *ast.If, *ast.Case, *ast.Block, *ast.TryOp, *ast.Dbg:
+	case *ast.Call, *ast.If, *ast.Case, *ast.Block, *ast.TryOp, *ast.Dbg, *ast.Unwrap:
 		return true
 	}
 	return false
@@ -9749,7 +9814,15 @@ func needsExpectedType(node ast.Node) bool {
 		// the call's expected type can say which.
 		return v.TypeName == nil && v.Spread == nil
 	case *ast.ListSpreadLit:
-		return callArgsNeedExpectedType(v.Heads) || (v.TailSpread != nil && needsExpectedType(v.TailSpread))
+		if callArgsNeedExpectedType(v.Items) {
+			return true
+		}
+		for _, sp := range v.Spreads {
+			if needsExpectedType(sp.Head) {
+				return true
+			}
+		}
+		return false
 	case *ast.If:
 		// An `if` or a `case` is its branches' value, so a branch's result
 		// that needs the expected type needs it through the conditional
@@ -9767,8 +9840,13 @@ func needsExpectedType(node ast.Node) bool {
 		if v.TypeName != nil {
 			return false
 		}
-		if len(v.Entries) == 0 || v.Spread != nil && needsExpectedType(v.Spread) {
+		if len(v.Entries) == 0 {
 			return true
+		}
+		for _, sp := range v.Spreads {
+			if needsExpectedType(sp.Head) {
+				return true
+			}
 		}
 		for _, e := range v.Entries {
 			if needsExpectedType(e.Key) || needsExpectedType(e.Value) {
@@ -9829,7 +9907,7 @@ func (c *checker) argTakesExpectedType(node ast.Node) bool {
 	case *ast.MapLit:
 		// `Some(%{[1] => 7, 1 => 8})` under a Maybe<Map<Show, Int>>: each
 		// key and value widens to the expected one, as a list's items do.
-		return v.TypeName == nil && v.Spread == nil && len(v.Entries) > 1
+		return v.TypeName == nil && len(v.Spreads) == 0 && len(v.Entries) > 1
 	case *ast.TupleLit:
 		return v.TypeName == nil && c.argsTakeExpectedType(v.Items)
 	case *ast.Call:
@@ -10158,10 +10236,10 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	}
 
 	// A return-only self is solved by where the result GOES: the expected
-	// type at this position (an annotated binding, `try` under one, an
+	// type at this position (an annotated binding, `?` under one, an
 	// argument slot) when there is one. The enclosing function's return type
 	// below is the ambient fallback and says nothing about a call that is not
-	// in tail position: `notes: List<Note> = try FromJson.from_json(json)`
+	// in tail position: `notes: List<Note> = FromJson.from_json(json)?`
 	// inside a function returning `Result<Int, E>` solved self as Int.
 	if returnOnlySelf != nil && expected != nil && !ContainsTypeParam(expected) {
 		trial := make(map[*TypeParam_]Type, len(subs))
@@ -10191,7 +10269,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// call's instantiation is recorded, as an argument-solved one's is.
 	// Only parameters still open are taken: what the arguments solved
 	// stands. The expected type may hold an inference variable, as
-	// `n: Int = try Row.get(row, "id")` expects `Result<Int, ?E>`: the trial
+	// `n: Int = Row.get(row, "id")?` expects `Result<Int, ?E>`: the trial
 	// unify may bind it, so its variables are restored afterwards, and only
 	// a parameter solved to a type with no variable in it is taken.
 	if len(openSlots) == 0 && !skipReturnInfer && expected != nil && !ContainsTypeParam(expected) && c.containsForeignTypeParam(Substitute(ft.Return, subs)) {
@@ -10335,7 +10413,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// call is recorded at those variables, which the IR builder reads once
 	// they are solved, as it reads a partial application's below. A call
 	// whose parameters name none of the parameters its result names is the
-	// same case: `1 + try Row.get(row, "id")` solves `get`'s T only through
+	// same case: `1 + Row.get(row, "id")?` solves `get`'s T only through
 	// the operator.
 	if !attached && len(openSlots) == 0 && containsTypeVar(retTy) && !c.containsForeignTypeParam(retTy) {
 		instParams := make([]Type, len(ft.Params))
@@ -10350,6 +10428,9 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			c.attachCallType(n.Func, &FuncType{Params: instParams, Return: retTy})
 			attached = true
 		}
+	}
+	for _, arg := range n.Args {
+		c.resolveDotVariantTypes(arg, subs)
 	}
 	c.recordInstantiation(n, subs, instArgs)
 
@@ -10824,7 +10905,10 @@ func (c *checker) registerArgSlotHint(arg ast.Node, funcNode ast.Node, paramIdx 
 	case *ast.Placeholder:
 		line, col, span = a.Line, a.Col, 1
 	case *ast.IntLit:
-		line, col, span = a.Line, a.Col, len(fmt.Sprintf("%d", a.Value))
+		line, col, span = a.Line, a.Col, len(a.Decimal())
+		if a.Lexeme != "" {
+			span = len(a.Lexeme)
+		}
 	case *ast.FloatLit:
 		line, col, span = a.Line, a.Col, len(fmt.Sprintf("%g", a.Value))
 	case *ast.DecimalLit:
@@ -11358,6 +11442,9 @@ func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType
 		subs = embedsWidenedSubs(subs, hints, fieldVals)
 	}
 
+	for _, f := range lit.Fields {
+		c.resolveDotVariantTypes(f.Value, subs)
+	}
 	c.recordLitFieldLabelTypes(lit, st.Fields, subs)
 
 	// For generic structs, return the substituted instance carrying the
@@ -11897,6 +11984,9 @@ func patternSites(pattern ast.Node) []patternSite {
 			if n.TailSpread != nil {
 				walk(n.TailSpread)
 			}
+			for _, t := range n.Tails {
+				walk(t)
+			}
 		case *ast.VectorPattern:
 			for _, h := range n.Heads {
 				walk(h)
@@ -12406,12 +12496,12 @@ const mapBindingHint = "a map pattern does not match a map that lacks one of its
 // setBindingHint is the help on a set pattern bound with no `else`: a set
 // pattern tests whether the set holds its elements, which is data.
 const setBindingHint = "a set pattern does not match a set that lacks one of its elements. " +
-	"Handle that with `else { ... }`, or test one element with `Set.contains?`"
+	"Handle that with `else { ... }`, or test one element with `Set.contains`"
 
 // tryUnwrapHint is the help on a refutable binding `Ok(x) = r` or
-// `Some(x) = m`, whose author usually wants `try`: it unwraps the value and
+// `Some(x) = m`, whose author usually wants `?`: it unwraps the value and
 // returns early on `Err` or `None`. binding is the name the payload binds.
-// It is empty for any other variant or enum. A pipe gets the `|> try` stage.
+// It is empty for any other variant or enum. A pipe gets the a `?` stage stage.
 func tryUnwrapHint(et *EnumType, variant, binding string, value ast.Node) string {
 	var missed, other string
 	switch {
@@ -12422,9 +12512,9 @@ func tryUnwrapHint(et *EnumType, variant, binding string, value ast.Node) string
 	default:
 		return ""
 	}
-	fix := fmt.Sprintf("write `%s = try ...`", binding)
+	fix := fmt.Sprintf("write `%s = ...?`", binding)
 	if b, ok := ungroupExpr(value).(*ast.Binary); ok && b.Op == "|>" {
-		fix = fmt.Sprintf("write `%s = ...` and end the pipe with `|> try`", binding)
+		fix = fmt.Sprintf("write `%s = ...` and end the pipe's last stage with `?`", binding)
 	}
 	return fmt.Sprintf("`%s(%s)` does not match %s. To unwrap the `%s` and return early on %s, %s",
 		variant, binding, missed, et.Name, other, fix)
@@ -13048,7 +13138,11 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	if tqTypeName != "" && c.aliasMemberError(n, tqTypeName) {
 		return nil
 	}
-	if tqTypeName != "" {
+	// `calendar.DateParts.year`: a function an interface named through its
+	// module declares. The tables below are keyed by the base name, which a
+	// type this file declares (`struct DateParts`) would answer, so the
+	// function is resolved below, from the declaration the qualifier names.
+	if tqTypeName != "" && !c.dottedInterfaceFunction(n) {
 		// Selective import aliases name the same nominal receiver. Restrict
 		// this fallback to an imported type symbol: generated module qualifiers
 		// also use TypeIdent nodes and must retain their module spelling.
@@ -13159,6 +13253,19 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	// names the qualified call.
 	if ifaceTy, ok := interfaceObjectType(c, n.Object, objTy); ok && tqTypeName != "" {
 		if ft := interfaceMethodFuncType(ifaceTy, n.Field.Name); ft != nil {
+			// `display.Display.to_string`: an interface named through its
+			// module has no reference at the function's name, which the
+			// bare `Display.to_string` gets from the builder. Record the
+			// interface's function there, so a value or a call of it is
+			// typed and instantiated as the bare spelling's is.
+			if owner, isFA := n.Object.(*ast.FieldAccess); isFA && owner.Field != nil {
+				if _, recorded := c.fa.References[fieldPos]; !recorded {
+					ownerSym := c.fa.References[Pos{Line: owner.Field.Line, Col: owner.Field.Col}]
+					if member := dottedTypeMember(ownerSym, n.Field.Name); member != nil && member.Kind == SymbolInterfaceMethod {
+						c.fa.References[fieldPos] = member
+					}
+				}
+			}
 			return ft
 		}
 		// Interface exists but method isn't found on it — fall through to
@@ -13431,6 +13538,25 @@ func qualifiedEnumVariantAccessType(et *EnumType, variantName string) Type {
 		return &FuncType{Params: []Type{variant.DataType}, Return: et}
 	}
 	return nil
+}
+
+// dottedInterfaceFunction reports whether n names a function the interface
+// its dotted qualifier names declares (`calendar.DateParts.year`), by that
+// interface's declaration.
+func (c *checker) dottedInterfaceFunction(n *ast.FieldAccess) bool {
+	owner, ok := n.Object.(*ast.FieldAccess)
+	if !ok || owner.Field == nil || n.Field == nil {
+		return false
+	}
+	sym := c.fa.References[Pos{Line: owner.Field.Line, Col: owner.Field.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != SymbolInterface {
+		return false
+	}
+	member := dottedTypeMember(sym, n.Field.Name)
+	return member != nil && member.Kind == SymbolInterfaceMethod
 }
 
 // dottedTypeMember finds a member of a dotted owner by name — a variant of a
@@ -13713,7 +13839,7 @@ func canonicalStructForFieldAccess(c *checker, ty *StructType) *StructType {
 
 func (c *checker) checkTryOp(n *ast.TryOp) Type {
 	if n.Expr == nil {
-		c.addError(n.Line, n.Col, "`try` requires an expression outside a pipe")
+		c.addError(n.Line, n.Col, "`?` follows the expression whose Err or None it propagates")
 		return nil
 	}
 	inputTy := c.checkNode(n.Expr)
@@ -13733,25 +13859,25 @@ func (c *checker) checkTryOpExpecting(n *ast.TryOp, expected Type) Type {
 	return c.unwrapTryResult(inputTy, n, n.Expr)
 }
 
-// registerTryOpHover stores a SymbolTryOp marker at the `try` keyword's
-// position. n.Line / n.Col come from the `try` token in the parser, so the
-// marker covers exactly the three-column `try`. The renderer uses InputTy
+// registerTryOpHover stores a SymbolTryOp marker at the `?`'s
+// position. n.Line / n.Col come from the `?` token in the parser, so the
+// marker covers exactly the `?`. The renderer uses InputTy
 // to derive the success and Err / None branches and Boundary to label where
-// the `try` unwinds to. Skipped when the input type wasn't resolved (the
+// the `?` unwinds to. Skipped when the input type wasn't resolved (the
 // checker would already have reported the failure).
 //
-// Called from checkTryOp for the prefix form (`try r`) and from the pipe
-// branch in checkBinary for the pipe-stage form (`x |> r() |> try`) — both
-// paths must register, otherwise hover misses on one of the two spellings.
+// Called from checkTryOp for `r?` and from the pipe branch in checkBinary for
+// a `?` stage (`x |> r()?`): both paths must register, otherwise hover misses
+// on one of the two.
 func (c *checker) registerTryOpHover(n *ast.TryOp, inputTy Type) {
 	if n.Line <= 0 || inputTy == nil {
 		return
 	}
 	c.fa.References[Pos{Line: n.Line, Col: n.Col}] = &Symbol{
-		Name: "try",
+		Name: "?",
 		Kind: SymbolTryOp,
 		Pos:  Pos{Line: n.Line, Col: n.Col},
-		Span: 3,
+		Span: 1,
 		TryOp: &TryOpInfo{
 			InputTy:  inputTy,
 			Boundary: c.tryBoundary,
@@ -13759,11 +13885,11 @@ func (c *checker) registerTryOpHover(n *ast.TryOp, inputTy Type) {
 	}
 }
 
-// TryOperandTypeNames is the closed set of enum names `try` accepts as an
+// TryOperandTypeNames is the closed set of enum names `?` accepts as an
 // operand.
 //
 // Named rather than left inline in unwrapTryResult's condition because
-// internal/irbuild carries the SAME fact on its own side — a `try` operand is a
+// internal/irbuild carries the SAME fact on its own side — a `?` operand is a
 // prelude enum whose spec sets `tryOperand` — and two encodings of one fact is
 // this project's signature bug class. internal/irbuild's
 // TestTryOperandSetsAgreeWithTheChecker holds the two sets equal in both
@@ -13773,11 +13899,11 @@ func (c *checker) registerTryOpHover(n *ast.TryOp, inputTy Type) {
 //
 // It is the builder side that cannot be derived: `Fragment<T>` is also a
 // two-variant prelude enum whose first variant carries one payload, so the
-// builder's shape test stopped being able to tell a `try` operand from a
+// builder's shape test stopped being able to tell a `?` operand from a
 // non-operand the moment std/literals.Fragment got a representation.
 var TryOperandTypeNames = []string{"Maybe", "Result"}
 
-// isTryOperandName reports whether an enum name may be a `try` operand.
+// isTryOperandName reports whether an enum name may be a `?` operand.
 func isTryOperandName(name string) bool {
 	for _, n := range TryOperandTypeNames {
 		if n == name {
@@ -13787,12 +13913,12 @@ func isTryOperandName(name string) bool {
 	return false
 }
 
-// unwrapTryResult applies one layer of `try` to ty: strips Result<T, E> or
+// unwrapTryResult applies one layer of `?` to ty: strips Result<T, E> or
 // Maybe<T> to T. Used by checkTryOp and by the pipe-stage form
-// (`x |> f(a) |> try`). Reports a diagnostic on `at` if ty is not
+// (`x |> f(a)?`). Reports a diagnostic on `at` if ty is not
 // Result/Maybe.
 //
-// operand is the expression `try` applies to, for the hint on a backtick
+// operand is the expression `?` applies to, for the hint on a backtick
 // typed literal, whose type is already the handler's success type.
 func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	if ty == nil {
@@ -13801,9 +13927,9 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	et, ok := ty.(*EnumType)
 	if !ok || !isTryOperandName(et.Name) {
 		line, col := nodeLineCol(at)
-		e := TypeError{Line: line, Col: col, Message: c.typef("try requires a Result or Maybe, got %s", ty)}
+		e := TypeError{Line: line, Col: col, Message: c.typef("`?` requires a Result or Maybe, got %s", ty)}
 		if lit, raw := ungroupExpr(operand).(*ast.TaggedString); raw && lit.Raw {
-			e.Hints = []string{fmt.Sprintf("a backtick typed literal is checked at compile time, so this one is already a %s: remove the `try`", ty)}
+			e.Hints = []string{fmt.Sprintf("a backtick typed literal is checked at compile time, so this one is already a %s: remove the `?`", ty)}
 		}
 		c.report(e)
 		return nil
@@ -13811,13 +13937,13 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	if len(et.TypeArgs) == 0 {
 		return nil
 	}
-	if line, col := nodeLineCol(at); c.rejectExitlessExit("try", line, col) {
+	if line, col := nodeLineCol(at); c.rejectExitlessExit("?", line, col) {
 		return et.TypeArgs[0]
 	}
-	// A `try` contributes an early exit to the enclosing `try`-boundary. Record
+	// A `?` contributes an early exit to the enclosing `?`-boundary. Record
 	// it so an INFERRING boundary (concurrent block, lambda) can check its
 	// result against what the site propagates and resolve its error side. The
-	// FLAVOUR is recorded for every operand — a `try` on a Maybe carries no
+	// FLAVOUR is recorded for every operand — a `?` on a Maybe carries no
 	// error type but still constrains the boundary — and the error type only
 	// for a Result.
 	if c.tryUnwinds != nil {
@@ -13832,27 +13958,27 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	return et.TypeArgs[0]
 }
 
-// checkTryBoundary enforces spec §9's boundary rule at a `try` site whose
+// checkTryBoundary enforces spec §9's boundary rule at a `?` site whose
 // boundary is a `fn` with a DECLARED result type: the propagated value must
 // inhabit that declaration. Three ways it can fail, all reported here and all
 // naming both sides:
 //
 //  1. the boundary is not a `Result` or a `Maybe` at all (`fn f() -> Int`, or a
 //     `fn` with no declared return type, whose result is Unit);
-//  2. the flavours disagree — `try` on a `Maybe` inside a `Result`-returning
+//  2. the flavours disagree — `?` on a `Maybe` inside a `Result`-returning
 //     function, or the reverse;
 //  3. both are `Result`s and the ERROR TYPES differ.
 //
 // (1) and (2) are spec §9's stated rule ("the nearest function boundary's
 // return type must match"); (3) is the soundness rule. Without it,
-// `try Json.decode(s)` inside `fn f(s: String) -> Result<Int, String>` would be
+// `Json.decode(s)?` inside `fn f(s: String) -> Result<Int, String>` would be
 // accepted, and the Err path would carry a `Json.DecodeError` out of a
-// function promising `String`: `try` propagates the operand's variant value
+// function promising `String`: `?` propagates the operand's variant value
 // unchanged, so nothing would notice until a caller rendered it and died in
 // `Display.to_string`.
 //
 // Equality is required rather than convertibility. Nomi has no
-// error-conversion story at the `try` boundary (Rust's `From`/`?` is the
+// error-conversion story at the `?` boundary (Rust's `From`/`?` is the
 // obvious prior art and is a separate feature with its own design questions),
 // and the language already answers this: spec §9 gained `Result.map_err`
 // precisely so a caller converts AT THE SITE. The final tolerance is
@@ -13866,7 +13992,7 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 //     `c.tryUnwinds` accumulator. resolveBoundaryErr owns those and applies
 //     the SAME three clauses from the other direction — against the result the
 //     body produced, because there is no declaration to check against.
-//   - a TEST BODY, which declares no result at all — a propagating `try` there
+//   - a TEST BODY, which declares no result at all — a propagating `?` there
 //     ends the case with `test returned early` and is not a type error.
 //     checkAttachedTests runs at declaration-list level, so an attached test's
 //     body sees the ambient (top-level) `returnTy`/`currentFnName` and is
@@ -13897,13 +14023,13 @@ func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
 	bt, ok := resolveTypeVar(boundary).(*EnumType)
 	if !ok || !isTryOperandName(bt.Name) {
 		c.addError(line, col, fmt.Sprintf(
-			"`try` cannot propagate a %s out of a function returning %s: the enclosing function must return a Result or a Maybe",
+			"`?` cannot propagate a %s out of a function returning %s: the enclosing function must return a Result or a Maybe",
 			operand.Name, boundary))
 		return
 	}
 	if bt.Name != operand.Name {
 		c.addError(line, col, fmt.Sprintf(
-			"`try` on a %s cannot propagate out of a function returning %s: the enclosing function must return a %s",
+			"`?` on a %s cannot propagate out of a function returning %s: the enclosing function must return a %s",
 			operand.Name, boundary, operand.Name))
 		return
 	}
@@ -13915,10 +14041,10 @@ func (c *checker) checkTryBoundary(operand *EnumType, at ast.Node) {
 	if got == nil || want == nil || c.tryErrTypesAgree(want, got, line, col) {
 		return
 	}
-	c.addMismatch(line, col, want, got, c.typef("try error type mismatch: expected %s, got %s (the enclosing function returns %s); convert the error at the `try`, for example with Result.map_err", want, got, boundary))
+	c.addMismatch(line, col, want, got, c.typef("`?` error type mismatch: expected %s, got %s (the enclosing function returns %s); convert the error before the `?`, for example with Result.map_err", want, got, boundary))
 }
 
-// tryErrTypesAgree reports whether a `try` operand's error type `got` inhabits
+// tryErrTypesAgree reports whether a `?` operand's error type `got` inhabits
 // the boundary's declared error type `want`.
 //
 // The ladder is TypeAssignable, then unify, then argMatchesParam, and each
@@ -14502,7 +14628,7 @@ func (c *checker) litOpenElemFits(want, ty Type) bool {
 }
 
 func (c *checker) checkVectorLit(n *ast.VectorLit) Type {
-	if n.Spread != nil {
+	if len(n.Spreads) > 0 {
 		return c.checkVectorUpdateLit(n, nil)
 	}
 	if len(n.Items) == 0 {
@@ -14532,7 +14658,7 @@ func (c *checker) checkVectorLit(n *ast.VectorLit) Type {
 }
 
 func (c *checker) checkVectorLitExpecting(n *ast.VectorLit, elemTy Type) Type {
-	if n.Spread != nil {
+	if len(n.Spreads) > 0 {
 		return c.checkVectorUpdateLit(n, elemTy)
 	}
 	if elemTy == nil || ContainsTypeParam(elemTy) || containsTypeVar(elemTy) {
@@ -14548,7 +14674,7 @@ func (c *checker) checkVectorLitExpecting(n *ast.VectorLit, elemTy Type) Type {
 }
 
 func (c *checker) checkSetLit(n *ast.SetLit) Type {
-	if n.Spread != nil {
+	if len(n.Spreads) > 0 {
 		return c.checkSetUpdateLit(n, nil)
 	}
 	if len(n.Items) == 0 {
@@ -14590,17 +14716,17 @@ func (c *checker) checkSetLitExpecting(n *ast.SetLit, elemTy Type) Type {
 	return makeSetType(elemTy, c.reg)
 }
 
-// checkListSpreadLitExpecting types `[h1, h2, ..., ..tail]` where a list of
-// elemTy is expected: each head is checked against elemTy, the tail against
-// `List<elemTy>`, and the literal is that list. A bare `..` tail, an
-// element type with open parts (openElemType), or a tail that is not a list keeps the
+// checkListSpreadLitExpecting types a list literal with spreads, `[h1, h2,
+// ..., ..tail]` or `[..xs, h, ..ys]`, where a list of elemTy is expected:
+// each element is checked against elemTy, each spread against
+// `List<elemTy>`, and the literal is that list. A bare `..`, an element type
+// with open parts (openElemType), or a spread that is not a list keeps the
 // unexpected path, which reports what it finds.
 func (c *checker) checkListSpreadLitExpecting(n *ast.ListSpreadLit, elemTy Type) Type {
-	if _, bare := n.TailSpread.(*ast.CurrentValue); bare || n.TailSpread == nil ||
-		elemTy == nil || c.openElemType(elemTy) {
+	if ast.UpdateHole(n) != nil || elemTy == nil || c.openElemType(elemTy) {
 		return c.checkListSpreadLit(n)
 	}
-	for _, h := range n.Heads {
+	for _, h := range n.Items {
 		ty := c.checkNodeExpecting(h, elemTy)
 		if ty == nil {
 			continue
@@ -14610,36 +14736,60 @@ func (c *checker) checkListSpreadLitExpecting(n *ast.ListSpreadLit, elemTy Type)
 		}
 	}
 	want := &ListType{Elem: elemTy}
-	tailTy := resolveTypeVar(c.checkNodeExpecting(n.TailSpread, want))
-	if tailTy != nil {
+	for _, sp := range n.Spreads {
+		tailTy := resolveTypeVar(c.checkNodeExpecting(sp.Head, want))
+		if tailTy == nil {
+			continue
+		}
 		if _, open := tailTy.(*TypeVar); !open {
 			if _, ok := tailTy.(*ListType); !ok {
-				hint := iterMaterializeHint(want, tailTy)
-				if hint == "" {
-					hint = "make a list of another collection's elements with `Iter.to_list`, as in `xs |> Iter.to_list()`"
-				}
-				c.report(errAt(n.TailSpread, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tailTy))).WithHint(hint))
+				c.report(errAt(sp.Head, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tailTy))).WithHint(listSpreadHint(want, tailTy)))
 				return nil
 			}
 		}
 		if err := UnifyWithImpls(want, tailTy, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-			c.addErrorAt(n.TailSpread, c.typef(
-				"list spread tail element type mismatch: %s vs %s", elemTy, tailTy.(*ListType).Elem))
+			c.addErrorAt(sp.Head, c.typef(
+				"list spread element type mismatch: %s vs %s", elemTy, tailTy.(*ListType).Elem))
 		}
 	}
 	return want
 }
 
-// checkListSpreadLit types `[h1, h2, ..., ..tail]`. Element type unifies across
-// all heads and the tail's element type. Uses nil subs so TypeVar binding
+// listSpreadHint is the help for a list spread of a type that is not a list,
+// got, where want is the list expected.
+func listSpreadHint(want, got Type) string {
+	if hint := iterMaterializeHint(want, got); hint != "" {
+		return hint
+	}
+	return "make a list of another collection's elements with `Iter.to_list`, as in `xs |> Iter.to_list()`"
+}
+
+// checkListSpreadLit types a list literal with spreads, `[h1, h2, ...,
+// ..tail]` or `[..xs, h, ..ys]`, its elements and spreads in the order
+// written, so an element after a spread is checked against the spread's
+// element type, as one after an element is. Element type unifies across all
+// elements and each spread's element type. Uses nil subs so TypeVar binding
 // (`tv.Resolved = b`) takes precedence over TypeParam_-into-subs, which is
-// what we want: an empty-list tail's `List<TypeVar>` gets resolved against
-// the head's element type rather than the head's TypeParam_ being captured
+// what we want: an empty-list spread's `List<TypeVar>` gets resolved against
+// the elements' type rather than an element's TypeParam_ being captured
 // into a discarded local subs map.
 func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 	var elemTy Type
 	var pos litPosition
-	for _, h := range n.Heads {
+	spreads := n.Spreads
+	for i := 0; i <= len(n.Items); i++ {
+		for len(spreads) > 0 && spreads[0].At == i {
+			ty, ok := c.checkListSpread(n, spreads[0], elemTy)
+			if !ok {
+				return ty
+			}
+			elemTy = ty
+			spreads = spreads[1:]
+		}
+		if i == len(n.Items) {
+			break
+		}
+		h := n.Items[i]
 		ht := c.checkLitElem(&pos, h, elemTy)
 		if ht == nil {
 			continue
@@ -14651,43 +14801,6 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 				"list element type mismatch: %s vs %s", elemTy, ht))
 		}
 	}
-	if n.TailSpread != nil {
-		tailTy := c.checkNode(n.TailSpread)
-		if _, bare := n.TailSpread.(*ast.CurrentValue); bare && tailTy != nil {
-			if _, ok := resolveTypeVar(tailTy).(*ListType); !ok {
-				c.report(errAt(n.TailSpread, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tailTy))))
-				return tailTy
-			}
-			if len(n.Heads) == 0 {
-				c.report(errAt(n.TailSpread, emptyUpdateMessage))
-			}
-			tailTy = resolveTypeVar(tailTy)
-		}
-		// The tail is the list the heads are consed onto, so it is a List:
-		// an Iter, a Range or a String is made a list with `Iter.to_list`
-		// first, as a vector spread asks for `Iter.to_vector`.
-		if tt := resolveTypeVar(tailTy); tt != nil {
-			if _, open := tt.(*TypeVar); !open {
-				if _, ok := tt.(*ListType); !ok {
-					hint := iterMaterializeHint(&ListType{Elem: TypeAny}, tt)
-					if hint == "" {
-						hint = "make a list of another collection's elements with `Iter.to_list`, as in `xs |> Iter.to_list()`"
-					}
-					c.report(errAt(n.TailSpread, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tt))).WithHint(hint))
-					return nil
-				}
-			}
-			tailTy = tt
-		}
-		if lt, ok := tailTy.(*ListType); ok {
-			if elemTy == nil {
-				elemTy = lt.Elem
-			} else if err := UnifyWithImpls(elemTy, lt.Elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-				c.addErrorAt(n.TailSpread, c.typef(
-					"list spread tail element type mismatch: %s vs %s", elemTy, lt.Elem))
-			}
-		}
-	}
 	if pos.unresolved {
 		return nil
 	}
@@ -14695,6 +14808,47 @@ func (c *checker) checkListSpreadLit(n *ast.ListSpreadLit) Type {
 		elemTy = c.freshTypeVar()
 	}
 	return &ListType{Elem: elemTy}
+}
+
+// checkListSpread checks the spread sp of the list literal n, whose elements
+// and spreads before it have the element type elemTy (nil for none yet). It
+// answers the element type after it, or false and the literal's type after
+// an error that ends the literal's check.
+func (c *checker) checkListSpread(n *ast.ListSpreadLit, sp ast.Spread, elemTy Type) (Type, bool) {
+	tailTy := c.checkNode(sp.Head)
+	if _, bare := sp.Head.(*ast.CurrentValue); bare && tailTy != nil {
+		if _, ok := resolveTypeVar(tailTy).(*ListType); !ok {
+			c.report(errAt(sp.Head, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tailTy))))
+			return tailTy, false
+		}
+		if len(n.Items) == 0 && len(n.Spreads) == 1 {
+			c.report(errAt(sp.Head, emptyUpdateMessage))
+		}
+		tailTy = resolveTypeVar(tailTy)
+	}
+	// A spread is a list the elements are joined with, so it is a
+	// List: an Iter, a Range or a String is made a list with
+	// `Iter.to_list` first, as a vector spread asks for
+	// `Iter.to_vector`.
+	if tt := resolveTypeVar(tailTy); tt != nil {
+		if _, open := tt.(*TypeVar); !open {
+			if _, ok := tt.(*ListType); !ok {
+				c.report(errAt(sp.Head, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tt))).WithHint(listSpreadHint(&ListType{Elem: TypeAny}, tt)))
+				return nil, false
+			}
+		}
+		tailTy = tt
+	}
+	if lt, ok := tailTy.(*ListType); ok {
+		if elemTy == nil {
+			return lt.Elem, true
+		}
+		if err := UnifyWithImpls(elemTy, lt.Elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+			c.addErrorAt(sp.Head, c.typef(
+				"list spread element type mismatch: %s vs %s", elemTy, lt.Elem))
+		}
+	}
+	return elemTy, true
 }
 
 func (c *checker) checkTupleLit(n *ast.TupleLit) Type {
@@ -14729,7 +14883,7 @@ func (c *checker) checkTupleLitExpecting(n *ast.TupleLit, expected []Type) Type 
 }
 
 func (c *checker) checkMapLit(n *ast.MapLit) Type {
-	if n.Spread != nil {
+	if len(n.Spreads) > 0 {
 		return c.checkMapUpdateLit(n, nil)
 	}
 	// Type-prefixed map literals (`%Kvs{"a" => 1}`) are the literal-attach
@@ -15493,6 +15647,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				if n.TailSpread != nil {
 					c.checkPattern(n.TailSpread, nil)
 				}
+				for _, tail := range n.Tails {
+					c.checkPattern(tail, nil)
+				}
 				return
 			}
 			// Bare-prefix list-variant pattern (`Arr[a, b]` against an
@@ -15520,6 +15677,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 				if n.TailSpread != nil {
 					c.checkPattern(n.TailSpread, nil)
 				}
+				for _, tail := range n.Tails {
+					c.checkPattern(tail, nil)
+				}
 				return
 			}
 			for _, head := range n.Heads {
@@ -15527,6 +15687,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			}
 			if n.TailSpread != nil {
 				c.checkPattern(n.TailSpread, lt)
+			}
+			for _, tail := range n.Tails {
+				c.checkPattern(tail, lt.Elem)
 			}
 			return
 		}
@@ -15536,6 +15699,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			}
 			if n.TailSpread != nil {
 				c.checkPattern(n.TailSpread, nil)
+			}
+			for _, tail := range n.Tails {
+				c.checkPattern(tail, nil)
 			}
 			return
 		}
@@ -15567,6 +15733,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			if n.TailSpread != nil {
 				c.checkPattern(n.TailSpread, nil)
 			}
+			for _, tail := range n.Tails {
+				c.checkPattern(tail, nil)
+			}
 			return
 		}
 		for _, head := range n.Heads {
@@ -15574,6 +15743,9 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 		if n.TailSpread != nil {
 			c.checkPattern(n.TailSpread, actualTy)
+		}
+		for _, tail := range n.Tails {
+			c.checkPattern(tail, lt.Elem)
 		}
 
 	case *ast.MapPattern:
@@ -16627,7 +16799,7 @@ func containsUnit(t Type) bool {
 // nothing gives it a type.
 func (c *checker) checkLambda(n *ast.Lambda, undeterminedErr bool) Type {
 	undetermined := false
-	// `try` and `return` inside a lambda unwind to the lambda boundary,
+	// `?` and `return` inside a lambda unwind to the lambda boundary,
 	// not the enclosing fn. Nomi has no non-local returns.
 	prevBoundary := c.tryBoundary
 	c.tryBoundary = "lambda"
@@ -16783,7 +16955,7 @@ func lambdaDefaultCount(params []ast.Param) int {
 // checkLambdaExpecting checks a lambda against an expected FuncType,
 // inferring parameter types for unannotated params from the expected type.
 func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
-	// Same boundary push as checkLambda — `try` inside the body unwinds
+	// Same boundary push as checkLambda — `?` inside the body unwinds
 	// to this lambda, not the enclosing fn.
 	prevBoundary := c.tryBoundary
 	c.tryBoundary = "lambda"
@@ -17083,7 +17255,7 @@ func (c *checker) checkStructLit(n *ast.StructLit) Type {
 			// EXPRESSION, so they were never visited — `#{userName: 1}` and
 			// `#{ok_PRED: 2}` type-checked and ran. The second spelling is the
 			// one that bites: internal/irbuild spells a trailing `?` as a
-			// `_PRED` suffix, so an unchecked `ok_PRED` beside `ok?` is two
+			// `_PRED` suffix, so an unchecked `ok_PRED` beside `is_ok` is two
 			// Nomi names arriving at one spelling there.
 			c.requireSnakeCase(f.Name, f.Line, f.Col, "anon struct field name")
 			ty := c.checkNode(f.Value)
@@ -17431,6 +17603,10 @@ func (c *checker) checkStructVariantLit(n *ast.StructLit, et *EnumType, variantN
 		}
 		c.addError(nameLine, nameCol, fmt.Sprintf(
 			"missing field '%s' of %s.%s", vf.Name, et.Name, variantName))
+	}
+
+	for _, f := range n.Fields {
+		c.resolveDotVariantTypes(f.Value, subs)
 	}
 
 	// The field LABEL's hover, once the substitution exists — the same

@@ -3,13 +3,13 @@ import dominoes
 /// Whether `chain` is a chain of exactly `stones`: each stone's second half
 /// matches the next one's first, the last stone's matches the first's, and
 /// it holds each stone as often as `stones` does, either way round.
-fn chain_of?(chain: List<#(Int, Int)>, stones: List<#(Int, Int)>) -> Bool {
+fn is_chain_of(chain: List<#(Int, Int)>, stones: List<#(Int, Int)>) -> Bool {
     next = chain |> Iter.drop(1) |> Iter.concat(Iter.take(chain, 1))
-    linked = Iter.zip(chain, next) |> Iter.all?(fn #(#(_a, b), #(c, _d)) -> b == c)
-    linked and same_stones?(chain, stones)
+    linked = Iter.zip(chain, next) |> Iter.all(fn #(#(_a, b), #(c, _d)) -> b == c)
+    linked and has_same_stones(chain, stones)
 }
 
-fn same_stones?(a: List<#(Int, Int)>, b: List<#(Int, Int)>) -> Bool {
+fn has_same_stones(a: List<#(Int, Int)>, b: List<#(Int, Int)>) -> Bool {
     a |> Iter.map(unturned) |> Iter.frequencies() == b |> Iter.map(unturned) |> Iter.frequencies()
 }
 
@@ -18,7 +18,7 @@ fn unturned(#(a, b): #(Int, Int)) -> #(Int, Int) {
 }
 
 test "can chain" {
-    cases: List<#(String, List<#(Int, Int)>)> = [
+    cases = [
         #("empty input = empty output", []),
         #("singleton input = singleton output", [#(1, 1)]),
         #("three elements", [#(1, 2), #(3, 1), #(2, 3)]),
@@ -33,12 +33,12 @@ test "can chain" {
 
     subtests cases, #(description, stones), description {
         assert Some(chain) = dominoes.chain(stones)
-        assert chain_of?(chain, stones)
+        assert is_chain_of(chain, stones)
     }
 }
 
 test "cannot chain" {
-    cases: List<#(String, List<#(Int, Int)>)> = [
+    cases = [
         #("singleton that can't be chained", [#(1, 2)]),
         #("can't be chained", [#(1, 2), #(4, 1), #(2, 3)]),
         #("disconnected - simple", [#(1, 1), #(2, 2)]),

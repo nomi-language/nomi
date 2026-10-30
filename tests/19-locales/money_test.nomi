@@ -46,7 +46,7 @@ test "a custom currency has its own code and minor digits" {
     btc = Currency`BTC:8`
     assert Currency.code(btc) == "BTC"
     assert Currency.minor_digits(btc) == 8
-    refute Currency.iso?(btc)
+    refute Currency.is_iso(btc)
     half = #Money{amount: 0.5d, currency: btc}
     // CLDR has no symbol or name for it, so every display writes the code,
     // kept apart from the digits.
@@ -94,7 +94,7 @@ test "adding two currencies traps and names both" {
 
     assert Err(message) = result
 
-    assert String.contains?(
+    assert String.contains(
         message,
         "line 7: Money.add: the amounts are in two currencies, EUR and PLN",
     )
@@ -116,7 +116,7 @@ test "adding two currencies traps and names both" {
 
     assert Err(text) = custom
 
-    assert String.contains?(
+    assert String.contains(
         text,
         "line 7: Money.subtract: the amounts are in two currencies, PTS:0 and PTS:2",
     )
@@ -204,7 +204,7 @@ test "a rate that needs rounding traps under Unnecessary" {
 
     assert Err(message) = result
 
-    assert String.contains?(
+    assert String.contains(
         message,
         "line 5: Decimal.round: decimal: rounding necessary to reach scale 2 but mode is Unnecessary",
     )

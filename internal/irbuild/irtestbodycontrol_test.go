@@ -106,7 +106,7 @@ test "an unbounded range" {
 }
 
 test "a float interval" {
-  assert Range.contains?(0.5..1.5, 2.0)
+  assert Range.contains(0.5..1.5, 2.0)
 }
 
 test "debug keeps the range syntax" {
@@ -476,4 +476,89 @@ test "fifth, walk-only and failing" {
 	if !reflect.DeepEqual(order, want) {
 		t.Fatalf("report order %q; want %q\n%s", order, want, out)
 	}
+}
+
+// A `return` ending an arm of a `case` inside an assertion's subject ends the
+// case there, running its deferred calls, as the same arm does outside a
+// subject; the other arm's value is the subject, with its rows. An arm whose
+// block ends in a block that returns ends the case too, and so does an
+// operand of the subject that leaves, before anything is judged.
+func TestIRTestBody_ReturnArmInAssertionSubject(t *testing.T) {
+	out := irTestBodyVM(t, `import std/io
+
+fn get(ok: Bool) -> Result<String, String> {
+  if ok {
+    Ok("x")
+  } else {
+    Err("no")
+  }
+}
+
+fn bye() {
+  io.print("deferred")
+}
+
+test "a return arm ends the case" {
+  defer bye()
+  assert case get(False) {
+    Ok(d) -> d
+    Err(_) -> return
+  } == "y"
+  io.print("not reached")
+}
+
+test "the other arm is the subject" {
+  assert case get(True) {
+    Ok(d) -> d
+    Err(_) -> return
+  } == "y"
+}
+
+test "an arm's block that leaves" {
+  assert case get(False) {
+    Ok(d) -> d
+    Err(e) -> {
+      {
+        io.print("left with ${e}")
+        return
+      }
+    }
+  } == "y"
+}
+
+test "a subject's operand that leaves" {
+  assert "x" == {
+    io.print("operand left")
+    return
+  }
+  io.print("not reached")
+}
+`, 4)
+	for _, want := range []string{"deferred", "= \"x\"", "left with no", "operand left"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the report lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "not reached") {
+		t.Errorf("the case ran past its return:\n%s", out)
+	}
+}
+
+// An assertion in a function whose subject has an operand that leaves
+// returns there, judging nothing, as a binding of the same value does.
+func TestIRTestBody_AssertionOperandLeavesAFunction(t *testing.T) {
+	verifyLambdaProgram(t, `import {
+  std/assertions.AssertionFailure
+  std/io
+}
+fn f(n: Int) -> Result<Int, AssertionFailure> {
+  assert n == {
+    io.print("leaving")
+    return Ok(7)
+  }
+  Ok(1)
+}
+fn main() {
+  io.inspect(f(1))
+}`, "leaving\nOk(7)\n")
 }

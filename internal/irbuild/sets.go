@@ -69,13 +69,13 @@ type setFn struct {
 // intersection 1, difference 1, subset? 1, remove 0.
 var setFuncs = map[string]setFn{
 	"size":         {rtCall: "rt.SetSize", args: 1, sets: 1, result: "int"},
-	"contains?":    {rtCall: "rt.SetContains", args: 2, sets: 1, result: "bool", ops: true},
+	"contains":     {rtCall: "rt.SetContains", args: 2, sets: 1, result: "bool", ops: true},
 	"insert":       {rtCall: "rt.SetInsert", args: 2, sets: 1, result: "set", ops: true},
 	"remove":       {rtCall: "rt.SetRemove", args: 2, sets: 1, result: "set", ops: true},
 	"union":        {rtCall: "rt.SetUnion", args: 2, sets: 2, result: "set", ops: true},
 	"intersection": {rtCall: "rt.SetIntersection", args: 2, sets: 2, result: "set", ops: true},
 	"difference":   {rtCall: "rt.SetDifference", args: 2, sets: 2, result: "set", ops: true},
-	"subset?":      {rtCall: "rt.SetSubset", args: 2, sets: 2, result: "bool", ops: true},
+	"is_subset":    {rtCall: "rt.SetSubset", args: 2, sets: 2, result: "bool", ops: true},
 }
 
 // setKindOf is the Set kind for element kind elem, or kindInvalid.

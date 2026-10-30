@@ -329,7 +329,7 @@ func (p *Program) modulePath(path string) *irbuild.Module {
 }
 
 // declarationIn locates the declaration name blames, as declarationOf does,
-// except that an impl function (`Rec.equal?`) is found in the impl block for
+// except that an impl function (`Rec.equal`) is found in the impl block for
 // its receiver, in the file prefer names first. derived reports a block Nomi
 // synthesized: its function is placed at the `derive` declaration that asked
 // for it, or at the type for the universal Debug, since its own lines are no
@@ -355,7 +355,7 @@ func (p *Program) declarationIn(name, prefer string) (path string, line, col int
 	return path, line, col, false
 }
 
-// implFunctionName splits an impl function's attempt name, `Rec.equal?` or
+// implFunctionName splits an impl function's attempt name, `Rec.equal` or
 // `Box<Int>.inspect`, into its receiver's base name and the function.
 func implFunctionName(name string) (owner, method string, ok bool) {
 	if strings.HasPrefix(name, "test body: ") || strings.HasPrefix(name, "once ") {
@@ -556,6 +556,8 @@ func nodeStart(n ast.Node) (int, int) {
 		return t.Line, t.Col
 	case *ast.TryOp:
 		return t.Line, t.Col
+	case *ast.Unwrap:
+		return t.Line, t.Col
 	case *ast.Block:
 		return t.Line, t.Col
 	case *ast.FuncDef:
@@ -630,7 +632,9 @@ func describeConstruct(n ast.Node) string {
 	case *ast.Return:
 		return "`return` here"
 	case *ast.TryOp:
-		return "`try` here"
+		return "this `?`"
+	case *ast.Unwrap:
+		return "this `!`"
 	case *ast.Block:
 		return "this block"
 	case *ast.FuncDef:

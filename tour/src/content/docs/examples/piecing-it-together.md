@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: piecing_it_together.nomi
+//# Works out a jigsaw puzzle's shape and piece counts from partial clues.
+
 /// The shape of a puzzle of square pieces: taller than wide, square, or
 /// wider than tall.
 pub enum Format {
@@ -56,13 +58,9 @@ derive Equatable for Error
 //! assert jigsaw_data(#{pieces: Some(6), rows: Some(3)}) |> Result.map(.columns) == Ok(2)
 //
 pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error> {
-    Some(rows) = row_candidates(clues) else {
-        return Err(.InsufficientData)
-    }
+    Some(rows) = row_candidates(clues) else { return Err(.InsufficientData) }
 
-    Some(columns_for) = column_rule(clues) else {
-        return Err(.InsufficientData)
-    }
+    Some(columns_for) = column_rule(clues) else { return Err(.InsufficientData) }
 
     fitting =
         rows
@@ -71,7 +69,7 @@ pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error> {
             |> Iter.filter(&(&1 >= 1))
             |> Iter.map(&puzzle(rows, &1))
         })
-        |> Iter.filter(&fits?(clues, &1))
+        |> Iter.filter(&fits(clues, &1))
         |> Iter.take(2)
         |> Iter.to_list()
 
@@ -98,7 +96,7 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
 }
 
 /// Whether `jigsaw` agrees with every part `clues` knows.
-fn fits?(clues: Clues, jigsaw: Jigsaw) -> Bool {
+fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool {
     counts_agree =
         [
             #(clues.pieces, jigsaw.pieces),
@@ -107,18 +105,18 @@ fn fits?(clues: Clues, jigsaw: Jigsaw) -> Bool {
             #(clues.rows, jigsaw.rows),
             #(clues.columns, jigsaw.columns),
         ]
-        |> Iter.all?(fn #(known, actual) -> agrees?(known, actual))
+        |> Iter.all(fn #(known, actual) -> agrees(known, actual))
 
     ratio_agrees = case clues.aspect_ratio {
-        Some(ratio) -> Float.equal_within?(ratio, jigsaw.aspect_ratio, 0.000000001)
+        Some(ratio) -> Float.equal_within(ratio, jigsaw.aspect_ratio, 0.000000001)
         None -> True
     }
 
-    counts_agree and ratio_agrees and agrees?(clues.format, jigsaw.format)
+    counts_agree and ratio_agrees and agrees(clues.format, jigsaw.format)
 }
 
 /// Whether `actual` is the `known` value, when there is one.
-fn agrees?<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
+fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
     case known {
         Some(value) -> value == actual
         None -> True
@@ -174,12 +172,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
             })
 
         #{aspect_ratio: Some(ratio)} ->
-            Some(fn rows -> {
-                case nearest(Int.to_float(rows) * ratio) {
-                    Some(columns) -> [columns]
-                    None -> []
-                }
-            })
+            Some(fn rows -> Iter.to_list(nearest(Int.to_float(rows) * ratio)))
 
         #{format: Some(.Square)} ->
             Some(fn rows -> [rows])
@@ -193,7 +186,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                 }
             })
 
-        #{inside: Some(inside)} -> {
+        #{inside: Some(inside)} ->
             Some(fn rows -> {
                 if rows > 2 and inside % (rows - 2) == 0 {
                     [inside / (rows - 2) + 2]
@@ -201,7 +194,6 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
                     []
                 }
             })
-        }
 
         _ ->
             None
@@ -210,7 +202,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>> {
 
 /// The whole number nearest `x`.
 fn nearest(x: Float) -> Maybe<Int> {
-    Float.to_int(Float.round(x))
+    x |> Float.round() |> Float.to_int()
 }
 
 // FILE: piecing_it_together_test.nomi
@@ -306,7 +298,7 @@ test "puzzle with contradictory data" {
 ## How it's written
 
 - What is known is a `Clues` struct whose seven fields are `Maybe`s that default to `None`, so a case writes only what it knows: `#{rows: Some(32), format: Some(.Square)}`. The answer is a `Jigsaw` with every field filled, or `Error.InsufficientData` or `Error.ContradictoryData`.
-- A puzzle is settled by its rows and columns, so `jigsaw_data` searches them rather than solving each combination of clues by its own formula. `row_candidates` gives the known row count, or every count up to a bound some known part sets (the pieces, the border, the inside pieces plus two, or the columns with a ratio or a format that keeps the rows at most the columns). `column_rule` answers a function from a row count to the column counts worth trying, from the first known part that settles the columns. `puzzle` builds the whole puzzle from rows and columns, and `fits?` keeps those that agree with every clue.
+- A puzzle is settled by its rows and columns, so `jigsaw_data` searches them rather than solving each combination of clues by its own formula. `row_candidates` gives the known row count, or every count up to a bound some known part sets (the pieces, the border, the inside pieces plus two, or the columns with a ratio or a format that keeps the rows at most the columns). `column_rule` answers a function from a row count to the column counts worth trying, from the first known part that settles the columns. `puzzle` builds the whole puzzle from rows and columns, and `fits` keeps those that agree with every clue.
 - The search stops at the second fitting puzzle with `Iter.take(2)`: none is a contradiction, one is the answer, two are too many. When nothing bounds the rows or settles the columns, endlessly many puzzles fit and the answer is `InsufficientData` before any search.
 - The aspect ratio is compared within 1e-9, since it is a `Float` computed as columns over rows and the canonical data writes 5/3 as `1.6666666666666667`.
 - The five complete puzzles are one `subtests` table named by the description column; the two errors are plain tests.

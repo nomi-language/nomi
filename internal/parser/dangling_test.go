@@ -17,7 +17,7 @@ func TestParseFile_AttachesDanglingComments(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := nodes[0].(*ast.FuncDef).Body.Stmts
-	one := body[0].(*ast.Binding).Value.(*ast.ListSpreadLit).Heads[0].(*ast.IntLit)
+	one := body[0].(*ast.Binding).Value.(*ast.ListSpreadLit).Items[0].(*ast.IntLit)
 	if got := one.GetDanglingAfter(); len(got) != 1 || got[0].Text != "// after one" {
 		t.Errorf("1's DanglingAfter = %+v, want the comment after it", got)
 	}
@@ -30,7 +30,7 @@ func TestParseFile_AttachesDanglingComments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	one = nodes[0].(*ast.FuncDef).Body.Stmts[0].(*ast.Binding).Value.(*ast.ListSpreadLit).Heads[0].(*ast.IntLit)
+	one = nodes[0].(*ast.FuncDef).Body.Stmts[0].(*ast.Binding).Value.(*ast.ListSpreadLit).Items[0].(*ast.IntLit)
 	if got := one.GetDanglingAfter(); len(got) != 0 {
 		t.Errorf("Parse attached %+v", got)
 	}

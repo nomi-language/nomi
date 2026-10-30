@@ -26,7 +26,7 @@ func TestIRCaseGuard_StringBindingsAndShadowing(t *testing.T) {
 fn classify(s: String) -> String {
   result = case s {
     s when String.length(s) == 0 -> "empty"
-    s when String.contains?(s, "!") -> "excited"
+    s when String.contains(s, "!") -> "excited"
     _ -> "plain"
   }
   result + ":" + s

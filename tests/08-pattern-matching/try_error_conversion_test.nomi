@@ -1,4 +1,4 @@
-// The POSITIVE control for spec §9's `try` error-type rule: a `try` whose
+// The POSITIVE control for spec §9's `?` error-type rule: a `?` whose
 // operand's error type differs from the boundary's is legal once it is
 // CONVERTED at the site, and the converted form runs and propagates exactly
 // the declared error type.
@@ -27,27 +27,27 @@ fn parse_small(s: String) -> Result<Int, ParseError> {
 }
 
 // The operand fails with a `ParseError`; this function declares `String`. The
-// conversion is written at the `try`.
+// conversion is written at the `?`.
 fn describe(s: String) -> Result<String, String> {
-    n = try Result.map_err(parse_small(s), &error_text(&1))
+    n = Result.map_err(parse_small(s), &error_text(&1))?
 
     Ok("parsed " + Int.to_string(n))
 }
 
 // The matching case needs no conversion: both sides are `Result<_, String>`.
 fn describe_twice(s: String) -> Result<String, String> {
-    first = try describe(s)
+    first = describe(s)?
 
     Ok(first + " / " + first)
 }
 
-test "a converted try propagates the DECLARED error type" {
+test "a converted `?` propagates the DECLARED error type" {
     assert describe("7") == Ok("parsed 7")
     assert describe("abc") == Err("not a number: abc")
     assert describe("999") == Err("out of range: 999")
 }
 
-test "a matching try needs no conversion" {
+test "a matching `?` needs no conversion" {
     assert describe_twice("7") == Ok("parsed 7 / parsed 7")
     assert describe_twice("abc") == Err("not a number: abc")
 }

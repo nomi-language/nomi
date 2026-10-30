@@ -6,15 +6,15 @@ import {
 }
 
 test "DST gap compatible disambiguation advances to the next valid instant" {
-    naive = try NaiveDateTime"2026-03-08T02:30:00"
-    adjusted = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Compatible)
+    naive = NaiveDateTime`2026-03-08T02:30:00`
+    adjusted = DateTime.in_zone(naive, "America/New_York", Disambiguation.Compatible)?
     adjusted_text = DateTime.to_string(adjusted)
 
     assert adjusted_text == "2026-03-08T03:30:00-04:00[America/New_York]"
 }
 
 test "DST gap reject disambiguation reports a nonexistent wall reading" {
-    naive = try NaiveDateTime"2026-03-08T02:30:00"
+    naive = NaiveDateTime`2026-03-08T02:30:00`
 
     assert Err(Error.Nonexistent(_)) = DateTime.in_zone(
         naive,
@@ -24,7 +24,7 @@ test "DST gap reject disambiguation reports a nonexistent wall reading" {
 }
 
 test "DST spring-forward civil day shifts preserve wall time" {
-    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Days(1)
     start_text = DateTime.to_string(start)
     civil_text = DateTime.to_string(civil)
@@ -34,7 +34,7 @@ test "DST spring-forward civil day shifts preserve wall time" {
 }
 
 test "DST spring-forward civil day shifts may cover less than twenty-four hours" {
-    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Days(1)
 
     civil_hours =
@@ -46,7 +46,7 @@ test "DST spring-forward civil day shifts may cover less than twenty-four hours"
 }
 
 test "DST spring-forward physical duration shifts preserve elapsed time" {
-    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     physical = start + Duration.hours(24)
     physical_text = DateTime.to_string(physical)
 
@@ -60,7 +60,7 @@ test "DST spring-forward physical duration shifts preserve elapsed time" {
 }
 
 test "DST spring-forward civil hour shifts preserve wall time" {
-    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+    start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Hours(24)
     civil_text = DateTime.to_string(civil)
 

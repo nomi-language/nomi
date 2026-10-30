@@ -21,7 +21,7 @@ import (
 
 // AssertionFailure is the structured value produced by a failed `assert`,
 // `refute`, or `check`. `assert`/`refute` carry it through the same
-// early-return channel as `try`; `check` returns it as an ordinary Result.Err.
+// early-return channel as `?`; `check` returns it as an ordinary Result.Err.
 // Command/test runners render the richer context for humans.
 type AssertionFailure struct {
 	Line    int
@@ -195,12 +195,12 @@ func (e *AssertionFailure) Error() string {
 }
 
 // EarlyReturnFailure is a test that ended early instead of running to
-// completion — a `try` whose operand was `Err`/`None`, or a plain `return`. It
+// completion — a `?` whose operand was `Err`/`None`, or a plain `return`. It
 // lives beside AssertionFailure because the reporter renders both and the
 // reporter is in this module.
 //
 // Expr is the ending expression as the formatter renders it and Value is the
-// value it produced, already rendered: for a `try` that is the row rendering
+// value it produced, already rendered: for a `?` that is the row rendering
 // (RowText) of the whole `Err(e)`/`None`, which is the structural rendering (sorted struct
 // fields, strings quoted) and not Display and not Debug.
 type EarlyReturnFailure struct {
@@ -220,7 +220,7 @@ func (e *EarlyReturnFailure) Error() string {
 // exactly two types inhabit it: *AssertionFailure and *EarlyReturnFailure.
 //
 // Those are the two non-passing exits a test body has as a value — an assertion
-// judged false, and an early return out of the body (`try` propagating an
+// judged false, and an early return out of the body (`?` propagating an
 // `Err`/`None`, and a plain `return`). Every other way a case can fail is a
 // Nomi fault, which arrives as a panic and is recovered by runTest, so it never
 // needs a return type.

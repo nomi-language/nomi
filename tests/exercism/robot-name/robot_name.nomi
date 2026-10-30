@@ -1,3 +1,5 @@
+//# Robots with random, unique names such as `RX837`.
+
 import std/random.{Generator, Seed}
 
 once letters = Iter.to_vector('A'..='Z')
@@ -39,13 +41,11 @@ impl Factory {
     /// A new robot with a name no robot of this factory has had, or
     /// `NamesExhausted` when every name has been given.
     pub fn build(factory: Factory) -> Result<#(Robot, Factory), Error> {
-        if Set.size(factory.given) == name_count {
-            return Err(.NamesExhausted)
-        }
+        if Set.size(factory.given) == name_count { return Err(.NamesExhausted) }
 
         #(name, seed) = Generator.step(names(), factory.seed)
 
-        if Set.contains?(factory.given, name) {
+        if Set.contains(factory.given, name) {
             Factory.build(#{..factory, seed})
         } else {
             Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))
@@ -65,8 +65,8 @@ impl Factory {
 fn names() -> Generator<String> {
     Generator.int(0, name_count - 1)
     |> Generator.map(fn n -> {
-        first = Vector.at(letters, n / 26_000)
-        second = Vector.at(letters, n / 1000 % 26)
+        first = Vector.get(letters, n / 26_000)!
+        second = Vector.get(letters, n / 1000 % 26)!
         digits = Int.to_string(n % 1000) |> String.pad_start(3, "0")
         String.from_codepoints([first, second]) + digits
     })

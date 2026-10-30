@@ -29,7 +29,7 @@ fn boot(startup: Startup) -> Result<App, ConfigError> {
     defer io.print("closed the log")
     io.print("opened the log")
     defer io.print("released the port")
-    port = try setting(startup, "NOMI_BOOT_FAILURE_FIXTURE_PORT")
+    port = setting(startup, "NOMI_BOOT_FAILURE_FIXTURE_PORT")?
     Ok(#App{port: String.length(port), context: Context.root()})
 }
 

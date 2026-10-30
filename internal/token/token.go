@@ -27,6 +27,7 @@ const (
 	SLASH     // /
 	PERCENT   // %
 	BANG      // !
+	QUESTION  // ? (postfix: propagate an Err or a None)
 	EQ        // = (binding)
 	DOT       // .
 	COMMA     // ,
@@ -89,7 +90,6 @@ const (
 	TODO        // todo — placeholder expression for unwritten code; traps when reached
 	UNREACHABLE // unreachable — a claim the program never reaches this point; traps when it does
 	SELF        // self — keyword for the implementing type in interface signatures and for import self-markers
-	TRY         // try — prefix error-propagation keyword (unwrap Result/Maybe or short-circuit)
 	THEN        // then — pipe stage that applies a lambda to the piped value
 	TAP         // tap — pipe stage that runs a Unit lambda on the piped value and passes it on
 	DOC_COMMENT // /// doc comment text
@@ -181,6 +181,7 @@ var tokenNames = [...]string{
 	SLASH:                            "SLASH",
 	PERCENT:                          "PERCENT",
 	BANG:                             "BANG",
+	QUESTION:                         "QUESTION",
 	EQ:                               "EQ",
 	DOT:                              "DOT",
 	COMMA:                            "COMMA",
@@ -239,7 +240,6 @@ var tokenNames = [...]string{
 	TODO:                             "TODO",
 	UNREACHABLE:                      "UNREACHABLE",
 	SELF:                             "SELF",
-	TRY:                              "TRY",
 	THEN:                             "THEN",
 	TAP:                              "TAP",
 	DOC_COMMENT:                      "DOC_COMMENT",

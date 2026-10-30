@@ -6,7 +6,7 @@ import "strconv"
 //
 // The call's operands are read HERE, at registration. The callee runs later, at the RunDefer naming the
 // same id or on any earlier exit from the activation — a return, a propagated
-// `try` or a fault — in reverse registration order, which is what a Go
+// `?` or a fault — in reverse registration order, which is what a Go
 // `defer` does. The call's own destination is never written: a deferred
 // call's value is discarded.
 //

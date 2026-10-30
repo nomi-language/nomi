@@ -4,7 +4,7 @@ import "testing"
 
 // A deferred call's operands are evaluated where the `defer` stands, whatever
 // computes them: another call, an `if` or a `case`, an embedded struct
-// widened to its enum, a default, a `try` that leaves before the call is
+// widened to its enum, a default, a `?` that leaves before the call is
 // registered, and a named argument in a lambda's defer. A later rebinding of
 // the local does not reach the deferred call.
 func TestDeferOperands_AreEvaluatedAtTheDefer(t *testing.T) {
@@ -41,7 +41,7 @@ fn note(s: String, suffix: String = "!") -> Unit {
 
 fn run(n: Int) -> Result<Int, String> {
     defer note("first")
-    defer note(Int.to_string(try get(n)))
+    defer note(Int.to_string(get(n)?))
     Ok(n * 10)
 }
 

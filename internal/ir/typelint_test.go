@@ -24,7 +24,7 @@ func typedAdd() (*Func, *Block, Temp) {
 	b := f.NewBlock(p, "entry")
 	one := NewInt(p, f.NewTemp(), 1)
 	b.Append(one)
-	sum := NewArith(p, f.NewTemp(), OpAdd, IntArith(OverflowFaults), n, one.Dst())
+	sum := NewArith(p, f.NewTemp(), OpAdd, IntArith(OverflowExact), n, one.Dst())
 	b.Append(sum)
 	return f, b, sum.Dst()
 }
@@ -144,7 +144,7 @@ func TestTypeLint_EachConsistencyConditionCatchesItsPlant(t *testing.T) {
 			n := f.AddParam(NewSymbol("n"), ValUnknown)
 			f.SetType(n, ty)
 			b := f.NewBlock(p, "entry")
-			sum := NewArith(p, f.NewTemp(), OpAdd, IntArith(OverflowFaults), n, n)
+			sum := NewArith(p, f.NewTemp(), OpAdd, IntArith(OverflowExact), n, n)
 			b.Append(sum)
 			b.SetTerm(NewReturn(p, sum.Dst()))
 			return f

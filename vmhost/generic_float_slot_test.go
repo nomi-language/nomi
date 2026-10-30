@@ -19,7 +19,7 @@ fn weight<T>(pair: #(Float, T)) -> Float {
 
 fn main() {
     io.print(weight(#(10.0, "x")))
-    io.print(Generator.weighted(#(-10.0, "bad"), []) |> Result.err?())
+    io.print(Generator.weighted(#(-10.0, "bad"), []) |> Result.is_err())
 }
 `)
 	if want := "10.0\nTrue\n"; got != want {

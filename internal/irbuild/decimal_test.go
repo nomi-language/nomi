@@ -117,7 +117,7 @@ func TestPinned_DecimalAssertionOperands(t *testing.T) {
 	}
 }
 
-// TestVM_MaybeDecimalEqual runs `Maybe.equal?` and `Result.equal?` over a
+// TestVM_MaybeDecimalEqual runs `Maybe.equal` and `Result.equal` over a
 // Decimal payload. Maybe's derived Equatable and `==` both compare the payload
 // with rt.EqDecimal, so the call must agree with `==`, across scales too.
 func TestVM_MaybeDecimalEqual(t *testing.T) {
@@ -125,13 +125,13 @@ func TestVM_MaybeDecimalEqual(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	want := strings.Join([]string{
-		"equal? across scales = True",
+		"equal across scales = True",
 		"== across scales = True",
-		"equal? different = False",
-		"equal? some none = False",
-		"equal? none none = True",
-		"result equal? across scales = True",
-		"result equal? ok err = False",
+		"equal different = False",
+		"equal some none = False",
+		"equal none none = True",
+		"result equal across scales = True",
+		"result equal ok err = False",
 		"",
 	}, "\n")
 	if got := vmReference(fixture("maybe_decimal_equal.nomi")); got.stdout != want || got.exit != 0 {

@@ -74,9 +74,7 @@ fn loop_else_branches() -> Int {
 // An Iter.loop binding else whose fallback is an `if`.
 fn loop_else_fallback() -> Int {
     loop(fn n = 0 -> {
-        Some(v) = find(n) else {
-            if n > 5 { 10 } else { 20 }
-        }
+        Some(v) = find(n) else { if n > 5 { 10 } else { 20 } }
 
         if v > 2 { break v }
         n + 1
@@ -86,9 +84,7 @@ fn loop_else_fallback() -> Int {
 // An Iter.loop binding else that ends in an `if` whose arms both break.
 fn loop_else_both_break() -> Int {
     loop(fn n = 0 -> {
-        Some(Some(v)) = find_nested(n) else {
-            if n > 10 { break 1 } else { break 2 }
-        }
+        Some(Some(v)) = find_nested(n) else { if n > 10 { break 1 } else { break 2 } }
 
         v + n + 1
     })
@@ -204,7 +200,7 @@ test "a case subject in a function reports its rows" {
     assert Err(failure) = case_subject(1)
 
     assert AssertionFailure.format(failure) == """
-        line 133: assertion failed
+        line 129: assertion failed
           assert case x {
               1 -> False
               _ -> x > 0
@@ -223,7 +219,7 @@ test "a Type witness is a row" {
     assert Err(failure) = testing.check(has(Context.root(), t))
 
     assert AssertionFailure.format(failure) == """
-        line 223: check failed
+        line 219: check failed
           check has(Context.root(), t)
           values:
             Context.root()
@@ -246,7 +242,7 @@ test "a nested block may rebind a name, and the outer one keeps its definition" 
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 246: check failed
+        line 242: check failed
           check ok
           defined as:
             id(1) == 2
@@ -263,18 +259,18 @@ test "an assertion binding and a pattern may rebind a name" {
 }
 
 test "a pipe binding whose stage holds a pipe records its spine" {
-    ok = [1, 2] |> Iter.any?(fn x: Int -> x |> double() > 10)
+    ok = [1, 2] |> Iter.any(fn x: Int -> x |> double() > 10)
     assert Err(failure) = testing.check(ok)
 
     assert AssertionFailure.format(failure) == """
-        line 267: check failed
+        line 263: check failed
           check ok
           defined as:
-            [1, 2] |> Iter.any?(fn x: Int -> x |> double() > 10)
+            [1, 2] |> Iter.any(fn x: Int -> x |> double() > 10)
           pipeline values:
             [1, 2]
               = [1, 2]
-            [1, 2] |> Iter.any?(fn x: Int -> x |> double() > 10)
+            [1, 2] |> Iter.any(fn x: Int -> x |> double() > 10)
               = False
         """
 }

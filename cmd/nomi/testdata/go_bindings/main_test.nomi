@@ -4,14 +4,14 @@ import {
 }
 
 test "query parsing returns a map of lists" {
-    values = try urls.parse_query("tag=go&tag=nomi&page=1")
+    values = urls.parse_query("tag=go&tag=nomi&page=1")?
 
     assert Map.get(values, "tag") == Some(["go", "nomi"])
     assert Map.get(values, "page") == Some(["1"])
 }
 
 test "URL parsing returns a Nomi struct" {
-    url = try urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")
+    url = urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")?
 
     assert url.scheme == "https"
     assert url.host == "example.com"
@@ -37,7 +37,7 @@ test "bytes cross to Go and back" {
 }
 
 test "hex decoding returns a Result" {
-    decoded = try hash.from_hex("6e6f6d69")
+    decoded = hash.from_hex("6e6f6d69")?
 
     assert Bytes.to_string(decoded) == Ok("nomi")
     assert Err(_) = hash.from_hex("not hex")

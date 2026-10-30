@@ -23,7 +23,7 @@ test "private functions cannot be imported" {
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "ping' is private and cannot be imported")
+    assert test_helpers.has_diagnostic(diagnostics, "ping' is private and cannot be imported")
 }
 
 test "private types cannot be imported through public modules" {
@@ -46,7 +46,7 @@ test "private types cannot be imported through public modules" {
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "Hidden' is private and cannot be imported")
+    assert test_helpers.has_diagnostic(diagnostics, "Hidden' is private and cannot be imported")
 }
 
 test "private helpers are hidden from imported modules" {
@@ -82,5 +82,5 @@ test "private helpers are hidden from imported modules" {
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "file 'api' has no member 'secret'")
+    assert test_helpers.has_diagnostic(diagnostics, "file 'api' has no member 'secret'")
 }

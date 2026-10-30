@@ -141,7 +141,7 @@ func (k MatchKind) String() string {
 	case MatchVectorMin:
 		return "vectormin"
 	}
-	return "match?"
+	return "matches"
 }
 
 // Match is one refutable question about one temporary.

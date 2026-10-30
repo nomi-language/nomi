@@ -56,6 +56,8 @@ func TestExampleNotesNameAKnownSubject(t *testing.T) {
 		{"# X\n\nSubject: Strings & Text\n" + rest, "", "strings-and-text"},
 		{"# X\n" + rest, "no `Subject: <subject>` line under the title", ""},
 		{"# X\n\nSubject: Text\n" + rest, `unknown subject "Text"`, ""},
+		{"# X\n\nSubject: Strings & Text\nRun: manual\n" + rest, "", "strings-and-text"},
+		{"# X\n\nSubject: Strings & Text\nRun: later\n" + rest, "unknown `Run: later`", ""},
 	} {
 		var ex exercise
 		err := parseNotes(&ex, tc.notes)
@@ -66,6 +68,8 @@ func TestExampleNotesNameAKnownSubject(t *testing.T) {
 			t.Errorf("parseNotes(%q) subject = %q, want %q", tc.notes, ex.subject.slug, tc.slug)
 		case tc.want == "" && ex.description != "Do a thing.":
 			t.Errorf("parseNotes(%q) description = %q", tc.notes, ex.description)
+		case tc.want == "" && ex.manual != strings.Contains(tc.notes, "Run: manual"):
+			t.Errorf("parseNotes(%q) manual = %v", tc.notes, ex.manual)
 		case tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)):
 			t.Errorf("parseNotes(%q) = %v, want an error containing %q", tc.notes, err, tc.want)
 		}

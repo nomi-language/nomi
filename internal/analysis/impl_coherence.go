@@ -513,7 +513,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 // one through the prelude could not qualify it and `impl Equatable for Int`
 // keyed as bare `Int` while std/int's own keyed as `int.Int` — two groups,
 // no duplicate diagnostic, and a user impl that silently took std's
-// dispatch slot for `Equatable.equal?` while `==` stayed structural.
+// dispatch slot for `Equatable.equal` while `==` stayed structural.
 // `Bool` escaped that because the prelude imports `bool.Bool.{self, ...}`
 // and `Bool` is an *EnumType, which does carry an Origin; that asymmetry is
 // what the probe measured.
@@ -548,7 +548,8 @@ func populateQualifiedReceivers(idx *ProjectImplIndex, filesByKey map[string]*Fi
 		if recv == "" {
 			return
 		}
-		idx.QualifiedReceiver[fn] = qualifyReceiver(filesByKey[home], recv, primitives, entry)
+		fa := filesByKey[home]
+		idx.QualifiedReceiver[fn] = qualifyReceiverThrough(fa, implReceiverModule(fa, fn), recv, primitives, entry)
 	}
 	for fn := range idx.ImplBlockReceiver {
 		populate(fn)
@@ -634,6 +635,13 @@ func primitiveOriginIndex(filesByKey map[string]*FileAnalysis) map[string]string
 // entry is a fact about the program, not about the file that declares the
 // type.
 func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]string, entryOrigin string) string {
+	return qualifyReceiverThrough(fa, "", typeName, primitives, entryOrigin)
+}
+
+// qualifyReceiverThrough is qualifyReceiver for a receiver written through
+// module, the name fa binds a module to (`users` in
+// `impl Html for users.User`), or "" for one written bare.
+func qualifyReceiverThrough(fa *FileAnalysis, module, typeName string, primitives map[string]string, entryOrigin string) string {
 	if typeName == "" {
 		return typeName
 	}
@@ -645,7 +653,7 @@ func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]st
 	if i := strings.Index(typeName, "."); i >= 0 {
 		head = typeName[:i]
 	}
-	origin := declaringOriginOfType(fa, head, primitives)
+	origin := implReceiverOrigin(fa, module, head, primitives)
 	if origin == "" {
 		origin = primitives[head]
 	}
@@ -653,6 +661,58 @@ func qualifyReceiver(fa *FileAnalysis, typeName string, primitives map[string]st
 		return typeName
 	}
 	return origin + receiverOriginSep + typeName
+}
+
+// implReceiverModule is the module an impl item's block header names its
+// receiver through, as fa, the file that writes the block, binds it; ""
+// for a receiver written bare.
+func implReceiverModule(fa *FileAnalysis, fn *ast.FuncDef) string {
+	if fa == nil {
+		return ""
+	}
+	return fa.ImplBlockReceiverModule[fn]
+}
+
+// implReceiverOrigin is the Origin of the receiver type an impl block in fa
+// names: `name` in the scope of the module fa binds to module when the
+// header qualifies it (`impl Html for users.User`), so a type of fa's own
+// with the same name is not the receiver, else `name` in fa's own scope
+// (declaringOriginOfType).
+func implReceiverOrigin(fa *FileAnalysis, module, name string, primitives map[string]string) string {
+	if module == "" {
+		return declaringOriginOfType(fa, name, primitives)
+	}
+	if fa == nil || fa.ModuleScope == nil {
+		return ""
+	}
+	mod := fa.ModuleScope.Lookup(module)
+	for mod != nil && mod.Resolved != nil {
+		mod = mod.Resolved
+	}
+	if mod == nil || mod.Kind != SymbolModule || mod.ModuleScope == nil {
+		return ""
+	}
+	sym := mod.ModuleScope.Lookup(name)
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil {
+		return ""
+	}
+	switch t := sym.Type.(type) {
+	case *StructType:
+		return t.Origin
+	case *EnumType:
+		return t.Origin
+	case *DistinctType:
+		return t.Origin
+	case *PrimitiveType:
+		if t.Origin != "" {
+			return t.Origin
+		}
+		return primitives[sym.Name]
+	}
+	return ""
 }
 
 // receiverOriginSep joins a qualified receiver's declaring module key to its
@@ -835,7 +895,7 @@ func stdlibOnlyImplIndex(filesByKey map[string]*FileAnalysis, own *implTables, o
 	PopulateTypeMethodIdentities(idx, filesByKey)
 	PopulateEnumDecls(idx, filesByKey)
 	// And the conformance table's identity key, for the fourth time on the
-	// same precondition: without it `Equatable.equal?` on a value whose type
+	// same precondition: without it `Equatable.equal` on a value whose type
 	// is a user's own `Error` is judged satisfied by std/calendar's
 	// `derive Equatable for Error`. See missing_impl_identity.go.
 	PopulateImplsByIdentity(idx, filesByKey)
@@ -1636,13 +1696,14 @@ func detectInherentImplNameClashes(
 		}
 		return recs[i].Fn.Col < recs[j].Fn.Col
 	})
-	type originKey struct{ module, head string }
+	type originKey struct{ module, qualifier, head string }
 	origins := map[originKey]string{}
 	originOf := func(fn *ast.FuncDef) string {
-		k := originKey{module: implFiles[fn], head: typeNameHead(receivers[fn])}
+		fa := filesByKey[implFiles[fn]]
+		k := originKey{module: implFiles[fn], qualifier: implReceiverModule(fa, fn), head: typeNameHead(receivers[fn])}
 		origin, seen := origins[k]
 		if !seen {
-			origin = declaringOriginOfType(filesByKey[k.module], k.head, primitives)
+			origin = implReceiverOrigin(fa, k.qualifier, k.head, primitives)
 			origins[k] = origin
 		}
 		return origin

@@ -9,7 +9,7 @@ Find the nth prime number.
 
 Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/nth-prime) (MIT). Listed under [Numbers & Math](/examples/?subject=numbers-and-math).
 
-```nomi-run
+```nomi-run manual
 // FILE: nth_prime.nomi
 //# The nth prime number, found by trial division.
 
@@ -19,15 +19,15 @@ pub fn prime(n: Int) -> Maybe<Int> {
     if n < 1 { return None }
 
     Iter.from(2)
-    |> Iter.filter(prime?)
+    |> Iter.filter(is_prime)
     |> Iter.get(n - 1)
 }
 
 /// Whether `number` has no divisor between 2 and its square root.
-fn prime?(number: Int) -> Bool {
+fn is_prime(number: Int) -> Bool {
     Iter.from(2)
     |> Iter.take_while(fn d -> d * d <= number)
-    |> Iter.all?(fn d -> number % d != 0)
+    |> Iter.all(fn d -> number % d != 0)
 }
 
 // FILE: nth_prime_test.nomi
@@ -47,10 +47,14 @@ test "prime" {
     }
 }
 ```
+<!-- expect
+ok prime (5 cases)
+test result: ok. 5 passed, 0 failed
+-->
 
 ## How it's written
 
 - `prime` returns `Maybe<Int>`: there is no zeroth prime, and `None` says so without an error type for the one way to fail.
-- The primes are a lazy pipe, `Iter.from(2) |> Iter.filter(prime?) |> Iter.get(n - 1)`, rather than a sieve: the sieve needs a limit chosen in advance, and the 10,001st prime takes well under a second by trial division.
-- `prime?` tries divisors up to the square root with `Iter.take_while` and `Iter.all?`, which stops at the first divisor.
+- The primes are a lazy pipe, `Iter.from(2) |> Iter.filter(is_prime) |> Iter.get(n - 1)`, rather than a sieve: the sieve needs a limit chosen in advance, and the 10,001st prime takes well under a second by trial division.
+- `is_prime` tries divisors up to the square root with `Iter.take_while` and `Iter.all`, which stops at the first divisor.
 - The five canonical cases are one `subtests` table.

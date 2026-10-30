@@ -40,7 +40,7 @@ fn side(s: Side) -> String {
     }
 }
 
-fn small?(n: Int) -> Bool {
+fn is_small(n: Int) -> Bool {
     case n {
         1 or 2 or 3 -> True
         _ -> False
@@ -55,14 +55,14 @@ fn answer(s: String) -> Maybe<Bool> {
     }
 }
 
-fn opener?(c: Codepoint) -> Bool {
+fn is_opener(c: Codepoint) -> Bool {
     case c {
         '(' or '[' or '{' -> True
         _ -> False
     }
 }
 
-fn two_equal?(m: Maybe<Tri>) -> Bool {
+fn has_two_equal(m: Maybe<Tri>) -> Bool {
     case m {
         Some(.Equilateral or .Isosceles) -> True
         Some(.Scalene) or None -> False
@@ -112,19 +112,19 @@ test "a guard applies to the arm whichever alternative matched" {
 }
 
 test "literal alternatives" {
-    assert small?(2)
-    refute small?(4)
+    assert is_small(2)
+    refute is_small(4)
     assert answer("y") == Some(True)
     assert answer("n") == Some(False)
     assert answer("maybe") == None
-    assert opener?('[')
-    refute opener?(')')
+    assert is_opener('[')
+    refute is_opener(')')
 }
 
 test "alternatives nested in a payload, a tuple, a field and a list" {
-    assert two_equal?(Some(Tri.Isosceles))
-    refute two_equal?(Some(Tri.Scalene))
-    refute two_equal?(None)
+    assert has_two_equal(Some(Tri.Isosceles))
+    refute has_two_equal(Some(Tri.Scalene))
+    refute has_two_equal(None)
     assert off_axis(#(0, 5)) == 5
     assert off_axis(#(6, 0)) == 6
     assert off_axis(#(2, 3)) == 6
@@ -140,9 +140,7 @@ test "alternatives in each binding position" {
     .L(n) or .R(n) = Side.R(4)
     assert n == 4
 
-    #.Circle{r} or #.Square{r} = #Shape.Square{r: 1.5} else {
-        return
-    }
+    #.Circle{r} or #.Square{r} = #Shape.Square{r: 1.5} else { return }
 
     assert r == 1.5
 

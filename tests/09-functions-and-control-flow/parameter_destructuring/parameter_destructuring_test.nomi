@@ -71,7 +71,7 @@ test "refutable parameter patterns report diagnostics" {
 
     assert Iter.count(diagnostics) == 1
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "refutable pattern in parameter; bind the parameter and use a `case` in the body",
     )

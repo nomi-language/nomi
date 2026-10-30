@@ -1,3 +1,5 @@
+//# Spells out a number in English.
+
 /// Why a number cannot be said.
 pub enum Error {
     OutOfRange
@@ -44,7 +46,7 @@ once scales = [
 /// `number` in English words, from "zero" to the largest number below a
 /// trillion.
 pub fn say(number: Int) -> Result<String, Error> {
-    if number < 0 or number > largest {
+    if !Range.contains(0..=largest, number) {
         Err(.OutOfRange)
     } else {
         Ok(words(number))
@@ -73,10 +75,10 @@ fn words(n: Int) -> String {
 
 fn below_hundred(n: Int) -> String {
     if n < 20 {
-        Vector.at(small, n)
+        Vector.get(small, n)!
     } else if n % 10 == 0 {
-        Vector.at(tens, n / 10)
+        Vector.get(tens, n / 10)!
     } else {
-        "${Vector.at(tens, n / 10)}-${Vector.at(small, n % 10)}"
+        "${Vector.get(tens, n / 10)!}-${Vector.get(small, n % 10)!}"
     }
 }

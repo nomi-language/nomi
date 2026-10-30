@@ -251,7 +251,7 @@ func customCurrencyCall(fa *analysis.FileAnalysis, n ast.Node) (currencyCall, bo
 			digits, _ = a.(*ast.IntLit)
 		}
 	}
-	if code == nil || digits == nil || code.Raw || code.Triple {
+	if code == nil || digits == nil || digits.Big != nil || code.Raw || code.Triple {
 		return currencyCall{}, false
 	}
 	currency := code.Value + ":" + strconv.FormatInt(digits.Value, 10)

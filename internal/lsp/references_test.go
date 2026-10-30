@@ -162,7 +162,7 @@ func TestFindReferences_IncludeDeclaration(t *testing.T) {
 }
 
 // TestFindReferences_DeriveSkipsSynthBand probes a file with
-// `derive Equatable for Point` and a call `Equatable.equal?(p1, p2)`, then runs
+// `derive Equatable for Point` and a call `Equatable.equal(p1, p2)`, then runs
 // Find References on `equals` at the call site. The synthesizer registers a synthetic `equals`
 // FuncDef in the synth-band (line >= 1<<30); without filtering, those phantom
 // definitions surface as Locations the editor jumps to past EOF. The handler
@@ -182,7 +182,7 @@ derive Equatable for Point
 fn main() {
   p1 = #Point{x: 1, y: 2}
   p2 = #Point{x: 1, y: 2}
-  result = Equatable.equal?(p1, p2)
+  result = Equatable.equal(p1, p2)
   result
 }
 `
@@ -192,9 +192,9 @@ fn main() {
 	uri := fileuri.FromPath(mainFile)
 	s.docs.Open(uri, src)
 
-	// `equal?` at the call site sits on line 13; the identifier starts
-	// at column 22 ("  result = Equatable.equal?(p1, p2)"). Click inside
-	// `equal?` (line 13 — zero-based line 12, char 23).
+	// `equal` at the call site sits on line 13; the identifier starts
+	// at column 22 ("  result = Equatable.equal(p1, p2)"). Click inside
+	// `equal` (line 13 — zero-based line 12, char 23).
 	params := &protocol.ReferenceParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},

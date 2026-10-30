@@ -27,7 +27,7 @@ func TestJSONUserElements_StdInstancesCallTheUsersImpl(t *testing.T) {
 		"dbg line 46: Json.encode(ToJson.to_json([by_key])) = \"[{\\\"k\\\":{\\\"title\\\":\\\"d\\\"}}]\"\n" +
 		"dbg line 47: Json.encode(ToJson.to_json([maybe, none])) = \"[{\\\"title\\\":\\\"e\\\"},null]\"\n" +
 		"dbg line 48: Iter.sort(notes) = [#Note{title: \"a\"}, #Note{title: \"b\"}]\n" +
-		"dbg line 49: Iter.to_set(notes) |> Set.contains?(#Note{title: \"a\"}) = True\n"
+		"dbg line 49: Iter.to_set(notes) |> Set.contains(#Note{title: \"a\"}) = True\n"
 	got := vmReference(fixture("json_user_elements.nomi"))
 	if got.stdout != want || got.exit != 0 || got.stderr != "" {
 		t.Fatalf("std's JSON instances at a user element type:\nwant stdout=%q\ngot  %s", want, got)

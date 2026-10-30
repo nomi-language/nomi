@@ -70,7 +70,7 @@ func TestOpaqueRtTypesAreNominallyDistinct(t *testing.T) {
 //
 // It is a rt-level test on purpose. A golden record cannot distinguish a bug in
 // rt from the expected output it recorded, and the fixtures above only compare Instants
-// through `Instant.before?`, whose Nomi body is `a < b` on the unwrapped Ints —
+// through `Instant.is_before`, whose Nomi body is `a < b` on the unwrapped Ints —
 // so an interning or handle-table representation that collapsed distinct values
 // would show up here and nowhere else.
 func TestOpaqueDistinctInstantsCompareUnequal(t *testing.T) {
@@ -267,8 +267,8 @@ func TestOpaqueStdlibIndexResolvesTheOpaqueSurface(t *testing.T) {
 		"Duration.as_nanos", "Duration.as_micros", "Duration.as_millis",
 		"Duration.as_seconds", "Duration.as_minutes", "Duration.as_hours",
 		"Duration.to_string", "Duration.add", "Duration.subtract",
-		"Duration.multiply", "Duration.divide", "Duration.equal?",
-		"Instant.now", "Instant.from_seconds", "Instant.to_seconds", "Instant.before?",
+		"Duration.multiply", "Duration.divide", "Duration.equal",
+		"Instant.now", "Instant.from_seconds", "Instant.to_seconds", "Instant.is_before",
 	}
 	for _, name := range lowerable {
 		f := stdSole(idx.byType[name])

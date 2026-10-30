@@ -12,5 +12,5 @@ test "type-qualified missing variant reports a diagnostic" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "type 'Maybe' has no member 'Bogus'")
+    assert test_helpers.has_diagnostic(diagnostics, "type 'Maybe' has no member 'Bogus'")
 }

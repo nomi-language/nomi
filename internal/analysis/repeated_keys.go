@@ -100,7 +100,7 @@ func (c *checker) checkRepeatedKeys(nodes []ast.Node) {
 //   - a variant with no payload (`None`, `Direction.North`,
 //     `.North`), and a variant constructor applied to constants
 //     (`Some(1)`, `.Move(1, 2)`), of an enum with no `impl Equatable` of
-//     its own or a std enum. A hand-written `equal?` decides equality for
+//     its own or a std enum. A hand-written `equal` decides equality for
 //     the others, and nothing about it is known here.
 //   - a tuple of constants.
 func (c *checker) constKey(n ast.Node) (canon, display string, ok bool) {
@@ -110,7 +110,7 @@ func (c *checker) constKey(n ast.Node) (canon, display string, ok bool) {
 		if !c.typedAs(v, TypeInt) {
 			return "", "", false
 		}
-		return "i:" + strconv.FormatInt(v.Value, 10), literalText(v.Lexeme, strconv.FormatInt(v.Value, 10)), true
+		return "i:" + v.Decimal(), literalText(v.Lexeme, v.Decimal()), true
 	case *ast.FloatLit:
 		if !c.typedAs(v, TypeFloat) {
 			return "", "", false
@@ -145,7 +145,8 @@ func (c *checker) constKey(n ast.Node) (canon, display string, ok bool) {
 			if !c.typedAs(lit, TypeInt) || !c.typedAs(v, TypeInt) {
 				return "", "", false
 			}
-			return "i:" + strconv.FormatInt(-lit.Value, 10), "-" + literalText(lit.Lexeme, strconv.FormatInt(lit.Value, 10)), true
+			neg := lit.Negated(lit.Line, lit.Col)
+			return "i:" + neg.Decimal(), "-" + literalText(lit.Lexeme, lit.Decimal()), true
 		case *ast.FloatLit:
 			if !c.typedAs(lit, TypeFloat) || !c.typedAs(v, TypeFloat) {
 				return "", "", false

@@ -26,7 +26,7 @@ test "sort records Comparable demands for imported element impls" {
         |> Iter.sort()
         |> Iter.map(.weight)
         |> Iter.to_list()
-        |> List.equal?([1, 2, 3])
+        |> List.equal([1, 2, 3])
 }
 
 test "sort_by records Comparable demands for imported key impls" {

@@ -55,8 +55,8 @@ test "ranges over codepoint literals iterate as codepoints" {
 
     assert letters == "abcde"
     assert digits == [48, 49, 50, 51, 52, 53, 54, 55, 56]
-    assert Range.contains?('a'..='z', 'q')
-    refute Range.contains?('a'..='z', 'Q')
+    assert Range.contains('a'..='z', 'q')
+    refute Range.contains('a'..='z', 'Q')
 }
 
 test "codepoint literals are case patterns" {

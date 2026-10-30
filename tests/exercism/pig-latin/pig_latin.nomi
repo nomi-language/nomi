@@ -12,7 +12,7 @@ pub fn translate(phrase: String) -> String {
 }
 
 fn translate_word(word: String) -> String {
-    onset = onset_length(Iter.to_list(word))
+    onset = word |> Iter.to_list() |> onset_length()
     String.drop(word, onset) + String.take(word, onset) + "ay"
 }
 
@@ -33,7 +33,7 @@ fn onset_length(letters: List<String>) -> Int {
 fn consonants(letters: List<String>) -> Int {
     case letters {
         ["q", "u", .._] -> 2
-        [letter, ..rest] when !Set.contains?(vowels, letter) -> 1 + consonants(rest)
+        [letter, ..rest] when !Set.contains(vowels, letter) -> 1 + consonants(rest)
         _ -> 0
     }
 }

@@ -12,16 +12,16 @@
 // MISS — and would then refuse under a key saying the function does not exist.
 // Resolution is by DECLARATION NODE, so both spellings reach one entry.
 //
-// `String.{starts_with? as has}` is the same correction one layer over: a stdlib
+// `String.{starts_with as has}` is the same correction one layer over: a stdlib
 // TYPE's method reached bare, routed to the same implCall the qualified
-// spelling `String.starts_with?` reaches, so the two cannot answer differently.
+// spelling `String.starts_with` reaches, so the two cannot answer differently.
 //
 // And `std/io.{print}` is a stdlib FILE's free function reached bare, the
 // spelling that would otherwise report `call to an unlowered function` for
 // the one host function this builder does lower.
 import {
     std/io.print
-    std/strings.String.{starts_with? as has}
+    std/strings.String.{starts_with as has}
     lib.{self, Widget, label, make, twice as doubled}
 }
 

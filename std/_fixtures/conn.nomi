@@ -95,7 +95,7 @@ pub struct Pool {
 impl Pool {
     /// The first column of every row the query answers, decoded.
     pub fn column<T>(pool: Pool, sql: String) -> Result<List<T>, Error> where T: FromValue {
-        rows = try Conn.query(pool.conn, sql)
+        rows = Conn.query(pool.conn, sql)?
         decode(rows, [])
     }
 
@@ -119,7 +119,7 @@ fn decode<T>(rows: List<List<Value>>, done: List<T>) -> Result<List<T>, Error> w
                 [] -> Value.Null
             }
 
-            decoded = try T.from_value(value, 0)
+            decoded = T.from_value(value, 0)?
             decode(rest, [decoded, ..done])
         }
     }

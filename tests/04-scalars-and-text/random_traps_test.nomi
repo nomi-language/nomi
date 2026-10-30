@@ -12,7 +12,7 @@ test "a reversed integer range traps at the program's call" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "line 4: Generator.int: from 6 is greater than to 1")
+    assert String.contains(message, "line 4: Generator.int: from 6 is greater than to 1")
 }
 
 test "an empty float range traps at the program's call" {
@@ -27,7 +27,7 @@ test "an empty float range traps at the program's call" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "line 4: Generator.float: from 2.5 is not less than to 1.5")
+    assert String.contains(message, "line 4: Generator.float: from 2.5 is not less than to 1.5")
 }
 
 test "equal float bounds trap" {
@@ -42,7 +42,7 @@ test "equal float bounds trap" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "line 4: Generator.float: from 1.0 is not less than to 1.0")
+    assert String.contains(message, "line 4: Generator.float: from 1.0 is not less than to 1.0")
 }
 
 test "a range trap inside a lambda names the lambda's line" {
@@ -61,8 +61,8 @@ test "a range trap inside a lambda names the lambda's line" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains?(message, "line 6: Generator.int: from ")
-    assert String.contains?(message, " is greater than to 0")
+    assert String.contains(message, "line 6: Generator.int: from ")
+    assert String.contains(message, " is greater than to 0")
 }
 
 test "equal integer bounds make a constant draw" {
@@ -79,7 +79,7 @@ test "equal integer bounds make a constant draw" {
         |> compiler.run()
 
     assert Ok(output) = result
-    assert String.contains?(output, "4")
+    assert String.contains(output, "4")
 }
 
 test "an infinite float bound traps" {
@@ -95,7 +95,7 @@ test "an infinite float bound traps" {
 
     assert Err(message) = result
 
-    assert String.contains?(
+    assert String.contains(
         message,
         "line 4: Generator.float: bounds must be finite, got -Inf and 1.0",
     )

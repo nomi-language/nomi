@@ -5,34 +5,34 @@ import (
 	"testing"
 )
 
-// Spec §9's `try` boundary rule, at a `fn` boundary with a DECLARED result
-// type. Three parts, all checked at the `try` and all naming both sides:
+// Spec §9's `?` boundary rule, at a `fn` boundary with a DECLARED result
+// type. Three parts, all checked at the `?` and all naming both sides:
 //
 //  1. the boundary must be a `Result` or a `Maybe`;
 //  2. the flavours must agree;
 //  3. when both are `Result`s the ERROR TYPES must be the same type.
 //
-// (3) is the soundness rule: `try` propagates the operand's `Err` payload
+// (3) is the soundness rule: `?` propagates the operand's `Err` payload
 // unchanged, so without it a function's declared error type would stop
 // describing what it could return, and the failure would surface far away
 // (`Display.to_string: no implementation for type 'json.Json.DecodeError'`)
-// naming neither the `try` nor the boundary.
+// naming neither the `?` nor the boundary.
 
 func TestTryBoundary_ErrorTypeMustMatch(t *testing.T) {
 	src := `fn r() -> Result<Int, Int> {
   Err(7)
 }
 fn f() -> Result<Int, String> {
-  v = try r()
+  v = r()?
   Ok(v)
 }`
 	errs := analyzeConcurrentRaw(src)
-	expectConcurrentError(t, errs, "try error type mismatch: expected String, got Int")
-	// The diagnostic must land on the `try`, not on the function or the
+	expectConcurrentError(t, errs, "`?` error type mismatch: expected String, got Int")
+	// The diagnostic must land on the `?`, not on the function or the
 	// binding — that is the whole point of reporting at the site.
 	found := false
 	for _, e := range errs {
-		if strings.Contains(e.Message, "try error type mismatch") {
+		if strings.Contains(e.Message, "`?` error type mismatch") {
 			found = true
 			if e.Line != 5 {
 				t.Fatalf("expected the diagnostic on the `try` line (5), got line %d", e.Line)
@@ -40,7 +40,7 @@ fn f() -> Result<Int, String> {
 		}
 	}
 	if !found {
-		t.Fatal("no try error type mismatch diagnostic")
+		t.Fatal("no `?` error type mismatch diagnostic")
 	}
 }
 
@@ -49,10 +49,10 @@ func TestTryBoundary_MatchingErrorTypeIsClean(t *testing.T) {
   Err("boom")
 }
 fn f() -> Result<Int, String> {
-  v = try r()
+  v = r()?
   Ok(v)
 }`
-	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch")
+	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "`?` error type mismatch")
 }
 
 // The language's answer to a mismatch is conversion AT THE SITE with
@@ -62,10 +62,10 @@ func TestTryBoundary_MapErrAtTheSiteIsClean(t *testing.T) {
   Err(7)
 }
 fn f() -> Result<Int, String> {
-  v = try Result.map_err(r(), fn code: Int -> Int.to_string(code))
+  v = Result.map_err(r(), fn code: Int -> Int.to_string(code))?
   Ok(v)
 }`
-	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch")
+	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "`?` error type mismatch")
 }
 
 func TestTryBoundary_MaybeCannotPropagateIntoAResult(t *testing.T) {
@@ -73,11 +73,11 @@ func TestTryBoundary_MaybeCannotPropagateIntoAResult(t *testing.T) {
   None
 }
 fn f() -> Result<Int, String> {
-  v = try find()
+  v = find()?
   Ok(v)
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` on a Maybe cannot propagate out of a function returning Result<Int, String>")
+		"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>")
 }
 
 func TestTryBoundary_ResultCannotPropagateIntoAMaybe(t *testing.T) {
@@ -85,11 +85,11 @@ func TestTryBoundary_ResultCannotPropagateIntoAMaybe(t *testing.T) {
   Err("boom")
 }
 fn f() -> Maybe<Int> {
-  v = try r()
+  v = r()?
   Some(v)
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` on a Result cannot propagate out of a function returning Maybe<Int>")
+		"`?` on a Result cannot propagate out of a function returning Maybe<Int>")
 }
 
 func TestTryBoundary_MaybeIntoMaybeIsClean(t *testing.T) {
@@ -97,12 +97,12 @@ func TestTryBoundary_MaybeIntoMaybeIsClean(t *testing.T) {
   None
 }
 fn f() -> Maybe<Int> {
-  v = try find()
+  v = find()?
   Some(v)
 }`
 	errs := analyzeConcurrentRaw(src)
 	expectNoConcurrentError(t, errs, "cannot propagate")
-	expectNoConcurrentError(t, errs, "try error type mismatch")
+	expectNoConcurrentError(t, errs, "`?` error type mismatch")
 }
 
 func TestTryBoundary_NonResultBoundaryIsRejected(t *testing.T) {
@@ -110,11 +110,11 @@ func TestTryBoundary_NonResultBoundaryIsRejected(t *testing.T) {
   Err("boom")
 }
 fn f() -> Int {
-  v = try r()
+  v = r()?
   v
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` cannot propagate a Result out of a function returning Int")
+		"`?` cannot propagate a Result out of a function returning Int")
 }
 
 // A function with no declared return type has a Unit result, so there is
@@ -124,21 +124,21 @@ func TestTryBoundary_UndeclaredReturnTypeIsRejected(t *testing.T) {
   Err("boom")
 }
 fn f() {
-  _ = try r()
+  _ = r()?
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` cannot propagate a Result out of a function returning Unit")
+		"`?` cannot propagate a Result out of a function returning Unit")
 }
 
 // A declared return type that does not resolve is an error at the type. The
-// function does not return Unit, so its `try` gets no second error saying it
+// function does not return Unit, so its `?` gets no second error saying it
 // does.
 func TestTryBoundary_UnresolvedReturnTypeIsNotUnit(t *testing.T) {
 	src := `fn r() -> Result<Int, String> {
   Err("boom")
 }
 fn f() -> Result<Int, Missing> {
-  v = try r()
+  v = r()?
   Ok(v)
 }`
 	errs := analyzeConcurrentRaw(src)
@@ -146,7 +146,7 @@ fn f() -> Result<Int, Missing> {
 	expectNoConcurrentError(t, errs, "cannot propagate")
 }
 
-// A test body declares NO result — a propagating `try` there ends the case
+// A test body declares NO result — a propagating `?` there ends the case
 // with `test returned early` rather than returning a value anywhere — so the
 // boundary rule has nothing to say about it and must stay silent.
 func TestTryBoundary_TestBodyIsExempt(t *testing.T) {
@@ -154,11 +154,11 @@ func TestTryBoundary_TestBodyIsExempt(t *testing.T) {
   Err(7)
 }
 test "propagates" {
-  v = try r()
+  v = r()?
   assert v == 1
 }`
 	errs := analyzeConcurrentRaw(src)
-	expectNoConcurrentError(t, errs, "try error type mismatch")
+	expectNoConcurrentError(t, errs, "`?` error type mismatch")
 	expectNoConcurrentError(t, errs, "cannot propagate")
 }
 
@@ -179,10 +179,10 @@ fn r() -> Result<Int, Boom> {
   Err(#Boom{why: "boom"})
 }
 fn f() -> Result<Int, Display> {
-  v = try r()
+  v = r()?
   Ok(v)
 }`
-	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch")
+	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "`?` error type mismatch")
 }
 
 // A generic boundary is not silently satisfied by a concrete error type: the
@@ -192,37 +192,36 @@ func TestTryBoundary_GenericBoundaryIsNotSatisfiedByAConcreteError(t *testing.T)
   Err("boom")
 }
 fn f<E>() -> Result<Int, E> {
-  v = try r()
+  v = r()?
   Ok(v)
 }`
-	expectConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch: expected E, got String")
+	expectConcurrentError(t, analyzeConcurrentRaw(src), "`?` error type mismatch: expected E, got String")
 }
 
 // A generic boundary propagating its OWN error type is clean.
 func TestTryBoundary_GenericBoundaryMatchingItsOwnErrorTypeIsClean(t *testing.T) {
 	src := `fn f<E>(r: Result<Int, E>) -> Result<Int, E> {
-  v = try r
+  v = r?
   Ok(v)
 }`
-	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "try error type mismatch")
+	expectNoConcurrentError(t, analyzeConcurrentRaw(src), "`?` error type mismatch")
 }
 
-// The pipe spelling is the same shape — the parser desugars `x |> try f()`
-// into a bare `try` stage over the piped value — so it must be checked too,
+// The pipe spelling is the same shape — the parser desugars `x |> f()?`
+// into a bare `?` stage over the piped value — so it must be checked too,
 // otherwise the rule has a hole the moment anyone writes a pipeline.
 func TestTryBoundary_PipeStageIsChecked(t *testing.T) {
 	src := `fn f() -> Result<Int, String> {
   n =
-    Some(1)
-    |> try
+    Some(1)?
   Ok(n)
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` on a Maybe cannot propagate out of a function returning Result<Int, String>")
+		"`?` on a Maybe cannot propagate out of a function returning Result<Int, String>")
 }
 
 // An INFERRING boundary keeps its own regime: resolveBoundaryErr binds or
-// validates the block's error side from the accumulated `try` sites, and
+// validates the block's error side from the accumulated `?` sites, and
 // checkTryBoundary must not also report against the enclosing fn's
 // declaration. Regression guard for the gate.
 func TestTryBoundary_ConcurrentBlockKeepsItsOwnRegime(t *testing.T) {
@@ -232,7 +231,7 @@ func TestTryBoundary_ConcurrentBlockKeepsItsOwnRegime(t *testing.T) {
 fn demo() -> String {
   outcome = concurrent {
     x = Task.spawn(fn -> short_fail())
-    Ok(try Task.await(x))
+    Ok(Task.await(x)?)
   }
   case outcome {
     Ok(n) -> "ok"
@@ -240,12 +239,12 @@ fn demo() -> String {
   }
 }`
 	errs := analyzeConcurrent(src)
-	expectNoConcurrentError(t, errs, "try error type mismatch")
+	expectNoConcurrentError(t, errs, "`?` error type mismatch")
 	expectNoConcurrentError(t, errs, "cannot propagate")
 }
 
 // THE INFERRING HALF. A lambda declares no result, so there is nothing to
-// launder — its error type IS the `try` site's. What it can still get wrong is
+// launder — its error type IS the `?` site's. What it can still get wrong is
 // clause 1: the lambda's result is not a Result or a Maybe at all, so the
 // propagated `Err`/`None` is handed to a caller expecting the success type.
 //
@@ -256,16 +255,16 @@ func TestTryBoundary_LambdaResultCannotHoldAPropagatedResult(t *testing.T) {
 }
 fn main() {
   _ = fn x: Int -> {
-    v = try parse(x)
+    v = parse(x)?
     v
   }
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` cannot propagate a Result out of a lambda whose result is Int")
+		"`?` cannot propagate a Result out of a lambda whose result is Int")
 }
 
 // The `Maybe` flavour is the reason the accumulator carries a FLAVOUR and not
-// only an error type: a `try` on a `Maybe` contributes no error type, so an
+// only an error type: a `?` on a `Maybe` contributes no error type, so an
 // error-type-only accumulator is empty here and cannot see the violation.
 func TestTryBoundary_LambdaResultCannotHoldAPropagatedMaybe(t *testing.T) {
 	src := `fn find(n: Int) -> Maybe<Int> {
@@ -273,12 +272,12 @@ func TestTryBoundary_LambdaResultCannotHoldAPropagatedMaybe(t *testing.T) {
 }
 fn main() {
   _ = fn x: Int -> {
-    v = try find(x)
+    v = find(x)?
     v
   }
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` cannot propagate a Maybe out of a lambda whose result is Int")
+		"`?` cannot propagate a Maybe out of a lambda whose result is Int")
 }
 
 func TestTryBoundary_LambdaWithAResultTailIsClean(t *testing.T) {
@@ -287,7 +286,7 @@ func TestTryBoundary_LambdaWithAResultTailIsClean(t *testing.T) {
 }
 fn main() {
   _ = fn x: Int -> {
-    v = try parse(x)
+    v = parse(x)?
     Ok(v)
   }
 }`
@@ -305,13 +304,13 @@ fn find(n: Int) -> Maybe<Int> {
 }
 fn main() {
   _ = fn x: Int -> {
-    a = try parse(x)
-    b = try find(x)
+    a = parse(x)?
+    b = find(x)?
     Ok(a + b)
   }
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` on a Maybe cannot propagate out of a lambda whose result is Result")
+		"`?` on a Maybe cannot propagate out of a lambda whose result is Result")
 }
 
 // A `concurrent` block whose tail is not a Result/Maybe is the same violation
@@ -323,17 +322,17 @@ func TestTryBoundary_ConcurrentBlockResultCannotHoldIt(t *testing.T) {
 fn demo() -> Int {
   outcome = concurrent {
     x = Task.spawn(fn -> short_fail())
-    try Task.await(x)
+    Task.await(x)?
   }
   outcome
 }`
 	expectConcurrentError(t, analyzeConcurrent(src),
-		"`try` cannot propagate a Result out of a concurrent block whose result is Int")
+		"`?` cannot propagate a Result out of a concurrent block whose result is Int")
 }
 
 // A callback whose body only `break`s still has a result: `break value` is
 // `return value` then stop (spec §12), so `break v` with v an Int makes the
-// `Iter.loop` callback's result Int, and a `try` there has no Result or
+// `Iter.loop` callback's result Int, and a `?` there has no Result or
 // Maybe to propagate into (spec §9, clause 1).
 func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String> {
@@ -341,15 +340,15 @@ func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
 }
 fn demo() -> Int {
   Iter.loop(fn acc = 0 -> {
-    v = try parse(acc)
+    v = parse(acc)?
     break v
   })
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` cannot propagate a Result out of a lambda whose result is Int")
+		"`?` cannot propagate a Result out of a lambda whose result is Int")
 }
 
-// The same loop over a Result state holds the `try`: the break value is the
+// The same loop over a Result state holds the `?`: the break value is the
 // Result the propagated Err inhabits.
 func TestTryBoundary_BreakOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String> {
@@ -357,7 +356,7 @@ func TestTryBoundary_BreakOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
 }
 fn demo() -> Result<Int, String> {
   Iter.loop(fn acc: Result<Int, String> = Ok(0) -> {
-    v = try parse(Result.with_default(acc, 0))
+    v = parse(Result.with_default(acc, 0))?
     break Ok(v)
   })
 }`
@@ -367,7 +366,7 @@ fn demo() -> Result<Int, String> {
 }
 
 // A callback whose body only `continue`s produces no value, but its result
-// is still the one its callee declares: Unit for `Iter.each`, which a `try`
+// is still the one its callee declares: Unit for `Iter.each`, which a `?`
 // cannot propagate into (spec §9, clause 1).
 func TestTryBoundary_ContinueOnlyLambdaBodyHasTheCallbacksResult(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String> {
@@ -375,23 +374,23 @@ func TestTryBoundary_ContinueOnlyLambdaBodyHasTheCallbacksResult(t *testing.T) {
 }
 fn demo() -> Unit {
   Iter.each([1, 2], fn x -> {
-    _ = try parse(x)
+    _ = parse(x)?
     continue
   })
 }`
 	expectConcurrentError(t, analyzeConcurrentRaw(src),
-		"`try` cannot propagate a Result out of a lambda whose result is Unit")
+		"`?` cannot propagate a Result out of a lambda whose result is Unit")
 }
 
 // The same body in a callback whose declared result is a Result holds the
-// `try`.
+// `?`.
 func TestTryBoundary_ContinueOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
 }
 fn demo() -> Result<Int, String> {
   Iter.loop(fn acc: Result<Int, String> = Ok(0) -> {
-    _ = try parse(Result.with_default(acc, 0))
+    _ = parse(Result.with_default(acc, 0))?
     continue
   })
 }`
@@ -399,9 +398,9 @@ fn demo() -> Result<Int, String> {
 }
 
 // An `assert` inside a `concurrent` block exits the block as
-// Err(AssertionFailure), like a `try`, so a block whose value is not a
+// Err(AssertionFailure), like a `?`, so a block whose value is not a
 // Result has nowhere to send the failure and is an error at the assertion.
-// The diagnostic names the assertion, not a `try` the user did not write.
+// The diagnostic names the assertion, not a `?` the user did not write.
 func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
 	src := `fn demo() -> Int {
   v = concurrent {
@@ -413,7 +412,7 @@ func TestTryBoundary_AssertionInAConcurrentBlockNeedsAResult(t *testing.T) {
 	errs := analyzeConcurrentRaw(src)
 	expectConcurrentError(t, errs, "an assertion inside a concurrent block exits the block with Err(AssertionFailure), but the block's value is Int")
 	expectNoConcurrentError(t, errs, "cannot propagate")
-	expectNoConcurrentError(t, errs, "try error type mismatch")
+	expectNoConcurrentError(t, errs, "`?` error type mismatch")
 }
 
 // A block producing Result<_, AssertionFailure> holds its assertions; one

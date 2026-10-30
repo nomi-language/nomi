@@ -26,7 +26,7 @@ impl Cipher {
     pub fn random(seed: Seed) -> #(Cipher, Seed) {
         #(letters, next) =
             Generator.int(0, letter_count - 1)
-            |> Generator.map(&Vector.at(alphabet, &1))
+            |> Generator.map(&Vector.get(alphabet, &1)!)
             |> Generator.list(random_key_length)
             |> Generator.step(seed)
 
@@ -64,7 +64,7 @@ fn shift(cipher: Cipher, text: String, direction: Int) -> String {
     |> Iter.zip(key)
     |> Iter.map(fn #(letter, by) -> {
         moved = number(letter) + direction * number(by)
-        Vector.at(alphabet, Int.modulo(moved, letter_count))
+        Vector.get(alphabet, Int.modulo(moved, letter_count))!
     })
     |> Iter.to_list()
     |> String.from_codepoints()

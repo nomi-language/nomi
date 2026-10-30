@@ -23,9 +23,9 @@ test "defer runs on normal exit failed acquire and early return" {
 
         fn normal_exit() -> Result<Unit, String> {
           {
-            first = try open("first")
+            first = open("first")?
             defer close(first)
-            second = try open("second")
+            second = open("second")?
             defer close(second)
             io.print("body")
           }
@@ -33,9 +33,9 @@ test "defer runs on normal exit failed acquire and early return" {
         }
 
         fn failed_acquire() -> Result<Unit, String> {
-          first = try open("first")
+          first = open("first")?
           defer close(first)
-          _bad = try open("bad")
+          _bad = open("bad")?
           Ok(Unit)
         }
 

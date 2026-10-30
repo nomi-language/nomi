@@ -2,6 +2,7 @@ package format
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 	"sort"
 	"strings"
@@ -335,6 +336,8 @@ func ungrouped(v reflect.Value) reflect.Value {
 	}
 }
 
+var bigIntType = reflect.TypeOf((*big.Int)(nil))
+
 // equalAST compares two syntax trees, skipping astSkipFields. When they
 // differ, path names the first difference.
 func equalAST(a, b reflect.Value, path string) (string, bool) {
@@ -356,6 +359,15 @@ func equalAST(a, b reflect.Value, path string) (string, bool) {
 	}
 	if a.Type() != b.Type() {
 		return fmt.Sprintf("%s: %s became %s", path, a.Type(), b.Type()), false
+	}
+	if a.Type() == bigIntType {
+		// An Int literal past int64's range (ast.IntLit.Big): its value, not
+		// its unexported words.
+		x, y := a.Interface().(*big.Int), b.Interface().(*big.Int)
+		if (x == nil) != (y == nil) || (x != nil && x.Cmp(y) != 0) {
+			return fmt.Sprintf("%s: %v became %v", path, x, y), false
+		}
+		return "", true
 	}
 	switch a.Kind() {
 	case reflect.Interface, reflect.Ptr:

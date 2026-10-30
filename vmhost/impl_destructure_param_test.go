@@ -27,7 +27,7 @@ impl Balance {
 type Slug String
 
 impl Equatable for Slug {
-    fn equal?(Slug(a), Slug(b)) -> Bool { a == b }
+    fn equal(Slug(a), Slug(b)) -> Bool { a == b }
 }
 
 struct Point {

@@ -499,9 +499,10 @@ func discoverCheckFiles(root string) (files []string, through map[string][]strin
 		}
 		return []string{abs}, nil, true, nil
 	}
-	if mfst, err := analysis.LoadManifest(root); err == nil && len(mfst.EntryPoints) > 0 {
-		files := make([]string, 0, len(mfst.EntryPoints))
-		for _, entry := range mfst.EntryPoints {
+	if mfst, err := analysis.LoadManifest(root); err == nil && len(mfst.Entries(root)) > 0 {
+		entries := mfst.Entries(root)
+		files := make([]string, 0, len(entries))
+		for _, entry := range entries {
 			entryPath := filepath.FromSlash(entry)
 			// An entry names its .nomi file without the extension, or an
 			// extensionless `#!` script beside nomi.toml when no such

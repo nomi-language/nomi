@@ -27,8 +27,11 @@ var ErrManifestMissing = errors.New("nomi.toml not found")
 //	name = "..."
 //	entry_points = [...]
 type Manifest struct {
-	Name        string   // [module].name
-	EntryPoints []string // [module].entry_points (paths under module root, .nomi implicit)
+	Name string // [module].name
+	// EntryPoints is [module].entry_points: paths under the module root,
+	// .nomi implicit. The module's tools are entry points too without being
+	// listed (IsEntry, Entries).
+	EntryPoints []string
 	// Locales is [i18n].locales, each tag canonical, in the manifest's
 	// order: the locales whose CLDR data the program carries. Nil when the
 	// manifest has no [i18n] table or no locales in it, which carries every
@@ -54,6 +57,68 @@ type Manifest struct {
 	// each as its literal writes it (`PTS:0`), in the manifest's order. Nil
 	// or empty allows none.
 	CustomCurrencies []string
+}
+
+// ToolsDir is the directory under a module's root that holds its tools,
+// the programs `nomi tool <module> <name>` runs.
+const ToolsDir = "tools"
+
+// IsToolFile reports whether modRel, a file's module-relative path with
+// "/" separators and without .nomi, is one of its module's tools: a file
+// under tools/ that is not a test file and is in no internal/ directory,
+// where a tool's helpers go. Every tool is an entry point.
+func IsToolFile(modRel string) bool {
+	rest, ok := strings.CutPrefix(modRel, ToolsDir+"/")
+	if !ok || rest == "" || strings.HasSuffix(rest, "_test") {
+		return false
+	}
+	return !slices.Contains(strings.Split(rest, "/")[:strings.Count(rest, "/")], "internal")
+}
+
+// IsEntry reports whether modRel, a file's module-relative path without
+// .nomi, is an entry point of the module: listed in entry_points, or a
+// tool (IsToolFile).
+func (m *Manifest) IsEntry(modRel string) bool {
+	return IsToolFile(modRel) || slices.Contains(m.EntryPoints, modRel)
+}
+
+// Entries is every entry point of the module rooted at root: entry_points
+// in the manifest's order, then each tool under root's tools/ directory
+// that entry_points does not list, by path. Each is module-relative, as
+// entry_points writes it.
+func (m *Manifest) Entries(root string) []string {
+	out := slices.Clone(m.EntryPoints)
+	listed := map[string]bool{}
+	for _, e := range m.EntryPoints {
+		listed[strings.TrimSuffix(e, ".nomi")] = true
+	}
+	var tools []string
+	dir := filepath.Join(root, ToolsDir)
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if p != dir && (strings.HasPrefix(d.Name(), ".") || d.Name() == "internal") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(p) != ".nomi" {
+			return nil
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return nil
+		}
+		key := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
+		if IsToolFile(key) && !listed[key] {
+			tools = append(tools, key)
+		}
+		return nil
+	})
+	slices.Sort(tools)
+	return append(out, tools...)
 }
 
 // CarriedLocales are the locales whose CLDR data the program carries:

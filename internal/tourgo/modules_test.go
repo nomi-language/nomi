@@ -18,18 +18,18 @@ const firstQuery = `import {
 
 fn main() -> Result<Unit, Error> {
     sql.with_connection(sqlite.memory, fn db -> {
-        _ = try Conn.exec(db, Sql"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")
-        _ = try Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"buy milk"})")
-        rows = try Conn.query(db, Sql"SELECT id, body FROM notes ORDER BY id")
-        lines = try (rows |> Iter.map(note_line) |> Result.collect())
+        _ = Conn.exec(db, Sql"CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)")?
+        _ = Conn.exec(db, Sql"INSERT INTO notes (body) VALUES (${"buy milk"})")?
+        rows = Conn.query(db, Sql"SELECT id, body FROM notes ORDER BY id")?
+        lines = (rows |> Iter.map(note_line) |> Result.collect())?
         Iter.each(lines, io.print)
         Ok(Unit)
     })
 }
 
 fn note_line(row: Row) -> Result<String, Error> {
-    id = try Row.get<Int>(row, "id")
-    body = try Row.get<String>(row, "body")
+    id = Row.get<Int>(row, "id")?
+    body = Row.get<String>(row, "body")?
     Ok("${id}: ${body}")
 }
 `

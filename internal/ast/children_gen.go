@@ -315,6 +315,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfUnreachable(n, fn)
 		}
+	case *Unwrap:
+		if n != nil {
+			childrenOfUnwrap(n, fn)
+		}
 	case *VectorLit:
 		if n != nil {
 			childrenOfVectorLit(n, fn)
@@ -520,6 +524,8 @@ func absent(n Node) bool {
 		return n == nil
 	case *Unreachable:
 		return n == nil
+	case *Unwrap:
+		return n == nil
 	case *VectorLit:
 		return n == nil
 	case *VectorPattern:
@@ -579,6 +585,12 @@ func childrenOfDynamic(v any, fn func(Node)) {
 	case *Span:
 	case SpanCarrier:
 	case *SpanCarrier:
+	case Spread:
+		childrenOfSpreadValue(v, fn)
+	case *Spread:
+		if v != nil {
+			childrenOfSpread(v, fn)
+		}
 	case StringExpr:
 		childrenOfStringExprValue(v, fn)
 	case *StringExpr:
@@ -1141,16 +1153,21 @@ func childrenOfListPattern(x *ListPattern, fn func(Node)) {
 	if !absent(x.TailSpread) {
 		fn(x.TailSpread)
 	}
+	for _, e2 := range x.Tails {
+		if !absent(e2) {
+			fn(e2)
+		}
+	}
 }
 
 func childrenOfListSpreadLit(x *ListSpreadLit, fn func(Node)) {
-	for _, e1 := range x.Heads {
+	for _, e1 := range x.Items {
 		if !absent(e1) {
 			fn(e1)
 		}
 	}
-	if !absent(x.TailSpread) {
-		fn(x.TailSpread)
+	for i2 := range x.Spreads {
+		childrenOfSpread(&x.Spreads[i2], fn)
 	}
 }
 
@@ -1179,8 +1196,8 @@ func childrenOfMapLit(x *MapLit, fn func(Node)) {
 	for i1 := range x.Entries {
 		childrenOfMapEntry(&x.Entries[i1], fn)
 	}
-	if !absent(x.Spread) {
-		fn(x.Spread)
+	for i2 := range x.Spreads {
+		childrenOfSpread(&x.Spreads[i2], fn)
 	}
 }
 
@@ -1312,8 +1329,8 @@ func childrenOfSetLit(x *SetLit, fn func(Node)) {
 			fn(e1)
 		}
 	}
-	if !absent(x.Spread) {
-		fn(x.Spread)
+	for i2 := range x.Spreads {
+		childrenOfSpread(&x.Spreads[i2], fn)
 	}
 }
 
@@ -1328,6 +1345,18 @@ func childrenOfSetPattern(x *SetPattern, fn func(Node)) {
 	}
 	if !absent(x.Rest) {
 		fn(x.Rest)
+	}
+}
+
+func childrenOfSpread(x *Spread, fn func(Node)) {
+	if !absent(x.Head) {
+		fn(x.Head)
+	}
+}
+
+func childrenOfSpreadValue(x Spread, fn func(Node)) {
+	if !absent(x.Head) {
+		fn(x.Head)
 	}
 }
 
@@ -1610,6 +1639,12 @@ func childrenOfUnreachable(x *Unreachable, fn func(Node)) {
 	}
 }
 
+func childrenOfUnwrap(x *Unwrap, fn func(Node)) {
+	if !absent(x.Expr) {
+		fn(x.Expr)
+	}
+}
+
 func childrenOfVectorLit(x *VectorLit, fn func(Node)) {
 	if !absent(x.TypeName) {
 		fn(x.TypeName)
@@ -1619,8 +1654,8 @@ func childrenOfVectorLit(x *VectorLit, fn func(Node)) {
 			fn(e1)
 		}
 	}
-	if !absent(x.Spread) {
-		fn(x.Spread)
+	for i2 := range x.Spreads {
+		childrenOfSpread(&x.Spreads[i2], fn)
 	}
 }
 
@@ -1762,6 +1797,7 @@ var generatedTypes = []any{
 	(*TypeIdent)(nil),
 	(*Unary)(nil),
 	(*Unreachable)(nil),
+	(*Unwrap)(nil),
 	(*VectorLit)(nil),
 	(*VectorPattern)(nil),
 	(*WildcardPattern)(nil),
@@ -1776,6 +1812,7 @@ var generatedTypes = []any{
 	*new(Param), (*Param)(nil),
 	*new(Span), (*Span)(nil),
 	*new(SpanCarrier), (*SpanCarrier)(nil),
+	*new(Spread), (*Spread)(nil),
 	*new(StringExpr), (*StringExpr)(nil),
 	*new(StringText), (*StringText)(nil),
 	*new(StructField), (*StructField)(nil),

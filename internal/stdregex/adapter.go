@@ -61,7 +61,7 @@ func FFIFindAll(re *Regex, input string) []string {
 	return re.re.FindAllString(input, -1)
 }
 
-func FFIReplaceAll(re *Regex, input, replacement string) string {
+func FFIReplaceAll(input string, re *Regex, replacement string) string {
 	if re == nil || re.re == nil {
 		return input
 	}

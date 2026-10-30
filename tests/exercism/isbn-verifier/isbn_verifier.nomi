@@ -1,12 +1,14 @@
+//# Checks ISBN-10 numbers.
+
 /// Reports whether `isbn` is a valid ISBN-10: nine digits and a check
 /// character, a digit or `X` for 10, with dashes allowed anywhere, whose
 /// digits weighted 10 down to 1 sum to a multiple of 11.
-pub fn valid?(isbn: String) -> Bool {
+pub fn is_valid(isbn: String) -> Bool {
     values =
         isbn
         |> String.replace("-", "")
         |> Iter.with_index()
-        |> Iter.map(fn #(i, character) -> value(character, check?: i == 9))
+        |> Iter.map(fn #(i, character) -> value(character, is_check: i == 9))
         |> Maybe.collect()
 
     case values {
@@ -17,9 +19,9 @@ pub fn valid?(isbn: String) -> Bool {
 
 /// The value of one ISBN character: a digit, or `X` for 10 in the check
 /// position.
-fn value(character: String, check?: Bool) -> Maybe<Int> {
+fn value(character: String, is_check: Bool) -> Maybe<Int> {
     case character {
-        "X" when check? -> Some(10)
+        "X" when is_check -> Some(10)
         _ -> String.to_int(character)
     }
 }

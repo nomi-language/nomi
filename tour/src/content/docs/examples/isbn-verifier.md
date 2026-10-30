@@ -11,15 +11,17 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: isbn_verifier.nomi
+//# Checks ISBN-10 numbers.
+
 /// Reports whether `isbn` is a valid ISBN-10: nine digits and a check
 /// character, a digit or `X` for 10, with dashes allowed anywhere, whose
 /// digits weighted 10 down to 1 sum to a multiple of 11.
-pub fn valid?(isbn: String) -> Bool {
+pub fn is_valid(isbn: String) -> Bool {
     values =
         isbn
         |> String.replace("-", "")
         |> Iter.with_index()
-        |> Iter.map(fn #(i, character) -> value(character, check?: i == 9))
+        |> Iter.map(fn #(i, character) -> value(character, is_check: i == 9))
         |> Maybe.collect()
 
     case values {
@@ -30,9 +32,9 @@ pub fn valid?(isbn: String) -> Bool {
 
 /// The value of one ISBN character: a digit, or `X` for 10 in the check
 /// position.
-fn value(character: String, check?: Bool) -> Maybe<Int> {
+fn value(character: String, is_check: Bool) -> Maybe<Int> {
     case character {
-        "X" when check? -> Some(10)
+        "X" when is_check -> Some(10)
         _ -> String.to_int(character)
     }
 }
@@ -73,7 +75,7 @@ test "verifies ISBN-10 numbers" {
     ]
 
     subtests cases, #(description, isbn, expected), description {
-        assert isbn_verifier.valid?(isbn) == expected
+        assert isbn_verifier.is_valid(isbn) == expected
     }
 }
 ```
@@ -81,6 +83,6 @@ test "verifies ISBN-10 numbers" {
 ## How it's written
 
 - Dashes are removed first, then each grapheme becomes a value with its position from `Iter.with_index`, and `Maybe.collect` makes one `Maybe<List<Int>>`. A character that is neither a digit nor a check-position `X` makes the whole ISBN invalid in that one step.
-- `value` takes the position as a named Bool, `value(character, check?: i == 9)`, so the `case` arm reads `"X" when check? -> Some(10)`.
+- `value` takes the position as a named Bool, `value(character, is_check: i == 9)`, so the `case` arm reads `"X" when is_check -> Some(10)`.
 - The length rule is a `when` guard on the `Some` arm, as in luhn, rather than a separate `if` before the conversion. The weights come from the index too, `v * (10 - i)`.
 - All 21 cases are one `subtests` table.

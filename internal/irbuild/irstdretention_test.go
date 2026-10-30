@@ -17,7 +17,7 @@ fn wrap(a: Int, b: Int) -> Int {
 }
 
 fn classify(x: Float) -> String {
-  if Float.nan?(x) {
+  if Float.is_nan(x) {
     "nan"
   } else if x == Float.positive_infinity() {
     "inf"
@@ -48,11 +48,11 @@ fn main() {
 		{"String hosts", `import std/io
 
 fn shout(s: String) -> String {
-  String.to_upper(String.replace(s, "a", "o"))
+  String.uppercase(String.replace(s, "a", "o"))
 }
 
 fn trimmed(s: String) -> String {
-  if String.starts_with?(s, "<") and String.ends_with?(s, ">") {
+  if String.starts_with(s, "<") and String.ends_with(s, ">") {
     String.slice(s, 1, String.length(s) - 1)
   } else {
     s
@@ -139,7 +139,7 @@ fn main() {
   io.inspect(lookup(xs, "a"))
   io.inspect(lookup(xs, "z"))
   io.inspect(values(xs, "a"))
-  io.inspect(Iter.any?(xs, fn entry -> entry_value(entry) == "2"))
+  io.inspect(Iter.any(xs, fn entry -> entry_value(entry) == "2"))
   io.inspect(values(put(xs, "a", "9"), "a"))
   io.inspect(Iter.count(put(xs, "c", "4")))
 }
@@ -206,7 +206,7 @@ fn configured(p: Project) -> Project {
   #{..p, manifest: Some(Toml"[module]\nname = \"demo\"\n")}
 }
 
-fn has_manifest?(p: Project) -> Bool {
+fn has_manifest(p: Project) -> Bool {
   case p.manifest {
     Some(_) -> True
     None -> False
@@ -214,12 +214,12 @@ fn has_manifest?(p: Project) -> Bool {
 }
 
 fn main() {
-  io.print(has_manifest?(project()))
-  io.print(has_manifest?(configured(project())))
+  io.print(has_manifest(project()))
+  io.print(has_manifest(configured(project())))
   io.print(project().entry_point)
 }
 `, "False\nTrue\nmain\n",
-			[]string{"project", "configured", "has_manifest?", "main"}},
+			[]string{"project", "configured", "has_manifest", "main"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			irLeftoversRetained(t, tc.src, tc.retained...)

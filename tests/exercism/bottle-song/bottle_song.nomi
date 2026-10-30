@@ -21,20 +21,14 @@ pub fn recite(start_bottles: Int, take_down: Int) -> List<String> {
     start_bottles
     |> Iter.iterate(&(&1 - 1))
     |> Iter.take(take_down)
-    |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, bottles) -> {
-        if i == 0 {
-            verse(bottles)
-        } else {
-            [""] + verse(bottles)
-        }
-    })
-    |> Iter.to_list()
+    |> Iter.map(verse)
+    |> Iter.intersperse([""])
+    |> Iter.flatten()
 }
 
 /// The verse sung while `bottles` bottles hang on the wall.
 fn verse(bottles: Int) -> List<String> {
-    count = green_bottles(bottles) |> capitalize()
+    count = green_bottles(bottles) |> String.capitalize()
     hanging = "${count} hanging on the wall,"
 
     [
@@ -47,17 +41,11 @@ fn verse(bottles: Int) -> List<String> {
 
 /// `bottles` counted in words: "one green bottle", "two green bottles".
 fn green_bottles(bottles: Int) -> String {
-    number = Vector.at(numbers, bottles)
+    number = Vector.get(numbers, bottles)!
 
     if bottles == 1 {
         "${number} green bottle"
     } else {
         "${number} green bottles"
     }
-}
-
-/// `text` with its first letter in upper case.
-fn capitalize(text: String) -> String {
-    first = String.take(text, 1) |> String.to_upper()
-    first + String.drop(text, 1)
 }

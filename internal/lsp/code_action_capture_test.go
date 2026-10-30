@@ -21,7 +21,7 @@ func TestUseCapture_RewritesAOneStepLambda(t *testing.T) {
 		name, decls, body, want string
 	}{
 		{"comparison", "", "big = Iter.filter([1, 60], ‸fn s -> s > 50) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], &(&1 > 50)) |> Iter.to_list()"},
-		{"call", "", "letters = %[\"a\"]\nhit = Iter.filter([\"a\", \"b\"], fn l -> ‸Set.contains?(letters, l)) |> Iter.to_list()\ndbg hit", "hit = Iter.filter([\"a\", \"b\"], &Set.contains?(letters, &1)) |> Iter.to_list()"},
+		{"call", "", "letters = %[\"a\"]\nhit = Iter.filter([\"a\", \"b\"], fn l -> ‸Set.contains(letters, l)) |> Iter.to_list()\ndbg hit", "hit = Iter.filter([\"a\", \"b\"], &Set.contains(letters, &1)) |> Iter.to_list()"},
 		{"struct", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> #Point{x: x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#Point{x: &1, y: 0}) |> Iter.to_list()"},
 		{"punned field", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> #Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#Point{x: &1, y: 0}) |> Iter.to_list()"},
 		{"tuple", "", "ps = Iter.map([1, 2], ‸fn x -> #(x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#(&1, 0)) |> Iter.to_list()"},

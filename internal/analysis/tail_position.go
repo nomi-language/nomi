@@ -28,9 +28,9 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - default-value expressions (evaluated before the body runs; the top-level
 //     loop only enters function bodies, never Param.Default)
 //   - the value expression of a `with` binding or a `defer` call
-//   - the sub-expression of `try` — the keyword performs a pattern-match
+//   - the sub-expression of `?` — the keyword performs a pattern-match
 //     between the call's return and the function's return, so the call inside
-//     `try expr` is not in tail position
+//     `expr?` is not in tail position
 //   - non-last stmts of a Block
 //   - sub-expressions of Call, Binding/destructure RHS, default values,
 //     aggregate literals (list/tuple/map/struct), range bounds, field-access
@@ -125,24 +125,20 @@ func mark(n ast.Node, tail, deferred bool) {
 			mark(item, false, deferred)
 		}
 	case *ast.SetLit:
-		if x.Spread != nil {
-			mark(x.Spread, false, deferred)
-		}
-		for _, item := range x.Items {
+		for _, item := range x.Operands() {
 			mark(item, false, deferred)
 		}
 	case *ast.ListSpreadLit:
-		for _, h := range x.Heads {
-			mark(h, false, deferred)
+		for _, item := range x.Operands() {
+			mark(item, false, deferred)
 		}
-		mark(x.TailSpread, false, deferred)
 	case *ast.TupleLit:
 		for _, item := range x.Items {
 			mark(item, false, deferred)
 		}
 	case *ast.MapLit:
-		if x.Spread != nil {
-			mark(x.Spread, false, deferred)
+		for _, sp := range x.Spreads {
+			mark(sp.Head, false, deferred)
 		}
 		for _, e := range x.Entries {
 			mark(e.Key, false, deferred)
@@ -204,8 +200,12 @@ func mark(n ast.Node, tail, deferred bool) {
 		markBlock(x.Body, false, deferred)
 	case *ast.Defer:
 		mark(x.Call, false, deferred)
+	case *ast.Unwrap:
+		// `f(x)!` tests the call's result after it returns, so the call is
+		// never a tail call.
+		mark(x.Expr, false, deferred)
 	case *ast.TryOp:
-		// `try` performs a pattern-match between the call's return and the
+		// `?` performs a pattern-match between the call's return and the
 		// function's return; sub-expr is never in tail position.
 		mark(x.Expr, false, deferred)
 	case *ast.Dbg:

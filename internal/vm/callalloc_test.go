@@ -87,3 +87,42 @@ func TestVMCallAllocations(t *testing.T) {
 			perComparison)
 	}
 }
+
+// A loop of n tail calls, each making one crossing into an intrinsic.
+const crossingLoop = `import std/io
+
+fn spin(n: Int, v: Vector<Int>, acc: Int) -> Int {
+  if n < 1 { acc } else { spin(n - 1, v, Vector.length(v)) }
+}
+
+fn main() {
+  spin(%d, #[1, 2, 3], 0) |> io.print()
+}
+`
+
+// The same loop with one crossing in all, after it.
+const plainLoop = `import std/io
+
+fn spin(n: Int, v: Vector<Int>, acc: Int) -> Int {
+  if n < 1 { Vector.length(v) + acc } else { spin(n - 1, v, acc) }
+}
+
+fn main() {
+  spin(%d, #[1, 2, 3], 0) |> io.print()
+}
+`
+
+// A crossing into an intrinsic (`Vector.length`, `Map.get`, ...) allocates its
+// operand slice and nothing else. The intrinsic runs on a view of the machine
+// at the caller's depth, which the caller's activation record keeps (boundAt
+// in vm.go), so a loop does not copy the whole machine onto the heap once per
+// call.
+func TestVMCrossingAllocations(t *testing.T) {
+	perCrossing := allocsPerActivation(t, crossingLoop) - allocsPerActivation(t, plainLoop)
+	t.Logf("%.2f allocations per crossing into an intrinsic", perCrossing)
+	if perCrossing > 1.1 {
+		t.Errorf("a crossing into an intrinsic allocates %.2f times, want 1 (its operand "+
+			"slice). The likely cause is a view of the machine made per crossing instead "+
+			"of reused from the caller's activation record (see boundAt in vm.go)", perCrossing)
+	}
+}

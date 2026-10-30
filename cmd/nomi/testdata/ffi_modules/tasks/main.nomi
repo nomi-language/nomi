@@ -22,7 +22,7 @@ fn boot() -> Result<App, String> {
 }
 
 fn main() -> Result<Unit, String> {
-    tasks = try Store.load(App.store)
+    tasks = Store.load(App.store)?
     Console.write_line(App.console, "tasks. type 'help' for commands.")
 
     _ = Iter.loop(fn tasks = tasks -> {

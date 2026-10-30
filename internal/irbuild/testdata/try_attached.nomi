@@ -1,20 +1,20 @@
-// A `try` inside a `//!` prompt case.
+// A `?` inside a `//!` prompt case.
 //
 // The checker writes `test %q` for a `test "name"` declaration and
 // `attached test for <owner>` for a prompt case (testBoundaryOverride), and both
 // are one activation: the case aborts and the run continues. Matching only the
-// first would classify this `try` as a FUNCTION boundary, so tryGuard would
+// first would classify this `?` as a FUNCTION boundary, so tryGuard would
 // look at g.result, which is kindInvalid because a test body declares no
 // result, and would suppress rather than refuse. tryBoundaryRefusal admits
 // both spellings.
 //
-// No corpus file has a `try` in a prompt case, so only this fixture covers
+// No corpus file has a `?` in a prompt case, so only this fixture covers
 // it.
 //
 // What each case discriminates:
 //
 //   - `propagating` — the prompt PROPAGATES. The case must FAIL, and its report
-//     is an EarlyReturnFailure carrying the `try`'s own line, the expression as
+//     is an EarlyReturnFailure carrying the `?`'s own line, the expression as
 //     the formatter renders it, and the propagated variant as the structural
 //     rendering shows it. A guard placed at the wrong boundary either drops
 //     the report or, worse, returns from something that is not the case.
@@ -23,14 +23,14 @@
 //     the fixture's failing half.
 //   - the file-scope `test` — an ordinary `test "name"` boundary beside the
 //     prompt ones, so the two spellings are exercised in one program.
-//! v = try parse(1)
+//! v = parse(1)?
 //! assert v == 1
 //
 fn passing(n: Int) -> Int {
     n
 }
 
-//! bad = try parse(-1)
+//! bad = parse(-1)?
 //! assert bad == 0
 //
 fn propagating(n: Int) -> Int {
@@ -42,6 +42,6 @@ fn parse(n: Int) -> Result<Int, String> {
 }
 
 test "an ordinary test declaration is the other test boundary spelling" {
-    ok = try parse(2)
+    ok = parse(2)?
     assert ok == 2
 }

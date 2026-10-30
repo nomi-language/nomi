@@ -12,8 +12,8 @@
 //#
 //# The **terminals** are also type functions on `Iter` —
 //# `Iter.reduce(xs, f)` — over any `Iter<T>`. The `Iter` interface itself is
-//# just the `#{ each_while, known_count, infinite? }` protocol. Terminals come in two kinds:
-//# - Streaming: `reduce`, `each`, `find`, `any?`, `all?`, `empty?` produce a
+//# just the `#{ each_while, known_count, is_infinite }` protocol. Terminals come in two kinds:
+//# - Streaming: `reduce`, `each`, `find`, `any`, `all`, `is_empty` produce a
 //# scalar; no concrete collection is ever built.
 //# - Materializing: `to_list`/`to_vector`/`to_set`/`sort`, plus `to_map`,
 //# consume the iterator and produce a concrete collection. `String.join`
@@ -26,7 +26,7 @@
 //#
 //# Infinite sequences: `Iter.from(0)` / `Iter.iterate(seed, step)` /
 //# `Iter.repeat(x)` / `Iter.cycle(xs)` and `Range.from(n)` produce iterators
-//# that don't terminate on their own, and say so: `Iter.infinite?` is True for
+//# that don't terminate on their own, and say so: `Iter.is_infinite` is True for
 //# them and for every lazy adapter over one that cannot stop it (`map`,
 //# `filter`, `drop`, `with_index`, `zip` of two of them, `concat` with one).
 //# A terminal that has to reach the end (`to_list`, `count`, `reduce`, `sum`,
@@ -38,8 +38,8 @@
 //# ```
 //#
 //# Bound them with `Iter.take(n)` or `Iter.take_while(pred)` before such a
-//# terminal, or use one that stops early: `Iter.find`, `any?`, `all?`,
-//# `first`, `get`, `contains?`, `empty?`, or a `reduce` whose callback can
+//# terminal, or use one that stops early: `Iter.find`, `any`, `all`,
+//# `first`, `get`, `contains`, `is_empty`, or a `reduce` whose callback can
 //# `break`.
 //#
 //# If you want a List back from a List, the spelling is always the explicit
@@ -123,7 +123,7 @@ pub interface Iter<T> {
 
     /// Some(n) if this iterator can report how many elements it yields without
     /// consuming them; None if it can't (a filtered/lazy pipeline) or won't
-    /// terminate (an unbounded source, which `infinite?` reports). `Iter.count`
+    /// terminate (an unbounded source, which `is_infinite` reports). `Iter.count`
     /// uses it for an O(1) count. `Iter.take(n)` answers it when its source
     /// does or never ends.
     open fn known_count(_collection: self) -> Maybe<Int> {
@@ -140,7 +140,7 @@ pub interface Iter<T> {
     /// can.
     ///
     /// A type of your own answers False unless its impl writes this function.
-    open fn infinite?(_collection: self) -> Bool {
+    open fn is_infinite(_collection: self) -> Bool {
         False
     }
 }
@@ -188,7 +188,7 @@ impl Iter<T> {
     // Terminals. Owner functions over any `Iter<T>` — `Iter.reduce(xs, f)`,
     // `Iter.find(xs, p)`, `Iter.to_list(xs)`, … — live beside the protocol
     // functions `each_while` and `known_count`. Streaming terminals (`reduce`/
-    // `find`/`each`/`any?`/`all?`/`empty?`/…) produce a scalar without building a
+    // `find`/`each`/`any`/`all`/`is_empty`/…) produce a scalar without building a
     // collection; materializing terminals (`to_list`/`to_set`/`sort`/…) consume the
     // iterator and produce a concrete collection.
     //
@@ -278,6 +278,29 @@ impl Iter<T> {
         })
     }
 
+    /// Applies `f` to each element in turn and returns the first `Some` it
+    /// gives, or None when it gives none. Stops at that element, so it ends
+    /// on an infinite source that holds one. It is `Iter.find` for a search
+    /// whose test also computes the answer.
+    //
+    //! assert Iter.find_map(["x", "12", "7"], String.to_int) == Some(12)
+    //! assert Iter.find_map(["x", "y"], String.to_int) == None
+    //!
+    //! first_square_over_50 =
+    //!     Iter.from(1)
+    //!     |> Iter.find_map(fn n -> if n * n > 50 { Some(n * n) } else { None })
+    //!
+    //! assert first_square_over_50 == Some(64)
+    //
+    pub fn find_map<T, U>(source: Iter<T>, f: (T) -> Maybe<U>) -> Maybe<U> {
+        reduce(source, fn _acc = None, item -> {
+            case f(item) {
+                Some(found) -> break Some(found)
+                None -> None
+            }
+        })
+    }
+
     /// Returns the zero-based index of the first element matching the
     /// predicate, or None. Stops at the first match, so it ends on an
     /// infinite source that holds one. `Iter.find` returns the element itself.
@@ -359,10 +382,10 @@ impl Iter<T> {
     /// Returns true if any element matches the predicate. Short-circuits on the
     /// first match.
     //
-    //! assert Iter.any?([1, 2, 3], &(&1 > 2))
-    //! refute Iter.any?([1, 2], &(&1 > 99))
+    //! assert Iter.any([1, 2, 3], &(&1 > 2))
+    //! refute Iter.any([1, 2], &(&1 > 99))
     //
-    pub fn any?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
+    pub fn any<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
         reduce(source, fn _acc = False, item -> {
             if f(item) {
                 break True
@@ -375,13 +398,13 @@ impl Iter<T> {
     /// Returns true if an element is `==` to `x`. A linear scan through the
     /// push protocol that stops at the first match, so it ends on an infinite
     /// source that holds `x`. For any iterable, including a lazy pipeline; a
-    /// collection's own `contains?` (the `Contains` interface) may be faster.
+    /// collection's own `contains` (the `Contains` interface) may be faster.
     //
-    //! assert Iter.contains?([1, 2, 3], 2)
-    //! refute Iter.contains?(Iter.map([1, 2], &(&1 * 10)), 2)
-    //! assert Iter.contains?(Iter.from(0), 1_000)
+    //! assert Iter.contains([1, 2, 3], 2)
+    //! refute Iter.contains(Iter.map([1, 2], &(&1 * 10)), 2)
+    //! assert Iter.contains(Iter.from(0), 1_000)
     //
-    pub fn contains?<T>(source: Iter<T>, x: T) -> Bool where T: Equatable {
+    pub fn contains<T>(source: Iter<T>, x: T) -> Bool where T: Equatable {
         reduce(source, fn _acc = False, item -> {
             if item == x {
                 break True
@@ -394,10 +417,10 @@ impl Iter<T> {
     /// Returns true if all elements match the predicate. Vacuously true for an
     /// empty iterator. Short-circuits on the first miss.
     //
-    //! assert Iter.all?([2, 4, 6], &(&1 > 0))
-    //! refute Iter.all?([2, -4, 6], &(&1 > 0))
+    //! assert Iter.all([2, 4, 6], &(&1 > 0))
+    //! refute Iter.all([2, -4, 6], &(&1 > 0))
     //
-    pub fn all?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
+    pub fn all<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
         reduce(source, fn _acc = True, item -> {
             if f(item) {
                 True
@@ -409,20 +432,11 @@ impl Iter<T> {
 
     /// Returns true if the iterator is empty. Short-circuits on the first element.
     //
-    //! assert Iter.empty?([])
-    //! refute Iter.empty?([1])
+    //! assert Iter.is_empty([])
+    //! refute Iter.is_empty([1])
     //
-    pub fn empty?<T>(source: Iter<T>) -> Bool {
+    pub fn is_empty<T>(source: Iter<T>) -> Bool {
         reduce(source, fn _acc = True, _item -> { break False })
-    }
-
-    /// Returns true if the iterator has at least one element. Short-circuits.
-    //
-    //! assert Iter.not_empty?([1])
-    //! refute Iter.not_empty?([])
-    //
-    pub fn not_empty?<T>(source: Iter<T>) -> Bool {
-        reduce(source, fn _acc = False, _item -> { break True })
     }
 
     /// Returns the first element, or None if the iterator is empty. Terminal;
@@ -528,7 +542,7 @@ impl Iter<T> {
 
     /// Consumes the iterator and materializes its elements into a List. A `List`
     /// argument is returned as-is (O(1) — lists are immutable); any other iterator
-    /// is folded into a fresh List. An infinite iterator (`Iter.infinite?`)
+    /// is folded into a fresh List. An infinite iterator (`Iter.is_infinite`)
     /// traps before anything is taken from it, since the List could never be
     /// finished.
     //
@@ -591,7 +605,7 @@ impl Iter<T> {
     /// the source's own count when it has one.
     //
     //! assert Iter.from(0) |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
-    //! refute Iter.repeat("x") |> Iter.take(3) |> Iter.infinite?()
+    //! refute Iter.repeat("x") |> Iter.take(3) |> Iter.is_infinite()
     //! assert Iter.repeat("x") |> Iter.take(3) |> Iter.known_count() == Some(3)
     //! assert [1, 2] |> Iter.take(5) |> Iter.known_count() == Some(2)
     //
@@ -600,7 +614,7 @@ impl Iter<T> {
     }
 
     /// Lazy: cycles through `source` endlessly. Empty source yields nothing.
-    /// It is `infinite?` when `source` is, or when `source` knows its count
+    /// It is `is_infinite` when `source` is, or when `source` knows its count
     /// and it is not zero; a source that may be empty (a filtered one) leaves
     /// it unknown.
     //
@@ -609,8 +623,8 @@ impl Iter<T> {
     //! |> Iter.take(7)
     //! |> Iter.to_list() == [1, 2, 3, 1, 2, 3, 1]
     //!
-    //! assert [1, 2] |> Iter.cycle() |> Iter.infinite?()
-    //! refute [] |> Iter.cycle() |> Iter.infinite?()
+    //! assert [1, 2] |> Iter.cycle() |> Iter.is_infinite()
+    //! refute [] |> Iter.cycle() |> Iter.is_infinite()
     //! assert [1, 2] |> Iter.filter(&(&1 > 5)) |> Iter.cycle() |> Iter.to_list() == []
     //
     pub fn cycle<T>(source: Iter<T>) -> Iter<T> {
@@ -621,7 +635,7 @@ impl Iter<T> {
     /// either is.
     //
     //! assert Iter.concat([1, 2], [3, 4]) |> Iter.to_list() == [1, 2, 3, 4]
-    //! assert Iter.concat([1, 2], Iter.from(3)) |> Iter.infinite?()
+    //! assert Iter.concat([1, 2], Iter.from(3)) |> Iter.is_infinite()
     //
     pub fn concat<T>(a: Iter<T>, b: Iter<T>) -> Iter<T> {
         // The one adapter that needs no host help: "drive a, then drive b, unless
@@ -638,12 +652,35 @@ impl Iter<T> {
         }
     }
 
+    /// Lazy: yields the elements of `source` with `separator` between each
+    /// two neighbours, so `n` elements become `2n - 1`, and none stay none.
+    /// Infinite when `source` is.
+    //
+    //! assert ["a", "b", "c"] |> Iter.intersperse(",") |> Iter.to_list() == ["a", ",", "b", ",", "c"]
+    //! assert [1] |> Iter.intersperse(0) |> Iter.to_list() == [1]
+    //! assert Iter.from(1) |> Iter.intersperse(0) |> Iter.take(4) |> Iter.to_list() == [1, 0, 2, 0]
+    //!
+    //! verses = [["one", "two"], ["three"]]
+    //! assert verses |> Iter.intersperse([""]) |> Iter.flatten() == ["one", "two", "", "three"]
+    //
+    pub fn intersperse<T>(source: Iter<T>, separator: T) -> Iter<T> {
+        source
+        |> Iter.with_index()
+        |> Iter.flat_map(fn #(index, item) -> {
+            if index == 0 {
+                [item]
+            } else {
+                [separator, item]
+            }
+        })
+    }
+
     /// Lazy: pairs elements from two iterators. Stops when either exhausts,
     /// so it is infinite only when both are.
     //
     //! assert Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() == [#(1, "a"), #(2, "b")]
     //! assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [#("a", 0), #("b", 1)]
-    //! assert Iter.zip(Iter.repeat("a"), Iter.from(0)) |> Iter.infinite?()
+    //! assert Iter.zip(Iter.repeat("a"), Iter.from(0)) |> Iter.is_infinite()
     //
     pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<#(T, U)> {
         // The lone adapter a push protocol cannot express directly: two sources
@@ -663,7 +700,7 @@ impl Iter<T> {
     //! |> Iter.take_while(&(&1 < 4))
     //! |> Iter.to_list() == [1, 2, 3]
     //!
-    //! refute Iter.from(1) |> Iter.take_while(&(&1 < 4)) |> Iter.infinite?()
+    //! refute Iter.from(1) |> Iter.take_while(&(&1 < 4)) |> Iter.is_infinite()
     //
     pub fn take_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> take_while_each(source, pred, yield)}
@@ -689,7 +726,7 @@ impl Iter<T> {
     /// may end it, so that filter is not known to be infinite.
     //
     //! assert [1, 2, 3, 4] |> Iter.filter(&(&1 > 2)) |> Iter.to_list() == [3, 4]
-    //! assert Iter.from(0) |> Iter.filter(&(&1 % 2 == 0)) |> Iter.infinite?()
+    //! assert Iter.from(0) |> Iter.filter(&(&1 % 2 == 0)) |> Iter.is_infinite()
     //
     pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
@@ -716,7 +753,7 @@ impl Iter<T> {
     //! assert [1, 2, 3]
     //!     |> Iter.flat_map(fn x -> [x, x * 10])
     //!     |> Iter.to_list()
-    //!     |> List.equal?([1, 10, 2, 20, 3, 30])
+    //!     |> List.equal([1, 10, 2, 20, 3, 30])
     //
     pub fn flat_map<T, U>(source: Iter<T>, f: (T) -> Iter<U>) -> Iter<U> {
         #Seq{run: fn yield: (U) -> Bool -> flat_map_each(source, f, yield)}
@@ -766,9 +803,9 @@ impl Iter<T> {
     //! assert [1, 1, 2, 2, 1] |> Iter.chunk_by(fn x -> x) |> Iter.to_list() == [[1, 1], [2, 2], [1]]
     //!
     //! assert ["ant", "ape", "bee", "bat", "cat"]
-    //!     |> Iter.chunk_by(&String.contains?(&1, "a"))
+    //!     |> Iter.chunk_by(&String.contains(&1, "a"))
     //!     |> Iter.to_list()
-    //!     |> List.equal?([["ant", "ape"], ["bee"], ["bat", "cat"]])
+    //!     |> List.equal([["ant", "ape"], ["bee"], ["bat", "cat"]])
     //
     pub fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Iter<List<T>> where K: Equatable {
         #Seq{run: fn yield: (List<T>) -> Bool -> chunk_by_each(source, key_fn, yield)}
@@ -830,7 +867,7 @@ impl Iter<T> {
     /// Infinite iterator yielding start, start+1, start+2, ...
     //
     //! assert Iter.from(10) |> Iter.take(3) |> Iter.to_list() == [10, 11, 12]
-    //! assert Iter.infinite?(Iter.from(10))
+    //! assert Iter.is_infinite(Iter.from(10))
     //
     pub fn from(start: Int) -> Iter<Int> {
         #Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}
@@ -839,7 +876,7 @@ impl Iter<T> {
     /// Infinite iterator yielding `x` forever.
     //
     //! assert Iter.repeat("ha") |> Iter.take(3) |> Iter.to_list() == ["ha", "ha", "ha"]
-    //! assert Iter.repeat("ha") |> Iter.map(&String.length(&1)) |> Iter.infinite?()
+    //! assert Iter.repeat("ha") |> Iter.map(&String.length(&1)) |> Iter.is_infinite()
     //
     pub fn repeat<T>(x: T) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> repeat_each(x, yield)}
@@ -855,12 +892,12 @@ impl Iter<T> {
     /// so `continue` has no next state to fall forward to. Use
     /// `Iter.iterate(...) |> Iter.filter(...)` to skip states.
     ///
-    /// It is `infinite?` unless the step can `break`, which may end it.
+    /// It is `is_infinite` unless the step can `break`, which may end it.
     //! assert Iter.iterate(1, &(&1 * 2))
     //! |> Iter.take(4)
     //! |> Iter.to_list() == [1, 2, 4, 8]
     //!
-    //! assert Iter.infinite?(Iter.iterate(1, &(&1 * 2)))
+    //! assert Iter.is_infinite(Iter.iterate(1, &(&1 * 2)))
     //!
     //! assert Iter.iterate(0, fn n -> {
     //!     if n > 5 {
@@ -870,7 +907,7 @@ impl Iter<T> {
     //!     }
     //! })
     //!     |> Iter.to_list()
-    //!     |> List.equal?([0, 1, 2, 3, 4, 5, 6])
+    //!     |> List.equal([0, 1, 2, 3, 4, 5, 6])
     //
     pub fn iterate<T>(seed: T, step: (T) -> T) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> iterate_each(seed, step, yield)}
@@ -1026,9 +1063,9 @@ impl Iter<T> {
     ///
     /// `Iter.sum(xs)` is exactly
     /// `Iter.reduce(xs, fn total = T.empty_sum(), x -> total + x)`, so it rounds
-    /// Floats as that fold does, and an Int sum past the Int range traps as
-    /// `+` does. Summing Maps follows Map's `+`: a later map wins on a shared
-    /// key. Consumes the whole iterator, so it traps on an infinite source.
+    /// Floats as that fold does. Summing Maps follows Map's `+`: a later map
+    /// wins on a shared key. Consumes the whole iterator, so it traps on an
+    /// infinite source.
     //
     //! assert Iter.sum([1, 2, 3]) == 6
     //! assert Iter.sum([0.5, 0.25]) == 0.75
@@ -1048,9 +1085,8 @@ impl Iter<T> {
     ///
     /// `Iter.product(xs)` is exactly
     /// `Iter.reduce(xs, fn product = T.empty_product(), x -> product * x)`,
-    /// so it rounds Floats as that fold does, and an Int product past the
-    /// Int range traps as `*` does. It does not stop at a zero. Consumes the
-    /// whole iterator, so it traps on an infinite source.
+    /// so it rounds Floats as that fold does. It does not stop at a zero.
+    /// Consumes the whole iterator, so it traps on an infinite source.
     //
     //! assert Iter.product([2, 3, 4]) == 24
     //! assert Iter.product([0.5, 4.0]) == 2.0
@@ -1171,7 +1207,7 @@ host fn chunk_by_each<T, K>(
 // Each ordering of `left`, as `permutations` yields them: each element in
 // turn first, before each ordering of the others.
 fn permutations_of<T>(left: List<T>) -> Iter<List<T>> {
-    if Iter.empty?(left) {
+    if Iter.is_empty(left) {
         none: List<T> = []
         Iter.repeat(none) |> Iter.take(1)
     } else {

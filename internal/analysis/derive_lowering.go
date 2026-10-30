@@ -125,6 +125,41 @@ func lowerNodeListDerives(nodes []ast.Node, errs *[]TypeError) ([]ast.Node, bool
 	return out, true
 }
 
+// withJsonImport answers nodes with jsonImport when they derive ToJson or
+// FromJson and lack it: after the imports a build prepends, so a file
+// prepared before its prelude is added and one prepared after it hold the
+// same imports in the same order.
+func withJsonImport(nodes []ast.Node) []ast.Node {
+	if !derivesJson(nodes) || hasJsonImport(nodes) {
+		return nodes
+	}
+	at := 0
+	for at < len(nodes) && isPreludeInjectLine(nodes[at].LineNum()) {
+		at++
+	}
+	out := make([]ast.Node, 0, len(nodes)+1)
+	out = append(out, nodes[:at]...)
+	out = append(out, jsonImport())
+	return append(out, nodes[at:]...)
+}
+
+// derivesJson reports whether nodes hold a `derive ToJson` or
+// `derive FromJson`.
+func derivesJson(nodes []ast.Node) bool {
+	for _, n := range nodes {
+		conf, ok := n.(*ast.ImplConformance)
+		if !ok || !conf.Derive {
+			continue
+		}
+		for _, iface := range conformanceInterfaces(conf) {
+			if name := TypeExprBaseName(iface); name == "ToJson" || name == "FromJson" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // typeDeclsInNodeList maps each declared type name to its first declaration.
 // The builder keeps the first and reports a later one as a redeclaration, so
 // a derive lowered against a later one would build a body for a type the

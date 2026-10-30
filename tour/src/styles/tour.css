@@ -411,9 +411,10 @@ pre.nomi-tour {
 }
 .nomi-expected-error[hidden] { display: none; }
 /* A ```nomi-run manual block's Run button, in the live dot's place: the
-   example runs once when shown, then when the reader presses it. It is
-   filled while the code has changed since the last run, and dimmed while a
-   run is in flight. */
+   example runs only when the reader presses it. It is
+   filled while the code has changed since the last run. While a run is in
+   flight it says "Running", is disabled, and a spinner takes the play
+   triangle's place. */
 .nomi-run-button {
   display: inline-flex;
   align-items: center;
@@ -442,9 +443,22 @@ pre.nomi-tour {
   border-color: var(--sl-color-accent);
   color: var(--sl-color-black);
 }
-.nomi-run-button.is-running {
-  opacity: 0.6;
+.nomi-run-button.is-running,
+.nomi-run-button.is-running:hover {
+  background: color-mix(in srgb, var(--tour-bg) 88%, var(--sl-color-accent) 12%);
+  border-color: color-mix(in srgb, var(--sl-color-accent) 55%, transparent);
+  color: var(--sl-color-accent);
   cursor: progress;
+}
+.nomi-run-button.is-running::before {
+  content: "";
+  width: 0.7em;
+  height: 0.7em;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: nomi-spin 0.75s linear infinite;
 }
 .nomi-run-button:focus-visible {
   outline: 2px solid var(--sl-color-accent);
@@ -525,14 +539,6 @@ pre.nomi-tour {
   font-family: var(--sl-font-mono);
   font-size: var(--sl-text-xs);
 }
-.nomi-ref-test-label {
-  margin: 1.1em 0 0.45em;
-  color: var(--sl-color-gray-3);
-  font-size: 0.78em;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 .nomi-test-program-nav {
   display: flex;
   flex-wrap: wrap;
@@ -570,6 +576,12 @@ pre.nomi-tour {
 @media (prefers-reduced-motion: reduce) {
   .nomi-live::before { animation: none; opacity: 0.7; }
   .nomi-formatting::before { animation: none; }
+  /* A still ring with a dot in it, in place of the spinner. */
+  .nomi-run-button.is-running::before {
+    animation: none;
+    border-top-color: currentColor;
+    background: radial-gradient(circle, currentColor 30%, transparent 35%);
+  }
 }
 .nomi-editor {
   display: grid;
@@ -780,6 +792,46 @@ pre.nomi-tour {
   color: color-mix(in srgb, var(--tour-fg) 70%, var(--tour-out-bg));
 }
 .nomi-out-title.is-expected { font-style: italic; }
+/* A manual block's note that the panel shows its recorded output, beside
+   its Run button, until the reader runs it. */
+.nomi-out-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--sl-font);
+  font-size: 0.72em;
+  font-style: italic;
+  color: color-mix(in srgb, var(--tour-fg) 70%, var(--tour-out-bg));
+}
+.nomi-out-note[hidden] { display: none; }
+/* A run's status while it is in flight ("Loading Nomi…", "Running… 3s"),
+   beside the heading, so showing it moves nothing. */
+.nomi-out-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--sl-font);
+  font-size: 0.72em;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--sl-color-accent);
+}
+.nomi-out-status[hidden] { display: none; }
+.nomi-out-clock { font-variant-numeric: tabular-nums; }
+/* The output a run in flight will replace. */
+.nomi-out.is-dimmed { opacity: 0.45; }
+@media (prefers-reduced-motion: no-preference) {
+  .nomi-out.is-dimmed { transition: opacity 150ms ease-out; }
+}
+.nomi-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .nomi-out-panel > .nomi-out { padding-top: 0.2em; }
 
 /* A larger block's file tree: a column beside the editor. */

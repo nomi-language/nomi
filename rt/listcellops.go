@@ -106,7 +106,7 @@ func SortSliceToListCells[T any, N ListCellShape[T, N]](items []T, less func(T, 
 // ListCellRemoveAt is `List.remove_at`: the list without the element at
 // zero-based index, rebuilding the cells before it and sharing the cells
 // after it. An index outside `0 <= index < length` traps with
-// IndexOutOfRangeText, as `Vector.at` does.
+// IndexOutOfRangeText, as `Vector.set` does.
 func ListCellRemoveAt[T any, N ListCellShape[T, N]](xs *N, index int64) *N {
 	length := ListCellCount[T, N](xs)
 	if index < 0 || index >= length {
@@ -122,6 +122,40 @@ func ListCellRemoveAt[T any, N ListCellShape[T, N]](xs *N, index int64) *N {
 	out := ListCell[T, N](*node).Tail
 	for i := range len(before) {
 		out = ConsCell[T, N](before[len(before)-1-i], out)
+	}
+	return out
+}
+
+// ListCellLast is xs's last n cells, shared: the cells a list pattern's
+// tails are read from (`[first, .., last]`). Every cell caches its length,
+// so one walk finds them. n must not exceed xs's length.
+func ListCellLast[T any, N ListCellShape[T, N]](xs *N, n int) *N {
+	for xs != nil && ListCell[T, N](*xs).Len > n {
+		xs = ListCell[T, N](*xs).Tail
+	}
+	return xs
+}
+
+// ListCellSlice is the List of xs's elements from position from up to drop
+// elements before its end: the middle rest of `[first, ..mid, last]`. With
+// drop zero it is xs's suffix, shared; otherwise the elements are copied
+// into new cells, in one walk. from+drop must not exceed xs's length.
+func ListCellSlice[T any, N ListCellShape[T, N]](xs *N, from, drop int) *N {
+	for range from {
+		xs = ListCell[T, N](*xs).Tail
+	}
+	if drop == 0 || xs == nil {
+		return xs
+	}
+	items := make([]T, 0, ListCell[T, N](*xs).Len-drop)
+	for xs != nil && ListCell[T, N](*xs).Len > drop {
+		cell := ListCell[T, N](*xs)
+		items = append(items, cell.Head)
+		xs = cell.Tail
+	}
+	var out *N
+	for i := len(items) - 1; i >= 0; i-- {
+		out = ConsCell[T, N](items[i], out)
 	}
 	return out
 }

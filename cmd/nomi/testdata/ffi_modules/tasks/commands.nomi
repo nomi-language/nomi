@@ -90,7 +90,7 @@ pub fn run(
 
         #Command.Add{title} -> {
             task = #Task{id: next_id(tasks), title, created: Clock.now(clock)}
-            try Store.save(store, task)
+            Store.save(store, task)?
             Ok(#(Map.put(tasks, task.id, task), ["added ${Task.render(task)}"]))
         }
 
@@ -98,14 +98,14 @@ pub fn run(
             Ok(#(tasks, list(tasks, status)))
 
         #Command.Mark{id, status} -> {
-            task = #{..try find(tasks, id), status}
-            try Store.save(store, task)
+            task = #{..find(tasks, id)?, status}
+            Store.save(store, task)?
             Ok(#(Map.put(tasks, id, task), [Task.render(task)]))
         }
 
         #Command.Delete{id} -> {
-            task = try find(tasks, id)
-            try Store.delete(store, id)
+            task = find(tasks, id)?
+            Store.delete(store, id)?
             Ok(#(Map.remove(tasks, id), ["deleted ${Task.render(task)}"]))
         }
 
@@ -121,7 +121,7 @@ fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String> {
     lines =
         tasks
         |> Map.values()
-        |> Iter.filter(&shown?(&1, status))
+        |> Iter.filter(&is_shown(&1, status))
         |> Iter.sort_by(.id)
         |> Iter.map(&Task.render(&1))
         |> Iter.to_list()
@@ -129,7 +129,7 @@ fn list(tasks: Map<Int, Task>, status: Maybe<Status>) -> List<String> {
     if lines == [] { ["no tasks"] } else { lines }
 }
 
-fn shown?(task: Task, status: Maybe<Status>) -> Bool {
+fn is_shown(task: Task, status: Maybe<Status>) -> Bool {
     case status {
         None -> True
         Some(status) -> task.status == status

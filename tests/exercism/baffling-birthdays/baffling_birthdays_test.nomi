@@ -62,7 +62,7 @@ test "shared birthday" {
     ]
 
     subtests cases, #(description, birthdates, expected), description {
-        assert baffling_birthdays.shared_birthday?(birthdates) == expected
+        assert baffling_birthdays.has_shared_birthday(birthdates) == expected
     }
 }
 
@@ -71,13 +71,13 @@ group "random birthdates" {
 
     test "generate requested number of birthdates" {
         assert 1..=20
-            |> Iter.all?(fn size -> {
+            |> Iter.all(fn size -> {
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
             })
     }
 
     test "years are not leap years", birthdates {
-        refute birthdates |> Iter.any?(fn date -> Date.leap_year?(Date.year(date)))
+        refute birthdates |> Iter.any(fn date -> Date.is_leap_year(Date.year(date)))
     }
 
     test "months are random", birthdates {
@@ -100,6 +100,6 @@ test "estimated probability of at least one shared birthday" {
     subtests cases, #(description, group_size, expected), description {
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 
-        assert Float.equal_within?(estimate, expected, 1.0)
+        assert Float.equal_within(estimate, expected, 1.0)
     }
 }

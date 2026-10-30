@@ -42,7 +42,7 @@ func TestBoundaryReturn_InferredValues(t *testing.T) {
 fn main() { result = identity(7) _ = result }`, "Int"},
 		{"try before explicit result", `fn fallible() -> Result<Int, String> { Ok(3) }
 fn main() {
-  f = fn -> { value = try fallible() return Ok(value) }
+  f = fn -> { value = fallible()? return Ok(value) }
   result = f()
   _ = result
 }`, "Result<Int, String>"},
@@ -65,8 +65,8 @@ fn main() {
 
 func TestBoundaryReturn_TryCannotEscapeScalarReturn(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`fn fallible() -> Result<Int, String> { Ok(3) }
-fn main() { f = fn -> { value = try fallible() return value } _ = f() }`)
-	expectErrorContaining(t, errs, "`try` cannot propagate a Result out of a lambda whose result is Int")
+fn main() { f = fn -> { value = fallible()? return value } _ = f() }`)
+	expectErrorContaining(t, errs, "`?` cannot propagate a Result out of a lambda whose result is Int")
 }
 
 func TestBoundaryReturn_ContextualInterface(t *testing.T) {

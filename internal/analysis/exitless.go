@@ -5,7 +5,7 @@ import "fmt"
 // exitlessSite is an expression that no function encloses: a `once`
 // initializer, a parameter's default, or a field's default. Each is evaluated
 // on its own, outside any function body, so an early exit written directly in
-// it (`try`, `return`, `break`, `continue`, an assertion) has nothing to exit.
+// it (`?`, `return`, `break`, `continue`, an assertion) has nothing to exit.
 // A lambda, a nested `fn` or a `concurrent` block inside it is a boundary of
 // its own, and an exit there leaves that boundary as it does anywhere.
 type exitlessSite struct {
@@ -14,7 +14,7 @@ type exitlessSite struct {
 	what string
 	// why says what is missing: "a `once` has no function to return from".
 	why string
-	// hint says what to write instead of a `try`.
+	// hint says what to write instead of a `?`.
 	hint string
 }
 
@@ -79,7 +79,7 @@ func (c *checker) rejectExitlessExit(kw string, line, col int) bool {
 	switch kw {
 	case "return", "break", "continue":
 		hint = "give each branch of an `if` or `case` its own value instead of exiting"
-	case "try":
+	case "?":
 	default:
 		hint = fmt.Sprintf("move the `%s` into a function that returns a Result", kw)
 	}

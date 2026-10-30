@@ -35,14 +35,19 @@ fn main() {
 `, "[]\n[]\n[3]\n[-2, -1, 0, 1, 2]\n[16, 25, 36]\n[3, 6, 9]\n5050\n[7, 8]\n[]\n")
 }
 
-func TestIRRangeIter_TheLastIntStopsTheWalk(t *testing.T) {
+// An Int has no largest value, so a walk crosses 2^63 as it crosses any
+// other number, and a range ends at its bound.
+func TestIRRangeIter_AWalkCrossesSixtyFourBits(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  top = Int.max_value
-  io.inspect(Iter.to_list(top - 1..=top))
-  io.inspect(Range.from(top - 1) |> Iter.take(5) |> Iter.to_list())
+  top = 9223372036854775807
+  io.inspect(Iter.to_list(top - 1..=top + 1))
+  io.inspect(Range.from(top - 1) |> Iter.take(4) |> Iter.to_list())
+  io.print(Iter.known_count(1..=Int.pow(10, 30)))
 }
-`, "[9223372036854775806, 9223372036854775807]\n[9223372036854775806, 9223372036854775807]\n")
+`, "[9223372036854775806, 9223372036854775807, 9223372036854775808]\n"+
+		"[9223372036854775806, 9223372036854775807, 9223372036854775808, 9223372036854775809]\n"+
+		"Some(1000000000000000000000000000000)\n")
 }
 
 // Cardinality over a Range walks the Range view and folds, as native lowers it
@@ -51,15 +56,15 @@ func TestIRRangeIter_CardinalityAgrees(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
   io.print(Iter.count(1..=4))
-  io.print(Iter.empty?(3..3))
+  io.print(Iter.is_empty(3..3))
 }
 `, "4\nTrue\n")
 }
 
 func TestIRRangeIter_TourCodepointRange(t *testing.T) {
 	verifyLambdaProgram(t, `fn run() -> Maybe<List<String>> {
-  a = try Int.to_codepoint(97)
-  d = try Int.to_codepoint(100)
+  a = Int.to_codepoint(97)?
+  d = Int.to_codepoint(100)?
 
   letters =
     a..=d

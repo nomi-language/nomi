@@ -66,8 +66,8 @@ test "label decoder" {
 }
 
 test "labels read as the description writes them" {
-    cases: List<#(List<Color>, String)> = [
-        #([.Orange, .Orange, .Black, .Green], "33 ohms ±0.5%"),
+    cases = [
+        #([Color.Orange, .Orange, .Black, .Green], "33 ohms ±0.5%"),
         #([.Orange, .Orange, .Orange, .Grey], "33 kiloohms ±0.05%"),
         #([.Orange, .Orange, .Blue, .Red], "33 megaohms ±2%"),
         #([.Red, .Green, .Yellow, .Yellow, .Brown], "2.54 megaohms ±1%"),

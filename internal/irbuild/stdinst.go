@@ -348,10 +348,10 @@ func stdModuleGenericTemplate(v *stdModuleView, recv, name string) *stdFunc {
 // stdUnretainedMonoBody reports a monomorphic Nomi-bodied stdlib function
 // whose cached body was not retained because it calls a generic sibling in
 // its own module (`Generator.bool` calls `map`) or a generic template of
-// another std module (Regex's Debug calls `String.contains?`), which a
+// another std module (Regex's Debug calls `String.contains`), which a
 // program builds for itself, or calls a monomorphic std function that is
 // not retained for that reason (io's `Replayed` failure reaches
-// `guttered?`, which calls `String.starts_with?`). A body the cache
+// `guttered?`, which calls `String.starts_with`). A body the cache
 // declined for any other reason keeps that reason.
 func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 	return s.unretainedMono(f, map[*stdFunc]bool{})
@@ -442,7 +442,7 @@ func stdModuleMonoFunc(v *stdModuleView, recv, name string) *stdFunc {
 }
 
 // otherModuleTemplate reports whether `owner.method` names one generic
-// template another std module declares (`String.contains?` named in
+// template another std module declares (`String.contains` named in
 // std/regex), or one monomorphic function of it that a program builds for
 // itself (unretainedMono), as a program builds a sibling's.
 func (s *stdInstances) otherModuleTemplate(module, owner, method string, visiting map[*stdFunc]bool) bool {
@@ -994,9 +994,9 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		// program's impl over the container. See stdrecvimpl.go.
 		return v, rk, mobile, ok, true
 	}
-	if method == "contains?" && (base == "Set" || base == "Map" || base == "List" || base == "Vector") {
-		// `C.contains?(c, x)` at a Set, Map, List or Vector: the impl is the
-		// intrinsic the owner-qualified call reaches (`Set.contains?`), not
+	if method == "contains" && (base == "Set" || base == "Map" || base == "List" || base == "Vector") {
+		// `C.contains(c, x)` at a Set, Map, List or Vector: the impl is the
+		// intrinsic the owner-qualified call reaches (`Set.contains`), not
 		// a body to instantiate.
 		call := *t
 		call.TypeArgs = nil

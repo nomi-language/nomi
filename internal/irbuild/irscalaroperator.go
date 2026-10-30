@@ -31,15 +31,15 @@ func (bl *irScalarBuilder) scalarOperatorCall(t *ast.Call, args irQualArgs, owne
 	return n.Dst(), k, false, true
 }
 
-// scalarEqualCall lowers `Int.equal?(a, b)` and its Float/String/Bool/Equatable
+// scalarEqualCall lowers `Int.equal(a, b)` and its Float/String/Bool/Equatable
 // spellings over two scalars of one kind to an `ir.Compare`, which the Go
 // reader spells through `scalarEqualCode` (`==`, or `rt.EqFloat`). Without it
 // the call would reach the stdlib index and become a call to the std
-// `Equatable.equal?` body.
+// `Equatable.equal` body.
 //
 // `ir.Compare` does not admit a Unit shape, so a Unit pair declines the body.
 func (bl *irScalarBuilder) scalarEqualCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, kind, bool, bool, bool) {
-	if method != "equal?" || len(t.Args) != 2 {
+	if method != "equal" || len(t.Args) != 2 {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	switch owner {
@@ -102,13 +102,13 @@ func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, own
 	return c.Dst(), true
 }
 
-// structuralEqualCall lowers `Equatable.equal?(a, b)` over two tuples or two
+// structuralEqualCall lowers `Equatable.equal(a, b)` over two tuples or two
 // records of one kind as `a == b` lowers them: a tuple or a record is
 // Equatable structurally and has no impl to select, so the call and the
 // operator are one comparison (valueEquality). owned is false for any other
 // call, which the caller lowers as before.
 func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool, bool) {
-	if owner != "Equatable" || method != "equal?" || len(t.Args) != 2 || !args.ok || len(args.kinds) != 2 {
+	if owner != "Equatable" || method != "equal" || len(t.Args) != 2 || !args.ok || len(args.kinds) != 2 {
 		return ir.NoTemp, false, false
 	}
 	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
@@ -117,7 +117,7 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 	}
 	k := args.kinds[0]
 	if irExistentialKind(k) && irExistentialKind(args.kinds[1]) {
-		// Two interface values: `Equatable.equal?(a, b)` is `a == b`, which
+		// Two interface values: `Equatable.equal(a, b)` is `a == b`, which
 		// compares them by their run-time types (ir.ValIface).
 		c := ir.NewCompare(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OpEq, ir.ValIface, args.temps[0], args.temps[1])
 		bl.b.Append(c)

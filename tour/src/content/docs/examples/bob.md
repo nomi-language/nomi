@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: bob.nomi
+//# Bob, a lackadaisical teenager, and how he answers what is said to him.
+
 /// Bob's reply to `remark`. He answers a question, a shout, a shouted
 /// question and silence each in his own way, and anything else with
 /// "Whatever."
@@ -18,19 +20,12 @@ pub fn response(remark: String) -> String {
     remark = String.trim(remark)
     if remark == "" { return "Fine. Be that way!" }
 
-    case #(String.ends_with?(remark, "?"), shouting?(remark)) {
+    case #(String.ends_with(remark, "?"), String.is_upper(remark)) {
         #(True, True) -> "Calm down, I know what I'm doing!"
         #(True, False) -> "Sure."
         #(False, True) -> "Whoa, chill out!"
         #(False, False) -> "Whatever."
     }
-}
-
-/// A remark is shouted when it has an upper-case letter and no lower-case
-/// one.
-fn shouting?(remark: String) -> Bool {
-    codepoints = String.to_codepoints(remark)
-    Iter.any?(codepoints, Codepoint.upper?) and !Iter.any?(codepoints, Codepoint.lower?)
 }
 
 // FILE: bob_test.nomi
@@ -95,11 +90,10 @@ test "bob's responses" {
   Bool pairs written out. The checker proves the four arms exhaustive, and the
   table reads as the problem's rules. A chain of `else if`s was the
   alternative.
-- A shout is "some codepoint is `Codepoint.upper?` and none is
-  `Codepoint.lower?`", which states the rule directly. Comparing the remark
-  with `String.to_upper` and `String.to_lower` of it says the same through
-  case mapping, and a reader has to work out that the pair means "has a
-  cased letter and no lower-case one".
+- A shout is `String.is_upper(remark)`: the remark has a letter, and every
+  letter is upper case. That is the problem's rule in one call. Comparing the
+  remark with `String.uppercase` of it was the alternative, but `"1, 2, 3"`
+  equals its own upper case, so that needs a second check for a letter.
 - The parameter is trimmed into a binding of the same name
   (`remark = String.trim(remark)`), per style §11.
 - Replies are plain Strings, since the canonical data compares strings and

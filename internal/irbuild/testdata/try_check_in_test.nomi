@@ -1,4 +1,4 @@
-// `try testing.check(...)` in a test body — a `try` whose propagated payload is
+// `testing.check(...)?` in a test body — a `?` whose propagated payload is
 // itself an AssertionFailure.
 //
 // The report names the check's own failure:
@@ -11,7 +11,7 @@
 // and not the generic early exit:
 //
 //     line N: test returned early
-//       try testing.check(1 == 2)
+//       testing.check(1 == 2)?
 //       returned:
 //         Err(#AssertionFailure{...})
 //
@@ -21,19 +21,19 @@
 //
 // The rule: when the propagated value is an AssertionFailure, the early-return
 // report declines and the assertion report wins, at every site a test body
-// can propagate from. `try` carrying an assertion failure is an ASSERTION failure that
-// happens to have travelled through a `try`; the `try` is transport, not the
+// can propagate from. `?` carrying an assertion failure is an ASSERTION failure that
+// happens to have travelled through a `?`; the `?` is transport, not the
 // diagnosis.
 //
 // Four cases, and the fourth is the one that catches an over-broad fix:
 //
-//   - A passing `try testing.check` unwraps and the case runs on.
+//   - A passing `testing.is_check` unwraps and the case runs on.
 //   - A failing one reports the CHECK's failure, with its own line and values,
 //     and NOT `test returned early`.
 //   - A failing check over a SHAPE subject (a Result) does the same.
 //
-//   - An ordinary `try` over a plain `Err` in the SAME FILE still reports
-//     `test returned early`. A fix that routed every test-body `try` through
+//   - An ordinary `?` over a plain `Err` in the SAME FILE still reports
+//     `test returned early`. A fix that routed every test-body `?` through
 //     the assertion arm would break this row.
 import {
     std/io
@@ -53,7 +53,7 @@ fn shape(n: Int) -> Result<Int, String> {
 }
 
 test "a passing check unwraps and the case runs on" {
-    passed = try testing.check(1 == 1)
+    passed = testing.check(1 == 1)?
     io.print("after the passing check")
 
     assert passed
@@ -61,7 +61,7 @@ test "a passing check unwraps and the case runs on" {
 
 test "a failing check reports the check and not an early return" {
     io.print("before the failing check")
-    passed = try testing.check(1 == 2)
+    passed = testing.check(1 == 2)?
 
     io.print("this line must not run")
 
@@ -69,15 +69,15 @@ test "a failing check reports the check and not an early return" {
 }
 
 test "a failing check over a shape subject reports the check" {
-    v = try testing.check(shape(-3))
+    v = testing.check(shape(-3))?
 
     io.print("this line must not run either")
 
     assert v == Ok(3)
 }
 
-test "an ordinary try still reports test returned early" {
-    v = try parse(-1)
+test "an ordinary `?` still reports test returned early" {
+    v = parse(-1)?
 
     assert v == 0
 }

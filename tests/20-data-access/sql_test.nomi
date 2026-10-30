@@ -33,7 +33,7 @@ test "a value never becomes SQL text, whatever it holds" {
     s = Sql"SELECT id FROM users WHERE name = ${hostile}"
     assert s.parts == ["SELECT id FROM users WHERE name = ", ""]
     assert s.params == [Value.Text(hostile)]
-    refute Iter.any?(s.parts, &String.contains?(&1, "DROP"))
+    refute Iter.any(s.parts, &String.contains(&1, "DROP"))
     assert "${s}" == "SELECT id FROM users WHERE name = ?1"
 }
 
@@ -105,26 +105,26 @@ test "a statement is a value: equal when its parts and parameters are" {
 }
 
 // to_sql then from_sql answers the value it started with.
-fn round_trips?<T>(value: T) -> Bool where T: ToSql and FromSql and Equatable {
+fn round_trips<T>(value: T) -> Bool where T: ToSql and FromSql and Equatable {
     T.from_sql(T.to_sql(value)) == Ok(value)
 }
 
 test "each std type round-trips through Value" {
-    assert round_trips?(7)
-    assert round_trips?(-1.5)
-    assert round_trips?(12.50d)
-    assert round_trips?("text with 'quotes'")
-    assert round_trips?(True)
-    assert round_trips?(Bytes.from_list([]))
-    assert round_trips?(Date`2026-10-19`)
-    assert round_trips?(Time`09:30:00`)
-    assert round_trips?(NaiveDateTime`2026-10-19T09:30:00`)
+    assert round_trips(7)
+    assert round_trips(-1.5)
+    assert round_trips(12.50d)
+    assert round_trips("text with 'quotes'")
+    assert round_trips(True)
+    assert round_trips(Bytes.from_list([]))
+    assert round_trips(Date`2026-10-19`)
+    assert round_trips(Time`09:30:00`)
+    assert round_trips(NaiveDateTime`2026-10-19T09:30:00`)
     at = Instant.from_seconds(1760866200)
     assert Instant.from_sql(ToSql.to_sql(at)) == Ok(at)
-    assert round_trips?(Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`)
+    assert round_trips(Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`)
     doc = Json.Arr([Json.Int(1), Json.Null])
     assert Json.from_sql(ToSql.to_sql(doc)) == Ok(doc)
-    assert round_trips?(Value.Null)
+    assert round_trips(Value.Null)
 }
 
 test "each std type becomes its own Value variant" {
@@ -147,9 +147,9 @@ test "each std type becomes its own Value variant" {
 test "NULL round-trips as None, and a Maybe holding a value as that value" {
     nothing: Maybe<Date> = None
     assert ToSql.to_sql(nothing) == Value.Null
-    assert round_trips?(nothing)
-    assert round_trips?(Some(Date`2026-10-19`))
-    assert round_trips?(Some(Some(3)))
+    assert round_trips(nothing)
+    assert round_trips(Some(Date`2026-10-19`))
+    assert round_trips(Some(Some(3)))
     assert ToSql.to_sql(Some("x")) == Value.Text("x")
 }
 
@@ -171,7 +171,7 @@ fn user_row() -> Row {
 
 test "a row reads by column name" {
     row = user_row()
-    id: Int = try Row.get(row, "id")
+    id: Int = Row.get(row, "id")?
     assert id == 7
     assert Row.get<String>(row, "name") == Ok("Ada")
     assert Row.get<Maybe<String>>(row, "nickname") == Ok(None)
@@ -183,7 +183,7 @@ test "a row reads by column name" {
 
 test "a row reads by position, from 0" {
     row = user_row()
-    name: String = try Row.get_position(row, 1)
+    name: String = Row.get_position(row, 1)?
     assert name == "Ada"
     assert Row.get_position<Int>(row, 0) == Ok(7)
     assert Row.get_position<Maybe<String>>(row, 2) == Ok(None)

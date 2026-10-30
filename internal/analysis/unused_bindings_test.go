@@ -119,7 +119,7 @@ func TestUnusedBinding_RefinementShadowingIsAccepted(t *testing.T) {
 fn demo() -> String {
   name = "  JANE  "
   name = String.trim(name)
-  name = String.to_lower(name)
+  name = String.lowercase(name)
   dbg name
 }
 `)

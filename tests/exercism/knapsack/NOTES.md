@@ -20,8 +20,8 @@ Two indexed reads.
 
 | Read | Where | Result | Real use for a miss? |
 |---|---|---|---|
-| `Vector.at(best, capacity - item.weight)` | `consider` | the best value without the item's weight | No: the branch runs only when `capacity >= item.weight`, and the row has an entry for every capacity below `capacity` |
-| `Vector.at(best, maximum_weight)` | `maximum_value` | the answer | No: every row has `maximum_weight + 1` entries |
+| `Vector.get(best, capacity - item.weight)!` | `consider` | the best value without the item's weight | No: the branch runs only when `capacity >= item.weight`, and the row has an entry for every capacity below `capacity` |
+| `Vector.get(best, maximum_weight)!` | `maximum_value` | the answer | No: every row has `maximum_weight + 1` entries |
 
 ## Friction
 

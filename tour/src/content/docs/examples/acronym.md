@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: acronym.nomi
+//# The acronym of a phrase, from the first letter of each word.
+
 import std/regex.Regex
 
 /// The acronym of `phrase`: the first letter of each word, upper-cased.
@@ -18,9 +20,9 @@ import std/regex.Regex
 pub fn abbreviate(phrase: String) -> String {
     phrase
     |> String.find_all(Regex`[A-Za-z][A-Za-z']*`)
-    |> Iter.map(&String.slice(&1, 0, 1))
+    |> Iter.map(&String.take(&1, 1))
     |> String.join()
-    |> String.to_upper()
+    |> String.uppercase()
 }
 
 // FILE: acronym_test.nomi
@@ -55,7 +57,7 @@ test "abbreviates phrases" {
   `String.find_all`, rather than splitting on spaces and hyphens and then
   stripping punctuation. The regex makes "Halley's" one word and "_Not_" the
   word "Not" without special cases.
-- The first letter of a word is `&String.slice(&1, 0, 1)`, a capture rather than `fn word -> ...`.
-  `Iter.first(word)` also works but returns a `Maybe`, and every match has at
-  least one letter.
+- The first letter of a word is `&String.take(&1, 1)`, a capture rather than
+  `fn word -> ...`. `Iter.first(word)` also works but returns a `Maybe`, and
+  every match has at least one letter.
 - The whole acronym is upper-cased once at the end, not letter by letter.

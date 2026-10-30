@@ -3,8 +3,8 @@
 // into the stdlib replaced it (the function's line), through a lambda the
 // stdlib runs (the lambda's line), and in a host function (the call's
 // line, which the host's text does not name).
-fn magnitude(n: Int) -> Int {
-    Int.abs(n)
+fn share(n: Int) -> Int {
+    Int.floor_div(10, n)
 }
 
 test "a stdlib trap in a test body" {
@@ -12,7 +12,7 @@ test "a stdlib trap in a test body" {
 }
 
 test "a stdlib trap through a program function" {
-    assert magnitude(Int.min_value) > 0
+    assert share(0) > 0
 }
 
 test "a lambda the stdlib runs" {

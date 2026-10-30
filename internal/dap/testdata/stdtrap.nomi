@@ -2,6 +2,6 @@ import std/io
 
 fn main() {
     io.print("start")
-    magnitude = Int.abs(Int.min_value)
-    io.print(magnitude)
+    share = Int.floor_div(7, 0)
+    io.print(share)
 }

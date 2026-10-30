@@ -6,5 +6,5 @@ test "Toml literal preserves source text" {
         name = "demo"
         """
 
-    assert String.contains?(Toml.text(manifest), "name = \"demo\"")
+    assert String.contains(Toml.text(manifest), "name = \"demo\"")
 }

@@ -445,7 +445,7 @@ func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type
 	if boxed {
 		switch s.Kind {
 		case SInt:
-			fmt.Fprintf(w, "\t%s.W[%d] = rt.IntWord(%s.(int64))\n", rec, off, expr)
+			fmt.Fprintf(w, "\t%s.SetIntSlot(%d, %s)\n", rec, off, expr)
 		case SFloat:
 			fmt.Fprintf(w, "\t%s.W[%d] = rt.FloatWord(%s.(float64))\n", rec, off, expr)
 		case SBool:
@@ -473,7 +473,7 @@ func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type
 		}
 		switch s.Kind {
 		case SInt:
-			fmt.Fprintf(w, "\t%s.W[%d] = rt.IntWord(%s)\n", rec, off, x)
+			fmt.Fprintf(w, "\t%s.SetIntSlot(%d, %s)\n", rec, off, x)
 		case SFloat:
 			fmt.Fprintf(w, "\t%s.W[%d] = rt.FloatWord(%s)\n", rec, off, x)
 		case SBool:
@@ -518,8 +518,14 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		if err := compatible(s, t); err != nil {
 			return "", err
 		}
-		nomiT := nomiGoType(s)
-		fmt.Fprintf(&w, "\tx, ok := v.(%s)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n", nomiT, s.String())
+		if s.Kind == SInt {
+			// An Int is an int64 or a *rt.BigInt; narrow decides what the
+			// Go type can hold.
+			fmt.Fprintf(&w, "\tif !rt.IsInt(v) {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n\tx := v\n", s.String())
+		} else {
+			nomiT := nomiGoType(s)
+			fmt.Fprintf(&w, "\tx, ok := v.(%s)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n", nomiT, s.String())
+		}
 		x, fallible, err := g.narrow(s, t, "x")
 		if err != nil {
 			return "", err
@@ -1060,8 +1066,17 @@ func nomiGoType(s *Shape) string {
 
 func fieldReader(s *Shape) string {
 	return map[ShapeKind]string{
-		SInt: "IntField", SFloat: "FloatField", SBool: "BoolField", SString: "StringField", SByte: "ByteField", SBytes: "BytesField",
+		SInt: "IntValueField", SFloat: "FloatField", SBool: "BoolField", SString: "StringField", SByte: "ByteField", SBytes: "BytesField",
 	}[s.Kind]
+}
+
+// isRtInt reports whether t is rt.Int, an Int of any size.
+func isRtInt(t Type) bool { return isNamed(t, rtPkg, "Int") }
+
+// isBigInt reports whether t is *big.Int, which an Int of any size projects
+// to.
+func isBigInt(t Type) bool {
+	return t != nil && t.Kind() == reflect.Pointer && isNamed(t.Elem(), "math/big", "Int")
 }
 
 func isByteKind(t Type) bool { return t.Kind() == reflect.Uint8 }
@@ -1079,6 +1094,7 @@ func compatible(s *Shape, t Type) error {
 			reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 			ok = true
 		}
+		ok = ok || isRtInt(t) || isBigInt(t)
 	case SFloat:
 		ok = t.Kind() == reflect.Float32 || t.Kind() == reflect.Float64
 	case SBool:
@@ -1105,10 +1121,15 @@ func (g *Generator) narrow(s *Shape, t Type, x string) (string, bool, error) {
 	}
 	switch s.Kind {
 	case SInt:
+		// x is an Int value: an int64, or a *rt.BigInt past its range.
+		switch {
+		case isRtInt(t):
+			return fmt.Sprintf("rt.IntOf(%s)", x), false, nil
+		case isBigInt(t):
+			return fmt.Sprintf("rt.IntBig(%s)", x), false, nil
+		}
 		switch t.Kind() {
-		case reflect.Int64:
-			return fmt.Sprintf("%s(%s)", goT, x), false, nil
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			return fmt.Sprintf("hostadapt.ToSigned[%s](%s, %q)", goT, x, t.String()), true, nil
 		default:
 			return fmt.Sprintf("hostadapt.ToUnsigned[%s](%s, %q)", goT, x, t.String()), true, nil
@@ -1141,11 +1162,17 @@ func (g *Generator) widen(s *Shape, t Type, x string) (string, bool, error) {
 	}
 	switch s.Kind {
 	case SInt:
+		switch {
+		case isRtInt(t):
+			return fmt.Sprintf("%s.Value()", x), false, nil
+		case isBigInt(t):
+			return fmt.Sprintf("hostadapt.FromBig(%s)", x), true, nil
+		}
 		switch t.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return fmt.Sprintf("int64(%s)", x), false, nil
+			return fmt.Sprintf("rt.Value(int64(%s))", x), false, nil
 		}
-		return fmt.Sprintf("hostadapt.FromUnsigned(%s, %q)", x, t.String()), true, nil
+		return fmt.Sprintf("rt.IntFromUint64(uint64(%s))", x), false, nil
 	case SFloat:
 		return fmt.Sprintf("float64(%s)", x), false, nil
 	case SBool:

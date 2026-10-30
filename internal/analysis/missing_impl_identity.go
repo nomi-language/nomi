@@ -1,5 +1,7 @@
 package analysis
 
+import "github.com/nomi-language/nomi/internal/ast"
+
 // Nominal identity on the missing-impl SUPPLY side.
 //
 // `DetectMissingImpls` asks "is there an impl of Iface for T" by indexing
@@ -12,7 +14,7 @@ package analysis
 // `std/calendar.nomi` and `std/random.nomi` each declare their own
 // `pub enum Error` and carry `derive Equatable for Error`. Keyed by bare name,
 // `Impls["Error"]["Equatable"]` is true for ANY type called `Error`, so
-// `Equatable.equal?` over a user's own `Error` with no impl type-checks.
+// `Equatable.equal` over a user's own `Error` with no impl type-checks.
 //
 // Two identical programs, differing only in the type's name:
 //
@@ -94,14 +96,14 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 	// One origin lookup per (home module, receiver head) rather than per
 	// impl: a module's impls share a home file, and declaringOriginOfType
 	// walks a scope and an import chain on every call.
-	type memoKey struct{ module, head string }
+	type memoKey struct{ module, qualifier, head string }
 	memo := make(map[memoKey]string)
-	originOf := func(module, recv string) string {
+	originOf := func(module, qualifier, recv string) string {
 		noteStdlibWork(module)
-		k := memoKey{module: module, head: typeNameHead(recv)}
+		k := memoKey{module: module, qualifier: qualifier, head: typeNameHead(recv)}
 		origin, seen := memo[k]
 		if !seen {
-			origin = declaringOriginOfType(filesByKey[k.module], k.head, primitives)
+			origin = implReceiverOrigin(filesByKey[k.module], k.qualifier, k.head, primitives)
 			memo[k] = origin
 		}
 		return origin
@@ -123,11 +125,11 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 		}
 		into[recv][iface] = true
 	}
-	record := func(module, recv, iface string) {
+	record := func(module, qualifier, recv, iface string) {
 		if recv == "" || iface == "" {
 			return
 		}
-		origin := originOf(module, recv)
+		origin := originOf(module, qualifier, recv)
 		if origin == OriginUnresolved {
 			mark(blocked, recv, iface)
 			return
@@ -136,16 +138,20 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 		mark(covered, recv, iface)
 	}
 
+	recordFn := func(fn *ast.FuncDef) {
+		home := idx.ImplFiles[fn]
+		record(home, implReceiverModule(filesByKey[home], fn), idx.ReceiverOf(fn), idx.ImplBlockInterfaceKey[fn])
+	}
 	for fn := range idx.ImplBlockReceiver {
 		if fn != nil {
-			record(idx.ImplFiles[fn], idx.ReceiverOf(fn), idx.ImplBlockInterfaceKey[fn])
+			recordFn(fn)
 		}
 	}
 	for _, byMethod := range idx.IfaceMethodImpls {
 		for _, fns := range byMethod {
 			for _, fn := range fns {
 				if fn != nil {
-					record(idx.ImplFiles[fn], idx.ReceiverOf(fn), idx.ImplBlockInterfaceKey[fn])
+					recordFn(fn)
 				}
 			}
 		}
@@ -157,7 +163,7 @@ func recordImplsByIdentity(idx *ProjectImplIndex, filesByKey map[string]*FileAna
 	// among them — and quietly shrink the check to nothing.
 	for ex, recv := range idx.ImplBlockReceiverExtern {
 		if ex != nil {
-			record(idx.ImplExternFiles[ex], recv, idx.ImplBlockInterfaceKeyExtern[ex])
+			record(idx.ImplExternFiles[ex], "", recv, idx.ImplBlockInterfaceKeyExtern[ex])
 		}
 	}
 

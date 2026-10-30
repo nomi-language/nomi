@@ -38,7 +38,7 @@ fn run() -> Result<Unit, Error> {
     // would clamp to February 28th. Routing to a civil sibling would therefore
     // print a different date rather than fail, which is why the operand is a
     // Duration and the date is a month end.
-    start = try NaiveDateTime"2011-01-31T12:00:00"
+    start = NaiveDateTime"2011-01-31T12:00:00"?
     io.print("op = " + NaiveDateTime.to_string(start + Duration.hours(24)))
 
     // The same impl through the OTHER route into the overload set: the operator
@@ -50,8 +50,8 @@ fn run() -> Result<Unit, Error> {
     // February 28th is the 29th in 2012 and March 1st in 2011, and the month
     // length comes from rt's calendar computation rather than
     // from a table the fixture wrote.
-    leap = try NaiveDateTime"2012-02-28T23:00:00"
-    common = try NaiveDateTime"2011-02-28T23:00:00"
+    leap = NaiveDateTime"2012-02-28T23:00:00"?
+    common = NaiveDateTime"2011-02-28T23:00:00"?
     io.print("leap = " + NaiveDateTime.to_string(leap + Duration.hours(2)))
     io.print("common = " + NaiveDateTime.to_string(common + Duration.hours(2)))
 

@@ -11,14 +11,16 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: isogram.nomi
+//# Isograms: words and phrases with no repeated letter.
+
 /// Whether no letter appears in `phrase` more than once, ignoring case.
 /// Spaces, hyphens and other non-letters may repeat.
-pub fn isogram?(phrase: String) -> Bool {
+pub fn is_isogram(phrase: String) -> Bool {
     letters =
         phrase
         |> String.fold_case()
         |> String.to_codepoints()
-        |> Iter.filter(Codepoint.letter?)
+        |> Iter.filter(Codepoint.is_letter)
         |> Iter.to_list()
 
     distinct = Iter.to_set(letters)
@@ -26,7 +28,7 @@ pub fn isogram?(phrase: String) -> Bool {
 }
 
 // FILE: isogram_test.nomi
-import isogram.isogram?
+import isogram.is_isogram
 
 test "isograms" {
     cases = [
@@ -51,7 +53,7 @@ test "isograms" {
     ]
 
     subtests cases, #(description, phrase, expected), description {
-        assert isogram?(phrase) == expected
+        assert is_isogram(phrase) == expected
     }
 }
 ```
@@ -59,8 +61,8 @@ test "isograms" {
 ## How it's written
 
 - The letters are the case-folded phrase's codepoints (`String.fold_case`,
-  which is for comparing, rather than `String.to_lower`) filtered by
-  `Codepoint.letter?`, which keeps every Unicode letter and drops everything
+  which is for comparing, rather than `String.lowercase`) filtered by
+  `Codepoint.is_letter`, which keeps every Unicode letter and drops everything
   else. `String.find_all(Regex`\pL`)` keeps the same codepoints in one stage
   instead of three, but a reader has to know `\pL`, and the filter says
   "keep the letters" in words. Filtering out `" "` and `"-"` by hand matches

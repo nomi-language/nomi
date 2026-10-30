@@ -16,9 +16,7 @@ func TestFormat_Unreachable(t *testing.T) {
 		"    }\n" +
 		"}\n"
 	want := "fn index(n: Int, ns: List<Int>) -> Int {\n" +
-		"    Some(i) = ns |> Iter.find_index(&(&1 == n)) else {\n" +
-		"        unreachable \"every number is listed\"\n" +
-		"    }\n" +
+		"    Some(i) = ns |> Iter.find_index(&(&1 == n)) else { unreachable \"every number is listed\" }\n" +
 		"    i\n" +
 		"}\n\n" +
 		"fn first(xs: List<String>) -> String {\n" +

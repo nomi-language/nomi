@@ -268,6 +268,12 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 		args = full
 		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(full.temps)), Line: t.Line, Col: t.Col}
 	}
+	if widened, changed := bl.qualWidenEmbeds(t, args, params); changed {
+		// `sql.Statement.values(ids)`: the list enters its `Iter<T>`
+		// parameter as the sequence.
+		filled = &widened
+		args = widened
+	}
 	if !bl.qualSignature(t, args, params, res) {
 		return nil
 	}

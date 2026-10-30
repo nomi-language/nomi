@@ -66,8 +66,8 @@ fn rounds(
     now = shape(hands)
 
     case {
-        Iter.empty?(hand(hands, other(collector))) -> #{status: .Finished, cards, tricks}
-        Set.contains?(seen, now) -> #{status: .Loop, cards, tricks}
+        Iter.is_empty(hand(hands, other(collector))) -> #{status: .Finished, cards, tricks}
+        Set.contains(seen, now) -> #{status: .Loop, cards, tricks}
         _ -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
     }
 }
@@ -159,8 +159,13 @@ fn deck(cards: String) -> List<String> {
 }
 
 test "simulate game" {
-    cases: List<#(String, List<String>, List<String>, Game)> = [
-        #("two cards, one trick", deck("2"), deck("3"), #{status: .Finished, cards: 2, tricks: 1}),
+    cases = [
+        #(
+            "two cards, one trick",
+            deck("2"),
+            deck("3"),
+            #Game{status: .Finished, cards: 2, tricks: 1},
+        ),
         #(
             "three cards, one trick",
             deck("2 4"),

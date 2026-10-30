@@ -23,7 +23,7 @@ import (
 // ordinary `fn` or a `concurrent` block the checker names as its boundary,
 // where a failure is that activation's `Err(AssertionFailure)`: a
 // `concurrent` body is its own ir.Func, so the failure ends the block as a
-// `try` does and the block's scope exit cancels its in-flight tasks. The
+// `?` does and the block's scope exit cancels its in-flight tasks. The
 // classification is the checker's (`assertionBoundary`); a lambda boundary
 // declines rather than being lowered as though the enclosing function were
 // the boundary.

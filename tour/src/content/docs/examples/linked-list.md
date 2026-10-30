@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: linked_list.nomi
+//# A list read and written at both ends, as a doubly linked list is.
+
 /// A list that is read and written at both ends: `push` and `pop` at the
 /// back, `unshift` and `shift` at the front. It is a value, so every
 /// operation answers a list.

@@ -4,7 +4,7 @@ import {
 }
 
 test "letter frequency" {
-    cases: List<#(String, List<String>, Map<String, Int>)> = [
+    cases = [
         #("no texts", [], %{}),
         #("one text with one letter", ["a"], %{"a" => 1}),
         #("one text with multiple letters", ["bbcccd"], %{"b" => 2, "c" => 3, "d" => 1}),

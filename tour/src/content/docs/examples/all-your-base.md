@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: all_your_base.nomi
+//# Converts a number, written as digits in one base, to its digits in another.
+
 /// Why a number cannot be rebased.
 pub enum Error {
     InvalidInputBase
@@ -22,17 +24,11 @@ pub enum Error {
 /// in `input_base`, written in `output_base`. Zero, and an empty list of
 /// digits, come out as `[0]`.
 pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error> {
-    if input_base < 2 {
-        return Err(.InvalidInputBase)
-    }
+    if input_base < 2 { return Err(.InvalidInputBase) }
 
-    if Iter.any?(digits, fn d -> d < 0 or d >= input_base) {
-        return Err(.InvalidDigit)
-    }
+    if Iter.any(digits, fn d -> !Range.contains(0..input_base, d)) { return Err(.InvalidDigit) }
 
-    if output_base < 2 {
-        return Err(.InvalidOutputBase)
-    }
+    if output_base < 2 { return Err(.InvalidOutputBase) }
 
     number = Iter.reduce(digits, fn total = 0, d -> total * input_base + d)
     Ok(Int.to_digits(number, output_base))
@@ -79,6 +75,6 @@ test "rebases digits" {
 
 - Errors are an `Error` enum with one variant per canonical message. The checks run in the canonical order (input base, digits, output base), so "both bases are negative" reports the input base.
 - Each check is an early `return`, which keeps the conversion unindented.
-- The digits become a number with `Iter.reduce` (`total * input_base + d`) after the checks, rather than with `Int.from_digits`. `Int.from_digits` answers `None` both for a digit outside the base and for a number past the Int range, and the canonical errors name the digit; keeping the check and the fold reports `InvalidDigit` only for a bad digit and keeps an overflow a trap.
+- The digits become a number with `Iter.reduce` (`total * input_base + d`) after the checks, rather than with `Int.from_digits`. `Int.from_digits` answers `None` for a digit outside the base without saying which, and the canonical errors name the digit; keeping the check and the fold reports `InvalidDigit` with the digit.
 - The number becomes digits with `Int.to_digits(number, output_base)`, which gives `[0]` for zero, so zero and an empty list need no early return.
 - The 21 cases are one `subtests` table. The first error row writes `Err(Error.InvalidInputBase)` and the later ones `Err(.InvalidDigit)`: a qualified variant in an earlier row gives the enum to the bare ones after it, so the table needs no type annotation.

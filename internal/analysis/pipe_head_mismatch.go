@@ -166,9 +166,9 @@ func (c *checker) pipeHeadHint(want, have Type, value ast.Node) string {
 	if et, ok := h.(*EnumType); ok && len(et.TypeArgs) > 0 && TypesEqual(resolveTV(et.TypeArgs[0]), w) {
 		switch {
 		case et.Name == "Maybe" && len(et.TypeArgs) == 1:
-			return "a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or unwrap it with `try` in a function that returns a Maybe"
+			return "a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Maybe"
 		case et.Name == "Result" && len(et.TypeArgs) == 2:
-			return "a Result may be an Err; handle it before this stage: give a fallback with `|> Result.with_default(...)`, match it with `case`, or unwrap it with `try` in a function that returns a Result"
+			return "a Result may be an Err; handle it before this stage: give a fallback with `|> Result.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Result"
 		}
 	}
 	conversions := map[[2]Type]string{

@@ -162,16 +162,16 @@ impl Add<Statement, Statement> for Statement {
 
 impl Statement {
     /// The statements one after another, with `separator` between each two:
-    /// a list of placeholders for `IN (...)`, or conditions joined by
-    /// `Sql" AND "`. No statements is the empty statement.
+    /// a list of placeholders for `IN (...)`, or the rows of a multi-row
+    /// `INSERT`. No statements is the empty statement.
     //! ids = [3, 5, 8]
-    //! placeholders = ids |> Iter.map(fn id -> Sql"${id}") |> Iter.to_list()
-    //! s = Sql"SELECT name FROM users WHERE id IN (" + Statement.join(placeholders, Sql", ") + Sql")"
+    //! placeholders = ids |> Iter.map(fn id -> Sql"${id}") |> Statement.join(Sql", ")
+    //! s = Sql"SELECT name FROM users WHERE id IN (" + placeholders + Sql")"
     //! assert "${s}" == "SELECT name FROM users WHERE id IN (?1, ?2, ?3)"
     //! assert s.params == [Value.Int(3), Value.Int(5), Value.Int(8)]
     //! assert Statement.join([], Sql" AND ") == Sql""
     //
-    pub fn join(statements: List<Statement>, separator: Statement) -> Statement {
+    pub fn join(statements: Iter<Statement>, separator: Statement) -> Statement {
         statements
         |> Iter.with_index()
         |> Iter.reduce(fn joined = Sql"", #(index, statement) -> {
@@ -183,66 +183,130 @@ impl Statement {
         })
     }
 
-    /// A parenthesized list of parameters for SQL's `IN`: `(?1, ?2, ?3)`.
-    /// An empty list is `(NULL)`, which matches no row, since `IN ()` is not
-    /// SQL.
+    /// The statements joined by `, ` in parentheses: `(a, b, c)`, for one
+    /// row of a multi-row `INSERT` or any other tuple. No statements is
+    /// `()`, which is not SQL, so leave the list out when there is nothing
+    /// to list.
+    //! users = [#{email: "ada@example.com", name: "Ada"}, #{email: "bob@example.com", name: "Bob"}]
+    //!
+    //! rows =
+    //!     users
+    //!     |> Iter.map(fn u -> Statement.list([Sql"${u.email}", Sql"${u.name}"]))
+    //!     |> Statement.join(Sql", ")
+    //!
+    //! s = Sql"INSERT INTO users (email, name) VALUES " + rows
+    //! assert "${s}" == "INSERT INTO users (email, name) VALUES (?1, ?2), (?3, ?4)"
+    //!
+    //! assert s.params == [
+    //!     Value.Text("ada@example.com"),
+    //!     Value.Text("Ada"),
+    //!     Value.Text("bob@example.com"),
+    //!     Value.Text("Bob"),
+    //! ]
+    //!
+    //! assert "${Statement.list([])}" == "()"
+    //
+    pub fn list(statements: Iter<Statement>) -> Statement {
+        Sql"(" + Statement.join(statements, Sql", ") + Sql")"
+    }
+
+    /// A parenthesized list of parameters for SQL's `IN`: `(?1, ?2, ?3)`,
+    /// the `list` of each item as a parameter. No items is `(NULL)`, which
+    /// matches no row, since `IN ()` is not SQL.
     //! s = Sql"SELECT name FROM users WHERE id IN " + Statement.values([3, 5, 8])
     //! assert "${s}" == "SELECT name FROM users WHERE id IN (?1, ?2, ?3)"
     //! assert s.params == [Value.Int(3), Value.Int(5), Value.Int(8)]
+    //! evens = [1, 2, 3, 4] |> Iter.filter(fn n -> n % 2 == 0) |> Statement.values()
+    //! assert "${evens}" == "(?1, ?2)"
     //! nothing: List<Int> = []
     //! assert "${Statement.values(nothing)}" == "(NULL)"
     //
-    pub fn values<T>(items: List<T>) -> Statement where T: ToSql {
-        case items {
-            [] ->
-                Sql"(NULL)"
+    pub fn values<T>(items: Iter<T>) -> Statement where T: ToSql {
+        slots = items |> Iter.map(fn item -> Sql"${item}") |> Iter.to_list()
 
-            _ -> {
-                slots = items |> Iter.map(fn item -> Sql"${item}") |> Iter.to_list()
-                Sql"(" + Statement.join(slots, Sql", ") + Sql")"
-            }
+        case slots {
+            [] -> Sql"(NULL)"
+            _ -> Statement.list(slots)
         }
     }
 
-    /// ` WHERE` and every condition, joined by `AND`, or nothing when there
-    /// are no conditions, so a query's filters can each be optional. With
-    /// more than one condition, each is parenthesized, so one holding an
-    /// `OR` keeps its meaning.
+    /// A condition that holds when every one of `conditions` does: the
+    /// conditions joined by `AND`. With more than one, each is
+    /// parenthesized, so one holding an `OR`, such as an `any`, keeps its
+    /// meaning. One condition is itself, with no parentheses. An empty
+    /// statement among them is left out, so an `any([])` inside an `all`
+    /// drops out, and no conditions is the empty statement.
     //! paid = Sql"status = ${"paid"}"
     //! big = Sql"total >= ${20}"
-    //! assert "${Sql"SELECT id FROM orders" + Statement.where_all([])}" == "SELECT id FROM orders"
-    //! assert "${Statement.where_all([paid])}" == " WHERE status = ?1"
-    //! assert "${Statement.where_all([paid, big])}" == " WHERE (status = ?1) AND (total >= ?2)"
+    //! rush = Sql"rush = ${True}"
+    //! assert "${Statement.all([paid, big])}" == "(status = ?1) AND (total >= ?2)"
+    //! assert "${Statement.all([paid])}" == "status = ?1"
+    //! assert Statement.all([]) == Sql""
+    //! nested = Statement.all([paid, Statement.any([big, rush])])
+    //! assert "${nested}" == "(status = ?1) AND ((total >= ?2) OR (rush = ?3))"
+    //! assert Statement.all([paid, Statement.any([])]) == paid
     //
-    pub fn where_all(conditions: List<Statement>) -> Statement {
-        where_joined(conditions, Sql" AND ")
+    pub fn all(conditions: Iter<Statement>) -> Statement {
+        combined(conditions, Sql" AND ")
     }
 
-    /// ` WHERE` and every condition, joined by `OR`, or nothing when there
-    /// are none. Each is parenthesized when there is more than one.
+    /// A condition that holds when any one of `conditions` does: the
+    /// conditions joined by `OR`, parenthesized and simplified as `all`
+    /// does.
+    //! a = Sql"status = ${"paid"}"
+    //! b = Sql"status = ${"shipped"}"
+    //! assert "${Statement.any([a, b])}" == "(status = ?1) OR (status = ?2)"
+    //! assert "${Statement.any([a])}" == "status = ?1"
+    //! assert Statement.any([]) == Sql""
+    //
+    pub fn any(conditions: Iter<Statement>) -> Statement {
+        combined(conditions, Sql" OR ")
+    }
+
+    /// ` WHERE ` and `all` of the conditions, or nothing when that is
+    /// empty, so a query's filters can each be optional.
+    //! paid = Sql"status = ${"paid"}"
+    //! big = Sql"total >= ${20}"
+    //! rush = Sql"rush = ${True}"
+    //! assert "${Sql"SELECT id FROM orders" + Statement.where_all([])}" == "SELECT id FROM orders"
+    //! assert "${Statement.where_all([paid])}" == " WHERE status = ?1"
+    //! s = Statement.where_all([paid, Statement.any([big, rush])])
+    //! assert "${s}" == " WHERE (status = ?1) AND ((total >= ?2) OR (rush = ?3))"
+    //
+    pub fn where_all(conditions: Iter<Statement>) -> Statement {
+        where_of(Statement.all(conditions))
+    }
+
+    /// ` WHERE ` and `any` of the conditions, or nothing when that is
+    /// empty.
     //! a = Sql"status = ${"paid"}"
     //! b = Sql"status = ${"shipped"}"
     //! assert "${Statement.where_any([a, b])}" == " WHERE (status = ?1) OR (status = ?2)"
+    //! assert Statement.where_any([]) == Sql""
     //
-    pub fn where_any(conditions: List<Statement>) -> Statement {
-        where_joined(conditions, Sql" OR ")
+    pub fn where_any(conditions: Iter<Statement>) -> Statement {
+        where_of(Statement.any(conditions))
     }
 }
 
-/// ` WHERE` and the conditions joined by `separator`, each parenthesized
-/// when there are several, or nothing for no conditions.
-fn where_joined(conditions: List<Statement>, separator: Statement) -> Statement {
-    case conditions {
-        [] ->
-            Sql""
+/// The conditions that are not empty, joined by `separator`: one alone as
+/// it is, several each parenthesized, none the empty statement.
+fn combined(conditions: Iter<Statement>, separator: Statement) -> Statement {
+    kept = conditions |> Iter.filter(fn c -> c != Sql"") |> Iter.to_list()
 
-        [only] ->
-            Sql" WHERE " + only
+    case kept {
+        [] -> Sql""
+        [only] -> only
+        _ -> kept |> Iter.map(fn c -> Sql"(" + c + Sql")") |> Statement.join(separator)
+    }
+}
 
-        _ -> {
-            grouped = conditions |> Iter.map(fn c -> Sql"(" + c + Sql")") |> Iter.to_list()
-            Sql" WHERE " + Statement.join(grouped, separator)
-        }
+/// ` WHERE ` and `condition`, or nothing for the empty statement.
+fn where_of(condition: Statement) -> Statement {
+    if condition == Sql"" {
+        Sql""
+    } else {
+        Sql" WHERE " + condition
     }
 }
 
@@ -531,7 +595,7 @@ impl FromSql for Maybe<T> where T: FromSql {
 /// `Row.new`.
 //! row = Row.new("SELECT id, name FROM users", [#("id", Value.Int(7)), #("name", Value.Null)])
 //! assert Row.columns(row) == ["id", "name"]
-//! id: Int = try Row.get(row, "id")
+//! id: Int = Row.get(row, "id")?
 //! assert id == 7
 //! assert Row.get_position<Maybe<String>>(row, 1) == Ok(None)
 //
@@ -612,7 +676,7 @@ impl Row {
     /// type is `Err(.Decode)`, and NULL read as a type that is not a `Maybe`
     /// is `Err(.UnexpectedNull)`.
     //! row = Row.new("SELECT n, t", [#("n", Value.Int(1)), #("t", Value.Null)])
-    //! n: Int = try Row.get(row, "n")
+    //! n: Int = Row.get(row, "n")?
     //! assert n == 1
     //!
     //! assert Row.get<String>(row, "n")
@@ -622,14 +686,14 @@ impl Row {
     //! assert Row.get<Maybe<String>>(row, "t") == Ok(None)
     //
     pub fn get<T>(row: Row, column: String) -> Result<T, Error> where T: FromSql {
-        value = try Row.value(row, column)
+        value = Row.value(row, column)?
         T.from_sql(value) |> Result.map_err(&decode_error(row, column, value, &1))
     }
 
     /// The value at `position`, counting from 0, as a `T`, with `get`'s
     /// errors. The column the errors name is the one at `position`.
     pub fn get_position<T>(row: Row, position: Int) -> Result<T, Error> where T: FromSql {
-        value = try Row.value_position(row, position)
+        value = Row.value_position(row, position)?
 
         column = case Iter.get(row.columns, position) {
             Some(name) -> name
@@ -820,10 +884,10 @@ impl Display for ConstraintKind {
 /// only its own work. The answer is the body's, or the `Err` of a `begin` or
 /// `commit` that failed.
 pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T, Error> {
-    tx = try Conn.begin(conn)
+    tx = Conn.begin(conn)?
     defer settle(tx)
-    value = try body(tx)
-    try Conn.commit(tx)
+    value = body(tx)?
+    Conn.commit(tx)?
     Ok(value)
 }
 
@@ -840,18 +904,18 @@ pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T,
 //! })
 //!
 //! assert count == Ok(0)
-//! assert Fake.closed?(fake)
+//! assert Fake.is_closed(fake)
 //! assert Fake.log(fake) == ["DELETE FROM sessions WHERE expired", "CLOSE"]
 //
 pub fn with_connection<C, T>(
     open: () -> Result<C, Error>,
     body: (Conn) -> Result<T, Error>,
 ) -> Result<T, Error> where C: Conn {
-    conn: Conn = try open()
+    conn: Conn = open()?
     // After the close on `Ok` this is a no-op (Conn's rules).
     defer close_quietly(conn)
-    value = try body(conn)
-    try Conn.close(conn)
+    value = body(conn)?
+    Conn.close(conn)?
     Ok(value)
 }
 
@@ -867,11 +931,11 @@ pub fn with_connection<C, T>(
 //!
 //! {
 //!     defer close_quietly(fake)
-//!     refute Fake.closed?(fake)
+//!     refute Fake.is_closed(fake)
 //!     _ = Conn.exec(fake, Sql"DELETE FROM t")
 //! }
 //!
-//! assert Fake.closed?(fake)
+//! assert Fake.is_closed(fake)
 //! close_quietly(fake)
 //! assert Fake.log(fake) == ["DELETE FROM t", "CLOSE"]
 //

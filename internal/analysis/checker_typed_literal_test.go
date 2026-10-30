@@ -524,7 +524,7 @@ func TestTypedLiteral_ASecondInterfaceNotDeclaringFromFragmentsIsNotARival(t *te
 // stdlib case is the one asserted.
 func TestTypedLiteral_UnrivalledHandlerIsNotReportedAsItsOwnRival(t *testing.T) {
 	entry := "import std/calendar.NaiveDateTime\n\n" +
-		"fn main() {\n  q = try NaiveDateTime\"2026-11-01T01:30:00\"\n}\n"
+		"fn main() {\n  q = NaiveDateTime\"2026-11-01T01:30:00\"?\n}\n"
 	for _, e := range checkTypedLiteralProject(t, entry, nil) {
 		if strings.Contains(e.Message, "is ambiguous") {
 			t.Fatalf("a stdlib handler with no rival was reported as ambiguous against itself: %s", e.Error())

@@ -192,7 +192,7 @@ export class Program {
    */
   async call(name, ...args) {
     try {
-      return this.host.call(name, JSON.stringify(args));
+      return this.host.call(name, encodeValues(args));
     } finally {
       this.flush();
     }
@@ -209,6 +209,31 @@ export class Program {
  * A sink that hands write a line at a time, for console.log.
  * @param {(line: string) => void} write
  */
+// An Int crosses as a JSON number of any length, since an Int is exact at
+// any size. decodeValue answers one a JavaScript number holds exactly, up to
+// Number.MAX_SAFE_INTEGER in magnitude, as a number, and a larger one as a
+// BigInt, read from the number's own digits. An engine without JSON.parse's
+// source text gives a number, as JSON.parse always has.
+function decodeValue(text) {
+  return JSON.parse(text, (_key, value, context) =>
+    typeof value === "number" && !Number.isSafeInteger(value) && context !== undefined &&
+    /^-?\d+$/.test(context.source)
+      ? BigInt(context.source)
+      : value);
+}
+
+// encodeValues is the JSON text of a call's arguments, a BigInt written as
+// its digits.
+function encodeValues(values) {
+  return JSON.stringify(values, (_key, value) => {
+    if (typeof value !== "bigint") return value;
+    if (typeof JSON.rawJSON !== "function") {
+      throw new TypeError("call: a BigInt argument needs JSON.rawJSON, which this JavaScript engine lacks");
+    }
+    return JSON.rawJSON(value.toString());
+  });
+}
+
 function lineSink(write) {
   let pending = "";
   return {
@@ -289,7 +314,7 @@ class Host {
     const ptr = Number(packed >> 32n), len = Number(packed & 0xffffffffn);
     const text = new TextDecoder().decode(new Uint8Array(this.x.memory.buffer, ptr, len));
     this.x.nomi_free(ptr, len);
-    return JSON.parse(text);
+    return decodeValue(text);
   }
 
   /**

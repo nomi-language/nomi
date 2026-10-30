@@ -215,7 +215,7 @@ func (s *Server) output(category, text string) {
 // exceptionFilters are the exception breakpoints a client can turn on.
 var exceptionFilters = []godap.ExceptionBreakpointsFilter{
 	{Filter: "trap", Label: "Traps", Default: true,
-		Description: "Stop where a trap happens: overflow, division by zero, an index out of range, `todo`, a `case` with no arm."},
+		Description: "Stop where a trap happens: division by zero, an index out of range, `todo`, a `case` with no arm."},
 	{Filter: "assertion", Label: "Failed assertions", Default: true,
 		Description: "Stop at a failed `assert`, `refute` or `testing.check`."},
 	{Filter: "mainError", Label: "Err from main", Default: true,

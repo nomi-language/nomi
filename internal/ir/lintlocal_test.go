@@ -23,7 +23,7 @@ func localControl() *Func {
 	b.Append(ra)
 	rb := NewRefLocal(v3At(2), f.NewTemp(), symB)
 	b.Append(rb)
-	sum := NewArith(v3At(2), f.NewTemp(), OpAdd, IntArith(OverflowFaults),
+	sum := NewArith(v3At(2), f.NewTemp(), OpAdd, IntArith(OverflowExact),
 		ra.Dst(), rb.Dst())
 	b.Append(sum)
 	b.SetTerm(NewReturn(v3At(2), sum.Dst()))

@@ -59,7 +59,7 @@ func TestShape_ARecordedProjShapeIsReadAtEveryPosition(t *testing.T) {
 			func(f *Func, b *Block, src Temp) Temp {
 				one, sum := f.NewTemp(), f.NewTemp()
 				b.Append(NewInt(p, one, 1))
-				b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowFaults), src, one))
+				b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowExact), src, one))
 				return sum
 			},
 			"the left operand of this Int operation is String, not Int"},

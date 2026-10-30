@@ -175,8 +175,8 @@ fn tail_err() -> Result<Int, String> {
   e
 }
 fn tries(s: String) -> Result<Int, String> {
-  x = try f()
-  y = try ret(s)
+  x = f()?
+  y = ret(s)?
   Ok(x + y)
 }
 fn fallback(m: Maybe<Int>) -> Result<Int, String> {

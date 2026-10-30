@@ -11,35 +11,35 @@ test "split takes a string or a regex" {
     assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
 }
 
-test "contains? takes a string or a regex" {
+test "contains takes a string or a regex" {
     digits = Regex`\d+`
 
-    assert String.contains?("order 66", "66")
-    refute String.contains?("order", "66")
-    assert String.contains?("order 66", digits)
-    refute String.contains?("order", digits)
-    assert "aisle 7" |> String.contains?(digits)
+    assert String.contains("order 66", "66")
+    refute String.contains("order", "66")
+    assert String.contains("order 66", digits)
+    refute String.contains("order", digits)
+    assert "aisle 7" |> String.contains(digits)
 
-    assert "aisle 7" |> String.contains?("7")
+    assert "aisle 7" |> String.contains("7")
 }
 
-test "starts_with? and ends_with? anchor a regex to that end" {
+test "starts_with and ends_with anchor a regex to that end" {
     digits = Regex`\d+`
 
-    assert String.starts_with?("42 apples", "42")
-    assert String.starts_with?("42 apples", digits)
-    refute String.starts_with?("apples 42", digits)
-    assert String.ends_with?("apples 42", "42")
-    assert String.ends_with?("apples 42", digits)
-    refute String.ends_with?("42 apples", digits)
-    assert "x.PDF" |> String.ends_with?(Regex`(?i)\.pdf`)
+    assert String.starts_with("42 apples", "42")
+    assert String.starts_with("42 apples", digits)
+    refute String.starts_with("apples 42", digits)
+    assert String.ends_with("apples 42", "42")
+    assert String.ends_with("apples 42", digits)
+    refute String.ends_with("42 apples", digits)
+    assert "x.PDF" |> String.ends_with(Regex`(?i)\.pdf`)
 
-    assert "x.pdf" |> String.ends_with?(".pdf")
+    assert "x.pdf" |> String.ends_with(".pdf")
 }
 
-test "ends_with? finds a match ending at the end, not only the leftmost one" {
-    assert String.ends_with?("ab", Regex`a|ab`)
-    assert String.ends_with?("xab", Regex`b|xab`)
+test "ends_with finds a match ending at the end, not only the leftmost one" {
+    assert String.ends_with("ab", Regex`a|ab`)
+    assert String.ends_with("xab", Regex`b|xab`)
 }
 
 test "replace takes a string or a regex and inserts the replacement literally" {
@@ -82,13 +82,13 @@ test "find works over Unicode text" {
 test "find is the first element find_all returns" {
     texts = ["", "abc", "banana", "order 66, aisle 7", "café crème", "a1b22c"]
 
-    assert Iter.all?(texts, &first_agrees(&1, "an"))
-    assert Iter.all?(texts, &first_agrees(&1, ""))
-    assert Iter.all?(texts, &first_agrees(&1, "z"))
-    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\d+`))
-    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a*`))
-    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`a|an`))
-    assert Iter.all?(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
+    assert Iter.all(texts, &first_agrees(&1, "an"))
+    assert Iter.all(texts, &first_agrees(&1, ""))
+    assert Iter.all(texts, &first_agrees(&1, "z"))
+    assert Iter.all(texts, fn t -> first_agrees(t, Regex`\d+`))
+    assert Iter.all(texts, fn t -> first_agrees(t, Regex`a*`))
+    assert Iter.all(texts, fn t -> first_agrees(t, Regex`a|an`))
+    assert Iter.all(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
 }
 
 fn first_agrees<M>(text: String, m: M) -> Bool where M: Matcher {
@@ -118,7 +118,7 @@ test "a matcher prints what each call finds" {
 
             io.inspect(String.split(text, digits))
             text |> String.split("b") |> io.inspect()
-            io.inspect(String.contains?(text, digits))
+            io.inspect(String.contains(text, digits))
             io.inspect(String.replace(text, digits, "#"))
             text |> String.find_all(digits) |> io.inspect()
             Ok(Unit)
@@ -149,7 +149,7 @@ test "a value that is not a matcher is rejected" {
 
     assert [diagnostic] = diagnostics
 
-    assert String.contains?(
+    assert String.contains(
         diagnostic.message,
         "Int does not implement Matcher (required by `where M: Matcher`)",
     )

@@ -151,7 +151,7 @@ fn main() {
         "go north now"
         |> String.words()
         |> tap fn words -> io.print("got ${Iter.count(words)} words")
-        |> Iter.map(String.to_upper)
+        |> Iter.map(String.uppercase)
         |> String.join(" ")
 
     io.print(shout)
@@ -172,22 +172,22 @@ the program keeps.
 
 ## Keyword stages
 
-Some keywords can be pipeline stages too:
+Some keywords can be pipeline stages too, and a `?` can end one:
 
 - A bare `dbg` prints the value and passes it on.
-- [`try`](/pattern-matching/#the-try-keyword) unwraps a
-  [`Maybe`](/reference/maybe/) or [`Result`](/reference/results/).
+- A [`?`](/pattern-matching/#passing-failures-up) after a stage unwraps the
+  stage's [`Maybe`](/reference/maybe/) or [`Result`](/reference/results/).
 - [Assertions](/testing/#assertions) often start a pipeline in a test.
 - `if` and `case` can take the piped value.
 
-`try` unwraps a `Some` or an `Ok` and passes the value inside on. On `None`
+A `?` unwraps a `Some` or an `Ok` and passes the value inside on. On `None`
 or `Err`, it returns that from the function straight away:
 
 ```nomi-run
 fn parse() -> Maybe<Int> {
     "  42  "
     |> String.trim()
-    |> try String.to_int()
+    |> String.to_int()?
     |> Some()
     |> dbg
 }
@@ -201,7 +201,7 @@ fn main() {
 dbg line 6:
   "  42  "
   |> String.trim()
-  |> try String.to_int()
+  |> String.to_int()?
   |> Some()
   = Some(42)
 -->
@@ -212,7 +212,7 @@ An assertion can check the result of a whole pipeline:
 test "pipeline result is true" {
     assert "  Ada Lovelace  "
         |> String.trim()
-        |> String.contains?("Ada")
+        |> String.contains("Ada")
 }
 
 ```
@@ -220,13 +220,13 @@ test "pipeline result is true" {
 -->
 
 `if` and `case` can take the piped value as well. Here the value becomes the
-first argument of `String.contains?`, the call that computes the `if`
+first argument of `String.contains`, the call that computes the `if`
 condition. The `case` matches its arms against the piped value:
 
 ```nomi-run
 fn main() {
     "Ada"
-    |> if String.contains?("A") {
+    |> if String.contains("A") {
         "initialed"
     } else {
         "plain"
@@ -244,7 +244,7 @@ fn main() {
 <!-- expect
 dbg line 8:
   "Ada"
-  |> if String.contains?("A") {
+  |> if String.contains("A") {
       "initialed"
   } else {
       "plain"

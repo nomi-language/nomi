@@ -1,6 +1,8 @@
+//# Validates numbers with the Luhn checksum.
+
 /// Reports whether `number` passes the Luhn checksum. Spaces are ignored;
 /// any other non-digit, or fewer than two digits, makes it invalid.
-pub fn valid?(number: String) -> Bool {
+pub fn is_valid(number: String) -> Bool {
     digits =
         number
         |> String.replace(" ", "")

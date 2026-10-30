@@ -44,10 +44,7 @@ pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
 }
 
 // FILE: series_test.nomi
-import {
-    series
-    series.Error
-}
+import series.{self, Error}
 
 test "slices" {
     cases = [

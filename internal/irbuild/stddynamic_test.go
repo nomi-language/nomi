@@ -35,8 +35,8 @@ func TestStdDynamicIsLowerable(t *testing.T) {
 		"dynamic.Dynamic.as_bool",
 		"dynamic.Dynamic.as_list",
 		"dynamic.Dynamic.as_dict",
-		"dynamic.Dynamic.null?",
-		"dynamic.Dynamic.has?",
+		"dynamic.Dynamic.is_null",
+		"dynamic.Dynamic.has",
 		"dynamic.Dynamic.inspect",
 		"json.Json.to_dynamic",
 	}

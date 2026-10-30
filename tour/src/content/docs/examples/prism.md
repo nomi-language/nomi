@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: prism.nomi
+//# Follows a laser beam through an array of prisms that turn it.
+
 /// Where a laser beam is and the direction it travels in, in degrees
 /// counterclockwise from the positive x axis.
 pub struct Laser {
@@ -67,11 +69,11 @@ fn next_hit(beam: Laser, from: Maybe<Int>, prisms: List<Prism>) -> Maybe<Prism> 
     |> Iter.map(fn prism -> {
         dx = prism.x - beam.x
         dy = prism.y - beam.y
-        #(prism, dx * across + dy * up, Float.abs(dx * up - dy * across))
+        #{prism, along: dx * across + dy * up, off: Float.abs(dx * up - dy * across)}
     })
-    |> Iter.filter(fn #(_, along, off) -> along > 0.0 and off < along * tolerance)
-    |> Iter.min_by(fn #(_, along, _) -> along)
-    |> Maybe.map(fn #(prism, _, _) -> prism)
+    |> Iter.filter(fn hit -> hit.along > 0.0 and hit.off < hit.along * tolerance)
+    |> Iter.min_by(.along)
+    |> Maybe.map(.prism)
 }
 
 // FILE: prism_test.nomi

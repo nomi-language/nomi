@@ -95,7 +95,6 @@ keyword_groups = {
     "keyword.return": ["return"],
     "keyword.operator": ["and", "or"],
     "keyword.modifier": ["opaque", "once", "extern"],
-    "keyword.exception": ["try"],
     "keyword.coroutine": ["concurrent"],
     "keyword.debug": ["dbg"],
 }
@@ -108,6 +107,7 @@ for node, group in [
     ("(continue_statement)", "keyword.repeat"),
     ("(pub)", "keyword.modifier"),
     ("(host_keyword)", "keyword.modifier"),
+    ("(question)", "keyword.exception"),
 ]:
     text = must_sub(text, rf"(?<={re.escape(node)} )@keyword(?![\w.])", "@" + group, src)
 

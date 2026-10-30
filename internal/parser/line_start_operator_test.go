@@ -70,11 +70,11 @@ func TestComparisonOrBooleanOperatorContinuesALine(t *testing.T) {
 }
 
 // A line that starts with a name beginning with `and` or `or` (`order`,
-// `or?`) starts a new statement.
+// `or_else`) starts a new statement.
 func TestNameStartingWithAndOrOrStartsAStatement(t *testing.T) {
 	for _, src := range []string{
 		"fn f(order: Int) -> Int {\n    x = 1\n    order\n}",
-		"fn f() -> Bool {\n    x = g(1)\n    or?(x)\n}",
+		"fn f() -> Bool {\n    x = g(1)\n    or_else(x)\n}",
 		"fn f(android: Int) -> Int {\n    x = 1\n    android\n}",
 	} {
 		nodes, err := Parse(lexer.Lex(src))

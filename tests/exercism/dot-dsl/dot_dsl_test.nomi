@@ -4,14 +4,14 @@ import {
 }
 
 test "parse" {
-    cases: List<#(String, String, Graph)> = [
+    cases = [
         #(
             "empty graph",
             """
                 graph {
                 }
                 """,
-            #{nodes: %{}, edges: %{}, attrs: %{}},
+            #Graph{nodes: %{}, edges: %{}, attrs: %{}},
         ),
         #(
             "graph with one node",
@@ -139,7 +139,7 @@ test "parse" {
 }
 
 test "parse errors" {
-    cases: List<#(String, String, String)> = [
+    cases = [
         #(
             "malformed input",
             """

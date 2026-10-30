@@ -27,9 +27,7 @@ fn reason(e: LoadError) -> String {
 }
 
 fn email_of(id: Int, email: Maybe<String>) -> Result<String, String> {
-    Some(address) = email else {
-        return Err("user ${id} has no email")
-    }
+    Some(address) = email else { return Err("user ${id} has no email") }
 
     Ok(address)
 }
@@ -56,9 +54,7 @@ fn parse_size(text: String) -> Result<#(Int, Int), String> {
 }
 
 fn area(text: String) -> Int {
-    Ok(#(width, height)) = parse_size(text) else {
-        #(80, 24)
-    }
+    Ok(#(width, height)) = parse_size(text) else { #(80, 24) }
 
     width * height
 }
@@ -104,9 +100,7 @@ fn first_or(xs: List<Int>, default: Int) -> Int {
 fn sizes(lines: List<String>) -> List<#(Int, Int)> {
     lines
     |> Iter.map(fn line -> {
-        Ok(size) = parse_size(line) else {
-            return #(0, 0)
-        }
+        Ok(size) = parse_size(line) else { return #(0, 0) }
 
         size
     })

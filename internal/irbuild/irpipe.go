@@ -83,6 +83,10 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	case *ast.Tap:
 		return bl.pipeTap(t, r)
 
+	case *ast.Unwrap:
+		// `x |> f()!`: the stage's result unwrapped (unwrap.go).
+		return bl.unwrapStage(t, r)
+
 	case *ast.TryOp:
 		if r.Expr != nil {
 			return no()

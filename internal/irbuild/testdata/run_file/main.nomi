@@ -68,7 +68,7 @@ fn out(r: RunFile) -> String {
 fn err_mentions(r: RunFile, needle: String) -> String {
     case compiler.run_file(r) {
         Ok(_) -> "unexpectedly ok"
-        Err(message) -> "${String.contains?(message, needle)}"
+        Err(message) -> "${String.contains(message, needle)}"
     }
 }
 

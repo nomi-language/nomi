@@ -12,9 +12,9 @@ fn find(s: String) -> Maybe<Int> {
     }
 }
 
-group "try on a Result in setup" {
+group "`?` on a Result in setup" {
     setup {
-        n = try parse("abc")
+        n = parse("abc")?
         #{n}
     }
 
@@ -23,9 +23,9 @@ group "try on a Result in setup" {
     }
 }
 
-group "try on a Maybe in setup" {
+group "`?` on a Maybe in setup" {
     setup {
-        n = try find("abcd")
+        n = find("abcd")?
         #{n}
     }
 
@@ -34,9 +34,9 @@ group "try on a Maybe in setup" {
     }
 }
 
-group "try in a pipe stage in setup" {
+group "`?` in a pipe stage in setup" {
     setup {
-        n = "ab" |> try parse()
+        n = "ab" |> parse()?
 
         #{n}
     }
@@ -46,14 +46,14 @@ group "try in a pipe stage in setup" {
     }
 }
 
-group "try after other statements in setup" {
+group "`?` after other statements in setup" {
     setup {
         base = 10
-        extra = try parse("abcde")
+        extra = parse("abcde")?
         #{total: base + extra}
     }
 
-    test "the setup's earlier bindings reach the try's result", #{total} {
+    test "the setup's earlier bindings reach the result of the `?`", #{total} {
         assert total == 15
     }
 }

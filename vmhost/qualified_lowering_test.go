@@ -29,7 +29,7 @@ fn shown(d: display.Display) -> display.Display {
 fn main() {
     fake = Fake.new()
     close(fake)
-    io.print(Fake.closed?(fake))
+    io.print(Fake.is_closed(fake))
     io.print(shown(3))
 }
 // FILE: nomi.toml

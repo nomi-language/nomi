@@ -20,7 +20,7 @@ derive Equatable for Input
 /// The `.sql` files directly in `dir`, in name order, with their text.
 pub fn read(dir: String) -> Result<List<Input>, String> {
     pattern = "${sqltext_dir(dir)}*.sql"
-    paths = try (fs.glob(pattern) |> Result.map_err(fn e -> "${dir}: ${e}"))
+    paths = fs.glob(pattern) |> Result.map_err(fn e -> "${dir}: ${e}")?
 
     paths
     |> Iter.sort()
@@ -65,7 +65,7 @@ pub fn digest(inputs: List<Input>) -> String {
 /// module root: what the generated test compares with the digest the
 /// generated files record.
 pub fn current(migrations: String, queries: String) -> Result<String, String> {
-    m = try read(migrations)
-    q = try read(queries)
+    m = read(migrations)?
+    q = read(queries)?
     Ok(digest(m + q))
 }

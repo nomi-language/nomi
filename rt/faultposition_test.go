@@ -5,7 +5,7 @@ package rt
 // `internal/vm/traptext_test.go` already establishes that each of these texts
 // has one home and that the VM spells no second copy. It says nothing about
 // the line. A producer that passes no line makes these constructors print
-// `line 0: integer overflow: 9223372036854775807 + 1`, and the repair for that
+// `line 0: division by zero`, and the repair for that
 // belongs at the producer, not here.
 //
 // This file is the other half of that contract. `traptext_test.go` polices who
@@ -73,9 +73,7 @@ type positionedFault struct {
 func positionedFaults() []positionedFault {
 	return []positionedFault{
 		{"DeferredCleanupError", func(l int) string { return DeferredCleanupError(l, "failure").Error() }},
-		{"OverflowError", func(l int) string {
-			return OverflowError(l, "+", 9223372036854775807, 1).Error()
-		}},
+
 		{"DivByZeroError", func(l int) string { return DivByZeroError(l).Error() }},
 		{"FloatModuloText", FloatModuloText},
 		{"DecimalModuloText", DecimalModuloText},
@@ -90,6 +88,8 @@ func positionedFaults() []positionedFault {
 		{"EnumFieldAccessError", func(l int) string { return EnumFieldAccessError(l, "Point", "height").Error() }},
 		{"CallDepthError", func(l int) string { return CallDepthError(l).Error() }},
 		{"UnreachableError", func(l int) string { return UnreachableError(l, "a reason").Error() }},
+		{"BangFailedError", func(l int) string { return BangFailedError(l, "half(3)", "3 is odd").Error() }},
+		{"BangNoneError", func(l int) string { return BangNoneError(l, `Map.get(m, "z")`).Error() }},
 		{"DbgText", func(l int) string {
 			// A plain buffer rather than a terminal, so ColorEnabledFor
 			// answers false and the header is uncoloured — the shape the
@@ -105,8 +105,8 @@ func positionedFaults() []positionedFault {
 // and a producer that accidentally passed a count, an index or a boolean could
 // land on it. Seven is reachable only by carrying a real position.
 var wantAtLine7 = map[string]string{
-	"DeferredCleanupError":     "line 7: deferred cleanup failed: failure",
-	"OverflowError":            "line 7: integer overflow: 9223372036854775807 + 1",
+	"DeferredCleanupError": "line 7: deferred cleanup failed: failure",
+
 	"DivByZeroError":           "line 7: division by zero",
 	"FloatModuloText":          "line 7: modulo not supported on floats",
 	"DecimalModuloText":        "line 7: modulo is not defined on Decimal",
@@ -117,6 +117,8 @@ var wantAtLine7 = map[string]string{
 	"EnumFieldAccessError":     "line 7: cannot access field 'height' on variant 'Point'",
 	"CallDepthError":           "line 7: stack overflow: more than 100000 nested calls",
 	"UnreachableError":         "line 7: unreachable: a reason",
+	"BangFailedError":          "line 7: `half(3)` failed: 3 is odd",
+	"BangNoneError":            "line 7: `Map.get(m, \"z\")` found nothing",
 	// DbgText ends in a newline: it is a whole rendered line rather than a
 	// message a caller wraps.
 	"DbgText": "dbg line 7: 41 + 1 = 42\n",
@@ -148,7 +150,7 @@ func TestFaultPosition_TheAgreedStringAtARealLine(t *testing.T) {
 //
 // It is a reading of the formatter, not an endorsement of the output. These
 // constructors print whatever line they are told, so a producer that passes 0
-// yields `line 0: integer overflow`. The assertion keeps such a defect
+// yields `line 0: division by zero`. The assertion keeps such a defect
 // diagnosable at its producer rather than ambiguous between producer and
 // formatter.
 //
@@ -177,7 +179,7 @@ func TestFaultPosition_ZeroRendersAsALineNoFileHas(t *testing.T) {
 	// The negative direction: a zero must not be silently turned into
 	// something plausible. `line 1` would be the dangerous repair, because it
 	// is a line every file has.
-	if got := OverflowError(0, "+", 1, 1).Error(); !strings.HasPrefix(got, "line 0:") {
+	if got := DivByZeroError(0).Error(); !strings.HasPrefix(got, "line 0:") {
 		t.Errorf("a zero must render as a zero rather than as a plausible line: %q", got)
 	}
 }

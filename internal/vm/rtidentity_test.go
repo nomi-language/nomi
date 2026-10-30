@@ -14,7 +14,7 @@ import (
 //
 //   - a list construction's typed tail is the operand, not a copy;
 //   - a list suffix projection is the operand's own cell;
-//   - `try`'s propagated operand is the operand itself.
+//   - `?`'s propagated operand is the operand itself.
 func TestRTIdentity_ConstructionAndProjectionShareTheirOperands(t *testing.T) {
 	pos := ir.At("identity.nomi", 1, 1)
 	mod := ir.NewModule("identity.nomi")
@@ -42,7 +42,7 @@ func TestRTIdentity_ConstructionAndProjectionShareTheirOperands(t *testing.T) {
 	unwrap := ir.NewFunc(pos, "unwrap")
 	operand := unwrap.AddParam(ir.NewSymbol("operand"), ir.ValVariant)
 	ub := unwrap.NewBlock(pos, "entry")
-	ub.Append(ir.NewTry(pos, operand, "try operand"))
+	ub.Append(ir.NewTry(pos, operand, "operand?"))
 	answer := ir.NewInt(pos, unwrap.NewTemp(), 42)
 	ub.Append(answer)
 	ub.SetTerm(ir.NewReturn(pos, answer.Dst()))

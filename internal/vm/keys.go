@@ -14,12 +14,12 @@ import (
 // hand-written body (ir.Module.ImplementEquatable, ImplementHashable); a
 // derived impl is structural and is what rt answers without one. So:
 //
-//   - equality: a hand-written `equal?` decides; otherwise structural, with
+//   - equality: a hand-written `equal` decides; otherwise structural, with
 //     each nested value answered the same way.
-//   - hashing: a hand-written `hash` decides; a type whose `equal?` is
+//   - hashing: a hand-written `hash` decides; a type whose `equal` is
 //     hand-written and whose Hashable is not hashes by its type name alone,
-//     so two values its `equal?` calls equal always share a bucket and the
-//     `equal?` decides between them; otherwise structural.
+//     so two values its `equal` calls equal always share a bucket and the
+//     `equal` decides between them; otherwise structural.
 //
 // rt's kernels take no error, so a fault inside a body unwinds to the
 // operation that asked as a keyFailure and is returned from there as the
@@ -55,7 +55,7 @@ func (m *Machine) keysFor(fr *frame) *rt.Keys {
 // answer no impl changes.
 func (m *Machine) keysOver(fr *frame, v any) *rt.Keys {
 	switch v.(type) {
-	case int64, float64, bool, string, rt.Decimal, rt.Byte, rt.Bytes, rt.Unit:
+	case int64, *rt.BigInt, float64, bool, string, rt.Decimal, rt.Byte, rt.Bytes, rt.Unit:
 		return nil
 	}
 	return m.keysFor(fr)
@@ -103,11 +103,10 @@ func (kc *keyCaller) EqualRecord(a, b *rt.Record) (bool, bool) {
 func (kc *keyCaller) HashRecord(r *rt.Record) (uint64, bool) {
 	if sym := kc.m.hashes[r.Desc.Name]; sym != nil {
 		out := kc.call(sym, []any{rt.Unbox(r)})
-		h, ok := out.(int64)
-		if !ok {
+		if !rt.IsInt(out) {
 			panic(keyFailure{fmt.Errorf("vm: Hashable impl %s returned %T, not an Int", sym.Name(), out)})
 		}
-		return rt.HashInt(h), true
+		return rt.HashIntValue(out), true
 	}
 	if kc.m.equates[r.Desc.Name] != nil {
 		return rt.HashString(r.Desc.Name), true

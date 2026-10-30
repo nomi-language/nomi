@@ -12,7 +12,7 @@ pub interface Zero {
 }
 
 pub interface Holds<T> {
-    fn holds?(c: self, x: T) -> Bool
+    fn holds(c: self, x: T) -> Bool
 }
 
 impl Show for Int {

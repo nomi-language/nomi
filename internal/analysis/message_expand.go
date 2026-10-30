@@ -20,16 +20,17 @@ const messageModuleAlias = "message$"
 // std/message_format, whose `variant_name` names an enum argument's variant.
 const messageFormatAlias = "message_format$"
 
-// messageImportLine is the hidden import's line: in the band the prelude
+// hiddenImportLine is the line of the hidden imports, the message
+// expansions' and derived JSON code's (jsonImport): in the band the prelude
 // imports a build prepends are in (isPreludeInjectLine), at a slot the
-// prelude's own statements never reach, so the import, like theirs, takes
+// prelude's own statements never reach, so the imports, like theirs, take
 // no source index.
-var messageImportLine = synthSlot(synthOriginPrelude, synthIndexCap-1, synthKindEquatable)
+var hiddenImportLine = synthSlot(synthOriginPrelude, synthIndexCap-1, synthKindEquatable)
 
 // messageImports are `import std/message as message$` and `import
 // std/message_format as message_format$`.
 func messageImports() []ast.Node {
-	l := messageImportLine
+	l := hiddenImportLine
 	imp := func(module, alias string, col int) *ast.ImportStmt {
 		return &ast.ImportStmt{
 			ModulePath:   []ast.Node{&ast.Ident{Name: "std", Line: l, Col: col + 1}, &ast.Ident{Name: module, Line: l, Col: col + 2}},
@@ -44,7 +45,8 @@ func messageImports() []ast.Node {
 
 func hasMessageImport(nodes []ast.Node) bool {
 	for _, n := range nodes {
-		if imp, ok := n.(*ast.ImportStmt); ok && imp.Line == messageImportLine {
+		if imp, ok := n.(*ast.ImportStmt); ok && imp.Line == hiddenImportLine && imp.ModuleAlias != nil &&
+			ast.ImportNodeName(imp.ModuleAlias) == messageModuleAlias {
 			return true
 		}
 	}

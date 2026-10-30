@@ -73,7 +73,7 @@ func TestOrdinal(t *testing.T) {
 		11: cldrdata.Other, 12: cldrdata.Other, 13: cldrdata.Other, 21: cldrdata.One, 22: cldrdata.Two, 23: cldrdata.Few,
 		-1: cldrdata.One}
 	for n, c := range want {
-		if got := cldrdata.Category(FFIOrdinalTag(nil, "en", n)); got != c {
+		if got := cldrdata.Category(FFIOrdinalTag(nil, "en", rt.SmallInt(n))); got != c {
 			t.Errorf("ordinal(en, %d) = %s, want %s", n, got, c)
 		}
 	}

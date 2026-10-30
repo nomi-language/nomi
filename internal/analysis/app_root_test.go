@@ -44,14 +44,14 @@ func TestBootReturningTheStructBareIsAnErrorAtItsAnnotation(t *testing.T) {
 }
 
 // A boot's application type is its Result's Ok type: field reads resolve
-// against it, and `try` in its body propagates to the boot's own Result as
+// against it, and `?` in its body propagates to the boot's own Result as
 // in any function's.
 func TestBootResultsOkTypeIsTheApplicationType(t *testing.T) {
 	expectNoErrorsT(t, buildProjectForDefaultConfig(`
 struct MyApp { port: Int }
 fn port(text: String) -> Result<Int, String> { if text == "" { Err("no port") } else { Ok(3) } }
 fn boot(startup: Startup) -> Result<MyApp, String> {
-  p = try port(List.head(startup.args) |> Maybe.with_default(""))
+  p = port(List.head(startup.args) |> Maybe.with_default(""))?
   Ok(#MyApp{port: p})
 }
 fn main() { _ = MyApp.port }`))
@@ -60,10 +60,10 @@ fn main() { _ = MyApp.port }`))
 struct MyApp { port: Int }
 fn port() -> Result<Int, Int> { Ok(3) }
 fn boot() -> Result<MyApp, String> {
-  p = try port()
+  p = port()?
   Ok(#MyApp{port: p})
 }
-fn main() { _ = MyApp.port }`), "try error type mismatch: expected String, got Int")
+fn main() { _ = MyApp.port }`), "`?` error type mismatch: expected String, got Int")
 }
 
 // An entry boot takes no parameter, one Startup, or one Startup with a

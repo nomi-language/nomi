@@ -1,7 +1,7 @@
 import change.{self, Error}
 
 test "find fewest coins" {
-    cases: List<#(String, List<Int>, Int, Result<List<Int>, Error>)> = [
+    cases = [
         #("change for 1 cent", [1, 5, 10, 25], 1, Ok([1])),
         #("single coin change", [1, 5, 10, 25, 100], 25, Ok([25])),
         #("multiple coin change", [1, 5, 10, 25, 100], 15, Ok([5, 10])),
@@ -31,7 +31,7 @@ test "find fewest coins" {
             "error testing for change smaller than the smallest of coins",
             [5, 10],
             3,
-            Err(.CannotMakeTarget),
+            Err(Error.CannotMakeTarget),
         ),
         #("error if no combination can add up to target", [5, 10], 94, Err(.CannotMakeTarget)),
         #("cannot find negative change values", [1, 2, 5], -5, Err(.NegativeTarget)),

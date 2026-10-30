@@ -23,7 +23,7 @@ import (
 // declared result struct and `Context.with_timeout` make, pass or derive one;
 // every other Context operation keeps its boundary. A field of a local interface's
 // type takes a concrete value that
-// is erased to the interface's existential. A `try` in the body propagates to
+// is erased to the interface's existential. A `?` in the body propagates to
 // the boot's own Result, as in any function; a `defer` there is the app's
 // cleanup, which the VM hands to rt when boot answers (vm.deferToBootCleanup).
 //
@@ -115,6 +115,11 @@ func (g *gen) irErases(want, have kind) bool {
 		// its shape around each element's Display text, which the erased
 		// rendering answers structurally, each element of a declared type
 		// through its own retained impl (vm.displayStructural).
+		return true
+	}
+	if irStdDisplayExistential(want) && g.irDisplayInstanceContainer(have) {
+		// Any other std container with a Display (`e: Display = Some(3)`):
+		// its box names std's impl instantiated at its kind (irStdBoxPlan).
 		return true
 	}
 	if irStdStructExistential(want) {
@@ -529,7 +534,7 @@ func (g *gen) irRecordRowDebugImpls() {
 // so the module's entries do not follow map order.
 func (g *gen) irRecordKeyImpls() {
 	for _, iface := range []string{"Equatable", "Hashable"} {
-		method := "equal?"
+		method := "equal"
 		if iface == "Hashable" {
 			method = "hash"
 		}

@@ -250,7 +250,7 @@ var stdHostSpecs = []stdHostSpec{
 	// anchor them, as for `Context` and `Dynamic`.
 	//
 	// `Bool` collapses to a Go `bool`, so these two types need rows of their
-	// own for `bool.Bool.inspect`, `bool.Bool.to_string`, `bool.Bool.equal?`
+	// own for `bool.Bool.inspect`, `bool.Bool.to_string`, `bool.Bool.equal`
 	// and `bool.Bool.hash` to lower. Each is a DERIVE-SYNTHESIZED body over
 	// `case value { Bool.False(v0) -> … }` (analysis/derive_synthesis.go's
 	// `stringifyEnumExpr` plus `stringifyVariantBody`'s `"embedded"` arm), so

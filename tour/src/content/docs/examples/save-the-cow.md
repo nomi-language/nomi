@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: save_the_cow.nomi
+//# A word-guessing game in the style of hangman.
+
 /// Where a game stands.
 pub enum State {
     Ongoing
@@ -65,7 +67,7 @@ impl Game {
         case game.state {
             .Win -> Err(.AlreadyWon)
             .Lose -> Err(.AlreadyLost)
-            .Ongoing when hidden?(game, letter) -> Ok(reveal(game, letter))
+            .Ongoing when is_hidden(game, letter) -> Ok(reveal(game, letter))
             .Ongoing when game.remaining_failures == 0 -> Ok(#{..game, state: .Lose})
             .Ongoing -> Ok(#{..game, remaining_failures: game.remaining_failures - 1})
         }
@@ -80,7 +82,7 @@ impl Game {
     pub fn masked_word(game: Game) -> String {
         game.word
         |> Iter.map(fn letter -> {
-            if Set.contains?(game.revealed, letter) {
+            if Set.contains(game.revealed, letter) {
                 letter
             } else {
                 '_'
@@ -97,14 +99,14 @@ impl Game {
 }
 
 /// Whether `letter` is in the word and not yet revealed.
-fn hidden?(game: Game, letter: Codepoint) -> Bool {
-    List.contains?(game.word, letter) and !Set.contains?(game.revealed, letter)
+fn is_hidden(game: Game, letter: Codepoint) -> Bool {
+    List.contains(game.word, letter) and !Set.contains(game.revealed, letter)
 }
 
 /// `game` with `letter` revealed, won when that reveals the whole word.
 fn reveal(game: Game, letter: Codepoint) -> Game {
     revealed = Set.insert(game.revealed, letter)
-    won = Iter.all?(game.word, &Set.contains?(revealed, &1))
+    won = Iter.all(game.word, &Set.contains(revealed, &1))
 
     #{..game, revealed, state: if won { .Win } else { .Ongoing }}
 }
@@ -121,8 +123,14 @@ fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
 }
 
 test "guess" {
-    cases: List<#(String, List<Codepoint>, State, String, Int)> = [
-        #("Initially 9 failures are allowed and no letters are guessed", [], .Ongoing, "____", 9),
+    cases = [
+        #(
+            "Initially 9 failures are allowed and no letters are guessed",
+            [],
+            State.Ongoing,
+            "____",
+            9,
+        ),
         #(
             "After 10 failures the game is over",
             ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],

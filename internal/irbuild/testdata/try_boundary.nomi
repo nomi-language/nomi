@@ -1,10 +1,10 @@
-// `try` and the boundary it unwinds to.
+// `?` and the boundary it unwinds to.
 //
-// The interesting half of this fixture is the LAMBDA rows. `try` sends the
+// The interesting half of this fixture is the LAMBDA rows. `?` sends the
 // whole `Err(e)` / `None` value out through an early-return
-// channel, and that channel is caught at the innermost ACTIVATION — so a `try`
+// channel, and that channel is caught at the innermost ACTIVATION — so a `?`
 // inside a lambda unwinds the LAMBDA and the enclosing function keeps running
-// as Nomi's `try` is lambda-scoped. A lowering that hoisted the unwind to the
+// as Nomi's `?` is lambda-scoped. A lowering that hoisted the unwind to the
 // enclosing `fn` would be a well-typed program that prints differently, which
 // is why `through_lambda` and `nested_lambda` both print from OUTSIDE the
 // lambda that failed and then re-label the error they observed. Two observable
@@ -12,7 +12,7 @@
 //
 // The rest is the value side: unwrap on the success variant, and construct the
 // propagated value at the BOUNDARY's instantiation rather than forward the
-// operand's. `positive?` is why that is not optional — it tries a
+// operand's. `is_positive` is why that is not optional — it tries a
 // `Result<Int, String>` inside a function returning `Result<Bool, String>`, and
 // those are two types.
 import std/io
@@ -31,52 +31,51 @@ fn find(n: Int) -> Maybe<Int> {
 
 // The plain shape: unwrap on `Ok`, propagate on `Err`.
 fn calc(n: Int) -> Result<Int, String> {
-    v = try parse(n)
+    v = parse(n)?
 
     Ok(v + 1)
 }
 
 // The boundary's SUCCESS type differs from the operand's.
-fn positive?(n: Int) -> Result<Bool, String> {
-    v = try parse(n)
+fn is_positive(n: Int) -> Result<Bool, String> {
+    v = parse(n)?
 
     Ok(v > 0)
 }
 
-// Two `try`s in one expression. The left guard has to run before the right
+// Two `?`s in one expression. The left guard has to run before the right
 // operand is evaluated at all, which the second row observes: `parse(-2)` is
 // never reached because `parse(-1)` already unwound.
 fn sum_two(a: Int, b: Int) -> Result<Int, String> {
-    Ok(try parse(a) + try parse(b))
+    Ok(parse(a)? + parse(b)?)
 }
 
 // `Maybe` propagates `None`, which carries nothing.
 fn scaled(n: Int) -> Maybe<Int> {
-    v = try find(n)
+    v = find(n)?
 
     Some(v + 1)
 }
 
-// The two pipe spellings. `n |> try parse()` is desugared by the parser into
-// `(n |> parse()) |> try`, so both of these are one shape by the time the
-// builder sees them.
+// A `?` after a pipe stage: the parser builds `n |> parse()?` as the stage
+// `n |> parse()` and then a `?` stage, and `r?` is the plain form.
 fn piped(n: Int) -> Result<Int, String> {
-    v = n |> try parse()
+    v = n |> parse()?
 
     Ok(v + 100)
 }
 
 fn piped_bare(r: Result<Int, String>) -> Result<Int, String> {
-    v = r |> try
+    v = r?
 
     Ok(v + 1000)
 }
 
-// THE BOUNDARY. `try` unwinds the lambda, so `after the lambda` prints on both
+// THE BOUNDARY. `?` unwinds the lambda, so `after the lambda` prints on both
 // paths and the enclosing function observes the failure as an ordinary value.
 fn through_lambda(n: Int) -> Result<Int, String> {
     f = fn x: Int -> {
-        v = try parse(x)
+        v = parse(x)?
 
         Ok(v + 7)
     }
@@ -90,19 +89,19 @@ fn through_lambda(n: Int) -> Result<Int, String> {
     }
 }
 
-// The innermost boundary, and a `try` whose own boundary is not settled when it
+// The innermost boundary, and a `?` whose own boundary is not settled when it
 // is emitted: `outer`'s result is decided by its tail, which comes after its
-// `try`.
+// `?`.
 fn nested_lambda(n: Int) -> Result<Int, String> {
     outer = fn x: Int -> {
         inner = fn y: Int -> {
-            v = try parse(y)
+            v = parse(y)?
 
             Ok(v + 1)
         }
 
         io.print("outer body ran")
-        got = try inner(x)
+        got = inner(x)?
 
         Ok(got * 10)
     }
@@ -135,8 +134,8 @@ fn main() {
     io.print(show(calc(4)))
     io.print(show(calc(-1)))
 
-    io.print(show_bool(positive?(4)))
-    io.print(show_bool(positive?(-1)))
+    io.print(show_bool(is_positive(4)))
+    io.print(show_bool(is_positive(-1)))
 
     io.print(show(sum_two(1, 2)))
     io.print(show(sum_two(-1, -2)))

@@ -11,7 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: lens_person.nomi
-import std/calendar.{self, Date, DateParts}
+//# Reads and updates fields deep inside a nested record, as lenses do.
+
+import std/calendar.{self, Date}
 
 /// A person: their name, where and when they were born, and where they live.
 pub struct Person {
@@ -54,7 +56,7 @@ pub fn set_current_street(person: Person, street: String) -> Person {
 /// calendar's error when that month has no such day.
 pub fn set_birth_month(person: Person, month: Int) -> Result<Person, calendar.Error> {
     on = person.born.on
-    on = try Date.new(DateParts.year(on), month, DateParts.day(on))
+    on = Date.new(Date.year(on), month, Date.day(on))?
 
     Ok(#{..person, born: #{.., on}})
 }
@@ -113,13 +115,13 @@ test "setBirthMonth" {
 }
 
 test "renameStreets birth" {
-    person = lens_person.rename_streets(jane, String.to_upper)
+    person = lens_person.rename_streets(jane, String.uppercase)
 
     assert person.born.at.street == "IMPLICIT STREET"
 }
 
 test "renameStreets current" {
-    person = lens_person.rename_streets(jane, String.to_upper)
+    person = lens_person.rename_streets(jane, String.uppercase)
 
     assert person.address.street == "CODER STREET"
 }

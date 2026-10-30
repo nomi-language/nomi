@@ -298,7 +298,7 @@ impl Supervisor {
     /// nothing to collect. The handles come back for cancellation, or for
     /// `Task.await_all` when you want to wait for *this* batch rather than
     /// the supervisor's whole workload. It consumes the whole source, so a
-    /// source that is `Iter.infinite?` traps before any task is spawned.
+    /// source that is `Iter.is_infinite` traps before any task is spawned.
     pub host fn spawn_all<T>(
         supervisor: Supervisor,
         source: Iter<T>,

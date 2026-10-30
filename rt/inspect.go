@@ -54,7 +54,7 @@ func (n Inspected) Type() string {
 		return "Entry"
 	}
 	switch x := n.value.(type) {
-	case int64:
+	case int64, *BigInt:
 		return "Int"
 	case float64:
 		return "Float"
@@ -280,7 +280,7 @@ func (n Inspected) Children(start, count int) []InspectChild {
 // scalarKey reports whether a Map key reads well as a child's name.
 func scalarKey(k any) bool {
 	switch k.(type) {
-	case int64, float64, bool, string, Decimal, Byte:
+	case int64, *BigInt, float64, bool, string, Decimal, Byte:
 		return true
 	}
 	return false

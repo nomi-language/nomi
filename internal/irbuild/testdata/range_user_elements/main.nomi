@@ -44,10 +44,10 @@ impl Steppable<Int> for Level {
 fn main() {
     r = #Meters{n: 1}..=#Meters{n: 7}
     io.print(Debug.inspect(r))
-    io.print(Bool.to_string(Range.contains?(r, #Meters{n: 7})))
-    io.print(Bool.to_string(Range.contains?(r, #Meters{n: 8})))
+    io.print(Bool.to_string(Range.contains(r, #Meters{n: 7})))
+    io.print(Bool.to_string(Range.contains(r, #Meters{n: 8})))
     open = #Meters{n: 1}..#Meters{n: 7}
-    io.print(Bool.to_string(Range.contains?(open, #Meters{n: 7})))
+    io.print(Bool.to_string(Range.contains(open, #Meters{n: 7})))
     by_two = r |> Range.step_by(2) |> Iter.to_list()
 
     io.print(Debug.inspect(by_two))
@@ -62,11 +62,11 @@ fn main() {
     levels = Level.Low..=Level.High |> Range.step_by(1) |> Iter.to_list()
 
     io.print(Debug.inspect(levels))
-    io.print(Bool.to_string(Range.contains?(Level.Mid..Level.High, Level.High)))
+    io.print(Bool.to_string(Range.contains(Level.Mid..Level.High, Level.High)))
     g = units.grams(1)..units.grams(4)
     grams = g |> Range.step_by(1) |> Iter.to_list()
 
     io.print(Debug.inspect(grams))
-    io.print(Bool.to_string(Range.contains?(g, units.grams(3))))
-    io.print(Bool.to_string(Range.contains?(g, units.grams(4))))
+    io.print(Bool.to_string(Range.contains(g, units.grams(3))))
+    io.print(Bool.to_string(Range.contains(g, units.grams(4))))
 }

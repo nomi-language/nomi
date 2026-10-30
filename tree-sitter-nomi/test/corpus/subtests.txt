@@ -4,7 +4,7 @@ Subtests over a list with a tuple pattern
 
 test "palindromes" {
   subtests cases, #(line, known) {
-    assert palindrome?(line) == known
+    assert is_palindrome(line) == known
   }
 }
 

@@ -53,30 +53,30 @@ func faultPosArith(t *testing.T, dir string) (mods []*ir.Module, faults map[stri
 }
 
 // TestFaultPos_TheOperatorSpellingReachesThisEngineAndBlamesItsOwnLine is the
-// gate. `big + 1` on line 7 must retain and must fault at 7.
+// gate. `20 / zero` on line 7 must retain and must fault at 7.
 func TestFaultPos_TheOperatorSpellingReachesThisEngineAndBlamesItsOwnLine(t *testing.T) {
 	mods, faults := faultPosArith(t, "faultposop")
 	if len(mods) == 0 {
 		t.Fatal("the operator spelling no longer retains an ir.Module, so this " +
-			"engine has no answer for an integer overflow at all")
+			"engine has no answer for a zero divisor at all")
 	}
-	line, retained := faults["overflow_via_operator"]
+	line, retained := faults["divide_via_operator"]
 	if !retained {
-		t.Fatal("no faulting ir.Arith was retained for overflow_via_operator")
+		t.Fatal("no faulting ir.Arith was retained for divide_via_operator")
 	}
-	// `big + 1` is on line 7 of testdata/faultposop/main.nomi. Asserted as a
+	// `20 / zero` is on line 7 of testdata/faultposop/main.nomi. Asserted as a
 	// literal because the fixture is this package's own and an edit above the
 	// operator is meant to fail here.
 	if line != 7 {
-		t.Errorf("the operator's ir.Arith names line %d; `big + 1` is on line 7", line)
+		t.Errorf("the operator's ir.Arith names line %d; `20 / zero` is on line 7", line)
 	}
 
 	var out strings.Builder
-	_, err := vm.New(mods[0], &out).Run("overflow_via_operator")
+	_, err := vm.New(mods[0], &out).Run("divide_via_operator")
 	if err == nil {
-		t.Fatal("MaxInt64 + 1 must fault on this engine")
+		t.Fatal("20 / 0 must fault on this engine")
 	}
-	const want = "line 7: integer overflow: 9223372036854775807 + 1"
+	const want = "line 7: division by zero"
 	if err.Error() != want {
 		t.Errorf("this engine's fault text:\n got %q\nwant %q", err.Error(), want)
 	}
@@ -84,12 +84,12 @@ func TestFaultPos_TheOperatorSpellingReachesThisEngineAndBlamesItsOwnLine(t *tes
 
 func TestFaultPos_TheImplSpellingReachesThisEngineAndBlamesItsOwnLine(t *testing.T) {
 	mods, faults := faultPosArith(t, "faultpos")
-	if len(mods) != 1 || faults["overflow_via_impl"] != 7 {
+	if len(mods) != 1 || faults["divide_via_impl"] != 7 {
 		t.Fatalf("impl fixture: modules=%d, arithmetic=%v", len(mods), faults)
 	}
 	var out strings.Builder
 	_, err := vm.New(mods[0], &out).Run("main")
-	const want = "line 7: integer overflow: 9223372036854775807 + 1"
+	const want = "line 7: division by zero"
 	if err == nil || err.Error() != want || out.String() != "" {
 		t.Fatalf("fault = %v; output %q", err, out.String())
 	}

@@ -40,7 +40,7 @@ struct Span {
 
 impl Iter for Span {
   fn each_while(s: Span, yield: (Int) -> Bool) -> Bool {
-    Iter.all?(s.lo..s.hi, fn x -> {
+    Iter.all(s.lo..s.hi, fn x -> {
       io.print("visit ${x}")
       yield(x)
     })
@@ -72,7 +72,7 @@ fn main() {
   v |> Iter.map(fn x -> x * 2) |> Iter.to_list() |> io.inspect()
   Iter.count(v) |> io.print()
   v |> Iter.sort() |> io.inspect()
-  Iter.any?(v, fn x -> x > 4) |> io.print()
+  Iter.any(v, fn x -> x > 4) |> io.print()
   Iter.each_while(v, fn x -> x < 4) |> io.print()
   Vector.push(v, 9) |> Iter.filter(fn x -> x > 3) |> Iter.to_list() |> io.inspect()
 }

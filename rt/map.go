@@ -198,7 +198,7 @@ func MapSize[K, V any](m Map[K, V]) int64 { return int64(m.n) }
 // MapLookup is the raw get: the bound value, and whether the key was present.
 //
 // Exported because it is the shape more than one caller wants — MapEqual and
-// MapMerge use it, `Map.contains?` wants only the bool, and `Map.get` wants
+// MapMerge use it, `Map.contains` wants only the bool, and `Map.get` wants
 // a `Maybe<V>`.
 //
 // mapCountNode and mapCountProbe mark each node visited and each entry whose

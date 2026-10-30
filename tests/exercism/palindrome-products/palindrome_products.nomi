@@ -1,3 +1,6 @@
+//# The smallest and largest palindromes that are products of two numbers in
+//# a range, and their factors.
+
 /// A palindrome and every pair of factors in the range that makes it, the
 /// smaller factor first in each pair.
 pub struct Product {
@@ -37,12 +40,12 @@ fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Er
 
     low = min * min
     high = max * max
-    outside = fn p: Int -> p < low or p > high
+    outside = fn p: Int -> !Range.contains(low..=high, p)
 
-    digit_count(low)..=digit_count(high)
-    |> in_order(direction)
+    in_order(digit_count(low), digit_count(high), direction)
     |> Iter.flat_map(fn length -> {
-        halves(length) |> in_order(direction) |> Iter.map(&mirror(&1, length))
+        #(first, last) = halves(length)
+        in_order(first, last, direction) |> Iter.map(&mirror(&1, length))
     })
     |> Iter.drop_while(outside)
     |> Iter.take_while(&(!outside(&1)))
@@ -50,13 +53,13 @@ fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Er
     |> Ok()
 }
 
-/// `values` from the `direction` end: the range itself, or the list of its
-/// values reversed. The two are different Iters, which the declared result
-/// joins.
-fn in_order(values: Range<Int>, direction: Direction) -> Iter<Int> {
+/// The numbers from `first` to `last`, both included, from the `direction`
+/// end: the range itself, or the range stepped down from `last`. The two
+/// are different Iters, which the declared result joins.
+fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int> {
     case direction {
-        .Ascending -> values
-        .Descending -> Iter.reverse(values)
+        .Ascending -> first..=last
+        .Descending -> Range.step_by(last..=first, -1)
     }
 }
 
@@ -80,11 +83,11 @@ fn factors(value: Int, min: Int, max: Int) -> List<#(Int, Int)> {
     |> Iter.to_list()
 }
 
-/// The first halves of the palindromes of `length` digits, smallest first:
-/// `100` to `999` for five or six digits.
-fn halves(length: Int) -> Range<Int> {
+/// The first and last of the first halves of the palindromes of `length`
+/// digits: `100` and `999` for five or six digits.
+fn halves(length: Int) -> #(Int, Int) {
     half_length = (length + 1) / 2
-    Int.pow(10, half_length - 1)..Int.pow(10, half_length)
+    #(Int.pow(10, half_length - 1), Int.pow(10, half_length) - 1)
 }
 
 /// The palindrome of `length` digits whose first half is `half`: `half`

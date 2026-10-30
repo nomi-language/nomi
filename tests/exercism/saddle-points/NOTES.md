@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/saddle-points.
 - A point is a `pub struct Position { row, column }`, counted from 1 as the canonical data does (style §18: a struct once it travels). Tests write `#{row: 2, column: 1}`, which the comparison types as `Position`.
 - Points come out row by row and left to right. The canonical "non square matrix" case lists (1, 3) before (1, 1); its comment allows reordering, so the test expects (1, 1) first.
 - `Some(height) == tallest` compares against `Iter.max`'s `Maybe` directly instead of unwrapping it; an empty row has no cells to compare.
-- The one indexed read uses `Vector.at`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first and `minima` has a value for every column. A ragged matrix (rows of different widths) is outside the problem: `Iter.transpose` gives a short row nothing past its end, so a later row's column could have no minimum and the read would stop the program rather than answer.
+- The one indexed read uses `Vector.get(...)!`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first and `minima` has a value for every column. A ragged matrix (rows of different widths) is outside the problem: `Iter.transpose` gives a short row nothing past its end, so a later row's column could have no minimum and the read would stop the program rather than answer.
 - The cases are one `subtests` table of `#(description, matrix, expected)` rows. Its annotation names `List<Position>` so the `#{row, column}` literals in the rows are typed; each row breaks into its three parts and each grid stays on one line.
 
 ## Friction
@@ -26,8 +26,8 @@ One indexed read.
 
 | Read | Where | Result | Real use for a miss? |
 |---|---|---|---|
-| `Vector.at(minima, column)` | the filter in `saddle_points`, line 20 | `== height` | No: `column` comes from `Iter.with_index` over a row of the same width |
+| `Vector.get(minima, column)!` | the filter in `saddle_points`, line 20 | `== height` | No: `column` comes from `Iter.with_index` over a row of the same width |
 
-The filter compares `Vector.at(minima, column) == height`, which reads as what it means. `Iter.min`'s `Maybe` remains, so `column_minima` drops it with `Maybe.values()`.
+The filter compares `Vector.get(minima, column)! == height`, which reads as what it means. `Iter.min`'s `Maybe` remains, so `column_minima` drops it with `Maybe.values()`.
 
-`Vector.at` and `Iter.transpose` were added as a result of this exercise. Before `Iter.transpose`, each column was read by index, `matrix |> Iter.map(&Vector.at(&1, column))`, once per column.
+`Iter.transpose` was added as a result of this exercise. Before it, each column was read by index, `matrix |> Iter.map(&Vector.get(&1, column)!)`, once per column.

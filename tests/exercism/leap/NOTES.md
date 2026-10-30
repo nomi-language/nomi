@@ -8,10 +8,11 @@ Adapted from Exercism problem-specifications (MIT), exercises/leap.
 
 ## Choices
 
-- One boolean expression with `%`, not a helper lambda. The lambda version
-  needs its parameter annotated (`fn n: Int ->`), and the plain expression is
-  the form most languages' solutions use.
-- The function is `leap_year?`, a `?` predicate, since it answers a yes/no
+- The answer is std/calendar's `Date.is_leap_year`, which holds the rule
+  (`year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)`), so the
+  solution does not write it again. Python's solution can call
+  `calendar.isleap` the same way.
+- The function is `is_leap_year`, a `?` predicate, since it answers a yes/no
   question about its argument.
 - The cases are one `subtests` table. Each row's first column is the
   canonical description, which names the row (`subtests cases, #(description,

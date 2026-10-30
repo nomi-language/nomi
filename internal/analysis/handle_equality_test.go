@@ -51,7 +51,7 @@ func TestHandleEquality_AdmitsATypeWithItsOwnImpl(t *testing.T) {
 }
 
 impl Equatable for Job {
-    fn equal?(a: Job, b: Job) -> Bool {
+    fn equal(a: Job, b: Job) -> Bool {
         a.id == b.id
     }
 }

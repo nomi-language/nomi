@@ -20,5 +20,5 @@ test "duplicate same-scope top-level declarations are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "'helper' is already defined in this scope")
+    assert test_helpers.has_diagnostic(diagnostics, "'helper' is already defined in this scope")
 }

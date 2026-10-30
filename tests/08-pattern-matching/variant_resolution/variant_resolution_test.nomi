@@ -178,7 +178,7 @@ fn classify_input(s: String) -> Result<Input, String> {
 
     guess =
         String.to_int(s)
-        |> try Maybe.to_result("invalid integer")
+        |> Maybe.to_result("invalid integer")?
 
     Ok(.Guess(guess))
 }
@@ -191,7 +191,7 @@ fn classify_input_case(s: String) -> Result<Input, String> {
         other -> {
             guess =
                 String.to_int(other)
-                |> try Maybe.to_result("invalid integer")
+                |> Maybe.to_result("invalid integer")?
 
             Ok(.Guess(guess))
         }
@@ -270,17 +270,17 @@ test "dot-leading variant diagnostics require a contextual enum type" {
 
     assert Iter.count(diagnostics) == 3
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         ".Red requires a determinable enum type at this position",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         ".Red resolves only to enum variants, but the expected type at this position is Box",
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "no variant 'Purple' on enum Color")
+    assert test_helpers.has_diagnostic(diagnostics, "no variant 'Purple' on enum Color")
 }
 
 test "bare variant construction diagnostics require enum qualification" {
@@ -317,22 +317,22 @@ test "bare variant construction diagnostics require enum qualification" {
 
     assert Iter.count(diagnostics) == 4
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "variant 'Pairs' must be qualified through its enum",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "variant 'Items' must be qualified through its enum",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "variant 'Position' must be qualified through its enum",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "variant 'Obj' must be qualified through its enum",
     )

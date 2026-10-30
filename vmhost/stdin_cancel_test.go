@@ -121,7 +121,7 @@ fn scope() -> Result<Int, String> {
     stop: Result<Int, String> = Err("stop")
     concurrent {
         waiting = Task.spawn(fn -> io.read_line())
-        n = try stop
+        n = stop?
         _ = Task.await(waiting)
         Ok(n)
     }

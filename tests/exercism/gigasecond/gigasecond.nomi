@@ -1,3 +1,5 @@
+//# The moment one gigasecond after a given one.
+
 import std/calendar.{NaiveDateTime, Seconds}
 
 /// One gigasecond: a thousand million seconds.

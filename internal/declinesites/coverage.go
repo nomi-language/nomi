@@ -22,7 +22,7 @@ type Suite struct {
 // builder's own tests, which include the ones that assert a decline.
 var Suites = []Suite{
 	{"expect", "./internal/expectation", "^TestExpectation_(Corpus|Stdlib|Tour|Failure)$"},
-	{"vmhost", "./vmhost", "^(TestFrontEndAcceptsSoItLowers|TestKnownLoweringGaps|TestLoweredProgramsRun|TestSpecPrograms|FuzzFrontEndAcceptsSoItLowers|FuzzLoweredProgramsRun)$"},
+	{"vmhost", "./vmhost", "^(TestFrontEndAcceptsSoItLowers|TestKnownLoweringGaps|TestDeclineReproducersLower|TestLoweredProgramsRun|TestSpecPrograms|FuzzFrontEndAcceptsSoItLowers|FuzzLoweredProgramsRun)$"},
 	{"projectgen", "./internal/projectgen", "^TestGeneratedProjectsAreClean$"},
 	{"irbuild", "./internal/irbuild", ""},
 }

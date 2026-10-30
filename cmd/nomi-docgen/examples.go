@@ -11,6 +11,8 @@ package main
 // while they differ from what this writes.
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -23,13 +25,22 @@ import (
 
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
+	"github.com/nomi-language/nomi/vmhost"
 )
 
 // exercise is one directory of tests/exercism.
 type exercise struct {
-	slug        string
-	title       string
-	subject     subject
+	slug    string
+	title   string
+	subject subject
+	// manual is NOTES.md's `Run: manual` line: the page's block runs only
+	// on its Run button, with the tour's longer run budget, and shows its
+	// recorded output until then (a ```nomi-run manual block).
+	manual bool
+	// recorded is a manual block's output as the tour's playground shows
+	// it, its tests' report, which the page holds in the block's
+	// <!-- expect ... --> block.
+	recorded    string
 	description string // NOTES.md's first paragraph, on one line
 	specPath    string // `exercises/<slug>` in problem-specifications
 	choices     string // the body of NOTES.md's `## Choices` section
@@ -174,13 +185,69 @@ func readExercise(dir string) (exercise, error) {
 	}
 	ex.files = append(append(append(ex.files, solutions...), tests...), others...)
 	ex.chapters = chaptersOf(solutions)
+	if ex.manual {
+		recorded, err := playgroundShows(blockSource(ex))
+		if err != nil {
+			return ex, fmt.Errorf("%s: %w", dir, err)
+		}
+		ex.recorded = recorded
+	}
 	return ex, nil
 }
 
-var subjectLine = regexp.MustCompile(`^Subject: (.+)$`)
+// playgroundShows runs a block's source as the tour's playground runs it
+// (cmd/nomi-wasm's nomiRun: the program, then its tests' report) and
+// answers what its output panel shows. Every test must pass.
+func playgroundShows(src string) (string, error) {
+	dir, err := os.MkdirTemp("", "nomi-docgen-example-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(dir)
+	var out bytes.Buffer
+	p, hasTests, err := vmhost.LoadMarked(src, dir, vmhost.WithErrorOutput(&out))
+	if err != nil {
+		return "", err
+	}
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		return "", fmt.Errorf("the example's run fails: %s", vmhost.FormatFailure(err))
+	}
+	if hasTests {
+		report := vmhost.CaseReport(p.Cases(&out, vmhost.TestOptions{}))
+		if !strings.Contains(report, "test result: ok.") {
+			return "", fmt.Errorf("the example's tests do not pass:\n%s", report)
+		}
+		fmt.Fprintln(&out, report)
+	}
+	shown := strings.TrimRight(out.String(), "\n")
+	if strings.Contains(shown, "-->") {
+		return "", fmt.Errorf("the example's output holds `-->`, which would end its page's <!-- expect ... --> comment")
+	}
+	return shown, nil
+}
+
+// blockSource is the example's block as its page holds it: each file after
+// its `// FILE:` line.
+func blockSource(ex exercise) string {
+	var b strings.Builder
+	for i, f := range ex.files {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "// FILE: %s\n", f.name)
+		b.WriteString(strings.TrimRight(f.text, "\n"))
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+var (
+	subjectLine = regexp.MustCompile(`^Subject: (.+)$`)
+	runLine     = regexp.MustCompile(`^Run: (.+)$`)
+)
 
 // parseNotes reads a NOTES.md: its `# ` title, the `Subject:` line under
-// it, its first paragraph, its "Adapted from" line, its `## Choices`
+// it, an optional `Run: manual` line under that, its first paragraph, its "Adapted from" line, its `## Choices`
 // section and its `## Friction` items. Any other section (Indexing)
 // stays out of the tour.
 func parseNotes(ex *exercise, notes string) error {
@@ -209,6 +276,15 @@ func parseNotes(ex *exercise, notes string) error {
 	}
 	ex.subject = s
 	i++
+	if i < len(lines) {
+		if m := runLine.FindStringSubmatch(strings.TrimSpace(lines[i])); m != nil {
+			if m[1] != "manual" {
+				return fmt.Errorf("unknown `Run: %s`; the one run word is `Run: manual`", m[1])
+			}
+			ex.manual = true
+			i++
+		}
+	}
 	skipBlank()
 	var para []string
 	for ; i < len(lines) && strings.TrimSpace(lines[i]) != ""; i++ {
@@ -382,7 +458,7 @@ func chaptersOf(files []exerciseFile) []chapter {
 				if next.Type == token.TYPE_IDENT && at(i+2).Type == token.LT {
 					uses[chapterGenerics] = true
 				}
-			case token.CASE, token.TRY:
+			case token.CASE:
 				uses[chapterPatterns] = true
 			case token.INTERFACE:
 				uses[chapterInterfaces] = true
@@ -480,17 +556,19 @@ func renderExample(ex exercise) string {
 	}
 	fmt.Fprintf(&b, "%sAdapted from Exercism's [problem specification](%s/tree/main/%s) (MIT). Listed under [%s](/examples/?subject=%s).\n\n",
 		rough, problemSpecsURL, ex.specPath, ex.subject.title, ex.subject.slug)
-	b.WriteString("```nomi-run\n")
-	for i, f := range ex.files {
-		if i > 0 {
-			b.WriteString("\n")
-		}
-		fmt.Fprintf(&b, "// FILE: %s\n", f.name)
-		b.WriteString(strings.TrimRight(f.text, "\n"))
-		b.WriteString("\n")
+	if ex.manual {
+		b.WriteString("```nomi-run manual\n")
+	} else {
+		b.WriteString("```nomi-run\n")
 	}
-	b.WriteString("```\n\n")
-	b.WriteString("## How it's written\n\n")
+	b.WriteString(blockSource(ex))
+	b.WriteString("```\n")
+	if ex.manual {
+		// The page shows a manual block's recorded output until the
+		// reader runs it, and the doctest holds the block to it.
+		fmt.Fprintf(&b, "<!-- expect\n%s\n-->\n", ex.recorded)
+	}
+	b.WriteString("\n## How it's written\n\n")
 	b.WriteString(ex.choices)
 	b.WriteString("\n")
 	if len(ex.roughEdges) > 0 {

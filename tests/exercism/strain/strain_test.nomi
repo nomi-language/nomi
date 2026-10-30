@@ -17,13 +17,13 @@ test "keep integers" {
 test "keeps strings" {
     words = ["apple", "zebra", "banana", "zombies", "cherimoya", "zealot"]
 
-    assert strain.keep(words, &String.starts_with?(&1, "z")) == ["zebra", "zombies", "zealot"]
+    assert strain.keep(words, &String.starts_with(&1, "z")) == ["zebra", "zombies", "zealot"]
 }
 
 test "keeps lists" {
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
-    assert strain.keep(lists, &List.contains?(&1, 5)) == [
+    assert strain.keep(lists, &List.contains(&1, 5)) == [
         [5, 5, 5],
         [5, 1, 2],
         [1, 5, 2],
@@ -48,11 +48,11 @@ test "discard integers" {
 test "discards strings" {
     words = ["apple", "zebra", "banana", "zombies", "cherimoya", "zealot"]
 
-    assert strain.discard(words, &String.starts_with?(&1, "z")) == ["apple", "banana", "cherimoya"]
+    assert strain.discard(words, &String.starts_with(&1, "z")) == ["apple", "banana", "cherimoya"]
 }
 
 test "discards lists" {
     lists = [[1, 2, 3], [5, 5, 5], [5, 1, 2], [2, 1, 2], [1, 5, 2], [2, 2, 1], [1, 2, 5]]
 
-    assert strain.discard(lists, &List.contains?(&1, 5)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
+    assert strain.discard(lists, &List.contains(&1, 5)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
 }

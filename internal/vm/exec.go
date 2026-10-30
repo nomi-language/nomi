@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,18 +27,31 @@ type regStack struct {
 	w []uint64
 	s []string
 	r []any
+	// b is the word bank's shadow: b[i] is the big Int (*rt.BigInt) word
+	// w[i] holds when w[i] is rt.BigWord, and nil when that word is the
+	// int64 math.MinInt64. It is read only beside a word of rt.BigWord, so
+	// an entry beside any other word may be stale, and every write of an
+	// Int word that may be rt.BigWord writes its shadow too. See
+	// docs/implementation-notes.md, "Int: exact at any size".
+	b []any
+	// bigs says a big Int has been written to b since the stack was last
+	// parked, so a closing window clears its shadows for the collector.
+	bigs bool
 	// wt, st and rt are the bank tops.
 	wt, st, rt int
 	// The last return: its value in the bank rcls names, and the value's
-	// type, which boxing it needs.
+	// type, which boxing it needs. A word return of rt.BigWord has its
+	// shadow in rr.
 	rw   uint64
 	rs   string
 	rr   any
 	rcls bank
 	rty  *ir.ValType
 	// Scratch for a tail transfer's arguments, which move from the caller's
-	// window into the callee's at the same base.
+	// window into the callee's at the same base. tb holds the shadow of
+	// each word in tw.
 	tw []uint64
+	tb []any
 	ts []string
 	tr []any
 	// frames are the activation records of this stack's activations, reused
@@ -79,7 +93,7 @@ func (s *regStack) newFrame() *frame {
 }
 
 var stackPool = sync.Pool{New: func() any {
-	return &regStack{w: make([]uint64, 256), s: make([]string, 64), r: make([]any, 128)}
+	return &regStack{w: make([]uint64, 256), b: make([]any, 256), s: make([]string, 64), r: make([]any, 128)}
 }}
 
 // push opens a window for c at the bank tops and answers its bases.
@@ -94,6 +108,7 @@ func (s *regStack) push(c *code) (wb, sb, rb int) {
 func (s *regStack) reserve(w, str, r int) {
 	if w > len(s.w) {
 		s.w = append(s.w, make([]uint64, w-len(s.w)+len(s.w))...)
+		s.b = append(s.b, make([]any, len(s.w)-len(s.b))...)
 	}
 	if str > len(s.s) {
 		s.s = append(s.s, make([]string, str-len(s.s)+len(s.s))...)
@@ -114,6 +129,9 @@ func (s *regStack) pop(fr *frame) {
 	}
 	if s.rt > fr.rb {
 		clear(s.r[fr.rb:s.rt])
+	}
+	if s.bigs && s.wt > fr.wb {
+		clear(s.b[fr.wb:s.wt])
 	}
 	s.wt, s.st, s.rt = fr.wb, fr.sb, fr.rb
 	s.nf = fr.level
@@ -141,9 +159,14 @@ func putStack(s *regStack) {
 	for _, fr := range s.frames[:s.hw] {
 		// The references that would keep a program reachable; newFrame
 		// clears the rest on reuse.
-		fr.c, fr.fn, fr.runtime = nil, nil, nil
+		fr.c, fr.fn, fr.runtime, fr.hostView, fr.hostViewOf = nil, nil, nil, nil, nil
 	}
 	s.rr, s.rty, s.nf, s.hw = nil, nil, 0, 0
+	if s.bigs {
+		clear(s.b)
+		clear(s.tb)
+		s.bigs = false
+	}
 	if spareStack.CompareAndSwap(nil, s) {
 		return
 	}
@@ -224,6 +247,11 @@ type frame struct {
 	releases []func()
 	// testBody marks a test case's own activation. See activate.
 	testBody bool
+	// hostView is the machine an intrinsic called from this record was
+	// last handed, made from hostViewOf (boundAt). It outlives the
+	// activation, so the next one at this level reuses it when it would
+	// be the same.
+	hostView, hostViewOf *Machine
 	// level is this record's index in its stack's frames.
 	level int
 	// depth is how many activations this goroutine has in progress,
@@ -274,7 +302,8 @@ func (fr *frame) read(t ir.Temp) (any, error) {
 	l := c.locs[t]
 	switch l.bank() {
 	case bankW:
-		return boxWord(fr.stk.w[fr.wb+l.reg()], c.types[t]), nil
+		i := fr.wb + l.reg()
+		return boxWord(fr.stk.w[i], fr.stk.b[i], c.types[t]), nil
 	case bankS:
 		return boxStr(fr.stk.s[fr.sb+l.reg()], c.types[t]), nil
 	case bankNone:
@@ -303,12 +332,12 @@ func (fr *frame) write(t ir.Temp, v any) {
 	l := c.locs[t]
 	switch l.bank() {
 	case bankW:
-		w, ok := unboxWord(v)
+		w, big, ok := unboxWord(v)
 		if !ok {
 			fr.bad = fmt.Errorf("vm: %s: %s holds %s and received %T", fr.fn.Name(), t, c.types[t], v)
 			return
 		}
-		fr.stk.w[fr.wb+l.reg()] = w
+		fr.stk.setWord(fr.wb+l.reg(), w, big)
 	case bankS:
 		s, ok := unboxStr(v)
 		if !ok {
@@ -329,12 +358,61 @@ func (fr *frame) writeParam(l loc, t ir.Temp, v any) {
 		fr.stk.r[fr.rb+l.reg()] = v
 		return
 	case bankW:
-		if n, isInt := v.(int64); isInt {
+		if n, isInt := v.(int64); isInt && uint64(n) != rt.BigWord {
 			fr.stk.w[fr.wb+l.reg()] = uint64(n)
 			return
 		}
 	}
 	fr.write(t, v)
+}
+
+// setWord writes word w and its shadow big into word register i (an index
+// into the whole bank). big is nil or a *rt.BigInt, and is kept only beside a
+// word of rt.BigWord, the one word a reader looks beside.
+func (s *regStack) setWord(i int, w uint64, big any) {
+	s.w[i] = w
+	if w == rt.BigWord {
+		s.b[i] = big
+		if big != nil {
+			s.bigs = true
+		}
+	}
+}
+
+// intAt is the Int in word register i of a window whose words are w and whose
+// shadows are sh.
+func intAt(w []uint64, sh []any, i uint32) any {
+	x := w[i]
+	if x == rt.BigWord {
+		if b := sh[i]; b != nil {
+			return b
+		}
+	}
+	return int64(x)
+}
+
+// setInt writes the Int v into word register i of the window w and sh, on
+// stk.
+func (s *regStack) setInt(w []uint64, sh []any, i uint32, v any) {
+	if n, ok := v.(int64); ok {
+		w[i] = uint64(n)
+		if uint64(n) == rt.BigWord {
+			sh[i] = nil
+		}
+		return
+	}
+	w[i] = rt.BigWord
+	sh[i] = v
+	s.bigs = true
+}
+
+// bigValue is b as the shadow a word register keeps: nil for none, so a
+// reader compares it with nil.
+func bigValue(b *rt.BigInt) any {
+	if b == nil {
+		return nil
+	}
+	return b
 }
 
 // writeField stores field f of rec into temporary t: a scalar slot straight
@@ -344,7 +422,15 @@ func (fr *frame) writeField(t ir.Temp, rec *rt.Record, f *rt.FieldDesc) {
 	switch l.bank() {
 	case bankW:
 		switch f.Type {
-		case rt.SlotInt, rt.SlotFloat, rt.SlotBool, rt.SlotByte:
+		case rt.SlotInt:
+			w := rec.W[f.Slot]
+			i := fr.wb + l.reg()
+			fr.stk.w[i] = w
+			if w == rt.BigWord {
+				fr.stk.setWord(i, w, bigValue(rec.BigSlot(f.Slot)))
+			}
+			return
+		case rt.SlotFloat, rt.SlotBool, rt.SlotByte:
 			fr.stk.w[fr.wb+l.reg()] = rec.W[f.Slot]
 			return
 		}
@@ -369,18 +455,28 @@ func (fr *frame) fill(rec *rt.Record, f *rt.FieldDesc, t ir.Temp) error {
 	switch f.Type {
 	case rt.SlotInt, rt.SlotFloat, rt.SlotBool, rt.SlotByte:
 		if l.bank() == bankW {
-			rec.W[f.Slot] = fr.stk.w[fr.wb+l.reg()]
+			i := fr.wb + l.reg()
+			w := fr.stk.w[i]
+			rec.W[f.Slot] = w
+			if w == rt.BigWord && f.Type == rt.SlotInt {
+				if b, ok := fr.stk.b[i].(*rt.BigInt); ok {
+					rec.SetBigSlot(f.Slot, b)
+				}
+			}
 			return nil
 		}
 		v, err := fr.read(t)
 		if err != nil {
 			return err
 		}
-		w, ok := unboxWord(v)
+		w, big, ok := unboxWord(v)
 		if !ok {
 			return fmt.Errorf("vm: %s: field %q holds a scalar and %s is %T", fr.fn.Name(), f.Name, t, v)
 		}
 		rec.W[f.Slot] = w
+		if b, isBig := big.(*rt.BigInt); isBig {
+			rec.SetBigSlot(f.Slot, b)
+		}
 	case rt.SlotString, rt.SlotBytes:
 		if l.bank() == bankS {
 			rec.S[f.Slot] = fr.stk.s[fr.sb+l.reg()]
@@ -421,7 +517,11 @@ func (s *regStack) setRet(v any) {
 func (s *regStack) ret() any {
 	switch s.rcls {
 	case bankW:
-		return boxWord(s.rw, s.rty)
+		var big any
+		if s.rw == rt.BigWord {
+			big = s.rr
+		}
+		return boxWord(s.rw, big, s.rty)
 	case bankS:
 		return boxStr(s.rs, s.rty)
 	case bankR:
@@ -440,7 +540,7 @@ func (fr *frame) deliver(t ir.Temp) {
 	if l.bank() == s.rcls {
 		switch l.bank() {
 		case bankW:
-			s.w[fr.wb+l.reg()] = s.rw
+			s.setWord(fr.wb+l.reg(), s.rw, s.rr)
 		case bankS:
 			s.s[fr.sb+l.reg()] = s.rs
 		case bankR:
@@ -456,7 +556,7 @@ func (fr *frame) deliver(t ir.Temp) {
 
 // activate runs one activation of f over boxed operands: args, then the
 // captures a function value appends after them. testBody marks a
-// test case's own body, whose `try` propagation leaves the activation as a
+// test case's own body, whose `?` propagation leaves the activation as a
 // *tryReturn instead of becoming its result. caller is the depth of the
 // activation that called it. stk is the caller's register stack when the
 // call is made from a bytecode activation on this goroutine, or nil for a
@@ -568,7 +668,8 @@ func (m *Machine) execGuarded(fr *frame) error {
 func (fr *frame) boxLoc(l loc, ty *ir.ValType) any {
 	switch l.bank() {
 	case bankW:
-		return boxWord(fr.stk.w[fr.wb+l.reg()], ty)
+		i := fr.wb + l.reg()
+		return boxWord(fr.stk.w[i], fr.stk.b[i], ty)
 	case bankS:
 		return boxStr(fr.stk.s[fr.sb+l.reg()], ty)
 	case bankR:
@@ -643,7 +744,7 @@ func (fr *frame) enterCode(c *code) {
 
 // fault decides where an error out of the instruction at pc goes: to its
 // block's fault handler (answering the handler's pc), out of the function as
-// the activation's result (a `try` propagation, answering -1 and nil), or out
+// the activation's result (a `?` propagation, answering -1 and nil), or out
 // of the function as an error.
 func (m *Machine) fault(fr *frame, pc int, err error) (int, error) {
 	if _, internal := AsCompilePanic(err); internal {
@@ -741,6 +842,11 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 		case opLoadW:
 			w[d] = c.kw[code[pc+1]]
 			pc += 2
+		case opLoadI:
+			// An Int constant whose word is rt.BigWord: a big literal, or
+			// math.MinInt64 with a nil shadow.
+			stk.setWord(fr.wb+int(d), rt.BigWord, c.kr[code[pc+1]])
+			pc += 2
 		case opLoadS:
 			s[d] = c.ks[code[pc+1]]
 			pc += 2
@@ -762,7 +868,11 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			pc += 3
 		case opMovW:
-			w[d] = w[code[pc+1]]
+			x := w[code[pc+1]]
+			w[d] = x
+			if x == rt.BigWord {
+				stk.b[fr.wb+int(d)] = stk.b[fr.wb+int(code[pc+1])]
+			}
 			pc += 2
 		case opMovS:
 			s[d] = s[code[pc+1]]
@@ -781,75 +891,95 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			pc += 2
 
+		// Int arithmetic. The fast path is two int64 operands neither of
+		// which is math.MinInt64 (the word a big Int occupies) and a result
+		// that fits int64 and is not math.MinInt64 either. Anything else
+		// takes slowInt, which answers the exact result and writes its
+		// shadow.
 		case opAddI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
-			if rt.AddOverflows(a, b) {
-				err = rt.OverflowError(c.line(at), "+", a, b)
-				goto failed
+			x := a + b
+			if (a^x)&(b^x) < 0 || a == math.MinInt64 || b == math.MinInt64 || x == math.MinInt64 {
+				fr.slowInt(opAddI, d, code[pc+1], code[pc+2])
+			} else {
+				w[d] = uint64(x)
 			}
-			w[d] = uint64(a + b)
 			pc += 3
 		case opSubI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
-			if rt.SubOverflows(a, b) {
-				err = rt.OverflowError(c.line(at), "-", a, b)
-				goto failed
+			x := a - b
+			if (a^b)&(a^x) < 0 || a == math.MinInt64 || b == math.MinInt64 || x == math.MinInt64 {
+				fr.slowInt(opSubI, d, code[pc+1], code[pc+2])
+			} else {
+				w[d] = uint64(x)
 			}
-			w[d] = uint64(a - b)
 			pc += 3
 		case opMulI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
-			if rt.MulOverflows(a, b) {
-				err = rt.OverflowError(c.line(at), "*", a, b)
-				goto failed
+			if hi, lo := bits.Mul64(uint64(a), uint64(b)); a == math.MinInt64 || b == math.MinInt64 ||
+				hi != mulHigh(a, b, lo) || lo == rt.BigWord {
+				fr.slowInt(opMulI, d, code[pc+1], code[pc+2])
+			} else {
+				w[d] = lo
 			}
-			w[d] = uint64(a * b)
 			pc += 3
 		case opDivI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
-			if b == 0 {
+			switch {
+			case b == 0:
 				err = rt.DivByZeroError(c.line(at))
 				goto failed
+			case a == math.MinInt64 || b == math.MinInt64:
+				fr.slowInt(opDivI, d, code[pc+1], code[pc+2])
+			default:
+				w[d] = uint64(a / b)
 			}
-			if rt.QuoOverflows(a, b) {
-				// The division case a backend forgets, which is why
-				// `rt.QuoOverflows` exists to say so.
-				err = rt.OverflowError(c.line(at), "/", a, b)
-				goto failed
-			}
-			w[d] = uint64(a / b)
 			pc += 3
 		case opRemI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
-			if b == 0 {
+			switch {
+			case b == 0:
 				err = rt.DivByZeroError(c.line(at))
 				goto failed
+			case a == math.MinInt64 || b == math.MinInt64:
+				fr.slowInt(opRemI, d, code[pc+1], code[pc+2])
+			default:
+				w[d] = uint64(a % b)
 			}
-			// Go's `%` answers 0 for MinInt64 % -1 without a panic, and
-			// that is Nomi's answer, so no overflow is recorded.
-			w[d] = uint64(a % b)
 			pc += 3
 		case opNegI:
-			// `rt.NegInt` is `SubInt(0, a, line)`, so negation faults on
-			// MinInt64 like the subtraction it performs.
-			a := int64(w[code[pc+1]])
-			if rt.SubOverflows(0, a) {
-				err = rt.OverflowError(c.line(at), "-", 0, a)
-				goto failed
+			if a := int64(w[code[pc+1]]); a == math.MinInt64 {
+				fr.slowInt(opNegI, d, code[pc+1], 0)
+			} else {
+				w[d] = uint64(-a)
 			}
-			w[d] = uint64(-a)
 			pc += 2
+		// Wrapping Int arithmetic: the low 64 bits, as an int64. An operand
+		// whose word is rt.BigWord may be big, and reduces to its low 64
+		// bits first.
 		case opAddIW:
-			w[d] = w[code[pc+1]] + w[code[pc+2]]
+			x, y := w[code[pc+1]], w[code[pc+2]]
+			if x == rt.BigWord || y == rt.BigWord {
+				x, y = wrapWord(w, fr.shadows(), code[pc+1]), wrapWord(w, fr.shadows(), code[pc+2])
+			}
+			fr.setWrapped(d, x+y)
 			pc += 3
 		case opSubIW:
-			w[d] = w[code[pc+1]] - w[code[pc+2]]
+			x, y := w[code[pc+1]], w[code[pc+2]]
+			if x == rt.BigWord || y == rt.BigWord {
+				x, y = wrapWord(w, fr.shadows(), code[pc+1]), wrapWord(w, fr.shadows(), code[pc+2])
+			}
+			fr.setWrapped(d, x-y)
 			pc += 3
 		case opMulIW:
-			w[d] = uint64(int64(w[code[pc+1]]) * int64(w[code[pc+2]]))
+			x, y := w[code[pc+1]], w[code[pc+2]]
+			if x == rt.BigWord || y == rt.BigWord {
+				x, y = wrapWord(w, fr.shadows(), code[pc+1]), wrapWord(w, fr.shadows(), code[pc+2])
+			}
+			fr.setWrapped(d, x*y)
 			pc += 3
 		case opNegIW:
-			w[d] = -w[code[pc+1]]
+			fr.setWrapped(d, -wrapWord(w, fr.shadows(), code[pc+1]))
 			pc += 2
 
 		case opAddF:
@@ -877,6 +1007,11 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 
 		case opCmpI:
 			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+			if a == math.MinInt64 || b == math.MinInt64 {
+				// A big operand, or math.MinInt64: compare exactly. The
+				// sign of the comparison stands in for the operands.
+				a, b = fr.slowCompare(code[pc+1], code[pc+2]), 0
+			}
 			var held bool
 			switch code[pc+3] {
 			case condEq:
@@ -918,7 +1053,14 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			w[d] = b2w((s[code[pc+1]] == s[code[pc+2]]) == (code[pc+3] == condEq))
 			pc += 4
 		case opEqW:
-			w[d] = b2w((w[code[pc+1]] == w[code[pc+2]]) == (code[pc+3] == condEq))
+			x, y := w[code[pc+1]], w[code[pc+2]]
+			eq := x == y
+			if eq && x == rt.BigWord {
+				// Two Int words of rt.BigWord: equal when their shadows
+				// hold one value (nil for math.MinInt64).
+				eq = fr.slowCompare(code[pc+1], code[pc+2]) == 0
+			}
+			w[d] = b2w(eq == (code[pc+3] == condEq))
 			pc += 4
 		case opNot:
 			w[d] = w[code[pc+1]] ^ 1
@@ -1063,7 +1205,11 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				l := loc(a)
 				switch l.bank() {
 				case bankW:
-					stk.w[pw] = w[l.reg()]
+					x := w[l.reg()]
+					stk.w[pw] = x
+					if x == rt.BigWord {
+						stk.b[pw] = stk.b[fr.wb+l.reg()]
+					}
 					pw++
 				case bankS:
 					stk.s[ps] = s[l.reg()]
@@ -1131,6 +1277,9 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			switch l.bank() {
 			case bankW:
 				stk.rw = w[l.reg()]
+				if stk.rw == rt.BigWord {
+					stk.rr = stk.b[fr.wb+l.reg()]
+				}
 			case bankS:
 				stk.rs = s[l.reg()]
 			case bankR:
@@ -1247,6 +1396,85 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 	}
 }
 
+// slowInt is an Int operation's slow path: an operand is big or
+// math.MinInt64, or the int64 result left int64 or is math.MinInt64. It
+// answers exactly, in rt, and writes the result and its shadow. Kept out of
+// the loop, so the loop's own code stays the fast path. A zero divisor never
+// reaches here: the loop faults on it first.
+//
+//go:noinline
+func (fr *frame) slowInt(op opcode, d, a, b uint32) {
+	w, sh := fr.stk.w[fr.wb:fr.wb+fr.c.nW], fr.shadows()
+	x := intAt(w, sh, a)
+	var v any
+	switch op {
+	case opAddI:
+		v = rt.IntAdd(x, intAt(w, sh, b))
+	case opSubI:
+		v = rt.IntSub(x, intAt(w, sh, b))
+	case opMulI:
+		v = rt.IntMul(x, intAt(w, sh, b))
+	case opDivI:
+		v, _ = rt.IntQuo(x, intAt(w, sh, b))
+	case opRemI:
+		v, _ = rt.IntRem(x, intAt(w, sh, b))
+	case opNegI:
+		v = rt.IntNeg(x)
+	}
+	fr.stk.setInt(w, sh, d, v)
+}
+
+// slowCompare is -1, 0 or 1 for the Ints in word registers a and b, one of
+// which is rt.BigWord.
+//
+//go:noinline
+func (fr *frame) slowCompare(a, b uint32) int64 {
+	w, sh := fr.stk.w[fr.wb:fr.wb+fr.c.nW], fr.shadows()
+	return int64(rt.IntCompare(intAt(w, sh, a), intAt(w, sh, b)))
+}
+
+// mulHigh is the high word bits.Mul64 answers for the int64 product a*b when
+// that product fits int64: the sign extension of its low word. The unsigned
+// high word of two's-complement operands differs from the signed one by the
+// operands' signs, which this folds in, so `hi != mulHigh(a, b, lo)` says the
+// signed product does not fit.
+func mulHigh(a, b int64, lo uint64) uint64 {
+	hi := uint64(int64(lo) >> 63)
+	if a < 0 {
+		hi += uint64(b)
+	}
+	if b < 0 {
+		hi += uint64(a)
+	}
+	return hi
+}
+
+// wrapWord is the low 64 bits of the Int in word register i.
+func wrapWord(w []uint64, sh []any, i uint32) uint64 {
+	x := w[i]
+	if x == rt.BigWord {
+		if b := sh[i]; b != nil {
+			return uint64(rt.Wrap64(b))
+		}
+	}
+	return x
+}
+
+// setWrapped writes a wrapping operation's int64 result into word register
+// i: always an int64, so a word of rt.BigWord has a nil shadow.
+func (fr *frame) setWrapped(i uint32, x uint64) {
+	j := fr.wb + int(i)
+	fr.stk.w[j] = x
+	if x == rt.BigWord {
+		fr.stk.b[j] = nil
+	}
+}
+
+// shadows is the shadow of fr's word window: the big Int beside each word of
+// rt.BigWord. The loop reads it only on a slow path, so it holds no slice of
+// its own.
+func (fr *frame) shadows() []any { return fr.stk.b[fr.wb : fr.wb+fr.c.nW] }
+
 func b2w(b bool) uint64 {
 	if b {
 		return 1
@@ -1260,19 +1488,36 @@ func b2w(b bool) uint64 {
 func (m *Machine) moveTailArgs(fr *frame, callee *code, args []uint32) {
 	stk := fr.stk
 	stk.tw, stk.ts, stk.tr = stk.tw[:0], stk.ts[:0], stk.tr[:0]
+	big := false
 	for _, a := range args {
 		l := loc(a)
 		switch l.bank() {
 		case bankW:
-			stk.tw = append(stk.tw, stk.w[fr.wb+l.reg()])
+			x := stk.w[fr.wb+l.reg()]
+			stk.tw = append(stk.tw, x)
+			big = big || x == rt.BigWord
 		case bankS:
 			stk.ts = append(stk.ts, stk.s[fr.sb+l.reg()])
 		case bankR:
 			stk.tr = append(stk.tr, stk.r[fr.rb+l.reg()])
 		}
 	}
+	if big {
+		// Only a word of rt.BigWord has a shadow to carry, so the shadows
+		// move only when one of the words is one.
+		stk.tb = stk.tb[:0]
+		for _, a := range args {
+			if l := loc(a); l.bank() == bankW {
+				stk.tb = append(stk.tb, stk.b[fr.wb+l.reg()])
+			}
+		}
+	}
 	fr.enterCode(callee)
 	copy(stk.w[fr.wb:], stk.tw)
+	if big {
+		copy(stk.b[fr.wb:], stk.tb)
+		clear(stk.tb)
+	}
 	copy(stk.s[fr.sb:], stk.ts)
 	copy(stk.r[fr.rb:], stk.tr)
 	clear(stk.ts)

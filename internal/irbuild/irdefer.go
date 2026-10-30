@@ -138,7 +138,7 @@ type irScopeHandle struct{}
 // activation's end restores what it replaced, so nothing is saved. Any other
 // block reads the scope in force before its first `with` and restores it at
 // its normal exit, after its deferred calls; an exit that leaves the
-// activation (a `return`, a `try`, a failure) restores it by leaving.
+// activation (a `return`, a `?`, a failure) restores it by leaving.
 type irWithScope struct {
 	root   bool
 	opened bool

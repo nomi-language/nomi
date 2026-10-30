@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: word_count.nomi
+//# Counts the words in a sentence.
+
 import std/regex.Regex
 
 /// How many times each word occurs in `sentence`, lower-cased. A word is a
@@ -18,7 +20,7 @@ import std/regex.Regex
 /// as in "can't"; quotes around a word are not part of it.
 pub fn count_words(sentence: String) -> Map<String, Int> {
     sentence
-    |> String.to_lower()
+    |> String.lowercase()
     |> String.find_all(Regex`[a-z0-9]+('[a-z0-9]+)*`)
     |> Iter.frequencies()
 }

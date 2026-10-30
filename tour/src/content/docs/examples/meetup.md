@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: meetup.nomi
+//# The date of a meetup given as a weekday of a month, such as the second
+//# Tuesday or the teenth Friday.
+
 import std/calendar.{Date, Weekday}
 
 /// Which of a month's days on a given weekday a meetup falls on.
@@ -31,9 +34,7 @@ pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date {
     #[first, second, third, fourth, ..] = days else {
         unreachable "a weekday falls at least four times in every month"
     }
-    #[.., last] = days else {
-        unreachable "the pattern above matched, so days is not empty"
-    }
+    #[.., last] = days else { unreachable "the pattern above matched, so days is not empty" }
 
     case week {
         .First -> first
@@ -58,7 +59,7 @@ fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date> {
 
 /// The one of `days` that falls from the 13th to the 19th.
 fn teenth(days: Vector<Date>) -> Date {
-    Some(day) = Iter.find(days, fn day -> Iter.contains?(13..=19, Date.day(day))) else {
+    Some(day) = Iter.find(days, fn day -> Range.contains(13..=19, Date.day(day))) else {
         unreachable "the 13th to the 19th are seven days, so one falls on every weekday"
     }
     day
@@ -794,7 +795,7 @@ test "meetup" {
 ## How it's written
 
 - The week is an enum, `Week`, with the canonical data's six descriptors, and the day is std/calendar's `Weekday`. The canonical strings (`"teenth"`, `"Monday"`) are the test table's data, written as variants: the first row qualifies them (`Week.Teenth`, `Weekday.Monday`) and the rows after it write `.First`, `.Tuesday`.
-- `days_on` lists the month's days on the weekday by trying `Date.new` for each of the 1st to the 31st. `Date.new` answers `Err` for a day the month does not have, so the calendar decides the month's length, with no table of month lengths or leap-year rule here. `Result.to_maybe` and `Maybe.values` drop the misses.
+- `days_on` lists the month's days on the weekday by trying `Date.new` for each of the 1st to the 31st. `Date.new` answers `Err` for a day the month does not have, so the calendar decides the month's length, with no table of month lengths or leap-year rule here. `Result.to_maybe` and `Maybe.values` drop the misses. `Date.days_in_month` would give the length first, but it answers a `Result` too, and each `Date.new` after it still would, so it adds a step and removes none.
 - The first four weeks and the last are taken apart with vector patterns, `#[first, second, third, fourth, ..]` and `#[.., last]`. A weekday falls four or five times in every month, so neither pattern can fail, and each `else` is an `unreachable` that says why (style §28). A vector pattern needs at least as many elements as it names, so the last day, which is the fourth in a month with four, has its own pattern.
 - The teenth day is `Iter.find` over the days for one from the 13th to the 19th. Those are seven days in a row, so one of them is on every weekday, and the `None` that `Iter.find` can answer is an `unreachable` that says so.
 - The expected dates are `Date` literals, ``Date`2013-05-13` ``, so the table compares dates, not strings.

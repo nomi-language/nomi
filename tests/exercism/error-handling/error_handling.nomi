@@ -26,11 +26,7 @@ pub fn parse(text: String) -> Result<Int, Error> {
 /// The number `text` writes. The caller promises it writes one, and a
 /// `text` that does not is a bug in the caller: the call traps.
 pub fn parse_trusted(text: String) -> Int {
-    Some(n) = number(text) else {
-        unreachable "parse_trusted was given text that is not a number"
-    }
-
-    n
+    number(text)!
 }
 
 /// The sum of the numbers on the lines of `reader`, or the first line that
@@ -55,8 +51,8 @@ pub fn sum_trusted_lines(reader: Reader) -> Result<Int, Error> {
 fn total(reader: Reader, read: (String) -> Result<Int, Error>) -> Result<Int, Error> {
     next = Reader.read_line(reader) |> Result.map_err(Error.Io)
 
-    case try next {
+    case next? {
         None -> Ok(0)
-        Some(line) -> Ok(try read(line) + try total(reader, read))
+        Some(line) -> Ok(read(line)? + total(reader, read)?)
     }
 }

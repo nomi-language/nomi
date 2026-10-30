@@ -42,9 +42,7 @@ once orders: List<Order> =
     0..=4
     |> Iter.permutations()
     |> Iter.map(fn houses -> {
-        [a, b, c, d, e] = houses else {
-            unreachable "a permutation of five houses has five"
-        }
+        [a, b, c, d, e] = houses else { unreachable "a permutation of five houses has five" }
         #(a, b, c, d, e)
     })
     |> Iter.to_list()
@@ -72,9 +70,7 @@ fn solve() -> Solution {
         |> Iter.flat_map(add_pets)
         |> Iter.to_list()
 
-    [solution] = solutions else {
-        unreachable "the puzzle has exactly one solution"
-    }
+    [solution] = solutions else { unreachable "the puzzle has exactly one solution" }
 
     solution
 }
@@ -86,7 +82,7 @@ fn add_nations(colors: Order) -> List<#(Order, Order)> {
 
     orders
     |> Iter.filter(fn #(english, _spaniard, _ukrainian, norwegian, _japanese) -> {
-        english == red and norwegian == 0 and next_to?(norwegian, blue)
+        english == red and norwegian == 0 and is_next_to(norwegian, blue)
     })
     |> Iter.map(&#(colors, &1))
     |> Iter.to_list()
@@ -132,8 +128,8 @@ fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order))
     |> Iter.filter(fn #(dog, snail, fox, horse, _zebra) -> {
         dog == spaniard
             and snail == dancing
-            and next_to?(reading, fox)
-            and next_to?(painting, horse)
+            and is_next_to(reading, fox)
+            and is_next_to(painting, horse)
     })
     |> Iter.map(fn #(_dog, _snail, _fox, _horse, zebra) -> {
         #Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
@@ -155,7 +151,7 @@ fn resident(nations: Order, house: Int) -> Nationality {
     }
 }
 
-fn next_to?(one: Int, other: Int) -> Bool {
+fn is_next_to(one: Int, other: Int) -> Bool {
     Int.abs(one - other) == 1
 }
 
@@ -174,7 +170,7 @@ test "resident who owns zebra" {
 ## How it's written
 
 - The two answers are a `Nationality` enum, and `drinks_water` and `owns_zebra` read them from one `solve`, as the canonical data's two properties ask.
-- Each attribute is an `Order`, a five-tuple of houses named with a `typealias`: an order of the colors says where the red, green, ivory, yellow and blue houses are. Tuple patterns name each value's house where a statement uses it (`#(red, _green, _ivory, _yellow, blue)`), so each statement reads as a comparison of houses: `english == red`, `next_to?(reading, fox)`.
+- Each attribute is an `Order`, a five-tuple of houses named with a `typealias`: an order of the colors says where the red, green, ivory, yellow and blue houses are. Tuple patterns name each value's house where a statement uses it (`#(red, _green, _ivory, _yellow, blue)`), so each statement reads as a comparison of houses: `english == red`, `is_next_to(reading, fox)`.
 - The search adds one attribute at a time: the color orders that fit statement 6, then `add_nations`, `add_drinks`, `add_hobbies` and `add_pets`, each a `flat_map` stage answering every way to extend what came before that fits the statements about the attributes it can now see. Ordering the stages by which statements become checkable prunes the 120⁵ combinations to a few thousand.
 - Each stage carries what came before as a tuple of orders, `#(colors, nations, drinks)`, and takes it apart in its parameter pattern.
 - The puzzle has one solution, so `solve` takes the list of solutions apart with `[solution]`, and anything else is an `unreachable` that says so.

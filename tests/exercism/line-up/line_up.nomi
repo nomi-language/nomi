@@ -1,3 +1,5 @@
+//# The ticket messages of a deli that serves its customers in line.
+
 /// The ticket message for the customer `name`, served `number`th today.
 //! assert format("Mary", 1) == "Mary, you are the 1st customer we serve today. Thank you!"
 //

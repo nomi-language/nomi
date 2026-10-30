@@ -329,7 +329,7 @@ func literalPattern(n ast.Node) ast.Node {
 		return n
 	case *ast.Unary:
 		if lit, ok := v.Right.(*ast.IntLit); ok && v.Op == "-" && lit.Lexeme != "" {
-			return &ast.IntLit{Value: -lit.Value, Lexeme: "-" + lit.Lexeme, Line: v.Line, Col: v.Col}
+			return lit.Negated(v.Line, v.Col)
 		}
 	}
 	return nil

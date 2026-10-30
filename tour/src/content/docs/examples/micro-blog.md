@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: micro_blog.nomi
+//# Truncates a post to its first five characters.
+
 /// The first five characters of `post`, or all of it when it is shorter. A
 /// character is a grapheme, so an emoji is one, however many bytes it takes.
 pub fn truncate(post: String) -> String {

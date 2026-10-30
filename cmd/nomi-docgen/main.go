@@ -508,13 +508,8 @@ func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnal
 	renderVariantDocs(b, s.Node)
 	tests := attachedTestsOf(s.Node)
 	testContext := referenceTestContext(moduleName, fa, entry)
-	wroteTestHeading := false
 	for _, test := range tests {
 		if body := nomiformat.RenderAttachedTestBody(test); body != "" {
-			if !wroteTestHeading {
-				b.WriteString("<p class=\"nomi-ref-test-label\">Interactive Tests</p>\n\n")
-				wroteTestHeading = true
-			}
 			context := referenceContextBeside(testContext, body)
 			contextAttr := ""
 			if context != "" {

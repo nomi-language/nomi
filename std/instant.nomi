@@ -12,8 +12,15 @@ import {
 /// seconds-grained representation (sufficient for whole-second
 /// timestamps). Exact arithmetic uses `+` and `-` with a `Duration`, `-`
 /// between two Instants (the `Duration` from the right to the left),
-/// `Instant.between`, and `Instant.before?`.
+/// `Instant.between`, and `Instant.is_before`.
+///
+/// An Instant holds a signed 64-bit count of nanoseconds from the epoch,
+/// the years 1677 to 2262, which is what clocks and Go's `time.Time` count
+/// in. A constructor or an operator whose answer is past that faults.
 pub opaque type Instant Int
+
+// `ns` when an Instant holds it; a fault naming it otherwise.
+host fn nanos_in_range(ns: Int) -> Int
 
 impl Instant {
     /// Read the current wall clock as an Instant. Single canonical
@@ -26,7 +33,7 @@ impl Instant {
     //! assert Instant.to_seconds(Instant.from_seconds(42)) == 42
     //
     pub fn from_seconds(n: Int) -> Instant {
-        Instant(n * 1_000_000_000)
+        Instant(nanos_in_range(n * 1_000_000_000))
     }
 
     /// Extract whole seconds since the Unix epoch from an Instant. Inverse
@@ -47,7 +54,7 @@ impl Instant {
     //! assert Instant.as_nanos(Instant.from_nanos(1_500_000_042)) == 1_500_000_042
     //
     pub fn from_nanos(n: Int) -> Instant {
-        Instant(n)
+        Instant(nanos_in_range(n))
     }
 
     /// Whole nanoseconds since the Unix epoch. Exact — nothing is truncated,
@@ -66,10 +73,10 @@ impl Instant {
     }
 
     /// Compare: is `a` strictly before `b`?
-    //! assert Instant.before?(Instant.from_seconds(10), Instant.from_seconds(15))
-    //! refute Instant.before?(Instant.from_seconds(15), Instant.from_seconds(10))
+    //! assert Instant.is_before(Instant.from_seconds(10), Instant.from_seconds(15))
+    //! refute Instant.is_before(Instant.from_seconds(15), Instant.from_seconds(10))
     //
-    pub fn before?(Instant(a), Instant(b)) -> Bool {
+    pub fn is_before(Instant(a), Instant(b)) -> Bool {
         a < b
     }
 }
@@ -81,7 +88,7 @@ impl Add<Duration, Instant> for Instant {
     //! assert Instant.from_seconds(10) + Duration.seconds(5) == Instant.from_seconds(15)
     //
     fn add(Instant(nanos), rhs: Duration) -> Instant {
-        Instant(nanos + Duration.as_nanos(rhs))
+        Instant(nanos_in_range(nanos + Duration.as_nanos(rhs)))
     }
 }
 
@@ -90,7 +97,7 @@ impl Subtract<Duration, Instant> for Instant {
     //! assert Instant.from_seconds(15) - Duration.seconds(5) == Instant.from_seconds(10)
     //
     fn subtract(Instant(nanos), rhs: Duration) -> Instant {
-        Instant(nanos - Duration.as_nanos(rhs))
+        Instant(nanos_in_range(nanos - Duration.as_nanos(rhs)))
     }
 }
 

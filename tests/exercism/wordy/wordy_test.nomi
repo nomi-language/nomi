@@ -1,10 +1,7 @@
-import {
-    wordy
-    wordy.Error
-}
+import wordy.{self, Error}
 
 test "answers word problems" {
-    cases: List<#(String, String, Result<Int, Error>)> = [
+    cases = [
         #("just a number", "What is 5?", Ok(5)),
         #("just a zero", "What is 0?", Ok(0)),
         #("just a negative number", "What is -123?", Ok(-123)),
@@ -24,7 +21,7 @@ test "answers word problems" {
         #("multiple multiplication", "What is 2 multiplied by -2 multiplied by 3?", Ok(-12)),
         #("addition and multiplication", "What is -3 plus 7 multiplied by -2?", Ok(-8)),
         #("multiple division", "What is -12 divided by 2 divided by -3?", Ok(2)),
-        #("unknown operation", "What is 52 cubed?", Err(.UnknownOperation)),
+        #("unknown operation", "What is 52 cubed?", Err(Error.UnknownOperation)),
         #(
             "Non math question",
             "Who is the President of the United States?",

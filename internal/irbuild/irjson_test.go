@@ -23,7 +23,7 @@ fn main() -> Result<Unit, Json.ShapeError> {
 
   dbg Json.encode(shape)
 
-  user = try User.from_json(shape)
+  user = User.from_json(shape)?
 
   user
   |> ToJson.to_json()

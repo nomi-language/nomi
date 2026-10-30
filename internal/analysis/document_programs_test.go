@@ -60,9 +60,6 @@ func TestOpenDocumentProgramsMatchTheirOwnBuilds(t *testing.T) {
 		t.Fatal(err)
 	}
 	projects = append(projects, corpus...)
-	if _, err := os.Stat(dungeonDir); err == nil {
-		projects = append(projects, dungeonProject(t))
-	}
 	for _, p := range projects {
 		t.Run(p.name, func(t *testing.T) {
 			dir := writeProject(t, p)
@@ -101,10 +98,6 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 		{order, genericEdits("main", order.texts["main"])},
 		{order, genericEdits("shapes", order.texts["shapes"])},
 		{rateProject(), rateEdits},
-	}
-	if _, err := os.Stat(dungeonDir); err == nil {
-		d := dungeonProject(t)
-		runs = append(runs, run{d, dungeonEdits}, run{d, genericEdits("game", d.texts["game"])}, run{d, genericEdits("command", d.texts["command"])})
 	}
 	corpus, err := corpusProjects()
 	if err != nil {
@@ -214,58 +207,6 @@ func TestOpenDocumentAfterSeveralFilesChange(t *testing.T) {
 		}
 		if got, want := renderBuild(analysis.InstalledForTest(dm, uri)), renderBuild(analysis.BuildForTest(newManager(), uri, main, false)); got != want {
 			t.Fatalf("step %d (%s): the entry gets\n%s\nand a fresh analysis of it gives\n%s", i+1, change.kind, got, want)
-		}
-	}
-}
-
-// BenchmarkOpenDocumentEdit times one analysis of an edited open document of
-// the dungeon (dungeonDir), every file of it open, alternating between two
-// texts: through the program kept for the root ("kept"), as the language
-// server analyzes an edit, and on its own ("own"), as it analyzed one
-// before programs were kept and still analyzes a closed file.
-func BenchmarkOpenDocumentEdit(b *testing.B) {
-	p := dungeonProject(b)
-	for _, bench := range []struct {
-		name, key, old, new string
-	}{
-		{"body", "game", "{ 3 } else { 1 }", "{ 4 } else { 1 }"},
-		{"signature", "game", "fn strength(game: Game) -> Int {", "fn strength(game: Game, _bonus: Int = 0) -> Int {"},
-		{"leaf signature", "world", "pub fn room(place: Place) -> Room {", "pub fn room(place: Place, _lit: Bool = True) -> Room {"},
-		{"entry signature", "main", "fn turn(state: Game, line: String) -> Game {", "fn turn(state: Game, line: String, _echo: Bool = False) -> Game {"},
-		{"entry body", "main", "You wake up in the dark.", "You wake up."},
-	} {
-		edited := strings.Replace(p.texts[bench.key], bench.old, bench.new, 1)
-		if edited == p.texts[bench.key] {
-			b.Skipf("the dungeon has changed: %q is not in %s", bench.old, bench.key)
-		}
-		texts := []string{edited, p.texts[bench.key]}
-		for _, kept := range []bool{true, false} {
-			name := bench.name + "/own"
-			if kept {
-				name = bench.name + "/kept"
-			}
-			b.Run(name, func(b *testing.B) {
-				dir := writeProject(b, p)
-				uri := func(key string) string { return fileuri.FromPath(filepath.Join(dir, key+".nomi")) }
-				dm := newManager()
-				for key, text := range p.texts {
-					dm.Open(uri(key), text)
-				}
-				bodies, dependents, _, _ := dm.ProgramChecks()
-				b.ResetTimer()
-				for i := range b.N {
-					if kept {
-						dm.Update(uri(bench.key), texts[i%2])
-					} else {
-						analysis.BuildForTest(dm, uri(bench.key), texts[i%2], false)
-					}
-				}
-				b.StopTimer()
-				if after, afterDependents, _, _ := dm.ProgramChecks(); kept {
-					b.ReportMetric(float64(after-bodies)/float64(b.N), "bodies/op")
-					b.ReportMetric(float64(afterDependents-dependents)/float64(b.N), "dependents/op")
-				}
-			})
 		}
 	}
 }

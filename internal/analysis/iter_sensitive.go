@@ -34,8 +34,8 @@ var iterCallbackSlots = map[string]map[int]bool{
 	"Iter.map_reduce": {1: true},
 	"Iter.each":       {1: true},
 	"Iter.find":       {1: true},
-	"Iter.any?":       {1: true},
-	"Iter.all?":       {1: true},
+	"Iter.any":        {1: true},
+	"Iter.all":        {1: true},
 
 	// Lazy adapters: Iter owner functions, separate from concrete
 	// collection-specific methods.
@@ -461,7 +461,7 @@ func callbackShape(fd *ast.FuncDef, name, in string) string {
 			// The callback answers its next state.
 			return fd.Params[0].TypeAnnotation != nil && ret != "" &&
 				typeExprHoverString(fd.Params[0].TypeAnnotation) == ret
-		case "Iter.filter", "Iter.find", "Iter.any?", "Iter.all?", "Iter.take_while", "Iter.drop_while":
+		case "Iter.filter", "Iter.find", "Iter.any", "Iter.all", "Iter.take_while", "Iter.drop_while":
 			return ret == "Bool"
 		}
 		return true

@@ -175,7 +175,7 @@ pub interface Anchored {
 
 /// A calendar date — year/month/day, no time-of-day, no zone. Construct
 /// via `Date.new(y, m, d)` (validating), `Date.parse`, or the
-/// `Date"…"` typed literal. Components reachable via `year`/`month`/`day`
+/// ``Date`…` `` typed literal. Components reachable via `year`/`month`/`day`
 /// (or the `DateParts` interface).
 pub opaque struct Date {
     year: Int
@@ -187,7 +187,7 @@ impl Date {
     /// Construct a `Date`, validating the combination (no Feb 30,
     /// leap-year aware). Returns `Err(.InvalidValue(...))` for impossible
     /// dates.
-    //! assert try Date.new(2026, 5, 4) == try Date"2026-05-04"
+    //! assert Date.new(2026, 5, 4)? == Date`2026-05-04`
     //! assert Err(Error.InvalidValue(_msg)) = Date.new(2026, 2, 30)
     //
     pub fn new(year: Int, month: Int, day: Int) -> Result<Date, Error> {
@@ -201,9 +201,9 @@ impl Date {
     }
 
     /// Parse an ISO-8601 date string (`YYYY-MM-DD`) into a `Date`. Backs
-    /// the `Date"…"` typed literal and is exported for callers parsing
+    /// the ``Date`…` `` typed literal and is exported for callers parsing
     /// from arbitrary string sources.
-    //! assert try Date.parse("2026-05-04") == try Date"2026-05-04"
+    //! assert Date.parse("2026-05-04")? == Date`2026-05-04`
     //! assert Err(Error.InvalidFormat(_msg)) = Date.parse("05/04/2026")
     //
     pub fn parse(s: String) -> Result<Date, Error> {
@@ -219,8 +219,8 @@ impl Date {
     /// Number of whole days between two `Date`s — positive if `later` is
     /// after `earlier`, negative if before. (Calendar-day count, ignoring
     /// any sub-day time of day.)
-    //! assert Date.days_between(try Date"2026-05-04", try Date"2026-05-07") == 3
-    //! assert Date.days_between(try Date"2026-05-07", try Date"2026-05-04") == -3
+    //! assert Date.days_between(Date`2026-05-04`, Date`2026-05-07`) == 3
+    //! assert Date.days_between(Date`2026-05-07`, Date`2026-05-04`) == -3
     //
     pub host fn days_between(earlier: Date, later: Date) -> Int
 
@@ -246,12 +246,12 @@ impl Date {
     /// Whether `year` is a leap year in the Gregorian calendar, which
     /// `Date` follows for every year: one divisible by 4, except a century
     /// year not divisible by 400.
-    //! assert Date.leap_year?(2024)
-    //! assert Date.leap_year?(2000)
-    //! refute Date.leap_year?(1900)
-    //! refute Date.leap_year?(2026)
+    //! assert Date.is_leap_year(2024)
+    //! assert Date.is_leap_year(2000)
+    //! refute Date.is_leap_year(1900)
+    //! refute Date.is_leap_year(2026)
     //
-    pub fn leap_year?(year: Int) -> Bool {
+    pub fn is_leap_year(year: Int) -> Bool {
         year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
     }
 
@@ -267,7 +267,7 @@ impl Date {
     pub fn days_in_month(year: Int, month: Int) -> Result<Int, Error> {
         case {
             month < 1 or month > 12 -> Err(Error.InvalidValue("month out of range: ${month}"))
-            month == 2 and Date.leap_year?(year) -> Ok(29)
+            month == 2 and Date.is_leap_year(year) -> Ok(29)
             month == 2 -> Ok(28)
             month == 4 or month == 6 or month == 9 or month == 11 -> Ok(30)
             _ -> Ok(31)
@@ -427,8 +427,8 @@ impl Add<Years, Date> for Date {
 
 impl Add<Months, Date> for Date {
     /// Add whole calendar months, clamping end-of-month.
-    //! assert try Date"2011-01-31" + Months(1) == try Date"2011-02-28"
-    //! assert try Date"2012-01-31" + Months(1) == try Date"2012-02-29"
+    //! assert Date`2011-01-31` + Months(1) == Date`2011-02-28`
+    //! assert Date`2012-01-31` + Months(1) == Date`2012-02-29`
     //
     fn add(lhs: Date, Months(n)) -> Date {
         date_add_months(lhs, n)
@@ -482,7 +482,7 @@ impl Subtract<Days, Date> for Date {
 // ============================================================================
 /// A time-of-day — hour/minute/second/nanosecond, no date, no zone.
 /// Construct via `Time.new(h, m, s, ns)` (validating), `Time.parse`,
-/// or the `Time"…"` typed literal. Components reachable via
+/// or the ``Time`…` `` typed literal. Components reachable via
 /// `hour`/`minute`/`second`/`nanosecond` (or the `TimeParts` interface).
 pub opaque struct Time {
     hour: Int
@@ -494,8 +494,8 @@ pub opaque struct Time {
 impl Time {
     /// Construct a `Time`, validating each component (hour 0..=23,
     /// minute/second 0..=59, nanosecond 0..=999_999_999).
-    //! assert try Time.new(8, 30) == try Time"08:30:00"
-    //! assert try Time.new(8, 30, 15, 250_000_000) == try Time"08:30:15.25"
+    //! assert Time.new(8, 30)? == Time`08:30:00`
+    //! assert Time.new(8, 30, 15, 250_000_000)? == Time`08:30:15.25`
     //! assert Err(Error.InvalidValue(_msg)) = Time.new(24, 0)
     //
     pub fn new(
@@ -518,7 +518,7 @@ impl Time {
     }
 
     /// Parse a time-of-day string (`HH:MM:SS` or `HH:MM:SS.fff…`).
-    //! assert try Time.parse("08:30:00") == try Time"08:30:00"
+    //! assert Time.parse("08:30:00")? == Time`08:30:00`
     //! assert Err(Error.InvalidFormat(_msg)) = Time.parse("nope")
     //
     pub fn parse(s: String) -> Result<Time, Error> {
@@ -532,7 +532,7 @@ impl Time {
     }
 
     /// Exact duration from `earlier` to `later`, measured within one civil day.
-    //! assert Time.between(try Time"08:30:00", try Time"08:33:00") == Duration.minutes(3)
+    //! assert Time.between(Time`08:30:00`, Time`08:33:00`) == Duration.minutes(3)
     //
     pub fn between(earlier: Time, later: Time) -> Duration {
         Duration.nanoseconds(day_nanos(later) - day_nanos(earlier))
@@ -617,7 +617,7 @@ impl Time {
 }
 
 /// Total nanoseconds since midnight. Module-private — backs `Time.between`.
-//! assert try Time"08:33:00" |> day_nanos() == 30780000000000
+//! assert Time`08:33:00` |> day_nanos() == 30780000000000
 //
 fn day_nanos(t: Time) -> Int {
     t.hour * 3_600_000_000_000 + t.minute * 60_000_000_000 + t.second * 1_000_000_000 + t.nanosecond
@@ -672,7 +672,7 @@ impl TimeParts for Time {
 
 impl Add<Duration, Time> for Time {
     /// Add an exact `Duration`, wrapping around midnight.
-    //! assert try Time"08:33:00" + Duration.minutes(3) == try Time"08:36:00"
+    //! assert Time`08:33:00` + Duration.minutes(3) == Time`08:36:00`
     //
     fn add(lhs: Time, rhs: Duration) -> Time {
         time_add_nanos(lhs, Duration.as_nanos(rhs))
@@ -681,7 +681,7 @@ impl Add<Duration, Time> for Time {
 
 impl Subtract<Duration, Time> for Time {
     /// Subtract an exact `Duration`, wrapping around midnight.
-    //! assert try Time"08:36:00" - Duration.minutes(3) == try Time"08:33:00"
+    //! assert Time`08:36:00` - Duration.minutes(3) == Time`08:33:00`
     //
     fn subtract(lhs: Time, rhs: Duration) -> Time {
         lhs + rhs * -1
@@ -772,8 +772,7 @@ impl NaiveDateTime {
 
     /// Combine a `Date` and a `Time`. Both parts are already valid, so
     /// this is infallible.
-    //! assert NaiveDateTime.of(try Date"2026-05-04", try Time"14:30:00")
-    //!     == try NaiveDateTime"2026-05-04T14:30:00"
+    //! assert NaiveDateTime.of(Date`2026-05-04`, Time`14:30:00`) == NaiveDateTime`2026-05-04T14:30:00`
     //
     pub fn of(d: Date, t: Time) -> NaiveDateTime {
         #NaiveDateTime{
@@ -788,7 +787,7 @@ impl NaiveDateTime {
     }
 
     /// A `NaiveDateTime` at midnight (00:00:00) on the given date.
-    //! assert NaiveDateTime.at_midnight(try Date"2026-05-04") == try NaiveDateTime"2026-05-04T00:00:00"
+    //! assert NaiveDateTime.at_midnight(Date`2026-05-04`) == NaiveDateTime`2026-05-04T00:00:00`
     //
     pub fn at_midnight(d: Date) -> NaiveDateTime {
         #NaiveDateTime{
@@ -803,18 +802,18 @@ impl NaiveDateTime {
     }
 
     /// The date component.
-    //! assert NaiveDateTime.to_date(try NaiveDateTime"2026-05-04T14:30:00") == try Date"2026-05-04"
+    //! assert NaiveDateTime.to_date(NaiveDateTime`2026-05-04T14:30:00`) == Date`2026-05-04`
     //
     pub host fn to_date(dt: NaiveDateTime) -> Date
 
     /// The time-of-day component.
-    //! assert NaiveDateTime.to_time(try NaiveDateTime"2026-05-04T14:30:00") == try Time"14:30:00"
+    //! assert NaiveDateTime.to_time(NaiveDateTime`2026-05-04T14:30:00`) == Time`14:30:00`
     //
     pub host fn to_time(dt: NaiveDateTime) -> Time
 
     /// Construct from seven integers, validating each component AND the
     /// year/month/day combination.
-    //! assert try NaiveDateTime.new(2026, 5, 4, 14, 30) == try NaiveDateTime"2026-05-04T14:30:00"
+    //! assert NaiveDateTime.new(2026, 5, 4, 14, 30)? == NaiveDateTime`2026-05-04T14:30:00`
     //! assert Err(Error.InvalidValue(_msg)) = NaiveDateTime.new(2026, 2, 30, 12, 0)
     //
     pub fn new(
@@ -857,10 +856,10 @@ impl NaiveDateTime {
 
     /// Parse an ISO naive datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
     /// Allows a single space instead of `T` between the date and time.
-    //! assert try NaiveDateTime.parse("2026-05-04T14:30:00")
-    //!     == NaiveDateTime.of(try Date"2026-05-04", try Time"14:30:00")
+    //! assert NaiveDateTime.parse("2026-05-04T14:30:00")?
+    //!     == NaiveDateTime.of(Date`2026-05-04`, Time`14:30:00`)
     //!
-    //! assert try NaiveDateTime.parse("2026-05-04 14:30:00") == try NaiveDateTime"2026-05-04T14:30:00"
+    //! assert NaiveDateTime.parse("2026-05-04 14:30:00")? == NaiveDateTime`2026-05-04T14:30:00`
     //
     pub fn parse(s: String) -> Result<NaiveDateTime, Error> {
         attempt = naive_parse_raw(s)
@@ -873,10 +872,8 @@ impl NaiveDateTime {
     }
 
     /// Difference (later − earlier), computed as if both were UTC wall-readings.
-    //! assert NaiveDateTime.between(
-    //!     try NaiveDateTime"2026-05-04T09:00:00",
-    //!     try NaiveDateTime"2026-05-04T11:30:00",
-    //! ) == Duration.minutes(150)
+    //! assert NaiveDateTime.between(NaiveDateTime`2026-05-04T09:00:00`, NaiveDateTime`2026-05-04T11:30:00`)
+    //!     == Duration.minutes(150)
     //
     pub fn between(earlier: NaiveDateTime, later: NaiveDateTime) -> Duration {
         Duration.nanoseconds(naive_between_nanos(earlier, later))
@@ -1113,7 +1110,7 @@ impl Subtract<Duration, NaiveDateTime> for NaiveDateTime {
 /// equal (they're the same moment in real history; the offset is
 /// display metadata). Construct via `OffsetDateTime.with_offset(naive,
 /// offset)`, `OffsetDateTime.from_instant(instant, offset)`,
-/// `OffsetDateTime.parse`, or the `OffsetDateTime"…"` typed literal.
+/// `OffsetDateTime.parse`, or the ``OffsetDateTime`…` `` typed literal.
 pub opaque struct OffsetDateTime {
     instant_nanos: Int
     offset_seconds: Int
@@ -1123,8 +1120,8 @@ impl OffsetDateTime {
     /// Combine a `NaiveDateTime` wall-reading with a fixed UTC offset.
     /// Returns `Err(.InvalidValue(...))` if the offset is outside the
     /// IANA-acceptable range (`±18:00`).
-    //! assert try OffsetDateTime.with_offset(try NaiveDateTime"2026-05-04T09:00:00", Duration.hours(-5))
-    //!     == try OffsetDateTime"2026-05-04T09:00:00-05:00"
+    //! assert OffsetDateTime.with_offset(NaiveDateTime`2026-05-04T09:00:00`, Duration.hours(-5))?
+    //!     == OffsetDateTime`2026-05-04T09:00:00-05:00`
     //
     pub fn with_offset(dt: NaiveDateTime, offset: Duration) -> Result<OffsetDateTime, Error> {
         attempt = offset_with_offset_raw(dt, Duration.as_nanos(offset))
@@ -1139,7 +1136,7 @@ impl OffsetDateTime {
     /// Attach a fixed offset to an absolute `Instant`. Always total —
     /// every instant has a representation at every fixed offset.
     //! assert OffsetDateTime.from_instant(Instant.from_seconds(0), Duration.hours(0))
-    //!     == try OffsetDateTime"1970-01-01T00:00:00Z"
+    //!     == OffsetDateTime`1970-01-01T00:00:00Z`
     //
     pub fn from_instant(i: Instant, offset: Duration) -> OffsetDateTime {
         offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset))
@@ -1147,8 +1144,8 @@ impl OffsetDateTime {
 
     /// Parse an ISO-8601 timestamp with offset suffix
     /// (`YYYY-MM-DDTHH:MM:SS[.fff…][±HH:MM|Z]`).
-    //! assert try OffsetDateTime.parse("2026-05-04T14:30:00-05:00")
-    //!     == try OffsetDateTime"2026-05-04T14:30:00-05:00"
+    //! assert OffsetDateTime.parse("2026-05-04T14:30:00-05:00")?
+    //!     == OffsetDateTime`2026-05-04T14:30:00-05:00`
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = OffsetDateTime.parse("2026-05-04T14:30:00")
     //
@@ -1165,8 +1162,8 @@ impl OffsetDateTime {
     /// Exact duration between two fixed-offset date-times, comparing their
     /// underlying instants rather than their displayed wall readings.
     //! assert OffsetDateTime.between(
-    //!     try OffsetDateTime"2026-05-04T14:30:00-05:00",
-    //!     try OffsetDateTime"2026-05-04T20:30:00+00:00",
+    //!     OffsetDateTime`2026-05-04T14:30:00-05:00`,
+    //!     OffsetDateTime`2026-05-04T20:30:00+00:00`,
     //! ) == Duration.hours(1)
     //
     pub fn between(earlier: OffsetDateTime, later: OffsetDateTime) -> Duration {
@@ -1392,7 +1389,7 @@ impl Subtract<Nanoseconds, OffsetDateTime> for OffsetDateTime {
 }
 
 impl Equatable for OffsetDateTime {
-    fn equal?(a: OffsetDateTime, b: OffsetDateTime) -> Bool {
+    fn equal(a: OffsetDateTime, b: OffsetDateTime) -> Bool {
         a.instant_nanos == b.instant_nanos
     }
 }
@@ -1475,7 +1472,7 @@ pub enum Disambiguation {
 /// wall→instant projection — see `Disambiguation` for the gap/fold
 /// modes), `DateTime.from_instant_in(instant, zone)` (always total),
 /// `DateTime.now_in(zone)` (the system clock projected into a zone),
-/// `DateTime.parse`, or the `DateTime"…"` typed literal (RFC 9557
+/// `DateTime.parse`, or the ``DateTime`…` `` typed literal (RFC 9557
 /// bracket form).
 pub opaque struct DateTime {
     instant_nanos: Int
@@ -1544,11 +1541,11 @@ impl DateTime {
     /// `UnknownZone` always, and — only when `mode = Reject` — on
     /// `Nonexistent` (gap) or `Ambiguous` (fold). The three resolving
     /// modes (`Compatible`/`Earlier`/`Later`) always land on an instant.
-    //! assert try DateTime.in_zone(try NaiveDateTime"2026-06-15T12:00:00", "America/New_York")
-    //!     == try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    //! assert DateTime.in_zone(NaiveDateTime`2026-06-15T12:00:00`, "America/New_York")?
+    //!     == DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
     //!
     //! assert Err(Error.UnknownZone(_zone)) = DateTime.in_zone(
-    //!     try NaiveDateTime"2026-06-15T12:00:00",
+    //!     NaiveDateTime`2026-06-15T12:00:00`,
     //!     "Mars/Base",
     //! )
     //
@@ -1583,8 +1580,8 @@ impl DateTime {
 
     /// Project an absolute `Instant` into an IANA zone. Always total
     /// once the zone is known. Fails only on `UnknownZone`.
-    //! assert try DateTime.from_instant_in(Instant.from_seconds(0), "UTC")
-    //!     == try DateTime"1970-01-01T00:00:00Z[UTC]"
+    //! assert DateTime.from_instant_in(Instant.from_seconds(0), "UTC")?
+    //!     == DateTime`1970-01-01T00:00:00Z[UTC]`
     //
     pub fn from_instant_in(i: Instant, zone: String) -> Result<DateTime, Error> {
         attempt = zoned_from_instant_in_raw(Instant.as_nanos(i), zone)
@@ -1607,17 +1604,15 @@ impl DateTime {
     /// Freeze the zone's current offset at this instant — produces an
     /// `OffsetDateTime` carrying the offset effective at the `DateTime`'s
     /// instant. Lossy: the result no longer remembers the IANA zone.
-    //! assert DateTime.to_offset(try DateTime"2026-06-15T12:00:00-04:00[America/New_York]")
-    //!     == try OffsetDateTime"2026-06-15T12:00:00-04:00"
+    //! assert DateTime.to_offset(DateTime`2026-06-15T12:00:00-04:00[America/New_York]`)
+    //!     == OffsetDateTime`2026-06-15T12:00:00-04:00`
     //
     pub host fn to_offset(d: DateTime) -> OffsetDateTime
 
     /// Same instant, different IANA zone — re-project the wall reading
     /// through a new zone. Fails only on `UnknownZone`.
-    //! assert try DateTime.with_zone(
-    //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]",
-    //!     "Europe/Paris",
-    //! ) == try DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
+    //! assert DateTime.with_zone(DateTime`2026-06-15T12:00:00-04:00[America/New_York]`, "Europe/Paris")?
+    //!     == DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
     //
     pub fn with_zone(d: DateTime, zone: String) -> Result<DateTime, Error> {
         attempt = zoned_with_zone_raw(d, zone)
@@ -1633,8 +1628,8 @@ impl DateTime {
     /// (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`). The IANA-zone
     /// bracket suffix is required — bare offset forms parse via
     /// `OffsetDateTime.parse` instead.
-    //! assert try DateTime.parse("2026-06-15T12:00:00-04:00[America/New_York]")
-    //!     == try DateTime.in_zone(try NaiveDateTime"2026-06-15T12:00:00", "America/New_York")
+    //! assert DateTime.parse("2026-06-15T12:00:00-04:00[America/New_York]")?
+    //!     == DateTime.in_zone(NaiveDateTime`2026-06-15T12:00:00`, "America/New_York")?
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = DateTime.parse("2026-06-15T12:00:00-04:00")
     //
@@ -1651,8 +1646,8 @@ impl DateTime {
     /// Exact duration between two zoned date-times, comparing their underlying
     /// instants rather than their displayed wall readings.
     //! assert DateTime.between(
-    //!     try DateTime"2026-06-15T12:00:00-04:00[America/New_York]",
-    //!     try DateTime"2026-06-15T18:30:00+02:00[Europe/Paris]",
+    //!     DateTime`2026-06-15T12:00:00-04:00[America/New_York]`,
+    //!     DateTime`2026-06-15T18:30:00+02:00[Europe/Paris]`,
     //! ) == Duration.minutes(30)
     //
     pub fn between(earlier: DateTime, later: DateTime) -> Duration {
@@ -1876,7 +1871,7 @@ impl Subtract<Nanoseconds, DateTime> for DateTime {
 }
 
 impl Equatable for DateTime {
-    fn equal?(a: DateTime, b: DateTime) -> Bool {
+    fn equal(a: DateTime, b: DateTime) -> Bool {
         a.instant_nanos == b.instant_nanos
     }
 }

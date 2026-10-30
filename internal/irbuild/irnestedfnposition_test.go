@@ -137,7 +137,7 @@ fn main() {
 fn main() {
   xs = [{
     fn attempt() -> Result<Int, String> {
-      v = try Ok(11)
+      v = Ok(11)?
       Ok(v)
     }
     case attempt() {

@@ -30,7 +30,7 @@ package rt
 // (`synthesizeExternNameOnlyDebug`), i.e. the bare type name. So `Debug`
 // answers `"False"` and `"True"` by going through these two types, and a
 // builder with no representation for them cannot lower `bool.Bool.inspect`,
-// `bool.Bool.to_string`, `bool.Bool.equal?` or `bool.Bool.hash` — four
+// `bool.Bool.to_string`, `bool.Bool.equal` or `bool.Bool.hash` — four
 // declarations, one cause, and the cause is a missing pair of zero-width structs.
 //
 // That is why the pair has its own file rather than a widened tolerance

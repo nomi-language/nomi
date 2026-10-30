@@ -157,7 +157,7 @@ func nomiTokenColor(tok token.Token) string {
 		token.EXTERN, token.EXPORT, token.PUB, token.ONCE,
 		token.OPAQUE, token.WHERE, token.WITH, token.DEFER,
 		token.TEST, token.ASSERT, token.REFUTE, token.DBG, token.TODO,
-		token.UNREACHABLE, token.SELF, token.TRY, token.THEN, token.TAP:
+		token.UNREACHABLE, token.SELF, token.THEN, token.TAP:
 		return ansiMagenta
 	case token.TYPE_IDENT:
 		return ansiCyan

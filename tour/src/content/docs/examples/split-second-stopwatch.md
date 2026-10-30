@@ -7,10 +7,12 @@ description: "Build a stopwatch that starts, stops, laps and resets, keeping the
 
 Build a stopwatch that starts, stops, laps and resets, keeping the current lap's time and every finished lap's, and refusing a command its state does not allow.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/split-second-stopwatch) (MIT). Listed under [Dates & Time](/examples/?subject=dates-and-time).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/split-second-stopwatch) (MIT). Listed under [Dates & Time](/examples/?subject=dates-and-time).
 
 ```nomi-run
 // FILE: split_second_stopwatch.nomi
+//# A stopwatch that can be started, stopped, lapped and reset.
+
 import std/duration.Duration
 
 /// What a stopwatch is doing.
@@ -77,11 +79,8 @@ impl Stopwatch {
     /// laps, and starts the next from no time.
     pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error> {
         case watch.state {
-            .Running ->
-                Ok(#{..watch, current: no_time, laps: List.concat(watch.laps, [watch.current])})
-
-            .Ready or .Stopped ->
-                Err(.LapWhenNotRunning)
+            .Running -> Ok(#{..watch, current: no_time, laps: watch.laps + [watch.current]})
+            .Ready or .Stopped -> Err(.LapWhenNotRunning)
         }
     }
 
@@ -131,19 +130,18 @@ import {
 
 /// One canonical command and what it should do: a command that is allowed,
 /// a command refused with a message, time passing, or a reading of the
-/// state, the current lap, the total or the previous laps, with times as
-/// `HH:MM:SS`.
+/// state, the current lap, the total or the previous laps.
 enum Step {
     Start
     Stop
     Lap
     Reset
     Refused #(Step, String)
-    Advance String
+    Advance Duration
     IsIn State
-    CurrentLap String
-    Total String
-    PreviousLaps List<String>
+    CurrentLap Duration
+    Total Duration
+    PreviousLaps List<Duration>
 }
 
 derive Equatable for Step
@@ -156,35 +154,13 @@ fn replay(steps: List<Step>) -> List<Step> {
         steps
         |> Iter.map_reduce(fn watch = Stopwatch.new(), step -> {
             case step {
-                .Start or .Stop or .Lap or .Reset ->
-                    command(watch, step)
-
-                .Refused(tried, _message) ->
-                    command(watch, tried)
-
-                .Advance(by) ->
-                    #(step, Stopwatch.advance(watch, duration(by)))
-
-                .IsIn(_) ->
-                    #(Step.IsIn(Stopwatch.state(watch)), watch)
-
-                .CurrentLap(_) ->
-                    #(
-                        Step.CurrentLap(Duration.clock(Stopwatch.current_lap(watch))),
-                        watch,
-                    )
-
-                .Total(_) ->
-                    #(Step.Total(Duration.clock(Stopwatch.total(watch))), watch)
-
-                .PreviousLaps(_) -> {
-                    laps =
-                        Stopwatch.previous_laps(watch)
-                        |> Iter.map(Duration.clock)
-                        |> Iter.to_list()
-
-                    #(Step.PreviousLaps(laps), watch)
-                }
+                .Start or .Stop or .Lap or .Reset -> command(watch, step)
+                .Refused(tried, _message) -> command(watch, tried)
+                .Advance(by) -> #(step, Stopwatch.advance(watch, by))
+                .IsIn(_) -> #(Step.IsIn(Stopwatch.state(watch)), watch)
+                .CurrentLap(_) -> #(Step.CurrentLap(Stopwatch.current_lap(watch)), watch)
+                .Total(_) -> #(Step.Total(Stopwatch.total(watch)), watch)
+                .PreviousLaps(_) -> #(Step.PreviousLaps(Stopwatch.previous_laps(watch)), watch)
             }
         })
 
@@ -208,30 +184,21 @@ fn command(watch: Stopwatch, step: Step) -> #(Step, Stopwatch) {
     }
 }
 
-/// The duration a `HH:MM:SS` text of the table writes.
-fn duration(text: String) -> Duration {
-    Ok(length) = Duration.parse_clock(text) else {
-        unreachable "the table writes every time as HH:MM:SS"
-    }
-
-    length
-}
-
 test "split second stopwatch" {
     cases = [
         #("new stopwatch starts in ready state", [Step.IsIn(.Ready)]),
-        #("new stopwatch's current lap has no elapsed time", [.CurrentLap("00:00:00")]),
-        #("new stopwatch's total has no elapsed time", [.Total("00:00:00")]),
+        #("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration`0s`)]),
+        #("new stopwatch's total has no elapsed time", [.Total(Duration`0s`)]),
         #("new stopwatch does not have previous laps", [.PreviousLaps([])]),
         #("start from ready state changes state to running", [.Start, .IsIn(.Running)]),
         #("start does not change previous laps", [.Start, .PreviousLaps([])]),
         #(
             "start initiates time tracking for current lap",
-            [.Start, .Advance("00:00:05"), .CurrentLap("00:00:05")],
+            [.Start, .Advance(Duration`5s`), .CurrentLap(Duration`5s`)],
         ),
         #(
             "start initiates time tracking for total",
-            [.Start, .Advance("00:00:23"), .Total("00:00:23")],
+            [.Start, .Advance(Duration`23s`), .Total(Duration`23s`)],
         ),
         #(
             "start cannot be called from running state",
@@ -240,11 +207,23 @@ test "split second stopwatch" {
         #("stop from running state changes state to stopped", [.Start, .Stop, .IsIn(.Stopped)]),
         #(
             "stop pauses time tracking for current lap",
-            [.Start, .Advance("00:00:05"), .Stop, .Advance("00:00:08"), .CurrentLap("00:00:05")],
+            [
+                .Start,
+                .Advance(Duration`5s`),
+                .Stop,
+                .Advance(Duration`8s`),
+                .CurrentLap(Duration`5s`),
+            ],
         ),
         #(
             "stop pauses time tracking for total",
-            [.Start, .Advance("00:00:13"), .Stop, .Advance("00:00:44"), .Total("00:00:13")],
+            [
+                .Start,
+                .Advance(Duration`13s`),
+                .Stop,
+                .Advance(Duration`44s`),
+                .Total(Duration`13s`),
+            ],
         ),
         #(
             "stop cannot be called from ready state",
@@ -262,52 +241,52 @@ test "split second stopwatch" {
             "start from stopped state resumes time tracking for current lap",
             [
                 .Start,
-                .Advance("00:01:20"),
+                .Advance(Duration`1m20s`),
                 .Stop,
-                .Advance("00:00:20"),
+                .Advance(Duration`20s`),
                 .Start,
-                .Advance("00:00:08"),
-                .CurrentLap("00:01:28"),
+                .Advance(Duration`8s`),
+                .CurrentLap(Duration`1m28s`),
             ],
         ),
         #(
             "start from stopped state resumes time tracking for total",
             [
                 .Start,
-                .Advance("00:00:23"),
+                .Advance(Duration`23s`),
                 .Stop,
-                .Advance("00:00:44"),
+                .Advance(Duration`44s`),
                 .Start,
-                .Advance("00:00:09"),
-                .Total("00:00:32"),
+                .Advance(Duration`9s`),
+                .Total(Duration`32s`),
             ],
         ),
         #(
             "lap adds current lap to previous laps",
             [
                 .Start,
-                .Advance("00:01:38"),
+                .Advance(Duration`1m38s`),
                 .Lap,
-                .PreviousLaps(["00:01:38"]),
-                .Advance("00:00:44"),
+                .PreviousLaps([Duration`1m38s`]),
+                .Advance(Duration`44s`),
                 .Lap,
-                .PreviousLaps(["00:01:38", "00:00:44"]),
+                .PreviousLaps([Duration`1m38s`, Duration`44s`]),
             ],
         ),
         #(
             "lap resets current lap and resumes time tracking",
             [
                 .Start,
-                .Advance("00:08:22"),
+                .Advance(Duration`8m22s`),
                 .Lap,
-                .CurrentLap("00:00:00"),
-                .Advance("00:00:15"),
-                .CurrentLap("00:00:15"),
+                .CurrentLap(Duration`0s`),
+                .Advance(Duration`15s`),
+                .CurrentLap(Duration`15s`),
             ],
         ),
         #(
             "lap continues time tracking for total",
-            [.Start, .Advance("00:00:22"), .Lap, .Advance("00:00:33"), .Total("00:00:55")],
+            [.Start, .Advance(Duration`22s`), .Lap, .Advance(Duration`33s`), .Total(Duration`55s`)],
         ),
         #(
             "lap cannot be called from ready state",
@@ -321,11 +300,11 @@ test "split second stopwatch" {
             "stop does not change previous laps",
             [
                 .Start,
-                .Advance("00:11:22"),
+                .Advance(Duration`11m22s`),
                 .Lap,
-                .PreviousLaps(["00:11:22"]),
+                .PreviousLaps([Duration`11m22s`]),
                 .Stop,
-                .PreviousLaps(["00:11:22"]),
+                .PreviousLaps([Duration`11m22s`]),
             ],
         ),
         #(
@@ -334,17 +313,17 @@ test "split second stopwatch" {
         ),
         #(
             "reset resets current lap",
-            [.Start, .Advance("00:00:10"), .Stop, .Reset, .CurrentLap("00:00:00")],
+            [.Start, .Advance(Duration`10s`), .Stop, .Reset, .CurrentLap(Duration`0s`)],
         ),
         #(
             "reset clears previous laps",
             [
                 .Start,
-                .Advance("00:00:10"),
+                .Advance(Duration`10s`),
                 .Lap,
-                .Advance("00:00:20"),
+                .Advance(Duration`20s`),
                 .Lap,
-                .PreviousLaps(["00:00:10", "00:00:20"]),
+                .PreviousLaps([Duration`10s`, Duration`20s`]),
                 .Stop,
                 .Reset,
                 .PreviousLaps([]),
@@ -362,20 +341,20 @@ test "split second stopwatch" {
             "supports very long laps",
             [
                 .Start,
-                .Advance("01:23:45"),
-                .CurrentLap("01:23:45"),
+                .Advance(Duration`1h23m45s`),
+                .CurrentLap(Duration`1h23m45s`),
                 .Lap,
-                .PreviousLaps(["01:23:45"]),
-                .Advance("04:01:40"),
-                .CurrentLap("04:01:40"),
-                .Total("05:25:25"),
+                .PreviousLaps([Duration`1h23m45s`]),
+                .Advance(Duration`4h1m40s`),
+                .CurrentLap(Duration`4h1m40s`),
+                .Total(Duration`5h25m25s`),
                 .Lap,
-                .PreviousLaps(["01:23:45", "04:01:40"]),
-                .Advance("08:43:05"),
-                .CurrentLap("08:43:05"),
-                .Total("14:08:30"),
+                .PreviousLaps([Duration`1h23m45s`, Duration`4h1m40s`]),
+                .Advance(Duration`8h43m5s`),
+                .CurrentLap(Duration`8h43m5s`),
+                .Total(Duration`14h8m30s`),
                 .Lap,
-                .PreviousLaps(["01:23:45", "04:01:40", "08:43:05"]),
+                .PreviousLaps([Duration`1h23m45s`, Duration`4h1m40s`, Duration`8h43m5s`]),
             ],
         ),
     ]
@@ -390,12 +369,6 @@ test "split second stopwatch" {
 
 - Adapted: the exercise asks for a stopwatch object whose commands change it in place while a clock runs. Nomi values do not change, so `Stopwatch` is a value and each command answers the stopwatch after it, and time passes only when `Stopwatch.advance` says so, which is what the canonical data's `advanceTime` command stands for. No clock is read, so every case is deterministic.
 - `Stopwatch` is an opaque struct of its `State`, the current lap's `Duration` and the finished laps. `start`, `stop`, `lap` and `reset` return `Result<Stopwatch, Error>`, each one `case` over the state; `Error` has a variant per refusal and its `Display` gives the canonical messages. `advance` adds time only while running, and `total` is `Iter.sum` of the laps plus the current one.
-- Times are `Duration`s in the API. The test file reads the canonical `HH:MM:SS` times with `Duration.parse_clock` and writes the readings with `Duration.clock`.
+- Times are `Duration`s in the API and in the test file, which writes the canonical `HH:MM:SS` times as `Duration` literals: `00:01:28` is ``Duration`1m28s` ``, and a reading compares as a `Duration`.
 - Each canonical case is a list of commands and readings, so the test file writes them as `Step` variants, as circular-buffer does: the four commands, `Refused(command, message)` for one the state refuses, `Advance(time)`, and the four readings with their expected values. `replay` runs the steps with `Iter.map_reduce` from a new stopwatch and answers what happened in the same shape, so each case is one `replay(steps) == steps`, and a failure shows the first step that went differently. `Refused` holds the command it tried, so the enum refers to itself.
 - The 29 canonical cases are one `subtests` table named by the description column.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no ``Duration`00:01:28` `` literal, which `Date`, `Time` and `NaiveDateTime` have, so the test file reads the table's times with `Duration.parse_clock` in a helper whose `else` arm is `unreachable`.

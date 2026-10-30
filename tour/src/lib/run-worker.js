@@ -11,13 +11,18 @@
 //        { id, op: "hover", source, file, line, col } // hover in tab `file` of a multi-file
 //                                                      // source, pos in that tab's own text
 //        { id, op: "stdlibTest", module, context, source } // run stdlib reference test
+//        { id, op: "sem", source }           // semantic tokens alone, no run
+//        { id, op: "sem", source, files }    // the same for a multi-file source
 //        { id, source, files, tools }        // run tools ([{ module, name }]) first
-//   out: { id, kind: "sem", semtokens }      // analyzer tokens — computed first,
+//   out: { id, kind: "start" }               // the run starts: the wasm and any module
+//                                            // it imports are loaded
+//        { id, kind: "sem", semtokens }      // analyzer tokens — computed first,
 //                                            // ({ file: tokens } for a multi-file run)
 //        { id, kind: "run", output, error, written } // so a hanging run still highlights;
 //                                            // written: the files the tools wrote, by path
 //        { id, op: "format", output, error }  // formatter reply
 //        { id, op: "hover", markdown }        // hover reply
+//        { id, op: "sem", semtokens }         // semantic tokens reply
 //   out: { type: "ready" }                   // wasm loaded, queued work flushed
 //        { type: "exited" }                  // the Go runtime stopped; replace this worker
 //
@@ -140,7 +145,7 @@ function loadSqlite() {
 // needs answers the loads a run of msg waits for: the modules it imports
 // that need more than the Nomi wasm (nomiTourModules).
 function needs(msg) {
-  if (msg.op === "format" || msg.op === "formatTestBody" || msg.op === "hover" || msg.op === "stdlibTest") return null;
+  if (msg.op === "format" || msg.op === "formatTestBody" || msg.op === "hover" || msg.op === "sem" || msg.op === "stdlibTest") return null;
   let modules = [];
   try {
     modules = JSON.parse(self.nomiTourModules(msg.source) || "[]");
@@ -216,6 +221,26 @@ function handleOne(msg) {
     postMessage({ id: msg.id, op: "hover", markdown: (!r.failure && r.value) || "" });
     return;
   }
+
+  // A ```nomi-run manual block asks for its tokens before its first run,
+  // which only the reader starts.
+  if (msg.op === "sem") {
+    const r = callGo(() =>
+      msg.files ? self.nomiSemTokensIn(msg.source, ...msg.files) : self.nomiSemTokens(msg.source),
+    );
+    let semtokens = msg.files ? {} : [];
+    if (!r.failure) {
+      try {
+        semtokens = JSON.parse(r.value || (msg.files ? "{}" : "[]"));
+      } catch (_) {}
+    }
+    postMessage({ id: msg.id, op: "sem", semtokens });
+    return;
+  }
+
+  // The run starts here, after the loads it waited for: the page's status
+  // says "Loading Nomi" before this and "Running" after.
+  postMessage({ id: msg.id, kind: "start" });
 
   // A ```nomi-run tool:<module>/<name> block's tools run first, each on the
   // source the one before left, as a reader runs `nomi tool` before `nomi

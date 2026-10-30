@@ -6,6 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/rivo/uniseg"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -35,14 +36,20 @@ func (t caseTable) lookup(r rune) (string, bool) {
 	return "", false
 }
 
-// FFIToUpperIn is `String.to_upper_in`.
-func FFIToUpperIn(s, locale string) string { return UpperIn(s, languageOf(locale)) }
+// FFIUppercaseIn is `String.uppercase_in`.
+func FFIUppercaseIn(s, locale string) string { return UpperIn(s, languageOf(locale)) }
 
-// FFIToLowerIn is `String.to_lower_in`.
-func FFIToLowerIn(s, locale string) string { return LowerIn(s, languageOf(locale)) }
+// FFILowercaseIn is `String.lowercase_in`.
+func FFILowercaseIn(s, locale string) string { return LowerIn(s, languageOf(locale)) }
 
 // FFIFoldCase is `String.fold_case`.
 func FFIFoldCase(s string) string { return FoldCase(s) }
+
+// FFICapitalize is `String.capitalize`.
+func FFICapitalize(s string) string { return Capitalize(s, "") }
+
+// FFICapitalizeIn is `String.capitalize_in`.
+func FFICapitalizeIn(s, locale string) string { return Capitalize(s, languageOf(locale)) }
 
 // languageOf is a tag's language subtag.
 func languageOf(tag string) string {
@@ -75,12 +82,49 @@ func UpperIn(s, lang string) string {
 	return b.String()
 }
 
-// LowerIn is s lower-cased as a reader of lang writes it.
-func LowerIn(s, lang string) string {
+// Capitalize is s with its first grapheme in title case and the rest in
+// lower case, as a reader of lang (a language subtag, "" for none) writes
+// them: ǆemal becomes ǅemal, and in Turkish istanbul becomes İstanbul.
+// The title case is Unicode's full mapping (ß becomes Ss), and the rest is
+// lowered with the whole string as context, so a final sigma after the
+// first grapheme is still final.
+func Capitalize(s, lang string) string {
+	first, _, _, _ := uniseg.FirstGraphemeClusterInString(s, -1)
 	rs := []rune(s)
+	head := utf8.RuneCountInString(first)
 	var b strings.Builder
 	b.Grow(len(s))
-	for i, r := range rs {
+	for i, r := range rs[:head] {
+		switch {
+		case turkic(lang) && r == 'i':
+			b.WriteRune('İ')
+			continue
+		case lang == "lt" && r == 0x0307 && afterSoftDotted(rs, i):
+			continue
+		}
+		if m, ok := fullTitle.lookup(r); ok {
+			b.WriteString(m)
+			continue
+		}
+		b.WriteRune(unicode.ToTitle(r))
+	}
+	lowerFrom(&b, rs, head, lang)
+	return b.String()
+}
+
+// LowerIn is s lower-cased as a reader of lang writes it.
+func LowerIn(s, lang string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	lowerFrom(&b, []rune(s), 0, lang)
+	return b.String()
+}
+
+// lowerFrom writes rs[from:] lower-cased as a reader of lang writes it,
+// reading the runes before from as context.
+func lowerFrom(b *strings.Builder, rs []rune, from int, lang string) {
+	for i := from; i < len(rs); i++ {
+		r := rs[i]
 		switch {
 		case turkic(lang) && r == 0x0130:
 			b.WriteRune('i')
@@ -111,7 +155,6 @@ func LowerIn(s, lang string) string {
 		}
 		b.WriteRune(unicode.ToLower(r))
 	}
-	return b.String()
 }
 
 // lithuanianDotted is the Lithuanian lower case of rs[i] when it is Ì, Í

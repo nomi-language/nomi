@@ -31,14 +31,15 @@ pub opaque struct Range<T> where T: Comparable {
 impl Range<T> {
     /// Returns an unbounded ascending integer range starting at `n`.
     /// Pair with `Iter.take(N)` before materializing. As an iterator it is
-    /// `Iter.infinite?`, so `Iter.to_list` and the other terminals that must
-    /// reach the end trap on it. It does end at `Int.max_value`, so one that
-    /// starts within 2^48 of it is finite.
-    //! assert Range.contains?(Range.from(1), 100)
-    //! refute Range.bounded?(Range.from(1))
-    //! assert Iter.infinite?(Range.from(1))
-    //! assert Range.from(1) |> Range.step_by(2) |> Iter.infinite?()
-    //! assert Range.from(Int.max_value - 1) |> Iter.to_list() == [Int.max_value - 1, Int.max_value]
+    /// `Iter.is_infinite`, so `Iter.to_list` and the other terminals that must
+    /// reach the end trap on it. An Int has no largest value, so the range
+    /// never ends, past 64 bits as anywhere else.
+    //! assert Range.contains(Range.from(1), 100)
+    //! refute Range.is_bounded(Range.from(1))
+    //! assert Iter.is_infinite(Range.from(1))
+    //! assert Range.from(1) |> Range.step_by(2) |> Iter.is_infinite()
+    //! top = 9_223_372_036_854_775_807
+    //! assert Range.from(top) |> Iter.take(2) |> Iter.to_list() == [top, top + 1]
     //
     pub fn from(n: Int) -> Range<Int> {
         #Range{start: n, end: None, inclusive: False}
@@ -46,8 +47,8 @@ impl Range<T> {
 
     /// Returns an unbounded ascending integer range starting at 0.
     /// Pair with `Iter.take(N)` before materializing.
-    //! assert Range.contains?(Range.naturals(), 0)
-    //! refute Range.contains?(Range.naturals(), -1)
+    //! assert Range.contains(Range.naturals(), 0)
+    //! refute Range.contains(Range.naturals(), -1)
     //
     pub fn naturals() -> Range<Int> {
         #Range{start: 0, end: None, inclusive: False}
@@ -60,10 +61,23 @@ impl Range<T> {
     /// steps are exact. For example, `Range<Int>` can step by `Int`, while a
     /// custom calendar type can step by `Days` when it implements
     /// `Steppable<Days>`.
+    ///
+    /// The walk goes the way `by` moves the start. A step that moves it down
+    /// counts down from the start to the end, so `Range.step_by(5..=1, -1)`
+    /// is 5, 4, 3, 2, 1, and `5..1` leaves out 1 as any exclusive range
+    /// leaves out its end. A range whose end lies the other way from the
+    /// step yields nothing (`Range.step_by(1..=5, -1)`), and so does a step
+    /// that does not move. A plain `5..=1` is empty: only a step counts down.
     //! assert 1.0d..=1.3d
     //!     |> Range.step_by(0.1d)
     //!     |> Iter.to_list()
-    //!     |> List.equal?([1.0d, 1.1d, 1.2d, 1.3d])
+    //!     |> List.equal([1.0d, 1.1d, 1.2d, 1.3d])
+    //!
+    //! assert 5..=1 |> Range.step_by(-1) |> Iter.to_list() == [5, 4, 3, 2, 1]
+    //! assert 10..0 |> Range.step_by(-3) |> Iter.to_list() == [10, 7, 4, 1]
+    //! assert 1..=5 |> Range.step_by(-1) |> Iter.to_list() == []
+    //! assert 1..=5 |> Range.step_by(0) |> Iter.to_list() == []
+    //! assert 5..=1 |> Iter.to_list() == []
     //
     pub fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
         #StepByRange{range: r, by}
@@ -71,10 +85,10 @@ impl Range<T> {
 
     /// True iff the range has an upper bound. Useful as a guard before
     /// passing an integer range to `Iter.to_list`.
-    //! assert Range.bounded?(1..5)
-    //! refute Range.bounded?(Range.from(1))
+    //! assert Range.is_bounded(1..5)
+    //! refute Range.is_bounded(Range.from(1))
     //
-    pub fn bounded?<T>(r: Range<T>) -> Bool {
+    pub fn is_bounded<T>(r: Range<T>) -> Bool {
         case r.end {
             Some(_) -> True
             None -> False
@@ -85,15 +99,15 @@ impl Range<T> {
 impl Contains for Range<T> where T: Comparable {
     /// Whether `x` falls inside the range: two comparisons. An exclusive range
     /// leaves out its end; an unbounded integer range checks only the start.
-    //! assert Range.contains?(1..5, 1)
-    //! assert Range.contains?(1..5, 3)
-    //! refute Range.contains?(1..5, 5)
-    //! refute Range.contains?(1..5, 0)
-    //! assert Range.contains?(1..=5, 5)
-    //! refute Range.contains?(1..=5, 6)
-    //! assert Range.contains?(1.25d..=2.50d, 1.50d)
+    //! assert Range.contains(1..5, 1)
+    //! assert Range.contains(1..5, 3)
+    //! refute Range.contains(1..5, 5)
+    //! refute Range.contains(1..5, 0)
+    //! assert Range.contains(1..=5, 5)
+    //! refute Range.contains(1..=5, 6)
+    //! assert Range.contains(1.25d..=2.50d, 1.50d)
     //
-    fn contains?(c: Range<T>, x: T) -> Bool {
+    fn contains(c: Range<T>, x: T) -> Bool {
         case c.end {
             Some(e) -> {
                 if c.inclusive {
@@ -141,10 +155,22 @@ opaque struct StepByRange<T, S> where T: Comparable {
 impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
     fn each_while(s: StepByRange<T, S>, yield: (T) -> Bool) -> Bool {
         r = s.range
+        step = T.step_by(r.start, s.by)
+
+        // The walk goes the way the step goes: down to the end when it moves
+        // the start down, up to it otherwise.
+        down = case step {
+            Some(next) -> next < r.start
+            None -> False
+        }
 
         in_bounds = case r.end {
             Some(e) ->
-                if r.inclusive {
+                if down and r.inclusive {
+                    r.start >= e
+                } else if down {
+                    r.start > e
+                } else if r.inclusive {
                     r.start <= e
                 } else {
                     r.start < e
@@ -157,7 +183,7 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
         if in_bounds == False {
             True
         } else {
-            case T.step_by(r.start, s.by) {
+            case step {
                 // No further step exists (the element type saturated): `r.start` is
                 // the last element.
                 None ->
@@ -190,9 +216,9 @@ impl Iter for StepByRange<T, S> where T: Comparable and Steppable<S> {
     }
 }
 
-// `infinite?` is answered by the Range's view rather than written here: an
-// unbounded Range is endless unless it starts within 2^48 of `Int.max_value`,
-// a rule over Int that a body generic in `T` cannot state.
+// `is_infinite` is answered by the Range's view rather than written here: an
+// unbounded Range is endless, a rule over Int that a body generic in `T`
+// cannot state.
 impl Iter for Range<T> where T: Discrete {
     fn known_count(r: Range<T>) -> Maybe<Int> {
         case r.end {

@@ -3,7 +3,7 @@ test "list literals and equality work by value" {
     ints = [1, 2, 3]
     words = ["hello", "world"]
 
-    assert Iter.empty?(empty)
+    assert Iter.is_empty(empty)
     assert ints == [1, 2, 3]
     refute [1, 2] == [1, 2, 3]
     assert words == ["hello", "world"]
@@ -31,7 +31,7 @@ test "list head and tail expose cons-list structure" {
 test "list concat concatenates two lists" {
     assert [1, 2]
         |> List.concat([3, 4])
-        |> List.equal?([1, 2, 3, 4])
+        |> List.equal([1, 2, 3, 4])
 }
 
 test "list patterns match empty cons and exact-length shapes" {

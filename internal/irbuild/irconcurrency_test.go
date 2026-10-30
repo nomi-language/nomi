@@ -90,8 +90,8 @@ fn main() {
   outcome = concurrent {
     short = Task.spawn(fn -> short_fail())
     long = Task.spawn(fn -> long_sleep())
-    n = try Task.await(short)
-    _ = try Task.await(long)
+    n = Task.await(short)?
+    _ = Task.await(long)?
     Ok(n)
   }
 
@@ -102,7 +102,7 @@ fn main() {
   std/tasks.Task
 }
 
-fn active?(id: Int) -> Bool {
+fn is_active(id: Int) -> Bool {
   id != 2
 }
 
@@ -113,7 +113,7 @@ fn fetch_user(id: Int) -> String {
 fn main() {
   results = concurrent {
     [3, 2, 1]
-    |> Iter.filter(active?)
+    |> Iter.filter(is_active)
     |> Task.spawn_all(fetch_user, max_running: 8)
     |> Task.await_all()
   }
@@ -213,8 +213,8 @@ fn main() {
   found = concurrent {
     a = Task.spawn(fn -> half(10))
     b = Task.spawn(fn -> half(7))
-    x = try Task.await(a)
-    y = try Task.await(b)
+    x = Task.await(a)?
+    y = Task.await(b)?
     Some(x + y)
   }
   dbg found
@@ -321,8 +321,8 @@ fn main() {
 func TestIRConcurrency_TryAndLoopInsideTheBlockRun(t *testing.T) {
 	// A try inside a task body leaves the task's lambda, whose boundary it
 	// is.
-	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = try Some(2)\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
-		"fn missing() -> Maybe<Int> { None }\nfn none() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = try missing()\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
+	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = Some(2)?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\n"+
+		"fn missing() -> Maybe<Int> { None }\nfn none() -> Int {\nr = concurrent {\n t = Task.spawn(fn -> {\n x = missing()?\n Some(x)\n })\n Task.await(t)\n }\n Maybe.with_default(r, 0)\n}\nfn main() {\n io.print(run())\n io.print(none())\n}\n", "2\n0\n")
 	// An Iter.loop inside the block runs, as one inside any lambda does.
 	verifyLambdaProgram(t, "import {\n std/io\n std/tasks.Task\n}\nfn run() -> Int {\nconcurrent {\n t = Task.spawn(fn -> 1)\n n0 = Task.await(t)\n Iter.loop(fn n = n0 -> {\n if n > 3 { break n * 10 }\n n + 1\n })\n }\n}\nfn main() {\n io.print(run())\n}\n", "40\n")
 }

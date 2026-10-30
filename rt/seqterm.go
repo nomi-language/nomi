@@ -8,7 +8,7 @@ package rt
 // std/iter.nomi writes every streaming terminal over `reduce` plus a callback
 // carrying a lambda-parameter default:
 //
-//	pub fn any?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
+//	pub fn any<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
 //	  reduce(source, fn _acc = False, item -> if f(item) { break True } else { False })
 //	}
 //
@@ -23,10 +23,9 @@ package rt
 // protocol already carries both. `each_while` returns True when the source
 // exhausted and False when a consumer stopped it, so:
 //
-//	any?        seed False  == "nothing stopped me"     -> !Run(fn x -> !f(x))
-//	all?        seed True   == vacuous truth            ->  Run(f)
-//	empty?      seed True   == "no element arrived"     ->  Run(fn _ -> false)
-//	not_empty?  seed False                             -> !Run(fn _ -> false)
+//	any         seed False  == "nothing stopped me"     -> !Run(fn x -> !f(x))
+//	all         seed True   == vacuous truth            ->  Run(f)
+//	is_empty    seed True   == "no element arrived"     ->  Run(fn _ -> false)
 //	first/find  seed None   == "no element arrived"     -> a captured local
 //	each        seed 0, discarded by `case _ -> Unit`   ->  Run(fn x -> { f(x); true })
 //	count       seed 0, and the fold is std's own       ->  a captured counter
@@ -63,7 +62,7 @@ package rt
 
 // --- terminals: the predicate family ----------------------------------------
 
-// SeqAny is `pub fn any?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool`.
+// SeqAny is `pub fn any<T>(source: Iter<T>, f: (T) -> Bool) -> Bool`.
 //
 // The yield is the negated predicate: keep asking while nothing has matched. So
 // a source that ran to exhaustion is a source in which nothing matched, and the
@@ -75,7 +74,7 @@ func SeqAny[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) boo
 	})
 }
 
-// SeqAll is `pub fn all?<T>(source: Iter<T>, f: (T) -> Bool) -> Bool`.
+// SeqAll is `pub fn all<T>(source: Iter<T>, f: (T) -> Bool) -> Bool`.
 //
 // The predicate is the yield, with no adaptation at all: "keep going while the
 // element passes" and "every element passed" are the same statement read from
@@ -85,7 +84,7 @@ func SeqAll[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) boo
 	return src.Run(fr, pred)
 }
 
-// SeqEmpty is `pub fn empty?<T>(source: Iter<T>) -> Bool`.
+// SeqEmpty is `pub fn is_empty<T>(source: Iter<T>) -> Bool`.
 //
 // Refuses the first element unconditionally, so the answer is the protocol's
 // Bool unchanged: True means nothing was ever yielded. One element is asked for
@@ -93,9 +92,6 @@ func SeqAll[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) boo
 func SeqEmpty[T any](fr *Frame, src Seq[T]) bool {
 	return src.Run(fr, func(fr *Frame, item T) bool { return false })
 }
-
-// SeqNotEmpty is `pub fn not_empty?<T>(source: Iter<T>) -> Bool`.
-func SeqNotEmpty[T any](fr *Frame, src Seq[T]) bool { return !SeqEmpty(fr, src) }
 
 // SeqFirst is `pub fn first<T>(source: Iter<T>) -> Maybe<T>`.
 //
@@ -156,10 +152,10 @@ func SeqEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U) Unit 
 // from its cached length by ListCount, which internal/irbuild chooses from the
 // source's static kind.
 //
-// The counter is `n++` and not CheckedAdd, and unlike FromEach's `n++` this is
-// not even a reachable divergence: every increment costs one yield, so tripping
-// Nomi's Int overflow trap would take 2^63 elements. std's `acc + 1` would trap
-// there and this would wrap; no program can reach the disagreement.
+// The counter is an int64 `n++`, where std's `acc + 1` is an Int that grows
+// past 64 bits. That is not a reachable divergence: every increment costs one
+// yield, so the counter would take 2^63 elements to wrap, and no program can
+// reach the disagreement.
 func SeqCount[T any](fr *Frame, src Seq[T]) int64 {
 	if known := SeqKnownCount(fr, src); known.Tag == 1 {
 		return known.Some

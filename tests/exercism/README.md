@@ -36,7 +36,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [affine-cipher](affine-cipher/NOTES.md): clean
 - [all-your-base](all-your-base/NOTES.md): clean
 - [allergies](allergies/NOTES.md): clean
-- [alphametics](alphametics/NOTES.md): friction
+- [alphametics](alphametics/NOTES.md): clean
 - [anagram](anagram/NOTES.md): clean
 - [armstrong-numbers](armstrong-numbers/NOTES.md): friction
 - [atbash-cipher](atbash-cipher/NOTES.md): clean
@@ -46,7 +46,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [binary-search-tree](binary-search-tree/NOTES.md): clean
 - [bob](bob/NOTES.md): clean
 - [book-store](book-store/NOTES.md): clean
-- [bottle-song](bottle-song/NOTES.md): friction
+- [bottle-song](bottle-song/NOTES.md): clean
 - [bowling](bowling/NOTES.md): clean
 - [camicia](camicia/NOTES.md): clean
 - [change](change/NOTES.md): clean
@@ -61,14 +61,14 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [diamond](diamond/NOTES.md): clean
 - [difference-of-squares](difference-of-squares/NOTES.md): clean
 - [dnd-character](dnd-character/NOTES.md): clean
-- [dominoes](dominoes/NOTES.md): friction
+- [dominoes](dominoes/NOTES.md): clean
 - [dot-dsl](dot-dsl/NOTES.md): clean
 - [eliuds-eggs](eliuds-eggs/NOTES.md): clean
 - [error-handling](error-handling/NOTES.md): clean
 - [etl](etl/NOTES.md): clean
 - [flatten-array](flatten-array/NOTES.md): clean
 - [flower-field](flower-field/NOTES.md): clean
-- [food-chain](food-chain/NOTES.md): friction
+- [food-chain](food-chain/NOTES.md): clean
 - [forth](forth/NOTES.md): clean
 - [game-of-life](game-of-life/NOTES.md): clean
 - [gigasecond](gigasecond/NOTES.md): clean
@@ -88,7 +88,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [knapsack](knapsack/NOTES.md): clean
 - [largest-series-product](largest-series-product/NOTES.md): clean
 - [leap](leap/NOTES.md): clean
-- [ledger](ledger/NOTES.md): friction
+- [ledger](ledger/NOTES.md): clean
 - [lens-person](lens-person/NOTES.md): clean
 - [line-up](line-up/NOTES.md): clean
 - [linked-list](linked-list/NOTES.md): clean
@@ -103,7 +103,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [nucleotide-count](nucleotide-count/NOTES.md): clean
 - [ocr-numbers](ocr-numbers/NOTES.md): clean
 - [paasio](paasio/NOTES.md): friction
-- [palindrome-products](palindrome-products/NOTES.md): friction
+- [palindrome-products](palindrome-products/NOTES.md): clean
 - [pangram](pangram/NOTES.md): clean
 - [parallel-letter-frequency](parallel-letter-frequency/NOTES.md): friction
 - [pascals-triangle](pascals-triangle/NOTES.md): clean
@@ -129,7 +129,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [resistor-color-duo](resistor-color-duo/NOTES.md): clean
 - [resistor-color-tolerance](resistor-color-tolerance/NOTES.md): clean
 - [resistor-color-trio](resistor-color-trio/NOTES.md): clean
-- [rest-api](rest-api/NOTES.md): friction
+- [rest-api](rest-api/NOTES.md): clean
 - [reverse-string](reverse-string/NOTES.md): clean
 - [rna-transcription](rna-transcription/NOTES.md): clean
 - [robot-name](robot-name/NOTES.md): clean
@@ -150,7 +150,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 - [simple-linked-list](simple-linked-list/NOTES.md): clean
 - [space-age](space-age/NOTES.md): clean
 - [spiral-matrix](spiral-matrix/NOTES.md): clean
-- [split-second-stopwatch](split-second-stopwatch/NOTES.md): friction
+- [split-second-stopwatch](split-second-stopwatch/NOTES.md): clean
 - [square-root](square-root/NOTES.md): clean
 - [state-of-tic-tac-toe](state-of-tic-tac-toe/NOTES.md): clean
 - [strain](strain/NOTES.md): clean

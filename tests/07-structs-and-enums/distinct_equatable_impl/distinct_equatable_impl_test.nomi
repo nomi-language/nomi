@@ -1,12 +1,12 @@
 // A hand-written `impl Equatable` on a DISTINCT must answer `==`, not just
-// `Equatable.equal?`.
+// `Equatable.equal`.
 //
 // This is the sibling of `enum_equatable_impl/`. An operator dispatch path
 // that only consulted the impl for structs would make a hand-written impl
 // on an enum OR a distinct reachable by name and unreachable by operator:
 // one question with two answers, and no diagnostic. For a distinct that
 // would read
-// `Equatable.equal?(Slug("A"), Slug("a"))` True against
+// `Equatable.equal(Slug("A"), Slug("a"))` True against
 // `Slug("A") == Slug("a")` False.
 //
 //
@@ -19,10 +19,10 @@
 type Slug String
 
 impl Equatable for Slug {
-    fn equal?(a: Slug, b: Slug) -> Bool {
+    fn equal(a: Slug, b: Slug) -> Bool {
         Slug(x) = a
         Slug(y) = b
-        String.to_lower(x) == String.to_lower(y)
+        String.lowercase(x) == String.lowercase(y)
     }
 }
 
@@ -33,9 +33,9 @@ test "a hand-written Equatable on a distinct answers ==" {
 }
 
 test "the operator and the by-name call agree on a distinct" {
-    assert Equatable.equal?(Slug("Home"), Slug("home")) == (Slug("Home") == Slug("home"))
+    assert Equatable.equal(Slug("Home"), Slug("home")) == (Slug("Home") == Slug("home"))
 
-    assert Equatable.equal?(Slug("home"), Slug("away")) == (Slug("home") == Slug("away"))
+    assert Equatable.equal(Slug("home"), Slug("away")) == (Slug("home") == Slug("away"))
 }
 
 test "!= is the negation of the hand-written impl, not of the structural one" {
@@ -48,9 +48,9 @@ opaque type Marker Int
 // FINER than structural: no two Markers are ever equal, including a value
 // and itself. Structural comparison cannot produce False here, so this is the
 // row that fails if the operator silently keeps the structural answer while
-// `Equatable.equal?` runs the impl.
+// `Equatable.equal` runs the impl.
 impl Equatable for Marker {
-    fn equal?(_a: Marker, _b: Marker) -> Bool {
+    fn equal(_a: Marker, _b: Marker) -> Bool {
         False
     }
 }
@@ -58,7 +58,7 @@ impl Equatable for Marker {
 test "an opaque distinct's impl answers == in the refuting direction too" {
     refute Marker(1) == Marker(1)
     assert Marker(1) != Marker(1)
-    assert Equatable.equal?(Marker(1), Marker(1)) == (Marker(1) == Marker(1))
+    assert Equatable.equal(Marker(1), Marker(1)) == (Marker(1) == Marker(1))
 }
 
 type Derived Int
@@ -73,8 +73,8 @@ derive Equatable for Derived
 test "a derived distinct still compares structurally, both ways" {
     assert Derived(1) == Derived(1)
     refute Derived(1) == Derived(2)
-    assert Equatable.equal?(Derived(1), Derived(1))
-    refute Equatable.equal?(Derived(1), Derived(2))
+    assert Equatable.equal(Derived(1), Derived(1))
+    refute Equatable.equal(Derived(1), Derived(2))
 }
 
 type Bare Int

@@ -30,7 +30,7 @@ func TestStdlibPrompt_CachedAndFreshPathsShareTheModuleScope(t *testing.T) {
 	}
 	defer restoreEnv()
 
-	const prompt = "assert String.contains?(\"room\", Regex`\\d+`) == False"
+	const prompt = "assert String.contains(\"room\", Regex`\\d+`) == False"
 	src, ok := std.ReadFile("regex")
 	if !ok {
 		t.Fatal("std/regex is not embedded")

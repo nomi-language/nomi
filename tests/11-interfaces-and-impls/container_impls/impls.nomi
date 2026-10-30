@@ -56,25 +56,25 @@ impl Zero for Maybe<T> where T: Zero {
 }
 
 impl Holds<T> for List<T> where T: Equatable {
-    fn holds?(xs: List<T>, x: T) -> Bool {
-        xs |> Iter.any?(fn y -> y == x)
+    fn holds(xs: List<T>, x: T) -> Bool {
+        xs |> Iter.any(fn y -> y == x)
     }
 }
 
 impl Holds<Int> for Vector<Int> {
-    fn holds?(v: Vector<Int>, x: Int) -> Bool {
-        v |> Iter.any?(fn y -> y == x)
+    fn holds(v: Vector<Int>, x: Int) -> Bool {
+        v |> Iter.any(fn y -> y == x)
     }
 }
 
 impl Holds<String> for Vector<Int> {
-    fn holds?(v: Vector<Int>, x: String) -> Bool {
-        v |> Iter.any?(fn y -> Int.to_string(y) == x)
+    fn holds(v: Vector<Int>, x: String) -> Bool {
+        v |> Iter.any(fn y -> Int.to_string(y) == x)
     }
 }
 
 impl Holds<String> for Maybe<Int> {
-    fn holds?(m: Maybe<Int>, x: String) -> Bool {
+    fn holds(m: Maybe<Int>, x: String) -> Bool {
         case m {
             Some(n) -> Int.to_string(n) == x
             None -> False

@@ -5,19 +5,19 @@ fn double(x: Int) -> Int {
 test "maybe and result values render their variant shapes" {
     assert Some(42)
         |> Debug.inspect()
-        |> String.equal?("Some(42)")
+        |> String.equal("Some(42)")
 
     assert None
         |> Debug.inspect()
-        |> String.equal?("None")
+        |> String.equal("None")
 
     assert Ok("success")
         |> Debug.inspect()
-        |> String.equal?("Ok(\"success\")")
+        |> String.equal("Ok(\"success\")")
 
     assert Err("fail")
         |> Debug.inspect()
-        |> String.equal?("Err(\"fail\")")
+        |> String.equal("Err(\"fail\")")
 }
 
 test "maybe helpers map and default values" {

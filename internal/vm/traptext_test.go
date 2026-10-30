@@ -4,8 +4,7 @@ package vm_test
 // SO.
 //
 // `internal/irbuild/case.go`'s rule: the text lives in `rt` so no consumer can
-// drift from it. `rt/arith.go`'s own header states the arrangement: the
-// overflow predicates and the error text live there once.
+// drift from it.
 //
 // A string that two places each spell has no mechanism keeping them equal.
 // This test is the instrument that catches such a copy.
@@ -15,11 +14,8 @@ package vm_test
 //   - It does not live in `rt`. A test there would have to reach into the
 //     compiler's source tree and would make the compiler's layout part of
 //     rt's test surface.
-//   - `internal/ir/arith_test.go` is the nearest sibling: it reads rt's OWN
-//     SOURCE to check the operator spellings passed to `rt.OverflowError`.
-//     This check does not live there because `internal/ir` is the shared
-//     PRODUCER and has no other reason to know where the consumers' sources
-//     are.
+//   - It does not live in `internal/ir`, the shared PRODUCER, which has no
+//     other reason to know where the consumers' sources are.
 //   - `internal/vm` is the consumer that spells fault texts at run time, so
 //     the instrument is here.
 //
@@ -44,8 +40,8 @@ import (
 // first, then a colon. Every fault a Nomi program observes with a position
 // reads this way.
 //
-// They live in more than the arithmetic file: `arith.go` (integer overflow,
-// division by zero, float modulo, the decimal faults), `assertion.go` (the
+// They live in more than the arithmetic file: `arith.go` (division by zero,
+// float modulo, the decimal faults), `assertion.go` (the
 // assertion failure's own `line %d: %s`, and `test returned early`),
 // `trap.go` (no matching case branch, a missing map destructuring key, no
 // active app value, the call-depth fault) and the `dbg` header prefix in
@@ -77,13 +73,12 @@ func TestTrapText_OneHomePerText(t *testing.T) {
 
 	// POSITIVE CONTROL ON THE OWNED SET. A parse that silently answered
 	// nothing would make every comparison below vacuous.
-	if len(owned) < 11 {
-		t.Fatalf("parsing rt found %d positioned fault texts; rt declares 11, "+
+	if len(owned) < 10 {
+		t.Fatalf("parsing rt found %d positioned fault texts; rt declares 10, "+
 			"so the scan is broken and this test would pass for the wrong reason: %v",
 			len(owned), sortedKeys(owned))
 	}
 	for _, want := range []string{
-		"line %d: integer overflow: %d %s %d",
 		"line %d: division by zero",
 		"line %d: modulo not supported on floats",
 	} {

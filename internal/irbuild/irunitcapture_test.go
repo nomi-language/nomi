@@ -27,7 +27,7 @@ fn write(n: Int) -> Result<Unit, String> {
 }
 fn main() {
   done = [1, 2] |> Iter.map(write) |> Result.collect()
-  io.print(Result.ok?(done))
+  io.print(Result.is_ok(done))
   failed = [1, 3, 4] |> Iter.map(write) |> Result.collect()
   io.print(failed == Err("too big: 3"))
 }`, "True\nTrue\n"},

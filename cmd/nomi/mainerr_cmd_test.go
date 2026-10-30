@@ -55,7 +55,7 @@ fn main() -> Result<Unit, Missing> {
 }
 
 fn main() -> Result<Unit, String> {
-  _ = try port("")
+  _ = port("")?
   Ok(Unit)
 }
 `, "", "error: no port given\n", 1},
@@ -164,7 +164,7 @@ fn port(text: String) -> Result<Int, String> {
 fn boot() -> Result<App, String> {
   defer io.print("first registered, last run")
   defer io.print("last registered, first run")
-  p = try port("")
+  p = port("")?
   Ok(#App{port: p})
 }
 

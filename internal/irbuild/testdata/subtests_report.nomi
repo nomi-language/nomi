@@ -7,7 +7,7 @@ struct Point {
     y: Int
 }
 
-fn palindrome?(s: String) -> Bool {
+fn is_palindrome(s: String) -> Bool {
     String.reverse(s) == s
 }
 
@@ -15,7 +15,7 @@ test "two of four rows fail" {
     cases = [#("abba", True), #("abc", True), #("ab", True), #("x", True)]
 
     subtests cases, #(line, known_palindrome) {
-        assert palindrome?(line) == known_palindrome
+        assert is_palindrome(line) == known_palindrome
     }
 }
 

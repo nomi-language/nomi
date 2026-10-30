@@ -1,11 +1,13 @@
+//# Pangrams: sentences that use every letter of the alphabet.
+
 /// Whether `sentence` uses every letter of the English alphabet at least
 /// once, ignoring case.
-pub fn pangram?(sentence: String) -> Bool {
+pub fn is_pangram(sentence: String) -> Bool {
     letters =
         sentence
         |> String.fold_case()
         |> String.to_codepoints()
         |> Iter.to_set()
 
-    Iter.all?('a'..='z', &Set.contains?(letters, &1))
+    Iter.all('a'..='z', &Set.contains(letters, &1))
 }

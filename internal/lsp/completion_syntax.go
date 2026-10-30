@@ -266,21 +266,14 @@ func (h *sentinelHit) insideErrorNode() bool {
 }
 
 // wordBounds returns the identifier around byte offset off: start..off is
-// what was typed before the cursor and off..end the rest of the word. A
-// predicate name's trailing `?` belongs to the word on either side.
+// what was typed before the cursor and off..end the rest of the word.
 func wordBounds(content string, off int) (start, end int) {
 	start = off
-	if start > 0 && content[start-1] == '?' {
-		start--
-	}
 	for start > 0 && isWordByte(content[start-1]) {
 		start--
 	}
 	end = off
 	for end < len(content) && isWordByte(content[end]) {
-		end++
-	}
-	if end < len(content) && content[end] == '?' {
 		end++
 	}
 	return start, end
@@ -308,12 +301,8 @@ func classifyCompletionWalking(content string, off int, atCursor bool) completio
 		return ctx
 	}
 
-	// The sentinel goes where the cursor is, ahead of a typed `?`, so
-	// `empty?` reparses as the one identifier `emptyzq9cursor?`.
+	// The sentinel goes where the cursor is.
 	at := off
-	if at > start && content[at-1] == '?' {
-		at--
-	}
 	sentinels := []string{completionSentinel}
 	if ctx.prefix == "" {
 		sentinels = append(sentinels, completionSentinelUpper)

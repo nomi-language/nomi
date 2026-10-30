@@ -71,7 +71,7 @@ impl Comparable for Backwards {
 
 // A type with NO `impl Comparable`, reached only by `Equatable`. It exists so
 // the widened lookup can be shown NOT to answer for an interface the type does
-// not implement — a lookup that ignored `iface` would find `equal?` and offer it
+// not implement — a lookup that ignored `iface` would find `equal` and offer it
 // where `compare` was wanted.
 pub struct Unordered {
     tag: String
@@ -82,7 +82,7 @@ pub fn plain(tag: String) -> Unordered {
 }
 
 impl Equatable for Unordered {
-    fn equal?(a: Unordered, b: Unordered) -> Bool {
+    fn equal(a: Unordered, b: Unordered) -> Bool {
         a.tag == b.tag
     }
 }

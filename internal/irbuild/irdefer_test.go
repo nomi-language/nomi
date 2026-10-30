@@ -154,7 +154,7 @@ fn check(ok: Bool) -> Result<Int, String> {
 
 fn attempt(ok: Bool) -> Result<Int, String> {
   defer note("attempt")
-  v = try check(ok)
+  v = check(ok)?
   io.print("checked")
   Ok(v + 1)
 }
@@ -226,7 +226,7 @@ fn main() {
 }
 
 // A `defer` in a lambda runs when that invocation ends, on each exit: the
-// normal end, `return`, `try` propagating, and in an iteration callback
+// normal end, `return`, `?` propagating, and in an iteration callback
 // `break` and `continue`. Several run most recent first. The builder
 // declined a defer in any lambda.
 func TestIRDefer_ALambdaRunsItsDeferredCallsWhenEachInvocationEnds(t *testing.T) {
@@ -256,7 +256,7 @@ fn main() {
   io.print(early(1) + early(2))
   attempt = fn n: Int -> {
     defer note("attempt")
-    v = try check(n)
+    v = check(n)?
     io.print("checked")
     Ok(v + 1)
   }

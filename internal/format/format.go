@@ -13,15 +13,14 @@ const (
 	defaultIndent = 4
 	// Legacy conformance-list rendering keeps an indented content budget.
 	conformanceWrapWidth = defaultWidth - defaultIndent
-	// singleLineIfElseMaxWidth caps the flat width of a plain if/else that may
-	// render on one line. It is rustfmt's single_line_if_else_max_width, whose
-	// default is 50 at rustfmt's own 100-column width. It limits how much a
-	// reader scans on one line, so it does not grow with the page width.
-	singleLineIfElseMaxWidth = 50
-	// singleLineBindingElseMaxWidth is the widest `Pattern = value else { x }`
-	// that renders on one line, the whole statement counted. It is rustfmt's
-	// single_line_let_else_max_width, whose default is also 50.
-	singleLineBindingElseMaxWidth = 50
+	// singleLineValueIfMaxWidth caps the flat width of a plain if/else with
+	// two branches that may render on one line. It is rustfmt's
+	// single_line_if_else_max_width, whose default is 50 at rustfmt's own
+	// 100-column width. It limits how much a reader scans on one line, so it
+	// does not grow with the page width. A guard (an if with no else) and a
+	// binding's else have no such cap: they stay on one line whenever they
+	// fit the line.
+	singleLineValueIfMaxWidth = 50
 )
 
 // IndentWidth is the formatter's indentation, in spaces, for an editor edit

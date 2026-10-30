@@ -333,9 +333,9 @@ func ownNodes(p *CheckedProgram, key string) []ast.Node {
 		return nodes[:min(p.entryOwn, len(nodes))]
 	}
 	start := 0
-	// A message expansion's hidden imports are the file's own, as a build
-	// of the file alone has them.
-	for start < len(nodes) && isPreludeInjectLine(nodes[start].LineNum()) && nodes[start].LineNum() != messageImportLine {
+	// The hidden imports of a message expansion or a derive are the file's
+	// own, as a build of the file alone has them.
+	for start < len(nodes) && isPreludeInjectLine(nodes[start].LineNum()) && nodes[start].LineNum() != hiddenImportLine {
 		start++
 	}
 	end := min(start+p.Files[key].ownNodes, len(nodes))

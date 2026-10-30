@@ -1,7 +1,4 @@
-import {
-    series
-    series.Error
-}
+import series.{self, Error}
 
 test "slices" {
     cases = [

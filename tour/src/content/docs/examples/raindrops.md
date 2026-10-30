@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: raindrops.nomi
+//# Converts a number to raindrop sounds by its factors 3, 5 and 7.
+
 once sounds = [#(3, "Pling"), #(5, "Plang"), #(7, "Plong")]
 
 /// The raindrop sounds for `number`'s factors 3, 5 and 7, or the number
@@ -19,7 +21,7 @@ pub fn convert(number: Int) -> String {
     drops =
         sounds
         |> Iter.filter(fn #(factor, _sound) -> number % factor == 0)
-        |> Iter.map(.1)
+        |> Iter.map(fn #(_factor, sound) -> sound)
         |> String.join()
 
     if drops == "" { "${number}" } else { drops }

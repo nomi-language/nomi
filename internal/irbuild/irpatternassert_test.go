@@ -185,7 +185,7 @@ group "sibling cancellation under a virtual clock" {
       short = Task.spawn(fn -> short_fail())
       long = Task.spawn(fn -> long_sleep())
       _l = long
-      Ok(try Task.await(short))
+      Ok(Task.await(short)?)
     }
 
     elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
@@ -198,7 +198,7 @@ group "sibling cancellation under a virtual clock" {
   test "a failing pattern over a concurrent block shows its definition" {
     outcome = concurrent {
       short = Task.spawn(fn -> short_fail())
-      Ok(try Task.await(short))
+      Ok(Task.await(short)?)
     }
 
     assert Ok(n) = outcome

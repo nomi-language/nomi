@@ -22,7 +22,7 @@ import "strconv"
 // `renderNode` is a one-line alias for it. WHICH NODE is rendered is the
 // producer's choice, and two cases need care:
 //
-//   - `try` in pipe position. The pipe renders the whole `*ast.Binary` and the
+//   - `?` in pipe position. The pipe renders the whole `*ast.Binary` and the
 //     prefix form the `*ast.TryOp`, so the builder is handed the node to
 //     render SEPARATELY from the node carrying the position (irbuild's tryOp
 //     takes both `t` and `whole`).
@@ -139,7 +139,7 @@ type AssertStage struct {
 //
 // dst is the temporary the judgement WRITES, and it is NoTemp for `assert` and
 // `refute`. That is not an omission: their value is the subject itself (irbuild
-// returns the subject's own expression), which is what makes `truth = assert holds?()` an ordinary
+// returns the subject's own expression), which is what makes `truth = assert holds()` an ordinary
 // binding — so no instruction produces anything. `check` answers a fresh
 // `Result` and names it. The field therefore varies over the population, which
 // is the test a field has to pass here: a field that never varies carries no
@@ -328,7 +328,7 @@ type Record struct {
 // `1 = 1`. It is a REQUEST and not an answer: the rule is applied by the
 // consumer, in `rt.RecordOperand`.
 //
-// It is false for a PREDICATE's literal arguments — `assert even?(5)` prints
+// It is false for a PREDICATE's literal arguments — `assert is_even(5)` prints
 // `5 = 5` because that is the whole content of the row — and for the
 // whole-subject row a piped `check` appends. irbuild reaches that answer from
 // the callee's declared result.

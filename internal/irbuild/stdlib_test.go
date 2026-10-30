@@ -78,7 +78,7 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		// of `+`. The builder lowers `+` natively, so binding these would give
 		// one operation two lowerings, and for the trapping Int forms the two
 		// would not agree, because the fault text carries the OPERATOR's source
-		// line (`line 6: integer overflow: …`) and an explicit `Int.add(a, b)`
+		// line (`line 6: division by zero`) and an explicit `Int.divide(a, b)`
 		// call site has no operator line to name.
 		//
 		// The keys carry the instantiation because every one of these is an impl
@@ -364,14 +364,14 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 		// Generic receivers. A SimpleType-only receiver read would file these
 		// as `lists.head` / `maps.keys` / `sets.size`.
 		"lists.List.head":       "List",
-		"lists.List.equal?":     "List",
+		"lists.List.equal":      "List",
 		"iter.Iter.map":         "Iter",
 		"maps.Map.keys":         "Map",
 		"sets.Set.size":         "Set",
 		"vectors.Vector.length": "Vector",
 		"ranges.Range.from":     "Range",
-		"maybe.Maybe.some?":     "Maybe",
-		"results.Result.ok?":    "Result",
+		"maybe.Maybe.is_some":   "Maybe",
+		"results.Result.is_ok":  "Result",
 		"channels.Sender.send":  "Sender",
 		"tasks.Task.spawn":      "Task",
 		"random.Generator.int":  "Generator",

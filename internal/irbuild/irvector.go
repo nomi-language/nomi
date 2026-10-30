@@ -32,8 +32,11 @@ func (bl *irScalarBuilder) vectorMake(t *ast.VectorLit) (ir.Temp, kind, bool, bo
 // expected element kind each item is lowered against.
 func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if t.Spread != nil {
+	if len(t.Spreads) == 1 && (t.Spreads[0].At == 0 || t.Spreads[0].At == len(t.Items)) {
 		return bl.vectorUpdate(t)
+	}
+	if len(t.Spreads) > 0 {
+		return bl.vectorSpreadLit(t)
 	}
 	if len(t.Items) == 0 {
 		n := ir.NewEmptyVector(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
@@ -49,7 +52,10 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.VectorLit, elem kind) (ir.Temp, k
 	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
 		// A sequence is held as the value its temporary carries, as a
 		// list holds one.
-		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irRetainedSeqKind(k) || irHeldValueKind(k)
+		return irScalarLeafKind(k) || bl.g.irStructuralValueKind(k) || irRetainedSeqKind(k) || irHeldValueKind(k) ||
+			// An interface's existential, held as the value it erases
+			// (each item enters it as a list's item does).
+			irExistentialKind(k)
 	})
 	if !ok {
 		return no()
@@ -68,11 +74,11 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	if !args.ok {
 		return nil
 	}
-	if method == "contains?" {
+	if method == "contains" {
 		return bl.seqContainsPlan(t, args, "Vector")
 	}
 	switch method {
-	case "length", "get", "at", "push", "concat", "set", "next_item":
+	case "length", "get", "push", "concat", "set", "next_item":
 	default:
 		return nil
 	}
@@ -102,7 +108,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	}
 	// A sequence element is held as a list holds one; these operations
 	// never read an element.
-	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irRetainedSeqKind(elem) && !irHeldValueKind(elem) {
+	if !irScalarLeafKind(elem) && !bl.g.irStructuralValueKind(elem) && !irRetainedSeqKind(elem) && !irHeldValueKind(elem) && !irExistentialKind(elem) {
 		return nil
 	}
 	for i, have := range args.kinds {

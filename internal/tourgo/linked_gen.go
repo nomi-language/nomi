@@ -287,7 +287,7 @@ func (b *tourBlock1Bound) in2(fr *rt.Frame, v rt.Value) (out string, err error) 
 
 // out3 builds a Int from Go int.
 func (b *tourBlock1Bound) out3(v int) (rt.Value, error) {
-	return int64(v), nil
+	return rt.Value(int64(v)), nil
 }
 
 // fn1 adapts parse_int: parse_int(s: String) -> Result<Int, String>
@@ -311,7 +311,7 @@ func (b *tourBlock1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 		return nil, err
 	}
 	ok := b.d0.NewVariant(0)
-	ok.W[0] = rt.IntWord(v0.(int64))
+	ok.SetIntSlot(0, v0)
 	return ok, nil
 }
 

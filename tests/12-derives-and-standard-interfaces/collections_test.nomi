@@ -18,8 +18,8 @@ test "collections support structural equality through derived containing types" 
     b = #Holder{items: [1, 2, 3], tags: %{"x" => 1}}
     c = #Holder{items: [1, 2], tags: %{"x" => 1}}
 
-    assert Equatable.equal?(a, b)
-    refute Equatable.equal?(a, c)
+    assert Equatable.equal(a, b)
+    refute Equatable.equal(a, c)
 }
 
 test "collections support hashing through derived containing types" {

@@ -167,7 +167,7 @@ func synthMethodForSource(t *testing.T, src, method, iface, typeName string) *as
 
 func synthEqualsForSource(t *testing.T, src, typeName string) *ast.FuncDef {
 	t.Helper()
-	return synthMethodForSource(t, src, "equal?", "Equatable", typeName)
+	return synthMethodForSource(t, src, "equal", "Equatable", typeName)
 }
 
 // TestDeriveEquatableOnStructSynthesizes pins the struct path: a non-empty
@@ -201,7 +201,7 @@ derive Equatable for Point`
 	if !ok || bin.Op != "and" {
 		t.Fatalf("expected Binary(and), got %T %v", es.Expr, bin)
 	}
-	// Both sides must be Calls to Equatable.equal?.
+	// Both sides must be Calls to Equatable.equal.
 	for _, side := range []ast.Node{bin.Left, bin.Right} {
 		c, ok := side.(*ast.Call)
 		if !ok {
@@ -211,7 +211,7 @@ derive Equatable for Point`
 		if !ok {
 			t.Fatalf("expected FieldAccess as Call.Func, got %T", c.Func)
 		}
-		if fa.Field == nil || fa.Field.Name != "equal?" {
+		if fa.Field == nil || fa.Field.Name != "equal" {
 			t.Errorf("expected FieldAccess.Field.Name == 'equals', got %v", fa.Field)
 		}
 		ti, ok := fa.Object.(*ast.TypeIdent)
@@ -300,7 +300,7 @@ derive Equatable for Color`
 
 // TestDeriveEquatableOnDistinctTypeSynthesizes pins the distinct-type
 // path: `type Id Int` produces the unwrap-then-equals shape:
-// `Id(av) = a; Id(bv) = b; Equatable.equal?(av, bv)`.
+// `Id(av) = a; Id(bv) = b; Equatable.equal(av, bv)`.
 func TestDeriveEquatableOnDistinctTypeSynthesizes(t *testing.T) {
 	src := `type Id Int
 derive Equatable for Id`
@@ -322,7 +322,7 @@ derive Equatable for Id`
 			t.Errorf("stmt %d: expected destructure of Id, got %s", i, dd.TypeName)
 		}
 	}
-	// Final stmt is ExprStmt wrapping a Call to Equatable.equal?.
+	// Final stmt is ExprStmt wrapping a Call to Equatable.equal.
 	es, ok := fn.Body.Stmts[2].(*ast.ExprStmt)
 	if !ok {
 		t.Fatalf("stmt 2: expected ExprStmt, got %T", fn.Body.Stmts[2])
@@ -332,7 +332,7 @@ derive Equatable for Id`
 		t.Fatalf("stmt 2 expr: expected Call, got %T", es.Expr)
 	}
 	fa, ok := c.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "equal?" {
+	if !ok || fa.Field == nil || fa.Field.Name != "equal" {
 		t.Errorf("stmt 2 callee: expected FieldAccess(equals), got %T %v", c.Func, c.Func)
 	}
 	ti, ok := fa.Object.(*ast.TypeIdent)
@@ -1421,7 +1421,7 @@ func TestDeriveCollidesWithManualImplErrors(t *testing.T) {
 derive Equatable for Point
 
 impl Equatable for Point {
-  fn equal?(_a: Point, _b: Point) -> Bool {
+  fn equal(_a: Point, _b: Point) -> Bool {
     False
   }
 }`
@@ -1499,16 +1499,16 @@ func synthFnBy(t *testing.T, src, fnName, ifaceName, typeName string) *ast.FuncD
 }
 
 // TestDeriveOnGenericStructAddsInterfaceBound pins the implicit bound: `@derive Equatable
-// struct Box<T> { value: T }` synthesizes `fn equal?(a: Box<T>, b: Box<T>):
+// struct Box<T> { value: T }` synthesizes `fn equal(a: Box<T>, b: Box<T>):
 // Bool` whose TypeParams carry an implicit `T: Equatable` bound. Without
-// this bound, calling `Equatable.equal?(#Box{value: #NoEqType{}}, ...)`
+// this bound, calling `Equatable.equal(#Box{value: #NoEqType{}}, ...)`
 // would fall through to a runtime "no impl found" error instead of a
 // compile-time type-check failure (spec §38.1).
 func TestDeriveOnGenericStructAddsInterfaceBound(t *testing.T) {
 	src := `struct Box<T> { value: T }
 derive Equatable for Box<T>`
 
-	fn := synthFnBy(t, src, "equal?", "Equatable", "Box")
+	fn := synthFnBy(t, src, "equal", "Equatable", "Box")
 	if fn == nil {
 		t.Fatal("no synthesized Equatable impl (fn equals) for Box found")
 	}
@@ -1575,7 +1575,7 @@ func TestDeriveOnGenericEnum(t *testing.T) {
 	src := `enum Maybe<T> { Some T; None }
 derive Equatable for Maybe<T>`
 
-	fn := synthFnBy(t, src, "equal?", "Equatable", "Maybe")
+	fn := synthFnBy(t, src, "equal", "Equatable", "Maybe")
 	if fn == nil {
 		t.Fatal("no synthesized Equatable impl (fn equals) for Maybe found")
 	}
@@ -1635,7 +1635,7 @@ func TestDeriveOnNonGenericStructHasNoTypeParams(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
 derive Equatable for Point`
 
-	fn := synthFnBy(t, src, "equal?", "Equatable", "Point")
+	fn := synthFnBy(t, src, "equal", "Equatable", "Point")
 	if fn == nil {
 		t.Fatal("no synthesized fn for Point found")
 	}

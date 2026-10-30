@@ -35,7 +35,7 @@ fn main() {
     // `Map.get` returns a `Maybe`, and `==` on a prelude enum is a separate gap
     // (prelude.go) rather than this fixture's subject, so the payload is read
     // with `case`. Reading it is also the stronger assertion: it distinguishes
-    // Some("a") from Some("b"), which a bare `some?` would not.
+    // Some("a") from Some("b"), which a bare `is_some` would not.
     nan_hit = found(Map.get(nankey, 0.0 / 0.0), "nan")
     get_hit = found_int(Map.get(single, "a"), 1)
     get_miss = found_int(Map.get(single, "z"), 1)

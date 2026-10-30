@@ -221,17 +221,19 @@ func patchHasHole(lit *ast.StructLit) bool {
 	return false
 }
 
-// setUpdate builds `%[..base, x]`: the base, then the elements as a set
-// literal, then `Set.union(base, literal)`, so the base's elements keep their
-// places and new ones follow, as Map.merge orders a map's keys.
+// setUpdate builds `%[..base, x]`, a set literal with one spread written
+// first: the base, then the elements as a set literal, then
+// `Set.union(base, literal)`, so the base's elements keep their places and
+// new ones follow, as Map.merge orders a map's keys.
 func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	base, bk, _, ok := bl.lower(t.Spread)
+	spread := t.Spreads[0].Head
+	base, bk, _, ok := bl.lower(spread)
 	if !ok {
 		return no()
 	}
 	items := *t
-	items.Spread = nil
+	items.Spreads = nil
 	// kindInvalid: sentinel — an open base gives the elements no kind.
 	elem := kindInvalid
 	if e, isSet := setElem(bk); isSet && bk != kindEmptySet {
@@ -242,7 +244,7 @@ func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) 
 		return no()
 	}
 	if bk == kindEmptySet {
-		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
+		if base, bk, ok = bl.coerceEmpty(spread, base, bk, lk); !ok {
 			return no()
 		}
 	}
@@ -322,14 +324,16 @@ func (bl *irScalarBuilder) structUpdateHoles(t *ast.Call, ops structUpdateArgs, 
 	return n.Dst(), k, false, true
 }
 
-// vectorUpdate builds `#[..v, x]` as `Vector.concat(v, #[x])` and
-// `#[x, ..v]` as `Vector.concat(#[x], v)`, where v is the spread, or the
-// vector a bare `..` stands for. The spread is lowered before the elements,
-// as a list spread's tail is. An empty spread (`#[..#[], x]`) takes the
-// elements' kind.
+// vectorUpdate builds a vector literal with one spread at either end:
+// `#[..v, x]` as `Vector.concat(v, #[x])` and `#[x, ..v]` as
+// `Vector.concat(#[x], v)`, where v is the spread, or the vector a bare `..`
+// stands for. The spread is lowered before the elements, as a list spread's
+// tail is. An empty spread (`#[..#[], x]`) takes the elements' kind.
 func (bl *irScalarBuilder) vectorUpdate(t *ast.VectorLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	base, bk, _, ok := bl.lower(t.Spread)
+	spread := t.Spreads[0].Head
+	spreadLast := t.Spreads[0].At > 0
+	base, bk, _, ok := bl.lower(spread)
 	if !ok {
 		return no()
 	}
@@ -341,13 +345,13 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.VectorLit) (ir.Temp, kind, bool, 
 		return no()
 	}
 	items := *t
-	items.Spread = nil
+	items.Spreads = nil
 	lit, lk, _, ok := bl.vectorMakeOf(&items, elem)
 	if !ok {
 		return no()
 	}
 	if bk == kindEmptyVector {
-		if base, bk, ok = bl.coerceEmpty(t.Spread, base, bk, lk); !ok {
+		if base, bk, ok = bl.coerceEmpty(spread, base, bk, lk); !ok {
 			return no()
 		}
 	}
@@ -355,7 +359,7 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.VectorLit) (ir.Temp, kind, bool, 
 		return no()
 	}
 	first, second := base, lit
-	if t.SpreadLast {
+	if spreadLast {
 		first, second = lit, base
 	}
 	c := ir.NewHostCall(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OrdinaryCall,

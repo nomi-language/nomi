@@ -15,7 +15,7 @@ import {
 //!         .Some(v) -> v
 //!         .None -> 0
 //!     }
-//!     |> Int.equal?(42)
+//!     |> Int.equal(42)
 //
 pub enum Maybe<T> {
     Some T
@@ -24,10 +24,10 @@ pub enum Maybe<T> {
 
 impl Maybe<T> {
     /// Returns True when the value is Some.
-    //! assert Maybe.some?(Maybe.Some(3))
-    //! refute Maybe.some?(Maybe.None)
+    //! assert Maybe.is_some(Maybe.Some(3))
+    //! refute Maybe.is_some(Maybe.None)
     //
-    pub fn some?<T>(maybe: Maybe<T>) -> Bool {
+    pub fn is_some<T>(maybe: Maybe<T>) -> Bool {
         case maybe {
             Some(_) -> True
             None -> False
@@ -35,10 +35,10 @@ impl Maybe<T> {
     }
 
     /// Returns True when the value is None.
-    //! refute Maybe.none?(Maybe.Some(3))
-    //! assert Maybe.none?(Maybe.None)
+    //! refute Maybe.is_none(Maybe.Some(3))
+    //! assert Maybe.is_none(Maybe.None)
     //
-    pub fn none?<T>(maybe: Maybe<T>) -> Bool {
+    pub fn is_none<T>(maybe: Maybe<T>) -> Bool {
         case maybe {
             Some(_) -> False
             None -> True
@@ -168,6 +168,42 @@ impl Maybe<T> {
         })
 
         Iter.reverse(reversed)
+    }
+}
+
+impl Iter for Maybe<T> {
+    /// A `Maybe` iterates as zero or one elements: `Some(x)` pushes `x` to
+    /// `yield`, and `None` pushes nothing. So a `Maybe` goes wherever an
+    /// `Iter` does, as in `Iter.concat(lines, reaction)` or a `flat_map`
+    /// whose function answers a `Maybe`.
+    //! assert Iter.to_list(Maybe.Some(3)) == [3]
+    //! none: Maybe<Int> = Maybe.None
+    //! assert Iter.to_list(none) == []
+    //! assert Iter.concat(["a"], Maybe.Some("b")) |> Iter.to_list() == ["a", "b"]
+    //!
+    //! assert [1, 2, 3]
+    //! |> Iter.flat_map(fn n -> {
+    //!     if n % 2 == 1 {
+    //!         Maybe.Some(n * 10)
+    //!     } else {
+    //!         Maybe.None
+    //!     }
+    //! })
+    //! |> Iter.to_list() == [10, 30]
+    //
+    fn each_while(maybe: Maybe<T>, yield: (T) -> Bool) -> Bool {
+        case maybe {
+            Some(v) -> yield(v)
+            None -> True
+        }
+    }
+
+    // A Maybe holds zero or one element, so its count is known.
+    fn known_count(maybe: Maybe<T>) -> Maybe<Int> {
+        case maybe {
+            Some(_) -> Maybe.Some(1)
+            None -> Maybe.Some(0)
+        }
     }
 }
 

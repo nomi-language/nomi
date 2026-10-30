@@ -1263,7 +1263,7 @@ func (s *queryScanner) children(refs *[]queryRef, closer byte, openedAt int) err
 }
 
 // skipToClose consumes a predicate form, honouring nesting and strings so a
-// `)` inside `(#match? @x ")")` does not end it early.
+// `)` inside `(#matches @x ")")` does not end it early.
 func (s *queryScanner) skipToClose(open, close byte, openedAt int) error {
 	depth := 1
 	for !s.eof() {

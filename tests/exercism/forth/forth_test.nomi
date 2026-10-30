@@ -12,9 +12,9 @@ test "parsing and numbers" {
 }
 
 test "addition" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can add two numbers", ["1 2 +"], Ok([3])),
-        #("errors if there is nothing on the stack", ["+"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["+"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 +"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 2 3 +"], Ok([1, 5])),
     ]
@@ -25,9 +25,9 @@ test "addition" {
 }
 
 test "subtraction" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can subtract two numbers", ["3 4 -"], Ok([-1])),
-        #("errors if there is nothing on the stack", ["-"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["-"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 -"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 12 3 -"], Ok([1, 9])),
     ]
@@ -38,9 +38,9 @@ test "subtraction" {
 }
 
 test "multiplication" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can multiply two numbers", ["2 4 *"], Ok([8])),
-        #("errors if there is nothing on the stack", ["*"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["*"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 *"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 2 3 *"], Ok([1, 6])),
     ]
@@ -51,10 +51,10 @@ test "multiplication" {
 }
 
 test "division" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can divide two numbers", ["12 3 /"], Ok([4])),
         #("performs integer division", ["8 3 /"], Ok([2])),
-        #("errors if dividing by zero", ["4 0 /"], Err(.DivideByZero)),
+        #("errors if dividing by zero", ["4 0 /"], Err(Error.DivideByZero)),
         #("errors if there is nothing on the stack", ["/"], Err(.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 /"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 12 3 /"], Ok([1, 4])),
@@ -79,10 +79,10 @@ test "combined arithmetic" {
 }
 
 test "dup" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("copies a value on the stack", ["1 dup"], Ok([1, 1])),
         #("copies the top value on the stack", ["1 2 dup"], Ok([1, 2, 2])),
-        #("errors if there is nothing on the stack", ["dup"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["dup"], Err(Error.EmptyStack)),
     ]
 
     subtests cases, #(description, instructions, expected), description {
@@ -91,10 +91,10 @@ test "dup" {
 }
 
 test "drop" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("removes the top value on the stack if it is the only one", ["1 drop"], Ok([])),
         #("removes the top value on the stack if it is not the only one", ["1 2 drop"], Ok([1])),
-        #("errors if there is nothing on the stack", ["drop"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["drop"], Err(Error.EmptyStack)),
     ]
 
     subtests cases, #(description, instructions, expected), description {
@@ -103,7 +103,7 @@ test "drop" {
 }
 
 test "swap" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #(
             "swaps the top two values on the stack if they are the only ones",
             ["1 2 swap"],
@@ -114,7 +114,7 @@ test "swap" {
             ["1 2 3 swap"],
             Ok([1, 3, 2]),
         ),
-        #("errors if there is nothing on the stack", ["swap"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["swap"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 swap"], Err(.OnlyOneValue)),
     ]
 
@@ -124,10 +124,10 @@ test "swap" {
 }
 
 test "over" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("copies the second element if there are only two", ["1 2 over"], Ok([1, 2, 1])),
         #("copies the second element if there are more than two", ["1 2 3 over"], Ok([1, 2, 3, 2])),
-        #("errors if there is nothing on the stack", ["over"], Err(.EmptyStack)),
+        #("errors if there is nothing on the stack", ["over"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 over"], Err(.OnlyOneValue)),
     ]
 
@@ -137,7 +137,7 @@ test "over" {
 }
 
 test "user-defined words" {
-    cases: List<#(String, List<String>, Result<List<Int>, Error>)> = [
+    cases = [
         #("can consist of built-in words", [": dup-twice dup dup ;", "1 dup-twice"], Ok([1, 1, 1])),
         #("execute in the right order", [": countup 1 2 3 ;", "countup"], Ok([1, 2, 3])),
         #(
@@ -157,7 +157,7 @@ test "user-defined words" {
             [": foo 10 ;", ": foo foo 1 + ;", "foo"],
             Ok([11]),
         ),
-        #("cannot redefine non-negative numbers", [": 1 2 ;"], Err(.IllegalOperation)),
+        #("cannot redefine non-negative numbers", [": 1 2 ;"], Err(Error.IllegalOperation)),
         #("cannot redefine negative numbers", [": -1 2 ;"], Err(.IllegalOperation)),
         #("errors if executing a non-existent word", ["foo"], Err(.UndefinedOperation)),
     ]

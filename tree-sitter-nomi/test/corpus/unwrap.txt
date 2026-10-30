@@ -1,0 +1,74 @@
+==========
+A postfix `!` on a call
+==========
+
+once half = halve(4)!
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (unwrap_expression
+      (call_expression
+        (identifier)
+        (integer))
+      (bang))))
+
+==========
+A postfix `!` on a field, then a field of the payload
+==========
+
+once city = user.address!.city
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (field_access
+      (unwrap_expression
+        (field_access
+          (identifier)
+          (identifier))
+        (bang))
+      (identifier))))
+
+==========
+A postfix `!` as a pipe stage
+==========
+
+once n = "4" |> String.to_int()!
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (pipe_expression
+      (string
+        (string_content))
+      (unwrap_expression
+        (call_expression
+          (field_access
+            (type_identifier)
+            (identifier)))
+        (bang)))))
+
+==========
+Not equal and negation keep their meaning
+==========
+
+once d = a != !b!
+
+---
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (identifier)
+      (unary_expression
+        (unwrap_expression
+          (identifier)
+          (bang))))))

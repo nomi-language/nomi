@@ -40,7 +40,7 @@ func TestCompletion_OwnerQualified(t *testing.T) {
 		{
 			"stdlib owner",
 			"fn f(s: String) -> String {\n    String." + cursorMark + "\n}\n",
-			[]string{"trim", "to_upper", "length", "contains?", "to_string"},
+			[]string{"trim", "uppercase", "length", "contains", "to_string"},
 			[]string{"x", "if"},
 		},
 		{

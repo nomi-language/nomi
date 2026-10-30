@@ -21,11 +21,11 @@ fn parse_small(s: String) -> Result<Int, ParseError> {
  }
 }
 fn describe(s: String) -> Result<String, String> {
- n = try Result.map_err(parse_small(s), fn err: ParseError -> error_text(err))
+ n = Result.map_err(parse_small(s), fn err: ParseError -> error_text(err))?
  Ok("parsed " + Int.to_string(n))
 }
 fn describe_twice(s: String) -> Result<String, String> {
- first = try describe(s)
+ first = describe(s)?
  Ok(first + " / " + first)
 }
 fn main() {
@@ -98,14 +98,14 @@ fn main() {
 }
 
 // Maybe.to_result is a host call to rt.MaybeToResult, prefix and piped
-// under `try`, with an enum error payload beside the String one.
+// under `?`, with an enum error payload beside the String one.
 func TestIRMaybeToResult_PrefixAndPipedTry(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 enum Why { Missing; Empty }
 fn tenfold(m: Maybe<Int>) -> Result<Int, String> {
  n =
   m
-  |> try Maybe.to_result("missing")
+  |> Maybe.to_result("missing")?
 
  Ok(n * 10)
 }

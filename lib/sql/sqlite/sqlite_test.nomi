@@ -19,15 +19,15 @@ test "the conformance suite runs every rule" {
 }
 
 test "a connection says it is SQLite" {
-    db = try sqlite.memory()
+    db = sqlite.memory()?
     defer sql.close_quietly(db)
     assert Conn.dialect(db) == Dialect.Sqlite
 }
 
 fn values_db() -> Result<Conn, sql.Error> {
-    db = try sqlite.memory()
+    db = sqlite.memory()?
 
-    _ = try Conn.exec(
+    _ = Conn.exec(
         db,
         Sql"""
         CREATE TABLE v (
@@ -35,31 +35,31 @@ fn values_db() -> Result<Conn, sql.Error> {
             day DATE, at TIME, ts DATETIME, tz TIMESTAMPTZ, id UUID, j JSON
         )
         """,
-    )
+    )?
 
     Ok(db)
 }
 
 test "every Value reads back as the Value it was written as" {
-    db = try values_db()
+    db = values_db()?
     defer sql.close_quietly(db)
-    day = try Date"2026-10-19"
-    at = try Time"12:30:05"
-    ts = try NaiveDateTime"2026-10-19T12:30:05"
+    day = Date`2026-10-19`
+    at = Time`12:30:05`
+    ts = NaiveDateTime`2026-10-19T12:30:05`
     tz = Instant.from_seconds(1_760_000_000)
-    id = try Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
-    j = try Json.decode("{\"a\":[1,2]}")
+    id = Uuid`0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10`
+    j = Json.decode("{\"a\":[1,2]}")?
     bytes = String.to_bytes("hi")
 
-    _ = try Conn.exec(
+    _ = Conn.exec(
         db,
         Sql"""
         INSERT INTO v VALUES (${7}, ${2.5}, ${12.25d}, ${"text"}, ${True}, ${bytes},
         ${day}, ${at}, ${ts}, ${tz}, ${id}, ${j})
         """,
-    )
+    )?
 
-    rows = try Conn.query(db, Sql"SELECT * FROM v")
+    rows = Conn.query(db, Sql"SELECT * FROM v")?
 
     Some(row) = Iter.first(rows) else {
         None -> return Err(#sql.Error.Database{code: "", message: "no row"})
@@ -82,18 +82,18 @@ test "every Value reads back as the Value it was written as" {
 }
 
 test "NULL reads back as Null in a column of every type" {
-    db = try values_db()
+    db = values_db()?
     defer sql.close_quietly(db)
     nothing: Maybe<Int> = None
-    _ = try Conn.exec(db, Sql"INSERT INTO v (i, day) VALUES (${nothing}, ${nothing})")
-    rows = try Conn.query(db, Sql"SELECT i, day, j FROM v")
+    _ = Conn.exec(db, Sql"INSERT INTO v (i, day) VALUES (${nothing}, ${nothing})")?
+    rows = Conn.query(db, Sql"SELECT i, day, j FROM v")?
     assert rows |> Iter.map(Row.values) |> Iter.to_list() == [[Value.Null, Value.Null, Value.Null]]
 }
 
 test "an expression's column has no declared type and keeps its storage class" {
-    db = try sqlite.memory()
+    db = sqlite.memory()?
     defer sql.close_quietly(db)
-    rows = try Conn.query(db, Sql"SELECT count(*) AS n, 'x' || ${"y"} AS s, 1.5 AS f")
+    rows = Conn.query(db, Sql"SELECT count(*) AS n, 'x' || ${"y"} AS s, 1.5 AS f")?
 
     assert rows |> Iter.map(Row.values) |> Iter.to_list() == [
         [Value.Int(1), Value.Text("xy"), Value.Float(1.5)],
@@ -101,14 +101,14 @@ test "an expression's column has no declared type and keeps its storage class" {
 }
 
 fn money_db() -> Result<Conn, sql.Error> {
-    db = try sqlite.memory()
-    _ = try Conn.exec(db, Sql"CREATE TABLE m (id INTEGER PRIMARY KEY, amount DECIMAL(12, 2))")
+    db = sqlite.memory()?
+    _ = Conn.exec(db, Sql"CREATE TABLE m (id INTEGER PRIMARY KEY, amount DECIMAL(12, 2))")?
     Ok(db)
 }
 
 // The text of each amount, which shows its scale: `==` on Decimal does not.
 fn amounts(db: Conn) -> Result<List<String>, sql.Error> {
-    rows = try Conn.query(db, Sql"SELECT amount FROM m ORDER BY id")
+    rows = Conn.query(db, Sql"SELECT amount FROM m ORDER BY id")?
 
     rows
     |> Iter.map(fn row -> Row.get<Decimal>(row, "amount") |> Result.map(fn d -> "${d}"))
@@ -125,22 +125,22 @@ fn mismatch<T>(result: Result<T, sql.Error>) -> String {
 }
 
 test "a Decimal reads back at its column's scale" {
-    db = try money_db()
+    db = money_db()?
     defer sql.close_quietly(db)
 
-    _ = try Conn.exec(
+    _ = Conn.exec(
         db,
         Sql"INSERT INTO m (amount) VALUES (${12.50d}), (${12.5d}), (${7d}), (${0.10d}), (${-3.05d})",
-    )
+    )?
 
     // SQLite keeps them as the REALs 12.5, 7 and 0.1: the scale is the column's.
-    assert try amounts(db) == ["12.50", "12.50", "7.00", "0.10", "-3.05"]
-    _ = try Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${9_999_999_999_999.99d})")
-    assert try amounts(db) |> Iter.last() == Some("9999999999999.99")
+    assert amounts(db)? == ["12.50", "12.50", "7.00", "0.10", "-3.05"]
+    _ = Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${9_999_999_999_999.99d})")?
+    assert amounts(db)? |> Iter.last() == Some("9999999999999.99")
 }
 
 test "a Decimal SQLite would round is refused when it is written" {
-    db = try money_db()
+    db = money_db()?
     defer sql.close_quietly(db)
     big = 123_456_789_012_345_678.91d
 
@@ -150,32 +150,66 @@ test "a Decimal SQLite would round is refused when it is written" {
 
     // 2^53 + 1 cents: one digit too many for a float to hold.
     assert mismatch(Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${90_071_992_547_409.93d})"))
-        |> String.starts_with?("parameter ?1 is the Decimal 90071992547409.93, of 16 digits")
+        |> String.starts_with("parameter ?1 is the Decimal 90071992547409.93, of 16 digits")
 
-    assert try amounts(db) == []
+    assert amounts(db)? == []
+}
+
+test "an Int past 64 bits is refused when it is written" {
+    db = money_db()?
+    defer sql.close_quietly(db)
+    top = 9_223_372_036_854_775_807
+
+    assert mismatch(
+        Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${top + 1})")
+    ) == "parameter ?1 is the Int 9223372036854775808, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column"
+
+    assert mismatch(Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (${-top - 2})"))
+        |> String.starts_with("parameter ?1 is the Int -9223372036854775809,")
+
+    assert amounts(db)? == []
+}
+
+test "the Ints at the ends of the 64-bit range are written and read back" {
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE n (v INTEGER NOT NULL)")?
+
+    _ = Conn.exec(
+        db,
+        Sql"INSERT INTO n (v) VALUES (${9_223_372_036_854_775_807}), (${-9_223_372_036_854_775_808})",
+    )?
+
+    rows = Conn.query(db, Sql"SELECT v FROM n ORDER BY v")?
+    values = rows |> Iter.map(&Row.value(&1, "v")) |> Iter.to_list()
+
+    assert values == [
+        Ok(Value.Int(-9_223_372_036_854_775_808)),
+        Ok(Value.Int(9_223_372_036_854_775_807)),
+    ]
 }
 
 test "a stored value that is not exactly a decimal of the column's scale is refused" {
-    db = try money_db()
+    db = money_db()?
     defer sql.close_quietly(db)
-    _ = try Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (12.555)")
+    _ = Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (12.555)")?
 
     assert mismatch(
         amounts(db)
     ) == "the column `amount` is DECIMAL(12, 2) and holds 12.555, which has more than 2 decimals: SQLite does not round a DECIMAL column to its scale, so round the value before writing it"
 
     // Written by SQL the driver did not bind: SQLite rounds it to a float.
-    _ = try Conn.exec(db, Sql"DELETE FROM m")
-    _ = try Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (90071992547409.93)")
+    _ = Conn.exec(db, Sql"DELETE FROM m")?
+    _ = Conn.exec(db, Sql"INSERT INTO m (amount) VALUES (90071992547409.93)")?
 
     assert mismatch(amounts(db))
-        |> String.starts_with?("the column `amount` is DECIMAL(12, 2) and holds 90071992547409.94")
+        |> String.starts_with("the column `amount` is DECIMAL(12, 2) and holds 90071992547409.94")
 }
 
 fn users_db() -> Result<Conn, sql.Error> {
-    db = try sqlite.memory()
+    db = sqlite.memory()?
 
-    _ = try Conn.exec(
+    _ = Conn.exec(
         db,
         Sql"""
         CREATE TABLE users (
@@ -185,18 +219,18 @@ fn users_db() -> Result<Conn, sql.Error> {
             age INTEGER CONSTRAINT age_positive CHECK (age > 0)
         )
         """,
-    )
+    )?
 
-    _ = try Conn.exec(db, Sql"CREATE UNIQUE INDEX users_handle_key ON users (handle)")
+    _ = Conn.exec(db, Sql"CREATE UNIQUE INDEX users_handle_key ON users (handle)")?
 
-    _ = try Conn.exec(
+    _ = Conn.exec(
         db,
         Sql"""
         CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users (id))
         """,
-    )
+    )?
 
-    _ = try Conn.exec(db, Sql"INSERT INTO users (email, handle) VALUES ('a@example.com', 'a')")
+    _ = Conn.exec(db, Sql"INSERT INTO users (email, handle) VALUES ('a@example.com', 'a')")?
     Ok(db)
 }
 
@@ -208,7 +242,7 @@ fn constraint(result: Result<Int, sql.Error>) -> Maybe<sql.Error> {
 }
 
 test "a UNIQUE column's violation has Postgres's name for it, and names the table and column" {
-    db = try users_db()
+    db = users_db()?
     defer sql.close_quietly(db)
     e = constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES ('a@example.com')"))
 
@@ -223,7 +257,7 @@ test "a UNIQUE column's violation has Postgres's name for it, and names the tabl
 }
 
 test "a unique index's violation names the index" {
-    db = try users_db()
+    db = users_db()?
     defer sql.close_quietly(db)
 
     e = constraint(
@@ -241,7 +275,7 @@ test "a unique index's violation names the index" {
 }
 
 test "NOT NULL, CHECK and foreign key violations are constraint errors" {
-    db = try users_db()
+    db = users_db()?
     defer sql.close_quietly(db)
     nothing: Maybe<String> = None
 
@@ -287,7 +321,7 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors" {
 }
 
 test "SQL the engine rejects is a Database error with its message" {
-    db = try sqlite.memory()
+    db = sqlite.memory()?
     defer sql.close_quietly(db)
 
     assert Conn.query(db, Sql"SELECT nope FROM nowhere")
@@ -295,56 +329,53 @@ test "SQL the engine rejects is a Database error with its message" {
 }
 
 test "exec answers the rows a statement changed" {
-    db = try users_db()
+    db = users_db()?
     defer sql.close_quietly(db)
 
-    _ = try Conn.exec(
-        db,
-        Sql"INSERT INTO users (email) VALUES ('b@example.com'), ('c@example.com')",
-    )
+    _ = Conn.exec(db, Sql"INSERT INTO users (email) VALUES ('b@example.com'), ('c@example.com')")?
 
     assert Conn.exec(db, Sql"UPDATE users SET age = 30") == Ok(3)
 }
 
 fn events_db() -> Result<Conn, sql.Error> {
-    db = try sqlite.memory()
+    db = sqlite.memory()?
 
-    _ = try Conn.exec(
+    _ = Conn.exec(
         db,
         Sql"CREATE TABLE events (n INTEGER, at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
-    )
+    )?
 
     Ok(db)
 }
 
 fn ns(db: Conn, statement: sql.Statement) -> Result<List<Int>, sql.Error> {
-    rows = try Conn.query(db, statement)
+    rows = Conn.query(db, statement)?
     rows |> Iter.map(fn row -> Row.get<Int>(row, "n")) |> Result.collect()
 }
 
 test "an Instant compares in time order with CURRENT_TIMESTAMP" {
-    db = try events_db()
+    db = events_db()?
     defer sql.close_quietly(db)
     now = Instant.now()
     hour_ago = now - Duration.hours(1)
     hour_later = now + Duration.hours(1)
-    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (1, ${hour_ago})")
-    _ = try Conn.exec(db, Sql"INSERT INTO events (n) VALUES (2)")
-    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (3, ${hour_later})")
-    assert try ns(db, Sql"SELECT n FROM events WHERE at > ${hour_ago} ORDER BY n") == [2, 3]
-    assert try ns(db, Sql"SELECT n FROM events WHERE at < ${hour_later} ORDER BY n") == [1, 2]
-    assert try ns(db, Sql"SELECT n FROM events ORDER BY at") == [1, 2, 3]
-    assert try ns(db, Sql"SELECT n FROM events ORDER BY at DESC") == [3, 2, 1]
+    _ = Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (1, ${hour_ago})")?
+    _ = Conn.exec(db, Sql"INSERT INTO events (n) VALUES (2)")?
+    _ = Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (3, ${hour_later})")?
+    assert ns(db, Sql"SELECT n FROM events WHERE at > ${hour_ago} ORDER BY n")? == [2, 3]
+    assert ns(db, Sql"SELECT n FROM events WHERE at < ${hour_later} ORDER BY n")? == [1, 2]
+    assert ns(db, Sql"SELECT n FROM events ORDER BY at")? == [1, 2, 3]
+    assert ns(db, Sql"SELECT n FROM events ORDER BY at DESC")? == [3, 2, 1]
 }
 
 test "an Instant is written as SQLite writes a timestamp, and either form reads back" {
-    db = try events_db()
+    db = events_db()?
     defer sql.close_quietly(db)
     whole = Instant.from_seconds(1_760_000_000)
     half = whole + Duration.milliseconds(500)
-    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (1, ${whole}), (2, ${half})")
-    _ = try Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (3, '2025-10-09T08:53:20+00:00')")
-    texts = try Conn.query(db, Sql"SELECT '' || at AS text FROM events ORDER BY n")
+    _ = Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (1, ${whole}), (2, ${half})")?
+    _ = Conn.exec(db, Sql"INSERT INTO events (n, at) VALUES (3, '2025-10-09T08:53:20+00:00')")?
+    texts = Conn.query(db, Sql"SELECT '' || at AS text FROM events ORDER BY n")?
 
     assert texts |> Iter.map(fn row -> Row.get<String>(row, "text")) |> Iter.to_list() == [
         Ok("2025-10-09 08:53:20"),
@@ -352,7 +383,7 @@ test "an Instant is written as SQLite writes a timestamp, and either form reads 
         Ok("2025-10-09T08:53:20+00:00"),
     ]
 
-    rows = try Conn.query(db, Sql"SELECT at FROM events ORDER BY n")
+    rows = Conn.query(db, Sql"SELECT at FROM events ORDER BY n")?
 
     assert rows |> Iter.map(fn row -> Row.get<Instant>(row, "at")) |> Iter.to_list() == [
         Ok(whole),

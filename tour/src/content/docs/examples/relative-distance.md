@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: relative_distance.nomi
+//# The degree of separation between two people in a family tree.
+
 /// The fewest steps from `from` to `to` in `family`, which maps each
 /// parent to their children. A step joins a parent and a child, or two
 /// children of one parent. `None` when no steps join them.
@@ -31,14 +33,12 @@ fn search(
     relatives: Map<String, Set<String>>,
     to: String,
 ) -> Maybe<Int> {
-    if Set.contains?(frontier, to) {
-        return Some(distance)
-    }
+    if Set.contains(frontier, to) { return Some(distance) }
 
     next =
         frontier
         |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default(%[])))
-        |> Iter.filter(&(!Set.contains?(seen, &1)))
+        |> Iter.filter(&(!Set.contains(seen, &1)))
         |> Iter.to_set()
 
     if Set.size(next) == 0 {
@@ -58,10 +58,8 @@ fn relatives(family: Map<String, List<String>>) -> Map<String, Set<String>> {
             Iter.concat([#(parent, child), #(child, parent)], siblings)
         })
     })
-    |> Iter.group_by(fn #(person, _relative) -> person)
-    |> Map.map_values(fn links -> {
-        links |> Iter.map(fn #(_person, relative) -> relative) |> Iter.to_set()
-    })
+    |> Iter.group_by(.0)
+    |> Map.map_values(fn links -> links |> Iter.map(.1) |> Iter.to_set())
 }
 
 // FILE: relative_distance_test.nomi

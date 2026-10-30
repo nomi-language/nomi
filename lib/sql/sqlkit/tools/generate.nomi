@@ -50,22 +50,22 @@ fn main() -> Result<Unit, String> {
         _ -> return Err("usage: nomi tool sqlkit generate [--check]")
     }
 
-    config = try (Json.decode(try config_text(".")) |> Result.map_err(fn e -> "nomi.toml: ${e}"))
+    config = Json.decode(config_text(".")?) |> Result.map_err(fn e -> "nomi.toml: ${e}")?
     dbs = databases.read(config)
-    made = try (dbs |> Iter.map(generate) |> Result.collect())
+    made = dbs |> Iter.map(generate) |> Result.collect()?
     files = made |> Iter.flat_map(fn m -> m) |> Iter.to_list()
-    try distinct(files)
-    old = try leftovers(dbs, files)
+    distinct(files)?
+    old = leftovers(dbs, files)?
 
     stale =
         Iter.zip(dbs, made)
         |> Iter.map(fn #(db, generated) -> settle(db, generated, check))
         |> Result.collect()
 
-    changed = (try stale) |> Iter.flat_map(fn s -> s) |> Iter.to_list()
-    try remove(old, check)
+    changed = (stale?) |> Iter.flat_map(fn s -> s) |> Iter.to_list()
+    remove(old, check)?
 
-    if check and !(Iter.empty?(changed) and Iter.empty?(old)) {
+    if check and !(Iter.is_empty(changed) and Iter.is_empty(old)) {
         Err("the generated files are out of date: run `nomi tool sqlkit generate`")
     } else {
         Ok(Unit)
@@ -80,7 +80,7 @@ fn distinct(files: List<Generated>) -> Result<Unit, String> {
         paths
         |> Iter.with_index()
         |> Iter.find(fn #(i, p) -> {
-            Iter.contains?(
+            Iter.contains(
                 paths
                 |> Iter.take(i),
                 p,
@@ -108,7 +108,7 @@ fn settle(db: Database, files: List<Generated>, check: Bool) -> Result<List<Stri
 
     paths = changed |> Iter.map(fn f -> f.path) |> String.join(", ")
 
-    if Iter.empty?(changed) {
+    if Iter.is_empty(changed) {
         io.print("${db.name}: up to date")
     } else if check {
         io.print("${db.name}: ${paths} would change")
@@ -120,7 +120,7 @@ fn settle(db: Database, files: List<Generated>, check: Bool) -> Result<List<Stri
             })
             |> Result.collect()
 
-        _ = try written
+        _ = written?
         io.print("${db.name}: wrote ${paths}")
     }
 
@@ -148,9 +148,9 @@ fn leftovers(dbs: List<Database>, files: List<Generated>) -> Result<List<String>
         |> Result.collect()
 
     Ok(
-        (try found)
+        (found?)
         |> Iter.flat_map(fn paths -> paths)
-        |> Iter.filter(fn path -> !Iter.contains?(made, path))
+        |> Iter.filter(fn path -> !Iter.contains(made, path))
         |> Iter.filter(fn path -> {
             fs.read_text(path) |> Result.map(fn text -> codegen.recorded(text) != None) == Ok(True)
         })
@@ -173,10 +173,10 @@ fn remove(paths: List<String>, check: Bool) -> Result<Unit, String> {
 
 // The files db generates, or why it generates none.
 fn generate(db: Database) -> Result<List<Generated>, String> {
-    migrations = try inputs.read(db.migrations)
-    query_inputs = try inputs.read(db.queries)
+    migrations = inputs.read(db.migrations)?
+    query_inputs = inputs.read(db.queries)?
 
-    if Iter.empty?(migrations) {
+    if Iter.is_empty(migrations) {
         return Err(
             "${db.name}: there are no migrations in ${db.migrations}: write the first, ${db.migrations}/<date>_<name>.sql"
         )
@@ -205,7 +205,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
         |> Iter.to_list()
 
     names = file_problems(db, query_inputs)
-    try report(syntax + names)
+    report(syntax + names)?
 
     queries = files |> Iter.flat_map(fn f -> f.queries) |> Iter.to_list()
     tokens = queries |> Iter.map(fn q -> sqltext.tokens(q.sql)) |> Iter.to_list()
@@ -277,7 +277,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
         })
         |> Iter.to_list()
 
-    try report(problems)
+    report(problems)?
 
     query_files =
         made
@@ -307,7 +307,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
 // Print each problem, and fail when there is one.
 fn report(problems: List<Problem>) -> Result<Unit, String> {
-    if Iter.empty?(problems) { return Ok(Unit) }
+    if Iter.is_empty(problems) { return Ok(Unit) }
     Iter.each(problems, fn p -> io.print("${p}"))
 
     count = Iter.count(problems)
@@ -327,7 +327,7 @@ fn file_problems(db: Database, files: List<Input>) -> List<Problem> {
     |> Iter.flat_map(fn f -> {
         name = stem(f.path)
 
-        if !sqltext.name?(name) {
+        if !sqltext.is_name(name) {
             [
                 #Problem{
                     file: f.path,
@@ -413,7 +413,7 @@ fn table(t: describe.Table, migrations: List<Input>) -> Table {
                 name: c.name,
                 type_name: c.declared,
                 nullable: !c.not_null
-                    and !(c.primary_key and String.to_upper(c.declared) == "INTEGER"),
+                    and !(c.primary_key and String.uppercase(c.declared) == "INTEGER"),
                 primary_key: c.primary_key,
                 has_default: c.has_default,
                 values: Map.get(values, c.name) |> Maybe.with_default([]),
@@ -442,7 +442,7 @@ fn line_of_word(text: String, word: String, after: String) -> Int {
         0
     } else {
         tokens
-        |> Iter.find(fn t -> t.kind == Kind.Word and same?(t.text, after))
+        |> Iter.find(fn t -> t.kind == Kind.Word and is_same(t.text, after))
         |> Maybe.map(fn t -> t.end)
         |> Maybe.with_default(0)
     }
@@ -451,14 +451,14 @@ fn line_of_word(text: String, word: String, after: String) -> Int {
     |> Iter.find(fn t -> {
         t.start >= start
             and (t.kind == Kind.Word or t.kind == Kind.Quoted)
-            and same?(unquote(t.text), word)
+            and is_same(unquote(t.text), word)
     })
     |> Maybe.map(fn t -> line_at(text, t.start))
     |> Maybe.with_default(1)
 }
 
-fn same?(a: String, b: String) -> Bool {
-    String.to_lower(a) == String.to_lower(b)
+fn is_same(a: String, b: String) -> Bool {
+    String.lowercase(a) == String.lowercase(b)
 }
 
 fn unquote(text: String) -> String {
@@ -478,7 +478,7 @@ fn enum_values(create: String) -> Map<String, List<String>> {
             Vector.get(words, i + k) |> Maybe.map(fn t -> t.text) |> Maybe.with_default("")
         }
 
-        if same?(at(0), "CHECK") and at(1) == "(" and same?(at(3), "IN") and at(4) == "(" {
+        if is_same(at(0), "CHECK") and at(1) == "(" and is_same(at(3), "IN") and at(4) == "(" {
             values = read_values(words, i + 5, [])
 
             case values {
@@ -509,7 +509,7 @@ fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<St
         Some(t) when t.text == "," ->
             read_values(words, i + 1, acc)
 
-        Some(t) when t.text == ")" and !Iter.empty?(acc) ->
+        Some(t) when t.text == ")" and !Iter.is_empty(acc) ->
             Some(Iter.reverse(acc))
 
         _ ->
@@ -519,15 +519,13 @@ fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<St
 
 /// A query's result columns as SQLite describes them, or its error.
 fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, QueryError> {
-    if s.error != "" {
-        return Err(#QueryError{message: s.error, offset: s.offset})
-    }
+    if s.error != "" { return Err(#QueryError{message: s.error, offset: s.offset}) }
 
     // The tables an outer join may leave out: SQLite's plan marks each
     // `LEFT-JOIN`; a RIGHT or FULL join may leave out any of them.
     outer =
         s.plan
-        |> Iter.filter(fn line -> String.contains?(line, "LEFT-JOIN"))
+        |> Iter.filter(fn line -> String.contains(line, "LEFT-JOIN"))
         |> Iter.map(plan_alias)
         |> Iter.to_list()
 
@@ -535,11 +533,11 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
 
     nullable_tables =
         names
-        |> Iter.filter(fn #(_, a) -> Iter.contains?(outer, a))
+        |> Iter.filter(fn #(_, a) -> Iter.contains(outer, a))
         |> Iter.map(fn #(t, _) -> t)
         |> Iter.to_list()
 
-    all_outer = sqltext.right_or_full_join?(tokens)
+    all_outer = sqltext.is_right_or_full_join(tokens)
     items = sqltext.select_items(tokens) |> Iter.to_vector()
     aligned = Vector.length(items) == Iter.count(s.columns)
 
@@ -548,7 +546,7 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
         |> Iter.with_index()
         |> Iter.map(fn #(i, c) -> {
             from_table = c.table != "" and c.origin != ""
-            outer_joined = all_outer or Iter.contains?(nullable_tables, c.table)
+            outer_joined = all_outer or Iter.contains(nullable_tables, c.table)
 
             // SQLite declares no type for an expression; one `CAST` to a type
             // declares it, which is how a sum keeps its DECIMAL scale.

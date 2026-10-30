@@ -151,7 +151,7 @@ func stdStructRowField(nomi string, i int) stdStructField {
 // resulting kind exactly as it covers every other.
 func stdListOfEnumField(nomi string, i int) stdStructField {
 	return stdStructField{nomi: nomi, kindOf: func([]*typeDef) kind {
-		return listKindIn(nil, named(stdEnumDefs()[i]))
+		return listKindIn(nil, named(stdEnumShells()[i]))
 	}}
 }
 
@@ -322,7 +322,7 @@ func stdEmptyListDefault() *stdFieldDefault {
 func stdEmptyMapDefault() *stdFieldDefault {
 	return &stdFieldDefault{shape: func(n ast.Node) bool {
 		m, isMap := n.(*ast.MapLit)
-		return isMap && len(m.Entries) == 0 && m.Spread == nil && m.TypeName == nil
+		return isMap && len(m.Entries) == 0 && len(m.Spreads) == 0 && m.TypeName == nil
 	}, lit: stdDefaultLit{form: stdDefaultEmptyMap}}
 }
 
@@ -845,6 +845,9 @@ const (
 	stdSpecCalendarTime           = 14
 	// The last row, named by AssertionFailure.subtests.
 	stdSpecSubtestFailure = 25
+	// std/json's two errors, the payloads of the `Json.Error` enum row.
+	stdSpecJsonDecodeError = 16
+	stdSpecJsonShapeError  = 17
 )
 
 // stdStructDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -857,14 +860,7 @@ var stdStructDefs = sync.OnceValue(func() []*typeDef {
 	// the `AssertionValue` def without either row having to be built first. A
 	// row's kindOf reads THIS slice and never stdStructDefs(), so the OnceValue
 	// cannot re-enter itself.
-	defs := make([]*typeDef, len(stdStructSpecs))
-	for i := range stdStructSpecs {
-		s := &stdStructSpecs[i]
-		defs[i] = &typeDef{nomi: s.nomi, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
-			// hand-written in rt, and a second declaration would be a second Go
-			// type for one Nomi type.
-			rtDeclared: true}
-	}
+	defs := stdStructShells()
 	for i := range stdStructSpecs {
 		for _, f := range stdStructSpecs[i].fields {
 			// Never boxed: boxing is for a field that can reach its own
@@ -882,6 +878,25 @@ var stdStructDefs = sync.OnceValue(func() []*typeDef {
 			d := defs[i]
 			d.fields = append(d.fields, fieldDef{nomi: f.nomi, k: f.kindOf(defs), stdDeflt: f.deflt})
 		}
+	}
+	return defs
+})
+
+// stdStructShells is the first pass of stdStructDefs on its own: one def
+// per spec with its identity and no fields. stdEnumDefs names a row's
+// shell for an enum payload (`Json.Error.Decode`'s `Json.DecodeError`)
+// while stdStructDefs may name an enum's def for a field (`Error.path`'s
+// `PathSegment`), so each table's second pass reads the other's shells and
+// never the other's OnceValue, and neither can re-enter the other.
+// stdStructDefs fills these same pointers.
+var stdStructShells = sync.OnceValue(func() []*typeDef {
+	defs := make([]*typeDef, len(stdStructSpecs))
+	for i := range stdStructSpecs {
+		s := &stdStructSpecs[i]
+		defs[i] = &typeDef{nomi: s.nomi, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
+			// hand-written in rt, and a second declaration would be a second Go
+			// type for one Nomi type.
+			rtDeclared: true}
 	}
 	return defs
 })
@@ -911,7 +926,7 @@ func stdStructKindOfGoType(t reflect.Type) kind {
 // surface for a type a program writes down: `d: DateTime` needs `DateTime`
 // imported. It is NOT the whole surface for a type the CHECKER solved. A file
 // whose only mention of std/compiler is `compiler.check(src)` never names
-// `Diagnostic` at all, and the `fn diagnostic ->` in `Iter.any?` over the result
+// `Diagnostic` at all, and the `fn diagnostic ->` in `Iter.any` over the result
 // still has that type (as in
 // tests/15-app-and-defer/os_env_boot_only_test.nomi).
 //
@@ -1197,7 +1212,6 @@ func (g *gen) loadStdStructs() {
 	}
 	g.stdStructsLoaded = true
 	g.stdStructByDecl, g.stdStructByName = stdStructAnchors(g.fa)
-	stdSynthStructAnchors(g.fa, g.stdStructByName)
 }
 
 // stdStructDeclared reports the spec index for a struct declaration this module

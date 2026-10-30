@@ -266,7 +266,7 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 			var failed *BootError
 			if errors.As(err, &failed) {
 				// A boot that returned `Err` ends the case before its body,
-				// reported as a `try` on the `boot` line that returned the
+				// reported as a `?` on the `boot` line that returned the
 				// `Err` would be. rt's case cleanup runs what boot deferred.
 				return &rt.EarlyReturnFailure{Line: group.BootLine, Expr: group.BootText,
 					Value: rt.RowText(failed.result)}
@@ -289,15 +289,15 @@ func (m *Machine) limitedTestFn(fn *ir.Func, group ir.TestGroup, unrunnable *[]s
 			// stop's doing.
 			return limit.failure(fn, err)
 		}
-		// A `try` whose boundary is the test body: the case ended early, and
+		// A `?` whose boundary is the test body: the case ended early, and
 		// the report is an rt.EarlyReturnFailure — the try's line, its text
 		// as the formatter renders it, and the propagated variant as
 		// rt.RowText renders it.
 		var early *tryReturn
 		if errors.As(err, &early) && early.at != nil {
-			// A `try` that carried an AssertionFailure (`try testing.check(e)`)
+			// A `?` that carried an AssertionFailure (`testing.check(e)?`)
 			// is that assertion's failure, so the report is the check's own,
-			// and the `try` was only transport.
+			// and the `?` was only transport.
 			if f, isFailure := rowVerdict(err); isFailure {
 				return f
 			}

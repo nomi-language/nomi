@@ -43,7 +43,7 @@ struct Loose {
   note: String
 }
 impl Equatable for Loose {
-  fn equal?(a: Loose, b: Loose) -> Bool { a.id == b.id }
+  fn equal(a: Loose, b: Loose) -> Bool { a.id == b.id }
 }
 fn same(a: Loose, b: Loose) -> Bool { a == b }
 fn main() {
@@ -54,8 +54,8 @@ fn main() {
 }
 
 // `==`, `<` and `Hashable.hash` on fields of the impl's own type inside its
-// `equal?`, `compare` and `hash` recurse into the children and end with the
-// data. The builder declined a `==` inside the `equal?` it would call.
+// `equal`, `compare` and `hash` recurse into the children and end with the
+// data. The builder declined a `==` inside the `equal` it would call.
 func TestIRStructEquality_ImplRecursesIntoItsOwnTypeFields(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 enum Tree {
@@ -63,7 +63,7 @@ enum Tree {
   Node#(Tree, Int)
 }
 impl Equatable for Tree {
-  fn equal?(a: Tree, b: Tree) -> Bool {
+  fn equal(a: Tree, b: Tree) -> Bool {
     case #(a, b) {
       #(.Leaf, .Leaf) -> True
       #(.Node(l, x), .Node(r, y)) -> x == y and l == r

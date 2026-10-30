@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 40
+const FormatVersion = 43
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -865,6 +865,13 @@ func (e *encoder) instr(w *wbuf, in Instr) {
 		}
 		w.uv(e.str(text))
 		w.uv(e.sym(n.typ))
+		// A big Int literal's value, in base 10; empty for every other
+		// constant.
+		var bigText string
+		if n.big != nil {
+			bigText = n.big.String()
+		}
+		w.uv(e.str(bigText))
 	case *Bind:
 		w.byte1(tagBind)
 		e.pos(w, n.pos)

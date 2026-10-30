@@ -11,9 +11,11 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: luhn.nomi
+//# Validates numbers with the Luhn checksum.
+
 /// Reports whether `number` passes the Luhn checksum. Spaces are ignored;
 /// any other non-digit, or fewer than two digits, makes it invalid.
-pub fn valid?(number: String) -> Bool {
+pub fn is_valid(number: String) -> Bool {
     digits =
         number
         |> String.replace(" ", "")
@@ -77,7 +79,7 @@ test "validates numbers with the Luhn checksum" {
     ]
 
     subtests cases, #(description, number, expected), description {
-        assert luhn.valid?(number) == expected
+        assert luhn.is_valid(number) == expected
     }
 }
 ```

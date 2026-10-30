@@ -10,8 +10,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/isogram.
 ## Choices
 
 - The letters are the case-folded phrase's codepoints (`String.fold_case`,
-  which is for comparing, rather than `String.to_lower`) filtered by
-  `Codepoint.letter?`, which keeps every Unicode letter and drops everything
+  which is for comparing, rather than `String.lowercase`) filtered by
+  `Codepoint.is_letter`, which keeps every Unicode letter and drops everything
   else. `String.find_all(Regex`\pL`)` keeps the same codepoints in one stage
   instead of three, but a reader has to know `\pL`, and the filter says
   "keep the letters" in words. Filtering out `" "` and `"-"` by hand matches

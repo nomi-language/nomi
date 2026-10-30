@@ -219,13 +219,7 @@ func buildExternTypeShell(fa *FileAnalysis, n *ast.ExternType) Type {
 //  1. Register all user-defined type names so they can reference each other.
 //  2. Resolve type details and attach to symbols.
 func BuildTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	return buildTypes(fa, nodes, fa.Program().StdlibModuleScopes)
-}
-
-// buildTypes is BuildTypes against the stdlib module scopes stdlib, which a
-// project build passes before its files have their Program.
-func buildTypes(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) []TypeError {
-	ft := startFileTyping(fa, nodes, stdlib)
+	ft := startFileTyping(fa, nodes)
 	ft.typeDeclarations()
 	ft.typeSignatures()
 	declErrs, bodyErrs := ft.finish()
@@ -253,7 +247,7 @@ type fileTyping struct {
 
 // startFileTyping is BuildTypes' pass 1 over fa: the registry of the
 // file's own types and the ones it sees.
-func startFileTyping(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scope) *fileTyping {
+func startFileTyping(fa *FileAnalysis, nodes []ast.Node) *fileTyping {
 	reg := NewTypeRegistry()
 
 	// Pre-populate registry with types from parent scopes (e.g. primitives types
@@ -379,7 +373,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, stdlib map[string]*Scop
 	// supposed to be symmetric.
 	registerModuleQualifiedTypes(reg, fa.ModuleScope)
 
-	return &fileTyping{fa: fa, nodes: nodes, reg: reg, decls: newDeclTyping(fa, reg, nodes, stdlib, unnamed)}
+	return &fileTyping{fa: fa, nodes: nodes, reg: reg, decls: newDeclTyping(fa, reg, nodes, unnamed)}
 }
 
 // typeDeclarations is pass 2's first half (declTyping.typeDeclarations).
@@ -437,7 +431,6 @@ type declTyping struct {
 	fa      *FileAnalysis
 	reg     *TypeRegistry
 	nodes   []ast.Node
-	stdlib  map[string]*Scope
 	unnamed map[string]bool
 	// An alias is built at its declaration or at the first lookup of its
 	// name, whichever comes first (newAliasBuilder).
@@ -446,9 +439,9 @@ type declTyping struct {
 	errs [][]TypeError
 }
 
-func newDeclTyping(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node, stdlib map[string]*Scope, unnamed map[string]bool) *declTyping {
+func newDeclTyping(fa *FileAnalysis, reg *TypeRegistry, nodes []ast.Node, unnamed map[string]bool) *declTyping {
 	return &declTyping{
-		fa: fa, reg: reg, nodes: nodes, stdlib: stdlib, unnamed: unnamed,
+		fa: fa, reg: reg, nodes: nodes, unnamed: unnamed,
 		aliases: newAliasBuilder(fa, nodes, func(n *ast.TypeAlias) (*TypeRegistry, bool) {
 			_, owns := typeDeclSymbol(fa, fa.ModuleScope, n.Name, n.Line, n.Col)
 			return ownRegistry(fa, reg, n.Name, n.Line, n.Col), owns
@@ -504,7 +497,7 @@ func (d *declTyping) typeSignatures() {
 			if isAutoSynthImplFor(n, d.unnamed) {
 				continue
 			}
-			d.errs[i] = buildImplBlockTypes(fa, d.stdlib, reg, n)
+			d.errs[i] = buildImplBlockTypes(fa, reg, n)
 		}
 	}
 }
@@ -2083,8 +2076,8 @@ func appendUniqueInterface(items *[]*InterfaceType, value *InterfaceType) {
 // scope. Only `Ordering` needs an entry: the other signature types
 // synthesis emits (String, Int, Bool, the receiver itself) are registry
 // builtins or declared in the deriving file, and `Json` and
-// `Json.ShapeError` resolve through synthSupportRegistry, which
-// buildImplBlockTypes layers over a synthesized block's registry. Returns nil for anything
+// `Json.ShapeError` are named through the hidden `json$` import
+// (jsonType). Returns nil for anything
 // else — the caller then reports the ordinary resolution error, so a
 // synthesizer emitting an unexpected name still fails loudly.
 func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*TypeParam_, refs map[Pos]*Symbol) Type {
@@ -2124,7 +2117,7 @@ func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*T
 // item's resolved FuncType is attached to its symbol (looked up by position,
 // since impl-block fns are not always in module scope). Item-local type params
 // (`fn map<U>(...)`) layer on top of the block's generic params.
-func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRegistry, n *ast.ImplBlock) []TypeError {
+func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) []TypeError {
 	var errs []TypeError
 
 	// Derive-/auto-synthesized blocks (position in the synth band) are
@@ -2134,9 +2127,6 @@ func buildImplBlockTypes(fa *FileAnalysis, stdlib map[string]*Scope, reg *TypeRe
 	// (compilerKnownSynthType) instead of erroring; hand-written blocks
 	// keep ordinary scope/registry resolution.
 	synthBlock := IsSynthesizedLine(n.Line)
-	if synthBlock {
-		reg = synthSupportRegistry(fa, stdlib, reg)
-	}
 
 	// Block-level generics shared by every item signature. Use semantic clones
 	// so receiver-declared and block-level `where` constraints affect checking

@@ -82,9 +82,9 @@ func VectorGet[T any](v Vector[T], index int64) Maybe[T] {
 	return Some(v.Items[v.Start+int(index)])
 }
 
-// VectorAt is `Vector.at`: the element at a zero-based index. An index outside
-// the vector traps with IndexOutOfRangeText: the caller promised the position
-// exists, and `Vector.get` is the total sibling.
+// VectorAt is the element at a zero-based index the caller knows is in the
+// vector, as a comparison walking it does. An index outside the vector traps
+// with IndexOutOfRangeText; `Vector.get` is the total form.
 func VectorAt[T any](v Vector[T], index int64) T {
 	if !vectorInRange(v, index) {
 		Trap(IndexOutOfRangeText("Vector", index, int64(v.Len)))
@@ -92,8 +92,8 @@ func VectorAt[T any](v Vector[T], index int64) T {
 	return v.Items[v.Start+int(index)]
 }
 
-// vectorInRange is the bounds rule `get`, `at` and `set` share, so the three
-// agree about what "in range" is.
+// vectorInRange is the bounds rule `get`, `set` and VectorAt share, so the
+// three agree about what "in range" is.
 func vectorInRange[T any](v Vector[T], index int64) bool {
 	return index >= 0 && index < int64(v.Len)
 }
@@ -114,7 +114,7 @@ func VectorPush[T any](v Vector[T], item T) Vector[T] {
 }
 
 // VectorSet is `Vector.set`: a new vector with `index` replaced. An index
-// outside the vector traps with IndexOutOfRangeText, as `Vector.at` does.
+// outside the vector traps with IndexOutOfRangeText.
 //
 // Copies for VectorPush's reason. The bounds rule is vectorInRange.
 func VectorSet[T any](v Vector[T], index int64, item T) Vector[T] {

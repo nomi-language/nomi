@@ -49,6 +49,7 @@
 06-collections/maps_test.nomi
 06-collections/named_literals_test.nomi
 06-collections/sets_test.nomi
+06-collections/spreads_test.nomi
 06-collections/tuples_test.nomi
 06-collections/vectors_test.nomi
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi
@@ -117,6 +118,7 @@
 13-iterators-and-pipes/iter_values_test.nomi
 13-iterators-and-pipes/iterator_inference_test.nomi
 13-iterators-and-pipes/loop_control_test.nomi
+13-iterators-and-pipes/maybe_iter_test.nomi
 13-iterators-and-pipes/min_max_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi
 13-iterators-and-pipes/scan_map_reduce_test.nomi

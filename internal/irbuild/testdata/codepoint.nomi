@@ -18,7 +18,7 @@
 // The values under test are mostly outside ASCII, where `Int.to_codepoint`
 // is the only constructor reachable from outside std/code_points, and it
 // answers `Maybe<Codepoint>` because the type validates. A codepoint literal
-// (`'a'`) builds an ASCII one directly; codepoint_literal.nomi covers it. `try`
+// (`'a'`) builds an ASCII one directly; codepoint_literal.nomi covers it. `?`
 // only propagates out of a function that returns `Maybe`/`Result`, so each
 // group below is a small `Maybe`-returning helper plus a rendering that
 // supplies a visible sentinel for `None`, and every helper takes an Int so the
@@ -27,32 +27,32 @@ import std/io
 
 // --- the surface, one helper per declaration -------------------------------
 fn to_int_of(n: Int) -> Maybe<Int> {
-    Some(Codepoint.to_int(try Int.to_codepoint(n)))
+    Some(Codepoint.to_int(Int.to_codepoint(n)?))
 }
 
 fn to_string_of(n: Int) -> Maybe<String> {
-    Some(Codepoint.to_string(try Int.to_codepoint(n)))
+    Some(Codepoint.to_string(Int.to_codepoint(n)?))
 }
 
 fn inspect_of(n: Int) -> Maybe<String> {
-    Some(Codepoint.inspect(try Int.to_codepoint(n)))
+    Some(Codepoint.inspect(Int.to_codepoint(n)?))
 }
 
 fn next_of(n: Int) -> Maybe<Codepoint> {
-    Codepoint.next(try Int.to_codepoint(n))
+    Codepoint.next(Int.to_codepoint(n)?)
 }
 
 fn steps_of(a: Int, b: Int) -> Maybe<Int> {
-    Codepoint.steps_between(try Int.to_codepoint(a), try Int.to_codepoint(b))
+    Codepoint.steps_between(Int.to_codepoint(a)?, Int.to_codepoint(b)?)
 }
 
 fn step_by_of(n: Int, by: Int) -> Maybe<Codepoint> {
-    Codepoint.step_by(try Int.to_codepoint(n), by)
+    Codepoint.step_by(Int.to_codepoint(n)?, by)
 }
 
 /// Two Codepoints from SEPARATE `to_codepoint` calls, so nothing shares a value.
 fn equal_of(a: Int, b: Int) -> Maybe<Bool> {
-    Some(Codepoint.equal?(try Int.to_codepoint(a), try Int.to_codepoint(b)))
+    Some(Codepoint.equal(Int.to_codepoint(a)?, Int.to_codepoint(b)?))
 }
 
 /// `String.to_codepoints("abc")`'s result, built SEPARATELY by the program out
@@ -76,8 +76,8 @@ fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint> {
 /// The rt-built chain for `s` against the VM-built one, compared ELEMENT BY
 /// ELEMENT and in order through `join_points`.
 ///
-/// Written as a comparison of renderings rather than `List.equal?`, and the
-/// reason is a measurement rather than convenience: `List.equal?` on a
+/// Written as a comparison of renderings rather than `List.equal`, and the
+/// reason is a measurement rather than convenience: `List.equal` on a
 /// `List<Codepoint>` is REFUSED — `equality on a List of an incomparable
 /// element` — because g.comparator answers no for a NAMED element type, which is
 /// the same decision `==` on a named type takes. So this position refuses
@@ -86,9 +86,9 @@ fn literal_abc(a: Codepoint, b: Codepoint, c: Codepoint) -> List<Codepoint> {
 /// with no pointer anywhere in the path, which is what this fixture needs;
 /// both chains are built from the same input string.
 fn same_as_literal(s: String) -> Maybe<Bool> {
-    a = try Int.to_codepoint(97)
-    b = try Int.to_codepoint(98)
-    c = try Int.to_codepoint(99)
+    a = Int.to_codepoint(97)?
+    b = Int.to_codepoint(98)?
+    c = Int.to_codepoint(99)?
     Some(join_points(String.to_codepoints(s)) == join_points(literal_abc(a, b, c)))
 }
 

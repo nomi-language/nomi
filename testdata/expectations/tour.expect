@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 346
+records 347
 declared-cases 164
 failing 0
 C bindings-and-expressions.md:L116
@@ -68,11 +68,11 @@ T
 C bindings-and-expressions.md:L288
 E 0
 N 0
-H 575e30ad8b3b644f3e83f4d1db6d9c1ae721ad9f19e91b5799c26fbb346e9369
+H 7a8634bd228372f1120461ec2c4c02dde0cd8bd16dcac60cedf6577e10744b87
 T dbg line 5:
 T   "  JANE  "
 T   |> String.trim()
-T   |> String.to_lower()
+T   |> String.lowercase()
 T   = "jane"
 T
 C bindings-and-expressions.md:L30
@@ -181,15 +181,15 @@ T
 C collections.md:L134
 E 0
 N 0
-H 066faad5a4bc97f6db2b1aee91ec69a2f83a2e3617c7b4bd4e907a5b9b23cdcd
+H 3072abc1927cc8b30a3fa6456b846574a8a82cb7ead65734ad5379abc79575a7
 T dbg line 6: names = #["Ada", "Grace", "Katherine"]
 T dbg line 7: Vector.length(names) = 3
 T dbg line 8: Vector.get(names, 1) = Some("Grace")
 T dbg line 9: Vector.get(names, 5) = None
-T dbg line 10: Vector.at(names, 1) = "Grace"
+T dbg line 10: Vector.get(names, 1)! = "Grace"
 T dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 T
-C collections.md:L180
+C collections.md:L182
 E 0
 N 0
 H 0e85b8ef3b9e9268d3d7ed690929ace32825b47962b510f1b26b28e37edb0454
@@ -198,7 +198,7 @@ T dbg line 18: ends(#[7]) = "just 7"
 T dbg line 19: ends(#[1, 2, 3]) = "1 to 3"
 T dbg line 20: sum(#[1, 2, 3, 4]) = 10
 T
-C collections.md:L221
+C collections.md:L223
 E 0
 N 0
 H 7d90e5de8b76c61050edf03e6d430c195aac01f1562239e64b40859a8699b5c4
@@ -206,17 +206,17 @@ T dbg line 4: Map.size(config) = 2
 T dbg line 5: Map.get(config, "host") = Some("localhost")
 T dbg line 6: Map.get(config, "user") = None
 T
-C collections.md:L249
+C collections.md:L251
 E 0
 N 0
-H af813ad794e415777b30970da146d9bcc5db20c38e47b0eaefb41067fa4b5438
+H f1cfbe75e81a158446fd4528e0b88a812ecdbec9d30a494ae7a92d5b40ebad69
 T dbg line 4: Set.size(s) = 3
-T dbg line 5: Set.contains?(s, 2) = True
-T dbg line 6: Set.contains?(s, 9) = False
+T dbg line 5: Set.contains(s, 2) = True
+T dbg line 6: Set.contains(s, 9) = False
 T dbg line 7: s + %[4, 5] = %[1, 2, 3, 4, 5]
 T dbg line 8: s - %[1] = %[2, 3]
 T
-C collections.md:L288
+C collections.md:L290
 E 0
 N 0
 H 1ff27860b8a0d947165cda22986a09ea0f7dd9929aa24c44ba48ba1e91f08ec6
@@ -225,7 +225,7 @@ T dbg line 12: describe(%["guest"]) = "a guest"
 T dbg line 13: describe(%[]) = "nobody"
 T dbg line 14: describe(%["editor"]) = "someone else"
 T
-C collections.md:L324
+C collections.md:L326
 E 0
 N 0
 H eb5e9b422119bf2d0d274002720b28f0f985744a4cabf64f64249f2075019a8f
@@ -235,7 +235,7 @@ T dbg line 9: #["Ada", ..v] = #["Ada", "Bo"]
 T dbg line 10: %[..s, "blue"] = %["red", "blue"]
 T dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
-C collections.md:L357
+C collections.md:L359
 E 0
 N 0
 H b582aceee56a330f06400342e26c7dacc677d1fe95f781ace7ffa20634c26eb2
@@ -243,7 +243,7 @@ T dbg line 9: #{..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: %[.., "
 T dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
 T dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 T
-C collections.md:L398
+C collections.md:L400
 E 0
 N 0
 H 48f4f538f70bf0c6d1657f46f634c215ca968617f50a7ed2393b0b89347d5c5c
@@ -255,7 +255,7 @@ T   |> Iter.take(3)
 T   |> Iter.to_list()
 T   = [0, 1, 2]
 T
-C collections.md:L425
+C collections.md:L427
 E 0
 N 0
 H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
@@ -277,14 +277,14 @@ T squaring 4
 T squaring 5
 T dbg line 14: result = [16, 25]
 T
-C collections.md:L446
+C collections.md:L448
 E 0
 N 0
-H 1ff324bcbd4b480cb8e2658ba66e55daf1682cc823b821251fb37478e104b2a2
-T dbg line 2: Range.contains?("a".."m", "h") = True
-T dbg line 3: Range.contains?(0.0..=1.0, 1.0) = True
+H a38009fe2b3a466329c1eb82003fc43f40e3edd7fa2c08340f6f2c0214485fae
+T dbg line 2: Range.contains("a".."m", "h") = True
+T dbg line 3: Range.contains(0.0..=1.0, 1.0) = True
 T
-C collections.md:L463
+C collections.md:L465
 E 0
 N 0
 H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
@@ -294,7 +294,7 @@ T   |> Range.step_by(0.1d)
 T   |> Iter.to_list()
 T   = [1.0d, 1.1d, 1.2d, 1.3d]
 T
-C collections.md:L482
+C collections.md:L487
 E 0
 N 0
 H 43ef97883b36e821c8071cb694da0395cd0bae2256969f3bddb2b4125730ba46
@@ -353,23 +353,23 @@ N 0
 H daf67897ba4a63cc77d1260d20a68e49a1bf3dcb5864bc498d510432a94d2b74
 T dbg line 39: result = "timed out, falling back"
 T
-C databases.md:L106
+C databases.md:L144
 E 0
 N 0
-H fb0fb87c8b13e4d213d94d62c461a66b3cd9516aac084addedd72e2268885023
-T dbg line 7: statement.parts = ["SELECT id, name FROM users WHERE email = ", ""]
+H 9ddd588f5486458451b1e412d53cc311d4f02e535d66e1e51612c59c57a8b37d
+T dbg line 42: "${orders_query([], None, None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
+T dbg line 43: "${orders_query(["paid", "shipped"], Some(20d), None, .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
+T dbg line 44: "${orders_query(["paid"], None, Some("ada"), .Newest)}" = "SELECT id FROM orders WHERE (status IN (?1)) AND ((customer LIKE ?2) OR (email LIKE ?3)) ORDER BY placed_at DESC"
+T dbg line 45: orders_query(["paid"], None, Some("ada"), .Newest).params = [Text("paid"), Text("%ada%"), Text("%ada%")]
+T
+C databases.md:L96
+E 0
+N 0
+H ad7644bb362150d94e26cb30eeb2479a10d122c43b2dcc91b052506f66c92bb2
+T dbg line 7: "${statement}" = "SELECT id, name FROM users WHERE email = ?1"
 T dbg line 8: statement.params = [Text("x' OR '1'='1")]
-T dbg line 9: "${statement}" = "SELECT id, name FROM users WHERE email = ?1"
 T
-C databases.md:L147
-E 0
-N 0
-H 0f6aeac07907d2010a9b6396f89b54ee5f039298d8f2edb1826249f286540f91
-T dbg line 30: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
-T dbg line 31: "${orders_query(["paid", "shipped"], Some(20d), .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
-T dbg line 32: orders_query(["paid", "shipped"], Some(20d), .Largest).params = [Text("paid"), Text("shipped"), Decimal(20d)]
-T
-C dates-and-times.md:L111
+C dates-and-times.md:L109
 E 0
 N 0
 H 4030683a928e03a4f75056cbe550afef620f0edcfacfdc6125a092aca6a68eb1
@@ -378,15 +378,15 @@ T dbg line 13: Instant.to_seconds(later) = 1700000300
 T dbg line 17: Duration.as_seconds(gap) = 300
 T dbg line 18: later - start == gap = True
 T
-C dates-and-times.md:L152
+C dates-and-times.md:L150
 E 0
 N 0
-H 5272cfde8b77258f799d60bb7306d0520fb0942485fda6325b1bac10835f8ea7
-T dbg line 10: ny == paris = True
-T dbg line 11: ny = 2026-06-15T12:00:00-04:00[America/New_York]
-T dbg line 12: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
+H 067c8897998492851e82398e8790f3b02a4938e69b9cd704f0107053b72720bd
+T dbg line 7: ny == paris = True
+T dbg line 8: ny = 2026-06-15T12:00:00-04:00[America/New_York]
+T dbg line 9: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
 T
-C dates-and-times.md:L181
+C dates-and-times.md:L175
 E 0
 N 0
 H 641e12788d6d4732ffbdc30c10baf7d11017c31928c2a1f2fe0029fb3939fdc6
@@ -394,21 +394,21 @@ T dbg line 12: start = 2026-03-07T12:00:00-05:00[America/New_York]
 T dbg line 13: civil = 2026-03-08T12:00:00-04:00[America/New_York]
 T dbg line 14: physical = 2026-03-08T13:00:00-04:00[America/New_York]
 T
-C dates-and-times.md:L217
+C dates-and-times.md:L210
 E 0
 N 0
 H 43669045fccef0751eb3a9a34b38375366678d90ef69cde7c49e4fec5818b5a2
 T dbg line 8: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
 T dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
 T
-C dates-and-times.md:L265
+C dates-and-times.md:L258
 E 0
 N 0
 H 891b6618efcf4bdccc205ffc16eca032a2985173f4c34273d542e40ae6c02629
 T dbg line 9: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
 T dbg line 10: ny == tokyo = True
 T
-C dates-and-times.md:L295
+C dates-and-times.md:L288
 E 0
 N 0
 H ad6afc881afa6fd2d1bebd692df045ec4c3745ded6574020db3a25cec8d78ee1
@@ -417,17 +417,17 @@ T dbg line 17: later = 2026-11-01T01:30:00-05:00[America/New_York]
 T dbg line 24: later_sec - earlier_sec = 3600
 T dbg line 27: earlier == later = False
 T
-C dates-and-times.md:L31
+C dates-and-times.md:L32
 E 0
 N 0
-H d752743d445839053ed8219f886c8a8f3439bf03cd7a520d52c31b048f308237
-T dbg line 9: d = 2026-06-15
-T dbg line 12: dt = 2026-06-15T14:30:00-04:00[America/New_York]
-T dbg line 14: DateTime.year(dt) = 2026
-T dbg line 15: DateTime.month(dt) = 6
-T dbg line 16: DateTime.hour(dt) = 14
+H 9eafd840fad31c00c864740e4c191b52c42be4e143494b23acabbd7a7914af1d
+T dbg line 8: d = 2026-06-15
+T dbg line 11: dt = 2026-06-15T14:30:00-04:00[America/New_York]
+T dbg line 13: DateTime.year(dt) = 2026
+T dbg line 14: DateTime.month(dt) = 6
+T dbg line 15: DateTime.hour(dt) = 14
 T
-C dates-and-times.md:L66
+C dates-and-times.md:L65
 E 0
 N 0
 H 2ba6b582fa4b21afd71f501cbf7e36bf56daf1a021dd4c5acbdf959a1b22bdbb
@@ -494,9 +494,9 @@ T
 C examples/armstrong-numbers.md:L12
 E 0
 N 1
-H b8c815d382676bb45292504890399e30176970e9b8ab0210b054aa90d5c7e489
-T ok recognizes Armstrong numbers (9 cases)
-T test result: ok. 9 passed, 0 failed
+H 9fb0b204f3c567e43785d16abf65a775e7676bdc9cd7a42b6b60aa83d353a94d
+T ok recognizes Armstrong numbers (11 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C examples/atbash-cipher.md:L12
 E 0
@@ -1749,14 +1749,14 @@ T dbg line 9: xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list() = [3, 5, 7]
 T dbg line 10: xs |> Iter.map(&#Point{x: &1, y: 0}) |> Iter.to_list() = [#Point{x: 1, y: 0}, #Point{x: 2, y: 0}, #Point{x: 3, y: 0}]
 T dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
 T
-C generating-code.md:L386
+C generating-code.md:L272
 E 0
 N 1
 H f607418716a0883517ee56e497a6ae4293b02021c7a6e3024efb189f177b8a04
 T ok generated tables are current
 T test result: ok. 1 passed, 0 failed
 T
-C generating-code.md:L58
+C generating-code.md:L51
 E 0
 N 0
 H 035d3950800ba92bb9ccb32e6bbeea1ac17d6b00d6ad9ba69e681ae7ca5dff35
@@ -1969,15 +1969,14 @@ T
 C interfaces-and-dispatch.md:L519
 E 0
 N 0
-H f88edf1a782c8bf35268abdbca965b1b78d1395ab20944e728b5f9f31d7806cd
+H 780398cfde04da38b9d45f664a194d8c6c30c703dfae9fffc110405a9096adfd
 T dbg line 18: Json.encode(shape) = "{\"firstName\":\"Ada\",\"age\":36}"
-T dbg line 25:
+T dbg line 24:
 T   user
-T   |> ToJson.to_json()
-T   |> Json.encode()
+T   |> Json.encode_as()
 T   = "{\"firstName\":\"Ada\",\"age\":36}"
 T
-C interfaces-and-dispatch.md:L594
+C interfaces-and-dispatch.md:L596
 E 0
 N 0
 H c2c0c10a76f42369643f1823111f1f6495172318975a84270e10dbfc8afc9a19
@@ -1985,14 +1984,14 @@ T dbg line 7: #Point{x: 1, y: 2} == #Point{x: 1, y: 2} = True
 T dbg line 8: #Point{x: 1, y: 2} == #Point{x: 1, y: 3} = False
 T dbg line 9: %{#Point{x: 1, y: 2} => "home"} = %{#Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L649
+C interfaces-and-dispatch.md:L651
 E 0
 N 0
 H c28ec0b0d00be6b0bcb91f15e2b02a82c380db8ca91ea3b083e41c50820a9af3
 T dbg line 8: #Money{amount: 100} < #Money{amount: 250} = True
 T dbg line 11: Iter.sort(ms) = [#Money{amount: 1}, #Money{amount: 2}, #Money{amount: 3}]
 T
-C interfaces-and-dispatch.md:L675
+C interfaces-and-dispatch.md:L677
 E 0
 N 0
 H a13f73cc0db59201e1a1ea8d94eb09c1b105cd5dcf56627b6e3cdf1b3224c1c0
@@ -2000,18 +1999,12 @@ T dbg line 10: Severity.Info < Severity.Warning(1) = True
 T dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
 T dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
 T
-C interfaces-and-dispatch.md:L707
+C interfaces-and-dispatch.md:L709
 E 0
 N 0
 H 7e19a9e585a20e8395616f4f3df7b35f8674d950cf0296b9b7efeb01617df84e
 T dbg line 20: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 T dbg line 21: Coin.variants() |> Iter.map(cents) |> Iter.to_list() = [1, 5, 10, 25]
-T
-C interfaces-and-dispatch.md:L749
-E 0
-N 0
-H 6f47c96660718d8ae0829ad5e2b575de50bde592047b8a353886688e1a27f4f3
-T dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
 T
 C interfaces-and-dispatch.md:L75
 E 0
@@ -2021,13 +2014,19 @@ T Rex says woof
 T Rex says woof
 T 42
 T
-C interfaces-and-dispatch.md:L772
+C interfaces-and-dispatch.md:L751
+E 0
+N 0
+H 6f47c96660718d8ae0829ad5e2b575de50bde592047b8a353886688e1a27f4f3
+T dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
+T
+C interfaces-and-dispatch.md:L774
 E 0
 N 0
 H 15cdfa28f6cda88b57fafe0e1b3dfbf7c1d6fbbee9a42897ccb6fb3ab309730b
 T dbg line 17: oldest_first = [#User{name: "Bo", age: 41}, #User{name: "Ann", age: 35}, #User{name: "Cara", age: 35}]
 T
-C interfaces-and-dispatch.md:L870
+C interfaces-and-dispatch.md:L872
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da
@@ -2204,8 +2203,8 @@ T
 C locales-and-formatting.md:L665
 E 0
 N 0
-H 22fb84e53d4ac3ffacef140a51bce73268d4e51a676f0b43bb171c0c30a5c06d
-T dbg line 4: Iter.contains?(Locale.available(), Locale`pl`) = True
+H 472e9857dd5582ea0c9da217f0528d8949ed709cdc9a9824dffe429634a12d2f
+T dbg line 4: Iter.contains(Locale.available(), Locale`pl`) = True
 T dbg line 5: Iter.count(Locale.available()) = 765
 T
 C locales-and-formatting.md:L712
@@ -2220,10 +2219,10 @@ T
 C locales-and-formatting.md:L758
 E 0
 N 0
-H f4047f95f8500cba2230db4c85ee9ec70701e682d1ba9c25cc817f65aa6f4dd5
-T dbg line 4: String.to_upper("istanbul") = "ISTANBUL"
-T dbg line 5: String.to_upper_in("istanbul", Locale`tr`) = "İSTANBUL"
-T dbg line 6: String.to_lower_in("KIRMIZI", Locale`tr`) = "kırmızı"
+H 2d659b9ee692689fb70d6b2e61c0ef72f2b774489bfe1f7cef636cac104a08a7
+T dbg line 4: String.uppercase("istanbul") = "ISTANBUL"
+T dbg line 5: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
+T dbg line 6: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
 T dbg line 7: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 T
 C locales-and-formatting.md:L787
@@ -2246,13 +2245,13 @@ T dbg line 10: Decimal.format(2.665d, Locale`en-US`, max_fraction: 2, mode: .Hal
 T dbg line 11: Int.format(1234567, Locale`en-US`, grouping: False) = "1234567"
 T dbg line 12: Int.format(7, Locale`en-US`, min_digits: 2) = "07"
 T
-C modules-and-imports.md:L120
+C modules-and-imports.md:L121
 E 0
 N 0
 H 9a92adbc0cee38ef658c71ce1b1bf8c65668f166bfb213644c895ccb1ad07a25
 T 14
 T
-C modules-and-imports.md:L163
+C modules-and-imports.md:L164
 E 0
 N 0
 H 44183eb98184b643dc4025c17090ff82beb162181d4361d7e84ef5b3e7be3ea2
@@ -2267,12 +2266,18 @@ T 3
 T abcd
 T Ok(2026-05-27)
 T
-C modules-and-imports.md:L211
+C modules-and-imports.md:L212
 E 0
 N 0
 H 8edb29ad3fa5a82585349eec1056eeb77f2a018f84a67fd640ed9def17226968
 T 42
 T error: user IDs must be positive
+T
+C modules-and-imports.md:L404
+E 0
+N 0
+H 902f4d30a6318ad21ab741f67b38666b0049d410161f1b813e69f49ba1e3897a
+T Hello, Ada!
 T
 C modules-and-imports.md:L81
 E 0
@@ -2381,13 +2386,13 @@ T dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
 T dbg line 16: numbers = [1]
 T dbg line 17: errors = ["not a number: x", "not a number: y"]
 T
-C pattern-matching.md:L417
+C pattern-matching.md:L461
 E 0
 N 0
-H a2bf7852263729ec6b4793e45d0b1b95e3643441a10db5cf5670a4da1e2cd33f
-T dbg line 26: port(Some("3000")) = Ok(3000)
-T dbg line 27: port(Some("eighty")) = Err("bad port: eighty")
-T dbg line 28: port(None) = Ok(8080)
+H 87f15012b05f474b22bd8ccc5958e61583cea0877d1f17dd03d1abe82a09d6c2
+T dbg line 24: port(Some("3000")) = Ok(3000)
+T dbg line 25: port(Some("eighty")) = Err("bad port: eighty")
+T dbg line 26: port(None) = Ok(8080)
 T
 C pattern-matching.md:L51
 E 0
@@ -2432,11 +2437,11 @@ T
 C pipes.md:L186
 E 0
 N 0
-H 189fe06c5cef0e801006023392fe3183880d7857bad6fba05f3476eeab0150b4
+H b2163f0c27342950e2da5237b3d45d4e294dc63560977b510bf6b623bc268b91
 T dbg line 6:
 T   "  42  "
 T   |> String.trim()
-T   |> try String.to_int()
+T   |> String.to_int()?
 T   |> Some()
 T   = Some(42)
 T
@@ -2450,10 +2455,10 @@ T
 C pipes.md:L226
 E 0
 N 0
-H 0a300ca641470706b3816d9253e603d7598f7dc0842d3061ab00b0735009166d
+H 82aab11f83fb07e6c692ca5d64986be1cd935da6c571f2666918c164edf09ed4
 T dbg line 8:
 T   "Ada"
-T   |> if String.contains?("A") {
+T   |> if String.contains("A") {
 T       "initialed"
 T   } else {
 T       "plain"
@@ -2495,7 +2500,7 @@ H 2876bfc0caac1aefa2e0bbe450a2ecc97317495c62355a74ae265d0bd8f46996
 T dbg line 6: 10 |> then &divide(100, &1) = 10
 T dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
 T
-C scalars-and-strings.md:L101
+C scalars-and-strings.md:L104
 E 0
 N 0
 H 12bd532039fc4747d0e08b76d79b7f867e8f4b93beb1643ff270a34277f6eec8
@@ -2503,24 +2508,24 @@ T Hello, Nomi!
 T 1 + 2 = 3
 T Hello, Nomi
 T
-C scalars-and-strings.md:L130
+C scalars-and-strings.md:L133
 E 0
 N 0
 H 9953e026f3298c19f2d7af35814709dec91b610fa142a4439c8ab428c41c1ed0
 T echo ${HOME} costs $5 #{not a struct}
 T
-C scalars-and-strings.md:L164
+C scalars-and-strings.md:L167
 E 0
 N 0
-H aab58eb806f599ab71671f3b75185381fda4981448c818ce3eef309001135e64
+H 46198909b0b194029f8e1e3c79a133b7e8aadec5a2786e3163b020d93ed438fb
 T dbg line 6: String.split(text, ",") = ["one", " two", "three"]
 T dbg line 7: text |> String.split(Regex`,\s*`) = ["one", "two", "three"]
-T dbg line 8: String.contains?(text, Regex`\d`) = False
+T dbg line 8: String.contains(text, Regex`\d`) = False
 T
 C scalars-and-strings.md:L17
 E 0
 N 0
-H e160ae1639cb955762e9c3b18348cd2e486b7a519a09353d679480a03b095e6e
+H d7728f92f17c96d71156fd0999e3b10b223eaddb4ef8c93f6539c3f0a6f4ad10
 T dbg line 2: 42 + 8 = 50
 T dbg line 3: 10 - 3 = 7
 T dbg line 4: 2 * 21 = 42
@@ -2528,8 +2533,9 @@ T dbg line 5: 20 / 4 = 5
 T dbg line 6: -(3 + 4) = -7
 T dbg line 7: 42 > 10 = True
 T dbg line 8: True and !False = True
+T dbg line 9: Int.pow(2, 100) = 1267650600228229401496703205376
 T
-C scalars-and-strings.md:L206
+C scalars-and-strings.md:L209
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -2542,7 +2548,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L239
+C scalars-and-strings.md:L242
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -2553,14 +2559,14 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L275
+C scalars-and-strings.md:L280
 E 0
 N 0
-H eae8f3109ecc025c2a41c9cbe8776658c511899325e41be9c3c63c1efaa1ad56
+H d6c27b61e54b0138b5e6cdbc6a1ae884d7cc20949e2a2de107d4af10dd5ad2f3
 T dbg line 9:
 T   text
 T   |> String.to_codepoints()
-T   |> Iter.filter(Codepoint.letter?)
+T   |> Iter.filter(Codepoint.is_letter)
 T   |> Iter.map(Codepoint.to_string)
 T   |> String.join()
 T   = "Tél"
@@ -2571,7 +2577,7 @@ T   |> Iter.map(Codepoint.to_digit)
 T   |> Maybe.values()
 T   = [5, 5, 5, 0, 1]
 T
-C scalars-and-strings.md:L317
+C scalars-and-strings.md:L322
 E 0
 N 0
 H 1b5bde9ad561d4b30bcdc16febfa87be031bcbe6ca8905f1190ea023321d1b13
@@ -2579,7 +2585,7 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L355
+C scalars-and-strings.md:L360
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -2587,7 +2593,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L382
+C scalars-and-strings.md:L387
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -2597,20 +2603,20 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L430
+C scalars-and-strings.md:L435
 E 0
 N 0
-H 229a106b0ad7c67d236145262f7ea75c486e424d469847d5b275edafc5e4040f
-T dbg line 7: String.contains?(text, date) = True
+H e5b6e7d4be9fcc9c4cfafaac4a3e24127e91844b468400ab4359daec3bd2e501
+T dbg line 7: String.contains(text, date) = True
 T dbg line 8: String.find(text, Regex`\d+`) = Some("1042")
 T dbg line 9: String.find_all(text, date) = ["2026-10-25", "2026-10-26"]
 T dbg line 10: String.captures(text, date) = Some([Some("2026"), Some("10"), Some("25")])
 T dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"]
 T dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
-T dbg line 13: Regex.replace_all(date, text, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
+T dbg line 13: Regex.replace_all(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
 T dbg line 17: String.find_all(text, orders) = ["Order 1042", "order 977"]
 T
-C scalars-and-strings.md:L44
+C scalars-and-strings.md:L47
 E 0
 N 0
 H 1660525d2dd2eaeedc57386843db41201ef807cdb4109feb5611ce9ed50fe9b1
@@ -2619,7 +2625,7 @@ T dbg line 3: 0xFF = 255
 T dbg line 4: 0b1010 = 10
 T dbg line 5: 1.0e10 = 10000000000.0
 T
-C scalars-and-strings.md:L66
+C scalars-and-strings.md:L69
 E 0
 N 0
 H f297a45ff57ac8d197ce438387073999261bfd448ff36eff942b6ef0fe6283db

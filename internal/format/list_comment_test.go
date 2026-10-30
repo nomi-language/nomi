@@ -467,8 +467,8 @@ func TestListComment_AtTheBrackets(t *testing.T) {
 		{
 			// The parentheses stay for the comment, which they hold.
 			"inside grouping parentheses",
-			"fn f() -> Int {\n    y = try ( // why\n        g())\n    y\n}\n",
-			"fn f() -> Int {\n    y = try (\n        // why\n        g()\n    )\n\n    y\n}\n",
+			"fn f() -> Int {\n    y = ( // why\n        g())?\n    y\n}\n",
+			"fn f() -> Int {\n    y = (\n        // why\n        g()\n    )?\n\n    y\n}\n",
 		},
 		{
 			"a struct pattern in a case arm",

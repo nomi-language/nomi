@@ -65,9 +65,9 @@ impl Seed {
 }
 
 /// Unbiased integer in the inclusive range `[from, to]` plus the advanced
-/// state (host rejection sampling over the span counted without overflow, so
-/// every range up to all of `Int` draws). The Go adapter returns two values,
-/// which the FFI boundary projects element-by-element into this tuple.
+/// state (host rejection sampling over the span, so a range of any width
+/// draws). The Go adapter returns two values, which the FFI boundary
+/// projects element-by-element into this tuple.
 host fn between_state(state: Int, from: Int, to: Int) -> #(Int, Int)
 
 /// Float in `[0.0, 1.0)` plus the advanced state.
@@ -97,7 +97,7 @@ fn unit_float(Seed(state)) -> #(Float, Seed) {
 /// An immutable recipe for producing a `T`. Build one with a constructor
 /// (`Generator.int`, ...), reshape it with `map` / `flat_map`, then run it with
 /// `Generator.step`. `Generator.weighted` returns a `Result`, since its weights
-/// may come from data; unwrap it with `try` or `case` before composing.
+/// may come from data; unwrap it with `?` or `case` before composing.
 pub opaque struct Generator<T> {
     run: (Seed) -> #(T, Seed)
 }
@@ -121,14 +121,17 @@ impl Generator<T> {
     /// Uniform integer in the inclusive range `[from, to]`, which must hold
     /// `from <= to`. A reversed range traps: `Generator.int: from 6 is greater
     /// than to 1`. Compare the bounds first when they come from data. Any
-    /// range that passes draws, up to all of `Int`.
+    /// range that passes draws, of any width.
     //! die = Generator.int(1, 6)
     //! #(roll, _) = Generator.step(die, Seed.from_int(123))
     //! assert roll >= 1 and roll <= 6
     //! #(only, _) = Generator.step(Generator.int(4, 4), Seed.from_int(123))
     //! assert only == 4
-    //! #(n, _) = Generator.step(Generator.int(-5, Int.max_value), Seed.from_int(7))
+    //! #(n, _) = Generator.step(Generator.int(-5, 9_223_372_036_854_775_807), Seed.from_int(7))
     //! assert n >= -5
+    //! huge = Int.pow(10, 30)
+    //! #(big, _) = Generator.step(Generator.int(huge, huge * 2), Seed.from_int(7))
+    //! assert big >= huge and big <= huge * 2
     //
     pub fn int(from: Int, to: Int) -> Generator<Int> {
         require_int_range(from, to)
@@ -144,7 +147,7 @@ impl Generator<T> {
     //! #(x, _) = Generator.step(gen, Seed.from_int(123))
     //! assert x >= 1.5 and x < 2.5
     //! #(wide, _) = Generator.step(Generator.float(-1.0e308, 1.0e308), Seed.from_int(7))
-    //! assert Float.finite?(wide)
+    //! assert Float.is_finite(wide)
     //
     pub fn float(from: Float, to: Float) -> Generator<Float> {
         require_float_range(from, to)
@@ -181,7 +184,7 @@ impl Generator<T> {
     pub fn uniform<T>(first: T, rest: List<T>) -> Generator<T> {
         all = [first, ..rest] |> Iter.to_vector()
 
-        unsafe_int(0, Iter.count(rest)) |> map(&Vector.at(all, &1))
+        unsafe_int(0, Iter.count(rest)) |> map(&Vector.get(all, &1)!)
     }
 
     /// Weighted choice; each option carries a relative weight. Non-empty.
@@ -193,7 +196,7 @@ impl Generator<T> {
     //! assert Err(Error.ZeroWeightTotal) = Generator.weighted(#(0.0, "never"), [])
     //
     pub fn weighted<T>(first: #(Float, T), rest: List<#(Float, T)>) -> Result<Generator<T>, Error> {
-        total = try total_weight([first, ..rest], 0.0)
+        total = total_weight([first, ..rest], 0.0)?
 
         Ok(
             unsafe_float(0.0, total)
@@ -267,7 +270,7 @@ fn unsafe_float(from: Float, to: Float) -> Generator<Float> {
 
             // Finite bounds whose difference overflows (`-1.0e308` to
             // `1.0e308`) interpolate instead, where no term exceeds a bound.
-            if Float.finite?(span) {
+            if Float.is_finite(span) {
                 #(from + f * span, seed)
             } else {
                 #(from * (1.0 - f) + to * f, seed)
@@ -304,7 +307,7 @@ fn pick_weighted<T>(first: #(Float, T), rest: List<#(Float, T)>, target: Float) 
 fn total_weight<T>(items: List<#(Float, T)>, acc: Float) -> Result<Float, Error> {
     case items {
         [] ->
-            if Float.finite?(acc) == False {
+            if Float.is_finite(acc) == False {
                 Err(#Error.InvalidWeight{weight: acc})
             } else if acc > 0.0 {
                 Ok(acc)
@@ -313,7 +316,7 @@ fn total_weight<T>(items: List<#(Float, T)>, acc: Float) -> Result<Float, Error>
             }
 
         [#(w, _), ..tail] ->
-            if Float.finite?(w) == False {
+            if Float.is_finite(w) == False {
                 Err(#Error.InvalidWeight{weight: w})
             } else if w < 0.0 {
                 Err(#Error.InvalidWeight{weight: w})

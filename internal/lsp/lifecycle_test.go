@@ -345,12 +345,12 @@ func TestRPC_HoverWaitsForTheEditsAnalysis(t *testing.T) {
 	c.open(uri, text)
 	c.waitDiagnostics(uri)
 
-	edited := strings.Replace(text, "assert Ok(d) = Date\"2026-05-04\"", "assert Ok(renamed) = Date\"2026-05-04\"", 1)
+	edited := strings.Replace(text, "d = Date`2026-05-04`", "renamed = Date`2026-05-04`", 1)
 	c.change(uri, 2, edited)
 	start := time.Now()
 	var hover protocol.Hover
 	if err := c.conn.Call(context.Background(), "textDocument/hover", map[string]any{
-		"textDocument": map[string]any{"uri": uri}, "position": map[string]any{"line": 7, "character": 15},
+		"textDocument": map[string]any{"uri": uri}, "position": map[string]any{"line": 7, "character": 6},
 	}, &hover); err != nil {
 		t.Fatal(err)
 	}

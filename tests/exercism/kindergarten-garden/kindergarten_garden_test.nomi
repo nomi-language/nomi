@@ -31,7 +31,7 @@ group "partial garden" {
     }
 
     test "multiple students for the same garden with three students" {
-        garden = try Garden.parse("VVCCGG\nVVCCGG")
+        garden = Garden.parse("VVCCGG\nVVCCGG")?
 
         cases = [
             #("second student's garden", Student.Bob, [Plant.Clover, .Clover, .Clover, .Clover]),
@@ -45,7 +45,7 @@ group "partial garden" {
 }
 
 test "full garden" {
-    garden = try Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")
+    garden = Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")?
 
     cases = [
         #(

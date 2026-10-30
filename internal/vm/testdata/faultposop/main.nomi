@@ -1,12 +1,12 @@
-// The OPERATOR spelling of the same overflow, as the control: `big + 1` is on
+// The OPERATOR spelling of the same fault, as the control: `20 / zero` is on
 // line 7, and the operator path has always carried a real position.
 import std/io
 
-fn overflow_via_operator() -> Int {
-    big = 9223372036854775807
-    big + 1
+fn divide_via_operator() -> Int {
+    zero = 0
+    20 / zero
 }
 
 fn main() {
-    io.print(Int.to_string(overflow_via_operator()))
+    io.print(Int.to_string(divide_via_operator()))
 }

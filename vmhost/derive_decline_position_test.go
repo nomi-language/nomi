@@ -18,7 +18,7 @@ pub struct Money {
 }
 
 impl Equatable for Money {
-    fn equal?(a: Money, b: Money) -> Bool {
+    fn equal(a: Money, b: Money) -> Bool {
         a.cents == b.cents
     }
 }
@@ -59,12 +59,12 @@ fn main() {
 	}{
 		// The `derive` line, not `Money`'s written equal? in the other
 		// file, which the function's last segment also names.
-		{"Rec.equal?", "main.nomi:11:1: its body is not supported yet, so `fn Rec.equal?` cannot run"},
+		{"Rec.equal", "main.nomi:11:1: its body is not supported yet, so `fn Rec.equal` cannot run"},
 		{"Coin.hash", "money.nomi:15:1: its body is not supported yet, so `fn Coin.hash` cannot run"},
 		// The universal Debug: no line asks for it, so the type does.
 		{"Rec.inspect", "main.nomi:6:8: its body is not supported yet, so `fn Rec.inspect` cannot run"},
 		// A written impl function keeps its own line.
-		{"Money.equal?", "money.nomi:6:8: the body of `fn equal?` is not supported yet, so `fn Money.equal?` cannot run"},
+		{"Money.equal", "money.nomi:6:8: the body of `fn equal` is not supported yet, so `fn Money.equal` cannot run"},
 	} {
 		t.Run(c.fn, func(t *testing.T) {
 			ds := p.declineDiagnostics([]string{c.fn})

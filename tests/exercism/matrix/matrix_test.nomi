@@ -52,7 +52,7 @@ test "a word that is not a number is an error" {
 }
 
 test "an index past the last row or column is None" {
-    matrix = try Matrix.parse("1 2\n3 4")
+    matrix = Matrix.parse("1 2\n3 4")?
 
     assert Matrix.row(matrix, 3) == None
     assert Matrix.column(matrix, 0) == None

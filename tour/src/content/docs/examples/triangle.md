@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: triangle.nomi
+//# Whether a triangle is equilateral, isosceles or scalene.
+
 /// What a triangle's sides say about its shape.
 pub enum Kind {
     Equilateral
@@ -34,12 +36,12 @@ pub fn kind(#(a, b, c): #(Float, Float, Float)) -> Maybe<Kind> {
 }
 
 /// All three sides are equal.
-pub fn equilateral?(sides: #(Float, Float, Float)) -> Bool {
+pub fn is_equilateral(sides: #(Float, Float, Float)) -> Bool {
     kind(sides) == Some(.Equilateral)
 }
 
 /// At least two sides are equal, so every equilateral triangle is isosceles.
-pub fn isosceles?(sides: #(Float, Float, Float)) -> Bool {
+pub fn is_isosceles(sides: #(Float, Float, Float)) -> Bool {
     case kind(sides) {
         Some(.Equilateral or .Isosceles) -> True
         _ -> False
@@ -47,7 +49,7 @@ pub fn isosceles?(sides: #(Float, Float, Float)) -> Bool {
 }
 
 /// No two sides are equal.
-pub fn scalene?(sides: #(Float, Float, Float)) -> Bool {
+pub fn is_scalene(sides: #(Float, Float, Float)) -> Bool {
     kind(sides) == Some(.Scalene)
 }
 
@@ -64,7 +66,7 @@ test "equilateral triangle" {
     ]
 
     subtests cases, #(description, sides, expected), description {
-        assert triangle.equilateral?(sides) == expected
+        assert triangle.is_equilateral(sides) == expected
     }
 }
 
@@ -82,7 +84,7 @@ test "isosceles triangle" {
     ]
 
     subtests cases, #(description, sides, expected), description {
-        assert triangle.isosceles?(sides) == expected
+        assert triangle.is_isosceles(sides) == expected
     }
 }
 
@@ -98,7 +100,7 @@ test "scalene triangle" {
     ]
 
     subtests cases, #(description, sides, expected), description {
-        assert triangle.scalene?(sides) == expected
+        assert triangle.is_scalene(sides) == expected
     }
 }
 ```
@@ -109,4 +111,4 @@ test "scalene triangle" {
 - `kind` answers `Maybe<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
 - The kind comes from the size of the set of sides (1, 2 or 3 distinct lengths) rather than pairwise comparisons.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
-- `isosceles?` matches `Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one arm says both kinds count.
+- `is_isosceles` matches `Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one arm says both kinds count.

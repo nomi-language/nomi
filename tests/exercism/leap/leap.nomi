@@ -1,4 +1,8 @@
+//# Leap years in the Gregorian calendar.
+
+import std/calendar.Date
+
 /// Whether `year` is a leap year in the Gregorian calendar.
-pub fn leap_year?(year: Int) -> Bool {
-    year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+pub fn is_leap_year(year: Int) -> Bool {
+    Date.is_leap_year(year)
 }

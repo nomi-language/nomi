@@ -148,7 +148,7 @@ pub fn parse(path: String, text: String) -> Result<File, List<Problem>> {
 
     state = finish(path, read)
 
-    if Iter.empty?(state.problems) {
+    if Iter.is_empty(state.problems) {
         Ok(#File{path, imports: Iter.reverse(state.imports), queries: Iter.reverse(state.done)})
     } else {
         Err(Iter.reverse(state.problems))
@@ -184,7 +184,7 @@ fn step(path: String, s: State, number: Int, line: String) -> State {
                 None ->
                     before_queries(path, s, number, line)
 
-                Some(_) when s.in_doc and String.starts_with?(line, "--") ->
+                Some(_) when s.in_doc and String.starts_with(line, "--") ->
                     #{..s, lines: [doc_line(line), ..s.lines]}
 
                 Some(q) when s.in_doc ->
@@ -220,9 +220,9 @@ fn before_queries(path: String, s: State, number: Int, line: String) -> State {
         }
 
         None ->
-            if String.trim(line) == "" or String.starts_with?(String.trim(line), "--") {
+            if String.trim(line) == "" or String.starts_with(String.trim(line), "--") {
                 s
-            } else if s.problems |> Iter.any?(fn p -> p.message == sql_first()) {
+            } else if s.problems |> Iter.any(fn p -> p.message == sql_first()) {
                 s
             } else {
                 p = problem(path, number, 1, sql_first(), [
@@ -275,7 +275,7 @@ fn statement(path: String, q: Query, text: String) -> Result<String, Problem> {
     tokens = sqltext.tokens(text)
     solid = tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.to_list()
 
-    if Iter.empty?(solid) {
+    if Iter.is_empty(solid) {
         return Err(problem(path, q.line, 1, "`${q.name}` has no SQL", [
                 "write its SQL after the annotation, ending in `;`",
             ]))
@@ -322,11 +322,11 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
     chars = Iter.to_vector(line)
     first = String.length(line) - String.length(rest)
     start = skip_spaces(chars, first)
-    name_end = skip_while(chars, start, name_char?)
+    name_end = skip_while(chars, start, is_name_char)
     name = slice(chars, start, name_end)
     bad = fn col: Int, message: String -> Err(problem(path, number, col + 1, message, [usage()]))
 
-    if !sqltext.name?(name) {
+    if !sqltext.is_name(name) {
         return bad(start, "a query's name is lower case letters, digits and `_`")
     }
 
@@ -395,7 +395,7 @@ fn parameters(
             col = at_index + lead + 1
 
             case String.split(String.trim(text), ":") |> Iter.to_list() {
-                [name, first, ..more] when sqltext.name?(String.trim(name)) -> {
+                [name, first, ..more] when sqltext.is_name(String.trim(name)) -> {
                     type_text = String.join([first, ..more], ":") |> String.trim()
 
                     if type_text == "" {
@@ -419,14 +419,14 @@ fn parameters(
         })
         |> Result.collect()
 
-    params = try parsed
+    params = parsed?
 
     #(_, twice) = Iter.reduce(
         params,
         fn acc, p -> {
             #(seen, twice) = acc
 
-            if Iter.contains?(seen, p.name) and twice == None {
+            if Iter.contains(seen, p.name) and twice == None {
                 #(seen, Some(p))
             } else {
                 #([p.name, ..seen], twice)
@@ -512,18 +512,18 @@ fn skip_spaces(chars: Vector<String>, i: Int) -> Int {
     skip_while(chars, i, fn c -> c == " " or c == "\t")
 }
 
-fn name_char?(c: String) -> Bool {
-    c != "" and String.contains?("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+fn is_name_char(c: String) -> Bool {
+    c != "" and String.contains("abcdefghijklmnopqrstuvwxyz0123456789_", c)
 }
 
-fn space?(c: String) -> Bool {
+fn is_space(c: String) -> Bool {
     c == " " or c == "\t"
 }
 
 fn trim_start(s: String) -> String {
-    s |> Iter.drop_while(space?) |> String.join()
+    s |> Iter.drop_while(is_space) |> String.join()
 }
 
 fn trim_end(s: String) -> String {
-    s |> Iter.reverse() |> Iter.drop_while(space?) |> Iter.reverse() |> String.join()
+    s |> Iter.reverse() |> Iter.drop_while(is_space) |> Iter.reverse() |> String.join()
 }

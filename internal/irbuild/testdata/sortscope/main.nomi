@@ -51,7 +51,7 @@ import {
 //     row cannot be satisfied by an accidental native comparison.
 //   - `Unordered` reached through `==` ONLY. It has an `impl Equatable` in the
 //     same sibling file and NO `impl Comparable`, so a widened lookup that
-//     ignored the interface would find `equal?` where `compare` was wanted. The
+//     ignored the interface would find `equal` where `compare` was wanted. The
 //     `==` row proves the type is reachable, and there is deliberately NO
 //     ordering row for it: `Iter.sort` over a type with no `impl Comparable` is
 //     a FRONT-END error ("Unordered does not implement Comparable (required by

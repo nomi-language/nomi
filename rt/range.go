@@ -14,7 +14,7 @@ package rt
 //
 // and a range literal desugars to exactly that:
 // `ranges.Range{start, end: Some(e) | None, inclusive}` and nothing else. Every
-// operation over it — `contains?`, `bounded?`, `known_count`, `each_while` — is
+// operation over it — `contains`, `is_bounded`, `known_count`, `each_while` — is
 // an ordinary Nomi body over those three fields plus one interface method on the
 // element type. So there is no interval tree here, no normalization, and no
 // representation decision beyond field-for-field transcription.
@@ -47,7 +47,7 @@ package rt
 //	steps Discrete.steps_between    known_count
 //	step  Steppable.step_by         step_by
 //
-// `bounded?` takes none, which is the observable half of "a Range value needs no
+// `is_bounded` takes none, which is the observable half of "a Range value needs no
 // dictionary at all": it is `case r.end` and nothing more.
 //
 // # Every function here is std's own body with the recursion flattened
@@ -97,7 +97,7 @@ type Range[T any] struct {
 
 // --- queries, which need no Discrete ----------------------------------------
 
-// RangeContains is `Range.contains?` — `n >= start and n <= end` for an
+// RangeContains is `Range.contains` — `n >= start and n <= end` for an
 // inclusive range, `n >= start and n < end` for an exclusive one, and `n >=
 // start` alone when there is no upper bound.
 //
@@ -118,7 +118,7 @@ func RangeContains[T any](fr *Frame, r Range[T], n T, cmp func(fr *Frame, a, b T
 	return rank < 0
 }
 
-// RangeBounded is `Range.bounded?` — `case r.end { Some(_) -> True; None ->
+// RangeBounded is `Range.is_bounded` — `case r.end { Some(_) -> True; None ->
 // False }`.
 //
 // The one function here that takes no element method at all. See the header.
@@ -157,21 +157,37 @@ func RangeContainsFloat(r Range[float64], n float64) bool {
 //     and `1..=5` is 5, and `steps_between` may answer `None` — which is a
 //     legitimate "I cannot say without walking" from the element type and is
 //     passed through rather than converted to a walk.
-func RangeKnownCount[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, steps func(fr *Frame, a, b T) Maybe[int64]) Maybe[int64] {
+//
+// The count is an Int value of any size: `1..=Int.pow(10, 30)` has 10^30
+// elements, and known_count says so. A sequence's own count protocol counts in
+// int64 (Seq.Count), and RangeCount64 is this answer there.
+func RangeKnownCount[T any](fr *Frame, r Range[T], cmp func(fr *Frame, a, b T) Ordering, steps func(fr *Frame, a, b T) Maybe[Value]) Maybe[Value] {
 	if r.End.Tag != TagSome {
-		return None[int64]()
+		return None[Value]()
 	}
 	if OrderingRank(cmp(fr, r.Start, r.End.Some)) > 0 {
-		return Some[int64](0)
+		return Some[Value](int64(0))
 	}
 	n := steps(fr, r.Start, r.End.Some)
 	if n.Tag != TagSome {
-		return None[int64]()
+		return None[Value]()
 	}
 	if r.Inclusive {
-		return Some(n.Some + 1)
+		return Some(IntAdd(n.Some, int64(1)))
 	}
 	return n
+}
+
+// RangeCount64 is a range's known count as Seq.Count answers it, in int64. A
+// count past int64's range declines, as an element type that cannot say
+// does: no run reaches the end of such a range.
+func RangeCount64(n Maybe[Value]) Maybe[int64] {
+	if n.Tag == TagSome {
+		if c, ok := n.Some.(int64); ok {
+			return Some(c)
+		}
+	}
+	return None[int64]()
 }
 
 // RangeEachWhile is `impl Iter for Range<T> where T: Discrete`'s `each_while`.
@@ -240,16 +256,29 @@ func RangeSeq[T any](r Range[T], cmp func(fr *Frame, a, b T) Ordering, next func
 // different one for an element type whose ordering and equality disagree, so the
 // comparator is asked exactly as std asks it.
 //
-// The bound test uses `<=` / `<` where RangeEachWhile uses `>` / `>=`, because
-// std spells this one as `in_bounds` and that one as `done`. Same predicate,
-// opposite polarity; kept in each function's own spelling so either can be read
-// against its source.
+// The walk goes the way its first step goes. A step that moves the start
+// down walks down to the end, so `Range.step_by(5..=1, -1)` is 5, 4, 3, 2,
+// 1 and `5..1` stops before 1; one that moves it up walks up, as a plain
+// range does. A range whose end lies the other way is empty:
+// `Range.step_by(1..=5, -1)` is `[]`, as a zero step's is. The first step is
+// taken once, before the start's bound test, and its answer is the first
+// element's next value. A start whose first step saturates walks up, which
+// reaches only the start.
+//
+// The bound test reads `cur` against the end in the walk's direction, so it
+// uses `>` / `>=` as RangeEachWhile's `done` does when walking up, and the
+// mirror when walking down: std's `in_bounds` with the opposite polarity.
 func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Ordering, step func(fr *Frame, v T, by S) Maybe[T]) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		cur := r.Start
-		for {
+		nxt := step(fr, cur, by)
+		down := nxt.Tag == TagSome && OrderingRank(cmp(fr, nxt.Some, cur)) < 0
+		for first := true; ; first = false {
 			if r.End.Tag == TagSome {
 				rank := OrderingRank(cmp(fr, cur, r.End.Some))
+				if down {
+					rank = -rank
+				}
 				if r.Inclusive {
 					if rank > 0 {
 						return true
@@ -258,7 +287,9 @@ func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Orde
 					return true
 				}
 			}
-			nxt := step(fr, cur, by)
+			if !first {
+				nxt = step(fr, cur, by)
+			}
 			if nxt.Tag != TagSome {
 				// The element type saturated: `cur` is the last element.
 				return yield(fr, cur)

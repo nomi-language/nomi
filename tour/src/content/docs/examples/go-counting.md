@@ -63,7 +63,7 @@ pub fn territories(board: List<String>) -> Territories {
     points
     |> Iter.filter(fn #(_point, stone) -> stone == " ")
     |> Iter.reduce(fn found = empty, #(point, _stone) -> {
-        if claimed?(found, point) {
+        if is_claimed(found, point) {
             found
         } else {
             add(found, fill(points, point))
@@ -111,15 +111,15 @@ fn spread(
             around =
                 directions
                 |> Iter.map(fn #(dx, dy) -> #(x + dx, y + dy))
-                |> Iter.filter(&Map.contains?(points, &1))
+                |> Iter.filter(&Map.contains(points, &1))
                 |> Iter.to_list()
 
             #(empty, stones) = Iter.partition(around, fn point -> {
                 Map.get(points, point) == Some(" ")
             })
 
-            new = empty |> Iter.filter(fn point -> !Set.contains?(area, point)) |> Iter.to_list()
-            touched = stones |> Iter.map(&Map.get(points, &1)) |> Maybe.values() |> Iter.to_set()
+            new = empty |> Iter.filter(fn point -> !Set.contains(area, point)) |> Iter.to_list()
+            touched = stones |> Iter.map(&Map.get(points, &1)!) |> Iter.to_set()
 
             spread(
                 points,
@@ -131,8 +131,8 @@ fn spread(
     }
 }
 
-fn claimed?(found: Territories, point: Point) -> Bool {
-    [found.black, found.white, found.neither] |> Iter.any?(&Set.contains?(&1, point))
+fn is_claimed(found: Territories, point: Point) -> Bool {
+    [found.black, found.white, found.neither] |> Iter.any(&Set.contains(&1, point))
 }
 
 fn add(found: Territories, territory: Territory) -> Territories {

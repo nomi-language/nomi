@@ -18,7 +18,7 @@ func TestTestCommand_RelativePathsAreUnderTheModuleRoot(t *testing.T) {
 
 test "a relative path is under the module root" {
     assert fs.read_text("data/greeting.txt") == Ok("hello\n")
-    assert Result.map(fs.current_dir(), fn d -> String.ends_with?(d, "/app")) == Ok(True)
+    assert Result.map(fs.current_dir(), fn d -> String.ends_with(d, "/app")) == Ok(True)
 }
 `
 	mustWrite(t, filepath.Join(root, "greeting_test.nomi"), test)

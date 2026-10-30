@@ -4,7 +4,8 @@
 //   syntax     web-tree-sitter (grammar + queries/highlights.scm) on this thread
 //   semantics  the analyzer's tokens, from the Nomi wasm (async overlay)
 //   run        debounced, in a Web Worker so a runaway program can't freeze the page;
-//              a ```nomi-run manual block runs once when shown, then on its Run button
+//              a ```nomi-run manual block runs only on its Run button, and shows
+//              its recorded output (its expect block) until then
 // Served statically from /nomi/ (no bundling); web-tree-sitter + the wasm load
 // lazily when the first example scrolls into view.
 import { render, renderJson, renderToml } from "./highlight.mjs";
@@ -19,7 +20,18 @@ const FORMAT_DEBOUNCE_MS = 1500;
 const LOAD_BUDGET_MS = 120000;
 // execution allowance once running. A VM run lowers the block before running
 // it, measured at about 1.5 s under Node on a loaded machine.
+// TestTourWasmAnswersTheTourBlocks fails a block whose run under Node takes
+// more than half of it, since a browser runs the wasm slower than Node.
 const RUN_BUDGET_MS = 6000;
+// execution allowance for a ```nomi-run manual block, whose run is expensive
+// and which runs only when the reader asks. The same test holds a manual
+// block to half of it.
+const MANUAL_RUN_BUDGET_MS = 60000;
+// A block that runs as the reader edits shows its run's status only when the
+// run takes longer than this, so a fast run does not flicker.
+const STATUS_DELAY_MS = 300;
+const LOADING_STATUS = "Loading Nomi…";
+const RUNNING_STATUS = "Running…";
 const EDITOR_RENDER = Object.freeze({ showTrailingWhitespace: true });
 
 // --- syntax engine (main thread), initialized once, lazily ---
@@ -64,8 +76,9 @@ function syntax() {
 
 // --- execution worker (shared per page), created lazily, killed on timeout ---
 let worker = null;
-const pending = new Map(); // reqId -> { msg, cbs, loadTimer, runTimer }
+const pending = new Map(); // reqId -> { msg, cbs, budget, loadTimer, runTimer }
 const formatCbs = new Map(); // reqId -> { cb, msg }
+const semCbs = new Map(); // reqId -> { cb, msg }
 let reqSeq = 0;
 let formatSeq = 0;
 
@@ -102,11 +115,25 @@ function ensureWorker() {
       if (m.id === hoverReq) hoverCb?.(m.markdown);
       return;
     }
+    if (m.op === "sem") {
+      const f = semCbs.get(m.id);
+      if (f) {
+        semCbs.delete(m.id);
+        f.cb(m.semtokens);
+      }
+      return;
+    }
     const p = pending.get(m.id);
     if (!p) return;
+    if (m.kind === "start") {
+      // The worker has the wasm (and any module the run imports) and starts
+      // the run.
+      p.cbs.onStart?.();
+      return;
+    }
     if (m.kind === "sem") {
       clearTimeout(p.loadTimer);
-      p.runTimer = setTimeout(() => fail(m.id), RUN_BUDGET_MS);
+      p.runTimer = setTimeout(() => fail(m.id), p.budget);
       p.cbs.onSem?.(m.semtokens);
     } else {
       clearTimeout(p.loadTimer);
@@ -136,6 +163,7 @@ function killWorker() {
   }
   pending.clear();
   formatCbs.clear();
+  semCbs.clear();
 }
 
 // failAll reports one worker-wide failure to everything in flight, so a broken
@@ -161,13 +189,19 @@ function failAll(reason) {
 function restartWorker() {
   const runs = [...pending.values()];
   const formats = [...formatCbs.entries()];
+  const sems = [...semCbs.entries()];
   const hover = hoverCb;
   killWorker();
   hoverCb = null;
   hoverReq = null;
   hover?.("");
-  for (const p of runs) post(p.msg, p.cbs);
+  // The replacement loads the wasm again before it starts any of them.
+  for (const p of runs) {
+    p.cbs.onLoading?.();
+    post(p.msg, p.cbs, p.budget);
+  }
   for (const [id, f] of formats) postFormat(id, f);
+  for (const [id, f] of sems) postSem(id, f);
 }
 
 function fail(id) {
@@ -178,21 +212,22 @@ function fail(id) {
   p.cbs.onFail?.("execution timed out");
 }
 
-function post(msg, cbs) {
+function post(msg, cbs, budget = RUN_BUDGET_MS) {
   ensureWorker();
   const loadTimer = setTimeout(() => fail(msg.id), LOAD_BUDGET_MS);
-  pending.set(msg.id, { msg, cbs, loadTimer, runTimer: null });
+  pending.set(msg.id, { msg, cbs, budget, loadTimer, runTimer: null });
   worker.postMessage(msg);
 }
 
 // files names a multi-file source's Nomi tabs, whose semantic tokens the
 // worker answers per tab ({ file: tokens }). Tools run in the block's
 // project before the run (a ```nomi-run tool:<module>/<name> block), and
-// the run's answer carries the files they wrote.
-function dispatch(id, source, cbs, files, tools = []) {
+// the run's answer carries the files they wrote. A manual block's run gets
+// the longer budget.
+function dispatch(id, source, cbs, files, tools = [], manual = false) {
   const msg = files ? { id, source, files } : { id, source };
   if (tools.length) msg.tools = tools;
-  post(msg, cbs);
+  post(msg, cbs, manual ? MANUAL_RUN_BUDGET_MS : RUN_BUDGET_MS);
 }
 
 function dispatchStdlibTest(id, moduleName, context, source, cbs) {
@@ -208,6 +243,22 @@ function postFormat(id, f) {
 function requestFormat(source, cb, op = "format") {
   const id = "f" + ++formatSeq;
   postFormat(id, { cb, msg: { id, op, source } });
+}
+
+// requestSem asks for a source's semantic tokens without running it (a
+// ```nomi-run manual block before its first run); files names a multi-file
+// source's Nomi tabs, as for a run.
+let semSeq = 0;
+function postSem(id, f) {
+  ensureWorker();
+  semCbs.set(id, f);
+  worker.postMessage(f.msg);
+}
+
+function requestSem(source, files, cb) {
+  const id = "s" + ++semSeq;
+  const msg = files ? { id, op: "sem", source, files } : { id, op: "sem", source };
+  postSem(id, { cb, msg });
 }
 
 // --- hover (LSP hover via the worker; shared, latest-wins) ---
@@ -263,7 +314,7 @@ function fileLanguage(name) {
 }
 
 // tabLabel writes a tab's file name into btn, a file under a directory
-// (`generators/csvdata/csvdata.nomi`, a module of its own in the block) with
+// (`csvdata/csvdata.nomi`, a module of its own in the block) with
 // the directory muted, so the file's own name reads first.
 function tabLabel(btn, name) {
   const slash = name.lastIndexOf("/");
@@ -282,6 +333,20 @@ function tabLabel(btn, name) {
 const SETUP_FILES = new Set(["go.mod", "go.sum", "nomi.toml"]);
 function isSetupFile(name) {
   return SETUP_FILES.has(name.slice(name.lastIndexOf("/") + 1));
+}
+
+// projectDir is the directory a block runs in, from the block's root, as
+// vmhost.LoadMarked picks it: "" for a block whose root is its project,
+// else, for a block of sibling projects (no go.mod at its root, and one in
+// two or more top-level directories), the top-level directory of its first
+// file, with a trailing slash ("rates/").
+function projectDir(files) {
+  if (files.some((f) => f.name === "go.mod")) return "";
+  const modules = new Set(
+    files.filter((f) => /^[^/]+\/go\.mod$/.test(f.name)).map((f) => f.name.split("/")[0]),
+  );
+  if (modules.size < 2 || !files[0].name.includes("/")) return "";
+  return files[0].name.split("/")[0] + "/";
 }
 
 // usesTree says whether a multi-file block shows a file tree beside its
@@ -480,7 +545,7 @@ function treeNav(widget, bar, panes, first, select, controls = null) {
     const ul = document.createElement("ul");
     for (let [name, child] of node.dirs) {
       // A directory holding only one directory reads as one folder
-      // (`generators/choices`).
+      // (`a/b/` when `a/` holds only `b/`).
       while (child.files.length === 0 && child.dirs.size === 1) {
         const [[inner, grandchild]] = child.dirs;
         name += "/" + inner;
@@ -1105,7 +1170,7 @@ const LIVE_HELP_HTML =
   "<p>Hover any identifier in the code for its signature and docs.</p>" +
   "<p>Tab indents. Press Esc, then Tab, to move focus out of the editor.</p>";
 // The same tooltip for a ```nomi-run manual block's Run button: the block
-// runs once when it is shown, and after an edit only when asked.
+// runs only when asked.
 const MANUAL_HELP_HTML =
   "<p><strong>Interactive code.</strong> This example takes a moment to run, so edits run when you press <strong>Run</strong> (or Ctrl+Enter).</p>" +
   "<p>Hover any identifier in the code for its signature and docs.</p>" +
@@ -1135,22 +1200,130 @@ function outputPanel(label) {
   title.id = "nomi-out-" + ++panelSeq;
   title.textContent = label;
   panel.setAttribute("aria-labelledby", title.id);
-  head.append(title);
+  // A ```nomi-run manual block's note that the panel shows its recorded
+  // output, not a run's.
+  const note = document.createElement("span");
+  note.className = "nomi-out-note";
+  note.hidden = true;
+  // A run's status while it is in flight: "Loading Nomi…" while the worker
+  // loads, then "Running…" and the seconds since it started. The line is
+  // hidden from screen readers; the live region beside it announces each
+  // phase once, not each second.
+  const status = document.createElement("span");
+  status.className = "nomi-out-status";
+  status.setAttribute("aria-hidden", "true");
+  status.hidden = true;
+  const statusText = document.createElement("span");
+  const statusClock = document.createElement("span");
+  statusClock.className = "nomi-out-clock";
+  status.append(statusText, statusClock);
+  const announce = document.createElement("span");
+  announce.className = "nomi-sr-only";
+  announce.setAttribute("role", "status");
+  announce.setAttribute("aria-live", "polite");
+  head.append(title, note, status, announce);
   const out = document.createElement("pre");
   out.className = "nomi-out";
   out.setAttribute("aria-live", "polite");
   panel.append(head, out);
+  let current = null; // the run whose status shows
+  const clearStatus = () => {
+    if (!current) return;
+    clearTimeout(current.timer);
+    clearInterval(current.tick);
+    current = null;
+    status.hidden = true;
+    statusText.textContent = "";
+    statusClock.textContent = "";
+    announce.textContent = "";
+    out.classList.remove("is-dimmed");
+  };
   return {
     panel,
     head,
     out,
+    // beginRun shows a run's status after delay ms (at once for 0) and dims
+    // the output it will replace. The answer's loading and started move it
+    // between its phases, and end clears it; a later beginRun replaces it.
+    beginRun(delay) {
+      clearStatus();
+      const run = { shown: false, startedAt: null, timer: null, tick: null };
+      current = run;
+      const paint = () => {
+        if (!run.shown) return;
+        const text = run.startedAt === null ? LOADING_STATUS : RUNNING_STATUS;
+        if (statusText.textContent !== text) {
+          statusText.textContent = text;
+          announce.textContent = text;
+        }
+        const secs = run.startedAt === null ? 0 : Math.floor((Date.now() - run.startedAt) / 1000);
+        statusClock.textContent = secs > 0 ? " " + secs + "s" : "";
+      };
+      const show = () => {
+        run.shown = true;
+        status.hidden = false;
+        out.classList.add("is-dimmed");
+        paint();
+      };
+      if (delay > 0) run.timer = setTimeout(show, delay);
+      else show();
+      return {
+        loading() {
+          if (current !== run) return;
+          clearInterval(run.tick);
+          run.startedAt = null;
+          paint();
+        },
+        started() {
+          if (current !== run) return;
+          clearInterval(run.tick);
+          run.startedAt = Date.now();
+          run.tick = setInterval(paint, 1000);
+          paint();
+        },
+        end() {
+          if (current === run) clearStatus();
+        },
+      };
+    },
     // setHeading names what the output shows: a ```nomi-run error block's
     // intended failure gets the "on purpose" heading in place of the label.
     setHeading(onPurpose) {
       title.textContent = onPurpose ? EXPECTED_ERROR_HEADING : label;
       title.classList.toggle("is-expected", onPurpose);
     },
+    setNote(text) {
+      note.textContent = text || "";
+      note.hidden = !text;
+    },
   };
+}
+
+// The note over a ```nomi-run manual block's output before its first run.
+const RECORDED_NOTE = "Recorded output. Press Run to run it.";
+const UNRECORDED_NOTE = "Press Run to run it.";
+
+// showRecorded fills a ```nomi-run manual block's output panel before its
+// first run: the output its expect block records (null when it has none),
+// which the build carries in a hidden span (rehype-shiki.mjs), under the
+// same heading a run of the block as written gets.
+function showRecorded(panel, recorded, expectError, parser, query) {
+  panel.out.textContent = "";
+  panel.setHeading(expectError);
+  if (recorded === null) {
+    panel.setNote(UNRECORDED_NOTE);
+    return;
+  }
+  panel.setNote(RECORDED_NOTE);
+  if (recorded) appendRunText(panel.out, recorded, "", parser, query);
+  else panel.out.textContent = "(no output)";
+}
+
+// recordedOf answers the recorded output a ```nomi-run manual block's <pre>
+// carries, or null.
+function recordedOf(pre) {
+  const span = pre.querySelector("span[data-nomi-recorded]");
+  return span ? span.textContent : null;
 }
 
 const EXPAND_ICON =
@@ -1159,6 +1332,8 @@ const EXPAND_ICON =
 const CLOSE_ICON =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">' +
   '<path d="M3.5 3.5l9 9M12.5 3.5l-9 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+const RUN_LABEL = "Run this example. Edits run when you press Run or Ctrl+Enter.";
 
 // attachControls adds the widget's controls to host: the live dot (a
 // ```nomi-run manual block, onRun, has the Run button in its output
@@ -1174,8 +1349,12 @@ function attachControls(widget, host, output, expectError = false, onRun = null)
     dot.type = "button";
     dot.className = "nomi-run-button";
     dot.textContent = "Run";
-    dot.setAttribute("aria-label", "Run this example. Edits run when you press Run or Ctrl+Enter.");
-    dot.addEventListener("click", onRun);
+    dot.setAttribute("aria-label", RUN_LABEL);
+    // While a run is in flight the button is disabled with aria-disabled,
+    // not the disabled attribute, so it keeps the focus a press gave it.
+    dot.addEventListener("click", () => {
+      if (dot.getAttribute("aria-disabled") !== "true") onRun();
+    });
     output.head.append(dot);
   } else {
     dot = document.createElement("span");
@@ -1218,8 +1397,14 @@ function attachControls(widget, host, output, expectError = false, onRun = null)
     controls,
     // setRunning marks a manual block's Run button while its run is in
     // flight, and setStale while its code has changed since the last run.
+    // While running the button says so and is disabled.
     setRunning(active) {
-      if (onRun) dot.classList.toggle("is-running", active);
+      if (!onRun) return;
+      dot.classList.toggle("is-running", active);
+      dot.textContent = active ? "Running" : "Run";
+      dot.setAttribute("aria-label", active ? "Running" : RUN_LABEL);
+      if (active) dot.setAttribute("aria-disabled", "true");
+      else dot.removeAttribute("aria-disabled");
     },
     setStale(stale) {
       if (onRun) dot.classList.toggle("is-stale", stale);
@@ -1415,8 +1600,10 @@ async function enhance(pre) {
   const stdlibContext = pre.dataset.nomiStdlibContext || "";
 
   const expectError = pre.dataset.nomiExpect === "error";
-  // ```nomi-run manual: run once when shown, then when the reader asks.
+  // ```nomi-run manual: run only when the reader asks, and until then show
+  // the output the block records.
   const manual = pre.dataset.nomiManual === "1";
+  const recorded = manual ? recordedOf(pre) : null;
 
   const files = isStdlibTest ? null : splitFiles(source);
   if (files && files.length > 1) {
@@ -1428,14 +1615,15 @@ async function enhance(pre) {
       .split(" ")
       .filter(Boolean)
       .map((w) => ({ module: w.slice(0, w.indexOf("/")), name: w.slice(w.indexOf("/") + 1) }));
-    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, readOnlyGlobs, tools);
+    return enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, recorded, readOnlyGlobs, tools);
   }
 
   const widget = document.createElement("div");
   widget.className = "nomi-interactive" + (isStdlibTest ? " nomi-stdlib-test" : "");
   // A single-file block has the same bar as a multi-file one: the file's
-  // name on the left (a stdlib reference example has none) and the block's
-  // controls on the right, above the code rather than over it.
+  // name on the left (a stdlib reference example, which is a test body, says
+  // "Interactive Tests") and the block's controls on the right, above the code rather
+  // than over it.
   widget.innerHTML =
     '<div class="nomi-main">' +
     '<div class="nomi-bar"><span class="nomi-path nomi-path-single"></span></div>' +
@@ -1447,7 +1635,7 @@ async function enhance(pre) {
   const out = outputPanel("Output");
   widget.append(out.panel);
   pre.replaceWith(widget);
-  if (!isStdlibTest) widget.querySelector(".nomi-path-single").textContent = "main.nomi";
+  widget.querySelector(".nomi-path-single").textContent = isStdlibTest ? "Interactive Tests" : "main.nomi";
   const live = attachControls(widget, widget.querySelector(".nomi-bar"), out, expectError, manual ? () => run() : null);
   const headingFor = expectError ? expectedErrorTracker(source, live) : () => false;
 
@@ -1507,18 +1695,23 @@ async function enhance(pre) {
     block.req = id;
     const code = block.code;
     const captures = block.captures;
+    out.setNote("");
     live.setStale(false);
     live.setRunning(true);
+    const status = out.beginRun(manual ? 0 : STATUS_DELAY_MS);
     const runner = isStdlibTest
       ? (callbacks) => dispatchStdlibTest(id, stdlibModule, stdlibContext, code, callbacks)
-      : (callbacks) => dispatch(id, code, callbacks, undefined);
+      : (callbacks) => dispatch(id, code, callbacks, undefined, [], manual);
     runner({
+      onLoading: status.loading,
+      onStart: status.started,
       onSem: (sem) => {
         if (block.req === id) hl.innerHTML = render(captures, sem, code, EDITOR_RENDER);
       },
       onRun: (output, error) => {
         if (block.req !== id) return;
         live.setRunning(false);
+        status.end();
         showOutput(out, output, error, parser, query, headingFor(code, error));
         cleanFormatSource = error ? null : code;
         if (error) live.setFormatting(false);
@@ -1527,6 +1720,7 @@ async function enhance(pre) {
       onFail: (reason) => {
         if (block.req !== id) return;
         live.setRunning(false);
+        status.end();
         showError(out, reason);
         cleanFormatSource = null;
         live.setFormatting(false);
@@ -1576,7 +1770,19 @@ async function enhance(pre) {
   attachHover(ta, marked, DOMPurify, (line, col, cb) => requestHover(ta.value, line, col, cb));
 
   paint();
-  run();
+  if (!manual) {
+    run();
+    return;
+  }
+  // A manual block shows its recorded output and asks only for the
+  // analyzer's tokens, which a run would bring.
+  showRecorded(out, recorded, expectError, parser, query);
+  const id = ++reqSeq;
+  block.req = id;
+  const { code, captures } = block;
+  requestSem(code, null, (sem) => {
+    if (block.req === id && sem) hl.innerHTML = render(captures, sem, code, EDITOR_RENDER);
+  });
 }
 
 // attachHover wires LSP hover to an editor's textarea: map the mouse to a
@@ -1641,7 +1847,7 @@ function attachHover(ta, marked, DOMPurify, ask) {
 // the run builds it), so a name one tab imports from another resolves. A
 // tab's text is its file's text, so a position in the tab is a position in
 // that file and needs no offset. TOML tabs get neither.
-async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, readOnlyGlobs, tools = []) {
+async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, expectError, manual, recorded, readOnlyGlobs, tools = []) {
   const tree = usesTree(files);
   const widget = document.createElement("div");
   widget.className = "nomi-interactive nomi-multifile" + (tree ? " nomi-has-tree" : "");
@@ -1666,7 +1872,9 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
 
   // The block opens on its first file, the one the prose is about, unless
   // that is a setup file (go.mod, nomi.toml), which is never opened first.
-  let first = files.findIndex((f) => !isSetupFile(f.name));
+  // A block of sibling projects opens on its project's first such file.
+  const dir = projectDir(files);
+  let first = files.findIndex((f) => !isSetupFile(f.name) && f.name.startsWith(dir));
   if (first < 0) first = 0;
 
   const panes = files.map((file, i) => {
@@ -1806,9 +2014,13 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     const snapshots = nomiPanes.map((p) => ({ p, body: p.ta.value }));
     const stitched = stitchSource();
     const painted = nomiPanes.map((p) => ({ p, code: p.code, captures: p.captures }));
+    out.setNote("");
     live.setStale(false);
     live.setRunning(true);
+    const status = out.beginRun(manual ? 0 : STATUS_DELAY_MS);
     dispatch(id, stitched, {
+      onLoading: status.loading,
+      onStart: status.started,
       onSem: (sem) => {
         if (block.req !== id) return;
         for (const { p, code, captures } of painted) {
@@ -1818,6 +2030,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       onRun: (output, error, written) => {
         if (block.req !== id) return;
         live.setRunning(false);
+        status.end();
         // The files the block's tools wrote (the files `generate`
         // wrote) replace their tabs' text, as the tool replaces them
         // on disk.
@@ -1836,11 +2049,12 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
       onFail: (reason) => {
         if (block.req !== id) return;
         live.setRunning(false);
+        status.end();
         showError(out, reason);
         cleanFormatSnapshots = null;
         live.setFormatting(false);
       },
-    }, nomiPanes.map((p) => p.file.name), tools);
+    }, nomiPanes.map((p) => p.file.name), tools, manual);
   };
 
   let debounce;
@@ -1891,7 +2105,23 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     tabKeys(p.ta, hint);
   });
 
-  run();
+  if (!manual) {
+    run();
+    return;
+  }
+  // A manual block shows its recorded output, over the files as the block
+  // holds them (a tool's generated files as committed), and asks only for
+  // the analyzer's tokens, which a run would bring.
+  showRecorded(out, recorded, expectError, parser, query);
+  const id = ++reqSeq;
+  block.req = id;
+  const painted = nomiPanes.map((p) => ({ p, code: p.code, captures: p.captures }));
+  requestSem(stitchSource(), nomiPanes.map((p) => p.file.name), (sem) => {
+    if (block.req !== id || !sem) return;
+    for (const { p, code, captures } of painted) {
+      if (p.code === code) p.hl.innerHTML = render(captures, sem[p.file.name] || [], code, EDITOR_RENDER);
+    }
+  });
 }
 
 // showOutput writes a run's output and error into the output panel, and its

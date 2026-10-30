@@ -1,6 +1,8 @@
-/// The `stones`, each the dots on its two halves, laid in a chain, each turned as it must be, where touching
-/// halves match and the two free ends match each other; `None` when no
-/// order makes one.
+//# Lays a set of dominoes in a closed chain, where touching halves match.
+
+/// The `stones`, each the dots on its two halves, laid in a chain, each
+/// turned as it must be, where touching halves match and the two free ends
+/// match each other; `None` when no order makes one.
 pub fn chain(stones: List<#(Int, Int)>) -> Maybe<List<#(Int, Int)>> {
     case stones {
         [] -> Some([])
@@ -17,17 +19,13 @@ fn extend(
     laid: List<#(Int, Int)>,
     left: List<#(Int, Int)>,
 ) -> Maybe<List<#(Int, Int)>> {
-    if left == [] and start == end {
-        return Some(Iter.reverse(laid))
-    }
+    if left == [] and start == end { return Some(Iter.reverse(laid)) }
 
     left
     |> picks()
     |> Iter.flat_map(fn #(#(a, b), others) -> [#(#(a, b), others), #(#(b, a), others)])
     |> Iter.filter(fn #(#(a, _b), _others) -> a == end)
-    |> Iter.map(fn #(#(a, b), others) -> extend(start, b, [#(a, b), ..laid], others))
-    |> Iter.find(Maybe.some?)
-    |> Maybe.flat_map(fn found -> found)
+    |> Iter.find_map(fn #(#(a, b), others) -> extend(start, b, [#(a, b), ..laid], others))
 }
 
 /// Each stone of `stones` with the stones other than it.

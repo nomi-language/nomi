@@ -12,8 +12,6 @@
 package stdplural
 
 import (
-	"strconv"
-
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/stdlocale"
 	"github.com/nomi-language/nomi/rt"
@@ -48,8 +46,8 @@ func FFICardinalTag(fr *rt.Frame, locale, value string) int64 {
 }
 
 // FFIOrdinalTag is the ordinal category of value in locale.
-func FFIOrdinalTag(fr *rt.Frame, locale string, value int64) int64 {
-	ops, err := cldrdata.ParseOperands(strconv.FormatInt(value, 10))
+func FFIOrdinalTag(fr *rt.Frame, locale string, value rt.Int) int64 {
+	ops, err := cldrdata.ParseOperands(value.String())
 	if err != nil {
 		return int64(cldrdata.Other)
 	}

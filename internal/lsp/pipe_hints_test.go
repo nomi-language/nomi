@@ -67,19 +67,19 @@ func wantPipeHintsWith(t *testing.T, src string, settings inlayHintSettings, wan
 func TestPipeHints_Binding(t *testing.T) {
 	src := `struct User {
     name: String
-    active?: Bool
+    is_active: Bool
 }
 
 fn names(users: List<User>) -> List<String> {
     active = users
-    |> Iter.filter(.active?)    // the live ones
+    |> Iter.filter(.is_active)    // the live ones
     |> Iter.map(.name)
     |> Iter.to_list()
     active
 }
 `
 	wantPipeHints(t, src,
-		"8:29 Iter<User>",
+		"8:31 Iter<User>",
 		"9:23 Iter<String>",
 		"10:22 List<String>",
 	)
@@ -179,8 +179,7 @@ fn tagged(xs: List<Int>) -> List<#(Int, String)> {
 	)
 }
 
-// `|> try` shows the unwrapped value; `try` before a stage's call is one
-// stage line and shows the same.
+// A stage line ending in `?` shows the unwrapped value.
 func TestPipeHints_Try(t *testing.T) {
 	src := `fn parse(s: String) -> Result<Int, String> {
     case String.to_int(s) {
@@ -191,17 +190,15 @@ func TestPipeHints_Try(t *testing.T) {
 
 fn doubled(s: String) -> Result<Int, String> {
     n = s
-    |> parse()
-    |> try
+    |> parse()?
     m = s
-    |> try parse()
+    |> parse()?
     Ok(n + m)
 }
 `
 	wantPipeHints(t, src,
-		"10:15 Result<Int, String>",
-		"11:11 Int",
-		"13:19 Int",
+		"10:16 Int",
+		"12:16 Int",
 	)
 }
 
@@ -517,7 +514,7 @@ fn main() {
 func TestPipeHints_BindingShowsLastType(t *testing.T) {
 	src := `struct User {
     name: String
-    active?: Bool
+    is_active: Bool
 }
 
 once evens: List<Int> = [1, 2, 3]
@@ -526,11 +523,11 @@ once evens: List<Int> = [1, 2, 3]
 
 fn names(users: List<User>) -> List<String> {
     written: List<String> = users
-    |> Iter.filter(.active?)
+    |> Iter.filter(.is_active)
     |> Iter.map(.name)
     |> Iter.to_list()
     inferred = users
-    |> Iter.filter(.active?)
+    |> Iter.filter(.is_active)
     |> Iter.map(.name)
     |> Iter.to_list()
     List.concat(written, inferred)
@@ -538,17 +535,17 @@ fn names(users: List<User>) -> List<String> {
 `
 	wantPipeHints(t, src,
 		"7:35 Iter<Int>",
-		"12:29 Iter<User>",
+		"12:31 Iter<User>",
 		"13:23 Iter<String>",
-		"16:29 Iter<User>",
+		"16:31 Iter<User>",
 		"17:23 Iter<String>",
 		"18:22 List<String>",
 	)
 	wantPipeHintsWith(t, src, inlayHintSettings{PipeTypes: true, BindingTypes: true},
 		"7:35 Iter<Int>",
-		"12:29 Iter<User>",
+		"12:31 Iter<User>",
 		"13:23 Iter<String>",
-		"16:29 Iter<User>",
+		"16:31 Iter<User>",
 		"17:23 Iter<String>",
 	)
 }

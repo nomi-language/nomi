@@ -47,7 +47,7 @@ import std/io
 //     wrapping mix answers. The `wrapping` row is a 40-element vector of large
 //     Ints, which overflows the accumulator many times over: it prints a number
 //     or it faults.
-//   - `==` against `Vector.equal?`. The operator has to be CLAIMED by the
+//   - `==` against `Vector.equal`. The operator has to be CLAIMED by the
 //     builder's vector equality, because a Vector holds a slice that no
 //     plain comparison can judge. Both spellings are read so the claim and
 //     the method cannot drift.
@@ -167,9 +167,9 @@ fn main() {
     io.print("op eq ${#[1, 2, 3] == #[1, 2, 3]}")
     io.print("op neq ${#[1, 2, 3] == #[1, 2, 4]}")
     io.print("op ne ${#[1, 2] != #[1, 2]}")
-    io.print("equal? ${Vector.equal?(#[1, 2, 3], #[1, 2, 3])}")
-    io.print("equal? no ${Vector.equal?(#[1, 2, 3], #[1, 2, 4])}")
-    io.print("equal? len ${Vector.equal?(#[1, 2], #[1, 2, 3])}")
+    io.print("equal ${Vector.equal(#[1, 2, 3], #[1, 2, 3])}")
+    io.print("equal no ${Vector.equal(#[1, 2, 3], #[1, 2, 4])}")
+    io.print("equal len ${Vector.equal(#[1, 2], #[1, 2, 3])}")
     io.print("hash same ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 3])}")
     io.print("hash diff ${Vector.hash(#[1, 2, 3]) == Vector.hash(#[1, 2, 4])}")
 
@@ -252,7 +252,7 @@ fn main() {
     // predicate over the same Vector source through the same adapter chain.
     io.print(
         "iter filter ${#["ada", "grace"]
-        |> Iter.filter(&String.contains?(&1, "ace"))
+        |> Iter.filter(&String.contains(&1, "ace"))
         |> Iter.count()}"
     )
 

@@ -146,7 +146,7 @@ want the sender to wait for the hand-off.
 
 ## Errors cancel siblings
 
-Suppose one task in a block returns an `Err`. When `try` sees that `Err`
+Suppose one task in a block returns an `Err`. When a `?` sees that `Err`
 from [`Task.await`](/reference/tasks/#taskawait), the block stops. It
 cancels the other tasks, waits for them to stop, and returns the error:
 
@@ -171,8 +171,8 @@ fn main() {
     outcome = concurrent {
         short = Task.spawn(fn -> short_fail())
         long = Task.spawn(fn -> long_sleep())
-        n = try Task.await(short)
-        _ = try Task.await(long)
+        n = Task.await(short)?
+        _ = Task.await(long)?
         Ok(n)
     }
 
@@ -192,9 +192,9 @@ await the task that has it. It doesn't watch all its tasks in the
 background. Swap the two awaits above:
 
 ```nomi
-_ = try Task.await(long) // blocks the full five seconds
+_ = Task.await(long)? // blocks the full five seconds
 
-n = try Task.await(short) // the Err has been sitting here the whole time
+n = Task.await(short)? // the Err has been sitting here the whole time
 ```
 
 Now the program takes five seconds. It still returns `Err("boom")`, but only
@@ -242,7 +242,7 @@ import {
 // How many words a file holds.
 fn words(path: String) -> Result<Int, io.Error> {
     path
-    |> try fs.read_text()
+    |> fs.read_text()?
     |> String.words()
     |> Iter.count()
     |> Ok()
@@ -314,12 +314,12 @@ outcomes = concurrent {
     |> Task.await_all()
 }
 
-failures = Iter.filter(outcomes, fn r -> Result.err?(r))
+failures = Iter.filter(outcomes, fn r -> Result.is_err(r))
 ```
 
 The stopping in [Errors cancel siblings](#errors-cancel-siblings) happens
-because `try` sees an `Err`, or because a task breaks. Here, nothing uses
-`try` on the results, so each `Err` is just a value in the list.
+because a `?` sees an `Err`, or because a task breaks. Here, nothing uses
+`?` on the results, so each `Err` is just a value in the list.
 
 ### Choosing `max_running`
 
@@ -531,7 +531,7 @@ fn handle_order(id: Int) -> Response {
     priced = concurrent {
         validation = Task.spawn(fn -> validate(id))
         pricing = Task.spawn(fn -> price(id))
-        Ok(#(try Task.await(validation), try Task.await(pricing)))
+        Ok(#(Task.await(validation)?, Task.await(pricing)?))
     }
 
     resp = case priced {
@@ -845,13 +845,13 @@ cancelled or failed, `await` passes that on to the code that awaited it, as
 if it had happened there.
 
 A task that returns `Err` on purpose has completed. `await` gives you the
-`Err` as a value, and you pass it on with `try`, as in
+`Err` as a value, and you pass it on with `?`, as in
 [Errors cancel siblings](#errors-cancel-siblings). The two cases travel
 differently:
 
 | What happened | Passed on by | How |
 | --- | --- | --- |
-| The function returned `Err(e)` | `try` | as a value |
+| The function returned `Err(e)` | `?` | as a value |
 | The task failed or was cancelled | `await` | to the owner, and its owner, and so on |
 
 Nothing at the call site shows the second case. `Task.await` on a
@@ -910,7 +910,7 @@ test "signup sends a welcome email" {
 
     _ = Supervisor.flush(Config.notify)
 
-    assert sent_to?("ada@example.com")
+    assert was_sent_to("ada@example.com")
 }
 ```
 

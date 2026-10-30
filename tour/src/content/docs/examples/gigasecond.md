@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: gigasecond.nomi
+//# The moment one gigasecond after a given one.
+
 import std/calendar.{NaiveDateTime, Seconds}
 
 /// One gigasecond: a thousand million seconds.

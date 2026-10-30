@@ -214,7 +214,7 @@ func startsContinuationOperator(rest string) bool {
 		return true
 	}
 	for _, word := range []string{"and", "or"} {
-		if strings.HasPrefix(rest, word) && (len(rest) == len(word) || !isIdentPart(rest[len(word)]) && rest[len(word)] != '?') {
+		if strings.HasPrefix(rest, word) && (len(rest) == len(word) || !isIdentPart(rest[len(word)])) {
 			return true
 		}
 	}
@@ -1050,7 +1050,6 @@ var keywords = map[string]token.TokenType{
 	"todo":        token.TODO,
 	"unreachable": token.UNREACHABLE,
 	"self":        token.SELF,
-	"try":         token.TRY,
 	"then":        token.THEN,
 	"tap":         token.TAP,
 	// `open` is a contextual keyword, recognized by lexeme before an
@@ -1065,13 +1064,6 @@ func (l *lexer) scanIdentifier() {
 	start := l.pos
 	l.advance()
 	for !l.atEnd() && isIdentPart(l.peek()) {
-		l.advance()
-	}
-	// A single trailing `?` is part of the identifier (predicate convention,
-	// e.g. `empty?`, `starts_with?`). Trailing-only and single — `foo?bar`
-	// stays `foo?` + `bar`, `foo??` stays `foo?` + a stray `?`. Deliberately
-	// NOT added to isIdentPart, which would let `?` appear mid-identifier.
-	if !l.atEnd() && l.peek() == '?' {
 		l.advance()
 	}
 	lexeme := l.source[start:l.pos]
@@ -1173,6 +1165,9 @@ func (l *lexer) scanOperatorOrDelimiter() {
 			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol,
 				Problem: "a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`"})
 		}
+	case '?':
+		l.advance()
+		l.tokens = append(l.tokens, token.Token{Type: token.QUESTION, Lexeme: "?", Line: startLine, Col: startCol})
 	case '!':
 		if l.peekAt(1) == '=' {
 			l.advance()
@@ -1358,8 +1353,8 @@ func canEndStatement(tt token.TokenType) bool {
 		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
-		token.RETURN, token.BREAK, token.CONTINUE,
-		token.ASSERT, token.REFUTE, token.TRY, token.DBG, token.TODO,
+		token.RETURN, token.BREAK, token.CONTINUE, token.QUESTION,
+		token.ASSERT, token.REFUTE, token.DBG, token.TODO,
 		token.UNDERSCORE, token.PLACEHOLDER:
 		return true
 	default:

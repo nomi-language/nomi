@@ -4,8 +4,8 @@ test "set literals deduplicate inserted values" {
     s = %[one, two, 3, two, one]
 
     assert Set.size(s) == 3
-    assert Set.contains?(s, 2)
-    refute Set.contains?(s, 9)
+    assert Set.contains(s, 2)
+    refute Set.contains(s, 9)
 }
 
 test "singleton and empty set literals are sets" {
@@ -13,7 +13,7 @@ test "singleton and empty set literals are sets" {
     empty: Set<Int> = %[]
 
     assert Set.size(one) == 1
-    assert Set.contains?(one, 42)
+    assert Set.contains(one, 42)
     assert Set.size(empty) == 0
 }
 
@@ -37,7 +37,7 @@ test "sets support insertion and algebra operations" {
         Set.difference(a, b)
         |> Set.size()
 
-    assert Set.subset?(%[1, 2], a)
+    assert Set.is_subset(%[1, 2], a)
 
     assert inserted == 4
     assert union_size == 4
@@ -55,7 +55,7 @@ test "sets deduplicate structural values" {
 test "sets are iterable in insertion order" {
     assert %[3, 1, 2]
         |> Iter.to_list()
-        |> List.equal?([3, 1, 2])
+        |> List.equal([3, 1, 2])
 
     size =
         [5, 5, 6]
@@ -71,7 +71,7 @@ test "set iter pipelines can materialize back into sets" {
     assert xs
         |> Iter.map(&(&1 * 10))
         |> Iter.to_list()
-        |> List.equal?([10, 20, 30])
+        |> List.equal([10, 20, 30])
 
     doubled =
         %[1, 2, 3]
@@ -89,17 +89,17 @@ test "set iter pipelines can materialize back into sets" {
         |> Iter.to_set()
 
     assert Set.size(doubled) == 3
-    assert Set.contains?(doubled, 2)
-    assert Set.contains?(doubled, 4)
-    assert Set.contains?(doubled, 6)
+    assert Set.contains(doubled, 2)
+    assert Set.contains(doubled, 4)
+    assert Set.contains(doubled, 6)
 
     assert Set.size(parity) == 2
-    assert Set.contains?(parity, 0)
-    assert Set.contains?(parity, 1)
+    assert Set.contains(parity, 0)
+    assert Set.contains(parity, 1)
 
     assert Set.size(filtered) == 2
-    assert Set.contains?(filtered, 3)
-    assert Set.contains?(filtered, 4)
+    assert Set.contains(filtered, 3)
+    assert Set.contains(filtered, 4)
 }
 
 test "sets can feed iter reductions" {

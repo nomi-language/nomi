@@ -77,15 +77,15 @@ test "assert can match an error variant" {
 }
 ```
 
-When a value that might fail is only setup for the rest of the test, use
-`try`. If it fails, the test fails. Use a pattern assertion instead when the
+When a value that might fail is only setup for the rest of the test, end it
+with `?`. If it fails, the test fails. Use a pattern assertion instead when the
 result is the thing you are testing.
 
 ```nomi-run
 import std/calendar.Date
 
 test "formats parsed date" {
-    d = try Date.parse("2026-05-04")
+    d = Date.parse("2026-05-04")?
 
     assert Date.to_string(d) == "2026-05-04"
 }
@@ -143,13 +143,13 @@ before the pipeline's first value:
 test "pipeline assertions validate transformed values" {
     assert "  ADA LOVELACE  "
         |> String.trim()
-        |> String.to_lower()
-        |> String.equal?("ada lovelace")
+        |> String.lowercase()
+        |> String.equal("ada lovelace")
 
     refute "  GRACE HOPPER  "
         |> String.trim()
-        |> String.to_lower()
-        |> String.contains?("ada")
+        |> String.lowercase()
+        |> String.contains("ada")
 }
 ```
 
@@ -158,7 +158,7 @@ test "pipeline assertions validate transformed values" {
 `subtests` runs the same check over a list of cases. Each case is a row.
 
 ```nomi-run
-fn palindrome?(text: String) -> Bool {
+fn is_palindrome(text: String) -> Bool {
     String.reverse(text) == text
 }
 
@@ -166,7 +166,7 @@ test "determines palindromes" {
     cases = [#("abba", True), #("abc", False), #("x", True)]
 
     subtests cases, #(line, known_palindrome) {
-        assert palindrome?(line) == known_palindrome
+        assert is_palindrome(line) == known_palindrome
     }
 }
 ```
@@ -183,11 +183,11 @@ report:
 ```console
 FAIL palindrome_test.nomi :: determines palindromes
   subtest #("abc", True): line 10: assertion failed
-    assert palindrome?(line) == known_palindrome
+    assert is_palindrome(line) == known_palindrome
     values:
       line
         = "abc"
-      palindrome?(line)
+      is_palindrome(line)
         = False
       known_palindrome
         = True
@@ -199,7 +199,7 @@ test whose rows all pass prints one line with how many it ran, such as
 `ok palindrome_test.nomi :: determines palindromes (3 cases)`, and a test of 3
 rows with one failing adds `2 passed, 1 failed` to the `test result:` line.
 `--line` and an editor still run the whole statement as one test. A row cannot
-`return`, `break` or `try`: every row runs to its end.
+`return`, `break` or `?`: every row runs to its end.
 
 ### Naming Rows
 
@@ -208,7 +208,7 @@ use the names the pattern binds. A table often carries a description column
 for this:
 
 ```nomi-run
-fn leap_year?(year: Int) -> Bool {
+fn is_leap_year(year: Int) -> Bool {
     year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
 }
 
@@ -220,22 +220,22 @@ test "leap years" {
     ]
 
     subtests cases, #(description, year, expected), description {
-        assert leap_year?(year) == expected
+        assert is_leap_year(year) == expected
     }
 }
 ```
 
-A failed row's report shows its name in place of the row. If `leap_year?`
+A failed row's report shows its name in place of the row. If `is_leap_year`
 returned `False` for 2000, the test would report:
 
 ```console
 FAIL leap_test.nomi :: leap years
   subtest "year divisible by 400 is leap year": line 13: assertion failed
-    assert leap_year?(year) == expected
+    assert is_leap_year(year) == expected
     values:
       year
         = 2000
-      leap_year?(year)
+      is_leap_year(year)
         = False
       expected
         = True
@@ -504,7 +504,7 @@ struct Config {
 }
 
 fn boot(startup: Startup = #Startup{}) -> Result<Config, String> {
-    Ok(#Config{verbose: List.contains?(startup.args, "-v")})
+    Ok(#Config{verbose: List.contains(startup.args, "-v")})
 }
 
 fn main() {
@@ -573,7 +573,7 @@ that needs no input writes `boot server.boot()`.
 
 A `boot` returns a `Result`, and a group's `boot` line takes it. When `boot`
 returns `Err`, each test in the group fails before its setup and body run.
-The report is the one a `try` gives when it ends a test early: the `boot`
+The report is the one a `?` gives when it ends a test early: the `boot`
 line, and the `Err` it returned. The cleanup `boot` deferred still runs when
 the test ends.
 
@@ -582,7 +582,7 @@ group "without a database path" {
     boot server.boot(#Startup{})
 
     test "never gets this far" {
-        assert server.ready?()
+        assert server.is_ready()
     }
 }
 ```

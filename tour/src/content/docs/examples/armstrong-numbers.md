@@ -7,13 +7,16 @@ description: "Decide whether a number equals the sum of its digits, each raised 
 
 Decide whether a number equals the sum of its digits, each raised to the power of the digit count.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/armstrong-numbers) (MIT). Listed under [Numbers & Math](/examples/?subject=numbers-and-math).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/armstrong-numbers) (MIT). Listed under [Numbers & Math](/examples/?subject=numbers-and-math).
 
 ```nomi-run
 // FILE: armstrong_numbers.nomi
+//# Armstrong numbers: numbers that are the sum of their own digits, each
+//# raised to the power of the number of digits.
+
 /// Reports whether `number` is the sum of its own digits, each raised to
 /// the power of the number of digits: `153 == 1^3 + 5^3 + 3^3`.
-pub fn armstrong?(number: Int) -> Bool {
+pub fn is_armstrong(number: Int) -> Bool {
     digits = Int.to_digits(number)
     width = Iter.count(digits)
 
@@ -39,10 +42,12 @@ test "recognizes Armstrong numbers" {
         #("Four-digit number that is not an Armstrong number", 9475, False),
         #("Seven-digit number that is an Armstrong number", 9926315, True),
         #("Seven-digit number that is not an Armstrong number", 9926314, False),
+        #("Armstrong number containing seven zeroes", 186709961001538790100634132976990, True),
+        #("The largest and last Armstrong number", 115132219018763992565095597973971522401, True),
     ]
 
     subtests cases, #(description, number, expected), description {
-        assert armstrong_numbers.armstrong?(number) == expected
+        assert armstrong_numbers.is_armstrong(number) == expected
     }
 }
 ```
@@ -52,10 +57,4 @@ test "recognizes Armstrong numbers" {
 - The digits come from `Int.to_digits`, rather than from `"${number}"` and `String.to_int` per grapheme. The arithmetic stays in `Int` and needs no `Maybe` to unwrap, and `Int.to_digits(0)` is `[0]`, so zero needs no early return.
 - Each digit is raised with `Int.pow` in a capture, `&Int.pow(&1, width)`.
 - The sum is bound as `total` and compared on its own line, rather than piped into a `then &(&1 == number)` stage.
-- The nine cases that fit in `Int` are one `subtests` table. The canonical "Armstrong number containing seven zeroes" (33 digits) and "The largest and last Armstrong number" (39 digits) are left out, since neither fits in a 64-bit `Int`; see Friction.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **A missing feature.** There is no integer type wider than 64 bits, so two canonical cases cannot be written as an `Int`. `Decimal` is arbitrary-precision and could hold them, but an `armstrong?` that takes a `Decimal` would accept `1.5d`. Python's `int` and Elixir's integers are unbounded, and Rust and Go have `u128` and `math/big`.
+- The eleven canonical cases are one `subtests` table, the 33-digit and 39-digit Armstrong numbers included: an `Int` is exact at any size, so `is_armstrong` takes them as it takes 153.

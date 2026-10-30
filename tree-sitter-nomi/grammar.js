@@ -41,7 +41,7 @@ module.exports = grammar({
     $.attached_comment_test_prompt_marker,
     $.attached_comment_test_line_prompt,
     $._attached_test_prompt_group_end,
-    // Zero-width, before the operand of `dbg`, `try`, `return`, `break` and
+    // Zero-width, before the operand of `dbg`, `return`, `break` and
     // `todo`, and before `unreachable`'s reason, when that operand starts on the keyword's line. The Go parser
     // ends the statement at a line break after the keyword, so `n |> dbg`
     // followed by a line `same = dbg n` is two statements, not `dbg same`.
@@ -96,6 +96,9 @@ module.exports = grammar({
     // `)` decides, as for `Type(...)` above.
     [$.self_type, $.self_expression],
     [$.list, $.list_pattern],
+    // `if [.., z] = xs` and `if [.., z] == xs`: a bare `..` is a list
+    // pattern's rest or a list literal's spread until the `=` or `==` decides.
+    [$.list_pattern, $._collection_items],
     // `if a or b {` is the boolean `or` of two names, and `if A or B = v`
     // an or pattern, until the `=` or the `{` decides.
     [$._case_pattern, $._expression],
@@ -346,7 +349,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(alias)?|unreachable|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -1004,7 +1007,7 @@ module.exports = grammar({
     // so it is parsed from `_lambda_body_expression`, which has no pipe;
     // braces keep a pipe inside it. `x |> then &f(a, &1)` applies a
     // capture, which ends with its body.
-    then_stage: $ => seq('then', choice(
+    then_stage: $ => seq('then', optional($.question), choice(
       field('lambda', alias($._then_lambda, $.lambda)),
       field('capture', $.capture),
     )),
@@ -1058,10 +1061,11 @@ module.exports = grammar({
       $.call_expression,
       $.field_access,
       $.type_field_access,
+      alias($.lambda_body_unwrap_expression, $.unwrap_expression),
+      alias($.lambda_body_try_expression, $.try_expression),
       $.lambda_body_binary_expression,
       $.lambda_body_range_expression,
       $.lambda_body_unary_expression,
-      $.try_expression,
       $.dbg_expression,
       $.todo_expression,
       $.unreachable_expression,
@@ -1101,11 +1105,10 @@ module.exports = grammar({
     // written, and `..` at the first position inside the brace is the whole
     // distinction from `anon_struct` (`#{f: v}`).
     //
-    // Position mirrors the list literal's spread rather than copying it. `list`
-    // puts `..` LAST because a List is cons cells and prepending is the cheap
-    // end; an update's order is pure notation, and base-then-overrides is the
-    // only order under which "a later field wins" reads correctly. So: exactly
-    // one spread, and it is the FIRST element. `#{a: 1, ..b}` and `#{..a, ..b}`
+    // A collection literal takes spreads anywhere; a struct update does not.
+    // Its order is pure notation, and base-then-overrides is the only order
+    // under which "a later field wins" reads correctly. So: exactly one
+    // spread, and it is the FIRST element. `#{a: 1, ..b}` and `#{..a, ..b}`
     // are not accepted here and land in the surrounding block/ERROR recovery,
     // matching the Go parser's `struct spread ".." must be the first element`.
     //
@@ -1434,6 +1437,7 @@ module.exports = grammar({
       $.call_expression,
       $.field_access,
       $.type_field_access,
+      $.unwrap_expression,
       $.binary_expression,
       $.range_expression,
       $.unary_expression,
@@ -1944,12 +1948,16 @@ module.exports = grammar({
       repeat1(seq(token.immediate('.'), $.type_identifier)),
     ),
 
+    // A list pattern: `[a, b]`, `[head, ..tail]`, `[first, .., last]`,
+    // `[first, ..mid, last]`, with a pattern or nothing after the `..`. The
+    // compiler refuses a second `..`, and a rest before elements that is not
+    // a name or `_`.
     list_pattern: $ => choice(
       seq(
         '[',
         optional(seq(
-          choice(seq('..', $._case_pattern), $._case_pattern),
-          repeat(seq(',', choice(seq('..', $._case_pattern), $._case_pattern))),
+          choice(seq('..', optional($._case_pattern)), $._case_pattern),
+          repeat(seq(',', choice(seq('..', optional($._case_pattern)), $._case_pattern))),
           optional(','),
         )),
         ']',
@@ -1960,8 +1968,8 @@ module.exports = grammar({
         choice($.dot_variant, $._simple_type, $.qualified_variant),
         '[',
         optional(seq(
-          choice(seq('..', $._case_pattern), $._case_pattern),
-          repeat(seq(',', choice(seq('..', $._case_pattern), $._case_pattern))),
+          choice(seq('..', optional($._case_pattern)), $._case_pattern),
+          repeat(seq(',', choice(seq('..', optional($._case_pattern)), $._case_pattern))),
           optional(','),
         )),
         ']',
@@ -2007,10 +2015,6 @@ module.exports = grammar({
     unary_expression: $ => prec(10, choice(seq('!', $._expression), seq('-', $._expression))),
     lambda_body_unary_expression: $ => prec(10, choice(seq('!', $._lambda_body_expression), seq('-', $._lambda_body_expression))),
     pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, $.pipe_if_expression, $.then_stage, $.tap_stage))),
-    // Error propagation. Prefix `try expr` unwraps one postfix-level operand;
-    // bare `try` is also valid as a pipe stage (`value |> try`), where the
-    // previous pipe value supplies the operand.
-    try_expression: $ => prec.right(10, seq('try', optional(seq($._same_line, field('value', $._expression))))),
     dbg_expression: $ => prec.right(1, seq('dbg', optional(seq($._same_line, field('value', $._expression))))),
     // A placeholder for code not yet written: `todo` or `todo "reason"`. The
     // reason is a string literal; the compiler rejects an interpolated one.
@@ -2056,23 +2060,17 @@ module.exports = grammar({
 
     // A map literal, `%{"a" => 1}` or the empty `%{}`, or one that names a
     // map-distinct type or a map-payload variant: `%Kvs{"a" => 1}`,
-    // `%.Obj{..}`, `%Json.Obj{..}`. A map update, `%{..base, k => v}`, takes
-    // its spread first; a `..` with no head (`%{.., k => v}`) is the map
-    // already at the field or key the literal is written at.
+    // `%.Obj{..}`, `%Json.Obj{..}`. The anonymous form takes spreads
+    // anywhere among its entries (`%{..base, k => v}`, `%{"a" => 1, ..m}`);
+    // a `..` with no head (`%{.., k => v}`) is the map already at the field
+    // or key the literal is written at.
     map_construction: $ => prec.dynamic(10, prec(10, choice(
-      seq(
-        '%{',
-        choice(
-          seq($.map_update_spread, repeat(seq(',', $.map_entry)), optional(',')),
-          commaSep($.map_entry),
-        ),
-        '}',
-      ),
+      seq('%{', commaSep(choice($.map_update_spread, $.map_entry)), '}'),
       seq('%', field('type', $._literal_head), '{', commaSep($.map_entry), '}'),
     ))),
 
-    // A vector literal, `#[1, 2]`, `#[]`, with a spread first or last
-    // (`#[..v, x]`, `#[x, ..v]`, the bare `#[.., x]`), or one that names a
+    // A vector literal, `#[1, 2]`, `#[]`, with spreads anywhere
+    // (`#[..v, x]`, `#[x, ..v, ..w]`, the bare `#[.., x]`), or one that names a
     // vector-distinct type or a vector-payload variant: `#Path[1, 2]`,
     // `#.Items[1]`.
     vector: $ => prec.dynamic(10, prec(10, seq(
@@ -2081,8 +2079,9 @@ module.exports = grammar({
       ']',
     ))),
 
-    // A set literal, `%[1, 2]`, `%[]`, with a spread first (`%[..s, x]`, the
-    // bare `%[.., x]`), or one that names a set-distinct type: `%Tags["a"]`.
+    // A set literal, `%[1, 2]`, `%[]`, with spreads anywhere (`%[..s, x]`,
+    // `%[x, ..s, ..t]`, the bare `%[.., x]`), or one that names a
+    // set-distinct type: `%Tags["a"]`.
     set: $ => prec.dynamic(10, prec(10, seq(
       choice('%[', seq('%', field('type', $._literal_head), '[')),
       optional($._collection_items),
@@ -2090,8 +2089,8 @@ module.exports = grammar({
     ))),
 
     // The elements of a list, vector or set literal: expressions and `..`
-    // spreads, comma-separated. A `..` with no head is the bare spread. Where
-    // a spread may stand is the compiler's to check.
+    // spreads, comma-separated, a spread anywhere. A `..` with no head is the
+    // bare spread.
     _collection_items: $ => seq(
       choice(seq('..', $._expression), '..', $._expression),
       repeat(seq(',', choice(seq('..', $._expression), '..', $._expression))),
@@ -2148,6 +2147,19 @@ module.exports = grammar({
       ')',
     ))),
 
+    // A postfix `!`, `Map.get(m, k)!`, `user.nickname!`: unwraps the
+    // Result or Maybe of the expression it is written against. It binds as
+    // tightly as a call or a field access, so `a.b!.c` reads `(a.b)!.c`.
+    unwrap_expression: $ => prec(12, seq(field('value', $._expression), $.bang)),
+    lambda_body_unwrap_expression: $ => prec(12, seq(field('value', $._lambda_body_expression), $.bang)),
+    bang: _ => token.immediate('!'),
+    // A postfix `?`, `parse(text)?`: on an Ok or a Some the payload, and on
+    // an Err or a None the enclosing function returns it. It binds as a `!`
+    // does. In a pipe, `x |> f()?` reads the `?` against the stage.
+    try_expression: $ => prec(12, seq(field('value', $._expression), $.question)),
+    lambda_body_try_expression: $ => prec(12, seq(field('value', $._lambda_body_expression), $.question)),
+    question: _ => token.immediate('?'),
+
     field_access: $ => choice(
       prec(12, seq($.type_identifier, token.immediate('.'), choice($._field_identifier, $.integer))),
       prec(11, seq($._expression, token.immediate('.'), choice($._field_identifier, $.integer))),
@@ -2165,7 +2177,7 @@ module.exports = grammar({
 
     // Identifiers
     _field_identifier: $ => prec(1, $.identifier),
-    identifier: $ => /[a-z_][a-zA-Z0-9_]*\??/,
+    identifier: $ => /[a-z_][a-zA-Z0-9_]*/,
     // `&1`, `&2`, ...: a parameter of the capture around it.
     placeholder: $ => /&[1-9][0-9]*/,
 
@@ -2185,6 +2197,8 @@ module.exports = grammar({
     ))),
     _capture_body: $ => prec(10, choice(
       $.call_expression,
+      $.unwrap_expression,
+      $.try_expression,
       $.paren_expression,
       $.struct_construction,
       $.anon_struct,

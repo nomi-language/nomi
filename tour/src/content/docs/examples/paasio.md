@@ -11,6 +11,9 @@ Wrap a stream so that it reports what passed through it: the bytes read or writt
 
 ```nomi-run
 // FILE: paasio.nomi
+//# Readers and writers that count the bytes and operations passing through
+//# them.
+
 import std/io.{self, Reader, Writer}
 
 /// What a stream has carried: how many bytes, in how many operations.
@@ -48,7 +51,7 @@ impl MeteredReader {
         meter: MeteredReader,
         max: Int = 65536,
     ) -> Result<#(Maybe<Bytes>, MeteredReader), io.Error> {
-        data = try Reader.read(meter.reader, max)
+        data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
 
         Ok(#(data, #{..meter, stats: Stats.add(meter.stats, bytes)}))
@@ -71,7 +74,7 @@ impl MeteredWriter {
     /// Writes `data` and answers the meter after the write. An error is the
     /// writer's, and counts nothing.
     pub fn write(meter: MeteredWriter, data: Bytes) -> Result<MeteredWriter, io.Error> {
-        try Writer.write(meter.writer, data)
+        Writer.write(meter.writer, data)?
 
         Ok(#{..meter, stats: Stats.add(meter.stats, Bytes.length(data))})
     }
@@ -86,21 +89,21 @@ import {
 /// Reads `meter` to the end, `max` bytes at a time, and answers the bytes
 /// read and the meter after the last read.
 fn read_to_end(meter: MeteredReader, max: Int) -> Result<#(Bytes, MeteredReader), io.Error> {
-    #(data, meter) = try MeteredReader.read(meter, max)
+    #(data, meter) = MeteredReader.read(meter, max)?
 
     case data {
         None ->
             Ok(#(Bytes.from_list([]), meter))
 
         Some(bytes) -> {
-            #(rest, meter) = try read_to_end(meter, max)
+            #(rest, meter) = read_to_end(meter, max)?
             Ok(#(Bytes.concat(bytes, rest), meter))
         }
     }
 }
 
 test "a new meter has counted nothing" {
-    reader = MeteredReader.new(Reader.from_text("hello"))
+    reader = Reader.from_text("hello") |> MeteredReader.new()
     writer = MeteredWriter.new(io.stdout)
 
     assert reader.stats == #Stats{bytes: 0, operations: 0}
@@ -108,31 +111,31 @@ test "a new meter has counted nothing" {
 }
 
 test "reads count their bytes and themselves" {
-    meter = MeteredReader.new(Reader.from_text("hello world"))
-    #(data, meter) = try read_to_end(meter, 4)
+    meter = Reader.from_text("hello world") |> MeteredReader.new()
+    #(data, meter) = read_to_end(meter, 4)?
 
     assert data == String.to_bytes("hello world")
     assert meter.stats == #Stats{bytes: 11, operations: 4}
 }
 
 test "one read takes what fits, and the next finds the end" {
-    meter = MeteredReader.new(Reader.from_text("hello world"))
-    #(data, meter) = try read_to_end(meter, 1024)
+    meter = Reader.from_text("hello world") |> MeteredReader.new()
+    #(data, meter) = read_to_end(meter, 1024)?
 
     assert data == String.to_bytes("hello world")
     assert meter.stats == #Stats{bytes: 11, operations: 2}
 }
 
 test "reading an empty stream is one operation and no bytes" {
-    meter = MeteredReader.new(Reader.from_text(""))
-    #(data, meter) = try MeteredReader.read(meter)
+    meter = Reader.from_text("") |> MeteredReader.new()
+    #(data, meter) = MeteredReader.read(meter)?
 
     assert data == None
     assert meter.stats == #Stats{bytes: 0, operations: 1}
 }
 
 test "a read error passes through" {
-    meter = MeteredReader.new(Reader.from_fn(fn -> Err(io.Error.TimedOut)))
+    meter = Reader.from_fn(fn -> Err(io.Error.TimedOut)) |> MeteredReader.new()
 
     assert Err(io.Error.TimedOut) = MeteredReader.read(meter)
 }
@@ -140,9 +143,9 @@ test "a read error passes through" {
 test "writes count their bytes and themselves" {
     run = io.capture("", fn -> {
         meter = MeteredWriter.new(io.stdout)
-        meter = try MeteredWriter.write(meter, String.to_bytes("hello"))
-        meter = try MeteredWriter.write(meter, String.to_bytes(", "))
-        meter = try MeteredWriter.write(meter, String.to_bytes("world"))
+        meter = MeteredWriter.write(meter, String.to_bytes("hello"))?
+        meter = MeteredWriter.write(meter, String.to_bytes(", "))?
+        meter = MeteredWriter.write(meter, String.to_bytes("world"))?
         Ok(meter.stats)
     })
 
@@ -151,9 +154,9 @@ test "writes count their bytes and themselves" {
 }
 
 test "earlier meters keep their own counts" {
-    first = MeteredReader.new(Reader.from_text("abcdef"))
-    #(_, second) = try MeteredReader.read(first, 2)
-    #(_, third) = try MeteredReader.read(second, 2)
+    first = Reader.from_text("abcdef") |> MeteredReader.new()
+    #(_, second) = MeteredReader.read(first, 2)?
+    #(_, third) = MeteredReader.read(second, 2)?
 
     assert first.stats == #Stats{bytes: 0, operations: 0}
     assert second.stats == #Stats{bytes: 2, operations: 1}

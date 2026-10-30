@@ -1,0 +1,84 @@
+// A list, vector, set or map literal takes spreads anywhere, any number of
+// them. The parts join in the order written; in a map a later key wins and
+// keeps the earlier key's place.
+test "a list spread goes first, between elements, last, or several times" {
+    xs = [2, 3]
+    ys = [7, 8]
+
+    assert [..xs, 4] == [2, 3, 4]
+    assert [1, ..xs, 4] == [1, 2, 3, 4]
+    assert [1, ..xs] == [1, 2, 3]
+    assert [..xs, ..ys] == [2, 3, 7, 8]
+    assert [0, ..xs, 5, ..ys, 9] == [0, 2, 3, 5, 7, 8, 9]
+    assert [..[], 1, ..xs] == [1, 2, 3]
+}
+
+test "a vector spread goes first, between elements, last, or several times" {
+    v = #[2, 3]
+    w = #[7, 8]
+
+    assert #[..v, 4] == #[2, 3, 4]
+    assert #[1, ..v, 4] == #[1, 2, 3, 4]
+    assert #[1, ..v] == #[1, 2, 3]
+    assert #[..v, ..w] == #[2, 3, 7, 8]
+    assert #[0, ..v, 5, ..w, 9] == #[0, 2, 3, 5, 7, 8, 9]
+}
+
+test "a set spread goes first, between elements, last, or several times" {
+    s = %[2, 3]
+    t = %[3, 7]
+
+    assert Iter.to_list(%[..s, 4]) == [2, 3, 4]
+    assert Iter.to_list(%[1, ..s, 4]) == [1, 2, 3, 4]
+    assert Iter.to_list(%[1, ..s]) == [1, 2, 3]
+    assert Iter.to_list(%[..s, ..t]) == [2, 3, 7]
+    assert Iter.to_list(%[0, ..s, 5, ..t, 9]) == [0, 2, 3, 5, 7, 9]
+}
+
+test "a map spread goes first, between entries, last, or several times" {
+    m = %{"a" => 1, "b" => 2}
+    n = %{"c" => 3}
+
+    assert Iter.to_list(%{..m, "c" => 3}) == [#("a", 1), #("b", 2), #("c", 3)]
+    assert Iter.to_list(%{"x" => 0, ..m, "y" => 9}) == [#("x", 0), #("a", 1), #("b", 2), #("y", 9)]
+    assert Iter.to_list(%{"x" => 0, ..m}) == [#("x", 0), #("a", 1), #("b", 2)]
+    assert Iter.to_list(%{..m, ..n}) == [#("a", 1), #("b", 2), #("c", 3)]
+}
+
+test "a repeated map key takes the later value and keeps the first place" {
+    m = %{"a" => 1, "b" => 2}
+    n = %{"b" => 20, "c" => 30}
+
+    assert Iter.to_list(%{..m, "b" => 0}) == [#("a", 1), #("b", 0)]
+    assert Iter.to_list(%{"b" => 0, ..m}) == [#("b", 2), #("a", 1)]
+    assert Iter.to_list(%{..m, ..n}) == [#("a", 1), #("b", 20), #("c", 30)]
+    assert Iter.to_list(%{..n, ..m}) == [#("b", 2), #("c", 30), #("a", 1)]
+}
+
+struct Team {
+    members: List<String>
+    scores: Map<String, Map<String, Int>>
+}
+
+test "a bare spread stands anywhere, and a map entry after spreads updates what they hold" {
+    team = #Team{
+        members: ["Bo"],
+        scores: %{"ada" => %{"q1" => 5}},
+    }
+
+    extra = %{"ada" => %{"q2" => 7}, "cy" => %{"q1" => 1}}
+
+    updated = #{
+        ..team,
+        members: ["Ada", .., "Cy"],
+        scores: %{"bo" => %{"q1" => 2}, .., ..extra, "ada" => %{.., "q3" => 9}},
+    }
+
+    assert updated.members == ["Ada", "Bo", "Cy"]
+
+    assert Iter.to_list(updated.scores) == [
+        #("bo", %{"q1" => 2}),
+        #("ada", %{"q2" => 7, "q3" => 9}),
+        #("cy", %{"q1" => 1}),
+    ]
+}

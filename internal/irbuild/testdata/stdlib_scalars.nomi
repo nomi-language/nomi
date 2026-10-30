@@ -5,10 +5,10 @@
 // fixture that
 // exercised one would pass while the others were wrong:
 //
-//   - a concrete type qualifier onto a `host fn` (`String.contains?`), which
+//   - a concrete type qualifier onto a `host fn` (`String.contains`), which
 //     lowers to a direct `rt` call;
 //   - a concrete type qualifier onto a NOMI-BODIED stdlib function
-//     (`Float.infinite?`, `Float.finite?`), which lowers to a call into a
+//     (`Float.is_infinite`, `Float.is_finite`), which lowers to a call into a
 //     retained body built from `std/float.nomi` itself;
 //   - an interface qualifier over a scalar receiver (`Debug.inspect`,
 //     `Hashable.hash`), which statically names one impl because the receiver's
@@ -32,11 +32,11 @@
 import std/io
 
 fn main() {
-    io.print("contains: ${String.contains?("hello world", "o w")}")
-    io.print("starts: ${String.starts_with?("hello", "he")}")
-    io.print("ends: ${String.ends_with?("hello.txt", ".txt")}")
-    io.print("upper: ${String.to_upper("café")}")
-    io.print("lower: ${String.to_lower("CAFÉ")}")
+    io.print("contains: ${String.contains("hello world", "o w")}")
+    io.print("starts: ${String.starts_with("hello", "he")}")
+    io.print("ends: ${String.ends_with("hello.txt", ".txt")}")
+    io.print("upper: ${String.uppercase("café")}")
+    io.print("lower: ${String.lowercase("CAFÉ")}")
     io.print("replace: ${String.replace("a.b.c", ".", "-")}")
     io.print("repeat: ${String.repeat("ab", 3)}")
     io.print("trim: [${String.trim("  hi  ")}]")
@@ -55,9 +55,9 @@ fn main() {
     io.print("floor: ${Float.floor(-3.2)}")
     io.print("ceil: ${Float.ceil(3.2)}")
     io.print("trunc: ${Float.trunc(-3.7)}")
-    io.print("nan?: ${Float.nan?(Float.nan())}")
-    io.print("infinite?: ${Float.infinite?(Float.positive_infinity())}")
-    io.print("finite?: ${Float.finite?(42.0)} ${Float.finite?(Float.nan())}")
+    io.print("is_nan: ${Float.is_nan(Float.nan())}")
+    io.print("is_infinite: ${Float.is_infinite(Float.positive_infinity())}")
+    io.print("is_finite: ${Float.is_finite(42.0)} ${Float.is_finite(Float.nan())}")
 
     io.print("inspect int: ${Debug.inspect(42)}")
     io.print("inspect float: ${Debug.inspect(2.5)}")

@@ -35,26 +35,25 @@ func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 	}
 }
 
-// `try` on a backtick literal checked at compile time is the ordinary
-// "try requires a Result or Maybe" error, at the `try`, with a hint that the
-// literal is already the handler's Ok type. Both spellings of `try`.
+// A `?` on a backtick literal checked at compile time is the ordinary
+// "`?` requires a Result or Maybe" error, at the `?`, with a hint that the
+// literal is already the handler's Ok type.
 func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 	for _, line := range []string{
-		"  digits = try Regex`\\d+`\n",
-		"  digits = Regex`\\d+` |> try\n",
+		"  digits = Regex`\\d+`?\n",
 	} {
 		src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n" + line + "  Ok(digits)\n}\n"
 		errs := checkTypedLiteralSource(src)
 		var found *analysis.TypeError
 		for i := range errs {
-			if errs[i].Message == "try requires a Result or Maybe, got Regex" {
+			if errs[i].Message == "`?` requires a Result or Maybe, got Regex" {
 				found = &errs[i]
 			}
 		}
 		if found == nil {
-			t.Fatalf("%q: no try error, got %v", strings.TrimSpace(line), errs)
+			t.Fatalf("%q: no error, got %v", strings.TrimSpace(line), errs)
 		}
-		want := "a backtick typed literal is checked at compile time, so this one is already a Regex: remove the `try`"
+		want := "a backtick typed literal is checked at compile time, so this one is already a Regex: remove the `?`"
 		if len(found.Hints) != 1 || found.Hints[0] != want {
 			t.Errorf("%q: hints = %q, want %q", strings.TrimSpace(line), found.Hints, want)
 		}
@@ -62,8 +61,8 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 			t.Errorf("%q: the error is at %d:%d, want line 4 at the `try`", strings.TrimSpace(line), found.Line, found.Col)
 		}
 	}
-	// A double-quoted literal is still a Result, so `try` on it stands.
-	src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n  digits = try Regex\"\\\\d+\"\n  Ok(digits)\n}\n"
+	// A double-quoted literal is still a Result, so `?` on it stands.
+	src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\n}\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("try on a double-quoted literal is rejected: %v", errs)
 	}

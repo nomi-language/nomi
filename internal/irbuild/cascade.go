@@ -81,7 +81,11 @@ func patternBinders(p ast.Node) []string {
 		for _, sub := range t.Heads {
 			out = append(out, patternBinders(sub)...)
 		}
-		return append(out, patternBinders(t.TailSpread)...)
+		out = append(out, patternBinders(t.TailSpread)...)
+		for _, sub := range t.Tails {
+			out = append(out, patternBinders(sub)...)
+		}
+		return out
 
 	case *ast.VectorPattern:
 		var out []string

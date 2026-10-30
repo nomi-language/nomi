@@ -1,128 +1,128 @@
 import std/regex.Regex
 
-// A name compared without case, so membership goes through its own `equal?`.
+// A name compared without case, so membership goes through its own `equal`.
 struct Tag {
     name: String
 }
 
 impl Equatable for Tag {
-    fn equal?(a: Tag, b: Tag) -> Bool {
-        String.to_lower(a.name) == String.to_lower(b.name)
+    fn equal(a: Tag, b: Tag) -> Bool {
+        String.lowercase(a.name) == String.lowercase(b.name)
     }
 }
 
 // Every value in `wanted` is in `c`, for any collection that implements
 // `Contains`.
 fn all_present<C, T>(c: C, wanted: List<T>) -> Bool where C: Contains<T> {
-    Iter.all?(wanted, &C.contains?(c, &1))
+    Iter.all(wanted, &C.contains(c, &1))
 }
 
 test "a set holds its members" {
     empty: Set<Int> = %[]
 
-    assert Set.contains?(%[1, 2], 2)
-    refute Set.contains?(%[1, 2], 3)
-    refute Set.contains?(empty, 1)
+    assert Set.contains(%[1, 2], 2)
+    refute Set.contains(%[1, 2], 3)
+    refute Set.contains(empty, 1)
 }
 
 test "a map holds its keys and not its values" {
     empty: Map<String, Int> = %{}
     m = %{"a" => "b"}
 
-    assert Map.contains?(m, "a")
-    refute Map.contains?(m, "b")
-    refute Map.contains?(empty, "a")
+    assert Map.contains(m, "a")
+    refute Map.contains(m, "b")
+    refute Map.contains(empty, "a")
 }
 
 test "a range holds what lies between its ends" {
-    assert Range.contains?(1..5, 1)
-    assert Range.contains?(1..5, 4)
-    refute Range.contains?(1..5, 5)
-    refute Range.contains?(1..5, 0)
-    assert Range.contains?(1..=5, 5)
-    refute Range.contains?(5..1, 3)
-    assert Range.contains?(Range.from(10), 1_000_000)
-    refute Range.contains?(Range.from(10), 9)
-    assert Range.contains?("a".."m", "h")
-    assert Range.contains?(0.0..=1.0, 1.0)
+    assert Range.contains(1..5, 1)
+    assert Range.contains(1..5, 4)
+    refute Range.contains(1..5, 5)
+    refute Range.contains(1..5, 0)
+    assert Range.contains(1..=5, 5)
+    refute Range.contains(5..1, 3)
+    assert Range.contains(Range.from(10), 1_000_000)
+    refute Range.contains(Range.from(10), 9)
+    assert Range.contains("a".."m", "h")
+    assert Range.contains(0.0..=1.0, 1.0)
 }
 
 test "a list and a vector hold elements equal to the value" {
     no_ints: List<Int> = []
     no_vector: Vector<Int> = #[]
 
-    assert List.contains?([1, 2, 3], 3)
-    refute List.contains?([1, 2, 3], 4)
-    refute List.contains?(no_ints, 1)
-    assert Vector.contains?(#["a", "b"], "a")
-    refute Vector.contains?(#["a", "b"], "c")
-    refute Vector.contains?(no_vector, 1)
-    assert List.contains?([[1], [2, 3]], [2, 3])
-    assert Vector.contains?(#[Some(1), None], None)
+    assert List.contains([1, 2, 3], 3)
+    refute List.contains([1, 2, 3], 4)
+    refute List.contains(no_ints, 1)
+    assert Vector.contains(#["a", "b"], "a")
+    refute Vector.contains(#["a", "b"], "c")
+    refute Vector.contains(no_vector, 1)
+    assert List.contains([[1], [2, 3]], [2, 3])
+    assert Vector.contains(#[Some(1), None], None)
 }
 
-test "a list compares a struct by its own equal?" {
+test "a list compares a struct by its own equal" {
     tags = [#Tag{name: "Urgent"}, #Tag{name: "home"}]
 
-    assert List.contains?(tags, #Tag{name: "urgent"})
-    assert Vector.contains?(Iter.to_vector(tags), #Tag{name: "HOME"})
-    refute List.contains?(tags, #Tag{name: "work"})
+    assert List.contains(tags, #Tag{name: "urgent"})
+    assert Vector.contains(Iter.to_vector(tags), #Tag{name: "HOME"})
+    refute List.contains(tags, #Tag{name: "work"})
 }
 
 test "Float membership is reflexive for NaN and joins the zeros" {
     nan = Float.nan()
 
-    assert List.contains?([1.0, nan], nan)
-    assert Vector.contains?(#[nan], nan)
-    assert Iter.contains?([nan], nan)
-    assert List.contains?([0.0], -0.0)
-    refute List.contains?([1.0], nan)
+    assert List.contains([1.0, nan], nan)
+    assert Vector.contains(#[nan], nan)
+    assert Iter.contains([nan], nan)
+    assert List.contains([0.0], -0.0)
+    refute List.contains([1.0], nan)
 }
 
 test "bytes hold their octets" {
-    a = try Int.to_byte(97)
-    b = try Int.to_byte(98)
-    z = try Int.to_byte(122)
+    a = Int.to_byte(97)?
+    b = Int.to_byte(98)?
+    z = Int.to_byte(122)?
     data = Bytes.from_list([a, b])
 
-    assert Bytes.contains?(data, b)
-    refute Bytes.contains?(data, z)
-    refute Bytes.contains?(Bytes.from_list([]), a)
-    assert Bytes.contains?(String.to_bytes("hello"), try Int.to_byte(108))
+    assert Bytes.contains(data, b)
+    refute Bytes.contains(data, z)
+    refute Bytes.contains(Bytes.from_list([]), a)
+    assert Bytes.contains(String.to_bytes("hello"), Int.to_byte(108)?)
 }
 
 test "a string holds substrings, regex matches and codepoints" {
-    assert String.contains?("hello world", "o w")
-    refute String.contains?("hello", "xyz")
-    assert String.contains?("", "")
-    refute String.contains?("", "a")
-    assert String.contains?("order 66", Regex`\d+`)
-    refute String.contains?("order", Regex`\d+`)
-    assert String.contains?("a-b", '-')
-    refute String.contains?("ab", '-')
+    assert String.contains("hello world", "o w")
+    refute String.contains("hello", "xyz")
+    assert String.contains("", "")
+    refute String.contains("", "a")
+    assert String.contains("order 66", Regex`\d+`)
+    refute String.contains("order", Regex`\d+`)
+    assert String.contains("a-b", '-')
+    refute String.contains("ab", '-')
 }
 
-test "Iter.contains? scans any iterable and stops at the first match" {
-    assert Iter.contains?(Iter.map([1, 2, 3], &(&1 * 10)), 20)
-    refute Iter.contains?(Iter.filter(1..=10, fn x -> x % 2 == 0), 3)
-    refute Iter.contains?([], 1)
-    assert Iter.contains?(Iter.from(0), 1_000)
+test "Iter.contains scans any iterable and stops at the first match" {
+    assert Iter.contains(Iter.map([1, 2, 3], &(&1 * 10)), 20)
+    refute Iter.contains(Iter.filter(1..=10, fn x -> x % 2 == 0), 3)
+    refute Iter.contains([], 1)
+    assert Iter.contains(Iter.from(0), 1_000)
 
     // Element 5 would divide by zero, so reaching it would trap.
     trap_at_five =
         Iter.from(0)
         |> Iter.map(fn n -> 10 / (5 - n))
 
-    assert Iter.contains?(trap_at_five, 10)
+    assert Iter.contains(trap_at_five, 10)
 }
 
 test "Contains is the one interface the collections share" {
-    assert Contains.contains?(%[1, 2], 1)
-    assert Contains.contains?(%{"k" => 0}, "k")
-    assert Contains.contains?(1..=3, 3)
-    assert Contains.contains?([1, 2], 2)
-    assert Contains.contains?(#[1, 2], 2)
-    refute Contains.contains?([1, 2], 9)
+    assert Contains.contains(%[1, 2], 1)
+    assert Contains.contains(%{"k" => 0}, "k")
+    assert Contains.contains(1..=3, 3)
+    assert Contains.contains([1, 2], 2)
+    assert Contains.contains(#[1, 2], 2)
+    refute Contains.contains([1, 2], 9)
 }
 
 test "a bound takes any collection that implements Contains" {

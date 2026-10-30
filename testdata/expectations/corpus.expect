@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 627
-declared-cases 3584
+records 629
+declared-cases 3600
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -199,11 +199,11 @@ T
 C 02-testing/assert_refute_test.nomi
 E 0
 N 4
-H 04c88df305af915a1917c9884f2cb6114ec2e91c08962b715840c7cca3b6f20d
+H 9a9c12384b89e61b47464e5e5c8ecfb5de473abbdfc57ff42782b322254b6d51
 T ok <root>/tests/02-testing/assert_refute_test.nomi :: assert and refute accept expected booleans
 T ok <root>/tests/02-testing/assert_refute_test.nomi :: assertion failures are Result.Err values
 T ok <root>/tests/02-testing/assert_refute_test.nomi :: check returns assertion Result values without propagating
-T ok <root>/tests/02-testing/assert_refute_test.nomi :: try check propagates assertion failures
+T ok <root>/tests/02-testing/assert_refute_test.nomi :: `?` check propagates assertion failures
 T test result: ok. 4 passed, 0 failed
 T
 C 02-testing/assertable_test.nomi
@@ -356,11 +356,11 @@ T
 C 02-testing/setup_try_test.nomi
 E 0
 N 5
-H c8c1822011287e6ad4a4108d05cfa48fc0314f64020caf41d268e600f9786177
-T ok <root>/tests/02-testing/setup_try_test.nomi :: try on a Result in setup / the setup's value reaches the case
-T ok <root>/tests/02-testing/setup_try_test.nomi :: try on a Maybe in setup / the setup's value reaches the case
-T ok <root>/tests/02-testing/setup_try_test.nomi :: try in a pipe stage in setup / the setup's value reaches the case
-T ok <root>/tests/02-testing/setup_try_test.nomi :: try after other statements in setup / the setup's earlier bindings reach the try's result
+H 9935341ae3330b9c0a6a098f7f2211007cdde406f506411d11fac39a9766c7a5
+T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` on a Result in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` on a Maybe in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` in a pipe stage in setup / the setup's value reaches the case
+T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` after other statements in setup / the setup's earlier bindings reach the result of the `?`
 T ok <root>/tests/02-testing/setup_try_test.nomi :: assert in setup / the setup's assertion held
 T test result: ok. 5 passed, 0 failed
 T
@@ -435,12 +435,12 @@ T
 C 03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi
 E 0
 N 5
-H 712708a1ee25c9ef66377c9aa594ac53857b3ef3c806bf1ff72e81cb28ef0ef7
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: try may not launder the error type
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a matching try error type is clean
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: converting the error at the try site is clean
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: try on a Maybe may not propagate out of a Result boundary
-T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: try needs a Result or Maybe boundary to propagate into
+H d58ce995a1689c2420a3325fc8ce1b4d619cd0eeec525fe17894b9ca0438c286
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` may not launder the error type
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: a matching `?` error type is clean
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: converting the error at the `?` site is clean
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` on a Maybe may not propagate out of a Result boundary
+T ok <root>/tests/03-tooling-and-diagnostics/try_error_type/try_error_type_test.nomi :: `?` needs a Result or Maybe boundary to propagate into
 T test result: ok. 5 passed, 0 failed
 T
 C 03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi
@@ -488,15 +488,15 @@ T
 C 04-scalars-and-text/code_points_test.nomi
 E 0
 N 8
-H 40f17d9c485dcd6d0a96733e2849f2f787525f4c9b52f28429a38c24f2e2e1cb
+H 617477ed2f00c53419172b8c7df5017dcc08f96f76d180d36accd82b701ae7ee
 T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoints convert to and from integers and strings
 T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoint construction rejects surrogate values
 T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoint ranges iterate over scalar values
 T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: codepoint ranges skip surrogate values
-T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: letter? is Unicode general category L
-T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: digit? and to_digit read ASCII digits only
-T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: whitespace? is Unicode White_Space
-T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: upper? and lower? are general categories Lu and Ll
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: is_letter is Unicode general category L
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: is_digit and to_digit read ASCII digits only
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: is_whitespace is Unicode White_Space
+T ok <root>/tests/04-scalars-and-text/code_points_test.nomi :: is_upper and is_lower are general categories Lu and Ll
 T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/codepoint_literals_test.nomi
@@ -542,9 +542,9 @@ T
 C 04-scalars-and-text/floats_test.nomi
 E 0
 N 10
-H c82cbb211f4f794586e4029bd943b457a1fe455d6e2368decab37ef03e9e69a7
+H b5fac4b1062807afee39b2f299965f32284b5b0eb56f474ace9c241059140930
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: floats convert to ints by truncating toward zero
-T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float to int rejects overflow and special values
+T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float to int is exact at any size and rejects special values
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding helpers return integer-valued floats
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float rounding can feed int conversion through pipes
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float special values can be produced and classified
@@ -555,13 +555,16 @@ T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float sign is -1, 0 or
 T ok <root>/tests/04-scalars-and-text/floats_test.nomi :: float min and max order the two zeros and propagate NaN
 T test result: ok. 10 passed, 0 failed
 T
-C 04-scalars-and-text/int_overflow_test.nomi
+C 04-scalars-and-text/int_exact_test.nomi
 E 0
-N 2
-H 6fb8980603da57b9e60f54d48fab15b28e615b09d354b6e950e27b7bffded421
-T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int abs of the minimum overflows as negating it does
-T ok <root>/tests/04-scalars-and-text/int_overflow_test.nomi :: int modulo by zero traps as the remainder does
-T test result: ok. 2 passed, 0 failed
+N 5
+H 2cbce25f186e796c30b210a72b4a8d48ec31bf29fbabb3c17d5ef08aa1c67e1a
+T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: int arithmetic is exact past 64 bits
+T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: a big value that comes back into range is an ordinary Int again
+T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: big values compare, hash and key maps by value
+T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: big values live in structs, enums and patterns
+T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: int modulo by zero traps as the remainder does
+T test result: ok. 5 passed, 0 failed
 T
 C 04-scalars-and-text/interpolate_composite_test.nomi
 E 0
@@ -590,13 +593,13 @@ T
 C 04-scalars-and-text/ints_test.nomi
 E 0
 N 12
-H 03e56c4b392aabe234173689797c97bfd8422a30eae1467a238029e2bffa1a29
+H 806f8c139f4956ec843f54901ddc447f0221e2e4ce01d68007a2b47cd353c27a
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division total
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo takes the sign of the divisor
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: remainder takes the sign of the dividend
-T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo of the minimum by minus one is zero
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo past 64 bits is exact
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: modulo is the dividend less the divisor times the floored quotient
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement is stricter than non-zero
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be used as non-zero divisors
@@ -608,11 +611,11 @@ T
 C 04-scalars-and-text/matcher_test.nomi
 E 0
 N 13
-H 22355292a0df112eac08627a363a16330084dd0354b108b5849491cae3f759c2
+H cf0851ad872efcf4723208bfc90e89fe62bdb14e4ee3af23a3ed58c291267e0e
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: split takes a string or a regex
-T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains? takes a string or a regex
-T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with? and ends_with? anchor a regex to that end
-T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with? finds a match ending at the end, not only the leftmost one
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains takes a string or a regex
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with and ends_with anchor a regex to that end
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with finds a match ending at the end, not only the leftmost one
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and inserts the replacement literally
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find_all lists every match
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find returns the first match, from a string or a regex
@@ -637,12 +640,12 @@ T
 C 04-scalars-and-text/random_test.nomi
 E 0
 N 6
-H e671c0c5bf06678ad1f84c92ff522daa61ea5e318b67578d86d96172b18affae
+H e18829e5e7cbfe7816cb04f4ce3dc0a1210b4762cc8d39e7c6bc7b2fb15cec30
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: seeded generators produce deterministic values
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: random generators compose dependent draws
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators require positive total weight
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators reject negative weights
-T ok <root>/tests/04-scalars-and-text/random_test.nomi :: an integer range as wide as Int draws in range
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: an integer range of any width draws in range
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: a float range wider than a Float can span draws in range
 T test result: ok. 6 passed, 0 failed
 T
@@ -833,16 +836,16 @@ T
 C 06-collections/contains_test.nomi
 E 0
 N 11
-H 06d34474b7e3759890402465b6f9a9b91ae1cf086026a9272929cc480f1655c2
+H 9f22bb2ec25cc1a188d882a32aedb154e368e1b6ef24ab1701d9e62065bbeb3f
 T ok <root>/tests/06-collections/contains_test.nomi :: a set holds its members
 T ok <root>/tests/06-collections/contains_test.nomi :: a map holds its keys and not its values
 T ok <root>/tests/06-collections/contains_test.nomi :: a range holds what lies between its ends
 T ok <root>/tests/06-collections/contains_test.nomi :: a list and a vector hold elements equal to the value
-T ok <root>/tests/06-collections/contains_test.nomi :: a list compares a struct by its own equal?
+T ok <root>/tests/06-collections/contains_test.nomi :: a list compares a struct by its own equal
 T ok <root>/tests/06-collections/contains_test.nomi :: Float membership is reflexive for NaN and joins the zeros
 T ok <root>/tests/06-collections/contains_test.nomi :: bytes hold their octets
 T ok <root>/tests/06-collections/contains_test.nomi :: a string holds substrings, regex matches and codepoints
-T ok <root>/tests/06-collections/contains_test.nomi :: Iter.contains? scans any iterable and stops at the first match
+T ok <root>/tests/06-collections/contains_test.nomi :: Iter.contains scans any iterable and stops at the first match
 T ok <root>/tests/06-collections/contains_test.nomi :: Contains is the one interface the collections share
 T ok <root>/tests/06-collections/contains_test.nomi :: a bound takes any collection that implements Contains
 T test result: ok. 11 passed, 0 failed
@@ -850,15 +853,15 @@ T
 C 06-collections/index_traps_test.nomi
 E 0
 N 8
-H ac73117e013a29cf78a8c3534e3b72e49f946a3dce7db10431af98d909fe1276
-T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on an index past the end
-T ok <root>/tests/06-collections/index_traps_test.nomi :: vector at traps on a negative index
+H 8d2173dca6681f3357d6a582b4f71da4c3cb7e12cefa86c788b4cec1dc18af93
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Vector.get traps on an index past the end
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Vector.get traps on a negative index
 T ok <root>/tests/06-collections/index_traps_test.nomi :: vector set traps on an index outside the vector
-T ok <root>/tests/06-collections/index_traps_test.nomi :: bytes at traps on an index outside the buffer
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Bytes.get traps on an index outside the buffer
 T ok <root>/tests/06-collections/index_traps_test.nomi :: an index trap inside a std call is reported at the program's call
-T ok <root>/tests/06-collections/index_traps_test.nomi :: the get siblings answer None where at traps
+T ok <root>/tests/06-collections/index_traps_test.nomi :: get answers None where its unwrapping traps
 T ok <root>/tests/06-collections/index_traps_test.nomi :: list remove_at traps on an index outside the list
-T ok <root>/tests/06-collections/index_traps_test.nomi :: map at traps on a missing key and names it
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Map.get traps on a missing key and names the call
 T test result: ok. 8 passed, 0 failed
 T
 C 06-collections/lists_test.nomi
@@ -912,6 +915,18 @@ T ok <root>/tests/06-collections/sets_test.nomi :: set iter pipelines can materi
 T ok <root>/tests/06-collections/sets_test.nomi :: sets can feed iter reductions
 T ok <root>/tests/06-collections/sets_test.nomi :: sets combine with + and -
 T test result: ok. 8 passed, 0 failed
+T
+C 06-collections/spreads_test.nomi
+E 0
+N 6
+H 659a41ef26d557033ef51ab32dcc1018185cea8caadd646fffd6ea7935f3d031
+T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread goes first, between elements, last, or several times
+T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread goes first, between elements, last, or several times
+T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread goes first, between elements, last, or several times
+T ok <root>/tests/06-collections/spreads_test.nomi :: a map spread goes first, between entries, last, or several times
+T ok <root>/tests/06-collections/spreads_test.nomi :: a repeated map key takes the later value and keeps the first place
+T ok <root>/tests/06-collections/spreads_test.nomi :: a bare spread stands anywhere, and a map entry after spreads updates what they hold
+T test result: ok. 6 passed, 0 failed
 T
 C 06-collections/tuples_test.nomi
 E 0
@@ -1270,19 +1285,19 @@ T
 C 08-pattern-matching/try_error_conversion_test.nomi
 E 0
 N 2
-H 1f1d77c1b30096381d5c085a8c540c7f5bc7fa679214daf43cbb3023ca534065
-T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a converted try propagates the DECLARED error type
-T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a matching try needs no conversion
+H 74a456f320b81ab07c9d122d341fb65627ae9c215d16d9fec673a138ab1b7dc5
+T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a converted `?` propagates the DECLARED error type
+T ok <root>/tests/08-pattern-matching/try_error_conversion_test.nomi :: a matching `?` needs no conversion
 T test result: ok. 2 passed, 0 failed
 T
 C 08-pattern-matching/try_test.nomi
 E 0
 N 4
-H 4110fb11f1db60e18090d6fd5e0a4c9340721d9bd4175e0171c7234488498e86
-T ok <root>/tests/08-pattern-matching/try_test.nomi :: try unwraps Result values and propagates Err values
-T ok <root>/tests/08-pattern-matching/try_test.nomi :: try unwraps only its immediate operand in surrounding expressions
-T ok <root>/tests/08-pattern-matching/try_test.nomi :: try unwraps Maybe values and propagates None
-T ok <root>/tests/08-pattern-matching/try_test.nomi :: try can unwrap the previous pipe stage
+H 3c167c97487257ac5adb5c7a51e349edc451ff942504406aeea258b311e266c0
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: unwraps? Result values and propagates Err values
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: `?` unwraps only its immediate operand in surrounding expressions
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: unwraps? Maybe values and propagates None
+T ok <root>/tests/08-pattern-matching/try_test.nomi :: `?` can unwrap the previous pipe stage
 T test result: ok. 4 passed, 0 failed
 T
 C 08-pattern-matching/variant_literal_attach_test.nomi
@@ -1403,11 +1418,11 @@ T
 C 09-functions-and-control-flow/nested_fn_try_test.nomi
 E 0
 N 4
-H 7cc80b16dcf4d290f25c7152ccabd0a21442f86c429f92f4e2b5723b189ec265
-T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: try in a nested fn leaves the nested fn
-T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: try on a Maybe in a nested fn
-T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nested fn's try inside a named fn
-T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with try
+H 3797ca763a74a4dbffca3840d77e07961ec4814933abf4c9325b095ebc598d83
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: `?` in a nested fn leaves the nested fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: `?` on a Maybe in a nested fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a nested fn's `?` inside a named fn
+T ok <root>/tests/09-functions-and-control-flow/nested_fn_try_test.nomi :: a recursive nested fn with `?`
 T test result: ok. 4 passed, 0 failed
 T
 C 09-functions-and-control-flow/nested_statements_test.nomi
@@ -1693,8 +1708,8 @@ T
 C 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi
 E 0
 N 5
-H 50357f38c78fde38593904c591323fdfca36611097a2e1e200e30032c3193736
-T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: List.contains? and Iter.contains? find a value by its own equality
+H 0b592a0ce53a0beca77e95189bc3c7074d082ef29ce7888540b7c6b005886f5f
+T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: List.contains and Iter.contains find a value by its own equality
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: a generic function bounded by Equatable takes interface values
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: a generic function bounded by Hashable takes interface values
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi :: Iter.chunk_by keys by interface values
@@ -2111,7 +2126,7 @@ T
 C 12-derives-and-standard-interfaces/summable_test.nomi
 E 0
 N 9
-H 45b2e63f43cb87b81933980e541714e888260fd9edb813a101965caf097e2f50
+H 8518f4d5fbc7fa029e1ec85d34e89056a85cd6b479d7934c6e94a538bdfb52da
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: each std implementor's empty_sum
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: adding empty_sum changes nothing
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a Decimal sum keeps the widest scale
@@ -2119,7 +2134,7 @@ T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: Iter.
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: summing maps lets a later map win on a shared key
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: Iter.sum over a Range and a lazy chain
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: an empty source sums to empty_sum
-T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a sum past the Int range traps as + does
+T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: a sum past 64 bits is exact as + is
 T ok <root>/tests/12-derives-and-standard-interfaces/summable_test.nomi :: summing a type that is not Summable is a compile error
 T test result: ok. 9 passed, 0 failed
 T
@@ -2169,12 +2184,12 @@ T
 C 13-iterators-and-pipes/collect_results_test.nomi
 E 0
 N 9
-H b927349cca695a334d9ba4c549eb5ef2a6493544375094a904d4cfacb1de1f8b
+H 5d8def3b3642fff6e0eda8659fe7cebe6098b3a2c9953e5096ec9a4670a7f6e8
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect keeps every Ok value in order
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect returns the first Err
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect accepts a list, a vector and an empty input
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect stops pulling at the first Err
-T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect under try
+T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.collect under `?`
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Result.partition keeps input order on both sides
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.collect of a user struct
 T ok <root>/tests/13-iterators-and-pipes/collect_results_test.nomi :: Maybe.collect stops pulling at the first None
@@ -2220,10 +2235,10 @@ T
 C 13-iterators-and-pipes/infinite_test.nomi
 E 0
 N 9
-H becc11e8db90b050fe0a9ce9b9cf735a03b58f7e9895b94ddab1dec30fec9d89
+H e42021aa6b3d7fb5e659731d18c71205786de599724729d72ba95de7681ef344
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: the sources that never end say so
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: finite sources do not
-T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: a user source that does not write infinite? behaves as before
+T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: a user source that does not write is_infinite behaves as before
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: adapters keep it
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: adapters that can stop it make it finite or unknown
 T ok <root>/tests/13-iterators-and-pipes/infinite_test.nomi :: zip is infinite only when both sides are, concat when either is
@@ -2306,9 +2321,9 @@ T
 C 13-iterators-and-pipes/keyword_pipe_stages_test.nomi
 E 0
 N 8
-H 9a02f436e173046caf3101213cfe593f03e8c39c9268249989a50a088acad0f5
+H 85d0033e59b64ce8b33db3a221060c4b753a85f804c19980643c26cffa4ad711
 T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: head assertions can validate pipeline results
-T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed try unwraps the decorated stage result
+T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed `?` unwraps the decorated stage result
 T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed if branches on the decorated Bool stage
 T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: keyword-prefixed if can use multiline branches
 T ok <root>/tests/13-iterators-and-pipes/keyword_pipe_stages_test.nomi :: bare if pipe stages branch on the previous Bool
@@ -2326,6 +2341,17 @@ T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: bare loop bre
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: loop break value returns the break value
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: a loop answers a break value computed from its state
 T ok <root>/tests/13-iterators-and-pipes/loop_control_test.nomi :: a generic seed pins the loop state type
+T test result: ok. 5 passed, 0 failed
+T
+C 13-iterators-and-pipes/maybe_iter_test.nomi
+E 0
+N 5
+H e3908a4885bded97eaded5ddae20dd1727faee0194ea9853d7868409c64f184d
+T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Some pushes its value and a None pushes nothing
+T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe knows its count
+T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: flat_map keeps the Some values a function answers
+T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe enters an Iter position
+T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: Maybe.map and Iter.map stay apart
 T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/min_max_test.nomi
@@ -3701,10 +3727,10 @@ T nomi run: <root>/tests/exercism/armstrong-numbers/armstrong_numbers.nomi decla
 T
 C exercism/armstrong-numbers/armstrong_numbers_test.nomi
 E 0
-N 9
-H 7782ea2b67f2f6f0f419a5f995e14c6128d2879e8babe5121da5be6796633289
-T ok <root>/tests/exercism/armstrong-numbers/armstrong_numbers_test.nomi :: recognizes Armstrong numbers (9 cases)
-T test result: ok. 9 passed, 0 failed
+N 11
+H 20a66f8084a5d6fb57b1a98fd85e9060655c4fdba10d121400dbb1129ddc9cac
+T ok <root>/tests/exercism/armstrong-numbers/armstrong_numbers_test.nomi :: recognizes Armstrong numbers (11 cases)
+T test result: ok. 11 passed, 0 failed
 T
 C exercism/atbash-cipher/atbash_cipher.nomi
 E 1
@@ -4378,9 +4404,9 @@ T
 C exercism/intergalactic-transmission/intergalactic_transmission.nomi
 E 0
 N 2
-H b6ef0138eb6eb471b1a90f3a8a1b9301a6b8cf73e1d93ccf83e3a1e6daa95898
-T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: transmit //! test line 4
-T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: receive //! test line 20
+H 41ac68a7657d5a419b12b7083ba53ba6f8a2057cbd3150f0af25736ee59eef25
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: transmit //! test line 6
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: receive //! test line 22
 T test result: ok. 2 passed, 0 failed
 T
 C exercism/intergalactic-transmission/intergalactic_transmission_test.nomi
@@ -4422,8 +4448,8 @@ T
 C exercism/killer-sudoku-helper/killer_sudoku_helper.nomi
 E 0
 N 1
-H c706104f5bfbd948c2bc595e15eb65addee7579f902478921a240b83ecd6d9d8
-T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper.nomi :: combinations //! test line 4
+H 40959d63abc99be965b768011c8e61fbfee5423f8fa2e6901b7f536080555660
+T ok <root>/tests/exercism/killer-sudoku-helper/killer_sudoku_helper.nomi :: combinations //! test line 7
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/killer-sudoku-helper/killer_sudoku_helper_test.nomi
@@ -4533,8 +4559,8 @@ T
 C exercism/line-up/line_up.nomi
 E 0
 N 1
-H 047a6cfd984f3f2ac5e5aa96beb955402ae5b5a1c31ce7956aef27e0f46aeda7
-T ok <root>/tests/exercism/line-up/line_up.nomi :: format //! test line 2
+H 6db4228d23f24d55439426aa7387d125079bbfbd6f6eae8a4477a7be491417b2
+T ok <root>/tests/exercism/line-up/line_up.nomi :: format //! test line 4
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/line-up/line_up_test.nomi
@@ -4844,8 +4870,8 @@ T
 C exercism/piecing-it-together/piecing_it_together.nomi
 E 0
 N 1
-H f5dee35b121a05ede87378a0ac301123de49a349aaaf4ec95249da8482d732b2
-T ok <root>/tests/exercism/piecing-it-together/piecing_it_together.nomi :: jigsaw_data //! test line 43
+H c8c38407ba253f3aa384f894fa06c85b9e4421fa68024824fd5c39f366c400e1
+T ok <root>/tests/exercism/piecing-it-together/piecing_it_together.nomi :: jigsaw_data //! test line 45
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/piecing-it-together/piecing_it_together_test.nomi
@@ -4923,8 +4949,8 @@ T
 C exercism/prism/prism.nomi
 E 0
 N 1
-H 9ac0ee282e2d8fb9d20e827b29e3af58a764c00ce4be00fa8b0fb4f253d8f654
-T ok <root>/tests/exercism/prism/prism.nomi :: find_sequence //! test lines 24-25
+H f9f6dcdf5e0b9cb64797f205a65ab6a00cb41d99d547b47e13978df228d8229e
+T ok <root>/tests/exercism/prism/prism.nomi :: find_sequence //! test lines 26-27
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/prism/prism_test.nomi
@@ -5069,8 +5095,8 @@ T
 C exercism/rectangles/rectangles.nomi
 E 0
 N 1
-H 59b1c82da72e10f3a0a7535a1f2b80f6f566d38549032fd5b72601855012bd5d
-T ok <root>/tests/exercism/rectangles/rectangles.nomi :: count //! test line 4
+H ca13594f1d045f333369d29a0d771340217238d0f70ce6d35bfa654e27f2e575
+T ok <root>/tests/exercism/rectangles/rectangles.nomi :: count //! test line 6
 T test result: ok. 1 passed, 0 failed
 T
 C exercism/rectangles/rectangles_test.nomi

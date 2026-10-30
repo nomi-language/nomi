@@ -6,12 +6,12 @@ import (
 )
 
 // A call whose bound check fails reports the missing impl once, at the
-// call. `List.contains?` reaches Equatable both through its bound and
+// call. `List.contains` reaches Equatable both through its bound and
 // through `impl Contains for List<T> where T: Equatable`, whose demand used
 // to report the same missing impl a second time.
 func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
 	src := "struct Point {\n    x: Int\n    y: Int\n}\n\nfn main() {\n" +
-		"    dbg List.contains?([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})\n}\n"
+		"    dbg List.contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})\n}\n"
 	rejects(t, src,
 		"main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)",
 		"add `derive Equatable` to `Point`")

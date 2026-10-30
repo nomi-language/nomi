@@ -29,7 +29,7 @@ fn main() {
     io.print(Bytes.to_string(hash.sha256(String.to_bytes("x"))) == Ok("the project's"))
     io.print(digest.sha256_hex(String.to_bytes("abc")))
     io.print(regex.compile("a+"))
-    io.print(Result.ok?(Regex.compile("a+")))
+    io.print(Result.is_ok(Regex.compile("a+")))
 }
 `
 	files := map[string]string{

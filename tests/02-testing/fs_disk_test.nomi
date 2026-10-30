@@ -14,12 +14,12 @@ test "the disk keeps the rules the sandbox models" {
 
 test "a temporary directory is gone afterwards" {
     made = fs.with_temp_dir(fn dir -> {
-        try fs.write_text(path.join(dir, "x.txt"), "x")
+        fs.write_text(path.join(dir, "x.txt"), "x")?
         Ok(dir)
     })
 
     case made {
-        Ok(dir) -> assert fs.exists?(dir) == Ok(False)
+        Ok(dir) -> assert fs.exists(dir) == Ok(False)
         Err(e) -> assert Display.to_string(e) == "no error"
     }
 }
@@ -27,16 +27,16 @@ test "a temporary directory is gone afterwards" {
 test "each write mode" {
     got = fs.with_temp_dir(fn dir -> {
         p = path.join(dir, "notes.txt")
-        try fs.write_text(p, "milk\n")
-        try fs.write_text(p, "eggs\n", mode: .Append)
+        fs.write_text(p, "milk\n")?
+        fs.write_text(p, "eggs\n", mode: .Append)?
         refused = fs.write_text(p, "x", mode: .New)
-        try fs.write_text(path.join(dir, "atomic.txt"), "whole", mode: .ReplaceAtomically)
+        fs.write_text(path.join(dir, "atomic.txt"), "whole", mode: .ReplaceAtomically)?
 
         Ok(
             #(
-                try fs.read_text(p),
+                fs.read_text(p)?,
                 refused == Err(#io.Error.AlreadyExists{path: p}),
-                try fs.read_text(path.join(dir, "atomic.txt")),
+                fs.read_text(path.join(dir, "atomic.txt"))?,
             )
         )
     })
@@ -47,16 +47,16 @@ test "each write mode" {
 test "a writer buffers until it closes, and a reader reads it back" {
     got = fs.with_temp_dir(fn dir -> {
         p = path.join(dir, "out.txt")
-        w = try fs.create(p)
-        try Writer.print(w, "one")
-        try Writer.write(w, String.to_bytes("two\n"))
-        try Writer.close(w)
+        w = fs.create(p)?
+        Writer.print(w, "one")?
+        Writer.write(w, String.to_bytes("two\n"))?
+        Writer.close(w)?
 
-        lines = try fs.with_reader(p, fn r -> {
-            first = try Reader.read_line(r)
-            rest = try Reader.read_all_text(r)
+        lines = fs.with_reader(p, fn r -> {
+            first = Reader.read_line(r)?
+            rest = Reader.read_all_text(r)?
             Ok(#(first, rest))
-        })
+        })?
 
         Ok(lines)
     })
@@ -66,10 +66,10 @@ test "a writer buffers until it closes, and a reader reads it back" {
 
 test "a listing is sorted and names each entry's kind" {
     got = fs.with_temp_dir(fn dir -> {
-        try fs.write_text(path.join(dir, "b.txt"), "")
-        try fs.create_dir(path.join(dir, "a"))
+        fs.write_text(path.join(dir, "b.txt"), "")?
+        fs.create_dir(path.join(dir, "a"))?
 
-        entries = try fs.list(dir)
+        entries = fs.list(dir)?
 
         Ok(
             entries
@@ -84,11 +84,11 @@ test "a listing is sorted and names each entry's kind" {
 test "metadata answers the size, and copy and rename move contents" {
     got = fs.with_temp_dir(fn dir -> {
         a = path.join(dir, "a.txt")
-        try fs.write_text(a, "four")
-        try fs.copy(a, path.join(dir, "b.txt"))
-        try fs.rename(a, path.join(dir, "c.txt"))
-        size = (try fs.metadata(path.join(dir, "b.txt"))).size
-        Ok(#(size, try fs.exists?(a), try fs.read_text(path.join(dir, "c.txt"))))
+        fs.write_text(a, "four")?
+        fs.copy(a, path.join(dir, "b.txt"))?
+        fs.rename(a, path.join(dir, "c.txt"))?
+        size = (fs.metadata(path.join(dir, "b.txt"))?).size
+        Ok(#(size, fs.exists(a)?, fs.read_text(path.join(dir, "c.txt"))?))
     })
 
     assert got == Ok(#(4, False, "four"))
@@ -97,7 +97,7 @@ test "metadata answers the size, and copy and rename move contents" {
 test "errors name the path the program passed" {
     got = fs.with_temp_dir(fn dir -> {
         missing = path.join(dir, "none/x.txt")
-        try fs.write_text(path.join(dir, "kept.txt"), "")
+        fs.write_text(path.join(dir, "kept.txt"), "")?
 
         Ok([
             fs.read_text(missing) == Err(#io.Error.NotFound{path: missing}),
@@ -112,11 +112,11 @@ test "errors name the path the program passed" {
 
 test "symlinks, modes, a File and within on the disk" {
     got = fs.with_temp_dir(fn dir -> {
-        try fs.create_dir(path.join(dir, "site/pages"), parents: True)
-        try fs.write_text(path.join(dir, "site/pages/a.txt"), "a")
-        try fs.write_text(path.join(dir, "secret.txt"), "s")
-        try fs.create_symlink(path.join(dir, "site/current"), target: "pages")
-        try fs.set_mode(path.join(dir, "secret.txt"), 0o600)
+        fs.create_dir(path.join(dir, "site/pages"), parents: True)?
+        fs.write_text(path.join(dir, "site/pages/a.txt"), "a")?
+        fs.write_text(path.join(dir, "secret.txt"), "s")?
+        fs.create_symlink(path.join(dir, "site/current"), target: "pages")?
+        fs.set_mode(path.join(dir, "secret.txt"), 0o600)?
 
         walked =
             fs.walk(path.join(dir, "site"))
@@ -124,20 +124,20 @@ test "symlinks, modes, a File and within on the disk" {
             |> Result.collect()
 
         patched = fs.with_file(path.join(dir, "site/pages/a.txt"), access: .ReadWrite, fn f -> {
-            try File.write_at(f, 1, String.to_bytes("bc"))
+            File.write_at(f, 1, String.to_bytes("bc"))?
             File.size(f)
         })
 
         inside = fs.within(path.join(dir, "site"), fn -> {
-            Ok(#(fs.read_text("current/a.txt"), Result.ok?(fs.read_text("../secret.txt"))))
+            Ok(#(fs.read_text("current/a.txt"), Result.is_ok(fs.read_text("../secret.txt"))))
         })
 
         Ok(
             #(
-                try walked,
-                try patched,
-                try inside,
-                (try fs.metadata(path.join(dir, "secret.txt"))).mode,
+                walked?,
+                patched?,
+                inside?,
+                (fs.metadata(path.join(dir, "secret.txt"))?).mode,
             )
         )
     })

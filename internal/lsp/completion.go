@@ -307,7 +307,7 @@ func declaresFunction(rest string) bool {
 		return false
 	}
 	i := 0
-	for i < len(rest) && (isWordByte(rest[i]) || rest[i] == '?') {
+	for i < len(rest) && isWordByte(rest[i]) {
 		i++
 	}
 	return i < len(rest) && (rest[i] == '(' || rest[i] == '<')
@@ -742,7 +742,7 @@ func (s *Server) completionItemResolve(_ *glsp.Context, item *protocol.Completio
 
 // matchQuality reports whether name matches what was typed and how well:
 // 0 exactly, 1 as a prefix, 2 as a prefix ignoring case, 3 at word
-// boundaries (`tl` for `to_lower`, `oA` for `orApply`), 4 as a
+// boundaries (`ts` for `to_string`, `oA` for `orApply`), 4 as a
 // case-insensitive subsequence. An empty prefix matches everything at 1.
 func matchQuality(prefix, name string) (int, bool) {
 	switch {
@@ -763,8 +763,8 @@ func matchQuality(prefix, name string) (int, bool) {
 }
 
 // boundaryMatch reports whether prefix spells name's words in order, each
-// matched by a prefix of the word: `tl`, `to_l` and `tlow` all match
-// `to_lower`. Words split at `_` and at a lower-to-upper case change.
+// matched by a prefix of the word: `ts`, `to_s` and `tstr` all match
+// `to_string`. Words split at `_` and at a lower-to-upper case change.
 func boundaryMatch(prefix, name string) bool {
 	words := splitWords(name)
 	p := strings.ToLower(prefix)
@@ -796,7 +796,7 @@ func splitWords(name string) []string {
 	for i := 1; i < len(name); i++ {
 		c, prev := name[i], name[i-1]
 		switch {
-		case c == '_' || c == '?':
+		case c == '_':
 			if i > start {
 				words = append(words, name[start:i])
 			}
@@ -846,9 +846,5 @@ func getPrefix(content string, line, character int) string {
 }
 
 func isIdentChar(c byte) bool {
-	// `?` is the trailing predicate marker the lexer absorbs into an
-	// identifier (e.g. `empty?`, `contains?`). It is trailing-only in valid
-	// source, so including it in a backward char-scan cannot over-match
-	// across token boundaries.
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '?'
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.'
 }

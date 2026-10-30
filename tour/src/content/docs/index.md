@@ -30,7 +30,7 @@ parses, and hovering shows the same information your editor does.
 - **Functional style.** Functions are values, types can be sums of variants,
   and [`case`](/pattern-matching/) must cover every shape a value can take.
   Tail calls run in constant stack space.
-- **Plain control flow.** `return`, `break`, `continue` and prefix `try` are
+- **Plain control flow.** `return`, `break`, `continue` and a postfix `?` are
   there when they make a function easier to read.
 - **Explicit interfaces.** A type implements an interface with
   `impl Interface for Type { ... }`, or gets a generated implementation with
@@ -115,7 +115,7 @@ literals, and early `return`, `break` and `continue`.
 
 **Rust.** Traits become interfaces, and an implementation is
 `impl Interface for Type { ... }`. `where` bounds are checked at each call.
-`Result` and `Maybe` use prefix `try`. Distinct types do the job of
+`Result` and `Maybe` propagate with `?`, as Rust's do. Distinct types do the job of
 newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
 macros: a library [generates code](/generating-code/) into ordinary files
 instead. Type inference stays inside a function body.

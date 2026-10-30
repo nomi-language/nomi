@@ -14,7 +14,7 @@ pub opaque type Email String
 
 /// Validates `s` and returns Some(Email) if it contains "@", or None.
 pub fn from_string(s: String) -> Maybe<Email> {
-    if String.contains?(s, "@") {
+    if String.contains(s, "@") {
         Some(Email(s))
     } else {
         None

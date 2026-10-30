@@ -13,9 +13,9 @@ Adapted from Exercism problem-specifications (MIT), exercises/acronym.
   `String.find_all`, rather than splitting on spaces and hyphens and then
   stripping punctuation. The regex makes "Halley's" one word and "_Not_" the
   word "Not" without special cases.
-- The first letter of a word is `&String.slice(&1, 0, 1)`, a capture rather than `fn word -> ...`.
-  `Iter.first(word)` also works but returns a `Maybe`, and every match has at
-  least one letter.
+- The first letter of a word is `&String.take(&1, 1)`, a capture rather than
+  `fn word -> ...`. `Iter.first(word)` also works but returns a `Maybe`, and
+  every match has at least one letter.
 - The whole acronym is upper-cased once at the end, not letter by letter.
 
 ## Friction

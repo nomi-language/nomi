@@ -1,3 +1,5 @@
+//# A stopwatch that can be started, stopped, lapped and reset.
+
 import std/duration.Duration
 
 /// What a stopwatch is doing.
@@ -64,11 +66,8 @@ impl Stopwatch {
     /// laps, and starts the next from no time.
     pub fn lap(watch: Stopwatch) -> Result<Stopwatch, Error> {
         case watch.state {
-            .Running ->
-                Ok(#{..watch, current: no_time, laps: List.concat(watch.laps, [watch.current])})
-
-            .Ready or .Stopped ->
-                Err(.LapWhenNotRunning)
+            .Running -> Ok(#{..watch, current: no_time, laps: watch.laps + [watch.current]})
+            .Ready or .Stopped -> Err(.LapWhenNotRunning)
         }
     }
 

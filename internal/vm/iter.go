@@ -42,11 +42,10 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		return err
 	}
 	if n.Op() == ir.IterFrom {
-		start, ok := src.(int64)
-		if !ok {
+		if !rt.IsInt(src) {
 			return fmt.Errorf("vm: Iter.from reads %T, not an Int", src)
 		}
-		fr.write(n.Dst(), rt.SeqMap(rt.SeqFrom(start), func(_ *rt.Frame, i int64) any { return int64(i) }))
+		fr.write(n.Dst(), rt.SeqFromInt(src))
 		return nil
 	}
 	if n.Op() == ir.IterRepeat {
@@ -121,6 +120,14 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 				return fmt.Errorf("vm: vector iteration reads %T, not a Vector", src)
 			}
 			fr.write(n.Dst(), sourceView(rt.VectorSeq(v), src, func(*rt.Frame) rt.Maybe[int64] { return rt.VectorKnownCount(v) }))
+			return nil
+		}
+		if n.Over() == ir.IterOverMaybe {
+			m, err := maybeSource(src)
+			if err != nil {
+				return err
+			}
+			fr.write(n.Dst(), sourceView(rt.MaybeSeq(m), src, func(*rt.Frame) rt.Maybe[int64] { return rt.MaybeKnownCount(m) }))
 			return nil
 		}
 		if n.Over() == ir.IterOverBytes {
@@ -280,11 +287,10 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if err != nil {
 			return err
 		}
-		count, ok := arg.(int64)
-		if !ok {
+		if !rt.IsInt(arg) {
 			return fmt.Errorf("vm: take requires an Int count")
 		}
-		fr.write(n.Dst(), rt.SeqTake(seq, count))
+		fr.write(n.Dst(), rt.SeqTake(seq, rt.IntSaturated(arg)))
 	case ir.IterSort, ir.IterSortWith:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -393,11 +399,10 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if err != nil {
 			return err
 		}
-		index, ok := arg.(int64)
-		if !ok {
+		if !rt.IsInt(arg) {
 			return fmt.Errorf("vm: Iter.get requires an Int index")
 		}
-		fr.write(n.Dst(), maybeOf(rt.SeqGet(fr.runtime, seq, index)))
+		fr.write(n.Dst(), maybeOf(rt.SeqGet(fr.runtime, seq, rt.IntSaturated(arg))))
 	case ir.IterPartition:
 		callback, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -472,8 +477,6 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		fr.write(n.Dst(), int64(rt.SeqCount(fr.runtime, seq)))
 	case ir.IterEmpty:
 		fr.write(n.Dst(), boolValue(rt.SeqEmpty(fr.runtime, seq)))
-	case ir.IterNotEmpty:
-		fr.write(n.Dst(), boolValue(rt.SeqNotEmpty(fr.runtime, seq)))
 	case ir.IterToList:
 		fr.write(n.Dst(), rt.SeqToListCells[any, list](fr.runtime, seq))
 	case ir.IterDrop, ir.IterChunks:
@@ -481,10 +484,10 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if err != nil {
 			return err
 		}
-		count, ok := arg.(int64)
-		if !ok {
+		if !rt.IsInt(arg) {
 			return fmt.Errorf("vm: %s requires an Int", n.Op())
 		}
+		count := rt.IntSaturated(arg)
 		if n.Op() == ir.IterDrop {
 			fr.write(n.Dst(), rt.SeqDrop(seq, count))
 		} else {
@@ -675,11 +678,11 @@ func (m *Machine) rangeView(fr *frame, n *ir.Iter, src any) error {
 			return fmt.Errorf("vm: range view operand 3 is %T, not its distance function", v)
 		}
 		count = func(runtime *rt.Frame) rt.Maybe[int64] {
-			return rt.RangeKnownCount(runtime, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
+			return rt.RangeCount64(rt.RangeKnownCount(runtime, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
 				return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "range comparator")
-			}, func(runtime *rt.Frame, a, b any) rt.Maybe[int64] {
+			}, func(runtime *rt.Frame, a, b any) rt.Maybe[any] {
 				return rangeSteps(m.iterInvoke(steps, runtime, a, b))
-			})
+			}))
 		}
 	}
 	fr.write(n.Dst(), sourceView(rt.RangeSeq(r, func(runtime *rt.Frame, a, b any) rt.Ordering {
@@ -750,7 +753,7 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 			return fmt.Errorf("vm: user source view operand 2 is %T, not its known_count", v)
 		default:
 			count = func(runtime *rt.Frame) rt.Maybe[int64] {
-				return rangeSteps(m.iterInvoke(kc, runtime, src))
+				return rt.RangeCount64(rangeSteps(m.iterInvoke(kc, runtime, src)))
 			}
 		}
 	}
@@ -762,17 +765,17 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 		}
 		inf, ok := v.(*functionValue)
 		if !ok || inf == nil || inf.arity != 1 {
-			return fmt.Errorf("vm: user source view operand 3 is %T, not its infinite?", v)
+			return fmt.Errorf("vm: user source view operand 3 is %T, not its is_infinite", v)
 		}
 		name := rt.ShortTypeName(runtimeTypeName(src))
 		if name == "" {
-			name = "Iter.infinite?"
+			name = "Iter.is_infinite"
 		}
 		view = rt.WithEndless(view, func(runtime *rt.Frame) string {
 			result := m.iterInvoke(inf, runtime, src)
 			endless, ok := asBool(result)
 			if !ok {
-				panic(iterationFailure{fmt.Errorf("vm: infinite? returned %T, not Bool", result)})
+				panic(iterationFailure{fmt.Errorf("vm: is_infinite returned %T, not Bool", result)})
 			}
 			if endless {
 				return name
@@ -788,7 +791,7 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 // to the end, so an endless source can never give its answer: the
 // materializers and folds. One whose callback can `break` (a signalling
 // reduce, each or map_reduce) may stop on its own, and the short-circuiting
-// terminals (`first`, `find`, `any?`, `all?`, `get`, `empty?`,
+// terminals (`first`, `find`, `any`, `all`, `get`, `is_empty`,
 // `each_while`) stop early by design.
 func mustReachEnd(n *ir.Iter) bool {
 	switch n.Op() {
@@ -942,11 +945,29 @@ func knownCount(fr *frame, n *ir.Iter, src any) error {
 			return err
 		}
 		got = rt.MapKnownCount(items)
+	case ir.IterOverMaybe:
+		m, err := maybeSource(src)
+		if err != nil {
+			return err
+		}
+		got = rt.MaybeKnownCount(m)
 	default:
 		return fmt.Errorf("vm: known_count over %s is not supported", n.Over())
 	}
 	fr.write(n.Dst(), countValue(got))
 	return nil
+}
+
+// maybeSource reads a Maybe a view walks as zero or one elements.
+func maybeSource(src any) (rt.Maybe[any], error) {
+	payload, isSome, ok := maybeParts(src)
+	if !ok {
+		return rt.Maybe[any]{}, fmt.Errorf("vm: maybe iteration reads %T, not a Maybe", src)
+	}
+	if isSome {
+		return rt.Some(payload), nil
+	}
+	return rt.Maybe[any]{Tag: rt.TagNone}, nil
 }
 
 // countValue boxes a known count.

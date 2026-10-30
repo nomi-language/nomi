@@ -5,14 +5,12 @@ import (
 	"math"
 )
 
-// Nomi's `Int` is `int64` and it traps. Go's int64 wraps silently, so this file
-// is the difference between the two: a wrong answer here is a wrong number,
-// printed without complaint, in a program that looks fine. Which operator
-// checks what, and the fault text, live here once.
-//
-// The predicates are exported for internal/vm, which boxes each fault itself
-// over its own operator enum — an embedder wants the Int methods in
-// std/int.nomi.
+// Nomi's `Int` is exact at any size (bigint.go): an int64 while the value
+// fits, a *BigInt past that. Go's int64 wraps silently, so the predicates
+// below are the boundary between the two representations: an operation on
+// two int64s whose result leaves int64 is computed again exactly, in
+// math/big. They answer nothing about Nomi's semantics, which has no
+// overflow.
 
 // AddOverflows reports whether a+b leaves the signed 64-bit range.
 func AddOverflows(a, b int64) bool {
@@ -43,24 +41,14 @@ func MulOverflows(a, b int64) bool {
 
 // QuoOverflows reports whether a/b leaves the signed 64-bit range.
 //
-// Exactly one pair does: MinInt64 / -1 is MaxInt64+1, which is unrepresentable.
+// Exactly one pair does: MinInt64 / -1 is MaxInt64+1, which int64 cannot hold.
 // Go wraps it back to MinInt64 rather than panicking, so it has to be named
 // explicitly — this is the division case a backend forgets.
 func QuoOverflows(a, b int64) bool { return a == math.MinInt64 && b == -1 }
 
-// OverflowError is the error a trapping Int operation reports. op is spelled the
-// way the source spells it ("+", "-", "*", "/").
-func OverflowError(line int, op string, a, b int64) error {
-	return positioned(line, overflowText(line, op, a, b))
-}
-
 // DivByZeroError is the error `/` and `%` report for a zero divisor. It carries
 // no operands: which value was zero is not in doubt.
 func DivByZeroError(line int) error { return positioned(line, divByZeroText(line)) }
-
-func overflowText(line int, op string, a, b int64) string {
-	return fmt.Sprintf("line %d: integer overflow: %d %s %d", line, a, op, b)
-}
 
 func divByZeroText(line int) string {
 	return fmt.Sprintf("line %d: division by zero", line)
@@ -82,27 +70,6 @@ const divByZeroMessage = "division by zero"
 // operation — it answers +0.0 for a zero operand — which is why the VM calls
 // this rather than subtracting.
 func NegFloat(a float64) float64 { return -a }
-
-// --- wrapping Int arithmetic ----------------------------------------------
-
-// Nomi's opt-in modular arithmetic: `Int.wrapping_add`/`_sub`/`_mul`, and
-// ast.Binary.Wrapping, which the `@derive Hashable` hash-mix sets on nodes it
-// synthesizes. These must not trap, since that is why they exist, and
-// a backend that lowered a wrapping node to the trapping helper above would turn
-// a deliberate wrap into a spurious crash.
-//
-// Division and modulo have no wrapping form. A wrapping node carrying one is
-// the checked operator: the VM falls through to it, so MinInt64 / -1 traps
-// there as it does anywhere else.
-
-// WrapAddInt is modular `+`.
-func WrapAddInt(a, b int64) int64 { return a + b }
-
-// WrapSubInt is modular `-`.
-func WrapSubInt(a, b int64) int64 { return a - b }
-
-// WrapMulInt is modular `*`.
-func WrapMulInt(a, b int64) int64 { return a * b }
 
 // --- Float arithmetic ------------------------------------------------------
 

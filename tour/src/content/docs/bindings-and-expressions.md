@@ -170,13 +170,13 @@ fn double(n: Int) -> Int {
 errors. They are drawn dimmed so they stand back from the code below. Neovim
 and VS Code show the line under the cursor in full color. The standard
 library uses them for its examples: the reference entry for
-[`String.contains?`](/reference/strings/#stringcontains-containsstring) is generated from
+[`String.contains`](/reference/strings/#stringcontains-containsstring) is generated from
 them.
 
 `assert` and `refute` are for tests. Ordinary code reports failure with a
 [`Result`](/reference/results/) or a [`Maybe`](/reference/maybe/) value,
-which the caller handles with `case` or passes on with `try`.
-[Pattern Matching, Maybe, Result & Try](/pattern-matching/) covers those.
+which the caller handles with `case` or passes on with `?`.
+[Pattern Matching, Maybe & Result](/pattern-matching/) covers those.
 [Testing](/testing/) covers the rest of testing: setup, pattern assertions
 and captured checks.
 
@@ -273,7 +273,7 @@ Shadowing is useful when you refine a value one step at a time:
 fn main() {
     name = "  JANE  "
     name = String.trim(name)
-    name = String.to_lower(name)
+    name = String.lowercase(name)
     dbg name
 }
 
@@ -289,7 +289,7 @@ feeds straight into the next, a pipeline says the same thing more simply:
 fn main() {
     "  JANE  "
     |> String.trim()
-    |> String.to_lower()
+    |> String.lowercase()
     |> dbg
 }
 ```
@@ -297,7 +297,7 @@ fn main() {
 dbg line 5:
   "  JANE  "
   |> String.trim()
-  |> String.to_lower()
+  |> String.lowercase()
   = "jane"
 -->
 

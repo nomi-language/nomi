@@ -2,9 +2,9 @@ package irbuild
 
 import "github.com/nomi-language/nomi/internal/ast"
 
-// seqContainsPlan is `List.contains?(xs, x)` and `Vector.contains?(v, x)`,
+// seqContainsPlan is `List.contains(xs, x)` and `Vector.contains(v, x)`,
 // the `Contains<T>` impls std declares as host functions: one crossing by
-// name (`List.contains?`, `Vector.contains?`) that the VM answers with rt's
+// name (`List.contains`, `Vector.contains`) that the VM answers with rt's
 // scan, comparing each element with x as `==` does. owner is "List" or
 // "Vector".
 //
@@ -21,7 +21,7 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 		empty, of = kindEmptyVector, g.vectorKindOf
 	}
 	if seq == empty {
-		// `List.contains?([], x)`: the element operand types the sequence.
+		// `List.contains([], x)`: the element operand types the sequence.
 		seq = of(elem)
 	}
 	var have kind
@@ -36,11 +36,11 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 		return nil
 	}
 	if !(irRetainedValueKind(seq) || g.irValType(seq) != nil) {
-		irDeclineNote("a " + owner + ".contains? sequence outside the retained domain: " + seq.nomi())
+		irDeclineNote("a " + owner + ".contains sequence outside the retained domain: " + seq.nomi())
 		return nil
 	}
 	if !g.valueEquates(have) {
-		g.reject(owner+".contains? over an element `==` does not compare", have.nomi(), t)
+		g.reject(owner+".contains over an element `==` does not compare", have.nomi(), t)
 		return nil
 	}
 	for i, want := range []kind{seq, have} {
@@ -50,6 +50,6 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 		}
 		args.temps[i], args.kinds[i] = v, got
 	}
-	name := owner + ".contains?"
+	name := owner + ".contains"
 	return &irQualPlan{token: name, name: name, result: kindBool, host: true}
 }

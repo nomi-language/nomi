@@ -105,8 +105,8 @@ test "sign, abs and negate preserve scale in both directions" {
     assert Decimal.to_string(Decimal.negate(1.50d)) == "-1.50"
     assert Decimal.to_string(Decimal.negate(-1.50d)) == "1.50"
     assert Decimal.to_string(Decimal.negate(0.00d)) == "0.00"
-    assert Decimal.zero?(0.00d)
-    refute Decimal.zero?(-0.001d)
+    assert Decimal.is_zero(0.00d)
+    refute Decimal.is_zero(-0.001d)
 }
 
 test "normalize strips fractional zeros only" {
@@ -164,48 +164,36 @@ test "conversions are explicit and total only where they can be" {
     assert String.to_decimal("oops") == None
     assert String.to_decimal("") == None
     assert String.to_decimal("1e5") == None
-    assert Decimal.to_int(3.7d) == Some(3)
-    assert Decimal.to_int(-3.7d) == Some(-3)
+    assert Decimal.to_int(3.7d) == 3
+    assert Decimal.to_int(-3.7d) == -3
     assert Decimal.to_float(1.50d) == 1.5
     assert Float.to_decimal(0.1, 2, HalfEven) == Some(0.10d)
     assert Float.to_decimal(3.14159, 2, Floor) == Some(3.14d)
 }
 
-test "Int64's boundary round-trips, and one step past it does not" {
-    // Nomi cannot write Int64's minimum as a literal: `-9223372036854775808` is
-    // a unary minus applied to a literal one past Int64's maximum, so it is the
-    // LITERAL that is out of range. Computed instead.
-    min_int = -9223372036854775807 - 1
-    max_int = 9223372036854775807
+test "Int64's boundary round-trips, and so does a step past it" {
+    min_int = -9_223_372_036_854_775_808
+    max_int = 9_223_372_036_854_775_807
 
     assert Decimal.to_string(Int.to_decimal(min_int)) == "-9223372036854775808"
     assert Decimal.to_string(Int.to_decimal(max_int)) == "9223372036854775807"
-    assert Decimal.to_int(Int.to_decimal(min_int)) == Some(min_int)
-    assert Decimal.to_int(Int.to_decimal(max_int)) == Some(max_int)
+    assert Decimal.to_int(Int.to_decimal(min_int)) == min_int
+    assert Decimal.to_int(Int.to_decimal(max_int)) == max_int
 
-    // Decimal is arbitrary-precision, so it holds values Int cannot. Converting
-    // one back must answer None rather than wrap — the extreme row.
+    // An Int is exact at any size, so a Decimal past Int64's range converts
+    // back exactly too.
     past_max = Int.to_decimal(max_int) + 1d
     past_min = Int.to_decimal(min_int) - 1d
     assert Decimal.to_string(past_max) == "9223372036854775808"
     assert Decimal.to_string(past_min) == "-9223372036854775809"
-    assert Decimal.to_int(past_max) == None
-    assert Decimal.to_int(past_min) == None
+    assert Decimal.to_int(past_max) == max_int + 1
+    assert Decimal.to_int(past_min) == min_int - 1
 
-    // The SHARPEST row in the file, and it is not the one this comment first
-    // claimed. Truncation is toward ZERO, so a value strictly OUTSIDE Int64's
-    // range can truncate to a value INSIDE it: -9223372036854775808.5 is below
-    // the minimum, yet truncating toward zero lands exactly on it. So the order
-    // of operations is observable — truncate THEN range-check answers Some,
-    // range-check THEN truncate answers None — and only a half-step past a
-    // boundary can tell the two apart.
-    assert Decimal.to_int(Int.to_decimal(min_int) - 0.5d) == Some(min_int)
-    assert Decimal.to_int(Int.to_decimal(max_int) + 0.5d) == Some(max_int)
-
-    // And the other direction of the same rule: a half-step INSIDE the boundary
-    // truncates toward zero, so it moves off the boundary by one.
-    assert Decimal.to_int(Int.to_decimal(min_int) + 0.5d) == Some(min_int + 1)
-    assert Decimal.to_int(Int.to_decimal(max_int) - 0.5d) == Some(max_int - 1)
+    // Truncation is toward ZERO, at the boundary as anywhere else.
+    assert Decimal.to_int(Int.to_decimal(min_int) - 0.5d) == min_int
+    assert Decimal.to_int(Int.to_decimal(max_int) + 0.5d) == max_int
+    assert Decimal.to_int(Int.to_decimal(min_int) + 0.5d) == min_int + 1
+    assert Decimal.to_int(Int.to_decimal(max_int) - 0.5d) == max_int - 1
 }
 
 test "min and max pick by value, not by scale" {

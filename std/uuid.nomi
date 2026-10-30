@@ -76,7 +76,7 @@ impl Uuid {
     /// Read the 36-character hyphenated form, in either case. Braces, a
     /// `urn:uuid:` prefix and the 32-digit form without hyphens are not
     /// accepted.
-    //! assert Display.to_string(try Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8"))
+    //! assert Display.to_string(Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")?)
     //!     == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     //!
     //! assert Uuid.parse("6ba7b810") == Err(#Error.Length{length: 8})
@@ -90,9 +90,7 @@ impl Uuid {
         codepoints = String.to_codepoints(text)
         count = Iter.count(codepoints)
 
-        if count != 36 {
-            return Err(#Error.Length{length: count})
-        }
+        if count != 36 { return Err(#Error.Length{length: count}) }
 
         #(_, high, low, failure) = Iter.reduce(codepoints, fn acc = #(0, 0, 0, None), cp -> {
             #(index, high, low, failure) = acc
@@ -123,9 +121,7 @@ impl Uuid {
     //! assert Uuid.from_bytes(Bytes.from_list([])) == Err(#Error.Length{length: 0})
     //
     pub fn from_bytes(data: Bytes) -> Result<Uuid, Error> {
-        if Bytes.length(data) != 16 {
-            return Err(#Error.Length{length: Bytes.length(data)})
-        }
+        if Bytes.length(data) != 16 { return Err(#Error.Length{length: Bytes.length(data)}) }
 
         Ok(#Uuid{high: read_half(data, 0), low: read_half(data, 8)})
     }
@@ -147,12 +143,12 @@ impl Uuid {
 
     /// A version 4 UUID: 122 random bits from the operating system's
     /// entropy source.
-    //! id = try Uuid.v4()
+    //! id = Uuid.v4()?
     //! assert Uuid.version(id) == 4
     //
     pub fn v4() -> Result<Uuid, random.Error> {
-        high = try random_int()
-        low = try random_int()
+        high = random_int()?
+        low = random_int()?
         Ok(#Uuid{high: with_version(high, 4), low: with_variant(low)})
     }
 
@@ -162,13 +158,13 @@ impl Uuid {
     /// insertion order; two made in the same millisecond are in random
     /// order. Under a test group's virtual clock the time is the virtual
     /// one.
-    //! id = try Uuid.v7()
+    //! id = Uuid.v7()?
     //! assert Uuid.version(id) == 7
     //
     pub fn v7() -> Result<Uuid, random.Error> {
         millis = Instant.as_nanos(Instant.now()) / 1000000
-        random_high = try random_int()
-        low = try random_int()
+        random_high = random_int()?
+        low = random_int()?
         high = Int.bitwise_or(Int.shift_left(millis, 16), Int.bitwise_and(random_high, 4095))
         Ok(#Uuid{high: with_version(high, 7), low: with_variant(low)})
     }
@@ -225,10 +221,14 @@ impl Debug for Uuid {
     }
 }
 
+// Each half is a signed 64-bit Int, as Int.wrapping_mul and the other 64-bit
+// functions leave one.
+once sign_bit = -9_223_372_036_854_775_808
+
 // Each half flips its sign bit, so Int's signed order is the unsigned order
 // of the bits.
 fn unsigned_key(half: Int) -> Int {
-    Int.bitwise_xor(half, Int.min_value)
+    Int.bitwise_xor(half, sign_bit)
 }
 
 // One character of the 36: a hyphen at 8, 13, 18 and 23, otherwise a digit
@@ -239,9 +239,7 @@ fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> #(Int, Int, Int,
     next = index + 1
 
     if index == 8 or index == 13 or index == 18 or index == 23 {
-        if found == "-" {
-            return #(next, high, low, None)
-        }
+        if found == "-" { return #(next, high, low, None) }
 
         return #(next, high, low, Some(#Error.Separator{index, found}))
     }
@@ -252,9 +250,9 @@ fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> #(Int, Int, Int,
 
         Some(digit) ->
             if index < 19 {
-                #(next, Int.bitwise_or(Int.shift_left(high, 4), digit), low, None)
+                #(next, Int.bitwise_or(Int.wrapping_mul(high, 16), digit), low, None)
             } else {
-                #(next, high, Int.bitwise_or(Int.shift_left(low, 4), digit), None)
+                #(next, high, Int.bitwise_or(Int.wrapping_mul(low, 16), digit), None)
             }
     }
 }
@@ -291,18 +289,13 @@ fn read_half(data: Bytes, start: Int) -> Int {
             None -> 0
         }
 
-        Int.bitwise_or(Int.shift_left(acc, 8), byte)
+        Int.bitwise_or(Int.wrapping_mul(acc, 256), byte)
     })
 }
 
 fn half_bytes(half: Int) -> Bytes {
     0..8
-    |> Iter.flat_map(fn i -> {
-        case Int.to_byte(Int.bitwise_and(Int.shift_right(half, (7 - i) * 8), 255)) {
-            Some(b) -> [b]
-            None -> []
-        }
-    })
+    |> Iter.flat_map(fn i -> Int.to_byte(Int.bitwise_and(Int.shift_right(half, (7 - i) * 8), 255)))
     |> Iter.to_list()
     |> Bytes.from_list()
 }
@@ -310,8 +303,8 @@ fn half_bytes(half: Int) -> Bytes {
 // 64 bits from a fresh OS-entropy seed. The generator's first draw over the
 // whole of Int is a bijection of the seed, so the bits are the entropy's.
 fn random_int() -> Result<Int, random.Error> {
-    seed = try Seed.from_os()
-    #(n, _) = Generator.step(Generator.int(Int.min_value, Int.max_value), seed)
+    seed = Seed.from_os()?
+    #(n, _) = Generator.step(Generator.int(sign_bit, -1 - sign_bit), seed)
     Ok(n)
 }
 
@@ -322,5 +315,5 @@ fn with_version(high: Int, version: Int) -> Int {
 
 // The RFC 9562 variant, binary 10, in the top two bits of the low half.
 fn with_variant(low: Int) -> Int {
-    Int.bitwise_or(Int.bitwise_and(low, Int.max_value / 2), Int.min_value)
+    Int.bitwise_or(Int.bitwise_and(low, 4_611_686_018_427_387_903), sign_bit)
 }

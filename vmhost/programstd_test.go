@@ -53,10 +53,10 @@ func TestProgramStd_AModuleCallsItsOwnFunctionsQualified(t *testing.T) {
 		"assert sql.with_connection(fn -> Ok(again), fn conn -> Conn.exec(conn, Sql\"DELETE FROM u\")) == Ok(0)\n" +
 		"other = Fake.new()\n" +
 		"sql.close_quietly(other)\n" +
-		"assert Fake.closed?(other)\n" +
+		"assert Fake.is_closed(other)\n" +
 		"third = Fake.new()\n" +
 		"third |> sql.close_quietly()\n" +
-		"assert Fake.closed?(third)\n" +
+		"assert Fake.is_closed(third)\n" +
 		"io.print(\"${Fake.log(fake)} ${Fake.log(again)}\")\n"
 	var out strings.Builder
 	cases, err := StdlibReference("sql", "import std/io\n"+body, "", &out)
@@ -82,7 +82,7 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 	body := "import std/sql_testing.Fake\n" +
 		"fake = Fake.new()\n" +
 		"assert sql.with_connection(fn -> Ok(fake), fn conn -> Conn.exec(conn, Sql\"DELETE FROM t\")) == Ok(0)\n" +
-		"assert Fake.closed?(fake)\n" +
+		"assert Fake.is_closed(fake)\n" +
 		"io.print(\"${Fake.log(fake)}\")\n"
 	var out strings.Builder
 	cases, err := StdlibReference("sql", "import std/io\n"+body, "", &out)

@@ -184,7 +184,9 @@ func field(s string) (string, error) {
 
 // readCurrencyFormats adds each locale's currency patterns, from
 // numbers.json's currencyFormats: `currency-pattern <system> <standard>
-// <alphaNextToNumber>` per numbering system, and `currency-unit` with the
+// <alphaNextToNumber> <accounting> <accounting alphaNextToNumber>` per
+// numbering system (a missing accounting pair is the standard one, and a
+// missing alphaNextToNumber is the pattern it varies), and `currency-unit` with the
 // pattern an amount written with its currency's name takes (`{0} {1}`) in
 // each plural form, from the default numbering system's block, else the
 // Latin one's.
@@ -206,12 +208,19 @@ func readCurrencyFormats(src *LocaleSource, raw map[string]map[string]json.RawMe
 			if alpha == "" {
 				alpha = std
 			}
-			for _, p := range []string{std, alpha} {
+			acct, acctAlpha := m["accounting"], m["accounting-alphaNextToNumber"]
+			switch {
+			case acct == "":
+				acct, acctAlpha = std, alpha
+			case acctAlpha == "":
+				acctAlpha = acct
+			}
+			for _, p := range []string{std, alpha, acct, acctAlpha} {
 				if _, err := cldrdata.ParseCurrencyPattern(p); err != nil {
 					return fmt.Errorf("numbers.json: %s %s: %w", tag, key, err)
 				}
 			}
-			recs[cldrdata.RecordKey("currency-pattern", system)] = std + "\t" + alpha
+			recs[cldrdata.RecordKey("currency-pattern", system)] = strings.Join([]string{std, alpha, acct, acctAlpha}, "\t")
 			blocks[system] = m
 		}
 		m := blocks[def]

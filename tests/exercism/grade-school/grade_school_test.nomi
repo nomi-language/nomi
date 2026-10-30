@@ -40,7 +40,7 @@ test "adding students" {
 }
 
 test "the roster" {
-    cases: List<#(String, List<#(String, Int)>, List<String>)> = [
+    cases = [
         #("Roster is empty when no student is added", [], []),
         #("Student is added to the roster", [#("Aimee", 2)], ["Aimee"]),
         #(
@@ -95,7 +95,7 @@ test "the roster" {
 }
 
 test "one grade" {
-    cases: List<#(String, List<#(String, Int)>, Int, List<String>)> = [
+    cases = [
         #("Grade is empty if no students in the roster", [], 1, []),
         #(
             "Grade is empty if no students in that grade",

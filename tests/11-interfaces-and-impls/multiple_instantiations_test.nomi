@@ -8,10 +8,10 @@ import {
 }
 
 interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 
-    fn holds_none?(b: self, xs: List<T>) -> Bool {
-        Iter.all?(xs, fn x -> !Holds.holds?(b, x))
+    fn holds_none(b: self, xs: List<T>) -> Bool {
+        Iter.all(xs, fn x -> !Holds.holds(b, x))
     }
 }
 
@@ -21,19 +21,19 @@ struct Box {
 }
 
 impl Holds<Int> for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n == x
     }
 }
 
 impl Holds<String> for Box {
-    fn holds?(b: Box, x: String) -> Bool {
+    fn holds(b: Box, x: String) -> Bool {
         b.s == x
     }
 }
 
 fn holds_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
-    C.holds?(c, x)
+    C.holds(c, x)
 }
 
 interface Gets<T> {
@@ -62,14 +62,14 @@ fn number(g: Gets<Int>) -> Int {
 
 test "a call takes the impl its argument's type chooses" {
     b = #Box{n: 1, s: "a"}
-    assert Box.holds?(b, 1)
-    assert Holds.holds?(b, "a")
-    refute b |> Box.holds?("z")
+    assert Box.holds(b, 1)
+    assert Holds.holds(b, "a")
+    refute b |> Box.holds("z")
     assert holds_by(b, 1)
     refute holds_by(b, "b")
-    assert Box.holds_none?(b, [2, 3])
-    refute Holds.holds_none?(b, ["a"])
-    picks = Iter.filter(["a", "b"], &Holds.holds?(b, &1)) |> Iter.to_list()
+    assert Box.holds_none(b, [2, 3])
+    refute Holds.holds_none(b, ["a"])
+    picks = Iter.filter(["a", "b"], &Holds.holds(b, &1)) |> Iter.to_list()
     assert picks == ["a"]
 }
 
@@ -88,17 +88,17 @@ test "a value held as an instantiation dispatches at its own arguments" {
 }
 
 test "String contains a String, a Regex and a Codepoint" {
-    assert String.contains?("a-b", "-b")
-    assert String.contains?("order 66", Regex`\d+`)
-    assert Contains.contains?("a-b", '-')
-    refute "ab" |> String.contains?('-')
+    assert String.contains("a-b", "-b")
+    assert String.contains("order 66", Regex`\d+`)
+    assert Contains.contains("a-b", '-')
+    refute "ab" |> String.contains('-')
 }
 
 test "an argument that does not choose an impl is an error" {
     diagnostics = compiler.check(
         """
         interface Holds<T> {
-          fn holds?(b: self, x: T) -> Bool
+          fn holds(b: self, x: T) -> Bool
         }
 
         enum Color {
@@ -114,26 +114,26 @@ test "an argument that does not choose an impl is an error" {
         }
 
         impl Holds<Color> for Box {
-          fn holds?(b: Box, x: Color) -> Bool {
+          fn holds(b: Box, x: Color) -> Bool {
             x == .Red
           }
         }
 
         impl Holds<Shade> for Box {
-          fn holds?(b: Box, x: Shade) -> Bool {
+          fn holds(b: Box, x: Shade) -> Bool {
             x == .Red
           }
         }
 
         fn main() {
-          _x = Box.holds?(#Box{n: 1}, .Red)
+          _x = Box.holds(#Box{n: 1}, .Red)
         }
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
-        "`Holds.holds?` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it",
+        "`Holds.holds` for `Box` has impls at `Color` and `Shade`; the argument's type does not choose one: annotate it",
     )
 }
 
@@ -141,7 +141,7 @@ test "a generic impl beside a concrete one overlaps" {
     diagnostics = compiler.check(
         """
         interface Holds<T> {
-          fn holds?(b: self, x: T) -> Bool
+          fn holds(b: self, x: T) -> Bool
         }
 
         struct Wrap<T> {
@@ -149,18 +149,18 @@ test "a generic impl beside a concrete one overlaps" {
         }
 
         impl Holds<T> for Wrap<T> where T: Equatable {
-          fn holds?(b: Wrap<T>, x: T) -> Bool {
+          fn holds(b: Wrap<T>, x: T) -> Bool {
             b.v == x
           }
         }
 
         impl Holds<Int> for Wrap<T> {
-          fn holds?(b: Wrap<T>, x: Int) -> Bool {
+          fn holds(b: Wrap<T>, x: Int) -> Bool {
             x == 0
           }
         }
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "overlapping impls: `Holds<T>` for `Wrap`")
+    assert test_helpers.has_diagnostic(diagnostics, "overlapping impls: `Holds<T>` for `Wrap`")
 }

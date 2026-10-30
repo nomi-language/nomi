@@ -112,7 +112,7 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 			return p
 		}
 		if defs := bl.g.instImpls[d.nomi][recv]; len(defs) > 0 {
-			// `Holds.holds?(b, 1)` where Box implements Holds at several
+			// `Holds.holds(b, 1)` where Box implements Holds at several
 			// type arguments: the call's own.
 			impl, _ = bl.pickInstImpl(t, defs, method, args)
 		}
@@ -267,8 +267,9 @@ func mirroredImpl(gens []*gen, iface string, mirror *typeDef) (*gen, *implDef) {
 
 // foreignIfacePlan selects this module's impl of an interface declared
 // elsewhere, `ToJson.to_json(user)` for a derived `impl ToJson for User`.
-// Only a single exact fit is planned.
-func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
+// Only a single exact fit is planned. A non-nil decl is the interface's
+// declaration, which an impl's header must name (implsInterface).
+func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner, method string, decl ast.Node) *irQualPlan {
 	byRecv, known := bl.g.implsByIface[owner]
 	if !known || owner == "" || !args.ok || bl.g.iterOwns(owner) {
 		return nil
@@ -288,6 +289,9 @@ func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner,
 	}
 	for _, d := range impls {
 		if d.ifaceName != owner || !d.lowerable || byRecv[d.recv] != d {
+			continue
+		}
+		if decl != nil && !implsInterface(bl.g, d.decl, decl) {
 			continue
 		}
 		it := d.items[method]

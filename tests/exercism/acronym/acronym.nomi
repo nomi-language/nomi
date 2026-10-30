@@ -1,3 +1,5 @@
+//# The acronym of a phrase, from the first letter of each word.
+
 import std/regex.Regex
 
 /// The acronym of `phrase`: the first letter of each word, upper-cased.
@@ -5,7 +7,7 @@ import std/regex.Regex
 pub fn abbreviate(phrase: String) -> String {
     phrase
     |> String.find_all(Regex`[A-Za-z][A-Za-z']*`)
-    |> Iter.map(&String.slice(&1, 0, 1))
+    |> Iter.map(&String.take(&1, 1))
     |> String.join()
-    |> String.to_upper()
+    |> String.uppercase()
 }

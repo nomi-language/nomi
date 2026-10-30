@@ -119,7 +119,7 @@ func hasHelpEndingIn(msg, suffix string) bool {
 // (`temp |> String.pad_start(6)`): the help says to render the value first,
 // and the fix inserts that stage. The diagnostic spans the stage's callee,
 // and the fix is offered only when a `|>` directly precedes it, so a stage
-// prefixed with `try` or `dbg`, or a `&1` slot, gets none.
+// prefixed with `?` or `dbg`, or a `&1` slot, gets none.
 func buildPipeToStringActions(content, uri string, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction

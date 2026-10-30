@@ -18,10 +18,10 @@ import (
 // bodies as any generic std function is (`Iter.frequencies`).
 func irIterOwnArity(method string) (int, bool) {
 	switch method {
-	case "map", "filter", "reduce", "scan", "map_reduce", "take", "sort_with", "sort_by", "any?", "all?", "each_while", "find", "zip", "concat", "get", "partition", "group_by",
+	case "map", "filter", "reduce", "scan", "map_reduce", "take", "sort_with", "sort_by", "any", "all", "each_while", "find", "zip", "concat", "get", "partition", "group_by",
 		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
 		return 2, true
-	case "to_list", "count", "empty?", "not_empty?", "sort", "first", "last", "reverse", "with_index", "known_count", "infinite?",
+	case "to_list", "count", "is_empty", "sort", "first", "last", "reverse", "with_index", "known_count", "is_infinite",
 		"cycle", "to_set", "to_vector", "to_map", "flatten":
 		return 1, true
 	}
@@ -78,10 +78,10 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		// A Vector is immutable, so materializing one answers it as-is.
 		return src, sk, args.mobile[0], true
 	}
-	if (method == "empty?" || method == "not_empty?") && sk.tag == tagEmptyList {
-		// `Iter.empty?([])`: the literal has no elements, so the answer is
+	if method == "is_empty" && sk.tag == tagEmptyList {
+		// `Iter.is_empty([])`: the literal has no elements, so the answer is
 		// the constant std's `first(source) == None` computes.
-		c := ir.NewBool(bl.g.irNodePos(t), bl.f.NewTemp(), method == "empty?")
+		c := ir.NewBool(bl.g.irNodePos(t), bl.f.NewTemp(), method == "is_empty")
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: kindBool})
 		return c.Dst(), kindBool, true, true
@@ -118,7 +118,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	rangeElem, isRange := irIterRangeElem(sk)
 	if isRange && method == "known_count" && !bl.inheritsStepsBetween(rangeElem) {
 		// A Range's count protocol is answered with rt.RangeKnownCount
-		// rather than through the view; `count`, `empty?` and `not_empty?`
+		// rather than through the view; `count` and `is_empty`
 		// walk the view.
 		return bl.rangeKnownCount(t, src, rangeElem)
 	}
@@ -128,12 +128,14 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	isMap := sk.tag == tagMap && sk != kindEmptyMap && irRetainedMapKind(sk)
 	setMember, isSet := setElem(sk)
 	isSet = isSet && sk != kindEmptySet && irRetainedSetKind(sk)
+	// A Maybe pushes its payload, or nothing.
+	maybeMember, isMaybe := maybeIterElem(sk)
 	var userEach *userIterSource
 	var userElem kind
-	if !isVector && !isMap && !isSet {
+	if !isVector && !isMap && !isSet && !isMaybe {
 		userEach, userElem = bl.userSource(sk)
 	}
-	if sk.tag != tagList && sk.tag != tagSeq && sk != kindString && sk != irBytesKind() && !isRange && !isVector && !isMap && !isSet && userEach == nil {
+	if sk.tag != tagList && sk.tag != tagSeq && sk != kindString && sk != irBytesKind() && !isRange && !isVector && !isMap && !isSet && !isMaybe && userEach == nil {
 		return no()
 	}
 	elem := kindString
@@ -144,6 +146,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		}
 	} else if isSet {
 		elem = setMember
+	} else if isMaybe {
+		elem = maybeMember
 	} else if isRange {
 		elem = rangeElem
 	} else if isVector {
@@ -209,7 +213,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			result = seqKindIn(bl.g, elem)
 		}
 	}
-	if method == "any?" || method == "all?" || method == "each_while" || method == "find" || method == "partition" {
+	if method == "any" || method == "all" || method == "each_while" || method == "find" || method == "partition" {
 		// Native iterPredicate: a one-parameter Bool function over the element.
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != elem || funcResult(fk) != kindBool {
@@ -268,7 +272,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	}
 	// A callback lowered under a signalling form makes its operation the
 	// signalling one.
-	signalling := (method == "map" || method == "filter" || irSeededIterMethod(method) || method == "find" || method == "any?" || method == "all?") &&
+	signalling := (method == "map" || method == "filter" || irSeededIterMethod(method) || method == "find" || method == "any" || method == "all") &&
 		len(args.temps) > 1 && bl.iterSignalling(args, 1)
 	appendOp := func(at ast.Node, op ir.IterOp, over ir.IterDomain, k kind, operands ...ir.Temp) ir.Temp {
 		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), op, over, operands...)
@@ -306,6 +310,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			over = ir.IterOverMap
 		case isSet:
 			over = ir.IterOverSet
+		case isMaybe:
+			over = ir.IterOverMaybe
 		}
 		if over != ir.IterOverNothing {
 			return appendOp(t, ir.IterKnownCount, over, mk, src), mk, false, true
@@ -321,6 +327,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		src = bl.mapView(t.Args[0], src, sk, elem)
 	} else if isSet {
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverSet, seqKindIn(bl.g, elem), src)
+	} else if isMaybe {
+		src = appendOp(t.Args[0], ir.IterView, ir.IterOverMaybe, seqKindIn(bl.g, elem), src)
 	} else if isVector {
 		src = appendOp(t.Args[0], ir.IterView, ir.IterOverVector, seqKindIn(bl.g, elem), src)
 	} else if userEach != nil {
@@ -351,7 +359,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		// through the view.
 		mk, _ := bl.iterMaybeKind(kindInt)
 		return appendOp(t, ir.IterKnownCount, ir.IterOverSeq, mk, src), mk, false, true
-	case "infinite?":
+	case "is_infinite":
 		// Every family is asked through its view: a collection's view never
 		// ends, a Range's and a user source's answer their own.
 		return appendOp(t, ir.IterInfinite, ir.IterOverSeq, kindBool, src), kindBool, false, true
@@ -423,15 +431,13 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 			return no()
 		}
 		return appendOp(t, ir.IterJoin, ir.IterOverSeq, kindString, src, args.temps[1]), kindString, false, true
-	case "empty?":
+	case "is_empty":
 		return appendOp(t, ir.IterEmpty, ir.IterOverSeq, kindBool, src), kindBool, false, true
-	case "not_empty?":
-		return appendOp(t, ir.IterNotEmpty, ir.IterOverSeq, kindBool, src), kindBool, false, true
 	}
-	if method == "any?" {
+	if method == "any" {
 		return appendOp(t, ir.IterAny, ir.IterOverSeq, kindBool, src, args.temps[1]), kindBool, false, true
 	}
-	if method == "all?" {
+	if method == "all" {
 		return appendOp(t, ir.IterAll, ir.IterOverSeq, kindBool, src, args.temps[1]), kindBool, false, true
 	}
 	if method == "each_while" {
@@ -651,7 +657,7 @@ func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
 
 // userIterSource is a named source's own `impl Iter`, in this file or a
 // sibling, as the retained pipeline walks it: its `each_while`, the element
-// it pushes, and its written `known_count` and `infinite?` when it writes
+// it pushes, and its written `known_count` and `is_infinite` when it writes
 // them.
 type userIterSource struct {
 	each       userIterFn
@@ -663,7 +669,7 @@ type userIterSource struct {
 // userSource is the `each_while` a named source's own `impl Iter` declares,
 // and the element it pushes, when the retained pipeline can walk it:
 // iterUserEachWhile's recognition, a retained element, and a source-written
-// body the VM can link. A written `known_count` or `infinite?` override the
+// body the VM can link. A written `known_count` or `is_infinite` override the
 // VM cannot link declines.
 func (bl *irScalarBuilder) userSource(sk kind) (*userIterSource, kind) {
 	u, each, elem, ok := bl.g.iterUserEachWhile(sk)
@@ -678,8 +684,8 @@ func (bl *irScalarBuilder) userSource(sk kind) (*userIterSource, kind) {
 		}
 		src.knownCount = &f
 	}
-	if inf := u.d.items["infinite?"]; inf != nil && !inf.inherited {
-		f, ok := u.fn(bl.g, "infinite?")
+	if inf := u.d.items["is_infinite"]; inf != nil && !inf.inherited {
+		f, ok := u.fn(bl.g, "is_infinite")
 		if !ok || len(f.params) != 1 || f.params[0] != sk || f.result != kindBool {
 			return nil, kindInvalid
 		}
@@ -690,7 +696,7 @@ func (bl *irScalarBuilder) userSource(sk kind) (*userIterSource, kind) {
 
 // userView views a user source through rt.UserSeq. The view's second operand
 // references the impl's `each_while`, a third its written `known_count`, and
-// a fourth its written `infinite?`. A view with a fourth and no written
+// a fourth its written `is_infinite`. A view with a fourth and no written
 // `known_count` holds Unit third: the source inherits the declining default.
 func (bl *irScalarBuilder) userView(at ast.Node, src ir.Temp, sk kind, us *userIterSource, elem kind) ir.Temp {
 	pos := bl.g.irNodePos(at)
@@ -755,7 +761,7 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	switch {
 	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && sk.comp.parts[0] == elem:
 		return view(ir.IterOverList, src), true
-	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && irExistentialKind(elem) && bl.g.irErases(elem, sk.comp.parts[0]):
+	case sk.tag == tagList && sk.comp != nil && len(sk.comp.parts) == 1 && bl.erasesUnboxed(elem, sk.comp.parts[0]):
 		// `it: Iter<Shape> = [circle]` for an interface Shape: an
 		// existential is the concrete value, so each element is already
 		// the interface's value and the list is viewed as it is.
@@ -765,13 +771,14 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	case sk == irBytesKind() && elem == irByteKind():
 		return view(ir.IterOverBytes, src), true
 	}
-	if from, ok := irSeqSourceElem(sk); ok && from != elem && irCallableValueKind(from) && !(irExistentialKind(elem) && bl.g.irErases(elem, from)) {
+	if from, ok := irSeqSourceElem(sk); ok && from != elem && irCallableValueKind(from) && !bl.erasesUnboxed(elem, from) {
 		// `it: Iter<Shape> = [circle]` for `enum Shape { embeds Circle }`:
 		// each element is a Circle record, and a Shape holding one is the
 		// enum's record around it, so the source is viewed at its own
 		// element and each element converted as it is read (rebuildAdapter:
 		// an embedded value widened, a Maybe<Circle> rebuilt as a
-		// Maybe<Shape>, a List<Int> viewed as an Iter<Int>).
+		// Maybe<Shape>, a List<Int> viewed as an Iter<Int>, a value that
+		// enters an interface boxed boxed).
 		if fn, ok := bl.rebuildAdapter(at, from, elem); ok {
 			inner := src
 			if sk.tag != tagSeq {
@@ -826,6 +833,12 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 		}
 		return view(ir.IterOverSet, src), true
 	}
+	if member, isMaybe := maybeIterElem(sk); isMaybe {
+		if member != elem && !(irExistentialKind(elem) && bl.g.irErases(elem, member)) {
+			return ir.NoTemp, false
+		}
+		return view(ir.IterOverMaybe, src), true
+	}
 	if it, userElem := bl.userSource(sk); it != nil && userElem == elem {
 		return bl.userView(at, src, sk, it, elem), true
 	}
@@ -847,7 +860,23 @@ func irSeqSourceElem(k kind) (kind, bool) {
 	if elem, ok := setElem(k); ok && k != kindEmptySet {
 		return elem, true
 	}
+	if elem, ok := maybeIterElem(k); ok {
+		return elem, true
+	}
 	return kindInvalid, false
+}
+
+// maybeIterElem is the element a prelude `Maybe<T>` pushes as an `Iter`
+// source (std's `impl Iter for Maybe<T>`): its payload, zero or one times.
+func maybeIterElem(k kind) (kind, bool) {
+	if !irMaybeKind(k) || len(k.def.preludeArgs) != 1 {
+		return kindInvalid, false
+	}
+	elem := k.def.preludeArgs[0]
+	if !irCallableValueKind(elem) && elem != kindUnit {
+		return kindInvalid, false
+	}
+	return elem, true
 }
 
 // irIterRangeElem is the element of a Range the retained pipeline can walk.
@@ -1176,6 +1205,9 @@ func (bl *irScalarBuilder) iterPlainView(at ast.Node, src ir.Temp, sk kind) (ir.
 	}
 	if member, isSet := setElem(sk); isSet && sk != kindEmptySet && irRetainedSetKind(sk) {
 		return view(ir.IterOverSet, member)
+	}
+	if member, isMaybe := maybeIterElem(sk); isMaybe {
+		return view(ir.IterOverMaybe, member)
 	}
 	// `Iter.zip(xs, m)`, `Iter.zip(xs, 5..9)`: a Map pushes its `#(K, V)`
 	// pairs, a Range its elements and a user source what its `each_while`

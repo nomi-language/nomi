@@ -23,6 +23,7 @@ fn main() {
     dbg -(3 + 4)
     dbg 42 > 10
     dbg True and !False
+    dbg Int.pow(2, 100)
 }
 
 ```
@@ -34,10 +35,12 @@ dbg line 5: 20 / 4 = 5
 dbg line 6: -(3 + 4) = -7
 dbg line 7: 42 > 10 = True
 dbg line 8: True and !False = True
+dbg line 9: Int.pow(2, 100) = 1267650600228229401496703205376
 -->
 
 Arithmetic and comparisons work as in most languages. The logical operators
-are `and`, `or` and `!`.
+are `and`, `or` and `!`. An [`Int`](/reference/int/) is a whole number of any
+size, so arithmetic never overflows.
 
 ## Number literal forms
 
@@ -84,7 +87,7 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 
 [`Float`](/reference/float/) is fast but not exact. It stores numbers in
 binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
-the difference you accept: `Float.equal_within?(0.1 + 0.2, 0.3, 1e-9)` is
+the difference you accept: `Float.equal_within(0.1 + 0.2, 0.3, 1e-9)` is
 `True`.
 
 [`Decimal`](/reference/decimal/) stores numbers in base 10 and adds them
@@ -156,8 +159,8 @@ To split text:
 
 The [`String` reference](/reference/strings/) lists the rest.
 
-`String.split`, `String.contains?`, `String.starts_with?`,
-`String.ends_with?`, `String.replace`, `String.find` and `String.find_all`
+`String.split`, `String.contains`, `String.starts_with`,
+`String.ends_with`, `String.replace`, `String.find` and `String.find_all`
 take a [`Matcher`](/reference/matcher/) for the text to look for. A `Matcher` is
 either a plain `String` or a [`Regex`](/typed-literals/#backtick-literals-are-checked-at-compile-time):
 
@@ -169,13 +172,13 @@ fn main() {
 
     dbg String.split(text, ",")
     dbg text |> String.split(Regex`,\s*`)
-    dbg String.contains?(text, Regex`\d`)
+    dbg String.contains(text, Regex`\d`)
 }
 ```
 <!-- expect
 dbg line 6: String.split(text, ",") = ["one", " two", "three"]
 dbg line 7: text |> String.split(Regex`,\s*`) = ["one", "two", "three"]
-dbg line 8: String.contains?(text, Regex`\d`) = False
+dbg line 8: String.contains(text, Regex`\d`) = False
 -->
 
 ## Text model
@@ -264,13 +267,15 @@ dbg line 14:
 -->
 
 To classify a codepoint, ask `Codepoint`:
-[`letter?`](/reference/code_points/#codepointletter),
-[`whitespace?`](/reference/code_points/#codepointwhitespace),
-[`upper?`](/reference/code_points/#codepointupper) and
-[`lower?`](/reference/code_points/#codepointlower) follow Unicode, so `é` and
-`ж` are letters. [`digit?`](/reference/code_points/#codepointdigit) and
+[`is_letter`](/reference/code_points/#codepointletter),
+[`is_whitespace`](/reference/code_points/#codepointwhitespace),
+[`is_upper`](/reference/code_points/#codepointupper) and
+[`is_lower`](/reference/code_points/#codepointlower) follow Unicode, so `é` and
+`ж` are letters. [`is_digit`](/reference/code_points/#codepointdigit) and
 [`to_digit`](/reference/code_points/#codepointto_digit) accept only ASCII `0`
-to `9`, which is what a phone number or a checksum means.
+to `9`, which is what a phone number or a checksum means. A function that
+answers a `Bool` is named `is_` for a state, as these are, or for the verb it
+is, as `String.contains` is.
 
 ```nomi-run
 fn main() {
@@ -278,7 +283,7 @@ fn main() {
 
     text
     |> String.to_codepoints()
-    |> Iter.filter(Codepoint.letter?)
+    |> Iter.filter(Codepoint.is_letter)
     |> Iter.map(Codepoint.to_string)
     |> String.join()
     |> dbg
@@ -295,7 +300,7 @@ fn main() {
 dbg line 9:
   text
   |> String.to_codepoints()
-  |> Iter.filter(Codepoint.letter?)
+  |> Iter.filter(Codepoint.is_letter)
   |> Iter.map(Codepoint.to_string)
   |> String.join()
   = "Tél"
@@ -418,7 +423,7 @@ the pattern, so ``Regex`[` `` is an error before the program runs
 ([Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time) explains how).
 
 A `Regex` is a [`Matcher`](/reference/matcher/), so the `String` functions
-above take one where they take a plain string: `String.contains?` tests for
+above take one where they take a plain string: `String.contains` tests for
 a match, `String.find` returns the first, `String.find_all` returns every
 one, and `String.split` and `String.replace` split and replace around them.
 `String.captures` returns the text each group in parentheses matched in the
@@ -434,36 +439,36 @@ fn main() -> Result<Unit, String> {
     text = "Order 1042 shipped 2026-10-25, order 977 on 2026-10-26"
     date = Regex`(\d{4})-(\d{2})-(\d{2})`
 
-    dbg String.contains?(text, date)
+    dbg String.contains(text, date)
     dbg String.find(text, Regex`\d+`)
     dbg String.find_all(text, date)
     dbg String.captures(text, date)
     dbg String.split("a, b,c ,  d", Regex`\s*,\s*`)
     dbg String.replace(text, Regex`\d{3,4} `, "# ")
-    dbg Regex.replace_all(date, text, "$3/$2/$1")
+    dbg Regex.replace_all(text, date, "$3/$2/$1")
 
     word = "order"
-    orders = try Regex"(?i)${word} \\d+"
+    orders = Regex"(?i)${word} \\d+"?
     dbg String.find_all(text, orders)
 
     Ok(Unit)
 }
 ```
 <!-- expect
-dbg line 7: String.contains?(text, date) = True
+dbg line 7: String.contains(text, date) = True
 dbg line 8: String.find(text, Regex`\d+`) = Some("1042")
 dbg line 9: String.find_all(text, date) = ["2026-10-25", "2026-10-26"]
 dbg line 10: String.captures(text, date) = Some([Some("2026"), Some("10"), Some("25")])
 dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"]
 dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
-dbg line 13: Regex.replace_all(date, text, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
+dbg line 13: Regex.replace_all(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
 dbg line 17: String.find_all(text, orders) = ["Order 1042", "order 977"]
 -->
 
 A pattern built from a value is written in double quotes, as
 `Regex"(?i)${word} \\d+"` (`(?i)` ignores case). The compiler can't check
 it, since the value is known only when the program runs, so it is a
-`Result` that you unwrap with `try` or `case`. Inside double quotes a backslash starts an escape, so the
+`Result` that you unwrap with `?` or `case`. Inside double quotes a backslash starts an escape, so the
 pattern's `\d` is written `\\d`.
 
 [Collections](/collections/) is next. It puts these values into lists, maps

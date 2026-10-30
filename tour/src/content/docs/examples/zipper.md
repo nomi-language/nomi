@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: zipper.nomi
+//# A zipper over a binary tree: a focus on one node that can move and edit
+//# the tree around it.
+
 /// A binary tree node: a value and a subtree on each side, either of which
 /// may be missing.
 pub struct Tree<T> {
@@ -135,7 +138,7 @@ fn initial_tree() -> Tree<Int> {
 /// The zipper on the initial tree after each operation in turn, or `None`
 /// once a move finds no node.
 fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
-    start = Some(Zipper.from_tree(initial_tree()))
+    start = initial_tree() |> Zipper.from_tree() |> Some()
 
     Iter.reduce(operations, fn zipper = start, operation -> {
         Maybe.flat_map(zipper, &apply(&1, operation))

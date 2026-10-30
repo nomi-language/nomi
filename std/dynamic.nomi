@@ -23,7 +23,7 @@ import {
 ///
 /// Inspect via `Dynamic.field`/`index`/`path` navigators and
 /// `Dynamic.as_string`/`as_int`/... extractors. Each step returns
-/// `Result<_, Error>` with a structured path; chain with `try` to
+/// `Result<_, Error>` with a structured path; chain with `?` to
 /// propagate.
 pub host type Dynamic
 
@@ -40,7 +40,7 @@ impl Dynamic {
 
     /// Convenience: dotted-path navigator. `Dynamic.path(d, "a.b.c")` is
     /// equivalent to
-    /// `d |> Dynamic.field("a") |> try |> Dynamic.field("b") |> try |> Dynamic.field("c")`.
+    /// `d |> Dynamic.field("a")? |> Dynamic.field("b")? |> Dynamic.field("c")`.
     /// Does NOT support index notation (use `index` directly for lists). Empty
     /// segments (e.g. `"a..b"`) error.
     pub host fn path(d: Dynamic, dotted: String) -> Result<Dynamic, Error>
@@ -68,24 +68,24 @@ impl Dynamic {
 
     /// True iff d represents a null/nil value at the source (JSON null, Go nil,
     /// etc.). Never errors.
-    pub host fn null?(d: Dynamic) -> Bool
+    pub host fn is_null(d: Dynamic) -> Bool
 
     /// True iff d is a dict and contains the named field. False otherwise
     /// (including when d is not a dict). Never errors.
-    pub host fn has?(d: Dynamic, name: String) -> Bool
+    pub host fn has(d: Dynamic, name: String) -> Bool
 
     /// Apply `sub` to d only if d is non-null. Null -> Ok(None); present ->
-    /// Ok(Some(try sub(d))).
+    /// Ok(Some(sub(d)?)).
     ///
     /// The ergonomic helper for JSON's ubiquitous nullable fields.
     ///
     /// ```nomi
     /// d
-    /// |> try Dynamic.as_maybe(Dynamic.as_string)
+    /// |> Dynamic.as_maybe(Dynamic.as_string)?
     /// // -> Maybe<String> from the value (or None if null).
     /// ```
     pub fn as_maybe<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Maybe<T>, Error> {
-        if Dynamic.null?(d) {
+        if Dynamic.is_null(d) {
             Ok(None)
         } else {
             case sub(d) {
@@ -114,13 +114,13 @@ impl Dynamic {
     ///
     /// ```nomi
     /// d
-    /// |> try Dynamic.field("user")
-    /// |> try Dynamic.field("address")
-    /// |> try Dynamic.field("zip")
+    /// |> Dynamic.field("user")?
+    /// |> Dynamic.field("address")?
+    /// |> Dynamic.field("zip")?
     /// |> Dynamic.as_int()
     /// ```
     ///
-    /// which produces an empty-path error because `try` returns Err unchanged. Use
+    /// which produces an empty-path error because `?` returns Err unchanged. Use
     /// this when you want path-rich diagnostics; the raw form stays available when
     /// you don't.
     ///
@@ -187,9 +187,9 @@ pub enum PathSegment {
 derive Display for PathSegment
 
 /// Structured decode failure. `path` locates the failure site; one segment per
-/// navigator that contributed to this error. Raw `try` chains short-circuit on
+/// navigator that contributed to this error. Raw `?` chains short-circuit on
 /// `Err` unchanged, so a chain like
-/// `d |> Dynamic.field("a") |> try |> Dynamic.field("b") |> try |> Dynamic.as_int()`
+/// `d |> Dynamic.field("a")? |> Dynamic.field("b")? |> Dynamic.as_int()`
 /// produces an empty-path error if `as_int` fails -- the outer navigators never
 /// see the inner error to prepend their segment. Use `at_field` / `at_index`
 /// when you want path-rich diagnostics; those combinators wrap a navigator +

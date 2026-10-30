@@ -6,7 +6,7 @@ import {
 }
 
 /// Whether `reader` has been closed: reading from it again is refused.
-fn closed?(reader: Reader) -> Bool {
+fn is_closed(reader: Reader) -> Bool {
     Reader.read_line(reader) == Err(io.Error.Closed)
 }
 
@@ -33,14 +33,14 @@ test "a resource is released when the work succeeds" {
     reader = Reader.from_text("1\n2\n3\n")
 
     assert error_handling.sum_lines(reader) == Ok(6)
-    assert closed?(reader)
+    assert is_closed(reader)
 }
 
 test "a resource is released when the work fails" {
     reader = Reader.from_text("1\nx\n3\n")
 
     assert error_handling.sum_lines(reader) == Err(#Error.NotANumber{text: "x"})
-    assert closed?(reader)
+    assert is_closed(reader)
 }
 
 test "a resource is released when the work traps" {
@@ -52,5 +52,5 @@ test "a resource is released when the work traps" {
     }
 
     assert .Failed(_) = outcome
-    assert closed?(reader)
+    assert is_closed(reader)
 }

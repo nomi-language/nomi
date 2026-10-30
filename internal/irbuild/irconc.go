@@ -4,7 +4,7 @@ package irbuild
 //
 // The block lowers as a zero-parameter function value whose body is the
 // block's statements, passed to the `concurrent` host crossing. The body is a
-// separate `ir.Func`, so a `try` or `return` in it ends the block, as the
+// separate `ir.Func`, so a `?` or `return` in it ends the block, as the
 // checker's boundary says. The VM's adapter opens an `rt` scope on the caller's
 // runtime frame, runs the body on it, and exits the scope on every path. Go
 // reads the pair back as an immediately invoked func literal whose scope exit

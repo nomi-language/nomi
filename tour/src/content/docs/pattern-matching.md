@@ -1,13 +1,13 @@
 ---
-title: "Pattern Matching, Maybe, Result & Try"
-description: "`case` takes values apart by shape. Maybe and Result hold an answer or its absence, and `try` passes a failure up."
+title: "Pattern Matching, Maybe & Result"
+description: "`case` takes values apart by shape. Maybe and Result hold an answer or its absence, and `?` passes a failure up."
 ---
 
 A `case` expression takes a value and runs the first arm whose pattern matches
 it. You saw simple `case` expressions in
 [Bindings & Expressions](/bindings-and-expressions/). This chapter covers more
 kinds of pattern, then [`Maybe<T>`](/reference/maybe/),
-[`Result<T, E>`](/reference/results/) and `try`.
+[`Result<T, E>`](/reference/results/), and the `?` that passes a failure up.
 
 A `case` must cover every possible value. If you leave out a variant of an
 enum, the program does not compile. You find out when you build, not when the
@@ -79,9 +79,9 @@ Tuples and structs work the same way: `#(a, b) -> ...` and
 
 ### Lists, vectors and sets
 
-A list pattern names items from the front, and `..` stands for the rest. A
-vector pattern is written the same way with `#[...]`, and can also name items
-from the end. A set pattern, `%[...]`, checks which values the set holds:
+A list or vector pattern names items from the front, `..` stands for the
+rest, and items after the `..` are named from the end. A vector pattern is
+`#[...]`. A set pattern, `%[...]`, checks which values the set holds:
 
 ```nomi-run
 fn first_two(words: List<String>) -> String {
@@ -122,10 +122,10 @@ dbg line 28: access(%["viewer"]) = "read only"
 -->
 
 `[a, b, ..]` matches a list of two or more items and ignores the rest;
-`..rest` would name it. A vector pattern may also put the `..` first, as
-`#[.., z]` does: it matches a vector of at least one item and
-names the last. The compiler checks list and vector arms by length, so
-`first_two` and `last` need no `_` arm.
+`..rest` would name it. `#[.., z]` matches a vector of at least one item and
+names the last, and `["graph {", ..body, "}"]` names the lines between two
+others. Reaching a list's last items walks the list once. The compiler checks
+list and vector arms by length, so `first_two` and `last` need no `_` arm.
 
 A set pattern matches when the set holds every value it lists, in any order.
 The values are expressions, looked up rather than bound, so a set pattern
@@ -294,7 +294,7 @@ dbg line 17: label_for(1) = "Alice"
 dbg line 18: label_for(9) = "unknown"
 -->
 
-## The `try` keyword
+## Passing failures up
 
 ```nomi-run
 fn safe_div(a: Int, b: Int) -> Result<Int, String> {
@@ -306,8 +306,8 @@ fn safe_div(a: Int, b: Int) -> Result<Int, String> {
 }
 
 fn calculate(x: Int, y: Int) -> Result<Int, String> {
-    half = try safe_div(x, 2)
-    ratio = try safe_div(half, y)
+    half = safe_div(x, 2)?
+    ratio = safe_div(half, y)?
     Ok(ratio + 1)
 }
 
@@ -322,14 +322,14 @@ dbg line 16: calculate(100, 5) = Ok(11)
 dbg line 17: calculate(100, 0) = Err("div by zero")
 -->
 
-`try` goes in front of a call that returns a `Maybe` or a `Result`. If the call
-succeeds, `try` gives you the value inside. If it fails, the whole function
+A `?` goes right after a call that returns a `Maybe` or a `Result`. If the call
+succeeds, the `?` gives you the value inside. If it fails, the whole function
 returns the failure straight away.
 
 In `calculate(100, 0)`, the second `safe_div` fails, so `calculate` returns
 `Err("div by zero")` and never reaches `Ok(ratio + 1)`.
 
-`main` can return `Result<Unit, E>`, and then you can use `try` in it:
+`main` can return `Result<Unit, E>`, and then you can use `?` in it:
 
 ```nomi-run error
 fn safe_div(a: Int, b: Int) -> Result<Int, String> {
@@ -341,13 +341,13 @@ fn safe_div(a: Int, b: Int) -> Result<Int, String> {
 }
 
 fn calculate(x: Int, y: Int) -> Result<Int, String> {
-    half = try safe_div(x, 2)
-    ratio = try safe_div(half, y)
+    half = safe_div(x, 2)?
+    ratio = safe_div(half, y)?
     Ok(ratio + 1)
 }
 
 fn main() -> Result<Unit, String> {
-    ratio = try calculate(100, 0)
+    ratio = calculate(100, 0)?
     dbg ratio
     Ok(Unit)
 }
@@ -368,11 +368,11 @@ print it with `io.print` and return `Ok(Unit)`.
 To exit with a status other than 1, return an `Exit` from `std/process`, as
 [Input & Output](/input-and-output/#exit-codes) shows.
 
-Inside a lambda, `try` returns from the lambda, not from the function around
+Inside a lambda, a `?` returns from the lambda, not from the function around
 it, just as `return` does.
 
 To parse a list of inputs, map each one to a `Result` and end the pipe with
-`try Result.collect()`:
+`Result.collect()?`:
 
 ```nomi-run
 fn parse(text: String) -> Result<Int, String> {
@@ -380,7 +380,7 @@ fn parse(text: String) -> Result<Int, String> {
 }
 
 fn total(inputs: List<String>) -> Result<Int, String> {
-    numbers = inputs |> Iter.map(&parse(&1)) |> try Result.collect()
+    numbers = inputs |> Iter.map(&parse(&1)) |> Result.collect()?
 
     Ok(Iter.sum(numbers))
 }
@@ -408,9 +408,53 @@ When you want every error, not just the first, `Result.partition` splits the
 results into two lists: the values and the errors. `Maybe.collect` and
 `Maybe.values` do the same jobs for `Maybe`.
 
+A `Maybe` is also an `Iter` of zero or one elements, so it goes where an
+`Iter` does: `Iter.to_list(Some(3))` is `[3]`, `Iter.to_list(None)` is `[]`,
+and a `flat_map` whose function answers a `Maybe` keeps the `Some` values.
+
+## Calls that cannot fail
+
+A `!` written right after an expression unwraps its `Maybe` or `Result`:
+
+```nomi-run error
+fn half(n: Int) -> Result<Int, String> {
+    if n % 2 == 0 {
+        Ok(n / 2)
+    } else {
+        Err("${n} is odd")
+    }
+}
+
+fn main() {
+    ages = %{"Ada" => 36, "Grace" => 45}
+    dbg Map.get(ages, "Ada")!
+    dbg half(10)!
+    dbg "8" |> String.to_int()!
+    dbg Map.get(ages, "Alan")!
+}
+```
+<!-- expect
+dbg line 11: Map.get(ages, "Ada")! = 36
+dbg line 12: half(10)! = 5
+dbg line 13: "8" |> String.to_int()! = 8
+line 14: `Map.get(ages, "Alan")` found nothing
+-->
+
+`Map.get(ages, "Ada")!` is `36`, not `Some(36)`. When the value is `None` or
+`Err`, the program stops at that line and quotes the expression. A `None`
+says it found nothing, as above, and an `Err` shows the error: `half(3)!`
+stops with ``line 12: `half(3)` failed: 3 is odd``.
+
+Use `!` when a failure would be a bug in your own code: the arguments are
+constants, the key came from the map itself, or the input was checked
+already. When the failure can really happen, pass it up with `?` or handle it
+with `case` or `else`. `!` works on any expression that is a `Maybe` or a `Result`: a call,
+a pipe stage (`"8" |> String.to_int()!`), a field (`user.nickname!`) or a
+name.
+
 ## Binding with `else`
 
-`try` passes an error up unchanged. Sometimes you want to handle a failure
+`?` passes an error up unchanged. Sometimes you want to handle a failure
 right where it happens instead. Write the pattern you expect, then `else` and
 what to do when the value does not match:
 
@@ -423,9 +467,7 @@ enum PortError {
 fn parse_port(text: Maybe<String>) -> Result<Int, PortError> {
     Some(raw) = text else { return Err(.Missing) }
 
-    Some(n) = String.to_int(raw) else {
-        return Err(.Invalid(raw))
-    }
+    Some(n) = String.to_int(raw) else { return Err(.Invalid(raw)) }
 
     Ok(n)
 }
@@ -446,9 +488,9 @@ fn main() {
 }
 ```
 <!-- expect
-dbg line 26: port(Some("3000")) = Ok(3000)
-dbg line 27: port(Some("eighty")) = Err("bad port: eighty")
-dbg line 28: port(None) = Ok(8080)
+dbg line 24: port(Some("3000")) = Ok(3000)
+dbg line 25: port(Some("eighty")) = Err("bad port: eighty")
+dbg line 26: port(None) = Ok(8080)
 -->
 
 When the value matches, the names in the pattern can be used for the rest of

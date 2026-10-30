@@ -106,7 +106,8 @@ entry_points = ["main"]
 -->
 
 `entry_points` lists the files that have a `fn main`, and so can be run as a
-program.
+program. A file in the module's `tools/` directory is a
+[tool](/generating-code/), which is an entry point without being listed.
 
 Files in a directory named `internal/` can be imported only by files in the
 same module.
@@ -384,6 +385,7 @@ its directory. The path starts with `./` or `../`:
 
 ```console
 $ nomi add ../shared
+added example.com/shared from ../shared (module shared; import shared)
 ```
 
 `go.mod` then requires the module and points it at that directory:
@@ -393,6 +395,55 @@ require example.com/shared v0.0.0
 
 replace example.com/shared => ../shared
 ```
+
+This example holds both projects: `app`, which runs, and `shared` beside
+it, which `app` added this way. `app/main.nomi` imports the function `greet`
+from `shared`'s file `shared.nomi`. Change the greeting in `shared.nomi` and
+run it again.
+
+```nomi-run
+// FILE: app/main.nomi
+import {
+    std/io
+    shared.greet
+}
+
+fn main() {
+    io.print(greet("Ada"))
+}
+
+// FILE: app/nomi.toml
+[module]
+name = "app"
+entry_points = ["main"]
+
+// FILE: app/go.mod
+module example.com/app
+
+go 1.27.0
+
+require example.com/shared v0.0.0
+
+replace example.com/shared => ../shared
+
+// FILE: shared/shared.nomi
+/// A greeting for `name`.
+pub fn greet(name: String) -> String {
+    "Hello, ${name}!"
+}
+
+// FILE: shared/nomi.toml
+[module]
+name = "shared"
+
+// FILE: shared/go.mod
+module example.com/shared
+
+go 1.27.0
+```
+<!-- expect
+Hello, Ada!
+-->
 
 Two more commands change the list:
 

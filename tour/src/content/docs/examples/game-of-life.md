@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: game_of_life.nomi
+//# Conway's Game of Life: one generation of a board of live and dead cells.
+
 once neighbours = [#(-1, -1), #(-1, 0), #(-1, 1), #(0, -1), #(0, 1), #(1, -1), #(1, 0), #(1, 1)]
 
 /// The next generation of `board`, whose cells are `1` for live and `0`
@@ -37,7 +39,7 @@ fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int {
 
 /// The cell at `row` and `column`, or None off the board.
 fn cell_at(board: Vector<Vector<Int>>, row: Int, column: Int) -> Maybe<Int> {
-    cells = try Vector.get(board, row)
+    cells = Vector.get(board, row)?
     Vector.get(cells, column)
 }
 

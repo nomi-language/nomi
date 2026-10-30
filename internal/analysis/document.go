@@ -975,7 +975,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 
 	// Prefer building the project from an entry file when the open doc is
 	// a file an entry imports rather than an entry itself: main.nomi, then
-	// each of nomi.toml's entry_points. DiscoverProject walks imports
+	// each of the module's entry points. DiscoverProject walks imports
 	// forward only, so a file that an entry imports but that does not
 	// import the entry (e.g. greeter.nomi when main.nomi imports it) would
 	// otherwise never see the entry's boot, and so not know the
@@ -1275,12 +1275,13 @@ func checkDocImplImports(docFA *FileAnalysis, docNodes []ast.Node, entryFA *File
 }
 
 // entryCandidates are the entry files the LSP builds a project from to
-// analyze a file an entry imports: root/main.nomi, then each of nomi.toml's
-// entry_points, without repeats.
+// analyze a file an entry imports: root/main.nomi, then each of the
+// module's entry points (Manifest.Entries: entry_points, then its tools),
+// without repeats.
 func (dm *DocumentManager) entryCandidates(root string) []string {
 	out := []string{filepath.Join(root, "main.nomi")}
 	if mfst, err := LoadManifest(root); err == nil && mfst != nil {
-		for _, e := range mfst.EntryPoints {
+		for _, e := range mfst.Entries(root) {
 			path := filepath.Join(root, filepath.FromSlash(e)+".nomi")
 			if path != out[0] {
 				out = append(out, path)

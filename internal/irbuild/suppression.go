@@ -18,7 +18,7 @@ import (
 // downstream blocker whose NAME IS A TYPE.
 //
 // For example, if `diagnostics = compiler.check(...)` is refused, that binding
-// has no type, so `test_helpers.has_diagnostic?(diagnostics, s)` cannot report
+// has no type, so `test_helpers.has_diagnostic(diagnostics, s)` cannot report
 // a type refusal for a `List<Diagnostic>` nobody computed.
 //
 // # Direction is bounded; magnitude is not

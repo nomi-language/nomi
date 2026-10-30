@@ -12,7 +12,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/projectgen"
-	"github.com/nomi-language/nomi/vmhost"
 )
 
 // memberOrderProject is internal/analysis's orderProject
@@ -225,8 +224,8 @@ func readTree(t *testing.T, dir string) map[string]string {
 // memberProjects are the projects whose documents
 // TestLoweringFromTheKeptProgramMatchesTheSource lowers: the corpus
 // directories of several files, the order project as written and without
-// its duplicate impl, memberLibrary, memberForeignImpl, the dungeon (when
-// it is there and checks cleanly) and a generated project of about 1k lines.
+// its duplicate impl, memberLibrary, memberForeignImpl and a generated
+// project of about 1k lines.
 func memberProjects(t *testing.T) map[string]map[string]string {
 	t.Helper()
 	projects := map[string]map[string]string{
@@ -260,17 +259,6 @@ func memberProjects(t *testing.T) map[string]map[string]string {
 			files["nomi.toml"] = entryToml
 		}
 		projects[strings.TrimPrefix(filepath.ToSlash(dir), "../../tests/")] = files
-	}
-	// The dungeon is an outside project that follows the language on its
-	// own schedule. Its documents are lowered from the kept program only
-	// when the program checks cleanly, so one that no longer checks says
-	// nothing about the server here and is left out.
-	if _, err := os.Stat(dungeonDir); err == nil {
-		if err := vmhost.Check(filepath.Join(dungeonDir, "main.nomi")); err != nil {
-			t.Logf("dungeon: left out, since %s does not check cleanly: %v", dungeonDir, err)
-		} else {
-			projects["dungeon"] = readTree(t, dungeonDir)
-		}
 	}
 	gen := projectgen.Generate(projectgen.Config{Seed: 1, Lines: 1000})
 	files := map[string]string{"nomi.toml": entryToml}
@@ -395,7 +383,7 @@ func TestLoweringFromTheKeptProgramMatchesTheSource(t *testing.T) {
 	if membersBlocked < 5 {
 		t.Errorf("only %d documents other than their program's entry were lowered from the kept program with lowering diagnostics", membersBlocked)
 	}
-	for _, name := range []string{"library", "dungeon", "generated 1k"} {
+	for _, name := range []string{"library", "generated 1k"} {
 		if _, ok := projects[name]; ok && memberDocs[name] == 0 {
 			t.Errorf("%s: no document but the entry was lowered from the kept program", name)
 		}

@@ -1376,70 +1376,55 @@ func TestIsCompleteBalancedBraces(t *testing.T) {
 	}
 }
 
-func TestLexBareQuestionMarkIsIllegal(t *testing.T) {
-	// `?` glued to an identifier tail is part of that identifier (predicate
-	// convention — see TestLexPredicateIdentifier). A `?` NOT preceded by an
-	// identifier (bare, or after whitespace) is still not a valid token — it
-	// lexes to ILLEGAL.
-	tokens := Lex("?")
-	if tokens[0].Type != token.ILLEGAL || tokens[0].Lexeme != "?" {
-		t.Errorf("expected ILLEGAL `?` token for bare `?`, got %s %q", tokens[0].Type, tokens[0].Lexeme)
-	}
-
-	// `x ?` (whitespace separated) — `x` is an IDENT, then a stray ILLEGAL `?`.
-	spaced := Lex("x ?")
-	if spaced[0].Type != token.IDENT || spaced[0].Lexeme != "x" {
-		t.Errorf("expected IDENT `x`, got %s %q", spaced[0].Type, spaced[0].Lexeme)
-	}
-	if spaced[1].Type != token.ILLEGAL || spaced[1].Lexeme != "?" {
-		t.Errorf("expected ILLEGAL `?` after whitespace, got %s %q", spaced[1].Type, spaced[1].Lexeme)
-	}
-}
-
-func TestLexPredicateIdentifier(t *testing.T) {
-	// A single trailing `?` glued to an identifier tail is part of the
-	// identifier (predicate naming, e.g. `empty?`).
-	for _, src := range []string{"empty?", "starts_with?"} {
-		tokens := Lex(src)
-		if tokens[0].Type != token.IDENT || tokens[0].Lexeme != src {
-			t.Errorf("Lex(%q): expected IDENT %q, got %s %q", src, src, tokens[0].Type, tokens[0].Lexeme)
-		}
-	}
-
-	// `contains?(x)` — the `?` belongs to the ident, then the call paren.
-	assertTokens(t, "contains?(x)", []token.Token{
-		tok(token.IDENT, "contains?"),
+func TestLexQuestionIsItsOwnToken(t *testing.T) {
+	// A `?` is never part of a name: `empty?(xs)` is the name `empty`, a
+	// `?` and a call's parentheses.
+	assertTokens(t, "empty?(xs)", []token.Token{
+		tok(token.IDENT, "empty"),
+		tok(token.QUESTION, "?"),
 		tok(token.LPAREN, "("),
-		tok(token.IDENT, "x"),
+		tok(token.IDENT, "xs"),
 		tok(token.RPAREN, ")"),
 		tok(token.EOF, ""),
 	})
-
-	// Exactly one, trailing only: `foo?bar` is two adjacent idents `foo?` and
-	// `bar` (the `?` does not glue them); `foo??` is `foo?` then a stray `?`.
-	assertTokens(t, "foo?bar", []token.Token{
-		tok(token.IDENT, "foo?"),
-		tok(token.IDENT, "bar"),
+	assertTokens(t, "f(x)?.name", []token.Token{
+		tok(token.IDENT, "f"),
+		tok(token.LPAREN, "("),
+		tok(token.IDENT, "x"),
+		tok(token.RPAREN, ")"),
+		tok(token.QUESTION, "?"),
+		tok(token.DOT, "."),
+		tok(token.IDENT, "name"),
 		tok(token.EOF, ""),
 	})
-	dbl := Lex("foo??")
-	if dbl[0].Type != token.IDENT || dbl[0].Lexeme != "foo?" {
-		t.Errorf("expected IDENT `foo?`, got %s %q", dbl[0].Type, dbl[0].Lexeme)
-	}
-	if dbl[1].Type != token.ILLEGAL || dbl[1].Lexeme != "?" {
-		t.Errorf("expected trailing ILLEGAL `?` for `foo??`, got %s %q", dbl[1].Type, dbl[1].Lexeme)
-	}
+	// `?` and `!` follow each other; `!=` stays not-equal.
+	assertTokens(t, "r!? != x", []token.Token{
+		tok(token.IDENT, "r"),
+		tok(token.BANG, "!"),
+		tok(token.QUESTION, "?"),
+		tok(token.BANGEQ, "!="),
+		tok(token.IDENT, "x"),
+		tok(token.EOF, ""),
+	})
 }
 
-func TestLexTryKeyword(t *testing.T) {
-	// Bare `try` is the keyword; `try_send` is a single identifier (longest match).
-	tokens := Lex("try")
-	if tokens[0].Type != token.TRY {
-		t.Fatalf("expected TRY keyword for bare `try`, got %s", tokens[0].Type)
+func TestLexLineEndingInQuestionEndsTheStatement(t *testing.T) {
+	tokens := Lex("a = f()?\nb = 2")
+	for i, tk := range tokens {
+		if tk.Type == token.QUESTION && i+1 < len(tokens) && tokens[i+1].Type == token.NEWLINE {
+			return
+		}
 	}
-	idents := Lex("try_send")
-	if idents[0].Type != token.IDENT || idents[0].Lexeme != "try_send" {
-		t.Errorf("expected IDENT `try_send`, got %s %q", idents[0].Type, idents[0].Lexeme)
+	t.Fatalf("a line ending in `?` must end its statement: %v", tokens)
+}
+
+func TestLexTryIsAnIdentifier(t *testing.T) {
+	// `try` is an ordinary name, and so is `try_send`.
+	for _, src := range []string{"try", "try_send"} {
+		tokens := Lex(src)
+		if tokens[0].Type != token.IDENT || tokens[0].Lexeme != src {
+			t.Errorf("%s: got %s %q, want an IDENT", src, tokens[0].Type, tokens[0].Lexeme)
+		}
 	}
 }
 

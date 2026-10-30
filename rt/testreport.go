@@ -444,7 +444,7 @@ func writeAssertionReport(w io.Writer, failure *AssertionFailure, st assertionRe
 // row's own report, its header naming the row, then the count line.
 //
 //	subtest #("abc", True): line 9: assertion failed
-//	  assert palindrome?(line) == known_palindrome
+//	  assert is_palindrome(line) == known_palindrome
 //	  ...
 //	2 of 5 subtests failed
 func writeSubtestsReport(w io.Writer, failure *AssertionFailure, st assertionReportStyle) {
@@ -645,7 +645,7 @@ func DefaultTestEnv() (func(), error) {
 //
 // Fn returns the failure that ended the body, or nil. A TestFailure rather than
 // an error or a concrete *AssertionFailure: a test body has two value-shaped
-// exits, because `try` propagating an `Err`/`None` inside one ends the case as
+// exits, because `?` propagating an `Err`/`None` inside one ends the case as
 // an EarlyReturnFailure and not as an assertion.
 //
 // A nil *AssertionFailure boxed into an error interface is non-nil, and

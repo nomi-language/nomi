@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# pre-push: refuse a push to main unless scripts/publish-main.sh makes it.
+#
+# main receives one squash commit per batch, built from next-notes.txt by
+# `make publish-main`, which sets NOMI_PUBLISH_MAIN=1 for its own push only.
+# Pushes of other refs pass, and so do pushes to the grammar mirror
+# (scripts/publish-grammar.sh pushes that repository's main).
+#
+# Enable it once per clone with `make enable-hooks`, which points
+# core.hooksPath at this directory.
+
+set -uo pipefail
+
+url="${2:-}"
+[[ "$url" == *tree-sitter-nomi* ]] && exit 0
+[[ "${NOMI_PUBLISH_MAIN:-}" == 1 ]] && exit 0
+
+# Each stdin line: <local ref> <local sha> <remote ref> <remote sha>.
+while read -r _ _ remote_ref _; do
+  if [[ "$remote_ref" == refs/heads/main ]]; then
+    echo "Pushes to main go through \`make publish-main\`, which builds the squash commit from next-notes.txt." >&2
+    exit 1
+  fi
+done
+exit 0

@@ -10,7 +10,7 @@ import (
 )
 
 func TestVectorHostsValidateOperands(t *testing.T) {
-	for key, arity := range map[string]int{"Vector.length": 1, "Vector.get": 2, "Vector.at": 2, "Vector.push": 2, "Vector.concat": 2} {
+	for key, arity := range map[string]int{"Vector.length": 1, "Vector.get": 2, "Vector.push": 2, "Vector.concat": 2} {
 		t.Run(key, func(t *testing.T) {
 			host := vectorHost(key)
 			if _, err := host(nil, ir.Pos{}, nil); err == nil || !strings.Contains(err.Error(), "expected") {
@@ -53,7 +53,6 @@ func TestVectorSet(t *testing.T) {
 	}
 	for key, args := range map[string][]any{
 		"Vector.set": {v, int64(9), int64(99)},
-		"Vector.at":  {v, int64(9)},
 	} {
 		_, err := vectorHost(key)(nil, ir.Pos{}, args)
 		var fault *Fault

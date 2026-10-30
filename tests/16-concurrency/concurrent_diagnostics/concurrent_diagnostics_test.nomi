@@ -15,7 +15,7 @@ test "spawn is only allowed inside concurrent blocks" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "spawn outside concurrent block")
+    assert test_helpers.has_diagnostic(diagnostics, "spawn outside concurrent block")
 }
 
 test "task values cannot escape their concurrent block" {
@@ -35,7 +35,7 @@ test "task values cannot escape their concurrent block" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "Task<T> cannot escape its enclosing concurrent block",
     )
@@ -55,6 +55,6 @@ test "task bindings must be awaited" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "binding 't' is never read")
-    assert test_helpers.has_diagnostic?(diagnostics, "Task bound to 't' is never awaited")
+    assert test_helpers.has_diagnostic(diagnostics, "binding 't' is never read")
+    assert test_helpers.has_diagnostic(diagnostics, "Task bound to 't' is never awaited")
 }

@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: phone_number.nomi
+//# Cleans up a North American phone number written by a user.
+
 /// Why a phrase is not a NANP phone number.
 pub enum Error {
     Letters
@@ -29,17 +31,15 @@ pub enum Error {
 pub fn clean(phrase: String) -> Result<String, Error> {
     codepoints = String.to_codepoints(phrase)
 
-    if Iter.any?(codepoints, Codepoint.letter?) {
-        return Err(.Letters)
-    }
+    if Iter.any(codepoints, Codepoint.is_letter) { return Err(.Letters) }
 
-    if !Iter.all?(codepoints, fn cp -> Codepoint.digit?(cp) or separator?(cp)) {
+    if !Iter.all(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) {
         return Err(.Punctuation)
     }
 
     digits = codepoints |> Iter.map(Codepoint.to_digit) |> Maybe.values()
 
-    digits = try national(digits)
+    digits = national(digits)?
 
     case digits {
         [0, .._] -> Err(.AreaCodeStartsWithZero)
@@ -63,7 +63,7 @@ fn national(digits: List<Int>) -> Result<List<Int>, Error> {
     }
 }
 
-fn separator?(cp: Codepoint) -> Bool {
+fn is_separator(cp: Codepoint) -> Bool {
     case cp {
         ' ' or '(' or ')' or '-' or '.' or '+' -> True
         _ -> False
@@ -77,11 +77,11 @@ import {
 }
 
 test "cleans phone numbers" {
-    cases: List<#(String, String, Result<String, Error>)> = [
+    cases = [
         #("cleans the number", "(223) 456-7890", Ok("2234567890")),
         #("cleans numbers with dots", "223.456.7890", Ok("2234567890")),
         #("cleans numbers with multiple spaces", "223 456   7890   ", Ok("2234567890")),
-        #("invalid when 9 digits", "123456789", Err(.TooFewDigits)),
+        #("invalid when 9 digits", "123456789", Err(Error.TooFewDigits)),
         #("invalid when 11 digits does not start with a 1", "22234567890", Err(.CountryCodeNotOne)),
         #("valid when 11 digits and starting with 1", "12234567890", Ok("2234567890")),
         #(
@@ -138,5 +138,5 @@ test "cleans phone numbers" {
 - The checks run in the order the canonical errors imply: letters, then punctuation, then digit count, then the area and exchange codes.
 - Digits become a `List<Int>`, so the area and exchange rules are list patterns (`[_, _, _, 0, .._]`) rather than string slicing.
 - `national` uses a `case` with `when` guards on the count, so the eleven-digit `[1, ..rest]` pattern can sit among them.
-- The work is per codepoint: `Codepoint.letter?` finds letters, `Codepoint.digit?` and `separator?` find punctuation, and `Codepoint.to_digit` with `Maybe.values` keeps the digits as `Int`s in one stage. `letter?` is Unicode, so `é` is a letter here, not punctuation; `digit?` is ASCII only, so a full-width `１` is punctuation.
-- `separator?` is one `or` pattern of the six separators and a `_` arm.
+- The work is per codepoint: `Codepoint.is_letter` finds letters, `Codepoint.is_digit` and `is_separator` find punctuation, and `Codepoint.to_digit` with `Maybe.values` keeps the digits as `Int`s in one stage. `is_letter` is Unicode, so `é` is a letter here, not punctuation; `is_digit` is ASCII only, so a full-width `１` is punctuation.
+- `is_separator` is one `or` pattern of the six separators and a `_` arm.

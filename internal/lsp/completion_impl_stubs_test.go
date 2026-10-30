@@ -176,7 +176,7 @@ func TestCompletion_ImplStubGenericImpl(t *testing.T) {
 	// placeholder; the open defaults follow.
 	src := "struct Box<T> {\n    value: T\n}\n\nimpl Iter for Box<T> {\n    " + cursorMark + "\n}\n"
 	items := completeWith(t, true, src)
-	if got := strings.Join(itemLabels(items), ","); got != "each_while,known_count,infinite?" {
+	if got := strings.Join(itemLabels(items), ","); got != "each_while,known_count,is_infinite" {
 		t.Fatalf("items = %s", got)
 	}
 	if got := insertOf(t, items, "each_while"); got != "fn each_while(box: Box<T>, yield: (${1:T}) -> Bool) -> Bool {\n    $0\n}" {
@@ -185,8 +185,8 @@ func TestCompletion_ImplStubGenericImpl(t *testing.T) {
 	if got := insertOf(t, items, "known_count"); got != "fn known_count(box: Box<T>) -> Maybe<Int> {\n    $0\n}" {
 		t.Fatalf("known_count = %q", got)
 	}
-	if got := insertOf(t, items, "infinite?"); got != "fn infinite?(box: Box<T>) -> Bool {\n    $0\n}" {
-		t.Fatalf("infinite? = %q", got)
+	if got := insertOf(t, items, "is_infinite"); got != "fn is_infinite(box: Box<T>) -> Bool {\n    $0\n}" {
+		t.Fatalf("is_infinite = %q", got)
 	}
 }
 
@@ -220,8 +220,8 @@ func TestCompletion_ImplStubGenericInterfaceArguments(t *testing.T) {
 
 func TestCompletion_ImplStubTwoSelfParametersKeepTheirNames(t *testing.T) {
 	src := "struct Money {\n    cents: Int\n}\n\nimpl Equatable for Money {\n    " + cursorMark + "\n}\n"
-	if got := insertOf(t, completeWith(t, true, src), "equal?"); got != "fn equal?(a: Money, b: Money) -> Bool {\n    $0\n}" {
-		t.Fatalf("equal? = %q", got)
+	if got := insertOf(t, completeWith(t, true, src), "equal"); got != "fn equal(a: Money, b: Money) -> Bool {\n    $0\n}" {
+		t.Fatalf("equal = %q", got)
 	}
 }
 

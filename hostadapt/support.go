@@ -3,6 +3,7 @@ package hostadapt
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/nomi-language/nomi/rt"
@@ -76,20 +77,29 @@ func field(r *rt.Record, d *rt.TypeDesc, i int, name string) (rt.Value, error) {
 	return v, nil
 }
 
-// IntField reads an Int field.
-func IntField(r *rt.Record, d *rt.TypeDesc, i, slot int, name string) (int64, error) {
+// IntValueField reads an Int field as the Int value it holds: an int64, or a
+// *rt.BigInt past int64's range.
+func IntValueField(r *rt.Record, d *rt.TypeDesc, i, slot int, name string) (rt.Value, error) {
 	if r.Desc == d {
-		return rt.WordInt(r.W[slot]), nil
+		return r.IntSlot(slot), nil
 	}
 	v, err := field(r, d, i, name)
 	if err != nil {
+		return nil, err
+	}
+	if !rt.IsInt(v) {
+		return nil, fmt.Errorf("field %q: %w", name, Want("Int", v))
+	}
+	return v, nil
+}
+
+// IntField reads an Int field as an int64, refusing a value past its range.
+func IntField(r *rt.Record, d *rt.TypeDesc, i, slot int, name string) (int64, error) {
+	v, err := IntValueField(r, d, i, slot, name)
+	if err != nil {
 		return 0, err
 	}
-	x, ok := v.(int64)
-	if !ok {
-		return 0, fmt.Errorf("field %q: %w", name, Want("Int", v))
-	}
-	return x, nil
+	return ToSigned[int64](v, "int64")
 }
 
 // FloatField reads a Float field.
@@ -232,32 +242,58 @@ type Unsigned interface {
 	~uint | ~uint16 | ~uint32 | ~uint64 | ~uintptr
 }
 
-// ToSigned narrows an Int to a Go signed type, refusing a value that does not
-// fit, as the marshaller does.
-func ToSigned[T Signed](v int64, goType string) (T, error) {
-	t := T(v)
-	if int64(t) != v {
-		return 0, fmt.Errorf("unmarshal to %s: value %d overflows", goType, v)
+// ToSigned narrows an Int (an int64 or a *rt.BigInt) to a Go signed type,
+// refusing a value that does not fit, as the marshaller does. An Int is exact
+// at any size and a Go integer is not, so this is where a value too large
+// for the Go side stops, with an error the adapter names its binding in.
+func ToSigned[T Signed](v rt.Value, goType string) (T, error) {
+	n, ok := v.(int64)
+	if !ok {
+		return 0, overflows(goType, v)
+	}
+	t := T(n)
+	if int64(t) != n {
+		return 0, overflows(goType, v)
 	}
 	return t, nil
 }
 
 // ToUnsigned narrows an Int to a Go unsigned type.
-func ToUnsigned[T Unsigned](v int64, goType string) (T, error) {
-	t := T(v)
-	if v < 0 || uint64(t) != uint64(v) {
-		return 0, fmt.Errorf("unmarshal to %s: value %d overflows", goType, v)
+func ToUnsigned[T Unsigned](v rt.Value, goType string) (T, error) {
+	if !rt.IsInt(v) || rt.IntSign(v) < 0 {
+		return 0, overflows(goType, v)
+	}
+	var u uint64
+	switch x := v.(type) {
+	case int64:
+		u = uint64(x)
+	case *rt.BigInt:
+		z := x.Big()
+		if !z.IsUint64() {
+			return 0, overflows(goType, v)
+		}
+		u = z.Uint64()
+	}
+	t := T(u)
+	if uint64(t) != u {
+		return 0, overflows(goType, v)
 	}
 	return t, nil
 }
 
-// FromUnsigned widens a Go unsigned value to an Int, refusing one past
-// math.MaxInt64.
-func FromUnsigned[T Unsigned](v T, goType string) (int64, error) {
-	if uint64(v) > math.MaxInt64 {
-		return 0, fmt.Errorf("marshal %s: value %d overflows int64", goType, uint64(v))
+func overflows(goType string, v rt.Value) error {
+	if rt.IsInt(v) {
+		return fmt.Errorf("unmarshal to %s: value %s overflows", goType, rt.FormatIntValue(v))
 	}
-	return int64(v), nil
+	return fmt.Errorf("unmarshal to %s: %w", goType, Want("Int", v))
+}
+
+// FromBig is a Go *big.Int as an Int. A nil pointer is no number.
+func FromBig(z *big.Int) (rt.Value, error) {
+	if z == nil {
+		return nil, fmt.Errorf("marshal *big.Int: the pointer is nil")
+	}
+	return rt.IntFromBig(z), nil
 }
 
 // ToFloat32 narrows a Float, refusing a finite magnitude float32 cannot hold.

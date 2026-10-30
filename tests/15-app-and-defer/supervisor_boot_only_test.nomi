@@ -19,8 +19,8 @@ test "a task group created in a plain function is rejected" {
     )
 
     assert diagnostics
-        |> Iter.any?(fn diagnostic -> {
-            String.contains?(
+        |> Iter.any(fn diagnostic -> {
+            String.contains(
                 diagnostic.message,
                 "the bound would be per call rather than per downstream",
             )
@@ -131,8 +131,8 @@ test "a group-owned body must return Unit" {
     )
 
     assert diagnostics
-        |> Iter.any?(fn diagnostic -> {
-            String.contains?(
+        |> Iter.any(fn diagnostic -> {
+            String.contains(
                 diagnostic.message,
                 "expected () -> Unit, got () -> Result<Unit, String>",
             )
@@ -224,8 +224,8 @@ test "calling that constructor outside boot is rejected" {
     )
 
     assert diagnostics
-        |> Iter.any?(fn diagnostic -> {
-            String.contains?(
+        |> Iter.any(fn diagnostic -> {
+            String.contains(
                 diagnostic.message,
                 "the bound would be per call rather than per downstream",
             )

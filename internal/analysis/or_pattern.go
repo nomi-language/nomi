@@ -189,7 +189,7 @@ func patternText(n ast.Node) string {
 		if p.Lexeme != "" {
 			return p.Lexeme
 		}
-		return strconv.FormatInt(p.Value, 10)
+		return p.Decimal()
 	case *ast.FloatLit:
 		if p.Lexeme != "" {
 			return p.Lexeme
@@ -261,6 +261,9 @@ func patternText(n ast.Node) string {
 		}
 		if p.TailSpread != nil {
 			parts = append(parts, ".."+patternText(p.TailSpread))
+		}
+		for _, t := range p.Tails {
+			parts = append(parts, patternText(t))
 		}
 		prefix := ""
 		if p.TypeName != nil {

@@ -16,10 +16,10 @@ import (
 // operand that the enclosing parseExpr would already have consumed. The brace
 // literal does the same, at the one position its rule allows.
 //
-// The POSITION RULE IS INVERTED and the diagnostic mirrors it: a list spread
-// must be the LAST element (a List is cons cells, so `[0, ..xs]` is the cheap
-// direction), a record spread must be the FIRST (base-then-overrides is the
-// only order under which "a later field wins" is true).
+// The POSITION RULE DIFFERS: a list, vector, set or map literal takes spreads
+// anywhere, since its spreads join collections, while a record spread must be
+// the FIRST element (base-then-overrides is the only order under which "a
+// later field wins" is true).
 
 func structSpreadLit(t *testing.T, src string) *ast.StructLit {
 	t.Helper()

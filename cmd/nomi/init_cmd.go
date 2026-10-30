@@ -12,6 +12,7 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/gotoolchain"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -54,8 +55,9 @@ func checkModulePath(cmd, path string) (string, error) {
 // replacing either. The module path is the go.mod's when there is one, and
 // the argument otherwise: a module path is the module's address, which the
 // directory's name does not give. nomi.toml's entry_points lists every file
-// of the module with a top-level `fn main`, or `main` when none has one.
-// It writes no source file.
+// of the module with a top-level `fn main` other than its tools, which are
+// entry points without being listed, or `main` when none has one. It writes
+// no source file.
 func runInit(args []string) error {
 	var pos []string
 	for _, arg := range args {
@@ -128,7 +130,7 @@ func runInit(args []string) error {
 		fmt.Printf("kept %s, which was already there\n", kept[0])
 	}
 	if !hasManifest {
-		if entries, err := entryFiles("."); err == nil && isRegular(entries[0]+".nomi") {
+		if entries, err := entryFiles("."); err == nil && len(entries) > 0 && isRegular(entries[0]+".nomi") {
 			fmt.Printf("next: nomi run %s.nomi\n", entries[0])
 		}
 	}
@@ -137,10 +139,12 @@ func runInit(args []string) error {
 
 // entryFiles is the module-relative name, without .nomi, of every file
 // under root with a top-level `fn main`, the names entry_points must list,
-// or ["main"] when there is none. A test file, a hidden directory and a
-// directory with a nomi.toml of its own (another module) are skipped.
+// or ["main"] when there is none and root has no tools. A tool
+// (analysis.IsToolFile), a test file, a hidden directory and a directory
+// with a nomi.toml of its own (another module) are skipped.
 func entryFiles(root string) ([]string, error) {
 	var entries []string
+	hasTools := false
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -152,6 +156,10 @@ func entryFiles(root string) ([]string, error) {
 			return nil
 		}
 		if filepath.Ext(p) != ".nomi" || strings.HasSuffix(p, "_test.nomi") {
+			return nil
+		}
+		if rel, err := filepath.Rel(root, p); err == nil && analysis.IsToolFile(strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")) {
+			hasTools = true
 			return nil
 		}
 		src, err := os.ReadFile(p)
@@ -174,7 +182,7 @@ func entryFiles(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(entries) == 0 {
+	if len(entries) == 0 && !hasTools {
 		return []string{"main"}, nil
 	}
 	sort.Strings(entries)

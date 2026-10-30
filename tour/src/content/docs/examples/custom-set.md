@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: custom_set.nomi
+//# A set built without the standard library's `Set`.
+
 /// A set of values, kept as a list in ascending order with no value twice.
 /// Two sets with the same values hold the same list, so they are equal.
 pub opaque struct CustomSet<T> {
@@ -22,27 +24,27 @@ derive Equatable for CustomSet<T>
 impl CustomSet<T> {
     /// The set of `values`, each kept once.
     pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
-        Iter.reduce(values, fn set = #CustomSet{items: []}, value -> CustomSet.add(set, value))
+        Iter.reduce(values, CustomSet.add, from: #CustomSet{items: []})
     }
 
     /// Whether `set` holds no values.
-    pub fn empty?(set: CustomSet<T>) -> Bool {
-        Iter.empty?(set.items)
+    pub fn is_empty(set: CustomSet<T>) -> Bool {
+        Iter.is_empty(set.items)
     }
 
     /// Whether `set` holds `element`.
-    pub fn contains?(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
-        List.contains?(set.items, element)
+    pub fn contains(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
+        List.contains(set.items, element)
     }
 
     /// Whether every value of `set` is in `other`.
-    pub fn subset?(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        Iter.all?(set.items, &CustomSet.contains?(other, &1))
+    pub fn is_subset(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+        Iter.all(set.items, &CustomSet.contains(other, &1))
     }
 
     /// Whether `set` and `other` share no value.
-    pub fn disjoint?(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        !Iter.any?(set.items, &CustomSet.contains?(other, &1))
+    pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
+        !Iter.any(set.items, &CustomSet.contains(other, &1))
     }
 
     /// `set` with `element` in it.
@@ -53,14 +55,14 @@ impl CustomSet<T> {
     /// The values in both `set` and `other`.
     pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
         #CustomSet{
-            items: set.items |> Iter.filter(&CustomSet.contains?(other, &1)) |> Iter.to_list(),
+            items: set.items |> Iter.filter(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 
     /// The values in `set` that are not in `other`.
     pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
         #CustomSet{
-            items: set.items |> Iter.filter(&(!CustomSet.contains?(other, &1))) |> Iter.to_list(),
+            items: set.items |> Iter.filter(&(!CustomSet.contains(other, &1))) |> Iter.to_list(),
         }
     }
 
@@ -90,30 +92,30 @@ fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable {
 import custom_set.CustomSet
 
 test "Returns true if the set contains no elements" {
-    cases: List<#(String, List<Int>, Bool)> = [
+    cases = [
         #("sets with no elements are empty", [], True),
         #("sets with elements are not empty", [1], False),
     ]
 
     subtests cases, #(description, set, expected), description {
-        assert CustomSet.from(set) |> CustomSet.empty?() == expected
+        assert CustomSet.from(set) |> CustomSet.is_empty() == expected
     }
 }
 
 test "Sets can report if they contain an element" {
-    cases: List<#(String, List<Int>, Int, Bool)> = [
+    cases = [
         #("nothing is contained in an empty set", [], 1, False),
         #("when the element is in the set", [1, 2, 3], 1, True),
         #("when the element is not in the set", [1, 2, 3], 4, False),
     ]
 
     subtests cases, #(description, set, element, expected), description {
-        assert CustomSet.from(set) |> CustomSet.contains?(element) == expected
+        assert CustomSet.from(set) |> CustomSet.contains(element) == expected
     }
 }
 
 test "A set is a subset if all of its elements are contained in the other set" {
-    cases: List<#(String, List<Int>, List<Int>, Bool)> = [
+    cases = [
         #("empty set is a subset of another empty set", [], [], True),
         #("empty set is a subset of non-empty set", [], [1], True),
         #("non-empty set is not a subset of empty set", [1], [], False),
@@ -128,12 +130,12 @@ test "A set is a subset if all of its elements are contained in the other set" {
     ]
 
     subtests cases, #(description, set1, set2, expected), description {
-        assert CustomSet.subset?(CustomSet.from(set1), CustomSet.from(set2)) == expected
+        assert CustomSet.is_subset(CustomSet.from(set1), CustomSet.from(set2)) == expected
     }
 }
 
 test "Sets are disjoint if they share no elements" {
-    cases: List<#(String, List<Int>, List<Int>, Bool)> = [
+    cases = [
         #("the empty set is disjoint with itself", [], [], True),
         #("empty set is disjoint with non-empty set", [], [1], True),
         #("non-empty set is disjoint with empty set", [1], [], True),
@@ -142,12 +144,12 @@ test "Sets are disjoint if they share no elements" {
     ]
 
     subtests cases, #(description, set1, set2, expected), description {
-        assert CustomSet.disjoint?(CustomSet.from(set1), CustomSet.from(set2)) == expected
+        assert CustomSet.is_disjoint(CustomSet.from(set1), CustomSet.from(set2)) == expected
     }
 }
 
 test "Sets with the same elements are equal" {
-    cases: List<#(String, List<Int>, List<Int>, Bool)> = [
+    cases = [
         #("empty sets are equal", [], [], True),
         #("empty set is not equal to non-empty set", [], [1, 2, 3], False),
         #("non-empty set is not equal to empty set", [1, 2, 3], [], False),
@@ -163,7 +165,7 @@ test "Sets with the same elements are equal" {
 }
 
 test "Unique elements can be added to a set" {
-    cases: List<#(String, List<Int>, Int, List<Int>)> = [
+    cases = [
         #("add to empty set", [], 3, [3]),
         #("add to non-empty set", [1, 2, 4], 3, [1, 2, 3, 4]),
         #("adding an existing element does not change the set", [1, 2, 3], 3, [1, 2, 3]),
@@ -175,7 +177,7 @@ test "Unique elements can be added to a set" {
 }
 
 test "Intersection returns a set of all shared elements" {
-    cases: List<#(String, List<Int>, List<Int>, List<Int>)> = [
+    cases = [
         #("intersection of two empty sets is an empty set", [], [], []),
         #("intersection of an empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         #("intersection of a non-empty set and an empty set is an empty set", [1, 2, 3, 4], [], []),
@@ -200,7 +202,7 @@ test "Intersection returns a set of all shared elements" {
 }
 
 test "Difference (or Complement) of a set is a set of all elements that are only in the first set" {
-    cases: List<#(String, List<Int>, List<Int>, List<Int>)> = [
+    cases = [
         #("difference of two empty sets is an empty set", [], [], []),
         #("difference of empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         #(
@@ -225,7 +227,7 @@ test "Difference (or Complement) of a set is a set of all elements that are only
 }
 
 test "Union returns a set of all elements in either set" {
-    cases: List<#(String, List<Int>, List<Int>, List<Int>)> = [
+    cases = [
         #("union of empty sets is an empty set", [], [], []),
         #("union of an empty set and non-empty set is the non-empty set", [], [2], [2]),
         #("union of a non-empty set and empty set is the non-empty set", [1, 3], [], [1, 3]),
@@ -245,5 +247,5 @@ test "Union returns a set of all elements in either set" {
 - Order and uniqueness are kept in one place, the private `insert`: a `case` on the list, then `Comparable.compare` with the head, whose three arms put the value before it, keep the list as it is, or carry on down the tail. `from` and `union` are `Iter.reduce` over `add`, so they keep the order too.
 - `intersection` and `difference` filter the first set's list, which is already in order, so they build the struct directly with the pipe inside its field (style §1).
 - The functions are in `impl CustomSet<T>`, generic over the block's `T`. The ones that only test membership ask for `T: Equatable`; the ones that build a set ask for `T: Comparable`.
-- A lookup is a linear scan of the list, so `subset?` and `intersection` are quadratic. A balanced tree would fix that; the canonical sets have at most four values, and the sorted list keeps equality structural.
-- The tests use `Int` values. Each canonical group is a test named by its description, holding one `subtests` table. The tables are annotated, since most open with a row of empty lists that give the element type nothing.
+- A lookup is a linear scan of the list, so `is_subset` and `intersection` are quadratic. A balanced tree would fix that; the canonical sets have at most four values, and the sorted list keeps equality structural.
+- The tests use `Int` values. Each canonical group is a test named by its description, holding one `subtests` table. The tables need no annotation: most open with a row of empty lists, and the numbers in a later row give them their element type.

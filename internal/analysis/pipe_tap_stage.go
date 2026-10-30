@@ -13,7 +13,7 @@ import (
 func (c *checker) checkTapStage(pipe *ast.Binary, n *ast.Tap, left Type) Type {
 	expectedFT := &FuncType{Params: []Type{left}, Return: TypeUnit}
 	errsBefore := len(c.errors)
-	// A body that already failed to check (a `try` with nothing to
+	// A body that already failed to check (a `?` with nothing to
 	// propagate to, a mismatched `return`) is not also reported here.
 	var lamTy Type
 	if n.Capture != nil {

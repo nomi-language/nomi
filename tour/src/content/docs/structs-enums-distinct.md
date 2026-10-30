@@ -485,7 +485,7 @@ types, opaque types, host types, and generic types such as
 `impl Box<T> { ... }`.
 
 :::note[Continue or dig deeper]
-The tour moves on to [**Pattern Matching, Maybe, Result & Try**](/pattern-matching/),
+The tour moves on to [**Pattern Matching, Maybe & Result**](/pattern-matching/),
 which shows how `case` takes apart every value you can now build. The section
 below covers `embeds`, for using existing types as enum variants, and
 `typealias`, for short names for long anonymous types.
@@ -559,7 +559,7 @@ fn too_short(name: String) -> Maybe<String> {
 }
 
 fn has_space(name: String) -> Maybe<String> {
-    if String.contains?(name, " ") {
+    if String.contains(name, " ") {
         Some("has a space")
     } else {
         None

@@ -203,7 +203,7 @@ func TestCapture_Rejections(t *testing.T) {
 			"cannot infer type for `&1` in `&Int.divide(12, &1)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int) -> Int = &Int.divide(12, &1)`, or write a lambda with an annotated parameter, as in `fn x: Int -> Int.divide(12, x)`"},
 		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int {\n    div = &Int.divide(&1, &2)\n    div(12, 4)\n}\n",
 			"cannot infer type for `&2` in `&Int.divide(&1, &2)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int, Int) -> Int = &Int.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Int, b: Int -> Int.divide(a, b)`"},
-		{"an operand of and","fn f(ready: Bool) -> (Int) -> Bool { &(&1 > 2) and ready }\n",
+		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool { &(&1 > 2) and ready }\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

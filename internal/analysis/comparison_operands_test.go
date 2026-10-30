@@ -77,7 +77,7 @@ func TestComparisonOperand_UnknownVariant_NamesTheOperandsEnum(t *testing.T) {
     Withdrawal
 }
 
-fn refund?(k: Kind) -> Bool {
+fn is_refund(k: Kind) -> Bool {
     b: Bool = k == .Refund
     b
 }

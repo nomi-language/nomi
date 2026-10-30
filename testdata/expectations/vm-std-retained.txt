@@ -11,28 +11,28 @@ assertions.nomi:AssertionPipelineStage.inspect	ran
 assertions.nomi:AssertionValue.inspect	ran
 assertions.nomi:SubtestFailure.inspect	ran
 bool.nomi:Bool.compare	ran
-bool.nomi:Bool.equal?	ran
+bool.nomi:Bool.equal	ran
 bool.nomi:Bool.hash	ran
 bool.nomi:Bool.inspect	ran
 bool.nomi:Bool.to_string	ran
 bool.nomi:False.compare	ran
-bool.nomi:False.equal?	ran
+bool.nomi:False.equal	ran
 bool.nomi:False.hash	ran
 bool.nomi:False.inspect	ran
 bool.nomi:False.to_string	ran
 bool.nomi:True.compare	ran
-bool.nomi:True.equal?	ran
+bool.nomi:True.equal	ran
 bool.nomi:True.hash	ran
 bool.nomi:True.inspect	ran
 bool.nomi:True.to_string	ran
-bytes.nomi:Byte.equal?	ran
+bytes.nomi:Byte.equal	ran
 bytes.nomi:Byte.hash	ran
 bytes.nomi:Byte.inspect	ran
 bytes.nomi:Byte.to_string	ran
 bytes.nomi:Bytes.Add<Bytes, Bytes>.add	ran
 bytes.nomi:Bytes.compare	ran
 bytes.nomi:Bytes.empty_sum	ran
-bytes.nomi:Bytes.equal?	ran
+bytes.nomi:Bytes.equal	ran
 bytes.nomi:Bytes.inspect	ran
 bytes.nomi:join_debug_parts	ran
 bytes.nomi:to_string	ran
@@ -47,14 +47,14 @@ calendar.nomi:Date.Subtract<Years, Date>.subtract	ran
 calendar.nomi:Date.compare	ran
 calendar.nomi:Date.day	ran
 calendar.nomi:Date.days_in_month	ran
-calendar.nomi:Date.equal?	ran
+calendar.nomi:Date.equal	ran
 calendar.nomi:Date.fields_of	ran
 calendar.nomi:Date.format	ran
 calendar.nomi:Date.format_fields	ran
 calendar.nomi:Date.from_fragments	ran
 calendar.nomi:Date.hash	ran
 calendar.nomi:Date.inspect	ran
-calendar.nomi:Date.leap_year?	ran
+calendar.nomi:Date.is_leap_year	ran
 calendar.nomi:Date.localize	ran
 calendar.nomi:Date.month	ran
 calendar.nomi:Date.new	ran
@@ -65,15 +65,15 @@ calendar.nomi:Date.to_string_with	ran
 calendar.nomi:Date.weekday	ran
 calendar.nomi:Date.year	ran
 calendar.nomi:DateAttempt.inspect	ran
-calendar.nomi:DateFields.equal?	ran
+calendar.nomi:DateFields.equal	ran
 calendar.nomi:DateFields.from_fragments	ran
 calendar.nomi:DateFields.inspect	ran
 calendar.nomi:DateFields.parse	ran
-calendar.nomi:DatePattern.equal?	ran
+calendar.nomi:DatePattern.equal	ran
 calendar.nomi:DatePattern.from_fragments	ran
 calendar.nomi:DatePattern.inspect	ran
 calendar.nomi:DatePattern.parse	ran
-calendar.nomi:DateStyle.equal?	ran
+calendar.nomi:DateStyle.equal	ran
 calendar.nomi:DateStyle.inspect	ran
 calendar.nomi:DateStyle.name	ran
 calendar.nomi:DateTime.Add<Days, DateTime>.add	ran
@@ -100,7 +100,7 @@ calendar.nomi:DateTime.Subtract<Weeks, DateTime>.subtract	ran
 calendar.nomi:DateTime.Subtract<Years, DateTime>.subtract	ran
 calendar.nomi:DateTime.between	ran
 calendar.nomi:DateTime.compare	ran
-calendar.nomi:DateTime.equal?	ran
+calendar.nomi:DateTime.equal	ran
 calendar.nomi:DateTime.fields_of	ran
 calendar.nomi:DateTime.format	ran
 calendar.nomi:DateTime.format_fields	ran
@@ -117,46 +117,46 @@ calendar.nomi:DateTime.parse	ran
 calendar.nomi:DateTime.to_instant	ran
 calendar.nomi:DateTime.to_string_with	ran
 calendar.nomi:DateTime.with_zone	ran
-calendar.nomi:DateTimeFields.equal?	ran
+calendar.nomi:DateTimeFields.equal	ran
 calendar.nomi:DateTimeFields.from_fragments	ran
 calendar.nomi:DateTimeFields.inspect	ran
 calendar.nomi:DateTimeFields.parse	ran
-calendar.nomi:DateTimePattern.equal?	ran
+calendar.nomi:DateTimePattern.equal	ran
 calendar.nomi:DateTimePattern.from_fragments	ran
 calendar.nomi:DateTimePattern.inspect	ran
 calendar.nomi:DateTimePattern.parse	ran
 calendar.nomi:Days.compare	ran
-calendar.nomi:Days.equal?	ran
+calendar.nomi:Days.equal	ran
 calendar.nomi:Days.hash	ran
 calendar.nomi:Days.inspect	ran
 calendar.nomi:Days.to_string	ran
 calendar.nomi:Disambiguation.inspect	ran
-calendar.nomi:Error.equal?	ran
+calendar.nomi:Error.equal	ran
 calendar.nomi:Error.inspect	ran
 calendar.nomi:Error.of	ran
 calendar.nomi:Error.to_string	ran
 calendar.nomi:Hours.compare	ran
-calendar.nomi:Hours.equal?	ran
+calendar.nomi:Hours.equal	ran
 calendar.nomi:Hours.hash	ran
 calendar.nomi:Hours.inspect	ran
 calendar.nomi:Hours.to_string	ran
 calendar.nomi:Microseconds.compare	ran
-calendar.nomi:Microseconds.equal?	ran
+calendar.nomi:Microseconds.equal	ran
 calendar.nomi:Microseconds.hash	ran
 calendar.nomi:Microseconds.inspect	ran
 calendar.nomi:Microseconds.to_string	ran
 calendar.nomi:Milliseconds.compare	ran
-calendar.nomi:Milliseconds.equal?	ran
+calendar.nomi:Milliseconds.equal	ran
 calendar.nomi:Milliseconds.hash	ran
 calendar.nomi:Milliseconds.inspect	ran
 calendar.nomi:Milliseconds.to_string	ran
 calendar.nomi:Minutes.compare	ran
-calendar.nomi:Minutes.equal?	ran
+calendar.nomi:Minutes.equal	ran
 calendar.nomi:Minutes.hash	ran
 calendar.nomi:Minutes.inspect	ran
 calendar.nomi:Minutes.to_string	ran
 calendar.nomi:Months.compare	ran
-calendar.nomi:Months.equal?	ran
+calendar.nomi:Months.equal	ran
 calendar.nomi:Months.hash	ran
 calendar.nomi:Months.inspect	ran
 calendar.nomi:Months.to_string	ran
@@ -187,7 +187,7 @@ calendar.nomi:NaiveDateTime.at_midnight	ran
 calendar.nomi:NaiveDateTime.between	ran
 calendar.nomi:NaiveDateTime.compare	ran
 calendar.nomi:NaiveDateTime.day	ran
-calendar.nomi:NaiveDateTime.equal?	ran
+calendar.nomi:NaiveDateTime.equal	ran
 calendar.nomi:NaiveDateTime.fields_of	ran
 calendar.nomi:NaiveDateTime.format	ran
 calendar.nomi:NaiveDateTime.format_fields	ran
@@ -208,7 +208,7 @@ calendar.nomi:NaiveDateTime.second	ran
 calendar.nomi:NaiveDateTime.to_string_with	ran
 calendar.nomi:NaiveDateTime.year	ran
 calendar.nomi:Nanoseconds.compare	ran
-calendar.nomi:Nanoseconds.equal?	ran
+calendar.nomi:Nanoseconds.equal	ran
 calendar.nomi:Nanoseconds.hash	ran
 calendar.nomi:Nanoseconds.inspect	ran
 calendar.nomi:Nanoseconds.to_string	ran
@@ -237,7 +237,7 @@ calendar.nomi:OffsetDateTime.Subtract<Weeks, OffsetDateTime>.subtract	ran
 calendar.nomi:OffsetDateTime.Subtract<Years, OffsetDateTime>.subtract	ran
 calendar.nomi:OffsetDateTime.between	ran
 calendar.nomi:OffsetDateTime.compare	ran
-calendar.nomi:OffsetDateTime.equal?	ran
+calendar.nomi:OffsetDateTime.equal	ran
 calendar.nomi:OffsetDateTime.from_fragments	ran
 calendar.nomi:OffsetDateTime.from_instant	ran
 calendar.nomi:OffsetDateTime.hash	ran
@@ -247,7 +247,7 @@ calendar.nomi:OffsetDateTime.parse	ran
 calendar.nomi:OffsetDateTime.to_instant	ran
 calendar.nomi:OffsetDateTime.with_offset	ran
 calendar.nomi:Seconds.compare	ran
-calendar.nomi:Seconds.equal?	ran
+calendar.nomi:Seconds.equal	ran
 calendar.nomi:Seconds.hash	ran
 calendar.nomi:Seconds.inspect	ran
 calendar.nomi:Seconds.to_string	ran
@@ -255,7 +255,7 @@ calendar.nomi:Time.Add<Duration, Time>.add	ran
 calendar.nomi:Time.Subtract<Duration, Time>.subtract	ran
 calendar.nomi:Time.between	ran
 calendar.nomi:Time.compare	ran
-calendar.nomi:Time.equal?	ran
+calendar.nomi:Time.equal	ran
 calendar.nomi:Time.fields_of	ran
 calendar.nomi:Time.format	ran
 calendar.nomi:Time.format_fields	ran
@@ -273,31 +273,31 @@ calendar.nomi:Time.parse_with	ran
 calendar.nomi:Time.second	ran
 calendar.nomi:Time.to_string_with	ran
 calendar.nomi:TimeAttempt.inspect	ran
-calendar.nomi:TimeFields.equal?	ran
+calendar.nomi:TimeFields.equal	ran
 calendar.nomi:TimeFields.from_fragments	ran
 calendar.nomi:TimeFields.inspect	ran
 calendar.nomi:TimeFields.parse	ran
-calendar.nomi:TimePattern.equal?	ran
+calendar.nomi:TimePattern.equal	ran
 calendar.nomi:TimePattern.from_fragments	ran
 calendar.nomi:TimePattern.inspect	ran
 calendar.nomi:TimePattern.parse	ran
-calendar.nomi:TimeStyle.equal?	ran
+calendar.nomi:TimeStyle.equal	ran
 calendar.nomi:TimeStyle.inspect	ran
 calendar.nomi:TimeStyle.name	ran
-calendar.nomi:TimeUnit.equal?	ran
+calendar.nomi:TimeUnit.equal	ran
 calendar.nomi:TimeUnit.format_relative	ran
 calendar.nomi:TimeUnit.inspect	ran
-calendar.nomi:Weekday.equal?	ran
+calendar.nomi:Weekday.equal	ran
 calendar.nomi:Weekday.hash	ran
 calendar.nomi:Weekday.inspect	ran
 calendar.nomi:Weekday.to_string	ran
 calendar.nomi:Weeks.compare	ran
-calendar.nomi:Weeks.equal?	ran
+calendar.nomi:Weeks.equal	ran
 calendar.nomi:Weeks.hash	ran
 calendar.nomi:Weeks.inspect	ran
 calendar.nomi:Weeks.to_string	ran
 calendar.nomi:Years.compare	ran
-calendar.nomi:Years.equal?	ran
+calendar.nomi:Years.equal	ran
 calendar.nomi:Years.hash	ran
 calendar.nomi:Years.inspect	ran
 calendar.nomi:Years.to_string	ran
@@ -336,24 +336,24 @@ calendar.nomi:calendar.TimeUnit.format_relative arity 3	ran
 calendar.nomi:calendar.TimeUnit.format_relative default 4	ran
 calendar.nomi:day_nanos	ran
 code_points.nomi:Codepoint.compare	ran
-code_points.nomi:Codepoint.digit?	ran
-code_points.nomi:Codepoint.equal?	ran
+code_points.nomi:Codepoint.equal	ran
 code_points.nomi:Codepoint.hash	ran
 code_points.nomi:Codepoint.inspect	ran
+code_points.nomi:Codepoint.is_digit	ran
 code_points.nomi:Codepoint.next	ran
 code_points.nomi:Codepoint.step_by	ran
 code_points.nomi:Codepoint.steps_between	ran
 code_points.nomi:Codepoint.to_digit	ran
 code_points.nomi:Codepoint.to_int	ran
-collation.nomi:CaseFirst.equal?	ran
+collation.nomi:CaseFirst.equal	ran
 collation.nomi:CaseFirst.inspect	ran
 collation.nomi:Collator.compare	ran
-collation.nomi:Collator.equal?	ran
+collation.nomi:Collator.equal	ran
 collation.nomi:Collator.hash	ran
 collation.nomi:Collator.inspect	ran
 collation.nomi:Collator.new	ran
 collation.nomi:Collator.sort_key	ran
-collation.nomi:Strength.equal?	ran
+collation.nomi:Strength.equal	ran
 collation.nomi:Strength.inspect	ran
 collation.nomi:collation.Collator.new arity 1	ran
 collation.nomi:collation.Collator.new arity 2	ran
@@ -376,16 +376,16 @@ compiler.nomi:RunFile.inspect	ran
 context.nomi:Context.inspect	ran
 currency.nomi:Currency.code	ran
 currency.nomi:Currency.custom	ran
-currency.nomi:Currency.equal?	ran
+currency.nomi:Currency.equal	ran
 currency.nomi:Currency.from_fragments	ran
 currency.nomi:Currency.hash	ran
 currency.nomi:Currency.inspect	ran
+currency.nomi:Currency.is_iso	ran
 currency.nomi:Currency.iso	ran
-currency.nomi:Currency.iso?	ran
 currency.nomi:Currency.minor_digits	ran
 currency.nomi:Currency.parse	ran
 currency.nomi:Currency.to_string	ran
-currency.nomi:Error.equal?	ran
+currency.nomi:Error.equal	ran
 currency.nomi:Error.inspect	ran
 currency.nomi:Error.to_string	ran
 decimal.nomi:Decimal.abs	ran
@@ -395,6 +395,7 @@ decimal.nomi:Decimal.format	ran
 decimal.nomi:Decimal.format_percent	ran
 decimal.nomi:Decimal.fraction_digits	ran
 decimal.nomi:Decimal.inspect	ran
+decimal.nomi:Decimal.is_zero	ran
 decimal.nomi:Decimal.lift	ran
 decimal.nomi:Decimal.max	ran
 decimal.nomi:Decimal.min	ran
@@ -403,7 +404,6 @@ decimal.nomi:Decimal.parse_in	ran
 decimal.nomi:Decimal.parse_percent_in	ran
 decimal.nomi:Decimal.sign	ran
 decimal.nomi:Decimal.step_by	ran
-decimal.nomi:Decimal.zero?	ran
 decimal.nomi:RoundingMode.inspect	ran
 decimal.nomi:RoundingMode.to_string	ran
 decimal.nomi:decimal.Decimal.format arity 2	ran
@@ -437,8 +437,9 @@ duration.nomi:Duration.as_seconds	ran
 duration.nomi:Duration.clock	ran
 duration.nomi:Duration.compare	ran
 duration.nomi:Duration.empty_sum	ran
-duration.nomi:Duration.equal?	ran
+duration.nomi:Duration.equal	ran
 duration.nomi:Duration.format	ran
+duration.nomi:Duration.from_fragments	ran
 duration.nomi:Duration.hash	ran
 duration.nomi:Duration.hours	ran
 duration.nomi:Duration.inspect	ran
@@ -447,22 +448,26 @@ duration.nomi:Duration.microseconds	ran
 duration.nomi:Duration.milliseconds	ran
 duration.nomi:Duration.minutes	ran
 duration.nomi:Duration.nanoseconds	ran
+duration.nomi:Duration.parse	ran
 duration.nomi:Duration.parse_clock	ran
 duration.nomi:Duration.seconds	ran
-duration.nomi:DurationWidth.equal?	ran
+duration.nomi:DurationWidth.equal	ran
 duration.nomi:DurationWidth.inspect	ran
-duration.nomi:ascii_digit?	ran
 duration.nomi:digits_end	ran
 duration.nomi:duration.Duration.clock arity 1	ran
 duration.nomi:duration.Duration.clock default 2	ran
 duration.nomi:duration.Duration.format arity 2	ran
 duration.nomi:duration.Duration.format default 3	ran
 duration.nomi:fraction	ran
+duration.nomi:in_range	ran
+duration.nomi:is_ascii_digit	ran
 duration.nomi:mark	ran
 duration.nomi:number	ran
+duration.nomi:parts	ran
 duration.nomi:sixty	ran
 duration.nomi:two_digits	ran
 duration.nomi:unexpected	ran
+duration.nomi:unit	ran
 dynamic.nomi:Error.inspect	ran
 dynamic.nomi:Error.to_string	ran
 dynamic.nomi:PathSegment.inspect	ran
@@ -471,14 +476,14 @@ float.nomi:Float.abs	ran
 float.nomi:Float.compare	ran
 float.nomi:Float.empty_product	ran
 float.nomi:Float.empty_sum	ran
-float.nomi:Float.equal?	ran
-float.nomi:Float.equal_within?	ran
-float.nomi:Float.finite?	ran
+float.nomi:Float.equal	ran
+float.nomi:Float.equal_within	ran
 float.nomi:Float.format	ran
 float.nomi:Float.format_percent	ran
 float.nomi:Float.hash	ran
-float.nomi:Float.infinite?	ran
 float.nomi:Float.inspect	ran
+float.nomi:Float.is_finite	ran
+float.nomi:Float.is_infinite	ran
 float.nomi:Float.max	ran
 float.nomi:Float.min	ran
 float.nomi:Float.parse_in	ran
@@ -506,19 +511,19 @@ instant.nomi:Instant.Add<Duration, Instant>.add	ran
 instant.nomi:Instant.Subtract<Duration, Instant>.subtract	ran
 instant.nomi:Instant.Subtract<Instant, Duration>.subtract	ran
 instant.nomi:Instant.as_nanos	ran
-instant.nomi:Instant.before?	ran
 instant.nomi:Instant.between	ran
-instant.nomi:Instant.equal?	ran
+instant.nomi:Instant.equal	ran
 instant.nomi:Instant.from_nanos	ran
 instant.nomi:Instant.from_seconds	ran
 instant.nomi:Instant.inspect	ran
+instant.nomi:Instant.is_before	ran
 instant.nomi:Instant.to_seconds	ran
 int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
 int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
 int.nomi:Int.empty_product	ran
 int.nomi:Int.empty_sum	ran
-int.nomi:Int.equal?	ran
+int.nomi:Int.equal	ran
 int.nomi:Int.floor_div	ran
 int.nomi:Int.format	ran
 int.nomi:Int.from_digits	ran
@@ -550,7 +555,7 @@ int.nomi:int.Int.parse_in arity 2	ran
 int.nomi:int.Int.parse_in default 3	ran
 int.nomi:int.Int.to_digits arity 1	ran
 int.nomi:int.Int.to_digits default 2	ran
-io.nomi:Error.equal?	ran
+io.nomi:Error.equal	ran
 io.nomi:Error.inspect	ran
 io.nomi:Error.to_string	ran
 io.nomi:File.close_quietly	ran
@@ -577,9 +582,11 @@ json.nomi:Int.from_json	ran
 json.nomi:Int.to_json	ran
 json.nomi:Json.DecodeError.inspect	ran
 json.nomi:Json.DecodeError.to_string	ran
+json.nomi:Json.Error.inspect	ran
+json.nomi:Json.Error.to_string	ran
 json.nomi:Json.ShapeError.inspect	ran
 json.nomi:Json.ShapeError.to_string	ran
-json.nomi:Json.equal?	ran
+json.nomi:Json.equal	ran
 json.nomi:Json.inspect	ran
 json.nomi:Json.kind	ran
 json.nomi:Json.to_string	ran
@@ -587,14 +594,14 @@ json.nomi:String.from_json	ran
 json.nomi:String.to_json	ran
 json.nomi:shape_error_prepend	ran
 json.nomi:shape_error_root	ran
-locale.nomi:Error.equal?	ran
+locale.nomi:Error.equal	ran
 locale.nomi:Error.inspect	ran
 locale.nomi:Error.to_string	ran
-locale.nomi:LoadError.equal?	ran
+locale.nomi:LoadError.equal	ran
 locale.nomi:LoadError.inspect	ran
 locale.nomi:LoadError.to_string	ran
 locale.nomi:Locale.available	ran
-locale.nomi:Locale.equal?	ran
+locale.nomi:Locale.equal	ran
 locale.nomi:Locale.fallbacks	ran
 locale.nomi:Locale.from_fragments	ran
 locale.nomi:Locale.from_posix	ran
@@ -612,7 +619,7 @@ locale.nomi:LocaleAttempt.inspect	ran
 localize.nomi:Decimal.localize	ran
 localize.nomi:Float.localize	ran
 localize.nomi:Int.localize	ran
-localize.nomi:NumberParseError.equal?	ran
+localize.nomi:NumberParseError.equal	ran
 localize.nomi:NumberParseError.inspect	ran
 localize.nomi:NumberParseError.to_string	ran
 localize.nomi:String.localize	ran
@@ -626,14 +633,14 @@ money_format.nomi:require_same	ran
 plural.nomi:Decimal.plural_operand	ran
 plural.nomi:Int.plural_operand	ran
 plural.nomi:PluralCategory.cardinals	ran
-plural.nomi:PluralCategory.equal?	ran
+plural.nomi:PluralCategory.equal	ran
 plural.nomi:PluralCategory.hash	ran
 plural.nomi:PluralCategory.inspect	ran
 plural.nomi:PluralCategory.of	ran
 plural.nomi:PluralCategory.ordinal	ran
 plural.nomi:PluralCategory.ordinals	ran
 plural.nomi:PluralCategory.to_string	ran
-random.nomi:Error.equal?	ran
+random.nomi:Error.equal	ran
 random.nomi:Error.inspect	ran
 random.nomi:Error.to_string	ran
 random.nomi:Generator.float	ran
@@ -649,31 +656,31 @@ ranges.nomi:Range.from	ran
 ranges.nomi:Range.naturals	ran
 regex.nomi:Regex.from_fragments	ran
 regex.nomi:Regex.to_string	ran
-results.nomi:Infallible.equal?	NEVER: a parameter is Infallible, so nothing can call it
+results.nomi:Infallible.equal	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.hash	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.inspect	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.to_string	NEVER: a parameter is Infallible, so nothing can call it
 startup.nomi:Startup.inspect	ran
-strings.nomi:Codepoint.contained_in?	ran
 strings.nomi:Codepoint.find_all_in	ran
 strings.nomi:Codepoint.find_in	ran
-strings.nomi:Codepoint.prefix_of?	ran
+strings.nomi:Codepoint.is_contained_in	ran
+strings.nomi:Codepoint.is_prefix_of	ran
+strings.nomi:Codepoint.is_suffix_of	ran
 strings.nomi:Codepoint.replace_in	ran
 strings.nomi:Codepoint.split_in	ran
-strings.nomi:Codepoint.suffix_of?	ran
-strings.nomi:ListStyle.equal?	ran
+strings.nomi:ListStyle.equal	ran
 strings.nomi:ListStyle.inspect	ran
-strings.nomi:ListWidth.equal?	ran
+strings.nomi:ListWidth.equal	ran
 strings.nomi:ListWidth.inspect	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
-strings.nomi:String.Contains<Codepoint>.contains?	ran
-strings.nomi:String.Contains<Regex>.contains?	ran
-strings.nomi:String.Contains<String>.contains?	ran
+strings.nomi:String.Contains<Codepoint>.contains	ran
+strings.nomi:String.Contains<Regex>.contains	ran
+strings.nomi:String.Contains<String>.contains	ran
 strings.nomi:String.compare	ran
 strings.nomi:String.drop	ran
 strings.nomi:String.empty_sum	ran
-strings.nomi:String.equal?	ran
+strings.nomi:String.equal	ran
 strings.nomi:String.find_in	ran
 strings.nomi:String.inspect	ran
 strings.nomi:String.join_list	ran
@@ -711,6 +718,6 @@ supervisors.nomi:supervisors.Supervisor.new default 5	ran
 toml.nomi:Toml.from_fragments	ran
 toml.nomi:Toml.inspect	ran
 toml.nomi:Toml.text	ran
-unit.nomi:Unit.equal?	ran
+unit.nomi:Unit.equal	ran
 unit.nomi:Unit.hash	ran
 unit.nomi:Unit.inspect	ran

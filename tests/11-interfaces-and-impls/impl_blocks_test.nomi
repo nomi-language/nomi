@@ -22,7 +22,7 @@ fn describe(d: Dog) -> String {
 }
 
 fn loud_name(d: Dog) -> String {
-    String.to_upper(d.name)
+    String.uppercase(d.name)
 }
 
 derive Equatable for Dog
@@ -139,8 +139,8 @@ test "derive declarations coexist with impl blocks and file functions" {
     rex_again = #Dog{name: "Rex", breed: "lab"}
     fido = #Dog{name: "Fido", breed: "lab"}
 
-    assert Equatable.equal?(rex, rex_again)
-    refute Equatable.equal?(rex, fido)
+    assert Equatable.equal(rex, rex_again)
+    refute Equatable.equal(rex, fido)
     assert Speech.speak(rex) == "Rex says woof"
     assert loud_name(fido) == "FIDO"
 }
@@ -164,7 +164,7 @@ test "functions in type bodies are rejected" {
                   }
 
                   fn name_again(t: Thing) -> String {
-                    String.to_upper(t.name)
+                    String.uppercase(t.name)
                   }
 
                   fn name(t: Thing) -> String {
@@ -179,7 +179,7 @@ test "functions in type bodies are rejected" {
         },
     })
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "functions are declarations outside type bodies",
     )
@@ -209,12 +209,12 @@ test "old inherent impl block syntax is rejected" {
 
                 impl Thing {
                   pub fn shout(t: Thing) -> String {
-                    String.to_upper(t.name)
+                    String.uppercase(t.name)
                   }
                 }
                 """,
         },
     })
 
-    assert test_helpers.has_diagnostic?(diagnostics, "orphan impl: inherent `impl Thing")
+    assert test_helpers.has_diagnostic(diagnostics, "orphan impl: inherent `impl Thing")
 }

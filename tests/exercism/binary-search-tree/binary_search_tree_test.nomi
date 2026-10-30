@@ -1,8 +1,8 @@
 import binary_search_tree.Tree
 
 test "data is inserted" {
-    cases: List<#(String, List<Int>, Tree<Int>)> = [
-        #("data is retained", [4], #.Node{left: .Leaf, value: 4, right: .Leaf}),
+    cases = [
+        #("data is retained", [4], #Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
         #(
             "smaller number at left node",
             [4, 2],

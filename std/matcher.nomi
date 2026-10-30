@@ -6,10 +6,10 @@ import {
 }
 
 //# The `Matcher` interface: what `String.split`, `String.replace`,
-//# `String.starts_with?`, `String.ends_with?`, `String.find` and
+//# `String.starts_with`, `String.ends_with`, `String.find` and
 //# `String.find_all` accept as the thing to look for. A `String` matches its
 //# own text, a `Regex` matches its pattern, and a `Codepoint` matches itself.
-//# `String.contains?` takes the same three, as String's `Contains` impls.
+//# `String.contains` takes the same three, as String's `Contains` impls.
 
 /// Something to look for in a string. `String`, `Regex` and `Codepoint`
 /// implement it, so the String search functions take any of them:
@@ -27,17 +27,17 @@ import {
 //! import std/regex.Regex
 //!
 //! digits = Regex`\d+`
-//! assert String.contains?("order 66", digits)
-//! assert String.contains?("order 66", "66")
+//! assert String.contains("order 66", digits)
+//! assert String.contains("order 66", "66")
 //! assert Matcher.split_in(",", "a,b") == ["a", "b"]
 //
 pub interface Matcher {
     /// True if the matcher matches anywhere in `text`.
-    fn contained_in?(m: self, text: String) -> Bool
+    fn is_contained_in(m: self, text: String) -> Bool
     /// True if a match starts at the beginning of `text`.
-    fn prefix_of?(m: self, text: String) -> Bool
+    fn is_prefix_of(m: self, text: String) -> Bool
     /// True if a match ends at the end of `text`.
-    fn suffix_of?(m: self, text: String) -> Bool
+    fn is_suffix_of(m: self, text: String) -> Bool
     /// The pieces of `text` between non-overlapping matches.
     fn split_in(m: self, text: String) -> List<String>
     /// `text` with every non-overlapping match replaced by `replacement`,

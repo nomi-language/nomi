@@ -21,7 +21,7 @@
 // # What the third and fourth cases pin, and why they are shaped that way
 //
 // The compacted RENDERING is reachable from exactly two places:
-// `AssertionFailure.format`, and a `try` on a check inside a test body.
+// `AssertionFailure.format`, and a `?` on a check inside a test body.
 // This file uses neither.
 //
 // So what is
@@ -36,20 +36,20 @@ import {
 }
 
 fn shout(s: String) -> String {
-    String.to_upper(s)
+    String.uppercase(s)
 }
 
 fn piped_check() -> Result<Bool, AssertionFailure> {
-    found = try testing.check(
+    found = testing.check(
         "Ada Lovelace"
-        |> String.contains?("Grace")
-    )
+        |> String.contains("Grace")
+    )?
 
     Ok(found)
 }
 
 fn unpiped_check() -> Result<Bool, AssertionFailure> {
-    found = try testing.check(String.contains?("Ada Lovelace", "Grace"))
+    found = testing.check(String.contains("Ada Lovelace", "Grace"))?
 
     Ok(found)
 }
@@ -57,7 +57,7 @@ fn unpiped_check() -> Result<Bool, AssertionFailure> {
 test "a pipeline-bound name prints its stages uncompacted" {
     found =
         "Ada Lovelace"
-        |> String.contains?("Grace")
+        |> String.contains("Grace")
 
     assert found
 }
@@ -66,7 +66,7 @@ test "a three-stage binding prints one row per cumulative prefix" {
     shouted =
         "ada"
         |> shout()
-        |> String.contains?("GRACE")
+        |> String.contains("GRACE")
 
     assert shouted
 }

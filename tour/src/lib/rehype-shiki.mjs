@@ -222,10 +222,30 @@ function chipped(preClass, chip, children) {
   };
 }
 
+// recordedOutput answers the text of the hidden `<!-- expect ... -->` block
+// that follows a fence (the lines between the `<!-- expect` line and the
+// `-->` line, as internal/doctest reads them), or null when there is none.
+// The comment reaches the tree as a comment node, or as a raw node when the
+// pipeline keeps the Markdown's HTML unparsed.
+const EXPECT_RAW = /^<!--[ \t]*expect[ \t]*\n([\s\S]*?)\n?[ \t]*-->$/;
+const EXPECT_COMMENT = /^[ \t]*expect[ \t]*\n([\s\S]*?)\n?[ \t]*$/;
+function recordedOutput(parent, index) {
+  for (let i = index + 1; i < parent.children.length; i++) {
+    const node = parent.children[i];
+    if (node.type === "text" && !node.value.trim()) continue;
+    let m = null;
+    if (node.type === "comment") m = EXPECT_COMMENT.exec(node.value);
+    else if (node.type === "raw") m = EXPECT_RAW.exec(node.value.trim());
+    return m ? m[1] : null;
+  }
+  return null;
+}
+
 export default function rehypeShiki() {
   return async function transform(tree) {
     const edits = [];
     const goFiles = [];
+    const recorded = [];
 
     function visit(node, parent) {
       if (!node || !node.children) return;
@@ -270,6 +290,13 @@ export default function rehypeShiki() {
               const tools = words.filter((w) => w.startsWith("tool:")).map((w) => w.slice("tool:".length));
               if (tools.length) props.dataNomiTools = tools.join(" ");
               child.properties = props;
+              // A manual block runs nothing when the page loads: its output
+              // panel shows its expect block, which the build carries in a
+              // hidden span after the code, as text.
+              if (words.includes("manual")) {
+                const text = recordedOutput(node, i);
+                if (text !== null) recorded.push({ pre: child, text });
+              }
             }
             if (hasClass(code, "language-nomi-run")) {
               goFiles.push({ pre: child, source: textContent(code) });
@@ -286,6 +313,14 @@ export default function rehypeShiki() {
     }
     for (const { pre, source } of goFiles) {
       pre.children.push(...(await goFileSpans(source)));
+    }
+    for (const { pre, text } of recorded) {
+      pre.children.push({
+        type: "element",
+        tagName: "span",
+        properties: { hidden: true, dataNomiRecorded: "" },
+        children: [{ type: "text", value: text }],
+      });
     }
   };
 }

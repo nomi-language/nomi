@@ -1,5 +1,6 @@
 // `nomi tool csvdata rows <file.csv>...`: how many rows each table has. A
-// tool runs with every effect a program has: this one reads files.
+// tool has the same access to files, the network and output that `nomi run`
+// gives a program: this one reads files.
 import {
     std/fs
     std/io

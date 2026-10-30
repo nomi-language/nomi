@@ -4,8 +4,8 @@ import {
 }
 
 test "zoned datetimes can be reprojected through another IANA zone" {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
 
     assert DateTime.to_string(ny) == "2026-06-15T12:00:00-04:00[America/New_York]"
 
@@ -13,8 +13,8 @@ test "zoned datetimes can be reprojected through another IANA zone" {
 }
 
 test "zone changes preserve the represented instant" {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
 
     ny_seconds =
         ny
@@ -31,15 +31,15 @@ test "zone changes preserve the represented instant" {
 }
 
 test "zone changes project accessors through the target zone" {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
 
     assert DateTime.day(tokyo) == 16
     assert DateTime.hour(tokyo) == 1
 }
 
 test "zone changes reject unknown IANA zone names" {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
 
     assert Err(_) = DateTime.with_zone(ny, "Not/A_Zone")
 }

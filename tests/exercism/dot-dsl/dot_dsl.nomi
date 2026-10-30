@@ -58,39 +58,27 @@ pub fn parse(text: String) -> Result<Graph, Error> {
     lines =
         String.lines(text)
         |> Iter.map(String.trim)
-        |> Iter.filter(fn line -> line != "" and !comment?(line))
+        |> Iter.filter(fn line -> line != "" and !is_comment(line))
         |> Iter.to_list()
 
-    ["graph {", ..rest] = lines else {
-        return Err(.InvalidGraph)
-    }
+    ["graph {", ..body, "}"] = lines else { return Err(.InvalidGraph) }
 
-    if Iter.last(rest) != Some("}") {
-        return Err(.InvalidGraph)
-    }
-
-    statements =
-        rest
-        |> Iter.take(Iter.count(rest) - 1)
-        |> Iter.map(statement)
-        |> Result.collect()
+    statements = body |> Iter.map(statement) |> Result.collect()
 
     empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
 
-    Ok(Iter.reduce(try statements, add, from: empty))
+    Ok(Iter.reduce(statements?, add, from: empty))
 }
 
-fn comment?(line: String) -> Bool {
-    String.starts_with?(line, "//") or String.starts_with?(line, "#")
+fn is_comment(line: String) -> Bool {
+    String.starts_with(line, "//") or String.starts_with(line, "#")
 }
 
 /// Reads one statement, `subject [name=value, ...];`, where the subject is
 /// a node, a chain of edges `a -- b -- c`, or nothing for the graph's own
 /// attributes.
 fn statement(line: String) -> Result<Statement, Error> {
-    Some(line) = String.strip_suffix(line, ";") else {
-        return Err(.InvalidGraph)
-    }
+    Some(line) = String.strip_suffix(line, ";") else { return Err(.InvalidGraph) }
 
     #(subject, attributes) = case String.split(line, "[") {
         [subject] ->
@@ -101,7 +89,7 @@ fn statement(line: String) -> Result<Statement, Error> {
                 return Err(.InvalidAttribute)
             }
 
-            #(subject, try attributes_in(inner))
+            #(subject, attributes_in(inner)?)
         }
 
         _ ->
@@ -113,15 +101,13 @@ fn statement(line: String) -> Result<Statement, Error> {
             Ok(.GraphAttributes(attributes))
 
         [name] -> {
-            if !alphanumeric?(name) {
-                return Err(.NodeNameNotAlphanumeric)
-            }
+            if !is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
 
             Ok(#Statement.Node{name, attributes})
         }
 
         words ->
-            Ok(#Statement.Edges{names: try edge_names(words), attributes})
+            Ok(#Statement.Edges{names: edge_names(words)?, attributes})
     }
 }
 
@@ -138,7 +124,7 @@ fn attributes_in(list: String) -> Result<Attributes, Error> {
         })
         |> Result.collect()
 
-    Ok(Iter.to_map(try pairs))
+    Ok(Iter.to_map(pairs?))
 }
 
 /// The value written `text`: quoted text, a whole number, `true` or
@@ -162,19 +148,17 @@ fn edge_names(words: List<String>) -> Result<List<String>, Error> {
         |> Iter.with_index()
         |> Iter.partition(fn #(index, _word) -> index % 2 == 0)
 
-    names = names |> Iter.map(fn #(_index, word) -> word) |> Iter.to_list()
+    names = names |> Iter.map(.1) |> Iter.to_list()
 
     valid = Iter.count(names) == Iter.count(links) + 1
-        and Iter.all?(links, fn #(_index, word) -> {
-            word == "--"
-        })
-        and Iter.all?(names, alphanumeric?)
+        and Iter.all(links, fn #(_index, word) -> word == "--")
+        and Iter.all(names, is_alphanumeric)
 
     if valid { Ok(names) } else { Err(.InvalidEdge) }
 }
 
-fn alphanumeric?(name: String) -> Bool {
-    String.to_codepoints(name) |> Iter.all?(fn c -> Codepoint.letter?(c) or Codepoint.digit?(c))
+fn is_alphanumeric(name: String) -> Bool {
+    String.to_codepoints(name) |> Iter.all(fn c -> Codepoint.is_letter(c) or Codepoint.is_digit(c))
 }
 
 /// `graph` with `statement`'s nodes, edges or attributes added. Attributes
@@ -196,10 +180,9 @@ fn add(graph: Graph, statement: Statement) -> Graph {
                 names
                 |> Iter.windows(2)
                 |> Iter.reduce(fn edges = graph.edges, pair -> {
-                    case Iter.sort(pair) {
-                        [a, b] -> with_attributes(edges, #(a, b), attributes)
-                        _ -> unreachable "a window of two holds two names"
-                    }
+                    [a, b] = Iter.sort(pair) else { unreachable "a window of two holds two names" }
+
+                    with_attributes(edges, #(a, b), attributes)
                 })
 
             #{..graph, nodes, edges}
@@ -214,6 +197,5 @@ fn with_attributes<K>(
     key: K,
     attributes: Attributes,
 ) -> Map<K, Attributes> {
-    before = Map.get(entries, key) |> Maybe.with_default(%{})
-    Map.put(entries, key, Map.merge(before, attributes))
+    Map.update(entries, key, %{}, &Map.merge(&1, attributes))
 }

@@ -210,41 +210,21 @@ func (c *checker) checkPatchLit(lit *ast.StructLit, target Type) (Type, bool) {
 	return &AnonStructType{Fields: fields}, true
 }
 
-// checkSetUpdateLit checks a set update, `%[..base, x]`, which means
-// `Set.union(base, %[x])`. The base must be a `Set<T>` and each element a T;
-// the result has the base's type.
+// checkSetUpdateLit checks a set literal with spreads, `%[..base, x]` or
+// `%[x, ..s, ..t]`: the union of the spread sets and the elements. The first
+// spread must be a `Set<T>`, every other spread one too, and each element a
+// T; the result has the first spread's type.
 func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
-	var head Type
-	if expected != nil {
-		head = c.checkNodeExpecting(n.Spread, expected)
-	} else {
-		head = c.checkNode(n.Spread)
-	}
-	head = resolveTypeVar(head)
-	line, col := n.SpreadLine, n.SpreadCol
-	if line == 0 {
-		line, col = n.Line, n.Col
-	}
-	elemTy, ok := setElemType(head)
+	head, ok := c.checkSpreadHeads(n.Spreads, expected, setSpreads)
 	if !ok {
-		if head != nil {
-			c.addError(line, col, fmt.Sprintf("set spread `..` requires a set, got %s", formatTypeForError(head)))
-		}
 		for _, item := range n.Items {
 			c.checkNode(item)
 		}
 		return nil
 	}
-	if len(n.Items) == 0 {
-		if _, bare := n.Spread.(*ast.CurrentValue); bare {
-			c.addError(line, col, emptyUpdateMessage)
-		} else {
-			base := "the value itself"
-			if id, ok := n.Spread.(*ast.Ident); ok {
-				base = "`" + id.Name + "`"
-			}
-			c.addError(line, col, "a set spread with no elements is its base value; write "+base)
-		}
+	elemTy, _ := setElemType(head)
+	if len(n.Items) == 0 && len(n.Spreads) == 1 {
+		c.reportEmptySpread(n.Spreads[0], "a set spread with no elements")
 		return head
 	}
 	for _, item := range n.Items {
@@ -256,46 +236,28 @@ func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
 	return head
 }
 
-// checkVectorUpdateLit checks a vector with a spread at either end:
-// `#[..v, x]` is `Vector.concat(v, #[x])` and `#[x, ..v]` is
-// `Vector.concat(#[x], v)`; a bare `..` (`#[.., x]`, `#[x, ..]`) stands for
-// the vector at a field or key of an update. The spread must be a
-// `Vector<T>` and each element a T; the result has the spread's type. elemTy,
-// when not nil, is the element type the context expects, which an open
-// spread (`#[..#[], x]`) takes.
+// checkVectorUpdateLit checks a vector literal with spreads: `#[..v, x]`,
+// `#[x, ..v]`, `#[..v, x, ..w]`, the spread vectors and the elements joined
+// in the order written; a bare `..` (`#[.., x]`, `#[x, ..]`) stands for the
+// vector at a field or key of an update. The first spread must be a
+// `Vector<T>`, every other spread one too, and each element a T; the result
+// has the first spread's type. elemTy, when not nil, is the element type
+// the context expects, which an open spread (`#[..#[], x]`) takes.
 func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
-	_, bare := n.Spread.(*ast.CurrentValue)
-	var head Type
-	if elemTy != nil && !bare && !ContainsTypeParam(elemTy) && !containsTypeVar(elemTy) {
-		head = c.checkNodeExpecting(n.Spread, makeVectorType(elemTy, c.reg))
-	} else {
-		head = c.checkNode(n.Spread)
+	var expected Type
+	if elemTy != nil && !ContainsTypeParam(elemTy) && !containsTypeVar(elemTy) {
+		expected = makeVectorType(elemTy, c.reg)
 	}
-	head = resolveTypeVar(head)
-	elemTy, ok := vectorElemType(head)
+	head, ok := c.checkSpreadHeads(n.Spreads, expected, vectorSpreads)
 	if !ok {
-		if head != nil {
-			e := TypeError{Line: n.SpreadLine, Col: n.SpreadCol, Message: fmt.Sprintf("vector spread `..` requires a vector, got %s", formatTypeForError(head))}
-			if !bare {
-				e = e.WithHint("make a vector of another collection's elements with `Iter.to_vector`, as in `xs |> Iter.to_vector()`")
-			}
-			c.report(e)
-		}
 		for _, item := range n.Items {
 			c.checkNode(item)
 		}
 		return nil
 	}
-	if len(n.Items) == 0 {
-		if bare {
-			c.addError(n.SpreadLine, n.SpreadCol, emptyUpdateMessage)
-		} else {
-			base := "the value itself"
-			if id, ok := n.Spread.(*ast.Ident); ok {
-				base = "`" + id.Name + "`"
-			}
-			c.addError(n.SpreadLine, n.SpreadCol, "a vector spread with no elements is its base value; write "+base)
-		}
+	elemTy, _ = vectorElemType(head)
+	if len(n.Items) == 0 && len(n.Spreads) == 1 {
+		c.reportEmptySpread(n.Spreads[0], "a vector spread with no elements")
 		return head
 	}
 	for _, item := range n.Items {

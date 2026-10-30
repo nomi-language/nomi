@@ -1,3 +1,5 @@
+//# Flattens a nested array into one list of its values, dropping nulls.
+
 /// One element of a nested array: a value, an array of elements, or null.
 pub enum Nested {
     Value Int

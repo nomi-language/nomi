@@ -38,8 +38,8 @@ struct Tag {
 }
 
 impl Equatable for Tag {
-  fn equal?(a: Tag, b: Tag) -> Bool {
-    String.to_lower(a.name) == String.to_lower(b.name)
+  fn equal(a: Tag, b: Tag) -> Bool {
+    String.lowercase(a.name) == String.lowercase(b.name)
   }
 }
 
@@ -80,10 +80,10 @@ fn main() {
 		nth      int
 		want     string
 	}{
-		{"Int +", "  #(n / 3", "+", 1, "`Int` + `Int` → `Int`\n\nChecked: traps on overflow.\n\n`impl Add<Int, Int> for Int` in `std/int`."},
+		{"Int +", "  #(n / 3", "+", 1, "`Int` + `Int` → `Int`\n\nExact at any size: never overflows.\n\n`impl Add<Int, Int> for Int` in `std/int`."},
 		{"Int /", "  #(n / 3", "/", 1, "`Int` / `Int` → `Int`\n\nTruncates toward zero; traps on division by zero.\n\n`impl Divide<Int, Int> for Int` in `std/int`."},
 		{"Int %", "  #(n / 3", "%", 1, "`Int` % `Int` → `Int`\n\nRemainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero."},
-		{"unary - on Int", "  #(n / 3", "-n", 1, "Negation: `Int` → `Int`\n\nChecked: traps on `Int.min_value`."},
+		{"unary - on Int", "  #(n / 3", "-n", 1, "Negation: `Int` → `Int`\n\nExact at any size."},
 		{"Decimal *", "  #(n / 3", "*", 1, "`Decimal` * `Decimal` → `Decimal`\n\nExact: never rounds.\n\n`impl Multiply<Decimal, Decimal> for Decimal` in `std/decimal`."},
 		{"Float *", "  #(n / 3", "*", 2, "`Float` * `Float` → `Float`\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},
 		{"a user Add", "  m = #Money", "+", 1, "`Money` + `Money` → `Money`\n\n`impl Add<Money, Money> for Money` in this file."},
@@ -97,7 +97,7 @@ fn main() {
 		{"or", "  ok = 1", "or", 1, "`Bool` or `Bool` → `Bool`\n\nShort-circuits: the right side runs only when the left is `False`."},
 		{"!", "  ok = 1", "!", 1, "Not: `Bool` → `Bool`"},
 		{"inside a capture", "  big =", "> 2", 1, "`Int` > `Int` → `Bool`\n\n`impl Comparable for Int` in `std/int`."},
-		{"inside a lambda", "  big =", "*", 1, "`Int` * `Int` → `Int`\n\nChecked: traps on overflow.\n\n`impl Multiply<Int, Int> for Int` in `std/int`."},
+		{"inside a lambda", "  big =", "*", 1, "`Int` * `Int` → `Int`\n\nExact at any size: never overflows.\n\n`impl Multiply<Int, Int> for Int` in `std/int`."},
 		{"..", "  io.inspect(", "..", 1, "```nomi\nRange<Int>\n```\n\nExclusive: from the start up to, not including, the end."},
 		{"..=", "  io.inspect(", "..=", 1, "```nomi\nRange<Int>\n```\n\nInclusive: from the start through the end."},
 		{"an operand that fails to type", "  bad =", "+", 1, "… + `Int`"},

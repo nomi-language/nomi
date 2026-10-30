@@ -11,7 +11,7 @@ struct Game {
     hint: String = "no ${"hint"}"
     ratio: Float = -0.5
     hard: Bool = if 1 > 2 { True } else { False }
-    letters: List<String> = ["a", "b"] |> Iter.map(&String.to_upper(&1)) |> Iter.to_list()
+    letters: List<String> = ["a", "b"] |> Iter.map(&String.uppercase(&1)) |> Iter.to_list()
 }
 
 derive Equatable for Game

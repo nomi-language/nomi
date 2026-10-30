@@ -198,14 +198,14 @@ impl Scale for List<T> {
 }
 
 impl Equatable for Word {
-    fn equal?(a: Word, b: Word) -> Bool {
-        String.to_lower(a.text) == String.to_lower(b.text)
+    fn equal(a: Word, b: Word) -> Bool {
+        String.lowercase(a.text) == String.lowercase(b.text)
     }
 }
 
 impl Hashable for Word {
     fn hash(w: Word) -> Int {
-        Hashable.hash(String.to_lower(w.text))
+        Hashable.hash(String.lowercase(w.text))
     }
 }
 
@@ -218,11 +218,11 @@ derive Equatable for Keyed
 derive Hashable for Keyed
 
 fn has<T>(xs: List<T>, x: T) -> Bool where T: Equatable {
-    List.contains?(xs, x)
+    List.contains(xs, x)
 }
 
 fn same<T>(a: T, b: T) -> Bool where T: Equatable {
-    Equatable.equal?(a, b)
+    Equatable.equal(a, b)
 }
 
 fn kinds<T>(xs: List<T>) -> Int where T: Hashable {
@@ -238,8 +238,8 @@ fn main() {
     pair: Scale = #Pair{n: 1}
     word: Scale = #Word{text: "ANN"}
     two: Scale = #Two{n: 1}
-    io.print("${List.contains?(scales, pair)} ${List.contains?(scales, word)} ${Iter.contains?(scales, word)}")
-    io.print("${has(scales, word)} ${same(pair, two)} ${Equatable.equal?(word, word)}")
+    io.print("${List.contains(scales, pair)} ${List.contains(scales, word)} ${Iter.contains(scales, word)}")
+    io.print("${has(scales, word)} ${same(pair, two)} ${Equatable.equal(word, word)}")
     lower: Scale = #Word{text: "ann"}
     io.print("${kinds([pair, two, word, lower])} ${hashes_alike(word, lower)}")
     io.print("${scales |> Iter.chunk_by(fn s -> s) |> Iter.count()}")

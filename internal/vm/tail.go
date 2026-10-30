@@ -40,7 +40,7 @@ import (
 // its deferred calls. See `internal/ir/tail.go`.
 //
 // NOT TRANSFERRED: a call that crosses into Go, a function value whose body is
-// a host function, and any call from a test case's own body, whose `try`
+// a host function, and any call from a test case's own body, whose `?`
 // propagation leaves the activation differently (see activate). Those run as
 // ordinary calls: a `tail` instruction in a test body calls instead.
 

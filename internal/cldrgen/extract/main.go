@@ -386,7 +386,7 @@ func trimNumbers(v map[string]any) map[string]any {
 			out[k] = keep(val, []string{"standard"})
 		case strings.HasPrefix(k, "currencyFormats-numberSystem-"):
 			m, _ := val.(map[string]any)
-			kept := keep(val, []string{"standard", "standard-alphaNextToNumber"})
+			kept := keep(val, []string{"standard", "standard-alphaNextToNumber", "accounting", "accounting-alphaNextToNumber"})
 			for ck, cv := range m {
 				if strings.HasPrefix(ck, "unitPattern-count-") {
 					kept[ck] = cv

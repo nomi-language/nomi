@@ -42,15 +42,16 @@ func StringLength(s string) int64 { return int64(uniseg.GraphemeClusterCount(s))
 //
 // Out-of-range indices clamp rather than fault, and an inverted or empty range
 // is "". std/strings declares no error case, and a Nomi program can observe
-// the difference between "" and a trap.
-func StringSlice(s string, start, end int64) string {
+// the difference between "" and a trap. A bound past int64's range clamps
+// as one past the string does.
+func StringSlice(s string, start, end Int) string {
 	clusters := graphemeClusters(s)
-	lo, hi := int(start), int(end)
+	lo, hi := start.Saturated(), end.Saturated()
 	if lo < 0 {
 		lo = 0
 	}
-	if hi > len(clusters) {
-		hi = len(clusters)
+	if hi > int64(len(clusters)) {
+		hi = int64(len(clusters))
 	}
 	if lo > hi {
 		return ""

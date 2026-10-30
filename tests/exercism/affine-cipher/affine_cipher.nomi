@@ -22,7 +22,7 @@ pub enum Error {
 
 /// The ciphertext of `phrase` under `key`, in lowercase groups of five.
 pub fn encode(phrase: String, key: Key) -> Result<String, Error> {
-    _ = try inverse(key.a)
+    _ = inverse(key.a)?
 
     phrase
     |> translate(fn i -> key.a * i + key.b)
@@ -34,7 +34,7 @@ pub fn encode(phrase: String, key: Key) -> Result<String, Error> {
 
 /// The plaintext of `phrase` under `key`, with no spaces.
 pub fn decode(phrase: String, key: Key) -> Result<String, Error> {
-    a_inverse = try inverse(key.a)
+    a_inverse = inverse(key.a)?
 
     phrase
     |> translate(fn y -> a_inverse * (y - key.b))
@@ -54,7 +54,7 @@ fn inverse(a: Int) -> Result<Int, Error> {
 /// gives for its number, and a digit kept.
 fn translate(text: String, step: (Int) -> Int) -> List<String> {
     text
-    |> String.to_lower()
+    |> String.lowercase()
     |> String.to_codepoints()
     |> Iter.map(&shift(&1, step))
     |> Maybe.values()
@@ -63,8 +63,8 @@ fn translate(text: String, step: (Int) -> Int) -> List<String> {
 }
 
 fn shift(cp: Codepoint, step: (Int) -> Int) -> Maybe<Codepoint> {
-    if Codepoint.digit?(cp) { return Some(cp) }
+    if Codepoint.is_digit(cp) { return Some(cp) }
 
     Map.get(letter_numbers, cp)
-    |> Maybe.map(fn i -> Vector.at(alphabet, Int.modulo(step(i), letter_count)))
+    |> Maybe.map(fn i -> Vector.get(alphabet, Int.modulo(step(i), letter_count))!)
 }

@@ -52,6 +52,28 @@ fn main() {
   dbg #(Meters(1), Feet(2))
   return
 }`, "#(Meters(1), 2)\n#(3ft, [Meters(2)])\n#(<opaque Secret>, 1)\n#(#Coord(1, 2), Unknown)\n#{a: Meters(4), b: 5ft}\ndbg line 18: #(Meters(1), Feet(2)) = #(Meters(1), 2ft)\n"},
+		{"two instantiations of one generic type", `import std/io
+struct Box<T> {
+  v: T
+}
+enum Opt<T> {
+  Has(T)
+  Nope
+}
+impl Debug for Opt<T> where T: Debug {
+  fn inspect(o: Opt<T>) -> String {
+    case o {
+      .Has(x) -> "has ${T.inspect(x)}"
+      .Nope -> "nope"
+    }
+  }
+}
+fn main() {
+  io.inspect(#(#Box{v: 1}, #Box{v: "a"}))
+  io.inspect(#{a: #Box{v: 1}, b: #Box{v: "a"}})
+  io.inspect(#(Opt.Has(1), Opt.Has("a"), Opt.Nope))
+  io.inspect([#(Some(#Box{v: 2}), Some(#Box{v: "b"}))])
+}`, "#(#Box{v: 1}, #Box{v: \"a\"})\n#{a: #Box{v: 1}, b: #Box{v: \"a\"}}\n#(has 1, has \"a\", nope)\n[#(Some(#Box{v: 2}), Some(#Box{v: \"b\"}))]\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

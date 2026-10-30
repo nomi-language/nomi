@@ -129,3 +129,32 @@ fn main() {
 }
 `, "#(2, 1)\n#(5, 10)\n#(7, 3)\n#(7, 14)\n#(9, 18)\n#(1, 2, 3)\n#(1, 10, 11)\n#(1, 2, 100)\n45\n40\n")
 }
+
+// A partial over a std function whose open slot's default is not a literal
+// takes the default from the accessor the std module built for it, on each
+// call that omits the slot: `style` in `String.join_list`, and `width` after
+// the unmentioned `style`, whose own default runs first. The function is
+// named bare and through its module.
+func TestPartialComputedDefault_StdCallee(t *testing.T) {
+	verifyLambdaProgram(t, `import {
+    std/io
+    std/locale.Locale
+    std/strings
+    std/strings.ListStyle
+    std/strings.ListWidth
+}
+
+fn main() {
+    names = ["Ann", "Bo", "Cy"]
+    [ListStyle.And, ListStyle.Or]
+    |> Iter.map(&String.join_list(names, Locale`+"`en`"+`, style: &1))
+    |> Iter.each(fn s -> io.print(s))
+    by_style = &String.join_list(names, Locale`+"`en`"+`, style: &1)
+    io.print(by_style())
+    by_width = &String.join_list(names, Locale`+"`en`"+`, width: &1)
+    io.print(by_width())
+    io.print(by_width(width: ListWidth.Short))
+    both = &strings.String.join_list(&1, Locale`+"`en`"+`, style: &2)
+    io.print(both(["x", "y"]))
+}`, "Ann, Bo, and Cy\nAnn, Bo, or Cy\nAnn, Bo, and Cy\nAnn, Bo, and Cy\nAnn, Bo, & Cy\nx and y\n")
+}

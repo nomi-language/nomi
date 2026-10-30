@@ -10,7 +10,7 @@ import (
 // # Why the pipeline has its own arm
 //
 // `Iter` is the dominant call cluster in the corpus (`Iter.to_list` 85 sites,
-// `Iter.count` 68, `Iter.any?` 42, `Iter.map` 36, `Iter.reduce` 26,
+// `Iter.count` 68, `Iter.any` 42, `Iter.map` 36, `Iter.reduce` 26,
 // `Iter.filter` 17). Three things stand between those calls and the stdlib
 // index, and only one of them is a representation:
 //
@@ -57,12 +57,12 @@ import (
 //
 // # The short-circuiting terminals need no seed
 //
-// `any?`, `all?`, `find`, `count`-over-a-lazy-source and the other terminals std
+// `any`, `all`, `find`, `count`-over-a-lazy-source and the other terminals std
 // writes over `reduce` do not need the lambda-parameter DEFAULT that is
 // `reduce`'s seed. In every one of them the seed is exactly the answer for a
 // source that ran to EXHAUSTION, and `break v` is exactly "stop, with this
 // answer"; `each_while` already returns the first, and `false` from a yield
-// already means the second. `any?` is `!each_while(src, fn x -> !f(x))`: a source
+// already means the second. `any` is `!each_while(src, fn x -> !f(x))`: a source
 // that completed is a source in which nothing matched. rt/seqterm.go carries
 // the whole derivation, one line per function.
 //

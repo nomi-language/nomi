@@ -17,7 +17,7 @@ import (
 // the type that stage produces, when it is new.
 //
 //	active = users
-//	|> Iter.filter(.active?)    Iter<User>
+//	|> Iter.filter(.is_active)    Iter<User>
 //	|> Iter.map(.name)          Iter<String>
 //	|> Iter.to_list()           List<String>
 //
@@ -41,8 +41,8 @@ import (
 //     binding-type hint (when that setting is on), a `once` binding's
 //     annotation, or the declared return type of the function whose body
 //     the pipeline ends.
-//   - A keyword stage shows what it passes on: `|> try` the unwrapped value,
-//     `|> dbg` the same type as the line above. A stage the checker gave no
+//   - A keyword stage shows what it passes on: `|> dbg` the same type as the
+//     line above, and a stage ending in `?` the unwrapped value. A stage the checker gave no
 //     type (an assertion stage, an error) or a type with an unsolved
 //     variable gets none, and so does, outside a generic function, a type
 //     naming a type parameter. The checker records a generic call's
@@ -78,8 +78,8 @@ func flattenPipe(n *ast.Binary) (ast.Node, []*ast.Binary) {
 }
 
 // pipeLine is one written stage: the `|>` token's index and the outermost
-// pipe node it produced. `|> try f()` parses as two pipes, the call's and
-// the `try`'s, and `|> if c { … }` as the condition's and the `if`'s; the
+// pipe node it produced. `|> f()?` parses as two pipes, the call's and
+// the `?`'s, and `|> if c { … }` as the condition's and the `if`'s; the
 // second of each has no `|>` token of its own and its type is the line's.
 type pipeLine struct {
 	pipe int

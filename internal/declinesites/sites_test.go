@@ -32,10 +32,11 @@ const listHeader = `# Every place internal/irbuild can decline a body, with whet
 #   note    the reason for a b or d, the reproducer for a c
 #
 # Suites: expect (corpus, stdlib, tour and failure records), vmhost (generated
-# programs, known gaps, lowered-program runs, spec programs, and the two
-# lowering fuzz targets' corpora), projectgen (generated projects at about 1k
-# and 10k lines), irbuild (the builder's own tests). A site a suite executes
-# need not decline there: a caller may try another lowering when it fails.
+# programs, known gaps, the ported reproducers of fixed gaps, lowered-program
+# runs, spec programs, and the two lowering fuzz targets' corpora), projectgen
+# (generated projects at about 1k and 10k lines), irbuild (the builder's own
+# tests). A site a suite executes need not decline there: a caller may try
+# another lowering when it fails.
 #
 # Regenerate the list, keeping classes and notes:
 #   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1

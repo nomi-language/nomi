@@ -43,7 +43,7 @@ import {
 }
 
 fn main() -> Result<Unit, String> {
-    url = try urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")
+    url = urls.parse("https://example.com/search?tag=go&tag=nomi&q=hello+world")?
 
     tags =
         url.query
@@ -292,8 +292,8 @@ struct User {
 
 // One user, from a value read as Dynamic.
 fn user(d: Dynamic) -> Result<User, dynamic.Error> {
-    name = try Dynamic.at_field(d, "name", Dynamic.as_string)
-    age = try Dynamic.at_field(d, "age", Dynamic.as_int)
+    name = Dynamic.at_field(d, "name", Dynamic.as_string)?
+    age = Dynamic.at_field(d, "age", Dynamic.as_int)?
     Ok(#User{name, age})
 }
 
@@ -309,10 +309,10 @@ fn print_users(users: Dynamic, count: Int) {
 }
 
 fn main() -> Result<Unit, String> {
-    text = fs.read_text("users.json") |> try Result.map_err(fn e -> "${e}")
-    users = Json.decode(text) |> try Result.map_err(fn e -> "${e}") |> Json.to_dynamic()
+    text = fs.read_text("users.json") |> Result.map_err(fn e -> "${e}")?
+    users = Json.decode(text) |> Result.map_err(fn e -> "${e}")? |> Json.to_dynamic()
 
-    count = Dynamic.as_list(users) |> try Result.map_err(fn e -> "${e}") |> Iter.count()
+    count = Dynamic.as_list(users) |> Result.map_err(fn e -> "${e}")? |> Iter.count()
     print_users(users, count)
     Ok(Unit)
 }

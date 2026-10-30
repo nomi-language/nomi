@@ -1,4 +1,4 @@
-//# Typed literals — the machinery behind `Date"2026-01-01"` and
+//# Typed literals — the machinery behind ``Date`2026-01-01` `` and
 //# `Sql"SELECT * FROM users WHERE id = ${id}"`. A typed literal is a
 //# string-shaped expression prefixed by a PascalCase type name; the
 //# compiler desugars `<Type>"..."` to `<Type>.from_fragments([...])`,
@@ -6,7 +6,7 @@
 //# what value comes back. `Fragment` is the handler's input — the
 //# literal body split into `Static` text segments and `Dynamic`
 //# `${...}` slot values. Stdlib implementors include the `std/calendar`
-//# types (`Date"…"`, `DateTime"…"`, …); user types opt in with an
+//# types (``Date`…` ``, ``DateTime`…` ``, …); user types opt in with an
 //# `impl Literal for Type { ... }` block and a `from_fragments` function of
 //# their own.
 

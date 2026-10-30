@@ -45,14 +45,14 @@ impl Debug for Shape {
 }
 
 impl Equatable for Circle {
-  fn equal?(_a: Circle, _b: Circle) -> Bool {
+  fn equal(_a: Circle, _b: Circle) -> Bool {
     io.print("circle-eq")
     True
   }
 }
 
 impl Equatable for Shape {
-  fn equal?(_a: Shape, _b: Shape) -> Bool {
+  fn equal(_a: Shape, _b: Shape) -> Bool {
     io.print("shape-eq")
     True
   }
@@ -83,7 +83,7 @@ func TestIREmbedsDispatch_StaticTypeDecides(t *testing.T) {
 }
 
 fn same(a: Shape, b: Shape) -> Bool {
-  Equatable.equal?(a, b)
+  Equatable.equal(a, b)
 }
 
 fn main() {
@@ -91,7 +91,7 @@ fn main() {
   q = #Shape.Circle{radius: 1.0}
   io.inspect(bound)
   io.inspect(make())
-  Equatable.equal?(bound, q) |> io.print()
+  Equatable.equal(bound, q) |> io.print()
   same(#Circle{radius: 3.0}, q) |> io.print()
   (bound < q) |> io.print()
 }

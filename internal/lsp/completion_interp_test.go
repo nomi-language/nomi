@@ -39,7 +39,7 @@ func TestCompletion_InsideInterpolation(t *testing.T) {
 		},
 		{
 			"a typed literal",
-			"import std/calendar.{Date}\n\nfn f(m: String) -> Date {\n    try Date\"2026-${" + cursorMark + "}-04\"\n}\n",
+			"import std/calendar.{Date}\n\nfn f(m: String) -> Date {\n    Date\"2026-${" + cursorMark + "}-04\"?\n}\n",
 			[]string{"m"},
 			nil,
 		},

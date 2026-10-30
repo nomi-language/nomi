@@ -3,15 +3,16 @@ package virtualproject
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 // A block with a go.mod is its files: the entry is the root module's file
-// with `fn main`, never a file of the module under generators/, and Write lays
+// with `fn main`, never a file of the module under csvdata/, and Write lays
 // the files out as the block marks them.
 func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
-	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: generators/csvdata/main.nomi\nfn main() {}\n\n" +
-		"// FILE: generators/csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() {}\n\n" +
+	src := "// FILE: tables.nomi\nimport csvdata\n\n// FILE: csvdata/main.nomi\nfn main() {}\n\n" +
+		"// FILE: csvdata/nomi.toml\n[module]\nname = \"csvdata\"\n\n// FILE: main.nomi\nfn main() {}\n\n" +
 		"// FILE: data/prices.csv\nsku,cents\n\n\n// FILE: go.mod\nmodule shop\n"
 	p, err := FromMarkedSource(src)
 	if err != nil {
@@ -27,9 +28,9 @@ func TestFromMarkedSourceKeepsAProjectOfModulesAsItsFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(root, "generators", "csvdata", "nomi.toml"))
+	data, err := os.ReadFile(filepath.Join(root, "csvdata", "nomi.toml"))
 	if err != nil || string(data) != "[module]\nname = \"csvdata\"\n" {
-		t.Errorf("generators/csvdata/nomi.toml holds %q (%v)", data, err)
+		t.Errorf("csvdata/nomi.toml holds %q (%v)", data, err)
 	}
 	// With no `fn main`, the entry is the first root file the block marks,
 	// the tab it opens on, not the first by name.
@@ -140,5 +141,41 @@ func TestFromMarkedSourceKeepsCatalogsByPath(t *testing.T) {
 	}
 	if got, empty := data.DataFiles["data/notes.txt"], data.DataFiles["empty.txt"]; got != "hi\n" || empty != "" || len(data.VirtualFiles) != 0 {
 		t.Errorf("a .txt file is the data file %q, with virtual files %v", got, data.VirtualFiles)
+	}
+}
+
+// A block with no go.mod at its root and one in two top-level directories
+// holds sibling projects. Its project is its first file's directory, even
+// when another project holds the only `fn main`, and its entry and test
+// files are that project's alone.
+func TestFromMarkedSourcePicksTheFirstFilesProjectOfSiblings(t *testing.T) {
+	src := "// FILE: app/app_test.nomi\nimport shared\n\ntest \"t\" {\n    assert shared.one() == 1\n}\n\n" +
+		"// FILE: app/more_test.nomi\ntest \"u\" {\n    assert True\n}\n\n" +
+		"// FILE: app/go.mod\nmodule app\n\n// FILE: app/nomi.toml\n[module]\nname = \"app\"\n\n" +
+		"// FILE: shared/shared.nomi\npub fn one() -> Int {\n    1\n}\n\n" +
+		"// FILE: shared/tools/gen.nomi\nfn main() {}\n\n" +
+		"// FILE: shared/shared_test.nomi\ntest \"v\" {\n    assert True\n}\n\n" +
+		"// FILE: shared/go.mod\nmodule shared\n\n// FILE: shared/nomi.toml\n[module]\nname = \"shared\"\n"
+	p, err := FromMarkedSource(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Dir != "app" || p.EntryName != "app/app_test.nomi" {
+		t.Fatalf("Dir %q, EntryName %q; want app and app/app_test.nomi", p.Dir, p.EntryName)
+	}
+	if got := strings.Join(p.TestFiles, " "); got != "app/more_test.nomi" {
+		t.Errorf("TestFiles = %q, want app/more_test.nomi", got)
+	}
+	if _, ok := p.DataFiles["app/nomi.toml"]; ok {
+		t.Error("the project's nomi.toml is a data file")
+	}
+
+	// One go.mod under the root is a module of the root's, not a sibling.
+	nested, err := FromMarkedSource("// FILE: main.nomi\nfn main() {}\n\n// FILE: lib/go.mod\nmodule lib\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if nested.Dir != "" {
+		t.Errorf("a block with one module directory has the project %q", nested.Dir)
 	}
 }

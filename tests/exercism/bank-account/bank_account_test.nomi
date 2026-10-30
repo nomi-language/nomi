@@ -33,8 +33,8 @@ fn run(account: Account, step: Step) -> Result<Unit, Error> {
 }
 
 test "bank account" {
-    cases: List<#(String, List<Step>, Result<Int, Error>)> = [
-        #("Newly opened account has zero balance", [.Open], Ok(0)),
+    cases = [
+        #("Newly opened account has zero balance", [Step.Open], Ok(0)),
         #("Single deposit", [.Open, .Deposit(100)], Ok(100)),
         #("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
         #("Withdraw once", [.Open, .Deposit(100), .Withdraw(75)], Ok(25)),
@@ -44,7 +44,7 @@ test "bank account" {
             [.Open, .Deposit(100), .Deposit(110), .Withdraw(200), .Deposit(60), .Withdraw(50)],
             Ok(20),
         ),
-        #("Cannot check balance of closed account", [.Open, .Close], Err(.AccountNotOpen)),
+        #("Cannot check balance of closed account", [.Open, .Close], Err(Error.AccountNotOpen)),
         #(
             "Cannot deposit into closed account",
             [.Open, .Close, .Deposit(50)],
@@ -97,7 +97,7 @@ test "Can handle concurrent transactions" {
     })
 
     assert opened == Ok(Unit)
-    assert transactions |> Iter.all?(Result.ok?)
+    assert transactions |> Iter.all(Result.is_ok)
     assert balance == Ok(0)
 }
 

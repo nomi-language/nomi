@@ -7,7 +7,7 @@
 01-foundations/block_scoping/block_scoping_test.nomi:Defaulted.inspect	ran
 01-foundations/block_scoping/block_scoping_test.nomi:Point.inspect	ran
 01-foundations/block_scoping/block_scoping_test.nomi:UserId.inspect	ran
-01-foundations/block_scoping/test_helpers.nomi:has_diagnostic?	ran
+01-foundations/block_scoping/test_helpers.nomi:has_diagnostic	ran
 01-foundations/block_scoping/test_helpers.nomi:hover_signature	ran
 01-foundations/comment_positions_test.nomi:Color.inspect	ran
 01-foundations/comment_positions_test.nomi:Point.inspect	ran
@@ -16,20 +16,20 @@
 01-foundations/comment_positions_test.nomi:greet	ran
 01-foundations/destructure_rebind_test.nomi:Name.inspect	ran
 01-foundations/if_else/if_else_test.nomi:parse_id	ran
-01-foundations/if_else/test_helpers.nomi:has_diagnostic?	ran
+01-foundations/if_else/test_helpers.nomi:has_diagnostic	ran
 01-foundations/if_else/test_helpers.nomi:hover_signature	ran
 01-foundations/inline_annotations/inline_annotations_test.nomi:Direction.inspect	ran
 01-foundations/inline_annotations/inline_annotations_test.nomi:Point.inspect	ran
-01-foundations/inline_annotations/test_helpers.nomi:has_diagnostic?	ran
+01-foundations/inline_annotations/test_helpers.nomi:has_diagnostic	ran
 01-foundations/inline_annotations/test_helpers.nomi:hover_signature	ran
 01-foundations/once_bindings/once_bindings_test.nomi:Box.inspect	ran
 01-foundations/once_bindings/once_bindings_test.nomi:Status.inspect	ran
 01-foundations/once_bindings/once_bindings_test.nomi:UserId.inspect	ran
 01-foundations/once_bindings/once_bindings_test.nomi:retry_message	ran
 01-foundations/once_bindings/once_bindings_test.nomi:uses_later_value	ran
-01-foundations/once_bindings/test_helpers.nomi:has_diagnostic?	ran
+01-foundations/once_bindings/test_helpers.nomi:has_diagnostic	ran
 01-foundations/once_bindings/test_helpers.nomi:hover_signature	ran
-01-foundations/redeclarations/test_helpers.nomi:has_diagnostic?	ran
+01-foundations/redeclarations/test_helpers.nomi:has_diagnostic	ran
 01-foundations/redeclarations/test_helpers.nomi:hover_signature	ran
 01-foundations/standard_streams/streams.nomi:main	ran
 01-foundations/standard_streams/streams.nomi:main failure	ran
@@ -38,7 +38,7 @@
 02-testing/assertable_test.nomi:EqualsAssertion.failure	ran
 02-testing/assertable_test.nomi:EqualsAssertion.inspect	ran
 02-testing/assertable_test.nomi:my_equals	ran
-02-testing/assertion_context/test_helpers.nomi:has_diagnostic?	ran
+02-testing/assertion_context/test_helpers.nomi:has_diagnostic	ran
 02-testing/assertion_context/test_helpers.nomi:hover_signature	ran
 02-testing/assertion_pattern_destructuring_test.nomi:ParseError.inspect	ran
 02-testing/assertion_pattern_destructuring_test.nomi:Point.inspect	ran
@@ -63,11 +63,11 @@
 02-testing/subtests_test.nomi:Point.inspect	ran
 02-testing/subtests_test.nomi:all_ordered	ran
 02-testing/subtests_test.nomi:check_palindrome	ran
+02-testing/subtests_test.nomi:is_palindrome	ran
 02-testing/subtests_test.nomi:named_by_quotient	ran
 02-testing/subtests_test.nomi:named_ordered	ran
-02-testing/subtests_test.nomi:palindrome?	ran
 02-testing/subtests_test.nomi:subtests	ran
-03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:has_diagnostic?	ran
+03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:has_diagnostic	ran
 03-tooling-and-diagnostics/compiler_project/test_helpers.nomi:hover_signature	ran
 03-tooling-and-diagnostics/formatting_test.nomi:Color.inspect	ran
 03-tooling-and-diagnostics/formatting_test.nomi:Coord.inspect	ran
@@ -97,17 +97,21 @@
 03-tooling-and-diagnostics/formatting_test.nomi:process_all_the_users	ran
 03-tooling-and-diagnostics/formatting_test.nomi:tail_aware	ran
 03-tooling-and-diagnostics/formatting_test.nomi:trivia_examples	ran
-03-tooling-and-diagnostics/try_error_type/test_helpers.nomi:has_diagnostic?	ran
-03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi:has_diagnostic?	ran
+03-tooling-and-diagnostics/try_error_type/test_helpers.nomi:has_diagnostic	ran
+03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi:has_diagnostic	ran
 03-tooling-and-diagnostics/type_qualified_missing_member/test_helpers.nomi:hover_signature	ran
-03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi:has_diagnostic?	ran
+03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi:has_diagnostic	ran
 03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi:hover_signature	ran
-03-tooling-and-diagnostics/unused_import/test_helpers.nomi:has_diagnostic?	ran
+03-tooling-and-diagnostics/unused_import/test_helpers.nomi:has_diagnostic	ran
 03-tooling-and-diagnostics/unused_import/test_helpers.nomi:hover_signature	ran
 04-scalars-and-text/codepoint_literals_test.nomi:token_kind	ran
-04-scalars-and-text/decimals/test_helpers.nomi:has_diagnostic?	ran
+04-scalars-and-text/decimals/test_helpers.nomi:has_diagnostic	ran
 04-scalars-and-text/decimals/test_helpers.nomi:hover_signature	ran
-04-scalars-and-text/floats_test.nomi:negative_zero?	ran
+04-scalars-and-text/floats_test.nomi:is_negative_zero	ran
+04-scalars-and-text/int_exact_test.nomi:Account.inspect	ran
+04-scalars-and-text/int_exact_test.nomi:Amount.inspect	ran
+04-scalars-and-text/int_exact_test.nomi:describe	ran
+04-scalars-and-text/int_exact_test.nomi:factorial	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Box.inspect	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Box.inspect	ran
 04-scalars-and-text/interpolate_composite_test.nomi:Color.inspect	ran
@@ -138,7 +142,139 @@
 04-scalars-and-text/strings_test.nomi:slash_joined	ran
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
-06-collections/contains_test.nomi:Tag.equal?	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2023-02-28` at 84:32 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2024-01-01` at 46:18 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2024-01-31` at 68:16 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2024-02-29` at 73:36 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2024-02-29` at 80:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2024-02-29` at 90:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2025-01-01` at 47:16 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2025-02-28` at 82:32 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2025-02-28` at 95:32 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2025-12-31` at 76:36 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-01-01` at 36:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-01-15` at 75:34 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-01-31` at 67:16 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-01-31` at 89:16 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-02-28` at 72:36 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-02-28` at 94:36 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-03-15` at 70:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-03-31` at 69:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-04-27` at 63:29 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-04-30` at 74:33 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-01` at 39:15 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-01` at 62:28 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-04` at 53:10 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-04` at 88:12 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-04` at 8:9 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-10` at 38:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-11` at 96:39 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-14` at 57:29 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-14` at 92:31 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-18` at 59:29 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-18` at 93:31 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-05-29` at 54:10 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-06-03` at 58:28 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-06-04` at 97:40 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-06-05` at 60:29 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-12-30` at 55:13 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2026-12-31` at 37:11 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2027-01-04` at 61:31 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date`2028-02-29` at 83:32 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T10:00:00-04:00[America/New_York]` at 81:29 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T11:15:00-04:00[America/New_York]` at 67:41 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 11:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 25:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 34:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 46:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 56:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 63:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 71:10 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:00:00.5-04:00[America/New_York]` at 79:45 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:01:30-04:00[America/New_York]` at 77:32 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T12:45:00-04:00[America/New_York]` at 75:32 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T14:00:00-04:00[America/New_York]` at 65:38 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T14:00:00-04:00[America/New_York]` at 73:29 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]` at 47:13 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal NaiveDateTime`2026-06-15T12:00:00` at 17:13 failure	ran
+05-calendar-and-time/datetime_zone_changes_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 16:10 failure	ran
+05-calendar-and-time/datetime_zone_changes_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 34:10 failure	ran
+05-calendar-and-time/datetime_zone_changes_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 42:10 failure	ran
+05-calendar-and-time/datetime_zone_changes_test.nomi:literal DateTime`2026-06-15T12:00:00-04:00[America/New_York]` at 7:10 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 10:13 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 17:13 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 24:13 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 43:13 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 53:13 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 64:13 failure	ran
+05-calendar-and-time/dst_fall_back_test.nomi:literal NaiveDateTime`2026-11-01T01:30:00` at 82:13 failure	ran
+05-calendar-and-time/dst_spring_forward_test.nomi:literal DateTime`2026-03-07T12:00:00-05:00[America/New_York]` at 27:13 failure	ran
+05-calendar-and-time/dst_spring_forward_test.nomi:literal DateTime`2026-03-07T12:00:00-05:00[America/New_York]` at 37:13 failure	ran
+05-calendar-and-time/dst_spring_forward_test.nomi:literal DateTime`2026-03-07T12:00:00-05:00[America/New_York]` at 49:13 failure	ran
+05-calendar-and-time/dst_spring_forward_test.nomi:literal DateTime`2026-03-07T12:00:00-05:00[America/New_York]` at 63:13 failure	ran
+05-calendar-and-time/dst_spring_forward_test.nomi:literal NaiveDateTime`2026-03-08T02:30:00` at 17:13 failure	ran
+05-calendar-and-time/dst_spring_forward_test.nomi:literal NaiveDateTime`2026-03-08T02:30:00` at 9:13 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Date`2026-05-04` at 27:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Date`2026-05-04` at 38:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2025-12-31T09:00:00` at 62:33 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2025-12-31T23:59:59` at 84:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-01-31T09:00:00` at 58:13 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-02-28T09:00:00` at 61:33 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T09:00:00` at 93:13 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T09:30:00` at 78:30 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T09:30:00` at 83:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T10:00:00` at 85:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T11:30:00` at 94:11 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T13:45:00` at 79:32 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:30:00.5` at 76:45 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:30:00` at 10:10 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:30:00` at 69:10 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:30:45` at 16:10 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T14:31:30` at 75:32 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T15:15:00` at 74:32 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T16:30:00` at 72:29 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T22:45:00` at 54:43 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T23:30:00` at 48:12 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-04T23:30:00` at 70:12 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-05T01:30:00` at 50:40 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-05T01:30:00` at 52:48 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-05-05T01:30:00` at 73:31 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-12-30T23:59:59` at 65:29 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2026-12-31T23:59:59` at 59:11 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime`2027-01-01T23:59:59` at 64:29 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Time`00:00:00` at 39:21 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Time`14:30:00` at 28:9 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal NaiveDateTime`2026-05-04T09:00:00` at 16:13 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-01-31T12:00:00-05:00` at 60:11 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-02-28T12:00:00-05:00` at 62:31 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T14:30:00-05:00` at 10:11 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T14:30:00-05:00` at 23:11 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T14:30:00-05:00` at 34:11 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T14:30:00-05:00` at 51:9 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T20:30:00+01:00` at 52:9 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T21:30:00-05:00` at 81:32 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T22:45:00-05:00` at 70:44 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T23:30:00-05:00` at 66:13 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T23:30:00-05:00` at 74:13 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-04T23:31:30-05:00` at 79:35 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-05T00:15:00-05:00` at 77:35 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-05T01:30:00-05:00` at 68:41 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime`2026-05-05T01:30:00-05:00` at 76:32 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`00:30:00` at 25:13 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`01:30:00` at 27:22 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`08:15:00` at 45:10 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`08:45:00` at 33:43 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`09:30:00` at 23:12 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`09:30:00` at 37:9 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`09:30:00` at 38:9 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`09:30:00` at 44:10 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`09:30:00` at 8:9 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`10:00:00` at 46:10 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`11:30:00` at 26:15 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 24:12 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 28:23 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time`23:45:12.5` at 17:12 failure	ran
+06-collections/contains_test.nomi:Tag.equal	ran
 06-collections/contains_test.nomi:Tag.inspect	ran
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
@@ -152,6 +288,7 @@
 06-collections/named_literals_test.nomi:Kvs.inspect	ran
 06-collections/named_literals_test.nomi:Settings.inspect	ran
 06-collections/named_literals_test.nomi:depth_of	ran
+06-collections/spreads_test.nomi:Team.inspect	ran
 06-collections/tuples_test.nomi:classify	ran
 06-collections/tuples_test.nomi:divide	ran
 06-collections/vectors_test.nomi:Countdown.each_while	ran
@@ -159,24 +296,24 @@
 06-collections/vectors_test.nomi:collect	ran
 06-collections/vectors_test.nomi:collect	ran
 07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi:greet	ran
-07-structs-and-enums/anonymous_structs/test_helpers.nomi:has_diagnostic?	ran
+07-structs-and-enums/anonymous_structs/test_helpers.nomi:has_diagnostic	ran
 07-structs-and-enums/anonymous_structs/test_helpers.nomi:hover_signature	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Bare.inspect	ran
-07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Derived.equal?	ran
+07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Derived.equal	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Derived.inspect	ran
-07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Marker.equal?	ran
+07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Marker.equal	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Marker.inspect	ran
-07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Slug.equal?	ran
+07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Slug.equal	ran
 07-structs-and-enums/distinct_equatable_impl/distinct_equatable_impl_test.nomi:Slug.inspect	ran
 07-structs-and-enums/embeds_positional_match_test.nomi:Circle.inspect	ran
 07-structs-and-enums/embeds_positional_match_test.nomi:Shape.inspect	ran
 07-structs-and-enums/embeds_positional_match_test.nomi:positional	ran
 07-structs-and-enums/embeds_positional_match_test.nomi:struct_form	ran
-07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Color.equal?	ran
+07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Color.equal	ran
 07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Color.inspect	ran
-07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Sign.equal?	ran
+07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Sign.equal	ran
 07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:Sign.inspect	ran
-07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:positive?	ran
+07-structs-and-enums/enum_equatable_impl/enum_equatable_impl_test.nomi:is_positive	ran
 07-structs-and-enums/enums_test.nomi:Circle2.inspect	ran
 07-structs-and-enums/enums_test.nomi:Direction.inspect	ran
 07-structs-and-enums/enums_test.nomi:Drawable.inspect	ran
@@ -187,7 +324,7 @@
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:Configured.inspect	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:FakeClock.at	ran
 07-structs-and-enums/field_default_types/field_default_types_test.nomi:FakeClock.inspect	ran
-07-structs-and-enums/field_default_types/field_default_types_test.nomi:has_diagnostic?	ran
+07-structs-and-enums/field_default_types/field_default_types_test.nomi:has_diagnostic	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:Address.inspect	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:Address.to_string	ran
 07-structs-and-enums/nested_update/nested_update_test.nomi:Building.inspect	ran
@@ -204,7 +341,7 @@
 07-structs-and-enums/recursive_structs_test.nomi:Dir.inspect	ran
 07-structs-and-enums/recursive_structs_test.nomi:Link.inspect	ran
 07-structs-and-enums/recursive_structs_test.nomi:Member.inspect	ran
-07-structs-and-enums/recursive_structs_test.nomi:Node.equal?	ran
+07-structs-and-enums/recursive_structs_test.nomi:Node.equal	ran
 07-structs-and-enums/recursive_structs_test.nomi:Node.inspect	ran
 07-structs-and-enums/recursive_structs_test.nomi:Stream.inspect	ran
 07-structs-and-enums/recursive_structs_test.nomi:Team.inspect	ran
@@ -230,7 +367,7 @@
 07-structs-and-enums/struct_spread/struct_spread_test.nomi:Rec.inspect	ran
 07-structs-and-enums/struct_spread/struct_spread_test.nomi:Stage.inspect	ran
 07-structs-and-enums/struct_spread/struct_spread_test.nomi:make_point	ran
-07-structs-and-enums/struct_spread/test_helpers.nomi:has_diagnostic?	ran
+07-structs-and-enums/struct_spread/test_helpers.nomi:has_diagnostic	ran
 07-structs-and-enums/structs/structs_test.nomi:Address.inspect	ran
 07-structs-and-enums/structs/structs_test.nomi:Defaulted.inspect	ran
 07-structs-and-enums/structs/structs_test.nomi:Foo.inspect	ran
@@ -242,7 +379,7 @@
 07-structs-and-enums/structs/target_typed_test.nomi:Person.inspect	ran
 07-structs-and-enums/structs/target_typed_test.nomi:city_of	ran
 07-structs-and-enums/structs/target_typed_test.nomi:home	ran
-07-structs-and-enums/structs/test_helpers.nomi:has_diagnostic?	ran
+07-structs-and-enums/structs/test_helpers.nomi:has_diagnostic	ran
 07-structs-and-enums/structs/test_helpers.nomi:hover_signature	ran
 07-structs-and-enums/variant_field_defaults/policy.nomi:Backoff.Exponential.max_elapsed default	ran
 07-structs-and-enums/variant_field_defaults/policy.nomi:Backoff.Exponential.max_restarts default	ran
@@ -251,11 +388,11 @@
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.After.seconds default	ran
 07-structs-and-enums/variant_field_defaults/policy/nested.nomi:Timeout.inspect	ran
 07-structs-and-enums/variant_field_defaults/variant_field_defaults_test.nomi:describe	ran
-07-structs-and-enums/vector_trees_test.nomi:Dir.equal?	ran
+07-structs-and-enums/vector_trees_test.nomi:Dir.equal	ran
 07-structs-and-enums/vector_trees_test.nomi:Dir.inspect	ran
 07-structs-and-enums/vector_trees_test.nomi:Expr.inspect	ran
 07-structs-and-enums/vector_trees_test.nomi:Stmt.inspect	ran
-07-structs-and-enums/vector_trees_test.nomi:Tree.equal?	ran
+07-structs-and-enums/vector_trees_test.nomi:Tree.equal	ran
 07-structs-and-enums/vector_trees_test.nomi:Tree.hash	ran
 07-structs-and-enums/vector_trees_test.nomi:Tree.inspect	ran
 07-structs-and-enums/vector_trees_test.nomi:depth	ran
@@ -343,13 +480,13 @@
 08-pattern-matching/or_patterns_test.nomi:Tri.inspect	ran
 08-pattern-matching/or_patterns_test.nomi:answer	ran
 08-pattern-matching/or_patterns_test.nomi:closer	ran
+08-pattern-matching/or_patterns_test.nomi:has_two_equal	ran
+08-pattern-matching/or_patterns_test.nomi:is_opener	ran
+08-pattern-matching/or_patterns_test.nomi:is_small	ran
 08-pattern-matching/or_patterns_test.nomi:off_axis	ran
-08-pattern-matching/or_patterns_test.nomi:opener?	ran
 08-pattern-matching/or_patterns_test.nomi:reading	ran
 08-pattern-matching/or_patterns_test.nomi:side	ran
 08-pattern-matching/or_patterns_test.nomi:size	ran
-08-pattern-matching/or_patterns_test.nomi:small?	ran
-08-pattern-matching/or_patterns_test.nomi:two_equal?	ran
 08-pattern-matching/or_patterns_test.nomi:value	ran
 08-pattern-matching/try_error_conversion_test.nomi:ParseError.inspect	ran
 08-pattern-matching/try_error_conversion_test.nomi:describe	ran
@@ -385,7 +522,7 @@
 08-pattern-matching/variant_payloads_test.nomi:box_area	ran
 08-pattern-matching/variant_payloads_test.nomi:describe	ran
 08-pattern-matching/variant_payloads_test.nomi:double	ran
-08-pattern-matching/variant_resolution/test_helpers.nomi:has_diagnostic?	ran
+08-pattern-matching/variant_resolution/test_helpers.nomi:has_diagnostic	ran
 08-pattern-matching/variant_resolution/test_helpers.nomi:hover_signature	ran
 08-pattern-matching/variant_resolution/variant_resolution_test.nomi:DotBox.inspect	ran
 08-pattern-matching/variant_resolution/variant_resolution_test.nomi:DotColor.inspect	ran
@@ -449,8 +586,8 @@
 09-functions-and-control-flow/field_access_and_predicates_test.nomi:Mid.inspect	ran
 09-functions-and-control-flow/field_access_and_predicates_test.nomi:Outer.inspect	ran
 09-functions-and-control-flow/field_access_and_predicates_test.nomi:Password.inspect	ran
-09-functions-and-control-flow/field_access_and_predicates_test.nomi:Password.valid?	ran
-09-functions-and-control-flow/field_access_and_predicates_test.nomi:even?	ran
+09-functions-and-control-flow/field_access_and_predicates_test.nomi:Password.is_valid	ran
+09-functions-and-control-flow/field_access_and_predicates_test.nomi:is_even	ran
 09-functions-and-control-flow/nested_fn_try_test.nomi:doubled_sum	ran
 09-functions-and-control-flow/nested_fn_try_test.nomi:find	ran
 09-functions-and-control-flow/nested_fn_try_test.nomi:parse	ran
@@ -478,7 +615,7 @@
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:subtract	ran
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:sum_point	ran
 09-functions-and-control-flow/parameter_destructuring/parameter_destructuring_test.nomi:unwrap	ran
-09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi:has_diagnostic?	ran
+09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi:has_diagnostic	ran
 09-functions-and-control-flow/parameter_destructuring/test_helpers.nomi:hover_signature	ran
 09-functions-and-control-flow/tail_calls_test.nomi:Down.inspect	ran
 09-functions-and-control-flow/tail_calls_test.nomi:Down.step	ran
@@ -568,7 +705,7 @@
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.first	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.inspect	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.inspect	ran
-10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.longer?	ran
+10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.is_longer	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.map	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.new	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.new	ran
@@ -602,7 +739,7 @@
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspend	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_reason	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_until	ran
-10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:has_diagnostic?	ran
+10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:has_diagnostic	ran
 10-generics-and-type-wrappers/type_parameter_fields/test_helpers.nomi:hover_signature	ran
 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi:Tag.inspect	ran
 10-generics-and-type-wrappers/type_parameter_fields/type_parameter_fields_test.nomi:Tag.name	ran
@@ -662,7 +799,7 @@
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:made	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	ran
 11-interfaces-and-impls/container_impls/container_impls_test.nomi:shown	ran
-11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.holds	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<Int>.zero	ran
@@ -670,14 +807,14 @@
 11-interfaces-and-impls/container_impls/impls.nomi:List<List<Int>>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<List<Int>>.zero	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<Maybe<Int>>.loud	ran
-11-interfaces-and-impls/container_impls/impls.nomi:List<String>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:List<String>.holds	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<String>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:List<String>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Map<String, Int>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Map<String, Int>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Map<String, List<Int>>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Map<String, List<Int>>.show	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.holds	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Maybe<Int>.zero	ran
@@ -693,8 +830,8 @@
 11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Set<String>.show	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Show.show	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	ran
-11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds?	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds	ran
+11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.holds	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.loud	ran
 11-interfaces-and-impls/container_impls/impls.nomi:Vector<Int>.show	ran
 11-interfaces-and-impls/container_impls/protocols.nomi:Int.loud	ran
@@ -757,16 +894,16 @@
 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi:circle_shape	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Circle.inspect	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Circle.show	ran
-11-interfaces-and-impls/existential_equality/protocols.nomi:Glyph.equal?	ran
+11-interfaces-and-impls/existential_equality/protocols.nomi:Glyph.equal	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Glyph.inspect	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Glyph.show	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Int.show	ran
-11-interfaces-and-impls/existential_equality/protocols.nomi:Labeled.equal?	ran
+11-interfaces-and-impls/existential_equality/protocols.nomi:Labeled.equal	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Labeled.hash	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Labeled.inspect	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:List<Int>.show	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:List<String>.show	ran
-11-interfaces-and-impls/existential_equality/protocols.nomi:Name.equal?	ran
+11-interfaces-and-impls/existential_equality/protocols.nomi:Name.equal	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Name.hash	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Name.inspect	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Name.show	ran
@@ -777,13 +914,13 @@
 11-interfaces-and-impls/existential_equality/protocols.nomi:Spot.inspect	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Spot.show	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:String.show	ran
-11-interfaces-and-impls/existential_equality/protocols.nomi:Tag.equal?	ran
+11-interfaces-and-impls/existential_equality/protocols.nomi:Tag.equal	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Tag.inspect	ran
 11-interfaces-and-impls/existential_equality/protocols.nomi:Tag.show	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.inspect	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Cat.speak	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Describe.describe	ran
-11-interfaces-and-impls/impl_blocks_test.nomi:Dog.equal?	ran
+11-interfaces-and-impls/impl_blocks_test.nomi:Dog.equal	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Dog.hash	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Dog.inspect	ran
 11-interfaces-and-impls/impl_blocks_test.nomi:Dog.speak	ran
@@ -829,9 +966,9 @@
 11-interfaces-and-impls/interface_defaults/priority.nomi:Priority.compare	ran
 11-interfaces-and-impls/interface_defaults/priority.nomi:Priority.inspect	ran
 11-interfaces-and-impls/interface_defaults/priority.nomi:make	ran
-11-interfaces-and-impls/interface_defaults/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/interface_defaults/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/interface_defaults/test_helpers.nomi:hover_signature	ran
-11-interfaces-and-impls/interface_diagnostics/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/interface_diagnostics/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/interface_diagnostics/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/interface_dispatch_test.nomi:Callback.handle	ran
 11-interfaces-and-impls/interface_dispatch_test.nomi:Callback.inspect	ran
@@ -859,10 +996,10 @@
 11-interfaces-and-impls/interface_field_update_test.nomi:RealClock.at	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:RealClock.inspect	ran
 11-interfaces-and-impls/interface_field_update_test.nomi:base_cfg	ran
-11-interfaces-and-impls/missing_impls/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/missing_impls/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/missing_impls/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:Admin.inspect	ran
-11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:User.equal?	ran
+11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:User.equal	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:User.from_json	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:User.inspect	ran
 11-interfaces-and-impls/module_qualified_impl_dispatch/users.nomi:User.to_json	ran
@@ -872,10 +1009,10 @@
 11-interfaces-and-impls/module_qualified_impl_dispatch/users/teams.nomi:member	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.got	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.got	ran
-11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds?	ran
-11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds?	ran
-11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds_none?	ran
-11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds_none?	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds_none	ran
+11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.holds_none	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:Box.inspect	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
 11-interfaces-and-impls/multiple_instantiations_test.nomi:holds_by	ran
@@ -893,7 +1030,7 @@
 11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi:bump	ran
 11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi:bump_twice	ran
 11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi:display	ran
-11-interfaces-and-impls/same_owner_calls/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/same_owner_calls/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/same_owner_calls/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Cat.inspect	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Click.inspect	ran
@@ -905,9 +1042,9 @@
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:echo_struct	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:echo_struct	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:greet	ran
-11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/structural_interfaces/test_helpers.nomi:hover_signature	ran
-11-interfaces-and-impls/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/type_argument_inference/priority.nomi:Priority.compare	ran
 11-interfaces-and-impls/type_argument_inference/priority.nomi:Priority.inspect	ran
@@ -926,8 +1063,8 @@
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:first	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:label	ran
 11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:label	ran
-11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:saw_any?	ran
-11-interfaces-and-impls/type_parameter_dispatch/test_helpers.nomi:has_diagnostic?	ran
+11-interfaces-and-impls/type_argument_inference/type_argument_inference_test.nomi:saw_any	ran
+11-interfaces-and-impls/type_parameter_dispatch/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/type_parameter_dispatch/test_helpers.nomi:hover_signature	ran
 11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi:Dog.hello	ran
 11-interfaces-and-impls/type_parameter_dispatch/type_parameter_dispatch_test.nomi:Dog.inspect	ran
@@ -965,28 +1102,28 @@
 12-derives-and-standard-interfaces/add_test.nomi:score_value	ran
 12-derives-and-standard-interfaces/add_test.nomi:times	ran
 12-derives-and-standard-interfaces/add_test.nomi:weeks_value	ran
-12-derives-and-standard-interfaces/collections_test.nomi:Bag.equal?	ran
+12-derives-and-standard-interfaces/collections_test.nomi:Bag.equal	ran
 12-derives-and-standard-interfaces/collections_test.nomi:Bag.hash	ran
 12-derives-and-standard-interfaces/collections_test.nomi:Bag.inspect	ran
-12-derives-and-standard-interfaces/collections_test.nomi:Holder.equal?	ran
+12-derives-and-standard-interfaces/collections_test.nomi:Holder.equal	ran
 12-derives-and-standard-interfaces/collections_test.nomi:Holder.inspect	ran
 12-derives-and-standard-interfaces/cross_file_debug/cross_file_debug_test.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/cross_file_debug/shapes.nomi:Box.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.compare	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Purse.to_string	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Spare.to_string	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.compare	ran
-12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:Wallet.inspect	ran
@@ -995,14 +1132,14 @@
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:counted	ran
 12-derives-and-standard-interfaces/cross_file_derives/cross_file_derives_test.nomi:wallet	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.compare	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Cents.to_string	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.compare	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.inspect	ran
@@ -1010,64 +1147,64 @@
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.to_string	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Coin.variants	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.compare	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Money.to_string	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.compare	ran
-12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.equal?	ran
+12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.equal	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.from_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.hash	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.inspect	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.to_json	ran
 12-derives-and-standard-interfaces/cross_file_derives/money.nomi:Tally.to_string	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Coord.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Coord.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Coord.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Empty.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Empty.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Empty.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Empty.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Expired.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Expired.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Expired.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Expired.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Expired.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Id.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Id.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Id.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Id.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Id.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Leaf.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Leaf.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Leaf.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Leaf.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Leaf.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Node.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Node.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Node.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Node.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Node.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Off.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Off.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Off.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Off.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Off.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:On.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:On.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:On.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:On.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:On.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Point.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Point.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Point.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Point.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Point.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Shape.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Shape.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Shape.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Shape.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Shape.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Switch.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Switch.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Switch.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Switch.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Switch.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Worker.compare	ran
-12-derives-and-standard-interfaces/derives_test.nomi:Worker.equal?	ran
+12-derives-and-standard-interfaces/derives_test.nomi:Worker.equal	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Worker.hash	ran
 12-derives-and-standard-interfaces/derives_test.nomi:Worker.inspect	ran
 12-derives-and-standard-interfaces/derives_test.nomi:show_order	ran
@@ -1094,7 +1231,7 @@
 12-derives-and-standard-interfaces/generic_debug/main.nomi:main	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:OrderedPoint.compare	ran
 12-derives-and-standard-interfaces/ordering/ordering_test.nomi:OrderedPoint.inspect	ran
-12-derives-and-standard-interfaces/ordering/test_helpers.nomi:has_diagnostic?	ran
+12-derives-and-standard-interfaces/ordering/test_helpers.nomi:has_diagnostic	ran
 12-derives-and-standard-interfaces/ordering/test_helpers.nomi:hover_signature	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Color.inspect	ran
 12-derives-and-standard-interfaces/set_debug_test.nomi:Palette.inspect	ran
@@ -1113,7 +1250,7 @@
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
 12-derives-and-standard-interfaces/summable_test.nomi:adds_nothing	ran
-12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.equal?	ran
+12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.equal	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.hash	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:Tagged.inspect	ran
 12-derives-and-standard-interfaces/unit_hashable_test.nomi:digest	ran
@@ -1157,13 +1294,13 @@
 13-iterators-and-pipes/control_flow_test.nomi:checked_score	ran
 13-iterators-and-pipes/infinite_test.nomi:Countdown.each_while	ran
 13-iterators-and-pipes/infinite_test.nomi:Countdown.inspect	ran
-13-iterators-and-pipes/iter_equality_test.nomi:reports?	ran
+13-iterators-and-pipes/iter_equality_test.nomi:reports	ran
 13-iterators-and-pipes/iter_test.nomi:Tree.each_while	ran
 13-iterators-and-pipes/iter_test.nomi:Tree.inspect	ran
 13-iterators-and-pipes/iter_test.nomi:leaf_node	ran
 13-iterators-and-pipes/iter_values_test.nomi:Countdown.each_while	ran
 13-iterators-and-pipes/iter_values_test.nomi:Countdown.inspect	ran
-13-iterators-and-pipes/iter_values_test.nomi:Feed.equal?	ran
+13-iterators-and-pipes/iter_values_test.nomi:Feed.equal	ran
 13-iterators-and-pipes/iter_values_test.nomi:Feed.inspect	ran
 13-iterators-and-pipes/iter_values_test.nomi:Source.inspect	ran
 13-iterators-and-pipes/iter_values_test.nomi:doubled	ran
@@ -1174,6 +1311,10 @@
 13-iterators-and-pipes/keyword_pipe_stages_test.nomi:parsed_id	ran
 13-iterators-and-pipes/loop_control_test.nomi:first	ran
 13-iterators-and-pipes/loop_control_test.nomi:first	ran
+13-iterators-and-pipes/maybe_iter_test.nomi:Part.inspect	ran
+13-iterators-and-pipes/maybe_iter_test.nomi:counted	ran
+13-iterators-and-pipes/maybe_iter_test.nomi:half	ran
+13-iterators-and-pipes/maybe_iter_test.nomi:total	ran
 13-iterators-and-pipes/min_max_test.nomi:Card.compare	ran
 13-iterators-and-pipes/min_max_test.nomi:Card.inspect	ran
 13-iterators-and-pipes/min_max_test.nomi:Level.compare	ran
@@ -1199,7 +1340,7 @@
 14-modules-and-packaging/cross_file_modules/models.nomi:Point.inspect	ran
 14-modules-and-packaging/cross_file_modules/models.nomi:User.inspect	ran
 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi:Probe.Local.inspect	ran
-14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi:local_on?	ran
+14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi:is_local_on	ran
 14-modules-and-packaging/dotted_type_names/signal.nomi:Signal.Level.inspect	ran
 14-modules-and-packaging/dotted_type_names/signal.nomi:Signal.inspect	ran
 14-modules-and-packaging/dotted_type_names/telemetry.nomi:Probe.Reading.inspect	ran
@@ -1212,7 +1353,7 @@
 14-modules-and-packaging/file_import_display/shapes.nomi:Color.to_string	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:Money.inspect	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:Money.to_string	ran
-14-modules-and-packaging/file_import_display/shapes.nomi:Point.equal?	ran
+14-modules-and-packaging/file_import_display/shapes.nomi:Point.equal	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:Point.inspect	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:Point.to_string	ran
 14-modules-and-packaging/file_import_display/shapes.nomi:origin	ran
@@ -1248,7 +1389,7 @@
 14-modules-and-packaging/same_named_types/shapes.nomi:Point.inspect	ran
 14-modules-and-packaging/same_named_types/shapes.nomi:Point.to_string	ran
 14-modules-and-packaging/same_named_types/shapes.nomi:origin	ran
-14-modules-and-packaging/visibility_diagnostics/test_helpers.nomi:has_diagnostic?	ran
+14-modules-and-packaging/visibility_diagnostics/test_helpers.nomi:has_diagnostic	ran
 14-modules-and-packaging/visibility_diagnostics/test_helpers.nomi:hover_signature	ran
 15-app-and-defer/app_field_permission/imports_app.nomi:payload_of	ran
 15-app-and-defer/app_field_permission/imports_app.nomi:read	ran
@@ -1262,7 +1403,7 @@
 15-app-and-defer/app_field_permission/own_app_struct.nomi:local_name	ran
 15-app-and-defer/app_field_permission/own_app_struct.nomi:read	ran
 15-app-and-defer/app_field_permission/settings.nomi:Settings.inspect	ran
-15-app-and-defer/app_root_identity_test.nomi:has_diagnostic?	ran
+15-app-and-defer/app_root_identity_test.nomi:has_diagnostic	ran
 15-app-and-defer/boot_failure/debug_error.nomi:App.inspect	ran
 15-app-and-defer/boot_failure/debug_error.nomi:StartError.inspect	ran
 15-app-and-defer/boot_failure/debug_error.nomi:boot	ran
@@ -1352,10 +1493,10 @@
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.inspect	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.load	ran
 15-app-and-defer/file_store_pattern_test.nomi:FileStore.save	ran
-15-app-and-defer/file_store_pattern_test.nomi:Priority.equal?	ran
+15-app-and-defer/file_store_pattern_test.nomi:Priority.equal	ran
 15-app-and-defer/file_store_pattern_test.nomi:Priority.inspect	ran
 15-app-and-defer/file_store_pattern_test.nomi:Priority.to_string	ran
-15-app-and-defer/file_store_pattern_test.nomi:Status.equal?	ran
+15-app-and-defer/file_store_pattern_test.nomi:Status.equal	ran
 15-app-and-defer/file_store_pattern_test.nomi:Status.inspect	ran
 15-app-and-defer/file_store_pattern_test.nomi:Status.to_string	ran
 15-app-and-defer/file_store_pattern_test.nomi:TodoTask.inspect	ran
@@ -1384,7 +1525,7 @@
 15-app-and-defer/with_overrides/with_overrides_test.nomi:labelled	ran
 15-app-and-defer/with_overrides/with_overrides_test.nomi:labeller	ran
 15-app-and-defer/with_overrides/with_overrides_test.nomi:sequential	ran
-16-concurrency/concurrent_diagnostics/test_helpers.nomi:has_diagnostic?	ran
+16-concurrency/concurrent_diagnostics/test_helpers.nomi:has_diagnostic	ran
 16-concurrency/concurrent_diagnostics/test_helpers.nomi:hover_signature	ran
 16-concurrency/concurrent_runtime_test.nomi:consume	ran
 16-concurrency/concurrent_runtime_test.nomi:long_sleep	ran
@@ -1422,7 +1563,7 @@
 17-typed-literals/typed_literals/sql.nomi:Query.inspect	ran
 17-typed-literals/typed_literals/sql.nomi:SQL.from_fragments	ran
 17-typed-literals/typed_literals/sql.nomi:SQL.inspect	ran
-17-typed-literals/typed_literals/test_helpers.nomi:has_diagnostic?	ran
+17-typed-literals/typed_literals/test_helpers.nomi:has_diagnostic	ran
 17-typed-literals/typed_literals/test_helpers.nomi:hover_signature	ran
 17-typed-literals/typed_literals/typed_literals_test.nomi:Box.from_fragments	ran
 17-typed-literals/typed_literals/typed_literals_test.nomi:Box.inspect	ran
@@ -1445,31 +1586,31 @@
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_container_decode_test.nomi:decode	ran
 18-ffi-and-dynamic/json_decode_error_text_test.nomi:decode_error	ran
-18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.equal?	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.equal	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.from_json	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.inspect	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Game.to_json	ran
-18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.equal?	ran
+18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.equal	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.from_json	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.inspect	ran
 18-ffi-and-dynamic/json_derive_defaults_test.nomi:Shape.to_json	ran
-18-ffi-and-dynamic/json_derive_test.nomi:Account.equal?	ran
+18-ffi-and-dynamic/json_derive_test.nomi:Account.equal	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.inspect	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Account.to_json	ran
-18-ffi-and-dynamic/json_derive_test.nomi:Address.equal?	ran
+18-ffi-and-dynamic/json_derive_test.nomi:Address.equal	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Address.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Address.inspect	ran
 18-ffi-and-dynamic/json_derive_test.nomi:Address.to_json	ran
-18-ffi-and-dynamic/json_derive_test.nomi:User.equal?	ran
+18-ffi-and-dynamic/json_derive_test.nomi:User.equal	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.from_json	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.inspect	ran
 18-ffi-and-dynamic/json_derive_test.nomi:User.to_json	ran
-18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.equal?	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.equal	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.from_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.inspect	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Circle.to_json	ran
-18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.equal?	ran
+18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.equal	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.from_json	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.inspect	ran
 18-ffi-and-dynamic/json_enum_derive_test.nomi:Shape.to_json	ran
@@ -1516,15 +1657,15 @@
 19-locales/collation_test.nomi:literal Locale`da` at 90:54 failure	ran
 19-locales/collation_test.nomi:literal Locale`da` at 92:54 failure	ran
 19-locales/collation_test.nomi:literal Locale`de-u-co-phonebk` at 42:30 failure	ran
-19-locales/collation_test.nomi:literal Locale`de` at 125:42 failure	ran
+19-locales/collation_test.nomi:literal Locale`de` at 125:43 failure	ran
 19-locales/collation_test.nomi:literal Locale`de` at 13:39 failure	ran
 19-locales/collation_test.nomi:literal Locale`de` at 45:66 failure	ran
-19-locales/collation_test.nomi:literal Locale`el` at 126:51 failure	ran
+19-locales/collation_test.nomi:literal Locale`el` at 126:52 failure	ran
 19-locales/collation_test.nomi:literal Locale`en-u-kn-true` at 75:39 failure	ran
 19-locales/collation_test.nomi:literal Locale`en-u-ks-level1` at 62:42 failure	ran
 19-locales/collation_test.nomi:literal Locale`en` at 103:22 failure	ran
 19-locales/collation_test.nomi:literal Locale`en` at 108:42 failure	ran
-19-locales/collation_test.nomi:literal Locale`en` at 124:42 failure	ran
+19-locales/collation_test.nomi:literal Locale`en` at 124:43 failure	ran
 19-locales/collation_test.nomi:literal Locale`en` at 53:28 failure	ran
 19-locales/collation_test.nomi:literal Locale`en` at 56:30 failure	ran
 19-locales/collation_test.nomi:literal Locale`en` at 60:29 failure	ran
@@ -1540,9 +1681,9 @@
 19-locales/collation_test.nomi:literal Locale`sv` at 112:23 failure	ran
 19-locales/collation_test.nomi:literal Locale`sv` at 117:25 failure	ran
 19-locales/collation_test.nomi:literal Locale`sv` at 14:39 failure	ran
-19-locales/collation_test.nomi:literal Locale`tr` at 121:43 failure	ran
-19-locales/collation_test.nomi:literal Locale`tr` at 122:44 failure	ran
-19-locales/collation_test.nomi:literal Locale`tr` at 123:42 failure	ran
+19-locales/collation_test.nomi:literal Locale`tr` at 121:44 failure	ran
+19-locales/collation_test.nomi:literal Locale`tr` at 122:45 failure	ran
+19-locales/collation_test.nomi:literal Locale`tr` at 123:43 failure	ran
 19-locales/collation_test.nomi:sorted	ran
 19-locales/date_format_test.nomi:literal DateFields`GyMMMd` at 69:46 failure	ran
 19-locales/date_format_test.nomi:literal DateFields`LLLL` at 67:46 failure	ran
@@ -1921,7 +2062,7 @@
 19-locales/number_format_test.nomi:literal Locale`sv` at 28:28 failure	ran
 19-locales/number_format_test.nomi:literal Locale`sv` at 95:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale`tr` at 35:40 failure	ran
-19-locales/number_format_test.nomi:round_trips?	ran
+19-locales/number_format_test.nomi:round_trips	ran
 19-locales/plural_test.nomi:cardinals_of	ran
 19-locales/plural_test.nomi:literal Locale`ar` at 54:61 failure	ran
 19-locales/plural_test.nomi:literal Locale`cy` at 74:48 failure	ran
@@ -2030,37 +2171,37 @@
 19-locales/shop/order_test.nomi:literal Locale`pt` at 103:53 failure	ran
 19-locales/shop/order_test.nomi:literal Locale`pt` at 23:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale`pt` at 66:23 failure	ran
-20-data-access/sql_test.nomi:literal Date`2026-10-19` at 119:25 failure	ran
+20-data-access/sql_test.nomi:literal Date`2026-10-19` at 119:24 failure	ran
 20-data-access/sql_test.nomi:literal Date`2026-10-19` at 136:25 failure	ran
 20-data-access/sql_test.nomi:literal Date`2026-10-19` at 136:57 failure	ran
-20-data-access/sql_test.nomi:literal Date`2026-10-19` at 151:30 failure	ran
+20-data-access/sql_test.nomi:literal Date`2026-10-19` at 151:29 failure	ran
 20-data-access/sql_test.nomi:literal Date`2026-10-19` at 48:11 failure	ran
 20-data-access/sql_test.nomi:literal Date`2026-10-19` at 76:11 failure	ran
-20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 121:25 failure	ran
+20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 121:24 failure	ran
 20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 139:25 failure	ran
 20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 140:28 failure	ran
 20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 55:72 failure	ran
 20-data-access/sql_test.nomi:literal NaiveDateTime`2026-10-19T09:30:00` at 63:25 failure	ran
-20-data-access/sql_test.nomi:literal Time`09:30:00` at 120:25 failure	ran
+20-data-access/sql_test.nomi:literal Time`09:30:00` at 120:24 failure	ran
 20-data-access/sql_test.nomi:literal Time`09:30:00` at 137:25 failure	ran
 20-data-access/sql_test.nomi:literal Time`09:30:00` at 137:55 failure	ran
 20-data-access/sql_test.nomi:literal Time`09:30:00` at 55:53 failure	ran
 20-data-access/sql_test.nomi:literal Time`09:30:00` at 62:20 failure	ran
-20-data-access/sql_test.nomi:literal Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` at 124:25 failure	ran
+20-data-access/sql_test.nomi:literal Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` at 124:24 failure	ran
 20-data-access/sql_test.nomi:literal Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` at 50:10 failure	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
-20-data-access/sql_test.nomi:round_trips?	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
+20-data-access/sql_test.nomi:round_trips	ran
 20-data-access/sql_test.nomi:user_row	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.begin	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.close	ran
@@ -2082,15 +2223,16 @@
 20-data-access/transactions_test.nomi:NeverCloses.ping	ran
 20-data-access/transactions_test.nomi:NeverCloses.query	ran
 20-data-access/transactions_test.nomi:NeverCloses.rollback	ran
-20-data-access/transactions_test.nomi:all_closed?	ran
-20-data-access/transactions_test.nomi:closed?	ran
-20-data-access/transactions_test.nomi:closed?	ran
-20-data-access/transactions_test.nomi:closed?	ran
 20-data-access/transactions_test.nomi:expect_closed	ran
 20-data-access/transactions_test.nomi:insert	ran
+20-data-access/transactions_test.nomi:is_all_closed	ran
+20-data-access/transactions_test.nomi:is_closed	ran
+20-data-access/transactions_test.nomi:is_closed	ran
+20-data-access/transactions_test.nomi:is_closed	ran
 20-data-access/transactions_test.nomi:names	ran
 20-data-access/uuid_test.nomi:generated	ran
 20-data-access/uuid_test.nomi:hex48	ran
+20-data-access/uuid_test.nomi:is_shaped	ran
 20-data-access/uuid_test.nomi:literal Uuid`00000000-0000-0000-7fff-ffffffffffff` at 127:12 failure	ran
 20-data-access/uuid_test.nomi:literal Uuid`00000000-0000-0000-8000-000000000000` at 127:57 failure	ran
 20-data-access/uuid_test.nomi:literal Uuid`00112233-4455-6677-8899-aabbccddeeff` at 43:10 failure	ran
@@ -2099,7 +2241,6 @@
 20-data-access/uuid_test.nomi:literal Uuid`7fffffff-ffff-ffff-ffff-ffffffffffff` at 124:11 failure	ran
 20-data-access/uuid_test.nomi:literal Uuid`80000000-0000-0000-0000-000000000000` at 125:12 failure	ran
 20-data-access/uuid_test.nomi:literal Uuid`ffffffff-ffff-ffff-ffff-ffffffffffff` at 16:15 failure	ran
-20-data-access/uuid_test.nomi:shaped?	ran
 exercism/acronym/acronym.nomi:abbreviate	ran
 exercism/affine-cipher/affine_cipher.nomi:Error.inspect	ran
 exercism/affine-cipher/affine_cipher.nomi:Key.inspect	ran
@@ -2112,27 +2253,28 @@ exercism/all-your-base/all_your_base.nomi:Error.inspect	ran
 exercism/all-your-base/all_your_base.nomi:rebase	ran
 exercism/allergies/allergies.nomi:Allergen.inspect	ran
 exercism/allergies/allergies.nomi:Allergen.variants	ran
-exercism/allergies/allergies.nomi:allergic_to?	ran
+exercism/allergies/allergies.nomi:is_allergic_to	ran
 exercism/allergies/allergies.nomi:list	ran
 exercism/allergies/allergies.nomi:value	ran
 exercism/alphametics/alphametics.nomi:Letter.inspect	ran
 exercism/alphametics/alphametics.nomi:assign	ran
+exercism/alphametics/alphametics.nomi:is_reachable	ran
 exercism/alphametics/alphametics.nomi:letter	ran
 exercism/alphametics/alphametics.nomi:places	ran
-exercism/alphametics/alphametics.nomi:reachable?	ran
 exercism/alphametics/alphametics.nomi:solve	ran
 exercism/anagram/anagram.nomi:find	ran
-exercism/armstrong-numbers/armstrong_numbers.nomi:armstrong?	ran
+exercism/armstrong-numbers/armstrong_numbers.nomi:is_armstrong	ran
 exercism/atbash-cipher/atbash_cipher.nomi:decode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:encode	ran
 exercism/atbash-cipher/atbash_cipher.nomi:swap	ran
 exercism/atbash-cipher/atbash_cipher.nomi:translate	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:`!` failure Error	ran
 exercism/baffling-birthdays/baffling_birthdays.nomi:birthdate	ran
 exercism/baffling-birthdays/baffling_birthdays.nomi:estimated_probability_of_shared_birthday	ran
 exercism/baffling-birthdays/baffling_birthdays.nomi:estimated_probability_of_shared_birthday default 2	ran
-exercism/baffling-birthdays/baffling_birthdays.nomi:first_of_january	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:has_shared_birthday	ran
 exercism/baffling-birthdays/baffling_birthdays.nomi:random_birthdates	ran
-exercism/baffling-birthdays/baffling_birthdays.nomi:shared_birthday?	ran
+exercism/baffling-birthdays/baffling_birthdays.nomi:repeats	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:draw	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:draw	ran
 exercism/baffling-birthdays/baffling_birthdays_test.nomi:literal Date`1963-11-23` at 38:32 failure	ran
@@ -2165,7 +2307,7 @@ exercism/bank-account/bank_account.nomi:Account.deposit	ran
 exercism/bank-account/bank_account.nomi:Account.inspect	ran
 exercism/bank-account/bank_account.nomi:Account.open	ran
 exercism/bank-account/bank_account.nomi:Account.withdraw	ran
-exercism/bank-account/bank_account.nomi:Error.equal?	ran
+exercism/bank-account/bank_account.nomi:Error.equal	ran
 exercism/bank-account/bank_account.nomi:Error.inspect	ran
 exercism/bank-account/bank_account.nomi:Error.to_string	ran
 exercism/bank-account/bank_account.nomi:Request.inspect	ran
@@ -2182,7 +2324,7 @@ exercism/bank-account/bank_account.nomi:withdrawn	ran
 exercism/bank-account/bank_account_test.nomi:Step.inspect	ran
 exercism/bank-account/bank_account_test.nomi:replay	ran
 exercism/bank-account/bank_account_test.nomi:run	ran
-exercism/binary-search-tree/binary_search_tree.nomi:Tree.equal?	ran
+exercism/binary-search-tree/binary_search_tree.nomi:Tree.equal	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.from	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.insert	ran
 exercism/binary-search-tree/binary_search_tree.nomi:Tree.inspect	ran
@@ -2190,12 +2332,10 @@ exercism/binary-search-tree/binary_search_tree.nomi:Tree.sorted	ran
 exercism/binary-search/binary_search.nomi:find	ran
 exercism/binary-search/binary_search.nomi:search	ran
 exercism/bob/bob.nomi:response	ran
-exercism/bob/bob.nomi:shouting?	ran
 exercism/book-store/book_store.nomi:group_price	ran
 exercism/book-store/book_store.nomi:group_sizes	ran
 exercism/book-store/book_store.nomi:groups_of	ran
 exercism/book-store/book_store.nomi:total	ran
-exercism/bottle-song/bottle_song.nomi:capitalize	ran
 exercism/bottle-song/bottle_song.nomi:green_bottles	ran
 exercism/bottle-song/bottle_song.nomi:recite	ran
 exercism/bottle-song/bottle_song.nomi:verse	ran
@@ -2227,14 +2367,14 @@ exercism/change/change.nomi:Error.inspect	ran
 exercism/change/change.nomi:best	ran
 exercism/change/change.nomi:find_fewest_coins	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.clear	ran
-exercism/circular-buffer/circular_buffer.nomi:Buffer.full?	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.inspect	ran
+exercism/circular-buffer/circular_buffer.nomi:Buffer.is_full	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.new	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.overwrite	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.read	ran
 exercism/circular-buffer/circular_buffer.nomi:Buffer.write	ran
 exercism/circular-buffer/circular_buffer.nomi:Error.inspect	ran
-exercism/circular-buffer/circular_buffer_test.nomi:Step.equal?	ran
+exercism/circular-buffer/circular_buffer_test.nomi:Step.equal	ran
 exercism/circular-buffer/circular_buffer_test.nomi:Step.inspect	ran
 exercism/circular-buffer/circular_buffer_test.nomi:replay	ran
 exercism/clock/clock.nomi:Clock.add	ran
@@ -2252,8 +2392,8 @@ exercism/complex-numbers/complex_numbers.nomi:Complex.add	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.conjugate	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.divide	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.divide	ran
-exercism/complex-numbers/complex_numbers.nomi:Complex.equal?	ran
-exercism/complex-numbers/complex_numbers.nomi:Complex.equal_within?	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.equal	ran
+exercism/complex-numbers/complex_numbers.nomi:Complex.equal_within	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.exp	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.from_real	ran
 exercism/complex-numbers/complex_numbers.nomi:Complex.imaginary	ran
@@ -2268,25 +2408,25 @@ exercism/complex-numbers/complex_numbers.nomi:Float.add	ran
 exercism/complex-numbers/complex_numbers.nomi:Float.divide	ran
 exercism/complex-numbers/complex_numbers.nomi:Float.multiply	ran
 exercism/complex-numbers/complex_numbers.nomi:Float.subtract	ran
-exercism/connect/connect.nomi:Player.equal?	ran
+exercism/connect/connect.nomi:Player.equal	ran
 exercism/connect/connect.nomi:Player.inspect	ran
-exercism/connect/connect.nomi:connects?	ran
-exercism/connect/connect.nomi:reaches?	ran
+exercism/connect/connect.nomi:connects	ran
+exercism/connect/connect.nomi:reaches	ran
 exercism/connect/connect.nomi:stone	ran
 exercism/connect/connect.nomi:winner	ran
 exercism/crypto-square/crypto_square.nomi:ciphertext	ran
 exercism/crypto-square/crypto_square.nomi:normalize	ran
 exercism/crypto-square/crypto_square.nomi:width	ran
 exercism/custom-set/custom_set.nomi:CustomSet.add	ran
-exercism/custom-set/custom_set.nomi:CustomSet.contains?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.contains	ran
 exercism/custom-set/custom_set.nomi:CustomSet.difference	ran
-exercism/custom-set/custom_set.nomi:CustomSet.disjoint?	ran
-exercism/custom-set/custom_set.nomi:CustomSet.empty?	ran
-exercism/custom-set/custom_set.nomi:CustomSet.equal?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.equal	ran
 exercism/custom-set/custom_set.nomi:CustomSet.from	ran
 exercism/custom-set/custom_set.nomi:CustomSet.inspect	ran
 exercism/custom-set/custom_set.nomi:CustomSet.intersection	ran
-exercism/custom-set/custom_set.nomi:CustomSet.subset?	ran
+exercism/custom-set/custom_set.nomi:CustomSet.is_disjoint	ran
+exercism/custom-set/custom_set.nomi:CustomSet.is_empty	ran
+exercism/custom-set/custom_set.nomi:CustomSet.is_subset	ran
 exercism/custom-set/custom_set.nomi:CustomSet.union	ran
 exercism/custom-set/custom_set.nomi:insert	ran
 exercism/darts/darts.nomi:score	ran
@@ -2301,33 +2441,33 @@ exercism/dnd-character/dnd_character.nomi:character	ran
 exercism/dnd-character/dnd_character.nomi:modifier	ran
 exercism/dnd-character/dnd_character_test.nomi:draws	ran
 exercism/dnd-character/dnd_character_test.nomi:draws	ran
-exercism/dnd-character/dnd_character_test.nomi:in_range?	ran
-exercism/dnd-character/dnd_character_test.nomi:valid?	ran
+exercism/dnd-character/dnd_character_test.nomi:is_in_range	ran
+exercism/dnd-character/dnd_character_test.nomi:is_valid	ran
 exercism/dominoes/dominoes.nomi:chain	ran
 exercism/dominoes/dominoes.nomi:extend	ran
 exercism/dominoes/dominoes.nomi:picks	ran
-exercism/dominoes/dominoes_test.nomi:chain_of?	ran
-exercism/dominoes/dominoes_test.nomi:same_stones?	ran
+exercism/dominoes/dominoes_test.nomi:has_same_stones	ran
+exercism/dominoes/dominoes_test.nomi:is_chain_of	ran
 exercism/dominoes/dominoes_test.nomi:unturned	ran
-exercism/dot-dsl/dot_dsl.nomi:Error.equal?	ran
+exercism/dot-dsl/dot_dsl.nomi:Error.equal	ran
 exercism/dot-dsl/dot_dsl.nomi:Error.inspect	ran
 exercism/dot-dsl/dot_dsl.nomi:Error.to_string	ran
 exercism/dot-dsl/dot_dsl.nomi:Graph.inspect	ran
 exercism/dot-dsl/dot_dsl.nomi:Statement.inspect	ran
-exercism/dot-dsl/dot_dsl.nomi:Value.equal?	ran
+exercism/dot-dsl/dot_dsl.nomi:Value.equal	ran
 exercism/dot-dsl/dot_dsl.nomi:Value.inspect	ran
 exercism/dot-dsl/dot_dsl.nomi:add	ran
-exercism/dot-dsl/dot_dsl.nomi:alphanumeric?	ran
 exercism/dot-dsl/dot_dsl.nomi:attributes_in	ran
-exercism/dot-dsl/dot_dsl.nomi:comment?	ran
 exercism/dot-dsl/dot_dsl.nomi:edge_names	ran
+exercism/dot-dsl/dot_dsl.nomi:is_alphanumeric	ran
+exercism/dot-dsl/dot_dsl.nomi:is_comment	ran
 exercism/dot-dsl/dot_dsl.nomi:parse	ran
 exercism/dot-dsl/dot_dsl.nomi:statement	ran
 exercism/dot-dsl/dot_dsl.nomi:value_of	ran
 exercism/dot-dsl/dot_dsl.nomi:with_attributes	ran
 exercism/dot-dsl/dot_dsl.nomi:with_attributes	ran
 exercism/eliuds-eggs/eliuds_eggs.nomi:egg_count	ran
-exercism/error-handling/error_handling.nomi:Error.equal?	ran
+exercism/error-handling/error_handling.nomi:Error.equal	ran
 exercism/error-handling/error_handling.nomi:Error.inspect	ran
 exercism/error-handling/error_handling.nomi:number	ran
 exercism/error-handling/error_handling.nomi:parse	ran
@@ -2335,7 +2475,7 @@ exercism/error-handling/error_handling.nomi:parse_trusted	ran
 exercism/error-handling/error_handling.nomi:sum_lines	ran
 exercism/error-handling/error_handling.nomi:sum_trusted_lines	ran
 exercism/error-handling/error_handling.nomi:total	ran
-exercism/error-handling/error_handling_test.nomi:closed?	ran
+exercism/error-handling/error_handling_test.nomi:is_closed	ran
 exercism/etl/etl.nomi:transform	ran
 exercism/flatten-array/flatten_array.nomi:Nested.inspect	ran
 exercism/flatten-array/flatten_array.nomi:flatten	ran
@@ -2370,13 +2510,13 @@ exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2043-01-01T01:46:40` at 8:64 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-02T23:46:40` at 31:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-03T01:46:39` at 36:13 failure	ran
-exercism/go-counting/go_counting.nomi:Owner.equal?	ran
+exercism/go-counting/go_counting.nomi:Owner.equal	ran
 exercism/go-counting/go_counting.nomi:Owner.inspect	ran
 exercism/go-counting/go_counting.nomi:Territories.inspect	ran
 exercism/go-counting/go_counting.nomi:Territory.inspect	ran
 exercism/go-counting/go_counting.nomi:add	ran
-exercism/go-counting/go_counting.nomi:claimed?	ran
 exercism/go-counting/go_counting.nomi:fill	ran
+exercism/go-counting/go_counting.nomi:is_claimed	ran
 exercism/go-counting/go_counting.nomi:read	ran
 exercism/go-counting/go_counting.nomi:spread	ran
 exercism/go-counting/go_counting.nomi:territories	ran
@@ -2398,7 +2538,7 @@ exercism/grep/grep.nomi:Options.invert default	ran
 exercism/grep/grep.nomi:Options.line_numbers default	ran
 exercism/grep/grep.nomi:Options.whole_line default	ran
 exercism/grep/grep.nomi:grep	ran
-exercism/grep/grep.nomi:matches?	ran
+exercism/grep/grep.nomi:matches	ran
 exercism/grep/grep.nomi:search	ran
 exercism/grep/grep_test.nomi:grep_in_sandbox	ran
 exercism/hamming/hamming.nomi:distance	ran
@@ -2415,9 +2555,9 @@ exercism/intergalactic-transmission/intergalactic_transmission.nomi:from_bits	ra
 exercism/intergalactic-transmission/intergalactic_transmission.nomi:receive	ran
 exercism/intergalactic-transmission/intergalactic_transmission.nomi:transmit	ran
 exercism/isbn-verifier/isbn_verifier.nomi:checksum	ran
-exercism/isbn-verifier/isbn_verifier.nomi:valid?	ran
+exercism/isbn-verifier/isbn_verifier.nomi:is_valid	ran
 exercism/isbn-verifier/isbn_verifier.nomi:value	ran
-exercism/isogram/isogram.nomi:isogram?	ran
+exercism/isogram/isogram.nomi:is_isogram	ran
 exercism/killer-sudoku-helper/killer_sudoku_helper.nomi:combinations	ran
 exercism/killer-sudoku-helper/killer_sudoku_helper.nomi:combinations default 3	ran
 exercism/kindergarten-garden/kindergarten_garden.nomi:Garden.inspect	ran
@@ -2434,15 +2574,16 @@ exercism/knapsack/knapsack.nomi:consider	ran
 exercism/knapsack/knapsack.nomi:maximum_value	ran
 exercism/largest-series-product/largest_series_product.nomi:Error.inspect	ran
 exercism/largest-series-product/largest_series_product.nomi:largest_product	ran
-exercism/leap/leap.nomi:leap_year?	ran
+exercism/leap/leap.nomi:is_leap_year	ran
 exercism/ledger/ledger.nomi:Entry.inspect	ran
 exercism/ledger/ledger.nomi:Style.headings	ran
 exercism/ledger/ledger.nomi:Style.inspect	ran
 exercism/ledger/ledger.nomi:Style.locale	ran
+exercism/ledger/ledger.nomi:Style.sign	ran
 exercism/ledger/ledger.nomi:format_change	ran
 exercism/ledger/ledger.nomi:format_entries	ran
 exercism/ledger/ledger.nomi:format_entry	ran
-exercism/ledger/ledger.nomi:literal DateFields`yMMdd` at 57:51 failure	ran
+exercism/ledger/ledger.nomi:literal DateFields`yMMdd` at 66:51 failure	ran
 exercism/ledger/ledger.nomi:literal Locale`en-US` at 27:26 failure	ran
 exercism/ledger/ledger.nomi:literal Locale`nl-NL` at 28:23 failure	ran
 exercism/ledger/ledger.nomi:row	ran
@@ -2496,7 +2637,7 @@ exercism/linked-list/linked_list.nomi:LinkedList.pop	ran
 exercism/linked-list/linked_list.nomi:LinkedList.push	ran
 exercism/linked-list/linked_list.nomi:LinkedList.shift	ran
 exercism/linked-list/linked_list.nomi:LinkedList.unshift	ran
-exercism/linked-list/linked_list_test.nomi:Step.equal?	ran
+exercism/linked-list/linked_list_test.nomi:Step.equal	ran
 exercism/linked-list/linked_list_test.nomi:Step.inspect	ran
 exercism/linked-list/linked_list_test.nomi:replay	ran
 exercism/list-ops/list_ops.nomi:append	ran
@@ -2526,16 +2667,16 @@ exercism/list-ops/list_ops.nomi:reverse	ran
 exercism/list-ops/list_ops.nomi:reverse	ran
 exercism/luhn/luhn.nomi:checksum	ran
 exercism/luhn/luhn.nomi:double	ran
-exercism/luhn/luhn.nomi:valid?	ran
+exercism/luhn/luhn.nomi:is_valid	ran
 exercism/markdown/markdown.nomi:Block.inspect	ran
 exercism/markdown/markdown.nomi:block	ran
 exercism/markdown/markdown.nomi:emphasize	ran
-exercism/markdown/markdown.nomi:item?	ran
+exercism/markdown/markdown.nomi:is_item	ran
 exercism/markdown/markdown.nomi:parse	ran
 exercism/markdown/markdown.nomi:render	ran
 exercism/markdown/markdown.nomi:render_run	ran
-exercism/matching-brackets/matching_brackets.nomi:balanced?	ran
-exercism/matching-brackets/matching_brackets.nomi:paired?	ran
+exercism/matching-brackets/matching_brackets.nomi:is_balanced	ran
+exercism/matching-brackets/matching_brackets.nomi:is_paired	ran
 exercism/matrix/matrix.nomi:Error.inspect	ran
 exercism/matrix/matrix.nomi:Matrix.column	ran
 exercism/matrix/matrix.nomi:Matrix.inspect	ran
@@ -2642,9 +2783,9 @@ exercism/meetup/meetup_test.nomi:literal Date`2013-12-27` at 668:81 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2014-12-31` at 701:13 failure	ran
 exercism/meetup/meetup_test.nomi:literal Date`2015-02-22` at 709:13 failure	ran
 exercism/micro-blog/micro_blog.nomi:truncate	ran
+exercism/nth-prime/nth_prime.nomi:is_prime	ran
 exercism/nth-prime/nth_prime.nomi:prime	ran
-exercism/nth-prime/nth_prime.nomi:prime?	ran
-exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal?	ran
+exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.equal	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.hash	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.inspect	ran
 exercism/nucleotide-count/nucleotide_count.nomi:Nucleotide.parse	ran
@@ -2676,8 +2817,7 @@ exercism/palindrome-products/palindrome_products.nomi:largest	ran
 exercism/palindrome-products/palindrome_products.nomi:mirror	ran
 exercism/palindrome-products/palindrome_products.nomi:search	ran
 exercism/palindrome-products/palindrome_products.nomi:smallest	ran
-exercism/pangram/pangram.nomi:pangram?	ran
-exercism/parallel-letter-frequency/parallel_letter_frequency.nomi:add_counts	ran
+exercism/pangram/pangram.nomi:is_pangram	ran
 exercism/parallel-letter-frequency/parallel_letter_frequency.nomi:frequency	ran
 exercism/parallel-letter-frequency/parallel_letter_frequency.nomi:letter_counts	ran
 exercism/pascals-triangle/pascals_triangle.nomi:next_row	ran
@@ -2689,8 +2829,8 @@ exercism/perfect-numbers/perfect_numbers.nomi:classify	ran
 exercism/perfect-numbers/perfect_numbers.nomi:divisor_pair	ran
 exercism/phone-number/phone_number.nomi:Error.inspect	ran
 exercism/phone-number/phone_number.nomi:clean	ran
+exercism/phone-number/phone_number.nomi:is_separator	ran
 exercism/phone-number/phone_number.nomi:national	ran
-exercism/phone-number/phone_number.nomi:separator?	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.aspect_ratio default	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.border default	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.columns default	ran
@@ -2699,15 +2839,15 @@ exercism/piecing-it-together/piecing_it_together.nomi:Clues.inside default	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.inspect	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.pieces default	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Clues.rows default	ran
-exercism/piecing-it-together/piecing_it_together.nomi:Error.equal?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Error.equal	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Error.inspect	ran
-exercism/piecing-it-together/piecing_it_together.nomi:Format.equal?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:Format.equal	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Format.inspect	ran
 exercism/piecing-it-together/piecing_it_together.nomi:Jigsaw.inspect	ran
-exercism/piecing-it-together/piecing_it_together.nomi:agrees?	ran
-exercism/piecing-it-together/piecing_it_together.nomi:agrees?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:agrees	ran
+exercism/piecing-it-together/piecing_it_together.nomi:agrees	ran
 exercism/piecing-it-together/piecing_it_together.nomi:column_rule	ran
-exercism/piecing-it-together/piecing_it_together.nomi:fits?	ran
+exercism/piecing-it-together/piecing_it_together.nomi:fits	ran
 exercism/piecing-it-together/piecing_it_together.nomi:jigsaw_data	ran
 exercism/piecing-it-together/piecing_it_together.nomi:nearest	ran
 exercism/piecing-it-together/piecing_it_together.nomi:puzzle	ran
@@ -2729,7 +2869,7 @@ exercism/poker/poker.nomi:pip_rank	ran
 exercism/poker/poker.nomi:score	ran
 exercism/poker/poker.nomi:straight	ran
 exercism/pov/pov.nomi:Tree.children default	ran
-exercism/pov/pov.nomi:Tree.equal?	ran
+exercism/pov/pov.nomi:Tree.equal	ran
 exercism/pov/pov.nomi:Tree.from_pov	ran
 exercism/pov/pov.nomi:Tree.inspect	ran
 exercism/pov/pov.nomi:Tree.path_to	ran
@@ -2751,7 +2891,7 @@ exercism/proverb/proverb.nomi:recite	ran
 exercism/pythagorean-triplet/pythagorean_triplet.nomi:triplet	ran
 exercism/pythagorean-triplet/pythagorean_triplet.nomi:triplets_with_sum	ran
 exercism/queen-attack/queen_attack.nomi:Error.inspect	ran
-exercism/queen-attack/queen_attack.nomi:Queen.can_attack?	ran
+exercism/queen-attack/queen_attack.nomi:Queen.can_attack	ran
 exercism/queen-attack/queen_attack.nomi:Queen.inspect	ran
 exercism/queen-attack/queen_attack.nomi:Queen.new	ran
 exercism/rail-fence-cipher/rail_fence_cipher.nomi:decode	ran
@@ -2762,7 +2902,7 @@ exercism/rational-numbers/rational_numbers.nomi:Rational.abs	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.add	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.denominator	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.divide	ran
-exercism/rational-numbers/rational_numbers.nomi:Rational.equal?	ran
+exercism/rational-numbers/rational_numbers.nomi:Rational.equal	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.inspect	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.multiply	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.new	ran
@@ -2772,7 +2912,7 @@ exercism/rational-numbers/rational_numbers.nomi:Rational.raise	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.subtract	ran
 exercism/rational-numbers/rational_numbers_test.nomi:rational	ran
 exercism/react/react.nomi:Computed.inspect	ran
-exercism/react/react.nomi:Error.equal?	ran
+exercism/react/react.nomi:Error.equal	ran
 exercism/react/react.nomi:Error.inspect	ran
 exercism/react/react.nomi:Reactor.add_callback	ran
 exercism/react/react.nomi:Reactor.compute	ran
@@ -2784,14 +2924,14 @@ exercism/react/react.nomi:Reactor.set_value	ran
 exercism/react/react.nomi:Reactor.value	ran
 exercism/react/react.nomi:value_of	ran
 exercism/react/react_test.nomi:Cell.inspect	ran
-exercism/react/react_test.nomi:Step.equal?	ran
+exercism/react/react_test.nomi:Step.equal	ran
 exercism/react/react_test.nomi:Step.inspect	ran
 exercism/react/react_test.nomi:build	ran
 exercism/react/react_test.nomi:replay	ran
-exercism/rectangles/rectangles.nomi:across?	ran
 exercism/rectangles/rectangles.nomi:count	ran
-exercism/rectangles/rectangles.nomi:down?	ran
-exercism/rectangles/rectangles.nomi:rectangle?	ran
+exercism/rectangles/rectangles.nomi:is_line_across	ran
+exercism/rectangles/rectangles.nomi:is_line_down	ran
+exercism/rectangles/rectangles.nomi:is_rectangle	ran
 exercism/rectangles/rectangles.nomi:symbol_at	ran
 exercism/relative-distance/relative_distance.nomi:degree_of_separation	ran
 exercism/relative-distance/relative_distance.nomi:relatives	ran
@@ -2800,10 +2940,10 @@ exercism/resistor-color-duo/resistor_color_duo.nomi:Color.inspect	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:digit	ran
 exercism/resistor-color-duo/resistor_color_duo.nomi:value	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Color.inspect	ran
-exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.equal?	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.equal	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.inspect	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Label.to_string	ran
-exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.equal?	ran
+exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.equal	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.inspect	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:Magnitude.to_string	ran
 exercism/resistor-color-tolerance/resistor_color_tolerance.nomi:digit	ran
@@ -2831,28 +2971,19 @@ exercism/rest-api/rest_api.nomi:RestApi.get default 3	ran
 exercism/rest-api/rest_api.nomi:RestApi.inspect	ran
 exercism/rest-api/rest_api.nomi:RestApi.new	ran
 exercism/rest-api/rest_api.nomi:RestApi.post	ran
-exercism/rest-api/rest_api.nomi:User.equal?	ran
+exercism/rest-api/rest_api.nomi:User.equal	ran
 exercism/rest-api/rest_api.nomi:User.from_json	ran
 exercism/rest-api/rest_api.nomi:User.inspect	ran
 exercism/rest-api/rest_api.nomi:User.to_json	ran
 exercism/rest-api/rest_api.nomi:UserNames.from_json	ran
 exercism/rest-api/rest_api.nomi:UserNames.inspect	ran
-exercism/rest-api/rest_api.nomi:Users.equal?	ran
+exercism/rest-api/rest_api.nomi:Users.equal	ran
 exercism/rest-api/rest_api.nomi:Users.from_json	ran
 exercism/rest-api/rest_api.nomi:Users.inspect	ran
 exercism/rest-api/rest_api.nomi:Users.to_json	ran
 exercism/rest-api/rest_api.nomi:find	ran
 exercism/rest-api/rest_api.nomi:net_owed	ran
-exercism/rest-api/rest_api.nomi:read	ran
-exercism/rest-api/rest_api.nomi:read	ran
-exercism/rest-api/rest_api.nomi:read	ran
-exercism/rest-api/rest_api.nomi:read	ran
 exercism/rest-api/rest_api.nomi:with_net	ran
-exercism/rest-api/rest_api.nomi:write	ran
-exercism/rest-api/rest_api.nomi:write	ran
-exercism/rest-api/rest_api_test.nomi:decoded	ran
-exercism/rest-api/rest_api_test.nomi:decoded	ran
-exercism/rest-api/rest_api_test.nomi:users	ran
 exercism/reverse-string/reverse_string.nomi:reverse	ran
 exercism/rna-transcription/rna_transcription.nomi:complement	ran
 exercism/rna-transcription/rna_transcription.nomi:to_rna	ran
@@ -2864,8 +2995,8 @@ exercism/robot-name/robot_name.nomi:Factory.reset	ran
 exercism/robot-name/robot_name.nomi:Robot.inspect	ran
 exercism/robot-name/robot_name.nomi:Robot.name	ran
 exercism/robot-name/robot_name.nomi:names	ran
+exercism/robot-name/robot_name_test.nomi:is_well_formed	ran
 exercism/robot-name/robot_name_test.nomi:names	ran
-exercism/robot-name/robot_name_test.nomi:well_formed?	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.inspect	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.left	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.right	ran
@@ -2886,7 +3017,7 @@ exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
 exercism/saddle-points/saddle_points.nomi:column_minima	ran
 exercism/saddle-points/saddle_points.nomi:saddle_points	ran
 exercism/satellite/satellite.nomi:Error.inspect	ran
-exercism/satellite/satellite.nomi:Tree.equal?	ran
+exercism/satellite/satellite.nomi:Tree.equal	ran
 exercism/satellite/satellite.nomi:Tree.inspect	ran
 exercism/satellite/satellite.nomi:build	ran
 exercism/satellite/satellite.nomi:tree_from_traversals	ran
@@ -2899,9 +3030,9 @@ exercism/save-the-cow/save_the_cow.nomi:Game.masked_word	ran
 exercism/save-the-cow/save_the_cow.nomi:Game.new	ran
 exercism/save-the-cow/save_the_cow.nomi:Game.remaining_failures	ran
 exercism/save-the-cow/save_the_cow.nomi:Game.state	ran
-exercism/save-the-cow/save_the_cow.nomi:State.equal?	ran
+exercism/save-the-cow/save_the_cow.nomi:State.equal	ran
 exercism/save-the-cow/save_the_cow.nomi:State.inspect	ran
-exercism/save-the-cow/save_the_cow.nomi:hidden?	ran
+exercism/save-the-cow/save_the_cow.nomi:is_hidden	ran
 exercism/save-the-cow/save_the_cow.nomi:reveal	ran
 exercism/save-the-cow/save_the_cow_test.nomi:play	ran
 exercism/say/say.nomi:Error.inspect	ran
@@ -2914,7 +3045,7 @@ exercism/secret-handshake/secret_handshake.nomi:Action.inspect	ran
 exercism/secret-handshake/secret_handshake.nomi:Action.variants	ran
 exercism/secret-handshake/secret_handshake.nomi:bit	ran
 exercism/secret-handshake/secret_handshake.nomi:commands	ran
-exercism/secret-handshake/secret_handshake.nomi:set?	ran
+exercism/secret-handshake/secret_handshake.nomi:is_set	ran
 exercism/series/series.nomi:Error.inspect	ran
 exercism/series/series.nomi:slices	ran
 exercism/sgf-parsing/sgf_parsing.nomi:Error.inspect	ran
@@ -2943,7 +3074,7 @@ exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.peek	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.pop	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.push	ran
 exercism/simple-linked-list/simple_linked_list.nomi:LinkedList.reverse	ran
-exercism/simple-linked-list/simple_linked_list_test.nomi:Step.equal?	ran
+exercism/simple-linked-list/simple_linked_list_test.nomi:Step.equal	ran
 exercism/simple-linked-list/simple_linked_list_test.nomi:Step.inspect	ran
 exercism/simple-linked-list/simple_linked_list_test.nomi:replay	ran
 exercism/space-age/space_age.nomi:Planet.inspect	ran
@@ -2953,15 +3084,15 @@ exercism/space-age/space_age.nomi:Planet.to_string	ran
 exercism/space-age/space_age.nomi:Planet.variants	ran
 exercism/space-age/space_age.nomi:age	ran
 exercism/spiral-matrix/spiral_matrix.nomi:cell_at	ran
-exercism/spiral-matrix/spiral_matrix.nomi:empty?	ran
 exercism/spiral-matrix/spiral_matrix.nomi:fill	ran
+exercism/spiral-matrix/spiral_matrix.nomi:is_empty	ran
 exercism/spiral-matrix/spiral_matrix.nomi:set_cell	ran
 exercism/spiral-matrix/spiral_matrix.nomi:spiral_matrix	ran
 exercism/spiral-matrix/spiral_matrix.nomi:step	ran
 exercism/spiral-matrix/spiral_matrix.nomi:turn	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Error.inspect	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Error.to_string	ran
-exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.equal?	ran
+exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.equal	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:State.inspect	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.advance	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.current_lap	ran
@@ -2974,10 +3105,64 @@ exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.start	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.state	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.stop	ran
 exercism/split-second-stopwatch/split_second_stopwatch.nomi:Stopwatch.total	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.equal?	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.equal	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:Step.inspect	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:command	ran
-exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:duration	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 157:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 191:74 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 65:75 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`0s` at 66:64 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 191:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 197:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`10s` at 201:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 178:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 180:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`11m22s` at 182:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`13s` at 100:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`13s` at 97:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`14h8m30s` at 230:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`15s` at 158:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`15s` at 159:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 219:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 220:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 222:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 227:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1h23m45s` at 232:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m20s` at 119:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m28s` at 124:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 143:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 145:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`1m38s` at 148:32 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 121:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 199:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`20s` at 201:47 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`22s` at 164:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 131:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 76:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`23s` at 76:54 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`32s` at 136:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`33s` at 164:62 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 133:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 146:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 148:49 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`44s` at 99:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 223:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 224:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 227:52 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`4h1m40s` at 232:52 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`55s` at 164:85 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5h25m25s` at 225:24 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 72:31 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 72:58 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 87:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`5s` at 90:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 228:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 229:29 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8h43m5s` at 232:71 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8m22s` at 155:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8s` at 123:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`8s` at 89:26 failure	ran
+exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:literal Duration`9s` at 135:26 failure	ran
 exercism/split-second-stopwatch/split_second_stopwatch_test.nomi:replay	ran
 exercism/square-root/square_root.nomi:newton	ran
 exercism/square-root/square_root.nomi:square_root	ran
@@ -2985,8 +3170,8 @@ exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:Error.inspect	ran
 exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:Error.to_string	ran
 exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:State.inspect	ran
 exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:gamestate	ran
+exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:has_won	ran
 exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:marks	ran
-exercism/state-of-tic-tac-toe/state_of_tic_tac_toe.nomi:won?	ran
 exercism/strain/strain.nomi:discard	ran
 exercism/strain/strain.nomi:discard	ran
 exercism/strain/strain.nomi:discard	ran
@@ -2994,21 +3179,22 @@ exercism/strain/strain.nomi:keep	ran
 exercism/strain/strain.nomi:keep	ran
 exercism/strain/strain.nomi:keep	ran
 exercism/sublist/sublist.nomi:Relation.inspect	ran
-exercism/sublist/sublist.nomi:contains_run?	ran
+exercism/sublist/sublist.nomi:contains_run	ran
 exercism/sublist/sublist.nomi:sublist	ran
 exercism/sum-of-multiples/sum_of_multiples.nomi:sum	ran
 exercism/swift-scheduling/swift_scheduling.nomi:Description.inspect	ran
 exercism/swift-scheduling/swift_scheduling.nomi:Error.inspect	ran
+exercism/swift-scheduling/swift_scheduling.nomi:`!` failure Error	ran
 exercism/swift-scheduling/swift_scheduling.nomi:at	ran
 exercism/swift-scheduling/swift_scheduling.nomi:delivery_date	ran
 exercism/swift-scheduling/swift_scheduling.nomi:end_of_week	ran
 exercism/swift-scheduling/swift_scheduling.nomi:first_workday	ran
+exercism/swift-scheduling/swift_scheduling.nomi:is_workday	ran
 exercism/swift-scheduling/swift_scheduling.nomi:last_workday_of_quarter	ran
 exercism/swift-scheduling/swift_scheduling.nomi:next_on	ran
 exercism/swift-scheduling/swift_scheduling.nomi:numbered	ran
 exercism/swift-scheduling/swift_scheduling.nomi:parse	ran
 exercism/swift-scheduling/swift_scheduling.nomi:quarter_of	ran
-exercism/swift-scheduling/swift_scheduling.nomi:workday?	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1997-04-29T10:50:00` at 40:13 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1997-05-02T17:00:00` at 42:13 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`1999-06-03T09:45:00` at 16:13 failure	ran
@@ -3061,17 +3247,17 @@ exercism/transpose/transpose.nomi:transpose	ran
 exercism/tree-building/tree_building.nomi:Error.inspect	ran
 exercism/tree-building/tree_building.nomi:Error.to_string	ran
 exercism/tree-building/tree_building.nomi:Node.children default	ran
-exercism/tree-building/tree_building.nomi:Node.equal?	ran
+exercism/tree-building/tree_building.nomi:Node.equal	ran
 exercism/tree-building/tree_building.nomi:Node.inspect	ran
 exercism/tree-building/tree_building.nomi:Record.inspect	ran
 exercism/tree-building/tree_building.nomi:build_tree	ran
 exercism/tree-building/tree_building.nomi:node	ran
 exercism/tree-building/tree_building_test.nomi:leaf	ran
 exercism/triangle/triangle.nomi:Kind.inspect	ran
-exercism/triangle/triangle.nomi:equilateral?	ran
-exercism/triangle/triangle.nomi:isosceles?	ran
+exercism/triangle/triangle.nomi:is_equilateral	ran
+exercism/triangle/triangle.nomi:is_isosceles	ran
+exercism/triangle/triangle.nomi:is_scalene	ran
 exercism/triangle/triangle.nomi:kind	ran
-exercism/triangle/triangle.nomi:scalene?	ran
 exercism/twelve-days/twelve_days.nomi:gifts	ran
 exercism/twelve-days/twelve_days.nomi:recite	ran
 exercism/twelve-days/twelve_days.nomi:verse	ran
@@ -3091,7 +3277,7 @@ exercism/word-search/word_search.nomi:Position.inspect	ran
 exercism/word-search/word_search.nomi:Span.inspect	ran
 exercism/word-search/word_search.nomi:find	ran
 exercism/word-search/word_search.nomi:letter_at	ran
-exercism/word-search/word_search.nomi:reads?	ran
+exercism/word-search/word_search.nomi:reads	ran
 exercism/word-search/word_search.nomi:search	ran
 exercism/wordy/wordy.nomi:Error.inspect	ran
 exercism/wordy/wordy.nomi:Operation.inspect	ran
@@ -3108,7 +3294,7 @@ exercism/yacht/yacht.nomi:group_sizes	ran
 exercism/yacht/yacht.nomi:score	ran
 exercism/yacht/yacht.nomi:straight	ran
 exercism/yacht/yacht.nomi:yacht	ran
-exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.equal?	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.equal	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:Nationality.inspect	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:Solution.inspect	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:add_drinks	ran
@@ -3116,15 +3302,15 @@ exercism/zebra-puzzle/zebra_puzzle.nomi:add_hobbies	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:add_nations	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:add_pets	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:drinks_water	ran
-exercism/zebra-puzzle/zebra_puzzle.nomi:next_to?	ran
+exercism/zebra-puzzle/zebra_puzzle.nomi:is_next_to	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:owns_zebra	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:resident	ran
 exercism/zebra-puzzle/zebra_puzzle.nomi:solve	ran
-exercism/zipper/zipper.nomi:Crumb.equal?	ran
+exercism/zipper/zipper.nomi:Crumb.equal	ran
 exercism/zipper/zipper.nomi:Crumb.inspect	ran
-exercism/zipper/zipper.nomi:Tree.equal?	ran
+exercism/zipper/zipper.nomi:Tree.equal	ran
 exercism/zipper/zipper.nomi:Tree.inspect	ran
-exercism/zipper/zipper.nomi:Zipper.equal?	ran
+exercism/zipper/zipper.nomi:Zipper.equal	ran
 exercism/zipper/zipper.nomi:Zipper.from_tree	ran
 exercism/zipper/zipper.nomi:Zipper.inspect	ran
 exercism/zipper/zipper.nomi:Zipper.left	ran
@@ -3140,21 +3326,21 @@ exercism/zipper/zipper_test.nomi:apply	ran
 exercism/zipper/zipper_test.nomi:follow	ran
 exercism/zipper/zipper_test.nomi:initial_tree	ran
 exercism/zipper/zipper_test.nomi:leaf	ran
-std/fs.nomi:Access.equal?	ran
+std/fs.nomi:Access.equal	ran
 std/fs.nomi:Access.inspect	ran
 std/fs.nomi:Chunks.each_while	ran
 std/fs.nomi:Chunks.inspect	ran
-std/fs.nomi:Entry.equal?	ran
+std/fs.nomi:Entry.equal	ran
 std/fs.nomi:Entry.inspect	ran
-std/fs.nomi:Kind.equal?	ran
+std/fs.nomi:Kind.equal	ran
 std/fs.nomi:Kind.inspect	ran
 std/fs.nomi:Lines.each_while	ran
 std/fs.nomi:Lines.inspect	ran
-std/fs.nomi:Metadata.equal?	ran
+std/fs.nomi:Metadata.equal	ran
 std/fs.nomi:Metadata.inspect	ran
 std/fs.nomi:Walk.each_while	ran
 std/fs.nomi:Walk.inspect	ran
-std/fs.nomi:WriteMode.equal?	ran
+std/fs.nomi:WriteMode.equal	ran
 std/fs.nomi:WriteMode.inspect	ran
 std/fs.nomi:chunks	ran
 std/fs.nomi:chunks default 2	ran
@@ -3168,9 +3354,10 @@ std/fs.nomi:current_dir	ran
 std/fs.nomi:decoded	ran
 std/fs.nomi:each_chunk	ran
 std/fs.nomi:each_line	ran
-std/fs.nomi:exists?	ran
+std/fs.nomi:exists	ran
 std/fs.nomi:glob	ran
 std/fs.nomi:glob_split	ran
+std/fs.nomi:is_wild	ran
 std/fs.nomi:kind_at	ran
 std/fs.nomi:lines	ran
 std/fs.nomi:link_metadata	ran
@@ -3195,7 +3382,6 @@ std/fs.nomi:walk	ran
 std/fs.nomi:walk_dir	ran
 std/fs.nomi:walk_entries	ran
 std/fs.nomi:walk_matches	ran
-std/fs.nomi:wild?	ran
 std/fs.nomi:with_file	ran
 std/fs.nomi:with_file default 2	ran
 std/fs.nomi:with_reader	ran
@@ -3223,7 +3409,7 @@ std/fs.nomi:write_text default 3	ran
 std/fs_testing.nomi:ConformanceFailure.inspect	ran
 std/fs_testing.nomi:Failure.inspect	ran
 std/fs_testing.nomi:Failure.nth default	ran
-std/fs_testing.nomi:Operation.equal?	ran
+std/fs_testing.nomi:Operation.equal	ran
 std/fs_testing.nomi:Operation.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
@@ -3326,20 +3512,20 @@ std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:under	ran
-std/message.nomi:Argument.equal?	ran
+std/message.nomi:Argument.equal	ran
 std/message.nomi:Argument.inspect	ran
 std/message.nomi:Catalog.inspect	ran
 std/message.nomi:Catalog.load	ran
 std/message.nomi:Catalog.locale	ran
-std/message.nomi:Message.equal?	ran
+std/message.nomi:Message.equal	ran
 std/message.nomi:Message.format	ran
 std/message.nomi:Message.format default 3	ran
 std/message.nomi:Message.inspect	ran
 std/message.nomi:Message.localize	ran
-std/message.nomi:Noun.equal?	ran
+std/message.nomi:Noun.equal	ran
 std/message.nomi:Noun.inspect	ran
 std/message.nomi:Noun.localize	ran
-std/message.nomi:Rejected.equal?	ran
+std/message.nomi:Rejected.equal	ran
 std/message.nomi:Rejected.inspect	ran
 std/message.nomi:argument_key	ran
 std/message.nomi:argument_kind	ran
@@ -3363,21 +3549,25 @@ std/message.nomi:rejections	ran
 std/message.nomi:text	ran
 std/message.nomi:time	ran
 std/message.nomi:variant	ran
-std/money.nomi:CurrencyDisplay.equal?	ran
+std/money.nomi:CurrencyDisplay.equal	ran
 std/money.nomi:CurrencyDisplay.inspect	ran
-std/money.nomi:Error.equal?	ran
+std/money.nomi:CurrencySign.equal	ran
+std/money.nomi:CurrencySign.inspect	ran
+std/money.nomi:Error.equal	ran
 std/money.nomi:Error.inspect	ran
 std/money.nomi:Error.to_string	ran
 std/money.nomi:Money.abs	ran
 std/money.nomi:Money.add	ran
-std/money.nomi:Money.empty?	ran
 std/money.nomi:Money.empty_sum	ran
-std/money.nomi:Money.equal?	ran
+std/money.nomi:Money.equal	ran
 std/money.nomi:Money.format	ran
 std/money.nomi:Money.format default 3	ran
+std/money.nomi:Money.format default 4	ran
 std/money.nomi:Money.from_fragments	ran
 std/money.nomi:Money.hash	ran
 std/money.nomi:Money.inspect	ran
+std/money.nomi:Money.is_empty	ran
+std/money.nomi:Money.is_zero	ran
 std/money.nomi:Money.localize	ran
 std/money.nomi:Money.max	ran
 std/money.nomi:Money.min	ran
@@ -3392,22 +3582,21 @@ std/money.nomi:Money.round default 2	ran
 std/money.nomi:Money.sign	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
-std/money.nomi:Money.zero?	ran
-std/money.nomi:literal Currency`XXX` at 290:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 350:53 failure	ran
-std/path.nomi:absolute?	ran
+std/money.nomi:literal Currency`XXX` at 316:27 failure	ran
+std/money.nomi:literal Currency`XXX` at 376:53 failure	ran
 std/path.nomi:base	ran
 std/path.nomi:clean	ran
 std/path.nomi:climb	ran
-std/path.nomi:drive?	ran
 std/path.nomi:extension	ran
-std/path.nomi:hidden_matches?	ran
+std/path.nomi:has_drive	ran
 std/path.nomi:in_set	ran
+std/path.nomi:is_absolute	ran
 std/path.nomi:join	ran
 std/path.nomi:join_all	ran
-std/path.nomi:match?	ran
 std/path.nomi:match_name	ran
 std/path.nomi:match_names	ran
+std/path.nomi:matches	ran
+std/path.nomi:matches_hidden	ran
 std/path.nomi:names_reversed	ran
 std/path.nomi:parent	ran
 std/path.nomi:relative	ran
@@ -3429,12 +3618,12 @@ std/sql.nomi:Date.from_sql	ran
 std/sql.nomi:Date.to_sql	ran
 std/sql.nomi:Decimal.from_sql	ran
 std/sql.nomi:Decimal.to_sql	ran
-std/sql.nomi:Dialect.equal?	ran
+std/sql.nomi:Dialect.equal	ran
 std/sql.nomi:Dialect.inspect	ran
 std/sql.nomi:Dialect.to_string	ran
 std/sql.nomi:Display.to_string	ran
-std/sql.nomi:Equatable.equal?	ran
-std/sql.nomi:Error.equal?	ran
+std/sql.nomi:Equatable.equal	ran
+std/sql.nomi:Error.equal	ran
 std/sql.nomi:Error.inspect	ran
 std/sql.nomi:Error.to_string	ran
 std/sql.nomi:Float.from_sql	ran
@@ -3458,7 +3647,7 @@ std/sql.nomi:Maybe<String>.to_sql	ran
 std/sql.nomi:NaiveDateTime.from_sql	ran
 std/sql.nomi:NaiveDateTime.to_sql	ran
 std/sql.nomi:Row.columns	ran
-std/sql.nomi:Row.equal?	ran
+std/sql.nomi:Row.equal	ran
 std/sql.nomi:Row.get	ran
 std/sql.nomi:Row.get	ran
 std/sql.nomi:Row.get	ran
@@ -3481,9 +3670,12 @@ std/sql.nomi:Row.values	ran
 std/sql.nomi:Sql.from_fragments	ran
 std/sql.nomi:Sql.inspect	ran
 std/sql.nomi:Statement.add	ran
-std/sql.nomi:Statement.equal?	ran
+std/sql.nomi:Statement.all	ran
+std/sql.nomi:Statement.any	ran
+std/sql.nomi:Statement.equal	ran
 std/sql.nomi:Statement.inspect	ran
 std/sql.nomi:Statement.join	ran
+std/sql.nomi:Statement.list	ran
 std/sql.nomi:Statement.to_string	ran
 std/sql.nomi:Statement.where_all	ran
 std/sql.nomi:Statement.where_any	ran
@@ -3493,12 +3685,13 @@ std/sql.nomi:Time.from_sql	ran
 std/sql.nomi:Time.to_sql	ran
 std/sql.nomi:Uuid.from_sql	ran
 std/sql.nomi:Uuid.to_sql	ran
-std/sql.nomi:Value.equal?	ran
+std/sql.nomi:Value.equal	ran
 std/sql.nomi:Value.from_sql	ran
 std/sql.nomi:Value.inspect	ran
 std/sql.nomi:Value.kind	ran
 std/sql.nomi:Value.to_sql	ran
 std/sql.nomi:close_quietly	ran
+std/sql.nomi:combined	ran
 std/sql.nomi:decode_error	ran
 std/sql.nomi:place	ran
 std/sql.nomi:settle	ran
@@ -3507,22 +3700,22 @@ std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
-std/sql.nomi:where_joined	ran
+std/sql.nomi:where_of	ran
 std/sql.nomi:with_connection	ran
 std/sql.nomi:with_connection	ran
 std/sql.nomi:with_connection	ran
-std/sql_testing.nomi:Failure.equal?	ran
+std/sql_testing.nomi:Failure.equal	ran
 std/sql_testing.nomi:Failure.inspect	ran
 std/sql_testing.nomi:Failure.to_string	ran
 std/sql_testing.nomi:Fake.begin	ran
 std/sql_testing.nomi:Fake.close	ran
-std/sql_testing.nomi:Fake.closed?	ran
 std/sql_testing.nomi:Fake.commit	ran
 std/sql_testing.nomi:Fake.committed	ran
 std/sql_testing.nomi:Fake.dialect	ran
 std/sql_testing.nomi:Fake.each_row	ran
 std/sql_testing.nomi:Fake.exec	ran
 std/sql_testing.nomi:Fake.inspect	ran
+std/sql_testing.nomi:Fake.is_closed	ran
 std/sql_testing.nomi:Fake.log	ran
 std/sql_testing.nomi:Fake.new	ran
 std/sql_testing.nomi:Fake.new default 1	ran
@@ -3568,6 +3761,7 @@ std/sql_testing.nomi:insert_parent	ran
 std/sql_testing.nomi:insert_then	ran
 std/sql_testing.nomi:instant_param	ran
 std/sql_testing.nomi:int_param	ran
+std/sql_testing.nomi:is_shaped	ran
 std/sql_testing.nomi:ns	ran
 std/sql_testing.nomi:parent_violation	ran
 std/sql_testing.nomi:parents_table	ran
@@ -3580,7 +3774,6 @@ std/sql_testing.nomi:rollback	ran
 std/sql_testing.nomi:rules	ran
 std/sql_testing.nomi:run	ran
 std/sql_testing.nomi:savepoint	ran
-std/sql_testing.nomi:shaped?	ran
 std/sql_testing.nomi:step	ran
 std/sql_testing.nomi:step	ran
 std/sql_testing.nomi:step	ran
@@ -3596,11 +3789,11 @@ std/sql_testing.nomi:times_in_order	ran
 std/sql_testing.nomi:times_table	ran
 std/sql_testing.nomi:violation	ran
 std/sql_testing.nomi:with_effect	ran
-std/uuid.nomi:Error.equal?	ran
+std/uuid.nomi:Error.equal	ran
 std/uuid.nomi:Error.inspect	ran
 std/uuid.nomi:Error.to_string	ran
 std/uuid.nomi:Uuid.compare	ran
-std/uuid.nomi:Uuid.equal?	ran
+std/uuid.nomi:Uuid.equal	ran
 std/uuid.nomi:Uuid.from_bytes	ran
 std/uuid.nomi:Uuid.from_fragments	ran
 std/uuid.nomi:Uuid.hash	ran

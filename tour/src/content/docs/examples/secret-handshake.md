@@ -30,10 +30,10 @@ derive Variants for Action
 pub fn commands(number: Int) -> List<Action> {
     actions =
         Action.variants()
-        |> Iter.filter(fn action -> set?(number, bit(action)))
+        |> Iter.filter(fn action -> is_set(number, bit(action)))
         |> Iter.to_list()
 
-    if set?(number, reverse_bit) {
+    if is_set(number, reverse_bit) {
         Iter.reverse(actions)
     } else {
         actions
@@ -49,15 +49,12 @@ fn bit(action: Action) -> Int {
     }
 }
 
-fn set?(number: Int, bit: Int) -> Bool {
+fn is_set(number: Int, bit: Int) -> Bool {
     Int.bitwise_and(number, bit) != 0
 }
 
 // FILE: secret_handshake_test.nomi
-import {
-    secret_handshake
-    secret_handshake.Action
-}
+import secret_handshake.{self, Action}
 
 test "commands" {
     cases = [
@@ -84,6 +81,6 @@ test "commands" {
 
 - Actions are an `Action` enum with `derive Variants`, so `Action.variants()` lists them in bit order, and the canonical strings become variants in the tests.
 - Each action's bit is spelled out in a `case` (`bit`), as allergies does, rather than computed from the action's position.
-- The reverse flag is a `once reverse_bit = 16`, tested by the same `set?` helper as the actions.
-- The filter is `fn action -> set?(number, bit(action))` rather than the capture `&set?(number, bit(&1))`: the body is two calls, which read better with a named parameter.
+- The reverse flag is a `once reverse_bit = 16`, tested by the same `is_set` helper as the actions.
+- The filter is `fn action -> is_set(number, bit(action))` rather than the capture `&is_set(number, bit(&1))`: the body is two calls, which read better with a named parameter.
 - The table qualifies only its first row's action (`[Action.Wink]`); the later rows' bare variants, and the empty lists, take that enum.

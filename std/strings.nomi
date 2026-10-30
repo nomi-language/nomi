@@ -25,9 +25,9 @@ import {
 //# `reverse`, ...) and the grapheme-cluster iterator used to drive lazy `iter`
 //# pipelines over a `String`. Transform graphemes with `Iter.map(s, f) |>
 //# String.join()`; join any `Iter<String>` back into one string with `String.join`.
-//# The search functions (`starts_with?`, `ends_with?`, `replace`, `split`,
+//# The search functions (`starts_with`, `ends_with`, `replace`, `split`,
 //# `find`, `find_all`) take any `Matcher`: a `String`, a `Regex` or a
-//# `Codepoint`. `contains?` takes the same three as String's `Contains` impls.
+//# `Codepoint`. `contains` takes the same three as String's `Contains` impls.
 
 /// UTF-8 encoded string.
 pub host type String
@@ -37,12 +37,12 @@ pub host type String
 // in the text. Each is a linear search.
 impl Contains<String> for String {
     /// True if `x` occurs in `c` as a substring. Every string holds `""`.
-    //! assert String.contains?("hello world", "world")
-    //! refute String.contains?("hello", "xyz")
-    //! assert String.contains?("hello", "")
+    //! assert String.contains("hello world", "world")
+    //! refute String.contains("hello", "xyz")
+    //! assert String.contains("hello", "")
     //
-    fn contains?(c: String, x: String) -> Bool {
-        String.contained_in?(x, c)
+    fn contains(c: String, x: String) -> Bool {
+        String.is_contained_in(x, c)
     }
 }
 
@@ -50,21 +50,21 @@ impl Contains<Regex> for String {
     /// True if `x` matches anywhere in `c`.
     //! import std/regex.Regex
     //!
-    //! assert String.contains?("order 66", Regex`\d+`)
-    //! refute String.contains?("room", Regex`\d+`)
+    //! assert String.contains("order 66", Regex`\d+`)
+    //! refute String.contains("room", Regex`\d+`)
     //
-    fn contains?(c: String, x: Regex) -> Bool {
-        Regex.contained_in?(x, c)
+    fn contains(c: String, x: Regex) -> Bool {
+        Regex.is_contained_in(x, c)
     }
 }
 
 impl Contains<Codepoint> for String {
     /// True if `x` occurs in `c`.
-    //! assert String.contains?("a-b", '-')
-    //! refute String.contains?("ab", '-')
+    //! assert String.contains("a-b", '-')
+    //! refute String.contains("ab", '-')
     //
-    fn contains?(c: String, x: Codepoint) -> Bool {
-        Codepoint.contained_in?(x, c)
+    fn contains(c: String, x: Codepoint) -> Bool {
+        Codepoint.is_contained_in(x, c)
     }
 }
 
@@ -73,53 +73,97 @@ impl String {
     /// a `Regex`.
     //! import std/regex.Regex
     //!
-    //! assert String.starts_with?("hello", "he")
-    //! assert String.starts_with?("42 apples", Regex`\d+`)
-    //! refute String.starts_with?("apples 42", Regex`\d+`)
+    //! assert String.starts_with("hello", "he")
+    //! assert String.starts_with("42 apples", Regex`\d+`)
+    //! refute String.starts_with("apples 42", Regex`\d+`)
     //
-    pub fn starts_with?<M>(s: String, prefix: M) -> Bool where M: Matcher {
-        M.prefix_of?(prefix, s)
+    pub fn starts_with<M>(s: String, prefix: M) -> Bool where M: Matcher {
+        M.is_prefix_of(prefix, s)
     }
 
     /// True if `suffix` matches at the end of `s`. `suffix` is a `String` or a
     /// `Regex`.
     //! import std/regex.Regex
     //!
-    //! assert String.ends_with?("hello.txt", ".txt")
-    //! assert String.ends_with?("report.PDF", Regex`(?i)\.pdf`)
+    //! assert String.ends_with("hello.txt", ".txt")
+    //! assert String.ends_with("report.PDF", Regex`(?i)\.pdf`)
     //
-    pub fn ends_with?<M>(s: String, suffix: M) -> Bool where M: Matcher {
-        M.suffix_of?(suffix, s)
+    pub fn ends_with<M>(s: String, suffix: M) -> Bool where M: Matcher {
+        M.is_suffix_of(suffix, s)
     }
 
     /// Upper-cases `s` (Unicode-aware, locale-independent).
-    //! assert String.to_upper("café") == "CAFÉ"
+    //! assert String.uppercase("café") == "CAFÉ"
     //
-    pub host fn to_upper(s: String) -> String
+    pub host fn uppercase(s: String) -> String
 
     /// Lower-cases `s` (Unicode-aware, locale-independent).
-    //! assert String.to_lower("CAFÉ") == "café"
+    //! assert String.lowercase("CAFÉ") == "café"
     //
-    pub host fn to_lower(s: String) -> String
+    pub host fn lowercase(s: String) -> String
+
+    /// Whether `s` is in upper case: it has at least one cased letter, and
+    /// every cased letter is upper case, as `Codepoint.is_upper` decides it.
+    /// Characters with no case, such as digits and punctuation, count
+    /// neither way. This is Python's `str.isupper`.
+    //! assert !String.is_upper("1, 2, 3")
+    //! assert String.is_upper("ÜMLÄÜTS!")
+    //! assert String.is_upper("WHAT'S UP?")
+    //! assert !String.is_upper("Hello")
+    //
+    pub host fn is_upper(s: String) -> Bool
+
+    /// Whether `s` is in lower case: it has at least one cased letter, and
+    /// every cased letter is lower case, as `Codepoint.is_lower` decides it.
+    /// Characters with no case count neither way. This is Python's
+    /// `str.islower`.
+    //! assert !String.is_lower("1, 2, 3")
+    //! assert String.is_lower("ümläüts!")
+    //! assert String.is_lower("what's up?")
+    //! assert !String.is_lower("Hello")
+    //
+    pub host fn is_lower(s: String) -> Bool
+
+    /// Capitalizes `s`: its first grapheme in title case and the rest
+    /// lowercased, as Python's `str.capitalize` does. Title case is not
+    /// upper case for a few letters that stand for two: `ǆ` becomes `ǅ`,
+    /// and `ß` becomes `Ss`. It uses Unicode's full case mappings with no
+    /// language's rules; `String.capitalize_in` applies a language's.
+    //! assert String.capitalize("hello WORLD") == "Hello world"
+    //! assert String.capitalize("ǆemal") == "ǅemal"
+    //! assert String.capitalize("ÉCOLE") == "École"
+    //! assert String.capitalize("") == ""
+    //
+    pub host fn capitalize(s: String) -> String
 
     /// Upper-cases `s` as a reader of `locale` writes it. Turkish and Azeri
     /// upper-case `i` to `İ`; Lithuanian drops the dot it keeps above an
     /// accented `i`. Every language upper-cases `ß` to `SS`.
-    //! assert String.to_upper_in("istanbul", Locale`tr`) == "İSTANBUL"
-    //! assert String.to_upper_in("istanbul", Locale`en`) == "ISTANBUL"
-    //! assert String.to_upper_in("Straße", Locale`de`) == "STRASSE"
+    //! assert String.uppercase_in("istanbul", Locale`tr`) == "İSTANBUL"
+    //! assert String.uppercase_in("istanbul", Locale`en`) == "ISTANBUL"
+    //! assert String.uppercase_in("Straße", Locale`de`) == "STRASSE"
     //
-    pub host fn to_upper_in(s: String, locale: Locale) -> String
+    pub host fn uppercase_in(s: String, locale: Locale) -> String
 
     /// Lower-cases `s` as a reader of `locale` writes it. Turkish and Azeri
     /// lower-case `I` to dotless `ı` and `İ` to `i`; Lithuanian keeps the dot
     /// of an `i` under an accent (`Í` is `i̇́`). In every language a capital
     /// sigma that ends a word becomes `ς`.
-    //! assert String.to_lower_in("DİYARBAKIR", Locale`tr`) == "diyarbakır"
-    //! assert String.to_lower_in("DIYARBAKIR", Locale`en`) == "diyarbakir"
-    //! assert String.to_lower_in("ΟΔΟΣ", Locale`el`) == "οδος"
+    //! assert String.lowercase_in("DİYARBAKIR", Locale`tr`) == "diyarbakır"
+    //! assert String.lowercase_in("DIYARBAKIR", Locale`en`) == "diyarbakir"
+    //! assert String.lowercase_in("ΟΔΟΣ", Locale`el`) == "οδος"
     //
-    pub host fn to_lower_in(s: String, locale: Locale) -> String
+    pub host fn lowercase_in(s: String, locale: Locale) -> String
+
+    /// Capitalizes `s` as a reader of `locale` writes it: its first
+    /// grapheme in title case and the rest lowercased, with the language's
+    /// rules of `String.uppercase_in` and `String.lowercase_in`. In Turkish
+    /// and Azeri `i` becomes `İ` and `I` stays `I`.
+    //! assert String.capitalize_in("istanbul", Locale`tr`) == "İstanbul"
+    //! assert String.capitalize_in("IRMAK", Locale`tr`) == "Irmak"
+    //! assert String.capitalize_in("istanbul", Locale`en`) == "Istanbul"
+    //
+    pub host fn capitalize_in(s: String, locale: Locale) -> String
 
     /// Folds case for caseless matching: two strings that differ only in
     /// case fold to the same string, in every language (Unicode's full case
@@ -130,6 +174,53 @@ impl String {
     //! assert String.fold_case("ΣΑΣ") == "σασ"
     //
     pub host fn fold_case(s: String) -> String
+
+    /// `s`'s words in lower case joined by `_`: `user_id` from `userId`.
+    /// Words split at `_`, `-` and whitespace, which are dropped (a run of
+    /// them is one break, and those at either end are dropped too); where a
+    /// lower-case letter or a digit is followed by an upper-case one
+    /// (`userId`, `v2Api`); and at the end of an acronym, before the last
+    /// of a run of capitals that a lower-case letter follows
+    /// (`HTTPServer`). A digit stays with the word before it. Letters are
+    /// upper or lower case by Unicode, and nothing is transliterated.
+    /// `String.kebab_case`, `String.pascal_case` and `String.camel_case`
+    /// split words the same way.
+    //! assert String.snake_case("userId") == "user_id"
+    //! assert String.snake_case("HTTPServer") == "http_server"
+    //! assert String.snake_case("parseHTTP2Request") == "parse_http2_request"
+    //! assert String.snake_case("v2Api") == "v2_api"
+    //! assert String.snake_case("--Hello   World--") == "hello_world"
+    //! assert String.snake_case("ÉcoleNormale") == "école_normale"
+    //! assert String.snake_case("") == ""
+    //
+    pub host fn snake_case(s: String) -> String
+
+    /// `s`'s words in lower case joined by `-`, split as
+    /// `String.snake_case` splits them.
+    //! assert String.kebab_case("userId") == "user-id"
+    //! assert String.kebab_case("HTTP_Server") == "http-server"
+    //! assert String.kebab_case("  big  red dog ") == "big-red-dog"
+    //
+    pub host fn kebab_case(s: String) -> String
+
+    /// `s`'s words joined with nothing between them, each with its first
+    /// letter in upper (title) case and the rest in lower case, split as
+    /// `String.snake_case` splits them. An acronym is not kept in capitals:
+    /// `HTTPServer` becomes `HttpServer`.
+    //! assert String.pascal_case("extra_large") == "ExtraLarge"
+    //! assert String.pascal_case("in-transit") == "InTransit"
+    //! assert String.pascal_case("HTTPServer") == "HttpServer"
+    //! assert String.pascal_case("parseHTTP2Request") == "ParseHttp2Request"
+    //! assert String.pascal_case("école normale") == "ÉcoleNormale"
+    //
+    pub host fn pascal_case(s: String) -> String
+
+    /// `String.pascal_case` with the first word in lower case.
+    //! assert String.camel_case("user_id") == "userId"
+    //! assert String.camel_case("HTTPServer") == "httpServer"
+    //! assert String.camel_case("v2 api") == "v2Api"
+    //
+    pub host fn camel_case(s: String) -> String
 
     /// Replaces every non-overlapping match of `old` with `new`. `old` is a
     /// `String` or a `Regex`; `new` is literal text either way, so `$1` is not
@@ -248,7 +339,7 @@ impl String {
     //! assert String.join(["a", "b", "c"], ", ") == "a, b, c"
     //! assert String.join([], ", ") == ""
     //! assert String.join(["he", "llo"]) == "hello"
-    //! assert "héllo" |> Iter.map(String.to_upper) |> String.join() == "HÉLLO"
+    //! assert "héllo" |> Iter.map(String.uppercase) |> String.join() == "HÉLLO"
     //! assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
     //! assert #["x", "y"] |> String.join("+") == "x+y"
     //! assert %["solo"] |> String.join(", ") == "solo"
@@ -438,7 +529,7 @@ impl String {
     //!     |> String.to_codepoints()
     //!     |> Iter.map(Codepoint.to_int)
     //!     |> Iter.to_list()
-    //!     |> List.equal?([97, 98])
+    //!     |> List.equal([97, 98])
     //
     pub host fn to_codepoints(s: String) -> List<Codepoint>
 
@@ -489,7 +580,7 @@ impl String {
     //! assert String.strip_prefix("hello", "xyz") == None
     //
     pub fn strip_prefix(s: String, prefix: String) -> Maybe<String> {
-        if starts_with?(s, prefix) {
+        if starts_with(s, prefix) {
             new_start = length(prefix)
 
             slice(s, new_start, length(s)) |> Some()
@@ -504,7 +595,7 @@ impl String {
     //! assert String.strip_suffix("hello", "xyz") == None
     //
     pub fn strip_suffix(s: String, suffix: String) -> Maybe<String> {
-        if ends_with?(s, suffix) {
+        if ends_with(s, suffix) {
             new_end = length(s) - length(suffix)
 
             slice(s, 0, new_end) |> Some()
@@ -570,13 +661,13 @@ fn padding(fill: String, count: Int) -> String {
 
 impl Matcher for String {
     /// True if `needle` occurs in `text`.
-    host fn contained_in?(needle: String, text: String) -> Bool
+    host fn is_contained_in(needle: String, text: String) -> Bool
 
     /// True if `text` begins with `prefix`.
-    host fn prefix_of?(prefix: String, text: String) -> Bool
+    host fn is_prefix_of(prefix: String, text: String) -> Bool
 
     /// True if `text` ends with `suffix`.
-    host fn suffix_of?(suffix: String, text: String) -> Bool
+    host fn is_suffix_of(suffix: String, text: String) -> Bool
 
     /// Splits on every occurrence; an empty separator splits at every
     /// codepoint.
@@ -590,7 +681,7 @@ impl Matcher for String {
 
     /// `needle` itself when it occurs in `text`.
     fn find_in(needle: String, text: String) -> Maybe<String> {
-        if String.contained_in?(needle, text) {
+        if String.is_contained_in(needle, text) {
             Some(needle)
         } else {
             None
@@ -602,26 +693,26 @@ impl Matcher for Codepoint {
     // A codepoint matches its own one-codepoint text, so each search is the
     // String matcher's over `Codepoint.to_string(cp)`. Declared here rather
     // than in std/code_points so the String host functions are this module's.
-    //! e_acute = try Int.to_codepoint(0xE9)
-    //! assert String.contains?("café", e_acute)
-    //! refute String.contains?("cafe", e_acute)
+    //! e_acute = Int.to_codepoint(0xE9)?
+    //! assert String.contains("café", e_acute)
+    //! refute String.contains("cafe", e_acute)
     //! assert String.split("a,b", ',') == ["a", "b"]
-    //! assert String.starts_with?("#tag", '#')
-    //! assert String.ends_with?("done.", '.')
+    //! assert String.starts_with("#tag", '#')
+    //! assert String.ends_with("done.", '.')
     //! assert String.replace("a-b-c", '-', "+") == "a+b+c"
     //! assert String.find("x=1", '=') == Some("=")
     //! assert String.find_all("a,b,c", ',') == [",", ","]
     //
-    fn contained_in?(cp: Codepoint, text: String) -> Bool {
-        String.contained_in?(Codepoint.to_string(cp), text)
+    fn is_contained_in(cp: Codepoint, text: String) -> Bool {
+        String.is_contained_in(Codepoint.to_string(cp), text)
     }
 
-    fn prefix_of?(cp: Codepoint, text: String) -> Bool {
-        String.prefix_of?(Codepoint.to_string(cp), text)
+    fn is_prefix_of(cp: Codepoint, text: String) -> Bool {
+        String.is_prefix_of(Codepoint.to_string(cp), text)
     }
 
-    fn suffix_of?(cp: Codepoint, text: String) -> Bool {
-        String.suffix_of?(Codepoint.to_string(cp), text)
+    fn is_suffix_of(cp: Codepoint, text: String) -> Bool {
+        String.is_suffix_of(Codepoint.to_string(cp), text)
     }
 
     fn split_in(cp: Codepoint, text: String) -> List<String> {
@@ -682,7 +773,7 @@ impl Debug for String {
 }
 
 impl Equatable for String {
-    fn equal?(a: String, b: String) -> Bool {
+    fn equal(a: String, b: String) -> Bool {
         a == b
     }
 }

@@ -37,7 +37,7 @@ test "compiler can check diagnostics across an in-memory project" {
     })
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "'secret' is private and cannot be imported")
+    assert test_helpers.has_diagnostic(diagnostics, "'secret' is private and cannot be imported")
 }
 
 test "compiler project checks manifest entry points" {
@@ -69,12 +69,12 @@ test "compiler project checks manifest entry points" {
 
     assert Iter.count(diagnostics) == 2
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "entry callback in main but file is not declared in nomi.toml entry_points",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "other is declared in nomi.toml entry_points but has no entry callback",
     )

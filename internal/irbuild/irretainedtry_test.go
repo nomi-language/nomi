@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// A `try` runs before a struct whose field holds a Map of function values
+// A `?` runs before a struct whose field holds a Map of function values
 // is built from its value.
 func TestIRRetainedTry_BesideAFunctionMapFieldRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
@@ -15,7 +15,7 @@ struct Outer {
 }
 fn get() -> Result<Int, String> { Ok(42) }
 fn work() -> Result<Int, String> {
-  n = try get()
+  n = get()?
   io.inspect(#Outer{p: [#Point{x: n}]})
   Ok(n)
 }
@@ -27,7 +27,7 @@ func TestIRRetainedTry_CompletePrograms(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn get(ok: Bool) -> Result<Int, String> { if ok { Ok(42) } else { Err("bad") } }
 fn transform(ok: Bool) -> Result<String, String> {
-  n = try get(ok)
+  n = get(ok)?
   io.print("success")
   Ok("value ${n}")
 }
@@ -44,8 +44,7 @@ func TestIRRetainedTry_MaybeAndPipes(t *testing.T) {
 fn get(ok: Bool) -> Maybe<Int> { if ok { Some(42) } else { None } }
 fn transform(ok: Bool) -> Maybe<String> {
   n = ok
-    |> get()
-    |> try
+    |> get()?
   io.print("success")
   Some("value ${n}")
 }
@@ -65,10 +64,10 @@ fn get(ok: Bool) -> Result<Int, String> {
 }
 fn add(a: Int, b: Int, c: Int) -> Int { a + b + c }
 fn inner(ok: Bool) -> Result<Int, String> {
-  Ok(add(mark(1), try get(ok), mark(3)))
+  Ok(add(mark(1), get(ok)?, mark(3)))
 }
 fn outer(ok: Bool) -> Result<Int, String> {
-  n = try inner(ok)
+  n = inner(ok)?
   io.print("outer")
   Ok(n + 1)
 }
@@ -82,9 +81,9 @@ fn main() { io.print(show(True)) io.print(show(False)) }
 func TestIRRetainedTry_PureAndConditionalOperands(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn transform(r: Result<Int, String>, flag: Bool) -> Result<Int, String> {
-  if flag { Ok(try r) } else { Ok(try Ok(7)) }
+  if flag { Ok(r?) } else { Ok(Ok(7)?) }
 }
-fn maybe(m: Maybe<Int>) -> Maybe<Int> { Some(m |> try) }
+fn maybe(m: Maybe<Int>) -> Maybe<Int> { Some(m?) }
 fn show(r: Result<Int, String>) -> String { case r { Ok(n) -> "${n}" Err(e) -> e } }
 fn read(m: Maybe<Int>) -> Int { case m { Some(n) -> n None -> 0 } }
 fn main() {

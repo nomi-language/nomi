@@ -1,3 +1,5 @@
+//# Parses and evaluates simple math word problems.
+
 /// Why a question has no answer.
 pub enum Error {
     UnknownOperation
@@ -16,12 +18,8 @@ pub fn answer(question: String) -> Result<Int, Error> {
         return Err(.UnknownOperation)
     }
 
-    [first, ..rest] = String.words(problem) else {
-        return Err(.SyntaxError)
-    }
-    Some(total) = String.to_int(first) else {
-        return Err(.SyntaxError)
-    }
+    [first, ..rest] = String.words(problem) else { return Err(.SyntaxError) }
+    Some(total) = String.to_int(first) else { return Err(.SyntaxError) }
     evaluate(total, rest)
 }
 
@@ -40,20 +38,16 @@ fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
         ["minus", ..rest] -> operand(total, .Minus, rest)
         ["multiplied", "by", ..rest] -> operand(total, .Times, rest)
         ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
-        [word, .._] when String.to_int(word) |> Maybe.some?() -> Err(.SyntaxError)
+        [word, .._] when String.to_int(word) |> Maybe.is_some() -> Err(.SyntaxError)
         _ -> Err(.UnknownOperation)
     }
 }
 
 /// Reads the number after an operation, applies it and carries on.
 fn operand(total: Int, operation: Operation, words: List<String>) -> Result<Int, Error> {
-    [word, ..rest] = words else {
-        return Err(.SyntaxError)
-    }
-    Some(n) = String.to_int(word) else {
-        return Err(.SyntaxError)
-    }
-    total = try apply(operation, total, n)
+    [word, ..rest] = words else { return Err(.SyntaxError) }
+    Some(n) = String.to_int(word) else { return Err(.SyntaxError) }
+    total = apply(operation, total, n)?
     evaluate(total, rest)
 }
 

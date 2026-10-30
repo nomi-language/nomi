@@ -162,7 +162,7 @@ func EnterScope(parent *Frame) *Frame {
 // block completes normally with both in flight and the cancel here is the only
 // thing that stops them.
 //
-// Called behind a Go `defer`, so it also runs while a panic unwinds — a `try`
+// Called behind a Go `defer`, so it also runs while a panic unwinds — a `?`
 // propagating out of the block, a Nomi fault, or a cancellation from an
 // ancestor. The panic continues afterwards, so the exit signal is re-raised
 // outward for free.
@@ -451,7 +451,7 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 //
 // Two channels, which is std/tasks.nomi's own framing. The value channel is
 // ordinary — an `Err` the body returned deliberately arrives here as a value and
-// `try Task.await(t)` propagates it like any other Result. The failure channel
+// `Task.await(t)?` propagates it like any other Result. The failure channel
 // is out of band: there is no `Err` to match on because the task never chose to
 // produce one, so awaiting a failed task fails the awaiter with the fault the
 // body raised. The report is exactly the body's own fault text, so

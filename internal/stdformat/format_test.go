@@ -45,14 +45,14 @@ func TestFormatInt(t *testing.T) {
 		{"en", math.MinInt64, "-9,223,372,036,854,775,808"},
 		{"qaa", 1234567, "1,234,567"}, // no data: root
 	} {
-		if got := FFIFormatInt(fr, c.locale, c.n, true, 1); got != c.want {
+		if got := FFIFormatInt(fr, c.locale, rt.SmallInt(c.n), true, 1); got != c.want {
 			t.Errorf("Int.format(%d, %s) = %q, want %q", c.n, c.locale, got, c.want)
 		}
 	}
-	if got := FFIFormatInt(fr, "en", 1234567, false, 1); got != "1234567" {
+	if got := FFIFormatInt(fr, "en", rt.SmallInt(1234567), false, 1); got != "1234567" {
 		t.Errorf("grouping: False gives %q", got)
 	}
-	if got := FFIFormatInt(fr, "en", 42, true, 5); got != "00,042" {
+	if got := FFIFormatInt(fr, "en", rt.SmallInt(42), true, 5); got != "00,042" {
 		t.Errorf("min_digits: 5 gives %q", got)
 	}
 }
@@ -139,7 +139,7 @@ func TestFormatDecimal(t *testing.T) {
 
 func TestFormatTrapsOnBadOptions(t *testing.T) {
 	for name, f := range map[string]func(){
-		"min_digits 0":                 func() { FFIFormatInt(full(), "en", 1, true, 0) },
+		"min_digits 0":                 func() { FFIFormatInt(full(), "en", rt.SmallInt(1), true, 0) },
 		"min > max":                    func() { FFIFormatFloat(full(), "en", 1, 3, 2, true) },
 		"negative max":                 func() { FFIFormatFloatPercent(full(), "en", 1, -1) },
 		"over the bound":               func() { FFIFormatFloat(full(), "en", 1, 0, 101, true) },
@@ -164,7 +164,7 @@ func TestUnlistedLocalesFallBack(t *testing.T) {
 		{"de-CH", "1.234.567"}, // de-CH is not carried: its parent de is
 		{"fr", "1,234,567"},    // nothing on fr's chain is carried, and no source: root
 	} {
-		if got := FFIFormatInt(fr, c.locale, 1234567, true, 1); got != c.want {
+		if got := FFIFormatInt(fr, c.locale, rt.SmallInt(1234567), true, 1); got != c.want {
 			t.Errorf("listing only de, Int.format(1234567, %s) = %q, want %q", c.locale, got, c.want)
 		}
 	}
@@ -196,7 +196,7 @@ func TestALocaleTheProgramDoesNotCarryFormatsAsTheSource(t *testing.T) {
 		if got := FormatStyle(d, c.locale, date, "long/-"); got != c.date {
 			t.Errorf("source %q: a long date in %s is %q, want %q", c.source, c.locale, got, c.date)
 		}
-		if got := Money(d, c.locale, "12.5", "EUR", 2, true, displaySymbol); got != c.money {
+		if got := Money(d, c.locale, "12.5", "EUR", 2, true, displaySymbol, false); got != c.money {
 			t.Errorf("source %q: 12.5 EUR in %s is %q, want %q", c.source, c.locale, got, c.money)
 		}
 		if got := FFIJoinList(fr, c.locale, []string{"a", "b", "c"}, int64(rt.TagListAnd), int64(rt.TagListWide)); got != c.list {

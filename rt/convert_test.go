@@ -19,44 +19,47 @@ func TestFloatToInt_Absolute(t *testing.T) {
 		name string
 		in   float64
 		some bool
-		want int64
+		want string
 	}{
 		// Truncation is toward zero, not floor: -3.7 is -3, not -4. The two
 		// disagree for every negative non-integer, which is most of the domain.
-		{"positive truncates toward zero", 3.7, true, 3},
-		{"negative truncates toward zero", -3.7, true, -3},
-		{"exact", 42.0, true, 42},
-		{"zero", 0.0, true, 0},
-		{"negative zero is zero", math.Copysign(0, -1), true, 0},
-		{"just under one", 0.9999, true, 0},
-		{"just over minus one", -0.9999, true, 0},
+		{"positive truncates toward zero", 3.7, true, "3"},
+		{"negative truncates toward zero", -3.7, true, "-3"},
+		{"exact", 42.0, true, "42"},
+		{"zero", 0.0, true, "0"},
+		{"negative zero is zero", math.Copysign(0, -1), true, "0"},
+		{"just under one", 0.9999, true, "0"},
+		{"just over minus one", -0.9999, true, "0"},
 
-		{"NaN has no integer value", math.NaN(), false, 0},
-		{"positive infinity", math.Inf(1), false, 0},
-		{"negative infinity", math.Inf(-1), false, 0},
+		{"NaN has no integer value", math.NaN(), false, "0"},
+		{"positive infinity", math.Inf(1), false, "0"},
+		{"negative infinity", math.Inf(-1), false, "0"},
 
 		// The boundary is asymmetric and this is the pair that proves it.
 		// float64(math.MinInt64) is exactly -2^63 and is representable;
 		// float64(math.MaxInt64) rounds up to 2^63, which is one past the range,
 		// so the largest float64 below it is the largest accepted value.
-		{"exactly MinInt64 is in range", math.MinInt64, true, math.MinInt64},
-		{"one step below MinInt64 is out", math.Nextafter(math.MinInt64, math.Inf(-1)), false, 0},
-		{"float64(MaxInt64) is OUT, because it rounded up", float64(math.MaxInt64), false, 0},
-		{"the float below it is in", math.Nextafter(float64(math.MaxInt64), 0), true, 9223372036854774784},
+		// An Int holds a whole number of any size, so every finite Float has
+		// one: the boundaries of int64 are no boundary here.
+		{"exactly MinInt64", math.MinInt64, true, "-9223372036854775808"},
+		{"one step below MinInt64", math.Nextafter(math.MinInt64, math.Inf(-1)), true, "-9223372036854777856"},
+		{"float64(MaxInt64), which rounded up to 2^63", float64(math.MaxInt64), true, "9223372036854775808"},
+		{"the float below it", math.Nextafter(float64(math.MaxInt64), 0), true, "9223372036854774784"},
+		{"the largest Float", math.MaxFloat64, true, "179769313486231570814527423731704356798070567525844996598917476803157260780028538760589558632766878171540458953514382464234321326889464182768467546703537516986049910576551282076245490090389328944075868508455133942304583236903222948165808559332123348274797826204144723168738177180919299881250404026184124858368"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := FloatToInt(tc.in)
 			if !tc.some {
 				if got.Tag != TagNone {
-					t.Fatalf("FloatToInt(%v) = Some(%d), want None", tc.in, got.Some)
+					t.Fatalf("FloatToInt(%v) = Some(%s), want None", tc.in, got.Some)
 				}
 				return
 			}
 			if got.Tag != TagSome {
-				t.Fatalf("FloatToInt(%v) = None, want Some(%d)", tc.in, tc.want)
+				t.Fatalf("FloatToInt(%v) = None, want Some(%s)", tc.in, tc.want)
 			}
-			if got.Some != tc.want {
-				t.Fatalf("FloatToInt(%v) = Some(%d), want Some(%d)", tc.in, got.Some, tc.want)
+			if got.Some.String() != tc.want {
+				t.Fatalf("FloatToInt(%v) = Some(%s), want Some(%s)", tc.in, got.Some, tc.want)
 			}
 		})
 	}
@@ -67,45 +70,46 @@ func TestStringToInt_Absolute(t *testing.T) {
 		name string
 		in   string
 		some bool
-		want int64
+		want string
 	}{
-		{"plain", "42", true, 42},
-		{"negative", "-7", true, -7},
-		{"explicit plus", "+7", true, 7},
+		{"plain", "42", true, "42"},
+		{"negative", "-7", true, "-7"},
+		{"explicit plus", "+7", true, "7"},
 		// std/strings documents this one with an executable example, so the
 		// trimming is a contract rather than an implementation detail.
-		{"surrounding whitespace is trimmed", "  3  ", true, 3},
-		{"tabs and newlines too", "\t9\n", true, 9},
-		{"leading zeros", "007", true, 7},
-		{"MinInt64", "-9223372036854775808", true, math.MinInt64},
-		{"MaxInt64", "9223372036854775807", true, math.MaxInt64},
+		{"surrounding whitespace is trimmed", "  3  ", true, "3"},
+		{"tabs and newlines too", "\t9\n", true, "9"},
+		{"leading zeros", "007", true, "7"},
+		{"MinInt64", "-9223372036854775808", true, "-9223372036854775808"},
+		{"MaxInt64", "9223372036854775807", true, "9223372036854775807"},
 
-		{"empty", "", false, 0},
-		{"blank", "   ", false, 0},
-		{"letters", "abc", false, 0},
+		{"empty", "", false, "0"},
+		{"blank", "   ", false, "0"},
+		{"letters", "abc", false, "0"},
 		// The base is 10, always. strconv.ParseInt with base 0 would read this
 		// as 16, which would be a different language.
-		{"hex is not accepted", "0x10", false, 0},
-		{"binary is not accepted", "0b11", false, 0},
-		{"underscore separators are not accepted", "1_000", false, 0},
-		{"interior whitespace", "1 2", false, 0},
-		{"a float", "3.5", false, 0},
-		{"one past MaxInt64", "9223372036854775808", false, 0},
-		{"one past MinInt64", "-9223372036854775809", false, 0},
+		{"hex is not accepted", "0x10", false, "0"},
+		{"binary is not accepted", "0b11", false, "0"},
+		{"underscore separators are not accepted", "1_000", false, "0"},
+		{"interior whitespace", "1 2", false, "0"},
+		{"a float", "3.5", false, "0"},
+		{"one past MaxInt64", "9223372036854775808", true, "9223372036854775808"},
+		{"one past MinInt64", "-9223372036854775809", true, "-9223372036854775809"},
+		{"any length", "123456789012345678901234567890", true, "123456789012345678901234567890"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := StringToInt(tc.in)
 			if !tc.some {
 				if got.Tag != TagNone {
-					t.Fatalf("StringToInt(%q) = Some(%d), want None", tc.in, got.Some)
+					t.Fatalf("StringToInt(%q) = Some(%s), want None", tc.in, got.Some)
 				}
 				return
 			}
 			if got.Tag != TagSome {
-				t.Fatalf("StringToInt(%q) = None, want Some(%d)", tc.in, tc.want)
+				t.Fatalf("StringToInt(%q) = None, want Some(%s)", tc.in, tc.want)
 			}
-			if got.Some != tc.want {
-				t.Fatalf("StringToInt(%q) = Some(%d), want Some(%d)", tc.in, got.Some, tc.want)
+			if got.Some.String() != tc.want {
+				t.Fatalf("StringToInt(%q) = Some(%s), want Some(%s)", tc.in, got.Some, tc.want)
 			}
 		})
 	}

@@ -11,13 +11,17 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: leap.nomi
+//# Leap years in the Gregorian calendar.
+
+import std/calendar.Date
+
 /// Whether `year` is a leap year in the Gregorian calendar.
-pub fn leap_year?(year: Int) -> Bool {
-    year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+pub fn is_leap_year(year: Int) -> Bool {
+    Date.is_leap_year(year)
 }
 
 // FILE: leap_test.nomi
-import leap.leap_year?
+import leap.is_leap_year
 
 test "leap years" {
     cases = [
@@ -33,17 +37,18 @@ test "leap years" {
     ]
 
     subtests cases, #(description, year, expected), description {
-        assert leap_year?(year) == expected
+        assert is_leap_year(year) == expected
     }
 }
 ```
 
 ## How it's written
 
-- One boolean expression with `%`, not a helper lambda. The lambda version
-  needs its parameter annotated (`fn n: Int ->`), and the plain expression is
-  the form most languages' solutions use.
-- The function is `leap_year?`, a `?` predicate, since it answers a yes/no
+- The answer is std/calendar's `Date.is_leap_year`, which holds the rule
+  (`year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)`), so the
+  solution does not write it again. Python's solution can call
+  `calendar.isleap` the same way.
+- The function is `is_leap_year`, a `?` predicate, since it answers a yes/no
   question about its argument.
 - The cases are one `subtests` table. Each row's first column is the
   canonical description, which names the row (`subtests cases, #(description,

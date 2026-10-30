@@ -11,12 +11,12 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: collatz_conjecture.nomi
+//# Counts the steps of the Collatz conjecture that take a number to 1.
+
 /// How many Collatz steps take `number` to 1: halve an even number, and
 /// triple an odd one and add 1.
 pub fn steps(number: Int) -> Result<Int, String> {
-    if number < 1 {
-        return Err("Only positive integers are allowed")
-    }
+    if number < 1 { return Err("Only positive integers are allowed") }
 
     Iter.iterate(number, next)
     |> Iter.take_while(&(&1 != 1))

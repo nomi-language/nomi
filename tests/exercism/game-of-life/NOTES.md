@@ -22,13 +22,13 @@ None.
 
 ## Indexing
 
-Two indexed reads, both in `cell_at` (`game_of_life.nomi:28`); no indexed update.
+Two indexed reads, both in `cell_at` (`game_of_life.nomi:26`); no indexed update.
 
 | Read | Result | Real use for `None`? |
 |---|---|---|
-| `try Vector.get(board, row)` | `cell_at`'s result, then `Maybe.with_default(0)` in `live_neighbours` | Yes: `row + dr` is -1 or the height at an edge |
+| `Vector.get(board, row)?` | `cell_at`'s result, then `Maybe.with_default(0)` in `live_neighbours` | Yes: `row + dr` is -1 or the height at an edge |
 | `Vector.get(cells, column)` | same | Yes: `column + dc` is off the row at an edge |
 
 `cell_at` is 4 lines, plus the `|> Maybe.with_default(0)` on the line that calls it. Both reads keep `Vector.get`, because their `None` is the edge of the board.
 
-The trapping `Vector.at` was added as a result of the indexing exercises, and it does not fit here: with it, the bounds checks `Vector.get` does would be written by hand, 6 lines instead of 4.
+A trapping `Vector.get(...)!` read does not fit here: with it, the bounds checks `Vector.get` does would be written by hand, 6 lines instead of 4.

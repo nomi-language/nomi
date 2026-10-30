@@ -77,23 +77,21 @@ func buildAndCollectTypeErrors(t *testing.T, src string) []analysis.TypeError {
 // come from its CALLEES, checking the synthesized body.
 //
 // Both rows were measured with a file that derives without importing `Json`.
-// That file now checks: derived code reaches std's `Json` through the
-// compiler-known route (synthSupportScope). The rows now declare the file's
-// own `Json`, which the route leaves bound, so the synthesized body still
-// names a type that has no `Obj` and the diagnostics still come from checking
-// a synthesized body.
+// That file now checks: derived code names std's `Json` through its hidden
+// `json$` import. The rows now derive for a struct with a `Display` field,
+// so checking the synthesized body converts a value of an interface that
+// requires neither ToJson nor FromJson, and the diagnostics still come from
+// checking a synthesized body.
 func TestSynthDiagnostics_NeverCarryASynthBandPosition(t *testing.T) {
 	cases := []struct {
 		name string
 		src  string
 	}{
 		{
-			name: "derive FromJson beside a file's own Json",
+			name: "derive FromJson of an interface-typed field",
 			src: `import { std/io; std/json.FromJson }
 
-struct Json { a: Int }
-
-struct P { a: Int }
+struct P { a: Display }
 
 derive FromJson for P
 
@@ -101,12 +99,10 @@ fn main() { io.print("x") }
 `,
 		},
 		{
-			name: "derive ToJson beside a file's own Json",
+			name: "derive ToJson of an interface-typed field",
 			src: `import { std/io; std/json.ToJson }
 
-struct Json { a: Int }
-
-struct P { a: Int }
+struct P { a: Display }
 
 derive ToJson for P
 
@@ -118,8 +114,8 @@ fn main() { io.print("x") }
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			errs := buildAndCollectTypeErrors(t, tc.src)
-			// Non-vacuity. If derived code ever stops resolving `Json` to
-			// the file's own declaration these rows stop producing a
+			// Non-vacuity. If checking the derived code ever stops
+			// reporting the field these rows stop producing a
 			// diagnostic, and a test that then asserts
 			// "nothing is in the band" would assert nothing at all.
 			if len(errs) == 0 {

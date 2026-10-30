@@ -16,7 +16,7 @@ import (
 // the same value reached through user generic functions at new type
 // arguments, lambdas, named functions, nested functions, constructors and
 // partial applications as callbacks, pipes and `then` stages, blocks, `if`
-// and `case`, `try`, and values wrapped in Some, Ok, tuples, lists, a
+// and `case`, `?`, and values wrapped in Some, Ok, tuples, lists, a
 // generic struct, a generic enum and a distinct type, and functions held in
 // tuples and boxes and called through the field chain that reads them. A
 // program's types sit at file level or inside the body that uses them, and
@@ -145,7 +145,7 @@ type gen struct {
 	hold *rand.Rand
 	hn   int
 	// dfr draws the blocks deferBlock writes (a `defer` in a lambda or a loop
-	// callback, an `equal?` recursing into fields of its own type), and fdn
+	// callback, an `equal` recursing into fields of its own type), and fdn
 	// names their declarations apart, so the rest of each program is the one
 	// it was without them.
 	dfr *rand.Rand
@@ -379,9 +379,9 @@ func (g *gen) use(t *gt, v gvar, depth int, sc []gvar) string {
 			return "case " + n + " {\n.Circle(r) -> r\n.Square(s) -> s * s\n.Dot -> 0\n}"
 		})
 	case t.k == "Bool" && v.t.k == "Maybe":
-		add(func() string { return "Maybe.some?(" + n + ")" })
+		add(func() string { return "Maybe.is_some(" + n + ")" })
 	case t.k == "Bool" && v.t.k == "Result":
-		add(func() string { return "Result.ok?(" + n + ")" })
+		add(func() string { return "Result.is_ok(" + n + ")" })
 	}
 	switch v.t.k {
 	case "Tuple":
@@ -754,7 +754,7 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		},
 		func() string {
 			f, v := g.fresh("attempt"), g.fresh("t")
-			return "{\nfn " + f + "() -> Result<" + t.String() + ", String> {\n" + v + " = try ok(" + g.expr(t, d, sc) + ")\nOk(" + v + ")\n}\n" +
+			return "{\nfn " + f + "() -> Result<" + t.String() + ", String> {\n" + v + " = ok(" + g.expr(t, d, sc) + ")?\nOk(" + v + ")\n}\n" +
 				"case " + f + "() {\nOk(r) -> r\nErr(_) -> " + g.expr(t, d, sc) + "\n}\n}"
 		},
 	)
@@ -796,10 +796,10 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 		add(
 			func() string { u := g.eqType(); return paren(lit(u)) + " == " + paren(lit(u)) },
 			func() string { u := g.eqType(); return "same(" + g.expr(u, d, sc) + ", " + g.expr(u, d, sc) + ")" },
-			func() string { return "Maybe.some?(Some(" + g.expr(g.typ(1), d, sc) + "))" },
+			func() string { return "Maybe.is_some(Some(" + g.expr(g.typ(1), d, sc) + "))" },
 			func() string {
 				u := g.typ(1)
-				return "Iter.any?([" + lit(u) + "], " + g.callback(u, tBool, d, sc, false) + ")"
+				return "Iter.any([" + lit(u) + "], " + g.callback(u, tBool, d, sc, false) + ")"
 			},
 		)
 	case "Meters":
@@ -1270,7 +1270,7 @@ func (g *gen) divergingBlock(sc []gvar) string {
 		pred := "fn dx -> case dx {\n" + arms("dx", "2", []string{"break", "break True", "break False"}[r.Intn(3)], "return dx == 1") + "}"
 		switch r.Intn(6) {
 		case 0, 1, 2:
-			op := []string{"find", "any?", "all?"}[r.Intn(3)]
+			op := []string{"find", "any", "all"}[r.Intn(3)]
 			return "{\n" + name + " = Iter." + op + "(" + xs + ", " + pred + ")\nio.inspect(" + name + ")\n}\n"
 		case 3:
 			return "{\n" + name + " = Iter.drop_while(" + xs + ", " + pred + ") |> Iter.to_list()\nio.inspect(" + name + ")\n}\n"
@@ -1619,7 +1619,7 @@ func (g *gen) iterBlock() string {
 		fmt.Fprintf(&out, "io.inspect(Range.known_count(%d..%d))\n", a, a+b)
 		fmt.Fprintf(&out, "io.inspect(Range.each_while(%d..=%d, fn n -> n < %d))\n", a, a+b, a+k)
 		fmt.Fprintf(&out, "io.inspect(Iter.to_set([%d..%d, %d..%d]))\n", a, b, a, b)
-		fmt.Fprintf(&out, "io.inspect(Range.contains?(False..=True, %s))\n", g.boolLitFrom(r))
+		fmt.Fprintf(&out, "io.inspect(Range.contains(False..=True, %s))\n", g.boolLitFrom(r))
 	case 6:
 		fmt.Fprintf(&out, "%s = Iter.loop(fn g = fn x: Int -> x -> {\nif g(0) > %d { break g }\nfn x: Int -> g(x) + 1\n})\nio.inspect(%s(%d))\n", name("il"), k, name("il"), a)
 	case 7:
@@ -1777,7 +1777,7 @@ func (g *gen) callBlock() string {
 	case 9:
 		// testing.check, an intrinsic with no body, as a value.
 		fmt.Fprintf(&out, "%s: (Bool) -> Result<Bool, testing.AssertionFailure> = testing.check\n", name("cck"))
-		fmt.Fprintf(&out, "io.print(Result.ok?(%s(%d > 1)))\n", name("cck"), n)
+		fmt.Fprintf(&out, "io.print(Result.is_ok(%s(%d > 1)))\n", name("cck"), n)
 	case 8:
 		// A function with a default named as a value: its full parameter
 		// list.
@@ -1839,7 +1839,7 @@ func (g *gen) callBlock() string {
 // engineering reasons alone: an `and` or `or` whose right operand leaves (a
 // block ending in `return`, `break` or `continue`, a `case` or `if` every
 // arm of which leaves, in parentheses, under `!` or as a call's argument,
-// a failing `try`), a nested fn's destructuring parameter, and a
+// a failing `?`), a nested fn's destructuring parameter, and a
 // `Struct.update` patch that is a value rather than a literal, and a
 // partial whose open slot has a computed default, and a Context value keyed
 // by a std type with an rt Go type, list patterns over `[]` and of a suffix
@@ -1930,9 +1930,9 @@ func (g *gen) leaveBlock() string {
 			name("lm"), n+1, n+2+r.Intn(3))
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("lm"))
 	case 3:
-		// A `try` that fails as the right operand.
+		// A `?` that fails as the right operand.
 		fmt.Fprintf(&out, "fn %s(x: Int) -> Result<Int, String> {\nif x %% 2 == 0 { Ok(x) } else { Err(\"odd ${x}\") }\n}\n", name("lh"))
-		fmt.Fprintf(&out, "fn %s(x: Int) -> Result<Bool, String> {\nOk(x > %d %s try %s(x) > 0)\n}\n", name("lt"), n, op, name("lh"))
+		fmt.Fprintf(&out, "fn %s(x: Int) -> Result<Bool, String> {\nOk(x > %d %s %s(x)? > 0)\n}\n", name("lt"), n, op, name("lh"))
 		fmt.Fprintf(&out, "io.inspect(%s(%d))\n", name("lt"), r.Intn(7)-1)
 	default:
 		// A nested fn's destructuring parameter.
@@ -1946,7 +1946,7 @@ func (g *gen) leaveBlock() string {
 // holdBlock writes a block over values a container or a variant holds:
 // a variant whose payload has one value (Unit, a marker), a Range in a
 // Maybe, a map of Iters, ChannelClosed inspected, a record hashed,
-// `Equatable.equal?` over tuples through a bound, and a partial that leaves
+// `Equatable.equal` over tuples through a bound, and a partial that leaves
 // a defaulted slot open, passed through a generic call.
 // boundedBlockStart and boundedBlockEnd fence a block whose loops,
 // ranges, spreads and recursion are bounded by construction (erasedBlock,
@@ -2005,9 +2005,9 @@ func (g *gen) holdBlock() string {
 		if g.local {
 			break
 		}
-		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<T>(a: T, b: T) -> Bool where T: Equatable {\nEquatable.equal?(a, b)\n}", name("heq")))
+		g.helpers = append(g.helpers, fmt.Sprintf("fn %s<T>(a: T, b: T) -> Bool where T: Equatable {\nEquatable.equal(a, b)\n}", name("heq")))
 		fmt.Fprintf(&out, "io.inspect(%s(#(%d, \"x\"), #(%d, \"x\")))\n", name("heq"), n, n+r.Intn(2))
-		fmt.Fprintf(&out, "io.inspect(Equatable.equal?(#{a: %d}, #{a: %d}))\n", n, n+r.Intn(2))
+		fmt.Fprintf(&out, "io.inspect(Equatable.equal(#{a: %d}, #{a: %d}))\n", n, n+r.Intn(2))
 	default:
 		fmt.Fprintf(&out, "fn %s(a: Int, b: Int = %d) -> Int {\na * 10 + b\n}\n", name("hd"), n)
 		fmt.Fprintf(&out, "%s = &%s(&1, b: &2)\n", name("hp"), name("hd"))
@@ -2021,7 +2021,7 @@ func (g *gen) holdBlock() string {
 
 // deferBlock writes a block whose lambdas and `Iter.loop` callbacks hold
 // `defer`s, each run when its invocation or iteration ends (by its end,
-// `return`, `break`, `continue` or `try`), or, at file level, an `equal?`
+// `return`, `break`, `continue` or `?`), or, at file level, an `equal`
 // that compares fields of its own type with `==`.
 func (g *gen) deferBlock() string {
 	r := g.dfr
@@ -2041,7 +2041,7 @@ func (g *gen) deferBlock() string {
 		fmt.Fprintf(&out, "%s = [%d, %d, %d, %d]\n|> Iter.filter(fn x -> {\ndefer io.print(\"seen\")\nif x == %d {\ncontinue\n}\nif x > %d {\nbreak\n}\nTrue\n})\n|> Iter.to_list()\n", name("df"), n, n+1, n+2, n+3, n+1, n+2)
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("df"))
 	case 3:
-		fmt.Fprintf(&out, "%s = fn x: Int -> {\ndefer io.print(\"tried\")\nchecked: Result<Int, String> = if x > %d { Ok(x) } else { Err(\"low\") }\nv = try checked\nOk(v + 1)\n}\n", name("dr"), n)
+		fmt.Fprintf(&out, "%s = fn x: Int -> {\ndefer io.print(\"tried\")\nchecked: Result<Int, String> = if x > %d { Ok(x) } else { Err(\"low\") }\nv = checked?\nOk(v + 1)\n}\n", name("dr"), n)
 		fmt.Fprintf(&out, "%s: Result<Int, String> = %s(%d)\n", name("dv"), name("dr"), n+r.Intn(3))
 		fmt.Fprintf(&out, "io.inspect(%s)\n", name("dv"))
 	case 4:
@@ -2051,7 +2051,7 @@ func (g *gen) deferBlock() string {
 			break
 		}
 		g.helpers = append(g.helpers, fmt.Sprintf("enum %s {\nLeaf\nNode#(%s, Int)\n}\n\n"+
-			"impl Equatable for %s {\nfn equal?(a: %s, b: %s) -> Bool {\ncase #(a, b) {\n#(.Leaf, .Leaf) -> True\n#(.Node(l, x), .Node(r, y)) -> x == y and l == r\n_ -> False\n}\n}\n}",
+			"impl Equatable for %s {\nfn equal(a: %s, b: %s) -> Bool {\ncase #(a, b) {\n#(.Leaf, .Leaf) -> True\n#(.Node(l, x), .Node(r, y)) -> x == y and l == r\n_ -> False\n}\n}\n}",
 			name("Tr"), name("Tr"), name("Tr"), name("Tr"), name("Tr")))
 		leaf := name("Tr") + ".Leaf"
 		node := func(k int) string { return fmt.Sprintf("%s.Node(%s.Node(%s, %d), 1)", name("Tr"), name("Tr"), leaf, k) }

@@ -118,7 +118,7 @@ test "operator interfaces power custom arithmetic" {
 }
 
 test "primitive operator interface functions dispatch directly" {
-    divisor = try Int.to_non_zero(5)
+    divisor = Int.to_non_zero(5)?
 
     assert Subtract.subtract(9, 4) == 5
     assert Multiply.multiply(3, 7) == 21

@@ -5,8 +5,7 @@ import (
 )
 
 // parseCapture parses a capture (spec §5, *Captures*): `&` written against
-// the function's body, which is one postfix-level operand, as a prefix
-// `try`'s is: a call (`&Int.max(&1, 0)`), a parenthesized expression
+// the function's body, which is one postfix-level operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
 // (`&(&1 > 2)`) or a literal (`&#Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`,
 // `&%{&1 => 0}`). So `&f(&1) + 1` adds 1 to a function, and the body of a
 // function of the whole sum is parenthesized: `&(f(&1) + 1)`.
@@ -35,7 +34,7 @@ func (p *Parser) parseCapture() (ast.Node, error) {
 
 // captureBody reports whether n can be a capture's body: a call, a
 // parenthesized expression or a literal, or the negation of one
-// (`&!String.empty?(&1)`), which reads as the capture of the call it
+// (`&!String.is_empty(&1)`), which reads as the capture of the call it
 // negates.
 func captureBody(n ast.Node) bool {
 	switch v := n.(type) {
@@ -44,6 +43,14 @@ func captureBody(n ast.Node) bool {
 		return true
 	case *ast.Unary:
 		return v.Op == "!" && captureBody(v.Right)
+	case *ast.Unwrap:
+		// `&Vector.get(v, &1)!`: the body unwraps a call's result, so its
+		// `&1` is the capture's parameter, not a partial application's.
+		return captureBody(v.Expr)
+	case *ast.TryOp:
+		// `&parse(&1)?`: the body propagates a call's failure out of the
+		// capture's function, as a `?` in a lambda's body does.
+		return v.Expr != nil && captureBody(v.Expr)
 	}
 	return false
 }

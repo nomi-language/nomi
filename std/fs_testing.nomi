@@ -104,7 +104,7 @@ pub enum Operation {
     Rename
     /// `fs.list`.
     List
-    /// `fs.metadata`, `fs.exists?`, `fs.link_metadata`, `fs.read_link` and
+    /// `fs.metadata`, `fs.exists`, `fs.link_metadata`, `fs.read_link` and
     /// `fs.set_mode`.
     Metadata
     /// Closing a file opened to read or write.
@@ -136,7 +136,7 @@ pub struct Ran<T> {
 /// answers what it returned with the files afterwards. Nothing touches the
 /// disk. If `body` traps, the trap propagates.
 //! ran = run(#Sandbox{files: %{"in.txt" => "b\na\n"}}, fn -> {
-//!     names = try Result.collect(fs.lines("in.txt"))
+//!     names = Result.collect(fs.lines("in.txt"))?
 //!     fs.write_text("out.txt", String.join(Iter.sort(names), ","))
 //! })
 //!
@@ -214,7 +214,7 @@ pub struct ConformanceFailure {
 /// each `WriteMode`, `NotFound` for a missing parent, sorted listings,
 /// `remove` of a directory with entries, `remove_all` of a missing path,
 /// `rename` over a file, an atomic write that fails, line splitting,
-/// `InvalidText`, closed handles, `exists?`, walks and globs, symlinks
+/// `InvalidText`, closed handles, `exists`, walks and globs, symlinks
 /// (followed by reads and `metadata`, not by `link_metadata`, `remove`,
 /// `rename` and walks; a dangling one; a loop), `set_mode`, a `File`'s
 /// reads and writes at a position, and `fs.within`'s confinement.
@@ -253,7 +253,7 @@ fn rule_dir(rule: String) -> String {
 
 /// The first failure among checks made in order, or None.
 fn first(checks: List<Maybe<String>>) -> Maybe<String> {
-    checks |> Iter.find(fn c -> Maybe.some?(c)) |> Maybe.flat_map(fn c -> c)
+    checks |> Iter.find(fn c -> Maybe.is_some(c)) |> Maybe.flat_map(fn c -> c)
 }
 
 /// None when got is want, else a sentence naming both.
@@ -288,7 +288,7 @@ fn rules() -> List<#(String, (String) -> Maybe<String>)> {
         #("lines runs again from the start", rule_lines_twice),
         #("text that is not UTF-8 is InvalidText", rule_invalid_text),
         #("a closed handle answers Closed", rule_closed),
-        #("exists? answers absence and presence", rule_exists),
+        #("exists answers absence and presence", rule_exists),
         #("metadata answers kind and size", rule_metadata),
         #("walk is depth first in name order and follows no symlink", rule_walk),
         #("walk of a missing root is one NotFound", rule_walk_missing),
@@ -361,7 +361,7 @@ fn rule_atomic_failure(dir: String) -> Maybe<String> {
     failed = fs.with_writer<Unit>(
         p,
         fn w -> {
-            try Writer.write_text(w, "half")
+            Writer.write_text(w, "half")?
             Err(Error.TimedOut)
         },
         mode: WriteMode.ReplaceAtomically,
@@ -463,7 +463,7 @@ fn rule_remove_all(dir: String) -> Maybe<String> {
         check("make the tree", fs.create_dir(path.join(tree, "a/b"), parents: True), Ok(Unit)),
         check("write in it", fs.write_text(path.join(tree, "a/b/c.txt"), "c"), Ok(Unit)),
         check("remove_all", fs.remove_all(tree), Ok(Unit)),
-        check("exists?", fs.exists?(tree), Ok(False)),
+        check("exists", fs.exists(tree), Ok(False)),
     ])
 }
 
@@ -595,10 +595,10 @@ fn rule_exists(dir: String) -> Maybe<String> {
     p = path.join(dir, "e.txt")
 
     first([
-        check("a missing file", fs.exists?(p), Ok(False)),
+        check("a missing file", fs.exists(p), Ok(False)),
         check("write", fs.write_text(p, ""), Ok(Unit)),
-        check("a file", fs.exists?(p), Ok(True)),
-        check("a directory", fs.exists?(dir), Ok(True)),
+        check("a file", fs.exists(p), Ok(True)),
+        check("a directory", fs.exists(dir), Ok(True)),
     ])
 }
 
@@ -727,7 +727,7 @@ fn rule_dangling(dir: String) -> Maybe<String> {
 
     first([
         check("link to nothing", fs.create_symlink(link, target: "none"), Ok(Unit)),
-        check("exists?", fs.exists?(link), Ok(False)),
+        check("exists", fs.exists(link), Ok(False)),
         check(
             "link_metadata",
             Result.map(fs.link_metadata(link), fn m -> m.kind),
@@ -921,8 +921,8 @@ fn rule_within(dir: String) -> Maybe<String> {
 
     inside = fn -> {
         fs.within(site, fn -> {
-            try fs.write_text("new.txt", "n")
-            try fs.create_dir("sub")
+            fs.write_text("new.txt", "n")?
+            fs.create_dir("sub")?
 
             Ok([
                 fs.read_text("index.txt"),
@@ -995,7 +995,7 @@ fn rule_within_escape(dir: String) -> Maybe<String> {
                 escaped(secret),
                 escaped("../x.txt"),
             ])),
-        check("nothing written outside", fs.exists?(path.join(dir, "x.txt")), Ok(False)),
+        check("nothing written outside", fs.exists(path.join(dir, "x.txt")), Ok(False)),
         check(
             "a temporary directory inside",
             fs.within(site, fn -> fs.with_temp_dir(fn d -> Ok(d))),

@@ -9,8 +9,8 @@ import (
 // A monomorphic std body the cache declines because it reaches a generic
 // template, directly or through other bodies declined for that reason, is
 // built per program (stdUnretainedMonoBody). `String.strip_prefix` calls
-// the generic `String.starts_with?`, and `Regex`'s `impl Debug`, reached
-// through an interface, calls the generic `String.contains?`; without a
+// the generic `String.starts_with`, and `Regex`'s `impl Debug`, reached
+// through an interface, calls the generic `String.contains`; without a
 // per-program route a program that reaches either is BLOCKED.
 //
 // Every Nomi-bodied monomorphic std function the cache did not retain must

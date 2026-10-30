@@ -138,12 +138,12 @@ func implAllHostBound(ib *ast.ImplBlock) bool {
 // A name the ACTIVE SUBSTITUTION FRAME already binds is NOT one. That sounds like
 // a relaxation and is the opposite: an impl item built inside an instantiation
 // has every one of the template's parameters bound to a concrete kind before its
-// signature is resolved, so `fn equal?<T>(a: Box<T>, b: Box<T>)` inside
+// signature is resolved, so `fn equal<T>(a: Box<T>, b: Box<T>)` inside
 // `Box<Int>`'s registration is a MONOMORPHIC function whose annotations happen to
 // spell `T`. Reporting it as generic would refuse a signature every position of
 // which the builder can name.
 //
-// The front end's synthesized `derive Equatable for Box` emits its `equal?`
+// The front end's synthesized `derive Equatable for Box` emits its `equal`
 // WITH the template's type parameters attached to the FUNCTION, while a
 // hand-written `impl Equatable for Box<T>` attaches them to the BLOCK and
 // leaves the item's list empty. So the two provenances of one declaration

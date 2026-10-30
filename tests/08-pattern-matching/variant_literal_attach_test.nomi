@@ -16,27 +16,27 @@ test "variant payloads can attach map list and tuple literals" {
 
     assert obj_flat
         |> Debug.inspect()
-        |> String.equal?("Obj(%{\"a\" => Num(1)})")
+        |> String.equal("Obj(%{\"a\" => Num(1)})")
 
     assert obj_call
         |> Debug.inspect()
-        |> String.equal?("Obj(%{\"b\" => Num(2)})")
+        |> String.equal("Obj(%{\"b\" => Num(2)})")
 
     assert arr_flat
         |> Debug.inspect()
-        |> String.equal?("Arr([Num(1), Num(2), Num(3)])")
+        |> String.equal("Arr([Num(1), Num(2), Num(3)])")
 
     assert arr_call
         |> Debug.inspect()
-        |> String.equal?("Arr([Num(4), Num(5)])")
+        |> String.equal("Arr([Num(4), Num(5)])")
 
     assert pos_flat
         |> Debug.inspect()
-        |> String.equal?("Pos(10, 20)")
+        |> String.equal("Pos(10, 20)")
 
     assert pos_call
         |> Debug.inspect()
-        |> String.equal?("Pos(30, 40)")
+        |> String.equal("Pos(30, 40)")
 }
 
 test "variant literal-attach patterns destructure payloads" {

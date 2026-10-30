@@ -71,7 +71,7 @@ func (e *assertFailure) Error() string { return e.failure.Error() }
 // runner converts an unwind back into the case's `rt.TestFailure`.
 func (e *assertFailure) Unwrap() error { return e.failure }
 
-// Fault is a NOMI FAULT that left an activation: an integer overflow, a
+// Fault is a NOMI FAULT that left an activation: a zero divisor, a
 // division by zero, a `case` with no matching arm.
 //
 // IT EXISTS BECAUSE THE RUNNER HAS TO TELL A FAULT FROM A MACHINE LIMIT: a
@@ -189,7 +189,7 @@ func (m *Machine) assertInstr(fr *frame, n *ir.Assert) error {
 // `fn` IS ITS OWN BOUNDARY: the failure is its return value,
 // `Err(AssertionFailure)`, delivered at the innermost activation. The front end admits `assert` in a `fn` only when its result is
 // `Result<_, AssertionFailure>`, and refuses it in a lambda. The unwind is the
-// `try` channel's, which `fault` consumes at this activation.
+// `?` channel's, which `fault` consumes at this activation.
 func assertExit(fr *frame, f *rt.AssertionFailure) error {
 	if !fr.testBody {
 		return &tryReturn{value: errValue(nomiFailureValue(f.NomiFailure()))}
@@ -600,12 +600,10 @@ func (m *Machine) compareInstr(fr *frame, n *ir.Compare) (err error) {
 		}
 		return m.compareEqual(fr, n, rt.EqDecimal(a, b))
 	case ir.ValInt:
-		a, aok := lhs.(int64)
-		b, bok := rhs.(int64)
-		if !aok || !bok {
+		if !rt.IsInt(lhs) || !rt.IsInt(rhs) {
 			return compareOperandError(fr, n, lhs, rhs)
 		}
-		return m.compareOrdered(fr, n, orderOf(a, b))
+		return m.compareOrdered(fr, n, rt.IntCompare(lhs, rhs))
 	case ir.ValFloat:
 		a, aok := lhs.(float64)
 		b, bok := rhs.(float64)

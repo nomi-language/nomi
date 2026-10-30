@@ -23,7 +23,7 @@ derive Hashable for Tok`
 // ExprStmt holding the bare `True` ident — the same constant body a
 // zero-sized distinct derives.
 func TestDeriveExternTypeEquatableIsTrue(t *testing.T) {
-	fn := synthMethodForSource(t, externDeriveSrc, "equal?", "Equatable", "Tok")
+	fn := synthMethodForSource(t, externDeriveSrc, "equal", "Equatable", "Tok")
 	if fn == nil {
 		t.Fatal("no synthesized Equatable impl (fn equals) for host type Tok")
 	}

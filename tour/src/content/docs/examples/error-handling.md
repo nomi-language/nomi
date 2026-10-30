@@ -39,11 +39,7 @@ pub fn parse(text: String) -> Result<Int, Error> {
 /// The number `text` writes. The caller promises it writes one, and a
 /// `text` that does not is a bug in the caller: the call traps.
 pub fn parse_trusted(text: String) -> Int {
-    Some(n) = number(text) else {
-        unreachable "parse_trusted was given text that is not a number"
-    }
-
-    n
+    number(text)!
 }
 
 /// The sum of the numbers on the lines of `reader`, or the first line that
@@ -68,9 +64,9 @@ pub fn sum_trusted_lines(reader: Reader) -> Result<Int, Error> {
 fn total(reader: Reader, read: (String) -> Result<Int, Error>) -> Result<Int, Error> {
     next = Reader.read_line(reader) |> Result.map_err(Error.Io)
 
-    case try next {
+    case next? {
         None -> Ok(0)
-        Some(line) -> Ok(try read(line) + try total(reader, read))
+        Some(line) -> Ok(read(line)? + total(reader, read)?)
     }
 }
 
@@ -83,7 +79,7 @@ import {
 }
 
 /// Whether `reader` has been closed: reading from it again is refused.
-fn closed?(reader: Reader) -> Bool {
+fn is_closed(reader: Reader) -> Bool {
     Reader.read_line(reader) == Err(io.Error.Closed)
 }
 
@@ -110,14 +106,14 @@ test "a resource is released when the work succeeds" {
     reader = Reader.from_text("1\n2\n3\n")
 
     assert error_handling.sum_lines(reader) == Ok(6)
-    assert closed?(reader)
+    assert is_closed(reader)
 }
 
 test "a resource is released when the work fails" {
     reader = Reader.from_text("1\nx\n3\n")
 
     assert error_handling.sum_lines(reader) == Err(#Error.NotANumber{text: "x"})
-    assert closed?(reader)
+    assert is_closed(reader)
 }
 
 test "a resource is released when the work traps" {
@@ -129,14 +125,14 @@ test "a resource is released when the work traps" {
     }
 
     assert .Failed(_) = outcome
-    assert closed?(reader)
+    assert is_closed(reader)
 }
 ```
 
 ## How it's written
 
 - Adapted: the exercise has no canonical data; each track sets its own tests, and most ask for an exception to be thrown and caught, a "none" result, a success-or-failure result, and a file-like object closed on success and on an exception. Nomi has no exceptions, and a trap is never caught inside the program. This port keeps the tests' shape, after the Python track's five: a missing answer is `None` (`number`), a failure the caller handles is an `Err` (`parse`), a broken promise traps (`parse_trusted`, seen from outside as a spawned task's `Failed` outcome), and a resource is released when the work succeeds, fails or traps.
-- The resource is a real one, a `std/io` `Reader` over text, so the tests need no fake that records being closed: reading from a closed reader is refused with `io.Error.Closed`, which `closed?` checks.
+- The resource is a real one, a `std/io` `Reader` over text, so the tests need no fake that records being closed: reading from a closed reader is refused with `io.Error.Closed`, which `is_closed` checks.
 - `sum_lines` and `sum_trusted_lines` register `defer Reader.close_quietly(reader)` first, so the reader is closed on every way out of the function: the sum, an `Err` from `total`, and a trap. Each answers `total(...)` directly; a call made while a `defer` is pending is an ordinary call, so the reader is closed after `total` has read it.
-- The trap is an `unreachable` with the broken promise as its reason, the form the spec gives a caller's broken invariant. A test spawns the trapping call in a `concurrent` block and checks `Task.outcome` is `.Failed(_)`, the one place a program can see a trap.
+- The trap is a postfix `!`, `number(text)!`, which answers the number and stops the program with ``line N: `number(text)` found nothing`` when the caller's text is not one. A test spawns the trapping call in a `concurrent` block and checks `Task.outcome` is `.Failed(_)`, the one place a program can see a trap.
 - `Error` has its own variant for a line that is not a number and one that wraps the reader's `io.Error`, so `total` passes `Error.Io` to `Result.map_err`.

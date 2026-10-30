@@ -28,7 +28,7 @@ fn describe(s: SessionState) -> String {
 
 // The same variant matched with no binding at all, which must not depend on
 // the materialization path.
-fn expired?(s: SessionState) -> Bool {
+fn is_expired(s: SessionState) -> Bool {
     case s {
         .Expired -> True
         _ -> False
@@ -39,6 +39,6 @@ fn main() {
     expired: SessionState = Expired
     io.print(describe(expired))
     io.print(describe(SessionState.Active))
-    io.print("${expired?(expired)}")
-    io.print("${expired?(SessionState.Active)}")
+    io.print("${is_expired(expired)}")
+    io.print("${is_expired(SessionState.Active)}")
 }

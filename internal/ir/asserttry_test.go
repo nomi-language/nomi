@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The `assert` and `try` classes, and the rule that an assertion's rendered
+// The `assert` and `?` classes, and the rule that an assertion's rendered
 // source text is a field on the node. See assert.go and try.go, which carry
 // the argument.
 
@@ -27,8 +27,8 @@ func TestAssert_TheSourceTEXTIsAFieldAndItIsREQUIRED(t *testing.T) {
 	if r.Text() != "xs |> Iter.count()" {
 		t.Errorf("Record.Text is %q", r.Text())
 	}
-	tr := NewTry(assertPos(), 4, "try parse(-1)")
-	if tr.Text() != "try parse(-1)" {
+	tr := NewTry(assertPos(), 4, "parse(-1)?")
+	if tr.Text() != "parse(-1)?" {
 		t.Errorf("Try.Text is %q", tr.Text())
 	}
 
@@ -114,8 +114,8 @@ func TestAssert_ONEJudgementTHREEDeliveries(t *testing.T) {
 // consumer's local; a boundary, which is `assertionExit`'s; or an
 // `rt.AssertionSite` field name.
 func TestAssert_NoFieldCarriesAConsumerDecision(t *testing.T) {
-	a := NewAssert(assertPos(), NoTemp, 4, KeywordRefute, "ok?(x)")
-	if got := a.String(); got != `refute t4 "ok?(x)"` {
+	a := NewAssert(assertPos(), NoTemp, 4, KeywordRefute, "is_ok(x)")
+	if got := a.String(); got != `refute t4 "is_ok(x)"` {
 		t.Errorf("String is %q", got)
 	}
 	if uses := a.AppendUses(nil); len(uses) != 1 || uses[0] != 4 {
@@ -174,28 +174,28 @@ func TestRecord_OneOperationTwoPositions(t *testing.T) {
 	}
 }
 
-// TestTry_CarriesNoBoundary is the `try` class's open question, answered.
+// TestTry_CarriesNoBoundary is the `?` class's open question, answered.
 //
-// A `try` unwinds to the enclosing ACTIVATION and there are four of them, so
+// A `?` unwinds to the enclosing ACTIVATION and there are four of them, so
 // it is tempting to put the answer on the node. It is not there, because the
-// consumer reads no field for it: a `try` returns from the innermost
+// consumer reads no field for it: a `?` returns from the innermost
 // activation, which is the node's POSITION IN THE PROGRAM.
 //
 // Stated as a read of the whole node rather than as a comment: a Try has three
 // facts and none of them is a boundary, a boundary type, a lambda bit or a
 // test bit.
 func TestTry_CarriesNoBoundary(t *testing.T) {
-	tr := NewTry(assertPos(), 4, "try parse(-1)")
-	if tr.Src() != 4 || tr.Text() != "try parse(-1)" || tr.Pos().Line() != 11 {
-		t.Errorf("try is %+v", tr)
+	tr := NewTry(assertPos(), 4, "parse(-1)?")
+	if tr.Src() != 4 || tr.Text() != "parse(-1)?" || tr.Pos().Line() != 11 {
+		t.Errorf("is %+v", tr)
 	}
 	if tr.Dst() != NoTemp {
 		t.Error("a try writes a destination; the unwrapped payload is an ir.Proj")
 	}
 	if uses := tr.AppendUses(nil); len(uses) != 1 || uses[0] != 4 {
-		t.Errorf("a try reads %v", uses)
+		t.Errorf("a reads %v", uses)
 	}
-	if got := tr.String(); got != `try t4 "try parse(-1)"` {
+	if got := tr.String(); got != `try t4 "parse(-1)?"` {
 		t.Errorf("String is %q", got)
 	}
 	if tr.Src() == NoTemp {
@@ -206,7 +206,7 @@ func TestTry_CarriesNoBoundary(t *testing.T) {
 			t.Fatal("a try with no operand was built")
 		}
 	}()
-	NewTry(assertPos(), NoTemp, "try x")
+	NewTry(assertPos(), NoTemp, "x?")
 }
 
 // TestAssertTry_EveryNodeCarriesItsOwnPosition holds the assert and try
@@ -217,7 +217,7 @@ func TestAssertTry_EveryNodeCarriesItsOwnPosition(t *testing.T) {
 	b.Append(NewAssert(pos, NoTemp, 1, KeywordAssert, "x"))
 	b.Append(NewRecordOperand(pos, 1, "x", true))
 	b.Append(NewRecordStage(pos, 1, "x"))
-	b.Append(NewTry(pos, 1, "try x"))
+	b.Append(NewTry(pos, 1, "x?"))
 	if len(b.Instrs()) != 4 {
 		t.Fatalf("%d instructions entered the block", len(b.Instrs()))
 	}
@@ -235,7 +235,7 @@ func TestAssertTry_EveryNodeCarriesItsOwnPosition(t *testing.T) {
 		{"assert", func() { NewAssert(Pos{}, NoTemp, 1, KeywordAssert, "x") }},
 		{"record", func() { NewRecordOperand(Pos{}, 1, "x", true) }},
 		{"stage", func() { NewRecordStage(Pos{}, 1, "x") }},
-		{"try", func() { NewTry(Pos{}, 1, "try x") }},
+		{"try", func() { NewTry(Pos{}, 1, "x?") }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			defer func() {

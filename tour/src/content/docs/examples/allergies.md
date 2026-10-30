@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: allergies.nomi
+//# The allergies an allergy score stands for, one bit per allergen.
+
 /// The allergens a score covers, in score order: eggs are worth 1, peanuts 2,
 /// and each one after twice the one before.
 pub enum Allergen {
@@ -27,7 +29,7 @@ pub enum Allergen {
 derive Variants for Allergen
 
 /// Reports whether `score` includes `allergen`.
-pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
+pub fn is_allergic_to(score: Int, allergen: Allergen) -> Bool {
     Int.bitwise_and(score, value(allergen)) != 0
 }
 
@@ -35,7 +37,7 @@ pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
 /// above the last allergen are ignored.
 pub fn list(score: Int) -> List<Allergen> {
     Allergen.variants()
-    |> Iter.filter(&allergic_to?(score, &1))
+    |> Iter.filter(&is_allergic_to(score, &1))
     |> Iter.to_list()
 }
 
@@ -68,7 +70,7 @@ test "testing for eggs allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Eggs) == expected
+        assert allergies.is_allergic_to(score, Allergen.Eggs) == expected
     }
 }
 
@@ -82,7 +84,7 @@ test "testing for peanuts allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Peanuts) == expected
+        assert allergies.is_allergic_to(score, Allergen.Peanuts) == expected
     }
 }
 
@@ -96,7 +98,7 @@ test "testing for shellfish allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Shellfish) == expected
+        assert allergies.is_allergic_to(score, Allergen.Shellfish) == expected
     }
 }
 
@@ -110,7 +112,7 @@ test "testing for strawberries allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Strawberries) == expected
+        assert allergies.is_allergic_to(score, Allergen.Strawberries) == expected
     }
 }
 
@@ -124,7 +126,7 @@ test "testing for tomatoes allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Tomatoes) == expected
+        assert allergies.is_allergic_to(score, Allergen.Tomatoes) == expected
     }
 }
 
@@ -138,7 +140,7 @@ test "testing for chocolate allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Chocolate) == expected
+        assert allergies.is_allergic_to(score, Allergen.Chocolate) == expected
     }
 }
 
@@ -152,7 +154,7 @@ test "testing for pollen allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Pollen) == expected
+        assert allergies.is_allergic_to(score, Allergen.Pollen) == expected
     }
 }
 
@@ -166,14 +168,14 @@ test "testing for cats allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Cats) == expected
+        assert allergies.is_allergic_to(score, Allergen.Cats) == expected
     }
 }
 
 test "list when:" {
-    cases: List<#(String, Int, List<Allergen>)> = [
+    cases = [
         #("no allergies", 0, []),
-        #("just eggs", 1, [.Eggs]),
+        #("just eggs", 1, [Allergen.Eggs]),
         #("just peanuts", 2, [.Peanuts]),
         #("just strawberries", 8, [.Strawberries]),
         #("eggs and peanuts", 3, [.Eggs, .Peanuts]),
@@ -202,6 +204,6 @@ test "list when:" {
 
 - Allergens are an enum, and `derive Variants` gives `Allergen.variants()` in declaration order, which is the score order `list` must answer in.
 - Each allergen's score is spelled out in a `case` (`value`), rather than computed as `Int.shift_left(1, index)` from its position in `variants()`. The table is the problem statement, and reordering the enum cannot silently change it.
-- `allergic_to?` takes the score first, so `list` reads `Iter.filter(&allergic_to?(score, &1))`, a capture.
+- `is_allergic_to` takes the score first, so `list` reads `Iter.filter(&is_allergic_to(score, &1))`, a capture.
 - The canonical `item` strings become variants in the tests (`Allergen.Eggs`); there is no string parsing in the API.
-- The `list` table needs its type written out (`List<#(String, Int, List<Allergen>)>`), because `.Eggs` inside an unannotated list literal has no enum to resolve against.
+- The `list` table has its type written out (`List<#(String, Int, List<Allergen>)>`), so every row writes bare variants (`.Eggs`). Without it, the first row that names a variant would write it qualified, `[Allergen.Eggs]`, and the rows after it bare, as all-your-base does.

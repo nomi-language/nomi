@@ -18,8 +18,7 @@ func TestFormat_LambdaStageBeforeAnotherStageKeepsItsEnd(t *testing.T) {
 		{"x |> dbg -fn -> y\n", "x |> (-fn -> y) |> dbg\n"},
 		{"x |> assert fn -> y\n", "x |> (fn -> y) |> assert\n"},
 		{"x |> refute fn -> y\n", "x |> (fn -> y) |> refute\n"},
-		{"x |> dbg try fn -> y\n", "x |> try (fn -> y) |> dbg\n"},
-		{"x |> try dbg fn -> y\n", "x |> (fn -> y) |> dbg |> try\n"},
+		{"x |> dbg (fn -> y)?\n", "x |> (fn -> y)? |> dbg\n"},
 		{
 			"x\n    // note\n    |> dbg fn -> y\n",
 			"x\n// note\n|> (fn -> y)\n|> dbg\n",
@@ -29,9 +28,8 @@ func TestFormat_LambdaStageBeforeAnotherStageKeepsItsEnd(t *testing.T) {
 			"x\n    // note\n    |> dbg fn -> y\n    |> f()\n",
 			"x\n// note\n|> (fn -> {\n    y\n    |> f()\n})\n|> dbg\n",
 		},
-		// The last stage needs no parentheses, and a decorating `try`
-		// stays the stage's prefix.
-		{"x |> try fn -> y\n", "x |> try fn -> y\n"},
+		// The last stage needs no parentheses; one a `?` follows does.
+		{"x |> (fn -> y)?\n", "x |> (fn -> y)?\n"},
 		{"x |> f() |> fn -> y\n", "x |> f() |> fn -> y\n"},
 		{"x |> dbg f() |> g()\n", "x |> f() |> dbg |> g()\n"},
 		{"x |> dbg == 1\n", "x |> dbg == 1\n"},

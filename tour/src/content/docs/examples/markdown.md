@@ -29,7 +29,7 @@ pub fn parse(markdown: String) -> String {
     markdown
     |> String.lines()
     |> Iter.map(block)
-    |> Iter.chunk_by(item?)
+    |> Iter.chunk_by(is_item)
     |> Iter.map(render_run)
     |> String.join()
 }
@@ -37,9 +37,7 @@ pub fn parse(markdown: String) -> String {
 /// What `line` is: a heading of one to six `#`s and a space, an item after
 /// `* `, or else a paragraph.
 fn block(line: String) -> Block {
-    if Some(text) = String.strip_prefix(line, "* ") {
-        return .Item(text)
-    }
+    if Some(text) = String.strip_prefix(line, "* ") { return .Item(text) }
 
     case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
         Some([Some(marks), Some(text)]) -> #.Heading{level: String.length(marks), text}
@@ -47,7 +45,7 @@ fn block(line: String) -> Block {
     }
 }
 
-fn item?(block: Block) -> Bool {
+fn is_item(block: Block) -> Bool {
     case block {
         .Item(_) -> True
         _ -> False
@@ -77,8 +75,8 @@ fn render(block: Block) -> String {
 /// so its double underscores are not read as two italic marks.
 fn emphasize(text: String) -> String {
     text
-    |> then &Regex.replace_all(Regex`__(.+?)__`, &1, "<strong>$1</strong>")
-    |> then &Regex.replace_all(Regex`_(.+?)_`, &1, "<em>$1</em>")
+    |> Regex.replace_all(Regex`__(.+?)__`, "<strong>$1</strong>")
+    |> Regex.replace_all(Regex`_(.+?)_`, "<em>$1</em>")
 }
 
 // FILE: markdown_test.nomi
@@ -150,15 +148,15 @@ test "markdown" {
 ## How it's written
 
 - The exercise is a refactoring one: tracks ship a confusing parser to clean up. There is no Nomi stub to start from, so this is the solution written directly, against the canonical cases.
-- Parsing and rendering are separate. Each line becomes a private `Block` (`Heading`, `Item`, `Paragraph`), and `render` writes one block's HTML. Lists are the only structure wider than a line, so they are found between the two: `Iter.chunk_by(item?)` groups the blocks into runs, and a run that starts with an item is wrapped in `<ul>`.
+- Parsing and rendering are separate. Each line becomes a private `Block` (`Heading`, `Item`, `Paragraph`), and `render` writes one block's HTML. Lists are the only structure wider than a line, so they are found between the two: `Iter.chunk_by(is_item)` groups the blocks into runs, and a run that starts with an item is wrapped in `<ul>`.
 - `render_run` matches `[.Item(_), .._]` and leaves everything else to `_`, so the empty run `chunk_by` never yields needs no arm of its own.
 - A heading is ``Regex`^(#{1,6}) (.*)$` ``, so seven `#`s fall through to a paragraph with no level check. Its `case` has a real `_` arm, the line that is not a heading, which also covers the group shapes the pattern cannot produce.
-- Bold and italic are two `Regex.replace_all` calls with lazy groups, bold first so that `__` is not read as two italic marks.
+- Bold and italic are two `Regex.replace_all` pipe stages over the text, with lazy groups, bold first so that `__` is not read as two italic marks.
 - The canonical cases are one `subtests` table. The canonical data replaces "with h7 header level", which expected the line back unchanged, with "h7 header level is a paragraph" (`reimplements`); the table holds only the replacement.
 
 ## Rough edges
 
 Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
 
-- **Longer than it should be.** `Regex.replace_all` takes the regex first and the text second, so it cannot be a plain pipe stage over the text: `emphasize` writes `` |> then &Regex.replace_all(Regex`__(.+?)__`, &1, "<strong>$1</strong>") ``. `String.replace` takes the text first but does not expand `$1`. Elixir's `Regex.replace(regex, string, ...)` has the same order, but Elixir's `String.replace` expands groups; Rust's `regex.replace_all(text, "$1")` is a method on the regex.
-- **Longer than it should be.** There is no expression that asks whether a value matches a pattern, so `item?` is a four-line `case` with a `True` arm and a `False` arm. Rust has `matches!(block, Block::Item(_))` and Elixir `match?({:item, _}, block)`.
+- **Two ways to write it.** Two calls replace a regex's matches: `String.replace` takes its replacement literally and `Regex.replace_all` expands `$1`, so the emphasis stages use the second. Elixir's `String.replace` expands groups.
+- **Longer than it should be.** There is no expression that asks whether a value matches a pattern, so `is_item` is a four-line `case` with a `True` arm and a `False` arm. Rust has `matches!(block, Block::Item(_))` and Elixir `matches({:item, _}, block)`.

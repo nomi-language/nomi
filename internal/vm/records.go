@@ -386,8 +386,7 @@ func fitsSlot(t rt.SlotType, v any) bool {
 	case rt.SlotRef:
 		return true
 	case rt.SlotInt:
-		_, ok := v.(int64)
-		return ok
+		return rt.IsInt(v)
 	case rt.SlotFloat:
 		_, ok := v.(float64)
 		return ok
@@ -461,10 +460,28 @@ func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 		}
 		return rec.Field(n.Index()), nil
 
+	case ir.ProjListSlice:
+		xs, ok := subj.(*list)
+		if !ok {
+			return nil, fmt.Errorf("vm: %s: %s reads %T, not a list", fr.fn.Name(), n, subj)
+		}
+		if n.Index()+n.Drop() > int(rt.ListCellCount[any, list](xs)) {
+			return nil, fmt.Errorf("vm: %s: %s projects beyond the list", fr.fn.Name(), n)
+		}
+		return rt.ListCellSlice[any, list](xs, n.Index(), n.Drop()), nil
+
 	case ir.ProjElem, ir.ProjSuffix:
 		xs, ok := subj.(*list)
 		if !ok {
 			return nil, fmt.Errorf("vm: %s: %s reads %T, not a list", fr.fn.Name(), n, subj)
+		}
+		if n.Kind() == ir.ProjSuffix && n.Index() < 0 {
+			// The last -Index cells: a list pattern's tails.
+			last := -n.Index()
+			if last > int(rt.ListCellCount[any, list](xs)) {
+				return nil, fmt.Errorf("vm: %s: %s projects beyond the list", fr.fn.Name(), n)
+			}
+			return rt.ListCellLast[any, list](xs, last), nil
 		}
 		for i := 0; i < n.Index(); i++ {
 			if xs == nil {

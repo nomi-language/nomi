@@ -90,15 +90,15 @@ fn ask<T>(account: Account, request: (Channel<T>) -> Request) -> T {
     Account(teller) = account
     reply = Channel.buffered<T>(1)
 
-    case Sender.send(teller, request(reply)) {
-        Ok(_) -> Unit
-        Err(_) -> unreachable "the teller listens until the account's body returns"
+    Ok(_) = Sender.send(teller, request(reply)) else {
+        unreachable "the teller listens until the account's body returns"
     }
 
-    case Receiver.receive(reply.receiver) {
-        Some(answer) -> answer
-        None -> unreachable "the teller answers every request"
+    Some(answer) = Receiver.receive(reply.receiver) else {
+        unreachable "the teller answers every request"
     }
+
+    answer
 }
 
 /// The teller: answers requests one at a time until the inbox closes. The
@@ -160,23 +160,17 @@ fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
 }
 
 fn deposited(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
-    Some(current) = balance else {
-        return Err(.AccountNotOpen)
-    }
+    Some(current) = balance else { return Err(.AccountNotOpen) }
     if amount <= 0 { return Err(.AmountNotPositive) }
 
     Ok(Some(current + amount))
 }
 
 fn withdrawn(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
-    Some(current) = balance else {
-        return Err(.AccountNotOpen)
-    }
+    Some(current) = balance else { return Err(.AccountNotOpen) }
     if amount <= 0 { return Err(.AmountNotPositive) }
 
-    if amount > current {
-        return Err(.AmountAboveBalance)
-    }
+    if amount > current { return Err(.AmountAboveBalance) }
 
     Ok(Some(current - amount))
 }

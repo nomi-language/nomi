@@ -48,8 +48,8 @@ enum Point {
 
 // The DERIVES sit on their own enum, and the reason is a measurement rather
 // than tidiness. `derive Equatable for Point` synthesizes
-// `Equatable.equal?(a0, b0)` per payload, which for `Bag List<Int>` is
-// `List.equal?` — a `qualified call` this builder does not lower, and nothing to
+// `Equatable.equal(a0, b0)` per payload, which for `Bag List<Int>` is
+// `List.equal` — a `qualified call` this builder does not lower, and nothing to
 // do with tuples. Measured both ways: the same derive over
 // `{Origin, One Int, Pos (Int, Int), Span (Int, String, Int)}` LOWERS, and over
 // `{Origin, Bag List<Int>}` alone it refuses. So `Key` carries the derives and
@@ -110,14 +110,14 @@ fn main() {
     call = Point.Pos(#(10, 20))
     io.print(describe(flat))
     io.print(describe(call))
-    io.print("${Equatable.equal?(Key.Pos(10, 20), Key.Pos(#(10, 20)))}")
+    io.print("${Equatable.equal(Key.Pos(10, 20), Key.Pos(#(10, 20)))}")
 
     flat3 = Point.Span(1, "mid", 9)
     call3 = Point.Span(#(1, "mid", 9))
     io.print(describe(flat3))
     io.print(describe_explicit(call3))
     io.print(describe_explicit(flat))
-    io.print("${Equatable.equal?(Key.Single(1), Key.Pos(1, 1))}")
+    io.print("${Equatable.equal(Key.Single(1), Key.Pos(1, 1))}")
 
     // RENDERING through the synthesized universal Debug. The tuple's own
     // parentheses become the variant's, so this is `Pos(10, 20)` and NOT
@@ -149,7 +149,7 @@ fn main() {
     // both tag encodings are exercised rather than only the tag. The transposed
     // pair is the positional hazard stated as an assertion: it must not compare or
     // hash equal. `Pos` is `Key`'s third variant too, so tag 3 against index 2.
-    io.print("${Equatable.equal?(Key.Pos(10, 20), Key.Pos(20, 10))}")
+    io.print("${Equatable.equal(Key.Pos(10, 20), Key.Pos(20, 10))}")
     io.print("${Hashable.hash(Key.Pos(10, 20)) == Hashable.hash(Key.Pos(10, 20))}")
     io.print("${Hashable.hash(Key.Pos(10, 20)) == Hashable.hash(Key.Pos(20, 10))}")
     io.print("${Hashable.hash(Key.Pos(10, 20)) == Hashable.hash(Key.Single(10))}")

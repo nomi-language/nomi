@@ -1,0 +1,22 @@
+// A postfix `!` can stop the program, as `unreachable` does, so it reads as a
+// keyword; a prefix `!` is an operator. The caret lines below each line name
+// the highlight of the token they point at.
+pub fn half(n: Int) -> Result<Int, String> {
+    if n % 2 == 0 { Ok(n / 2) } else { Err("odd") }
+}
+
+pub fn quarter(n: Int) -> Int {
+    half(half(n)!)!
+    //          ^ keyword
+    // <- function.call
+}
+
+pub fn parsed(text: String) -> Int {
+    text |> String.to_int()!
+    //                     ^ keyword
+}
+
+pub fn odd(n: Int) -> Bool {
+    !Result.is_ok(half(n))
+    // <- operator
+}

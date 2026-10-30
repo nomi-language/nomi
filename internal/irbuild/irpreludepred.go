@@ -6,24 +6,24 @@ import (
 )
 
 // irPreludePredicate names the variant a prelude predicate tests
-// (`Maybe.some?` tests Some), or "" for any other owner and method. std's
+// (`Maybe.is_some` tests Some), or "" for any other owner and method. std's
 // bodies are each a two-arm `case` answering whether the value is that
 // variant, which is exactly one variant test.
 func irPreludePredicate(owner, method string) string {
 	switch owner + "." + method {
-	case "Maybe.some?":
+	case "Maybe.is_some":
 		return "Some"
-	case "Maybe.none?":
+	case "Maybe.is_none":
 		return "None"
-	case "Result.ok?":
+	case "Result.is_ok":
 		return "Ok"
-	case "Result.err?":
+	case "Result.is_err":
 		return "Err"
 	}
 	return ""
 }
 
-// preludePredicateCall lowers `Result.err?(r)` and its three siblings as a
+// preludePredicateCall lowers `Result.is_err(r)` and its three siblings as a
 // variant test on the operand. The operand is lowered through
 // irQualLowerArgs, so an assertion subject records it as any qualified call's
 // operands are recorded.

@@ -130,7 +130,7 @@ group "partial garden" {
     }
 
     test "multiple students for the same garden with three students" {
-        garden = try Garden.parse("VVCCGG\nVVCCGG")
+        garden = Garden.parse("VVCCGG\nVVCCGG")?
 
         cases = [
             #("second student's garden", Student.Bob, [Plant.Clover, .Clover, .Clover, .Clover]),
@@ -144,7 +144,7 @@ group "partial garden" {
 }
 
 test "full garden" {
-    garden = try Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")
+    garden = Garden.parse("VRCGVVRVCGGCCGVRGCVCGCGV\nVRCCCGCRRGVCGCRVVCVGCGCV")?
 
     cases = [
         #(
@@ -185,5 +185,5 @@ test "a letter that names no plant" {
 - The diagram is parsed once into an opaque `Garden` by `Garden.parse`, which returns `None` for a letter that names no plant. A diagram is data, so a bad one is an answer rather than a trap. The canonical data has no bad diagram; the test file adds one, marked as not canonical.
 - A student's position is their index in `derive Variants`' list (`Iter.find_index`), so the alphabetical order lives only in the enum's declaration. Every student is in that list, so the search cannot miss: its `None` is `unreachable "every student is listed"` (style §28), a trap if the enum and the list ever disagree, rather than a default that would answer a wrong position.
 - `Garden.plants` takes two cups from each row with `Iter.drop` and `Iter.take` under one `Iter.flat_map`.
-- "partial garden" is a `group` of its two tests, the nested canonical group "multiple students for the same garden with three students" among them, since groups do not nest; "full garden" is a plain test. Where every row shares a diagram, the test parses it once with `try` before the table; where rows bring their own, the row parses it with `assert Some(garden) = ...`, since `try` cannot be used in a `subtests` body.
+- "partial garden" is a `group` of its two tests, the nested canonical group "multiple students for the same garden with three students" among them, since groups do not nest; "full garden" is a plain test. Where every row shares a diagram, the test parses it once with `?` before the table; where rows bring their own, the row parses it with `assert Some(garden) = ...`, since `?` cannot be used in a `subtests` body.
 - Each table's first row qualifies its variants (`Student.Alice`, `[Plant.Radishes, ...]`), and the later rows write them bare.

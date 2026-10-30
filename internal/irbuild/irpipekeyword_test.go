@@ -7,7 +7,7 @@ func TestIRPipeKeyword_CompletePrograms(t *testing.T) {
 fn mark(s: String) -> String { io.print(s) return s }
 fn main() {
   label = mark("Ada")
-    |> if String.contains?("A") {
+    |> if String.contains("A") {
       "initialed"
     } else {
       "plain"
@@ -26,7 +26,7 @@ fn main() {
 func TestIRPipeKeyword_BareStagesAndFollowingCalls(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn choose(b: Bool) -> String {
-  b |> if { "yes" } else { "no" } |> String.to_lower()
+  b |> if { "yes" } else { "no" } |> String.lowercase()
 }
 fn describe(m: Maybe<Int>) -> Int {
   m |> case { Some(n) -> n + 1 None -> 0 }

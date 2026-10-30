@@ -31,7 +31,7 @@ group "named task groups" {
         // alternative is sleeping and hoping.
         _ = Supervisor.flush(Config.audit)
 
-        assert List.contains?(drain_alerts(), "audited 7")
+        assert List.contains(drain_alerts(), "audited 7")
     }
 
     test "a failure nobody awaits still goes somewhere" {
@@ -39,7 +39,7 @@ group "named task groups" {
         _ = Supervisor.flush(Config.notify)
 
         assert drain_alerts()
-            |> Iter.any?(&String.contains?(&1, "no address"))
+            |> Iter.any(&String.contains(&1, "no address"))
     }
 
     test "a batch is bounded by the group's own limit" {

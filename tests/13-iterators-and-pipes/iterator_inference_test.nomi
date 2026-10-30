@@ -4,7 +4,7 @@ test "generic iterator adapters infer element types from concrete sources" {
     assert xs
         |> Iter.with_index()
         |> Iter.to_list()
-        |> List.equal?([#(0, 1), #(1, 2), #(2, 3)])
+        |> List.equal([#(0, 1), #(1, 2), #(2, 3)])
 
     assert Iter.find(xs, &(&1 > 1)) == Some(2)
     assert Iter.find(xs, &(&1 > 1)) == Some(2)

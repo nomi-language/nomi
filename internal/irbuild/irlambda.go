@@ -321,7 +321,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		// A `defer` there runs when this invocation ends: the VM runs an
 		// activation's pending deferred calls at each of its exits (a
 		// normal end, a `return`, a callback's `break` or `continue`, a
-		// `try` and a trap). A block statement in the body scopes its own.
+		// `?` and a trap). A block statement in the body scopes its own.
 		child.body = block
 		child.deferOK = true
 		child.openDeferScope(block)

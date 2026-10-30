@@ -21,8 +21,8 @@ import (
 // siblings), a read above the declaration in its own file, and an owner-level
 // `once` read through its owner (`Limits.top`). A bare read then passed
 // anything, and a read inside a composite gave Unit or an unsolved T:
-// `#(n, help)` was `#(Int, Unit)`, `Int.max_value` was "type 'Int' has no
-// member 'max_value'", and iterating a `once` list of enum variants gave
+// `#(n, help)` was `#(Int, Unit)`, `Float.pi` was "type 'Float' has no
+// member 'pi'", and iterating a `once` list of enum variants gave
 // "expected Direction, got T". A read now checks the declaration on demand.
 
 // checkOnceProject builds main.nomi and its siblings as one project and runs
@@ -232,7 +232,7 @@ fn main() {
 }
 
 // An owner-level `once` read in an attached test above it, and through its
-// owner from another file, as std/int's `Int.max_value` is.
+// owner from another file, as std/float's `Float.pi` is.
 func TestOnceType_OwnerLevelOnceIsTypedAboveItsDeclaration(t *testing.T) {
 	lib := `pub struct Limits {
     low: Int

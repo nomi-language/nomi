@@ -18,5 +18,5 @@ test "type-qualified missing member reports a diagnostic" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "type 'List' has no member 'empty'")
+    assert test_helpers.has_diagnostic(diagnostics, "type 'List' has no member 'empty'")
 }

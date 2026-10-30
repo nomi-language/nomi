@@ -1,4 +1,4 @@
-import isogram.isogram?
+import isogram.is_isogram
 
 test "isograms" {
     cases = [
@@ -23,6 +23,6 @@ test "isograms" {
     ]
 
     subtests cases, #(description, phrase, expected), description {
-        assert isogram?(phrase) == expected
+        assert is_isogram(phrase) == expected
     }
 }

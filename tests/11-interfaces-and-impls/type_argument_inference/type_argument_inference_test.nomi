@@ -41,7 +41,7 @@ fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T> {
 // Calls the `Iter` protocol function itself through the same bound:
 // `each_while` answers False when a consumer stopped the source, so refusing
 // every element makes "did this source have anything" a one-liner.
-fn saw_any?<T, I>(it: I) -> Bool where I: Iter<T> {
+fn saw_any<T, I>(it: I) -> Bool where I: Iter<T> {
     Iter.each_while(it, fn _x -> False) == False
 }
 
@@ -66,6 +66,6 @@ test "generic interface type arguments project through bounds" {
     assert label("first int: ", first([10, 20, 30])) == "first int: 10"
     assert label("first str: ", first(["a", "b"])) == "first str: a"
     assert label("empty: ", first(empty)) == "empty: none"
-    assert saw_any?([10, 20, 30])
-    refute saw_any?(empty)
+    assert saw_any([10, 20, 30])
+    refute saw_any(empty)
 }

@@ -112,7 +112,7 @@ func (g *gen) irArithKind(op ir.ArithOp, k kind, wrapping bool) (ir.ArithKind, b
 		if wrapping && (op == ir.OpAdd || op == ir.OpSub || op == ir.OpMul) {
 			return ir.IntArith(ir.OverflowWraps), true
 		}
-		return ir.IntArith(ir.OverflowFaults), true
+		return ir.IntArith(ir.OverflowExact), true
 	case k == kindFloat:
 		return ir.FloatArith(), true
 	case isDecimalKind(k):

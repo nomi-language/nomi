@@ -91,7 +91,7 @@ test "a field with no default is still required" {
         """
     ) {
         Ok(out) -> assert out == "unreachable: constructing without 'limit' should have failed"
-        Err(message) -> assert String.contains?(message, "missing field 'limit'")
+        Err(message) -> assert String.contains(message, "missing field 'limit'")
     }
 }
 

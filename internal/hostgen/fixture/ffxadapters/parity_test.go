@@ -53,7 +53,16 @@ const goldenPath = "testdata/marshaller.golden"
 // Invoker below answers it.
 type fnRef string
 
-func i(n int64) any  { return n }
+func i(n int64) any { return n }
+
+// big is an Int past int64's range, written in base 10.
+func big(text string) any {
+	v, ok := rt.ParseIntValue(text)
+	if !ok {
+		panic("not an Int: " + text)
+	}
+	return v
+}
 func s(v string) any { return v }
 func strs(v ...string) any {
 	items := make([]any, len(v))
@@ -148,6 +157,10 @@ func TestParity_FixtureReproducesItsRecordedOutcomes(t *testing.T) {
 			a(i(128), i(0), i(0), i(0), i(0), i(0), i(0), i(0)),
 			a(i(0), i(0), i(0), i(0), i(-1), i(0), i(0), i(0)),
 			a(i(0), i(0), i(0), i(0), i(0), i(65536), i(0), i(0)),
+			// An Int past 64 bits stops at the Go parameter it does not fit,
+			// and the error names the binding.
+			a(i(0), i(0), i(0), big("9223372036854775808"), i(0), i(0), i(0), i(0)),
+			a(i(0), i(0), i(0), i(0), i(0), i(0), i(0), big("18446744073709551616")),
 		),
 		"ffx.biggest":         sets(a()),
 		"ffx.halve":           sets(a(3.0), a(math.NaN()), a(-1e39), a(math.Copysign(0, -1))),
@@ -158,7 +171,7 @@ func TestParity_FixtureReproducesItsRecordedOutcomes(t *testing.T) {
 		"ffx.flip":            sets(a(rt.Byte(0)), a(rt.Byte(170))),
 		"ffx.shout":           sets(a(s("hi")), a(s(""))),
 		"ffx.negate":          sets(a(true), a(false)),
-		"ffx.triple":          sets(a(i(7)), a(i(-2))),
+		"ffx.triple":          sets(a(i(7)), a(i(-2)), a(big("123456789012345678901234567890"))),
 		"ffx.triple_or_fail":  sets(a(i(7)), a(i(-1))),
 		"ffx.nothing":         sets(a()),
 		"ffx.nothing_or_fail": sets(a(false), a(true)),

@@ -15,10 +15,10 @@ fn ok<T>(x: T) -> Result<T, String> {
 }
 
 fn under_try() -> Result<Int, String> {
-    t = try ok({
+    t = ok({
         f: (#(String, Bool)) -> Int = fn x -> x.0 |> String.length()
         f(Result.with_default(Err("no"), #("bc", True)))
-    })
+    })?
     Ok(t)
 }
 

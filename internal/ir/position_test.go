@@ -126,7 +126,7 @@ func TestPosition_FabricatingAnInvalidPositionPanics(t *testing.T) {
 		{"NewRefLocal", func() { ir.NewRefLocal(zero, 1, ir.NewSymbol("x")) }},
 		{"NewCopy", func() { ir.NewCopy(zero, 1, 2) }},
 		{"NewArith", func() {
-			ir.NewArith(zero, 1, ir.OpAdd, ir.IntArith(ir.OverflowFaults), 2, 3)
+			ir.NewArith(zero, 1, ir.OpAdd, ir.IntArith(ir.OverflowExact), 2, 3)
 		}},
 		{"NewUnaryArith", func() {
 			ir.NewUnaryArith(zero, 1, ir.OpNeg, ir.FloatArith(), 2)

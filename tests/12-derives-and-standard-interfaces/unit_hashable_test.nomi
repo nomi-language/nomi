@@ -7,7 +7,7 @@ derive Equatable for Tagged
 derive Hashable for Tagged
 
 fn same<T>(a: T, b: T) -> Bool where T: Equatable {
-    Equatable.equal?(a, b)
+    Equatable.equal(a, b)
 }
 
 fn digest<T>(value: T) -> Int where T: Hashable {
@@ -15,8 +15,8 @@ fn digest<T>(value: T) -> Int where T: Hashable {
 }
 
 test "unit is equatable and always hashes the same" {
-    assert Equatable.equal?(Unit, Unit)
-    assert Unit.equal?(Unit, Unit)
+    assert Equatable.equal(Unit, Unit)
+    assert Unit.equal(Unit, Unit)
     assert Hashable.hash(Unit) == 0
     assert Unit.hash(Unit) == Hashable.hash(Unit)
     assert same(Unit, Unit)
@@ -35,14 +35,14 @@ test "a derived hash over a struct with a unit field" {
     a = #Tagged{name: "a", marker: Unit}
     b = #Tagged{name: "a", marker: Unit}
     assert Hashable.hash(a) == Hashable.hash(b)
-    assert Equatable.equal?(a, b)
+    assert Equatable.equal(a, b)
     refute Hashable.hash(a) == Hashable.hash(#Tagged{name: "b", marker: Unit})
 }
 
 test "unit and values holding it key sets and maps" {
     units = [Unit, Unit, Unit] |> Iter.to_set()
     assert Set.size(units) == 1
-    assert Set.contains?(units, Unit)
+    assert Set.contains(units, Unit)
 
     m = [#(Unit, 1), #(Unit, 2)] |> Iter.to_map()
     assert Map.size(m) == 1
@@ -66,5 +66,5 @@ test "unit and values holding it key sets and maps" {
         |> Iter.to_set()
 
     assert Set.size(records) == 2
-    assert Set.contains?(records, #{name: "s", marker: Unit})
+    assert Set.contains(records, #{name: "s", marker: Unit})
 }

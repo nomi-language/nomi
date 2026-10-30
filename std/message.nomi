@@ -168,7 +168,7 @@ pub opaque struct Noun {
 }
 
 impl Equatable for Noun {
-    fn equal?(a: Noun, b: Noun) -> Bool {
+    fn equal(a: Noun, b: Noun) -> Bool {
         a.name == b.name
     }
 }
@@ -190,7 +190,7 @@ impl Localize for Noun {
 }
 
 impl Equatable for Argument {
-    fn equal?(a: Argument, b: Argument) -> Bool {
+    fn equal(a: Argument, b: Argument) -> Bool {
         case #(a, b) {
             #(Argument.Integer(x), Argument.Integer(y)) ->
                 x == y
@@ -397,7 +397,7 @@ fn argument_key(argument: Argument) -> String {
 
 // A currency as its literal writes it: `EUR`, or a custom one's `BTC:8`.
 fn currency_key(c: Currency) -> String {
-    if Currency.iso?(c) {
+    if Currency.is_iso(c) {
         Currency.code(c)
     } else {
         "${Currency.code(c)}:${Currency.minor_digits(c)}"

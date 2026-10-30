@@ -12,8 +12,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/custom-set.
 - Order and uniqueness are kept in one place, the private `insert`: a `case` on the list, then `Comparable.compare` with the head, whose three arms put the value before it, keep the list as it is, or carry on down the tail. `from` and `union` are `Iter.reduce` over `add`, so they keep the order too.
 - `intersection` and `difference` filter the first set's list, which is already in order, so they build the struct directly with the pipe inside its field (style §1).
 - The functions are in `impl CustomSet<T>`, generic over the block's `T`. The ones that only test membership ask for `T: Equatable`; the ones that build a set ask for `T: Comparable`.
-- A lookup is a linear scan of the list, so `subset?` and `intersection` are quadratic. A balanced tree would fix that; the canonical sets have at most four values, and the sorted list keeps equality structural.
-- The tests use `Int` values. Each canonical group is a test named by its description, holding one `subtests` table. The tables are annotated, since most open with a row of empty lists that give the element type nothing.
+- A lookup is a linear scan of the list, so `is_subset` and `intersection` are quadratic. A balanced tree would fix that; the canonical sets have at most four values, and the sorted list keeps equality structural.
+- The tests use `Int` values. Each canonical group is a test named by its description, holding one `subtests` table. The tables need no annotation: most open with a row of empty lists, and the numbers in a later row give them their element type.
 
 ## Friction
 

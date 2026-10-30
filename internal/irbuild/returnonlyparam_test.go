@@ -48,7 +48,7 @@ fn main() {
 `, "Some(Heads)\nHeads\nSome(Heads)\n[Heads, Tails]\n2\n")
 }
 
-// A type parameter only the result names is solved through `try` under an
+// A type parameter only the result names is solved through `?` under an
 // annotated binding, where the expected type is `Result<Int, ?E>`, and
 // through an operator, where the call has no expected type at all. The
 // checker records the call at those solutions, so the builder instantiates
@@ -75,12 +75,12 @@ impl Row {
 }
 
 fn annotated() -> Result<Int, String> {
-    n: Int = try Row.get(3)
+    n: Int = Row.get(3)?
     Ok(n + 1)
 }
 
 fn operand() -> Result<Int, String> {
-    Ok(1 + try Row.get(4))
+    Ok(1 + Row.get(4)?)
 }
 
 fn main() {

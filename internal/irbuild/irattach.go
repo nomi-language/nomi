@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -26,8 +28,17 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 		if !ok {
 			return no()
 		}
+		var owner ast.Node = &ast.TypeIdent{Name: tn.Module, Line: line, Col: col}
+		if mod, rest, dotted := strings.Cut(tn.Module, "."); dotted && !ast.IsPublic(mod) {
+			// `json.Json.Arr[...]`: the enum named through its module, as
+			// the call `json.Json.Arr([...])` writes it.
+			owner = &ast.Ident{Name: mod, Line: line, Col: col}
+			for _, seg := range strings.Split(rest, ".") {
+				owner = &ast.FieldAccess{Object: owner, Field: &ast.Ident{Name: seg, Line: line, Col: col}, Line: line, Col: col}
+			}
+		}
 		fa = &ast.FieldAccess{
-			Object: &ast.TypeIdent{Name: tn.Module, Line: line, Col: col},
+			Object: owner,
 			Field:  &ast.Ident{Name: member.Name, Line: line, Col: col},
 			Line:   line, Col: col,
 		}

@@ -115,7 +115,7 @@ test "a fixed pattern writes the same text everywhere and reads it back" {
 
 test "a pattern made while the program runs is checked then" {
     assert Err(calendar.Error.InvalidFormat(why)) = DatePattern.parse("dd MMMM yyyy")
-    assert String.contains?(why, "`MMMM` writes the month's name")
+    assert String.contains(why, "`MMMM` writes the month's name")
     assert Err(calendar.Error.InvalidFormat(_hour)) = DateFields.parse("yMMMdH")
     assert DateFields.parse("yMMMd") == Ok(DateFields`yMMMd`)
 }

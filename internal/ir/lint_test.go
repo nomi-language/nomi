@@ -30,7 +30,7 @@ func wellFormed() *Func {
 	b.Append(a)
 	one := NewInt(at(2), f.NewTemp(), 1)
 	b.Append(one)
-	sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowFaults), a.Dst(), one.Dst())
+	sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowExact), a.Dst(), one.Dst())
 	b.Append(sum)
 	b.SetTerm(NewReturn(at(2), sum.Dst()))
 	return f
@@ -265,7 +265,7 @@ func TestLint_TempDefinedBeforeUseCatchesItsPlants(t *testing.T) {
 		// This is the shape `irVals` made invisible — a Temp whose only
 		// referent was a Go source string outside the representation.
 		ghost := f.NewTemp()
-		sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowFaults), ghost, one.Dst())
+		sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowExact), ghost, one.Dst())
 		b.Append(sum)
 		b.SetTerm(NewReturn(at(2), sum.Dst()))
 
@@ -289,7 +289,7 @@ func TestLint_TempDefinedBeforeUseCatchesItsPlants(t *testing.T) {
 		// PLANT: the arith reads `later` and `later` is appended AFTER it. The
 		// definition exists, so the "no definition anywhere" arm above cannot
 		// catch this one.
-		sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowFaults), later.Dst(), one.Dst())
+		sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowExact), later.Dst(), one.Dst())
 		b.Append(one)
 		b.Append(sum)
 		b.Append(later)

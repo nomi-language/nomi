@@ -1,12 +1,12 @@
 // The line-0 reproduction, as a `fn main` program the three engines can each
-// run. Line numbers matter here: `Add.add` is on line 7.
+// run. Line numbers matter here: `Divide.divide` is on line 7.
 import std/io
 
-fn overflow_via_impl() -> Int {
-    big = 9223372036854775807
-    Add.add(big, 1)
+fn divide_via_impl() -> Int {
+    zero = 0
+    Divide.divide(20, zero)
 }
 
 fn main() {
-    io.print(Int.to_string(overflow_via_impl()))
+    io.print(Int.to_string(divide_via_impl()))
 }

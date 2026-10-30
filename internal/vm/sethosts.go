@@ -25,7 +25,7 @@ func setHost(key string) hostFn {
 		switch key {
 		case "Set.size":
 			arity = 1
-		case "Set.contains?", "Set.insert", "Set.remove", "Set.union", "Set.intersection", "Set.difference", "Set.subset?":
+		case "Set.contains", "Set.insert", "Set.remove", "Set.union", "Set.intersection", "Set.difference", "Set.is_subset":
 		default:
 			return nil, fmt.Errorf("vm: unsupported set host %s", key)
 		}
@@ -39,7 +39,7 @@ func setHost(key string) hostFn {
 		switch key {
 		case "Set.size":
 			return rtMapSize(items), nil
-		case "Set.contains?":
+		case "Set.contains":
 			_, found := mapLookup(k, items, args[1])
 			return found, nil
 		case "Set.insert":
@@ -56,7 +56,7 @@ func setHost(key string) hostFn {
 			// Map.merge of the two membership maps: a's members in order,
 			// then b's that a lacks.
 			return setFromMap(rt.MapMerge(items, other, k.HashFunc(), k.EqualFunc())), nil
-		case "Set.subset?":
+		case "Set.is_subset":
 			for _, e := range rt.MapEntries(items) {
 				if _, found := mapLookup(k, other, e.Key); !found {
 					return false, nil

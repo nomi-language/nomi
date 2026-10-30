@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: rna_transcription.nomi
+//# Transcribes a DNA strand to its RNA complement.
+
 /// The RNA complement of a DNA strand: G to C, C to G, T to A and A to U.
 /// A strand holding anything but those four nucleotides is an error.
 pub fn to_rna(dna: String) -> Result<String, String> {

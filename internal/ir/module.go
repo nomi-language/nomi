@@ -428,7 +428,7 @@ func (m *Module) ImplementRowDebug(typ, fn *Symbol) {
 	m.rowDebugs = append(m.rowDebugs, DisplayImpl{Type: typ, Func: fn})
 }
 
-// ImplementEquatable records that fn is a hand-written `Equatable.equal?`
+// ImplementEquatable records that fn is a hand-written `Equatable.equal`
 // body for values of declared type typ, and ImplementHashable the same for
 // `Hashable.hash`. A Map key, a Set element and `==` over a container reach
 // a value of such a type at any depth, so the machine answers equality and

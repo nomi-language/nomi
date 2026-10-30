@@ -1009,7 +1009,7 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 			t.Fatalf("staging a tour block: %v", err)
 		}
 		entry := filepath.Join(root, filepath.FromSlash(project.EntryName))
-		tourDataFiles.Store(entry, project.DataFiles)
+		tourDataFiles.Store(entry, tourData{dir: project.Dir, files: project.DataFiles})
 		hosts, err := tourgo.MarkedHosts(code)
 		if err != nil {
 			t.Fatalf("a tour block's Go bindings: %v", err)
@@ -1058,7 +1058,7 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 	if err != nil {
 		t.Fatalf("a tour block's data files: %v", err)
 	}
-	tourDataFiles.Store(entry, data)
+	tourDataFiles.Store(entry, tourData{files: data})
 	// A block's `go` bindings run on the Go the tour links
 	// (internal/tourgo), answered by the table tourgo gives the tour's
 	// runner. The front end checks a file on disk against the go.mod above
@@ -1081,7 +1081,15 @@ func stageTourBlock(t *testing.T, dir, code string) string {
 }
 
 // tourDataFiles is each staged tour block's data files, by its entry path.
-var tourDataFiles sync.Map // string -> map[string]string
+var tourDataFiles sync.Map // string -> tourData
+
+// tourData is a staged tour block's data files, by their paths from the
+// block's root, and its project's directory from there: "" unless the
+// block holds sibling projects (virtualproject.Project.Dir).
+type tourData struct {
+	dir   string
+	files map[string]string
+}
 
 // tourHosts is each staged tour block's host table for its `go` bindings,
 // by its entry path.
@@ -1094,9 +1102,12 @@ func tourFiles(path string) any {
 	if !ok {
 		return nil
 	}
-	m := stdio.NewMemory("/work")
-	for name, text := range data.(map[string]string) {
-		m.Put(name, []byte(text))
+	// The run's relative paths start at the project, as LoadMarked's do
+	// (vmhost.BlockFiles).
+	block := data.(tourData)
+	m := stdio.NewMemory(strings.TrimSuffix("/work/"+block.dir, "/"))
+	for name, text := range block.files {
+		m.Put("/work/"+name, []byte(text))
 	}
 	return m
 }

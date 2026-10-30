@@ -290,7 +290,7 @@ func irCellForceable(mods []*ir.Module, sym *ir.Symbol) bool {
 // binding's declaration at the member position, whatever spelling named the
 // owner (`Policy`, an imported `Policy`, `other.Policy`), so the reference is
 // resolved from that record rather than from the owner's text. A stdlib
-// binding (`Int.max_value`) is in no user file and is left to stdOnceValue.
+// binding (`io.stdout`) is in no user file and is left to stdOnceValue.
 func (bl *irScalarBuilder) ownerOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g

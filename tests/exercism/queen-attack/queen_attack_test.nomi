@@ -6,8 +6,8 @@ group "Test creation of Queens with valid and invalid positions" {
     }
 
     test "invalid positions" {
-        cases: List<#(String, Int, Int, Error)> = [
-            #("queen must have positive row", -2, 2, .RowNotPositive),
+        cases = [
+            #("queen must have positive row", -2, 2, Error.RowNotPositive),
             #("queen must have row on board", 8, 4, .RowNotOnBoard),
             #("queen must have positive column", 2, -2, .ColumnNotPositive),
             #("queen must have column on board", 4, 8, .ColumnNotOnBoard),
@@ -44,6 +44,6 @@ test "Test the ability of one queen to attack another" {
     ), description {
         assert Ok(white) = Queen.new(white_row, white_column)
         assert Ok(black) = Queen.new(black_row, black_column)
-        assert Queen.can_attack?(white, black) == expected
+        assert Queen.can_attack(white, black) == expected
     }
 }

@@ -222,7 +222,7 @@ func (g *gen) stdIfaceFnAt(key string, recv kind, params []kind, result kind) *s
 // --- Iter, known_count, rendering -------------------------------------------
 
 // rangeWalks reports whether elem has the ordering plus the successor pair —
-// what any WALK over a Range needs, and what `contains?` deliberately does not.
+// what any WALK over a Range needs, and what `contains` deliberately does not.
 func (g *gen) rangeWalks(elem kind, at ast.Node) bool {
 	return g.rangeOrders(elem, at) && g.rangeDiscrete(elem, at)
 }

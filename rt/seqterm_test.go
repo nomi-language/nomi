@@ -105,12 +105,6 @@ func TestTerminalAnswersArePinnedAbsolutely(t *testing.T) {
 	if got := SeqEmpty(fr, four); got != false {
 		t.Errorf("SeqEmpty over 1..4 = %v, want false", got)
 	}
-	if got := SeqNotEmpty(fr, empty); got != false {
-		t.Errorf("SeqNotEmpty over an empty source = %v, want false", got)
-	}
-	if got := SeqNotEmpty(fr, four); got != true {
-		t.Errorf("SeqNotEmpty over 1..4 = %v, want true", got)
-	}
 
 	// A Maybe's Tag is what distinguishes None from the Go zero value, which is
 	// neither Some nor None by construction (prelude.go reserves tag 0). So the
@@ -167,11 +161,10 @@ func TestShortCircuitingTerminalsStopTheSource(t *testing.T) {
 		drive func(Seq[int64]) any
 		asked int
 	}{
-		{"any? matching the first element", func(s Seq[int64]) any { return SeqAny(fr, s, func(fr *Frame, x int64) bool { return x >= 1 }) }, 1},
-		{"any? matching the fourth", func(s Seq[int64]) any { return SeqAny(fr, s, func(fr *Frame, x int64) bool { return x >= 4 }) }, 4},
-		{"all? failing at the third", func(s Seq[int64]) any { return SeqAll(fr, s, func(fr *Frame, x int64) bool { return x < 3 }) }, 3},
-		{"empty?", func(s Seq[int64]) any { return SeqEmpty(fr, s) }, 1},
-		{"not_empty?", func(s Seq[int64]) any { return SeqNotEmpty(fr, s) }, 1},
+		{"any matching the first element", func(s Seq[int64]) any { return SeqAny(fr, s, func(fr *Frame, x int64) bool { return x >= 1 }) }, 1},
+		{"any matching the fourth", func(s Seq[int64]) any { return SeqAny(fr, s, func(fr *Frame, x int64) bool { return x >= 4 }) }, 4},
+		{"all failing at the third", func(s Seq[int64]) any { return SeqAll(fr, s, func(fr *Frame, x int64) bool { return x < 3 }) }, 3},
+		{"is_empty", func(s Seq[int64]) any { return SeqEmpty(fr, s) }, 1},
 		{"first", func(s Seq[int64]) any { return SeqFirst(fr, s) }, 1},
 		{"find at the fourth", func(s Seq[int64]) any { return SeqFind(fr, s, func(fr *Frame, x int64) bool { return x == 4 }) }, 4},
 		{"take_while stopping at the fourth", func(s Seq[int64]) any {
@@ -342,14 +335,14 @@ func TestTerminalsAllocateNothingPerElement(t *testing.T) {
 		what  string
 		drive func(int64) int64
 	}{
-		{"any? over map, no match", func(n int64) int64 {
+		{"any over map, no match", func(n int64) int64 {
 			if SeqAny(fr, SeqMap(finiteSeq(n), func(fr *Frame, x int64) int64 { return x * 3 }),
 				func(fr *Frame, x int64) bool { return x < 0 }) {
 				return 1
 			}
 			return 0
 		}},
-		{"all? over filter", func(n int64) int64 {
+		{"all over filter", func(n int64) int64 {
 			if SeqAll(fr, SeqFilter(finiteSeq(n), func(fr *Frame, x int64) bool { return x%2 == 0 }),
 				func(fr *Frame, x int64) bool { return x >= 0 }) {
 				return 1

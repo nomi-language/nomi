@@ -10,7 +10,7 @@ import std/io
 // run like any hand-written one.
 //
 // `==` on a named type is the observation: it dispatches to the derived
-// `equal?`. Two same-named types from two modules cannot be compared here,
+// `equal`. Two same-named types from two modules cannot be compared here,
 // because they are two kinds and the builder refuses a mixed-kind operator
 // before the arm is reached.
 //

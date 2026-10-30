@@ -13,8 +13,8 @@ func TestIRRangeAsKeyAndOverBool_Run(t *testing.T) {
 fn main() {
     io.inspect(Iter.to_set([1..2, 3..4, 1..2]))
     io.inspect(Iter.to_map([#(1..2, "a"), #(3..=4, "b")]) |> Map.get(3..=4))
-    io.inspect(Range.contains?(False..True, True))
-    io.inspect(Range.contains?(False..=True, True))
+    io.inspect(Range.contains(False..True, True))
+    io.inspect(Range.contains(False..=True, True))
     io.inspect(False..=True)
 }
 `

@@ -99,7 +99,7 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 		}
 	}
 	switch x := v.(type) {
-	case int64, float64, bool, string, rt.Decimal, rt.Byte:
+	case int64, *rt.BigInt, float64, bool, string, rt.Decimal, rt.Byte:
 		return rt.DisplayText(x), nil
 	case *rt.Record:
 		switch x.Desc.Kind {
@@ -217,7 +217,7 @@ func (e *DispatchMiss) ReceiverOfDeclaredType() (of, decided bool) {
 	case ir.KindBool:
 		_, of = v.(bool)
 	case ir.KindInt:
-		_, of = v.(int64)
+		of = rt.IsInt(v)
 	case ir.KindFloat:
 		_, of = v.(float64)
 	case ir.KindByte:

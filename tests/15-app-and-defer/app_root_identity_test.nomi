@@ -1,7 +1,7 @@
 import std/compiler.{self, Diagnostic}
 
-fn has_diagnostic?(diagnostics: List<Diagnostic>, text: String) -> Bool {
-    Iter.any?(diagnostics, fn diagnostic -> String.contains?(diagnostic.message, text))
+fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool {
+    Iter.any(diagnostics, fn diagnostic -> String.contains(diagnostic.message, text))
 }
 
 test "an ordinary named application exposes scoped fields" {
@@ -103,7 +103,7 @@ test "an unavailable field is rejected" {
         """
     )
 
-    assert has_diagnostic?(diagnostics, "type 'App' has no member 'missing'")
+    assert has_diagnostic(diagnostics, "type 'App' has no member 'missing'")
 }
 
 test "an application needs no Context field" {
@@ -146,7 +146,7 @@ test "boot rejects two Context fields" {
         """
     )
 
-    assert has_diagnostic?(
+    assert has_diagnostic(
         diagnostics,
         "an application struct may have at most one Context-typed field",
     )
@@ -167,7 +167,7 @@ test "boot takes no Context parameter" {
         """
     )
 
-    assert has_diagnostic?(
+    assert has_diagnostic(
         diagnostics,
         "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result",
     )
@@ -196,7 +196,7 @@ test "field replacement preserves the declared field type" {
         """
     )
 
-    assert has_diagnostic?(diagnostics, "`App.tag` replacement expects String, got Int")
+    assert has_diagnostic(diagnostics, "`App.tag` replacement expects String, got Int")
 }
 
 test "boot takes at most one Startup" {
@@ -214,7 +214,7 @@ test "boot takes at most one Startup" {
         """
     )
 
-    assert has_diagnostic?(
+    assert has_diagnostic(
         diagnostics,
         "boot must be `fn boot() -> Result<App, E>` or `fn boot(startup: Startup) -> Result<App, E>`, taking no parameter or one Startup and returning the application struct in a Result",
     )

@@ -142,8 +142,8 @@ test "a parameter outside a capture is an error" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, fn d -> {
-        String.contains?(
+    assert Iter.any(diagnostics, fn d -> {
+        String.contains(
             d.message,
             "`&1` is a capture's parameter: write the function as `&(...)` or `&f(...)`",
         )
@@ -163,8 +163,8 @@ test "a pipe fills the first argument" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, fn d -> {
-        String.contains?(
+    assert Iter.any(diagnostics, fn d -> {
+        String.contains(
             d.message,
             "a pipe fills the first argument; write `|> then &halve(100, &1)`",
         )
@@ -181,8 +181,8 @@ test "captures do not nest" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, fn d -> {
-        String.contains?(d.message, "captures do not nest; write the inner one as `fn x -> ...`")
+    assert Iter.any(diagnostics, fn d -> {
+        String.contains(d.message, "captures do not nest; write the inner one as `fn x -> ...`")
     })
 }
 
@@ -196,8 +196,8 @@ test "with no expected function type a capture has no type" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, fn d -> {
-        String.contains?(d.message, "cannot infer type for `&1` in `&(&1 > 2)`")
+    assert Iter.any(diagnostics, fn d -> {
+        String.contains(d.message, "cannot infer type for `&1` in `&(&1 > 2)`")
     })
 }
 
@@ -211,7 +211,7 @@ test "`_` is a discard, not a capture's parameter" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, fn d -> {
-        String.contains?(d.message, "`_` is a discard name, not a value")
+    assert Iter.any(diagnostics, fn d -> {
+        String.contains(d.message, "`_` is a discard name, not a value")
     })
 }

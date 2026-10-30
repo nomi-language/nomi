@@ -63,8 +63,8 @@ test "buffered rejects a capacity that is not a buffer" {
             assert False
 
         Err(message) -> {
-            assert String.contains?(message, "capacity must be at least 1")
-            assert String.contains?(message, "Channel.unbuffered()")
+            assert String.contains(message, "capacity must be at least 1")
+            assert String.contains(message, "Channel.unbuffered()")
         }
     }
 }
@@ -121,9 +121,9 @@ test "failed task cancels long sibling tasks" {
         short = Task.spawn(fn -> short_fail())
         long1 = Task.spawn(fn -> long_sleep())
         long2 = Task.spawn(fn -> long_sleep())
-        result = try Task.await(short)
-        _ = try Task.await(long1)
-        _ = try Task.await(long2)
+        result = Task.await(short)?
+        _ = Task.await(long1)?
+        _ = Task.await(long2)?
         Ok(result)
     }
 
@@ -136,7 +136,7 @@ test "nested concurrent blocks observe parent cancellation" {
         short = Task.spawn(fn -> short_fail())
         outer = Task.spawn(fn -> nested_outer_body())
         _o = outer
-        Ok(try Task.await(short))
+        Ok(Task.await(short)?)
     }
 
     assert Err(e) = outcome
@@ -188,7 +188,7 @@ test "env context timeout cancels blocked channel receives" {
     )
 
     assert Err(fault) = result
-    assert String.contains?(fault, "the context in force when `main` blocked")
+    assert String.contains(fault, "the context in force when `main` blocked")
 }
 
 // A `concurrent` block's signature behaviour is cancelling siblings when
@@ -201,7 +201,7 @@ test "env context timeout cancels blocked channel receives" {
 //
 // Under `clock Clock.Virtual` the clock only moves when every task is blocked,
 // so elapsed virtual time is a deterministic statement about behaviour.
-// These assertions discriminate: replacing the `try` with an
+// These assertions discriminate: replacing the `?` with an
 // `outcome` — so nothing short-circuits and the siblings run to
 // completion — turns the 0 into the sleep's full duration.
 group "sibling cancellation is observable under a virtual clock" {
@@ -216,7 +216,7 @@ group "sibling cancellation is observable under a virtual clock" {
             long2 = Task.spawn(fn -> long_sleep())
             _l1 = long1
             _l2 = long2
-            Ok(try Task.await(short))
+            Ok(Task.await(short)?)
         }
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)
@@ -234,7 +234,7 @@ group "sibling cancellation is observable under a virtual clock" {
             short = Task.spawn(fn -> short_fail())
             outer = Task.spawn(fn -> nested_outer_body())
             _o = outer
-            Ok(try Task.await(short))
+            Ok(Task.await(short)?)
         }
 
         elapsed = Instant.to_seconds(Instant.now()) - Instant.to_seconds(before)

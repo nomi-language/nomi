@@ -10,19 +10,19 @@ fn find_name(id: Int) -> Maybe<String> {
 test "assert can check the Bool produced by a pipeline" {
     assert 1
         |> find_name()
-        |> Maybe.equal?(Some("Ada"))
+        |> Maybe.equal(Some("Ada"))
 }
 
 test "refute can check the Bool produced by a pipeline" {
     refute 2
         |> find_name()
-        |> Maybe.equal?(Some("Ada"))
+        |> Maybe.equal(Some("Ada"))
 }
 
 test "check can return the pipeline Bool as a Result" {
     result = testing.check(
         "Ada Lovelace"
-        |> String.contains?("Ada")
+        |> String.contains("Ada")
     )
 
     assert result == Ok(True)

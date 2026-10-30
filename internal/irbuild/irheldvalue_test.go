@@ -66,7 +66,7 @@ func TestIRHeldValue_PerInstructionClass(t *testing.T) {
 			b.Append(l)
 			r := ir.NewInt(plantPos, f.NewTemp(), 1)
 			b.Append(r)
-			a := ir.NewArith(plantPos, f.NewTemp(), ir.OpAdd, ir.IntArith(ir.OverflowFaults),
+			a := ir.NewArith(plantPos, f.NewTemp(), ir.OpAdd, ir.IntArith(ir.OverflowExact),
 				l.Dst(), r.Dst())
 			b.Append(a)
 			return a.Dst()

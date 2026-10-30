@@ -81,7 +81,6 @@
 "todo" @keyword
 "unreachable" @keyword
 "concurrent" @keyword.coroutine
-"try" @keyword.exception
 "then" @keyword
 "tap" @keyword
 "impl" @keyword.type
@@ -390,6 +389,7 @@
 (call_expression
   . (field_access
     (identifier) @function.call .))
+
 
 ; Function definitions
 (function_definition
@@ -736,6 +736,13 @@
   (attached_comment_test_prompt_marker)
   (attached_comment_test_line_prompt)
 ] @comment.documentation
+
+; A postfix `!` (`Map.get(m, k)!`) can stop the program, as `unreachable`
+; does, and a postfix `?` (`parse(s)?`) can return from it, as `return`
+; does, so both read as keywords; the catch-all `"!" @operator` above keeps
+; a prefix `!` (logical not) an operator. Last, so they win.
+(bang) @keyword
+(question) @keyword.exception
 
 ; Neovim-only (added by the generator): the prelude's scalar types read as
 ; builtin types. Last so it wins over the generic @type captures above.

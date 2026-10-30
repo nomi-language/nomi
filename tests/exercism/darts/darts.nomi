@@ -1,3 +1,5 @@
+//# Scores a dart throw on a target of three circles.
+
 /// The points a dart landing at `x`, `y` scores on a target centred on the
 /// origin: 10 inside radius 1, 5 inside radius 5, 1 inside radius 10, and
 /// nothing outside. A dart on a circle's edge counts as inside it.

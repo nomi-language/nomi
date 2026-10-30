@@ -328,14 +328,14 @@ func (b *tourModule0Bound) out14(v goside.Statement) (rt.Value, error) {
 		return nil, fmt.Errorf("field %q: %w", "columns", err)
 	}
 	r.R[0] = w17
-	r.W[0] = rt.IntWord(int64(v.Params))
+	r.SetIntSlot(0, rt.Value(int64(v.Params)))
 	w20, err := b.out18(v.Plan)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "plan", err)
 	}
 	r.R[1] = w20
 	r.S[0] = string(v.Error)
-	r.W[1] = rt.IntWord(int64(v.Offset))
+	r.SetIntSlot(1, rt.Value(int64(v.Offset)))
 	return r, nil
 }
 
@@ -367,7 +367,7 @@ func (b *tourModule0Bound) out6(v goside.Description) (rt.Value, error) {
 	r.R[1] = w21
 	r.S[0] = string(v.Error)
 	r.S[1] = string(v.Migration)
-	r.W[0] = rt.IntWord(int64(v.Offset))
+	r.SetIntSlot(0, rt.Value(int64(v.Offset)))
 	return r, nil
 }
 
@@ -408,20 +408,20 @@ func (b *tourModule0Bound) in23(fr *rt.Frame, v rt.Value) (out *goside.Conn, err
 
 // in24 reads a Int as Go int64.
 func (b *tourModule0Bound) in24(fr *rt.Frame, v rt.Value) (out int64, err error) {
-	x, ok := v.(int64)
-	if !ok {
+	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
-	return int64(x), nil
+	x := v
+	return hostadapt.ToSigned[int64](x, "int64")
 }
 
 // out26 builds a Failure from Go goside.Failure.
 func (b *tourModule0Bound) out26(v goside.Failure) (rt.Value, error) {
 	r := b.d7.New()
-	r.W[0] = rt.IntWord(int64(v.Kind))
+	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Code)
 	r.S[1] = string(v.Message)
-	r.W[1] = rt.IntWord(int64(v.Constraint))
+	r.SetIntSlot(1, rt.Value(int64(v.Constraint)))
 	r.S[2] = string(v.Name)
 	r.S[3] = string(v.Table)
 	r.S[4] = string(v.Column)
@@ -431,8 +431,8 @@ func (b *tourModule0Bound) out26(v goside.Failure) (rt.Value, error) {
 // out25 builds a Level from Go goside.Level.
 func (b *tourModule0Bound) out25(v goside.Level) (rt.Value, error) {
 	r := b.d6.New()
-	r.W[0] = rt.IntWord(int64(v.Depth))
-	r.W[1] = rt.IntWord(int64(v.Token))
+	r.SetIntSlot(0, rt.Value(int64(v.Depth)))
+	r.SetIntSlot(1, rt.Value(int64(v.Token)))
 	w27, err := b.out26(v.Failure)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "failure", err)
@@ -518,18 +518,26 @@ func (b *tourModule0Bound) in32(fr *rt.Frame, v rt.Value) (out goside.Cell, err 
 		return out, err
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d8, 0, 0, "kind")
+		x, err := hostadapt.IntValueField(r, b.d8, 0, 0, "kind")
 		if err != nil {
 			return out, err
 		}
-		out.Kind = int64(x)
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "kind", err)
+		}
+		out.Kind = y
 	}
 	{
-		x, err := hostadapt.IntField(r, b.d8, 1, 1, "int")
+		x, err := hostadapt.IntValueField(r, b.d8, 1, 1, "int")
 		if err != nil {
 			return out, err
 		}
-		out.Int = int64(x)
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "int", err)
+		}
+		out.Int = y
 	}
 	{
 		x, err := hostadapt.FloatField(r, b.d8, 2, 2, "float")
@@ -577,8 +585,8 @@ func (b *tourModule0Bound) in31(fr *rt.Frame, v rt.Value) (out []goside.Cell, er
 // out38 builds a Cell from Go goside.Cell.
 func (b *tourModule0Bound) out38(v goside.Cell) (rt.Value, error) {
 	r := b.d8.New()
-	r.W[0] = rt.IntWord(int64(v.Kind))
-	r.W[1] = rt.IntWord(int64(v.Int))
+	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
+	r.SetIntSlot(1, rt.Value(int64(v.Int)))
 	r.W[2] = rt.FloatWord(float64(v.Float))
 	r.S[0] = string(v.Text)
 	r.S[1] = string(rt.Bytes(v.Bytes))
@@ -719,7 +727,7 @@ func (b *tourModule0Bound) out42(v goside.Answer) (rt.Value, error) {
 		return nil, fmt.Errorf("field %q: %w", "rows", err)
 	}
 	r.R[2] = w46
-	r.W[0] = rt.IntWord(int64(v.Changed))
+	r.SetIntSlot(0, rt.Value(int64(v.Changed)))
 	w47, err := b.out26(v.Failure)
 	if err != nil {
 		return nil, fmt.Errorf("field %q: %w", "failure", err)

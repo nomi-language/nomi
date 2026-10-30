@@ -66,7 +66,7 @@ func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, 
 
 // returnSelfDispatch lowers `Iface.method(args)` whose method declares self
 // only in its RETURN and whose call names no type argument:
-// `notes: List<Note> = try FromJson.from_json(json)`. No argument carries the
+// `notes: List<Note> = FromJson.from_json(json)?`. No argument carries the
 // receiver, so the implementation is the one the checker solved self to from
 // the result's expected type (analysis.Symbol.ReturnSelf), dispatched as the
 // turbofish spelling of the same type would be. handled is false for every

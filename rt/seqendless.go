@@ -1,8 +1,6 @@
 package rt
 
-import "math"
-
-// The `infinite?` protocol: a sequence that knows it never ends.
+// The `is_infinite` protocol: a sequence that knows it never ends.
 //
 // `Iter.repeat(x)`, `Iter.from(n)`, `Iter.iterate(seed, step)` and an
 // unbounded `Range.from(n)` never end on their own, and nothing in
@@ -48,7 +46,7 @@ func SeqEndless[T any](fr *Frame, src Seq[T]) string {
 	return src.Endless(fr)
 }
 
-// SeqInfinite is `Iter.infinite?(source)`.
+// SeqInfinite is `Iter.is_infinite(source)`.
 func SeqInfinite[T any](fr *Frame, src Seq[T]) bool { return SeqEndless(fr, src) != "" }
 
 // InfiniteIterationText is the trap a terminal that must reach the end of its
@@ -71,7 +69,7 @@ func SeqMustEnd[T any](fr *Frame, src Seq[T], terminal string) {
 
 // WithEndless is src answering endless as its Endless: a view of a source
 // whose own type says it never ends (a user `impl Iter` that writes
-// `infinite?`).
+// `is_infinite`).
 func WithEndless[T any](src Seq[T], endless func(fr *Frame) string) Seq[T] {
 	src.Endless = endless
 	return src
@@ -155,29 +153,18 @@ func chunksEndless[T any](src Seq[T], size int64) func(fr *Frame) string {
 	return src.Endless
 }
 
-// rangeEndlessMin is how many elements an unbounded Int range must have left
-// before it counts as endless: a range from near `Int.max_value` ends, and
-// one with 2^48 elements left cannot be collected or counted in any run.
-const rangeEndlessMin = 1 << 48
-
 // rangeEndless is an unbounded Range's answer. std builds an unbounded Range
-// only over Int (`Range.from`, `Range.naturals`), which ends at
-// `Int.max_value`; one that starts near it ends, and any other, a negative
-// start included, is endless.
+// only over Int (`Range.from`, `Range.naturals`), and an Int has no largest
+// value, so every one is endless.
 func rangeEndless[T any](r Range[T]) func(fr *Frame) string {
 	if r.End.Tag == TagSome {
-		return nil
-	}
-	// Unsigned, so the distance from a negative start does not overflow.
-	if n, ok := any(r.Start).(int64); ok && uint64(math.MaxInt64)-uint64(n) < rangeEndlessMin {
 		return nil
 	}
 	return endlessRange
 }
 
 // stepByEndless is `Range.step_by`'s answer over an unbounded range: endless
-// when the first step moves, unless an Int range reaches the end of Int
-// within rangeEndlessMin steps. A step that does not move yields nothing.
+// when the first step moves. A step that does not move yields nothing.
 // Asking takes one step, which is the element type's `Steppable.step_by`.
 func stepByEndless[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Ordering, step func(fr *Frame, v T, by S) Maybe[T]) func(fr *Frame) string {
 	if r.End.Tag == TagSome {
@@ -188,21 +175,8 @@ func stepByEndless[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Order
 		if next.Tag != TagSome {
 			return ""
 		}
-		rank := OrderingRank(cmp(fr, next.Some, r.Start))
-		if rank == 0 {
+		if OrderingRank(cmp(fr, next.Some, r.Start)) == 0 {
 			return ""
-		}
-		from, isInt := any(r.Start).(int64)
-		to, _ := any(next.Some).(int64)
-		if isInt {
-			// Unsigned, so no distance between two Ints overflows.
-			left, stride := uint64(math.MaxInt64)-uint64(from), uint64(to)-uint64(from)
-			if rank < 0 {
-				left, stride = uint64(from)+(1<<63), uint64(from)-uint64(to)
-			}
-			if left/stride < rangeEndlessMin {
-				return ""
-			}
 		}
 		return "Range.step_by"
 	}

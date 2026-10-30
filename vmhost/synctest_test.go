@@ -206,7 +206,7 @@ fn main() -> Unit {
     slow2 = Task.spawn(fn -> slow_task())
     _slow1_ref = slow1
     _slow2_ref = slow2
-    Ok(try Task.await(fast))
+    Ok(Task.await(fast)?)
   }
   case outcome {
     Ok(v) -> io.print("ok:" + Display.to_string(v))

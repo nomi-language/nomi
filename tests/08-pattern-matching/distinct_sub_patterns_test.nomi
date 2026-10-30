@@ -30,9 +30,7 @@ fn bind_else(t: #(Pair, Int)) -> Int {
 }
 
 fn fallback(m: Maybe<#(Pair, Int)>) -> Int {
-    Some(#(#Pair(x, _), y)) = m else {
-        #(#Pair(-1, ""), 0)
-    }
+    Some(#(#Pair(x, _), y)) = m else { #(#Pair(-1, ""), 0) }
 
     x + y
 }

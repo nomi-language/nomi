@@ -65,7 +65,7 @@ func TestClassifyCompletion(t *testing.T) {
 		{"parameter name, unclosed", "fn f(a: Int, na‸\n", ctxParamName},
 		{"parameter type, unclosed", "fn f(a: ‸\n", ctxType},
 		{"lambda parameter name", "fn f() {\n  g = fn na‸ -> 1\n}\n", ctxNone},
-		{"predicate name", "fn f() {\n  empty?‸\n}\n", ctxStatement},
+		{"predicate name", "fn f() {\n  is_empty‸\n}\n", ctxStatement},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -86,9 +86,9 @@ func TestClassifyCompletion_Details(t *testing.T) {
 		// The word runs to `map`; the `(` after it is already written.
 		t.Fatalf("nextIsParen = false for `Iter.ma‸p(g)`")
 	}
-	c = classifyAt(t, "fn f() {\n  empty?‸\n}\n")
-	if c.prefix != "empty?" {
-		t.Fatalf("prefix = %q, want empty?", c.prefix)
+	c = classifyAt(t, "fn f() {\n  is_empty‸\n}\n")
+	if c.prefix != "is_empty" {
+		t.Fatalf("prefix = %q, want is_empty", c.prefix)
 	}
 	c = classifyAt(t, "import std/io.{‸}\n")
 	if c.importStmt == nil {
@@ -110,11 +110,11 @@ func TestCompletion_KeywordsByPosition(t *testing.T) {
 	labelsExclude(t, top, "return", "defer", "if")
 
 	stmt := complete(t, "fn f(n: Int) -> Int {\n  total = n * 2\n  ‸\n}\n")
-	labelsInclude(t, stmt, "return", "defer", "with", "assert", "if", "case", "try", "n", "total")
+	labelsInclude(t, stmt, "return", "defer", "with", "assert", "if", "case", "n", "total")
 	labelsExclude(t, stmt, "struct", "impl", "group")
 
 	operand := complete(t, "fn f(n: Int) -> Int {\n  total = ‸\n}\n")
-	labelsInclude(t, operand, "if", "case", "try", "n")
+	labelsInclude(t, operand, "if", "case", "n")
 	labelsExclude(t, operand, "return", "defer", "struct")
 }
 
@@ -159,6 +159,6 @@ func TestCompletion_PatternPositionOffersVariants(t *testing.T) {
 }
 
 func TestCompletion_PredicateNamePrefix(t *testing.T) {
-	src := "fn empty?(s: String) -> Bool { s == \"\" }\n\nfn f() {\n  empty?‸\n}\n"
-	labelsInclude(t, complete(t, src), "empty?")
+	src := "fn is_empty(s: String) -> Bool { s == \"\" }\n\nfn f() {\n  is_empty‸\n}\n"
+	labelsInclude(t, complete(t, src), "is_empty")
 }

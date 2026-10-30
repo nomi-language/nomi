@@ -217,7 +217,7 @@ impl Locale {
     /// its nearest listed parent, else as the source locale
     /// (`[i18n].source_locale`) when the program lists it, else as CLDR's
     /// root.
-    //! assert Iter.contains?(Locale.available(), Locale`pl`)
+    //! assert Iter.contains(Locale.available(), Locale`pl`)
     //
     pub fn available() -> List<Locale> {
         locale_available() |> Iter.map(fn t -> Locale(t)) |> Iter.to_list()
@@ -263,7 +263,7 @@ impl Locale {
     ///
     /// ```nomi
     /// fn choose_language(locale: Locale) -> Result<Unit, LoadError> {
-    ///     try Locale.load(locale)
+    ///     Locale.load(locale)?
     ///     with App.locale = locale
     ///     render_page()
     ///     Ok(Unit)

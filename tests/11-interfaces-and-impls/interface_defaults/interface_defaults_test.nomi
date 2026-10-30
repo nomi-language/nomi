@@ -199,7 +199,7 @@ test "required interface functions cannot have parameter defaults" {
 
     assert Iter.count(diagnostics) == 1
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "a default parameter value is only allowed on a default function with a Nomi body",
     )
@@ -230,7 +230,7 @@ test "interface default parameter values must match parameter types" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "default value for parameter '_count'")
+    assert test_helpers.has_diagnostic(diagnostics, "default value for parameter '_count'")
 }
 
 test "function-level where clauses on defaults reject unsatisfied arguments" {
@@ -270,7 +270,7 @@ test "function-level where clauses on defaults reject unsatisfied arguments" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "does not implement Comparable")
+    assert test_helpers.has_diagnostic(diagnostics, "does not implement Comparable")
 }
 
 test "function-level where clauses on required signatures reject unsatisfied arguments" {
@@ -311,7 +311,7 @@ test "function-level where clauses on required signatures reject unsatisfied arg
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "does not implement Comparable")
+    assert test_helpers.has_diagnostic(diagnostics, "does not implement Comparable")
 }
 
 test "interface method-local generics must be declared explicitly" {
@@ -328,7 +328,7 @@ test "interface method-local generics must be declared explicitly" {
     )
 
     assert Iter.count(diagnostics) > 0
-    assert test_helpers.has_diagnostic?(diagnostics, "where` names unknown type variable `K`")
+    assert test_helpers.has_diagnostic(diagnostics, "where` names unknown type variable `K`")
 }
 
 test "derive where clauses reject unsatisfied receiver arguments" {
@@ -351,5 +351,5 @@ test "derive where clauses reject unsatisfied receiver arguments" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "does not implement Display")
+    assert test_helpers.has_diagnostic(diagnostics, "does not implement Display")
 }

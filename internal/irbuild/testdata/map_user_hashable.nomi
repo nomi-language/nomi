@@ -3,8 +3,8 @@ import std/io
 /// A distinct type whose `Hashable` and `Equatable` impls say every two Ids
 /// are one value, used as a Map key.
 ///
-/// `hash` returns a constant, and `equal?` says every two Ids are equal. A Map
-/// buckets on `Hashable.hash` and matches on `Equatable.equal?` (spec,
+/// `hash` returns a constant, and `equal` says every two Ids are equal. A Map
+/// buckets on `Hashable.hash` and matches on `Equatable.equal` (spec,
 /// `Map<K, V>`), so this map holds one entry: the literal's second key is the
 /// first one again, which keeps its position and takes the later value, and
 /// every `Map.get` answers `Some(two)`.
@@ -18,7 +18,7 @@ impl Hashable for Id {
 }
 
 impl Equatable for Id {
-    fn equal?(a: Id, b: Id) -> Bool {
+    fn equal(a: Id, b: Id) -> Bool {
         _ = b
         _ = a
         True
@@ -30,7 +30,7 @@ fn main() {
     // shows they answer as written.
     io.print("user hash of Id(1) = ${Hashable.hash(Id(1))}")
     io.print("user hash of Id(2) = ${Hashable.hash(Id(2))}")
-    io.print("user equal? Id(1) Id(2) = ${Equatable.equal?(Id(1), Id(2))}")
+    io.print("user equal Id(1) Id(2) = ${Equatable.equal(Id(1), Id(2))}")
 
     // And the map keys by both.
     m = %{Id(1) => "one", Id(2) => "two"}

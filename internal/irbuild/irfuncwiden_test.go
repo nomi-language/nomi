@@ -257,3 +257,24 @@ fn main() {
 		"16\n"
 	irRunSource(t, src, want)
 }
+
+// A function value whose parameter is an Iter of Iters stands where a
+// function of a List of Lists is expected: the adapter converts the
+// argument as a direct call's does, the inner lists included.
+func TestIRFuncWiderThanExpected_IterOfIters(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+fn shown(xss: Iter<Iter<Display>>) -> String {
+  xss |> Iter.map(fn xs -> xs |> Iter.map(Display.to_string) |> String.join(",")) |> String.join(";")
+}
+fn apply(f: (List<List<Int>>) -> String, xss: List<List<Int>>) -> String {
+  f(xss)
+}
+fn main() {
+  found: Result<List<List<String>>, String> = Ok([["a", "b"], ["c"]])
+  io.inspect(Result.map(found, Iter.flatten))
+  g: (List<Vector<Int>>) -> List<Int> = Iter.flatten
+  io.inspect(g([#[1, 2], #[3]]))
+  io.inspect(Iter.map([[[1, 2], [3, 4]]], Iter.transpose) |> Iter.to_list())
+  io.print(apply(shown, [[1, 2], [3]]))
+}`, "Ok([\"a\", \"b\", \"c\"])\n[1, 2, 3]\n[[[1, 3], [2, 4]]]\n1,2;3\n")
+}

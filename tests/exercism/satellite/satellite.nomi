@@ -1,3 +1,5 @@
+//# Rebuilds a binary tree from its preorder and inorder traversals.
+
 /// A binary tree with a value at each node.
 pub enum Tree<T> {
     Leaf

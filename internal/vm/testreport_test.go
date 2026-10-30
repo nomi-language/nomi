@@ -762,7 +762,7 @@ func dropValueRows(transcript string) string {
 //
 // IT DISCRIMINATES FOR A SECOND REASON. Only a report that QUOTES Nomi source
 // has a fragment to mutate, so `tests_trap.nomi` — whose report is one
-// `line N: integer overflow` header with no assertion behind it — must come
+// `line N: division by zero` header with no assertion behind it — must come
 // through untouched, as must every passing record, even though the hook is
 // installed for their runs too.
 func TestVMReport_APlantedWrongSourceFragmentIsCaught(t *testing.T) {

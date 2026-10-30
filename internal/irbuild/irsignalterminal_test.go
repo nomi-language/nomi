@@ -2,7 +2,7 @@ package irbuild
 
 import "testing"
 
-// `break` and `continue` in the callbacks of `Iter.find`, `any?`, `all?`,
+// `break` and `continue` in the callbacks of `Iter.find`, `any`, `all`,
 // `drop_while`, `flat_map`, `Map.map_values` and `Map.map_keys`. The rule is
 // the spec's for every iteration callback: `continue` skips this element,
 // `break` stops with what has accumulated, and `break v` answers v for this
@@ -67,8 +67,8 @@ fn main() {
 		"find bounds an unbounded source: None\n")
 }
 
-// any? and all?: what has accumulated before the answer is decided is False
-// for any? and True for all?, so a bare `break` answers that; `break v`
+// any and all: what has accumulated before the answer is decided is False
+// for any and True for all, so a bare `break` answers that; `break v`
 // answers v. The visits show the walk stops at the break.
 func TestIRSignal_AnyAllCallbacks(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
@@ -82,51 +82,51 @@ fn passes_but_three(x: Int) -> Bool {
 
 fn main() {
   xs = [1, 2, 3, 4, 5]
-  io.print("any? continue: ${Iter.any?(xs, fn x -> {
+  io.print("any continue: ${Iter.any(xs, fn x -> {
     if x == 3 { continue }
     x == 3
   })}")
-  io.print("any? break: ${Iter.any?(xs, fn x -> {
-    io.print("any? visits ${x}")
+  io.print("any break: ${Iter.any(xs, fn x -> {
+    io.print("any visits ${x}")
     if x == 2 { break }
     x == 4
   })}")
-  io.print("any? break True: ${Iter.any?(xs, fn x -> {
+  io.print("any break True: ${Iter.any(xs, fn x -> {
     if x == 2 { break True }
     False
   })}")
-  io.print("any? break False: ${Iter.any?(xs, fn x -> {
+  io.print("any break False: ${Iter.any(xs, fn x -> {
     if x == 2 { break False }
     x == 4
   })}")
-  io.print("any? over a map: ${Iter.any?(%{"a" => 1, "b" => 2}, fn #(k, v) -> {
+  io.print("any over a map: ${Iter.any(%{"a" => 1, "b" => 2}, fn #(k, v) -> {
     if k == "b" { continue }
     v == 2
   })}")
-  io.print("any? named: ${Iter.any?([3, 3], passes_but_three)}")
-  io.print("all? named: ${Iter.all?(xs, passes_but_three)}")
-  io.print("all? break: ${Iter.all?(xs, fn x -> {
-    io.print("all? visits ${x}")
+  io.print("any named: ${Iter.any([3, 3], passes_but_three)}")
+  io.print("all named: ${Iter.all(xs, passes_but_three)}")
+  io.print("all break: ${Iter.all(xs, fn x -> {
+    io.print("all visits ${x}")
     if x == 3 { break }
     x < 3
   })}")
-  io.print("all? break True: ${Iter.all?(xs, fn x -> {
+  io.print("all break True: ${Iter.all(xs, fn x -> {
     if x == 2 { break True }
     x < 2
   })}")
-  io.print("all? break False: ${Iter.all?(xs, fn x -> {
+  io.print("all break False: ${Iter.all(xs, fn x -> {
     if x == 1 { break False }
     True
   })}")
-  io.print("all? over a map: ${%{"a" => 1, "b" => 20} |> Iter.all?(fn #(k, v) -> {
+  io.print("all over a map: ${%{"a" => 1, "b" => 20} |> Iter.all(fn #(k, v) -> {
     if k == "b" { continue }
     v < 10
   })}")
 }
-`, "any? continue: False\nany? visits 1\nany? visits 2\nany? break: False\nany? break True: True\n"+
-		"any? break False: False\nany? over a map: False\nany? named: False\nall? named: True\n"+
-		"all? visits 1\nall? visits 2\nall? visits 3\nall? break: True\nall? break True: True\n"+
-		"all? break False: False\nall? over a map: True\n")
+`, "any continue: False\nany visits 1\nany visits 2\nany break: False\nany break True: True\n"+
+		"any break False: False\nany over a map: False\nany named: False\nall named: True\n"+
+		"all visits 1\nall visits 2\nall visits 3\nall break: True\nall break True: True\n"+
+		"all break False: False\nall over a map: True\n")
 }
 
 // drop_while: the value is the drop decision. `continue` drops the element
@@ -277,22 +277,22 @@ fn main() {
     if x == 30 { break }
     x > 40
   })}")
-  io.print("flat_map break reaches any?: ${[1, 2, 3] |> Iter.flat_map(fn x -> {
+  io.print("flat_map break reaches any: ${[1, 2, 3] |> Iter.flat_map(fn x -> {
     if x == 2 { break [x] }
     [x]
-  }) |> Iter.any?(fn x -> x == 3)}")
-  io.print("drop_while break reaches any?: ${[1, 2, 3, 4] |> Iter.drop_while(fn x -> {
+  }) |> Iter.any(fn x -> x == 3)}")
+  io.print("drop_while break reaches any: ${[1, 2, 3, 4] |> Iter.drop_while(fn x -> {
     if x == 1 { break False }
     True
-  }) |> Iter.any?(fn x -> x == 4)}")
-  io.print("map continue then all?: ${[1, 2, 3] |> Iter.map(fn x -> {
+  }) |> Iter.any(fn x -> x == 4)}")
+  io.print("map continue then all: ${[1, 2, 3] |> Iter.map(fn x -> {
     if x == 2 { continue }
     x
-  }) |> Iter.all?(fn x -> {
+  }) |> Iter.all(fn x -> {
     if x == 3 { break }
     x == 1
   })}")
 }
-`, "filter break reaches find: None\nfind break in a chain: None\nflat_map break reaches any?: False\n"+
-		"drop_while break reaches any?: False\nmap continue then all?: True\n")
+`, "filter break reaches find: None\nfind break in a chain: None\nflat_map break reaches any: False\n"+
+		"drop_while break reaches any: False\nmap continue then all: True\n")
 }

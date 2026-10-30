@@ -57,7 +57,7 @@ fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where
                 |> Maybe.map(widenings)
                 |> Maybe.with_default([])
                 |> Iter.map(fn v -> T.from_sql(v))
-                |> Iter.find(Result.ok?)
+                |> Iter.find(Result.is_ok)
 
             case widened {
                 Some(Ok(v)) -> Ok(v)
@@ -137,7 +137,7 @@ fn exact_digits() -> Int {
 /// what SQLite's floating-point arithmetic made of the decimals (a sum of
 /// many), or more digits than a float holds.
 fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, sql.Error> {
-    value = try (Row.value_position(row, position) |> Result.map_err(fn e -> named(query, e)))
+    value = Row.value_position(row, position) |> Result.map_err(fn e -> named(query, e))?
     columns = Row.columns(row)
     column = columns |> Iter.drop(position) |> Iter.first() |> Maybe.with_default("")
     place = "the column `${column}` of `${query}`, read at scale ${scale},"
@@ -283,7 +283,7 @@ pub fn numeric_scaled<T>(
     position: Int,
     scale: Int,
 ) -> Result<T, sql.Error> where T: SqlNumeric and FromSql {
-    read(query, try at_scale(query, row, position, scale), position)
+    read(query, at_scale(query, row, position, scale)?, position)
 }
 
 pub fn numeric_scaled_null<T>(
@@ -292,7 +292,7 @@ pub fn numeric_scaled_null<T>(
     position: Int,
     scale: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql {
-    read(query, try at_scale(query, row, position, scale), position)
+    read(query, at_scale(query, row, position, scale)?, position)
 }
 
 pub fn numeric_null<T>(
@@ -453,7 +453,7 @@ fn rows_of<T>(
     statement: Statement,
     decode: (Row) -> Result<T, sql.Error>,
 ) -> Result<List<T>, sql.Error> {
-    rows = try Conn.query(conn, statement)
+    rows = Conn.query(conn, statement)?
     rows |> Iter.map(decode) |> Result.collect()
 }
 
@@ -464,7 +464,7 @@ pub fn one<T>(
     statement: Statement,
     decode: (Row) -> Result<T, sql.Error>,
 ) -> Result<T, sql.Error> {
-    rows = try rows_of(conn, statement, decode)
+    rows = rows_of(conn, statement, decode)?
 
     case rows {
         [row] -> Ok(row)
@@ -479,7 +479,7 @@ pub fn optional<T>(
     statement: Statement,
     decode: (Row) -> Result<T, sql.Error>,
 ) -> Result<Maybe<T>, sql.Error> {
-    rows = try rows_of(conn, statement, decode)
+    rows = rows_of(conn, statement, decode)?
 
     case rows {
         [] -> Ok(None)
@@ -518,7 +518,7 @@ pub fn exec(conn: Conn, statement: Statement) -> Result<Changed, sql.Error> {
 /// A statement that returns no rows, run for its effect alone: what a
 /// `-> Unit` query answers.
 pub fn run(conn: Conn, statement: Statement) -> Result<Unit, sql.Error> {
-    _ = try Conn.exec(conn, statement)
+    _ = Conn.exec(conn, statement)?
     Ok(Unit)
 }
 

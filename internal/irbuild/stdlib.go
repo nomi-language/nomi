@@ -360,7 +360,8 @@ func hostCallName(rv reflect.Value) (call, pkg string) {
 // Anything else answers kindInvalid.
 func kindOfGoType(t reflect.Type) kind {
 	switch t {
-	case reflect.TypeFor[int64]():
+	case reflect.TypeFor[int64](), reflect.TypeFor[rt.Int]():
+		// An int64 takes an Int that fits it, and rt.Int any Int.
 		return kindInt
 	case reflect.TypeFor[float64]():
 		return kindFloat
@@ -647,7 +648,7 @@ func (f *stdFunc) lowerable() bool { return f.rtCall != "" || f.body }
 // stdlibIndex is every stdlib function a call site can resolve, plus the IR
 // graphs built for the ones with Nomi bodies.
 type stdlibIndex struct {
-	// byType keys "String.contains?" — the type-qualified spelling a call site
+	// byType keys "String.contains" — the type-qualified spelling a call site
 	// writes.
 	//
 	// The value is an OVERLOAD SET rather than one function, because the
@@ -1434,7 +1435,7 @@ type stdCandidate struct {
 //
 // The lowering order is settled by a MONOTONE fixed point rather than one pass.
 // A Nomi body may call a sibling (`impl Debug for Float`'s `inspect` calls
-// `to_string`; `Float.finite?` calls `Float.infinite?`), so round 1 offers only
+// `to_string`; `Float.is_finite` calls `Float.is_infinite`), so round 1 offers only
 // the host siblings, round 2 adds the bodies that lowered in round 1, and so on.
 // Growing the sibling set can only turn a refusal into a success, never the
 // reverse — which is what makes the loop terminate without having to invalidate
@@ -3003,7 +3004,7 @@ func (g *gen) irRecordStdKey(f *stdFunc) {
 	}
 	k := f.params[0]
 	switch {
-	case f.iface == "Equatable" && f.name == "equal?" && len(f.params) == 2:
+	case f.iface == "Equatable" && f.name == "equal" && len(f.params) == 2:
 		g.irMod.ImplementEquatable(g.irTypeSym(k.def), f.irBody.Sym())
 	case f.iface == "Hashable" && f.name == "hash" && len(f.params) == 1:
 		g.irMod.ImplementHashable(g.irTypeSym(k.def), f.irBody.Sym())

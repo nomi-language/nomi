@@ -9,7 +9,8 @@
     "start": "astro dev",
     "build": "astro build && node prehighlight.mjs dist && node csp-audit.mjs dist && node check-dist.mjs dist",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.39.2",

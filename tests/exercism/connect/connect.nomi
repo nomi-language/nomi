@@ -26,11 +26,11 @@ pub fn winner(board: List<String>) -> Maybe<Player> {
         |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
         |> Iter.to_list()
 
-    [Player.X, Player.O] |> Iter.find(&connects?(rows, &1))
+    [Player.X, Player.O] |> Iter.find(&connects(rows, &1))
 }
 
 /// Whether `player`'s stones join their two sides of the board.
-fn connects?(rows: List<List<String>>, player: Player) -> Bool {
+fn connects(rows: List<List<String>>, player: Player) -> Bool {
     stones =
         rows
         |> Iter.with_index()
@@ -43,10 +43,10 @@ fn connects?(rows: List<List<String>>, player: Player) -> Bool {
         |> Iter.to_set()
 
     last_row = Iter.count(rows) - 1
-    width = rows |> Iter.first() |> Maybe.map(&Iter.count(&1)) |> Maybe.with_default(0)
+    width = rows |> Iter.first() |> Maybe.map(Iter.count) |> Maybe.with_default(0)
     last_column = width - 1
 
-    #(start?, goal?) = case player {
+    #(is_start, is_goal) = case player {
         .X ->
             #(
                 fn #(_row, column): Cell -> column == 0,
@@ -57,8 +57,8 @@ fn connects?(rows: List<List<String>>, player: Player) -> Bool {
             #(fn #(row, _column): Cell -> row == 0, fn #(row, _column): Cell -> row == last_row)
     }
 
-    starts = stones |> Iter.filter(start?) |> Iter.to_list()
-    reaches?(stones, starts, Iter.to_set(starts), goal?)
+    starts = stones |> Iter.filter(is_start) |> Iter.to_list()
+    reaches(stones, starts, Iter.to_set(starts), is_goal)
 }
 
 fn stone(player: Player) -> String {
@@ -69,30 +69,30 @@ fn stone(player: Player) -> String {
 }
 
 /// Whether a path through `stones` leads from a cell of `frontier` to a
-/// cell where `goal?` holds, without stepping on a cell of `seen` again.
+/// cell where `is_goal` holds, without stepping on a cell of `seen` again.
 /// A depth-first search: the newest cells found are tried first.
-fn reaches?(
+fn reaches(
     stones: Set<Cell>,
     frontier: List<Cell>,
     seen: Set<Cell>,
-    goal?: (Cell) -> Bool,
+    is_goal: (Cell) -> Bool,
 ) -> Bool {
     case frontier {
         [] ->
             False
 
         [cell, ..rest] -> {
-            if goal?(cell) { return True }
+            if is_goal(cell) { return True }
 
             #(row, column) = cell
 
             next =
                 neighbours
                 |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
-                |> Iter.filter(fn n -> Set.contains?(stones, n) and !Set.contains?(seen, n))
+                |> Iter.filter(fn n -> Set.contains(stones, n) and !Set.contains(seen, n))
                 |> Iter.to_list()
 
-            reaches?(stones, List.concat(next, rest), Set.union(seen, Iter.to_set(next)), goal?)
+            reaches(stones, List.concat(next, rest), Set.union(seen, Iter.to_set(next)), is_goal)
         }
     }
 }

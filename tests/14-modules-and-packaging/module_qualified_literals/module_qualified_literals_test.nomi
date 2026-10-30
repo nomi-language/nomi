@@ -99,9 +99,7 @@ test "a module-qualified field variant in an if condition and a binding with els
 
     assert got == 9
 
-    #Slot{shape: shapes.Shape.Square(m), bag: _} = slot else {
-        return
-    }
+    #Slot{shape: shapes.Shape.Square(m), bag: _} = slot else { return }
 
     assert m == 9
 }

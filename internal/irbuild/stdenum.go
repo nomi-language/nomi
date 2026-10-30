@@ -188,6 +188,12 @@ const (
 	// is the wider form; this one stays as it is because its members declare no
 	// default and gain nothing from the wider machinery.
 	payloadStructScalar
+	// payloadStdStruct carries one positional payload of a std RECORD STRUCT
+	// row, the stdStructSpecs index `ref` names: `Decode Json.DecodeError`.
+	// The kind is that row's def, read from stdStructShells so the two
+	// tables' builds never wait on each other; the shell is `rtDeclared`,
+	// which is what makes the payload package-neutral.
+	payloadStdStruct
 	// payloadStructFields carries N NAMED fields whose types need not be
 	// scalars and which MAY carry defaults — the
 	// `Exponential {max_restarts: Int = 10, max_elapsed: Duration = …}` shape.
@@ -373,6 +379,8 @@ func (v *stdEnumVariantSpec) payloadKind(defs []*typeDef) kind {
 		return listKindIn(nil, named(defs[v.ref]))
 	case payloadMapStringToEnum:
 		return mapKindIn(nil, kindString, named(defs[v.ref]))
+	case payloadStdStruct:
+		return named(stdStructShells()[v.ref])
 	}
 	// kindInvalid: marker — payloadBare, "this variant carries nothing".
 	return kindInvalid
@@ -418,6 +426,11 @@ func (v *stdEnumVariantSpec) declaredShapeOK(te ast.TypeExpr, specs []stdEnumSpe
 		}
 		return scalarKind(gt.Params[0]) == kindString &&
 			simpleTypeName(gt.Params[1]) == specs[v.ref].nomi
+	case payloadStdStruct:
+		// The struct row's own name, dotted (`Json.DecodeError`) or not, so
+		// a renamed row fails here rather than anchoring a stale spelling.
+		want := stdStructSpecs[v.ref].nomi
+		return simpleTypeName(te) == want || stdNestedTypeName(te) == want
 	}
 	// payloadBare: a bare variant has no annotation to accept.
 	//
@@ -944,6 +957,22 @@ var stdEnumSpecs = []stdEnumSpec{{
 	goType:   reflect.TypeFor[rt.CaseFirst](),
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{bareVariant("Default"), bareVariant("Upper"), bareVariant("Lower"), bareVariant("Off")},
+}, {
+	// std/json's `Json.Error`, what `Json.decode_as` answers when its text is
+	// not a `T`: the parse failure or the shape failure, each the std record
+	// struct the two steps answer on their own. The first row whose payloads
+	// are std record structs (payloadStdStruct). Without it, a program that
+	// names `Result<T, Json.Error>` in an annotation gets a per-program def for
+	// the enum, which the generic decode_as's own result does not match. See
+	// rt/json.go's JsonError.
+	origin:   "std/json",
+	nomi:     "Json.Error",
+	goType:   reflect.TypeFor[rt.JsonError](),
+	tagField: "Tag",
+	variants: []stdEnumVariantSpec{
+		stdStructVariant("Decode", "Decode", stdSpecJsonDecodeError),
+		stdStructVariant("Shape", "Shape", stdSpecJsonShapeError),
+	},
 }}
 
 // opaqueDuration indexes the `Duration` row of opaqueSpecs, which two variant
@@ -962,6 +991,18 @@ const opaqueLocale = 7
 // opaqueCurrency indexes the `Currency` row of opaqueSpecs, the type of
 // NumberParseError's `expected` field, pinned as opaqueLocale is.
 const opaqueCurrency = 18
+
+// stdStructVariant is a positional payload holding the stdStructSpecs row
+// at index structIdx, stored in rt's `field`.
+func stdStructVariant(name, field string, structIdx int) stdEnumVariantSpec {
+	return stdEnumVariantSpec{
+		nomi:   name,
+		form:   payloadStdStruct,
+		scalar: kindInvalid,
+		ref:    structIdx,
+		field:  field,
+	}
+}
 
 // opaquePositionalVariant is scalarVariant for a payload whose type is an
 // opaque std newtype rather than one of the five scalars.
@@ -1039,14 +1080,7 @@ const stdEnumJson = 7
 // a spec that claimed a field rt does not declare fails rather than emitting a
 // selector that does not compile.
 var stdEnumDefs = sync.OnceValue(func() []*typeDef {
-	defs := make([]*typeDef, len(stdEnumSpecs))
-	for i := range stdEnumSpecs {
-		s := &stdEnumSpecs[i]
-		defs[i] = &typeDef{nomi: s.nomi, tagName: s.tagField, isEnum: true, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
-			// hand-written in rt/ordering.go, rt/calendar.go or rt/json.go, and
-			// a second declaration would be a second Go type for one Nomi type.
-			rtDeclared: true}
-	}
+	defs := stdEnumShells()
 	for i := range stdEnumSpecs {
 		s := &stdEnumSpecs[i]
 		d := defs[i]
@@ -1112,6 +1146,22 @@ var stdEnumDefs = sync.OnceValue(func() []*typeDef {
 				payloads: []payload{{nomi: v.nomiField, k: pk, slot: slot}},
 			})
 		}
+	}
+	return defs
+})
+
+// stdEnumShells is the first pass of stdEnumDefs on its own, for
+// stdStructShells' reason: a struct row's field may name an enum's def and
+// an enum row's payload a struct's, so each table's second pass reads the
+// other's shells. stdEnumDefs fills these same pointers.
+var stdEnumShells = sync.OnceValue(func() []*typeDef {
+	defs := make([]*typeDef, len(stdEnumSpecs))
+	for i := range stdEnumSpecs {
+		s := &stdEnumSpecs[i]
+		defs[i] = &typeDef{nomi: s.nomi, tagName: s.tagField, isEnum: true, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
+			// hand-written in rt/ordering.go, rt/calendar.go or rt/json.go, and
+			// a second declaration would be a second Go type for one Nomi type.
+			rtDeclared: true}
 	}
 	return defs
 })
@@ -1362,7 +1412,6 @@ func (g *gen) loadStdEnums() {
 	}
 	g.stdEnumsLoaded = true
 	g.stdEnumByDecl, g.stdEnumByName = stdEnumAnchors(g.fa)
-	stdSynthEnumAnchors(g.fa, g.stdEnumByName)
 }
 
 // stdEnumDeclared reports the spec index for an enum declaration this module

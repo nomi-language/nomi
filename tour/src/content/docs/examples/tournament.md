@@ -74,13 +74,15 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
     results =
         rows
         |> Iter.map(parse_row)
-        |> try Result.collect()
+        |> Result.collect()?
         |> Iter.flatten()
 
     standings =
         results
-        |> Iter.group_by(.0)
-        |> Iter.map(fn #(team, outcomes) -> standing(team, Iter.map(outcomes, .1)))
+        |> Iter.group_by(fn #(team, _outcome) -> team)
+        |> Iter.map(fn #(team, rows) -> {
+            standing(team, Iter.map(rows, fn #(_team, outcome) -> outcome))
+        })
         |> Iter.sort_by(fn s -> #(Reverse.of(Standing.points(s)), s.team))
 
     table = Iter.map(standings, fn s -> {
@@ -93,13 +95,9 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
 
 /// The outcome of the match in `row` for each of its two teams.
 fn parse_row(row: String) -> Result<List<#(String, Outcome)>, Error> {
-    [home, away, word] = String.split(row, ";") else {
-        return Err(.InvalidRow(row))
-    }
+    [home, away, word] = String.split(row, ";") else { return Err(.InvalidRow(row)) }
 
-    Some(outcome) = Outcome.parse(word) else {
-        return Err(.InvalidRow(row))
-    }
+    Some(outcome) = Outcome.parse(word) else { return Err(.InvalidRow(row)) }
 
     Ok([#(home, outcome), #(away, Outcome.reverse(outcome))])
 }
@@ -127,10 +125,7 @@ fn line(team: String, cells: Iter<String>) -> String {
 }
 
 // FILE: tournament_test.nomi
-import {
-    tournament
-    tournament.Error
-}
+import tournament.{self, Error}
 
 test "just the header if no input" {
     assert tournament.tally([]) == Ok(["Team                           | MP |  W |  D |  L |  P"])

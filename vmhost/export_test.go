@@ -264,10 +264,10 @@ export fn reset() {
 	got := p.WebDeclarations()
 	for _, want := range []string{
 		"for main.nomi",
-		`export interface Point { xPos: number; label: string | null }`,
-		`export type Shape = "Dot" | { Circle: { radius: number } } | { Pair: [number, string] } | { Tagged: Point };`,
+		`export interface Point { xPos: number | bigint; label: string | null }`,
+		`export type Shape = "Dot" | { Circle: { radius: number } } | { Pair: [number | bigint, string] } | { Tagged: Point };`,
 		`  call(name: "shapes", points: Point[], scale: number): Promise<Shape[]>;`,
-		`  call(name: "counts", new_: Record<string, number>, seen: string[]): Promise<boolean | null>;`,
+		`  call(name: "counts", new_: Record<string, number | bigint>, seen: string[]): Promise<boolean | null>;`,
 		`  call(name: "hidden"): Promise<unknown>;`,
 		`  call(name: "reset"): Promise<void>;`,
 		"export function load(url: string | URL, options?: NomiLoadOptions): Promise<NomiProgram>;",

@@ -93,7 +93,7 @@ test "nested functions do not leak outside their enclosing function" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "undefined variable 'helper'")
+    assert test_helpers.has_diagnostic(diagnostics, "undefined variable 'helper'")
 }
 
 test "imports can be declared inside function bodies" {

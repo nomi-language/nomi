@@ -1,11 +1,13 @@
+//# Isograms: words and phrases with no repeated letter.
+
 /// Whether no letter appears in `phrase` more than once, ignoring case.
 /// Spaces, hyphens and other non-letters may repeat.
-pub fn isogram?(phrase: String) -> Bool {
+pub fn is_isogram(phrase: String) -> Bool {
     letters =
         phrase
         |> String.fold_case()
         |> String.to_codepoints()
-        |> Iter.filter(Codepoint.letter?)
+        |> Iter.filter(Codepoint.is_letter)
         |> Iter.to_list()
 
     distinct = Iter.to_set(letters)

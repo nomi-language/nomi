@@ -5,7 +5,7 @@ import std/io
 // call. Named bare, it has both parameters and fits no one-parameter type,
 // which the checker rejects (analysis/func_value_defaults.go).
 fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
-    if strict and String.starts_with?(s, "+") {
+    if strict and String.starts_with(s, "+") {
         None
     } else {
         String.to_int(s)

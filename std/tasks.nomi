@@ -27,8 +27,8 @@ pub enum Outcome<T> {
 
 /// In-flight or completed asynchronous computation. `Task<T>` carries
 /// one type parameter — the body's return type. Errors-as-values via
-/// `Result<T, E>` are the universal Nomi idiom, so `try Task.await(task)`
-/// composes the same way `try fetch_user(42)` does.
+/// `Result<T, E>` are the universal Nomi idiom, so `Task.await(task)?`
+/// composes the same way `fetch_user(42)?` does.
 ///
 /// `Task<T>` values are scoped to the enclosing `concurrent { }` block:
 /// they cannot escape the block (the analyzer rejects `return t`,
@@ -55,7 +55,7 @@ impl Task<T> {
     /// Block until `task` completes and return its value.
     ///
     /// Two channels, not one. The **value** channel is ordinary: a
-    /// Result-typed body bubbles its errors through `try Task.await(t)`
+    /// Result-typed body bubbles its errors through `Task.await(t)?`
     /// like any other Result-returning call, and an `Err` the body
     /// returned deliberately is a value that arrives here normally.
     ///
@@ -93,7 +93,7 @@ impl Task<T> {
     /// Terminal, not lazy: it consumes the whole source and returns a
     /// `List`. A lazy sequence of tasks would spawn *after* its block had
     /// exited, with the bodies never running. As with `Iter.to_list`, a source
-    /// that is `Iter.infinite?` traps before any task is spawned, and one that
+    /// that is `Iter.is_infinite` traps before any task is spawned, and one that
     /// never ends without saying so hangs: `max_running` throttles execution,
     /// not enqueueing.
     //! results = concurrent {

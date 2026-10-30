@@ -16,7 +16,7 @@ impl Item {
         item.id
     }
 
-    pub fn done?(item: Item) -> Bool {
+    pub fn is_done(item: Item) -> Bool {
         item.done
     }
 

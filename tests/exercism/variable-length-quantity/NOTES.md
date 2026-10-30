@@ -16,5 +16,5 @@ Adapted from Exercism problem-specifications (MIT), exercises/variable-length-qu
 
 ## Friction
 
-- [feature] `Byte` has no literal and is not a number (`Byte.to_int` and `Int.to_byte`, which answers a `Maybe`), so a byte sequence in a test would be `try Int.to_byte(0x81)` per byte. The bytes are `List<Int>` instead, which also holds 300 or -1. Rust writes `[0x81u8, 0x00]`, Go `[]byte{0x81, 0x00}`, and Python `b"\x81\x00"`.
+- [feature] `Byte` has no literal and is not a number (`Byte.to_int` and `Int.to_byte`, which answers a `Maybe`), so a byte sequence in a test would be `Int.to_byte(0x81)?` per byte. The bytes are `List<Int>` instead, which also holds 300 or -1. Rust writes `[0x81u8, 0x00]`, Go `[]byte{0x81, 0x00}`, and Python `b"\x81\x00"`.
 - [verbose] There are no bitwise operators, so a mask is `Int.bitwise_and(byte, 0x7F)` and a flag `Int.bitwise_or(digit, 0x80)`, where Rust, Go and Python write `byte & 0x7f` and `digit | 0x80`.

@@ -12,7 +12,7 @@
 // <~~~~~~~~~~~------ meta.embedded.line.nomi entity.name.function.nomi
 // <~~~~~~~~~~~~~~~~~~~~~-- meta.embedded.line.nomi keyword.operator.comparison.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~- meta.embedded.line.nomi constant.numeric.integer.nomi
-pub fn double?(n: Int) -> Int { todo }
+pub fn doubled(n: Int) -> Int { todo }
 // <--- keyword.declaration.nomi
 // <~~~~-- keyword.declaration.nomi
 // <~~~~~~~------- entity.name.function.nomi
@@ -30,6 +30,14 @@ pub noun item `{{item}}`
 // <--- keyword.declaration.nomi
 // <~~~~---- keyword.declaration.nomi
 // <~~~~~~~~~---- entity.name.function.nomi
+total = half(4)! + Map.get(m, k)! != !x
+// <~~~~~~~~~~~~~~~- keyword.control.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- keyword.control.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~-- keyword.operator.comparison.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- keyword.operator.nomi
+total = half(4)? + user.address?.city
+// <~~~~~~~~~~~~~~~- keyword.control.nomi
+// <~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~- keyword.control.nomi
 x = 1 // trailing comment
 // <~~~~~~-- comment.line.double-slash.nomi punctuation.definition.comment.nomi
 // <~~~~~~~~~-------- comment.line.double-slash.nomi
@@ -138,7 +146,7 @@ span = 0..=10
 big = Iter.filter(xs, &(&1 > 2))
 // <~~~~~~~~~~~~~~~~~~~~~~- keyword.other.capture.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~-- variable.parameter.placeholder.nomi
-odd = Iter.filter(xs, &!keep?(&1))
+odd = Iter.filter(xs, &!keep(&1))
 // <~~~~~~~~~~~~~~~~~~~~~~- keyword.other.capture.nomi
 import std/test.Thing
 // <------ keyword.declaration.nomi
@@ -155,7 +163,7 @@ group "group" {
     test "adds", db {
 // <~~~~---- keyword.declaration.nomi
 // <~~~~~~~~~~~~~~~~~-- variable.other.nomi
-        assert true and not_done? or false
+        assert true and is_undone or false
 // <~~~~~~~~------ keyword.control.nomi
 // <~~~~~~~~~~~~~~~---- constant.language.boolean.nomi
 // <~~~~~~~~~~~~~~~~~~~~--- keyword.operator.word.nomi

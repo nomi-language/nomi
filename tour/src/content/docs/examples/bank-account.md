@@ -103,15 +103,15 @@ fn ask<T>(account: Account, request: (Channel<T>) -> Request) -> T {
     Account(teller) = account
     reply = Channel.buffered<T>(1)
 
-    case Sender.send(teller, request(reply)) {
-        Ok(_) -> Unit
-        Err(_) -> unreachable "the teller listens until the account's body returns"
+    Ok(_) = Sender.send(teller, request(reply)) else {
+        unreachable "the teller listens until the account's body returns"
     }
 
-    case Receiver.receive(reply.receiver) {
-        Some(answer) -> answer
-        None -> unreachable "the teller answers every request"
+    Some(answer) = Receiver.receive(reply.receiver) else {
+        unreachable "the teller answers every request"
     }
+
+    answer
 }
 
 /// The teller: answers requests one at a time until the inbox closes. The
@@ -173,23 +173,17 @@ fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
 }
 
 fn deposited(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
-    Some(current) = balance else {
-        return Err(.AccountNotOpen)
-    }
+    Some(current) = balance else { return Err(.AccountNotOpen) }
     if amount <= 0 { return Err(.AmountNotPositive) }
 
     Ok(Some(current + amount))
 }
 
 fn withdrawn(balance: Maybe<Int>, amount: Int) -> Result<Maybe<Int>, Error> {
-    Some(current) = balance else {
-        return Err(.AccountNotOpen)
-    }
+    Some(current) = balance else { return Err(.AccountNotOpen) }
     if amount <= 0 { return Err(.AmountNotPositive) }
 
-    if amount > current {
-        return Err(.AmountAboveBalance)
-    }
+    if amount > current { return Err(.AmountAboveBalance) }
 
     Ok(Some(current - amount))
 }
@@ -230,8 +224,8 @@ fn run(account: Account, step: Step) -> Result<Unit, Error> {
 }
 
 test "bank account" {
-    cases: List<#(String, List<Step>, Result<Int, Error>)> = [
-        #("Newly opened account has zero balance", [.Open], Ok(0)),
+    cases = [
+        #("Newly opened account has zero balance", [Step.Open], Ok(0)),
         #("Single deposit", [.Open, .Deposit(100)], Ok(100)),
         #("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
         #("Withdraw once", [.Open, .Deposit(100), .Withdraw(75)], Ok(25)),
@@ -241,7 +235,7 @@ test "bank account" {
             [.Open, .Deposit(100), .Deposit(110), .Withdraw(200), .Deposit(60), .Withdraw(50)],
             Ok(20),
         ),
-        #("Cannot check balance of closed account", [.Open, .Close], Err(.AccountNotOpen)),
+        #("Cannot check balance of closed account", [.Open, .Close], Err(Error.AccountNotOpen)),
         #(
             "Cannot deposit into closed account",
             [.Open, .Close, .Deposit(50)],
@@ -294,7 +288,7 @@ test "Can handle concurrent transactions" {
     })
 
     assert opened == Ok(Unit)
-    assert transactions |> Iter.all?(Result.ok?)
+    assert transactions |> Iter.all(Result.is_ok)
     assert balance == Ok(0)
 }
 

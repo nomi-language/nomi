@@ -145,8 +145,9 @@ pub fn memory() -> Result<Conn, sql.Error> {
 
 impl Conn for SqliteConn {
     fn query(conn: SqliteConn, statement: Statement) -> Result<List<Row>, sql.Error> {
-        answer = run_raw(conn.handle, conn.depth, conn.token, statement.parts, cells(statement))
-        try failed(answer.failure)
+        params = cells(statement)?
+        answer = run_raw(conn.handle, conn.depth, conn.token, statement.parts, params)
+        failed(answer.failure)?
         query = "${statement}"
 
         rows =
@@ -163,10 +164,9 @@ impl Conn for SqliteConn {
         f: (Row) -> Bool,
     ) -> Result<Unit, sql.Error> {
         query = "${statement}"
+        params = cells(statement)?
 
-        failure = each_row_raw(conn.handle, conn.depth, conn.token, statement.parts, cells(
-            statement
-        ), fn raw -> {
+        failure = each_row_raw(conn.handle, conn.depth, conn.token, statement.parts, params, fn raw -> {
             f(to_row(query, raw.columns, raw.types, raw.cells))
         })
 
@@ -174,14 +174,15 @@ impl Conn for SqliteConn {
     }
 
     fn exec(conn: SqliteConn, statement: Statement) -> Result<Int, sql.Error> {
-        answer = exec_raw(conn.handle, conn.depth, conn.token, statement.parts, cells(statement))
-        try failed(answer.failure)
+        params = cells(statement)?
+        answer = exec_raw(conn.handle, conn.depth, conn.token, statement.parts, params)
+        failed(answer.failure)?
         Ok(answer.changed)
     }
 
     fn begin(conn: SqliteConn) -> Result<Conn, sql.Error> {
         level = begin_raw(conn.handle, conn.depth, conn.token)
-        try failed(level.failure)
+        failed(level.failure)?
         Ok(#SqliteConn{handle: conn.handle, depth: level.depth, token: level.token})
     }
 
@@ -239,8 +240,26 @@ fn present(text: String) -> Maybe<String> {
     if text == "" { None } else { Some(text) }
 }
 
-fn cells(statement: Statement) -> List<Cell> {
-    statement.params |> Iter.map(to_cell) |> Iter.to_list()
+/// The cells a statement's parameters are written as, or `Err` for an `Int`
+/// past what an SQLite `INTEGER` holds, a signed 64-bit integer. Such an
+/// Int is refused rather than written as text or a float, which would read
+/// back as another value.
+fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
+    statement.params
+    |> Iter.with_index()
+    |> Iter.map(fn #(position, value) -> {
+        case value {
+            .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
+                Err(#sql.Error.Database{
+                    code: "SQLITE_MISMATCH",
+                    message: "parameter ?${position + 1} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
+                })
+
+            _ ->
+                Ok(to_cell(value))
+        }
+    })
+    |> Result.collect()
 }
 
 fn cell(kind: Int) -> Cell {
@@ -359,7 +378,7 @@ fn stored(c: Cell) -> Value {
 /// `DECIMAL` and `NUMERIC` (with or without a precision) as `DECIMAL`,
 /// `DATETIME` as `TIMESTAMP`, and the other names as they are.
 fn affinity(declared: String) -> String {
-    upper = declared |> String.to_upper() |> String.trim()
+    upper = declared |> String.uppercase() |> String.trim()
 
     name = case String.split(upper, "(") {
         [first, .._] -> String.trim(first)

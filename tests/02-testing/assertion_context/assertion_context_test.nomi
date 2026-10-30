@@ -20,9 +20,9 @@ test "equality assertions record compared values" {
 
 test "predicate assertions record call arguments" {
     body = "created"
-    assert Err(failure) = testing.check(String.contains?(body, "ok"))
+    assert Err(failure) = testing.check(String.contains(body, "ok"))
     observed_failure: AssertionFailure = failure
-    assert observed_failure.expression == "String.contains?(body, \"ok\")"
+    assert observed_failure.expression == "String.contains(body, \"ok\")"
 
     assert [observed, needle] = observed_failure.values
     assert observed.expression == "body"

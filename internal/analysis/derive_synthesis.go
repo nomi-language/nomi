@@ -45,7 +45,7 @@ var deriveProtocolHomeModule = map[string]string{
 // synthSupportNames is the closed set of names synthesized derive /
 // universal-Debug code may reference beyond the receiver type's own
 // fields and variants: the five protocol interfaces (recursion callees
-// like `Equatable.equal?(...)`), the `Ordering` enum (Comparable
+// like `Equatable.equal(...)`), the `Ordering` enum (Comparable
 // signatures + the qualifier of `Ordering.Less` value/pattern refs), the
 // Bool singletons (Equatable bodies), and the primitive result types.
 // Synthesized code is compiler output — these names resolve through the
@@ -62,8 +62,8 @@ var deriveProtocolHomeModule = map[string]string{
 // prelude. The Bool singletons True/False are still bare (Bool's variants
 // remain prelude-exported), so they keep their entries.
 //
-// `Json` and `Json.ShapeError` are absent too: they resolve, typed, to std's
-// declarations through synthSupportScope and synthSupportRegistry.
+// `Json` and `Json.ShapeError` are absent too: derived code names them
+// through the hidden `json$` import (jsonType).
 var synthSupportNames = map[string]bool{
 	"Equatable":  true,
 	"Comparable": true,
@@ -86,92 +86,6 @@ var synthSupportNames = map[string]bool{
 	"String":     true,
 	"Int":        true,
 	"Bool":       true,
-}
-
-// synthStdDecls are the std declarations derived code names that no prelude
-// import binds: `derive ToJson` builds `%Json.Obj{...}` and `Json.String(...)`,
-// and `derive FromJson` matches `Json.Obj(fields)` and builds
-// `#Json.ShapeError{...}`. A file that derives either need import only the
-// interface, so these names may be absent from its scope. Synthesized code
-// then reaches them through synthSupportScope and synthSupportRegistry, which
-// bind each name to the declaration std's own module scope holds.
-//
-// A name the file's scope binds already, to std's declaration through an
-// import or to the file's own, keeps that binding. The IR builder resolves the
-// names by the same rule (stdSynthAnchors), and the two must agree on which
-// declaration a synthesized `Json` means.
-var synthStdDecls = []struct{ module, name string }{
-	{"json", "Json"},
-	{"json", "Json.ShapeError"},
-}
-
-// synthStdSymbols resolves the synthStdDecls that fa's module scope leaves
-// unbound against the std module scopes stdlib, the ones the file is built with. A module the
-// build did not load contributes nothing: a file deriving ToJson imports
-// std/json, so a missing scope means nothing in the file derives it.
-func synthStdSymbols(fa *FileAnalysis, stdlib map[string]*Scope) []*Symbol {
-	if fa == nil || fa.ModuleScope == nil {
-		return nil
-	}
-	var out []*Symbol
-	for _, d := range synthStdDecls {
-		if fa.ModuleScope.Lookup(d.name) != nil {
-			continue
-		}
-		scope := stdlib[d.module]
-		if scope == nil {
-			continue
-		}
-		if sym := scope.LookupLocal(d.name); sym != nil {
-			out = append(out, sym)
-		}
-	}
-	return out
-}
-
-// SynthSupportSymbol is the std declaration `name` means in a synthesized impl
-// block of fa's file when name is one of synthStdDecls and the file's scope
-// leaves it unbound, or nil.
-func SynthSupportSymbol(fa *FileAnalysis, name string) *Symbol {
-	for _, sym := range synthStdSymbols(fa, fa.Program().StdlibModuleScopes) {
-		if sym.Name == name {
-			return sym
-		}
-	}
-	return nil
-}
-
-// synthSupportScope is the scope a synthesized impl block's bodies resolve
-// in: `parent` with synthStdSymbols bound over it. It is not registered among
-// parent's children: it covers no source region, so ScopeAt must never
-// descend into it.
-func synthSupportScope(fa *FileAnalysis, stdlib map[string]*Scope, parent *Scope) *Scope {
-	syms := synthStdSymbols(fa, stdlib)
-	if len(syms) == 0 {
-		return parent
-	}
-	s := &Scope{Parent: parent, Symbols: make(map[string]*Symbol, len(syms))}
-	for _, sym := range syms {
-		s.Symbols[sym.Name] = sym
-	}
-	return s
-}
-
-// synthSupportRegistry is synthSupportScope's counterpart for type names: a
-// child of `parent` registering synthStdSymbols' types, for resolving the type
-// expressions in a synthesized impl block's signatures and bodies.
-func synthSupportRegistry(fa *FileAnalysis, stdlib map[string]*Scope, parent *TypeRegistry) *TypeRegistry {
-	syms := synthStdSymbols(fa, stdlib)
-	if len(syms) == 0 {
-		return parent
-	}
-	reg := NewChildTypeRegistry(parent)
-	for _, sym := range syms {
-		if sym.Type != nil {
-			reg.Register(sym.Name, sym.Type)
-		}
-	}
-	return reg
 }
 
 type deriveOptions struct {
@@ -1180,11 +1094,11 @@ func synthesizeExternNameOnlyDebug(et *ast.ExternType, site synthSite) []ast.Nod
 // Equatable synthesizer
 // ---------------------------------------------------------------------------
 
-// synthesizeDeriveEquatable emits a single `impl Equatable for T { fn equal?(a: T, b:
+// synthesizeDeriveEquatable emits a single `impl Equatable for T { fn equal(a: T, b:
 // T) -> Bool { ... } }` block whose body is structurally appropriate for the
 // type's shape:
 //
-//   - Struct: AND-chain of pairwise `Equatable.equal?(a.f, b.f)` calls; for a
+//   - Struct: AND-chain of pairwise `Equatable.equal(a.f, b.f)` calls; for a
 //     0-field struct the body is bare `True`.
 //   - Enum: outer `case a` with one branch per variant; each branch is a
 //     nested `case b` that matches the same variant (returning the structural
@@ -1193,8 +1107,8 @@ func synthesizeExternNameOnlyDebug(et *ast.ExternType, site synthSite) []ast.Nod
 //     variant payloads inside `case (a, b) { ... }`, and the nested form
 //     handles every variant kind without special-casing.
 //   - Distinct type: zero-sized → `True`; tuple inner → AND-chain of
-//     pairwise `Equatable.equal?(a_unwrapped.<i>, b_unwrapped.<i>)`; primitive
-//     or generic inner → single `Equatable.equal?` on the unwrapped values.
+//     pairwise `Equatable.equal(a_unwrapped.<i>, b_unwrapped.<i>)`; primitive
+//     or generic inner → single `Equatable.equal` on the unwrapped values.
 //
 // Position info on every synthesized node points at the type decl's own
 // line/col so diagnostics that follow back to the synthesized fn land on the
@@ -1223,7 +1137,7 @@ func synthesizeDeriveEquatable(typeNode ast.Node, site synthSite) []ast.Node {
 
 	srcParams := typeDeclTypeParams(typeNode)
 	fn := &ast.FuncDef{
-		Name:       "equal?",
+		Name:       "equal",
 		TypeParams: boundedTypeParams(srcParams, "Equatable", line, col),
 		Params: []ast.Param{
 			{Name: "a", TypeAnnotation: receiverTypeExpr(typeName, srcParams, line, col), Line: line, Col: col},
@@ -1260,7 +1174,7 @@ func equatableBody(typeNode ast.Node, line, col int) []ast.Node {
 	return nil
 }
 
-// equatableStructExpr builds the AND-chain of `Equatable.equal?(<obj1>.f, <obj2>.f)`
+// equatableStructExpr builds the AND-chain of `Equatable.equal(<obj1>.f, <obj2>.f)`
 // for each of the named struct's fields. obj1 and obj2 name the two
 // receivers (e.g. "a", "b" for direct field access, or "av", "bv" inside a
 // destructured nested case body — currently only the top-level "a"/"b"
@@ -1332,7 +1246,7 @@ func enumVariantPatternForB(enumName string, v ast.EnumVariant, line, col int) a
 //   - struct:     StructPattern with field-bound names
 //   - embedded:   single positional binding (treat the embedded type as
 //     one payload value the user already has destructure for —
-//     we just pass the whole thing through `Equatable.equal?`)
+//     we just pass the whole thing through `Equatable.equal`)
 func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line, col int) ast.Node {
 	variantTypeExpr := qualifiedTypeExpr(enumName, v.Name, line, col)
 	switch v.Kind {
@@ -1378,7 +1292,7 @@ func enumVariantPattern(enumName string, v ast.EnumVariant, suffix string, line,
 		}
 	case "embedded":
 		// Treat the embedded type as a single-binding payload; the body
-		// recurses into `Equatable.equal?` on the bound value.
+		// recurses into `Equatable.equal` on the bound value.
 		return &ast.EnumPattern{
 			Variant:    variantTypeExpr,
 			Binding:    positionalBindName(0, suffix),
@@ -1438,10 +1352,10 @@ func equatableNestedCaseOnB(enumName string, v ast.EnumVariant, line, col int) a
 // equatableVariantPayloadEq builds the equality body for one variant arm:
 //
 //   - bare:       True (no payload to compare)
-//   - positional arity 1: Equatable.equal?(a0, b0)
-//   - positional arity N: AND-chain of Equatable.equal?(aI, bI)
-//   - struct:     AND-chain of Equatable.equal?(a_<field>, b_<field>)
-//   - embedded:   Equatable.equal?(a0, b0) on the bound embedded value
+//   - positional arity 1: Equatable.equal(a0, b0)
+//   - positional arity N: AND-chain of Equatable.equal(aI, bI)
+//   - struct:     AND-chain of Equatable.equal(a_<field>, b_<field>)
+//   - embedded:   Equatable.equal(a0, b0) on the bound embedded value
 func equatableVariantPayloadEq(v ast.EnumVariant, line, col int) ast.Node {
 	switch v.Kind {
 	case "bare":
@@ -1486,9 +1400,9 @@ func equatableVariantPayloadEq(v ast.EnumVariant, line, col int) ast.Node {
 // equatableDistinctStmts handles `type Name InnerType` and the zero-sized
 // `type Name`. For zero-sized: body is True. For tuple inner: unwrap into
 // `Name(av) = a; Name(bv) = b;` and AND-chain
-// `Equatable.equal?(av.<i>, bv.<i>)` over all tuple positions. For
+// `Equatable.equal(av.<i>, bv.<i>)` over all tuple positions. For
 // non-tuple inner (primitive / generic / qualified): unwrap and compare
-// the single inner values via Equatable.equal?.
+// the single inner values via Equatable.equal.
 func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	if t.InnerTypeExpr == nil {
 		return []ast.Node{exprStmt(trueLit(line, col), line, col)}
@@ -1516,7 +1430,7 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		// Note: a 1-arity FuncType with Return == nil shouldn't occur from
 		// the parser (`type Name (Int)` is grouped, not a tuple), but if
 		// it ever does this still produces a single-component AND-chain
-		// which is just one Equatable.equal? call — semantically correct.
+		// which is just one Equatable.equal call — semantically correct.
 		parts := make([]ast.Node, len(ft.Params))
 		for i := range ft.Params {
 			parts[i] = equatableEqualsCall(
@@ -1528,7 +1442,7 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		stmts = append(stmts, exprStmt(andChain(parts, line, col), line, col))
 		return stmts
 	}
-	// Single inner value → recurse via Equatable.equal? on the unwrapped
+	// Single inner value → recurse via Equatable.equal on the unwrapped
 	// values.
 	stmts = append(stmts, exprStmt(equatableEqualsCall(
 		identExpr("av", line, col),
@@ -1808,6 +1722,9 @@ func (s *uniquifyState) node(n ast.Node) {
 		if e.TailSpread != nil {
 			s.node(e.TailSpread)
 		}
+		for _, p := range e.Tails {
+			s.node(p)
+		}
 	case *ast.MapPattern:
 		e.Line, e.Col = s.bump()
 		if e.TypeName != nil {
@@ -1884,13 +1801,13 @@ func fieldAccess(obj ast.Node, fieldName string, line, col int) *ast.FieldAccess
 }
 
 // equatableEqualsCall wraps two argument expressions in
-// `Equatable.equal?(<a>, <b>)`. The callee is a FieldAccess on the
+// `Equatable.equal(<a>, <b>)`. The callee is a FieldAccess on the
 // `Equatable` type-ident — same shape the parser produces for any
 // interface-qualified call.
 func equatableEqualsCall(a, b ast.Node, line, col int) ast.Node {
 	callee := &ast.FieldAccess{
 		Object: &ast.TypeIdent{Name: "Equatable", Line: line, Col: col},
-		Field:  &ast.Ident{Name: "equal?", Line: line, Col: col},
+		Field:  &ast.Ident{Name: "equal", Line: line, Col: col},
 		Line:   line,
 		Col:    col,
 	}
@@ -2370,7 +2287,7 @@ func isInterfaceTypeName(fa *FileAnalysis, name string) bool {
 
 // boundedTypeParams mirrors the source type's TypeParams onto a synthesized
 // FuncDef, attaching the named interface as a bound on each. Spec §38.1:
-// `@derive Iface struct Box<T>` synthesizes `fn equal?(a: Box<T>, b: Box<T>):
+// `@derive Iface struct Box<T>` synthesizes `fn equal(a: Box<T>, b: Box<T>):
 // Bool` with the implicit bound `T: Iface`. Without the bound the type
 // checker would accept calls with a payload type that has no Iface impl;
 // the runtime would then surface "no impl found" with synth-band positions.
@@ -3385,7 +3302,7 @@ func synthesizeDeriveToJson(typeNode ast.Node, opts deriveOptions, site synthSit
 		Params: []ast.Param{
 			{Name: "value", TypeAnnotation: receiverTypeExpr(typeName, srcParams, line, col), Line: line, Col: col},
 		},
-		ReturnTypeExpr: &ast.SimpleType{Name: "Json", Line: line, Col: col},
+		ReturnTypeExpr: jsonType("Json", line, col),
 		Body:           &ast.Block{Stmts: body, Line: line, Col: col},
 		Line:           line,
 		Col:            col,
@@ -3512,13 +3429,13 @@ func synthesizeDeriveFromJson(typeNode ast.Node, opts deriveOptions, site synthS
 		Name:       "from_json",
 		TypeParams: boundedTypeParams(srcParams, "FromJson", line, col),
 		Params: []ast.Param{
-			{Name: "json", TypeAnnotation: &ast.SimpleType{Name: "Json", Line: line, Col: col}, Line: line, Col: col},
+			{Name: "json", TypeAnnotation: jsonType("Json", line, col), Line: line, Col: col},
 		},
 		ReturnTypeExpr: &ast.GenericType{
 			Name: "Result",
 			Params: []ast.TypeExpr{
 				receiverTypeExpr(typeName, srcParams, line, col),
-				&ast.SimpleType{Name: "Json.ShapeError", Line: line, Col: col},
+				jsonType("Json.ShapeError", line, col),
 			},
 			Line: line,
 			Col:  col,
@@ -3570,7 +3487,7 @@ func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Nod
 	if hasBare {
 		// An unknown name is reported with its text: `got "Purple"`.
 		unknown := errCall(&ast.StructLit{
-			TypeName: &ast.SimpleType{Name: "Json.ShapeError", Line: line, Col: col},
+			TypeName: jsonVariant("ShapeError", line, col),
 			Fields: []ast.StructFieldVal{
 				{Name: "path", Value: &ast.ListLit{Line: line, Col: col}, Line: line, Col: col},
 				{Name: "expected", Value: staticString(e.Name, line, col), Line: line, Col: col},
@@ -3586,7 +3503,7 @@ func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Nod
 		bare = append(bare, ast.CaseBranch{Pattern: &ast.WildcardPattern{Line: line, Col: col}, Body: unknown, Line: line, Col: col})
 		branches = append(branches, ast.CaseBranch{
 			Pattern: &ast.EnumPattern{
-				Variant: qualifiedTypeExpr("Json", "String", line, col),
+				Variant: jsonVariant("String", line, col),
 				Payload: &ast.IdentPattern{Name: "__tag", Line: line, Col: col},
 				Line:    line,
 				Col:     col,
@@ -3629,7 +3546,7 @@ func fromJsonEnumExpr(e *ast.EnumDef, opts deriveOptions, line, col int) ast.Nod
 		}
 		branches = append(branches, ast.CaseBranch{
 			Pattern: &ast.EnumPattern{
-				Variant: qualifiedTypeExpr("Json", "Obj", line, col),
+				Variant: jsonVariant("Obj", line, col),
 				Payload: &ast.IdentPattern{Name: "__tagged", Line: line, Col: col},
 				Line:    line,
 				Col:     col,
@@ -3715,7 +3632,7 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 			Branches: []ast.CaseBranch{
 				{
 					Pattern: &ast.EnumPattern{
-						Variant: qualifiedTypeExpr("Json", "Arr", line, col),
+						Variant: jsonVariant("Arr", line, col),
 						Payload: &ast.ListPattern{Heads: heads, Line: line, Col: col},
 						Line:    line,
 						Col:     col,
@@ -3727,7 +3644,7 @@ func fromJsonVariantPayloadExpr(e *ast.EnumDef, v ast.EnumVariant, opts deriveOp
 				{
 					Pattern: &ast.WildcardPattern{Line: line, Col: col},
 					Body: errCall(jsonShapePrepend(
-						qualifiedCall("json", "shape_error_root", []ast.Node{staticString(fmt.Sprintf("array of %d", len(ft.Params)), line, col), payload()}, line, col),
+						jsonCall("shape_error_root", []ast.Node{staticString(fmt.Sprintf("array of %d", len(ft.Params)), line, col), payload()}, line, col),
 						v.Name, line, col), line, col),
 					Line: line,
 					Col:  col,
@@ -3760,7 +3677,7 @@ func fromJsonStructExpr(t *ast.StructDef, opts deriveOptions, line, col int) ast
 // variant its payload.
 func fromJsonObjectExpr(subject ast.Node, fields []ast.StructField, build func([]ast.StructFieldVal) ast.Node, opts deriveOptions, line, col int) ast.Node {
 	objPattern := &ast.EnumPattern{
-		Variant: qualifiedTypeExpr("Json", "Obj", line, col),
+		Variant: jsonVariant("Obj", line, col),
 		Payload: &ast.IdentPattern{Name: "fields", Line: line, Col: col},
 		Line:    line,
 		Col:     col,
@@ -3840,7 +3757,7 @@ func fromJsonStructFieldsExpr(fields []ast.StructField, build func([]ast.StructF
 		missing = fromJsonStructFieldsExpr(fields, build, opts, idx+1, decoded, line, col)
 	default:
 		missing = errCall(&ast.StructLit{
-			TypeName: &ast.SimpleType{Name: "Json.ShapeError", Line: line, Col: col},
+			TypeName: jsonVariant("ShapeError", line, col),
 			Fields: []ast.StructFieldVal{
 				{Name: "path", Value: &ast.ListLit{Items: []ast.Node{staticString(key, line, col)}, Line: line, Col: col}, Line: line, Col: col},
 				{Name: "expected", Value: staticString(field.TypeAnnotation.TypeString(), line, col), Line: line, Col: col},
@@ -3957,16 +3874,79 @@ func fromJsonCallForType(target ast.TypeExpr, arg ast.Node, line, col int) ast.N
 	}
 }
 
+// jsonModuleAlias is the name derived ToJson and FromJson code reaches
+// std/json by: the alias of a hidden whole-module import that lowering the
+// derive adds (jsonImport). No source can write a `$`, so the derived code
+// means std's `Json` whatever the file itself binds that name to.
+const jsonModuleAlias = "json$"
+
+// jsonImport is `import std/json as json$`, on the line of the message
+// expansions' hidden imports (hiddenImportLine), after their columns.
+func jsonImport() *ast.ImportStmt {
+	l := hiddenImportLine
+	return &ast.ImportStmt{
+		ModulePath:   []ast.Node{&ast.Ident{Name: "std", Line: l, Col: 10}, &ast.Ident{Name: "json", Line: l, Col: 11}},
+		FileSegments: 2,
+		ModuleAlias:  &ast.Ident{Name: jsonModuleAlias, Line: l, Col: 12},
+		Line:         l,
+		Col:          9,
+	}
+}
+
+// hasJsonImport reports whether nodes hold jsonImport's import.
+func hasJsonImport(nodes []ast.Node) bool {
+	for _, n := range nodes {
+		if imp, ok := n.(*ast.ImportStmt); ok && imp.Line == hiddenImportLine && imp.ModuleAlias != nil &&
+			ast.ImportNodeName(imp.ModuleAlias) == jsonModuleAlias {
+			return true
+		}
+	}
+	return false
+}
+
+// jsonType is the type std/json declares as name (`Json`,
+// `Json.ShapeError`), named through jsonModuleAlias.
+func jsonType(name string, line, col int) ast.TypeExpr {
+	return &ast.QualifiedType{
+		Module:     jsonModuleAlias,
+		ModuleLine: line,
+		ModuleCol:  col,
+		Member:     &ast.SimpleType{Name: name, Line: line, Col: col},
+	}
+}
+
+// jsonVariant is `json$.Json.<member>` as a literal prefix or a pattern
+// writes it: a variant of std's `Json`, or its `ShapeError` struct.
+func jsonVariant(member string, line, col int) ast.TypeExpr {
+	return qualifiedTypeExpr(jsonModuleAlias+".Json", member, line, col)
+}
+
+// jsonOwner is `json$.Json` as the owner of a variant constructor call.
+func jsonOwner(line, col int) ast.Node {
+	return fieldAccess(identExpr(jsonModuleAlias, line, col), "Json", line, col)
+}
+
+// jsonCall is a call of std/json's function method through
+// jsonModuleAlias.
+func jsonCall(method string, args []ast.Node, line, col int) ast.Node {
+	return &ast.Call{
+		Func: fieldAccess(identExpr(jsonModuleAlias, line, col), method, line, col),
+		Args: args,
+		Line: line,
+		Col:  col,
+	}
+}
+
 func mapGetCall(m, key ast.Node, line, col int) ast.Node {
 	return qualifiedCall("Map", "get", []ast.Node{m, key}, line, col)
 }
 
 func jsonShapePrepend(err ast.Node, segment string, line, col int) ast.Node {
-	return qualifiedCall("json", "shape_error_prepend", []ast.Node{err, staticString(segment, line, col)}, line, col)
+	return jsonCall("shape_error_prepend", []ast.Node{err, staticString(segment, line, col)}, line, col)
 }
 
 func jsonShapeErr(expected string, got ast.Node, line, col int) ast.Node {
-	return errCall(qualifiedCall("json", "shape_error_root", []ast.Node{staticString(expected, line, col), got}, line, col), line, col)
+	return errCall(jsonCall("shape_error_root", []ast.Node{staticString(expected, line, col), got}, line, col), line, col)
 }
 
 func qualifiedCall(owner, method string, args []ast.Node, line, col int) ast.Node {
@@ -3988,7 +3968,7 @@ func errCall(value ast.Node, line, col int) ast.Node {
 
 func jsonString(value string, line, col int) ast.Node {
 	return &ast.Call{
-		Func: fieldAccess(&ast.TypeIdent{Name: "Json", Line: line, Col: col}, "String", line, col),
+		Func: fieldAccess(jsonOwner(line, col), "String", line, col),
 		Args: []ast.Node{staticString(value, line, col)},
 		Line: line,
 		Col:  col,
@@ -3996,15 +3976,15 @@ func jsonString(value string, line, col int) ast.Node {
 }
 
 func jsonObj(entries []ast.MapEntry, line, col int) ast.Node {
-	return &ast.MapLit{TypeName: qualifiedTypeExpr("Json", "Obj", line, col), Entries: entries, Line: line, Col: col}
+	return &ast.MapLit{TypeName: jsonVariant("Obj", line, col), Entries: entries, Line: line, Col: col}
 }
 
 func jsonArr(items []ast.Node, line, col int) ast.Node {
-	return &ast.ListLit{TypeName: qualifiedTypeExpr("Json", "Arr", line, col), Items: items, Line: line, Col: col}
+	return &ast.ListLit{TypeName: jsonVariant("Arr", line, col), Items: items, Line: line, Col: col}
 }
 
 func jsonNull(line, col int) ast.Node {
-	return fieldAccess(&ast.TypeIdent{Name: "Json", Line: line, Col: col}, "Null", line, col)
+	return fieldAccess(jsonOwner(line, col), "Null", line, col)
 }
 
 func enumBindPattern(variant, bind string, line, col int) ast.Node {

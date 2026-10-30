@@ -1,6 +1,6 @@
-// `Iter.infinite?`: which sources never end, which adapters keep that
+// `Iter.is_infinite`: which sources never end, which adapters keep that
 // answer, and the terminals that still finish on an infinite source. A user
-// source that writes `infinite?` is in
+// source that writes `is_infinite` is in
 // internal/irbuild/testdata/infinite_iter_traps.nomi: the retained-function
 // probe drives every corpus function, and an endless `each_while` never
 // returns.
@@ -23,28 +23,28 @@ impl Iter for Countdown {
 }
 
 test "the sources that never end say so" {
-    assert Iter.infinite?(Iter.repeat("x"))
-    assert Iter.infinite?(Iter.from(0))
-    assert Iter.infinite?(Iter.iterate(1, &(&1 * 2)))
-    assert Iter.infinite?(Iter.cycle([1, 2]))
-    assert Iter.infinite?(Range.from(5))
-    assert Iter.infinite?(Range.naturals())
+    assert Iter.is_infinite(Iter.repeat("x"))
+    assert Iter.is_infinite(Iter.from(0))
+    assert Iter.is_infinite(Iter.iterate(1, &(&1 * 2)))
+    assert Iter.is_infinite(Iter.cycle([1, 2]))
+    assert Iter.is_infinite(Range.from(5))
+    assert Iter.is_infinite(Range.naturals())
 }
 
 test "finite sources do not" {
-    refute Iter.infinite?([1, 2])
-    refute Iter.infinite?("abc")
-    refute Iter.infinite?(%{"a" => 1})
-    refute Iter.infinite?(%[1])
-    refute Iter.infinite?(#[1])
-    refute Iter.infinite?(1..10)
-    refute Iter.infinite?(Iter.cycle([]))
-    refute Iter.infinite?(Range.from(Int.max_value - 2))
-    refute Iter.infinite?(Range.step_by(Range.from(1), 0))
+    refute Iter.is_infinite([1, 2])
+    refute Iter.is_infinite("abc")
+    refute Iter.is_infinite(%{"a" => 1})
+    refute Iter.is_infinite(%[1])
+    refute Iter.is_infinite(#[1])
+    refute Iter.is_infinite(1..10)
+    refute Iter.is_infinite(Iter.cycle([]))
+    assert Iter.is_infinite(Range.from(9_223_372_036_854_775_805))
+    refute Iter.is_infinite(Range.step_by(Range.from(1), 0))
 }
 
-test "a user source that does not write infinite? behaves as before" {
-    refute Iter.infinite?(#Countdown{from: 3})
+test "a user source that does not write is_infinite behaves as before" {
+    refute Iter.is_infinite(#Countdown{from: 3})
     assert #Countdown{from: 3} |> Iter.to_list() == [3, 2, 1]
     assert #Countdown{from: 3} |> Iter.cycle() |> Iter.take(4) |> Iter.to_list() == [3, 2, 1, 3]
     assert Iter.known_count(#Countdown{from: 3}) == None
@@ -53,24 +53,24 @@ test "a user source that does not write infinite? behaves as before" {
 test "adapters keep it" {
     nat = Iter.from(0)
 
-    assert nat |> Iter.map(&(&1 + 1)) |> Iter.infinite?()
-    assert nat |> Iter.filter(&(&1 > 1_000_000_000_000)) |> Iter.infinite?()
-    assert nat |> Iter.drop(5) |> Iter.infinite?()
-    assert nat |> Iter.drop_while(&(&1 < 5)) |> Iter.infinite?()
-    assert nat |> Iter.with_index() |> Iter.infinite?()
-    assert nat |> Iter.scan(fn total = 0, x -> total + x) |> Iter.infinite?()
-    assert nat |> Iter.chunks(3) |> Iter.infinite?()
-    assert nat |> Iter.chunk_by(&(&1 / 4)) |> Iter.infinite?()
-    assert nat |> Iter.flat_map(fn x -> [x, x]) |> Iter.infinite?()
-    assert nat |> Iter.cycle() |> Iter.infinite?()
+    assert nat |> Iter.map(&(&1 + 1)) |> Iter.is_infinite()
+    assert nat |> Iter.filter(&(&1 > 1_000_000_000_000)) |> Iter.is_infinite()
+    assert nat |> Iter.drop(5) |> Iter.is_infinite()
+    assert nat |> Iter.drop_while(&(&1 < 5)) |> Iter.is_infinite()
+    assert nat |> Iter.with_index() |> Iter.is_infinite()
+    assert nat |> Iter.scan(fn total = 0, x -> total + x) |> Iter.is_infinite()
+    assert nat |> Iter.chunks(3) |> Iter.is_infinite()
+    assert nat |> Iter.chunk_by(&(&1 / 4)) |> Iter.is_infinite()
+    assert nat |> Iter.flat_map(fn x -> [x, x]) |> Iter.is_infinite()
+    assert nat |> Iter.cycle() |> Iter.is_infinite()
 }
 
 test "adapters that can stop it make it finite or unknown" {
     nat = Iter.from(0)
 
-    refute nat |> Iter.take(3) |> Iter.infinite?()
-    refute nat |> Iter.take_while(&(&1 < 3)) |> Iter.infinite?()
-    refute nat |> Iter.chunks(0) |> Iter.infinite?()
+    refute nat |> Iter.take(3) |> Iter.is_infinite()
+    refute nat |> Iter.take_while(&(&1 < 3)) |> Iter.is_infinite()
+    refute nat |> Iter.chunks(0) |> Iter.is_infinite()
 
     refute nat
         |> Iter.map(fn x -> {
@@ -80,7 +80,7 @@ test "adapters that can stop it make it finite or unknown" {
                 x
             }
         })
-        |> Iter.infinite?()
+        |> Iter.is_infinite()
 
     refute Iter.iterate(0, fn n -> {
         if n > 2 {
@@ -89,19 +89,19 @@ test "adapters that can stop it make it finite or unknown" {
             n + 1
         }
     })
-        |> Iter.infinite?()
+        |> Iter.is_infinite()
 
-    refute [1, 2] |> Iter.filter(&(&1 > 1)) |> Iter.cycle() |> Iter.infinite?()
+    refute [1, 2] |> Iter.filter(&(&1 > 1)) |> Iter.cycle() |> Iter.is_infinite()
 }
 
 test "zip is infinite only when both sides are, concat when either is" {
-    assert Iter.zip(Iter.from(0), Iter.repeat("a")) |> Iter.infinite?()
-    refute Iter.zip(Iter.from(0), ["a", "b"]) |> Iter.infinite?()
-    refute Iter.zip(["a", "b"], Iter.from(0)) |> Iter.infinite?()
+    assert Iter.zip(Iter.from(0), Iter.repeat("a")) |> Iter.is_infinite()
+    refute Iter.zip(Iter.from(0), ["a", "b"]) |> Iter.is_infinite()
+    refute Iter.zip(["a", "b"], Iter.from(0)) |> Iter.is_infinite()
     assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [#("a", 0), #("b", 1)]
-    assert Iter.concat([1], Iter.from(0)) |> Iter.infinite?()
-    assert Iter.concat(Iter.from(0), [1]) |> Iter.infinite?()
-    refute Iter.concat([1], [2]) |> Iter.infinite?()
+    assert Iter.concat([1], Iter.from(0)) |> Iter.is_infinite()
+    assert Iter.concat(Iter.from(0), [1]) |> Iter.is_infinite()
+    refute Iter.concat([1], [2]) |> Iter.is_infinite()
 }
 
 test "take counts what it keeps" {
@@ -117,12 +117,12 @@ test "terminals that can stop early finish on an infinite source" {
 
     assert Iter.first(nat) == Some(0)
     assert Iter.find(nat, &(&1 * &1 > 50)) == Some(8)
-    assert Iter.any?(nat, &(&1 == 7))
-    refute Iter.all?(nat, &(&1 < 7))
-    assert Iter.contains?(nat, 1_000)
+    assert Iter.any(nat, &(&1 == 7))
+    refute Iter.all(nat, &(&1 < 7))
+    assert Iter.contains(nat, 1_000)
     assert Iter.get(nat, 4) == Some(4)
-    refute Iter.empty?(nat)
-    assert Iter.not_empty?(nat)
+    refute Iter.is_empty(nat)
+    refute Iter.is_empty(nat)
     refute Iter.each_while(nat, &(&1 < 3))
     assert nat |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
     assert nat |> Iter.take_while(&(&1 < 3)) |> Iter.sum() == 3

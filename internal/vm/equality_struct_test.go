@@ -31,7 +31,7 @@ func vmReportRecordsMatch(t *testing.T, population string, ids []string) {
 }
 
 // `==` and `!=` on a distinct with a hand-written impl call it, one with none
-// compares its inner value; `List.equal?` and `Maybe.equal?` compare as `==`
+// compares its inner value; `List.equal` and `Maybe.equal` compare as `==`
 // does; a list of tuples compares structurally. See internal/irbuild's
 // irequality.go.
 func TestVMEquality_CorpusFilesMatchTheirGoldenRecords(t *testing.T) {

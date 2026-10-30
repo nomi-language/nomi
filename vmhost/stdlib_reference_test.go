@@ -21,8 +21,8 @@ import (
 func TestStdlibReference_TypedLiteralIsTheModulesOwnType(t *testing.T) {
 	for _, c := range []struct{ module, body string }{
 		{"regex", "assert String.find(\"order 66\", Regex`\\d+`) == Maybe.Some(\"66\")"},
-		{"regex", "assert Regex.replace_all(Regex`\\d+`, \"6 and 7\", \"#\") == \"# and #\""},
-		{"calendar", "assert Date.days_between(try Date\"2026-05-04\", try Date\"2026-05-07\") == 3"},
+		{"regex", "assert Regex.replace_all(\"6 and 7\", Regex`\\d+`, \"#\") == \"# and #\""},
+		{"calendar", "assert Date.days_between(Date\"2026-05-04\"?, Date\"2026-05-07\"?) == 3"},
 		{"toml", "assert Toml.text(Toml\"a = 1\") == \"a = 1\""},
 	} {
 		cases, err := vmhost.StdlibReference(c.module, c.body, "", io.Discard)
@@ -52,11 +52,11 @@ func TestStdlibSource_RecheckedDurationIsTheSharedDuration(t *testing.T) {
 		t.Fatal("std/duration.nomi no longer opens with an import block")
 	}
 	text += "\ntest \"shared calendar, fresh duration\" {\n" +
-		"  earlier = try Time.new(10, 0)\n" +
-		"  later = try Time.new(10, 1)\n" +
+		"  earlier = Time.new(10, 0)?\n" +
+		"  later = Time.new(10, 1)?\n" +
 		"  assert Duration.as_seconds(Time.between(earlier, later)) == 60\n" +
-		"  day = try Date.new(2024, 1, 2)\n" +
-		"  assert Result.ok?(OffsetDateTime.with_offset(NaiveDateTime.at_midnight(day), Duration.hours(1)))\n" +
+		"  day = Date.new(2024, 1, 2)?\n" +
+		"  assert Result.is_ok(OffsetDateTime.with_offset(NaiveDateTime.at_midnight(day), Duration.hours(1)))\n" +
 		"}\n"
 	p, err := vmhost.LoadStdlibSource("duration", text)
 	if err != nil {

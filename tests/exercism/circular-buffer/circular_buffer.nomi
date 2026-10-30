@@ -1,3 +1,6 @@
+//# A circular buffer: a fixed number of slots, read oldest first, where a
+//# forced write replaces the oldest item.
+
 /// A buffer of at most `capacity` items, read oldest first. It is a value:
 /// each operation answers the buffer after it.
 pub opaque struct Buffer<T> {
@@ -20,7 +23,7 @@ impl Buffer<T> {
     /// `buffer` with `item` after its newest, or `Full` when it holds
     /// `capacity` items already.
     pub fn write(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error> {
-        if Buffer.full?(buffer) {
+        if Buffer.is_full(buffer) {
             Err(.Full)
         } else {
             Ok(#{..buffer, items: List.concat(buffer.items, [item])})
@@ -30,7 +33,7 @@ impl Buffer<T> {
     /// `buffer` with `item` after its newest, dropping the oldest item first
     /// when it is full.
     pub fn overwrite(buffer: Buffer<T>, item: T) -> Buffer<T> {
-        kept = if Buffer.full?(buffer) {
+        kept = if Buffer.is_full(buffer) {
             Iter.drop(buffer.items, 1) |> Iter.to_list()
         } else {
             buffer.items
@@ -52,7 +55,7 @@ impl Buffer<T> {
         #{..buffer, items: []}
     }
 
-    fn full?(buffer: Buffer<T>) -> Bool {
+    fn is_full(buffer: Buffer<T>) -> Bool {
         Iter.count(buffer.items) == buffer.capacity
     }
 }

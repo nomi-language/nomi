@@ -25,8 +25,8 @@ fn save(text: String) -> Result<Unit, io.Error> {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    text = try fs.read_text("notes.txt")
-    try save(text + "!")
+    text = fs.read_text("notes.txt")?
+    save(text + "!")?
     io.print("saved")
     Ok(Unit)
 }

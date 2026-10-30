@@ -16,8 +16,8 @@ import (
 // cannot see a recording that is wrong: a written-out impl that blamed `line 0`
 // would pass it. This test checks the lines themselves.
 //
-// WHAT IT PINS IS A RELATION, NOT SIX LITERALS. The property that survives an
-// edit anywhere in the fixture is that the six trapping cases blame six
+// WHAT IT PINS IS A RELATION, NOT THREE LITERALS. The property that survives an
+// edit anywhere in the fixture is that the three trapping cases blame three
 // DISTINCT real lines: each spelling blames its own source position, so no two
 // of them can coincide and none of them can be 0. Pinning the numbers
 // themselves would make an unrelated edit above line 38 present as a
@@ -28,13 +28,14 @@ func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
 	}
 	got := vmReference(fixture("scalar_operator_traps.nomi"))
 	if got.exit != 1 {
-		t.Fatalf("six cases in the fixture trap on purpose, so the run must exit 1: %s", got)
+		t.Fatalf("three cases in the fixture trap on purpose, so the run must exit 1: %s", got)
 	}
 	// The POSITIVE control: the two non-trapping cases must have passed, or the
 	// trap assertions below are being satisfied by a fixture that fell over
 	// before it reached them.
 	for _, want := range []string{
 		"ok ", "the written-out impls agree on every non-trapping answer",
+		"the written-out impls are exact past 64 bits, as the operators are",
 		"a Float divide by zero is IEEE and does not trap",
 	} {
 		if !strings.Contains(got.stdout, want) {
@@ -43,16 +44,10 @@ func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
 		}
 	}
 	// Every fault row, by its TEXT rather than by its line, so the set is
-	// derived from the report and the lines are read off it. The four impl rows
-	// and their two operator twins are the whole trapping population; the impl
-	// and operator forms of one fault share a text, which is the point — only
-	// the LINE distinguishes them.
-	faultTexts := []string{
-		"integer overflow: 9223372036854775807 + 1",
-		"division by zero",
-		"integer overflow: -9223372036854775807 - 2",
-		"integer overflow: 9223372036854775807 * 2",
-	}
+	// derived from the report and the lines are read off it. The impl row and
+	// its two operator twins are the whole trapping population; they share a
+	// text, which is the point — only the LINE distinguishes them.
+	faultTexts := []string{"division by zero"}
 	var faultLines []int
 	zeros := 0
 	for _, line := range strings.Split(got.stdout, "\n") {
@@ -77,8 +72,8 @@ func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
 		}
 		faultLines = append(faultLines, n)
 	}
-	if len(faultLines) != 6 {
-		t.Fatalf("want 6 fault rows (four impl spellings and two operator twins), got %d:\n%s",
+	if len(faultLines) != 3 {
+		t.Fatalf("want 3 fault rows (the impl spelling and two operator twins), got %d:\n%s",
 			len(faultLines), got.stdout)
 	}
 	if zeros > 0 {
@@ -90,7 +85,7 @@ func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
 	seen := map[int]bool{}
 	for _, n := range faultLines {
 		if seen[n] {
-			t.Errorf("two fault rows blame line %d. Each of the six traps is on its own "+
+			t.Errorf("two fault rows blame line %d. Each of the three traps is on its own "+
 				"source line, so a repeat means a position came from the wrong node — "+
 				"the enclosing function, say, rather than the call.\nreport was:\n%s",
 				n, got.stdout)

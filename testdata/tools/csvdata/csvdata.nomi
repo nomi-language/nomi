@@ -11,7 +11,7 @@ import {
 /// The SHA-256 digest of the CSV files directly in `dir`, each path and
 /// text in name order: what tables.nomi's header records.
 pub fn inputs_digest(dir: String) -> Result<String, String> {
-    paths = try (fs.glob("${dir}/*.csv") |> Result.map_err(fn e -> "${dir}: ${e}"))
+    paths = fs.glob("${dir}/*.csv") |> Result.map_err(fn e -> "${dir}: ${e}")?
 
     texts =
         paths
@@ -23,5 +23,5 @@ pub fn inputs_digest(dir: String) -> Result<String, String> {
         })
         |> Result.collect()
 
-    Ok(hash.sha256_hex(String.to_bytes(String.join(try texts))))
+    Ok(hash.sha256_hex(String.to_bytes(String.join(texts?))))
 }

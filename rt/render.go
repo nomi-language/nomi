@@ -53,13 +53,13 @@ func RowTextWith(v any, hook DebugHook) (string, error) {
 	var first error
 	var elem func(any) string
 	elem = func(x any) string {
-		x = Unbox(x)
-		if s, owned, err := hook(x); owned || err != nil {
+		if s, owned, err := hookBoxFirst(x, hook); owned || err != nil {
 			if err != nil && first == nil {
 				first = err
 			}
 			return s
 		}
+		x = Unbox(x)
 		if s, ok := x.(string); ok {
 			return StringLiteral(s)
 		}
@@ -81,6 +81,8 @@ func DisplayText(v any) string {
 	switch x := v.(type) {
 	case int64:
 		return FormatInt(x)
+	case *BigInt:
+		return x.String()
 	case float64:
 		return FormatFloat(x)
 	case bool:
@@ -241,6 +243,19 @@ func FormatMapPairs(keys, vals []string) string {
 // Nomi code.
 type DebugHook func(v any) (text string, owned bool, err error)
 
+// hookBoxFirst asks hook to render v. A box is offered as it is first, so
+// an impl recorded under the box's name (an `embeds` enum's own Debug, for
+// a value widened into one of its variants) renders it; then the value it
+// holds is offered.
+func hookBoxFirst(v any, hook DebugHook) (string, bool, error) {
+	if Boxed(v) {
+		if s, owned, err := hook(v); owned || err != nil {
+			return s, owned, err
+		}
+	}
+	return hook(Unbox(v))
+}
+
 // DebugText is the structural `Debug.inspect` of a Value, consulting hook
 // first at every level. It renders what the front end's universal Debug and
 // std's impls print for scalars, collections, tuples, anonymous records,
@@ -248,12 +263,12 @@ type DebugHook func(v any) (text string, owned bool, err error)
 // opaque value (a task, a channel half), and refuses by name what only a
 // dispatched impl can render: a named struct, a user enum, a Dynamic.
 func DebugText(v any, hook DebugHook) (string, error) {
-	v = Unbox(v)
 	if hook != nil {
-		if s, owned, err := hook(v); owned || err != nil {
+		if s, owned, err := hookBoxFirst(v, hook); owned || err != nil {
 			return s, err
 		}
 	}
+	v = Unbox(v)
 	switch t := v.(type) {
 	case Unit:
 		// std/unit.nomi declares `host type Unit` with no explicit Debug, so
@@ -271,6 +286,8 @@ func DebugText(v any, hook DebugHook) (string, error) {
 		return DecimalInspect(t), nil
 	case int64:
 		return FormatInt(t), nil
+	case *BigInt:
+		return t.String(), nil
 	case float64:
 		return FormatFloat(t), nil
 	case bool:

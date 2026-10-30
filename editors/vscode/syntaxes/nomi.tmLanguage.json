@@ -262,11 +262,11 @@
         {
           "comment": "Keyword-shaped import path segments are file names: `std/structs.Struct`.",
           "name": "variable.other.nomi",
-          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(?:alias)?|unreachable|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|try|type(?:alias)?|unreachable|where|with)\\b"
+          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(?:alias)?|unreachable|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(?:alias)?|unreachable|where|with)\\b"
         },
         {
           "comment": "A function definition: `fn name`.",
-          "match": "\\b(fn)\\s+([a-z_][A-Za-z0-9_]*\\??)",
+          "match": "\\b(fn)\\s+([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.declaration.nomi"
@@ -282,7 +282,7 @@
         },
         {
           "comment": "A keyword declaration Nomi builds in (`message cart_items(...)`, `noun item`): its keyword and its name, at the start of a line.",
-          "match": "^(?:(pub)\\s+)?(message|noun)\\s+([a-z_][A-Za-z0-9_?]*)",
+          "match": "^(?:(pub)\\s+)?(message|noun)\\s+([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.declaration.nomi"
@@ -333,7 +333,17 @@
         },
         {
           "name": "keyword.control.nomi",
-          "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|try|then|tap|assert|refute|dbg|todo|unreachable)\\b"
+          "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|then|tap|assert|refute|dbg|todo|unreachable)\\b"
+        },
+        {
+          "comment": "A postfix `!`, written right after an operand (`Map.get(m, k)!`), can stop the program as `unreachable` does. A prefix `!` and `!=` stay operators.",
+          "name": "keyword.control.nomi",
+          "match": "(?<=[A-Za-z0-9_?!)\\]}\"])!(?!=)"
+        },
+        {
+          "comment": "A postfix `?`, written right after an operand (`parse(s)?`), can return from the function as `return` does.",
+          "name": "keyword.control.nomi",
+          "match": "(?<=[A-Za-z0-9_?!)\\]}\"])\\?"
         },
         {
           "name": "keyword.operator.word.nomi",
@@ -390,7 +400,7 @@
         },
         {
           "comment": "Field accessor shorthand: `.name`, the function `|x| x.name`.",
-          "match": "(?<![A-Za-z0-9_)\\]])(\\.)([a-z_][A-Za-z0-9_]*\\??)",
+          "match": "(?<![A-Za-z0-9_)\\]])(\\.)([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "punctuation.accessor.nomi"
@@ -402,7 +412,7 @@
         },
         {
           "comment": "A qualified call: `Int.to_string(n)`, `io.print(x)`.",
-          "match": "(\\.)([a-z_][A-Za-z0-9_]*\\??)(?=\\s*\\()",
+          "match": "(\\.)([a-z_][A-Za-z0-9_]*)(?=\\s*\\()",
           "captures": {
             "1": {
               "name": "punctuation.accessor.nomi"
@@ -414,7 +424,7 @@
         },
         {
           "comment": "Field access: `point.x`.",
-          "match": "(\\.)([a-z_][A-Za-z0-9_]*\\??)",
+          "match": "(\\.)([a-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "punctuation.accessor.nomi"
@@ -438,15 +448,15 @@
         },
         {
           "name": "comment.discard.nomi",
-          "match": "\\b_(?!_)[a-zA-Z0-9_]*\\??"
+          "match": "\\b_(?!_)[a-zA-Z0-9_]*"
         },
         {
           "name": "entity.name.function.nomi",
-          "match": "\\b[a-z_][A-Za-z0-9_]*\\??(?=\\s*\\()"
+          "match": "\\b[a-z_][A-Za-z0-9_]*(?=\\s*\\()"
         },
         {
           "name": "variable.other.nomi",
-          "match": "\\b[a-z_][A-Za-z0-9_]*\\??"
+          "match": "\\b[a-z_][A-Za-z0-9_]*"
         }
       ]
     },

@@ -63,8 +63,8 @@ import (
 // operations." Those two are precisely the operations a generic `Iter` adapter
 // cannot express, because `Iter` has no index. rt/vector.go's header carries the
 // representation argument; what this file must not do is route either through a
-// walk. `length` reaches `rt.VectorLength` (a field read) and `get` and `at`
-// reach `rt.VectorGet` and `rt.VectorAt` (one bounds test and one index).
+// walk. `length` reaches `rt.VectorLength` (a field read) and `get` reaches
+// `rt.VectorGet` (one bounds test and one index).
 //
 // # Every lowering here is std's own body with the pipeline removed
 //
@@ -117,22 +117,21 @@ type vectorFn struct {
 // the type.
 //
 // The five interface members are here under their METHOD names because that is
-// how a program spells them: `Vector.equal?(a, b)`, `Vector.to_string(v)`,
+// how a program spells them: `Vector.equal(a, b)`, `Vector.to_string(v)`,
 // `Vector.inspect(v)`, `Vector.hash(v)`, `Vector.compare(a, b)` — all five appear
 // in `06-collections/vectors_test.nomi`. Reaching them through `implCall`'s
 // interface routes instead would need `implsByIface["Equatable"][vectorKind]` to
 // hold an entry, and std's impl is generic so nothing registers one; that is the
-// same split lists.go describes for `List.equal?`.
+// same split lists.go describes for `List.equal`.
 var vectorFuncs = map[string]vectorFn{
 	"length":    {rtCall: "rt.VectorLength", vecs: 1, result: "int"},
 	"get":       {rtCall: "rt.VectorGet", vecs: 1, rest: []string{"int"}, result: "maybeElem"},
-	"at":        {rtCall: "rt.VectorAt", vecs: 1, rest: []string{"int"}, result: "elem"},
 	"push":      {rtCall: "rt.VectorPush", vecs: 1, rest: []string{"elem"}, result: "vector"},
 	"set":       {rtCall: "rt.VectorSet", vecs: 1, rest: []string{"int", "elem"}, result: "vector"},
 	"concat":    {rtCall: "rt.VectorConcat", vecs: 2, result: "vector"},
 	"next_item": {rtCall: "rt.VectorNextItem", vecs: 1, result: "nextItem"},
 
-	"equal?":    {rtCall: "rt.VectorEqual", vecs: 2, result: "bool", ops: "eq"},
+	"equal":     {rtCall: "rt.VectorEqual", vecs: 2, result: "bool", ops: "eq"},
 	"compare":   {rtCall: "rt.VectorCompare", vecs: 2, result: "ordering", ops: "cmp"},
 	"hash":      {rtCall: "rt.VectorHash", vecs: 1, result: "int", ops: "hash"},
 	"to_string": {rtCall: "rt.FormatVector", vecs: 1, result: "string", ops: "display"},

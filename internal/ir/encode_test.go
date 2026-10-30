@@ -36,7 +36,7 @@ func imageFixture() (ir.Image, map[string]any) {
 	helper.SetType(x, ir.IntType)
 	hb := helper.NewBlock(at(1, 1), "entry")
 	sum := helper.NewTemp()
-	hb.Append(ir.NewArith(at(2, 3), sum, ir.OpAdd, ir.IntArith(ir.OverflowFaults), x, x))
+	hb.Append(ir.NewArith(at(2, 3), sum, ir.OpAdd, ir.IntArith(ir.OverflowExact), x, x))
 	helper.SetType(sum, ir.IntType)
 	pt := helper.NewTemp()
 	hb.Append(ir.NewSlot(at(2, 5), pt, point))

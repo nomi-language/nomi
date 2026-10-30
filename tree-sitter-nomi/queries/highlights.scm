@@ -81,6 +81,12 @@
   function: (field_access
     (identifier) @function.call .))
 
+; A postfix `!` (`Map.get(m, k)!`) can stop the program, as `unreachable`
+; does, and a postfix `?` (`parse(s)?`) can return from it, as `return`
+; does, so both read as keywords. A prefix `!` (logical not) is an operator.
+(bang) @keyword
+(question) @keyword
+
 ; Once bindings (the only "set once, never changes" declaration)
 (once_binding
   name: (identifier) @constant)
@@ -592,7 +598,6 @@
 "todo" @keyword
 "unreachable" @keyword
 "concurrent" @keyword
-"try" @keyword
 "then" @keyword
 "tap" @keyword
 "impl" @keyword

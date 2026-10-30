@@ -26,29 +26,21 @@ import {
     summable.Summable
 }
 
-//# Operations on the 64-bit signed `Int` type: total division gated on the
-//# refinement types `NonZeroInt`/`PositiveInt`, floored division and modulo, powers, integer
-//# square roots, `gcd`/`lcm`, digits in a base, conversion to `Float`,
-//# wrapping (modular) arithmetic, bit operations, and the `Int` limits. The
-//# arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable` impls give `Int` its
-//# string form, hashing, and total order.
+//# Operations on `Int`, the one integer type, exact at any size: total
+//# division gated on the refinement types `NonZeroInt`/`PositiveInt`, floored
+//# division and modulo, powers, integer square roots, `gcd`/`lcm`, digits in
+//# a base, conversion to `Float` and `Decimal`, 64-bit modular arithmetic,
+//# and bit operations. The arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable`
+//# impls give `Int` its string form, hashing, and total order.
 
-/// 64-bit signed integer.
+/// An integer of any size. Arithmetic is exact: `+`, `-` and `*` never
+/// overflow, and a value grows past 64 bits as it needs to.
+//! assert 9_223_372_036_854_775_807 + 1 == 9_223_372_036_854_775_808
+//! assert 9_223_372_036_854_775_807 * 2 == 18_446_744_073_709_551_614
+//
 pub host type Int
 
 impl Int {
-    /// The greatest value of the 64-bit `Int`.
-    //! assert Int.max_value == 9223372036854775807
-    //
-    pub once max_value = 9223372036854775807
-
-    /// The most negative value of the 64-bit `Int`. `min_value` is unrepresentable
-    /// as a literal (a bare literal parses its magnitude, which overflows), so
-    /// reach for these constants instead of writing the number.
-    //! assert Int.min_value == Int.wrapping_add(Int.max_value, 1)
-    //
-    pub once min_value = Int.wrapping_add(Int.max_value, 1)
-
     /// Validates that `n` is non-zero and wraps it. Returns None when n == 0.
     //! assert Int.to_non_zero(5) == Some(NonZeroInt(5))
     //! assert Int.to_non_zero(-3) == Some(NonZeroInt(-3))
@@ -68,25 +60,28 @@ impl Int {
         if n > 0 { Some(PositiveInt(n)) } else { None }
     }
 
-    /// Converts an Int to a Float. Total — every Int64 maps to a Float64.
-    /// Precision loss is possible for |x| > 2^53 (Float64 has a 52-bit mantissa);
-    /// the result is the nearest representable Float.
+    /// Converts an Int to the nearest Float, ties to even. Total. Precision
+    /// loss is possible for |x| > 2^53 (a Float has a 52-bit mantissa), and an
+    /// Int past the largest Float is an infinity.
     //! assert Int.to_float(5) == 5.0
     //! assert Int.to_float(-7) == -7.0
+    //! assert Int.to_float(Int.pow(10, 400)) == Float.positive_infinity()
     //
     pub host fn to_float(x: Int) -> Float
 
     /// Converts an Int to a Decimal exactly, at scale 0. Total.
     //! assert Int.to_decimal(42) == 42d
     //! assert Int.to_decimal(-7) == -7d
+    //! assert Int.to_decimal(123_456_789_012_345_678_901) == 123_456_789_012_345_678_901d
     //
     pub host fn to_decimal(n: Int) -> Decimal
 
     /// Converts an Int to a Byte when it is in range 0..255.
-    //! b = try Int.to_byte(65)
+    //! b = Int.to_byte(65)?
     //! assert Byte.to_int(b) == 65
     //! assert Int.to_byte(-1) == None
     //! assert Int.to_byte(256) == None
+    //! assert Int.to_byte(Int.pow(2, 70)) == None
     //
     pub host fn to_byte(n: Int) -> Maybe<Byte>
 
@@ -99,29 +94,36 @@ impl Int {
     //
     pub host fn to_codepoint(n: Int) -> Maybe<Codepoint>
 
-    /// Wrapping (modular, two's-complement) addition. Unlike `+`, which traps on
-    /// overflow, this silently wraps — for hashing, checksums, and any algorithm
-    /// that deliberately wants modular arithmetic.
-    //! assert Int.wrapping_add(9223372036854775807, 1) == Int.min_value
+    /// 64-bit modular addition: the low 64 bits of `a + b`, read as a signed
+    /// 64-bit integer (two's complement), so the result is between
+    /// -9_223_372_036_854_775_808 and 9_223_372_036_854_775_807. `+` is exact
+    /// at any size; this is for hashes, checksums, and algorithms defined in
+    /// 64-bit arithmetic.
+    //! assert Int.wrapping_add(9_223_372_036_854_775_807, 1) == -9_223_372_036_854_775_808
+    //! assert 9_223_372_036_854_775_807 + 1 == 9_223_372_036_854_775_808
     //
     pub host fn wrapping_add(a: Int, b: Int) -> Int
 
-    /// Wrapping (modular, two's-complement) subtraction. See `Int.wrapping_add`.
-    //! assert Int.wrapping_sub(Int.min_value, 1) == Int.max_value
+    /// 64-bit modular subtraction. See `Int.wrapping_add`.
+    //! assert Int.wrapping_sub(-9_223_372_036_854_775_808, 1) == 9_223_372_036_854_775_807
     //
     pub host fn wrapping_sub(a: Int, b: Int) -> Int
 
-    /// Wrapping (modular, two's-complement) multiplication. See `Int.wrapping_add`.
-    //! assert Int.wrapping_mul(9223372036854775807, 2) == -2
+    /// 64-bit modular multiplication. See `Int.wrapping_add`.
+    //! assert Int.wrapping_mul(9_223_372_036_854_775_807, 2) == -2
     //
     pub host fn wrapping_mul(a: Int, b: Int) -> Int
 
     /// Bitwise AND of two Ints. Nomi has no bitwise operators; these functions are
-    /// the surface, as in Gleam (`int.bitwise_*`) and Elm (`Bitwise.*`).
+    /// the surface, as in Gleam (`int.bitwise_*`) and Elm (`Bitwise.*`). An Int
+    /// reads as two's complement with as many bits as it needs, a negative one
+    /// with endless leading ones, so the answers hold at any size.
     //! assert Int.bitwise_and(12, 10) == 8
     //! assert Int.bitwise_or(12, 10) == 14
     //! assert Int.bitwise_xor(12, 10) == 6
     //! assert Int.bitwise_not(0) == -1
+    //! assert Int.bitwise_and(Int.pow(2, 100) + 5, 7) == 5
+    //! assert Int.bitwise_and(-1, Int.pow(2, 80)) == Int.pow(2, 80)
     //
     pub host fn bitwise_and(a: Int, b: Int) -> Int
 
@@ -140,16 +142,21 @@ impl Int {
     //
     pub host fn bitwise_not(a: Int) -> Int
 
-    /// Left shift `a` by `n` bit positions. `n` must be non-negative (a negative
-    /// count is a runtime error); a count >= 64 shifts every bit out, yielding 0.
+    /// Left shift `a` by `n` bit positions: `a` times 2 to the `n`, exact, so no
+    /// bit is ever shifted out. `n` must be non-negative (a negative count is a
+    /// runtime error).
     //! assert Int.shift_left(1, 4) == 16
+    //! assert Int.shift_left(1, 64) == 18_446_744_073_709_551_616
     //
     pub host fn shift_left(a: Int, n: Int) -> Int
 
-    /// Arithmetic (sign-extending) right shift of `a` by `n` bit positions. `n`
-    /// must be non-negative; a count >= 64 yields 0 for non-negative `a` and -1
-    /// for negative `a`.
+    /// Arithmetic right shift of `a` by `n` bit positions: `a` divided by 2 to
+    /// the `n`, rounded toward negative infinity. `n` must be non-negative; a
+    /// count past `a`'s bits yields 0 for non-negative `a` and -1 for negative
+    /// `a`.
     //! assert Int.shift_right(-8, 1) == -4
+    //! assert Int.shift_right(Int.pow(2, 100), 98) == 4
+    //! assert Int.shift_right(-1, 200) == -1
     //
     pub host fn shift_right(a: Int, n: Int) -> Int
 
@@ -159,8 +166,7 @@ impl Int {
     /// `1439`. `x % y` differs for operands of opposite signs: it is the
     /// remainder, takes the sign of the dividend `x`, and matches `/`
     /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * Int.floor_div(x, y)`.
-    /// A zero `y` traps with the division-by-zero error `%` gives, and
-    /// `Int.modulo(Int.min_value, -1)` is `0`.
+    /// A zero `y` traps with the division-by-zero error `%` gives.
     //! assert Int.modulo(7, 3) == 1
     //! assert Int.modulo(-7, 3) == 2
     //! assert Int.modulo(7, -3) == -2
@@ -184,8 +190,7 @@ impl Int {
     /// `x == y * Int.floor_div(x, y) + Int.modulo(x, y)` for every `x` and
     /// non-zero `y`. `x / y` differs for operands of opposite signs: it
     /// truncates toward zero (`-7 / 2` is `-3`). A zero `y` traps with the
-    /// division-by-zero error `/` gives, and `Int.floor_div(Int.min_value, -1)`
-    /// traps with the integer overflow `Int.min_value / -1` gives.
+    /// division-by-zero error `/` gives.
     //! assert Int.floor_div(7, 2) == 3
     //! assert Int.floor_div(-7, 2) == -4
     //! assert Int.floor_div(7, -2) == -4
@@ -203,11 +208,10 @@ impl Int {
         }
     }
 
-    /// Returns |n|. `Int.abs(Int.min_value)` traps with the integer overflow
-    /// `-Int.min_value` gives: its magnitude is one past `Int.max_value`.
+    /// Returns |n|.
     //! assert Int.abs(-5) == 5
     //! assert Int.abs(0) == 0
-    //! assert Int.abs(Int.min_value + 1) == Int.max_value
+    //! assert Int.abs(-9_223_372_036_854_775_808) == 9_223_372_036_854_775_808
     //
     pub fn abs(n: Int) -> Int {
         if n < 0 { -n } else { n }
@@ -228,7 +232,7 @@ impl Int {
 
     /// Returns the lesser of `a` and `b` (ties return `a`).
     //! assert Int.min(3, -2) == -2
-    //! assert Int.min(Int.min_value, Int.max_value) == Int.min_value
+    //! assert Int.min(-Int.pow(10, 30), 1) == -Int.pow(10, 30)
     //
     pub fn min(a: Int, b: Int) -> Int {
         if a <= b { a } else { b }
@@ -236,20 +240,20 @@ impl Int {
 
     /// Returns the greater of `a` and `b` (ties return `a`).
     //! assert Int.max(3, -2) == 3
-    //! assert Int.max(Int.min_value, Int.max_value) == Int.max_value
+    //! assert Int.max(Int.pow(10, 30), 1) == Int.pow(10, 30)
     //
     pub fn max(a: Int, b: Int) -> Int {
         if a >= b { a } else { b }
     }
 
-    /// `n` multiplied by itself `exp` times; `Int.pow(n, 0)` is `1` for every
-    /// `n`, `0` included. A power past the Int range traps with an integer
-    /// overflow, as `*` does, and a negative `exp` traps: its answer is a
+    /// `n` multiplied by itself `exp` times, exact; `Int.pow(n, 0)` is `1`
+    /// for every `n`, `0` included. A negative `exp` traps: its answer is a
     /// fraction, which is `Float.pow`'s.
     //! assert Int.pow(2, 10) == 1024
     //! assert Int.pow(-3, 3) == -27
     //! assert Int.pow(0, 0) == 1
-    //! assert Int.pow(-2, 63) == Int.min_value
+    //! assert Int.pow(2, 100) == 1_267_650_600_228_229_401_496_703_205_376
+    //! assert Int.pow(-2, 63) == -9_223_372_036_854_775_808
     //
     pub host fn pow(n: Int, exp: Int) -> Int
 
@@ -260,25 +264,24 @@ impl Int {
     //! assert Int.sqrt(16) == 4
     //! assert Int.sqrt(15) == 3
     //! assert Int.sqrt(0) == 0
-    //! assert Int.sqrt(Int.max_value) == 3037000499
+    //! assert Int.sqrt(9_223_372_036_854_775_807) == 3_037_000_499
+    //! assert Int.sqrt(Int.pow(10, 40) + 1) == Int.pow(10, 20)
     //
     pub host fn sqrt(n: Int) -> Int
 
     /// The greatest common divisor of `a` and `b`: the largest Int that
     /// divides both, never negative whatever their signs. `Int.gcd(n, 0)` is
-    /// `Int.abs(n)` and `Int.gcd(0, 0)` is `0`. The one answer past the Int
-    /// range, 2^63 from `Int.gcd(Int.min_value, 0)`, traps with an integer
-    /// overflow.
+    /// `Int.abs(n)` and `Int.gcd(0, 0)` is `0`.
     //! assert Int.gcd(12, 18) == 6
     //! assert Int.gcd(-12, 18) == 6
     //! assert Int.gcd(7, 0) == 7
     //! assert Int.gcd(0, 0) == 0
+    //! assert Int.gcd(Int.pow(6, 40), Int.pow(4, 30)) == Int.pow(2, 40)
     //
     pub host fn gcd(a: Int, b: Int) -> Int
 
     /// The least common multiple of `a` and `b`: the smallest non-negative
-    /// Int both divide, and `0` when either is `0`. A multiple past the Int
-    /// range traps with an integer overflow.
+    /// Int both divide, and `0` when either is `0`.
     //! assert Int.lcm(4, 6) == 12
     //! assert Int.lcm(-4, 6) == 12
     //! assert Int.lcm(5, 0) == 0
@@ -293,6 +296,7 @@ impl Int {
     //! assert Int.to_digits(0) == [0]
     //! assert Int.to_digits(10, 2) == [1, 0, 1, 0]
     //! assert Int.to_digits(255, 16) == [15, 15]
+    //! assert Int.to_digits(Int.pow(2, 64), 16) == [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     //
     pub fn to_digits(n: Int, base: Int = 10) -> List<Int> {
         int_to_digits(n, base)
@@ -300,16 +304,15 @@ impl Int {
 
     /// The Int whose digits in `base`, most significant first, are `digits`,
     /// as `Int.to_digits` writes them, and `Some(0)` for no digits. `None`
-    /// when a digit is outside `0` to `base - 1`, or the number is past the
-    /// Int range, as `String.to_int` answers for text that is no Int. A
-    /// `base` below 2 traps.
+    /// when a digit is outside `0` to `base - 1`. A `base` below 2 traps.
     //! assert Int.from_digits([1, 2, 3]) == Some(123)
     //! assert Int.from_digits([1, 0, 1, 0], 2) == Some(10)
     //! assert Int.from_digits([]) == Some(0)
     //! assert Int.from_digits([1, 2], 2) == None
     //! assert Int.from_digits([-1]) == None
-    //! assert Int.from_digits(Int.to_digits(Int.max_value)) == Some(Int.max_value)
-    //! assert Int.from_digits([9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9]) == None
+    //!
+    //! assert Int.from_digits([9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9])
+    //!     == Some(99_999_999_999_999_999_999)
     //
     pub fn from_digits(digits: List<Int>, base: Int = 10) -> Maybe<Int> {
         int_from_digits(digits, base)
@@ -328,6 +331,7 @@ impl Int {
     //! assert Int.format(1234567, Locale`ar-EG-u-nu-latn`) == "1,234,567"
     //! assert Int.format(1234567, Locale`en`, False) == "1234567"
     //! assert Int.format(7, Locale`en`, True, 3) == "007"
+    //! assert Int.format(Int.pow(10, 21), Locale`de`) == "1.000.000.000.000.000.000.000"
     //
     pub fn format(n: Int, locale: Locale, grouping: Bool = True, min_digits: Int = 1) -> String {
         int_format(locale, n, grouping, min_digits)
@@ -344,6 +348,7 @@ impl Int {
     //! assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
     //! assert Int.parse_in(" 12,34,567 ", Locale`en`, True) == Ok(1234567)
     //! assert Int.parse_in("", Locale`en`) == Err(NumberParseError.Empty)
+    //! assert Int.parse_in("1,000,000,000,000,000,000,000", Locale`en`) == Ok(Int.pow(10, 21))
     //
     pub fn parse_in(
         text: String,
@@ -367,6 +372,7 @@ impl Display for Int {
     /// stringifier used by `io.print` and string interpolation.
     //! assert Int.to_string(42) == "42"
     //! assert Int.to_string(-7) == "-7"
+    //! assert Int.to_string(Int.pow(2, 70)) == "1180591620717411303424"
     //
     host fn to_string(n: Int) -> String
 }
@@ -413,7 +419,7 @@ impl Divide<NonZeroInt, Int> for Int {
     /// (matches the `/` operator). Callers who have an unvalidated Int use
     /// `Int.to_non_zero` first; the fallibility moves to the validation step,
     /// where it belongs.
-    //! nz = try Int.to_non_zero(3)
+    //! nz = Int.to_non_zero(3)?
     //! assert Int.divide(10, nz) == 3
     //
     fn divide(lhs: Int, rhs: NonZeroInt) -> Int {
@@ -429,7 +435,7 @@ impl Debug for Int {
 }
 
 impl Equatable for Int {
-    fn equal?(a: Int, b: Int) -> Bool {
+    fn equal(a: Int, b: Int) -> Bool {
         a == b
     }
 }
@@ -452,11 +458,7 @@ impl Comparable for Int {
 
 impl Discrete for Int {
     fn next(n: Int) -> Maybe<Int> {
-        if n == Int.max_value {
-            None
-        } else {
-            Some(n + 1)
-        }
+        Some(n + 1)
     }
 
     fn steps_between(start: Int, end: Int) -> Maybe<Int> {
@@ -470,13 +472,7 @@ impl Discrete for Int {
 
 impl Steppable for Int {
     fn step_by(n: Int, by: Int) -> Maybe<Int> {
-        if by > 0 and n > Int.max_value - by {
-            None
-        } else if by < 0 and n < Int.min_value - by {
-            None
-        } else {
-            Some(n + by)
-        }
+        Some(n + by)
     }
 }
 
@@ -497,7 +493,7 @@ impl PositiveInt {
     /// Widens a `PositiveInt` to a `NonZeroInt` — every positive Int is non-zero,
     /// so this is total (never fails). Lets a `PositiveInt` flow into a position
     /// that requires `NonZeroInt`, such as `Int.divide`'s divisor.
-    //! p = try Int.to_positive(5)
+    //! p = Int.to_positive(5)?
     //! NonZeroInt(n) = PositiveInt.to_non_zero(p)
     //! assert n == 5
     //

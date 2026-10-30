@@ -25,36 +25,35 @@ there as a warning.
 
 ## Civil Construction
 
-Each calendar type has a typed literal. `DateTime` puts the zone name in
-square brackets at the end, a format from RFC 9557:
+Each calendar type has a typed literal. Written with backticks, it is
+checked when the program compiles, so it needs no `?`. `DateTime` puts the
+zone name in square brackets at the end, a format from RFC 9557:
 
 ```nomi-run
 import {
-    std/calendar.Error
     std/calendar.Date
     std/calendar.DateTime
 }
 
-fn main() -> Result<Unit, Error> {
-    d = try Date"2026-06-15"
+fn main() {
+    d = Date`2026-06-15`
     dbg d
 
-    dt = try DateTime"2026-06-15T14:30:00-04:00[America/New_York]"
+    dt = DateTime`2026-06-15T14:30:00-04:00[America/New_York]`
     dbg dt
 
     dbg DateTime.year(dt)
     dbg DateTime.month(dt)
     dbg DateTime.hour(dt)
-    Ok(Unit)
 }
 
 ```
 <!-- expect
-dbg line 9: d = 2026-06-15
-dbg line 12: dt = 2026-06-15T14:30:00-04:00[America/New_York]
-dbg line 14: DateTime.year(dt) = 2026
-dbg line 15: DateTime.month(dt) = 6
-dbg line 16: DateTime.hour(dt) = 14
+dbg line 8: d = 2026-06-15
+dbg line 11: dt = 2026-06-15T14:30:00-04:00[America/New_York]
+dbg line 13: DateTime.year(dt) = 2026
+dbg line 14: DateTime.month(dt) = 6
+dbg line 15: DateTime.hour(dt) = 14
 -->
 
 ## Civil Periods
@@ -65,14 +64,14 @@ day, you get the month's last day. January 31 plus one month is February 28:
 
 ```nomi-run
 import {
-    std/calendar.{Days, Error, Months, Weeks, Years}
+    std/calendar.{Days, Months, Weeks, Years}
     std/calendar.Date
 }
 
-fn main() -> Result<Unit, Error> {
-    start = try Date"2026-05-04"
-    jan31 = try Date"2026-01-31"
-    leap = try Date"2024-02-29"
+fn main() {
+    start = Date`2026-05-04`
+    jan31 = Date`2026-01-31`
+    leap = Date`2024-02-29`
 
     dbg start + Days(10)
     dbg start + Weeks(2)
@@ -80,7 +79,6 @@ fn main() -> Result<Unit, Error> {
     dbg jan31 + Months(1)
     dbg jan31 - Months(1)
     dbg leap + Years(1)
-    Ok(Unit)
 }
 
 ```
@@ -150,26 +148,22 @@ equal when they are the same moment, even if their zones differ. Noon in
 New York and 6 PM in Paris on the same day are equal:
 
 ```nomi-run
-import {
-    std/calendar.Error
-    std/calendar.DateTime
-}
+import std/calendar.DateTime
 
-fn main() -> Result<Unit, Error> {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    paris = try DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
+fn main() {
+    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+    paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
 
     dbg ny == paris
     dbg ny
     dbg paris
-    Ok(Unit)
 }
 
 ```
 <!-- expect
-dbg line 10: ny == paris = True
-dbg line 11: ny = 2026-06-15T12:00:00-04:00[America/New_York]
-dbg line 12: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
+dbg line 7: ny == paris = True
+dbg line 8: ny = 2026-06-15T12:00:00-04:00[America/New_York]
+dbg line 9: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
 -->
 
 ## DST is real
@@ -180,20 +174,19 @@ exactly 24 hours gives 1 PM, because that night was one hour short:
 
 ```nomi-run
 import {
-    std/calendar.{Days, Error}
+    std/calendar.Days
     std/calendar.DateTime
     std/duration.Duration
 }
 
-fn main() -> Result<Unit, Error> {
-    start = try DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
+fn main() {
+    start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
     civil = start + Days(1)
     physical = start + Duration.hours(24)
 
     dbg start
     dbg civil
     dbg physical
-    Ok(Unit)
 }
 
 ```
@@ -237,8 +230,8 @@ dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
 the styles, choosing the fields, times, and reading dates people type.
 
 :::note[Continue or dig deeper]
-The next chapter, [Typed Literals](/typed-literals/), shows how `Date"…"`
-and `DateTime"…"` work, and how to write literals for your own types. The
+The next chapter, [Typed Literals](/typed-literals/), shows how ``Date`…` ``
+and ``DateTime`…` `` work, and how to write literals for your own types. The
 rest of this page goes into more detail on dates and times.
 :::
 
@@ -269,8 +262,8 @@ import {
 }
 
 fn main() -> Result<Unit, Error> {
-    ny = try DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    tokyo = try DateTime.with_zone(ny, "Asia/Tokyo")
+    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
     dbg tokyo
     dbg ny == tokyo
     Ok(Unit)
@@ -302,10 +295,10 @@ import {
 
 fn main() -> Result<Unit, Error> {
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
-    naive = try NaiveDateTime"2026-11-01T01:30:00"
+    naive = NaiveDateTime`2026-11-01T01:30:00`
 
-    earlier = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)
-    later = try DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)
+    earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
+    later = DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)?
 
     // Same wall reading, different offsets, different instants.
     dbg earlier
@@ -352,7 +345,7 @@ import {
 }
 
 fn main() -> Result<Unit, Error> {
-    now = try DateTime.now_in("America/New_York")
+    now = DateTime.now_in("America/New_York")?
     dbg now // example: dbg line 6: now = 2026-05-26T17:42:00-04:00[America/New_York]
     Ok(Unit)
 }

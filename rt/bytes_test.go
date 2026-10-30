@@ -122,7 +122,7 @@ func TestBytesToStringCarriesTheOneFaultLiteral(t *testing.T) {
 // consequence of it.
 func TestBytesIsImmutableAcrossASlice(t *testing.T) {
 	parent := StringToBytes("abcd")
-	head := BytesSlice(parent, 0, 2)
+	head := BytesSlice(parent, SmallInt(0), SmallInt(2))
 	grown := BytesConcat(head, StringToBytes("ZZ"))
 	if head != Bytes("ab") {
 		t.Errorf("the slice changed when a derived value was built: %q", head)

@@ -7,14 +7,14 @@ import (
 
 // A `.Variant` whose expected type is a type parameter of the called
 // function that nothing solved determines no enum. `Maybe.to_result`'s E is
-// fixed only by the later `try`, which variant resolution does not look at
+// fixed only by the later `?`, which variant resolution does not look at
 // (spec, "Variant resolution"). The error says no enum is known here and
 // names the qualified variant; it never names std's `E` as if it were the
 // program's type.
 func TestDotVariant_OpenExpectedTypeAsksForTheQualifiedVariant(t *testing.T) {
 	const decls = "enum Error {\n  SyntaxError\n  UnknownOperation\n}\n\n"
 	src := decls + "fn parse(first: String) -> Result<Int, Error> {\n" +
-		"  total = String.to_int(first) |> Maybe.to_result(.SyntaxError) |> try\n" +
+		"  total = String.to_int(first) |> Maybe.to_result(.SyntaxError)?\n" +
 		"  Ok(total)\n}\n"
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) == 0 {

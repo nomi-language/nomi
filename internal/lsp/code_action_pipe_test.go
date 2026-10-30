@@ -25,9 +25,9 @@ func TestToPipe_NestedCalls(t *testing.T) {
 }
 
 func TestToPipe_LiteralSubjectLeads(t *testing.T) {
-	src := fnMain("s = String.trim(String.to_upper‸(\" a \"))\nio.print(s)\n")
+	src := fnMain("s = String.trim(String.uppercase‸(\" a \"))\nio.print(s)\n")
 	got := checkRefactor(t, src, "Convert to pipe", rewrite)
-	if want := fnMain("s =\n    \" a \"\n    |> String.to_upper()\n    |> String.trim()\n\nio.print(s)\n"); got != want {
+	if want := fnMain("s =\n    \" a \"\n    |> String.uppercase()\n    |> String.trim()\n\nio.print(s)\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
@@ -97,9 +97,9 @@ func TestFromPipe_Stages(t *testing.T) {
 			"fn f() -> Int {\n    divide(100, 10)\n}\n",
 		},
 		{
-			"try stage",
-			"fn f() -> Result<Int, String> {\n    n = \"4\"\n    |> try‸ parse()\n\n    Ok(n)\n}\n",
-			"fn f() -> Result<Int, String> {\n    n = try parse(\"4\")\n\n    Ok(n)\n}\n",
+			"a ? stage",
+			"fn f() -> Result<Int, String> {\n    n = \"4\"\n    |> parse()‸?\n\n    Ok(n)\n}\n",
+			"fn f() -> Result<Int, String> {\n    n = parse(\"4\")?\n\n    Ok(n)\n}\n",
 		},
 		{
 			"case stage",
@@ -113,8 +113,8 @@ func TestFromPipe_Stages(t *testing.T) {
 		},
 		{
 			"if stage",
-			"fn f() -> Int {\n    [1]\n    |> if Iter.empty‸?() { 0 } else { 1 }\n}\n",
-			"fn f() -> Int {\n    if Iter.empty?([1]) { 0 } else { 1 }\n}\n",
+			"fn f() -> Int {\n    [1]\n    |> if Iter.is_em‸pty() { 0 } else { 1 }\n}\n",
+			"fn f() -> Int {\n    if Iter.is_empty([1]) { 0 } else { 1 }\n}\n",
 		},
 		{
 			"comparison",

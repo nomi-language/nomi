@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: bowling.nomi
+//# Scores a game of ten-pin bowling, roll by roll.
+
 /// A game of bowling: the rolls so far, each one valid when it was rolled.
 pub struct Game {
     rolls: List<Int>
@@ -34,9 +36,7 @@ impl Game {
     pub fn roll(game: Game, pins: Int) -> Result<Game, Error> {
         if pins < 0 { return Err(.NegativeRoll) }
 
-        Some(standing) = pins_standing(game.rolls, frame: 1) else {
-            return Err(.GameOver)
-        }
+        Some(standing) = pins_standing(game.rolls, frame: 1) else { return Err(.GameOver) }
         if pins > standing { return Err(.TooManyPins) }
         Ok(#{rolls: List.concat(game.rolls, [pins])})
     }
@@ -113,7 +113,7 @@ fn play(rolls: List<Int>) -> Result<Game, Error> {
 }
 
 test "score" {
-    cases: List<#(String, List<Int>, Result<Int, Error>)> = [
+    cases = [
         #(
             "should be able to score a game with all zeros",
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -194,7 +194,7 @@ test "score" {
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 6],
             Ok(26),
         ),
-        #("an unstarted game cannot be scored", [], Err(.GameNotOver)),
+        #("an unstarted game cannot be scored", [], Err(Error.GameNotOver)),
         #("an incomplete game cannot be scored", [0, 0], Err(.GameNotOver)),
         #(
             "bonus rolls for a strike in the last frame must be rolled before score can be calculated",
@@ -220,8 +220,8 @@ test "score" {
 }
 
 test "roll" {
-    cases: List<#(String, List<Int>, Int, Error)> = [
-        #("rolls cannot score negative points", [], -1, .NegativeRoll),
+    cases = [
+        #("rolls cannot score negative points", [], -1, Error.NegativeRoll),
         #("a roll cannot score more than 10 points", [], 11, .TooManyPins),
         #("two rolls in a frame cannot score more than 10 points", [5], 6, .TooManyPins),
         #(

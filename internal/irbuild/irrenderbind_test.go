@@ -64,7 +64,7 @@ func TestIRRender_EveryRenderingSiteHasAPosition(t *testing.T) {
 		case *ast.Dbg:
 			note(where, "a `dbg`", n)
 		case *ast.TryOp:
-			// The Row discipline in a test body's `try` guard.
+			// The Row discipline in a test body's `?` guard.
 			note(where, "a `try`", n)
 		case *ast.Call:
 			// `Debug.inspect(x)` and `Display.to_string(x)`, whose renderings

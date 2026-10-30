@@ -43,7 +43,8 @@ func unifyFull(a, b Type, subs map[*TypeParam_]Type, impls []ImplTables, implTyp
 // assignable to R2 (results are covariant). Inside a function type,
 // "assignable" is exact, or a concrete type where its interface is expected (a
 // List where an Iter is, an Int where a Display is), or an embedded type where
-// its enum is, or a function type by this same rule: the conversions the IR
+// its enum is, or a function type by this same rule, and an Iter's element
+// type is compared by this rule too (iterElem): the conversions the IR
 // builder's adapter closure performs (irbuild/irfuncwiden.go). Outside
 // function types it is unifyFull. rigid holds the type parameters of the
 // function being checked, by name: types there, never solved in subs.
@@ -81,6 +82,19 @@ const (
 	// another strictly, as under unifySym.
 	unifyAssignCo
 )
+
+// iterElem is the mode for std Iter's element type, met by another Iter's
+// or by the element type of a concrete type viewed as an Iter. Inside a
+// function type it stays unifyAssignIn: an Iter only hands its elements
+// out, and the builder's adapter converts a List of Lists where an
+// `Iter<Iter<T>>` is expected as a direct call's argument does
+// (irfuncwiden.go). Every other type argument is nested's.
+func (m unifyMode) iterElem(iface *InterfaceType) unifyMode {
+	if m == unifyAssignIn && isStdIterType(iface) {
+		return unifyAssignIn
+	}
+	return m.nested()
+}
 
 // nested is the mode for the type arguments of a container or nominal type,
 // a tuple's elements and a record's fields.
@@ -286,7 +300,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			for i := range ifaceA.TypeArgs {
-				if err := unifyIn(m.nested(), ifaceA.TypeArgs[i], ifaceB.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
+				if err := unifyIn(m.iterElem(ifaceA), ifaceA.TypeArgs[i], ifaceB.TypeArgs[i], subs, impls, implTypeArgs, rigid); err != nil {
 					return err
 				}
 			}
@@ -540,7 +554,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	}
 	bind := func(args []Type, into map[*TypeParam_]Type) error {
 		for i := range iface.TypeArgs {
-			if err := unifyIn(m.nested(), iface.TypeArgs[i], args[i], into, impls, implTypeArgs, rigid); err != nil {
+			if err := unifyIn(m.iterElem(iface), iface.TypeArgs[i], args[i], into, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}

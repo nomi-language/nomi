@@ -39,7 +39,7 @@ fn noisy<T>(label: String, v: T) -> T {
 fn main() {
     ch = Channel.buffered<Int>(2)
     sent = Sender.send(value: noisy("value", 1), sender: noisy("sender", ch.sender))
-    io.print(Result.ok?(sent))
+    io.print(Result.is_ok(sent))
     io.inspect(Receiver.receive(receiver: ch.receiver))
     c = Context.with_value(value: TraceId("t"), c: Context.root())
     io.inspect(Context.value(value_type: TraceId, c: c))

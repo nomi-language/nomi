@@ -11,11 +11,13 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: sieve.nomi
+//# The primes up to a limit, by the Sieve of Eratosthenes.
+
 /// The primes up to and including `limit`, by the Sieve of Eratosthenes:
 /// each prime marks its multiples, and the numbers left unmarked are prime.
 pub fn primes(limit: Int) -> List<Int> {
     composites = Iter.reduce(2..=limit, fn marked = %[], n -> {
-        if Set.contains?(marked, n) {
+        if Set.contains(marked, n) {
             marked
         } else {
             multiples = Range.step_by(n * n..=limit, n) |> Iter.to_set()
@@ -24,7 +26,7 @@ pub fn primes(limit: Int) -> List<Int> {
     })
 
     2..=limit
-    |> Iter.filter(fn n -> !Set.contains?(composites, n))
+    |> Iter.filter(fn n -> !Set.contains(composites, n))
     |> Iter.to_list()
 }
 

@@ -70,6 +70,18 @@ func TestRunBare_RunsAnImageFileByPath(t *testing.T) {
 	}
 }
 
+// An Int literal past int64's range is a constant the image carries: written
+// by the encoder, read back by the decoder, and loaded beside its word.
+func TestRunBare_AnImageCarriesABigIntConstant(t *testing.T) {
+	src := "import std/io\n\nfn main() {\n  io.print(123456789012345678901234567890 * 2)\n  io.print(-9223372036854775808)\n}\n"
+	path := writeImageFile(t, vmrunner.EncodeImageFile(image(t, src), 0, "test"))
+	var out, errOut bytes.Buffer
+	code := vmrunner.RunBare([]string{path}, &out, &errOut, strings.NewReader(""), false, vmrunner.ErrNoImage)
+	if want := "246913578024691357802469135780\n-9223372036854775808\n"; code != 0 || out.String() != want || errOut.Len() != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q; want %q", code, out.String(), errOut.String(), want)
+	}
+}
+
 // A framed image on stdin is read to its last byte and no further: the rest
 // of stdin is the program's input, whether or not the runner was given -.
 func TestRunBare_ReadsAFramedImageFromStdinAndLeavesTheRest(t *testing.T) {

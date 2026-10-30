@@ -66,7 +66,7 @@ test "an interface value exposes no fields" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "interface 'HasName' has no field 'label'")
+    assert test_helpers.has_diagnostic(diagnostics, "interface 'HasName' has no field 'label'")
 }
 
 test "an interface declares no fields" {
@@ -80,7 +80,7 @@ test "an interface declares no fields" {
 
     assert Iter.count(diagnostics) == 1
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "replace `field name: String` with a function requirement such as `fn name(value: self) -> String`",
     )
@@ -117,7 +117,7 @@ test "Struct existentials do not expose undeclared fields" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "interface 'Struct' has no field 'x'")
+    assert test_helpers.has_diagnostic(diagnostics, "interface 'Struct' has no field 'x'")
 }
 
 test "Struct bounds reject non-struct values" {
@@ -134,7 +134,7 @@ test "Struct bounds reject non-struct values" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "Int does not implement Struct")
+    assert test_helpers.has_diagnostic(diagnostics, "Int does not implement Struct")
 }
 
 test "Struct cannot be implemented by hand" {
@@ -150,7 +150,7 @@ test "Struct cannot be implemented by hand" {
 
     assert Iter.count(diagnostics) == 1
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "`Struct` is a built-in structural marker and cannot be implemented",
     )

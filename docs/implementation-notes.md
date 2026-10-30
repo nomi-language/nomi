@@ -54,6 +54,23 @@ an or-pattern written one alternative per line, the short form of a block of
 one statement (`if`, `else`), and a case arm's body below its `->`
 (`keepsBrokenLines` in `internal/format/list_comments.go`).
 
+## Formatter: one-line `if` and binding `else`
+
+A guard, a plain `if` with no `else` whose block is one statement with no
+comment, and a binding `else` whose block is one statement, are written on
+one line when the whole statement fits the line (`emitIf`,
+`oneLineIfMaxWidth` and `emitPatternBinding` in `internal/format/emit.go`).
+The one-line form is a Group, and the renderer decides it as it decides any
+Group: from the column the statement starts at, its indentation counted,
+and the rest of the line after it, against the 100-column width. A `fits`
+check of the flat form against 100 columns first rejects a form that holds a
+forced break (a `case`, a block of several statements, a stacked pipe).
+
+A plain `if`/`else` with two one-statement branches has one more limit: its
+flat form must be at most 50 columns (`singleLineValueIfMaxWidth`, rustfmt's
+`single_line_if_else_max_width`), whatever room the line has. An `else if`
+chain is always broken.
+
 ## Formatter: a line break after a literal's opening bracket
 
 A list, vector, set, map, tuple or struct literal, and a list, vector, set,
@@ -68,8 +85,8 @@ the line its first element starts on, the `..` of a leading spread included,
 so the flag needs no field of its own. The broken form puts the first element
 on the line below the bracket, so the next format finds the same break and
 the layout is stable. Without that break the width and depth rules decide. A
-literal written with a spread last (`[a, ..rest]`, a list, vector or set
-pattern with a `..`) is written on one line as before, and every other bracketed form
+list literal with a spread (`[a, ..rest]`, `[..xs, b]`) and a list, vector or
+set pattern with a `..` are written on one line as before, and every other bracketed form
 (call arguments, parameter lists, type argument lists, pipes) is laid out by
 width alone. A kept-broken literal is local, as a struct literal written
 across lines is, so a call hugs it (`f([` on one line).
@@ -168,8 +185,8 @@ them as each list's loop walks it (`internal/parser/list_comments.go`).
 The formatter writes a list holding a comment one item per line
 (`emitCommentedList`), each comment where it was, and with no trailing comma
 where the list's syntax takes none: a lambda's parameters, type arguments
-and type parameters, a tuple or variant pattern, a tuple destructure, a list
-ending in a spread, and a call with one argument. Parentheses around an
+and type parameters, a tuple or variant pattern, a tuple destructure, a list,
+vector, set or map literal ending in a spread, and a call with one argument. Parentheses around an
 expression holding a comment stay, the comment inside them. A lambda header
 whose only comments each end the line of a parameter other than the last
 keeps its own layout, the first parameter on the `fn` line.
@@ -228,7 +245,7 @@ before the body.
 The lexer reads `&` written against a name, `(`, `#`, `%`, `[` or `.` as a
 CAPTURE token, and `&` with a number as a parameter token. The parser
 (`internal/parser/captures.go`) reads one postfix-level operand after the
-`&`, as a prefix `try` does, and refuses a body that is no call,
+`&` and refuses a body that is no call,
 parenthesized expression or literal. The body is an `ast.Capture`'s; its
 `&N`s are `ast.PlaceholderParam`s, except that the `&N`s of a partial
 capture's call are written as `ast.Placeholder`, the call's open arguments,
@@ -338,3 +355,103 @@ Why std does not use the `go` spelling:
 
 A user's `go` binding pays the same projection, which is correct: it crosses a
 real FFI boundary into code the compiler does not own.
+
+## Int: exact at any size
+
+An `Int` holds a whole number of any size, and its arithmetic is exact. The
+representation keeps the common case, a value that fits in 64 bits, as cheap
+as it was when `Int` was 64 bits.
+
+**In `rt`.** A value that fits int64 is an `int64`, in every place an Int was
+one before: a `Value`, a VM word register, a record's word slot. A value past
+int64's range is a `*rt.BigInt`, an immutable `math/big` integer
+(`rt/bigint.go`). There is one canonical form: every operation answers an
+int64 when the value fits (`intOwned`), so `big - big` that lands back in
+range is an int64 again. Equality, hashing, ordering, Map keys and rendering
+therefore compare like with like and need no normalization where they are
+used. `rt.IntAdd` and its siblings take two Int values, run on int64 while
+the result fits, and fall back to `math/big`.
+
+**In the VM's registers.** Int stays in the word bank. A pointer cannot live
+in a word: the collector does not scan the word bank, and a pointer stored
+there as bits would be freed under it. So the word bank has a shadow,
+`regStack.b`, a slice of `any` with one entry per word. A big Int occupies the
+word `rt.BigWord` (2^63, the bits of `math.MinInt64`) and its `*rt.BigInt`
+sits in the shadow at the same index. A word of `rt.BigWord` with a nil shadow
+is the int64 `math.MinInt64`.
+
+A reader looks beside a word only when the word is `rt.BigWord`, so the
+shadow beside any other word may be stale. Every path that can write the word
+`rt.BigWord` writes its shadow too: constant loads (`opLoadI`), moves, call
+arguments, returns (`regStack.rr` holds the shadow of a word return), tail
+calls, field reads, `frame.write`, and the slow path of each Int operation.
+A closing window clears its shadows only once a big value has been written
+on that stack (`regStack.bigs`), so a program that stays within int64 pays
+one predictable branch per return.
+
+The fast path of `opAddI` adds two words when neither is `rt.BigWord` and
+the result fits int64 and is not `rt.BigWord`; anything else goes to
+`frame.slowInt`, kept out of the loop, which reads both operands as Int
+values and answers exactly. `opMulI` detects a product past int64 with
+`bits.Mul64` rather than a division. `opCmpI` compares words unless one is
+`rt.BigWord`; `opEqW` compares words and looks at the shadows only when both
+are `rt.BigWord`, since in canonical form a big value never equals an int64.
+Division and remainder fault on a zero divisor and on nothing else.
+
+**In records.** An Int field is a word slot. A big value is `rt.BigWord` in
+the slot and the `*rt.BigInt` in the record's big slots: entries of `R` past
+the layout's own references, one per word slot, which a record allocates only
+when it holds a big Int (`Record.SetBigSlot`, `Record.IntSlot`). A record that
+holds none has the layout it had before, and code that writes an int64 word
+straight into `W` stays right, since a word with no big slot beside it is its
+own int64.
+
+**Alternatives not taken.**
+
+- Int in the reference bank, as `any`: Go allocates when it boxes an int64 of
+  256 or more into an interface, so most arithmetic results would allocate.
+- A 16-byte register of a word and a pointer: it doubles the word bank, makes
+  every Float and Bool register a pointer the collector scans, and adds a
+  store to every write.
+- A tagged word holding an index into a table of big values: entries would
+  need a collector of their own to be freed.
+- A separate `BigInt` type beside a 64-bit `Int`, the roadmap's earlier plan:
+  it keeps the fast path, but every API has to choose between two integer
+  types, and `Int` arithmetic still traps where it runs out of bits.
+
+**Constants and the image.** A literal of any length is an `ast.IntLit` with
+`Big` set when it does not fit int64; the IR's `ir.Const` of kind `int`
+carries it as `Big`, and the image encodes it as base-10 text in the string
+table (`ir.FormatVersion` 42).
+
+**64-bit modular arithmetic.** `derive Hashable`'s mixers (`ir.OverflowWraps`)
+and `Int.wrapping_add`, `wrapping_sub` and `wrapping_mul` answer the low 64
+bits of the exact result as a signed int64 (`rt.Wrap64`), so a hash stays a
+64-bit number.
+
+**Where an Int must fit a machine integer.**
+
+- An index, a count or a size (`List.get`, `Iter.take`, `String.slice`,
+  `Bytes.get`, ...) reads an Int past int64's range as past any collection
+  (`rt.IntSaturated`): out of range, all of it or none of it.
+- A Go function bound with `go`: an `int64`, `int` or narrower parameter
+  refuses a value it cannot hold, with an error that names the binding
+  (`hostadapt.ToSigned`); a `uint64` result past int64's range is a big Int;
+  a `*big.Int` or `rt.Int` parameter or result takes any Int.
+- A std host function written in Go takes `rt.Int` when it handles every Int
+  (`Int.pow`, `Int.format`, `Bytes.get`), and `int64` otherwise, where the
+  adapter refuses a value that does not fit.
+- `Duration` and `Instant` are 64-bit counts of nanoseconds, which clocks,
+  timers and Go's `time` package count in. Their constructors and operators
+  fault past that (`rt.DurationNanosInRange`, `rt.InstantNanosInRange`).
+- SQLite's `INTEGER` is 64 bits, so lib/sql/sqlite refuses an `Int`
+  parameter past that range with `sql.Error.Database` and the code
+  `SQLITE_MISMATCH`, rather than writing it as a float or as text that reads
+  back as another value.
+- JSON: an integer of any length decodes to an exact `Int` and encodes as its
+  digits. nomi.js and nomi-wasi.js hand JavaScript an Int past
+  `Number.MAX_SAFE_INTEGER` as a BigInt and take a BigInt argument as the Int
+  it holds; nomi.d.ts types an Int as `number | bigint`.
+- A Range's count protocol inside rt (`Seq.Count`) counts in int64; a range
+  of more elements than that declines there, while `known_count` answers the
+  exact count.

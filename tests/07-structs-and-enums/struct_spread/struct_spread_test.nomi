@@ -4,10 +4,10 @@
 // are part of the language: `Struct` is a real universal interface and
 // `Struct.update` is the form reachable by name.
 //
-// The two position rules differ ON PURPOSE and the difference is the reason
-// this file states both. A LIST spread must be LAST, because a `List` is cons
-// cells: prepending is O(1) and appending is O(n), so `[0, ..xs]` is the cheap
-// direction and `[..xs, 0]` is not. A RECORD spread must be FIRST, because
+// The position rules differ ON PURPOSE and the difference is the reason this
+// file states both. A COLLECTION literal takes spreads anywhere, since they
+// join collections: `[0, ..xs]` conses onto `xs` in O(1) and `[..xs, 0]`
+// copies `xs`, as `xs + [0]` does. A RECORD spread must be FIRST, because
 // order in a record update is pure notation and base-then-overrides is the
 // only order under which "a later field wins" is true.
 //
@@ -160,7 +160,7 @@ test "an unknown field is rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "Point has no field 'z'")
+    assert test_helpers.has_diagnostic(diagnostics, "Point has no field 'z'")
 }
 
 test "a field value of the wrong type is rejected" {
@@ -178,7 +178,7 @@ test "a field value of the wrong type is rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "field 'x' of Point: expected Int, got String")
+    assert test_helpers.has_diagnostic(diagnostics, "field 'x' of Point: expected Int, got String")
 }
 
 test "a spread that is not the first element is rejected" {
@@ -196,7 +196,7 @@ test "a spread that is not the first element is rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "struct spread `..` must be the first element")
+    assert test_helpers.has_diagnostic(diagnostics, "struct spread `..` must be the first element")
 }
 
 test "two spreads are rejected" {
@@ -215,7 +215,7 @@ test "two spreads are rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "struct spread `..` must be the first element")
+    assert test_helpers.has_diagnostic(diagnostics, "struct spread `..` must be the first element")
 }
 
 // --- leniency ---------------------------------------------------------------
@@ -397,7 +397,7 @@ test "an unknown nested field names the NESTED type" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "Address has no field 'zip'")
+    assert test_helpers.has_diagnostic(diagnostics, "Address has no field 'zip'")
 }
 
 test "a wrong nested value type names the NESTED field" {
@@ -420,7 +420,7 @@ test "a wrong nested value type names the NESTED field" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "field 'city' of Address: expected String, got Int",
     )
@@ -458,7 +458,7 @@ test "a brace at an interface-typed field is rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "field 'who' of Stage: expected Speaker, got #{n: Int}",
     )
@@ -487,7 +487,7 @@ test "ordinary construction is not a patch" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "missing field 'street' of Address")
+    assert test_helpers.has_diagnostic(diagnostics, "missing field 'street' of Address")
 }
 
 // A spread that changes no field is its base value: values are immutable and
@@ -507,7 +507,7 @@ test "a spread with no fields is rejected" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "a struct spread with no fields is its base value; write `origin`",
     )

@@ -9,7 +9,7 @@ func TestIRRebind_RefinementsAndTypeChanges(t *testing.T) {
 fn main() {
   name = "  JANE  "
   name = String.trim(name)
-  name = String.to_lower(name)
+  name = String.lowercase(name)
   io.print(name)
   value = 4
   value = "value ${value}"

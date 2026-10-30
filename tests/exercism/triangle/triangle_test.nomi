@@ -10,7 +10,7 @@ test "equilateral triangle" {
     ]
 
     subtests cases, #(description, sides, expected), description {
-        assert triangle.equilateral?(sides) == expected
+        assert triangle.is_equilateral(sides) == expected
     }
 }
 
@@ -28,7 +28,7 @@ test "isosceles triangle" {
     ]
 
     subtests cases, #(description, sides, expected), description {
-        assert triangle.isosceles?(sides) == expected
+        assert triangle.is_isosceles(sides) == expected
     }
 }
 
@@ -44,7 +44,7 @@ test "scalene triangle" {
     ]
 
     subtests cases, #(description, sides, expected), description {
-        assert triangle.scalene?(sides) == expected
+        assert triangle.is_scalene(sides) == expected
     }
 }
 

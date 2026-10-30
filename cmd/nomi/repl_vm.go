@@ -554,6 +554,9 @@ func replPatternNames(p ast.Node) []string {
 		if q.TailSpread != nil {
 			names = append(names, replPatternNames(q.TailSpread)...)
 		}
+		for _, e := range q.Tails {
+			names = append(names, replPatternNames(e)...)
+		}
 	case *ast.MapPattern:
 		for _, e := range q.Entries {
 			names = append(names, replPatternNames(e.Pattern)...)

@@ -64,7 +64,7 @@ pub struct RunFile {
 //! )
 //!
 //! assert [diagnostic] = diagnostics
-//! assert String.contains?(diagnostic.message, "undefined variable 'missing'")
+//! assert String.contains(diagnostic.message, "undefined variable 'missing'")
 //
 pub host fn check(source: String) -> List<Diagnostic>
 
@@ -86,8 +86,8 @@ pub host fn check(source: String) -> List<Diagnostic>
 //!     }
 //!     """
 //! ) {
-//!     Ok(out) -> assert String.contains?(out, "41 + 1 = 42")
-//!     Err(e) -> assert String.contains?(e, "unreachable: the program above runs")
+//!     Ok(out) -> assert String.contains(out, "41 + 1 = 42")
+//!     Err(e) -> assert String.contains(e, "unreachable: the program above runs")
 //! }
 //
 pub host fn run(source: String) -> Result<String, String>
@@ -103,14 +103,14 @@ pub host fn run_file(run: RunFile) -> Result<String, String>
 /// line and column numbers.
 //! import std/compiler
 //!
-//! hover = try compiler.hover(
+//! hover = compiler.hover(
 //!     """
 //!     fn main() {
 //!       ansˇwer = 42
 //!       _ = answer
 //!     }
 //!     """
-//! )
+//! )?
 //!
 //! assert hover.signature == "answer: Int"
 //
@@ -155,6 +155,6 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //! })
 //!
 //! assert [diagnostic] = diagnostics
-//! assert String.contains?(diagnostic.message, "no member 'secret'")
+//! assert String.contains(diagnostic.message, "no member 'secret'")
 //
 pub host fn check_project(project: Project) -> List<Diagnostic>

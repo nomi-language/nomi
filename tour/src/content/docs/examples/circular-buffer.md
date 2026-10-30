@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: circular_buffer.nomi
+//# A circular buffer: a fixed number of slots, read oldest first, where a
+//# forced write replaces the oldest item.
+
 /// A buffer of at most `capacity` items, read oldest first. It is a value:
 /// each operation answers the buffer after it.
 pub opaque struct Buffer<T> {
@@ -33,7 +36,7 @@ impl Buffer<T> {
     /// `buffer` with `item` after its newest, or `Full` when it holds
     /// `capacity` items already.
     pub fn write(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error> {
-        if Buffer.full?(buffer) {
+        if Buffer.is_full(buffer) {
             Err(.Full)
         } else {
             Ok(#{..buffer, items: List.concat(buffer.items, [item])})
@@ -43,7 +46,7 @@ impl Buffer<T> {
     /// `buffer` with `item` after its newest, dropping the oldest item first
     /// when it is full.
     pub fn overwrite(buffer: Buffer<T>, item: T) -> Buffer<T> {
-        kept = if Buffer.full?(buffer) {
+        kept = if Buffer.is_full(buffer) {
             Iter.drop(buffer.items, 1) |> Iter.to_list()
         } else {
             buffer.items
@@ -65,7 +68,7 @@ impl Buffer<T> {
         #{..buffer, items: []}
     }
 
-    fn full?(buffer: Buffer<T>) -> Bool {
+    fn is_full(buffer: Buffer<T>) -> Bool {
         Iter.count(buffer.items) == buffer.capacity
     }
 }
@@ -194,7 +197,7 @@ test "circular buffer" {
 
 - `Buffer<T>` is a value, an opaque struct of its capacity and its items oldest first. Each operation answers the buffer after it: `write` a `Result<Buffer<T>, Error>`, `read` a `Result<#(T, Buffer<T>), Error>` with the item and the rest, and `clear` and `overwrite` a `Buffer<T>`, since they cannot fail. There is no array and no read or write position to wrap around: the items are a `List`, and the ring is what the operations promise, not how the items are stored.
 - The errors are an `Error` enum, `Full` and `Empty`.
-- The operations are functions of `impl Buffer<T>`, called `Buffer.write(buffer, 1)` after `import circular_buffer.Buffer`. Each names the block's `T` in its signature and declares no type parameter of its own, so a call takes `T` from its buffer, or, for `Buffer.new(capacity)`, from the type the result is expected to have. `full?` is private to the block.
+- The operations are functions of `impl Buffer<T>`, called `Buffer.write(buffer, 1)` after `import circular_buffer.Buffer`. Each names the block's `T` in its signature and declares no type parameter of its own, so a call takes `T` from its buffer, or, for `Buffer.new(capacity)`, from the type the result is expected to have. `is_full` is private to the block.
 - The canonical cases are lists of operations, each with whether it should succeed. The test file turns each into a `Step` (`Write(1)`, `WriteFails(2)`, `Read(1)`, `ReadFails`, `Clear`, `Overwrite(3)`), and `replay` runs the steps on a buffer and answers the steps as they happened. A buffer that behaves answers the steps it was given, so each row asserts `replay(capacity, steps) == steps`, and a failure shows the list with the step that went another way.
 - `replay` is one `Iter.map_reduce` whose state is the buffer and whose output is each step as it happened. A failed write or read keeps the buffer as it was.
 - The 14 canonical cases are one `subtests` table named by the description column. The first row qualifies its first step, `Step.Write(1)`, and the steps after it are bare.

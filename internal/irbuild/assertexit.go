@@ -12,7 +12,7 @@ import (
 // # One channel, two shapes at the other end
 //
 // A failed `assert` has exactly one exit: an early return — the same channel
-// `return` and `try` ride — carrying a `Result.Err` whose payload is
+// `return` and `?` ride — carrying a `Result.Err` whose payload is
 // std/assertions' `AssertionFailure` as a NOMI VALUE. The innermost ACTIVATION
 // catches it, and what happens next depends on what that activation is:
 //
@@ -39,7 +39,7 @@ import (
 // The checker maintains `tryBoundary` for its own diagnostics and stamps the
 // answer on the assertion keyword's own hover symbol —
 // analysis.AssertionInfo.Boundary, one of `"fn <name>"`, `"lambda"`,
-// `"concurrent"`, `"test \"<name>\""`. try.go reads the same field off a `try`
+// `"concurrent"`, `"test \"<name>\""`. try.go reads the same field off a `?`
 // and for the same two reasons, both of which apply verbatim here:
 //
 //   - It is RIGHT where the builder's own flags are not. `g.inTest` is true for
@@ -76,7 +76,7 @@ func (g *gen) assertionBoundary(line, col int) (string, bool) {
 // A `test "name"` declaration is `test %q`, a `//!` prompt case is
 // `attached test for <owner>` (testBoundaryOverride), and a `group`'s
 // setup body is `setup of group %q`: the setup runs inside every case it
-// serves, so a `try` or assertion there ends that case. All three abort a case
+// serves, so a `?` or assertion there ends that case. All three abort a case
 // the same way, so anything reading the field has to admit all three. Matching only the
 // first is a live hazard rather than a hypothetical: it reported an `assert` in
 // every prompt case as a boundary disagreement, caught by TestPinned_AttachedTests

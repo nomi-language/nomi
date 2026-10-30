@@ -347,7 +347,7 @@ type mapFn struct {
 }
 
 // mapFuncs is the RT-CALL surface of `impl Map<K, V>`: the five host fns plus
-// the `Contains<K>` impl's `contains?`, each a direct rt symbol with a uniform "coerce every
+// the `Contains<K>` impl's `contains`, each a direct rt symbol with a uniform "coerce every
 // argument, then join" shape.
 //
 // Use across the corpus: get 20, size 14, put 8, remove 1.
@@ -373,14 +373,13 @@ type mapFn struct {
 // answers `Maybe<#(#(K, V), Map<K, V>)>`, the first entry in insertion order and
 // the map without it.
 var mapFuncs = map[string]mapFn{
-	"get":       {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "maybe"},
-	"at":        {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "value"},
-	"put":       {rtCall: "rt.MapPut", args: 3, opsAfter: 1, result: "map"},
-	"size":      {rtCall: "rt.MapSize", args: 1, opsAfter: 0, result: "int"},
-	"remove":    {rtCall: "rt.MapRemove", args: 2, opsAfter: 1, result: "map"},
-	"merge":     {rtCall: "rt.MapMerge", args: 2, opsAfter: 2, result: "map"},
-	"contains?": {rtCall: "rt.MapContains", args: 2, opsAfter: 1, result: "bool"},
-	"map_next":  {rtCall: "rt.MapNext", args: 1, opsAfter: 0, result: "next"},
+	"get":      {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "maybe"},
+	"put":      {rtCall: "rt.MapPut", args: 3, opsAfter: 1, result: "map"},
+	"size":     {rtCall: "rt.MapSize", args: 1, opsAfter: 0, result: "int"},
+	"remove":   {rtCall: "rt.MapRemove", args: 2, opsAfter: 1, result: "map"},
+	"merge":    {rtCall: "rt.MapMerge", args: 2, opsAfter: 2, result: "map"},
+	"contains": {rtCall: "rt.MapContains", args: 2, opsAfter: 1, result: "bool"},
+	"map_next": {rtCall: "rt.MapNext", args: 1, opsAfter: 0, result: "next"},
 }
 
 // mapResultKind turns a mapFn's result tag into a kind.

@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: two_fer.nomi
+//# "One for you, one for me."
+
 /// Says who gets the cookie: "One for Alice, one for me."
 pub fn two_fer(name: String = "you") -> String {
     "One for ${name}, one for me."

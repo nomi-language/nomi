@@ -187,3 +187,58 @@ func TestListCellRemoveAtSharesTheRestAndTraps(t *testing.T) {
 		}()
 	}
 }
+
+// ListCellLast shares the last cells; ListCellSlice copies the elements
+// between a list pattern's heads and tails, and shares a suffix that
+// reaches the end.
+func TestListCellLastAndSlice(t *testing.T) {
+	xs := Cons(1, Cons(2, Cons(3, Cons(4, nil))))
+	items := func(l *List[int]) []int {
+		var out []int
+		for ; l != nil; l = l.Tail {
+			out = append(out, l.Head)
+		}
+		return out
+	}
+	same := func(a, b []int) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	if got := ListCellLast[int, List[int]](xs, 2); got != xs.Tail.Tail {
+		t.Errorf("last 2 = %v, want the shared cells [3, 4]", items(got))
+	}
+	if got := ListCellLast[int, List[int]](xs, 0); got != nil {
+		t.Errorf("last 0 = %v, want []", items(got))
+	}
+	if got := ListCellLast[int, List[int]](xs, 4); got != xs {
+		t.Errorf("last 4 = %v, want the whole list", items(got))
+	}
+	for _, c := range []struct {
+		from, drop int
+		want       []int
+	}{
+		{1, 1, []int{2, 3}},
+		{0, 1, []int{1, 2, 3}},
+		{1, 3, nil},
+		{2, 2, nil},
+		{0, 4, nil},
+	} {
+		got := ListCellSlice[int, List[int]](xs, c.from, c.drop)
+		if !same(items(got), c.want) || (got != nil && got.Len != len(c.want)) {
+			t.Errorf("slice %d..%d = %v, want %v", c.from, c.drop, items(got), c.want)
+		}
+	}
+	if got := ListCellSlice[int, List[int]](xs, 1, 0); got != xs.Tail {
+		t.Errorf("slice 1..0 = %v, want the shared suffix", items(got))
+	}
+	if !same(items(xs), []int{1, 2, 3, 4}) {
+		t.Errorf("source changed: %v", items(xs))
+	}
+}

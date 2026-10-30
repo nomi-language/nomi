@@ -98,6 +98,26 @@ func BytesEachWhile(fr *Frame, data Bytes, yield func(fr *Frame, item Byte) bool
 	return true
 }
 
+// MaybeSeq is `impl Iter for Maybe<T>`'s `each_while`: Some(x) pushes x,
+// and None pushes nothing.
+func MaybeSeq[T any](m Maybe[T]) Seq[T] {
+	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
+		if m.Tag != TagSome {
+			return true
+		}
+		return yield(fr, m.Some)
+	}}
+}
+
+// MaybeKnownCount is `impl Iter for Maybe<T>`'s `known_count`: one for
+// Some, zero for None.
+func MaybeKnownCount[T any](m Maybe[T]) Maybe[int64] {
+	if m.Tag == TagSome {
+		return Some(int64(1))
+	}
+	return Some(int64(0))
+}
+
 // BytesSeq views a Bytes as a push sequence of its octets. One closure,
 // allocated once.
 func BytesSeq(data Bytes) Seq[Byte] {

@@ -25,7 +25,7 @@ import (
 // population (a `from_fragments: Display` reached through inference).
 //
 // The interface-QUALIFIED CALL does not need this file. `Display.to_string`,
-// `Comparable.compare`, `Equatable.equal?`, `Hashable.hash` and `Debug.inspect`
+// `Comparable.compare`, `Equatable.equal`, `Hashable.hash` and `Debug.inspect`
 // lower at every receiver whose stdlib impl is lowered, and at a user struct
 // with a hand-written impl, through the stdlib FUNCTION index. So the wiring
 // adds exactly one arm to `implCall`, for the ERASED receiver, and leaves every

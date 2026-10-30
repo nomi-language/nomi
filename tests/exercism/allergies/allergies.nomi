@@ -1,3 +1,5 @@
+//# The allergies an allergy score stands for, one bit per allergen.
+
 /// The allergens a score covers, in score order: eggs are worth 1, peanuts 2,
 /// and each one after twice the one before.
 pub enum Allergen {
@@ -14,7 +16,7 @@ pub enum Allergen {
 derive Variants for Allergen
 
 /// Reports whether `score` includes `allergen`.
-pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
+pub fn is_allergic_to(score: Int, allergen: Allergen) -> Bool {
     Int.bitwise_and(score, value(allergen)) != 0
 }
 
@@ -22,7 +24,7 @@ pub fn allergic_to?(score: Int, allergen: Allergen) -> Bool {
 /// above the last allergen are ignored.
 pub fn list(score: Int) -> List<Allergen> {
     Allergen.variants()
-    |> Iter.filter(&allergic_to?(score, &1))
+    |> Iter.filter(&is_allergic_to(score, &1))
     |> Iter.to_list()
 }
 

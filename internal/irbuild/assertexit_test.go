@@ -13,7 +13,7 @@ import (
 //
 // The failure it stands in front of is not hypothetical: matching one of the two
 // spellings cost an `assert` in every prompt case a boundary disagreement, and,
-// when the builder still produced Go, cost a `try` in one a file that did not
+// when the builder still produced Go, cost a `?` in one a file that did not
 // compile. Both were found by
 // reading the checker's field instead of the builder's `g.inTest` flag, and both
 // would come straight back if the checker grew a THIRD spelling.

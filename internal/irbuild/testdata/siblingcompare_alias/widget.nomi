@@ -11,7 +11,7 @@ impl Comparable for Gadget {
 }
 
 impl Equatable for Gadget {
-    fn equal?(a: Gadget, b: Gadget) -> Bool {
+    fn equal(a: Gadget, b: Gadget) -> Bool {
         a.n == b.n
     }
 }

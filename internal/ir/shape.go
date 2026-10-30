@@ -417,7 +417,7 @@ func lintOperandShapes(f *Func, vs *[]Violation) {
 					want = ValVariant
 				case ProjInner:
 					want = ValDistinct
-				case ProjElem, ProjSuffix, ProjVectorElem, ProjVectorSlice:
+				case ProjElem, ProjSuffix, ProjListSlice, ProjVectorElem, ProjVectorSlice:
 					want = ValContainer
 				case ProjStrSuffix:
 					want = ValString

@@ -54,13 +54,13 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 	}
 	name := "Range." + method
 	switch method {
-	case "bounded?":
+	case "is_bounded":
 		if len(args.kinds) != 1 {
 			return no()
 		}
 	case "step_by":
 		return bl.rangeStepBy(t, args)
-	case "known_count", "infinite?", "each_while":
+	case "known_count", "is_infinite", "each_while":
 		// `impl Iter for Range<T>`'s members, named by the type: the Iter
 		// protocol over the Range's view.
 		return bl.iterCall(t, args, method)
@@ -74,13 +74,13 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 			return v, k, mobile, true
 		}
 		return no()
-	case "contains?":
+	case "contains":
 		elem, _ := rangeElem(args.kinds[0])
 		if len(args.kinds) != 2 || args.kinds[1] != elem {
 			return no()
 		}
 		if elem == kindFloat {
-			name = "Range.contains?Float"
+			name = "Range.containsFloat"
 			break
 		}
 		// The comparator is the one `Iter.sort` orders elements by: the

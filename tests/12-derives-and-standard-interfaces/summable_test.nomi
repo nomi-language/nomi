@@ -51,7 +51,7 @@ test "adding empty_sum changes nothing" {
     assert adds_nothing(#[1, 2])
     assert adds_nothing(%[1, 2])
     assert adds_nothing(%{"a" => 1})
-    a = try Int.to_byte(97)
+    a = Int.to_byte(97)?
     assert adds_nothing(Bytes.from_list([a]))
     assert adds_nothing(Cents(5))
 }
@@ -98,17 +98,9 @@ test "an empty source sums to empty_sum" {
     assert Iter.sum(1..0) == 0
 }
 
-test "a sum past the Int range traps as + does" {
-    result =
-        """
-            fn main() {
-                _ = Iter.sum([9_223_372_036_854_775_807, 1])
-            }
-            """
-        |> compiler.run()
-
-    assert Err(message) = result
-    assert String.contains?(message, "overflow")
+test "a sum past 64 bits is exact as + is" {
+    assert Iter.sum([9_223_372_036_854_775_807, 1]) == 9_223_372_036_854_775_808
+    assert Iter.product(1..=25) == 15_511_210_043_330_985_984_000_000
 }
 
 test "summing a type that is not Summable is a compile error" {
@@ -120,7 +112,7 @@ test "summing a type that is not Summable is a compile error" {
             """
         |> compiler.check()
 
-    assert Iter.any?(diagnostics, fn d -> {
-        String.contains?(d.message, "Bool does not implement Summable")
+    assert Iter.any(diagnostics, fn d -> {
+        String.contains(d.message, "Bool does not implement Summable")
     })
 }

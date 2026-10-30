@@ -199,16 +199,17 @@ func (n numbers) affixed(neg bool, body string, p *cldrdata.Pattern) string {
 }
 
 // FFIFormatInt is `Int.format`.
-func FFIFormatInt(fr *rt.Frame, locale string, value int64, grouping bool, minDigits int64) string {
+func FFIFormatInt(fr *rt.Frame, locale string, value rt.Int, grouping bool, minDigits int64) string {
 	if minDigits < 1 || minDigits > maxDigits {
 		rt.Trap(fmt.Sprintf("Int.format: min_digits must be 1 to %d, got %d", maxDigits, minDigits))
 	}
 	n := numbersFor(stdlocale.Data(fr), locale)
-	digits := strconv.FormatUint(absInt(value), 10)
+	negative := value.Sign() < 0
+	digits := strings.TrimPrefix(value.String(), "-")
 	if len(digits) < int(minDigits) {
 		digits = strings.Repeat("0", int(minDigits)-len(digits)) + digits
 	}
-	return n.render(value < 0, digits, "", n.decimal, grouping)
+	return n.render(negative, digits, "", n.decimal, grouping)
 }
 
 // maxDigits bounds the digit counts the options may ask for.

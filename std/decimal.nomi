@@ -38,13 +38,14 @@ import {
 pub host type Decimal
 
 impl Decimal {
-    /// Converts a Decimal to an Int by truncating toward zero. Returns None when
-    /// the truncated value falls outside Int64's range (~±9.22e18). Use
+    /// Converts a Decimal to an Int by truncating toward zero. Exact at any
+    /// size, since an Int holds a whole number of any size. Use
     /// `Decimal.round` first if a different rounding rule is needed.
-    //! assert Decimal.to_int(3.7d) == Some(3)
-    //! assert Decimal.to_int(-3.7d) == Some(-3)
+    //! assert Decimal.to_int(3.7d) == 3
+    //! assert Decimal.to_int(-3.7d) == -3
+    //! assert Decimal.to_int(123_456_789_012_345_678_901.9d) == 123_456_789_012_345_678_901
     //
-    pub host fn to_int(d: Decimal) -> Maybe<Int>
+    pub host fn to_int(d: Decimal) -> Int
 
     /// Converts a Decimal to a Float. Total and lossy-by-nature (Float is binary64,
     /// so most base-10 fractions are not exactly representable). Magnitudes beyond
@@ -158,10 +159,10 @@ impl Decimal {
     }
 
     /// True if `d` is exactly zero (at any scale: `0d`, `0.00d` are both zero).
-    //! assert Decimal.zero?(0.00d)
-    //! refute Decimal.zero?(1.50d)
+    //! assert Decimal.is_zero(0.00d)
+    //! refute Decimal.is_zero(1.50d)
     //
-    pub fn zero?(d: Decimal) -> Bool {
+    pub fn is_zero(d: Decimal) -> Bool {
         d == 0d
     }
 
@@ -379,9 +380,9 @@ impl Equatable for Decimal {
     // Scale-insensitive Decimal equality — agrees with `hash`, so
     // `1.50d == 1.5d` AND both hash equally. The host implementation is shared
     // with the runtime's map-key equality (`value.DecimalEqual` in Go), so the
-    // operator path, `Equatable.equal?`, and map keys all converge on one
+    // operator path, `Equatable.equal`, and map keys all converge on one
     // function.
-    host fn equal?(a: Decimal, b: Decimal) -> Bool
+    host fn equal(a: Decimal, b: Decimal) -> Bool
 }
 
 impl Hashable for Decimal {

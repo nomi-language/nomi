@@ -1,3 +1,5 @@
+//# Reverses a string.
+
 /// Reverses `text` by grapheme, so a combining mark stays on its letter.
 pub fn reverse(text: String) -> String {
     String.reverse(text)

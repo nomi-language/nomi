@@ -53,7 +53,7 @@ var builtinCheckedRows = map[string]bool{
 	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
 	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true, "dynamic.Dynamic.as_float": true,
 	"dynamic.Dynamic.as_bool": true, "dynamic.Dynamic.as_list": true, "dynamic.Dynamic.as_dict": true,
-	"dynamic.Dynamic.null?": true, "dynamic.Dynamic.has?": true, "dynamic.Dynamic.inspect": true,
+	"dynamic.Dynamic.is_null": true, "dynamic.Dynamic.has": true, "dynamic.Dynamic.inspect": true,
 	"json.Json.to_dynamic": true,
 	"int.Int.pow":          true, "int.Int.sqrt": true, "int.Int.gcd": true, "int.Int.lcm": true,
 	"int.int_to_digits": true, "int.int_from_digits": true,
@@ -61,7 +61,7 @@ var builtinCheckedRows = map[string]bool{
 	"float.Float.log": true, "float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true,
 	"float.Float.cos": true, "float.Float.tan": true, "float.Float.atan2": true,
 	"float.require_tolerance": true,
-	"decimal.Decimal.pow": true, "decimal.Decimal.sqrt": true,
+	"decimal.Decimal.pow":     true, "decimal.Decimal.sqrt": true,
 }
 
 // contextCheckedRows are held to rt directly.
@@ -307,12 +307,12 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	dyns := []any{obj, dyn("s"), dyn(int64(-4)), dyn(2.0), dyn(2.5), dyn(false), dyn(nil),
 		dyn([]any{"a", int64(1), nil}), dyn(map[string]any{})}
 	for _, d := range dyns {
-		for _, k := range []string{"as_string", "as_int", "as_float", "as_bool", "as_list", "as_dict", "null?", "inspect"} {
+		for _, k := range []string{"as_string", "as_int", "as_float", "as_bool", "as_list", "as_dict", "is_null", "inspect"} {
 			cases["dynamic.Dynamic."+k] = append(cases["dynamic.Dynamic."+k], []any{d})
 		}
 		for _, name := range []string{"name", "missing", "none"} {
 			cases["dynamic.Dynamic.field"] = append(cases["dynamic.Dynamic.field"], []any{d, sv(name)})
-			cases["dynamic.Dynamic.has?"] = append(cases["dynamic.Dynamic.has?"], []any{d, sv(name)})
+			cases["dynamic.Dynamic.has"] = append(cases["dynamic.Dynamic.has"], []any{d, sv(name)})
 		}
 		for _, i := range []int64{0, 2, 5, -1} {
 			cases["dynamic.Dynamic.index"] = append(cases["dynamic.Dynamic.index"], []any{d, iv(i)})

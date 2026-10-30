@@ -16,7 +16,7 @@ import (
 // `x |> Type.func` are errors that name the call to write.
 //
 // The stages that are not calls are the keyword stages (`|> dbg`,
-// `|> try`, `|> todo`, `|> if`, `|> case`, `|> then fn v -> ...`), which
+// a `?` stage, `|> todo`, `|> if`, `|> case`, `|> then fn v -> ...`), which
 // checkBinary recognizes before it reaches reportBarePipeStage. A field
 // accessor (`user |> .name`) has its own error
 // (fieldAccessorPipeStageMessage), and so does a bare lambda
@@ -67,7 +67,7 @@ func (c *checker) reportBarePipeStage(stage ast.Node) {
 	} else if dv, ok := inner.(*ast.DotVariant); ok {
 		msg = fmt.Sprintf("%s: write the variant through its enum, as in `Enum.%s()`", BarePipeStagePrefix, dv.Name)
 	} else {
-		msg = fmt.Sprintf("%s, such as `f()`, or a keyword stage (`dbg`, `try`, `if`, `case`, `then`)", BarePipeStagePrefix)
+		msg = fmt.Sprintf("%s, such as `f()`, or a keyword stage (`dbg`, `if`, `case`, `then`)", BarePipeStagePrefix)
 	}
 	e := errAt(stage, msg)
 	if e.Line == 0 {

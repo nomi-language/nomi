@@ -258,7 +258,7 @@ func TestLocalIdentity_RootsMirrorTheStagedGoMod(t *testing.T) {
 
 // TestLocalIdentity_NomiScopeSplit is the discriminating test for the one place
 // the two scopes differ. The compiler's `std/**.nomi` is embedded INTO the
-// binary — changing `Int.max_value` in `std/int.nomi` must not leave a warm
+// binary — changing `Float.pi` in `std/float.nomi` must not leave a warm
 // cache printing the old number — so the
 // compiler scope must select it. A project's `.nomi` is read at RUN time and
 // must not be selected, or a neighbouring `//go:embed` in the user's Go would

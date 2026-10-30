@@ -205,10 +205,10 @@ func taskSpawnAllHost(m *Machine, pos ir.Pos, args []any) (any, error) {
 	if !ok || f.arity != 1 {
 		return nil, fmt.Errorf("vm: Task.spawn_all: the body must be a unary function")
 	}
-	limit, ok := args[2].(int64)
-	if !ok {
+	if !rt.IsInt(args[2]) {
 		return nil, fmt.Errorf("vm: Task.spawn_all: max_running is %T, not an Int", args[2])
 	}
+	limit := rt.IntSaturated(args[2])
 	var handles *rt.List[rt.Task[any]]
 	if err := rtFault(func() {
 		rt.SeqMustEnd(m.hostFrame, src, "Task.spawn_all")

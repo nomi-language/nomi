@@ -41,13 +41,13 @@ test "setBirthMonth" {
 }
 
 test "renameStreets birth" {
-    person = lens_person.rename_streets(jane, String.to_upper)
+    person = lens_person.rename_streets(jane, String.uppercase)
 
     assert person.born.at.street == "IMPLICIT STREET"
 }
 
 test "renameStreets current" {
-    person = lens_person.rename_streets(jane, String.to_upper)
+    person = lens_person.rename_streets(jane, String.uppercase)
 
     assert person.address.street == "CODER STREET"
 }

@@ -8,7 +8,7 @@ package irbuild
 // The stdlib index files these declarations as `stdlib generic function`, a
 // name that says they need the type-parameter dispatch DICTIONARY. They do not.
 // `typeParamsNeedDictionary` (generic.go) is this project's own line for that
-// question, and `pub fn some?<T>(maybe: Maybe<T>) -> Bool` has no bound, no
+// question, and `pub fn is_some<T>(maybe: Maybe<T>) -> Bool` has no bound, no
 // `where` clause and calls no interface method on `T`. Its body is a `case`.
 //
 // stdCandidateFor (stdlib.go) decides `generic` from a purely syntactic
@@ -22,24 +22,24 @@ package irbuild
 // # Why this is an arm and not a stdlib registry row
 //
 // lists.go's header states the shape and it applies unchanged: the index can
-// NAME `Maybe.some?` while what LOWERS
+// NAME `Maybe.is_some` while what LOWERS
 // it is reading the receiver's KIND, which is the only place the concrete type
 // argument exists. Placed beside listCall in implCall for the same reason, and
 // like it, AHEAD of stdlibCall: moving stdlibCall above these arms would turn
 // every lowered call back into the refusal.
 //
-// # `equal?` is not implemented here, and that is the point
+// # `equal` is not implemented here, and that is the point
 //
 // collections.go's listEqual is "the ONE lowering of Nomi list equality, shared
-// by the `==` operator and by `List.equal?`", because std/lists.nomi defines the
+// by the `==` operator and by `List.equal`", because std/lists.nomi defines the
 // method AS `a == b`. The prelude enums are the same situation with the same
 // hazard: std says `derive Equatable for Maybe<T>`, and `==` on a prelude
 // instance already lowers through g.valueEqual (native.go's equality arm, via
-// the `left.k.def != nil` path). So `equal?` routes to g.valueEqual and nothing
+// the `left.k.def != nil` path). So `equal` routes to g.valueEqual and nothing
 // else. A second comparator would have to agree with the operator by luck.
 //
 // The comparator carries three properties this file does not restate: Float
-// routes through rt.EqFloat, so `Maybe.equal?(Some(nan), Some(nan))` is True as
+// routes through rt.EqFloat, so `Maybe.equal(Some(nan), Some(nan))` is True as
 // Nomi requires and not false as Go's IEEE `==` would answer; a List payload
 // recurses into rt.ListEqual rather than comparing cons cells by ADDRESS; and a
 // NAMED payload compares STRUCTURALLY, which is what rt.Equal does and what
@@ -100,9 +100,9 @@ type preludeFn struct {
 	rtCall string
 }
 
-// preludeFns is the lowered surface, minus `equal?`.
+// preludeFns is the lowered surface, minus `equal`.
 //
-// `equal?` is absent on purpose and handled separately, for the reason
+// `equal` is absent on purpose and handled separately, for the reason
 // listFuncs gives for the same omission: its lowering is g.valueEqual, shared
 // with the `==` operator, so a row here would have made it a second encoding of
 // one semantics.
@@ -110,10 +110,10 @@ type preludeFn struct {
 // Keyed `Owner.method`, because the owner is part of the identity: `with_default`
 // exists on both enums with different receivers and different tags.
 var preludeFns = map[string]preludeFn{
-	"Maybe.some?":         {recv: recvMaybe, args: 1, res: resBool, variant: "Some"},
-	"Maybe.none?":         {recv: recvMaybe, args: 1, res: resBool, variant: "None"},
-	"Result.ok?":          {recv: recvResult, args: 1, res: resBool, variant: "Ok"},
-	"Result.err?":         {recv: recvResult, args: 1, res: resBool, variant: "Err"},
+	"Maybe.is_some":       {recv: recvMaybe, args: 1, res: resBool, variant: "Some"},
+	"Maybe.is_none":       {recv: recvMaybe, args: 1, res: resBool, variant: "None"},
+	"Result.is_ok":        {recv: recvResult, args: 1, res: resBool, variant: "Ok"},
+	"Result.is_err":       {recv: recvResult, args: 1, res: resBool, variant: "Err"},
 	"Maybe.with_default":  {recv: recvMaybe, args: 2, res: resPayload, rtCall: "rt.MaybeWithDefault"},
 	"Result.with_default": {recv: recvResult, args: 2, res: resPayload, rtCall: "rt.ResultWithDefault"},
 	"Maybe.to_result":     {recv: recvMaybe, args: 2, res: resResultOfMaybe, rtCall: "rt.MaybeToResult"},

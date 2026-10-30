@@ -30,7 +30,7 @@ func TestBuildCommand_Wasip1TempDirNeedsAPreopenedDirectory(t *testing.T) {
 fn main() {
     io.print(fs.temp_dir())
     made = fs.with_temp_dir(fn dir -> {
-        try fs.write_text(path.join(dir, "x.txt"), "x")
+        fs.write_text(path.join(dir, "x.txt"), "x")?
         fs.read_text(path.join(dir, "x.txt"))
     })
     io.print(made)

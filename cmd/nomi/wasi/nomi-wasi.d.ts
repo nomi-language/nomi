@@ -52,9 +52,10 @@ export class Program {
   readonly exports: string[];
   /**
    * Calls an exported function. Arguments are JSON-encoded and the result
-   * JSON-decoded, so an Int past 2^53 loses precision. A failed call
-   * rejects with an Error whose message is the Nomi diagnostic, and the
-   * program stays usable.
+   * JSON-decoded. An Int is exact at any size: one past
+   * Number.MAX_SAFE_INTEGER arrives as a BigInt, and a BigInt argument
+   * crosses as the Int it holds. A failed call rejects with an Error whose
+   * message is the Nomi diagnostic, and the program stays usable.
    */
   call<T = unknown>(name: string, ...args: unknown[]): Promise<T>;
   /** Drops the program's instance; later calls reject. */

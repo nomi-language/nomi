@@ -95,7 +95,7 @@ when an endless iterator is passed in as a parameter. Then the program stops
 with the same message when it reaches `Iter.to_list`, before it squares
 anything, instead of running until it runs out of memory. An iterator says
 that it never ends through
-[`Iter.infinite?`](/reference/iter/#iterinfinite).
+[`Iter.is_infinite`](/reference/iter/#iterinfinite).
 
 ## Lists
 
@@ -141,7 +141,7 @@ fn main() {
     dbg Vector.length(names)
     dbg Vector.get(names, 1)
     dbg Vector.get(names, 5)
-    dbg Vector.at(names, 1)
+    dbg Vector.get(names, 1)!
     dbg names + #["Dorothy"]
     Unit
 }
@@ -152,7 +152,7 @@ dbg line 6: names = #["Ada", "Grace", "Katherine"]
 dbg line 7: Vector.length(names) = 3
 dbg line 8: Vector.get(names, 1) = Some("Grace")
 dbg line 9: Vector.get(names, 5) = None
-dbg line 10: Vector.at(names, 1) = "Grace"
+dbg line 10: Vector.get(names, 1)! = "Grace"
 dbg line 11: names + #["Dorothy"] = #["Ada", "Grace", "Katherine", "Dorothy"]
 -->
 
@@ -166,10 +166,12 @@ front.
 Indexes start at 0.
 [`Vector.get`](/reference/vectors/#vectorget) answers `None` when the index is
 outside the vector, so use it when the index comes from data.
-[`Vector.at`](/reference/vectors/#vectorat) returns the item itself and stops
-the program when the index is outside, so use it when your code guarantees the
-index. [`Vector.set`](/reference/vectors/#vectorset) replaces the item at an
-index and stops the program the same way.
+`Vector.get(names, 1)!`, with a
+[postfix `!`](/pattern-matching/#calls-that-cannot-fail), returns the item
+itself and stops the program when the index is outside, so use it when your
+code guarantees the index.
+[`Vector.set`](/reference/vectors/#vectorset) replaces the item at an index and
+stops the program the same way.
 
 `xs + ys` joins two lists, or two vectors.
 [`List.concat`](/reference/lists/#listconcat) and
@@ -251,8 +253,8 @@ fn main() {
     s = Iter.to_set([1, 2, 3, 2, 1])
 
     dbg Set.size(s)
-    dbg Set.contains?(s, 2)
-    dbg Set.contains?(s, 9)
+    dbg Set.contains(s, 2)
+    dbg Set.contains(s, 9)
     dbg s + %[4, 5]
     dbg s - %[1]
 }
@@ -260,8 +262,8 @@ fn main() {
 ```
 <!-- expect
 dbg line 4: Set.size(s) = 3
-dbg line 5: Set.contains?(s, 2) = True
-dbg line 6: Set.contains?(s, 9) = False
+dbg line 5: Set.contains(s, 2) = True
+dbg line 6: Set.contains(s, 9) = False
 dbg line 7: s + %[4, 5] = %[1, 2, 3, 4, 5]
 dbg line 8: s - %[1] = %[2, 3]
 -->
@@ -344,12 +346,12 @@ dbg line 10: %[..s, "blue"] = %["red", "blue"]
 dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost", "port" => "9090", "user" => "ada"}
 -->
 
-Where the spread goes depends on the collection:
-
-- In a list it goes last, so you add items at the front.
-- In a vector it can go first or last.
-- In a set or a map it goes first. `%[..s, x]` is `s` with `x` added.
-  `%{..m, k => v}` is `m` with the entry `k => v` added or replaced.
+A spread can go anywhere in the literal, and a literal can have several:
+`[..xs, "Cy", ..ys]` joins two lists around `"Cy"`. In a map a later key
+wins, so `%{..m, k => v}` is `m` with `k => v` added or replaced, and
+`%{k => v, ..m}` keeps `m`'s value when `m` has `k`. `[x, ..xs]`,
+`%[..s, x]` and `%{..m, k => v}` reuse the existing collection; a spread
+anywhere else copies it, as `+` does.
 
 A spread also works inside a struct or a map that you are updating. There, a
 `..` with nothing after it means the value that is already there:
@@ -445,14 +447,14 @@ You can still ask whether a value is inside it:
 
 ```nomi-run
 fn main() {
-    dbg Range.contains?("a".."m", "h")
-    dbg Range.contains?(0.0..=1.0, 1.0)
+    dbg Range.contains("a".."m", "h")
+    dbg Range.contains(0.0..=1.0, 1.0)
 }
 
 ```
 <!-- expect
-dbg line 2: Range.contains?("a".."m", "h") = True
-dbg line 3: Range.contains?(0.0..=1.0, 1.0) = True
+dbg line 2: Range.contains("a".."m", "h") = True
+dbg line 3: Range.contains(0.0..=1.0, 1.0) = True
 -->
 
 [`Range.step_by`](/reference/ranges/#rangestep_by) walks through a range in
@@ -477,6 +479,9 @@ dbg line 5:
   = [1.0d, 1.1d, 1.2d, 1.3d]
 -->
 
+A range whose end is below its start, such as `5..=1`, is empty. To count
+down, step by a negative amount: `Range.step_by(5..=1, -1)` gives 5, 4, 3,
+2 and 1.
 ## Persistent immutability
 
 ```nomi-run

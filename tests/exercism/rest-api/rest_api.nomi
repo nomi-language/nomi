@@ -1,3 +1,5 @@
+//# A small REST API for an IOU tracker between roommates, over JSON.
+
 import std/json.{FromJson, Json, ToJson}
 
 /// A roommate: who they owe and how much, who owes them, and the
@@ -48,8 +50,8 @@ derive FromJson for Iou
 /// Why a request has no answer.
 pub enum Error {
     /// The payload or the database is not JSON of the expected shape; the
-    /// text says where.
-    InvalidJson String
+    /// error says where.
+    InvalidJson Json.Error
     /// No method answers this URL.
     NotFound String
     UnknownUser String
@@ -65,7 +67,7 @@ pub opaque struct RestApi {
 impl RestApi {
     /// The tracker over `database`, a JSON object `{"users": [...]}`.
     pub fn new(database: String) -> Result<RestApi, Error> {
-        database: Users = try read(database)
+        database: Users = Json.decode_as(database) |> Result.map_err(Error.InvalidJson)?
 
         Ok(
             #RestApi{
@@ -81,7 +83,7 @@ impl RestApi {
 
         names = case payload {
             Some(text) -> {
-                query: UserNames = try read(text)
+                query: UserNames = Json.decode_as(text) |> Result.map_err(Error.InvalidJson)?
                 query.users
             }
 
@@ -89,8 +91,8 @@ impl RestApi {
                 Map.keys(api.users)
         }
 
-        users = names |> Iter.map(&find(api, &1)) |> try Result.collect()
-        Ok(write(#Users{users: Iter.sort_by(users, .name)}))
+        users = names |> Iter.map(&find(api, &1)) |> Result.collect()?
+        Ok(Json.encode_as(#Users{users: Iter.sort_by(users, .name)}))
     }
 
     /// Answers a `POST` of `payload` to `url`, and the tracker after it.
@@ -99,20 +101,18 @@ impl RestApi {
     pub fn post(api: RestApi, url: String, payload: String) -> Result<#(String, RestApi), Error> {
         case url {
             "/add" -> {
-                request: NewUser = try read(payload)
+                request: NewUser = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
 
-                if Map.contains?(api.users, request.user) {
-                    return Err(.UserExists(request.user))
-                }
+                if Map.contains(api.users, request.user) { return Err(.UserExists(request.user)) }
 
                 user = #User{name: request.user}
-                Ok(#(write(user), #RestApi{users: Map.put(api.users, user.name, user)}))
+                Ok(#(Json.encode_as(user), #RestApi{users: Map.put(api.users, user.name, user)}))
             }
 
             "/iou" -> {
-                iou: Iou = try read(payload)
-                lender = try find(api, iou.lender)
-                borrower = try find(api, iou.borrower)
+                iou: Iou = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
+                lender = find(api, iou.lender)?
+                borrower = find(api, iou.borrower)?
                 net = net_owed(lender, borrower.name) + iou.amount
                 lender = with_net(lender, borrower.name, net)
                 borrower = with_net(borrower, lender.name, -net)
@@ -121,7 +121,7 @@ impl RestApi {
                     api.users |> Map.put(lender.name, lender) |> Map.put(borrower.name, borrower)
 
                 answer = #Users{users: Iter.sort_by([lender, borrower], .name)}
-                Ok(#(write(answer), #RestApi{users}))
+                Ok(#(Json.encode_as(answer), #RestApi{users}))
             }
 
             _ ->
@@ -159,17 +159,7 @@ fn with_net(user: User, other: String, net: Float) -> User {
         owed_by
     }
 
-    balance = Iter.sum(Map.values(owed_by)) - Iter.sum(Map.values(owes))
-    #{..user, owes, owed_by, balance}
-}
-
-/// `text` read as JSON into a `T`.
-fn read<T>(text: String) -> Result<T, Error> where T: FromJson {
-    json = Json.decode(text) |> try Result.map_err(&Error.InvalidJson(Display.to_string(&1)))
-    T.from_json(json) |> Result.map_err(&Error.InvalidJson(Display.to_string(&1)))
-}
-
-/// `value` written as JSON text.
-fn write<T>(value: T) -> String where T: ToJson {
-    Json.encode(ToJson.to_json(value))
+    owed = owed_by |> Map.values() |> Iter.sum()
+    owing = owes |> Map.values() |> Iter.sum()
+    #{..user, owes, owed_by, balance: owed - owing}
 }

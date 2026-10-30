@@ -13,7 +13,7 @@ test "testing for eggs allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Eggs) == expected
+        assert allergies.is_allergic_to(score, Allergen.Eggs) == expected
     }
 }
 
@@ -27,7 +27,7 @@ test "testing for peanuts allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Peanuts) == expected
+        assert allergies.is_allergic_to(score, Allergen.Peanuts) == expected
     }
 }
 
@@ -41,7 +41,7 @@ test "testing for shellfish allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Shellfish) == expected
+        assert allergies.is_allergic_to(score, Allergen.Shellfish) == expected
     }
 }
 
@@ -55,7 +55,7 @@ test "testing for strawberries allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Strawberries) == expected
+        assert allergies.is_allergic_to(score, Allergen.Strawberries) == expected
     }
 }
 
@@ -69,7 +69,7 @@ test "testing for tomatoes allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Tomatoes) == expected
+        assert allergies.is_allergic_to(score, Allergen.Tomatoes) == expected
     }
 }
 
@@ -83,7 +83,7 @@ test "testing for chocolate allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Chocolate) == expected
+        assert allergies.is_allergic_to(score, Allergen.Chocolate) == expected
     }
 }
 
@@ -97,7 +97,7 @@ test "testing for pollen allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Pollen) == expected
+        assert allergies.is_allergic_to(score, Allergen.Pollen) == expected
     }
 }
 
@@ -111,14 +111,14 @@ test "testing for cats allergy" {
     ]
 
     subtests cases, #(description, score, expected), description {
-        assert allergies.allergic_to?(score, Allergen.Cats) == expected
+        assert allergies.is_allergic_to(score, Allergen.Cats) == expected
     }
 }
 
 test "list when:" {
-    cases: List<#(String, Int, List<Allergen>)> = [
+    cases = [
         #("no allergies", 0, []),
-        #("just eggs", 1, [.Eggs]),
+        #("just eggs", 1, [Allergen.Eggs]),
         #("just peanuts", 2, [.Peanuts]),
         #("just strawberries", 8, [.Strawberries]),
         #("eggs and peanuts", 3, [.Eggs, .Peanuts]),

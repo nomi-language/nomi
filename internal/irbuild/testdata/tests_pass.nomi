@@ -6,7 +6,7 @@ fn double(n: Int) -> Int {
     n * 2
 }
 
-fn even?(n: Int) -> Bool {
+fn is_even(n: Int) -> Bool {
     n % 2 == 0
 }
 
@@ -16,8 +16,8 @@ test "arithmetic" {
 }
 
 test "predicates" {
-    assert even?(4)
-    refute even?(5)
+    assert is_even(4)
+    refute is_even(5)
 }
 
 test "bindings and text" {

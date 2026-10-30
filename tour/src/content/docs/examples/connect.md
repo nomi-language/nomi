@@ -39,11 +39,11 @@ pub fn winner(board: List<String>) -> Maybe<Player> {
         |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
         |> Iter.to_list()
 
-    [Player.X, Player.O] |> Iter.find(&connects?(rows, &1))
+    [Player.X, Player.O] |> Iter.find(&connects(rows, &1))
 }
 
 /// Whether `player`'s stones join their two sides of the board.
-fn connects?(rows: List<List<String>>, player: Player) -> Bool {
+fn connects(rows: List<List<String>>, player: Player) -> Bool {
     stones =
         rows
         |> Iter.with_index()
@@ -56,10 +56,10 @@ fn connects?(rows: List<List<String>>, player: Player) -> Bool {
         |> Iter.to_set()
 
     last_row = Iter.count(rows) - 1
-    width = rows |> Iter.first() |> Maybe.map(&Iter.count(&1)) |> Maybe.with_default(0)
+    width = rows |> Iter.first() |> Maybe.map(Iter.count) |> Maybe.with_default(0)
     last_column = width - 1
 
-    #(start?, goal?) = case player {
+    #(is_start, is_goal) = case player {
         .X ->
             #(
                 fn #(_row, column): Cell -> column == 0,
@@ -70,8 +70,8 @@ fn connects?(rows: List<List<String>>, player: Player) -> Bool {
             #(fn #(row, _column): Cell -> row == 0, fn #(row, _column): Cell -> row == last_row)
     }
 
-    starts = stones |> Iter.filter(start?) |> Iter.to_list()
-    reaches?(stones, starts, Iter.to_set(starts), goal?)
+    starts = stones |> Iter.filter(is_start) |> Iter.to_list()
+    reaches(stones, starts, Iter.to_set(starts), is_goal)
 }
 
 fn stone(player: Player) -> String {
@@ -82,30 +82,30 @@ fn stone(player: Player) -> String {
 }
 
 /// Whether a path through `stones` leads from a cell of `frontier` to a
-/// cell where `goal?` holds, without stepping on a cell of `seen` again.
+/// cell where `is_goal` holds, without stepping on a cell of `seen` again.
 /// A depth-first search: the newest cells found are tried first.
-fn reaches?(
+fn reaches(
     stones: Set<Cell>,
     frontier: List<Cell>,
     seen: Set<Cell>,
-    goal?: (Cell) -> Bool,
+    is_goal: (Cell) -> Bool,
 ) -> Bool {
     case frontier {
         [] ->
             False
 
         [cell, ..rest] -> {
-            if goal?(cell) { return True }
+            if is_goal(cell) { return True }
 
             #(row, column) = cell
 
             next =
                 neighbours
                 |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
-                |> Iter.filter(fn n -> Set.contains?(stones, n) and !Set.contains?(seen, n))
+                |> Iter.filter(fn n -> Set.contains(stones, n) and !Set.contains(seen, n))
                 |> Iter.to_list()
 
-            reaches?(stones, List.concat(next, rest), Set.union(seen, Iter.to_set(next)), goal?)
+            reaches(stones, List.concat(next, rest), Set.union(seen, Iter.to_set(next)), is_goal)
         }
     }
 }
@@ -117,7 +117,7 @@ import {
 }
 
 test "winner" {
-    cases: List<#(String, List<String>, Maybe<Player>)> = [
+    cases = [
         #(
             "an empty board has no winner",
             [
@@ -129,7 +129,7 @@ test "winner" {
             ],
             None,
         ),
-        #("X can win on a 1x1 board", ["X"], Some(.X)),
+        #("X can win on a 1x1 board", ["X"], Some(Player.X)),
         #("O can win on a 1x1 board", ["O"], Some(.O)),
         #(
             "only edges does not make a winner",
@@ -244,7 +244,7 @@ test "winner" {
 - `winner` answers `Maybe<Player>`, a `Player` enum of `X` and `O`, where the canonical data writes `"X"`, `"O"` and `""` for no winner.
 - The board is read as the canonical rows: each is trimmed of its indentation and split on spaces, so cell `#(row, column)` is the column-th symbol of the row. The indentation is only the picture of the shift, which the neighbour offsets carry: a cell touches its two sides, the cell above and the one above and right, and the cell below and the one below and left.
 - A player's stones are collected once into a `Set<Cell>`, so the search asks set membership and never indexes the grid or checks bounds; a cell off the board holds no stone.
-- `connects?` sets the start and goal edges per player as a pair of predicates, and `reaches?` is a depth-first search from every stone on the start edge, with a frontier list and a set of cells seen. It stops at the first cell on the goal edge.
+- `connects` sets the start and goal edges per player as a pair of predicates, and `reaches` is a depth-first search from every stone on the start edge, with a frontier list and a set of cells seen. It stops at the first cell on the goal edge.
 - Both players are tried with `Iter.find`. A legal board has at most one winner, so the order does not matter.
 - `Cell` is a `typealias` for `#(Int, Int)`, so the search's signature says what its tuples are.
 - The twelve canonical cases are one `subtests` table named by the description column, each board one row per line as the canonical data draws it.

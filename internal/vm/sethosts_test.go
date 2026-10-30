@@ -8,7 +8,7 @@ import (
 )
 
 func TestSetHostsValidateOperands(t *testing.T) {
-	for key, arity := range map[string]int{"Set.size": 1, "Set.contains?": 2, "Set.insert": 2, "Set.remove": 2} {
+	for key, arity := range map[string]int{"Set.size": 1, "Set.contains": 2, "Set.insert": 2, "Set.remove": 2} {
 		t.Run(key, func(t *testing.T) {
 			host := setHost(key)
 			if _, err := host(nil, ir.Pos{}, nil); err == nil || !strings.Contains(err.Error(), "expected") {

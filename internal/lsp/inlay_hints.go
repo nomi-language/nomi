@@ -343,6 +343,9 @@ func (c *hintCollector) walkNode(node ast.Node) {
 			c.walkNode(n.Expr)
 		}
 
+	case *ast.Unwrap:
+		c.walkNode(n.Expr)
+
 	case *ast.StringInterp:
 		// Walk Dynamic slots so inlay hints fire on identifiers /
 		// nested calls inside `${...}`. Static parts have no

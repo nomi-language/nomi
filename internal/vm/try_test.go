@@ -13,7 +13,7 @@ func TestVMTry_IdentityAndPropagation(t *testing.T) {
 	f := ir.NewFunc(at, "unwrap")
 	arg := f.AddParam(ir.NewSymbol("operand"), ir.ValVariant)
 	b := f.NewBlock(at, "entry")
-	b.Append(ir.NewTry(at, arg, "try operand"))
+	b.Append(ir.NewTry(at, arg, "operand?"))
 	answer := ir.NewInt(at, f.NewTemp(), 42)
 	b.Append(answer)
 	b.SetTerm(ir.NewReturn(at, answer.Dst()))
@@ -50,7 +50,7 @@ func TestVMTry_IdentityAndPropagation(t *testing.T) {
 		rtVariant("maybe.Maybe", "Err"),
 	} {
 		if _, err := m.Run("unwrap", v); err == nil {
-			t.Fatalf("accepted invalid try operand %#v", v)
+			t.Fatalf("accepted invalid operand? %#v", v)
 		}
 	}
 }

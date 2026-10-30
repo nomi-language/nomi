@@ -666,14 +666,14 @@ script outside any project, and the examples on this page:
 import std/locale.Locale
 
 fn main() {
-    dbg Iter.contains?(Locale.available(), Locale`pl`)
+    dbg Iter.contains(Locale.available(), Locale`pl`)
     dbg Iter.count(Locale.available())
     Unit
 }
 
 ```
 <!-- expect
-dbg line 4: Iter.contains?(Locale.available(), Locale`pl`) = True
+dbg line 4: Iter.contains(Locale.available(), Locale`pl`) = True
 dbg line 5: Iter.count(Locale.available()) = 765
 -->
 
@@ -749,9 +749,9 @@ how a locale's tag picks another order of a language, such as the German
 phone book's. To sort many strings, or to keep an order in a database,
 compute each string's `Collator.sort_key` once and sort by the keys.
 
-Upper and lower case depend on the language too. `String.to_upper` and
-`String.to_lower` follow one rule for every language. Turkish has a dotted
-`İ` and a dotless `ı`, so `String.to_upper_in` and `String.to_lower_in`
+Upper and lower case depend on the language too. `String.uppercase` and
+`String.lowercase` follow one rule for every language. Turkish has a dotted
+`İ` and a dotless `ı`, so `String.uppercase_in` and `String.lowercase_in`
 take the locale. To match text without regard to case, compare the
 results of `String.fold_case`:
 
@@ -759,18 +759,18 @@ results of `String.fold_case`:
 import std/locale.Locale
 
 fn main() {
-    dbg String.to_upper("istanbul")
-    dbg String.to_upper_in("istanbul", Locale`tr`)
-    dbg String.to_lower_in("KIRMIZI", Locale`tr`)
+    dbg String.uppercase("istanbul")
+    dbg String.uppercase_in("istanbul", Locale`tr`)
+    dbg String.lowercase_in("KIRMIZI", Locale`tr`)
     dbg String.fold_case("Straße") == String.fold_case("STRASSE")
     Unit
 }
 
 ```
 <!-- expect
-dbg line 4: String.to_upper("istanbul") = "ISTANBUL"
-dbg line 5: String.to_upper_in("istanbul", Locale`tr`) = "İSTANBUL"
-dbg line 6: String.to_lower_in("KIRMIZI", Locale`tr`) = "kırmızı"
+dbg line 4: String.uppercase("istanbul") = "ISTANBUL"
+dbg line 5: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
+dbg line 6: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
 dbg line 7: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 -->
 

@@ -18,10 +18,10 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
     )
 
     runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
-            id: try runtime.int("user_by_email", row, 0),
-            email: try runtime.text("user_by_email", row, 1),
-            name: try runtime.text_null("user_by_email", row, 2),
-            created_at: try runtime.timestamptz("user_by_email", row, 3),
+            id: runtime.int("user_by_email", row, 0)?,
+            email: runtime.text("user_by_email", row, 1)?,
+            name: runtime.text_null("user_by_email", row, 2)?,
+            created_at: runtime.timestamptz("user_by_email", row, 3)?,
         }))
 }
 
@@ -67,12 +67,12 @@ pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
     )
 
     runtime.one(conn, "order", statement, fn row -> Ok(#Order{
-            id: try runtime.int("order", row, 0),
-            user_id: try runtime.int("order", row, 1),
-            status: try runtime.text("order", row, 2),
-            total: try runtime.numeric_scaled("order", row, 3, 2),
-            placed_at: try runtime.timestamptz("order", row, 4),
-            shipped_on: try runtime.date_null("order", row, 5),
+            id: runtime.int("order", row, 0)?,
+            user_id: runtime.int("order", row, 1)?,
+            status: runtime.text("order", row, 2)?,
+            total: runtime.numeric_scaled("order", row, 3, 2)?,
+            placed_at: runtime.timestamptz("order", row, 4)?,
+            shipped_on: runtime.date_null("order", row, 5)?,
         }))
 }
 
@@ -94,11 +94,11 @@ pub fn orders_for_user(conn: sql.Conn, user_id: Int, limit: Int) -> Result<List<
     )
 
     runtime.list(conn, "orders_for_user", statement, fn row -> Ok(#{
-            id: try runtime.int<Int>("orders_for_user", row, 0),
-            status: try runtime.text<OrderStatus>("orders_for_user", row, 1),
-            total: try runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2),
-            placed_at: try runtime.timestamptz<Instant>("orders_for_user", row, 3),
-            email: try runtime.text<String>("orders_for_user", row, 4),
+            id: runtime.int<Int>("orders_for_user", row, 0)?,
+            status: runtime.text<OrderStatus>("orders_for_user", row, 1)?,
+            total: runtime.numeric_scaled<Decimal>("orders_for_user", row, 2, 2)?,
+            placed_at: runtime.timestamptz<Instant>("orders_for_user", row, 3)?,
+            email: runtime.text<String>("orders_for_user", row, 4)?,
         }))
 }
 
@@ -117,9 +117,9 @@ pub fn order_counts(conn: sql.Conn) -> Result<List<#{
     )
 
     runtime.list(conn, "order_counts", statement, fn row -> Ok(#{
-            email: try runtime.text<String>("order_counts", row, 0),
-            last_order: try runtime.value_null<Int>("order_counts", row, 1),
-            orders: try runtime.value<Int>("order_counts", row, 2),
+            email: runtime.text<String>("order_counts", row, 0)?,
+            last_order: runtime.value_null<Int>("order_counts", row, 1)?,
+            orders: runtime.value<Int>("order_counts", row, 2)?,
         }))
 }
 
@@ -136,10 +136,10 @@ pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerReve
     )
 
     runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
-            user_id: try runtime.int("revenue_since", row, 0),
-            email: try runtime.text("revenue_since", row, 1),
-            order_count: try runtime.value("revenue_since", row, 2),
-            revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+            user_id: runtime.int("revenue_since", row, 0)?,
+            email: runtime.text("revenue_since", row, 1)?,
+            order_count: runtime.value("revenue_since", row, 2)?,
+            revenue: runtime.numeric_scaled("revenue_since", row, 3, 2)?,
         }))
 }
 
@@ -151,11 +151,11 @@ pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
     )
 
     runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
-            id: try runtime.int("all_orders", row, 0),
-            user_id: try runtime.int("all_orders", row, 1),
-            status: try runtime.text("all_orders", row, 2),
-            total: try runtime.numeric_scaled("all_orders", row, 3, 2),
-            placed_at: try runtime.timestamptz("all_orders", row, 4),
-            shipped_on: try runtime.date_null("all_orders", row, 5),
+            id: runtime.int("all_orders", row, 0)?,
+            user_id: runtime.int("all_orders", row, 1)?,
+            status: runtime.text("all_orders", row, 2)?,
+            total: runtime.numeric_scaled("all_orders", row, 3, 2)?,
+            placed_at: runtime.timestamptz("all_orders", row, 4)?,
+            shipped_on: runtime.date_null("all_orders", row, 5)?,
         }))
 }

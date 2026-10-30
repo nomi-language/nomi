@@ -12,16 +12,16 @@ import {
 group "the shop" {
     // Each test gets a fresh in-memory database with the shop's schema.
     setup {
-        db = try sqlite.memory()
+        db = sqlite.memory()?
         defer sql.close_quietly(db)
-        try sqlkit.migrate(db, schema.migrations)
+        sqlkit.migrate(db, schema.migrations)?
         db
     }
 
     test "a user reads back as its row", db {
-        id = try queries.insert_user(db, "ada@example.com", Some("Ada"))
+        id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
 
-        Some(user) = try queries.user_by_email(db, "ada@example.com") else {
+        Some(user) = queries.user_by_email(db, "ada@example.com")? else {
             None -> return Err(#sql.Error.Database{code: "", message: "no user"})
         }
 
@@ -29,11 +29,11 @@ group "the shop" {
         assert read_id == id
         assert email == "ada@example.com"
         assert name == Some("Ada")
-        assert try queries.user_by_email(db, "nobody@example.com") == None
+        assert queries.user_by_email(db, "nobody@example.com")? == None
     }
 
     test "a second user with the same email breaks the unique constraint", db {
-        _ = try queries.insert_user(db, "ada@example.com", None)
+        _ = queries.insert_user(db, "ada@example.com", None)?
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
             #sql.Error.Constraint{
@@ -46,9 +46,9 @@ group "the shop" {
     }
 
     test "an order reads back with its enum status and decimal total", db {
-        user = try queries.insert_user(db, "ada@example.com", None)
-        id = try shop.place_paid_order(db, user, 12.50d)
-        order = try queries.order(db, id)
+        user = queries.insert_user(db, "ada@example.com", None)?
+        id = shop.place_paid_order(db, user, 12.50d)?
+        order = queries.order(db, id)?
         assert #Order{status, total, shipped_on} = order
         assert status == OrderStatus.Paid
         // `==` on Decimal ignores the scale; the text shows it.
@@ -60,11 +60,11 @@ group "the shop" {
     }
 
     test "a failed sign-up leaves nothing behind", db {
-        _ = try shop.sign_up_with_order(db, "ada@example.com", 5d)
+        _ = shop.sign_up_with_order(db, "ada@example.com", 5d)?
         failed = shop.sign_up_with_order(db, "ada@example.com", 7d)
-        assert Result.err?(failed)
-        assert try shop.total_of_all_orders(db) == 5d
-        counts = try queries.order_counts(db)
+        assert Result.is_err(failed)
+        assert shop.total_of_all_orders(db)? == 5d
+        counts = queries.order_counts(db)?
 
         assert counts |> Iter.map(fn c -> #(c.email, c.orders)) |> Iter.to_list() == [
             #("ada@example.com", 1),
@@ -72,22 +72,22 @@ group "the shop" {
     }
 
     test "a join reads every order of a user, newest first", db {
-        user = try queries.insert_user(db, "ada@example.com", None)
-        first = try queries.insert_order(db, user, 1d)
-        second = try queries.insert_order(db, user, 2d)
-        rows = try queries.orders_for_user(db, user, 10)
+        user = queries.insert_user(db, "ada@example.com", None)?
+        first = queries.insert_order(db, user, 1d)?
+        second = queries.insert_order(db, user, 2d)?
+        rows = queries.orders_for_user(db, user, 10)?
         assert rows |> Iter.map(fn r -> r.id) |> Iter.to_list() == [second, first]
 
         assert rows
-            |> Iter.all?(fn r -> r.email == "ada@example.com" and r.status == OrderStatus.Pending)
+            |> Iter.all(fn r -> r.email == "ada@example.com" and r.status == OrderStatus.Pending)
     }
 
     test "an outer join's columns are Maybe, and an aggregate counts", db {
-        ada = try queries.insert_user(db, "ada@example.com", None)
-        _ = try queries.insert_user(db, "grace@example.com", None)
-        _ = try queries.insert_order(db, ada, 3d)
-        latest = try queries.insert_order(db, ada, 4d)
-        counts = try queries.order_counts(db)
+        ada = queries.insert_user(db, "ada@example.com", None)?
+        _ = queries.insert_user(db, "grace@example.com", None)?
+        _ = queries.insert_order(db, ada, 3d)?
+        latest = queries.insert_order(db, ada, 4d)?
+        counts = queries.order_counts(db)?
 
         assert counts |> Iter.map(fn c -> #(c.email, c.last_order, c.orders)) |> Iter.to_list() == [
             #("ada@example.com", Some(latest), 2),
@@ -96,13 +96,13 @@ group "the shop" {
     }
 
     test "revenue sums the paid orders of each customer", db {
-        ada = try queries.insert_user(db, "ada@example.com", None)
-        grace = try queries.insert_user(db, "grace@example.com", None)
-        _ = try shop.place_paid_order(db, ada, 10d)
-        _ = try shop.place_paid_order(db, ada, 2.5d)
-        _ = try queries.insert_order(db, grace, 100d)
-        _ = try shop.place_paid_order(db, grace, 1d)
-        revenue = try queries.revenue_since(db, Instant.from_seconds(0))
+        ada = queries.insert_user(db, "ada@example.com", None)?
+        grace = queries.insert_user(db, "grace@example.com", None)?
+        _ = shop.place_paid_order(db, ada, 10d)?
+        _ = shop.place_paid_order(db, ada, 2.5d)?
+        _ = queries.insert_order(db, grace, 100d)?
+        _ = shop.place_paid_order(db, grace, 1d)?
+        revenue = queries.revenue_since(db, Instant.from_seconds(0))?
         assert revenue |> Iter.map(fn r -> "${r.revenue}") |> Iter.to_list() == ["12.50", "1.00"]
 
         assert revenue == [
@@ -122,11 +122,11 @@ group "the shop" {
     }
 
     test "a total keeps its column's scale, and is exact to 15 digits", db {
-        user = try queries.insert_user(db, "ada@example.com", None)
-        whole = try queries.insert_order(db, user, 7d)
-        largest = try queries.insert_order(db, user, 9_999_999_999.99d)
-        assert "${(try queries.order(db, whole)).total}" == "7.00"
-        assert "${(try queries.order(db, largest)).total}" == "9999999999.99"
+        user = queries.insert_user(db, "ada@example.com", None)?
+        whole = queries.insert_order(db, user, 7d)?
+        largest = queries.insert_order(db, user, 9_999_999_999.99d)?
+        assert "${(queries.order(db, whole)?).total}" == "7.00"
+        assert "${(queries.order(db, largest)?).total}" == "9999999999.99"
 
         // 2^53 + 1 cents does not fit a 64-bit float, which is how SQLite
         // keeps a DECIMAL: the driver refuses it rather than round it.
@@ -139,30 +139,30 @@ group "the shop" {
     }
 
     test "a sum of many small totals is exact", db {
-        user = try queries.insert_user(db, "ada@example.com", None)
+        user = queries.insert_user(db, "ada@example.com", None)?
 
         Iter.from(0)
         |> Iter.take(1000)
         |> Iter.each(fn _ -> { _ = shop.place_paid_order(db, user, 0.10d) })
 
-        revenue = try queries.revenue_since(db, Instant.from_seconds(0))
+        revenue = queries.revenue_since(db, Instant.from_seconds(0))?
         assert revenue |> Iter.map(fn r -> "${r.revenue}") |> Iter.to_list() == ["100.00"]
-        assert "${try shop.total_of_all_orders(db)}" == "100.00"
+        assert "${shop.total_of_all_orders(db)?}" == "100.00"
     }
 
     test "a status update answers the rows it changed", db {
-        user = try queries.insert_user(db, "ada@example.com", None)
-        id = try queries.insert_order(db, user, 1d)
+        user = queries.insert_user(db, "ada@example.com", None)?
+        id = queries.insert_order(db, user, 1d)?
         assert queries.set_status(db, id, .Shipped) == Ok(#sqlkit.Changed{rows: 1})
         assert queries.set_status(db, id + 1, .Shipped) == Ok(#sqlkit.Changed{rows: 0})
     }
 
     test "revenue since an hour ago counts an order placed now", db {
-        user = try queries.insert_user(db, "ada@example.com", None)
-        _ = try shop.place_paid_order(db, user, 10d)
+        user = queries.insert_user(db, "ada@example.com", None)?
+        _ = shop.place_paid_order(db, user, 10d)?
         now = Instant.now()
-        hour_ago = try queries.revenue_since(db, now - Duration.hours(1))
-        hour_later = try queries.revenue_since(db, now + Duration.hours(1))
+        hour_ago = queries.revenue_since(db, now - Duration.hours(1))?
+        hour_later = queries.revenue_since(db, now + Duration.hours(1))?
         assert hour_ago |> Iter.map(fn r -> r.order_count) |> Iter.to_list() == [1]
         assert hour_later == []
     }

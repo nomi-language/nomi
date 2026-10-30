@@ -12,12 +12,12 @@ import std/io
 //
 // The open side is information-free: no value of that type exists anywhere in
 // the program, because if one did the variable would have been solved by it.
-// `case Ok(4) { Ok(n) -> n }` binds 4 and `Result.equal?(Ok(4), Ok(4))` is True
+// `case Ok(4) { Ok(n) -> n }` binds 4 and `Result.equal(Ok(4), Ok(4))` is True
 // at EVERY instantiation of the open side. Same answer at two instantiations,
 // so the answer does not depend on the choice.
 //
-// The corpus settles this rather than the prose: `Result.equal?(Ok(4),
-// Err("bad"))` does NOT refuse anywhere in tests, because `equal?`'s two
+// The corpus settles this rather than the prose: `Result.equal(Ok(4),
+// Err("bad"))` does NOT refuse anywhere in tests, because `equal`'s two
 // parameters share one E and `Err` supplies what `Ok` left open. Wherever a
 // sibling position holds the missing half the front end has already closed it.
 // `mixed` below is that case, kept so the boundary is exercised rather than
@@ -67,8 +67,8 @@ fn main() {
         }}"
     )
 
-    io.print("ok equal = ${Result.equal?(first, second)}")
-    io.print("ok differs = ${Result.equal?(first, Ok(5))}")
+    io.print("ok equal = ${Result.equal(first, second)}")
+    io.print("ok differs = ${Result.equal(first, Ok(5))}")
 
     // --- hole at index 0: T open, from Err -----------------------------------
     bad = Err("bad")
@@ -81,12 +81,12 @@ fn main() {
         }}"
     )
 
-    io.print("err equal = ${Result.equal?(bad, worse)}")
-    io.print("err differs = ${Result.equal?(bad, Err("other"))}")
+    io.print("err equal = ${Result.equal(bad, worse)}")
+    io.print("err differs = ${Result.equal(bad, Err("other"))}")
 
     // --- the boundary: a sibling position supplies the missing half ----------
     // Nothing is open here, and it must keep working exactly as it does today.
-    io.print("mixed = ${Result.equal?(Ok(4), Err("bad"))}")
+    io.print("mixed = ${Result.equal(Ok(4), Err("bad"))}")
 
     // --- a hole under another type constructor -------------------------------
     // `Some(Ok(42))` is `Maybe<Result<Int, ?>>`. In the corpus this reports

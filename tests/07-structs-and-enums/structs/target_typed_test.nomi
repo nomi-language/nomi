@@ -76,7 +76,7 @@ test "a partial brace literal names the missing field of the struct" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "missing field 'street' of Address")
+    assert test_helpers.has_diagnostic(diagnostics, "missing field 'street' of Address")
 }
 
 test "an unknown field names the struct" {
@@ -94,5 +94,5 @@ test "an unknown field names the struct" {
         """
     )
 
-    assert test_helpers.has_diagnostic?(diagnostics, "Address has no field 'postcode'")
+    assert test_helpers.has_diagnostic(diagnostics, "Address has no field 'postcode'")
 }

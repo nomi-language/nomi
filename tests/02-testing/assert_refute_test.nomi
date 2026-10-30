@@ -21,7 +21,7 @@ fn fails_assertion() -> Result<Unit, AssertionFailure> {
 }
 
 fn fails_check() -> Result<Bool, AssertionFailure> {
-    checked = try testing.check(1 == 2)
+    checked = testing.check(1 == 2)?
     Ok(checked)
 }
 
@@ -45,7 +45,7 @@ test "check returns assertion Result values without propagating" {
     assert failure.reason == "check failed"
 }
 
-test "try check propagates assertion failures" {
+test "`?` check propagates assertion failures" {
     assert Err(failure) = fails_check()
 
     assert failure.line == 24

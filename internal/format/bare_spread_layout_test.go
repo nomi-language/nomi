@@ -2,11 +2,10 @@ package format
 
 import "testing"
 
-// A bare `..` written last in a vector ends it: the parser takes no comma
-// after it, as after a list's `..tail`. nomi fmt wrote a broken vector
-// ending in `..` with the trailing comma every broken list gets, `..,`,
-// which does not parse ("vector spread `..` must be the first or the last
-// element"). A comment ending the `..`'s line is the `..`'s own; the
+// A bare `..` written last in a vector ends it with no trailing comma, as a
+// list's last spread does: nomi fmt writes a broken vector or list ending in
+// a spread without the comma every other broken list gets. A comment ending
+// the `..`'s line is the `..`'s own; the
 // parser gave it to the element before, so it moved above the `..`. The
 // same comments and breaks around a list's tail, a set's, a map's and a
 // struct's `..` already kept their place.

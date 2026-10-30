@@ -27,7 +27,7 @@ fn write_all(prefix: String) -> List<Result<Unit, io.Error>> {
 fn main() {
     ran = fs_testing.run(#Sandbox{}, fn -> write_all("sandbox-"))
     io.print(Iter.count(Map.keys(ran.files)))
-    io.print(Iter.all?(write_all("page-"), fn r -> r == Ok(Unit)))
+    io.print(Iter.all(write_all("page-"), fn r -> r == Ok(Unit)))
     io.print(fs.read_text("page-3.txt"))
 }
 `

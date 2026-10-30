@@ -36,7 +36,8 @@ type Codepoint int64
 
 // IntToCodepoint is `Int.to_codepoint`: Some for 0 through 0x10FFFF outside
 // the UTF-16 surrogate block 0xD800–0xDFFF, None otherwise.
-func IntToCodepoint(n int64) Maybe[Codepoint] {
+func IntToCodepoint(v Int) Maybe[Codepoint] {
+	n := v.Saturated()
 	if n < 0 || n > 0x10FFFF || (n >= 0xD800 && n <= 0xDFFF) {
 		return None[Codepoint]()
 	}
@@ -52,19 +53,19 @@ func IntToCodepoint(n int64) Maybe[Codepoint] {
 // DurationToString's unit ladder.
 func CodepointToString(cp Codepoint) string { return string(rune(cp)) }
 
-// CodepointIsLetter is `Codepoint.letter?`: general category L (Lu, Ll, Lt,
+// CodepointIsLetter is `Codepoint.is_letter`: general category L (Lu, Ll, Lt,
 // Lm, Lo), Go's unicode.IsLetter.
 func CodepointIsLetter(cp Codepoint) bool { return unicode.IsLetter(rune(cp)) }
 
-// CodepointIsWhitespace is `Codepoint.whitespace?`: the Unicode White_Space
+// CodepointIsWhitespace is `Codepoint.is_whitespace`: the Unicode White_Space
 // property, Go's unicode.IsSpace.
 func CodepointIsWhitespace(cp Codepoint) bool { return unicode.IsSpace(rune(cp)) }
 
-// CodepointIsUpper is `Codepoint.upper?`: general category Lu, Go's
+// CodepointIsUpper is `Codepoint.is_upper`: general category Lu, Go's
 // unicode.IsUpper. Title case (Lt, `ǅ`) and Other_Uppercase (`Ⅰ`) are not Lu.
 func CodepointIsUpper(cp Codepoint) bool { return unicode.IsUpper(rune(cp)) }
 
-// CodepointIsLower is `Codepoint.lower?`: general category Ll, Go's
+// CodepointIsLower is `Codepoint.is_lower`: general category Ll, Go's
 // unicode.IsLower. Title case (Lt, `ǅ`) and Other_Lowercase (`ª`) are not Ll.
 func CodepointIsLower(cp Codepoint) bool { return unicode.IsLower(rune(cp)) }
 

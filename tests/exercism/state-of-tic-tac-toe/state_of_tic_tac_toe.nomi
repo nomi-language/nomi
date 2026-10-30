@@ -1,3 +1,5 @@
+//# Where a game of tic-tac-toe stands, and whether its board is valid.
+
 /// Where a valid game stands.
 pub enum State {
     Win
@@ -46,8 +48,8 @@ pub fn gamestate(board: List<String>) -> Result<State, Error> {
 
     xs = marks(cells, 'X')
     os = marks(cells, 'O')
-    x_won = won?(cells, 'X')
-    o_won = won?(cells, 'O')
+    x_won = has_won(cells, 'X')
+    o_won = has_won(cells, 'O')
 
     if os > xs {
         Err(.OStarted)
@@ -72,6 +74,6 @@ fn marks(cells: Vector<Codepoint>, mark: Codepoint) -> Int {
 }
 
 /// Whether `mark` fills one of the lines.
-fn won?(cells: Vector<Codepoint>, mark: Codepoint) -> Bool {
-    Iter.any?(lines, fn line -> Iter.all?(line, &(Vector.at(cells, &1) == mark)))
+fn has_won(cells: Vector<Codepoint>, mark: Codepoint) -> Bool {
+    Iter.any(lines, fn line -> Iter.all(line, &(Vector.get(cells, &1)! == mark)))
 }

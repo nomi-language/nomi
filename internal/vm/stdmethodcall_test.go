@@ -24,7 +24,7 @@ func TestVMStringHosts_TourMatchesRecordedAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := []string{tourBlock(t, "pipes.md", `|> try String.to_int()`)}
+	ids := []string{tourBlock(t, "pipes.md", `|> String.to_int()?`)}
 	got, refused := vmSubsetOf(t, "tour", ids, vmPathResolver(t, "tour"))
 	if len(got.Cases) != len(ids) || len(refused) != 0 {
 		t.Fatalf("string host Tour programs incomplete: %v", refused)

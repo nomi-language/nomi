@@ -30,6 +30,11 @@ import (
 // std/fs. A file it writes that the source does not hold, or one in a
 // module of the project other than its root (a directory with a go.mod of
 // its own), is left out.
+//
+// In a source of sibling projects (LoadMarked), the tool runs in the
+// project's directory (`rates/`), as a reader runs `nomi tool` there, and
+// the files it may write are that project's; they come back by their
+// paths from the source's root (`rates/tables.nomi`).
 func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (map[string]string, error) {
 	project, err := virtualproject.FromMarkedSource(src)
 	if err != nil {
@@ -42,16 +47,17 @@ func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (m
 	if err != nil {
 		return nil, err
 	}
-	path, err := toolFile(root, module, name)
+	projectRoot := filepath.Join(root, filepath.FromSlash(project.Dir))
+	path, err := toolFile(projectRoot, module, name)
 	if err != nil {
 		return nil, err
 	}
-	files := NewMemoryFiles(DataFileBytes(project.Files))
+	files := projectFiles(project, project.Files)
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	if err := os.Chdir(root); err != nil {
+	if err := os.Chdir(projectRoot); err != nil {
 		return nil, err
 	}
 	defer os.Chdir(wd)
@@ -64,7 +70,7 @@ func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (m
 	}
 	written := map[string]string{}
 	for name, data := range files.Files() {
-		if old, ok := project.Files[name]; ok && old != string(data) && !inSubmodule(project.Files, name) {
+		if old, ok := project.Files[name]; ok && old != string(data) && !inSubmodule(project.Files, project.Dir, name) {
 			written[name] = string(data)
 		}
 	}
@@ -97,10 +103,18 @@ func toolFile(root, module, name string) (string, error) {
 	return path, nil
 }
 
-// inSubmodule reports whether the file name is under a directory of the
-// project that holds a go.mod of its own: a module other than the root.
-func inSubmodule(files map[string]string, name string) bool {
-	for d := filepath.ToSlash(filepath.Dir(name)); d != "." && d != "/"; d = filepath.ToSlash(filepath.Dir(d)) {
+// inSubmodule reports whether the file name is in a module other than the
+// project's root, the block's root or its project directory dir: outside
+// dir, or under a directory below it that holds a go.mod of its own.
+func inSubmodule(files map[string]string, dir, name string) bool {
+	stop := "."
+	if dir != "" {
+		if !strings.HasPrefix(name, dir+"/") {
+			return true
+		}
+		stop = dir
+	}
+	for d := filepath.ToSlash(filepath.Dir(name)); d != stop && d != "." && d != "/"; d = filepath.ToSlash(filepath.Dir(d)) {
 		if _, ok := files[d+"/go.mod"]; ok {
 			return true
 		}

@@ -11,10 +11,10 @@ func TestInstImpl_EveryCallFormRunsTheChosenImpl(t *testing.T) {
 	irRunSource(t, `import std/io
 
 interface Holds<T> {
-    fn holds?(b: self, x: T) -> Bool
+    fn holds(b: self, x: T) -> Bool
 
-    fn holds_none?(b: self, xs: List<T>) -> Bool {
-        Iter.all?(xs, fn x -> !Holds.holds?(b, x))
+    fn holds_none(b: self, xs: List<T>) -> Bool {
+        Iter.all(xs, fn x -> !Holds.holds(b, x))
     }
 }
 
@@ -24,29 +24,29 @@ struct Box {
 }
 
 impl Holds<Int> for Box {
-    fn holds?(b: Box, x: Int) -> Bool {
+    fn holds(b: Box, x: Int) -> Bool {
         b.n == x
     }
 }
 
 impl Holds<String> for Box {
-    fn holds?(b: Box, x: String) -> Bool {
+    fn holds(b: Box, x: String) -> Bool {
         b.s == x
     }
 }
 
 fn via<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
-    C.holds?(c, x)
+    C.holds(c, x)
 }
 
 fn main() {
     b = #Box{n: 1, s: "a"}
-    io.print(Bool.to_string(Box.holds?(b, 1)))
-    io.print(Bool.to_string(Holds.holds?(b, "b")))
-    io.print(Bool.to_string(b |> Box.holds?("a")))
+    io.print(Bool.to_string(Box.holds(b, 1)))
+    io.print(Bool.to_string(Holds.holds(b, "b")))
+    io.print(Bool.to_string(b |> Box.holds("a")))
     io.print(Bool.to_string(via(b, 2)))
-    io.print(Bool.to_string(Box.holds_none?(b, ["x"])))
-    picks = Iter.filter([1, 2], &Holds.holds?(b, &1)) |> Iter.to_list()
+    io.print(Bool.to_string(Box.holds_none(b, ["x"])))
+    picks = Iter.filter([1, 2], &Holds.holds(b, &1)) |> Iter.to_list()
     io.print(Debug.inspect(picks))
 }
 `, "True\nFalse\nTrue\nFalse\nTrue\n[1]\n")

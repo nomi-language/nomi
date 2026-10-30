@@ -138,7 +138,7 @@ derive Equatable for Point`
 		t.Fatalf("expected a synthesized `impl Equatable for Point` block")
 	}
 	if len(blk.Items) == 0 {
-		t.Errorf("expected the synthesized equal? method, got an empty block")
+		t.Errorf("expected the synthesized equal method, got an empty block")
 	}
 	if !analysis.IsSynthesizedLine(blk.Line) {
 		t.Errorf("expected the derived block at a synth-band position, got line %d", blk.Line)
@@ -163,7 +163,7 @@ func TestHeaderLower_DeriveAndManualImplConflict(t *testing.T) {
 derive Equatable for Point
 
 impl Equatable for Point {
-  fn equal?(_a: self, _b: self) -> Bool {
+  fn equal(_a: self, _b: self) -> Bool {
     True
   }
 }

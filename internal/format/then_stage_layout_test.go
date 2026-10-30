@@ -31,9 +31,9 @@ func TestFormat_ThenStageStacksThePipeline(t *testing.T) {
 			"fn main() {\n    assert 2 |> then fn n -> n > 1\n}\n",
 			"fn main() {\n    assert 2\n        |> then fn n -> n > 1\n}\n",
 		},
-		"a trailing try stays its own stage": {
-			"fn main() -> Maybe<Int> {\n    x = 2 |> then fn n -> Some(n) |> try\n    Some(x)\n}\n",
-			"fn main() -> Maybe<Int> {\n    x =\n        2\n        |> then fn n -> Some(n)\n        |> try\n\n    Some(x)\n}\n",
+		"a `then?` stage is written against its keyword": {
+			"fn main() -> Maybe<Int> {\n    x = 2 |> then? fn n -> Some(n)\n    Some(x)\n}\n",
+			"fn main() -> Maybe<Int> {\n    x =\n        2\n        |> then? fn n -> Some(n)\n\n    Some(x)\n}\n",
 		},
 	}
 	for name, tc := range cases {

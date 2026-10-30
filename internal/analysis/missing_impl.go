@@ -297,12 +297,16 @@ func (idx *ProjectImplIndex) missingImpl(iface, typeName string, recs []Recordin
 	// the identity index cannot answer, which is what every path that
 	// does not populate the index relies on. See
 	// missing_impl_identity.go.
+	// borrowed is whether another type of the same name has the impl,
+	// so the message names the type by its module.
+	borrowed := false
 	if idx.Impls != nil {
 		if ifaces, ok := idx.Impls[typeName]; ok && ifaces[iface] {
 			recs = idx.unsuppliedRecordings(recs, typeName, iface)
 			if len(recs) == 0 {
 				return TypeError{}, false
 			}
+			borrowed = true
 		}
 	}
 	// Stdlib hands-off: every Recording is stdlib-internal.
@@ -341,7 +345,7 @@ func (idx *ProjectImplIndex) missingImpl(iface, typeName string, recs []Recordin
 		return TypeError{}, false
 	}
 
-	return missingImplError(iface, typeName, recs, typeDecls), true
+	return missingImplError(iface, typeName, recs, typeDecls, borrowed), true
 }
 
 // isStdlibRecording reports whether the Recording's Pos.File names a
@@ -361,7 +365,9 @@ func isStdlibRecording(rec Recording) bool {
 // project Recording (stdlib fallback when every Recording is stdlib),
 // attaches the other Recordings as related locations, and
 // appends a help line suggesting either derive or a hand-written impl block.
-func missingImplError(iface, typeName string, recs []Recording, typeDecls map[string]Pos) TypeError {
+// When qualify is set, another type of the same name has the impl, and the
+// message names the type through its declaring module (`users.User`).
+func missingImplError(iface, typeName string, recs []Recording, typeDecls map[string]Pos, qualify bool) TypeError {
 	// Primary: first user-project Recording, fallback to recs[0].
 	primaryIdx := 0
 	for i, rec := range recs {
@@ -371,10 +377,14 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		}
 	}
 	primary := recs[primaryIdx]
+	shown := typeName
+	if qualify && primary.TypeOrigin != OriginUnresolved && primary.TypeOrigin != OriginEntry {
+		shown = lastSegment(primary.TypeOrigin) + "." + typeName
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "no impl of `%s` for `%s` (required via %s)",
-		iface, typeName, formatRecordingVia(primary))
+		iface, shown, formatRecordingVia(primary))
 
 	e := TypeError{
 		Line:    primary.Pos.Line,
@@ -392,7 +402,9 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 			Message: "also required here via " + formatRecordingVia(rec)})
 	}
 
-	if typeDecls != nil {
+	if typeDecls != nil && shown == typeName {
+		// typeDecls is keyed by bare name, so a qualified type's entry may
+		// be the other type's declaration.
 		if decl, ok := typeDecls[typeName]; ok {
 			e = e.WithRelated(nameRelated(decl.File, decl, typeName, "`"+typeName+"` is declared here"))
 		}
@@ -403,7 +415,7 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		// help says what to do instead.
 		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
 	}
-	return e.WithHint(missingImplHelp(iface, typeName))
+	return e.WithHint(missingImplHelp(iface, shown))
 }
 
 // readerFormatted are the std types, by origin and name, that have no
@@ -642,7 +654,7 @@ func pipeBoundCol(n *ast.Binary, stage *ast.Call) int {
 // demand. When the bound error is reported, the call's own demands for the
 // same type and interface are dropped from the file's manifest: they would
 // otherwise reach DetectMissingImpls and report the one missing impl a
-// second time. `List.contains?(points, p)` with no `Equatable` for Point
+// second time. `List.contains(points, p)` with no `Equatable` for Point
 // records (Equatable, Point) through `impl Contains for List<T> where T:
 // Equatable` before the bound check reports it.
 func (c *checker) callBoundError(demand Pos, line, col int, concrete Type, bound *InterfaceType, param string, over ...ast.Node) {

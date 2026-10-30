@@ -440,12 +440,15 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"List.head":            listHost("List.head"),
 		"List.tail":            listHost("List.tail"),
 		"List.concat":          listHost("List.concat"),
-		"List.contains?":       listContainsHost,
+		"List.contains":        listContainsHost,
 		"List.remove_at":       listRemoveAtHost,
 		// A call the builder lowered as unreachable: a bound dispatch on a type
 		// argument it filled itself (irbuild's holeBoundCall). It faults with
 		// the builder's text if control ever arrives.
 		"vm.unreachable": unreachableHost,
+		// The two traps of a failed postfix `!` (unwrap.go).
+		"vm.bang_failed": bangFailedHost,
+		"vm.bang_none":   bangNoneHost,
 		// `Hashable.hash` of an interface value (keys.go).
 		"vm.hash_value": hashValueHost,
 		// std/message_format's `variant_name`: an enum value's variant.
@@ -453,41 +456,39 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"List.compare":                containerCompareHost("List.compare"),
 		"Vector.compare":              containerCompareHost("Vector.compare"),
 
-		"Range.contains?":      rangeHost(true),
-		"Range.step_by":        rangeStepBy,
-		"Range.known_count":    rangeKnownCount,
-		"Range.bounded?":       rangeHost(false),
-		"Range.contains?Float": floatRangeHost,
-		"Set.size":             setHost("Set.size"),
-		"Set.contains?":        setHost("Set.contains?"),
-		"Set.insert":           setHost("Set.insert"),
-		"Set.remove":           setHost("Set.remove"),
-		"Set.union":            setHost("Set.union"),
-		"Set.intersection":     setHost("Set.intersection"),
-		"Set.difference":       setHost("Set.difference"),
-		"Set.subset?":          setHost("Set.subset?"),
-		"Vector.length":        vectorHost("Vector.length"),
-		"Vector.get":           vectorHost("Vector.get"),
-		"Vector.at":            vectorHost("Vector.at"),
-		"Vector.push":          vectorHost("Vector.push"),
-		"Vector.concat":        vectorHost("Vector.concat"),
-		"Vector.set":           vectorHost("Vector.set"),
-		"Vector.next_item":     vectorHost("Vector.next_item"),
-		"Vector.contains?":     vectorContainsHost,
-		"Map.get":              mapHost("Map.get"),
-		"Map.at":               mapHost("Map.at"),
-		"Map.put":              mapHost("Map.put"),
-		"Map.size":             mapHost("Map.size"),
-		"Context.with_value":   contextWithValueHost,
-		"Context.value":        contextValueHost,
-		"Map.remove":           mapHost("Map.remove"),
-		"Map.contains?":        mapHost("Map.contains?"),
-		"Map.merge":            mapHost("Map.merge"),
-		"Map.keys":             mapHost("Map.keys"),
-		"Map.values":           mapHost("Map.values"),
-		"Map.map_values":       mapHost("Map.map_values"),
-		"Map.map_keys":         mapHost("Map.map_keys"),
-		"Map.map_next":         mapHost("Map.map_next"),
+		"Range.contains":      rangeHost(true),
+		"Range.step_by":       rangeStepBy,
+		"Range.known_count":   rangeKnownCount,
+		"Range.is_bounded":    rangeHost(false),
+		"Range.containsFloat": floatRangeHost,
+		"Set.size":            setHost("Set.size"),
+		"Set.contains":        setHost("Set.contains"),
+		"Set.insert":          setHost("Set.insert"),
+		"Set.remove":          setHost("Set.remove"),
+		"Set.union":           setHost("Set.union"),
+		"Set.intersection":    setHost("Set.intersection"),
+		"Set.difference":      setHost("Set.difference"),
+		"Set.is_subset":       setHost("Set.is_subset"),
+		"Vector.length":       vectorHost("Vector.length"),
+		"Vector.get":          vectorHost("Vector.get"),
+		"Vector.push":         vectorHost("Vector.push"),
+		"Vector.concat":       vectorHost("Vector.concat"),
+		"Vector.set":          vectorHost("Vector.set"),
+		"Vector.next_item":    vectorHost("Vector.next_item"),
+		"Vector.contains":     vectorContainsHost,
+		"Map.get":             mapHost("Map.get"),
+		"Map.put":             mapHost("Map.put"),
+		"Map.size":            mapHost("Map.size"),
+		"Context.with_value":  contextWithValueHost,
+		"Context.value":       contextValueHost,
+		"Map.remove":          mapHost("Map.remove"),
+		"Map.contains":        mapHost("Map.contains"),
+		"Map.merge":           mapHost("Map.merge"),
+		"Map.keys":            mapHost("Map.keys"),
+		"Map.values":          mapHost("Map.values"),
+		"Map.map_values":      mapHost("Map.map_values"),
+		"Map.map_keys":        mapHost("Map.map_keys"),
+		"Map.map_next":        mapHost("Map.map_next"),
 		// Each call receives rendered text; the IR chooses Display or Debug.
 		"io.print":   outputHost("io.print", "\n"),
 		"io.write":   outputHost("io.write", ""),
@@ -1042,13 +1043,7 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 // crossInto performs a crossing into Go: an intrinsic, or a bound adapter.
 func (m *Machine) crossInto(fr *frame, n *ir.Call, name string, args []any) (any, error) {
 	if host := m.hosts[name]; host != nil {
-		bound := *m
-		bound.hostFrame = fr.runtime
-		bound.depth = fr.depth
-		if m.dbg != nil {
-			bound.dvia = name
-		}
-		return host(&bound, n.Pos(), args)
+		return host(m.boundAt(fr, name), n.Pos(), args)
 	}
 	fn, err := m.adapter(name)
 	if err != nil {
@@ -1059,6 +1054,29 @@ func (m *Machine) crossInto(fr *frame, n *ir.Call, name string, args []any) (any
 	}
 	return nil, fmt.Errorf("vm: %s: %s crosses into Go and this machine binds no "+
 		"implementation for it", fr.fn.Name(), hostadapt.DisplayName(name))
+}
+
+// boundAt is m as an intrinsic called from fr sees it: on fr's dynamic
+// context and at fr's depth. A host may keep the machine it is handed (a lazy
+// Iter stage calls back through it later), so the view is never changed
+// once made. fr keeps the view it made last and hands it to the next
+// crossing whose view would be the same, since a pooled activation record
+// serves one call after another at the same depth: without that, every
+// `Vector.get` or `Map.get` copied the whole machine onto the heap. A debug
+// machine names the crossing in its view, so it makes one per crossing.
+func (m *Machine) boundAt(fr *frame, name string) *Machine {
+	if v := fr.hostView; v != nil && fr.hostViewOf == m && v.hostFrame == fr.runtime && v.depth == fr.depth {
+		return v
+	}
+	bound := *m
+	bound.hostFrame = fr.runtime
+	bound.depth = fr.depth
+	if m.dbg != nil {
+		bound.dvia = name
+		return &bound
+	}
+	fr.hostView, fr.hostViewOf = &bound, m
+	return &bound
 }
 
 // match answers one refutable question.
@@ -1173,21 +1191,15 @@ func (m *Machine) arith(fr *frame, n *ir.Arith) error {
 	case ir.DomainDecimal:
 		return m.decimalArith(fr, n, lhs, rhs)
 	case ir.DomainInt:
-		a, ok := lhs.(int64)
-		if !ok {
+		if !rt.IsInt(lhs) {
 			return fmt.Errorf("vm: %s: an Int operation's left operand is %T",
 				fr.fn.Name(), lhs)
 		}
-		var b int64
-		if n.Op() == ir.OpNeg {
-			// `rt.NegInt` is `SubInt(0, a, line)`, so negation faults on
-			// MinInt64 like the subtraction it performs.
-			a, b = 0, a
-		} else if b, ok = rhs.(int64); !ok {
+		if n.Op() != ir.OpNeg && !rt.IsInt(rhs) {
 			return fmt.Errorf("vm: %s: an Int operation's right operand is %T",
 				fr.fn.Name(), rhs)
 		}
-		v, err := intArith(n, a, b, line)
+		v, err := intArith(n, lhs, rhs, line)
 		if err != nil {
 			return err
 		}
@@ -1240,43 +1252,44 @@ func (m *Machine) arith(fr *frame, n *ir.Arith) error {
 
 // intArith is Nomi's checked Int arithmetic, boxing each fault
 // `ir.Arith.Faults()` reports.
-func intArith(n *ir.Arith, a, b int64, line int) (int64, error) {
-	wraps := n.Overflow() == ir.OverflowWraps
+// intArith is one Int operation over Int values (an int64 or a
+// *rt.BigInt), exact, or modulo 2^64 under OverflowWraps. Only a zero divisor
+// faults.
+func intArith(n *ir.Arith, a, b any, line int) (any, error) {
+	if n.Overflow() == ir.OverflowWraps {
+		x := rt.Wrap64(a)
+		switch n.Op() {
+		case ir.OpAdd:
+			return x + rt.Wrap64(b), nil
+		case ir.OpSub:
+			return x - rt.Wrap64(b), nil
+		case ir.OpMul:
+			return x * rt.Wrap64(b), nil
+		case ir.OpNeg:
+			return -x, nil
+		}
+	}
 	switch n.Op() {
 	case ir.OpAdd:
-		if !wraps && rt.AddOverflows(a, b) {
-			return 0, rt.OverflowError(line, "+", a, b)
-		}
-		return a + b, nil
-	case ir.OpSub, ir.OpNeg:
-		if !wraps && rt.SubOverflows(a, b) {
-			return 0, rt.OverflowError(line, "-", a, b)
-		}
-		return a - b, nil
+		return rt.IntAdd(a, b), nil
+	case ir.OpSub:
+		return rt.IntSub(a, b), nil
+	case ir.OpNeg:
+		return rt.IntNeg(a), nil
 	case ir.OpMul:
-		if !wraps && rt.MulOverflows(a, b) {
-			return 0, rt.OverflowError(line, "*", a, b)
-		}
-		return a * b, nil
+		return rt.IntMul(a, b), nil
 	case ir.OpDiv:
-		if b == 0 {
-			return 0, rt.DivByZeroError(line)
+		if q, ok := rt.IntQuo(a, b); ok {
+			return q, nil
 		}
-		if rt.QuoOverflows(a, b) {
-			// The division case a backend forgets, which is why
-			// `rt.QuoOverflows` exists to say so.
-			return 0, rt.OverflowError(line, "/", a, b)
-		}
-		return a / b, nil
+		return nil, rt.DivByZeroError(line)
 	case ir.OpRem:
-		if b == 0 {
-			return 0, rt.DivByZeroError(line)
+		if r, ok := rt.IntRem(a, b); ok {
+			return r, nil
 		}
-		// Go's `%` answers 0 for MinInt64 % -1 without a panic, and that is
-		// Nomi's answer, so Faults records no overflow here.
-		return a % b, nil
+		return nil, rt.DivByZeroError(line)
 	}
-	return 0, fmt.Errorf("vm: no such Int operator %s", n.Op())
+	return nil, fmt.Errorf("vm: no such Int operator %s", n.Op())
 }
 
 // constValue is the rt value of one constant.
@@ -1287,6 +1300,9 @@ func constValue(c *ir.Const) (any, error) {
 	case ir.ConstBool:
 		return c.Bool(), nil
 	case ir.ConstInt:
+		if big := c.Big(); big != nil {
+			return rt.IntFromBig(big), nil
+		}
 		return c.Int(), nil
 	case ir.ConstFloat:
 		return c.Float(), nil

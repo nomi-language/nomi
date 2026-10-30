@@ -3,7 +3,7 @@ import int.Int
 /// Protocol for producing an `Int` hash that respects structural equality.
 ///
 /// `Hashable.hash(value)` returns an Int such that
-/// `Equatable.equal?(a, b)` implies `Hashable.hash(a) == Hashable.hash(b)`.
+/// `Equatable.equal(a, b)` implies `Hashable.hash(a) == Hashable.hash(b)`.
 /// Used by hash-based collections (`Map` and friends) to bucket values by
 /// structural identity. The hash is **not** cryptographic and may change
 /// between runs of the runtime; it is suitable only for in-process

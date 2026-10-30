@@ -62,22 +62,22 @@ test "anonymous struct parameter mismatches report diagnostics" {
 
     assert Iter.count(diagnostics) == 4
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "expected #{name: String, age: Int}, got #{name: String}",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "expected #{name: String, age: Int}, got #{name: String, age: Int, x: Int}",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "expected #{name: String, age: Int}, got #{name: String, age: String}",
     )
 
-    assert test_helpers.has_diagnostic?(
+    assert test_helpers.has_diagnostic(
         diagnostics,
         "expected #{name: String, age: Int}, got Person",
     )

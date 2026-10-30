@@ -13,8 +13,8 @@ func TestUnreachable_TakesAReasonInEachLiteralForm(t *testing.T) {
 		value       string
 		triple, raw bool
 	}{
-		`unreachable "every student is listed"`: {"every student is listed", false, false},
-		"unreachable `raw ${not} interpolated`": {"raw ${not} interpolated", false, true},
+		`unreachable "every student is listed"`:     {"every student is listed", false, false},
+		"unreachable `raw ${not} interpolated`":     {"raw ${not} interpolated", false, true},
 		"unreachable \"\"\"\n    multi\n    \"\"\"": {"multi", true, false},
 	} {
 		u, ok := parseExpr(t, src).(*ast.Unreachable)

@@ -137,7 +137,7 @@ group "Arithmetic" {
         ]
 
         subtests cases, #(description, z1, z2, expected), description {
-            assert Complex.equal_within?(z1 / z2, expected, tolerance)
+            assert Complex.equal_within(z1 / z2, expected, tolerance)
         }
     }
 }
@@ -198,7 +198,7 @@ test "Complex exponential function" {
     ]
 
     subtests cases, #(description, z, expected), description {
-        assert Complex.equal_within?(Complex.exp(z), expected, tolerance)
+        assert Complex.equal_within(Complex.exp(z), expected, tolerance)
     }
 }
 
@@ -239,6 +239,6 @@ test "Operations between real numbers and complex numbers" {
     ]
 
     subtests cases, #(description, actual, expected), description {
-        assert Complex.equal_within?(actual, expected, tolerance)
+        assert Complex.equal_within(actual, expected, tolerance)
     }
 }

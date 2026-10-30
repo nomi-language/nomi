@@ -47,7 +47,7 @@ fn maybe<T>(m: Maybe<Float>, tag: T) -> T {
 }
 
 fn result<T>(r: Result<Float, T>) -> Bool {
-    Result.ok?(r)
+    Result.is_ok(r)
 }
 
 fn record<T>(r: #{w: Float, t: T}) -> Float {

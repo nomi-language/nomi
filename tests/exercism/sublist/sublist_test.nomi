@@ -1,7 +1,4 @@
-import {
-    sublist
-    sublist.Relation
-}
+import sublist.{self, Relation}
 
 test "sublist" {
     cases = [

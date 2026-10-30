@@ -59,7 +59,7 @@ test "ordering operators require Comparable for named structs" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Comparable` for `Point`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Comparable` for `Point`")
 }
 
 test "ordering operators order tuples by element and reject anonymous structs" {
@@ -91,8 +91,8 @@ test "ordering operators order tuples by element and reject anonymous structs" {
     )
 
     assert Iter.count(tuple_diagnostics) == 1
-    assert test_helpers.has_diagnostic?(tuple_diagnostics, "no impl of `Comparable` for `Point`")
+    assert test_helpers.has_diagnostic(tuple_diagnostics, "no impl of `Comparable` for `Point`")
 
     assert Iter.count(anon_diagnostics) == 1
-    assert test_helpers.has_diagnostic?(anon_diagnostics, "no impl of `Comparable` for `#{x: Int}`")
+    assert test_helpers.has_diagnostic(anon_diagnostics, "no impl of `Comparable` for `#{x: Int}`")
 }

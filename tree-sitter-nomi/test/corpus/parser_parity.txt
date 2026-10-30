@@ -349,8 +349,8 @@ fn f(n: Int) -> Int {
     d = n |> dbg
 
     same = dbg n
-    v = r |> try
-    try parse(n)
+    v = r?
+    parse(n)?
     return
 }
 
@@ -376,13 +376,14 @@ fn f(n: Int) -> Int {
           (identifier)))
       (binding
         (identifier)
-        (pipe_expression
+        (try_expression
           (identifier)
-          (try_expression)))
+          (question)))
       (try_expression
         (call_expression
           (identifier)
-          (identifier)))
+          (identifier))
+        (question))
       (return_statement))))
 
 ================================================================================

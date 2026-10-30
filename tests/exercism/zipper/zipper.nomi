@@ -1,3 +1,6 @@
+//# A zipper over a binary tree: a focus on one node that can move and edit
+//# the tree around it.
+
 /// A binary tree node: a value and a subtree on each side, either of which
 /// may be missing.
 pub struct Tree<T> {

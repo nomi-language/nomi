@@ -1,3 +1,5 @@
+//# A matrix read from text, and its rows and columns.
+
 /// A matrix of numbers read from text, one row per line.
 pub opaque struct Matrix {
     rows: Vector<Vector<Int>>
@@ -17,7 +19,7 @@ impl Matrix {
             text
             |> String.lines()
             |> Iter.map(parse_row)
-            |> try Result.collect()
+            |> Result.collect()?
 
         Ok(#Matrix{rows: Iter.to_vector(rows)})
     }
@@ -41,7 +43,7 @@ impl Matrix {
 fn parse_row(line: String) -> Result<Vector<Int>, Error> {
     line
     |> String.words()
-    |> Iter.map(fn word -> Maybe.to_result(String.to_int(word), Error.NotANumber(word)))
+    |> Iter.map(fn word -> String.to_int(word) |> Maybe.to_result(Error.NotANumber(word)))
     |> Result.collect()
     |> Result.map(Iter.to_vector)
 }

@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: prime_factors.nomi
+//# The prime factors of a number.
+
 /// The prime factors of `value`, smallest first, each repeated as often as it
 /// divides `value`.
 pub fn factors(value: Int) -> List<Int> {

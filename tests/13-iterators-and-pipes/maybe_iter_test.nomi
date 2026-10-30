@@ -1,0 +1,57 @@
+// A Maybe is an Iter of zero or one elements.
+struct Part {
+    name: String
+}
+
+fn half(n: Int) -> Maybe<Int> {
+    if n % 2 == 0 { Some(n / 2) } else { None }
+}
+
+fn total(xs: Iter<Int>) -> Int {
+    Iter.sum(xs)
+}
+
+fn counted<S>(source: S) -> Int where S: Iter<Int> {
+    Iter.count(source)
+}
+
+test "a Some pushes its value and a None pushes nothing" {
+    none: Maybe<Int> = None
+
+    assert Iter.to_list(Some(3)) == [3]
+    assert Iter.to_list(none) == []
+    assert Iter.to_list(Some(#Part{name: "bolt"})) == [#Part{name: "bolt"}]
+    assert Iter.map(Some(2), fn n -> n * 10) |> Iter.to_list() == [20]
+}
+
+test "a Maybe knows its count" {
+    none: Maybe<String> = None
+
+    assert Iter.known_count(Some("a")) == Some(1)
+    assert Iter.known_count(none) == Some(0)
+    assert Iter.count(Some("a")) == 1
+    assert Iter.is_empty(none)
+}
+
+test "flat_map keeps the Some values a function answers" {
+    assert Iter.flat_map([1, 2, 3, 4], half) |> Iter.to_list() == [1, 2]
+    assert [1, 2, 3, 4] |> Iter.flat_map(fn n -> half(n + 1)) |> Iter.to_list() == [1, 2]
+    assert Iter.flatten([Some(1), None, Some(3)]) == [1, 3]
+}
+
+test "a Maybe enters an Iter position" {
+    none: Maybe<Int> = None
+    lines = ["a"]
+    reaction: Maybe<String> = Some("b")
+
+    assert total(Some(3)) == 3
+    assert total(none) == 0
+    assert counted(Some(4)) == 1
+    assert Iter.concat(lines, reaction) |> Iter.to_list() == ["a", "b"]
+    assert Iter.zip([1, 2], Some("x")) |> Iter.to_list() == [#(1, "x")]
+}
+
+test "Maybe.map and Iter.map stay apart" {
+    assert Maybe.map(Some(2), fn n -> n + 1) == Some(3)
+    assert Iter.map(Some(2), fn n -> n + 1) |> Iter.to_list() == [3]
+}

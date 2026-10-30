@@ -184,13 +184,13 @@ func TestDiagnostics_MissingImportIsAnErrorAtTheImport(t *testing.T) {
 		{
 			name: "project, imported file, misspelled",
 			files: map[string]string{
-				"nomi.toml":         "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-				"main.nomi":         "import std/io\nimport tools/helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
-				"tools/helper.nomi": "import app/utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
-				"utils.nomi":        "pub fn name() -> String {\n  \"hi\"\n}\n",
+				"nomi.toml":          "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+				"main.nomi":          "import std/io\nimport shared/helper\n\nfn main() {\n  io.print(helper.greet())\n}\n",
+				"shared/helper.nomi": "import app/utlis\n\npub fn greet() -> String {\n  utlis.name()\n}\n",
+				"utils.nomi":         "pub fn name() -> String {\n  \"hi\"\n}\n",
 			},
 			want: `error: no module ` + "`app/utlis`" + `: no file utlis.nomi in ../
- --> tools/helper.nomi:1:8
+ --> shared/helper.nomi:1:8
   |
 1 | import app/utlis
   |        ^^^^^^^^^

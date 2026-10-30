@@ -1,3 +1,6 @@
+//# The saddle points of a grid of tree heights: the trees tallest in their
+//# row and shortest in their column.
+
 /// A tree's place in the grid, counting rows and columns from 1.
 pub struct Position {
     row: Int
@@ -17,7 +20,7 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
         heights
         |> Iter.with_index()
         |> Iter.filter(fn #(column, height) -> {
-            Some(height) == tallest and Vector.at(minima, column) == height
+            Some(height) == tallest and Vector.get(minima, column)! == height
         })
         |> Iter.map(fn #(column, _height) -> #Position{row: row + 1, column: column + 1})
     })

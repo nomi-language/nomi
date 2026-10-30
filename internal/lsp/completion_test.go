@@ -42,14 +42,14 @@ func TestMatchQuality(t *testing.T) {
 		{"trim", "trim", 0, true},
 		{"tr", "trim", 1, true},
 		{"TR", "trim", 2, true},
-		{"tl", "to_lower", 3, true},
-		{"to_l", "to_lower", 1, true},
-		{"tlow", "to_lower", 3, true},
-		{"sw", "starts_with?", 3, true},
+		{"ts", "to_string", 3, true},
+		{"to_s", "to_string", 1, true},
+		{"tstr", "to_string", 3, true},
+		{"sw", "starts_with", 3, true},
 		{"oA", "orApply", 3, true},
-		{"tlr", "to_lower", 4, true},
-		{"x", "to_lower", 0, false},
-		{"lt", "to_lower", 0, false},
+		{"tsg", "to_string", 4, true},
+		{"x", "to_string", 0, false},
+		{"gt", "to_string", 0, false},
 	}
 	for _, tt := range tests {
 		got, ok := matchQuality(tt.prefix, tt.name)
@@ -80,24 +80,14 @@ func TestGetPrefix(t *testing.T) {
 	}
 }
 
-func TestGetPrefix_PredicateSuffix(t *testing.T) {
-	// A `?`-suffixed partial identifier: the trailing predicate marker must
-	// be part of the extracted prefix so completion filtering still works.
-	content := "fn main() -> Unit {\n    empty?"
-	prefix := getPrefix(content, 1, 10)
-	if prefix != "empty?" {
-		t.Errorf("expected 'empty?', got '%s'", prefix)
-	}
-}
-
 func TestWordBounds(t *testing.T) {
 	tests := []struct {
 		src         string // ‸ marks the cursor
 		word, typed string
 	}{
 		{"x = fo‸o + 1", "foo", "fo"},
-		{"x = empty?‸", "empty?", "empty?"},
-		{"x = emp‸ty?", "empty?", "emp"},
+		{"x = is_empty‸", "is_empty", "is_empty"},
+		{"x = emp‸ty?", "empty", "emp"},
 		{"x = ‸", "", ""},
 		{"io.pr‸", "pr", "pr"},
 	}

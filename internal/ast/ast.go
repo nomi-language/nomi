@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"math/big"
 	"sort"
 	"strings"
 	"unicode"
@@ -368,7 +369,10 @@ func (n *DotVariantType) TypeString() string { return "." + n.Name }
 type IntLit struct {
 	TriviaCarrier
 	SpanCarrier
+	// Value is the literal's value when it fits int64. Big is its value
+	// when it does not, and nil otherwise: an Int literal may be any size.
 	Value int64
+	Big   *big.Int
 	// Lexeme is the original source text of the literal (e.g. "1_000_000",
 	// "0xFF"), preserved so the formatter can emit it back verbatim instead
 	// of normalising every literal to plain base-10. Empty for literals
@@ -380,6 +384,36 @@ type IntLit struct {
 
 func (*IntLit) NodeType() string { return "IntLit" }
 func (n *IntLit) LineNum() int   { return n.Line }
+
+// Exact is the literal's value at any size, as a fresh *big.Int.
+func (n *IntLit) Exact() *big.Int {
+	if n.Big != nil {
+		return new(big.Int).Set(n.Big)
+	}
+	return big.NewInt(n.Value)
+}
+
+// Decimal is the literal's value in base 10, whatever base it was written
+// in.
+func (n *IntLit) Decimal() string {
+	if n.Big != nil {
+		return n.Big.String()
+	}
+	return big.NewInt(n.Value).String()
+}
+
+// Negated is the literal -n: the value negated, the lexeme with a `-` in
+// front. The negation of 9223372036854775808 is math.MinInt64, an int64.
+func (n *IntLit) Negated(line, col int) *IntLit {
+	out := &IntLit{Lexeme: "-" + n.Lexeme, Line: line, Col: col}
+	v := new(big.Int).Neg(n.Exact())
+	if v.IsInt64() {
+		out.Value = v.Int64()
+	} else {
+		out.Big = v
+	}
+	return out
+}
 
 type FloatLit struct {
 	TriviaCarrier
@@ -542,9 +576,9 @@ type ListLit struct {
 func (*ListLit) NodeType() string { return "ListLit" }
 func (n *ListLit) LineNum() int   { return n.Line }
 
-// VectorLit represents a vector literal: #[item, item, ...], or one with a
-// spread at either end, `#[..v, item]` / `#[item, ..v]`, whose `..` is bare
-// at a field or key of an update (`#[.., item]` / `#[item, ..]`).
+// VectorLit represents a vector literal: #[item, item, ...], or one with
+// spreads, `#[..v, item]`, `#[item, ..v, ..w]`, whose `..` is bare at a field
+// or key of an update (`#[.., item]` / `#[item, ..]`).
 //
 // TypeName is non-nil for a vector literal that names a type built on a
 // vector: a distinct type over one, `#Path[1, 2]`, or a variant whose payload
@@ -554,15 +588,8 @@ type VectorLit struct {
 	SpanCarrier
 	TypeName TypeExpr // nil for `#[...]`
 	Items    []Node
-	// Spread is the vector of `#[..v, x]` (v, then x) or `#[x, ..v]` (x,
-	// then v), a *CurrentValue for the bare `..` of `#[.., x]` / `#[x, ..]`
-	// (the old vector at a field or key of an update), or nil. SpreadLast is
-	// set when it is written last.
-	Spread     Node
-	SpreadLast bool
-	// SpreadLine / SpreadCol are the position of the `..` token.
-	SpreadLine int
-	SpreadCol  int
+	// Spreads are the literal's `..` spreads, in the order written.
+	Spreads []Spread
 	// EndTrivia holds trailing comments / blank lines between the last
 	// item and the closing `]`. Mirrors ListLit.EndTrivia.
 	EndTrivia []Trivia
@@ -573,20 +600,60 @@ type VectorLit struct {
 func (*VectorLit) NodeType() string { return "VectorLit" }
 func (n *VectorLit) LineNum() int   { return n.Line }
 
-// Operands is the literal's elements and its spread in the order written:
-// the spread before the elements, or after them when SpreadLast.
-func (n *VectorLit) Operands() []Node {
-	switch {
-	case n.Spread == nil:
-		return n.Items
-	case n.SpreadLast:
-		return append(append([]Node{}, n.Items...), n.Spread)
-	}
-	return append([]Node{n.Spread}, n.Items...)
+// Operands is the literal's elements and its spreads' heads in the order
+// written.
+func (n *VectorLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
+
+// Spread is one `..` of a list, vector, set or map literal: `..xs` in
+// `[x, ..xs]`, `..m` in `%{"a" => 1, ..m}`. Head is the collection spread
+// there, a *CurrentValue for a bare `..` (the value already at the field or
+// key of an update the literal is written at). At is the number of the
+// literal's elements, or a map's entries, written before it. A literal may
+// take any number of spreads, anywhere among its elements.
+type Spread struct {
+	Head Node
+	At   int
+	// Line / Col are the position of the `..` token.
+	Line int
+	Col  int
 }
 
-// SetLit represents a set literal: %[item, item, ...], or a set update
-// `%[..base, item, ...]`.
+// Operands is items with each spread's head placed where it is written.
+func Operands(items []Node, spreads []Spread) []Node {
+	if len(spreads) == 0 {
+		return items
+	}
+	out := make([]Node, 0, len(items)+len(spreads))
+	next := 0
+	for _, s := range spreads {
+		out = append(out, items[next:s.At]...)
+		out = append(out, s.Head)
+		next = s.At
+	}
+	return append(out, items[next:]...)
+}
+
+// SpreadHeads is each spread's head, in the order written.
+func SpreadHeads(spreads []Spread) []Node {
+	out := make([]Node, len(spreads))
+	for i, s := range spreads {
+		out[i] = s.Head
+	}
+	return out
+}
+
+// IsSpreadHead reports whether n is the head of one of spreads.
+func IsSpreadHead(n Node, spreads []Spread) bool {
+	for _, s := range spreads {
+		if s.Head == n {
+			return true
+		}
+	}
+	return false
+}
+
+// SetLit represents a set literal: %[item, item, ...], or one with spreads,
+// `%[..base, item, ...]`, `%[..a, ..b]`.
 //
 // TypeName is non-nil for a set literal that names a type built on a set,
 // `%Tags["a", "b"]`. Line and Col are the `%` either way.
@@ -595,13 +662,9 @@ type SetLit struct {
 	SpanCarrier
 	TypeName TypeExpr // nil for `%[...]`
 	Items    []Node
-	// Spread holds the base of a set update, `%[..base, item]`: the literal
-	// means `Set.union(base, %[item])`. Nil for every other set literal.
-	// A bare `%[.., item]` holds a *CurrentValue.
-	Spread Node
-	// SpreadLine / SpreadCol are the position of the `..` token.
-	SpreadLine int
-	SpreadCol  int
+	// Spreads are the literal's `..` spreads, in the order written: the
+	// literal is the union of the spread sets and its elements.
+	Spreads []Spread
 	// EndTrivia holds trailing comments / blank lines between the last
 	// item and the closing `}`. Mirrors ListLit.EndTrivia.
 	EndTrivia []Trivia
@@ -612,18 +675,28 @@ type SetLit struct {
 func (*SetLit) NodeType() string { return "SetLit" }
 func (n *SetLit) LineNum() int   { return n.Line }
 
-// ListSpreadLit represents a list spread expression: [item, ..tail] or [a, b, ..tail]
+// Operands is the literal's elements and its spreads' heads in the order
+// written.
+func (n *SetLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
+
+// ListSpreadLit is a list literal with at least one spread: `[x, ..xs]`,
+// `[..xs, y]`, `[..xs, ..ys]`. Items are its elements, and Spreads its
+// spreads in the order written.
 type ListSpreadLit struct {
 	TriviaCarrier
 	SpanCarrier
-	Heads      []Node // fixed elements before ..
-	TailSpread Node   // expression after ..
-	Line       int
-	Col        int
+	Items   []Node
+	Spreads []Spread
+	Line    int
+	Col     int
 }
 
 func (*ListSpreadLit) NodeType() string { return "ListSpreadLit" }
 func (n *ListSpreadLit) LineNum() int   { return n.Line }
+
+// Operands is the literal's elements and its spreads' heads in the order
+// written.
+func (n *ListSpreadLit) Operands() []Node { return Operands(n.Items, n.Spreads) }
 
 // MapEntry represents a key-value pair in a map literal.
 type MapEntry struct {
@@ -631,8 +704,8 @@ type MapEntry struct {
 	Value Node
 }
 
-// MapLit represents a map literal: %{key => value, ...}, or a map update
-// `%{..base, key => value, ...}`.
+// MapLit represents a map literal: %{key => value, ...}, or one with spreads,
+// `%{..base, key => value, ...}`, `%{"a" => 1, ..m, ..n}`.
 //
 // TypeName is non-nil for a map literal that names a type built on a map: a
 // distinct type over one, `%Kvs{"a" => 1}`, or a variant whose payload is
@@ -642,14 +715,11 @@ type MapLit struct {
 	SpanCarrier
 	TypeName TypeExpr // nil for anonymous map literals
 	Entries  []MapEntry
-	// Spread holds the base of a map update, `%{..base, key => value}`:
-	// the literal means `Map.merge(base, %{key => value})`. Nil for every
-	// other map literal, and only ever set on the anonymous form. Entries
-	// then hold the overrides, at least one.
-	Spread Node
-	// SpreadLine / SpreadCol are the position of the `..` token.
-	SpreadLine int
-	SpreadCol  int
+	// Spreads are the literal's `..` spreads, in the order written, each
+	// with the number of entries before it. The entries and spread maps
+	// apply left to right, a later key replacing an earlier one's value, as
+	// Map's `+` does. Only ever set on the anonymous form.
+	Spreads []Spread
 	// EndTrivia holds trailing comments / blank lines between the last
 	// entry and the closing `}`. Mirrors StructLit.EndTrivia — captured
 	// so `nomi fmt -w` accepts and round-trips trailing in-body comments
@@ -925,6 +995,24 @@ type Dbg struct {
 func (*Dbg) NodeType() string { return "Dbg" }
 func (n *Dbg) LineNum() int   { return n.Line }
 
+// Unwrap is `expr!`, a postfix `!` written against an expression whose type
+// is a Result or a Maybe: `Map.get(m, k)!`, `user.nickname!`. Its value is
+// the payload of Ok or Some; an Err or a None traps at the `!`'s line. Line
+// and Col are the `!`'s position.
+//
+// As a pipe stage, `text |> String.to_int()!` unwraps the stage's result:
+// the pipe's Right is the Unwrap, and its Expr the stage.
+type Unwrap struct {
+	TriviaCarrier
+	SpanCarrier
+	Expr Node
+	Line int
+	Col  int
+}
+
+func (*Unwrap) NodeType() string { return "Unwrap" }
+func (n *Unwrap) LineNum() int   { return n.Line }
+
 // Todo is `todo` or `todo "reason"`, a placeholder for code not yet written.
 // It produces no value: reaching it stops the program with
 // `todo reached at <file>:<line>` plus `: <reason>` when there is one, so the
@@ -980,7 +1068,7 @@ func (n *Unreachable) ReasonText() string {
 
 // ConcurrentBlock is `concurrent { body }` — the structured-
 // concurrency scope from spec §20. The body type-checks
-// like a lambda body (last expression is the value; `return` / `try`
+// like a lambda body (last expression is the value; `return` / `?`
 // unwind to the block boundary, not the enclosing fn). At runtime
 // `Task.spawn(fn -> ...)` calls inside this block spawn goroutines that
 // must all be awaited (or explicitly discarded via `_ = Task.await(t)`)
@@ -2418,9 +2506,13 @@ type Continue struct {
 func (*Continue) NodeType() string { return "Continue" }
 func (n *Continue) LineNum() int   { return n.Line }
 
-// TryOp is the 'try' keyword. Expr is nil only for the pipe-stage form
-// `value |> try`, where the piped value is supplied by the pipe's checker
-// and IR builder.
+// TryOp is a postfix `?`, `parse(text)?`: on an Ok or a Some its value is
+// the payload, and on an Err or a None the enclosing function, lambda or
+// test returns that value. Line and Col are the `?`'s position.
+//
+// Expr is nil for a `?` stage of a pipe, whose operand is the pipe's Left:
+// `text |> parse()?` is the pipe `text |> parse()` and then a `?` stage, and
+// so is the `?` of `|> then? fn v -> ...`.
 type TryOp struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2485,9 +2577,9 @@ func (n *Tap) LineNum() int   { return n.Line }
 // `#{.., city: "NYC"}`, `%{.., "k" => v}`, `%[.., x]` or `[t, ..]`. It stands
 // for the value already at the field or key the literal is written at, so
 // `#{..user, address: #{.., city: "NYC"}}` changes only `address.city`. It is
-// only ever the Spread of a StructLit, MapLit or SetLit or the TailSpread of a
-// ListSpreadLit; the checker decides whether that position has a current
-// value.
+// only ever the Spread of a StructLit or the head of a Spread of a list,
+// vector, set or map literal; the checker decides whether that position has
+// a current value.
 type CurrentValue struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2499,28 +2591,34 @@ func (*CurrentValue) NodeType() string { return "CurrentValue" }
 func (n *CurrentValue) LineNum() int   { return n.Line }
 
 // UpdateHole returns the bare `..` of n when n is a literal that updates the
-// value at its position: an anonymous struct or map literal, or a set literal,
-// whose spread is a bare `..`, or a list literal whose tail is. Nil otherwise.
+// value at its position: an anonymous struct literal whose spread is a bare
+// `..`, or a list, vector, set or anonymous map literal with a bare `..`
+// among its spreads. Nil otherwise.
 func UpdateHole(n Node) *CurrentValue {
-	var spread Node
+	var spreads []Spread
 	switch v := n.(type) {
 	case *StructLit:
 		if v.TypeName == nil {
-			spread = v.Spread
+			cv, _ := v.Spread.(*CurrentValue)
+			return cv
 		}
 	case *MapLit:
 		if v.TypeName == nil {
-			spread = v.Spread
+			spreads = v.Spreads
 		}
 	case *SetLit:
-		spread = v.Spread
+		spreads = v.Spreads
 	case *VectorLit:
-		spread = v.Spread
+		spreads = v.Spreads
 	case *ListSpreadLit:
-		spread = v.TailSpread
+		spreads = v.Spreads
 	}
-	cv, _ := spread.(*CurrentValue)
-	return cv
+	for _, s := range spreads {
+		if cv, ok := s.Head.(*CurrentValue); ok {
+			return cv
+		}
+	}
+	return nil
 }
 
 // Placeholder is an `&N` that is one of a partial capture's own arguments:
@@ -2833,7 +2931,14 @@ type TuplePattern struct {
 func (*TuplePattern) NodeType() string { return "TuplePattern" }
 func (n *TuplePattern) LineNum() int   { return n.Line }
 
-// ListPattern matches a list in a case branch: [], [a], [a, b], [head, ..tail], [a, b, ..rest]
+// ListPattern matches a list in a case branch: [], [a], [a, b], [head, ..tail], [a, b, ..rest],
+// [first, .., last], [first, ..mid, last].
+//
+// Heads are the element patterns before the `..` and Tails those after it.
+// Without a spread the list has exactly len(Heads) elements; with one, at
+// least len(Heads)+len(Tails), and TailSpread matches the List of the
+// elements between them. When Tails is not empty, TailSpread is an
+// *IdentPattern or a *WildcardPattern.
 //
 // TypeName is non-nil for type-prefixed list patterns like
 // `Arr[1, 2, 3]` — the literal-attach destructure form for
@@ -2844,6 +2949,7 @@ type ListPattern struct {
 	TypeName   TypeExpr // nil for anonymous list patterns
 	Heads      []Node   // fixed element patterns before ..
 	TailSpread Node     // pattern after .., nil if no spread (exact-length match)
+	Tails      []Node   // element patterns after the `..`; empty without one
 	// BareRest is true for a `..` written with no pattern after it
 	// (`[first, ..]`), which ignores the rest as `.._` does: TailSpread is
 	// then the wildcard at the `..`, and the formatter writes the `..` alone.

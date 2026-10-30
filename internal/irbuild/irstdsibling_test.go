@@ -19,13 +19,13 @@ import (
 // and the first two call std/int's host function `Int.to_codepoint`.
 func TestIRStdSibling_TypeQualifiedSameModuleCalls(t *testing.T) {
 	verifyLambdaProgram(t, `fn run() -> Maybe<Int> {
-  a = try Int.to_codepoint(65)
-  b = try Codepoint.step_by(a, 2)
-  c = try Codepoint.next(b)
+  a = Int.to_codepoint(65)?
+  b = Codepoint.step_by(a, 2)?
+  c = Codepoint.next(b)?
   dbg Codepoint.to_int(c)
   dbg Codepoint.inspect(c)
-  gap = try Int.to_codepoint(55_295)
-  dbg Codepoint.to_int(try Codepoint.next(gap))
+  gap = Int.to_codepoint(55_295)?
+  dbg Codepoint.to_int(Codepoint.next(gap)?)
   Some(0)
 }
 
@@ -34,7 +34,7 @@ fn main() {
 }
 `, "dbg line 5: Codepoint.to_int(c) = 68\n"+
 		"dbg line 6: Codepoint.inspect(c) = \"Codepoint(68)\"\n"+
-		"dbg line 8: Codepoint.to_int(try Codepoint.next(gap)) = 57344\n")
+		"dbg line 8: Codepoint.to_int(Codepoint.next(gap)?) = 57344\n")
 }
 
 // lowerStdSource lowers src as a one-module stdlib and answers its retained

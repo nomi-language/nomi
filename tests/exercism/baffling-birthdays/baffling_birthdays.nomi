@@ -6,19 +6,18 @@ import {
     std/random.Generator
 }
 
-/// The years a random birthdate falls in: the years from 1900 to 2023
-/// without a 29 February, so every day of the year is as likely.
-once common_years = 1900..=2023 |> Iter.filter(fn year -> !Date.leap_year?(year)) |> Iter.to_list()
+/// 1 January of each year a random birthdate falls in: the years from 1900
+/// to 2023 without a 29 February, so every day of the year is as likely.
+once new_years_days =
+    1900..=2023
+    |> Iter.filter(fn year -> !Date.is_leap_year(year))
+    |> Iter.map(fn year -> Date.new(year, 1, 1)!)
+    |> Iter.to_vector()
 
 /// Whether two of `birthdates` fall on the same day of the year, whatever
 /// the years.
-pub fn shared_birthday?(birthdates: List<Date>) -> Bool {
-    days =
-        birthdates
-        |> Iter.map(fn date -> #(Date.month(date), Date.day(date)))
-        |> Iter.to_set()
-
-    Set.size(days) < Iter.count(birthdates)
+pub fn has_shared_birthday(birthdates: List<Date>) -> Bool {
+    repeats(birthdates, %[])
 }
 
 /// `group_size` birthdates, each a uniformly random day of a random year
@@ -34,7 +33,7 @@ pub fn estimated_probability_of_shared_birthday(
     trials: Int = 10000,
 ) -> Generator<Float> {
     random_birthdates(group_size)
-    |> Generator.map(shared_birthday?)
+    |> Generator.map(has_shared_birthday)
     |> Generator.list(trials)
     |> Generator.map(fn shared -> {
         hits = shared |> Iter.filter(fn yes -> yes) |> Iter.count()
@@ -42,22 +41,25 @@ pub fn estimated_probability_of_shared_birthday(
     })
 }
 
-/// A uniformly random day of a random common year.
-fn birthdate() -> Generator<Date> {
-    [first, ..rest] = common_years else {
-        unreachable "the years from 1900 to 2023 include common years"
-    }
+/// Whether a date in `birthdates` falls on a day of the year in `seen`, or
+/// on the day of an earlier date in `birthdates`. It stops at the first
+/// repeat.
+fn repeats(birthdates: List<Date>, seen: Set<#(Int, Int)>) -> Bool {
+    case birthdates {
+        [] ->
+            False
 
-    Generator.uniform(first, rest)
-    |> Generator.flat_map(fn year -> {
-        Generator.int(0, 364)
-        |> Generator.map(fn day -> first_of_january(year) + Days(day))
-    })
+        [date, ..rest] -> {
+            day = #(Date.month(date), Date.day(date))
+
+            Set.contains(seen, day) or repeats(rest, Set.insert(seen, day))
+        }
+    }
 }
 
-fn first_of_january(year: Int) -> Date {
-    case Date.new(year, 1, 1) {
-        Ok(date) -> date
-        Err(_) -> unreachable "1 January is a date in every year"
-    }
+/// A uniformly random day of a random common year. Each year has 365 days,
+/// so one draw below 365 times the number of years picks both.
+fn birthdate() -> Generator<Date> {
+    Generator.int(0, Vector.length(new_years_days) * 365 - 1)
+    |> Generator.map(fn n -> Vector.get(new_years_days, n / 365)! + Days(n % 365))
 }

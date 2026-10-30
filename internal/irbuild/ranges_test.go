@@ -31,13 +31,10 @@ import (
 //	. / .                     REVERSED IS EMPTY, both polarities. Neither may
 //	                          walk downward, and neither may walk upward from 5
 //	                          forever.
-//	2-1-0-. / 2-1-.           SATURATION. `Discrete.next(Int.max_value)` is None
-//	                          and std yields `start` ONE MORE TIME rather than
-//	                          dropping it, so the inclusive walk is 3 elements
-//	                          and the exclusive 2. Rendered as offsets from
-//	                          max_value. Dropping the last element is the single
-//	                          most tempting simplification in rt.RangeEachWhile
-//	                          and this is the only row that catches it.
+//	2-1-0-. / 2-1-.           PAST 64 BITS. A range walks across 2^63 to its
+//	                          bound, so the inclusive walk is 3 elements and
+//	                          the exclusive 2. Rendered as offsets from the
+//	                          bound.
 //	Some(4) … None None       known_count IS THE PROTOCOL. `Iter.count` consults
 //	                          it before folding, so the two `None` rows are what
 //	                          keep `Iter.count(Range.from(1))` from being a

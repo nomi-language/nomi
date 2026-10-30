@@ -60,8 +60,8 @@ fn report(to: Writer, count: Int) -> Result<Unit, Error> {
 }
 
 fn main() -> Result<Unit, Error> {
-    try report(io.stdout, 3)
-    try report(io.stderr, 0)
+    report(io.stdout, 3)?
+    report(io.stderr, 0)?
     Ok(Unit)
 }
 ```
@@ -84,7 +84,7 @@ import std/io
 
 // The lines of standard input that are not blank, until it ends.
 fn count_lines(count: Int) -> Result<Int, io.Error> {
-    case try io.read_line() {
+    case io.read_line()? {
         Some("") -> count_lines(count)
         Some(_) -> count_lines(count + 1)
         None -> Ok(count)
@@ -140,7 +140,7 @@ struct, and a test can give it different arguments with its own `boot`.
 
 A program that returns from `main` exits with status 0. One whose `main`
 returns an `Err` prints `error: ` and the error, and exits with status 1, as
-[Pattern Matching](/pattern-matching/#the-try-keyword) shows.
+[Pattern Matching](/pattern-matching/#passing-failures-up) shows.
 
 To exit with another status, return [`Exit`](/reference/process/) from
 `std/process`. Its `message` is printed to standard error as it is, with no
@@ -170,7 +170,7 @@ A `boot` that returns an `Exit` ends the program the same way, before `main`
 runs.
 
 There is no function that exits on the spot. Returning an `Exit`, through
-`try` from deep in the program if needed, ends the program as returning from
+`?` from deep in the program if needed, ends the program as returning from
 `main` does: deferred calls run and supervised tasks finish first.
 
 ## Reading and writing files
@@ -192,11 +192,11 @@ import {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    try fs.write_text("todo.txt", "milk\n", mode: .Append)
-    io.write(try fs.read_text("todo.txt"))
+    fs.write_text("todo.txt", "milk\n", mode: .Append)?
+    io.write(fs.read_text("todo.txt")?)
 
-    try fs.write_text("done.txt", "nothing yet\n")
-    io.write(try fs.read_text("done.txt"))
+    fs.write_text("done.txt", "nothing yet\n")?
+    io.write(fs.read_text("done.txt")?)
     Ok(Unit)
 }
 
@@ -265,7 +265,7 @@ fn count_errors(path: String) -> Result<Int, io.Error> {
     fs.lines(path)
     |> Iter.reduce(fn count = Ok(0), line -> {
         case line {
-            Ok(text) when String.starts_with?(text, "ERROR") -> Result.map(count, fn n -> n + 1)
+            Ok(text) when String.starts_with(text, "ERROR") -> Result.map(count, fn n -> n + 1)
             Ok(_) -> count
             Err(e) -> break Err(e)
         }
@@ -273,9 +273,9 @@ fn count_errors(path: String) -> Result<Int, io.Error> {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    lines = try Result.collect(fs.lines("server.log"))
+    lines = Result.collect(fs.lines("server.log"))?
     io.print("${Iter.count(lines)} lines")
-    io.print("${try count_errors("server.log")} errors")
+    io.print("${count_errors("server.log")?} errors")
     io.print(Iter.first(fs.lines("server.log")))
     Ok(Unit)
 }
@@ -317,16 +317,16 @@ import {
 fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
     fs.with_reader(input, fn r -> {
         fs.with_writer(output, mode: .ReplaceAtomically, fn w -> {
-            try Writer.write_text(w, "name,price\n")
+            Writer.write_text(w, "name,price\n")?
             Reader.copy_to(r, w)
         })
     })
 }
 
 fn main() -> Result<Unit, io.Error> {
-    copied = try prepend_header("prices.csv", "with-header.csv")
+    copied = prepend_header("prices.csv", "with-header.csv")?
     io.print("copied ${copied} bytes")
-    io.write(try fs.read_text("with-header.csv"))
+    io.write(fs.read_text("with-header.csv")?)
     Ok(Unit)
 }
 
@@ -433,16 +433,16 @@ import {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    try fs.create_dir("photos/2026/summer", parents: True)
-    try fs.write_text(path.join("photos/2026", "notes.txt"), "trip\n")
+    fs.create_dir("photos/2026/summer", parents: True)?
+    fs.write_text(path.join("photos/2026", "notes.txt"), "trip\n")?
 
-    entries = try fs.list("photos")
+    entries = fs.list("photos")?
     Iter.each(entries, fn e -> io.print("${e.path} ${Debug.inspect(e.kind)}"))
 
     io.print(path.extension("photos/beach.jpg"))
     io.print(path.base("photos/2026/notes.txt"))
     io.print(path.clean("photos/2026/../alps.jpg"))
-    io.print(try fs.exists?("photos/2026/notes.txt"))
+    io.print(fs.exists("photos/2026/notes.txt")?)
     Ok(Unit)
 }
 
@@ -487,10 +487,10 @@ import {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    entries = try Result.collect(fs.walk("notes"))
+    entries = Result.collect(fs.walk("notes"))?
     Iter.each(entries, fn e -> io.print("${e.path} ${Debug.inspect(e.kind)}"))
 
-    io.print(try fs.glob("notes/**/*.md"))
+    io.print(fs.glob("notes/**/*.md")?)
     Ok(Unit)
 }
 
@@ -570,9 +570,9 @@ import {
 }
 
 fn sort_file(input: String, output: String) -> Result<Int, io.Error> {
-    lines = try Result.collect(fs.lines(input))
+    lines = Result.collect(fs.lines(input))?
     sorted = Iter.sort(lines)
-    try fs.write_text(output, String.join(sorted, "\n") + "\n", mode: .ReplaceAtomically)
+    fs.write_text(output, String.join(sorted, "\n") + "\n", mode: .ReplaceAtomically)?
     Ok(Iter.count(sorted))
 }
 

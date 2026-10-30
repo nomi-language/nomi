@@ -109,20 +109,18 @@ func TestDynamicTypeNameVocabulary(t *testing.T) {
 // Each has its in-range neighbour beside it, because a guard that rejects
 // everything passes a test that only checks rejection.
 func TestDynamicNumericBoundaries(t *testing.T) {
-	if got := DynamicAsInt(Dynamic{Inner: float64(1 << 63)}); got.Tag != TagErr {
-		t.Errorf("float64(2^63) produced Ok(%d); it overflows int64", got.Ok)
-	} else if got.Err.Got != "Float (out of int64 range)" {
-		t.Errorf("float64(2^63) got %q", got.Err.Got)
+	// An Int holds a whole number of any size, so 2^63 and a uint64 past
+	// int64's range are Ints too, exactly.
+	if got := DynamicAsInt(Dynamic{Inner: float64(1 << 63)}); got.Tag != TagOk || got.Ok.String() != "9223372036854775808" {
+		t.Errorf("float64(2^63) is the Int 2^63; got %+v", got)
 	}
-	if got := DynamicAsInt(Dynamic{Inner: float64(1 << 62)}); got.Tag != TagOk || got.Ok != 1<<62 {
+	if got := DynamicAsInt(Dynamic{Inner: float64(1 << 62)}); got.Tag != TagOk || got.Ok.String() != "4611686018427387904" {
 		t.Errorf("float64(2^62) is in range; got %+v", got)
 	}
-	if got := DynamicAsInt(Dynamic{Inner: uint64(math.MaxInt64) + 1}); got.Tag != TagErr {
-		t.Errorf("uint64(2^63) produced Ok(%d); the top bit is int64's sign bit", got.Ok)
-	} else if got.Err.Got != "Uint64 (out of int64 range)" {
-		t.Errorf("uint64(2^63) got %q", got.Err.Got)
+	if got := DynamicAsInt(Dynamic{Inner: uint64(math.MaxInt64) + 1}); got.Tag != TagOk || got.Ok.String() != "9223372036854775808" {
+		t.Errorf("uint64(2^63) is the Int 2^63, not a negative number; got %+v", got)
 	}
-	if got := DynamicAsInt(Dynamic{Inner: uint64(math.MaxInt64)}); got.Tag != TagOk || got.Ok != math.MaxInt64 {
+	if got := DynamicAsInt(Dynamic{Inner: uint64(math.MaxInt64)}); got.Tag != TagOk || got.Ok.String() != "9223372036854775807" {
 		t.Errorf("uint64(MaxInt64) is in range; got %+v", got)
 	}
 	// A fractional float is refused, not truncated. The reason for accepting
@@ -157,7 +155,7 @@ func TestDynamicPathSegmentTagsMatchDeclarationOrder(t *testing.T) {
 		f.Err.Path.Head.Field != "k" {
 		t.Fatalf("a field navigation must carry Field(%q); got %+v", "k", f.Err.Path)
 	}
-	if f := DynamicIndex(Dynamic{Inner: int64(1)}, 7); f.Tag != TagErr ||
+	if f := DynamicIndex(Dynamic{Inner: int64(1)}, SmallInt(7)); f.Tag != TagErr ||
 		f.Err.Path == nil || f.Err.Path.Head.Tag != TagPathSegmentIndex ||
 		f.Err.Path.Head.Index != 7 {
 		t.Fatalf("an index navigation must carry Index(7); got %+v", f.Err.Path)
@@ -235,7 +233,7 @@ func TestDynamicAsListPreservesOrderAndLen(t *testing.T) {
 func TestJsonToDynamicIsJsonToAnyWrapped(t *testing.T) {
 	jv := Json{Tag: TagJsonArr, Arr: Cons(
 		Json{Tag: TagJsonString, String: "x"},
-		Cons(Json{Tag: TagJsonInt, Int: 7}, nil))}
+		Cons(Json{Tag: TagJsonInt, Int: SmallInt(7)}, nil))}
 	if got, want := DynamicInspect(JsonToDynamic(jv)), dynamicRender(JsonToAny(jv)); got != want {
 		t.Fatalf("JsonToDynamic rendered %q but JsonToAny rendered %q; the bridge is "+
 			"supposed to add the type and nothing else", got, want)

@@ -3,34 +3,24 @@ package ir
 // The `arith` class, and the fault/delivery division (point 1 of ir.go's
 // package header).
 //
-// A checked operation records that a fault is POSSIBLE AT
-// THIS POINT and where "this point" is. It records nothing about how the fault
-// is delivered: rt carries the overflow predicate (`AddOverflows`), the error
-// (`OverflowError`) and the trapping call (`AddInt`), with one predicate and
-// one message text, and which surface a consumer uses is its own choice.
-// Delivery is a consumer property.
+// An operation that can fault records that a fault is POSSIBLE AT THIS POINT
+// and where "this point" is. It records nothing about how the fault is
+// delivered: rt carries the error (`DivByZeroError`), with one message text,
+// and which surface a consumer uses is its own choice. Delivery is a consumer
+// property.
 //
 // There is no `trap bool` and there is nowhere to put one. Faults is a METHOD,
-// computed from the operator, the operand domain, and — for Int add, subtract,
-// multiply and negate only — the overflow discipline the producer chose. Two of
-// those three are forced by the front end's type answer and the third is a
-// property of the source construct (`derive Hashable` synthesizes modular
-// mixers; a programmer's `+` does not). None of them is a fact about which
-// consumer is reading. A `trap bool` would have been the one field a producer
-// could not fill without knowing, which is the coupling the IR exists to
-// remove.
+// computed from the operator and the operand domain. Int arithmetic is exact
+// at any size, so only a zero divisor faults it. None of that is a fact about
+// which consumer is reading.
 //
-// The equivalence that makes this more than a naming preference is checked
-// in arith_test.go: across every constructible
-// operator-and-domain combination, the `rt` function the builder names takes a
-// `line int` parameter EXACTLY when Faults reports a fault. The position is the
-// fault point. That is why the position rides as an operand for these twelve
-// operations rather than as an ambient cursor, and it is why `fn add(a, b) { a
-// + b }` blames `a + b` rather than the line of the call.
+// The position rides as an operand for these operations rather than as an
+// ambient cursor, which is why `fn quo(a, b) { a / b }` blames `a / b` rather
+// than the line of the call.
 //
 // THE SIX OPERATIONS, AND WHY THEY ARE NOT SIX OPCODES. Nomi's primitive
-// `a + b` has six shapes: trapping `rt.<Op>Int(a, b, line)`, wrapping
-// `rt.Wrap<Op>Int(a, b)`, Go's own `a Op b` for Float, `rt.DivFloat(a, b)`,
+// `a + b` has six shapes: exact `rt.Int<Op>(a, b)`, wrapping (the low 64 bits
+// of the exact answer), Go's own `a Op b` for Float, `rt.DivFloat(a, b)`,
 // `rt.ModFloat(a, b, line)` and `rt.<Op>Decimal(...)`. All six are
 // recoverable here — Shape returns one of exactly six values — and NOT ONE of
 // them is stored. They are a function of three fields. Storing the shape would
@@ -55,9 +45,7 @@ const (
 	OpNeg
 )
 
-// Symbol is the source spelling. The trap message names the operator this way
-// (`rt.overflowText`: "line %d: integer overflow: %d %s %d"), so the two
-// consumers' texts agree only if they agree here.
+// Symbol is the source spelling.
 func (o ArithOp) Symbol() string {
 	switch o {
 	case OpAdd:
@@ -89,7 +77,7 @@ func (o ArithOp) Unary() bool { return o == OpNeg }
 type Domain uint8
 
 const (
-	// DomainInt is Nomi's Int, which is int64 and which TRAPS where Go wraps.
+	// DomainInt is Nomi's Int, which is exact at any size.
 	DomainInt Domain = iota + 1
 	// DomainFloat is Nomi's Float, which is float64 and IEEE.
 	DomainFloat
@@ -109,19 +97,20 @@ func (d Domain) String() string {
 	return "domain?"
 }
 
-// Overflow is the discipline an Int operation's overflow follows. It exists
-// because it is a real choice a producer makes and not a consumer's: `derive
-// Hashable`'s synthesized mixers are modular, a programmer's `+` is checked,
-// and both lower from the same AST shape.
+// Overflow is the discipline an Int operation follows. It exists because it
+// is a real choice a producer makes and not a consumer's: `derive
+// Hashable`'s synthesized mixers keep a hash in 64 bits, a programmer's `+`
+// is exact, and both lower from the same AST shape.
 type Overflow uint8
 
 const (
-	// OverflowFaults says overflow is a FAULT at this operation's position.
-	// What a consumer does about it is the consumer's.
-	OverflowFaults Overflow = iota + 1
-	// OverflowWraps says overflow is DEFINED to wrap here. `rt` has wrapping
-	// forms for `+`, `-` and `*` and for nothing else, which is why the
-	// constructors reject this discipline on the other operators.
+	// OverflowExact says the result is the exact answer, at any size: a
+	// programmer's operator.
+	OverflowExact Overflow = iota + 1
+	// OverflowWraps says the result is the exact answer's low 64 bits, as an
+	// int64. There are wrapping forms of `+`, `-` and `*` and of nothing
+	// else, which is why the constructors reject this discipline on the
+	// other operators.
 	OverflowWraps
 )
 
@@ -129,20 +118,17 @@ func (o Overflow) String() string {
 	if o == OverflowWraps {
 		return "wraps"
 	}
-	return "faults"
+	return "exact"
 }
 
 // Faults is the set of ways one operation can fault at its own position. It is
-// a set rather than one value because Int `/` faults two ways: on a zero
-// divisor, and on MinInt64 / -1, which is the division case a backend forgets
-// (`rt.QuoOverflows` exists to say so).
+// a set rather than one value because an instruction of another class (a
+// `case`, a `todo`) shares the vocabulary.
 type Faults uint8
 
 const (
-	// FaultOverflow: the result leaves the representable range.
-	FaultOverflow Faults = 1 << iota
 	// FaultDivByZero: the divisor is zero.
-	FaultDivByZero
+	FaultDivByZero Faults = 1 << iota
 	// FaultUndefined: the operation has no answer in this domain at all.
 	// Nomi's `%` on Float and on Decimal is this — `rt.ModFloat` and
 	// `rt.ModDecimal` always trap.
@@ -173,7 +159,7 @@ func (f Faults) String() string {
 	for _, k := range [...]struct {
 		bit  Faults
 		name string
-	}{{FaultOverflow, "overflow"}, {FaultDivByZero, "div0"}, {FaultUndefined, "undefined"},
+	}{{FaultDivByZero, "div0"}, {FaultUndefined, "undefined"},
 		{FaultNoMatch, "nomatch"}, {FaultTodo, "todo"}, {FaultUnreachable, "unreachable"}} {
 		if f.Has(k.bit) {
 			if s != "" {
@@ -190,9 +176,10 @@ func (f Faults) String() string {
 type Shape uint8
 
 const (
-	// ShapeIntChecked is `rt.<Op>Int(a, b, line)`.
-	ShapeIntChecked Shape = iota + 1
-	// ShapeIntWrapping is `rt.Wrap<Op>Int(a, b)`.
+	// ShapeIntExact is `rt.Int<Op>(a, b)`: exact, and for `/` and `%` a
+	// fault on a zero divisor.
+	ShapeIntExact Shape = iota + 1
+	// ShapeIntWrapping is the exact answer's low 64 bits (`rt.Wrap64`).
 	ShapeIntWrapping
 	// ShapeFloatNative is Go's own `a Op b`.
 	ShapeFloatNative
@@ -206,8 +193,8 @@ const (
 
 func (s Shape) String() string {
 	switch s {
-	case ShapeIntChecked:
-		return "int-checked"
+	case ShapeIntExact:
+		return "int-exact"
 	case ShapeIntWrapping:
 		return "int-wrapping"
 	case ShapeFloatNative:
@@ -232,10 +219,10 @@ type ArithKind struct {
 	over Overflow
 }
 
-// IntArith is arithmetic on Int under a named overflow discipline.
+// IntArith is arithmetic on Int under a named discipline.
 func IntArith(over Overflow) ArithKind {
-	if over != OverflowFaults && over != OverflowWraps {
-		panic("ir: IntArith: an Int operation needs an overflow discipline")
+	if over != OverflowExact && over != OverflowWraps {
+		panic("ir: IntArith: an Int operation needs a discipline")
 	}
 	return ArithKind{dom: DomainInt, over: over}
 }
@@ -302,13 +289,12 @@ func newArith(pos Pos, dst Temp, op ArithOp, k ArithKind, who string) *Arith {
 		panic("ir: " + who + ": an ArithKind must come from IntArith, FloatArith, " +
 			"or DecimalArith")
 	}
-	// Measured against rt/arith.go, not assumed: the wrapping forms are
-	// WrapAddInt, WrapSubInt and WrapMulInt and there are no others, because
+	// The wrapping forms are `+`, `-` and `*` and there are no others, because
 	// `derive Hashable`'s mixers use exactly those three. A wrapping `/`, `%`
 	// or unary `-` has no emitted shape, so it must not be representable.
 	if k.dom == DomainInt && k.over == OverflowWraps && op != OpAdd && op != OpSub && op != OpMul {
 		panic("ir: " + who + ": no wrapping form of Int `" + op.Symbol() +
-			"` exists; rt has WrapAddInt, WrapSubInt and WrapMulInt and nothing else")
+			"` exists; only `+`, `-` and `*` wrap")
 	}
 	return &Arith{pos: pos, dst: dst, op: op, dom: k.dom, over: k.over}
 }
@@ -333,14 +319,9 @@ func (a *Arith) Rhs() Temp { return a.rhs }
 // Derived from rt/arith.go's actual behaviour rather than from a general rule
 // about arithmetic:
 //
-//   - Int `+ - *` and unary `-` fault on overflow, unless the producer chose the
-//     modular discipline. `rt.NegInt` is `SubInt(0, a, line)`, so negation
-//     faults on MinInt64 like the subtraction it performs.
-//   - Int `/` faults two ways: `rt.QuoInt` traps on a zero divisor and on the
-//     one overflowing pair, MinInt64 / -1.
-//   - Int `%` faults on a zero divisor only. Go's `%` answers MinInt64 % -1
-//     without a panic (the answer is 0), so there is no
-//     overflow fault to record.
+//   - Int `+ - *` and unary `-` never fault: the answer is exact at any size,
+//     or its low 64 bits under the modular discipline.
+//   - Int `/` and `%` fault on a zero divisor only.
 //   - Float `+ - * /` and unary `-` never fault. IEEE has an answer for every
 //     input including a zero divisor, and `rt.DivFloat` is Go's own `/`.
 //   - Float `%` is UNDEFINED: `rt.ModFloat` always traps.
@@ -351,16 +332,10 @@ func (a *Arith) Faults() Faults {
 	switch a.dom {
 	case DomainInt:
 		switch a.op {
-		case OpDiv:
-			return FaultDivByZero | FaultOverflow
-		case OpRem:
+		case OpDiv, OpRem:
 			return FaultDivByZero
-		default:
-			if a.over == OverflowWraps {
-				return 0
-			}
-			return FaultOverflow
 		}
+		return 0
 	case DomainFloat:
 		if a.op == OpRem {
 			return FaultUndefined
@@ -393,7 +368,7 @@ func (a *Arith) Shape() Shape {
 	if a.over == OverflowWraps {
 		return ShapeIntWrapping
 	}
-	return ShapeIntChecked
+	return ShapeIntExact
 }
 
 func (a *Arith) Pos() Pos  { return a.pos }

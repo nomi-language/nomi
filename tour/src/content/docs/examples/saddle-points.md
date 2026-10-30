@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: saddle_points.nomi
+//# The saddle points of a grid of tree heights: the trees tallest in their
+//# row and shortest in their column.
+
 /// A tree's place in the grid, counting rows and columns from 1.
 pub struct Position {
     row: Int
@@ -30,7 +33,7 @@ pub fn saddle_points(matrix: Vector<Vector<Int>>) -> List<Position> {
         heights
         |> Iter.with_index()
         |> Iter.filter(fn #(column, height) -> {
-            Some(height) == tallest and Vector.at(minima, column) == height
+            Some(height) == tallest and Vector.get(minima, column)! == height
         })
         |> Iter.map(fn #(column, _height) -> #Position{row: row + 1, column: column + 1})
     })
@@ -108,5 +111,5 @@ test "saddle_points" {
 - A point is a `pub struct Position { row, column }`, counted from 1 as the canonical data does (style §18: a struct once it travels). Tests write `#{row: 2, column: 1}`, which the comparison types as `Position`.
 - Points come out row by row and left to right. The canonical "non square matrix" case lists (1, 3) before (1, 1); its comment allows reordering, so the test expects (1, 1) first.
 - `Some(height) == tallest` compares against `Iter.max`'s `Maybe` directly instead of unwrapping it; an empty row has no cells to compare.
-- The one indexed read uses `Vector.at`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first and `minima` has a value for every column. A ragged matrix (rows of different widths) is outside the problem: `Iter.transpose` gives a short row nothing past its end, so a later row's column could have no minimum and the read would stop the program rather than answer.
+- The one indexed read uses `Vector.get(...)!`, which traps on an index outside the vector. The input is a matrix, so every row is as wide as the first and `minima` has a value for every column. A ragged matrix (rows of different widths) is outside the problem: `Iter.transpose` gives a short row nothing past its end, so a later row's column could have no minimum and the read would stop the program rather than answer.
 - The cases are one `subtests` table of `#(description, matrix, expected)` rows. Its annotation names `List<Position>` so the `#{row, column}` literals in the rows are typed; each row breaks into its three parts and each grid stays on one line.

@@ -11,7 +11,7 @@ import (
 )
 
 // ratesBlock is testdata/tools' rates and csvdata as one marked source,
-// the generator's module under generators/csvdata/, with tables.nomi's
+// the generator's module under csvdata/, with tables.nomi's
 // text passed through edit.
 func ratesBlock(t *testing.T, edit func(string) string) string {
 	t.Helper()
@@ -28,16 +28,102 @@ func ratesBlock(t *testing.T, edit func(string) string) string {
 		{"data/rates.csv", read("rates/data/rates.csv")},
 		{"data/names.csv", read("rates/data/names.csv")},
 		{"nomi.toml", read("rates/nomi.toml")},
-		{"go.mod", strings.Replace(read("rates/go.mod"), "../csvdata", "./generators/csvdata", 1)},
-		{"generators/csvdata/csvdata.nomi", read("csvdata/csvdata.nomi")},
-		{"generators/csvdata/nomi.toml", "[module]\nname = \"csvdata\"\n"},
-		{"generators/csvdata/go.mod", read("csvdata/go.mod")},
+		{"go.mod", strings.Replace(read("rates/go.mod"), "../csvdata", "./csvdata", 1)},
+		{"csvdata/csvdata.nomi", read("csvdata/csvdata.nomi")},
+		{"csvdata/nomi.toml", "[module]\nname = \"csvdata\"\n"},
+		{"csvdata/go.mod", read("csvdata/go.mod")},
 	}
 	var b strings.Builder
 	for _, s := range sections {
 		b.WriteString("// FILE: " + s.name + "\n" + s.text + "\n")
 	}
 	return b.String()
+}
+
+// siblingsBlock is testdata/tools' rates and csvdata as they are on disk,
+// two projects side by side in one marked source, rates first, with
+// rates/data/rates.csv's text passed through edit. csvdata's tools come
+// with it, so a file that declares `fn main` is in the project that is not
+// the block's.
+func siblingsBlock(t *testing.T, edit func(string) string) string {
+	t.Helper()
+	read := func(path string) string {
+		data, err := os.ReadFile("../testdata/tools/" + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	var b strings.Builder
+	for _, name := range []string{
+		"rates/tables_test.nomi", "rates/main.nomi", "rates/tables.nomi", "rates/data/rates.csv",
+		"rates/data/names.csv", "rates/nomi.toml", "rates/go.mod",
+		"csvdata/csvdata.nomi", "csvdata/tools/generate.nomi", "csvdata/tools/rows.nomi",
+		"csvdata/nomi.toml", "csvdata/go.mod",
+	} {
+		text := read(name)
+		if name == "rates/data/rates.csv" {
+			text = edit(text)
+		}
+		b.WriteString("// FILE: " + name + "\n" + text + "\n")
+	}
+	return b.String()
+}
+
+// A block of two projects side by side, each with its own go.mod, runs
+// the project of its first file, which reaches the other through its
+// go.mod's `replace csvdata => ../csvdata` as the same files on disk do.
+// Its tests read data/ from the project's directory, and a diagnostic
+// names a file by its path from the block's root, as its tab does.
+func TestLoadMarked_SiblingProjectsRunTheFirstFilesProject(t *testing.T) {
+	src := siblingsBlock(t, func(s string) string { return s })
+	dir := t.TempDir()
+	p, hasTests, err := vmhost.LoadMarked(src, dir)
+	if err != nil {
+		t.Fatalf("LoadMarked: %v", err)
+	}
+	if !hasTests {
+		t.Fatal("rates/tables_test.nomi's test is not found")
+	}
+	var out bytes.Buffer
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got := out.String(); got != "9200\nPound \"sterling\"\nYen ${not interpolated}\nFalse\n" {
+		t.Fatalf("rates printed %q", got)
+	}
+	cases := p.Cases(&out, vmhost.TestOptions{})
+	if len(cases) != 1 || cases[0].Err != nil || cases[0].Blocked != nil {
+		t.Fatalf("the digest test does not pass: %+v\n%s", cases, out.String())
+	}
+
+	// A changed rate fails the digest test, which read the file from the
+	// project's directory.
+	p, _, err = vmhost.LoadMarked(siblingsBlock(t, func(s string) string { return strings.Replace(s, "9200", "9300", 1) }), dir)
+	if err != nil {
+		t.Fatalf("LoadMarked: %v", err)
+	}
+	if cases := p.Cases(&out, vmhost.TestOptions{}); len(cases) != 1 || cases[0].Err == nil {
+		t.Fatalf("the digest test passes with a changed rate: %+v", cases)
+	}
+
+	broken := strings.Replace(src, "Some(9200)", "Some(92.00)", 1)
+	_, _, err = vmhost.LoadMarked(broken, dir)
+	if err == nil {
+		t.Fatal("a Float rate loads")
+	}
+	if msg := err.Error(); !strings.HasPrefix(msg, "rates/tables.nomi:") || strings.Contains(msg, dir) {
+		t.Fatalf("the error does not name rates/tables.nomi from the block's root:\n%s", msg)
+	}
+}
+
+// A block of sibling projects holds every file in one of them.
+func TestLoadMarked_SiblingProjectsHoldEveryFile(t *testing.T) {
+	src := siblingsBlock(t, func(s string) string { return s }) + "// FILE: notes.txt\nloose\n"
+	_, _, err := vmhost.LoadMarked(src, t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "notes.txt is in none of the block's projects") {
+		t.Fatalf("a file outside the projects loads, or fails otherwise: %v", err)
+	}
 }
 
 // A marked source whose root module requires a module of its own loads as

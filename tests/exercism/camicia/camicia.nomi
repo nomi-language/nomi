@@ -53,8 +53,8 @@ fn rounds(
     now = shape(hands)
 
     case {
-        Iter.empty?(hand(hands, other(collector))) -> #{status: .Finished, cards, tricks}
-        Set.contains?(seen, now) -> #{status: .Loop, cards, tricks}
+        Iter.is_empty(hand(hands, other(collector))) -> #{status: .Finished, cards, tricks}
+        Set.contains(seen, now) -> #{status: .Loop, cards, tricks}
         _ -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
     }
 }

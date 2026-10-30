@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: reverse_string.nomi
+//# Reverses a string.
+
 /// Reverses `text` by grapheme, so a combining mark stays on its letter.
 pub fn reverse(text: String) -> String {
     String.reverse(text)

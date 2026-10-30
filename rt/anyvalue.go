@@ -1,6 +1,9 @@
 package rt
 
-import "reflect"
+import (
+	"math"
+	"reflect"
+)
 
 // Value is what the VM's reference and erased registers hold: a Go `any` over
 // the runtime's own representations. The dynamic types are a closed set, and
@@ -136,6 +139,8 @@ func (k *Keys) Equal(a, b any) bool {
 	case int64:
 		bv, ok := b.(int64)
 		return ok && av == bv
+	case *BigInt:
+		return IntEqual(av, b)
 	case float64:
 		bv, ok := b.(float64)
 		return ok && EqFloat(av, bv)
@@ -286,7 +291,12 @@ func (k *Keys) namedFieldsEqual(a, b *Record) bool {
 // NaN has many encodings and -0.0 is not +0.0's bits.
 func (k *Keys) slotsEqual(a, b *Record, f *FieldDesc) bool {
 	switch f.Type {
-	case SlotInt, SlotBool, SlotByte:
+	case SlotInt:
+		if a.W[f.Slot] == BigWord {
+			return IntEqual(a.IntSlot(f.Slot), b.IntSlot(f.Slot))
+		}
+		return a.W[f.Slot] == b.W[f.Slot]
+	case SlotBool, SlotByte:
 		return a.W[f.Slot] == b.W[f.Slot]
 	case SlotFloat:
 		return EqFloat(WordFloat(a.W[f.Slot]), WordFloat(b.W[f.Slot]))
@@ -351,6 +361,8 @@ func (k *Keys) Hash(v any) uint64 {
 	switch x := v.(type) {
 	case int64:
 		return HashInt(x)
+	case *BigInt:
+		return hashBig(x)
 	case float64:
 		return HashFloat(x)
 	case bool:
@@ -430,7 +442,15 @@ func (k *Keys) hashFields(r *Record, short string) uint64 {
 func (k *Keys) hashSlot(r *Record, f *FieldDesc) uint64 {
 	switch f.Type {
 	case SlotInt:
-		return HashInt(WordInt(r.W[f.Slot]))
+		// The word unboxed: only a word of BigWord can have a big value
+		// beside it.
+		if w := r.W[f.Slot]; w != BigWord {
+			return HashInt(int64(w))
+		}
+		if b := r.BigSlot(f.Slot); b != nil {
+			return hashBig(b)
+		}
+		return HashInt(math.MinInt64)
 	case SlotFloat:
 		return HashFloat(WordFloat(r.W[f.Slot]))
 	case SlotBool:

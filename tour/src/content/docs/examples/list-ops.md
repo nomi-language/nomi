@@ -48,9 +48,9 @@ pub fn concat<T>(lists: List<List<T>>) -> List<T> {
     foldr(lists, [], fn rest, list -> append(list, rest))
 }
 
-/// The items of `list` that `keep?` holds for.
-pub fn filter<T>(list: List<T>, keep?: (T) -> Bool) -> List<T> {
-    foldr(list, [], fn rest, item -> if keep?(item) { [item, ..rest] } else { rest })
+/// The items of `list` that `keep` holds for.
+pub fn filter<T>(list: List<T>, keep: (T) -> Bool) -> List<T> {
+    foldr(list, [], fn rest, item -> if keep(item) { [item, ..rest] } else { rest })
 }
 
 /// `f` applied to each item of `list`.

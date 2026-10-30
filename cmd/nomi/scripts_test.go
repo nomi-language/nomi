@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )

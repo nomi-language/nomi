@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: swift_scheduling.nomi
+//# The delivery date a description such as `NOW`, `EOW` or `2Q` stands for.
+
 import std/calendar.{Date, Days, Hours, Months, NaiveDateTime, Weekday}
 
 /// A delivery date description: one of the three fixed words, or the N-th
@@ -38,7 +40,7 @@ pub fn delivery_date(
     today = NaiveDateTime.to_date(meeting_start)
     year = Date.year(today)
 
-    case try parse(description) {
+    case parse(description)? {
         .Now ->
             Ok(meeting_start + Hours(2))
 
@@ -62,7 +64,7 @@ pub fn delivery_date(
         }
 
         .Quarter(quarter) -> {
-            due_year = if quarter_of(Date.month(today)) <= quarter {
+            due_year = if Date.month(today) |> quarter_of() <= quarter {
                 year
             } else {
                 year + 1
@@ -89,8 +91,8 @@ fn numbered(text: String) -> Maybe<Description> {
     quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
 
     case #(month, quarter) {
-        #(Some(n), _) when Range.contains?(1..=12, n) -> Some(.Month(n))
-        #(_, Some(n)) when Range.contains?(1..=4, n) -> Some(.Quarter(n))
+        #(Some(n), _) when Range.contains(1..=12, n) -> Some(.Month(n))
+        #(_, Some(n)) when Range.contains(1..=4, n) -> Some(.Quarter(n))
         _ -> None
     }
 }
@@ -119,14 +121,12 @@ fn next_on(day: Date, weekday: Weekday) -> Date {
 
 /// The first Monday to Friday of `month` in `year`.
 fn first_workday(year: Int, month: Int) -> Date {
-    Ok(first) = Date.new(year, month, 1) else {
-        unreachable "every month has a first day"
-    }
+    first = Date.new(year, month, 1)!
 
     Some(found) =
         0..7
         |> Iter.map(&(first + Days(&1)))
-        |> Iter.find(workday?)
+        |> Iter.find(is_workday)
     else {
         unreachable "seven days in a row hold five workdays"
     }
@@ -145,7 +145,7 @@ fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
     Some(found) =
         0..7
         |> Iter.map(&(last_day - Days(&1)))
-        |> Iter.find(workday?)
+        |> Iter.find(is_workday)
     else {
         unreachable "seven days in a row hold five workdays"
     }
@@ -153,7 +153,7 @@ fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
     found
 }
 
-fn workday?(day: Date) -> Bool {
+fn is_workday(day: Date) -> Bool {
     case Date.weekday(day) {
         .Saturday or .Sunday -> False
         _ -> True

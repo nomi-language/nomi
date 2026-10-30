@@ -244,6 +244,13 @@ func qualifiedTypeParts(t *ast.QualifiedType) (qualifier, name string, ok bool) 
 	if !simple {
 		return "", "", false
 	}
+	if mod, rest, dotted := strings.Cut(t.Module, "."); dotted && !ast.IsPublic(mod) {
+		// A literal's prefix splits at its last segment
+		// (`#json.Json.ShapeError{...}` has the qualifier `json.Json`):
+		// the module is the first, and the rest is the dotted name its
+		// scope binds (`Json.ShapeError`).
+		return mod, rest + "." + st.Name, true
+	}
 	return t.Module, st.Name, true
 }
 

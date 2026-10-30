@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: diamond.nomi
+//# Draws a diamond of letters from `A` to a given letter and back.
+
 /// The rows of a diamond of letters from `A` to `widest` and back, each
 /// padded with spaces to the diamond's width. `widest` is an uppercase
 /// ASCII letter.

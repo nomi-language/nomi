@@ -32,7 +32,7 @@ derive FromJson for Account with #FromJson.Options{rename_all: Camel}
 test "JSON interface decodes primitive values through explicit targets" {
     assert FromJson.from_json<Int>(Json.Int(42)) == Result.Ok(42)
     assert FromJson.from_json<Int>(Json.Int(42)) == Result.Ok(42)
-    assert Result.err?(FromJson.from_json<Int>(Json.String("nope")))
+    assert Result.is_err(FromJson.from_json<Int>(Json.String("nope")))
 }
 
 test "JSON derives encode and decode structs with options" {
@@ -49,7 +49,7 @@ test "JSON derives encode and decode structs with options" {
 test "JSON derive reports missing required fields" {
     decoded = User.from_json(%Json.Obj{"firstName" => Json.String("Ada")})
 
-    assert Result.err?(decoded)
+    assert Result.is_err(decoded)
 }
 
 test "JSON derives round-trip nested structs through interface functions" {

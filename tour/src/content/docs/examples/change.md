@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: change.nomi
+//# The fewest coins that make a given amount of change.
+
 /// Why no change can be given.
 pub enum Error {
     NegativeTarget
@@ -28,7 +30,7 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
             Vector.push(table, best(table, coins, amount))
         })
 
-    Vector.at(fewest, target)
+    Vector.get(fewest, target)!
     |> Maybe.map(Iter.sort)
     |> Maybe.to_result(Error.CannotMakeTarget)
 }
@@ -38,7 +40,9 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
 fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>> {
     coins
     |> Iter.filter(&(&1 <= amount))
-    |> Iter.map(fn coin -> Vector.at(table, amount - coin) |> Maybe.map(fn rest -> [coin, ..rest]))
+    |> Iter.map(fn coin -> {
+        Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
+    })
     |> Maybe.values()
     |> Iter.min_by(Iter.count)
 }
@@ -47,7 +51,7 @@ fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe
 import change.{self, Error}
 
 test "find fewest coins" {
-    cases: List<#(String, List<Int>, Int, Result<List<Int>, Error>)> = [
+    cases = [
         #("change for 1 cent", [1, 5, 10, 25], 1, Ok([1])),
         #("single coin change", [1, 5, 10, 25, 100], 25, Ok([25])),
         #("multiple coin change", [1, 5, 10, 25, 100], 15, Ok([5, 10])),
@@ -77,7 +81,7 @@ test "find fewest coins" {
             "error testing for change smaller than the smallest of coins",
             [5, 10],
             3,
-            Err(.CannotMakeTarget),
+            Err(Error.CannotMakeTarget),
         ),
         #("error if no combination can add up to target", [5, 10], 94, Err(.CannotMakeTarget)),
         #("cannot find negative change values", [1, 2, 5], -5, Err(.NegativeTarget)),

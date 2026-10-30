@@ -812,7 +812,7 @@ fn f() -> List<String> {
         String.join(["a", "b"]),
         %["a"] |> String.join("-"),
         #["a", "b"] |> String.join(),
-        "héllo" |> Iter.map(String.to_upper) |> String.join(),
+        "héllo" |> Iter.map(String.uppercase) |> String.join(),
         1..=3 |> Iter.map(Int.to_string) |> String.join("-"),
     ]
 }
@@ -941,7 +941,7 @@ func TestGenericRangeLiterals(t *testing.T) {
 fn ints() -> Range<Int> { 0..5 }
 fn strings() -> Range<String> { "a".."z" }
 fn floats() -> Range<Float> { 0.0..=1.0 }
-fn contains_string() -> Bool { Range.contains?("a".."m", "h") }
+fn contains_string() -> Bool { Range.contains("a".."m", "h") }
 fn from_bindings(a: Int, b: Int) -> Range<Int> { a..b }
 `)
 	expectNoStdlibErrors(t, errs)

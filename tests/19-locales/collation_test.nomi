@@ -118,11 +118,11 @@ test "sort keys order as the collator does" {
 }
 
 test "case in a language" {
-    assert String.to_upper_in("istanbul", Locale`tr`) == "İSTANBUL"
-    assert String.to_lower_in("İSTANBUL", Locale`tr`) == "istanbul"
-    assert String.to_lower_in("KIRMIZI", Locale`tr`) == "kırmızı"
-    assert String.to_lower_in("KIRMIZI", Locale`en`) == "kirmizi"
-    assert String.to_upper_in("Straße", Locale`de`) == "STRASSE"
-    assert String.to_lower_in("ΟΔΥΣΣΕΥΣ", Locale`el`) == "οδυσσευς"
+    assert String.uppercase_in("istanbul", Locale`tr`) == "İSTANBUL"
+    assert String.lowercase_in("İSTANBUL", Locale`tr`) == "istanbul"
+    assert String.lowercase_in("KIRMIZI", Locale`tr`) == "kırmızı"
+    assert String.lowercase_in("KIRMIZI", Locale`en`) == "kirmizi"
+    assert String.uppercase_in("Straße", Locale`de`) == "STRASSE"
+    assert String.lowercase_in("ΟΔΥΣΣΕΥΣ", Locale`el`) == "οδυσσευς"
     assert String.fold_case("Straße") == String.fold_case("STRASSE")
 }

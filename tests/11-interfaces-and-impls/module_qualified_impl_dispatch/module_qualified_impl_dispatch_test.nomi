@@ -16,7 +16,7 @@ test "type-qualified impl methods pipe through dispatch" {
 
 test "type-qualified generic impl methods can use explicit targets" {
     encoded = User.to_json(users.user("Ada"))
-    decoded: User = try User.from_json(encoded)
+    decoded: User = User.from_json(encoded)?
 
     assert Json.encode(encoded) == "{\"name\":\"Ada\"}"
     assert decoded == users.user("Ada")

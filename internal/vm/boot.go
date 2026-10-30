@@ -210,7 +210,7 @@ func (m *Machine) deferToBootCleanup(fr *frame) {
 
 // BootError is a boot that returned `Err`, which Boot and BootTest answer.
 // Text is the payload's text, rendered as main's is (failureText), and
-// result the `Err` itself, which a test case reports as it reports a `try`
+// result the `Err` itself, which a test case reports as it reports a `?`
 // that ended it early. Main, Call and Start answer it as a *MainError.
 type BootError struct {
 	Text   string

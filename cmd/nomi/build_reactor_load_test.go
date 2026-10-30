@@ -43,7 +43,7 @@ fn main() {
 }
 
 export fn shout(text: String) -> String {
-    String.to_upper(text)
+    String.uppercase(text)
 }
 `
 

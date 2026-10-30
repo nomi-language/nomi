@@ -15,7 +15,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/binary-search-tree
 - `derive Equatable for Tree<T>` lets the shape cases compare the built tree with the expected one, written as nested `#.Node{...}` literals.
 - The functions are in `impl Tree<T>`, called `Tree.from(values)` and `Tree.sorted(tree)` after `import binary_search_tree.Tree`. Each names the block's `T`, so a call takes it from its tree or its values, and `where T: Comparable` narrows the two that compare.
 - An empty tree is `.Leaf` wherever a `Tree<T>` is expected: in `insert`'s new node and in every expected tree of the tests. `from` starts its `Iter.reduce` from `Tree.Leaf`, qualified, since nothing there says what type the starting value has.
-- The two canonical properties are two `subtests` tables. The shape table is annotated `List<#(String, List<Int>, Tree<Int>)>` so each `#.Node{...}` and `.Leaf` is a `Tree<Int>`.
+- The two canonical properties are two `subtests` tables. The shape table names the enum once, in its first row's `#Tree.Node{...}`; the bare `#.Node{...}` and `.Leaf` in the later rows and inside each node take `Tree<Int>` from it.
 
 ## Friction
 

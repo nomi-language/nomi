@@ -12,13 +12,13 @@ import (
 // fails here.
 func TestIRStdlibTrap_ReportsTheProgramsLine(t *testing.T) {
 	for name, want := range map[string]string{
-		// The trap is in std/int.nomi's `abs`.
-		"stdlib_trap_abs.nomi": "line 9: integer overflow: 0 - -9223372036854775808\n",
+		// The trap is in the host function std/int.nomi's `to_digits` calls.
+		"stdlib_trap_digits.nomi": "line 9: Int.to_digits: negative number -5\n",
 		// The zero divisor is in std/int.nomi's `modulo`.
 		"stdlib_trap_modulo.nomi": "line 7: division by zero\n",
 		// Iter.sum, its reduce lambda and Duration's Add impl: the
 		// program's line is the `|> Iter.sum()` stage.
-		"stdlib_trap_deep.nomi": "line 14: integer overflow: 9223372036854775807 + 1\n",
+		"stdlib_trap_deep.nomi": "line 15: Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way\n",
 		// The lambda's own line, not the `Iter.map` stage's (line 10).
 		"stdlib_trap_lambda.nomi": "line 12: division by zero\n",
 		// A host function's text names no line; the call's is put first.

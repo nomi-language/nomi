@@ -494,7 +494,7 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 	dst := bl.f.NewTemp()
 	sc := ir.BeginShortCircuit(bl.f.Region, bl.b, op, opPos, leftPos, rightPos, dst, lhs)
 	if _, _, leaves := bl.g.exitingOperand(t.Right); leaves {
-		// `ready? or { return Err(e) }`, `x > 0 and f(case x { 1 -> return
+		// `is_ready or { return Err(e) }`, `x > 0 and f(case x { 1 -> return
 		// True  _ -> return False })`: the right operand leaves the body
 		// when it runs, so the operation is `if ready? { True } else {
 		// <right> }` (`and`: `if x { <right> } else { False }`), the right
@@ -652,17 +652,17 @@ func (bl *irScalarBuilder) stdRankedCompare(t *ast.Binary, op ir.CompareOp, lhs,
 }
 
 // stdEquality lowers `a == b` over a std named type through std's own
-// `impl Equatable`: a call to its retained `equal?` body or approved host.
+// `impl Equatable`: a call to its retained `equal` body or approved host.
 // `!=` does not take this route.
 func (bl *irScalarBuilder) stdEquality(t *ast.Binary, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
 	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface["Equatable"][k] != nil || bl.g.irStructEqualityKind(k) {
 		return ir.NoTemp, false
 	}
-	f := bl.g.stdlibImplOf("Equatable.equal?", k, k, k)
+	f := bl.g.stdlibImplOf("Equatable.equal", k, k, k)
 	if f == nil || f.result != kindBool {
 		return ir.NoTemp, false
 	}
-	// Inside that `equal?` itself (`impl Equatable for Byte { fn equal?(a, b)
+	// Inside that `equal` itself (`impl Equatable for Byte { fn equal(a, b)
 	// { a == b } }`) the operator is the primitive comparison the impl is
 	// defined by, and routing it back to the impl recurses forever.
 	if f.decl != nil && bl.f.Sym() == bl.g.irCalleeSym(f.decl, f.decl.Name) {

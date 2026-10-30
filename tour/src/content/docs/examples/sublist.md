@@ -26,9 +26,9 @@ pub enum Relation {
 pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatable {
     if first == second {
         .Equal
-    } else if contains_run?(second, first) {
+    } else if contains_run(second, first) {
         .Sublist
-    } else if contains_run?(first, second) {
+    } else if contains_run(first, second) {
         .Superlist
     } else {
         .Unequal
@@ -37,15 +37,12 @@ pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatabl
 
 /// Whether `run` appears in `list` with its elements next to each other.
 /// Every list holds the empty run; `Iter.windows` of size 0 yields nothing.
-fn contains_run?<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable {
-    Iter.empty?(run) or Iter.windows(list, Iter.count(run)) |> Iter.any?(&(&1 == run))
+fn contains_run<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable {
+    Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any(&(&1 == run))
 }
 
 // FILE: sublist_test.nomi
-import {
-    sublist
-    sublist.Relation
-}
+import sublist.{self, Relation}
 
 test "sublist" {
     cases = [
@@ -80,5 +77,5 @@ test "sublist" {
 - The answer is a `Relation` enum of the four outcomes, not a string.
 - `sublist` is generic over any `Equatable` element, though the canonical cases are all `Int`s.
 - The three checks are an `if` / `else if` chain in the order the outcomes are tested: equal first, since equal lists also contain each other.
-- `contains_run?` asks whether any of the longer list's `Iter.windows` of the run's length equals the run, after answering the empty run itself, since a window of size 0 does not exist. The other way is to walk the longer list with a list pattern and ask `List.starts_with?(rest, run)` at each position, which needs no lengths.
+- `contains_run` asks whether any of the longer list's `Iter.windows` of the run's length equals the run, after answering the empty run itself, since a window of size 0 does not exist. The other way is to walk the longer list with a list pattern and ask `List.starts_with(rest, run)` at each position, which needs no lengths.
 - The 18 canonical cases are one `subtests` table. The first row's `[]` and `[]` take their element type from the later rows.

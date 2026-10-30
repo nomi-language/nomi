@@ -120,7 +120,7 @@ func TestShape_EveryConditionCatchesItsPlant(t *testing.T) {
 			lhs := mk(f, b)
 			rhs, d := f.NewTemp(), f.NewTemp()
 			b.Append(NewInt(p, rhs, 1))
-			b.Append(NewArith(p, d, OpAdd, IntArith(OverflowFaults), lhs, rhs))
+			b.Append(NewArith(p, d, OpAdd, IntArith(OverflowExact), lhs, rhs))
 			b.SetTerm(NewReturn(p, d))
 			return f
 		}}, anInt,
@@ -290,7 +290,7 @@ func TestShape_TheRuleIsSilentWhereTheGraphDoesNotSay(t *testing.T) {
 	fv, sum, one := proj.NewTemp(), proj.NewTemp(), proj.NewTemp()
 	b.Append(NewProjField(p, fv, sp, NewSymbol("x"), "x", ValUnknown))
 	b.Append(NewInt(p, one, 1))
-	b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowFaults), fv, one))
+	b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowExact), fv, one))
 	b.SetTerm(NewReturn(p, sum))
 	if vs := shapeViolations(t, proj); len(vs) != 0 {
 		t.Fatalf("the rule fired on a Proj result, whose type the node does not carry: %v", vs)
@@ -338,7 +338,7 @@ func TestShape_ARecordedParameterShapeIsReadAtEveryPosition(t *testing.T) {
 			func(f *Func, b *Block, src Temp) Temp {
 				one, sum := f.NewTemp(), f.NewTemp()
 				b.Append(NewInt(p, one, 1))
-				b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowFaults), src, one))
+				b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowExact), src, one))
 				return sum
 			},
 			"the left operand of this Int operation is String, not Int"},
@@ -468,7 +468,7 @@ func TestShape_AWriterDisagreeingWithTheDeclarationIsNotReported(t *testing.T) {
 	b.Append(NewString(p, s, "9"))
 	b.Append(NewCopy(p, pt, s))
 	b.Append(NewInt(p, one, 1))
-	b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowFaults), pt, one))
+	b.Append(NewArith(p, sum, OpAdd, IntArith(OverflowExact), pt, one))
 	b.SetTerm(NewReturn(p, sum))
 	if vs := shapeViolations(t, f); len(vs) != 0 {
 		t.Fatalf("a writer disagreeing with the declaration was reported, so the "+
@@ -485,7 +485,7 @@ func TestShape_AWriterDisagreeingWithTheDeclarationIsNotReported(t *testing.T) {
 	gb.Append(NewInt(p, gi, 7))
 	gb.Append(NewCopy(p, gt, gi))
 	gb.Append(NewInt(p, gone, 1))
-	gb.Append(NewArith(p, gsum, OpAdd, IntArith(OverflowFaults), gt, gone))
+	gb.Append(NewArith(p, gsum, OpAdd, IntArith(OverflowExact), gt, gone))
 	gb.SetTerm(NewReturn(p, gsum))
 	if got := shapeOfTemp(g, gt, 0); got != ValInt {
 		t.Fatalf("an agreeing writer derived %s, not Int, so the control does not "+
@@ -528,7 +528,7 @@ func TestShape_TwoArmsWritingTwoShapesAreNotReported(t *testing.T) {
 	d := f.NewTemp()
 	one := f.NewTemp()
 	join.Append(NewInt(p, one, 1))
-	join.Append(NewArith(p, d, OpAdd, IntArith(OverflowFaults), res, one))
+	join.Append(NewArith(p, d, OpAdd, IntArith(OverflowExact), res, one))
 	join.SetTerm(NewReturn(p, d))
 
 	if got := shapeOfTemp(f, res, 0); got != ValUnknown {

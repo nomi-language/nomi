@@ -83,7 +83,7 @@ func codes(s string) (string, error) {
 
 // Generate renders casing_tables.go from the files in dir.
 func Generate(dir string) ([]byte, error) {
-	lower, upper := map[rune]string{}, map[rune]string{}
+	lower, title, upper := map[rune]string{}, map[rune]string{}, map[rune]string{}
 	seen := map[string]bool{}
 	err := fields(filepath.Join(dir, "SpecialCasing.txt"), func(f []string, line string) error {
 		if len(f) < 4 {
@@ -103,12 +103,16 @@ func Generate(dir string) ([]byte, error) {
 		}
 		cp := []rune(r)[0]
 		lo, err1 := codes(f[1])
+		ti, err3 := codes(f[2])
 		up, err2 := codes(f[3])
-		if err1 != nil || err2 != nil {
+		if err1 != nil || err2 != nil || err3 != nil {
 			return fmt.Errorf("SpecialCasing.txt: bad line %q", line)
 		}
 		if lo != string(unicode.ToLower(cp)) {
 			lower[cp] = lo
+		}
+		if ti != string(unicode.ToTitle(cp)) {
+			title[cp] = ti
 		}
 		if up != string(unicode.ToUpper(cp)) {
 			upper[cp] = up
@@ -170,6 +174,7 @@ func Generate(dir string) ([]byte, error) {
 		b.WriteString("}\n\n")
 	}
 	table("fullLower", "fullLower is each code point whose full lowercase mapping is not Go's simple one.", lower)
+	table("fullTitle", "fullTitle is each code point whose full titlecase mapping is not Go's simple one.", title)
 	table("fullUpper", "fullUpper is each code point whose full uppercase mapping is not Go's simple one.", upper)
 	table("fullFold", "fullFold is each code point whose full case folding (C and F) is not Go's simple lowercase mapping.", folds)
 	return format.Source(b.Bytes())

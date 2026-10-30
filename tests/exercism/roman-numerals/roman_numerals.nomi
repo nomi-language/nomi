@@ -1,3 +1,5 @@
+//# Writes numbers as Roman numerals.
+
 once numerals = [
     #(1000, "M"),
     #(900, "CM"),

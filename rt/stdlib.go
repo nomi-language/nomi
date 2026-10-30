@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"math/bits"
 	"strings"
+	"unicode"
 )
 
 // The Go side of `std`'s host externs — the 45% of the standard library that is
@@ -19,7 +19,7 @@ import (
 // TestRuntimeArtifactLinksNoFrontEnd and
 // TestRuntimeImportsOnlyItsAllowlist), so anything that runs a program
 // can reach these. One implementation per function: a fixture covers the
-// inputs it names, and `String.contains?` has as many as there are pairs of
+// inputs it names, and `String.contains` has as many as there are pairs of
 // strings.
 //
 // # The trap texts are fixed, not invented
@@ -44,14 +44,14 @@ import (
 // and the other search functions call them through a `where M: Matcher`
 // bound.
 
-// StringContainedIn is String's `Matcher.contained_in?`: byte substring
+// StringContainedIn is String's `Matcher.is_contained_in`: byte substring
 // containment.
 func StringContainedIn(needle, s string) bool { return strings.Contains(s, needle) }
 
-// StringPrefixOf is String's `Matcher.prefix_of?`.
+// StringPrefixOf is String's `Matcher.is_prefix_of`.
 func StringPrefixOf(prefix, s string) bool { return strings.HasPrefix(s, prefix) }
 
-// StringSuffixOf is String's `Matcher.suffix_of?`.
+// StringSuffixOf is String's `Matcher.is_suffix_of`.
 func StringSuffixOf(suffix, s string) bool { return strings.HasSuffix(s, suffix) }
 
 // StringFindAllIn is String's `Matcher.find_all_in`: one copy of needle per
@@ -66,11 +66,33 @@ func StringFindAllIn(needle, s string) *List[string] {
 	return out
 }
 
-// StringToUpper is `String.to_upper`: Unicode-aware, locale-independent.
-func StringToUpper(s string) string { return strings.ToUpper(s) }
+// StringUppercase is `String.uppercase`: Unicode-aware, locale-independent.
+func StringUppercase(s string) string { return strings.ToUpper(s) }
 
-// StringToLower is `String.to_lower`.
-func StringToLower(s string) string { return strings.ToLower(s) }
+// StringLowercase is `String.lowercase`.
+func StringLowercase(s string) string { return strings.ToLower(s) }
+
+// StringIsUpper is `String.is_upper`, Python's str.isupper: s has a cased
+// character, and every cased character is upper case. A cased character is
+// one unicode.IsUpper, IsLower or IsTitle accepts, so a title-case letter
+// such as `ǅ` makes s neither upper nor lower case.
+func StringIsUpper(s string) bool { return stringInCase(s, unicode.IsUpper) }
+
+// StringIsLower is `String.is_lower`, the mirror of StringIsUpper.
+func StringIsLower(s string) bool { return stringInCase(s, unicode.IsLower) }
+
+func stringInCase(s string, in func(rune) bool) bool {
+	cased := false
+	for _, r := range s {
+		switch {
+		case in(r):
+			cased = true
+		case unicode.IsUpper(r) || unicode.IsLower(r) || unicode.IsTitle(r):
+			return false
+		}
+	}
+	return cased
+}
 
 // StringReplaceIn is String's `Matcher.replace_in`: every non-overlapping
 // occurrence.
@@ -157,176 +179,258 @@ func StringHash(s string) int64 {
 
 // --- std/int ---------------------------------------------------------------
 
-// IntToFloat is `Int.to_float`. Total: every int64 maps to a float64, with
-// precision loss possible above 2^53.
-func IntToFloat(x int64) float64 { return float64(x) }
+// IntToString is `Int.to_string`: base 10, at any size.
+func IntToString(n Int) string { return n.String() }
+
+// IntToFloat is `Int.to_float`. Total: the Float nearest n, ties to even,
+// and an infinity past Float's range. Precision loss is possible above 2^53.
+func IntToFloat(n Int) float64 {
+	if x, ok := n.Int64(); ok {
+		return float64(x)
+	}
+	f, _ := new(big.Float).SetInt(n.Big()).Float64()
+	return f
+}
+
+// IntWrapAdd is `Int.wrapping_add`: a + b modulo 2^64, as an int64.
+func IntWrapAdd(a, b Int) int64 { return Wrap64(a.Value()) + Wrap64(b.Value()) }
+
+// IntWrapSub is `Int.wrapping_sub`: a - b modulo 2^64, as an int64.
+func IntWrapSub(a, b Int) int64 { return Wrap64(a.Value()) - Wrap64(b.Value()) }
+
+// IntWrapMul is `Int.wrapping_mul`: a * b modulo 2^64, as an int64.
+func IntWrapMul(a, b Int) int64 { return Wrap64(a.Value()) * Wrap64(b.Value()) }
+
+// The bitwise functions read an Int as two's complement with as many bits as
+// it needs, a negative one with infinitely many leading ones, as math/big's
+// And, Or, Xor and Not do. So the answers agree with int64's for every pair
+// of int64 operands.
 
 // IntBitAnd is `Int.bitwise_and`.
-func IntBitAnd(a, b int64) int64 { return a & b }
+func IntBitAnd(a, b Int) Int {
+	if x, ok := a.Int64(); ok {
+		if y, ok := b.Int64(); ok {
+			return SmallInt(x & y)
+		}
+	}
+	return Int{intOwned(new(big.Int).And(a.Big(), b.Big()))}
+}
 
 // IntBitOr is `Int.bitwise_or`.
-func IntBitOr(a, b int64) int64 { return a | b }
+func IntBitOr(a, b Int) Int {
+	if x, ok := a.Int64(); ok {
+		if y, ok := b.Int64(); ok {
+			return SmallInt(x | y)
+		}
+	}
+	return Int{intOwned(new(big.Int).Or(a.Big(), b.Big()))}
+}
 
 // IntBitXor is `Int.bitwise_xor`.
-func IntBitXor(a, b int64) int64 { return a ^ b }
-
-// IntBitNot is `Int.bitwise_not`: one's complement.
-func IntBitNot(a int64) int64 { return ^a }
-
-// IntShiftLeft is `Int.shift_left`. A negative count faults; a count >= 64
-// shifts every bit out to 0, which is Go's own rule and the one std/int
-// documents.
-func IntShiftLeft(a, n int64) int64 {
-	if n < 0 {
-		Trap(negativeShiftText("shift_left", n))
-		return 0
+func IntBitXor(a, b Int) Int {
+	if x, ok := a.Int64(); ok {
+		if y, ok := b.Int64(); ok {
+			return SmallInt(x ^ y)
+		}
 	}
-	return a << uint64(n)
+	return Int{intOwned(new(big.Int).Xor(a.Big(), b.Big()))}
 }
 
-// IntShiftRight is `Int.shift_right`: arithmetic (sign-extending).
-func IntShiftRight(a, n int64) int64 {
-	if n < 0 {
-		Trap(negativeShiftText("shift_right", n))
-		return 0
+// IntBitNot is `Int.bitwise_not`: one's complement, -a - 1.
+func IntBitNot(a Int) Int {
+	if x, ok := a.Int64(); ok {
+		return SmallInt(^x)
 	}
-	return a >> uint64(n)
+	return Int{intOwned(new(big.Int).Not(a.Big()))}
 }
 
-func negativeShiftText(op string, n int64) string {
-	return fmt.Sprintf("Int.%s: negative shift count %d", op, n)
+// IntShiftLeft is `Int.shift_left`: a * 2^n, exact. A negative count faults.
+func IntShiftLeft(a, n Int) Int {
+	count := shiftCount("shift_left", n)
+	if a.Sign() == 0 {
+		return a
+	}
+	if x, ok := a.Int64(); ok && count < 63 {
+		if s := x << count; s>>count == x && uint64(s) != BigWord {
+			return SmallInt(s)
+		}
+	}
+	return Int{intOwned(new(big.Int).Lsh(a.Big(), uint(count)))}
 }
 
-// IntPow is `Int.pow`: n multiplied by itself exp times, by squaring. A
-// negative exponent traps, since its answer is a fraction, and a power past
-// Int's range traps as `*` does.
-func IntPow(n, exp int64) int64 {
-	if exp < 0 {
-		Trap(fmt.Sprintf("Int.pow: negative exponent %d: the power is a fraction, which Float.pow gives", exp))
-		return 0
+// IntShiftRight is `Int.shift_right`: a / 2^n rounded toward negative
+// infinity, an arithmetic shift. A negative count faults.
+func IntShiftRight(a, n Int) Int {
+	count := shiftCount("shift_right", n)
+	if x, ok := a.Int64(); ok {
+		if count > 63 {
+			count = 63
+		}
+		return SmallInt(x >> count)
 	}
+	return Int{intOwned(new(big.Int).Rsh(a.Big(), uint(count)))}
+}
+
+// shiftCount is a shift's count, which must be non-negative. A count past
+// int64's range shifts every bit of any Int that fits in memory, so it reads
+// as the largest count, which shift_right answers for and shift_left refuses.
+func shiftCount(op string, n Int) int64 {
+	if n.Sign() < 0 {
+		Trap(fmt.Sprintf("Int.%s: negative shift count %s", op, n))
+	}
+	count := n.Saturated()
+	if op == "shift_left" && count > maxShift {
+		Trap(fmt.Sprintf("Int.%s: shift count %s is too large: the result would have more than %d bits", op, n, maxShift))
+	}
+	return count
+}
+
+// maxShift bounds Int.shift_left's count and Int.pow's result: an Int of more
+// bits than this does not fit in memory a program can have, so a request for
+// one faults with a reason rather than running out of memory.
+const maxShift = 1 << 34
+
+// IntPow is `Int.pow`: n multiplied by itself exp times, exact. A negative
+// exponent traps, since its answer is a fraction.
+func IntPow(n, exp Int) Int {
+	if exp.Sign() < 0 {
+		Trap(fmt.Sprintf("Int.pow: negative exponent %s: the power is a fraction, which Float.pow gives", exp))
+	}
+	if x, ok := n.Int64(); ok {
+		switch x {
+		case 0, 1:
+			if exp.Sign() == 0 {
+				return SmallInt(1)
+			}
+			return n
+		case -1:
+			if e, ok := exp.Int64(); ok && e%2 == 0 {
+				return SmallInt(1)
+			} else if !ok && exp.Big().Bit(0) == 0 {
+				return SmallInt(1)
+			}
+			return n
+		}
+		if e, ok := exp.Int64(); ok {
+			if p, ok := powSmall(x, e); ok {
+				return SmallInt(p)
+			}
+		}
+	}
+	e, fits := exp.Int64()
+	if !fits || e > maxShift/int64(n.Big().BitLen()-1) {
+		Trap(fmt.Sprintf("Int.pow: exponent %s is too large: the power would have more than %d bits", exp, maxShift))
+	}
+	return Int{intOwned(new(big.Int).Exp(n.Big(), big.NewInt(e), nil))}
+}
+
+// powSmall is n^exp by squaring when it fits int64 and is not BigWord's
+// value; ok is false otherwise.
+func powSmall(n, exp int64) (int64, bool) {
 	result, base, e := int64(1), n, exp
 	for e > 0 {
 		if e&1 == 1 {
 			if MulOverflows(result, base) {
-				Trap(intOverflowText("pow", n, exp))
+				return 0, false
 			}
 			result *= base
 		}
 		e >>= 1
-		// The base is squared only while a higher bit remains, and every
-		// power that needs the square is at least the square in magnitude,
-		// so an overflowing square is an overflowing power.
 		if e > 0 {
 			if MulOverflows(base, base) {
-				Trap(intOverflowText("pow", n, exp))
+				return 0, false
 			}
 			base *= base
 		}
 	}
-	return result
-}
-
-func intOverflowText(fn string, a, b int64) string {
-	return fmt.Sprintf("integer overflow: Int.%s(%d, %d)", fn, a, b)
+	return result, uint64(result) != BigWord
 }
 
 // IntSqrt is `Int.sqrt`: the greatest r with r*r <= n. A negative n traps.
-// The float square root is within one of the answer, and the corrections
-// compare in uint64, where the square of every candidate fits.
-func IntSqrt(n int64) int64 {
-	if n < 0 {
-		Trap(fmt.Sprintf("Int.sqrt: negative number %d", n))
-		return 0
+// The float square root is within one of the answer for an int64, and the
+// corrections compare in uint64, where the square of every candidate fits.
+func IntSqrt(n Int) Int {
+	if n.Sign() < 0 {
+		Trap(fmt.Sprintf("Int.sqrt: negative number %s", n))
 	}
-	r, u := uint64(math.Sqrt(float64(n))), uint64(n)
-	for r*r > u {
-		r--
+	if x, ok := n.Int64(); ok {
+		r, u := uint64(math.Sqrt(float64(x))), uint64(x)
+		for r*r > u {
+			r--
+		}
+		for (r+1)*(r+1) <= u {
+			r++
+		}
+		return SmallInt(int64(r))
 	}
-	for (r+1)*(r+1) <= u {
-		r++
-	}
-	return int64(r)
-}
-
-// magnitude is |n| as a uint64, which holds |Int.min_value|.
-func magnitude(n int64) uint64 {
-	if n < 0 {
-		return uint64(-(n + 1)) + 1
-	}
-	return uint64(n)
-}
-
-func gcdMagnitude(a, b uint64) uint64 {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
+	return Int{intOwned(new(big.Int).Sqrt(n.Big()))}
 }
 
 // IntGcd is `Int.gcd`: the greatest common divisor of |a| and |b|, never
-// negative, and 0 for gcd(0, 0). It traps only when the answer is 2^63, one
-// past Int's range: gcd(Int.min_value, 0) and gcd(Int.min_value,
-// Int.min_value).
-func IntGcd(a, b int64) int64 {
-	g := gcdMagnitude(magnitude(a), magnitude(b))
-	if g > math.MaxInt64 {
-		Trap(intOverflowText("gcd", a, b))
-	}
-	return int64(g)
+// negative, and 0 for gcd(0, 0).
+func IntGcd(a, b Int) Int {
+	x, y := new(big.Int).Abs(a.Big()), new(big.Int).Abs(b.Big())
+	return Int{intOwned(new(big.Int).GCD(nil, nil, x, y))}
 }
 
 // IntLcm is `Int.lcm`: the least common multiple of |a| and |b|, never
-// negative, and 0 when either is 0. A multiple past Int's range traps.
-func IntLcm(a, b int64) int64 {
-	if a == 0 || b == 0 {
-		return 0
+// negative, and 0 when either is 0.
+func IntLcm(a, b Int) Int {
+	if a.Sign() == 0 || b.Sign() == 0 {
+		return SmallInt(0)
 	}
-	ua, ub := magnitude(a), magnitude(b)
-	hi, lo := bits.Mul64(ua/gcdMagnitude(ua, ub), ub)
-	if hi != 0 || lo > math.MaxInt64 {
-		Trap(intOverflowText("lcm", a, b))
-	}
-	return int64(lo)
+	x, y := new(big.Int).Abs(a.Big()), new(big.Int).Abs(b.Big())
+	g := new(big.Int).GCD(nil, nil, x, y)
+	return Int{intOwned(x.Mul(x.Quo(x, g), y))}
 }
 
 // IntToDigits is `Int.to_digits`: n's digits in base, most significant
 // first, and [0] for 0. A base below 2 and a negative n trap.
-func IntToDigits(n, base int64) *List[int64] {
-	if base < 2 {
-		Trap(fmt.Sprintf("Int.to_digits: base %d is less than 2", base))
+func IntToDigits(n, base Int) *List[Int] {
+	if IntCompare(base.Value(), int64(2)) < 0 {
+		Trap(fmt.Sprintf("Int.to_digits: base %s is less than 2", base))
 	}
-	if n < 0 {
-		Trap(fmt.Sprintf("Int.to_digits: negative number %d", n))
+	if n.Sign() < 0 {
+		Trap(fmt.Sprintf("Int.to_digits: negative number %s", n))
 	}
-	if n == 0 {
-		return Cons[int64](0, nil)
+	if n.Sign() == 0 {
+		return Cons(SmallInt(0), nil)
 	}
-	var out *List[int64]
-	for n > 0 {
-		out = Cons(n%base, out)
-		n /= base
+	if x, ok := n.Int64(); ok {
+		if b, ok := base.Int64(); ok {
+			var out *List[Int]
+			for x > 0 {
+				out = Cons(SmallInt(x%b), out)
+				x /= b
+			}
+			return out
+		}
+	}
+	var out *List[Int]
+	x, b, d := n.Big(), base.Big(), new(big.Int)
+	for x.Sign() > 0 {
+		x.QuoRem(x, b, d)
+		out = Cons(BigIntOf(d), out)
 	}
 	return out
 }
 
 // IntFromDigits is `Int.from_digits`: the Int whose digits in base, most
 // significant first, are digits; Some(0) for none. None when a digit is
-// outside 0 to base - 1 or the number is past Int's range. A base below 2
-// traps.
-func IntFromDigits(digits *List[int64], base int64) Maybe[int64] {
-	if base < 2 {
-		Trap(fmt.Sprintf("Int.from_digits: base %d is less than 2", base))
+// outside 0 to base - 1. A base below 2 traps.
+func IntFromDigits(digits *List[Int], base Int) Maybe[Int] {
+	if IntCompare(base.Value(), int64(2)) < 0 {
+		Trap(fmt.Sprintf("Int.from_digits: base %s is less than 2", base))
 	}
-	var n int64
+	n := Value(int64(0))
 	for cur := digits; cur != nil; cur = cur.Tail {
-		d := cur.Head
-		if d < 0 || d >= base || MulOverflows(n, base) || AddOverflows(n*base, d) {
-			return None[int64]()
+		d := cur.Head.Value()
+		if IntSign(d) < 0 || IntCompare(d, base.Value()) >= 0 {
+			return None[Int]()
 		}
-		n = n*base + d
+		n = IntAdd(IntMul(n, base.Value()), d)
 	}
-	return Some(n)
+	return Some(IntOf(n))
 }
 
 // --- std/float -------------------------------------------------------------
@@ -340,7 +444,7 @@ func FloatPositiveInfinity() float64 { return math.Inf(1) }
 // FloatNegativeInfinity is `Float.negative_infinity`.
 func FloatNegativeInfinity() float64 { return math.Inf(-1) }
 
-// FloatIsNaN is `Float.nan?`.
+// FloatIsNaN is `Float.is_nan`.
 func FloatIsNaN(x float64) bool { return math.IsNaN(x) }
 
 // FloatRound is `Float.round`, and it is round-half-to-even, not Go's
@@ -425,11 +529,11 @@ func FloatTan(x float64) float64 { return math.Tan(x) }
 func FloatAtan2(y, x float64) float64 { return math.Atan2(y, x) }
 
 // FloatRequireTolerance is std/float's private `require_tolerance`, the check
-// `Float.equal_within?` makes of its tolerance before it compares: a negative
+// `Float.equal_within` makes of its tolerance before it compares: a negative
 // or NaN tolerance is a value the caller chose, so it traps, naming it.
 func FloatRequireTolerance(tolerance float64) Unit {
 	if math.IsNaN(tolerance) || tolerance < 0 {
-		Trap("Float.equal_within?: tolerance must not be negative or NaN, got " + FormatFloat(tolerance))
+		Trap("Float.equal_within: tolerance must not be negative or NaN, got " + FormatFloat(tolerance))
 	}
 	return Unit{}
 }

@@ -334,7 +334,7 @@ func (e *environment) Money(amount, currency, display string) string {
 		digits = n
 	}
 	shown := map[string]int{"symbol": 0, "narrowSymbol": 1, "code": 2, "name": 3}[display]
-	return stdformat.Money(e.d, e.locale, amount, code, digits, !custom, shown)
+	return stdformat.Money(e.d, e.locale, amount, code, digits, !custom, shown, false)
 }
 
 // Date writes a calendar value, given as its ISO 8601 text, as std/calendar's

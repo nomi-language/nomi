@@ -4,7 +4,7 @@ import {
     std/calendar.{Date, DateFields}
     std/currency.Currency
     std/locale.Locale
-    std/money.Money
+    std/money.{CurrencySign, Money}
 }
 
 /// One line of the ledger: when, what for, and the change in cents, negative
@@ -26,6 +26,15 @@ impl Style {
         case style {
             .American -> Locale`en-US`
             .Dutch -> Locale`nl-NL`
+        }
+    }
+
+    /// How the style writes a negative amount: American style as an
+    /// accountant does, in parentheses.
+    fn sign(style: Style) -> CurrencySign {
+        case style {
+            .American -> CurrencySign.Accounting
+            .Dutch -> CurrencySign.Standard
         }
     }
 
@@ -77,24 +86,16 @@ fn truncate(description: String) -> String {
     }
 }
 
-/// An amount as the style writes it. American style puts a negative amount
-/// in parentheses; both styles end any other amount with a space, so the
-/// digits line up with the parenthesized ones.
+/// An amount as the style writes it. An amount not in parentheses ends with
+/// a space, so the digits line up with the parenthesized ones.
 fn format_change(change: Money, style: Style) -> String {
-    locale = Style.locale(style)
+    amount =
+        Money.format(change, Style.locale(style), display: .Narrow, sign: Style.sign(style))
+        |> String.replace("\u{a0}", " ")
 
-    case style {
-        .American when Money.sign(change) < 0 -> {
-            amount = Money.format(Money.abs(change), locale, display: .Narrow)
-            "(${amount})"
-        }
-
-        _ -> {
-            amount =
-                Money.format(change, locale, display: .Narrow)
-                |> String.replace("\u{a0}", " ")
-
-            "${amount} "
-        }
+    if String.ends_with(amount, ")") {
+        amount
+    } else {
+        "${amount} "
     }
 }

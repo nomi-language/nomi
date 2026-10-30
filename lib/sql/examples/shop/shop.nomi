@@ -10,7 +10,7 @@ import {
 /// the order fails, the user is not registered either.
 pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<Int, Error> {
     sql.transaction(conn, fn tx -> {
-        user_id = try queries.insert_user(tx, email, None)
+        user_id = queries.insert_user(tx, email, None)?
         queries.insert_order(tx, user_id, total)
     })
 }
@@ -18,8 +18,8 @@ pub fn sign_up_with_order(conn: Conn, email: String, total: Decimal) -> Result<I
 /// Place an order and mark it paid, in one transaction.
 pub fn place_paid_order(conn: Conn, user_id: Int, total: Decimal) -> Result<Int, Error> {
     sql.transaction(conn, fn tx -> {
-        order_id = try queries.insert_order(tx, user_id, total)
-        _ = try queries.set_status(tx, order_id, .Paid)
+        order_id = queries.insert_order(tx, user_id, total)?
+        _ = queries.set_status(tx, order_id, .Paid)?
         Ok(order_id)
     })
 }

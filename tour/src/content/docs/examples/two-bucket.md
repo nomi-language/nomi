@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: two_bucket.nomi
+//# Measures an amount of water with two buckets of given sizes.
+
 /// One of the two buckets.
 pub enum Bucket {
     One
@@ -64,10 +66,10 @@ fn search(
             next =
                 frontier
                 |> Iter.flat_map(&actions(&1, sizes))
-                |> Iter.filter(fn state -> !Set.contains?(seen, state))
+                |> Iter.filter(fn state -> !Set.contains(seen, state))
                 |> Iter.to_set()
 
-            if Set.size(next) == 0 {
+            if Iter.is_empty(next) {
                 Err(.Impossible)
             } else {
                 search(Iter.to_list(next), Set.union(seen, next), moves + 1, sizes, goal)

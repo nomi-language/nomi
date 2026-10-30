@@ -15,7 +15,7 @@ func TestPipeTapStage_AnswersThePipedValue(t *testing.T) {
 		"dbg tail":        "fn f() -> Int {\n    3\n    |> tap fn n -> dbg n * 2\n}\n",
 		"piped dbg tail":  "fn f() -> Int {\n    3\n    |> tap fn n -> { n |> Int.to_string() |> dbg }\n}\n",
 		"todo body":       "fn f() -> Int {\n    3\n    |> tap fn _ -> todo\n}\n",
-		"after try stage": "import std/io\n\nfn f(r: Result<Int, String>) -> Result<Int, String> {\n    x =\n        r\n        |> try\n        |> tap fn n -> io.print(Int.to_string(n))\n\n    Ok(x)\n}\n",
+		"after a ? stage": "import std/io\n\nfn f(r: Result<Int, String>) -> Result<Int, String> {\n    x =\n        r\n        |> Result.map_err(fn e -> e)?\n        |> tap fn n -> io.print(Int.to_string(n))\n\n    Ok(x)\n}\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(src)

@@ -1,3 +1,5 @@
+//# The fewest coins that make a given amount of change.
+
 /// Why no change can be given.
 pub enum Error {
     NegativeTarget
@@ -15,7 +17,7 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
             Vector.push(table, best(table, coins, amount))
         })
 
-    Vector.at(fewest, target)
+    Vector.get(fewest, target)!
     |> Maybe.map(Iter.sort)
     |> Maybe.to_result(Error.CannotMakeTarget)
 }
@@ -25,7 +27,9 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
 fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>> {
     coins
     |> Iter.filter(&(&1 <= amount))
-    |> Iter.map(fn coin -> Vector.at(table, amount - coin) |> Maybe.map(fn rest -> [coin, ..rest]))
+    |> Iter.map(fn coin -> {
+        Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
+    })
     |> Maybe.values()
     |> Iter.min_by(Iter.count)
 }

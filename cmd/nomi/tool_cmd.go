@@ -15,8 +15,9 @@ const toolUsage = `usage: nomi tool <module> <name> [args...]
 tool runs the tool <name> of the module <module>: the program
 tools/<name>.nomi at the module's root, with the arguments after its name.
 <module> is the current module's name or a module its go.mod requires. A
-tool runs with every effect a program has, in the current directory: it is
-how a module ships a code generator, such as sqlkit's
+tool runs in the current directory, with the same access to files, the
+network and output that nomi run gives a program. It is how a module ships
+a code generator, such as sqlkit's
 ` + "`nomi tool sqlkit generate`" + `.`
 
 // toolPath is the file of the tool name of the module named module, as

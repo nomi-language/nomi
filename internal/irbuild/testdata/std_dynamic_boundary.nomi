@@ -290,18 +290,18 @@ fn main() -> Unit {
 
     // --- predicates, which never fail ---------------------------------------
     case Dynamic.field(root, "nothing") {
-        Ok(d) -> io.print("null? on null: ${Dynamic.null?(d)}")
-        Err(_) -> io.print("null?: no field")
+        Ok(d) -> io.print("is_null on null: ${Dynamic.is_null(d)}")
+        Err(_) -> io.print("is_null: no field")
     }
 
-    io.print("null? on Int: ${Dynamic.null?(Json.to_dynamic(Json.Int(0)))}")
+    io.print("is_null on Int: ${Dynamic.is_null(Json.to_dynamic(Json.Int(0)))}")
     // The key is bound rather than spelled inside the interpolation: an escaped
     // quote is not legal inside `${...}`, which the parser says as
     // `unexpected token ILLEGAL`.
     present = "name"
     absent = "nope"
-    io.print("has? present: ${Dynamic.has?(root, present)}")
-    io.print("has? absent: ${Dynamic.has?(root, absent)}")
+    io.print("has present: ${Dynamic.has(root, present)}")
+    io.print("has absent: ${Dynamic.has(root, absent)}")
     // False for a non-dict too, which is the deliberate conflation.
-    io.print("has? on Int: ${Dynamic.has?(Json.to_dynamic(Json.Int(0)), present)}")
+    io.print("has on Int: ${Dynamic.has(Json.to_dynamic(Json.Int(0)), present)}")
 }

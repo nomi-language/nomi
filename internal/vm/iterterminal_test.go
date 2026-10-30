@@ -17,7 +17,6 @@ func TestIterTerminal_RejectsWrongSource(t *testing.T) {
 		{ir.IterCount, ir.IterOverList, "not a list"},
 		{ir.IterCount, ir.IterOverSeq, "not a sequence"},
 		{ir.IterEmpty, ir.IterOverSeq, "not a sequence"},
-		{ir.IterNotEmpty, ir.IterOverSeq, "not a sequence"},
 	} {
 		f := ir.NewFunc(pos, "terminal")
 		src, dst := f.NewTemp(), f.NewTemp()

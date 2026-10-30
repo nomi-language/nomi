@@ -45,7 +45,9 @@ func exitOf(payload any) error {
 	for i := range rec.Desc.Fields {
 		switch rec.Desc.Fields[i].Name {
 		case "code":
-			code, _ = rec.Field(i).(int64)
+			if v := rec.Field(i); rt.IsInt(v) {
+				code = rt.IntSaturated(v)
+			}
 		case "message":
 			message, _ = rec.Field(i).(string)
 		}

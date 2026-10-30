@@ -46,11 +46,11 @@ pub fn exec(conn: Conn, sql: String, args: List<String>) -> Result<Unit, String>
 
 /// Runs a query and returns every row as a list of column values. A `NULL`
 /// column reads as `""`. Each `?` in `sql` takes the next value from `args`.
-//! conn = try open(":memory:")
+//! conn = open(":memory:")?
 //! defer close(conn)
-//! try exec(conn, "CREATE TABLE people (name TEXT, born INTEGER)", [])
-//! try exec(conn, "INSERT INTO people VALUES (?, ?)", ["Ada", "1815"])
-//! try exec(conn, "INSERT INTO people VALUES (?, ?)", ["Grace", "1906"])
+//! exec(conn, "CREATE TABLE people (name TEXT, born INTEGER)", [])?
+//! exec(conn, "INSERT INTO people VALUES (?, ?)", ["Ada", "1815"])?
+//! exec(conn, "INSERT INTO people VALUES (?, ?)", ["Grace", "1906"])?
 //! early = query_all(conn, "SELECT name FROM people WHERE born < ?", ["1900"])
 //! assert early == Ok([["Ada"]])
 //! assert query_all(conn, "SELECT count(*) FROM people", []) == Ok([["2"]])

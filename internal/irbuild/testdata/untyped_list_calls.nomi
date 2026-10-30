@@ -28,5 +28,5 @@ fn main() {
     io.print("mixed-r      ${List.concat(xs, [])}")
 
     io.print("discharged   ${m == None} ${mt == None} ${ys == []} ${ys}")
-    io.print("equal-both   ${List.equal?([], [])}")
+    io.print("equal-both   ${List.equal([], [])}")
 }

@@ -9,7 +9,7 @@ import (
 //
 // # The pinned text is the guard, and why an agreement check is not
 //
-// `List.equal?` and `==` share one lowering (collections.go's listEqual), which
+// `List.equal` and `==` share one lowering (collections.go's listEqual), which
 // is the right structure — it makes the two spellings unable to disagree — and
 // it also makes an AGREEMENT assertion between them blind to the failure that
 // matters most. Replacing `rt.ListEqual(a, b, eq)` with a pointer comparison
@@ -17,7 +17,7 @@ import (
 // they agree perfectly, on the wrong answer. A text pinned absolutely is what
 // catches that.
 //
-// The corpus sweep does not: every `List.equal?` site in
+// The corpus sweep does not: every `List.equal` site in
 // tests/ is in a file still refused for other reasons, so no corpus
 // program exercises this code at all. That is why the fixture is not optional.
 

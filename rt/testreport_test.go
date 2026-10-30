@@ -12,7 +12,7 @@ import (
 //
 // A nil *AssertionFailure boxed into an interface compares non-nil, so a plain
 // `error` return would let a passing case be reported as a failure with no
-// failure in it. Test.Fn returns TestFailure, an interface, because a `try`
+// failure in it. Test.Fn returns TestFailure, an interface, because a `?`
 // propagating inside a test body ends the case as an EarlyReturnFailure. The
 // nil-receiver Failure() method is what keeps a nil failure of either concrete
 // type reading as a pass.
@@ -57,26 +57,26 @@ func TestTypedNilTestFailureIsAPass(t *testing.T) {
 // early-return branch is unreachable from a lowered test body.
 //
 // The text is spelled out because it IS the contract: `nomi test` produces these
-// exact bytes for a `try` that propagates in a test body. The program-level
+// exact bytes for a `?` that propagates in a test body. The program-level
 // reference for this shape is internal/irbuild/testdata/try_in_test.nomi.
 func TestEarlyReturnFailureReachesTheReporter(t *testing.T) {
 	fr := NewFrame(context.Background())
 	body := func(*Frame) TestFailure {
-		return &EarlyReturnFailure{Line: 52, Expr: "try parse(-1)", Value: `Err("negative -1")`}
+		return &EarlyReturnFailure{Line: 52, Expr: "parse(-1)?", Value: `Err("negative -1")`}
 	}
-	_, _, err := runTest(fr, Test{Name: "try propagates", Fn: body})
+	_, _, err := runTest(fr, Test{Name: "propagates?", Fn: body})
 	if err == nil {
 		t.Fatal("an EarlyReturnFailure returned from a body did not reach the reporter")
 	}
 	var b bytes.Buffer
 	rep := NewTestReporter(&b)
-	rep.Result("try propagates", err, "", CaseCount{})
+	rep.Result("propagates?", err, "", CaseCount{})
 	if failed := rep.Summary(); !failed {
 		t.Fatal("the reporter did not count the failure")
 	}
-	want := "FAIL try propagates\n" +
+	want := "FAIL propagates?\n" +
 		"  line 52: test returned early\n" +
-		"    try parse(-1)\n" +
+		"    parse(-1)?\n" +
 		"    returned:\n" +
 		"      Err(\"negative -1\")\n" +
 		"test result: FAILED. 0 passed, 1 failed\n"

@@ -138,8 +138,8 @@ fn main() {
 }
 
 fn main() -> Result<Unit, io.Error> {
-  text = try fs.read_text("data.txt")
-  try fs.write_text("out/shout.txt", String.to_upper(text))
+  text = fs.read_text("data.txt")?
+  fs.write_text("out/shout.txt", String.uppercase(text))?
   io.print(text)
   Ok(Unit)
 }
@@ -252,10 +252,10 @@ func TestBuildWeb(t *testing.T) {
 		}
 		for _, want := range []string{
 			"export interface Game { word: string; guesses: string[] }",
-			`export type Outcome = "Won" | { Playing: { left: number } };`,
+			`export type Outcome = "Won" | { Playing: { left: number | bigint } };`,
 			`  call(name: "new_game", word: string): Promise<Game>;`,
 			`  call(name: "guess", game: Game, letter: string): Promise<Game>;`,
-			`  call(name: "divide", a: number, b: number): Promise<number>;`,
+			`  call(name: "divide", a: number | bigint, b: number | bigint): Promise<number | bigint>;`,
 			`  call(name: "nothing"): Promise<void>;`,
 			"export function load(url: string | URL, options?: NomiLoadOptions): Promise<NomiProgram>;",
 		} {

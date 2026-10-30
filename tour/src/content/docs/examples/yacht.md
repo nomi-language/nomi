@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: yacht.nomi
+//# Scores a throw of five dice in the dice game Yacht.
+
 /// The twelve ways to score a throw of five dice.
 pub enum Category {
     Ones
@@ -47,7 +49,8 @@ pub fn score(dice: List<Int>, category: Category) -> Int {
 
 /// The total of the dice showing `face`.
 fn face_total(dice: List<Int>, face: Int) -> Int {
-    face * (dice |> Iter.filter(&(&1 == face)) |> Iter.count())
+    count = dice |> Iter.filter(&(&1 == face)) |> Iter.count()
+    face * count
 }
 
 /// All the dice when three show one face and two another, or 0.

@@ -44,7 +44,7 @@ fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) ->
 //! assert types.of("") == None
 //
 pub fn of(declared: String) -> Maybe<Family> {
-    upper = declared |> String.to_upper() |> String.trim()
+    upper = declared |> String.uppercase() |> String.trim()
 
     name = case String.split(upper, "(") {
         [first, .._] -> String.trim(first)
@@ -119,10 +119,10 @@ pub fn scale(declared: String) -> Maybe<Int> {
 //! assert types.precision_and_scale("NUMERIC") == None
 //
 pub fn precision_and_scale(declared: String) -> Maybe<#(Int, Int)> {
-    upper = declared |> String.to_upper() |> String.trim()
+    upper = declared |> String.uppercase() |> String.trim()
 
     case String.split(upper, "(") {
-        [name, args] when Iter.contains?(["DECIMAL", "NUMERIC"], String.trim(name)) -> {
+        [name, args] when Iter.contains(["DECIMAL", "NUMERIC"], String.trim(name)) -> {
             numbers =
                 args
                 |> String.replace(")", "")
@@ -144,15 +144,15 @@ pub fn precision_and_scale(declared: String) -> Maybe<#(Int, Int)> {
 
 // SQLite's affinity rules, in its order.
 fn by_affinity(name: String) -> Maybe<Family> {
-    if String.contains?(name, "INT") {
+    if String.contains(name, "INT") {
         Some(family("int", "SqlInt", "Int", None))
-    } else if String.contains?(name, "CHAR")
-        or String.contains?(name, "CLOB")
-        or String.contains?(name, "TEXT") {
+    } else if String.contains(name, "CHAR")
+        or String.contains(name, "CLOB")
+        or String.contains(name, "TEXT") {
         Some(family("text", "SqlText", "String", None))
-    } else if String.contains?(name, "REAL")
-        or String.contains?(name, "FLOA")
-        or String.contains?(name, "DOUB") {
+    } else if String.contains(name, "REAL")
+        or String.contains(name, "FLOA")
+        or String.contains(name, "DOUB") {
         Some(family("float", "SqlFloat", "Float", None))
     } else {
         None

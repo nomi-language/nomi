@@ -1,12 +1,14 @@
+//# The difference between the square of the sum and the sum of the squares
+//# of the first `n` natural numbers.
+
 /// The square of the sum of the numbers from 1 to `n`.
 pub fn square_of_sum(n: Int) -> Int {
-    sum = Iter.sum(1..=n)
-    sum * sum
+    1..=n |> Iter.sum() |> Int.pow(2)
 }
 
 /// The sum of the squares of the numbers from 1 to `n`.
 pub fn sum_of_squares(n: Int) -> Int {
-    1..=n |> Iter.map(fn k -> k * k) |> Iter.sum()
+    1..=n |> Iter.map(&Int.pow(&1, 2)) |> Iter.sum()
 }
 
 /// How much the square of the sum exceeds the sum of the squares, for the

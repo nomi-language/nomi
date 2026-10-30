@@ -5,7 +5,7 @@ import {
 }
 
 test "dates parse and expose components" {
-    assert Ok(d) = Date"2026-05-04"
+    d = Date`2026-05-04`
 
     assert Date.year(d) == 2026
     assert Date.month(d) == 5
@@ -33,66 +33,66 @@ test "date parse failures preserve error shape" {
 }
 
 test "date day counts are signed" {
-    assert Ok(start) = Date"2026-01-01"
-    assert Ok(end) = Date"2026-12-31"
-    assert Ok(later) = Date"2026-05-10"
-    assert Ok(earlier) = Date"2026-05-01"
+    start = Date`2026-01-01`
+    end = Date`2026-12-31`
+    later = Date`2026-05-10`
+    earlier = Date`2026-05-01`
 
     assert Date.days_between(start, end) == 364
     assert Date.days_between(later, earlier) == -9
 }
 
 test "date day counts include leap days" {
-    assert Ok(leap_start) = Date"2024-01-01"
-    assert Ok(leap_end) = Date"2025-01-01"
+    leap_start = Date`2024-01-01`
+    leap_end = Date`2025-01-01`
 
     assert Date.days_between(leap_start, leap_end) == 366
 }
 
 test "date day and week shifts cross calendar boundaries" {
-    d1 = try Date"2026-05-04"
-    d2 = try Date"2026-05-29"
-    dec30 = try Date"2026-12-30"
+    d1 = Date`2026-05-04`
+    d2 = Date`2026-05-29`
+    dec30 = Date`2026-12-30`
 
-    assert d1 + Days(10) == try Date"2026-05-14"
-    assert d2 + Days(5) == try Date"2026-06-03"
-    assert d1 + Weeks(2) == try Date"2026-05-18"
-    assert d2 + Weeks(1) == try Date"2026-06-05"
-    assert dec30 + Days(5) == try Date"2027-01-04"
-    assert d1 - Days(3) == try Date"2026-05-01"
-    assert d1 - Weeks(1) == try Date"2026-04-27"
+    assert d1 + Days(10) == Date`2026-05-14`
+    assert d2 + Days(5) == Date`2026-06-03`
+    assert d1 + Weeks(2) == Date`2026-05-18`
+    assert d2 + Weeks(1) == Date`2026-06-05`
+    assert dec30 + Days(5) == Date`2027-01-04`
+    assert d1 - Days(3) == Date`2026-05-01`
+    assert d1 - Weeks(1) == Date`2026-04-27`
 }
 
 test "date month shifts clamp invalid month days" {
-    jan31_26 = try Date"2026-01-31"
-    jan31_24 = try Date"2024-01-31"
-    mar31 = try Date"2026-03-31"
-    mar15 = try Date"2026-03-15"
+    jan31_26 = Date`2026-01-31`
+    jan31_24 = Date`2024-01-31`
+    mar31 = Date`2026-03-31`
+    mar15 = Date`2026-03-15`
 
-    assert jan31_26 + Months(1) == try Date"2026-02-28"
-    assert jan31_24 + Months(1) == try Date"2024-02-29"
-    assert mar31 + Months(1) == try Date"2026-04-30"
-    assert mar15 + Months(-2) == try Date"2026-01-15"
-    assert jan31_26 - Months(1) == try Date"2025-12-31"
+    assert jan31_26 + Months(1) == Date`2026-02-28`
+    assert jan31_24 + Months(1) == Date`2024-02-29`
+    assert mar31 + Months(1) == Date`2026-04-30`
+    assert mar15 + Months(-2) == Date`2026-01-15`
+    assert jan31_26 - Months(1) == Date`2025-12-31`
 }
 
 test "date year shifts clamp leap days when needed" {
-    feb29 = try Date"2024-02-29"
+    feb29 = Date`2024-02-29`
 
-    assert feb29 + Years(1) == try Date"2025-02-28"
-    assert feb29 + Years(4) == try Date"2028-02-29"
-    assert feb29 - Years(1) == try Date"2023-02-28"
+    assert feb29 + Years(1) == Date`2025-02-28`
+    assert feb29 + Years(4) == Date`2028-02-29`
+    assert feb29 - Years(1) == Date`2023-02-28`
 }
 
 test "date adds calendar units with plus" {
-    may4 = try Date"2026-05-04"
-    jan31_26 = try Date"2026-01-31"
-    feb29 = try Date"2024-02-29"
+    may4 = Date`2026-05-04`
+    jan31_26 = Date`2026-01-31`
+    feb29 = Date`2024-02-29`
 
-    assert may4 + Days(10) == try Date"2026-05-14"
-    assert may4 + Weeks(2) == try Date"2026-05-18"
-    assert jan31_26 + Months(1) == try Date"2026-02-28"
-    assert feb29 + Years(1) == try Date"2025-02-28"
-    assert Add.add(may4, Weeks(1)) == try Date"2026-05-11"
-    assert Add.add(may4, Months(1)) == try Date"2026-06-04"
+    assert may4 + Days(10) == Date`2026-05-14`
+    assert may4 + Weeks(2) == Date`2026-05-18`
+    assert jan31_26 + Months(1) == Date`2026-02-28`
+    assert feb29 + Years(1) == Date`2025-02-28`
+    assert Add.add(may4, Weeks(1)) == Date`2026-05-11`
+    assert Add.add(may4, Months(1)) == Date`2026-06-04`
 }

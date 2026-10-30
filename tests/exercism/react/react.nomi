@@ -1,3 +1,6 @@
+//# A reactive system: input cells and compute cells that follow them, with
+//# callbacks on change.
+
 /// A spreadsheet of named cells: input cells hold a value that is set, and
 /// compute cells hold a function of other cells that is kept up to date. It
 /// is a value: setting an input answers a new reactor.
@@ -36,9 +39,7 @@ impl Reactor {
 
     /// `reactor` with an input cell `name` holding `value`.
     pub fn input(reactor: Reactor, name: String, value: Int) -> Result<Reactor, Error> {
-        if Map.contains?(reactor.values, name) {
-            return Err(.Duplicate(name))
-        }
+        if Map.contains(reactor.values, name) { return Err(.Duplicate(name)) }
 
         Ok(#{
             ..reactor,
@@ -55,11 +56,9 @@ impl Reactor {
         inputs: List<String>,
         compute: (Vector<Int>) -> Int,
     ) -> Result<Reactor, Error> {
-        if Map.contains?(reactor.values, name) {
-            return Err(.Duplicate(name))
-        }
+        if Map.contains(reactor.values, name) { return Err(.Duplicate(name)) }
 
-        if Some(unknown) = Iter.find(inputs, &!Map.contains?(reactor.values, &1)) {
+        if Some(unknown) = Iter.find(inputs, &!Map.contains(reactor.values, &1)) {
             return Err(.UnknownCell(unknown))
         }
 
@@ -85,13 +84,9 @@ impl Reactor {
         name: String,
         value: Int,
     ) -> Result<#(Reactor, Map<String, Int>), Error> {
-        if !Map.contains?(reactor.values, name) {
-            return Err(.UnknownCell(name))
-        }
+        if !Map.contains(reactor.values, name) { return Err(.UnknownCell(name)) }
 
-        if !Set.contains?(reactor.inputs, name) {
-            return Err(.NotAnInput(name))
-        }
+        if !Set.contains(reactor.inputs, name) { return Err(.NotAnInput(name)) }
 
         set = Map.put(reactor.values, name, value)
 
@@ -101,8 +96,10 @@ impl Reactor {
 
         fired =
             reactor.callbacks
-            |> Iter.filter(fn #(_, cell) -> Map.get(values, cell) != Map.get(reactor.values, cell))
-            |> Iter.map(fn #(callback, cell) -> #(callback, Map.at(values, cell)))
+            |> Iter.filter(fn #(_, cell) -> {
+                Map.get(values, cell)! != Map.get(reactor.values, cell)!
+            })
+            |> Iter.map(fn #(callback, cell) -> #(callback, Map.get(values, cell)!))
             |> Iter.to_map()
 
         Ok(#(#{..reactor, values}, fired))
@@ -114,9 +111,7 @@ impl Reactor {
         cell: String,
         callback: String,
     ) -> Result<Reactor, Error> {
-        if !Map.contains?(reactor.values, cell) {
-            return Err(.UnknownCell(cell))
-        }
+        if !Map.contains(reactor.values, cell) { return Err(.UnknownCell(cell)) }
 
         Ok(#{..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
     }
@@ -138,7 +133,7 @@ impl Reactor {
 fn value_of(cell: Computed, values: Map<String, Int>) -> Int {
     inputs =
         cell.inputs
-        |> Iter.map(&Map.at(values, &1))
+        |> Iter.map(&Map.get(values, &1)!)
         |> Iter.to_vector()
 
     cell.compute(inputs)

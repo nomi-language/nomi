@@ -23,7 +23,7 @@ func TestFormat_CaseSubjectEndingInATypeNameKeepsParens(t *testing.T) {
 		{"(shapes.Shape).Circle", "(shapes.Shape.Circle)"},
 		{"1 + (Shape)", "1 + (Shape)"},
 		{"-(Shape)", "-(Shape)"},
-		{"try (Shape)", "try (Shape)"},
+		{"(Shape)?", "Shape?"},
 		{"x |> (Shape)", "x |> (Shape)"},
 		// Elsewhere the parentheses go: a `{` does not join these.
 		{"(x)", "x"},

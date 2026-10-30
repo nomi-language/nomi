@@ -161,7 +161,9 @@ const (
 	mxCoin  = "enum Coin {\n    Penny\n    Dime\n}"
 	mxVTree = "enum VTree {\n    Leaf Int\n    Node Vector<VTree>\n}\n\nderive Equatable for VTree"
 	mxVDir  = "struct VDir {\n    name: String\n    kids: Vector<VDir>\n}"
-	mxHolds = "fn has<C, T>(c: C, x: T) -> Bool where C: Contains<T> {\n    C.contains?(c, x)\n}"
+	// A function whose Result a `!` call unwraps.
+	mxHalf  = "fn half(n: Int) -> Result<Int, String> {\n    if n % 2 == 0 {\n        Ok(n / 2)\n    } else {\n        Err(\"odd\")\n    }\n}"
+	mxHolds = "fn has<C, T>(c: C, x: T) -> Bool where C: Contains<T> {\n    C.contains(c, x)\n}"
 	// An interface with a default, implemented for a generic struct.
 	mxLabeled = "interface Labeled {\n    fn label(value: self) -> String\n    fn loud(value: self) -> String {\n        Labeled.label(value) + \"!\"\n    }\n}\n\nstruct Bx<T> {\n    v: T\n}\n\nimpl Labeled for Bx<T> {\n    fn label(b: Bx<T>) -> String {\n        \"bx${Debug.inspect(b.v)}\"\n    }\n}"
 	mxGets    = "interface Gets<T> {\n    fn got(value: self) -> T\n}\n\nstruct Bag {\n    s: String\n}\n\nimpl Gets<String> for Bag {\n    fn got(b: Bag) -> String {\n        b.s\n    }\n}"
@@ -194,7 +196,7 @@ const (
 	// operator on Int and a Contains on String.
 	mxPct = "type Pct Int\n\nstruct Sep {\n    s: String\n}\n\n" +
 		"impl Multiply<Pct, Int> for Int {\n    fn multiply(lhs: Int, rhs: Pct) -> Int {\n        Pct(p) = rhs\n        lhs * p / 100\n    }\n}\n\n" +
-		"impl Contains<Sep> for String {\n    fn contains?(c: String, x: Sep) -> Bool {\n        String.contains?(c, x.s)\n    }\n}\n\n" +
+		"impl Contains<Sep> for String {\n    fn contains(c: String, x: Sep) -> Bool {\n        String.contains(c, x.s)\n    }\n}\n\n" +
 		"fn scaled<T>(x: T, p: Pct) -> T where T: Multiply<Pct, T> {\n    x * p\n}"
 	// An interface implemented for an enum with an `embeds` variant and for
 	// the struct it embeds.
@@ -308,7 +310,7 @@ var mxFeatures = []mxFeature{
 		expr: "300 * Pct(50) + Int.multiply(10, Pct(30)) + Multiply.multiply(100, Pct(1)) + scaled(40, Pct(50)) + 2 * 3",
 		want: "180"},
 	{name: "local type argument contains", decls: mxPct, typ: "Bool",
-		expr: `String.contains?("a-b", #Sep{s: "-"}) and Contains.contains?("ab", #Sep{s: "b"}) and String.contains?("ab", "a")`,
+		expr: `String.contains("a-b", #Sep{s: "-"}) and Contains.contains("ab", #Sep{s: "b"}) and String.contains("ab", "a")`,
 		want: "True"},
 	{name: "container impl call", decls: mxShow, typ: "String",
 		expr: `Show.loud([[1], [2]]) + List.show([3]) + Show.show(%{"a" => 1})`, want: `"[[i1] [i2]]![i3]map1"`, tags: tagCall},
@@ -351,7 +353,7 @@ var mxFeatures = []mxFeature{
 	// Interface values through an Equatable and a Hashable bound: each
 	// instance compares and hashes them as `==` and a Set do.
 	{name: "existential equality bounds", decls: mxShow + "\n\nfn kinds<T>(xs: List<T>) -> String where T: Equatable and Hashable {\n" +
-		"    \"${Set.size(Iter.to_set(xs))} ${xs |> Iter.filter(&List.contains?(xs, &1)) |> Iter.count()}\"\n}",
+		"    \"${Set.size(Iter.to_set(xs))} ${xs |> Iter.filter(&List.contains(xs, &1)) |> Iter.count()}\"\n}",
 		typ: "List<Show>", expr: "[[1], 1, [1]]", obs: "kinds($v)", want: "2 3", tags: tagExistential | tagExpects, reject: "list element type mismatch"},
 	{name: "existential list", typ: "List<Display>", expr: `[1, "a"]`,
 		obs: `$v |> Iter.map(fn d -> Display.to_string(d)) |> String.join(",")`, want: "1,a",
@@ -365,8 +367,9 @@ var mxFeatures = []mxFeature{
 	{name: "maybe map", typ: "Maybe<Int>", expr: "Maybe.map(Some(2), fn n -> n * 3)", want: "Some(6)"},
 	{name: "maybe grid", typ: "Maybe<Vector<Vector<Int>>>", expr: "Vector.get(#[#[#[1]], #[#[3]]], 1)",
 		want: "Some(#[#[3]])"},
-	{name: "vector at", typ: "String", expr: `Vector.at(#["a", "b"], 1)`, want: `"b"`, tags: tagCall},
-	{name: "list contains", typ: "Bool", expr: `List.contains?(["a", "b"], "b")`, want: "True", tags: tagCall},
+	{name: "vector get!", typ: "String", expr: `Vector.get(#["a", "b"], 1)!`, want: `"b"`, tags: tagCall},
+	{name: "result bang", decls: mxHalf, typ: "Int", expr: `8 |> half()! |> half()!`, want: "2", tags: tagCall},
+	{name: "list contains", typ: "Bool", expr: `List.contains(["a", "b"], "b")`, want: "True", tags: tagCall},
 	{name: "contains bound", decls: mxHolds, typ: "Bool", expr: `has(%{"k" => 1}, "k") and !has(#[1, 2], 3)`,
 		want: "True", tags: tagCall},
 
@@ -415,9 +418,9 @@ var mxFeatures = []mxFeature{
 	{name: "if", typ: "String", expr: `if 2 > 1 { "yes" } else { "no" }`, want: `"yes"`},
 	{name: "block", typ: "Int", expr: "{\n    a = 2\n    a * 3\n}", want: "6", tags: tagNested},
 	{name: "try", decls: "fn half(n: Int) -> Result<Int, String> {\n    Ok(n / 2)\n}", typ: "Result<Int, String>",
-		expr: "{\n    f = fn -> {\n        h = try half(8)\n        Ok(h + 1)\n    }\n    f()\n}", want: "Ok(5)", tags: tagNested},
-	{name: "try maybe", typ: "Maybe<Int>",
-		expr: "{\n    f = fn -> {\n        h = try Some(8)\n        Some(h + 1)\n    }\n    f()\n}", want: "Some(9)", tags: tagNested},
+		expr: "{\n    f = fn -> {\n        h = half(8)?\n        Ok(h + 1)\n    }\n    f()\n}", want: "Ok(5)", tags: tagNested},
+	{name: "maybe?", typ: "Maybe<Int>",
+		expr: "{\n    f = fn -> {\n        h = Some(8)?\n        Some(h + 1)\n    }\n    f()\n}", want: "Some(9)", tags: tagNested},
 	{name: "dbg", typ: "Int", expr: "dbg 7", want: "7", tags: tagDbg},
 	{name: "and or", typ: "Bool", expr: "1 > 2 or (3 > 2 and True)", want: "True"},
 	{name: "user operator", decls: "struct Money {\n    n: Int\n}\n\nimpl Add<Int, Int> for Money {\n    fn add(lhs: Money, rhs: Int) -> Int {\n        lhs.n + rhs\n    }\n}",

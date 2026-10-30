@@ -34,33 +34,22 @@ once closing = "I don't know why she swallowed the fly. Perhaps she'll die."
 /// an empty line between two verses.
 pub fn recite(start: Int, end: Int) -> List<String> {
     start..=end
-    |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, number) -> {
-        if i == 0 {
-            verse(number)
-        } else {
-            [""] + verse(number)
-        }
-    })
-    |> Iter.to_list()
+    |> Iter.map(verse)
+    |> Iter.intersperse([""])
+    |> Iter.flatten()
 }
 
 /// Verse `number`: the new animal, what she said about it, and every animal
 /// caught back down to the fly.
 fn verse(number: Int) -> List<String> {
-    if number > Iter.count(animals) {
-        return horse_verse
-    }
+    if number > Iter.count(animals) { return horse_verse }
 
     swallowed = animals |> Iter.take(number) |> Iter.reverse()
     [newest, .._] = swallowed else {
         unreachable "every verse up to the cow swallows at least the fly"
     }
 
-    reaction = case newest.reaction {
-        Some(line) -> [line]
-        None -> []
-    }
+    reaction = Iter.to_list(newest.reaction)
 
     chain =
         swallowed

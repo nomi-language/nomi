@@ -1,3 +1,5 @@
+//# Complex numbers and their arithmetic.
+
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex {
     real: Float
@@ -40,9 +42,9 @@ impl Complex {
 
     /// Whether each part of `a` is within `tolerance` of the same part of
     /// `b`.
-    pub fn equal_within?(a: Complex, b: Complex, tolerance: Float) -> Bool {
-        Float.equal_within?(a.real, b.real, tolerance)
-            and Float.equal_within?(a.imaginary, b.imaginary, tolerance)
+    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool {
+        Float.equal_within(a.real, b.real, tolerance)
+            and Float.equal_within(a.imaginary, b.imaginary, tolerance)
     }
 
     /// `x` as a complex number with no imaginary part.

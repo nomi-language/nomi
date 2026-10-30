@@ -4,7 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The `impl List<T>` method surface, reached type-qualified: `List.equal?(xs,
+// The `impl List<T>` method surface, reached type-qualified: `List.equal(xs,
 // ys)`, `List.head(xs)`, `List.tail(xs)`, `List.concat(a, b)`.
 //
 // # Why this is an owner-keyed arm and not the stdlib path
@@ -45,7 +45,7 @@ import (
 // not reached anywhere in the corpus, so it is absent rather than written and
 // unexercised, and `List.hash` is absent for the same reason even though
 // `rt.HashList` already exists for the map-key path. `List.compare` is handled
-// beside `equal?` below; its `Ordering` result is an anchored, rt-declared,
+// beside `equal` below; its `Ordering` result is an anchored, rt-declared,
 // process-wide type (stdenum.go).
 type listFn struct {
 	rtCall string
@@ -57,7 +57,7 @@ type listFn struct {
 
 // listFuncs is the lowered surface of `impl List<T>`, minus equality.
 //
-// `equal?` is absent on purpose and handled separately: its lowering is
+// `equal` is absent on purpose and handled separately: its lowering is
 // collections.go's listEqual, shared with the `==` operator, because
 // std/lists.nomi:125 defines the method AS `a == b`. Giving it a row here would
 // make it a second encoding of one semantics.

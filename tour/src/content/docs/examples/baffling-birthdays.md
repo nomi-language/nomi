@@ -9,7 +9,7 @@ Find whether two people in a group share a birthday, draw random groups of birth
 
 Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/baffling-birthdays) (MIT). Listed under [Dates & Time](/examples/?subject=dates-and-time).
 
-```nomi-run
+```nomi-run manual
 // FILE: baffling_birthdays.nomi
 //# The birthday problem: how likely it is that two people in a group share
 //# a birthday, estimated by drawing random groups and counting.
@@ -19,19 +19,18 @@ import {
     std/random.Generator
 }
 
-/// The years a random birthdate falls in: the years from 1900 to 2023
-/// without a 29 February, so every day of the year is as likely.
-once common_years = 1900..=2023 |> Iter.filter(fn year -> !Date.leap_year?(year)) |> Iter.to_list()
+/// 1 January of each year a random birthdate falls in: the years from 1900
+/// to 2023 without a 29 February, so every day of the year is as likely.
+once new_years_days =
+    1900..=2023
+    |> Iter.filter(fn year -> !Date.is_leap_year(year))
+    |> Iter.map(fn year -> Date.new(year, 1, 1)!)
+    |> Iter.to_vector()
 
 /// Whether two of `birthdates` fall on the same day of the year, whatever
 /// the years.
-pub fn shared_birthday?(birthdates: List<Date>) -> Bool {
-    days =
-        birthdates
-        |> Iter.map(fn date -> #(Date.month(date), Date.day(date)))
-        |> Iter.to_set()
-
-    Set.size(days) < Iter.count(birthdates)
+pub fn has_shared_birthday(birthdates: List<Date>) -> Bool {
+    repeats(birthdates, %[])
 }
 
 /// `group_size` birthdates, each a uniformly random day of a random year
@@ -47,7 +46,7 @@ pub fn estimated_probability_of_shared_birthday(
     trials: Int = 10000,
 ) -> Generator<Float> {
     random_birthdates(group_size)
-    |> Generator.map(shared_birthday?)
+    |> Generator.map(has_shared_birthday)
     |> Generator.list(trials)
     |> Generator.map(fn shared -> {
         hits = shared |> Iter.filter(fn yes -> yes) |> Iter.count()
@@ -55,24 +54,27 @@ pub fn estimated_probability_of_shared_birthday(
     })
 }
 
-/// A uniformly random day of a random common year.
-fn birthdate() -> Generator<Date> {
-    [first, ..rest] = common_years else {
-        unreachable "the years from 1900 to 2023 include common years"
-    }
+/// Whether a date in `birthdates` falls on a day of the year in `seen`, or
+/// on the day of an earlier date in `birthdates`. It stops at the first
+/// repeat.
+fn repeats(birthdates: List<Date>, seen: Set<#(Int, Int)>) -> Bool {
+    case birthdates {
+        [] ->
+            False
 
-    Generator.uniform(first, rest)
-    |> Generator.flat_map(fn year -> {
-        Generator.int(0, 364)
-        |> Generator.map(fn day -> first_of_january(year) + Days(day))
-    })
+        [date, ..rest] -> {
+            day = #(Date.month(date), Date.day(date))
+
+            Set.contains(seen, day) or repeats(rest, Set.insert(seen, day))
+        }
+    }
 }
 
-fn first_of_january(year: Int) -> Date {
-    case Date.new(year, 1, 1) {
-        Ok(date) -> date
-        Err(_) -> unreachable "1 January is a date in every year"
-    }
+/// A uniformly random day of a random common year. Each year has 365 days,
+/// so one draw below 365 times the number of years picks both.
+fn birthdate() -> Generator<Date> {
+    Generator.int(0, Vector.length(new_years_days) * 365 - 1)
+    |> Generator.map(fn n -> Vector.get(new_years_days, n / 365)! + Days(n % 365))
 }
 
 // FILE: baffling_birthdays_test.nomi
@@ -140,7 +142,7 @@ test "shared birthday" {
     ]
 
     subtests cases, #(description, birthdates, expected), description {
-        assert baffling_birthdays.shared_birthday?(birthdates) == expected
+        assert baffling_birthdays.has_shared_birthday(birthdates) == expected
     }
 }
 
@@ -149,13 +151,13 @@ group "random birthdates" {
 
     test "generate requested number of birthdates" {
         assert 1..=20
-            |> Iter.all?(fn size -> {
+            |> Iter.all(fn size -> {
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
             })
     }
 
     test "years are not leap years", birthdates {
-        refute birthdates |> Iter.any?(fn date -> Date.leap_year?(Date.year(date)))
+        refute birthdates |> Iter.any(fn date -> Date.is_leap_year(Date.year(date)))
     }
 
     test "months are random", birthdates {
@@ -178,16 +180,25 @@ test "estimated probability of at least one shared birthday" {
     subtests cases, #(description, group_size, expected), description {
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 
-        assert Float.equal_within?(estimate, expected, 1.0)
+        assert Float.equal_within(estimate, expected, 1.0)
     }
 }
 ```
+<!-- expect
+ok shared birthday (9 cases)
+ok random birthdates / generate requested number of birthdates
+ok random birthdates / years are not leap years
+ok random birthdates / months are random
+ok random birthdates / days are random
+ok estimated probability of at least one shared birthday (4 cases)
+test result: ok. 17 passed, 0 failed
+-->
 
 ## How it's written
 
-- Birthdates are `std/calendar` `Date`s, written in the tests as `` Date`2000-01-01` `` literals, which the compiler checks. `shared_birthday?` maps each date to its `#(month, day)` and compares the size of the set with the size of the group.
+- Birthdates are `std/calendar` `Date`s, written in the tests as `` Date`2000-01-01` `` literals, which the compiler checks. `has_shared_birthday` walks the group with a set of the `#(month, day)` pairs it has seen and stops at the first repeat, so a large group is seldom read to the end.
 - Randomness is `std/random`'s. `random_birthdates` and `estimated_probability_of_shared_birthday` answer `Generator`s, and the tests run them against one fixed `Seed`, so every run checks the same draws.
-- A birthdate is a uniformly random day, 0 to 364 days after 1 January, of a year drawn from `common_years`, the years 1900 to 2023 that `Date.leap_year?` says have no 29 February. Drawing the year first and the day second keeps every day of the year equally likely, with no 29 February to correct for.
-- The estimate draws `trials` groups (10,000 by default), checks each with `shared_birthday?`, and answers the percentage that share. The canonical expectations are the exact probabilities; the tests accept an estimate within one percentage point, which the canonical comments leave to the track.
+- A birthdate is a uniformly random day of a year from 1900 to 2023 that `Date.is_leap_year` says has no 29 February. With no 29 February, every year has 365 days, so one `Generator.int` draw `n` below 365 times the number of years picks both: the year's 1 January is `new_years_days`'s entry `n / 365`, and the day is `n % 365` days after it. Every day of the year is equally likely, and each date costs one draw.
+- The estimate draws `trials` groups (10,000 by default), checks each with `has_shared_birthday`, and answers the percentage that share. The four estimate cases draw over a million dates, which takes seconds in a browser, so the page shows the recorded report and runs the example only when you press Run. The canonical expectations are the exact probabilities; the tests accept an estimate within one percentage point, which the canonical comments leave to the track.
 - The canonical "generate requested number of birthdates" case names no size; the test draws groups of 1 to 20. The other three random cases share one group of 100, drawn in the group's `setup`.
 - The shared-birthday and estimate cases are `subtests` tables named by the description column; the random-birthdates cases are a `group` of that name, since each checks something different of the same draw.

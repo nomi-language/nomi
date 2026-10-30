@@ -197,13 +197,13 @@ func (bl *irScalarBuilder) equalityAnd(t *ast.Binary, lhs, rhs ir.Temp) ir.Temp 
 	return dst
 }
 
-// equatableImplCall calls the `equal?` of impl d, declared in og, over two
+// equatableImplCall calls the `equal` of impl d, declared in og, over two
 // values of kind k, and negates the answer for `!=`.
 func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, og *gen, d *implDef) (ir.Temp, bool) {
 	if og == nil || d == nil || !d.lowerable {
 		return ir.NoTemp, false
 	}
-	it := d.items["equal?"]
+	it := d.items["equal"]
 	if it == nil || !it.lowerable || len(it.params) != 2 || it.result != kindBool {
 		return ir.NoTemp, false
 	}
@@ -215,7 +215,7 @@ func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs
 	if u := irGenUnit(bl.g, og); og != bl.g && u < 0 {
 		return ir.NoTemp, false
 	}
-	// Inside the impl's own `equal?` this is a recursive call: on fields
+	// Inside the impl's own `equal` this is a recursive call: on fields
 	// of the type (a tree's children) it ends with the data, and the
 	// checker rejects comparing the impl's own arguments
 	// (self_recursion.go, protocolErrors).
@@ -278,7 +278,7 @@ func (g *gen) handWrittenEquatableImpl(k kind) (og *gen, d *implDef, hand, known
 	if k.def.foreign != "" {
 		return nil, nil, false, false
 	}
-	if g.std != nil && len(g.std.byIface["Equatable.equal?"][k]) > 0 {
+	if g.std != nil && len(g.std.byIface["Equatable.equal"][k]) > 0 {
 		// std declares no hand-written Equatable on an enum or a distinct
 		// (see handWrittenNominalEquatable), so a std impl is derived.
 		return nil, nil, false, true
@@ -287,7 +287,7 @@ func (g *gen) handWrittenEquatableImpl(k kind) (og *gen, d *implDef, hand, known
 }
 
 // bareVariantOwnKind types a payload-free prelude variant written with no
-// expected type, `None == None` or `Maybe.equal?(None, None)`: the checker's
+// expected type, `None == None` or `Maybe.equal(None, None)`: the checker's
 // solution for it when there is one, and otherwise the instance over Unit.
 // A payload-free variant's value is the same whatever the type arguments are,
 // so the choice decides the temporary's stated type and nothing the program
@@ -321,7 +321,7 @@ func (bl *irScalarBuilder) bareVariantOwnKind(n ast.Node) (kind, bool) {
 	return k, true
 }
 
-// equatableContainerOwner is the std container `Equatable.equal?(a, b)`
+// equatableContainerOwner is the std container `Equatable.equal(a, b)`
 // compares, by the checker's instantiation of the call: "List", "Vector",
 // "Map", "Maybe" or "Result", or "" for anything else.
 func (bl *irScalarBuilder) equatableContainerOwner(t *ast.Call) string {
@@ -351,8 +351,8 @@ func (bl *irScalarBuilder) equatableContainerOwner(t *ast.Call) string {
 	return ""
 }
 
-// containerEqualCall lowers `List.equal?(a, b)`, `Vector.equal?`, `Map.equal?` and
-// `Maybe.equal?(a, b)` to
+// containerEqualCall lowers `List.equal(a, b)`, `Vector.equal`, `Map.equal` and
+// `Maybe.equal(a, b)` to
 // the comparison `a == b` is. The first is std's
 // `impl Equatable for List<T>`, whose body is `a == b` over two lists and so
 // structural; and the second is with Maybe's derived impl, which agrees with
@@ -365,7 +365,7 @@ func (bl *irScalarBuilder) equatableContainerOwner(t *ast.Call) string {
 func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if (owner == "Maybe" || owner == "Result") && bl.recording == 0 && !bl.preludeEqualStructural(t) {
-		// `Maybe.equal?(a, b)` over payloads whose own impls decide (a
+		// `Maybe.equal(a, b)` over payloads whose own impls decide (a
 		// struct with a derived Equatable) or of two instances an embedded
 		// value tells apart (`Some(circle)`, `Some(shape)`): the prelude
 		// wrapper's Equatable is derived, so the call is `a == b`, lowered
@@ -453,7 +453,7 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 }
 
 // preludeEqualStructural reports whether the checker typed both operands of
-// a `Maybe.equal?` or `Result.equal?` call as one instance whose payloads
+// a `Maybe.equal` or `Result.equal` call as one instance whose payloads
 // compare structurally (irPreludeEqualityKind), which containerEqualCall
 // compares directly.
 func (bl *irScalarBuilder) preludeEqualStructural(t *ast.Call) bool {
@@ -574,6 +574,10 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 			continue
 		}
 		nested, ok := bl.nestedDebugImpls(named(d.recv.def))
+		if !ok {
+			// An `embeds` enum enters the interface boxed under its name.
+			nested, ok = bl.boxedEnumDebugImpls(named(d.recv.def))
+		}
 		if !ok && !irDebugValueKind(d.recv) {
 			// A std container instance with no declared leaf (an impl for
 			// `Maybe<Int>` or `Vector<Int>`) renders structurally.
@@ -590,6 +594,9 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 			continue
 		}
 		nested, ok := bl.nestedDebugImpls(key.have)
+		if !ok {
+			nested, ok = bl.boxedEnumDebugImpls(key.have)
+		}
 		if !ok && !irDebugValueKind(key.have) {
 			return nil, false, false
 		}

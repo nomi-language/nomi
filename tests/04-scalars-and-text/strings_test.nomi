@@ -5,8 +5,8 @@ import {
 
 test "strings report length containment and slices" {
     assert String.length("hello") == 5
-    assert String.contains?("hello world", "world")
-    refute String.contains?("hello world", "nomi")
+    assert String.contains("hello world", "world")
+    refute String.contains("hello world", "nomi")
     assert String.slice("hello world", 0, 5) == "hello"
 }
 
@@ -35,7 +35,7 @@ test "strings expose bytes, graphemes, and codepoints" {
         |> String.to_codepoints()
         |> Iter.map(Codepoint.to_int)
         |> Iter.to_list()
-        |> List.equal?([97, 98, 99])
+        |> List.equal([97, 98, 99])
 }
 
 test "prefixes and suffixes can be stripped when present" {
@@ -63,12 +63,12 @@ test "grapheme transforms materialize back to strings" {
     assert "abc"
         |> Iter.map(fn g -> g + g)
         |> String.join()
-        |> String.equal?("aabbcc")
+        |> String.equal("aabbcc")
 
     assert "a1b2c3"
         |> Iter.filter(fn g -> g == "1" or g == "2" or g == "3")
         |> String.join()
-        |> String.equal?("123")
+        |> String.equal("123")
 }
 
 test "normalization is explicit before byte-based equality" {
@@ -89,7 +89,7 @@ test "join reads any iterator of strings and defaults to no separator" {
     assert %["solo"] |> String.join(", ") == "solo"
     assert #["x", "y", "z"] |> String.join("+") == "x+y+z"
     assert "héllo" |> String.join(".") == "h.é.l.l.o"
-    assert "héllo" |> Iter.map(String.to_upper) |> String.join() == "HÉLLO"
+    assert "héllo" |> Iter.map(String.uppercase) |> String.join() == "HÉLLO"
     assert 1..=3 |> Iter.map(Int.to_string) |> String.join("-") == "1-2-3"
 
     assert Iter.from(1)
@@ -97,7 +97,7 @@ test "join reads any iterator of strings and defaults to no separator" {
         |> Iter.map(Int.to_string)
         |> Iter.take(3)
         |> String.join(" ")
-        |> String.equal?("2 4 6")
+        |> String.equal("2 4 6")
 
     assert %{"k" => 1}
     |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v))

@@ -256,7 +256,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		// name its type: `'a': Codepoint`.
 		sig = sym.Name + ": " + displayValueType(sym.Type)
 	case analysis.SymbolAssertion:
-		// Synthetic hover-only marker for assertion keywords. Like `try`,
+		// Synthetic hover-only marker for assertion keywords. Like `?`,
 		// this renders prose outside the code fence, so return directly.
 		return renderAssertionHover(sym)
 	case analysis.SymbolTestSetup:
@@ -266,7 +266,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		// Synthetic hover-only marker for `test` and `group` declarations.
 		return renderTestDeclHover(sym)
 	case analysis.SymbolTryOp:
-		// Synthetic hover-only marker for the `try` prefix keyword.
+		// Synthetic hover-only marker for a postfix `?` or `!`.
 		// The renderer produces its own multi-line markdown (signature
 		// line in a nomi fence + one prose line for the propagated
 		// branch and boundary), so it returns directly instead of
@@ -1896,23 +1896,27 @@ func markdownNameList(names []string) string {
 }
 
 // renderTryOpHover formats the full markdown body for a SymbolTryOp
-// marker. Layout matches the rest of the hover system: one code-fenced
-// "signature" line describing the unwrap as a type arrow, plus one
-// prose line naming the propagated branch (Err payload or None) and
-// the boundary the `try` unwinds to. Returning the whole markdown here —
-// rather than going through the caller's single-fence wrapper — keeps
-// the prose outside the nomi fence so labels don't get
-// syntax-highlighted as identifiers.
+// marker, a postfix `?` or `!`. Layout matches the rest of the hover
+// system: one code-fenced "signature" line describing the unwrap as a type
+// arrow, plus one prose line naming the failing branch (Err payload or
+// None) and what happens on it: the boundary a `?` unwinds to, or a `!`'s
+// trap. Returning the whole markdown here, rather than going through the
+// caller's single-fence wrapper, keeps the prose outside the nomi fence so
+// labels don't get syntax-highlighted as identifiers.
 //
-// Defensive fallback when TryOp metadata is missing: emit a bare
-// fenced `try` (SymbolTryOp markers are always registered with metadata,
-// but rendering shouldn't panic if that ever stops being true).
+// Defensive fallback when TryOp metadata is missing: emit a bare fenced
+// `?` (SymbolTryOp markers are always registered with metadata, but
+// rendering shouldn't panic if that ever stops being true).
 func renderTryOpHover(sym *analysis.Symbol) string {
 	if sym.TryOp == nil {
-		return "```nomi\ntry\n```"
+		return "```nomi\n" + sym.Name + "\n```"
+	}
+	op := "?"
+	if sym.TryOp.Bang {
+		op = "!"
 	}
 	inputStr := displayValueType(sym.TryOp.InputTy)
-	successStr := inputStr // unrecognised input — show the raw type
+	successStr := inputStr // unrecognised input: show the raw type
 	branch := ""
 	if et, ok := sym.TryOp.InputTy.(*analysis.EnumType); ok {
 		switch {
@@ -1926,7 +1930,13 @@ func renderTryOpHover(sym *analysis.Symbol) string {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "```nomi\ntry: %s -> %s\n```", inputStr, successStr)
+	fmt.Fprintf(&b, "```nomi\n%s: %s -> %s\n```", op, inputStr, successStr)
+	if sym.TryOp.Bang {
+		if branch != "" {
+			fmt.Fprintf(&b, "\n\nOn `%s`, traps.", branch)
+		}
+		return b.String()
+	}
 	if branch != "" || sym.TryOp.Boundary != "" {
 		b.WriteString("\n\n")
 		switch {
@@ -1945,7 +1955,7 @@ func renderTryOpHover(sym *analysis.Symbol) string {
 func renderConstValue(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.IntLit:
-		return fmt.Sprintf("%d", n.Value)
+		return n.Decimal()
 	case *ast.FloatLit:
 		return fmt.Sprintf("%g", n.Value)
 	case *ast.DecimalLit:

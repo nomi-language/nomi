@@ -33,7 +33,7 @@ struct Point {
     alpha: Int
 }
 
-fn same_alpha?(left: Point, right: Point) -> Bool {
+fn is_same_alpha(left: Point, right: Point) -> Bool {
     left.alpha == right.alpha
 }
 
@@ -78,11 +78,11 @@ test "a failed comparison renders both operands in the order they were seen" {
 test "a struct-valued operand renders with its fields sorted, not declared" {
     left = #Point{zed: 2, alpha: 1}
     right = #Point{zed: 2, alpha: 9}
-    assert Err(failure) = testing.check(same_alpha?(left, right))
+    assert Err(failure) = testing.check(is_same_alpha(left, right))
 
     assert AssertionFailure.format(failure) == """
         line 81: check failed
-          check same_alpha?(left, right)
+          check is_same_alpha(left, right)
           values:
             left
               = #Point{alpha: 1, zed: 2}
@@ -92,14 +92,14 @@ test "a struct-valued operand renders with its fields sorted, not declared" {
 }
 
 test "a bound-name subject renders the expression it was defined as" {
-    alpha_matches = same_alpha?(#Point{zed: 0, alpha: 3}, #Point{zed: 0, alpha: 4})
+    alpha_matches = is_same_alpha(#Point{zed: 0, alpha: 3}, #Point{zed: 0, alpha: 4})
     assert Err(failure) = testing.check(alpha_matches)
 
     assert AssertionFailure.format(failure) == """
         line 96: check failed
           check alpha_matches
           defined as:
-            same_alpha?(#Point{zed: 0, alpha: 3}, #Point{zed: 0, alpha: 4})
+            is_same_alpha(#Point{zed: 0, alpha: 3}, #Point{zed: 0, alpha: 4})
         """
 }
 

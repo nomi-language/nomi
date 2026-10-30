@@ -31,7 +31,7 @@ test "a pipeline bound before the assertion" {
 
 test "a predicate call records its source" {
   xs = [2, 4, 5]
-  assert Iter.all?(xs, fn x -> x % 2 == 0)
+  assert Iter.all(xs, fn x -> x % 2 == 0)
 }
 
 test "a multi-line call leaves the cursor on its last line" {
@@ -41,9 +41,9 @@ test "a multi-line call leaves the cursor on its last line" {
 }
 
 test "a call through a function value shows its argument" {
-  small? = fn n: Int -> n > 90
+  is_small = fn n: Int -> n > 90
   w = 5
-  assert small?(w)
+  assert is_small(w)
 }
 
 test "a folded count in a subject" {

@@ -19,8 +19,8 @@ fn save(text: String) -> Result<Unit, io.Error> {
 }
 
 fn main() -> Result<Unit, io.Error> {
-    text = try fs.read_text("notes.txt")
-    try save(text + "!")
+    text = fs.read_text("notes.txt")?
+    save(text + "!")?
     io.print("saved")
     Ok(Unit)
 }
@@ -59,7 +59,7 @@ func TestCheckTarget_NamesTheProgramsOwnCallSites(t *testing.T) {
 	got := report.String()
 	want := "nomi build --target nomitest/nofiles: this program reads or writes files, which a nomitest/nofiles module cannot do:\n" +
 		"  notes.nomi:7:18: `fs.write_text` calls `fs_host.write` (reached from fn main through save)\n" +
-		"  notes.nomi:11:28: `fs.read_text` calls `fs_host.read_text` (reached from fn main)\n" +
+		"  notes.nomi:11:24: `fs.read_text` calls `fs_host.read_text` (reached from fn main)\n" +
 		"hint: build for your platform without --target, or pass --allow-unsupported files\n" +
 		"      to build anyway; the calls then answer Err(.Unsupported{...})\n"
 	if got != want {

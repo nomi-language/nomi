@@ -393,11 +393,13 @@ func (f backendFiles) List(dir string) ([]DirEntry, error) {
 	return out, nil
 }
 
-func (f backendFiles) CreateDir(p string, parents bool) error { return fsFail(f.b.CreateDir(p, parents)) }
-func (f backendFiles) Remove(p string) error                  { return fsFail(f.b.Remove(p)) }
-func (f backendFiles) RemoveAll(p string) error               { return fsFail(f.b.RemoveAll(p)) }
-func (f backendFiles) Rename(from, to string) error           { return fsFail(f.b.Rename(from, to)) }
-func (f backendFiles) Symlink(p, target string) error         { return fsFail(f.b.Symlink(p, target)) }
+func (f backendFiles) CreateDir(p string, parents bool) error {
+	return fsFail(f.b.CreateDir(p, parents))
+}
+func (f backendFiles) Remove(p string) error          { return fsFail(f.b.Remove(p)) }
+func (f backendFiles) RemoveAll(p string) error       { return fsFail(f.b.RemoveAll(p)) }
+func (f backendFiles) Rename(from, to string) error   { return fsFail(f.b.Rename(from, to)) }
+func (f backendFiles) Symlink(p, target string) error { return fsFail(f.b.Symlink(p, target)) }
 func (f backendFiles) Chmod(p string, mode fs.FileMode) error {
 	return fsFail(f.b.Chmod(p, int64(mode.Perm())))
 }
@@ -498,4 +500,3 @@ func (f fsFile) Close() error {
 	}
 	return f.src.Close()
 }
-

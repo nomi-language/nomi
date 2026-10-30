@@ -265,18 +265,22 @@ func (sess *session) justMyCode() bool {
 	return sess.args.JustMyCode == nil || *sess.args.JustMyCode
 }
 
-// entryOf is the program a project directory names: its nomi.toml's one
-// entry point.
+// entryOf is the program a project directory names: its module's one
+// entry point, listed in nomi.toml or a tool.
 func entryOf(dir string) (string, error) {
 	m, err := analysis.LoadManifest(dir)
-	if err != nil || len(m.EntryPoints) == 0 {
+	var entries []string
+	if err == nil {
+		entries = m.Entries(dir)
+	}
+	if len(entries) == 0 {
 		return "", fmt.Errorf("%s is a directory with no entry points; name the program's .nomi file", vmhost.DisplayPath(dir))
 	}
-	if len(m.EntryPoints) > 1 {
+	if len(entries) > 1 {
 		return "", fmt.Errorf("%s has %d entry points (%s); name the one to debug",
-			vmhost.DisplayPath(dir), len(m.EntryPoints), strings.Join(m.EntryPoints, ", "))
+			vmhost.DisplayPath(dir), len(entries), strings.Join(entries, ", "))
 	}
-	entry := filepath.Join(dir, filepath.FromSlash(m.EntryPoints[0]))
+	entry := filepath.Join(dir, filepath.FromSlash(entries[0]))
 	if filepath.Ext(entry) != ".nomi" {
 		if _, err := os.Stat(entry + ".nomi"); err == nil {
 			entry += ".nomi"

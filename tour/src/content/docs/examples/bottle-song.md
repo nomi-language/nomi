@@ -7,7 +7,7 @@ description: "Recite the counting song \"Ten Green Bottles\", from a given numbe
 
 Recite the counting song "Ten Green Bottles", from a given number of bottles down, for a given number of verses.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/bottle-song) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/bottle-song) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
 
 ```nomi-run
 // FILE: bottle_song.nomi
@@ -34,20 +34,14 @@ pub fn recite(start_bottles: Int, take_down: Int) -> List<String> {
     start_bottles
     |> Iter.iterate(&(&1 - 1))
     |> Iter.take(take_down)
-    |> Iter.with_index()
-    |> Iter.flat_map(fn #(i, bottles) -> {
-        if i == 0 {
-            verse(bottles)
-        } else {
-            [""] + verse(bottles)
-        }
-    })
-    |> Iter.to_list()
+    |> Iter.map(verse)
+    |> Iter.intersperse([""])
+    |> Iter.flatten()
 }
 
 /// The verse sung while `bottles` bottles hang on the wall.
 fn verse(bottles: Int) -> List<String> {
-    count = green_bottles(bottles) |> capitalize()
+    count = green_bottles(bottles) |> String.capitalize()
     hanging = "${count} hanging on the wall,"
 
     [
@@ -60,19 +54,13 @@ fn verse(bottles: Int) -> List<String> {
 
 /// `bottles` counted in words: "one green bottle", "two green bottles".
 fn green_bottles(bottles: Int) -> String {
-    number = Vector.at(numbers, bottles)
+    number = Vector.get(numbers, bottles)!
 
     if bottles == 1 {
         "${number} green bottle"
     } else {
         "${number} green bottles"
     }
-}
-
-/// `text` with its first letter in upper case.
-fn capitalize(text: String) -> String {
-    first = String.take(text, 1) |> String.to_upper()
-    first + String.drop(text, 1)
 }
 
 // FILE: bottle_song_test.nomi
@@ -238,12 +226,5 @@ test "multiple verses" {
 
 - The numbers are a `Vector` of their words from "no" to "ten", read by the bottle count, and `green_bottles` adds "green bottle" or "green bottles". A verse's first two lines start with that phrase capitalized, and its last line uses the phrase for one bottle fewer, so "no green bottles" and "one green bottle" come out of the same two functions as every other count.
 - The counts sung are `Iter.iterate` down from the start, taken `take_down` times.
-- `recite` answers lines, as the canonical data does, with an empty line between two verses. Every verse after the first gets a `""` in front of it inside `Iter.flat_map`, which needs the verse's index from `Iter.with_index`.
+- `recite` answers lines, as the canonical data does, with an empty line between two verses: `Iter.intersperse([""])` puts a verse of one empty line between each two verses, and `Iter.flatten` joins them.
 - The canonical groups, single verses and multiple verses, are one test each, holding one `subtests` table of the canonical lines written out.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **Not in the standard library.** There is no `String.capitalize`, so the first letter is `String.take(text, 1) |> String.to_upper()` added to `String.drop(text, 1)` in a helper. Python has `str.capitalize`, Elixir `String.capitalize`, Ruby `capitalize`.
-- **Not in the standard library.** There is no `Iter.intersperse`, so the empty line between verses comes from `Iter.with_index` and an `if` on the first index. Elixir has `Enum.intersperse`, Haskell `intercalate`, Rust `Itertools::intersperse`.

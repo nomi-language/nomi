@@ -1,0 +1,45 @@
+================================================================================
+List patterns with elements after the spread
+================================================================================
+
+fn f(xs: List<Int>) -> Int {
+  case xs {
+    [first, ..mid, last] -> first
+    [1, .., 9] -> 9
+    [.., z] -> z
+    _ -> 0
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameters
+      (parameter
+        (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (type_identifier)
+    (body
+      (case_expression
+        (identifier)
+        (case_branch
+          (list_pattern
+            (identifier)
+            (identifier)
+            (identifier))
+          (identifier))
+        (case_branch
+          (list_pattern
+            (integer)
+            (integer))
+          (integer))
+        (case_branch
+          (list_pattern
+            (identifier))
+          (identifier))
+        (case_branch
+          (integer))))))

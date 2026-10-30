@@ -1,5 +1,7 @@
 package rt
 
+import "math"
+
 // The `Iter` push protocol, and std/iter's one private implementor.
 //
 // # `Seq[T]` is not a design decision made here — it is a lowering
@@ -55,7 +57,7 @@ package rt
 // internal/irbuild still answers `Iter.count` over a source of a known kind
 // from the kind itself, without a view.
 //
-// Endless is the third, the `infinite?` answer: set on the sources that never
+// Endless is the third, the `is_infinite` answer: set on the sources that never
 // end and carried by the adapters (seqendless.go). `Iter.take` sets Count
 // rather than copying nothing: n over an endless source.
 
@@ -74,7 +76,7 @@ type Seq[T any] struct {
 	Count func(fr *Frame) Maybe[int64]
 	// Endless answers whether the sequence never ends: the name of the
 	// source that makes it endless (`Iter.repeat`), or "" when it may end.
-	// nil is "". It is the `infinite?` protocol answer (seqendless.go):
+	// nil is "". It is the `is_infinite` protocol answer (seqendless.go):
 	// each adapter sets it once, when the pipeline is built, from its
 	// upstream's, so nothing is asked per element.
 	Endless func(fr *Frame) string
@@ -116,12 +118,9 @@ func ListCount[T any](xs *List[T]) int64 {
 	return ListCellCount[T, List[T]](xs)
 }
 
-// FromEach is std/iter's `host fn from_each(start: Int, yield) -> Bool` — the
-// unbounded ascending source.
-//
-// `n++` and not CheckedAdd, which is a divergence from every other Int addition
-// in this runtime and is deliberate: an `Iter.from` driven past Int max wraps
-// rather than trapping, and the golden files record that behaviour.
+// FromEach is the unbounded ascending source over an int64 counter, for Go
+// callers that count in int64. `Iter.from` is SeqFromInt, which counts on past
+// int64's range.
 func FromEach(fr *Frame, start int64, yield func(fr *Frame, item int64) bool) bool {
 	for n := start; ; n++ {
 		if !yield(fr, n) {
@@ -130,8 +129,30 @@ func FromEach(fr *Frame, start int64, yield func(fr *Frame, item int64) bool) bo
 	}
 }
 
-// SeqFrom is `pub fn from(start: Int) -> Iter<Int>`, whose whole body is
-// `#Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}`.
+// SeqFromInt is `Iter.from(start)` over Int Values: start, start + 1, and on
+// without end, past int64's range into big Ints. It counts in int64 while
+// the count fits.
+func SeqFromInt(start Value) Seq[any] {
+	return Seq[any]{Run: func(fr *Frame, yield func(fr *Frame, item any) bool) bool {
+		n := start
+		for {
+			if x, ok := n.(int64); ok {
+				for ; x < math.MaxInt64; x++ {
+					if !yield(fr, x) {
+						return false
+					}
+				}
+				n = x
+			}
+			if !yield(fr, n) {
+				return false
+			}
+			n = IntAdd(n, int64(1))
+		}
+	}, Endless: endlessFrom}
+}
+
+// SeqFrom is FromEach as a sequence.
 func SeqFrom(start int64) Seq[int64] {
 	return Seq[int64]{Run: func(fr *Frame, yield func(fr *Frame, item int64) bool) bool {
 		return FromEach(fr, start, yield)

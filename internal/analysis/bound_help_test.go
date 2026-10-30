@@ -27,7 +27,7 @@ interface Shape {
 }
 
 fn has<M>(text: String, m: M) -> Bool where M: Matcher {
-    Matcher.contained_in?(m, text)
+    Matcher.is_contained_in(m, text)
 }
 
 fn total<S>(s: S) -> Float where S: Shape {

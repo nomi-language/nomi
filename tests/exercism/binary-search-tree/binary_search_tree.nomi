@@ -1,3 +1,5 @@
+//# A binary search tree, built by inserting values one at a time.
+
 /// A binary search tree: every value in a node's left subtree is at most
 /// its value, and every value in its right subtree is greater.
 pub enum Tree<T> {

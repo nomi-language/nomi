@@ -14,18 +14,18 @@ fn find(s: String) -> Maybe<Int> {
 
 fn doubled_sum(a: String, b: String) -> Result<Int, String> {
     fn doubled(s: String) -> Result<Int, String> {
-        n = try parse(s)
+        n = parse(s)?
         Ok(n * 2)
     }
 
-    x = try doubled(a)
-    y = try doubled(b)
+    x = doubled(a)?
+    y = doubled(b)?
     Ok(x + y)
 }
 
-test "try in a nested fn leaves the nested fn" {
+test "`?` in a nested fn leaves the nested fn" {
     fn doubled(s: String) -> Result<Int, String> {
-        n = try parse(s)
+        n = parse(s)?
         Ok(n * 2)
     }
 
@@ -33,9 +33,9 @@ test "try in a nested fn leaves the nested fn" {
     assert doubled("") == Err("empty")
 }
 
-test "try on a Maybe in a nested fn" {
+test "`?` on a Maybe in a nested fn" {
     fn plus_one(s: String) -> Maybe<Int> {
-        n = try find(s)
+        n = find(s)?
         Some(n + 1)
     }
 
@@ -43,20 +43,20 @@ test "try on a Maybe in a nested fn" {
     assert plus_one("") == None
 }
 
-test "a nested fn's try inside a named fn" {
+test "a nested fn's `?` inside a named fn" {
     assert doubled_sum("a", "bc") == Ok(6)
     assert doubled_sum("a", "") == Err("empty")
 }
 
-test "a recursive nested fn with try" {
+test "a recursive nested fn with `?`" {
     fn total(xs: List<String>) -> Result<Int, String> {
         case xs {
             [] ->
                 Ok(0)
 
             [x, ..rest] -> {
-                n = try parse(x)
-                rest_total = try total(rest)
+                n = parse(x)?
+                rest_total = total(rest)?
                 Ok(n + rest_total)
             }
         }

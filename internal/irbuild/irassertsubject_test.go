@@ -65,7 +65,7 @@ func TestIRAssertSubject_RepositoryFixturesRunWhole(t *testing.T) {
 		"assert_boundary.nomi",           // assert and `assert pat = v` in an ordinary fn
 		"testing_check.nomi",             // testing.check's Result, unchanged
 		"pipe_assert_report.nomi",
-		"try_check_in_test.nomi", // `try testing.check` in a test body reports the check        // piped subjects, unchanged
+		"try_check_in_test.nomi", // `testing.is_check` in a test body reports the check        // piped subjects, unchanged
 	} {
 		t.Run(name, func(t *testing.T) {
 			abs, err := filepath.Abs(filepath.Join("testdata", name))
@@ -119,7 +119,7 @@ fn ensure_small(n: Int) -> Result<Int, AssertionFailure> {
 }
 
 fn checked(xs: List<Int>) -> Result<Bool, AssertionFailure> {
-  held = try testing.check(xs |> Iter.any?(fn x -> x > 2))
+  held = testing.check(xs |> Iter.any(fn x -> x > 2))?
   Ok(held)
 }
 
@@ -143,7 +143,7 @@ test "a check over a pipe inside an ordinary fn" {
 test "a failing piped check reports its pipeline" {
   result = testing.check(
     [1, 2]
-    |> Iter.any?(fn x -> x > 2)
+    |> Iter.any(fn x -> x > 2)
   )
   assert result == Ok(True)
 }

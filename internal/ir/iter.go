@@ -80,7 +80,7 @@ import "strconv"
 // `Signalling` reports that this operation's callback answers a CONTROL SIGNAL
 // rather than a plain value — `break`, `continue` or `return` inside an
 // `Iter.map`, `filter`, `take_while`, `drop_while`, `flat_map`, `each`,
-// `reduce`, `find`, `any?`, `all?` or `iterate` callback, which is the set
+// `reduce`, `find`, `any`, `all` or `iterate` callback, which is the set
 // `analysis/iter_sensitive.go`'s `iterCallbackSlots` sanctions apart from
 // `Iter.loop` (inlined) and `Map.map_values` / `map_keys` (host calls).
 //
@@ -156,6 +156,8 @@ const (
 	// IterOverUserImpl is a named type carrying the program's own
 	// `impl Iter for T`.
 	IterOverUserImpl
+	// IterOverMaybe is a `Maybe<T>`, zero or one elements.
+	IterOverMaybe
 )
 
 func (d IterDomain) String() string {
@@ -182,6 +184,8 @@ func (d IterDomain) String() string {
 		return "bytes"
 	case IterOverUserImpl:
 		return "impl"
+	case IterOverMaybe:
+		return "maybe"
 	}
 	return "IterDomain(" + strconv.Itoa(int(d)) + ")"
 }
@@ -220,7 +224,6 @@ const (
 	IterCount
 	IterKnownCount
 	IterEmpty
-	IterNotEmpty
 	IterFirst
 	IterLast
 	IterGet
@@ -251,7 +254,7 @@ const (
 	// the source, the seed and the callback, answering the outputs and the
 	// final state.
 	IterMapReduce
-	// IterInfinite is `Iter.infinite?`: whether the sequence never ends.
+	// IterInfinite is `Iter.is_infinite`: whether the sequence never ends.
 	IterInfinite
 	// IterSort is `Iter.sort`: IterSortWith's operands, the comparator
 	// being the element's `Comparable.compare`. It is its own operation so
@@ -291,7 +294,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// newIter holds every other domain to its one operand.
 	IterView: {name: "(source view)", form: IterFormSource, min: 1, max: 4, over: []IterDomain{
 		IterOverList, IterOverEmptyList, IterOverString, IterOverMap, IterOverSet,
-		IterOverVector, IterOverRange, IterOverBytes, IterOverUserImpl,
+		IterOverVector, IterOverRange, IterOverBytes, IterOverUserImpl, IterOverMaybe,
 	}},
 
 	IterFrom:    {name: "from", form: IterFormSource, min: 1, max: 1, over: []IterDomain{IterOverNothing}},
@@ -322,17 +325,16 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 		IterOverSeq, IterOverList, IterOverMap,
 	}},
 	IterKnownCount: {name: "known_count", form: IterFormTerminal, min: 1, max: 1, over: []IterDomain{
-		IterOverSeq, IterOverList, IterOverMap, IterOverString, IterOverSet, IterOverVector,
+		IterOverSeq, IterOverList, IterOverMap, IterOverString, IterOverSet, IterOverVector, IterOverMaybe,
 	}},
-	IterEmpty:    {name: "empty?", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterNotEmpty: {name: "not_empty?", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterFirst:    {name: "first", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterLast:     {name: "last", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterGet:      {name: "get", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterEach:     {name: "each", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	IterAny:      {name: "any?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	IterAll:      {name: "all?", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	IterFind:     {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterEmpty: {name: "is_empty", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterFirst: {name: "first", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterLast:  {name: "last", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterGet:   {name: "get", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
+	IterEach:  {name: "each", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterAny:   {name: "any", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterAll:   {name: "all", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
+	IterFind:  {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	// `reduce` takes the source, the seed and the callback. The seed is
 	// written as the callback's first-parameter default; the checker rejects
 	// a reduce without one, so there is no two-operand form.
@@ -360,9 +362,9 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// `reduce`'s is.
 	IterScan:      {name: "scan", form: IterFormStage, min: 3, max: 3, over: overSeq, signal: true},
 	IterMapReduce: {name: "map_reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
-	// `infinite?` reads the sequence's own answer and drives nothing; every
+	// `is_infinite` reads the sequence's own answer and drives nothing; every
 	// source family reaches it through its view.
-	IterInfinite: {name: "infinite?", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterInfinite: {name: "is_infinite", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
 	IterSort:     {name: "sort", form: IterFormTerminal, min: 2, max: 3, over: overSeq},
 }
 
@@ -417,7 +419,7 @@ type Iter struct {
 // element's `Discrete.steps_between`, when the view enters a declared
 // `Iter<T>` position and must answer the Range's `known_count`, and a user
 // source's view one or two more: the `known_count` its impl writes, then the
-// `infinite?` it writes. A view that carries `infinite?` and inherits
+// `is_infinite` it writes. A view that carries `is_infinite` and inherits
 // `known_count` holds Unit in its place, so each operand has one position.
 func IterViewOperands(d IterDomain) int {
 	switch d {

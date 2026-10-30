@@ -1,3 +1,2 @@
 [module]
 name = "csvdata"
-entry_points = ["tools/generate", "tools/rows"]

@@ -42,10 +42,10 @@ func TestDetectImplCollisions_DistinctInstantiationsAreFine(t *testing.T) {
 }
 
 func TestDetectImplCollisions_OneHeaderTwiceIsTheDuplicate(t *testing.T) {
-	a := implFuncDef("holds?", "Holds", "Box")
-	b := implFuncDef("holds?", "Holds", "Box")
+	a := implFuncDef("holds", "Holds", "Box")
+	b := implFuncDef("holds", "Holds", "Box")
 	errs := detectImplCollisions(
-		map[string]map[string][]*ast.FuncDef{"Holds": {"holds?": {a, b}}},
+		map[string]map[string][]*ast.FuncDef{"Holds": {"holds": {a, b}}},
 		map[*ast.FuncDef]string{a: "", b: ""},
 		map[*ast.FuncDef]string{a: "Box", b: "Box"},
 		map[*ast.FuncDef]string{a: "Holds<Int>", b: "Holds<Int>"},

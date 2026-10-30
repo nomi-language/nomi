@@ -54,12 +54,12 @@ test "bytes round trip, most significant first" {
 
 // The version is the 13th hex digit; the variant is the top two bits of the
 // 17th, binary 10, so that digit is 8, 9, a or b.
-fn shaped?(id: Uuid, version: Int) -> Bool {
+fn is_shaped(id: Uuid, version: Int) -> Bool {
     text = "${id}"
 
     Uuid.version(id) == version
         and String.slice(text, 14, 15) == "${version}"
-        and Set.contains?(%["8", "9", "a", "b"], String.slice(text, 19, 20))
+        and Set.contains(%["8", "9", "a", "b"], String.slice(text, 19, 20))
 }
 
 fn generated(count: Int, make: () -> Result<Uuid, random.Error>) -> List<Uuid> {
@@ -76,7 +76,7 @@ fn generated(count: Int, make: () -> Result<Uuid, random.Error>) -> List<Uuid> {
 test "v4 has version 4 and the RFC 9562 variant" {
     ids = generated(50, Uuid.v4)
     assert Iter.count(ids) == 50
-    assert Iter.all?(ids, &shaped?(&1, 4))
+    assert Iter.all(ids, &is_shaped(&1, 4))
 }
 
 test "v4 values differ" {
@@ -86,7 +86,7 @@ test "v4 values differ" {
 test "v7 has version 7 and the RFC 9562 variant" {
     ids = generated(50, Uuid.v7)
     assert Iter.count(ids) == 50
-    assert Iter.all?(ids, &shaped?(&1, 7))
+    assert Iter.all(ids, &is_shaped(&1, 7))
 }
 
 group "v7 under a virtual clock" {
@@ -131,7 +131,7 @@ test "order is the unsigned order of the bits" {
 
 test "equal UUIDs are one key" {
     a = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
-    b = try Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")
+    b = Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")?
     assert a == b
     assert Hashable.hash(a) == Hashable.hash(b)
     refute a == Uuid.nil()

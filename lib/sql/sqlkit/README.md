@@ -96,10 +96,10 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
     )
 
     runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
-            id: try runtime.int("user_by_email", row, 0),
-            email: try runtime.text("user_by_email", row, 1),
-            name: try runtime.text_null("user_by_email", row, 2),
-            created_at: try runtime.timestamptz("user_by_email", row, 3),
+            id: runtime.int("user_by_email", row, 0)?,
+            email: runtime.text("user_by_email", row, 1)?,
+            name: runtime.text_null("user_by_email", row, 2)?,
+            created_at: runtime.timestamptz("user_by_email", row, 3)?,
         }))
 }
 ```
@@ -183,7 +183,7 @@ a `Maybe`, is an error at the column's reader in the generated file:
 error: Int does not implement SqlNumeric (required by `where T: SqlNumeric`)
    --> queries.nomi:142:26
     |
-142 |             revenue: try runtime.numeric_scaled("revenue_since", row, 3, 2),
+142 |             revenue: runtime.numeric_scaled("revenue_since", row, 3, 2)?,
     |                          ^^^^^^^
 ```
 

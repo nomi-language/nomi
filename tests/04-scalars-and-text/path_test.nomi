@@ -18,8 +18,8 @@ test "the parts of a path" {
 }
 
 test "absolute and relative" {
-    assert path.absolute?("/home/ada")
-    refute path.absolute?("notes.txt")
+    assert path.is_absolute("/home/ada")
+    refute path.is_absolute("notes.txt")
     assert path.relative("/home/ada", "/home/ada/notes/today.txt") == Some("notes/today.txt")
     assert path.relative("/home/ada/notes", "/home/bo") == Some("../../bo")
 }
@@ -27,7 +27,7 @@ test "absolute and relative" {
 test "globs match a name at a time" {
     nomi =
         ["src/main.nomi", "src/lib/util.nomi", "src/.hidden.nomi", "README.md"]
-        |> Iter.filter(fn p -> path.match?("src/**/*.nomi", p))
+        |> Iter.filter(fn p -> path.matches("src/**/*.nomi", p))
         |> Iter.to_list()
 
     assert nomi == ["src/main.nomi", "src/lib/util.nomi"]

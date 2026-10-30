@@ -11,6 +11,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: sum_of_multiples.nomi
+//# The sum of the multiples of given factors below a limit.
+
 /// The sum of every number below `limit` that is a multiple of at least one
 /// of `factors`. Each multiple counts once, and a factor of 0 has none.
 pub fn sum(factors: List<Int>, limit: Int) -> Int {

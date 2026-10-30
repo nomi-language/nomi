@@ -11,6 +11,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 ```nomi-run
 // FILE: knapsack.nomi
+//# The 0/1 knapsack problem: the most value of items that fits a weight
+//# limit.
+
 /// Something that could go in the knapsack.
 pub struct Item {
     weight: Int
@@ -26,7 +29,7 @@ pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
         |> Iter.to_vector()
 
     best = Iter.reduce(items, consider, from: nothing)
-    Vector.at(best, maximum_weight)
+    Vector.get(best, maximum_weight)!
 }
 
 /// The best value for each capacity from 0 to the maximum once `item` may be
@@ -38,7 +41,7 @@ fn consider(best: Vector<Int>, item: Item) -> Vector<Int> {
         if capacity < item.weight {
             without
         } else {
-            Int.max(without, Vector.at(best, capacity - item.weight) + item.value)
+            Int.max(without, Vector.get(best, capacity - item.weight)! + item.value)
         }
     })
     |> Iter.to_vector()

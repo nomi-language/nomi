@@ -78,7 +78,6 @@
 "todo" @keyword
 "unreachable" @keyword
 "concurrent" @keyword
-"try" @keyword
 "then" @keyword
 "tap" @keyword
 "impl" @keyword
@@ -387,6 +386,7 @@
 (call_expression
   . (field_access
     (identifier) @function .))
+
 
 ; Function definitions
 (function_definition
@@ -765,3 +765,10 @@
   (attached_comment_test_prompt_marker)
   (attached_comment_test_line_prompt)
 ] @comment.documentation
+
+; A postfix `!` (`Map.get(m, k)!`) can stop the program, as `unreachable`
+; does, and a postfix `?` (`parse(s)?`) can return from it, as `return`
+; does, so both read as keywords; the catch-all `"!" @operator` above keeps
+; a prefix `!` (logical not) an operator. Last, so they win.
+(bang) @keyword
+(question) @keyword

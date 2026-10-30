@@ -21,7 +21,7 @@ test "direct interface calls report missing implementations" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Greeter` for `Visitor`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Greeter` for `Visitor`")
 }
 
 test "derive reports missing field implementations" {
@@ -40,7 +40,7 @@ test "derive reports missing field implementations" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `C`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `C`")
 }
 
 test "nested derive chains report the innermost missing field implementation" {
@@ -65,7 +65,7 @@ test "nested derive chains report the innermost missing field implementation" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `C`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `C`")
 }
 
 test "generic bound recursion reports missing element implementations" {
@@ -86,7 +86,7 @@ test "generic bound recursion reports missing element implementations" {
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `Foo`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `Foo`")
 }
 
 test "generic wrapper derive attributes missing impls to the instantiation field" {
@@ -111,5 +111,5 @@ test "generic wrapper derive attributes missing impls to the instantiation field
     )
 
     assert Iter.count(diagnostics) == 1
-    assert test_helpers.has_diagnostic?(diagnostics, "no impl of `Display` for `C`")
+    assert test_helpers.has_diagnostic(diagnostics, "no impl of `Display` for `C`")
 }

@@ -39,7 +39,7 @@ struct Board {
 }
 
 fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int) -> Maybe<Vector<Vector<Int>>> {
-    cells = try Vector.get(grid, row)
+    cells = Vector.get(grid, row)?
     Some(Vector.set(grid, row, Vector.set(cells, column, value)))
 }
 

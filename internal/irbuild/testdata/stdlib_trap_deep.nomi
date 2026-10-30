@@ -1,6 +1,7 @@
 // A trap several stdlib calls deep. `Iter.sum` reduces with a std lambda
-// whose `+` is Duration's `Add` impl, and the overflow happens there, in
-// std/duration.nomi. The report names the program's call to `Iter.sum`.
+// whose `+` is Duration's `Add` impl, and the sum is past what a Duration
+// holds, which std/duration.nomi faults on. The report names the program's
+// call to `Iter.sum`.
 import {
     std/duration.Duration
     std/io
@@ -10,7 +11,7 @@ fn main() {
     io.print("before")
 
     total =
-        [Duration.nanoseconds(Int.max_value), Duration.nanoseconds(1)]
+        [Duration.nanoseconds(9_223_372_036_854_775_807), Duration.nanoseconds(1)]
         |> Iter.sum()
 
     io.print(Duration.as_nanos(total))

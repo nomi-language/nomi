@@ -87,6 +87,8 @@ func normalizeNestedImportLayout(node ast.Node) {
 		}
 	case *ast.Dbg:
 		normalizeNestedImportLayout(n.Expr)
+	case *ast.Unwrap:
+		normalizeNestedImportLayout(n.Expr)
 	case *ast.Then:
 		normalizeNestedImportLayout(n.Fn())
 	case *ast.Tap:
@@ -135,21 +137,21 @@ func normalizeNestedImportLayout(node ast.Node) {
 			normalizeNestedImportLayout(elem)
 		}
 	case *ast.SetLit:
-		normalizeNestedImportLayout(n.Spread)
-		for _, elem := range n.Items {
+		for _, elem := range n.Operands() {
 			normalizeNestedImportLayout(elem)
 		}
 	case *ast.ListSpreadLit:
-		for _, elem := range n.Heads {
+		for _, elem := range n.Operands() {
 			normalizeNestedImportLayout(elem)
 		}
-		normalizeNestedImportLayout(n.TailSpread)
 	case *ast.TupleLit:
 		for _, elem := range n.Items {
 			normalizeNestedImportLayout(elem)
 		}
 	case *ast.MapLit:
-		normalizeNestedImportLayout(n.Spread)
+		for _, sp := range n.Spreads {
+			normalizeNestedImportLayout(sp.Head)
+		}
 		for _, entry := range n.Entries {
 			normalizeNestedImportLayout(entry.Key)
 			normalizeNestedImportLayout(entry.Value)

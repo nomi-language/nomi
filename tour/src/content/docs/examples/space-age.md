@@ -59,10 +59,7 @@ pub fn age(planet: Planet, seconds: Int) -> Float {
 }
 
 // FILE: space_age_test.nomi
-import {
-    space_age
-    space_age.Planet
-}
+import space_age.{self, Planet}
 
 test "age" {
     cases = [
@@ -77,7 +74,7 @@ test "age" {
     ]
 
     subtests cases, #(description, planet, seconds, expected), description {
-        assert Float.round(space_age.age(planet, seconds), 2) == expected
+        assert space_age.age(planet, seconds) |> Float.round(2) == expected
     }
 }
 

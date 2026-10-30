@@ -186,8 +186,14 @@ func TestJsonNumberSplitIsIntFirst(t *testing.T) {
 		{"36.0", false, 0, 36},
 		{"2.5", false, 0, 2.5},
 		{"1e3", false, 0, 1000},
-		// Beyond int64, so the Float fallback takes it.
-		{"9223372036854775808", false, 0, 9223372036854775808},
+		// Beyond int64, and still an Int: JSON sets no limit on an
+		// integer's digits.
+		{"9223372036854775808", true, 0, 0},
+		{"-123456789012345678901234567890", true, 0, 0},
+	}
+	bigs := map[string]string{
+		"9223372036854775808":             "9223372036854775808",
+		"-123456789012345678901234567890": "-123456789012345678901234567890",
 	}
 	for _, tc := range cases {
 		i, f, isInt, err := JsonFromNumber(tc.lexeme)
@@ -196,8 +202,10 @@ func TestJsonNumberSplitIsIntFirst(t *testing.T) {
 			t.Errorf("%s: %v", tc.lexeme, err)
 		case isInt != tc.isInt:
 			t.Errorf("%s: isInt=%v, want %v", tc.lexeme, isInt, tc.isInt)
-		case isInt && i != tc.i:
-			t.Errorf("%s: Int %d, want %d", tc.lexeme, i, tc.i)
+		case isInt && bigs[tc.lexeme] != "" && i.String() != bigs[tc.lexeme]:
+			t.Errorf("%s: Int %s, want %s", tc.lexeme, i, bigs[tc.lexeme])
+		case isInt && bigs[tc.lexeme] == "" && i != SmallInt(tc.i):
+			t.Errorf("%s: Int %s, want %d", tc.lexeme, i, tc.i)
 		case !isInt && f != tc.f:
 			t.Errorf("%s: Float %v, want %v", tc.lexeme, f, tc.f)
 		}
@@ -233,7 +241,7 @@ func TestJsonRoundTripsTheCorpusSample(t *testing.T) {
 	// The hand-built direction: insertion order survives.
 	hand := Json{Tag: TagJsonObj}
 	for _, e := range []MapEntry[string, Json]{
-		{Key: "x", Val: Json{Tag: TagJsonInt, Int: 1}},
+		{Key: "x", Val: Json{Tag: TagJsonInt, Int: SmallInt(1)}},
 		{Key: "y", Val: Json{Tag: TagJsonFloat, Float: 2.5}},
 		{Key: "ok", Val: Json{Tag: TagJsonBool, Bool: true}},
 	} {

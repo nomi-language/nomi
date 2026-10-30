@@ -136,7 +136,7 @@ func irSignallingCallback(owner, method string) bool {
 	switch owner {
 	case "Iter":
 		switch method {
-		case "reduce", "scan", "map_reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any?", "all?":
+		case "reduce", "scan", "map_reduce", "map", "filter", "take_while", "drop_while", "flat_map", "each", "iterate", "find", "any", "all":
 			return true
 		}
 	case "Map":

@@ -18,36 +18,36 @@ func TestExitless_EarlyExitWithNoFunctionIsRejected(t *testing.T) {
 	}{
 		{
 			name: "try in a once",
-			src: `once n = try Ok(3)
+			src: `once n = Ok(3)?
 
 fn f() -> Result<Int, String> {
     Ok(n)
 }`,
-			line: 1, col: 10,
-			msg:  "`try` cannot be used in the initializer of `once n`: a `once` has no function to return from",
+			line: 1, col: 15,
+			msg:  "`?` cannot be used in the initializer of `once n`: a `once` has no function to return from",
 			hint: "bind the Result or Maybe and handle it where `n` is read, or compute the value inside a function",
 		},
 		{
 			// Read from a function whose own return type would admit the
-			// `try`: the once is checked from its read, and the reader's
+			// `?`: the once is checked from its read, and the reader's
 			// boundary must not count.
 			name: "try stage in a once read above it",
 			src: `fn f() -> Maybe<Int> {
     Some(n)
 }
 
-once n = Some(3) |> try`,
-			line: 5, col: 21,
-			msg: "`try` cannot be used in the initializer of `once n`",
+once n = Some(3)?`,
+			line: 5, col: 17,
+			msg: "`?` cannot be used in the initializer of `once n`",
 		},
 		{
 			name: "try in a once block",
 			src: `once n = {
-    x = if True { try Some(3) } else { 4 }
+    x = if True { Some(3)? } else { 4 }
     x + 1
 }`,
-			line: 2, col: 19,
-			msg: "`try` cannot be used in the initializer of `once n`",
+			line: 2, col: 26,
+			msg: "`?` cannot be used in the initializer of `once n`",
 		},
 		{
 			name: "return in a once",
@@ -100,18 +100,18 @@ once n = Some(3) |> try`,
 }
 
 impl P {
-    pub once zero: P = #P{x: try Some(0)}
+    pub once zero: P = #P{x: Some(0)?}
 }`,
-			line: 6, col: 30,
-			msg: "`try` cannot be used in the initializer of `once zero`",
+			line: 6, col: 37,
+			msg: "`?` cannot be used in the initializer of `once zero`",
 		},
 		{
 			name: "try in a fn parameter default",
-			src: `fn f(x: Int = try Some(3)) -> Maybe<Int> {
+			src: `fn f(x: Int = Some(3)?) -> Maybe<Int> {
     Some(x)
 }`,
-			line: 1, col: 15,
-			msg:  "`try` cannot be used in the default of parameter 'x': a default has no function to return from",
+			line: 1, col: 22,
+			msg:  "`?` cannot be used in the default of parameter 'x': a default has no function to return from",
 			hint: "handle the Result or Maybe inside the default with `case`, or compute the value inside the function",
 		},
 		{
@@ -130,28 +130,28 @@ impl P {
 		{
 			name: "try in a lambda parameter default",
 			src: `fn f() -> Maybe<Int> {
-    g = fn x: Int = try Some(3) -> x + 1
+    g = fn x: Int = Some(3)? -> x + 1
     Some(g())
 }`,
-			line: 2, col: 21,
-			msg: "`try` cannot be used in the default of parameter 'x'",
+			line: 2, col: 28,
+			msg: "`?` cannot be used in the default of parameter 'x'",
 		},
 		{
 			name: "try in an unannotated lambda parameter default",
 			src: `fn f() -> Maybe<Int> {
-    g = fn x = try Some(3) -> x + 1
+    g = fn x = Some(3)? -> x + 1
     Some(g())
 }`,
-			line: 2, col: 16,
-			msg: "`try` cannot be used in the default of parameter 'x'",
+			line: 2, col: 23,
+			msg: "`?` cannot be used in the default of parameter 'x'",
 		},
 		{
 			name: "try in a struct field default",
 			src: `struct P {
-    x: Int = try Some(3)
+    x: Int = Some(3)?
 }`,
-			line: 2, col: 14,
-			msg:  "`try` cannot be used in the default of field 'x' of P: a default has no function to return from",
+			line: 2, col: 21,
+			msg:  "`?` cannot be used in the default of field 'x' of P: a default has no function to return from",
 			hint: "handle the Result or Maybe inside the default with `case`, or compute the value in a function and pass the field",
 		},
 		{
@@ -200,7 +200,7 @@ impl P {
 func TestExitless_ExitInsideANestedBoundaryIsAccepted(t *testing.T) {
 	cases := []struct{ name, src string }{
 		{"try in a lambda in a once", `once f = fn x: Result<Int, String> -> {
-    v = try x
+    v = x?
     Ok(v + 1)
 }`},
 		{"return in a lambda in a once", `once k = fn x: Int -> {
@@ -211,12 +211,12 @@ func TestExitless_ExitInsideANestedBoundaryIsAccepted(t *testing.T) {
 }`},
 		{"try in a nested fn in a once", `once g: Maybe<Int> = {
     fn h(x: Maybe<Int>) -> Maybe<Int> {
-        Some(try x)
+        Some(x?)
     }
     h(Some(4))
 }`},
 		{"try in a concurrent block in a once", `once c: Result<Int, String> = concurrent {
-    v = try Ok(3)
+    v = Ok(3)?
     Ok(v)
 }`},
 		{"continue in an iteration callback in a once", `once total = [1, 2, 3] |> Iter.map(fn x -> {
@@ -225,11 +225,11 @@ func TestExitless_ExitInsideANestedBoundaryIsAccepted(t *testing.T) {
     }
     x
 }) |> Iter.to_list()`},
-		{"try in a lambda in a parameter default", `fn f(g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(try m + 1)) -> Maybe<Int> {
+		{"try in a lambda in a parameter default", `fn f(g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(m? + 1)) -> Maybe<Int> {
     g(Some(1))
 }`},
 		{"try in a lambda in a field default", `struct P {
-    g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(try m + 1)
+    g: (Maybe<Int>) -> Maybe<Int> = fn m -> Some(m? + 1)
 }`},
 	}
 	for _, tc := range cases {

@@ -44,13 +44,13 @@ fn run() -> Result<Unit, Error> {
     // and lands in `Date.parse`. The accessors are `impl DateParts for Date`,
     // ordinary Nomi bodies reading the three fields — so a lowering that permuted
     // the struct layout prints 5 for the year rather than failing to compile.
-    d = try Date"2026-05-04"
+    d = Date"2026-05-04"?
     io.print("year = " + Int.to_string(Date.year(d)))
     io.print("month = " + Int.to_string(Date.month(d)))
     io.print("day = " + Int.to_string(Date.day(d)))
     io.print("date_text = " + Date.to_string(d))
 
-    t = try Time"09:30:00"
+    t = Time"09:30:00"?
     io.print("hour = " + Int.to_string(Time.hour(t)))
     io.print("minute = " + Int.to_string(Time.minute(t)))
     io.print("second = " + Int.to_string(Time.second(t)))
@@ -59,7 +59,7 @@ fn run() -> Result<Unit, Error> {
     // Interpolation, so the fragment list has a Dynamic member and not only
     // Static ones. A lowering that dropped the dynamic arm parses "2026--04".
     mm = "07"
-    july = try Date"2026-${mm}-04"
+    july = Date"2026-${mm}-04"?
     io.print("interpolated = " + Date.to_string(july))
 
     // --- RENDERING ROUND TRIPS ------------------------------------------------
@@ -67,10 +67,10 @@ fn run() -> Result<Unit, Error> {
     // Sub-second precision renders only when NONZERO, so these two rows exercise
     // both arms of `ISOTimeText`. A renderer that always emitted `.000` agrees
     // with the second row and fails the first.
-    io.print("time_whole = " + Time.to_string(try Time"09:30:00"))
-    io.print("time_frac = " + Time.to_string(try Time"23:45:12.5"))
-    io.print("time_max_frac = " + Time.to_string(try Time"23:59:59.999999999"))
-    io.print("date_padded = " + Date.to_string(try Date"0001-01-01"))
+    io.print("time_whole = " + Time.to_string(Time"09:30:00"?))
+    io.print("time_frac = " + Time.to_string(Time"23:45:12.5"?))
+    io.print("time_max_frac = " + Time.to_string(Time"23:59:59.999999999"?))
+    io.print("date_padded = " + Date.to_string(Date"0001-01-01"?))
 
     // --- THE THREE PARSE FAULT SHAPES ----------------------------------------
     //
@@ -91,36 +91,32 @@ fn run() -> Result<Unit, Error> {
     // four `Subtract` rungs are Nomi bodies over them, which is where the real
     // disagreement can live. The 2011/2012 January-31 pair is the discriminator
     // for the clamp: a clamp to a constant 28 prints the same date for both.
-    io.print("clamp_common = " + Date.to_string(try Date"2011-01-31" + Months(1)))
-    io.print("clamp_leap = " + Date.to_string(try Date"2012-01-31" + Months(1)))
-    io.print("clamp_thirty = " + Date.to_string(try Date"2026-03-31" + Months(1)))
-    io.print("clamp_back = " + Date.to_string(try Date"2026-01-31" - Months(1)))
-    io.print("leap_off = " + Date.to_string(try Date"2024-02-29" + Years(1)))
-    io.print("leap_onto = " + Date.to_string(try Date"2024-02-29" + Years(4)))
-    io.print("leap_back = " + Date.to_string(try Date"2024-02-29" - Years(1)))
-    io.print("cross_year = " + Date.to_string(try Date"2026-12-30" + Days(5)))
-    io.print("weeks = " + Date.to_string(try Date"2026-05-04" + Weeks(2)))
-    io.print("sub_days = " + Date.to_string(try Date"2026-05-04" - Days(3)))
-    io.print("sub_weeks = " + Date.to_string(try Date"2026-05-04" - Weeks(1)))
+    io.print("clamp_common = " + Date.to_string(Date"2011-01-31"? + Months(1)))
+    io.print("clamp_leap = " + Date.to_string(Date"2012-01-31"? + Months(1)))
+    io.print("clamp_thirty = " + Date.to_string(Date"2026-03-31"? + Months(1)))
+    io.print("clamp_back = " + Date.to_string(Date"2026-01-31"? - Months(1)))
+    io.print("leap_off = " + Date.to_string(Date"2024-02-29"? + Years(1)))
+    io.print("leap_onto = " + Date.to_string(Date"2024-02-29"? + Years(4)))
+    io.print("leap_back = " + Date.to_string(Date"2024-02-29"? - Years(1)))
+    io.print("cross_year = " + Date.to_string(Date"2026-12-30"? + Days(5)))
+    io.print("weeks = " + Date.to_string(Date"2026-05-04"? + Weeks(2)))
+    io.print("sub_days = " + Date.to_string(Date"2026-05-04"? - Days(3)))
+    io.print("sub_weeks = " + Date.to_string(Date"2026-05-04"? - Weeks(1)))
 
     // --- THE SIGNED DAY COUNT ------------------------------------------------
     //
     // Both signs, because std promises a signed count and the truncation
     // direction is what a reimplementation gets wrong. The leap row is the one
     // that a count ignoring February 29 would fail while agreeing everywhere else.
-    io.print("fwd = " + Int.to_string(Date.days_between(d, try Date"2026-05-07")))
-    io.print("back = " + Int.to_string(Date.days_between(try Date"2026-05-07", d)))
+    io.print("fwd = " + Int.to_string(Date.days_between(d, Date"2026-05-07"?)))
+    io.print("back = " + Int.to_string(Date.days_between(Date"2026-05-07"?, d)))
 
     io.print(
-        "common_year = " + Int.to_string(
-            Date.days_between(try Date"2026-01-01", try Date"2026-12-31")
-        )
+        "common_year = " + Int.to_string(Date.days_between(Date"2026-01-01"?, Date"2026-12-31"?))
     )
 
     io.print(
-        "leap_year = " + Int.to_string(
-            Date.days_between(try Date"2024-01-01", try Date"2025-01-01")
-        )
+        "leap_year = " + Int.to_string(Date.days_between(Date"2024-01-01"?, Date"2025-01-01"?))
     )
 
     // --- THE DIVERGENCE, AND BOTH ANSWERS ARE RIGHT --------------------------
@@ -129,8 +125,8 @@ fn run() -> Result<Unit, Error> {
     // because a time-of-day has no day to carry; `NaiveDateTime` rolls the date
     // over because a wall reading does. `wrapped_tod` is the negative control:
     // the two agree on the CLOCK, so the divergence is shown to be the DATE.
-    late_tod = try Time"23:30:00"
-    late_wall = try NaiveDateTime"2026-05-04T23:30:00"
+    late_tod = Time"23:30:00"?
+    late_wall = NaiveDateTime"2026-05-04T23:30:00"?
     io.print("tod_wraps = " + Time.to_string(late_tod + Duration.hours(2)))
     io.print("wall_rolls_over = " + NaiveDateTime.to_string(late_wall + Duration.hours(2)))
 
@@ -147,8 +143,8 @@ fn run() -> Result<Unit, Error> {
     // Backwards across midnight. Go's `%` keeps the sign of the DIVIDEND, so
     // without the explicit correction in `rt.TimePlusDuration` this prints a
     // negative hour. Every forward row above passes under that mutant.
-    io.print("tod_wraps_back = " + Time.to_string(try Time"00:30:00" + Duration.hours(-1)))
-    io.print("tod_sub = " + Time.to_string(try Time"09:30:00" - Duration.minutes(45)))
+    io.print("tod_wraps_back = " + Time.to_string(Time"00:30:00"? + Duration.hours(-1)))
+    io.print("tod_sub = " + Time.to_string(Time"09:30:00"? - Duration.minutes(45)))
 
     // --- COMBINING AND SPLITTING ---------------------------------------------
     //
@@ -168,25 +164,23 @@ fn run() -> Result<Unit, Error> {
     // is the whole reason `Date` and `Time` are two structs. The cross-type rows
     // are absent because the checker makes them impossible — that is the point:
     // a shared representation would have made them expressible and equal.
-    io.print("date_eq = " + Bool.to_string(d == try Date"2026-05-04"))
-    io.print("date_ne = " + Bool.to_string(d == try Date"2026-05-05"))
-    io.print("time_eq = " + Bool.to_string(t == try Time"09:30:00"))
-    io.print("time_ne = " + Bool.to_string(t == try Time"09:30:01"))
-    io.print("date_lt = " + Bool.to_string(d < try Date"2026-05-05"))
-    io.print("time_lt = " + Bool.to_string(t < try Time"10:00:00"))
+    io.print("date_eq = " + Bool.to_string(d == Date"2026-05-04"?))
+    io.print("date_ne = " + Bool.to_string(d == Date"2026-05-05"?))
+    io.print("time_eq = " + Bool.to_string(t == Time"09:30:00"?))
+    io.print("time_ne = " + Bool.to_string(t == Time"09:30:01"?))
+    io.print("date_lt = " + Bool.to_string(d < Date"2026-05-05"?))
+    io.print("time_lt = " + Bool.to_string(t < Time"10:00:00"?))
 
     // `Time.new` is a Nomi body with `second: Int = 0, nanosecond: Int = 0`, so
     // the short call goes through the stdlib's arity-reduced wrapper. The
     // rejection row exercises its validation rather than rt's parser.
-    io.print("built = " + Time.to_string(try Time.new(8, 30)))
-    io.print("built_full = " + Time.to_string(try Time.new(8, 30, 15, 250000000)))
+    io.print("built = " + Time.to_string(Time.new(8, 30)?))
+    io.print("built_full = " + Time.to_string(Time.new(8, 30, 15, 250000000)?))
     io.print("rejected = " + time_fault_text(Time.new(25, 0, 0)))
 
     // `Time.between` is a Nomi body over the module-private `day_nanos`, so this
     // row checks a lowered body rather than an rt function.
-    io.print(
-        "between = " + Duration.to_string(Time.between(try Time"08:30:00", try Time"08:33:00"))
-    )
+    io.print("between = " + Duration.to_string(Time.between(Time"08:30:00"?, Time"08:33:00"?)))
 
     Ok(Unit)
 }

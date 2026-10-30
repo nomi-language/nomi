@@ -43,8 +43,8 @@ func TestFileQualifiedTypeOwnedMemberIsRejected(t *testing.T) {
 		},
 		{
 			name: "type once",
-			src:  "import std/int\n\nfn main() {\n  n = int.max_value\n}\n",
-			want: "file 'int' has no member 'max_value'\nhelp: it belongs to Int, so read it as Int.max_value",
+			src:  "import std/float\n\nfn main() {\n  n = float.pi\n}\n",
+			want: "file 'float' has no member 'pi'\nhelp: it belongs to Float, so read it as Float.pi",
 		},
 		{
 			name: "owner function on an interface",
@@ -89,7 +89,7 @@ fn main() {
   s = String.trim(" a ")
   t = Int.to_string(42)
   u = Display.to_string(42)
-  n = Int.max_value
+  n = Float.pi
   c = Iter.count([1, 2])
   io.print(s)
 }

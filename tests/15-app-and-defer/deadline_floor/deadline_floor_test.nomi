@@ -57,12 +57,12 @@ fn escape_program(attempt: String) -> String {
 
 test "Context.root() cannot widen an inherited deadline" {
     assert Err(fault) = compiler.run(escape_program("Context.root()"))
-    assert String.contains?(fault, "the context in force when `main` blocked")
+    assert String.contains(fault, "the context in force when `main` blocked")
 }
 
 test "a root stashed in boot cannot widen an inherited deadline" {
     assert Err(fault) = compiler.run(escape_program("Config.spare.context"))
-    assert String.contains?(fault, "the context in force when `main` blocked")
+    assert String.contains(fault, "the context in force when `main` blocked")
 }
 
 // The floor is a floor, not a freeze: a tighter inner bound still wins.
@@ -97,7 +97,7 @@ test "a nested deadline still tightens" {
         """
     )
 
-    assert String.contains?(fault, "the context in force when `main` blocked")
+    assert String.contains(fault, "the context in force when `main` blocked")
 }
 
 // Work handed to a Supervisor outlives the call that spawned it, so the

@@ -124,11 +124,11 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 	}
 }
 
-// `try` on a backtick literal is the checker's "try requires a Result or
+// `?` on a backtick literal is the checker's "try requires a Result or
 // Maybe" error, with the hint.
 func TestBacktickLiteral_TryIsRejected(t *testing.T) {
-	ds := literalDiagnostics(t, "import std/regex.Regex\n\nfn main() -> Result<Unit, String> {\n    _ = try Regex`\\d+`\n    Ok(Unit)\n}\n")
-	if len(ds) != 1 || ds[0].Message != "try requires a Result or Maybe, got Regex" {
+	ds := literalDiagnostics(t, "import std/regex.Regex\n\nfn main() -> Result<Unit, String> {\n    _ = Regex`\\d+`?\n    Ok(Unit)\n}\n")
+	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Maybe, got Regex" {
 		t.Fatalf("diagnostics = %v", ds)
 	}
 	if len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], "checked at compile time") {

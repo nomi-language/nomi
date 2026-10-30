@@ -207,7 +207,7 @@ func TestFormat_PipedIfStaysAsWritten(t *testing.T) {
 			"}\n",
 		"broken branches": "fn main() -> String {\n" +
 			"    \"Ada\"\n" +
-			"    |> if String.contains?(\"A\") {\n" +
+			"    |> if String.contains(\"A\") {\n" +
 			"        \"initialed\"\n" +
 			"    } else {\n" +
 			"        \"plain\"\n" +
@@ -216,7 +216,7 @@ func TestFormat_PipedIfStaysAsWritten(t *testing.T) {
 			"}\n",
 		"broken branches after a stage": "fn main() -> String {\n" +
 			"    \"Ada\"\n" +
-			"    |> String.contains?(\"A\")\n" +
+			"    |> String.contains(\"A\")\n" +
 			"    |> if {\n" +
 			"        \"the name has an initial\"\n" +
 			"    } else {\n" +

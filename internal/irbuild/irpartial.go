@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -310,6 +311,11 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 	if sig == nil && !value {
 		sibling = bl.partialSiblingDefaults(t, kinds, slot)
 	}
+	if sig == nil && !value && sibling == nil {
+		if fill, ok := bl.partialStdDefault(t, kinds, slot, written, filled, openName); ok {
+			return fill, true
+		}
+	}
 	if (sig == nil && !value && sibling == nil) || (sig != nil && len(sig.decl.Params) != len(kinds)) {
 		irDeclineNote("a partial's open slot whose default is not a literal, over a callee outside this file's functions")
 		return nil, false
@@ -418,6 +424,90 @@ func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, *fnS
 	}
 	params, kinds, ok := bl.partialCalleeByType(t)
 	return params, kinds, nil, ok
+}
+
+// partialStdDefault is partialCalleeDefault for a std function's slot
+// (`style` in `&String.join_list(names, locale, style: &1)`): the supplier
+// calls the accessor the declaring module built for the slot's default
+// (emitStdSlotDefaults) with every slot before it, as a call that leaves the
+// slot out by name does (stdShortCallPlan). A slot before it that the
+// partial leaves unmentioned takes its own accessor first, in ascending
+// order, so each default runs once. ok is false when the callee is no std
+// function with such accessors.
+func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int, written []ast.Node, filled []bool, openName []string) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
+	fa, qualified := t.Func.(*ast.FieldAccess)
+	if !qualified || bl.g.std == nil {
+		return nil, false
+	}
+	owner, module, ok := bl.stdShortOwner(fa)
+	if !ok {
+		return nil, false
+	}
+	if module == "" {
+		// A bare owner the program declares itself names the program's type.
+		if _, local := bl.g.types[owner]; local {
+			return nil, false
+		}
+		if _, local := bl.g.ifaces[owner]; local {
+			return nil, false
+		}
+	}
+	fs := bl.g.stdShortCandidates(owner, fa.Field.Name, module)
+	if len(fs) != 1 || !fs[0].lowerable() {
+		return nil, false
+	}
+	f := fs[0]
+	canon := f
+	if f.canon != nil {
+		canon = f.canon
+	}
+	if len(f.params) != len(kinds) {
+		return nil, false
+	}
+	for s := 0; s <= slot; s++ {
+		if s < len(kinds) && kinds[s] != f.params[s] {
+			return nil, false
+		}
+		if written[s] == nil && !filled[s] && (!callDefaultFill(f, s) || canon.irSlot[s] == nil) {
+			return nil, false
+		}
+		if !irSlotSignature(f.params[:s], f.params[:s], f.params[s]) {
+			return nil, false
+		}
+	}
+	return func(child *irScalarBuilder) (ir.Temp, bool) {
+		args := irQualArgs{temps: make([]ir.Temp, slot), kinds: make([]kind, slot), mobile: make([]bool, slot), ok: true}
+		accessor := func(s int) (ir.Temp, bool) {
+			prefix := irQualArgs{temps: args.temps[:s], kinds: args.kinds[:s], mobile: args.mobile[:s], ok: true}
+			p := &irQualPlan{token: irSlotDefault{f, s}, name: fmt.Sprintf("%s default %d", f.key, s+1), result: f.params[s], sym: canon.irSlot[s].Sym()}
+			v, _, _, ok := child.qualEmit(t, prefix, p)
+			return v, ok
+		}
+		for s := range slot {
+			var v ir.Temp
+			var k kind
+			ok := true
+			switch {
+			case written[s] != nil:
+				// A written argument the default may read, evaluated for
+				// it on each call that omits the slot.
+				v, k, _, ok = child.lowerTypedOperand(written[s], kinds[s])
+				if ok && k != kinds[s] {
+					v, k, ok = child.coerceEmpty(written[s], v, k, kinds[s])
+				}
+			case filled[s]:
+				v, k, _, ok = child.lower(&ast.Ident{Name: openName[s], Line: t.Line, Col: t.Col})
+			default:
+				v, ok = accessor(s)
+				k = f.params[s]
+			}
+			if !ok || k != kinds[s] {
+				return ir.NoTemp, false
+			}
+			args.temps[s], args.kinds[s] = v, k
+		}
+		return accessor(slot)
+	}, true
 }
 
 // partialSiblingDefaults is how a partial over another file's function

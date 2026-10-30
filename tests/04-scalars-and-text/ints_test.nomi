@@ -37,11 +37,11 @@ test "remainder takes the sign of the dividend" {
     assert -7 % -3 == -1
 }
 
-test "modulo of the minimum by minus one is zero" {
-    assert Int.modulo(Int.min_value, -1) == 0
-    assert Int.min_value % -1 == 0
-    assert Int.modulo(Int.min_value, Int.max_value) == Int.max_value - 1
-    assert Int.modulo(Int.max_value, Int.min_value) == -1
+test "modulo past 64 bits is exact" {
+    assert Int.modulo(-9_223_372_036_854_775_808, -1) == 0
+    assert -9_223_372_036_854_775_808 % -1 == 0
+    assert Int.modulo(-Int.pow(2, 80), Int.pow(2, 63) - 1) == Int.pow(2, 63) - 1 - Int.pow(2, 17)
+    assert Int.modulo(Int.pow(2, 80) + 7, Int.pow(2, 64)) == 7
 }
 
 fn floor_divide(x: Int, y: Int) -> Int {
@@ -95,14 +95,14 @@ test "int abs and sign" {
     assert Int.abs(-5) == 5
     assert Int.abs(5) == 5
     assert Int.abs(0) == 0
-    assert Int.abs(Int.max_value) == Int.max_value
-    assert Int.abs(Int.min_value + 1) == Int.max_value
+    assert Int.abs(-9_223_372_036_854_775_808) == 9_223_372_036_854_775_808
+    assert Int.abs(-Int.pow(10, 30)) == Int.pow(10, 30)
 
     assert Int.sign(-5) == -1
     assert Int.sign(0) == 0
     assert Int.sign(5) == 1
-    assert Int.sign(Int.min_value) == -1
-    assert Int.sign(Int.max_value) == 1
+    assert Int.sign(-Int.pow(10, 30)) == -1
+    assert Int.sign(Int.pow(10, 30)) == 1
 }
 
 test "int min and max" {
@@ -112,6 +112,6 @@ test "int min and max" {
     assert Int.max(-2, 3) == 3
     assert Int.min(4, 4) == 4
     assert Int.max(4, 4) == 4
-    assert Int.min(Int.min_value, Int.max_value) == Int.min_value
-    assert Int.max(Int.min_value, Int.max_value) == Int.max_value
+    assert Int.min(-Int.pow(10, 30), Int.pow(10, 30)) == -Int.pow(10, 30)
+    assert Int.max(-Int.pow(10, 30), Int.pow(10, 30)) == Int.pow(10, 30)
 }

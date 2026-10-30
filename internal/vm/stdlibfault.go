@@ -4,12 +4,12 @@ package vm
 //
 // A trap names the line of the operation that raised it (rt/arith.go's
 // rule). Inside the standard library that line is one of std's own source,
-// which means nothing to the program's author: `Int.abs(Int.min_value)`
-// would report a line of std/int.nomi. So a trap that leaves stdlib code
-// for the program's own code is reported at the program's line that called
-// into the stdlib, with the trap's own words after it:
+// which means nothing to the program's author: `Int.modulo(7, 0)` would
+// report a line of std/int.nomi. So a trap that leaves stdlib code for the
+// program's own code is reported at the program's line that called into the
+// stdlib, with the trap's own words after it:
 //
-//	line 3: integer overflow: 0 - -9223372036854775808
+//	line 3: division by zero
 //
 // THE RULE, as the fault unwinds (Machine.fault, at each activation it
 // leaves through):

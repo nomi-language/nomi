@@ -7,10 +7,13 @@ description: "Search files for lines that contain a string, with grep's `-n`, `-
 
 Search files for lines that contain a string, with grep's `-n`, `-l`, `-i`, `-v` and `-x` flags.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/grep) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/grep) (MIT). Listed under [Strings & Text](/examples/?subject=strings-and-text).
 
 ```nomi-run
 // FILE: grep.nomi
+//# A small `grep`: searches files for lines that match a string, with the
+//# canonical flags.
+
 import {
     std/fs
     std/io
@@ -43,7 +46,7 @@ pub fn grep(
     files
     |> Iter.map(&search(&1, pattern, options, named))
     |> Result.collect()
-    |> Result.map(&Iter.flatten(&1))
+    |> Result.map(Iter.flatten)
 }
 
 /// What `grep` answers for one file.
@@ -53,16 +56,16 @@ fn search(
     options: Options,
     named: Bool,
 ) -> Result<List<String>, io.Error> {
-    text = try fs.read_text(file)
+    text = fs.read_text(file)?
 
     found =
         String.lines(text)
         |> Iter.with_index()
-        |> Iter.filter(fn #(_index, line) -> matches?(line, pattern, options))
+        |> Iter.filter(fn #(_index, line) -> matches(line, pattern, options))
         |> Iter.to_list()
 
     if options.file_names {
-        Ok(if Iter.empty?(found) { [] } else { [file] })
+        Ok(if Iter.is_empty(found) { [] } else { [file] })
     } else {
         found
         |> Iter.map(fn #(index, line) -> {
@@ -81,9 +84,9 @@ fn search(
     }
 }
 
-fn matches?(line: String, pattern: String, options: Options) -> Bool {
+fn matches(line: String, pattern: String, options: Options) -> Bool {
     #(line, pattern) = if options.ignore_case {
-        #(String.to_lower(line), String.to_lower(pattern))
+        #(String.fold_case(line), String.fold_case(pattern))
     } else {
         #(line, pattern)
     }
@@ -91,7 +94,7 @@ fn matches?(line: String, pattern: String, options: Options) -> Bool {
     found = if options.whole_line {
         line == pattern
     } else {
-        String.contains?(line, pattern)
+        String.contains(line, pattern)
     }
 
     found != options.invert
@@ -415,13 +418,7 @@ test "a missing file is the error reading it" {
 
 - The files are read with std/fs's `fs.read_text` and split with `String.lines`. The tests never touch the disk: `grep_in_sandbox` runs each search inside `fs_testing.run` over a `Sandbox` holding the three canonical files, so std/fs reads them from an in-memory file system rooted at `/work`, and a relative name such as `iliad.txt` resolves there.
 - The flags are an `Options` struct of five `Bool` fields that default to `False`, so a case writes only what it sets: `#{line_numbers: True, ignore_case: True}`. The order the canonical data lists flags in never matters, which a struct says and a list of flag strings would not.
-- `grep` answers `Result<List<String>, io.Error>`. A file that cannot be read is the error `fs.read_text` gave, passed up with `try`; one file's error stops the search, through `Result.collect`. The canonical data has no such case; the test file adds one, marked not canonical, for a missing file.
-- `matches?` lowers both sides for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != options.invert`.
+- `grep` answers `Result<List<String>, io.Error>`. A file that cannot be read is the error `fs.read_text` gave, passed up with `?`; one file's error stops the search, through `Result.collect`. The canonical data has no such case; the test file adds one, marked not canonical, for a missing file.
+- `matches` folds the case of both sides with `String.fold_case` for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != options.invert`.
 - `-l` answers the file's name once if any line matched and takes precedence over `-n`, as two canonical cases ask. With more than one file each line starts with its file's name.
 - Each canonical group is a test with one `subtests` table named by the description column.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **A missing feature.** `Iter.flatten` named as a function value where a function of a `List<List<String>>` is expected does not check: `Result.map(found, Iter.flatten)` is "expected (List<List<String>>) -> U, got (Iter<Iter<U>>) -> List<U>". A function value's parameter takes a `List` where its declared type is an `Iter`, but not a `List` nested inside one, so `Iter.flatten`'s `Iter<Iter<U>>` refuses the inner lists. The error's help names the capture `&Iter.flatten(&1)`, whose parameter takes the expected type, as the lambda `fn lists -> Iter.flatten(lists)` does, and the solution writes it. Haskell's `concat` and Elixir's `&List.flatten/1` pass as values.

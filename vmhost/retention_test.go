@@ -9,8 +9,8 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// A `try` in a `group`'s setup ends each case the setup serves, as a
-// `try` in the case's body does: an Err or None fails the case with the
+// A `?` in a `group`'s setup ends each case the setup serves, as a
+// `?` in the case's body does: an Err or None fails the case with the
 // early-return report, and nothing of the case's body runs.
 func TestTest_TryInSetupEndsTheCase(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std/io
@@ -31,7 +31,7 @@ fn find(s: String) -> Maybe<Int> {
 
 group "an Err in setup" {
   setup {
-    n = try parse("")
+    n = parse("")?
     #{n: n}
   }
 
@@ -43,7 +43,7 @@ group "an Err in setup" {
 
 group "a None in setup" {
   setup {
-    n = try find("")
+    n = find("")?
     #{n: n}
   }
 
@@ -55,7 +55,7 @@ group "a None in setup" {
 
 group "an Ok in setup" {
   setup {
-    n = try parse("abc")
+    n = parse("abc")?
     #{n: n}
   }
 
@@ -135,7 +135,7 @@ group "lines after the tests" {
 	}
 }
 
-// A `try` in a nested fn leaves the nested fn, the boundary the checker
+// A `?` in a nested fn leaves the nested fn, the boundary the checker
 // records for it, in `main` as in any other body.
 func TestRun_TryInANestedFnLeavesTheNestedFn(t *testing.T) {
 	p, err := vmhost.Load(writeProgram(t, `import std/io
@@ -149,7 +149,7 @@ fn parse(s: String) -> Result<Int, String> {
 
 fn main() {
   fn doubled(s: String) -> Result<Int, String> {
-    n = try parse(s)
+    n = parse(s)?
     Ok(n * 2)
   }
 

@@ -79,8 +79,8 @@ struct Date {
 }
 
 fn main() {
-    io.inspect(Result.ok?(parse("2024-01-02")))
-    io.inspect(Result.ok?(parse("not a date")))
+    io.inspect(Result.is_ok(parse("2024-01-02")))
+    io.inspect(Result.is_ok(parse("not a date")))
     io.inspect(#Date{day: 1})
 }
 `, "True\nFalse\n#Date{day: 1}\n")
@@ -93,7 +93,7 @@ fn main() {
 func TestOwnerDecl_BareImportedPreludeMethods(t *testing.T) {
 	verifyLambdaProgram(t, `import {
     std/io
-    std/maybe.Maybe.{with_default, to_result, some?, map}
+    std/maybe.Maybe.{with_default, to_result, is_some, map}
     std/results.Result.{map_err}
 }
 
@@ -101,7 +101,7 @@ fn main() {
     io.inspect(with_default(Some(1), 2))
     io.inspect(with_default(None, 2))
     io.inspect(to_result(Some(3), "missing"))
-    io.inspect(some?(Some(4)))
+    io.inspect(is_some(Some(4)))
     io.inspect(map(Some(5), fn x -> x * 2))
     r: Result<Int, Int> = Err(6)
     io.inspect(map_err(r, fn e -> "error ${e}"))

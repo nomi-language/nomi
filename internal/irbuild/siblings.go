@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Sibling FILES: a user's `test_helpers.has_diagnostic?(d, s)` reaching the
+// Sibling FILES: a user's `test_helpers.has_diagnostic(d, s)` reaching the
 // builder at all.
 //
 // # Where sibling files come from
@@ -669,11 +669,16 @@ func moduleScopeOf(fa *analysis.FileAnalysis, name string) *analysis.Scope {
 // moduleScope is moduleScopeOf for this gen's file, extended to a qualifier
 // an `import` at the top of a block binds (testImport admits one): a type
 // named through it (`json.Json.Null`, `json.Json` in an annotation) reaches
-// the imported file's scope by name, as a module-level import's does. A
-// name two blocks bind to different files resolves to nothing, so its uses
-// decline rather than pick one.
+// the imported file's scope by name, as a module-level import's does. The
+// innermost visible block's import of the name answers first (the blocks
+// being lowered, visibleBlockModule); elsewhere a name two blocks bind to
+// different files resolves to nothing, so its uses decline rather than
+// pick one.
 func (g *gen) moduleScope(name string) *analysis.Scope {
 	if scope := moduleScopeOf(g.fa, name); scope != nil || g.fa == nil || g.fa.ModuleScope == nil {
+		return scope
+	}
+	if scope := g.visibleBlockModule(name); scope != nil {
 		return scope
 	}
 	if g.blockImports == nil {
@@ -693,6 +698,43 @@ func (g *gen) moduleScope(name string) *analysis.Scope {
 		}
 	}
 	return g.blockImports[name]
+}
+
+// visibleBlockModule is the file the innermost visible block's `import`
+// binds name to (enterTypeScope makes a block visible while it is
+// lowered), or nil.
+func (g *gen) visibleBlockModule(name string) *analysis.Scope {
+	for i := len(g.typeScopes) - 1; i >= 0; i-- {
+		for _, imp := range g.typeScopes[i].imports {
+			if scope := g.importBindings(imp)[name]; scope != nil {
+				return scope
+			}
+		}
+	}
+	return nil
+}
+
+// importBindings is the files an `import` statement of this gen's file
+// binds, by the name each is bound under, as the checker defined them.
+func (g *gen) importBindings(imp *ast.ImportStmt) map[string]*analysis.Scope {
+	if g.importScopes == nil {
+		g.importScopes = map[*ast.ImportStmt]map[string]*analysis.Scope{}
+		for _, sym := range g.fa.Definitions {
+			if sym == nil {
+				continue
+			}
+			n, isImport := sym.Node.(*ast.ImportStmt)
+			scope := symbolModuleScope(sym)
+			if !isImport || scope == nil {
+				continue
+			}
+			if g.importScopes[n] == nil {
+				g.importScopes[n] = map[string]*analysis.Scope{}
+			}
+			g.importScopes[n][sym.Name] = scope
+		}
+	}
+	return g.importScopes[imp]
 }
 
 func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {

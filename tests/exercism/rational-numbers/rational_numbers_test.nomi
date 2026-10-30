@@ -138,7 +138,7 @@ test "a real number to a rational power" {
     ]
 
     subtests cases, #(description, x, r, expected), description {
-        assert Float.equal_within?(Rational.raise(x, rational(r)), expected, 1e-12)
+        assert Float.equal_within(Rational.raise(x, rational(r)), expected, 1e-12)
     }
 }
 

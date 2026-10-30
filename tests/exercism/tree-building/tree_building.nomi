@@ -1,3 +1,5 @@
+//# Builds a tree of posts from records of ids and parent ids.
+
 /// One post as it is stored: its id and its parent's id. The root's parent
 /// is itself.
 pub struct Record {
@@ -34,9 +36,12 @@ impl Display for Error {
 pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
     sorted = Iter.sort_by(records, .id)
 
-    if !Iter.all?(Iter.with_index(sorted), fn #(index, record) -> record.id == index) {
-        return Err(.InvalidRecord)
-    }
+    ids_in_order =
+        sorted
+        |> Iter.with_index()
+        |> Iter.all(fn #(index, record) -> record.id == index)
+
+    if !ids_in_order { return Err(.InvalidRecord) }
 
     case sorted {
         [] ->
@@ -45,7 +50,7 @@ pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
         [root, ..] when root.parent != 0 ->
             Err(.RootHasParent)
 
-        [_root, ..rest] when Iter.any?(rest, fn record -> record.parent >= record.id) ->
+        [_root, ..rest] when Iter.any(rest, fn record -> record.parent >= record.id) ->
             Err(.InvalidRecord)
 
         [_root, ..rest] ->

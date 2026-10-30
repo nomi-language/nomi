@@ -64,7 +64,7 @@ derive Display for Direction
 /// Comparable is the total-ordering protocol. `compare(a, b)` must
 /// return `Less` when `a < b`, `Greater` when `a > b`, and `Equal` when
 /// they are equal under the type's notion of equality (which should
-/// agree with `Equatable.equal?`).
+/// agree with `Equatable.equal`).
 ///
 /// `<`, `<=`, `>`, `>=` desugar to `Comparable.compare(a, b)` followed
 /// by an `Ordering` match. The operators *require* a declared impl:

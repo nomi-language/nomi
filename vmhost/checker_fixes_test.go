@@ -116,7 +116,7 @@ fn main() {
 	},
 	{
 		// A Result whose error type nothing fixes (a `concurrent` block
-		// whose only `try` is on `Ok(3)`, or `Ok(4)` alone) keeps it open,
+		// whose only `?` is on `Ok(3)`, or `Ok(4)` alone) keeps it open,
 		// and interpolating it renders through Result's Display instance
 		// with the open E as a hole: the Err arm's dispatch on E is
 		// unreachable, as it is for an explicit `Display.to_string(c)`.
@@ -125,7 +125,7 @@ fn main() {
 
 fn main() {
     c = concurrent {
-        v = try Ok(3)
+        v = Ok(3)?
         Ok(v)
     }
     io.print("${c}")

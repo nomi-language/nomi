@@ -92,7 +92,7 @@ fn main() {
     io.print(Debug.inspect(#(i, j, k, l)))
     io.print(Debug.inspect(#(m, n, o)))
     io.print(Debug.inspect(#(p, q)))
-    io.print("${Set.contains?(a, [])} ${Set.contains?(i, %[[1]])} ${Vector.get(b, 1)}")
+    io.print("${Set.contains(a, [])} ${Set.contains(i, %[[1]])} ${Vector.get(b, 1)}")
 }
 `
 	want := strings.Join([]string{
@@ -149,7 +149,7 @@ fn main() {
     io.print(Debug.inspect(#(d, e, f, g)))
     io.print(Debug.inspect(#(h, i, j, k)))
     io.print(Debug.inspect(#(l, m, n, o)))
-    io.print("${a == #[#(1, []), #(2, [3])]} ${Set.contains?(h, #(1, []))} ${Map.get(m, #(2, [3]))}")
+    io.print("${a == #[#(1, []), #(2, [3])]} ${Set.contains(h, #(1, []))} ${Map.get(m, #(2, [3]))}")
     case b {
         [[], [[]], [[x]]] -> io.print("${x}")
         _ -> io.print("no")

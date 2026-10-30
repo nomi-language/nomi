@@ -23,7 +23,7 @@ import (
 //     that return that same Maybe or Result (`Date.parse(s)` where
 //     `Result<Date, Error>` is expected). A function returning `Result<T, _>`
 //     is not offered where a plain T is expected: it does not fit there
-//     without a `try` or a match.
+//     without a `?` or a match.
 //   - Where T is std's Map, Set or Vector, its empty literal (`%{}`, `%[]`,
 //     `#[]`): the collections have no empty constructor.
 //   - When T implements `Literal`, one typed literal written from the first

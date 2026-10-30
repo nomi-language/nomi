@@ -250,7 +250,16 @@ func hostArgText(args []any) string {
 
 // --- argument sets -------------------------------------------------------------
 
-func hInt(n int64) any       { return n }
+func hInt(n int64) any { return n }
+
+// hBig is an Int past int64's range, in base 10.
+func hBig(text string) any {
+	v, ok := rt.ParseIntValue(text)
+	if !ok {
+		panic("not an Int: " + text)
+	}
+	return v
+}
 func hFloat(x float64) any   { return x }
 func hStr(s string) any      { return s }
 func hBytes(s string) any    { return rt.Bytes(s) }
@@ -307,6 +316,12 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 	for k, x := range texts {
 		strs[k] = hStr(x)
 	}
+	// Case tests: no cased letter, all upper or lower with punctuation, mixed,
+	// and a title-case letter beside upper and lower ones.
+	inCase := append([]any{}, strs...)
+	for _, x := range []string{"1, 2, 3", "WHAT'S UP?", "what's up?", "Hello", "Aǅ", "aǅ", "ÜMLÄÜTS!", "Жж"} {
+		inCase = append(inCase, hStr(x))
+	}
 	stringPairs := cases(
 		args(hStr(""), hStr("")), args(hStr("hello"), hStr("ll")), args(hStr("hello"), hStr("he")),
 		args(hStr("hello"), hStr("lo")), args(hStr("abc"), hStr("")), args(hStr(""), hStr("a")),
@@ -356,68 +371,71 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		hCodepoint(0x663), hCodepoint(0x1F642)}
 
 	c := map[string][]hostCase{
-		"strings.String.contained_in?":      needlePairs,
-		"strings.String.prefix_of?":         needlePairs,
-		"strings.String.suffix_of?":         needlePairs,
-		"strings.String.find_all_in":        needlePairs,
-		"strings.string_compare":            stringPairs,
-		"strings.String.split_in":           needlePairs,
-		"strings.String.words":              wordsAndLines,
-		"strings.String.lines":              wordsAndLines,
-		"strings.String.to_upper":           unary(strs...),
-		"strings.String.to_lower":           unary(strs...),
-		"strings.String.trim":               unary(strs...),
-		"strings.String.hash":               unary(strs...),
-		"strings.String.to_int":             unary(strs...),
-		"strings.String.length":             unary(strs...),
-		"strings.String.reverse":            unary(strs...),
-		"strings.String.to_codepoints":      unary(strs...),
-		"strings.String.to_bytes":           unary(strs...),
-		"strings.String.slice":              slice,
-		"strings.String.replace_in":         cases(args(hStr("-"), hStr("a-b-c"), hStr("+")), args(hStr(""), hStr("aaa"), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("l"), hStr("héllo"), hStr("L"))),
-		"int.Int.to_byte":                   unary(hInt(-1), hInt(0), hInt(255), hInt(256), hInt(math.MinInt64)),
-		"bytes.Byte.to_int":                 unary(hByte(0), hByte(127), hByte(255)),
-		"bytes.Bytes.length":                unary(blobs...),
-		"bytes.Bytes.to_string":             unary(blobs...),
-		"bytes.Bytes.get":                   at,
-		"bytes.Bytes.at":                    at,
-		"bytes.Bytes.slice":                 bslice,
-		"bytes.Bytes.concat":                pairs(blobs...),
-		"bytes.bytes_compare":               pairs(blobs...),
-		"bytes.Bytes.contains?":             holds,
-		"hash.sha256":                       unary(blobs...),
-		"hash.sha256_hex":                   unary(blobs...),
-		"int.Int.to_string":                 unary(ints...),
-		"int.Int.to_float":                  unary(ints...),
-		"int.Int.bitwise_not":               unary(ints...),
-		"int.Int.wrapping_add":              pairs(ints...),
-		"int.Int.wrapping_sub":              pairs(ints...),
-		"int.Int.wrapping_mul":              pairs(ints...),
-		"int.Int.bitwise_and":               pairs(ints...),
-		"int.Int.bitwise_or":                pairs(ints...),
-		"int.Int.bitwise_xor":               pairs(ints...),
-		"float.Float.to_string":             unary(floats...),
-		"float.Float.nan?":                  unary(floats...),
-		"float.Float.floor":                 unary(floats...),
-		"float.Float.ceil":                  unary(floats...),
-		"float.Float.trunc":                 unary(floats...),
-		"float.Float.to_int":                unary(floats...),
-		"float.float_bits":                  unary(floats...),
-		"float.Float.nan":                   cases(args()),
-		"float.Float.positive_infinity":     cases(args()),
-		"float.Float.negative_infinity":     cases(args()),
-		"decimal.Decimal.to_string":         unary(decimals...),
-		"decimal.Decimal.hash":              unary(decimals...),
-		"decimal.Decimal.equal?":            pairs(decimals...),
-		"decimal.Decimal.compare":           pairs(decimals...),
-		"duration.Duration.to_string":       unary(durations...),
-		"int.Int.to_codepoint":              unary(hInt(-1), hInt(0), hInt(65), hInt(0xD7FF), hInt(0xD800), hInt(0xDFFF), hInt(0xE000), hInt(0x10FFFF), hInt(0x110000), hInt(math.MinInt64)),
-		"code_points.Codepoint.to_string":   unary(hCodepoint(65), hCodepoint(0x1F642), hCodepoint(0xE9), hCodepoint(0)),
-		"code_points.Codepoint.letter?":     unary(classified...),
-		"code_points.Codepoint.whitespace?": unary(classified...),
-		"code_points.Codepoint.upper?":      unary(classified...),
-		"code_points.Codepoint.lower?":      unary(classified...),
-		"instant.Instant.now":               {{args: args(), shapeOnly: true}},
+		"strings.String.is_contained_in":      needlePairs,
+		"strings.String.is_prefix_of":         needlePairs,
+		"strings.String.is_suffix_of":         needlePairs,
+		"strings.String.find_all_in":          needlePairs,
+		"strings.string_compare":              stringPairs,
+		"strings.String.split_in":             needlePairs,
+		"strings.String.words":                wordsAndLines,
+		"strings.String.lines":                wordsAndLines,
+		"strings.String.uppercase":            unary(strs...),
+		"strings.String.lowercase":            unary(strs...),
+		"strings.String.is_upper":             unary(inCase...),
+		"strings.String.is_lower":             unary(inCase...),
+		"strings.String.trim":                 unary(strs...),
+		"strings.String.hash":                 unary(strs...),
+		"strings.String.to_int":               unary(strs...),
+		"strings.String.length":               unary(strs...),
+		"strings.String.reverse":              unary(strs...),
+		"strings.String.to_codepoints":        unary(strs...),
+		"strings.String.to_bytes":             unary(strs...),
+		"strings.String.slice":                slice,
+		"strings.String.replace_in":           cases(args(hStr("-"), hStr("a-b-c"), hStr("+")), args(hStr(""), hStr("aaa"), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("l"), hStr("héllo"), hStr("L"))),
+		"int.Int.to_byte":                     unary(hInt(-1), hInt(0), hInt(255), hInt(256), hInt(math.MinInt64), hBig("18446744073709551616")),
+		"duration.nanos_in_range":             unary(hInt(0), hInt(math.MaxInt64), hInt(math.MinInt64), hBig("9223372036854775808"), hBig("-9223372036854775809")),
+		"instant.nanos_in_range":              unary(hInt(0), hInt(math.MaxInt64), hBig("9223372036854775808")),
+		"bytes.Byte.to_int":                   unary(hByte(0), hByte(127), hByte(255)),
+		"bytes.Bytes.length":                  unary(blobs...),
+		"bytes.Bytes.to_string":               unary(blobs...),
+		"bytes.Bytes.get":                     at,
+		"bytes.Bytes.slice":                   bslice,
+		"bytes.Bytes.concat":                  pairs(blobs...),
+		"bytes.bytes_compare":                 pairs(blobs...),
+		"bytes.Bytes.contains":                holds,
+		"hash.sha256":                         unary(blobs...),
+		"hash.sha256_hex":                     unary(blobs...),
+		"int.Int.to_string":                   unary(ints...),
+		"int.Int.to_float":                    unary(ints...),
+		"int.Int.bitwise_not":                 unary(ints...),
+		"int.Int.wrapping_add":                pairs(ints...),
+		"int.Int.wrapping_sub":                pairs(ints...),
+		"int.Int.wrapping_mul":                pairs(ints...),
+		"int.Int.bitwise_and":                 pairs(ints...),
+		"int.Int.bitwise_or":                  pairs(ints...),
+		"int.Int.bitwise_xor":                 pairs(ints...),
+		"float.Float.to_string":               unary(floats...),
+		"float.Float.is_nan":                  unary(floats...),
+		"float.Float.floor":                   unary(floats...),
+		"float.Float.ceil":                    unary(floats...),
+		"float.Float.trunc":                   unary(floats...),
+		"float.Float.to_int":                  unary(floats...),
+		"float.float_bits":                    unary(floats...),
+		"float.Float.nan":                     cases(args()),
+		"float.Float.positive_infinity":       cases(args()),
+		"float.Float.negative_infinity":       cases(args()),
+		"decimal.Decimal.to_string":           unary(decimals...),
+		"decimal.Decimal.hash":                unary(decimals...),
+		"decimal.Decimal.equal":               pairs(decimals...),
+		"decimal.Decimal.compare":             pairs(decimals...),
+		"duration.Duration.to_string":         unary(durations...),
+		"int.Int.to_codepoint":                unary(hInt(-1), hInt(0), hInt(65), hInt(0xD7FF), hInt(0xD800), hInt(0xDFFF), hInt(0xE000), hInt(0x10FFFF), hInt(0x110000), hInt(math.MinInt64)),
+		"code_points.Codepoint.to_string":     unary(hCodepoint(65), hCodepoint(0x1F642), hCodepoint(0xE9), hCodepoint(0)),
+		"code_points.Codepoint.is_letter":     unary(classified...),
+		"code_points.Codepoint.is_whitespace": unary(classified...),
+		"code_points.Codepoint.is_upper":      unary(classified...),
+		"code_points.Codepoint.is_lower":      unary(classified...),
+		"instant.Instant.now":                 {{args: args(), shapeOnly: true}},
 	}
 	return c
 }
@@ -626,6 +644,8 @@ func canonText(v rt.Value, shapeOnly bool) string {
 	switch x := v.(type) {
 	case int64:
 		return scalar("Int", fmt.Sprint(x))
+	case *rt.BigInt:
+		return scalar("Int", x.String())
 	case float64:
 		if math.IsNaN(x) {
 			return scalar("Float", "NaN")

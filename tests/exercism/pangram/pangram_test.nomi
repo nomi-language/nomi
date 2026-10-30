@@ -1,4 +1,4 @@
-import pangram.pangram?
+import pangram.is_pangram
 
 test "pangrams" {
     cases = [
@@ -27,6 +27,6 @@ test "pangrams" {
     ]
 
     subtests cases, #(description, sentence, expected), description {
-        assert pangram?(sentence) == expected
+        assert is_pangram(sentence) == expected
     }
 }

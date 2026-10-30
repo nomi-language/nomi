@@ -51,7 +51,7 @@ fn main() {
         "go north"
         |> String.words()
         |> tap fn ws -> io.print("got ${Iter.count(ws)} words")
-        |> Iter.map(String.to_upper)
+        |> Iter.map(String.uppercase)
         |> Iter.to_list()
 
     io.print("${words}")

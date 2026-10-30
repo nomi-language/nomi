@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"slices"
 	"sort"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -10,49 +9,22 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// pipeKeywords are the stages a pipe takes besides a call: the unary `dbg`
-// and `try`, `if` and `case` over the piped value, `then`, which applies a
-// lambda to it, and `tap`, which runs one on it and passes it on. `assert`
-// and `refute` wrap a pipeline from its head; as a stage they are rejected.
-var pipeKeywords = []string{"dbg", "try", "if", "case", "then", "tap"}
+// pipeKeywords are the stages a pipe takes besides a call: the unary `dbg`,
+// `if` and `case` over the piped value, `then`, which applies a lambda to
+// it, and `tap`, which runs one on it and passes it on. `assert` and
+// `refute` wrap a pipeline from its head; as a stage they are rejected. A
+// `?` is written against a stage, not offered as one.
+var pipeKeywords = []string{"dbg", "if", "case", "then", "tap"}
 
 // pipeKeywordCandidates offers the keyword stages after every function
 // whose name matches as well: a function that takes the value is the
-// likelier stage, and `dbg` is a temporary one. `try` is offered only when
-// it can apply to the piped value of type lhs: a Result or a Maybe, or a
-// type not known here (nil, Any, or a type variable nothing has solved).
-func pipeKeywordCandidates(lhs analysis.Type) []candidate {
-	keywords := pipeKeywords
-	if !tryApplies(lhs) {
-		keywords = make([]string, 0, len(pipeKeywords))
-		for _, kw := range pipeKeywords {
-			if kw != "try" {
-				keywords = append(keywords, kw)
-			}
-		}
-	}
-	out := keywordCandidates(keywords)
+// likelier stage, and `dbg` is a temporary one.
+func pipeKeywordCandidates() []candidate {
+	out := keywordCandidates(pipeKeywords)
 	for i := range out {
 		out[i].locality = 3
 	}
 	return out
-}
-
-// tryApplies reports whether `try` may take a value of type t: t is a
-// Result or a Maybe, or t is unknown.
-func tryApplies(t analysis.Type) bool {
-	t = analysis.ResolveTypeVar(t)
-	if t == analysis.TypeAny {
-		return true
-	}
-	switch t := t.(type) {
-	case nil, *analysis.TypeVar:
-		return true
-	case *analysis.EnumType:
-		return slices.Contains(analysis.TryOperandTypeNames, t.Name)
-	default:
-		return false
-	}
 }
 
 // pipeCandidates offers the stages `value |> ` can continue with: functions
@@ -67,7 +39,7 @@ func tryApplies(t analysis.Type) bool {
 // function in scope is offered.
 func (r *completionRequest) pipeCandidates() []candidate {
 	lhs := r.exprType(r.ctx.pipeLHS)
-	out := pipeKeywordCandidates(lhs)
+	out := pipeKeywordCandidates()
 	if lhs == nil {
 		return append(out, r.scopeCandidates(func(sym *analysis.Symbol) bool {
 			return valueSymbol(sym) && realSymbol(sym).Kind == analysis.SymbolFunction

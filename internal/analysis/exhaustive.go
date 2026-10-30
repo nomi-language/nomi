@@ -34,10 +34,13 @@ import (
 // to match it, and the types of the components a match exposes.
 type patCtor struct {
 	// variant is the enum variant or distinct type name; listLen is a list
-	// length class, with listOpen meaning "this length or more".
+	// length class, with listOpen meaning "this length or more". A vector's
+	// open class exposes its first listLen-listTail elements and its last
+	// listTail ones, for a list as for a vector.
 	variant  string
 	listLen  int
 	listOpen bool
+	listTail int
 	subTypes []Type
 	render   func(subs []string) string
 }
@@ -227,7 +230,7 @@ func isUnenumerableConstraint(t Type, p ast.Node) bool {
 // how many list lengths need telling apart.
 func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 	if elem, ok := vectorElemType(t); ok {
-		return vectorCtors(elem, column)
+		return seqCtors(elem, column, "#[")
 	}
 	if isSetType(t) {
 		// A set pattern tests membership, so no set of them covers every
@@ -321,124 +324,113 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 	case *AnonStructType:
 		return []patCtor{structCtor("#", tt.Fields, nil)}
 	case *ListType:
-		longest := -1
-		for _, p := range column {
-			lp, ok := p.(*ast.ListPattern)
-			if !ok || lp.TypeName != nil {
-				continue
-			}
-			n := len(lp.Heads)
-			if lp.TailSpread == nil {
-				n++
-			}
-			if n > longest {
-				longest = n
-			}
-		}
-		if longest < 0 {
-			return nil
-		}
-		ctors := make([]patCtor, 0, longest+1)
-		for n := 0; n <= longest; n++ {
-			elems := make([]Type, n)
-			for i := range elems {
-				elems[i] = tt.Elem
-			}
-			open := n == longest
-			ctors = append(ctors, patCtor{
-				listLen:  n,
-				listOpen: open,
-				subTypes: elems,
-				render: func(s []string) string {
-					parts := append([]string{}, s...)
-					if open {
-						parts = append(parts, "..")
-					}
-					return "[" + strings.Join(parts, ", ") + "]"
-				},
-			})
-		}
-		return ctors
+		return seqCtors(tt.Elem, column, "[")
 	}
 	return nil
 }
 
-// vectorCtors is a vector's constructors by length, as a list's: lengths 0
-// through M-1 exactly and M or more, where M is the longest length a vector
-// pattern in column tells apart.
-func vectorCtors(elem Type, column []ast.Node) []patCtor {
-	longest := -1
+// seqPattern reads a list or vector pattern with no type name as its heads,
+// its tails and whether it has a `..`. ok is false for any other pattern.
+func seqPattern(p ast.Node) (heads, tails []ast.Node, spread, ok bool) {
+	switch v := p.(type) {
+	case *ast.VectorPattern:
+		if v.TypeName == nil {
+			return v.Heads, v.Tails, v.Spread, true
+		}
+	case *ast.ListPattern:
+		if v.TypeName == nil {
+			return v.Heads, v.Tails, v.TailSpread != nil, true
+		}
+	}
+	return nil, nil, false, false
+}
+
+// seqCtors is a list's or a vector's constructors by length: lengths 0
+// through M-1 exactly, and M or more, where M is the shortest length from
+// which no pattern in column tells lengths apart. The open class exposes M
+// elements: the last T, T the most tails a pattern with a `..` names, and
+// the M-T before them at the front. Every length from M on has those M
+// distinct positions, so `[1, .., 3]` is tested against them as `[1, 3]` is
+// against length 2. open is the bracket a missing pattern is written with,
+// `[` or `#[`.
+func seqCtors(elem Type, column []ast.Node, open string) []patCtor {
+	seen := false
+	exact, heads, tails := -1, 0, 0
 	for _, p := range column {
-		vp, ok := p.(*ast.VectorPattern)
-		if !ok || vp.TypeName != nil {
+		h, t, spread, ok := seqPattern(p)
+		if !ok {
 			continue
 		}
-		n := len(vp.Heads) + len(vp.Tails)
-		if !vp.Spread {
-			n++
+		seen = true
+		if !spread {
+			exact = max(exact, len(h))
+			continue
 		}
-		if n > longest {
-			longest = n
-		}
+		heads = max(heads, len(h))
+		tails = max(tails, len(t))
 	}
-	if longest < 0 {
+	if !seen {
 		return nil
 	}
-	ctors := make([]patCtor, 0, longest+1)
-	for n := 0; n <= longest; n++ {
-		elems := make([]Type, n)
-		for i := range elems {
-			elems[i] = elem
+	longest := max(exact+1, heads+tails)
+	elems := func(n int) []Type {
+		ts := make([]Type, n)
+		for i := range ts {
+			ts[i] = elem
 		}
-		open := n == longest
+		return ts
+	}
+	ctors := make([]patCtor, 0, longest+1)
+	for n := 0; n < longest; n++ {
 		ctors = append(ctors, patCtor{
 			listLen:  n,
-			listOpen: open,
-			subTypes: elems,
+			subTypes: elems(n),
 			render: func(s []string) string {
-				parts := append([]string{}, s...)
-				if open {
-					parts = append(parts, "..")
-				}
-				return "#[" + strings.Join(parts, ", ") + "]"
+				return open + strings.Join(s, ", ") + "]"
 			},
 		})
 	}
+	front := longest - tails
+	ctors = append(ctors, patCtor{
+		listLen:  longest,
+		listOpen: true,
+		listTail: tails,
+		subTypes: elems(longest),
+		render: func(s []string) string {
+			parts := append(append(append([]string{}, s[:front]...), ".."), s[front:]...)
+			return open + strings.Join(parts, ", ") + "]"
+		},
+	})
 	return ctors
 }
 
-// specializeVector lines a vector pattern's elements up with the positions
-// of ctor's length class. A pattern with a `..` matches every length from
-// its element count on, its heads at the front and its tails at the end. In
-// the open class ("this length or more") the end is not a position the class
-// fixes, so a pattern there matches only when its tails test nothing.
-func specializeVector(ctor patCtor, p ast.Node) ([]ast.Node, bool) {
-	vp, ok := p.(*ast.VectorPattern)
-	if !ok || vp.TypeName != nil {
+// specializeSeq lines a list or vector pattern's elements up with the
+// positions of ctor's length class. A pattern with a `..` matches every
+// length from its element count on, its heads at the front and its tails at
+// the end; an exact-length pattern matches its own length only. In the open
+// class the heads take the first exposed positions and the tails the last
+// listTail.
+func specializeSeq(ctor patCtor, p ast.Node) ([]ast.Node, bool) {
+	heads, tails, spread, ok := seqPattern(p)
+	if !ok {
 		return nil, false
 	}
-	fixed := len(vp.Heads) + len(vp.Tails)
 	args := make([]ast.Node, ctor.listLen)
-	if !vp.Spread {
-		if fixed != ctor.listLen || ctor.listOpen {
+	if !spread {
+		if len(heads) != ctor.listLen || ctor.listOpen {
 			return nil, false
 		}
-		copy(args, vp.Heads)
+		copy(args, heads)
 		return args, true
 	}
-	if fixed > ctor.listLen {
+	if len(heads)+len(tails) > ctor.listLen {
 		return nil, false
 	}
-	copy(args, vp.Heads)
-	if ctor.listOpen {
-		for _, t := range vp.Tails {
-			if !isUnconstrainedPattern(t) {
-				return nil, false
-			}
-		}
-		return args, true
+	if ctor.listOpen && (len(heads) > ctor.listLen-ctor.listTail || len(tails) > ctor.listTail) {
+		return nil, false
 	}
-	copy(args[ctor.listLen-len(vp.Tails):], vp.Tails)
+	copy(args, heads)
+	copy(args[ctor.listLen-len(tails):], tails)
 	return args, true
 }
 
@@ -511,7 +503,7 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 		return make([]ast.Node, len(ctor.subTypes)), true
 	}
 	if isVectorType(t) {
-		return specializeVector(ctor, p)
+		return specializeSeq(ctor, p)
 	}
 	switch tt := t.(type) {
 	case *InterfaceType:
@@ -582,22 +574,7 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 	case *AnonStructType:
 		return structPatternFields(p, tt.Fields)
 	case *ListType:
-		lp, ok := p.(*ast.ListPattern)
-		if !ok || lp.TypeName != nil {
-			return nil, false
-		}
-		heads := len(lp.Heads)
-		if lp.TailSpread == nil {
-			// An exact-length pattern matches its own length only.
-			if heads != ctor.listLen || ctor.listOpen {
-				return nil, false
-			}
-		} else if heads > ctor.listLen {
-			return nil, false
-		}
-		args := make([]ast.Node, ctor.listLen)
-		copy(args, lp.Heads)
-		return args, true
+		return specializeSeq(ctor, p)
 	}
 	return nil, false
 }

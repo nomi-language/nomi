@@ -31,19 +31,14 @@ impl Vector<T> {
 
     /// Returns the element at zero-based `index`, or None when the index is
     /// outside the vector. Use it when the index comes from data and may miss;
-    /// `Vector.at` is for an index that must exist.
+    /// for an index that must exist, `Vector.get(vector, index)!` answers the
+    /// element and traps on any other index.
     //! assert Vector.get(#["a", "b"], 1) == Some("b")
     //! assert Vector.get(#["a", "b"], 9) == None
     //! assert Vector.get(#["a", "b"], -1) == None
+    //! assert Vector.get(#["a", "b"], 1)! == "b"
     //
     pub host fn get<T>(vector: Vector<T>, index: Int) -> Maybe<T>
-
-    /// Returns the element at zero-based `index`, which must be in
-    /// `0 <= index < length`. Any other index traps: `index 7 is out of range
-    /// for a Vector of length 5`. `Vector.get` answers None instead.
-    //! assert Vector.at(#["a", "b"], 1) == "b"
-    //
-    pub host fn at<T>(vector: Vector<T>, index: Int) -> T
 
     /// Returns a new vector with `item` appended to the end.
     //! assert Vector.push(#[1, 2], 3) == #[1, 2, 3]
@@ -51,8 +46,9 @@ impl Vector<T> {
     pub host fn push<T>(vector: Vector<T>, item: T) -> Vector<T>
 
     /// Returns a new vector with `item` replacing the element at `index`, which
-    /// must be in `0 <= index < length`. Any other index traps, as `Vector.at`
-    /// does; check the index against `Vector.length` first when it may be out.
+    /// must be in `0 <= index < length`. Any other index traps: `index 7 is out
+    /// of range for a Vector of length 5`. Check the index against
+    /// `Vector.length` first when it may be out.
     //! assert Vector.set(#["a", "b"], 1, "z") == #["a", "z"]
     //
     pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Vector<T>
@@ -84,12 +80,12 @@ impl Contains for Vector<T> where T: Equatable {
     /// True if an element of the vector is `==` to `x`. A linear scan that
     /// the runtime runs, comparing each element as `==` does; convert to a
     /// `Set` for repeated lookups.
-    //! assert Vector.contains?(#[1, 2, 3], 2)
-    //! refute Vector.contains?(#[1, 2, 3], 9)
+    //! assert Vector.contains(#[1, 2, 3], 2)
+    //! refute Vector.contains(#[1, 2, 3], 9)
     //! empty: Vector<Int> = #[]
-    //! refute Vector.contains?(empty, 1)
+    //! refute Vector.contains(empty, 1)
     //
-    host fn contains?(c: Vector<T>, x: T) -> Bool
+    host fn contains(c: Vector<T>, x: T) -> Bool
 }
 
 impl Add<Vector<T>, Vector<T>> for Vector<T> {
@@ -138,7 +134,7 @@ impl Debug for Vector<T> {
 }
 
 impl Equatable for Vector<T> {
-    fn equal?(a: Vector<T>, b: Vector<T>) -> Bool {
+    fn equal(a: Vector<T>, b: Vector<T>) -> Bool {
         a == b
     }
 }

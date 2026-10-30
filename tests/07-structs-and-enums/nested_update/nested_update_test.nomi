@@ -80,10 +80,10 @@ fn ada() -> Person {
 
 // whether a diagnostic at line:col reads exactly message, before any help
 fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bool {
-    Iter.any?(diagnostics, fn d -> {
+    Iter.any(diagnostics, fn d -> {
         d.line == line
             and d.col == col
-            and (d.message == message or String.starts_with?(d.message, message + "\nhelp: "))
+            and (d.message == message or String.starts_with(d.message, message + "\nhelp: "))
     })
 }
 

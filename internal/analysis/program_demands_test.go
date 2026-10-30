@@ -39,7 +39,7 @@ pub fn mk(s: String) -> Result<Int, Error> {
 
 // faultEdits add the unsupplied demand in a body and take it away.
 var faultEdits = []editStep{
-	replace("body only, an unsupplied demand added", "main", `io.print("start")`, `io.print("equal?: ${Equatable.equal?(fault.mk("a"), fault.mk("b"))}")`),
+	replace("body only, an unsupplied demand added", "main", `io.print("start")`, `io.print("equal: ${Equatable.equal(fault.mk("a"), fault.mk("b"))}")`),
 	restore("body only, the demand removed", "main"),
 }
 
@@ -151,7 +151,7 @@ func TestIncrementalHarnessCatchesStaleDemands(t *testing.T) {
 	if len(outcomes) != 1 || outcomes[0].Path != analysis.RecheckBodies {
 		t.Fatalf("the edit went %v, want the bodies path", outcomes)
 	}
-	for _, want := range []string{"step 1 (body only, an unsupplied demand added, editing main, recheck bodies)", "full check:", "recheck:", "no impl of `Equatable` for `Error`"} {
+	for _, want := range []string{"step 1 (body only, an unsupplied demand added, editing main, recheck bodies)", "full check:", "recheck:", "no impl of `Equatable` for `fault.Error`"} {
 		if !strings.Contains(diff, want) {
 			t.Errorf("the harness's report on a coherence cache that keeps stale demands has no %q:\n%s", want, diff)
 		}

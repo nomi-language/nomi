@@ -12,7 +12,7 @@ struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = %{}
 }
-fn main() { r = 1..5 io.inspect(#Outer{p: [#Point{x: if Range.contains?(r, 3) { 1 } else { 0 }}]}) }
+fn main() { r = 1..5 io.inspect(#Outer{p: [#Point{x: if Range.contains(r, 3) { 1 } else { 0 }}]}) }
 `, "#Outer{p: [#Point{x: 1}], hooks: %{}}\n")
 }
 
@@ -20,11 +20,11 @@ func TestIRRange_NaNOrdering(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
   nan = 0.0 / 0.0
-  io.print(Range.contains?(nan..=nan, nan))
-  io.print(Range.contains?(0.0..=nan, nan))
-  io.print(Range.contains?(0.0..nan, nan))
-  io.print(Range.contains?(nan..=1.0, 0.0))
-  io.print(Range.contains?(-0.0..=0.0, 0.0))
+  io.print(Range.contains(nan..=nan, nan))
+  io.print(Range.contains(0.0..=nan, nan))
+  io.print(Range.contains(0.0..nan, nan))
+  io.print(Range.contains(nan..=1.0, 0.0))
+  io.print(Range.contains(-0.0..=0.0, 0.0))
 }
 `, "False\nFalse\nFalse\nFalse\nTrue\n")
 }
@@ -34,9 +34,9 @@ func TestIRRange_EvaluationOrder(t *testing.T) {
 fn mark(n: Int) -> Int { io.print(n) n }
 fn mark_range(r: Range<Int>) -> Range<Int> { io.print("range") r }
 fn main() {
-  io.print(Range.contains?(mark_range(mark(1)..=mark(5)), mark(3)))
+  io.print(Range.contains(mark_range(mark(1)..=mark(5)), mark(3)))
   r = mark(2)..mark(8)
-  r |> Range.contains?(mark(8)) |> io.print()
+  r |> Range.contains(mark(8)) |> io.print()
 }
 `, "1\n5\nrange\n3\nTrue\n2\n8\n8\nFalse\n")
 }
@@ -45,14 +45,14 @@ func TestIRRange_Containment(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn interval() -> Range<Int> { 1..=5 }
 fn main() {
-  io.print(Range.contains?("a".."m", "h"))
-  io.print(Range.contains?(0.0..=1.0, 1.0))
-  io.print(Range.contains?(1..5, 5))
-  io.print(Range.contains?(interval(), 5))
-  io.print(Range.contains?(5..1, 3))
-  io.print(Range.bounded?(interval()))
+  io.print(Range.contains("a".."m", "h"))
+  io.print(Range.contains(0.0..=1.0, 1.0))
+  io.print(Range.contains(1..5, 5))
+  io.print(Range.contains(interval(), 5))
+  io.print(Range.contains(5..1, 3))
+  io.print(Range.is_bounded(interval()))
   r = interval()
-  inside = fn n: Int -> Range.contains?(r, n)
+  inside = fn n: Int -> Range.contains(r, n)
   io.print(inside(0))
   io.print(inside(3))
 }

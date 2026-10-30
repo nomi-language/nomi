@@ -232,7 +232,7 @@ fn main() {
 			}
 			if has("Hashable") {
 				src.WriteString("    io.inspect(Map.get(%{a => 1, b => 2}, b))\n")
-				src.WriteString("    io.print(\"${Set.contains?(%[a], a)} ${Set.contains?(%[a], b)}\")\n")
+				src.WriteString("    io.print(\"${Set.contains(%[a], a)} ${Set.contains(%[a], b)}\")\n")
 			}
 			if has("Comparable") {
 				src.WriteString("    io.print(\"${a < b} ${b < a}\")\n")

@@ -71,39 +71,27 @@ pub fn parse(text: String) -> Result<Graph, Error> {
     lines =
         String.lines(text)
         |> Iter.map(String.trim)
-        |> Iter.filter(fn line -> line != "" and !comment?(line))
+        |> Iter.filter(fn line -> line != "" and !is_comment(line))
         |> Iter.to_list()
 
-    ["graph {", ..rest] = lines else {
-        return Err(.InvalidGraph)
-    }
+    ["graph {", ..body, "}"] = lines else { return Err(.InvalidGraph) }
 
-    if Iter.last(rest) != Some("}") {
-        return Err(.InvalidGraph)
-    }
-
-    statements =
-        rest
-        |> Iter.take(Iter.count(rest) - 1)
-        |> Iter.map(statement)
-        |> Result.collect()
+    statements = body |> Iter.map(statement) |> Result.collect()
 
     empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
 
-    Ok(Iter.reduce(try statements, add, from: empty))
+    Ok(Iter.reduce(statements?, add, from: empty))
 }
 
-fn comment?(line: String) -> Bool {
-    String.starts_with?(line, "//") or String.starts_with?(line, "#")
+fn is_comment(line: String) -> Bool {
+    String.starts_with(line, "//") or String.starts_with(line, "#")
 }
 
 /// Reads one statement, `subject [name=value, ...];`, where the subject is
 /// a node, a chain of edges `a -- b -- c`, or nothing for the graph's own
 /// attributes.
 fn statement(line: String) -> Result<Statement, Error> {
-    Some(line) = String.strip_suffix(line, ";") else {
-        return Err(.InvalidGraph)
-    }
+    Some(line) = String.strip_suffix(line, ";") else { return Err(.InvalidGraph) }
 
     #(subject, attributes) = case String.split(line, "[") {
         [subject] ->
@@ -114,7 +102,7 @@ fn statement(line: String) -> Result<Statement, Error> {
                 return Err(.InvalidAttribute)
             }
 
-            #(subject, try attributes_in(inner))
+            #(subject, attributes_in(inner)?)
         }
 
         _ ->
@@ -126,15 +114,13 @@ fn statement(line: String) -> Result<Statement, Error> {
             Ok(.GraphAttributes(attributes))
 
         [name] -> {
-            if !alphanumeric?(name) {
-                return Err(.NodeNameNotAlphanumeric)
-            }
+            if !is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
 
             Ok(#Statement.Node{name, attributes})
         }
 
         words ->
-            Ok(#Statement.Edges{names: try edge_names(words), attributes})
+            Ok(#Statement.Edges{names: edge_names(words)?, attributes})
     }
 }
 
@@ -151,7 +137,7 @@ fn attributes_in(list: String) -> Result<Attributes, Error> {
         })
         |> Result.collect()
 
-    Ok(Iter.to_map(try pairs))
+    Ok(Iter.to_map(pairs?))
 }
 
 /// The value written `text`: quoted text, a whole number, `true` or
@@ -175,19 +161,17 @@ fn edge_names(words: List<String>) -> Result<List<String>, Error> {
         |> Iter.with_index()
         |> Iter.partition(fn #(index, _word) -> index % 2 == 0)
 
-    names = names |> Iter.map(fn #(_index, word) -> word) |> Iter.to_list()
+    names = names |> Iter.map(.1) |> Iter.to_list()
 
     valid = Iter.count(names) == Iter.count(links) + 1
-        and Iter.all?(links, fn #(_index, word) -> {
-            word == "--"
-        })
-        and Iter.all?(names, alphanumeric?)
+        and Iter.all(links, fn #(_index, word) -> word == "--")
+        and Iter.all(names, is_alphanumeric)
 
     if valid { Ok(names) } else { Err(.InvalidEdge) }
 }
 
-fn alphanumeric?(name: String) -> Bool {
-    String.to_codepoints(name) |> Iter.all?(fn c -> Codepoint.letter?(c) or Codepoint.digit?(c))
+fn is_alphanumeric(name: String) -> Bool {
+    String.to_codepoints(name) |> Iter.all(fn c -> Codepoint.is_letter(c) or Codepoint.is_digit(c))
 }
 
 /// `graph` with `statement`'s nodes, edges or attributes added. Attributes
@@ -209,10 +193,9 @@ fn add(graph: Graph, statement: Statement) -> Graph {
                 names
                 |> Iter.windows(2)
                 |> Iter.reduce(fn edges = graph.edges, pair -> {
-                    case Iter.sort(pair) {
-                        [a, b] -> with_attributes(edges, #(a, b), attributes)
-                        _ -> unreachable "a window of two holds two names"
-                    }
+                    [a, b] = Iter.sort(pair) else { unreachable "a window of two holds two names" }
+
+                    with_attributes(edges, #(a, b), attributes)
                 })
 
             #{..graph, nodes, edges}
@@ -227,8 +210,7 @@ fn with_attributes<K>(
     key: K,
     attributes: Attributes,
 ) -> Map<K, Attributes> {
-    before = Map.get(entries, key) |> Maybe.with_default(%{})
-    Map.put(entries, key, Map.merge(before, attributes))
+    Map.update(entries, key, %{}, &Map.merge(&1, attributes))
 }
 
 // FILE: dot_dsl_test.nomi
@@ -238,14 +220,14 @@ import {
 }
 
 test "parse" {
-    cases: List<#(String, String, Graph)> = [
+    cases = [
         #(
             "empty graph",
             """
                 graph {
                 }
                 """,
-            #{nodes: %{}, edges: %{}, attrs: %{}},
+            #Graph{nodes: %{}, edges: %{}, attrs: %{}},
         ),
         #(
             "graph with one node",
@@ -373,7 +355,7 @@ test "parse" {
 }
 
 test "parse errors" {
-    cases: List<#(String, String, String)> = [
+    cases = [
         #(
             "malformed input",
             """
@@ -469,6 +451,7 @@ test "parse errors" {
 - Adapted: the description asks for an internal DSL, graph-building code written in the host language. The canonical data instead parses DOT text, and this port does that: `parse` reads the text into a `Graph` value. An internal DSL in Nomi would be plain constructor calls on immutable values, which leaves nothing for the canonical cases to check.
 - A `Graph` is three maps: nodes by name, edges by their two node names in order (`#("a", "b")` for `b -- a`, so an edge given twice either way round is one edge), and the graph's own attributes. Attributes are a `Map<String, Value>`, named `Attributes` with a `typealias`.
 - An attribute's `Value` is an enum of `Number`, `Flag` and `Text`, since the canonical attributes mix `1`, `true` and `"Testing Attrs"`. `value_of` tries them in order with one `case` over a tuple: quoted text, a whole number, `true` or `false`, then unquoted text (`color=green`).
+- `parse` keeps the lines that are not empty or comments and takes them apart with `["graph {", ..body, "}"] = lines else { ... }`, so a text without both braces is `InvalidGraph`.
 - Each line between the braces is one statement, read by `statement` into a private `Statement` enum: graph attributes, a node, or a chain of edges. The words of its subject decide which: none, one, or `a -- b -- ...`, checked by `edge_names` as names at even positions and `--` between them. `Result.collect` stops at the first bad line, and `add` folds the statements into the graph. Attributes given again for the same node, edge or graph are merged, the later value winning.
 - The four canonical errors are an `Error` enum with an `impl Display` giving the canonical messages. The error cases assert the message, `"${error}"`, so the table reads as the canonical data does.
 - The canonical inputs are lists of lines; each is a `"""` string here. "invalid edge type" ends its last line with a space, which would be invisible at the end of a `"""` line, so it is an ordinary string with `\n`.
