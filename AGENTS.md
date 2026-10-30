@@ -1237,9 +1237,11 @@ to that (`tour/test/`; it skips without Chrome or the staged
 `tour/public/nomi/`). `astro.config.mjs` passes a hash of
 `rehype-shiki.mjs` as the plugin's option, so an edit to it clears
 Astro's cache of rendered pages. `TestTourWasmAnswersTheTourBlocks` times each block's run under
-Node and fails one that takes more than half of its budget, since a
-browser runs the wasm slower than Node; a run over that limit runs once
-more and the faster time counts. Make a slow block cheaper before making
+Node and logs the slowest. With `NOMI_TOUR_RUN_BUDGET=1`, which `make
+check-full` sets, it fails one that takes more than half of its budget,
+since a browser runs the wasm slower than Node; a run over that limit runs
+once more and the faster time counts. The deploy build does not set it,
+since its machine is slower and its times say nothing about the program. Make a slow block cheaper before making
 it manual. A file in a live
 example is editable
 only when an edit can change what it prints: Go files, `go.mod`, `go.sum`
@@ -1392,8 +1394,8 @@ make deploy-tour                          # production build into tour/dist
 go test ./vmhost -run TestTourDoctests    # run every nomi-run block
 ```
 
-`make deploy-tour` rebuilds the wasm bundle, gates it against the source
-tree, and runs `npm run build`, which ends with `csp-audit.mjs` (the built HTML
+`make deploy-tour` rebuilds the wasm bundle and runs `npm run build` (the
+tour's tests run in `make check-full` before a push, not here), which ends with `csp-audit.mjs` (the built HTML
 must match `public/_headers`' hash-pinned CSP) and `check-dist.mjs` (no file
 over 25 MiB). Deployment settings are in `tour/README.md`.
 Re-run `scripts/build-tour-wasm.sh` after changing tour content, the grammar,

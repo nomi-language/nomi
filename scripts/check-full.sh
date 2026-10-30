@@ -103,7 +103,7 @@ step gofmt gofmtcheck
 step tourwasm tourwasm
 step buildvet buildvet
 step pkgs pkgs
-step vmhost go -C "$ROOT" test ./vmhost -count=1 -timeout 0
+step vmhost env NOMI_TOUR_RUN_BUDGET=1 go -C "$ROOT" test ./vmhost -count=1 -timeout 0
 step rt go -C "$ROOT" test ./rt/... -count=1 -timeout 0
 step irbuild go -C "$ROOT" test ./internal/irbuild -count=1 -timeout 0
 step lib go -C "$ROOT" test ./cmd/nomi -run '^TestLibModules$' -count=1 -timeout 0

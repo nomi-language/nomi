@@ -59,15 +59,11 @@ TREE_SITTER_WASM_CLI_VERSION = 0.27.0
 build-tour-grammar-wasm:
 	PATH="$(NODE22_BIN):$$PATH" npx -y tree-sitter-cli@$(TREE_SITTER_WASM_CLI_VERSION) build --wasm -o tree-sitter-nomi/tree-sitter-nomi.wasm tree-sitter-nomi
 
-# The gate runs AFTER the build script and BEFORE npm, so a bundle that does
-# not match this source tree cannot reach the published site. The grammar rows
-# run here too: build-tour-wasm.sh COPIES the committed grammar wasm rather
-# than building it, so a wasm older than the queries would otherwise be
-# published without anything reading it.
+# The production build. It runs no tests: make check-full ran the tour's on
+# this tree before make publish-main pushed it, and a test run on the deploy
+# machine would only repeat them on slower hardware.
 deploy-tour:
 	./scripts/build-tour-wasm.sh
-	NOMI_REQUIRE_TOUR_WASM=1 go test ./vmhost -run TestTourWasm
-	go test ./vmhost -run 'TestTourGrammar|TestTourRunWorker'
 	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour ci
 	PATH="$(NODE22_BIN):$$PATH" npm --prefix tour run build
 

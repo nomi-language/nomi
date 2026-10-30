@@ -371,10 +371,12 @@ func modTime(t *testing.T, path string) string {
 // terms the user reported it in — this block, this expected output, this
 // actual output — rather than as two hashes.
 //
-// It also times each block's run, as the page's run budget does, and fails a
-// block that takes more than half of that budget under node
+// It also times each block's run, as the page's run budget does, and logs
+// the slowest. With NOMI_TOUR_RUN_BUDGET=1, which make check-full sets, it
+// fails a block that takes more than half of that budget under node
 // (tourRunLimits), since the page stops a slower run with "execution timed
-// out".
+// out". Elsewhere it only reports, since a time measured on a slower
+// machine, such as the deploy build's, says nothing about the program.
 //
 // Blocks containing tests are compared on their ERROR channel only. nomiRun
 // concatenates the test report onto program output, and reproducing that
@@ -431,6 +433,7 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 		t.Fatalf("staged wasm answered %d of %d blocks", len(answers), len(probes))
 	}
 
+	enforceRunBudget := os.Getenv("NOMI_TOUR_RUN_BUDGET") == "1"
 	withTests, compared, errors, stops := 0, 0, 0, 0
 	for i, b := range blocks {
 		got := answers[i]
@@ -438,7 +441,7 @@ func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 			t.Fatalf("answer %d is for %q, expected %q", i, got.Name, b.name)
 		}
 		t.Run(b.name, func(t *testing.T) {
-			if limit := limitOf(b); got.Ms > limit {
+			if limit := limitOf(b); enforceRunBudget && got.Ms > limit {
 				t.Errorf(`TOUR BLOCK RUNS TOO LONG FOR THE BROWSER.
 
   block %s
