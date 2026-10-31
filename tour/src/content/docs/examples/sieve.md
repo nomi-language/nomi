@@ -26,7 +26,7 @@ pub fn primes(limit: Int) -> List<Int> {
     })
 
     2..=limit
-    |> Iter.filter(fn n -> !Set.contains(composites, n))
+    |> Iter.reject(&Set.contains(composites, &1))
     |> Iter.to_list()
 }
 

@@ -1,5 +1,6 @@
 import {
     add.Add
+    bitwise.{BitwiseAnd, BitwiseNot, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight}
     bool.Bool.{self, False, True}
     bytes.Byte
     code_points.Codepoint
@@ -114,51 +115,33 @@ impl Int {
     //
     pub host fn wrapping_mul(a: Int, b: Int) -> Int
 
-    /// Bitwise AND of two Ints. Nomi has no bitwise operators; these functions are
-    /// the surface, as in Gleam (`int.bitwise_*`) and Elm (`Bitwise.*`). An Int
-    /// reads as two's complement with as many bits as it needs, a negative one
-    /// with endless leading ones, so the answers hold at any size.
-    //! assert Int.bitwise_and(12, 10) == 8
-    //! assert Int.bitwise_or(12, 10) == 14
-    //! assert Int.bitwise_xor(12, 10) == 6
-    //! assert Int.bitwise_not(0) == -1
-    //! assert Int.bitwise_and(Int.pow(2, 100) + 5, 7) == 5
-    //! assert Int.bitwise_and(-1, Int.pow(2, 80)) == Int.pow(2, 80)
+    /// The number of 1 bits in a non-negative `n`, its population count.
+    /// A negative Int, read as two's complement, has endless 1 bits, so a
+    /// negative `n` is a runtime error; count `-n`'s or `~~~n`'s bits,
+    /// whichever the algorithm means.
+    //! assert Int.bit_count(0) == 0
+    //! assert Int.bit_count(13) == 3
+    //! assert Int.bit_count(Int.pow(2, 100) - 1) == 100
     //
-    pub host fn bitwise_and(a: Int, b: Int) -> Int
+    pub host fn bit_count(n: Int) -> Int
 
-    /// See `Int.bitwise_and`.
-    //! assert Int.bitwise_or(12, 10) == 14
+    /// The number of bits `n` needs, not counting a sign: the position of a
+    /// non-negative `n`'s highest 1 bit plus one, so `0` for `0` and `k`
+    /// for any `n` from `2^(k-1)` up to `2^k - 1`. A negative `n` reads as
+    /// two's complement, and its length is `~~~n`'s, the bits below which
+    /// every bit is 1: `Int.bit_length(-1) == 0`, `Int.bit_length(-8) == 3`.
+    /// Go's `big.Int.BitLen` for a non-negative `n`, Java's
+    /// `BigInteger.bitLength` for any.
+    //! assert Int.bit_length(0) == 0
+    //! assert Int.bit_length(1) == 1
+    //! assert Int.bit_length(255) == 8
+    //! assert Int.bit_length(256) == 9
+    //! assert Int.bit_length(Int.pow(2, 100)) == 101
+    //! assert Int.bit_length(-1) == 0
+    //! assert Int.bit_length(-8) == 3
+    //! assert Int.bit_length(-9) == 4
     //
-    pub host fn bitwise_or(a: Int, b: Int) -> Int
-
-    /// See `Int.bitwise_and`.
-    //! assert Int.bitwise_xor(12, 10) == 6
-    //
-    pub host fn bitwise_xor(a: Int, b: Int) -> Int
-
-    /// Bitwise NOT (one's complement) of one Int. See `Int.bitwise_and`.
-    //! assert Int.bitwise_not(0) == -1
-    //
-    pub host fn bitwise_not(a: Int) -> Int
-
-    /// Left shift `a` by `n` bit positions: `a` times 2 to the `n`, exact, so no
-    /// bit is ever shifted out. `n` must be non-negative (a negative count is a
-    /// runtime error).
-    //! assert Int.shift_left(1, 4) == 16
-    //! assert Int.shift_left(1, 64) == 18_446_744_073_709_551_616
-    //
-    pub host fn shift_left(a: Int, n: Int) -> Int
-
-    /// Arithmetic right shift of `a` by `n` bit positions: `a` divided by 2 to
-    /// the `n`, rounded toward negative infinity. `n` must be non-negative; a
-    /// count past `a`'s bits yields 0 for non-negative `a` and -1 for negative
-    /// `a`.
-    //! assert Int.shift_right(-8, 1) == -4
-    //! assert Int.shift_right(Int.pow(2, 100), 98) == 4
-    //! assert Int.shift_right(-1, 200) == -1
-    //
-    pub host fn shift_right(a: Int, n: Int) -> Int
+    pub host fn bit_length(n: Int) -> Int
 
     /// Floored modulo: the result is zero or has the sign of the divisor `y`,
     /// as Python's `%`, Elixir's `Integer.mod/2` and Gleam's `int.modulo`
@@ -426,6 +409,74 @@ impl Divide<NonZeroInt, Int> for Int {
         NonZeroInt(n) = rhs
         lhs / n
     }
+}
+
+// The bitwise operators read an Int as two's complement with as many bits as
+// it needs, a negative one with endless leading ones, so `&&&`, `|||`, `^^^`
+// and `~~~` answer at any size, and `<<<` and `>>>` shift without losing a
+// bit to a width.
+impl BitwiseAnd<Int, Int> for Int {
+    /// Bitwise and, `a &&& b`: each bit set in both. An Int reads as two's
+    /// complement with as many bits as it needs, a negative one with endless
+    /// leading ones, so the answer holds at any size.
+    //! assert Int.bitwise_and(12, 10) == 8
+    //! assert 12 &&& 10 == 8
+    //! assert (Int.pow(2, 100) + 5) &&& 7 == 5
+    //! assert -1 &&& Int.pow(2, 80) == Int.pow(2, 80)
+    //
+    host fn bitwise_and(lhs: Int, rhs: Int) -> Int
+}
+
+impl BitwiseOr<Int, Int> for Int {
+    /// Bitwise or, `a ||| b`: each bit set in either. See `Int.bitwise_and`.
+    //! assert Int.bitwise_or(12, 10) == 14
+    //! assert 12 ||| 10 == 14
+    //! assert -8 ||| 3 == -5
+    //
+    host fn bitwise_or(lhs: Int, rhs: Int) -> Int
+}
+
+impl BitwiseXor<Int, Int> for Int {
+    /// Bitwise exclusive or, `a ^^^ b`: each bit set in one but not both.
+    /// See `Int.bitwise_and`.
+    //! assert Int.bitwise_xor(12, 10) == 6
+    //! assert 12 ^^^ 10 == 6
+    //! assert -1 ^^^ 5 == -6
+    //
+    host fn bitwise_xor(lhs: Int, rhs: Int) -> Int
+}
+
+impl BitwiseNot<Int> for Int {
+    /// Bitwise not, `~~~n`: every bit flipped, the one's complement, which
+    /// is `-n - 1`. See `Int.bitwise_and`.
+    //! assert Int.bitwise_not(0) == -1
+    //! assert ~~~5 == -6
+    //! assert ~~~Int.pow(2, 70) == -Int.pow(2, 70) - 1
+    //
+    host fn bitwise_not(value: Int) -> Int
+}
+
+impl ShiftLeft<Int, Int> for Int {
+    /// Shift left, `a <<< n`: `a` times 2 to the `n`, exact, so no bit is
+    /// ever shifted out. A negative `n` is a runtime error.
+    //! assert Int.shift_left(1, 4) == 16
+    //! assert 1 <<< 64 == 18_446_744_073_709_551_616
+    //! assert -3 <<< 2 == -12
+    //
+    host fn shift_left(lhs: Int, rhs: Int) -> Int
+}
+
+impl ShiftRight<Int, Int> for Int {
+    /// Arithmetic shift right, `a >>> n`: `a` divided by 2 to the `n`,
+    /// rounded toward negative infinity. A count past `a`'s bits yields 0
+    /// for a non-negative `a` and -1 for a negative one. A negative `n` is
+    /// a runtime error.
+    //! assert Int.shift_right(-8, 1) == -4
+    //! assert Int.pow(2, 100) >>> 98 == 4
+    //! assert -1 >>> 200 == -1
+    //! assert 7 >>> 200 == 0
+    //
+    host fn shift_right(lhs: Int, rhs: Int) -> Int
 }
 
 impl Debug for Int {

@@ -1,0 +1,50 @@
+//# Protocols for the bitwise operators: `&&&`, `|||`, `^^^`, prefix `~~~`,
+//# `<<<` and `>>>`. `Int` implements all six; `Byte` implements the four that
+//# keep a value within 8 bits, and no shift.
+
+/// Protocol for the `&&&` operator, bitwise and.
+///
+/// `BitwiseAnd.bitwise_and(lhs, rhs)` returns the result of `lhs &&& rhs`.
+/// The left-hand type is the implementor (`self`); the interface type
+/// parameters describe the right-hand operand and the output type, as
+/// `Add`'s do.
+///
+/// ```nomi
+/// pub type Flags Int
+///
+/// impl BitwiseAnd<Flags, Flags> for Flags {
+///     fn bitwise_and(lhs: Flags, rhs: Flags) -> Flags {
+///         ...
+///     }
+/// }
+/// ```
+pub interface BitwiseAnd<Rhs, Out> {
+    fn bitwise_and(lhs: self, rhs: Rhs) -> Out
+}
+
+/// Protocol for the `|||` operator, bitwise or. See `BitwiseAnd`.
+pub interface BitwiseOr<Rhs, Out> {
+    fn bitwise_or(lhs: self, rhs: Rhs) -> Out
+}
+
+/// Protocol for the `^^^` operator, bitwise exclusive or. See `BitwiseAnd`.
+pub interface BitwiseXor<Rhs, Out> {
+    fn bitwise_xor(lhs: self, rhs: Rhs) -> Out
+}
+
+/// Protocol for the prefix `~~~` operator, bitwise not. The operand is the
+/// implementor (`self`); the type parameter is the result type.
+pub interface BitwiseNot<Out> {
+    fn bitwise_not(value: self) -> Out
+}
+
+/// Protocol for the `<<<` operator, shift left. See `BitwiseAnd`.
+pub interface ShiftLeft<Rhs, Out> {
+    fn shift_left(lhs: self, rhs: Rhs) -> Out
+}
+
+/// Protocol for the `>>>` operator, arithmetic shift right. See
+/// `BitwiseAnd`.
+pub interface ShiftRight<Rhs, Out> {
+    fn shift_right(lhs: self, rhs: Rhs) -> Out
+}

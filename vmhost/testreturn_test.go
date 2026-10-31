@@ -32,7 +32,7 @@ test "bare return from an arm" {
 
 test "return from a case arm" {
   case [1, 2] {
-    [a, .._] -> {
+    [a, ..] -> {
       io.print("head ${a}")
       return
     }

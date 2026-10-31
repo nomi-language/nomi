@@ -15,10 +15,9 @@ Adapted from Exercism problem-specifications (MIT), exercises/rna-transcription.
 - The nucleotides stay one-letter Strings matched by a `case`, not an enum.
   An enum would need a parse step and a render step around a four-arm table
   for no gain in a function this size.
-- `Result.collect` turns the per-nucleotide results into one, so the first
-  invalid nucleotide becomes the error.
-- The parts are joined with `Result.map(String.join)`: where a function of
-  one parameter is expected, `String.join` takes its default separator.
+- `Result.collect()?` turns the per-nucleotide results into one and passes
+  the first invalid nucleotide up as the error; the parts are then joined
+  with `String.join()` and wrapped in `Ok`.
 
 ## Friction
 

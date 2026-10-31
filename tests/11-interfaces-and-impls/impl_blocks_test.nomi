@@ -50,10 +50,7 @@ enum Status {
 }
 
 fn is_active(s: Status) -> Bool {
-    case s {
-        .Active -> True
-        _ -> False
-    }
+    s is .Active
 }
 
 impl Display for Status {

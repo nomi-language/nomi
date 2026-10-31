@@ -49,7 +49,10 @@
 //#
 //# Iterables in Nomi are replayable: binding `x = Iter.map(xs, f)` and
 //# consuming `x` multiple times yields consistent results, because a source
-//# walks itself from a value it never mutates.
+//# walks itself from a value it never mutates. A stream's iterators
+//# (`Reader.lines`, `Reader.chunks`, `io.lines`) are the exception: they read
+//# the stream as they run, so a second run carries on where the first
+//# stopped.
 //#
 //# `Iter` also hosts `loop`, the state-threading repetition primitive —
 //# it takes no collection, but its callback speaks the same `break`/`continue`
@@ -73,6 +76,7 @@ import {
     maybe.Maybe.{None, Some}
     multiply.Multiply
     productable.Productable
+    results.Result.{self, Err, Ok}
     sets.Set
     strings.String
     summable.Summable
@@ -92,7 +96,8 @@ import {
 ///
 /// Because `each_while` reads a collection it never mutates, Nomi iterators are
 /// replayable — driving the same iterator binding twice yields the same
-/// sequence.
+/// sequence. A stream's iterators (`Reader.lines`) read the stream as they
+/// run, and are not.
 ///
 /// Built-in types like `List`, `Map`, `String`, and ranges over `Discrete`
 /// values (`Int`, `Codepoint`) already implement `Iter`, so the operations
@@ -297,6 +302,68 @@ impl Iter<T> {
             case f(item) {
                 Some(found) -> break Some(found)
                 None -> None
+            }
+        })
+    }
+
+    /// Folds with a step that can fail: starts from `from`, applies `f` to
+    /// the state and each element in turn, and returns `Ok` of the final
+    /// state, or the first `Err` the step gives. Stops at that element, so it
+    /// reads no further and ends on an infinite source that fails. An empty
+    /// source answers `Ok(from)`. Use it, not `Iter.reduce` with `?` on the
+    /// accumulator, which visits every element.
+    //
+    //! fn add_digit(total: Int, text: String) -> Result<Int, String> {
+    //!     case String.to_int(text) {
+    //!         Some(n) -> Ok(total + n)
+    //!         None -> Err("not a number: ${text}")
+    //!     }
+    //! }
+    //!
+    //! assert Iter.try_reduce(["1", "2", "3"], 0, add_digit) == Ok(6)
+    //! assert Iter.try_reduce(["1", "x", "3", "y"], 0, add_digit) == Err("not a number: x")
+    //! assert Iter.try_reduce([], 10, add_digit) == Ok(10)
+    //!
+    //! over_ten =
+    //!     Iter.from(1)
+    //!     |> Iter.try_reduce(0, fn total, n -> {
+    //!         if total > 10 {
+    //!             Err(total)
+    //!         } else {
+    //!             Ok(total + n)
+    //!         }
+    //!     })
+    //!
+    //! assert over_ten == Err(15)
+    //!
+    //! guarded =
+    //!     [1, 2, 3, 4]
+    //!     |> Iter.map(fn n -> {
+    //!         if n == 4 {
+    //!             unreachable "read past the Err"
+    //!         } else {
+    //!             n
+    //!         }
+    //!     })
+    //!     |> Iter.try_reduce(0, fn total, n -> if n == 3 { Err(total) } else { Ok(total + n) })
+    //!
+    //! assert guarded == Err(3)
+    //
+    pub fn try_reduce<T, U, E>(
+        source: Iter<T>,
+        from: U,
+        f: (U, T) -> Result<U, E>,
+    ) -> Result<U, E> {
+        reduce(source, fn state = Ok(from), item -> {
+            case state {
+                Ok(value) ->
+                    case f(value, item) {
+                        Err(e) -> break Err(e)
+                        next -> next
+                    }
+
+                Err(_) ->
+                    state
             }
         })
     }
@@ -730,6 +797,18 @@ impl Iter<T> {
     //
     pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
         #Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
+    }
+
+    /// Lazy: drops the elements where `pred` returns true and keeps the rest,
+    /// the opposite of `Iter.filter`.
+    ///
+    /// The reject of an infinite source is infinite even if nothing is kept.
+    //
+    //! assert [1, 2, 3, 4] |> Iter.reject(&(&1 > 2)) |> Iter.to_list() == [1, 2]
+    //! assert Iter.from(0) |> Iter.reject(&(&1 % 2 == 0)) |> Iter.is_infinite()
+    //
+    pub fn reject<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
+        Iter.filter(source, fn item -> not pred(item))
     }
 
     /// Lazy: skips the first `n` elements of `source`.

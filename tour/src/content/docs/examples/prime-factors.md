@@ -20,14 +20,11 @@ pub fn factors(value: Int) -> List<Int> {
 }
 
 fn factors_from(n: Int, divisor: Int) -> List<Int> {
-    if n == 1 {
-        []
-    } else if divisor * divisor > n {
-        [n]
-    } else if n % divisor == 0 {
-        [divisor, ..factors_from(n / divisor, divisor)]
-    } else {
-        factors_from(n, divisor + 1)
+    case {
+        n == 1 -> []
+        divisor * divisor > n -> [n]
+        n % divisor == 0 -> [divisor, ..factors_from(n / divisor, divisor)]
+        _ -> factors_from(n, divisor + 1)
     }
 }
 
@@ -60,5 +57,5 @@ test "factors" {
 
 - Trial division by recursion: `factors_from(n, divisor)` either conses a factor onto the rest (`[divisor, ..factors_from(n / divisor, divisor)]`) or moves to the next divisor in tail position. The non-tail call happens once per factor, so the depth is at most 63.
 - It stops as soon as `divisor * divisor > n`, which keeps the large-prime case (93819012551) to about 9,500 steps.
-- An `if`/`else if` chain rather than `case { cond -> ... }`; four conditions in order read the same either way.
+- A `case` with no subject picks among the four conditions in order.
 - One `subtests` table for all 12 cases.

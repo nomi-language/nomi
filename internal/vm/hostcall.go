@@ -163,8 +163,21 @@ func resolveSpec(spec *hostadapt.DescSpec) (*rt.TypeDesc, error) {
 // callAdapter calls a bound adapter on runtime. An rt trap the Go function
 // raises becomes this machine's fault, which is what an rt trap anywhere else
 // in an activation is, and a hostadapt.Unwind its failure; any other panic
-// keeps unwinding, which is what a cancelled task's unwind must do.
+// keeps unwinding, which is what a cancelled task's unwind must do. An rt
+// trap the adapter returns is a fault too: a value the Go side cannot hold
+// (hostadapt.Param, hostadapt.Returned) is the program's, not the machine's.
 func callAdapter(fn hostadapt.Func, runtime *rt.Frame, args []any) (v any, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		var fault *rt.Error
+		if errors.As(err, &fault) {
+			if _, already := asFault(err); !already {
+				v, err = nil, &Fault{err: fault}
+			}
+		}
+	}()
 	defer func() {
 		if p := recover(); p != nil {
 			if fault, ok := p.(*rt.Error); ok {

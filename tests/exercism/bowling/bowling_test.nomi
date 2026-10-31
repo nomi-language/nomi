@@ -2,9 +2,7 @@ import bowling.{Error, Game}
 
 /// The game after `rolls`, each of which must succeed.
 fn play(rolls: List<Int>) -> Result<Game, Error> {
-    Iter.reduce(rolls, fn game = Ok(Game.new()), pins -> {
-        Result.flat_map(game, &Game.roll(&1, pins))
-    })
+    Iter.try_reduce(rolls, Game.new(), Game.roll)
 }
 
 test "score" {

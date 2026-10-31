@@ -53,7 +53,7 @@ test "a generic interface implemented for a container at several type arguments"
     assert Holds.holds(Some(4), "4")
     assert Holds.holds(#[5, 6], 6)
     assert Holds.holds(#[5, 6], "5")
-    assert !Vector.holds(#[5], "6")
+    refute Vector.holds(#[5], "6")
     assert has(#[7], 7)
 }
 
@@ -80,7 +80,7 @@ test "a call through a bound" {
     assert shown([10, 11]) == "[i10 i11]!"
     assert shown(Some(#[12])) == "some #[i12]!"
     assert has([1, 2], 2)
-    assert !has(["a"], "b")
+    refute has(["a"], "b")
     assert has(Some(4), "4")
 }
 

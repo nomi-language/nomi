@@ -82,7 +82,7 @@ func Write(fr *rt.Frame, path string, data rt.Bytes, mode int64) rt.Result[rt.Un
 		rt.WriterDiscard(w)
 		return res
 	}
-	return rt.WriterClose(w)
+	return rt.WriterClose(fr, w)
 }
 
 // Open is `fs.open`: a Reader over the file.
@@ -197,7 +197,7 @@ func Copy(fr *rt.Frame, from, to string) rt.Result[rt.Unit, rt.IOError] {
 		rt.WriterDiscard(w)
 		return failed[rt.Unit](&res.Err)
 	}
-	return rt.WriterClose(w)
+	return rt.WriterClose(fr, w)
 }
 
 // Metadata is `fs.metadata`, following symlinks: the kind, the size, the

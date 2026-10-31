@@ -49,10 +49,10 @@ func TestQuestion_BindsAsAPostfix(t *testing.T) {
 	} else if _, ok := u.Expr.(*ast.TryOp); !ok {
 		t.Fatalf("f()?! operand is %T", u.Expr)
 	}
-	// A prefix `!` negates the `?`'s value: `!ready()?`.
-	un, ok := parseExpr(t, "!ready()?").(*ast.Unary)
-	if !ok || un.Op != "!" {
-		t.Fatalf("!ready()? is not a negation")
+	// A prefix `not` negates the `?`'s value: `not ready()?`.
+	un, ok := parseExpr(t, "not ready()?").(*ast.Unary)
+	if !ok || un.Op != "not" {
+		t.Fatalf("not ready()? is not a negation")
 	}
 	if _, ok := un.Right.(*ast.TryOp); !ok {
 		t.Fatalf("negated %T, want a `?`", un.Right)

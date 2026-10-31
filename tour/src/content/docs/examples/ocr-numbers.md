@@ -37,17 +37,14 @@ once digits = font |> glyphs() |> Iter.zip("0123456789") |> Iter.to_map()
 /// columns a digit, and the lines are joined by commas. A drawing that is
 /// no digit reads as `?`.
 pub fn convert(rows: List<String>) -> Result<String, Error> {
-    if Iter.count(rows) % 4 != 0 {
-        Err(.LinesNotMultipleOfFour)
-    } else if Iter.any(rows, &(String.length(&1) % 3 != 0)) {
-        Err(.ColumnsNotMultipleOfThree)
-    } else {
-        rows
-        |> Iter.chunks(4)
-        |> Iter.map(read_line)
-        |> String.join(",")
-        |> Ok()
-    }
+    if Iter.count(rows) % 4 != 0 { return Err(.LinesNotMultipleOfFour) }
+    if Iter.any(rows, &(String.length(&1) % 3 != 0)) { return Err(.ColumnsNotMultipleOfThree) }
+
+    rows
+    |> Iter.chunks(4)
+    |> Iter.map(read_line)
+    |> String.join(",")
+    |> Ok()
 }
 
 /// The digits one line of four rows draws.

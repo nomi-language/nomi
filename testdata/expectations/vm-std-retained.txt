@@ -25,6 +25,10 @@ bool.nomi:True.equal	ran
 bool.nomi:True.hash	ran
 bool.nomi:True.inspect	ran
 bool.nomi:True.to_string	ran
+bytes.nomi:Byte.BitwiseAnd<Byte, Byte>.bitwise_and	ran
+bytes.nomi:Byte.BitwiseNot<Byte>.bitwise_not	ran
+bytes.nomi:Byte.BitwiseOr<Byte, Byte>.bitwise_or	ran
+bytes.nomi:Byte.BitwiseXor<Byte, Byte>.bitwise_xor	ran
 bytes.nomi:Byte.equal	ran
 bytes.nomi:Byte.hash	ran
 bytes.nomi:Byte.inspect	ran
@@ -567,12 +571,15 @@ io.nomi:Reader.read	ran
 io.nomi:Replayed.failure	ran
 io.nomi:Replayed.inspect	ran
 io.nomi:Writer.close_quietly	ran
+io.nomi:Writer.from_fn	ran
 io.nomi:Writer.inspect	ran
 io.nomi:code_text	ran
 io.nomi:io.File.read arity 1	ran
 io.nomi:io.File.read default 2	ran
 io.nomi:io.Reader.read arity 1	ran
 io.nomi:io.Reader.read default 2	ran
+io.nomi:io.Writer.from_fn default 1	ran
+io.nomi:io.Writer.from_fn default 2	ran
 io.nomi:replay_reason	ran
 json.nomi:Bool.from_json	ran
 json.nomi:Bool.to_json	ran
@@ -675,7 +682,7 @@ strings.nomi:ListWidth.inspect	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.Contains<Codepoint>.contains	ran
-strings.nomi:String.Contains<Regex>.contains	ran
+strings.nomi:String.Contains<Regex<C>>.contains	ran
 strings.nomi:String.Contains<String>.contains	ran
 strings.nomi:String.compare	ran
 strings.nomi:String.drop	ran

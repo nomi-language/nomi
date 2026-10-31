@@ -22,7 +22,9 @@ dbg line 3: greeting = "Hello, Nomi!"
 
 `dbg` prints the line it is on, the expression, and the value. Then it
 returns the value unchanged, so you can put it in the middle of an
-expression. It works on every value, and the tour uses it throughout.
+expression. It works on every value, and the tour uses it throughout. It is
+for looking while you work: `nomi build` refuses a program that still has a
+`dbg`.
 
 To print output for the people using your program, use
 [`std/io`](/reference/io/):
@@ -54,37 +56,6 @@ which is why the string has quotes. When you define your own types later,
 gives when it has nothing useful to return. So use `io.inspect` as a
 statement on its own line. Use `dbg` when you want to look at a value and
 keep using it.
-
-Because `dbg` returns its value, it can be a stage in a pipeline:
-
-```nomi-run
-import std/io
-
-fn double(n: Int) -> Int {
-    n * 2
-}
-
-fn main() {
-    5
-    |> double()
-    |> dbg
-    |> double()
-    |> io.print()
-}
-
-```
-<!-- expect
-dbg line 10:
-  5
-  |> double()
-  = 10
-20
--->
-
-The pipe operator `|>` passes each stage's result to the stage below it.
-This pipeline computes `io.print(double(dbg double(5)))`. The `dbg` stage
-prints the value in the middle and passes it on. [Pipes](/pipes/) covers
-pipelines in detail.
 
 ## Tiny functions
 
@@ -167,18 +138,12 @@ fn double(n: Int) -> Int {
 ```
 
 `nomi test` runs these as tests. Editors treat them as code, with hovers and
-errors. They are drawn dimmed so they stand back from the code below. Neovim
-and VS Code show the line under the cursor in full color. The standard
-library uses them for its examples: the reference entry for
-[`String.contains`](/reference/strings/#stringcontains-containsstring) is generated from
-them.
+errors. The standard library uses them for its examples: the reference
+entry for
+[`String.contains`](/reference/strings/#stringcontains-containsstring) is
+generated from them.
 
-`assert` and `refute` are for tests. Ordinary code reports failure with a
-[`Result`](/reference/results/) or a [`Maybe`](/reference/maybe/) value,
-which the caller handles with `case` or passes on with `?`.
-[Pattern Matching, Maybe & Result](/pattern-matching/) covers those.
-[Testing](/testing/) covers the rest of testing: setup, pattern assertions
-and captured checks.
+`assert` and `refute` are for tests. [Testing](/testing/) covers the rest.
 
 ## Bindings
 
@@ -283,7 +248,9 @@ dbg line 5: name = "jane"
 -->
 
 Each line reads the previous `name` and binds a new one. When each step
-feeds straight into the next, a pipeline says the same thing more simply:
+feeds straight into the next, a pipeline says the same thing more simply.
+The pipe operator `|>` passes each stage's result to the stage below it, and
+[Pipes](/pipes/) covers it in detail:
 
 ```nomi-run
 fn main() {
@@ -301,6 +268,9 @@ dbg line 5:
   = "jane"
 -->
 
+`dbg` returns its value, so it can sit in a pipeline like this, at the end or
+between two stages.
+
 A binding that is replaced before anything reads it is an error. In
 `name = "Jane"` followed by `name = "John"`, the compiler reports that the
 first `name` is never read.
@@ -313,14 +283,11 @@ type is. The usual case is an empty collection:
 
 ```nomi-run
 fn main() {
-    // LHS annotation: `Map<String, Int>` tells the compiler what K and V
-    // are. `%{}` alone has nothing to infer from.
+    // The annotation says what the map holds.
     scores: Map<String, Int> = %{}
     Map.size(scores) |> dbg
 
-    // RHS turbofish: the same job, supplied on a call instead of the
-    // binding. Reach for it when the value isn't being bound, e.g. it
-    // flows straight through a pipe.
+    // A call can take the types instead.
     Iter.to_map<String, Int>([])
     |> Map.size()
     |> dbg
@@ -328,8 +295,8 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 5: Map.size(scores) = 0
-dbg line 12:
+dbg line 4: Map.size(scores) = 0
+dbg line 9:
   Iter.to_map<String, Int>([])
   |> Map.size()
   = 0
@@ -342,9 +309,9 @@ type:
 
 - Annotate the binding: `scores: Map<String, Int> = %{}`. Use this when you
   name the value.
-- Give the type arguments on a call: `Iter.to_map<String, Int>([])`. This
-  form is called a turbofish. Use it when the value goes straight into a pipe
-  or another call.
+- Give type arguments to a call: `Iter.to_map<String, Int>([])`. Use this
+  when the value goes straight into a pipe or another call. `Iter.to_map`
+  builds a map from pairs; [Collections](/collections/) covers it.
 
 Without either, the compiler reports that the binding's type is not locally
 determined.
@@ -415,7 +382,7 @@ dbg line 22: range = "medium"
 [Pattern Matching](/pattern-matching/) covers patterns in full, including
 the `if Pattern = expr` form.
 
-## `once` — file-level values
+## File-level values with `once`
 
 ```nomi-run
 once max_retries = 3
@@ -444,14 +411,14 @@ the detail now.
 
 ## Going deeper
 
-### Type inference: local unification, explicit boundaries
+### How far type inference reaches
 
 Inside a function body, Nomi works out types from how values are used:
 
 - In `Iter.map(xs, fn x -> x + 1)`, the type of `xs`'s elements and the type of
   the lambda's `x` are worked out together.
-- `Ok(42)` is a `Result<Int, ?>`. The error type `?` stays open until
-  something nearby fixes it: a binding's annotation, the function's return
+- `Ok(42)` is a `Result<Int, E>` whose error type `E` is not known yet.
+  Something nearby fixes it: a binding's annotation, the function's return
   type, or another `case` arm.
 - In `f: (Int) -> Int = fn x -> x + 1`, the lambda's `x` gets its type from the
   annotation, so you don't write `fn x: Int ->`.
@@ -476,11 +443,8 @@ what is expected of it there. Later lines don't count:
 
 ```nomi-run error
 fn main() {
-    m = %{} // Map<?, ?> — locally undetermined
-
-    m = Map.put(m, "alice", 90) // K=String, V=Int could be solved
-    // from this line — but line 1 is
-    // rejected anyway.
+    m = %{} // error: nothing here says what the map holds
+    m = Map.put(m, "alice", 90)
     dbg m
 }
 ```
@@ -490,23 +454,9 @@ main.nomi:2:5: binding 'm' type is not locally determined: it has unsolved type 
 
 The second line would tell the compiler that `m` maps `String` to `Int`.
 Nomi rejects the first line anyway. This is a deliberate rule: someone
-reading from the top should know what `m` is without looking ahead.
-
-The fix is one of the two forms from earlier, an annotation or a turbofish:
-
-```nomi-run
-fn main() {
-    scores: Map<String, Int> = %{} // LHS annotation
-    dbg scores
-
-    ages = Iter.to_map<String, Int>([]) // RHS turbofish
-    dbg ages
-}
-```
-<!-- expect
-dbg line 3: scores = %{}
-dbg line 6: ages = %{}
--->
+reading from the top should know what `m` is without looking ahead. The fix
+is an annotation or a type argument, as in
+[Type annotations](#type-annotations).
 
 Most lines in a function body need no annotation. You write types at
 signatures, and on the few bindings whose type the line itself doesn't show.

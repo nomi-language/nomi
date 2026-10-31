@@ -27,8 +27,9 @@ pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error> {
     |> Iter.map(String.join)
     |> Iter.map(translate)
     |> Iter.take_while(&(&1 != Ok(None)))
-    |> Result.collect()
-    |> Result.map(Maybe.values)
+    |> Result.collect()?
+    |> Maybe.values()
+    |> Ok()
 }
 
 /// The amino acid `codon` stands for, `None` for a STOP codon.

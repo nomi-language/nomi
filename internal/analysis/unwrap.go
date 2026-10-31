@@ -58,7 +58,17 @@ func (c *checker) unwrapBang(n *ast.Unwrap, expr ast.Node, ty Type) Type {
 // UnwrapSource is the expression a `!` unwraps, as the program wrote it, on
 // one line: the text a failed `!` reports and a type error quotes.
 func UnwrapSource(expr ast.Node) string {
-	text := format.RenderNode(expr)
+	return oneLine(format.RenderNode(expr))
+}
+
+// patternSource is a pattern's source on one line, as UnwrapSource writes an
+// expression.
+func patternSource(pattern ast.Node) string {
+	return oneLine(format.RenderPattern(pattern))
+}
+
+// oneLine joins text's lines, each trimmed, with single spaces.
+func oneLine(text string) string {
 	if !strings.Contains(text, "\n") {
 		return text
 	}

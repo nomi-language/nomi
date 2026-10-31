@@ -19,11 +19,11 @@ func TestIRExtern_RegexHandlesAndErrors(t *testing.T) {
   std/regex.Regex
 }
 
-fn words(re: Regex, text: String) -> List<String> {
+fn words<C>(re: Regex<C>, text: String) -> List<String> {
   String.split(text, re)
 }
 
-fn compiled(pattern: String) -> Result<Regex, String> {
+fn compiled(pattern: String) -> Result<Regex<List<Maybe<String>>>, String> {
   re = Regex.compile(pattern)?
   Ok(re)
 }
@@ -31,7 +31,7 @@ fn compiled(pattern: String) -> Result<Regex, String> {
 fn main() -> Result<Unit, String> {
   spaces = compiled("\\s+")?
   dbg words(spaces, "a b  c")
-  dbg Regex.replace_all("a b  c", spaces, "_")
+  dbg String.replace("a b  c", spaces, "_")
   dbg String.find("none", spaces)
   case compiled("(") {
     Ok(_) -> io.print("compiled")
@@ -46,7 +46,7 @@ fn main() -> Result<Unit, String> {
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
 	}
-	want := "dbg line 17: words(spaces, \"a b  c\") = [\"a\", \"b\", \"c\"]\ndbg line 18: Regex.replace_all(\"a b  c\", spaces, \"_\") = \"a_b_c\"\ndbg line 19: String.find(\"none\", spaces) = None\nerror parsing regexp: missing closing ): `(`\nbefore\n"
+	want := "dbg line 17: words(spaces, \"a b  c\") = [\"a\", \"b\", \"c\"]\ndbg line 18: String.replace(\"a b  c\", spaces, \"_\") = \"a_b_c\"\ndbg line 19: String.find(\"none\", spaces) = None\nerror parsing regexp: missing closing ): `(`\nbefore\n"
 	wantErr := "error: error parsing regexp: missing closing ]: `[`\n"
 	if got := vmReference(path); got.stdout != want || got.stderr != wantErr || got.exit != 1 {
 		t.Fatalf("vm command: %s; want stdout %q, stderr %q, exit 1", got, want, wantErr)

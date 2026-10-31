@@ -121,6 +121,23 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 				// `!` unwraps.
 				w.notValue[st.Expr] = true
 				w.stage[st.Expr] = true
+			case *ast.Unary:
+				// `x |> not f()`: the stage is the call, whose result
+				// `not` negates, and `not` may be over another stage.
+				for u := st; u != nil && u.Op == "not"; {
+					w.notValue[u.Right] = true
+					w.stage[u.Right] = true
+					switch inner := u.Right.(type) {
+					case *ast.Unwrap:
+						w.notValue[inner.Expr] = true
+						w.stage[inner.Expr] = true
+						u = nil
+					case *ast.Unary:
+						u = inner
+					default:
+						u = nil
+					}
+				}
 			case *ast.Then:
 				w.notValue[st.Fn()] = true
 			case *ast.Tap:
@@ -146,6 +163,8 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 				w.where[b.Pattern] = "as a subject-less case's condition"
 			}
 		}
+	case *ast.Is:
+		w.skip[n.Pattern] = true
 	case *ast.BindingElse:
 		for i := range n.Arms {
 			w.skip[n.Arms[i].Pattern] = true
@@ -291,7 +310,7 @@ func isValueExpr(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit,
 		*ast.StringInterp, *ast.TaggedString, *ast.ListLit, *ast.VectorLit, *ast.SetLit,
-		*ast.ListSpreadLit, *ast.MapLit, *ast.TupleLit, *ast.Ident, *ast.TypeIdent, *ast.Unary,
+		*ast.ListSpreadLit, *ast.MapLit, *ast.TupleLit, *ast.Ident, *ast.TypeIdent, *ast.Unary, *ast.Is,
 		*ast.Binary, *ast.GroupedExpr, *ast.If, *ast.Call, *ast.DotVariant,
 		*ast.FieldAccess, *ast.StructLit, *ast.RangeLit, *ast.Lambda, *ast.TryOp, *ast.Then, *ast.Tap,
 		*ast.Case, *ast.ConcurrentBlock, *ast.Dbg, *ast.Unwrap, *ast.Return, *ast.Break, *ast.Continue,

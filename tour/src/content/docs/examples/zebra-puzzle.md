@@ -141,12 +141,12 @@ fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order))
 fn resident(nations: Order, house: Int) -> Nationality {
     #(english, spaniard, ukrainian, norwegian, japanese) = nations
 
-    case house {
-        _ when house == english -> .Englishman
-        _ when house == spaniard -> .Spaniard
-        _ when house == ukrainian -> .Ukrainian
-        _ when house == norwegian -> .Norwegian
-        _ when house == japanese -> .Japanese
+    case {
+        house == english -> .Englishman
+        house == spaniard -> .Spaniard
+        house == ukrainian -> .Ukrainian
+        house == norwegian -> .Norwegian
+        house == japanese -> .Japanese
         _ -> unreachable "the five nationalities live in the five houses"
     }
 }
@@ -175,4 +175,4 @@ test "resident who owns zebra" {
 - Each stage carries what came before as a tuple of orders, `#(colors, nations, drinks)`, and takes it apart in its parameter pattern.
 - The puzzle has one solution, so `solve` takes the list of solutions apart with `[solution]`, and anything else is an `unreachable` that says so.
 - `orders` is a `once` of the 120 permutations of the five houses, computed once and shared by every stage. They come from std's `Iter.permutations`.
-- `resident` finds the nationality in a house with guarded arms, one per nationality.
+- `resident` finds the nationality in a house with a `case` of conditions, one arm per nationality (style §35).

@@ -131,5 +131,5 @@ test "Regex typed literals use the standard adapter" {
     assert String.contains("room 42", digits)
     assert String.find("room 42", digits) == Some("42")
     assert String.find_all("a12b34", digits) == ["12", "34"]
-    assert Regex.replace_all("a12b34", digits, "#") == "a#b#"
+    assert String.replace("a12b34", digits, "<$0>") == "a<12>b<34>"
 }

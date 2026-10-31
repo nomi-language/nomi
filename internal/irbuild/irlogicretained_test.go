@@ -28,8 +28,8 @@ fn main() {
  io.print(choose(False))
  io.print((mark(2, False) or mark(3, True)) and (mark(4, False) or mark(5, True)))
  io.print(False and (mark(6, True) or mark(7, True)))
- io.print(!mark(8, False))
- io.print(!!True)
+ io.print(not mark(8, False))
+ io.print(not not True)
 }`, "True\n1\nTrue\n2\n3\n4\n5\nTrue\nFalse\n8\nTrue\nTrue\n"},
 		{"branches and default calls", `import std/io
 fn positive(n: Int = 1) -> Bool { n > 0 }

@@ -13,8 +13,8 @@ pub fn rows(widest: Codepoint) -> List<String> {
         |> Iter.map(fn #(i, letter) -> row(letter, i, size))
         |> Iter.to_list()
 
-    bottom = top |> Iter.reverse() |> Iter.drop(1) |> Iter.to_list()
-    List.concat(top, bottom)
+    bottom = top |> Iter.reverse() |> Iter.drop(1)
+    [..top, ..bottom]
 }
 
 /// Row `i` of a diamond `size` letters tall to its middle, holding `letter`.

@@ -25,16 +25,13 @@ pub enum Value {
 
 derive Equatable for Value
 
-/// Attributes by name.
-pub typealias Attributes Map<String, Value>
-
 /// A graph: its nodes and edges, each with its attributes, and the graph's
 /// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
 /// is the edge `#("a", "b")`.
 pub struct Graph {
-    nodes: Map<String, Attributes>
-    edges: Map<#(String, String), Attributes>
-    attrs: Attributes
+    nodes: Map<String, Map<String, Value>>
+    edges: Map<#(String, String), Map<String, Value>>
+    attrs: Map<String, Value>
 }
 
 /// Why a text is not a graph.
@@ -60,9 +57,9 @@ impl Display for Error {
 
 /// One statement inside a graph's braces.
 enum Statement {
-    GraphAttributes Attributes
-    Node {name: String, attributes: Attributes}
-    Edges {names: List<String>, attributes: Attributes}
+    GraphAttributes Map<String, Value>
+    Node {name: String, attributes: Map<String, Value>}
+    Edges {names: List<String>, attributes: Map<String, Value>}
 }
 
 /// Reads `text`, a `graph { ... }` with one statement on each line between
@@ -71,16 +68,16 @@ pub fn parse(text: String) -> Result<Graph, Error> {
     lines =
         String.lines(text)
         |> Iter.map(String.trim)
-        |> Iter.filter(fn line -> line != "" and !is_comment(line))
+        |> Iter.filter(fn line -> line != "" and not is_comment(line))
         |> Iter.to_list()
 
     ["graph {", ..body, "}"] = lines else { return Err(.InvalidGraph) }
 
-    statements = body |> Iter.map(statement) |> Result.collect()
+    statements = body |> Iter.map(statement) |> Result.collect()?
 
     empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
 
-    Ok(Iter.reduce(statements?, add, from: empty))
+    Ok(Iter.reduce(statements, add, from: empty))
 }
 
 fn is_comment(line: String) -> Bool {
@@ -114,7 +111,7 @@ fn statement(line: String) -> Result<Statement, Error> {
             Ok(.GraphAttributes(attributes))
 
         [name] -> {
-            if !is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
+            if not is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
 
             Ok(#Statement.Node{name, attributes})
         }
@@ -126,18 +123,17 @@ fn statement(line: String) -> Result<Statement, Error> {
 
 /// The attributes of `name=value, ...`, the text between a statement's
 /// brackets.
-fn attributes_in(list: String) -> Result<Attributes, Error> {
-    pairs =
-        String.split(list, ",")
-        |> Iter.map(fn pair -> {
-            case pair |> String.trim() |> String.split("=") {
-                [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
-                _ -> Err(Error.InvalidAttribute)
-            }
-        })
-        |> Result.collect()
-
-    Ok(Iter.to_map(pairs?))
+fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
+    String.split(list, ",")
+    |> Iter.map(fn pair -> {
+        case pair |> String.trim() |> String.split("=") {
+            [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
+            _ -> Err(Error.InvalidAttribute)
+        }
+    })
+    |> Result.collect()?
+    |> Iter.to_map()
+    |> Ok()
 }
 
 /// The value written `text`: quoted text, a whole number, `true` or
@@ -206,10 +202,10 @@ fn add(graph: Graph, statement: Statement) -> Graph {
 /// `entries` with `attributes` merged into those of `key`, which it gains
 /// if it lacks it.
 fn with_attributes<K>(
-    entries: Map<K, Attributes>,
+    entries: Map<K, Map<String, Value>>,
     key: K,
-    attributes: Attributes,
-) -> Map<K, Attributes> {
+    attributes: Map<String, Value>,
+) -> Map<K, Map<String, Value>> {
     Map.update(entries, key, %{}, &Map.merge(&1, attributes))
 }
 
@@ -449,7 +445,7 @@ test "parse errors" {
 ## How it's written
 
 - Adapted: the description asks for an internal DSL, graph-building code written in the host language. The canonical data instead parses DOT text, and this port does that: `parse` reads the text into a `Graph` value. An internal DSL in Nomi would be plain constructor calls on immutable values, which leaves nothing for the canonical cases to check.
-- A `Graph` is three maps: nodes by name, edges by their two node names in order (`#("a", "b")` for `b -- a`, so an edge given twice either way round is one edge), and the graph's own attributes. Attributes are a `Map<String, Value>`, named `Attributes` with a `typealias`.
+- A `Graph` is three maps: nodes by name, edges by their two node names in order (`#("a", "b")` for `b -- a`, so an edge given twice either way round is one edge), and the graph's own attributes. Attributes are a `Map<String, Value>`, written out: a `typealias` of a named type would only hide it.
 - An attribute's `Value` is an enum of `Number`, `Flag` and `Text`, since the canonical attributes mix `1`, `true` and `"Testing Attrs"`. `value_of` tries them in order with one `case` over a tuple: quoted text, a whole number, `true` or `false`, then unquoted text (`color=green`).
 - `parse` keeps the lines that are not empty or comments and takes them apart with `["graph {", ..body, "}"] = lines else { ... }`, so a text without both braces is `InvalidGraph`.
 - Each line between the braces is one statement, read by `statement` into a private `Statement` enum: graph attributes, a node, or a chain of edges. The words of its subject decide which: none, one, or `a -- b -- ...`, checked by `edge_names` as names at even positions and `--` between them. `Result.collect` stops at the first bad line, and `add` folds the statements into the graph. Attributes given again for the same node, edge or graph are merged, the later value winning.

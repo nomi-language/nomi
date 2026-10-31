@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/palindrome-product
 - `smallest` and `largest` are one `search` from either end, picked by a `Direction`. `in_order` gives the numbers between two bounds from that end: the range `first..=last`, or `Range.step_by(last..=first, -1)`, which counts down lazily. The two branches are different Iters, which join as one because `in_order` declares its result as `Iter<Int>`. The search drops the palindromes outside `min²` to `max²` from the near end and stops at the far one, so the same two steps serve both directions. The pipeline is lazy, so the search stops at the first palindrome with factors.
 - A result is `Result<Maybe<Product>, Error>`: `Err(.MinAboveMax)` for the canonical error, `Ok(None)` for the canonical "empty result" (a `null` value with no factors), and a `Product` struct holding the value and its factor pairs otherwise. A `Product` with an empty factor list cannot be built by the search, so `Maybe` says "none" instead.
 - `first_product` takes an `Iter<Int>`, so both directions share it.
-- The canonical cases are two `subtests` tables, one per property, named by the description column and annotated so the `Ok` and `Err` rows share a type.
+- The canonical cases are two `subtests` tables, one per property, named by the description column. Each table's error row writes `Error.MinAboveMax`, which settles the error type the `Ok` rows leave open, so neither table needs an annotation.
 
 ## Friction
 

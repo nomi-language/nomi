@@ -169,7 +169,7 @@ fn f(v: Vector<Int>) -> Int {
         #[.., last] -> last
         #[a, b, ..] -> a
         #[a, ..mid, z] -> a
-        #[.._] -> 0
+        #[..] -> 0
         #Path[a, ..] -> a
         #.Items[x] -> x
     }

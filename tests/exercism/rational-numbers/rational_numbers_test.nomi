@@ -158,6 +158,7 @@ test "reduction to lowest terms" {
     ]
 
     subtests cases, #(description, r, expected), description {
-        assert #(Rational.numerator(rational(r)), Rational.denominator(rational(r))) == expected
+        reduced = rational(r)
+        assert #(Rational.numerator(reduced), Rational.denominator(reduced)) == expected
     }
 }

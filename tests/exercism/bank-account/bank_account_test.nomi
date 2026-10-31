@@ -16,10 +16,8 @@ enum Step {
 /// answers the balance after them or the refusal.
 fn replay(steps: List<Step>) -> Result<Int, Error> {
     bank_account.with_account(fn account -> {
-        steps
-        |> Iter.map(fn step -> run(account, step))
-        |> Result.collect()
-        |> Result.flat_map(fn _ -> Account.balance(account))
+        _ = steps |> Iter.map(fn step -> run(account, step)) |> Result.collect()?
+        Account.balance(account)
     })
 }
 
@@ -85,8 +83,8 @@ test "Can handle concurrent transactions" {
             1..=1000
             |> Task.spawn_all(
                 fn _ -> {
-                    Account.deposit(account, 1)
-                    |> Result.flat_map(fn _ -> Account.withdraw(account, 1))
+                    Account.deposit(account, 1)?
+                    Account.withdraw(account, 1)
                 },
                 max_running: 100,
             )

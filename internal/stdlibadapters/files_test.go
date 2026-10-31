@@ -239,3 +239,32 @@ func TestRtFuncs_FilesAndWithin(t *testing.T) {
 		t.Errorf("within of a missing directory answered %s", got)
 	}
 }
+
+// TestRtFuncs_MemoryWriterCollects: the writer `Writer.collect` hands its
+// body holds every byte written to it, through the generated adapters, and
+// keeps them after it is closed, when a write is Closed.
+func TestRtFuncs_MemoryWriterCollects(t *testing.T) {
+	table, err := Bind(&hostadapt.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fr := rt.NewFrame(context.Background())
+	call := func(key string, args ...any) any {
+		t.Helper()
+		v, err := table[key](fr, args)
+		if err != nil {
+			t.Fatalf("%s: %v", key, err)
+		}
+		return v
+	}
+	w := call("io.memory_writer")
+	call("io.Writer.write_text", w, "one ")
+	call("io.Writer.write", w, rt.Bytes("two"))
+	call("io.Writer.close", w)
+	if got := canonText(call("io.collected", w), false); got != canonText(rt.Bytes("one two"), false) {
+		t.Errorf("collected %s, want one two", got)
+	}
+	if got := canonText(call("io.Writer.write_text", w, "late"), false); got != "results.Result/4.Err{0=io.Error/4.Closed{}}" {
+		t.Errorf("a write after close answered %s, want Closed", got)
+	}
+}

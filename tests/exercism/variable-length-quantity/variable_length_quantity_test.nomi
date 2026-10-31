@@ -1,7 +1,7 @@
 import variable_length_quantity
 
 test "encode a series of integers, producing a series of bytes" {
-    cases = [
+    cases: List<#(String, List<Int>, List<Byte>)> = [
         #("zero", [0x0], [0x0]),
         #("arbitrary single byte", [0x40], [0x40]),
         #("asymmetric single byte", [0x53], [0x53]),
@@ -40,7 +40,7 @@ test "encode a series of integers, producing a series of bytes" {
 }
 
 test "decode a series of bytes, producing a series of integers" {
-    cases = [
+    cases: List<#(String, List<Byte>, Result<List<Int>, String>)> = [
         #("one byte", [0x7F], Ok([0x7F])),
         #("two bytes", [0xC0, 0x0], Ok([0x2000])),
         #("three bytes", [0xFF, 0xFF, 0x7F], Ok([0x1FFFFF])),

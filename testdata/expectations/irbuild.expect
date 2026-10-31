@@ -1205,11 +1205,11 @@ T ok <dir>/control_test.nomi :: map skips through parentheses
 T ok <dir>/control_test.nomi :: reduce stops through parentheses
 T test result: ok. 2 passed, 0 failed
 T
-C control_test.nomi@5beda3445c39baf6
+C control_test.nomi@68314484fe96882f
 E 1
 N 0
 H c936fc3475954b6e2bc26390e8e3bdf0e1c97217867cd5161cb34df7d8e557c1
-S -- control_test.nomi 658 --
+S -- control_test.nomi 661 --
 S struct Date {
 S   year: Int
 S   month: Int
@@ -1222,7 +1222,7 @@ S     #Date{year, month, day}
 S   }
 S
 S   fn is_same(a: Date, b: Date, strict: Bool = True) -> Bool {
-S     a.year == b.year and (!strict or a.day == b.day)
+S     a.year == b.year and (not strict or a.day == b.day)
 S   }
 S }
 S
@@ -1669,13 +1669,13 @@ T       u.text
 T         = "ABC"
 T test result: FAILED. 0 passed, 6 failed
 T
-C control_test.nomi@d5e891bb4fffb58c
+C control_test.nomi@dca829aed7291c62
 E 1
 N 0
 H 106680309eabb99767168d8b002fbe1f43decc9a3c70b5469b540b3ef6566c58
-S -- control_test.nomi 214 --
+S -- control_test.nomi 213 --
 S test "binds two names" {
-S     [a, b, .._] = [1, 2, 3] else {
+S     [a, b, ..] = [1, 2, 3] else {
 S         unreachable "the list has three"
 S     }
 S
@@ -3542,7 +3542,7 @@ T pick full = 56
 T transform = 115
 T labelled = t:7
 T
-C internal/irbuild/testdata/arithmetic.nomi@c9bff34d77c5e817
+C internal/irbuild/testdata/arithmetic.nomi@cdf31b2531534b51
 E 0
 N 0
 H 80fafcee05ea07e4acd33f85e4898b9c99193e5a14c1f0feb26632e99731d5f1
@@ -4254,7 +4254,7 @@ T False
 T False
 T False
 T
-C internal/irbuild/testdata/compiler_hover.nomi@458ad4c2ad378a46
+C internal/irbuild/testdata/compiler_hover.nomi@1a9e03bcacc4caa8
 E 0
 N 0
 H 1c4c0fc5a30b983334d71bc4b74332b4a22bed81f975b64a6e7e84fc304e5b59
@@ -4330,14 +4330,13 @@ T
 C internal/irbuild/testdata/context_render_fault.nomi@9aeb3807dddfa9d1
 E 1
 N 0
-H fd96a4c8f5e2d0789bfd78bbdc48fe6ad865e9b6ed1760d72245e4fe977cb8e7
+H e04d492cfed4c7147602bcb41d17c5999a1e164f6b11d71f7fb178526f229729
 T bare:   <context>
 T nested: [<context>, <context>]
 T valued: <context>
 T value:  Some(TraceId("t-1"))
-T spent:  Some(0s)
 T --- stderr ---
-T line 70: deadline exceeded: the context in force when `main` blocked ran out, so the remaining work was not run
+T line 69: deadline exceeded: the context in force when `main` blocked ran out, so the remaining work was not run
 T
 C internal/irbuild/testdata/context_values_report.nomi@074200e94091c956
 E 1
@@ -5911,7 +5910,7 @@ T [[#(0, 2), #(1, 3)], [#(2, 4), #(3, 5)]]
 T [1, 2, 1]
 T [1, 2, 1]
 T
-C internal/irbuild/testdata/iter_terminals.nomi@599d5d997390d620
+C internal/irbuild/testdata/iter_terminals.nomi@9dae7fe045af479c
 E 0
 N 0
 H 560183231f2adff9bc44049f2b97bab2854e296068c8ea09dff2503f17a222cf
@@ -5993,7 +5992,7 @@ T get     True
 T miss    False
 T empty   True
 T
-C internal/irbuild/testdata/iter_untyped_containers.nomi@eaccabdad20c5853
+C internal/irbuild/testdata/iter_untyped_containers.nomi@1f7e0dc357b91b4a
 E 0
 N 0
 H 02b16afea69f5fc989550d9b58bd43c782fbc97f8736fd35c851ae9070ed4ffb
@@ -6075,7 +6074,7 @@ T plus = 42
 T twice = 42
 T offset = 105
 T
-C internal/irbuild/testdata/lambda_inferred.nomi@ca5b2c28343512c6
+C internal/irbuild/testdata/lambda_inferred.nomi@141c176c9c37b98c
 E 0
 N 0
 H 635a7087319c897f55f234325a2a0c089bf9ede7e83e4f970005e73b85c586f3
@@ -7724,15 +7723,15 @@ T before
 T --- stderr ---
 T line 17: strings.String.repeat: negative count -2
 T
-C internal/irbuild/testdata/stdlib_trap_shift.nomi@5cddb798b70d4080
+C internal/irbuild/testdata/stdlib_trap_shift.nomi@4ce0a65af2527976
 E 1
 N 0
-H 2bc1dc22a43a3b8f1d6e54687d28d1c5bcae0e6922dac1d22aa87441baf76065
+H 07b3cd83dbc0f20c01b5f11dbb013a7f4f8f170d12f139f67b6958688931fa65
 T before
 T --- stderr ---
-T line 9: Int.shift_left: negative shift count -1
+T line 9: negative shift count -1
 T
-C internal/irbuild/testdata/stdstruct_defaults.nomi@8eb324210b4d219f
+C internal/irbuild/testdata/stdstruct_defaults.nomi@c81667d8776418be
 E 0
 N 0
 H 711d554bb553c14b7038c5d50a2bdd180c8cdac309b74f4c0577073c9548c4a0
@@ -7749,7 +7748,7 @@ T explicit.reason = explicit
 T explicit.actual = Some(41)
 T explicit.details = []
 T
-C internal/irbuild/testdata/stdstruct_dynamic.nomi@e75beef6de348f56
+C internal/irbuild/testdata/stdstruct_dynamic.nomi@d136aafead20f027
 E 0
 N 0
 H 1914e2a91730e19c2b4f41fd69af1ad185608a61a1135873c982e1c58fd9716d
@@ -9052,31 +9051,6 @@ T 0
 T --- stderr ---
 T line 5: division by zero
 T
-C main.nomi@b1154591072e400a
-E 1
-N 0
-H 0d1abe2276fb0072d27b7545bb229bb709c011176a863b07e187fbef9862f065
-S -- main.nomi 213 --
-S import std/io
-S
-S fn pair(xs: List<Int>) -> Int {
-S     [a, b, .._] = xs else {
-S         io.print("short list")
-S         unreachable "callers pass two or more"
-S     }
-S
-S     a * b
-S }
-S
-S fn main() {
-S     io.inspect(pair([1]))
-S }
-S
-S
-T short list
-T --- stderr ---
-T line 6: unreachable: callers pass two or more
-T
 C main.nomi@bdfa80b8ae5eb63d
 E 1
 N 0
@@ -9131,6 +9105,31 @@ T 1
 T compare
 T --- stderr ---
 T line 6: division by zero
+T
+C main.nomi@cda4a02c027c00cb
+E 1
+N 0
+H 0d1abe2276fb0072d27b7545bb229bb709c011176a863b07e187fbef9862f065
+S -- main.nomi 212 --
+S import std/io
+S
+S fn pair(xs: List<Int>) -> Int {
+S     [a, b, ..] = xs else {
+S         io.print("short list")
+S         unreachable "callers pass two or more"
+S     }
+S
+S     a * b
+S }
+S
+S fn main() {
+S     io.inspect(pair([1]))
+S }
+S
+S
+T short list
+T --- stderr ---
+T line 6: unreachable: callers pass two or more
 T
 C main.nomi@d1b74a2d3de1f720
 E 1
@@ -9993,7 +9992,7 @@ H 8a57c41f6038372c81d0861b50ece456653c0489a46d51dc2e03789560b87c15
 T ok <dir>/defer_cleanup_test.nomi :: defer runs on normal exit failed acquire and early return
 T test result: ok. 1 passed, 0 failed
 T
-C tests/15-app-and-defer/effects/main.nomi@ac8faad8d005d68f
+C tests/15-app-and-defer/effects/main.nomi@7b4d673fdfcbb55a
 E 0
 N 0
 H 8e835e79d2fe27c7feabcfd38fff8829d60a226662ccab1c3822542f98020511

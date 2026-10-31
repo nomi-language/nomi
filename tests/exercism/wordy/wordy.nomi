@@ -38,7 +38,7 @@ fn evaluate(total: Int, words: List<String>) -> Result<Int, Error> {
         ["minus", ..rest] -> operand(total, .Minus, rest)
         ["multiplied", "by", ..rest] -> operand(total, .Times, rest)
         ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
-        [word, .._] when String.to_int(word) |> Maybe.is_some() -> Err(.SyntaxError)
+        [word, ..] when String.to_int(word) |> Maybe.is_some() -> Err(.SyntaxError)
         _ -> Err(.UnknownOperation)
     }
 }
@@ -61,5 +61,6 @@ fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error> {
 }
 
 fn divide(a: Int, b: Int) -> Result<Int, Error> {
-    Int.to_non_zero(b) |> Maybe.map(&Int.divide(a, &1)) |> Maybe.to_result(Error.DivisionByZero)
+    Some(divisor) = Int.to_non_zero(b) else { return Err(.DivisionByZero) }
+    Ok(Int.divide(a, divisor))
 }

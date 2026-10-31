@@ -95,6 +95,12 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		"float.Float.Divide<Float, Float>.divide":     "operator impl; `/` on Float lowers to rt.DivFloat",
 		"strings.String.Add<String, String>.add":      "operator impl; String `+` is lowered natively as concatenation",
 		"int.Int.Divide<Int, Int>.divide":             "operator impl; `/` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
+		"int.Int.BitwiseAnd<Int, Int>.bitwise_and":    "operator impl; `&&&` on Int is lowered natively",
+		"int.Int.BitwiseOr<Int, Int>.bitwise_or":      "operator impl; `|||` on Int is lowered natively",
+		"int.Int.BitwiseXor<Int, Int>.bitwise_xor":    "operator impl; `^^^` on Int is lowered natively",
+		"int.Int.BitwiseNot<Int>.bitwise_not":         "operator impl; `~~~` on Int is lowered natively",
+		"int.Int.ShiftLeft<Int, Int>.shift_left":      "operator impl; `<<<` on Int is lowered natively and the shift-count trap carries the operator's line",
+		"int.Int.ShiftRight<Int, Int>.shift_right":    "operator impl; see int.Int.ShiftLeft<Int, Int>.shift_left",
 
 		// A VM intrinsic the builder lowers by name (irsupervisor.go's
 		// supervisorSpawn). Its signature counts as scalar since shared std
@@ -738,6 +744,10 @@ func TestStdlibRefusalNamesAreDistinct(t *testing.T) {
 		"stdlib function without a body",
 		"stdlib function reaching the front end",
 		"stdlib generic function",
+		// A monomorphic function whose signature names an Iter
+		// (`Reader.lines`): a program builds it for itself, as it builds a
+		// generic one.
+		"stdlib function whose signature names an Iter",
 		// A `host fn` carrying a declared parameter default. Kept apart from
 		// `stdlib host function` because the two are not the same amount of
 		// work in the same direction: that one is waiting on an rt symbol, and

@@ -121,9 +121,33 @@ func TestLiteralDiagnostics_ValidRegexHoversItsValue(t *testing.T) {
 		t.Fatalf("no hover: %v", err)
 	}
 	got := res.Contents.(protocol.MarkupContent).Value
-	want := "```nomi\nRegex`\\d+`: Regex\n```\n\n```text\nRegex`\\d+`\n```"
+	want := "```nomi\nRegex`\\d+`: Regex<Unit>\n```\n\n```text\nRegex`\\d+`\n```"
 	if got != want {
 		t.Errorf("hover =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A Regex literal's hover shows its whole type, the capture type the checker
+// computes from its pattern included.
+func TestLiteralDiagnostics_RegexHoverShowsItsCaptureType(t *testing.T) {
+	for _, tc := range []struct{ lit, want string }{
+		{"Regex`(\\d+)-(\\w+)?`", "Regex<#(String, Maybe<String>)>"},
+		{"Regex`(?P<year>\\d{4})`", "Regex<#{year: String}>"},
+		{"Regex\"(a)\"", "Result<Regex<String>, String>"},
+	} {
+		src := "import std/regex.Regex\n\nfn main() {\n    _ = " + tc.lit + "\n}\n"
+		s, snap := openLiteralDoc(t, src)
+		res, err := s.textDocumentHover(nil, &protocol.HoverParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(snap.URI)},
+			Position:     protocol.Position{Line: 3, Character: 15},
+		}})
+		if err != nil || res == nil {
+			t.Fatalf("%s: no hover: %v", tc.lit, err)
+		}
+		got := res.Contents.(protocol.MarkupContent).Value
+		if !strings.Contains(got, ": "+tc.want+"\n```") {
+			t.Errorf("%s: hover =\n%s\nwant the type %s", tc.lit, got, tc.want)
+		}
 	}
 }
 

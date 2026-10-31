@@ -35,7 +35,7 @@ fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
     #(properties, rest) = read_properties(rest, %{})?
 
     #(children, rest) = case rest {
-        [';', .._] -> {
+        [';', ..] -> {
             #(child, rest) = node(rest)?
             #([child], rest)
         }
@@ -72,17 +72,22 @@ fn read_properties(
     text: List<Codepoint>,
     found: Map<String, List<String>>,
 ) -> Result<#(Map<String, List<String>>, List<Codepoint>), Error> {
-    key = text |> Iter.take_while(Codepoint.is_letter) |> Iter.to_list()
-    if key == [] { return Ok(#(found, text)) }
+    key =
+        text
+        |> Iter.take_while(Codepoint.is_letter)
+        |> Iter.to_list()
+        |> String.from_codepoints()
 
-    if !Iter.all(key, Codepoint.is_upper) { return Err(.PropertyMustBeUppercase) }
+    if key == "" { return Ok(#(found, text)) }
+
+    if not String.is_upper(key) { return Err(.PropertyMustBeUppercase) }
 
     rest = text |> Iter.drop_while(Codepoint.is_letter) |> Iter.to_list()
     #(values, rest) = read_values(rest, [])?
 
     if values == [] { return Err(.PropertiesWithoutDelimiter) }
 
-    read_properties(rest, Map.put(found, String.from_codepoints(key), values))
+    read_properties(rest, Map.put(found, key, values))
 }
 
 /// The bracketed values after a key.

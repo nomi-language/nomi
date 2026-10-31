@@ -21,7 +21,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //
 pub fn combinations(sum: Int, size: Int, exclude: List<Int> = []) -> List<List<Int>> {
     1..=9
-    |> Iter.filter(fn digit -> !List.contains(exclude, digit))
+    |> Iter.reject(&List.contains(exclude, &1))
     |> Iter.combinations(size)
     |> Iter.filter(fn combination -> Iter.sum(combination) == sum)
     |> Iter.to_list()
@@ -31,19 +31,7 @@ pub fn combinations(sum: Int, size: Int, exclude: List<Int> = []) -> List<List<I
 import killer_sudoku_helper.combinations
 
 test "Trivial 1-digit cages" {
-    cases = [
-        #("1", 1),
-        #("2", 2),
-        #("3", 3),
-        #("4", 4),
-        #("5", 5),
-        #("6", 6),
-        #("7", 7),
-        #("8", 8),
-        #("9", 9),
-    ]
-
-    subtests cases, #(description, digit), description {
+    subtests 1..=9, digit {
         assert combinations(digit, 1) == [[digit]]
     }
 }
@@ -69,4 +57,4 @@ test "Cage with several combinations that is restricted" {
 
 - `combinations(sum, size, exclude:)` takes the excluded digits as a parameter that defaults to `[]`, since most canonical cases exclude none. It filters them out of `1..=9`, takes every choice of `size` of the rest with `Iter.combinations`, and keeps those that add up to `sum`.
 - `Iter.combinations` keeps the source's order and walks the choices in lexicographic order of position, so from increasing digits each combination is increasing and the list is in lexicographic order, the order the canonical data writes, with no sort. Nine digits give at most 126 choices, so checking each sum costs nothing worth pruning.
-- The nine one-digit cages are one `subtests` table named by the digit, as the canonical data names them; the four other cases are plain tests.
+- The nine one-digit cages are one `subtests` over `1..=9`. The canonical data names each case by its digit, and a row renders as its digit, so the rows need no description column. The four other cases are plain tests.

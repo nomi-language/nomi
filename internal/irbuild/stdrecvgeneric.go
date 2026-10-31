@@ -80,6 +80,13 @@ func sigNamesTypeParam(params []ast.Param, ret ast.TypeExpr, tp map[string]bool)
 // `Map<K, V>`, `(T) -> Bool`, `(#(K, V)) -> Bool` — and a head-only test would
 // have caught none of them.
 func typeNamesAny(te ast.TypeExpr, tp map[string]bool) bool {
+	return typeNamesAnyOutside(te, tp, nil)
+}
+
+// typeNamesAnyOutside is typeNamesAny that does not look inside a generic
+// type skip answers true for: the phantom-parameter std host types, whose
+// arguments no representation reads (stdHostSpec.phantom).
+func typeNamesAnyOutside(te ast.TypeExpr, tp map[string]bool, skip func(*ast.GenericType) bool) bool {
 	if te == nil || isNilNode(te) {
 		return false
 	}
@@ -90,28 +97,72 @@ func typeNamesAny(te ast.TypeExpr, tp map[string]bool) bool {
 		if tp[t.Name] {
 			return true
 		}
+		if skip != nil && skip(t) {
+			return false
+		}
 		for _, p := range t.Params {
-			if typeNamesAny(p, tp) {
+			if typeNamesAnyOutside(p, tp, skip) {
 				return true
 			}
 		}
 	case *ast.QualifiedType:
 		// The MEMBER only: the module qualifier is a file name, never a type
 		// parameter, and a parameter cannot be qualified.
-		return typeNamesAny(t.Member, tp)
+		return typeNamesAnyOutside(t.Member, tp, skip)
 	case *ast.FuncType:
 		for _, p := range t.Params {
-			if typeNamesAny(p, tp) {
+			if typeNamesAnyOutside(p, tp, skip) {
 				return true
 			}
 		}
-		return typeNamesAny(t.Return, tp)
+		return typeNamesAnyOutside(t.Return, tp, skip)
 	case *ast.AnonStructType:
 		for _, f := range t.Fields {
-			if typeNamesAny(f.TypeAnnotation, tp) {
+			if typeNamesAnyOutside(f.TypeAnnotation, tp, skip) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// phantomOnly reports whether the type parameters tp stand, in every type
+// expression of tes and in each signature of sigs, only as arguments of a
+// phantom-parameter std host type (`C` in `impl Matcher for Regex<C>`). Such
+// a declaration is one function to this builder, since `Regex<X>` is one leaf
+// for every X; anything else naming one of them is generic as before.
+func phantomOnly(tp map[string]bool, anchors stdAnchors, tes []ast.TypeExpr, sigs ...stdSig) bool {
+	if len(tp) == 0 {
+		return false
+	}
+	skip := func(gt *ast.GenericType) bool {
+		i, anchored := anchors.hosts[gt.Name]
+		return anchored && len(stdHostSpecs[i].phantom) > 0
+	}
+	for _, te := range tes {
+		if typeNamesAnyOutside(te, tp, skip) {
+			return false
+		}
+	}
+	for _, s := range sigs {
+		if len(s.where) > 0 {
+			return false
+		}
+		for _, p := range s.params {
+			if p.TypeAnnotation == nil || typeNamesAnyOutside(p.TypeAnnotation, tp, skip) {
+				return false
+			}
+		}
+		if typeNamesAnyOutside(s.ret, tp, skip) {
+			return false
+		}
+	}
+	return true
+}
+
+// stdSig is one function signature phantomOnly reads.
+type stdSig struct {
+	params []ast.Param
+	ret    ast.TypeExpr
+	where  []ast.WhereConstraint
 }

@@ -250,11 +250,13 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 	view.irArity = nil
 	view.irSlot = nil
 	view.why = ""
-	if len(tps) == 0 {
+	if len(tps) == 0 && f.why != stdIterSigWhy {
 		// A monomorphic body keeps the signature the index resolved for it,
 		// destructuring parameters included.
 		view.params = append([]kind(nil), f.params...)
 	} else {
+		// A generic signature names the instance's arguments, and an Iter
+		// has no kind outside a program (stdIterSigWhy).
 		view.params = make([]kind, len(inst.fd.Params))
 		for i, p := range inst.fd.Params {
 			if p.TypeAnnotation == nil {
@@ -269,7 +271,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, holes map[st
 		}
 	}
 	view.result = f.result
-	if len(tps) != 0 {
+	if len(tps) != 0 || f.why == stdIterSigWhy {
 		view.result = kindUnit
 		if inst.fd.ReturnTypeExpr != nil {
 			view.result = g.typeOf(inst.fd.ReturnTypeExpr)
@@ -360,7 +362,7 @@ func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 // unretainedMono is stdUnretainedMonoBody with the functions whose answer is
 // being worked out, which answer false so a recursive pair terminates.
 func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bool {
-	if f == nil || f.why != "" || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
+	if f == nil || (f.why != "" && f.why != stdIterSigWhy) || f.rtCall != "" || f.decl == nil || f.decl.Body == nil ||
 		len(f.decl.Decorators) > 0 || len(f.decl.TypeParams) > 0 {
 		return false
 	}
@@ -371,9 +373,25 @@ func (s *stdInstances) unretainedMono(f *stdFunc, visiting map[*stdFunc]bool) bo
 	if c.irBody != nil || visiting[f] {
 		return false
 	}
+	if f.why == stdIterSigWhy {
+		return true
+	}
 	visiting[f] = true
 	defer delete(visiting, f)
 	return s.callsGenericSibling(f, visiting)
+}
+
+// stdIterSigWhy is the why of a monomorphic std function a parameter or
+// the result of which is an `Iter<T>` (`Reader.lines`, `Writer.write_all`).
+// An Iter value has no shared lowering, so the cache retains no such body
+// and a program builds it as an instance with no arguments
+// (stdUnretainedMonoBody), where the Iter is the builder's own sequence.
+const stdIterSigWhy = "stdlib function whose signature names an Iter"
+
+// isIterType reports a type written `Iter<T>`.
+func isIterType(t ast.TypeExpr) bool {
+	g, ok := t.(*ast.GenericType)
+	return ok && g.Name == "Iter"
 }
 
 // callsGenericSibling reports whether f's body names, as a bare or
@@ -709,6 +727,28 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 	return v, k, mobile, ok, true
 }
 
+// irClosedDefaults is args, the positional operands of a call to fd, with
+// each omitted trailing parameter's default after them, or args unchanged
+// when an omitted one has no default that is a literal.
+func irClosedDefaults(fd *ast.FuncDef, args []ast.Node) []ast.Node {
+	if fd == nil || len(args) >= len(fd.Params) {
+		return args
+	}
+	for _, a := range args {
+		if _, named := a.(*ast.NamedArg); named {
+			return args
+		}
+	}
+	out := append([]ast.Node(nil), args...)
+	for _, p := range fd.Params[len(args):] {
+		if p.Default == nil || !irClosedLiteral(p.Default) {
+			return args
+		}
+		out = append(out, p.Default)
+	}
+	return out
+}
+
 // irKindsUnprojected reports a projected parameter list with a position that
 // did not project (kindInvalid).
 func irKindsUnprojected(ks []kind) bool {
@@ -726,7 +766,13 @@ func irKindsUnprojected(ks []kind) bool {
 func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	params := inst.view.params
-	if len(t.Args) != len(params) {
+	args := t.Args
+	if len(args) < len(params) && bl.stdInstPreCall != t {
+		// `Reader.chunks(r)`: each omitted trailing default a literal
+		// (irClosedLiteral), which lowers the same in any file.
+		args = irClosedDefaults(inst.fd, args)
+	}
+	if len(args) != len(params) {
 		return no()
 	}
 	temps := make([]ir.Temp, len(params))
@@ -748,7 +794,7 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		bl.side(c.Dst(), irScalarSide{k: inst.view.result, deferrable: true})
 		return c.Dst(), inst.view.result, false, true
 	}
-	for i, a := range t.Args {
+	for i, a := range args {
 		if _, named := a.(*ast.NamedArg); named {
 			return no()
 		}
@@ -760,7 +806,7 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		if !ok || k != params[i] {
 			return no()
 		}
-		if i == len(t.Args)-1 && bl.recording > 0 && bl.qualRecord == t && !irHeldValue(bl.f, src, bl.sides) {
+		if i == len(args)-1 && bl.recording > 0 && bl.qualRecord == t && !irHeldValue(bl.f, src, bl.sides) {
 			// Named twice, in its row and in the call: held once, as
 			// irQualLowerArgs holds a qualified call's final operand.
 			cp := ir.NewCopy(bl.g.irNodePos(a), bl.f.NewTemp(), src)
@@ -771,11 +817,12 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		temps[i] = src
 	}
 	if bl.qualRecord == t {
-		// Inside an assertion subject, recordedQualCall records these
-		// operands' rows after the call.
-		kinds := append([]kind(nil), params...)
-		mobile := make([]bool, len(temps))
-		bl.qualRecordArgs, bl.qualRecordSeen = irQualArgs{temps: temps, kinds: kinds, mobile: mobile, ok: true}, true
+		// Inside an assertion subject, recordedQualCall records the
+		// written operands' rows after the call; a filled default has none.
+		n := len(t.Args)
+		kinds := append([]kind(nil), params[:n]...)
+		mobile := make([]bool, n)
+		bl.qualRecordArgs, bl.qualRecordSeen = irQualArgs{temps: temps[:n], kinds: kinds, mobile: mobile, ok: true}, true
 	}
 	c := ir.NewCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t), inst.sym, temps...)
 	bl.b.Append(c)
@@ -817,7 +864,7 @@ func (bl *irScalarBuilder) stdGenericFileCall(t *ast.Call, ownerID *ast.Ident, m
 	if !isStd {
 		return no()
 	}
-	f := stdModuleGenericTemplate(bl.g.stdInsts.std.views[module], "", method)
+	f := stdModuleInstFunc(bl.g.stdInsts.std.views[module], "", method)
 	if f == nil {
 		return no()
 	}
@@ -835,7 +882,20 @@ func (bl *irScalarBuilder) stdBareGenericFileFunc(id *ast.Ident) *stdFunc {
 	if !ok {
 		return nil
 	}
-	return stdModuleGenericTemplate(g.stdInsts.std.views[module], "", name)
+	return stdModuleInstFunc(g.stdInsts.std.views[module], "", name)
+}
+
+// stdModuleInstFunc is the function `recv.name` of a std module that a
+// program instantiates for itself: a generic template, or a monomorphic
+// function whose signature names an Iter (`io.lines()`, stdIterSigWhy).
+func stdModuleInstFunc(v *stdModuleView, recv, name string) *stdFunc {
+	if f := stdModuleGenericTemplate(v, recv, name); f != nil {
+		return f
+	}
+	if f := stdModuleMonoFunc(v, recv, name); f != nil && f.why == stdIterSigWhy {
+		return f
+	}
+	return nil
 }
 
 // stdBareFileFunc names the std file and the declared name of the top-level
@@ -887,10 +947,10 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.T
 	v := g.stdInsts.std.views[g.stdModule]
 	var f *stdFunc
 	if g.implSelf != "" {
-		f = stdModuleGenericTemplate(v, g.implSelf, name)
+		f = stdModuleInstFunc(v, g.implSelf, name)
 	}
 	if f == nil {
-		f = stdModuleGenericTemplate(v, "", name)
+		f = stdModuleInstFunc(v, "", name)
 	}
 	if callee, bare := t.Func.(*ast.Ident); f == nil && bare && g.implSelf != "" && stdModuleInherentHost(v, g.implSelf, name) {
 		// The field keeps the bare name's position, where the checker

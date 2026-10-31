@@ -80,15 +80,15 @@ test "Float membership is reflexive for NaN and joins the zeros" {
 }
 
 test "bytes hold their octets" {
-    a = Int.to_byte(97)?
-    b = Int.to_byte(98)?
-    z = Int.to_byte(122)?
+    a: Byte = 97
+    b: Byte = 98
+    z: Byte = 122
     data = Bytes.from_list([a, b])
 
     assert Bytes.contains(data, b)
     refute Bytes.contains(data, z)
     refute Bytes.contains(Bytes.from_list([]), a)
-    assert Bytes.contains(String.to_bytes("hello"), Int.to_byte(108)?)
+    assert Bytes.contains(String.to_bytes("hello"), 108)
 }
 
 test "a string holds substrings, regex matches and codepoints" {

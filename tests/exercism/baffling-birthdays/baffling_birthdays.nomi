@@ -10,7 +10,7 @@ import {
 /// to 2023 without a 29 February, so every day of the year is as likely.
 once new_years_days =
     1900..=2023
-    |> Iter.filter(fn year -> !Date.is_leap_year(year))
+    |> Iter.reject(Date.is_leap_year)
     |> Iter.map(fn year -> Date.new(year, 1, 1)!)
     |> Iter.to_vector()
 

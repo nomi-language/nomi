@@ -409,7 +409,7 @@ fn parts(
     if digits == at { return Err(unexpected(text, at)) }
 
     unit_end = digits + (String.drop(text, digits)
-    |> Iter.take_while(fn m -> !is_ascii_digit(m))
+    |> Iter.take_while(fn m -> not is_ascii_digit(m))
     |> Iter.count())
 
     name = String.slice(text, digits, unit_end)

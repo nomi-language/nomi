@@ -5,8 +5,9 @@
 //   - Funcs: the stdlib modules whose implementation is Go (std/calendar,
 //     std/locale, std/plural, std/random and std/regex), in their FFI-shaped surface,
 //     std/currency's code checks and std/money_format's money formatting,
-//     plus std/strings' `String.captures` and `String.captures_all`, which
-//     take a `Regex` handle and so cannot be RtFuncs rows, and the
+//     plus std/strings' `capture_groups` and `capture_groups_all`, behind
+//     `String.captures`, which take a `Regex` handle and so cannot be
+//     RtFuncs rows, and the
 //     locale-aware formatting and parsing behind `Int.format`,
 //     `Float.format`, `Decimal.format` and `String.join_list`
 //     (internal/stdformat), which read the program's CLDR data. The VM calls
@@ -278,12 +279,11 @@ func Funcs() []Binding {
 		{Name: "Regex.find_all_in", Fn: stdregex.FFIFindAll},
 		{Name: "Regex.pattern", Fn: stdregex.FFIPattern},
 		{Name: "Regex.is_prefix_of", Fn: stdregex.FFIPrefixOf},
-		{Name: "Regex.replace_all", Fn: stdregex.FFIReplaceAll},
-		{Name: "Regex.replace_in", Fn: stdregex.FFIReplaceLiteral},
+		{Name: "Regex.replace_in", Fn: stdregex.FFIReplace},
 		{Name: "Regex.split_in", Fn: stdregex.FFISplit},
 		{Name: "Regex.is_suffix_of", Fn: stdregex.FFISuffixOf},
-		{Name: "String.captures", Fn: stdstrings.FFICaptures},
-		{Name: "String.captures_all", Fn: stdstrings.FFICapturesAll},
+		{Name: "strings.capture_groups", Fn: stdstrings.FFICaptures},
+		{Name: "strings.capture_groups_all", Fn: stdstrings.FFICapturesAll},
 		{Name: "String.capitalize", Fn: stdstrings.FFICapitalize},
 		{Name: "String.capitalize_in", Fn: stdstrings.FFICapitalizeIn},
 		{Name: "String.fold_case", Fn: stdstrings.FFIFoldCase},
@@ -390,10 +390,8 @@ func RtFuncs() []Binding {
 		{Name: "int.Int.wrapping_add", Fn: rt.IntWrapAdd},
 		{Name: "int.Int.wrapping_sub", Fn: rt.IntWrapSub},
 		{Name: "int.Int.wrapping_mul", Fn: rt.IntWrapMul},
-		{Name: "int.Int.bitwise_and", Fn: rt.IntBitAnd},
-		{Name: "int.Int.bitwise_or", Fn: rt.IntBitOr},
-		{Name: "int.Int.bitwise_xor", Fn: rt.IntBitXor},
-		{Name: "int.Int.bitwise_not", Fn: rt.IntBitNot},
+		{Name: "int.Int.bit_count", Fn: rt.IntBitCount},
+		{Name: "int.Int.bit_length", Fn: rt.IntBitLength},
 		{Name: "int.Int.pow", Fn: rt.IntPow},
 		{Name: "int.Int.sqrt", Fn: rt.IntSqrt},
 		{Name: "int.Int.gcd", Fn: rt.IntGcd},
@@ -458,8 +456,6 @@ func RtFuncs() []Binding {
 		{Name: "decimal.Decimal.normalize", Fn: rt.DecimalNormalize},
 		{Name: "decimal.Decimal.scale", Fn: rt.DecimalScale},
 		{Name: "strings.String.repeat", Fn: rt.StringRepeat},
-		{Name: "int.Int.shift_left", Fn: rt.IntShiftLeft},
-		{Name: "int.Int.shift_right", Fn: rt.IntShiftRight},
 		{Name: "context.Context.deadline", Fn: rt.ContextDeadline},
 		{Name: "context.Context.deadline_remaining", Fn: rt.ContextDeadlineRemaining},
 		{Name: "context.Context.with_deadline", Fn: rt.ContextWithDeadline},
@@ -497,6 +493,9 @@ func RtFuncs() []Binding {
 		{Name: "io.Writer.write_text", Fn: rt.WriterWriteText},
 		{Name: "io.Writer.flush", Fn: rt.WriterFlush},
 		{Name: "io.Writer.close", Fn: rt.WriterClose},
+		{Name: "io.writer_from_fn", Fn: rt.WriterFromFn},
+		{Name: "io.memory_writer", Fn: rt.WriterToMemory},
+		{Name: "io.collected", Fn: rt.WriterCollected},
 		{Name: "fs_host.read", Fn: stdio.Read, Class: ClassFiles},
 		{Name: "fs_host.read_text", Fn: stdio.ReadText, Class: ClassFiles},
 		{Name: "fs_host.write", Fn: stdio.Write, Class: ClassFiles},

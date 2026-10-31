@@ -20,7 +20,7 @@ pub fn clean(phrase: String) -> Result<String, Error> {
 
     if Iter.any(codepoints, Codepoint.is_letter) { return Err(.Letters) }
 
-    if !Iter.all(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) {
+    if not Iter.all(codepoints, fn cp -> Codepoint.is_digit(cp) or is_separator(cp)) {
         return Err(.Punctuation)
     }
 
@@ -29,10 +29,10 @@ pub fn clean(phrase: String) -> Result<String, Error> {
     digits = national(digits)?
 
     case digits {
-        [0, .._] -> Err(.AreaCodeStartsWithZero)
-        [1, .._] -> Err(.AreaCodeStartsWithOne)
-        [_, _, _, 0, .._] -> Err(.ExchangeCodeStartsWithZero)
-        [_, _, _, 1, .._] -> Err(.ExchangeCodeStartsWithOne)
+        [0, ..] -> Err(.AreaCodeStartsWithZero)
+        [1, ..] -> Err(.AreaCodeStartsWithOne)
+        [_, _, _, 0, ..] -> Err(.ExchangeCodeStartsWithZero)
+        [_, _, _, 1, ..] -> Err(.ExchangeCodeStartsWithOne)
         _ -> digits |> Iter.map(Int.to_string) |> String.join() |> Ok()
     }
 }
@@ -51,8 +51,5 @@ fn national(digits: List<Int>) -> Result<List<Int>, Error> {
 }
 
 fn is_separator(cp: Codepoint) -> Bool {
-    case cp {
-        ' ' or '(' or ')' or '-' or '.' or '+' -> True
-        _ -> False
-    }
+    cp is (' ' or '(' or ')' or '-' or '.' or '+')
 }

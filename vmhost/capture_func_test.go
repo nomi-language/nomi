@@ -65,7 +65,7 @@ fn main() {
     io.inspect(upto(3) |> Iter.to_list())
     io.inspect([2, 3] |> Iter.map(&(1..=&1)) |> Iter.map(Iter.count) |> Iter.to_list())
     io.inspect([1, -2] |> Iter.map(&(-&1)) |> Iter.to_list())
-    io.inspect([True, False] |> Iter.filter(&(!&1)) |> Iter.count())
+    io.inspect([True, False] |> Iter.filter(&(not &1)) |> Iter.count())
     mk: (Int) -> Point = &#Point{x: &1, y: 0}
     io.inspect(mk(5))
     io.inspect(mk(x: 6))

@@ -11,14 +11,25 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 52
-declared-cases 598
+records 53
+declared-cases 619
 failing 0
 C assertions
 E 0
 N 1
 H 121e0600dcb9ee476b886cbace4c2f30df52d35352abdfc4def760477e2b27e8
 T ok AssertionFailure.format
+C bits
+E 0
+N 7
+H 31c047a31046b683d07255b36bd37b29c19823aae8d442804b15227884bdcd4b
+T ok struct Bits
+T ok Bits.parse
+T ok Bits.matches
+T ok Bits.field
+T ok Bits.width
+T ok Bits.mask
+T ok Bits.value
 C bool
 E 0
 N 1
@@ -26,9 +37,13 @@ H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
 T ok enum Bool
 C bytes
 E 0
-N 16
-H 5e9ef14ee966025cfaf2aaad23d21f895b2d785b47c8a2268f881f9ccdf09645
+N 20
+H de2b6a00aafa1c7f8fdf36d8e9695f10e814eef73a45e1484f96f7110cfce717
 T ok Byte.to_int
+T ok Byte.bitwise_and (impl BitwiseAnd<Byte, Byte> for Byte)
+T ok Byte.bitwise_or (impl BitwiseOr<Byte, Byte> for Byte)
+T ok Byte.bitwise_xor (impl BitwiseXor<Byte, Byte> for Byte)
+T ok Byte.bitwise_not (impl BitwiseNot<Byte> for Byte)
 T ok Bytes.length
 T ok Bytes.get
 T ok Bytes.slice
@@ -337,8 +352,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 35
-H 62528502384133d2a6af36dcad0629c273530703b8eb07ca7b12b37e8b3ac6d7
+N 37
+H 379db86c0fa7949cd976254fd8bb7f8b78be57b1c71429d3facdd28b4f9c7492
 T ok type Int
 T ok Int.to_non_zero
 T ok Int.to_positive
@@ -349,12 +364,8 @@ T ok Int.to_codepoint
 T ok Int.wrapping_add
 T ok Int.wrapping_sub
 T ok Int.wrapping_mul
-T ok Int.bitwise_and
-T ok Int.bitwise_or
-T ok Int.bitwise_xor
-T ok Int.bitwise_not
-T ok Int.shift_left
-T ok Int.shift_right
+T ok Int.bit_count
+T ok Int.bit_length
 T ok Int.modulo
 T ok Int.floor_div
 T ok Int.abs
@@ -373,19 +384,28 @@ T ok Int.to_string (impl Display for Int)
 T ok Int.empty_sum (impl Summable for Int)
 T ok Int.empty_product (impl Productable for Int)
 T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
+T ok Int.bitwise_and (impl BitwiseAnd<Int, Int> for Int)
+T ok Int.bitwise_or (impl BitwiseOr<Int, Int> for Int)
+T ok Int.bitwise_xor (impl BitwiseXor<Int, Int> for Int)
+T ok Int.bitwise_not (impl BitwiseNot<Int> for Int)
+T ok Int.shift_left (impl ShiftLeft<Int, Int> for Int)
+T ok Int.shift_right (impl ShiftRight<Int, Int> for Int)
 T ok PositiveInt.to_non_zero
 C io
 E 0
-N 25
-H 5ed145b684c9df09bb6e93c223f810104d9e0e69ebb57978ad51fe2abef767d3
+N 32
+H c4576dfd846eec0a0e6262050d5536df68d6ae994cb97ca36d10b7f6169007c8
 T ok enum Error
 T ok io.eprint
 T ok io.ewrite
 T ok io.read_line
+T ok io.lines
 T ok Reader.read_line
 T ok Reader.read
 T ok Reader.read_all
 T ok Reader.read_all_text
+T ok Reader.lines
+T ok Reader.chunks
 T ok Reader.copy_to
 T ok Reader.close
 T ok Reader.close_quietly
@@ -400,19 +420,24 @@ T ok Writer.print
 T ok Writer.flush
 T ok Writer.close
 T ok Writer.close_quietly
+T ok Writer.write_all
+T ok Writer.write_lines
+T ok Writer.from_fn
+T ok Writer.collect
 T ok io.stdout
 T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 55
-H 5d7e655fbf2b2de0d669fa5bcdbfb9e31a2c8316e7b1b2e35156a39dbd5eeb53
+N 57
+H ceb1c61fc00f308a9c7587e5c0380b7967e03ee8c12a91ab68e29e1a5148c9f4
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
 T ok Iter.map_reduce
 T ok Iter.find
 T ok Iter.find_map
+T ok Iter.try_reduce
 T ok Iter.find_index
 T ok Iter.sort_with
 T ok Iter.sort
@@ -440,6 +465,7 @@ T ok Iter.zip
 T ok Iter.take_while
 T ok Iter.map
 T ok Iter.filter
+T ok Iter.reject
 T ok Iter.drop
 T ok Iter.drop_while
 T ok Iter.flat_map
@@ -628,13 +654,12 @@ T ok Range.is_bounded
 T ok Range.contains (impl Contains for Range<T>)
 C regex
 E 0
-N 5
-H be19ab721f66f997cc0d0f68ff981f833127a576d9dbcb89f9933b0ff5158aa2
+N 4
+H a571b326e7e2ac0d1c4d3a8e67c7b8f6ff56f2af133a2922f1409cdb634c7bad
 T ok type Regex
 T ok Regex.compile
 T ok Regex.pattern
-T ok Regex.replace_all
-T ok Regex.inspect (impl Debug for Regex)
+T ok Regex.inspect (impl Debug for Regex<C>)
 C results
 E 0
 N 10
@@ -706,9 +731,9 @@ T ok sql_testing.rules
 C strings
 E 0
 N 48
-H d1544ea0be8c44697cf1e036d328761d80c5e47e363f6f87ab14053feeda2d5b
+H 5f38a9eced1e501430862bb0c2d6bebb503d58252473137276808c7d323c3edc
 T ok String.contains Contains<String> (impl Contains<String> for String)
-T ok String.contains Contains<Regex> (impl Contains<Regex> for String)
+T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
 T ok String.starts_with
 T ok String.ends_with

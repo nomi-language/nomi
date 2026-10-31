@@ -6,17 +6,17 @@ test "nucleotide counts" {
         #(
             "can count one nucleotide in single-character input",
             "G",
-            Ok(%{Nucleotide.A => 0, .C => 0, .G => 1, .T => 0}),
+            Ok(%{.A => 0, .C => 0, .G => 1, .T => 0}),
         ),
         #(
             "strand with repeated nucleotide",
             "GGGGGGG",
-            Ok(%{Nucleotide.A => 0, .C => 0, .G => 7, .T => 0}),
+            Ok(%{.A => 0, .C => 0, .G => 7, .T => 0}),
         ),
         #(
             "strand with multiple nucleotides",
             "AGCTTTTCATTCTGACTGCAACGGGCAATATGTCTCTGTGTGGATTAAAAAAAGAGTGTCTGATAGCAGC",
-            Ok(%{Nucleotide.A => 20, .C => 12, .G => 17, .T => 21}),
+            Ok(%{.A => 20, .C => 12, .G => 17, .T => 21}),
         ),
         #("strand with invalid nucleotides", "AGXXACT", Err("Invalid nucleotide in strand")),
     ]

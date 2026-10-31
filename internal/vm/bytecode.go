@@ -80,6 +80,12 @@ const (
 	opSubIW         // dst | a | b
 	opMulIW         // dst | a | b
 	opNegIW         // dst | a
+	opAndI          // dst | a | b        bitwise, exact at any size
+	opOrI           // dst | a | b
+	opXorI          // dst | a | b
+	opNotI          // dst | a
+	opShlI          // dst | a | b        faults on a refused count
+	opShrI          // dst | a | b
 	opAddF          // dst | a | b
 	opSubF          // dst | a | b
 	opMulF          // dst | a | b
@@ -636,6 +642,9 @@ func (cp *compiler) typed(in ir.Instr) bool {
 			}
 			cp.emit(cp.op(opLoadW, uint32(d.reg())), cp.word(uint64(n.Int())))
 			return true
+		case d.bank() == bankW && n.Kind() == ir.ConstByte && cp.kind(n.Dst()) == ir.KindByte:
+			cp.emit(cp.op(opLoadW, uint32(d.reg())), cp.word(uint64(uint8(n.Int()))))
+			return true
 		case d.bank() == bankW && n.Kind() == ir.ConstFloat && cp.kind(n.Dst()) == ir.KindFloat:
 			cp.emit(cp.op(opLoadW, uint32(d.reg())), cp.word(math.Float64bits(n.Float())))
 			return true
@@ -759,7 +768,7 @@ func (cp *compiler) typed(in ir.Instr) bool {
 
 func (cp *compiler) arith(n *ir.Arith) bool {
 	operands := []ir.Temp{n.Dst(), n.Lhs()}
-	if n.Op() != ir.OpNeg {
+	if !n.Op().Unary() {
 		operands = append(operands, n.Rhs())
 	}
 	if !cp.inBank(bankW, operands...) {
@@ -803,6 +812,18 @@ func (cp *compiler) arith(n *ir.Arith) bool {
 			if wraps {
 				o = opNegIW
 			}
+		case ir.OpAnd:
+			o = opAndI
+		case ir.OpOr:
+			o = opOrI
+		case ir.OpXor:
+			o = opXorI
+		case ir.OpNot:
+			o = opNotI
+		case ir.OpShl:
+			o = opShlI
+		case ir.OpShr:
+			o = opShrI
 		default:
 			return false
 		}
@@ -827,7 +848,7 @@ func (cp *compiler) arith(n *ir.Arith) bool {
 		return false
 	}
 	cp.emit(cp.op(o, uint32(cp.loc(n.Dst()).reg())), uint32(cp.loc(n.Lhs()).reg()))
-	if n.Op() != ir.OpNeg {
+	if !n.Op().Unary() {
 		cp.emit(uint32(cp.loc(n.Rhs()).reg()))
 	}
 	return true
@@ -1140,6 +1161,7 @@ var opNames = [...]string{
 	opMovW: "movw", opMovS: "movs", opMovR: "movr", opXMov: "xmov",
 	opAddI: "addi", opSubI: "subi", opMulI: "muli", opDivI: "divi", opRemI: "remi", opNegI: "negi",
 	opAddIW: "addiw", opSubIW: "subiw", opMulIW: "muliw", opNegIW: "negiw",
+	opAndI: "andi", opOrI: "ori", opXorI: "xori", opNotI: "noti", opShlI: "shli", opShrI: "shri",
 	opAddF: "addf", opSubF: "subf", opMulF: "mulf", opDivF: "divf", opNegF: "negf", opRemF: "remf",
 	opCmpI: "cmpi", opCmpF: "cmpf", opEqS: "eqs", opEqW: "eqw", opNot: "not", opConcat: "concat",
 	opMatchV: "matchv", opProjP: "projp", opProjF: "projf", opMake: "make",

@@ -310,10 +310,65 @@ func TestFormat_UnaryNeg(t *testing.T) {
 	}
 }
 
+// `not` is written with one space after it, and the parentheses the author
+// wrote around it or its operand stay.
 func TestFormat_UnaryNot(t *testing.T) {
-	got, _ := Format("!x\n")
-	if got != "!x\n" {
-		t.Errorf("got %q", got)
+	for _, tc := range []struct{ src, want string }{
+		{"not x\n", "not x\n"},
+		{"not   x\n", "not x\n"},
+		{"not not x\n", "not not x\n"},
+		{"not a == b\n", "not a == b\n"},
+		{"not (a == b)\n", "not (a == b)\n"},
+		{"(not a) and b\n", "(not a) and b\n"},
+		{"not a and b\n", "not a and b\n"},
+		{"not (a and b)\n", "not (a and b)\n"},
+		{"a or not b\n", "a or not b\n"},
+		{"(not a) == b\n", "(not a) == b\n"},
+		{"not x |> f()\n", "not x |> f()\n"},
+		{"x |> not f()\n", "x |> not f()\n"},
+		{"x |> not  not f()! |> g()\n", "x |> not not f()! |> g()\n"},
+		{"y = &(not f(&1))\n", "y = &(not f(&1))\n"},
+	} {
+		got, err := Format(tc.src)
+		if err != nil {
+			t.Errorf("%q: %v", tc.src, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%q: got %q, want %q", tc.src, got, tc.want)
+		}
+	}
+}
+
+// `is` is written with one space on each side, its pattern as a `case`
+// arm writes it, and the parentheses the author wrote around the test stay.
+// An `or` pattern keeps its parentheses, which the test needs.
+func TestFormat_Is(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"x is Some(_)\n", "x is Some(_)\n"},
+		{"x   is    .A\n", "x is .A\n"},
+		{"x is (.A or .B)\n", "x is (.A or .B)\n"},
+		{"x is ( .A  or  .B )\n", "x is (.A or .B)\n"},
+		{"not x is .A\n", "not x is .A\n"},
+		{"not (x is .A)\n", "not (x is .A)\n"},
+		{"(x is .A) and y\n", "(x is .A) and y\n"},
+		{"x is .A and y is .B\n", "x is .A and y is .B\n"},
+		{"(x is .A) == b\n", "(x is .A) == b\n"},
+		{"(a < b) is True\n", "(a < b) is True\n"},
+		{"xs |> List.head() is Some(1)\n", "xs |> List.head() is Some(1)\n"},
+		{"x is #P{kind: .A, n: _}\n", "x is #P{kind: .A, n: _}\n"},
+		{"x is [_, ..]\n", "x is [_, ..]\n"},
+		{"x is -1\n", "x is -1\n"},
+		{"y = &(&1 is .Item(_))\n", "y = &(&1 is .Item(_))\n"},
+	} {
+		got, err := Format(tc.src)
+		if err != nil {
+			t.Errorf("%q: %v", tc.src, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%q: got %q, want %q", tc.src, got, tc.want)
+		}
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 
 // A pattern that is only a suffix (`[.._rest]`, `[..rest]`) matches every
 // list, so it builds no length test; an arm after it, which the checker
-// admits, still lowers. A literal head (`[1, .._]`) retains through
+// admits, still lowers. A literal head (`[1, ..]`) retains through
 // listCaseTestNested; TestIRListPattern_LiteralHeadRetains runs one.
 func TestIRListPattern_SuffixOnlyMatchesEveryList(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
@@ -22,7 +22,7 @@ fn main() {
 
 func TestIRListPattern_LiteralHeadRetains(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn pick(xs: List<Int>) -> Int { case xs { [1, .._] -> 1; _ -> 0 } }
+fn pick(xs: List<Int>) -> Int { case xs { [1, ..] -> 1; _ -> 0 } }
 fn main() {
   io.print(pick([1, 2]))
   io.print(pick([2, 1]))

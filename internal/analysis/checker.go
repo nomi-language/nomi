@@ -1283,6 +1283,8 @@ func nodeLineCol(n ast.Node) (int, int) {
 		return v.Line, v.Col
 	case *ast.Unary:
 		return v.Line, v.Col
+	case *ast.Is:
+		return v.Line, v.Col
 	case *ast.FieldAccess:
 		return v.Line, v.Col
 	case *ast.StructLit:
@@ -3348,6 +3350,8 @@ func exprStartLineCol(n ast.Node) (int, int) {
 		return exprStartLineCol(e.Left)
 	case *ast.Unary:
 		return e.Line, e.Col
+	case *ast.Is:
+		return exprStartLineCol(e.Value)
 	case *ast.FieldAccess:
 		return exprStartLineCol(e.Object)
 	default:
@@ -4347,6 +4351,12 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 	if acc, ok := node.(*ast.FieldAccessor); ok {
 		return c.checkFieldAccessor(acc, expected)
 	}
+	// An Int literal where a Byte is expected is a Byte (byte_literal.go).
+	if expectsByte(expected) {
+		if _, grouped := node.(*ast.GroupedExpr); !grouped && intLiteralOperand(node) {
+			return c.checkByteLiteral(node)
+		}
+	}
 
 	switch n := node.(type) {
 	case *ast.Ident, *ast.TypeIdent, *ast.FieldAccess:
@@ -4672,7 +4682,7 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 // `%{}`, takes its K and V from the rest. expected, when non-nil, is the
 // type the position expects, pushed into each spread.
 func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
-	head, ok := c.checkSpreadHeads(n.Spreads, expected, mapSpreads)
+	head, _, ok := c.checkSpreadHeads(n.Spreads, expected, mapSpreads)
 	if !ok {
 		for _, entry := range n.Entries {
 			c.checkNode(entry.Key)
@@ -4727,25 +4737,42 @@ type spreadShape struct {
 	name string
 	// of answers whether a spread's type is of the kind.
 	of func(Type) bool
-	// make is the hint for a spread of another collection, empty for none.
-	hint string
+	// elemOf is the element type of a type of the kind, and make the type
+	// of the kind with an element type, for a kind whose spreads may be any
+	// Iter of its elements. Both are nil for a map, whose spreads are maps.
+	elemOf func(Type) (Type, bool)
+	make   func(c *checker, elem Type) Type
 }
 
 var (
-	mapSpreads    = spreadShape{name: "map", of: func(t Type) bool { _, ok := t.(*MapType); return ok }}
-	setSpreads    = spreadShape{name: "set", of: func(t Type) bool { _, ok := setElemType(t); return ok }}
+	mapSpreads = spreadShape{name: "map", of: func(t Type) bool { _, ok := t.(*MapType); return ok }}
+	setSpreads = spreadShape{name: "set", of: func(t Type) bool { _, ok := setElemType(t); return ok },
+		elemOf: setElemType, make: func(c *checker, elem Type) Type { return makeSetType(elem, c.reg) }}
 	vectorSpreads = spreadShape{name: "vector", of: func(t Type) bool { _, ok := vectorElemType(t); return ok },
-		hint: "make a vector of another collection's elements with `Iter.to_vector`, as in `xs |> Iter.to_vector()`"}
+		elemOf: vectorElemType, make: func(c *checker, elem Type) Type { return makeVectorType(elem, c.reg) }}
 )
 
+// iterSpread is a spread of a vector or set literal that is another Iter
+// of the literal's elements, with its element type.
+type iterSpread struct {
+	sp   ast.Spread
+	elem Type
+}
+
 // checkSpreadHeads checks the spreads of a vector, set or map literal, in
-// the order written. The first spread's type is the literal's, and must be
-// of shape; each later spread is checked against it and must have it.
-// expected, when not nil, is the type the position expects, pushed into
-// every spread but a bare `..`. It answers the literal's type, resolved,
-// and false after an error that leaves the literal with none.
-func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape spreadShape) (Type, bool) {
+// the order written. A spread of shape has the literal's type: the first
+// one's type is the literal's, and each later one is checked against it.
+// In a vector or set literal a spread may instead be any other Iter
+// (spreadElemType) whose element type is the literal's; the literal's type
+// is then its first spread of shape's, else the expected type when that is
+// of shape, else the shape over the first Iter's element type. expected,
+// when not nil, is the type the position expects, pushed into every spread
+// but a bare `..`, which must be of shape. It answers the literal's type,
+// resolved, whether every spread is of shape, and false after an error
+// that leaves the literal with none.
+func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape spreadShape) (Type, bool, bool) {
 	var lit Type
+	var iters []iterSpread
 	for i, sp := range spreads {
 		_, bare := sp.Head.(*ast.CurrentValue)
 		want := expected
@@ -4760,15 +4787,19 @@ func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape sp
 		}
 		ty = resolveTypeVar(ty)
 		if ty == nil {
-			return nil, false
+			return nil, false, false
 		}
 		if !shape.of(ty) {
-			e := TypeError{Line: sp.Line, Col: sp.Col, Message: fmt.Sprintf("%s spread `..` requires a %s, got %s", shape.name, shape.name, formatTypeForError(ty))}
-			if !bare && shape.hint != "" {
-				e = e.WithHint(shape.hint)
+			if !bare && shape.make != nil {
+				if elem, ok := c.spreadElemType(ty); ok {
+					iters = append(iters, iterSpread{sp: sp, elem: elem})
+					continue
+				}
+				c.addError(sp.Line, sp.Col, spreadNotIterMessage(shape.name, ty))
+				return nil, false, false
 			}
-			c.report(e)
-			return nil, false
+			c.addError(sp.Line, sp.Col, fmt.Sprintf("%s spread `..` requires a %s, got %s", shape.name, shape.name, formatTypeForError(ty)))
+			return nil, false, false
 		}
 		if lit == nil {
 			lit = ty
@@ -4776,13 +4807,29 @@ func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape sp
 		}
 		if err := UnifyWithImpls(lit, ty, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
 			c.addError(sp.Line, sp.Col, c.typef("%s spread type mismatch: expected %s, got %s", shape.name, resolveTypeVar(lit), ty))
-			return nil, false
+			return nil, false, false
 		}
 	}
 	if lit == nil {
-		return nil, false
+		if len(iters) == 0 {
+			return nil, false, false
+		}
+		if e := resolveTypeVar(expected); e != nil && shape.of(e) && !ContainsTypeParam(e) && !containsTypeVar(e) {
+			lit = e
+		} else {
+			lit = shape.make(c, iters[0].elem)
+		}
 	}
-	return resolveTypeVar(lit), true
+	if len(iters) > 0 {
+		litElem, _ := shape.elemOf(resolveTypeVar(lit))
+		for _, it := range iters {
+			if err := UnifyWithImpls(litElem, it.elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+				c.addError(it.sp.Line, it.sp.Col, c.typef("%s spread element type mismatch: expected %s, got %s", shape.name, resolveTypeVar(litElem), resolveTypeVar(it.elem)))
+				return nil, false, false
+			}
+		}
+	}
+	return resolveTypeVar(lit), len(iters) == 0, true
 }
 
 // reportEmptySpread reports the one spread of a literal with no element:
@@ -4921,6 +4968,9 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 
 	case *ast.Unary:
 		return c.checkUnary(n)
+
+	case *ast.Is:
+		return c.checkIs(n)
 
 	case *ast.Call:
 		return c.checkCall(n, nil)
@@ -6520,7 +6570,7 @@ func (c *checker) instantiateRangeType(elem Type) Type {
 
 // rejectAssertionOperand reports an `assert` or `refute` written as the
 // operand of op. A `check`, whose value is the point, is not one. An assertion checks its subject and ends the test or function
-// when the check fails; its value is the subject it passed, so `!assert x` is
+// when the check fails; its value is the subject it passed, so `not assert x` is
 // `False` whenever it gets that far and never the negated check it reads as.
 // An assertion stands as its own statement, as a binding's value, or as a pipe
 // stage.
@@ -6531,8 +6581,8 @@ func (c *checker) rejectAssertionOperand(a *ast.Assertion, op string) {
 		Col:     a.Col,
 		Message: fmt.Sprintf("`%s` cannot be an operand of `%s`", keyword, op),
 	}
-	if op == "!" {
-		e = e.WithHint("to check that a condition is false, write `refute condition` or `assert !condition`")
+	if op == "not" {
+		e = e.WithHint("to check that a condition is false, write `refute condition` or `assert not condition`")
 	} else {
 		e = e.WithHint("write the assertion as its own statement, or bind its value first: `ok = " + keyword + " condition`")
 	}
@@ -6542,6 +6592,9 @@ func (c *checker) rejectAssertionOperand(a *ast.Assertion, op string) {
 func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	if stage, ok := n.Right.(*ast.Unwrap); ok && n.Op == "|>" {
 		return c.checkUnwrapStage(n, stage)
+	}
+	if stage, ok := n.Right.(*ast.Unary); ok && n.Op == "|>" && stage.Op == "not" {
+		return c.checkNotStage(n, stage)
 	}
 	if n.Op != "|>" {
 		for _, side := range []ast.Node{n.Left, n.Right} {
@@ -6595,12 +6648,20 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	}
 	var right Type
 	comparison := isComparisonOp(n.Op)
+	byteOperands := false
 	if comparison {
 		left, right = c.checkComparisonOperands(n)
 		// The two operands have one type, so a `todo` on one side has the
 		// other's.
 		c.settleTodo(n.Left, right)
 		c.settleTodo(n.Right, left)
+	} else if n.Op != "|>" && !leftChecked {
+		// A literal operand of `&&&` and the rest is a Byte when the other
+		// operand is (byte_literal.go).
+		left, right, byteOperands = c.checkByteOperands(n)
+		if !byteOperands {
+			left = c.checkNode(n.Left)
+		}
 	} else if !leftChecked {
 		left = c.checkNode(n.Left)
 	}
@@ -6744,12 +6805,12 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.calleeNode = prevCallee
 			return nil
 		}
-	} else if !comparison {
+	} else if !comparison && !byteOperands {
 		right = c.checkNode(n.Right)
 	}
 
 	switch n.Op {
-	case "+", "-", "*", "/":
+	case "+", "-", "*", "/", "&&&", "|||", "^^^", "<<<", ">>>":
 		if left == nil || right == nil {
 			return left // best effort
 		}
@@ -6879,8 +6940,8 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		}
 		if right != nil && !TypesEqual(right, TypeBool) {
 			at := operandPos(n.Right, n.Line, n.Col)
-			c.addError(at.Line, at.Col, fmt.Sprintf(
-				"'%s' operands must be Bool, got %s", n.Op, right))
+			c.errors = append(c.errors, TypeError{Line: at.Line, Col: at.Col, Message: fmt.Sprintf(
+				"'%s' operands must be Bool, got %s", n.Op, right)}.WithHint(isOrHint(n)))
 		}
 		return TypeBool
 
@@ -6967,6 +7028,21 @@ var operatorInterfaces = []operatorInterface{
 	{Op: "-", Interface: "Subtract", Method: "subtract", Verb: "subtract"},
 	{Op: "*", Interface: "Multiply", Method: "multiply", Verb: "multiply"},
 	{Op: "/", Interface: "Divide", Method: "divide", Verb: "divide"},
+	{Op: "&&&", Interface: "BitwiseAnd", Method: "bitwise_and", Verb: "bitwise and"},
+	{Op: "|||", Interface: "BitwiseOr", Method: "bitwise_or", Verb: "bitwise or"},
+	{Op: "^^^", Interface: "BitwiseXor", Method: "bitwise_xor", Verb: "bitwise xor"},
+	{Op: "<<<", Interface: "ShiftLeft", Method: "shift_left", Verb: "shift left"},
+	{Op: ">>>", Interface: "ShiftRight", Method: "shift_right", Verb: "shift right"},
+}
+
+// bitwiseOperator reports whether op is one of the binary bitwise operators,
+// which no built-in type but Int answers without an impl.
+func bitwiseOperator(op string) bool {
+	switch op {
+	case "&&&", "|||", "^^^", "<<<", ">>>":
+		return true
+	}
+	return false
 }
 
 func operatorInterfaceForOp(op string) (operatorInterface, bool) {
@@ -7212,7 +7288,9 @@ func (c *checker) checkOperatorRhs(n *ast.Binary, opIface operatorInterface, rig
 }
 
 func (c *checker) checkBuiltinOperator(n *ast.Binary, left, right Type) (Type, bool) {
-	if !isBuiltinOperatorCandidate(n.Op, left) && !isBuiltinOperatorCandidate(n.Op, right) {
+	// A bitwise operator is built in on an Int left operand only: `b <<< 1`
+	// on a Byte is a missing impl, not a mismatch with the Int.
+	if !isBuiltinOperatorCandidate(n.Op, left) && (bitwiseOperator(n.Op) || !isBuiltinOperatorCandidate(n.Op, right)) {
 		return nil, false
 	}
 	mismatch := false
@@ -7240,7 +7318,7 @@ func (c *checker) checkBuiltinOperator(n *ast.Binary, left, right Type) (Type, b
 			return left, true
 		}
 	}
-	if leftResolved == TypeInt || leftResolved == TypeFloat || leftResolved == TypeDecimal {
+	if leftResolved == TypeInt || !bitwiseOperator(n.Op) && (leftResolved == TypeFloat || leftResolved == TypeDecimal) {
 		return left, true
 	}
 	return nil, false
@@ -7253,6 +7331,9 @@ func isBuiltinOperatorCandidate(op string, t Type) bool {
 	case *ListType:
 		return op == "+"
 	default:
+		if bitwiseOperator(op) {
+			return rt == TypeInt
+		}
 		if op == "+" {
 			if _, ok := vectorElemType(rt); ok {
 				return true
@@ -7304,16 +7385,24 @@ func (c *checker) pipeCalleeType(call *ast.Call) Type {
 // type parameters: present, with no type parameter and no unsolved inference
 // variable in it.
 // seedFromPartlyGenericExpected unifies expected, which names the caller's
-// type parameters, with resultTy in a trial, and copies into subs each of
-// ft's own type parameters the trial solved to a type naming no type
-// parameter. A parameter solved to one of the caller's is left unsolved, so
-// the arguments solve it as they would with no expected type.
+// type parameters or holds unsolved inference variables, with resultTy in a
+// trial, and copies into subs each of ft's own type parameters the trial
+// solved to a type naming no type parameter and no inference variable. A
+// parameter solved to one of the caller's, or to a variable, is left
+// unsolved, so the arguments solve it as they would with no expected type.
+// The trial may bind the variables it meets; they are restored after it, so
+// only the arguments decide them.
 func (c *checker) seedFromPartlyGenericExpected(expected, resultTy Type, ft *FuncType, subs map[*TypeParam_]Type) {
 	trial := make(map[*TypeParam_]Type, len(subs))
+	held := []Type{expected, resultTy}
 	for k, v := range subs {
 		trial[k] = v
+		held = append(held, v)
 	}
-	if c.unifyInto(expected, resultTy, trial) != nil {
+	saved := saveTypeVars(held...)
+	err := c.unifyInto(expected, resultTy, trial)
+	saved.restore()
+	if err != nil {
 		return
 	}
 	for _, tp := range collectOrderedTypeParams(ft) {
@@ -7341,7 +7430,7 @@ func (c *checker) seedPipeFromExpected(ft *FuncType, args []ast.Node, expected T
 	if expected == nil || !ContainsTypeParam(ft.Return) {
 		return
 	}
-	if concreteExpected(expected) && (callArgsNeedExpectedType(args) || !isUnitLike(expected) && c.argsTakeExpectedType(args)) {
+	if concreteExpected(expected) && (callArgsNeedExpectedType(args) || byteLiteralsTakeExpected(args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(args)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v
@@ -7353,7 +7442,7 @@ func (c *checker) seedPipeFromExpected(ft *FuncType, args []ast.Node, expected T
 		}
 		return
 	}
-	if !containsTypeVar(expected) && callArgsNeedExpectedType(args) {
+	if callArgsNeedExpectedType(args) {
 		c.seedFromPartlyGenericExpected(expected, ft.Return, ft, subs)
 	}
 }
@@ -7816,17 +7905,70 @@ func (c *checker) checkUnary(n *ast.Unary) Type {
 		}
 		return operand
 
-	case "!":
+	case "not":
 		c.settleTodo(n.Right, TypeBool)
 		if !TypesEqual(operand, TypeBool) {
 			c.addError(n.Line, n.Col, fmt.Sprintf(
-				"unary ! operand must be Bool, got %s", operand))
+				"`not` takes a Bool, got %s", operand))
 		}
 		return TypeBool
+
+	case "~~~":
+		return c.checkBitwiseNot(n, operand)
 
 	default:
 		return nil
 	}
+}
+
+// checkBitwiseNot is the type of `~~~operand`: the `Out` of the operand
+// type's `BitwiseNot<Out>` impl, or of a type parameter's bound.
+func (c *checker) checkBitwiseNot(n *ast.Unary, operand Type) Type {
+	const iface = "BitwiseNot"
+	resolved := resolveTypeVar(operand)
+	switch t := resolved.(type) {
+	case *TypeVar:
+		// Not known yet: `~~~` keeps the operand's type, as Int's does.
+		return operand
+	case *TypeParam_:
+		for _, bound := range t.Bounds {
+			if bound != nil && bound.Name == iface && len(bound.TypeArgs) == 1 {
+				return bound.TypeArgs[0]
+			}
+		}
+		c.addError(n.Line, n.Col, fmt.Sprintf(
+			"type parameter %s cannot use `~~~` without a BitwiseNot bound", t))
+		return operand
+	case *InterfaceType:
+		if t.Name == iface && len(t.TypeArgs) == 1 {
+			return t.TypeArgs[0]
+		}
+	}
+	if resolved == TypeInt {
+		return TypeInt
+	}
+	name := interfaceImplName(resolved)
+	var cands []implCandidate
+	if name != "" && concreteTypeName(resolved) != "" {
+		for _, cand := range c.implCandidates(resolved, iface, OriginUnresolved) {
+			if len(cand.args) == 1 {
+				cands = append(cands, cand)
+			}
+		}
+	}
+	switch len(cands) {
+	case 1:
+		c.fa.RecordManifest(name, iface,
+			Recording{Pos: c.recPos(n.Line, n.Col), Kind: RecordingKindOperator, Op: n.Op})
+		c.recordImplReceiverBoundConformances(resolved, iface, c.recPos(n.Line, n.Col), RecordingKindOperator)
+		return cands[0].args[0]
+	case 0:
+		c.addError(n.Line, n.Col, fmt.Sprintf(
+			"no impl of `BitwiseNot` for `%s` (required via bitwise not operator `~~~`)", operand))
+	default:
+		c.addError(n.Line, n.Col, ambiguousImplMessage(&InterfaceType{Name: iface}, "bitwise_not", resolved, cands, false))
+	}
+	return operand
 }
 
 // checkOpaqueEnumVariantCall reports an error when calling a variant
@@ -10025,8 +10167,9 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	//     whole result type unifies with `expected`. An expected type the result
 	//     does not match (an interface slot, a mismatch the caller reports)
 	//     leaves the substitution as the arguments alone would build it. An
-	//     expected type holding an unsolved inference variable is skipped too:
-	//     unify binds the variable itself, which a discarded trial cannot undo.
+	//     expected type holding an unsolved inference variable takes the
+	//     partial route below, which seeds only what the variables do not
+	//     touch.
 	//   - a flat variant call (`t: Two<Int, Int> = Two.Both(1, "x")`,
 	//     flatVariant) is seeded whatever its arguments, so each element
 	//     is checked against its own expected type and a mismatch is
@@ -10039,8 +10182,12 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	if callHasPlaceholder(n.Args) {
 		resultTy = c.partialCallShape(n, ft)
 	}
+	argSolved := make(map[*TypeParam_]bool, len(subs))
+	for tp := range subs {
+		argSolved[tp] = true
+	}
 	if concreteExpected(expected) && !skipReturnInfer &&
-		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args)) {
+		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) || byteLiteralsTakeExpected(n.Args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v
@@ -10048,13 +10195,17 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		if c.unifyInto(expected, resultTy, trial) == nil {
 			subs = trial
 		}
-	} else if expected != nil && !containsTypeVar(expected) && !skipReturnInfer &&
+	} else if expected != nil && !skipReturnInfer &&
 		ContainsTypeParam(resultTy) && callArgsNeedExpectedType(n.Args) {
 		// An expected type that holds the caller's own type parameters
 		// (`Result<T, E>` in `fn write<T>`) seeds only the callee's
 		// parameters it solves to a type with none in it: `Err(.Full)` takes
 		// E from it and leaves T to the arguments, so the two scopes never
-		// mix (seedFromPartlyGenericExpected).
+		// mix (seedFromPartlyGenericExpected). An expected type still open
+		// in an inference variable seeds the same way: in `[Ok([Color.Red]),
+		// Ok([.Blue])]` the second element is expected to be the first's
+		// `Result<List<Color>, ?E>`, so T is `List<Color>` and E is left to
+		// the arguments.
 		c.seedFromPartlyGenericExpected(expected, resultTy, ft, subs)
 	}
 
@@ -10199,7 +10350,17 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	var returnOnlySelf *InterfaceType
 	if fa, ok := n.Func.(*ast.FieldAccess); ok {
 		if iface, ok := interfaceObjectType(c, fa.Object, nil); ok && iface.SelfParam != nil {
-			if concrete, ok := subs[iface.SelfParam]; ok {
+			// A self the expected type seeded above, ahead of the
+			// arguments, is still a return-only self: no argument names
+			// it, so the call's dispatch must be recorded as one
+			// (attachReturnSelf), or the IR builder selects no impl from
+			// the result (`none: Maybe<Note> =
+			// FromJson.from_json(Json.Null)?` called Note's).
+			concrete, ok := subs[iface.SelfParam]
+			if ok && !argSolved[iface.SelfParam] && !paramsMention(ft.Params, iface.SelfParam) {
+				ok = false
+			}
+			if ok {
 				structConformanceErrored = c.recordInterfaceSelf(n, fa, iface, concrete)
 			} else {
 				returnOnlySelf = iface
@@ -10605,6 +10766,16 @@ func (c *checker) recordInterfaceSelf(n *ast.Call, fa *ast.FieldAccess, iface *I
 	c.recordInferredBoundOnTypeParam(concrete, iface.Name)
 	c.attachDispatchImpl(fa, iface.Name, concrete)
 	return errored
+}
+
+// paramsMention reports whether p occurs in any of params.
+func paramsMention(params []Type, p *TypeParam_) bool {
+	for _, t := range params {
+		if typeMentionsParam(t, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // attachReturnSelf records a return-only self's solved type on a per-site copy
@@ -14463,7 +14634,8 @@ func (c *checker) checkLitElem(pos *litPosition, item ast.Node, have Type) Type 
 	defer func() { c.inFirstLitElem = prevFirst }()
 	before := c.unresolvedVariants
 	defer func() { pos.unresolved = pos.unresolved || c.unresolvedVariants > before }()
-	if have != nil && (enumInType(have, 0) || (structInType(have, 0) && holdsAnonStructLit(item))) {
+	if have != nil && (enumInType(have, 0) || (structInType(have, 0) && holdsAnonStructLit(item)) ||
+		(byteInType(have, 0) && holdsIntLiteral(item))) {
 		return c.checkNodeExpecting(item, have)
 	}
 	if dv := bareVariantOf(item); dv != nil && have == nil {
@@ -14483,6 +14655,12 @@ func (c *checker) checkLitElem(pos *litPosition, item ast.Node, have Type) Type 
 // variants after it, `case c { .Less -> Format.Portrait  .Equal -> .Square }`
 // as `[Format.Portrait, .Square]`.
 func earlierArmsExpected(expected, have Type, body ast.Node) Type {
+	if have != nil && !isInfallibleLike(have) && unsolvedExpected(expected) &&
+		byteInType(have, 0) && holdsIntLiteral(valueExpr(body)) {
+		// A literal arm after a Byte one is a Byte (byte_literal.go), also
+		// where the conditional's own expected type is still open.
+		return have
+	}
 	if expected != nil || have == nil || isInfallibleLike(have) {
 		return expected
 	}
@@ -14719,9 +14897,10 @@ func (c *checker) checkSetLitExpecting(n *ast.SetLit, elemTy Type) Type {
 // checkListSpreadLitExpecting types a list literal with spreads, `[h1, h2,
 // ..., ..tail]` or `[..xs, h, ..ys]`, where a list of elemTy is expected:
 // each element is checked against elemTy, each spread against
-// `List<elemTy>`, and the literal is that list. A bare `..`, an element type
-// with open parts (openElemType), or a spread that is not a list keeps the
-// unexpected path, which reports what it finds.
+// `List<elemTy>` and then held to being an Iter of elemTy (spreadElemType),
+// and the literal is that list. A bare `..` or an element type with open
+// parts (openElemType) keeps the unexpected path, which reports what it
+// finds.
 func (c *checker) checkListSpreadLitExpecting(n *ast.ListSpreadLit, elemTy Type) Type {
 	if ast.UpdateHole(n) != nil || elemTy == nil || c.openElemType(elemTy) {
 		return c.checkListSpreadLit(n)
@@ -14741,27 +14920,61 @@ func (c *checker) checkListSpreadLitExpecting(n *ast.ListSpreadLit, elemTy Type)
 		if tailTy == nil {
 			continue
 		}
-		if _, open := tailTy.(*TypeVar); !open {
-			if _, ok := tailTy.(*ListType); !ok {
-				c.report(errAt(sp.Head, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tailTy))).WithHint(listSpreadHint(want, tailTy)))
-				return nil
-			}
+		if _, open := tailTy.(*TypeVar); open {
+			_ = UnifyWithImpls(want, tailTy, nil, c.implsContext(), c.implTypeArgsContext())
+			continue
 		}
-		if err := UnifyWithImpls(want, tailTy, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+		spreadElem, ok := c.spreadElemType(tailTy)
+		if !ok {
+			c.report(errAt(sp.Head, spreadNotIterMessage("list", tailTy)))
+			return nil
+		}
+		if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
 			c.addErrorAt(sp.Head, c.typef(
-				"list spread element type mismatch: %s vs %s", elemTy, tailTy.(*ListType).Elem))
+				"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem)))
 		}
 	}
 	return want
 }
 
-// listSpreadHint is the help for a list spread of a type that is not a list,
-// got, where want is the list expected.
-func listSpreadHint(want, got Type) string {
-	if hint := iterMaterializeHint(want, got); hint != "" {
-		return hint
+// spreadElemType is the element type of a spread of type ty in a list,
+// vector or set literal: T when ty is a `List<T>`, a `Vector<T>`, a
+// `Set<T>`, std's `Iter<T>` or any other type that is an Iter of T (a
+// Maybe, a Range, a Map's pairs, a String's graphemes, a type with an `impl
+// Iter`). It is false for a type that is no Iter and for an open type
+// variable.
+func (c *checker) spreadElemType(ty Type) (Type, bool) {
+	ty = resolveTypeVar(ty)
+	if ty == nil {
+		return nil, false
 	}
-	return "make a list of another collection's elements with `Iter.to_list`, as in `xs |> Iter.to_list()`"
+	switch t := ty.(type) {
+	case *TypeVar:
+		return nil, false
+	case *ListType:
+		return t.Elem, true
+	}
+	if e, ok := vectorElemType(ty); ok {
+		return e, true
+	}
+	if e, ok := setElemType(ty); ok {
+		return e, true
+	}
+	if e, ok := iterElemType(ty); ok {
+		return e, true
+	}
+	elem := c.freshTypeVar()
+	it := &InterfaceType{Name: "Iter", Origin: "std/iter", TypeArgs: []Type{elem}}
+	if c.unifyInto(it, ty, nil) != nil {
+		return nil, false
+	}
+	return resolveTypeVar(elem), true
+}
+
+// spreadNotIterMessage is the error for a spread of type got, which is no
+// Iter, in a literal of the kind named ("list").
+func spreadNotIterMessage(kind string, got Type) string {
+	return fmt.Sprintf("%s spread `..` requires an Iter of the %s's elements, got %s", kind, kind, formatTypeForError(got))
 }
 
 // checkListSpreadLit types a list literal with spreads, `[h1, h2, ...,
@@ -14826,27 +15039,27 @@ func (c *checker) checkListSpread(n *ast.ListSpreadLit, sp ast.Spread, elemTy Ty
 		}
 		tailTy = resolveTypeVar(tailTy)
 	}
-	// A spread is a list the elements are joined with, so it is a
-	// List: an Iter, a Range or a String is made a list with
-	// `Iter.to_list` first, as a vector spread asks for
-	// `Iter.to_vector`.
-	if tt := resolveTypeVar(tailTy); tt != nil {
-		if _, open := tt.(*TypeVar); !open {
-			if _, ok := tt.(*ListType); !ok {
-				c.report(errAt(sp.Head, fmt.Sprintf("list spread `..` requires a list, got %s", formatTypeForError(tt))).WithHint(listSpreadHint(&ListType{Elem: TypeAny}, tt)))
-				return nil, false
-			}
-		}
-		tailTy = tt
+	// A spread is any Iter of the list's elements: a List, or a Maybe, a
+	// Set, a Range or an Iter chain, whose elements join the list in the
+	// order the spread hands them out.
+	tt := resolveTypeVar(tailTy)
+	if tt == nil {
+		return elemTy, true
 	}
-	if lt, ok := tailTy.(*ListType); ok {
-		if elemTy == nil {
-			return lt.Elem, true
-		}
-		if err := UnifyWithImpls(elemTy, lt.Elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-			c.addErrorAt(sp.Head, c.typef(
-				"list spread element type mismatch: %s vs %s", elemTy, lt.Elem))
-		}
+	if _, open := tt.(*TypeVar); open {
+		return elemTy, true
+	}
+	spreadElem, ok := c.spreadElemType(tt)
+	if !ok {
+		c.report(errAt(sp.Head, spreadNotIterMessage("list", tt)))
+		return nil, false
+	}
+	if elemTy == nil {
+		return spreadElem, true
+	}
+	if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+		c.addErrorAt(sp.Head, c.typef(
+			"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem)))
 	}
 	return elemTy, true
 }
@@ -15208,6 +15421,10 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		c.registerCodepointHover(n)
 		c.checkLiteralPattern("'"+n.Lexeme+"'", n.Line, n.Col, TypeCodepoint, expectedTy)
 	case *ast.IntLit:
+		if expectsByte(expectedTy) {
+			c.checkBytePattern(n)
+			break
+		}
 		c.checkLiteralPattern(n.Lexeme, n.Line, n.Col, TypeInt, expectedTy)
 	case *ast.FloatLit:
 		c.checkLiteralPattern(n.Lexeme, n.Line, n.Col, TypeFloat, expectedTy)
@@ -18248,6 +18465,11 @@ func (c *checker) recordBoundConformanceRecording(t Type, ifaceName string, rec 
 			c.recordBoundConformanceRecording(arg, ifaceName, rec)
 		}
 	case *DistinctType:
+		if isRegexType(ty) {
+			// `Regex<C>`'s C is phantom: no impl of Regex reads a C
+			// (regex_literal.go).
+			return
+		}
 		for _, arg := range ty.TypeArgs {
 			c.recordBoundConformanceRecording(arg, ifaceName, rec)
 		}
@@ -19253,10 +19475,16 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 		c.checkTaggedStringSlot(n, se, slotTypes[i], interfaceTy)
 	}
 
-	if ok, _ := RawLiteralType(n.Raw, ft.Return); ok != nil {
+	ret := ft.Return
+	if typed := regexLiteralType(n, ret); typed != nil {
+		// `Regex`(\d+)-(\w+)?``: the capture type from the pattern
+		// (regex_literal.go).
+		ret = typed
+	}
+	if ok, _ := RawLiteralType(n.Raw, ret); ok != nil {
 		return ok
 	}
-	return ft.Return
+	return ret
 }
 
 // RawLiteralType is the type of a typed literal whose handler returns ret,

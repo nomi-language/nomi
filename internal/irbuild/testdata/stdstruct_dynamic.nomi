@@ -79,7 +79,7 @@ fn main() {
         [] ->
             io.print("path = UNEXPECTED empty")
 
-        [_, .._] ->
+        [_, ..] ->
             io.print("path = UNEXPECTED length")
     }
 

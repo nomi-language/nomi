@@ -252,7 +252,7 @@ fn pieces(tokens: List<Token>) -> List<#(Token, String)> {
             if token.kind == Kind.Space {
                 // A space is sent once between two tokens that are sent.
                 case out {
-                    [#(last, _), .._] when last.kind != Kind.Space and seen < Iter.count(solid) ->
+                    [#(last, _), ..] when last.kind != Kind.Space and seen < Iter.count(solid) ->
                         #([#(token, " "), ..out], seen)
 
                     _ ->
@@ -382,7 +382,7 @@ pub fn select_items(tokens: List<Token>) -> List<List<Token>> {
     all
     |> Iter.reverse()
     |> Iter.map(fn item -> item |> Iter.reverse() |> trim())
-    |> Iter.filter(fn item -> !Iter.is_empty(item))
+    |> Iter.reject(&Iter.is_empty(&1))
     |> Iter.to_list()
 }
 
@@ -528,7 +528,7 @@ pub fn table_names(tokens: List<Token>) -> List<#(String, String)> {
 
             alias = if String.uppercase(next) == "AS" {
                 word_at(words, i + 3)
-            } else if is_name(next) and !is_keyword(next) {
+            } else if is_name(next) and not is_keyword(next) {
                 next
             } else {
                 table
@@ -600,7 +600,7 @@ pub fn is_name(word: String) -> Bool {
     first = String.slice(word, 0, 1)
 
     word != ""
-        and !String.contains("0123456789", first)
+        and not String.contains("0123456789", first)
         and Iter.all(word, fn c -> {
             String.contains("abcdefghijklmnopqrstuvwxyz0123456789_", c)
         })

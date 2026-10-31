@@ -104,7 +104,8 @@ test "counts words" {
 
 ## How it's written
 
-- The whole solution is a four-stage pipeline: lower-case, find the words
+- The whole solution is a three-stage pipeline: lower-case, find the words
+
   with one regex, and `Iter.frequencies`. The regex
   `[a-z0-9]+('[a-z0-9]+)*` admits an apostrophe only between two letters or
   digits, so quotes around a word fall away without a trimming step.

@@ -121,12 +121,7 @@ fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
             answer(reply, balance, opened(balance))
 
         #Request.Close{reply} ->
-            answer(
-                reply,
-                balance,
-                Maybe.to_result(balance, Error.AccountNotOpen)
-                |> Result.map(fn _ -> None),
-            )
+            answer(reply, balance, closed(balance))
 
         #Request.Deposit{amount, reply} ->
             answer(reply, balance, deposited(balance, amount))
@@ -156,6 +151,13 @@ fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
     case balance {
         Some(_) -> Err(.AccountAlreadyOpen)
         None -> Ok(Some(0))
+    }
+}
+
+fn closed(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
+    case balance {
+        Some(_) -> Ok(None)
+        None -> Err(.AccountNotOpen)
     }
 }
 

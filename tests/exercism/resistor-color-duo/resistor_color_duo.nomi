@@ -18,7 +18,7 @@ pub enum Color {
 /// after them, or `None` when there are fewer than two bands.
 pub fn value(bands: List<Color>) -> Maybe<Int> {
     case bands {
-        [first, second, .._] -> Some(digit(first) * 10 + digit(second))
+        [first, second, ..] -> Some(digit(first) * 10 + digit(second))
         _ -> None
     }
 }

@@ -56,7 +56,6 @@ pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) ->
         entries
         |> Iter.sort_by(fn entry -> #(entry.date, entry.description, entry.cents))
         |> Iter.map(&format_entry(currency, style, &1))
-        |> Iter.to_list()
 
     [heading, ..lines]
 }

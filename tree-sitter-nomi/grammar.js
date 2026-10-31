@@ -70,6 +70,14 @@ module.exports = grammar({
   word: $ => $.identifier,
 
   conflicts: $ => [
+    // `x is sql.Error.Closed`: after `is`, a lowercase name is a pattern
+    // that binds it (the compiler's error) or a file qualifying a variant
+    // until the `.` after it decides.
+    [$._case_pattern, $.qualified_variant],
+    // `x is sql.Error.Closed` and `x is Shape.Circle`: an `is` test ends
+    // its expression, so a `.` after a dotted name is the name's next
+    // segment or a field read of the test until the token after decides.
+    [$.qualified_variant],
     // `kit.record! Point` at the top level: a qualified keyword is a
     // keyword declaration's or a field access until the `!` or the name
     // after it decides.
@@ -349,7 +357,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -1064,6 +1072,7 @@ module.exports = grammar({
       alias($.lambda_body_unwrap_expression, $.unwrap_expression),
       alias($.lambda_body_try_expression, $.try_expression),
       $.lambda_body_binary_expression,
+      alias($.lambda_body_is_expression, $.is_expression),
       $.lambda_body_range_expression,
       $.lambda_body_unary_expression,
       $.dbg_expression,
@@ -1439,6 +1448,7 @@ module.exports = grammar({
       $.type_field_access,
       $.unwrap_expression,
       $.binary_expression,
+      $.is_expression,
       $.range_expression,
       $.unary_expression,
       $.pipe_expression,
@@ -1499,6 +1509,7 @@ module.exports = grammar({
       $.field_access,
       $.type_field_access,
       $.binary_expression,
+      $.is_expression,
       $.range_expression,
       $.unary_expression,
       $.pipe_expression,
@@ -1815,8 +1826,9 @@ module.exports = grammar({
       $.list_pattern,
       $.vector_pattern,
       $.set_pattern,
-      // String prefix pattern: "hello" + rest
-      seq($.string, '+', $.identifier),
+      // String prefix pattern: "hello" + rest. Above the pattern's own
+      // precedence, so after `is` the `+` continues the pattern.
+      prec(3, seq($.string, '+', $.identifier)),
       // Negative literal: -1, -3.14, -1.50d
       seq('-', choice($.integer, $.float, $.decimal)),
       $.or_pattern,
@@ -1980,6 +1992,7 @@ module.exports = grammar({
     binary_expression: $ => choice(
       ...[
         ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
+        ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
         ['==', 4], ['!=', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
       ].map(([op, p]) =>
         prec.left(p, seq($._expression, op, $._expression))
@@ -1991,6 +2004,7 @@ module.exports = grammar({
     lambda_body_binary_expression: $ => choice(
       ...[
         ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
+        ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
         ['==', 4], ['!=', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
       ].map(([op, p]) =>
         prec.left(p, seq($._lambda_body_expression, op, $._lambda_body_expression))
@@ -1998,6 +2012,16 @@ module.exports = grammar({
       prec.left(3, seq($._lambda_body_expression, 'and', $._lambda_body_expression)),
       prec.left(2, seq($._lambda_body_expression, 'or', $._lambda_body_expression)),
     ),
+
+    // `value is Pattern`: whether the value matches the pattern, as a `case`
+    // arm's would. It binds like `==` (4), so `not x is P` negates the test
+    // and `xs |> List.head() is Some(_)` tests the pipe's result. The pattern
+    // holds an `or` only in parentheses (`kind is (.A or .B)`): a bare `or`
+    // after it is the Boolean `or`, since `or_pattern` (2) binds below the
+    // test. The compiler rejects a chain with a comparison (`a == b is P`,
+    // `x is P == b`), which this grammar reads left to right.
+    is_expression: $ => prec.left(4, seq(field('value', $._expression), 'is', field('pattern', $._case_pattern))),
+    lambda_body_is_expression: $ => prec.left(4, seq(field('value', $._lambda_body_expression), 'is', field('pattern', $._case_pattern))),
 
     // Range literal — bounded binary form only (`1..5`, `1..=5`).
     // Open-ended forms (`..5`, `1..`, `..`) were removed in favour of
@@ -2008,13 +2032,28 @@ module.exports = grammar({
     range_expression: $ => prec.left(7, seq($._expression, choice('..', '..='), $._expression)),
     lambda_body_range_expression: $ => prec.left(7, seq($._lambda_body_expression, choice('..', '..='), $._lambda_body_expression)),
 
-    // Prefix unary operators: logical not (`!`) and arithmetic negation (`-`).
-    // prec 10 binds tighter than binary `*`/`/` (9) and `+`/`-` (8), so
-    // `-2 * 3` is `(-2) * 3` and `a - -b` is `a - (-b)`. Mirrors the Go
-    // parser, which already represents `-x` as a unary expression.
-    unary_expression: $ => prec(10, choice(seq('!', $._expression), seq('-', $._expression))),
-    lambda_body_unary_expression: $ => prec(10, choice(seq('!', $._lambda_body_expression), seq('-', $._lambda_body_expression))),
-    pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, $.pipe_if_expression, $.then_stage, $.tap_stage))),
+    // Prefix unary operators: arithmetic negation (`-`) and bitwise not
+    // (`~~~`) at prec 10, which binds tighter than binary `*`/`/` (9) and
+    // `+`/`-` (8), so `-2 * 3` is `(-2) * 3` and `a - -b` is `a - (-b)`; and
+    // logical `not` at prec 4, right-associative, as Python places it: it
+    // takes everything down to `==` (`not a == b` is `not (a == b)`, `not x
+    // |> f()` is `not (x |> f())`) and leaves `and` and `or` outside it.
+    // Mirrors the Go parser, which represents each as a unary expression.
+    unary_expression: $ => choice(
+      prec(10, seq('-', $._expression)),
+      prec(10, seq('~~~', $._expression)),
+      prec.right(4, seq('not', $._expression)),
+    ),
+    lambda_body_unary_expression: $ => choice(
+      prec(10, seq('-', $._lambda_body_expression)),
+      prec(10, seq('~~~', $._lambda_body_expression)),
+      prec.right(4, seq('not', $._lambda_body_expression)),
+    ),
+    // A pipe stage may start with `not`, which negates the stage's result:
+    // `x |> not f() |> g()` is `(x |> not f()) |> g()`, so the stage binds
+    // above `|>` (6).
+    _not_stage: $ => prec.right(7, seq('not', choice($._expression, alias($._not_stage, $.unary_expression)))),
+    pipe_expression: $ => prec.left(6, seq($._expression, '|>', choice($.bare_assertion, $.assertion, $._expression, alias($._not_stage, $.unary_expression), $.pipe_if_expression, $.then_stage, $.tap_stage))),
     dbg_expression: $ => prec.right(1, seq('dbg', optional(seq($._same_line, field('value', $._expression))))),
     // A placeholder for code not yet written: `todo` or `todo "reason"`. The
     // reason is a string literal; the compiler rejects an interpolated one.
@@ -2183,18 +2222,10 @@ module.exports = grammar({
 
     // A capture: `&` against a function's body, which is one postfix-level
     // operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
-    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`),
-    // or the negation of one (`&!f(&1)`).
+    // (`&(&1 > 2)`) or a literal (`&#Point{x: &1}`, `&#(&1, 0)`, `&[&1]`).
     // It binds below a call and above every binary operator, so
     // `&f(&1)(2)` captures both calls and `&f(&1) + 1` adds to the capture.
-    capture: $ => prec(10, seq('&', field('body', choice(
-      $._capture_body,
-      alias($._negated_capture_body, $.unary_expression),
-    )))),
-    _negated_capture_body: $ => prec(10, seq('!', choice(
-      $._capture_body,
-      alias($._negated_capture_body, $.unary_expression),
-    ))),
+    capture: $ => prec(10, seq('&', field('body', $._capture_body))),
     _capture_body: $ => prec(10, choice(
       $.call_expression,
       $.unwrap_expression,

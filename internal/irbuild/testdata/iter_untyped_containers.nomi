@@ -46,7 +46,7 @@ fn main() {
     // EMPTY LIST as an Iter source. Every terminal must answer for an empty
     // walk.
     io.print("${Iter.is_empty([])}")
-    io.print("${!Iter.is_empty([])}")
+    io.print("${not Iter.is_empty([])}")
     io.print("${Iter.count([])}")
     io.print("${[] |> Iter.chunks(2) |> Iter.to_list() |> List.equal([])}")
     io.print("${[] |> Iter.to_list() |> List.equal([])}")

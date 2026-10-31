@@ -13,19 +13,11 @@ pub enum Error {
 pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
     size = String.length(series)
 
-    if size == 0 {
-        Err(.EmptySeries)
-    } else if length < 0 {
-        Err(.NegativeLength)
-    } else if length == 0 {
-        Err(.ZeroLength)
-    } else if length > size {
-        Err(.LengthTooLarge)
-    } else {
-        series
-        |> Iter.windows(length)
-        |> Iter.map(String.join)
-        |> Iter.to_list()
-        |> Ok()
+    case {
+        size == 0 -> Err(.EmptySeries)
+        length < 0 -> Err(.NegativeLength)
+        length == 0 -> Err(.ZeroLength)
+        length > size -> Err(.LengthTooLarge)
+        _ -> series |> Iter.windows(length) |> Iter.map(String.join) |> Iter.to_list() |> Ok()
     }
 }

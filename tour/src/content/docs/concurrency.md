@@ -18,8 +18,8 @@ One function can use both. A request handler might compute its response in
 a `concurrent` block, then give an audit write to a supervisor. The response
 goes back without waiting for the audit.
 
-Each task runs as a Go goroutine, and channels work much like Go channels,
-so tasks are cheap to start. When you limit how many run at once, the reason
+Each task runs as a Go goroutine, so tasks are cheap to start. Channels work
+much like Go channels. When you limit how many tasks run at once, the reason
 is usually what the work talks to: a database pool, an API's rate limit, a
 single worker, or the number of CPU cores.
 
@@ -59,8 +59,8 @@ dbg line 15: total = 120
 
 The compiler checks two rules. You must use each task's handle before the
 block ends, and the handle can't leave the block. `Task.await` is one way to
-use a handle. [`Task.outcome`](#when-a-task-actually-breaks), later on this
-page, is the other.
+use a handle. [`Task.outcome`](#when-a-task-fails), later on this page, is the
+other.
 
 `Task.spawn` doesn't name an owner, because the enclosing `concurrent` block
 is the only one it could be. Supervisors, later on this page, are owners
@@ -105,7 +105,7 @@ fn main() {
         p3 = Task.spawn(fn -> produce(ch.sender, 30))
         cons = Task.spawn(fn -> consume(ch.receiver))
 
-        // Drain the producers, close so the consumer's loop ends on None.
+        // Wait for the producers, then close so the consumer's loop ends on None.
         Task.await(p1)
         Task.await(p2)
         Task.await(p3)
@@ -280,8 +280,9 @@ list, and the other two still finish.
 
 `max_running` is required. For work that only uses the CPU, the number of
 cores is a good choice. For most other work, the limit protects something
-the tasks talk to: a pool, a queue, an API, or a single worker. Nomi makes
-you choose the number instead of guessing one.
+the tasks talk to: a pool, a queue, an API, or a single worker. If you don't
+know, start low; a limit that is too low is only slower, and you can measure
+it and raise it.
 
 The limit goes on the spawn, because by the time you await, the work is
 already running. Each batch has its own limit, because one block may talk to
@@ -314,29 +315,12 @@ outcomes = concurrent {
     |> Task.await_all()
 }
 
-failures = Iter.filter(outcomes, fn r -> Result.is_err(r))
+failures = Iter.filter(outcomes, Result.is_err)
 ```
 
 The stopping in [Errors cancel siblings](#errors-cancel-siblings) happens
 because a `?` sees an `Err`, or because a task breaks. Here, nothing uses
-`?` on the results, so each `Err` is just a value in the list.
-
-### Choosing `max_running`
-
-Pick the number based on what the tasks talk to and how much load it can
-take.
-
-| The work talks to | Use |
-| --- | --- |
-| A database | Your connection pool size or less. More just queue inside the driver. |
-| An API you own | Tens, and watch how the other side copes |
-| A third party with a rate limit | The limit, with room left for retries |
-| One long-lived worker | `1` |
-| Only the CPU | The number of cores |
-
-If you don't know, start low. A limit that is too low makes things slower,
-which you can measure and then raise. A limit that is too high can cause
-errors in the system you are calling.
+`?` on the results, so each `Err` is a value in the list.
 
 ---
 
@@ -361,7 +345,7 @@ Make one supervisor for each set of rules your app needs. Build them in
 
 ```nomi
 import {
-    std/channels.{Channel, Receiver, Sender}
+    std/channels.Channel
     std/duration.Duration
     std/supervisors.Supervisor
 }
@@ -387,8 +371,8 @@ fn boot() -> Result<Config, String> {
 
 - `max_running:` is required. It is how many of this supervisor's tasks can
   run at once. A supervisor for one long-lived worker uses
-  `max_running: 1`. For anything else, see
-  [Choosing `max_running`](#choosing-max_running).
+  `max_running: 1`. For anything else, choose it as for
+  [a batch](#running-a-batch).
 - `shutdown_timeout:` is how long the program waits for this supervisor's
   work when it shuts down. Each supervisor has its own. The default is five
   seconds, so most examples below leave it out. Set it when the work is
@@ -436,7 +420,9 @@ running under their supervisors.
 cancel either task, so it throws the handle away with `_ =`.
 
 Here is a complete program. It builds a supervisor in `boot`, starts two
-tasks under it, and the handler returns before either task finishes:
+tasks under it, and the handler returns before either task finishes.
+[`Supervisor.flush`](/reference/supervisors/#supervisorflush) waits until
+every task under the supervisor has finished:
 
 ```nomi-run
 import {
@@ -463,13 +449,9 @@ fn boot() -> Result<Config, String> {
 }
 
 fn record_audit(id: Int) -> Unit {
-    // Stands in for the slow part — a write, an API call.
+    // Stands in for the slow part: a write or an API call.
     timer.sleep(Duration.milliseconds(50))
-
-    case Sender.send(Config.written.sender, id) {
-        Ok(_) -> Unit
-        Err(_) -> Unit
-    }
+    _ = Sender.send(Config.written.sender, id)
 }
 
 fn handle_order(id: Int) -> String {
@@ -477,12 +459,10 @@ fn handle_order(id: Int) -> String {
     "order ${id} accepted"
 }
 
-// Both ids are on the channel by the time this runs, but in whichever
-// order the two tasks got there — so it sums them rather than reading
-// them one at a time and claiming an order.
+// The two ids arrive in either order, so this sums them.
 fn audited_total() -> Int {
-    first = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
-    second = Maybe.with_default(Receiver.receive(Config.written.receiver), 0)
+    first = Receiver.receive(Config.written.receiver)!
+    second = Receiver.receive(Config.written.receiver)!
     first + second
 }
 
@@ -490,15 +470,15 @@ fn main() {
     dbg handle_order(1)
     dbg handle_order(2)
 
-    // Only here, at the end, do we wait for the audit trail.
+    // Wait for the audit trail only here, at the end.
     _ = Supervisor.flush(Config.audit)
     dbg audited_total()
 }
 ```
 <!-- expect
-dbg line 49: handle_order(1) = "order 1 accepted"
-dbg line 50: handle_order(2) = "order 2 accepted"
-dbg line 54: audited_total() = 3
+dbg line 43: handle_order(1) = "order 1 accepted"
+dbg line 44: handle_order(2) = "order 2 accepted"
+dbg line 48: audited_total() = 3
 -->
 
 Both responses come back before either audit is written. Either audit may
@@ -539,7 +519,7 @@ fn handle_order(id: Int) -> Response {
         Err(e) -> error_response(id, e)
     }
 
-    // Outlives the call — the response goes back without waiting.
+    // Outlives the call: the response goes back without waiting.
     _ = Supervisor.spawn(Config.audit, fn -> record_audit(id, resp))
     resp
 }
@@ -568,7 +548,7 @@ A second Ctrl-C skips the wait and exits immediately.
 Here is a common bug with background work:
 
 ```nomi
-// Rejected at compile time — send_email returns Result, and nobody
+// Rejected at compile time: send_email returns a Result, and nobody
 // is around to look at it.
 _ = Supervisor.spawn(Config.notify, fn -> send_email(user.email, body))
 ```
@@ -587,7 +567,7 @@ fn send_welcome(user: User) -> Unit {
     // The work. This is what takes time; the task isn't done until it returns.
     sent = send_email(user.email, welcome_body(user))
 
-    // The decision. Both branches end in Unit — nothing left unhandled.
+    // The decision. Both branches end in Unit, so nothing is left unhandled.
     case sent {
         Ok(_) -> Unit
         Err(e) -> report(Config.alerts, "welcome to ${user.email} failed: ${e}")
@@ -597,10 +577,7 @@ fn send_welcome(user: User) -> Unit {
 // Failures nobody is awaiting go on a channel, for a long-lived consumer
 // to drain. A full alerts queue at shutdown is not worth crashing over.
 fn report(ch: Channel<String>, msg: String) -> Unit {
-    case Sender.send(ch.sender, msg) {
-        Ok(_) -> Unit
-        Err(_) -> Unit
-    }
+    _ = Sender.send(ch.sender, msg)
 }
 ```
 
@@ -649,8 +626,8 @@ fn main() {
     outcome = concurrent {
         conn = Task.spawn(fn -> serve_conn())
         Task.cancel(conn)
-        // `outcome`, not `await` — inheriting a cancellation you asked for
-        // makes no sense.
+        // `Task.await` on a cancelled task would cancel this block too;
+        // `Task.outcome` reports it instead.
         Task.outcome(conn)
     }
 
@@ -669,15 +646,9 @@ Cancelling a task also cancels everything it started. If `serve_conn` ran
 its read and write loops in its own `concurrent` block, cancelling the task
 stops those loops too.
 
-Some more rules:
-
-- You can drop the handle. The supervisor still owns the task and still
-  waits for it at shutdown. The handle only gives you a way to stop the task
-  early.
-- Cancelling a task twice does nothing the second time. So does cancelling a
-  task that shutdown already cancelled.
-- A task can't avoid shutdown. A task is cancelled whenever its owner is, so
-  `SIGTERM` always reaches it.
+You can drop a supervised task's handle. The supervisor still owns the task
+and still waits for it at shutdown; the handle only gives you a way to stop
+the task early.
 
 `Task.cancel` works on tasks in a `concurrent` block too. For example, when
 several tasks race, you can stop the ones that lose. You still have to await
@@ -708,17 +679,15 @@ return `Cancelled`. Put cleanup in a `defer`, which runs however the work
 ends.
 
 A `Context` holds a deadline and any typed values you add to it. It has no
-"cancelled" flag. `Context.deadline_remaining` returns `Some(0)` once the
-deadline has passed, but that only tells you about the clock. A task never
-reads whether it was cancelled; the runtime stops it.
+"cancelled" flag. `Context.deadline_remaining` returns a zero `Duration` once
+the deadline has passed, but that only tells you about the clock. A task
+never reads whether it was cancelled; the runtime stops it.
 
 Second, you can give the work a deadline by deriving a new context:
 
 ```nomi
 fn send_welcome(user: User) -> Unit {
-    // `deliver` is the body from the section above, under its own name: the
-    // part that sends and turns the mail server's Result into Unit. All
-    // `send_welcome` adds is a ceiling everything below inherits.
+    // `deliver` sends the email and reports a failure, as `send_welcome` did above.
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(30))
     deliver(user)
 }
@@ -732,20 +701,15 @@ A task under a supervisor doesn't get the deadline of the code that started
 it. Its owner is the supervisor, and the supervisor's limit is its
 `shutdown_timeout:`. If background work had the request's deadline, the
 request's deadline would stop it, and the point of running it in the
-background is to let it outlast the request. The
-context's values do carry over, so a trace id set on the request can still
-be read in the background task. Only the deadline is dropped.
+background is to let it outlast the request. The context's values do carry
+over. `Context.with_value(Config.context, TraceId("t-1"))` adds a value, and
+`Context.value(Config.context, TraceId)` reads it, in the background task
+too. Only the deadline is dropped.
 
 A task in a `concurrent` block does get the caller's deadline, because the
 caller is waiting for it.
 
-A `Duration` you pass to `timer.sleep` is how long that one call waits. A
-deadline is how long the caller lets the whole piece of work run. Whichever
-is shorter wins.
-
-A deadline can only get shorter. A context inside it can't extend it, and
-switching to a context with no deadline doesn't remove it. You usually set
-one deadline for a whole section of code, and everything inside gets it.
+A deadline can only get shorter: a context made inside it can't extend it.
 
 ### A deadline aborts; it doesn't return
 
@@ -757,9 +721,7 @@ So this attempt to try for a while and then fall back does not work:
 
 ```nomi
 fn attempt() -> String {
-    // Broken: the `with` line covers the rest of the function, the observer
-    // as well as the work, so the deadline is over `Task.outcome` too. The
-    // observer unwinds along with the work and the `case` never runs.
+    // Broken: the deadline covers the `case` too, so the `case` never runs.
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(1))
 
     outcome = concurrent {
@@ -768,7 +730,7 @@ fn attempt() -> String {
     }
 
     case outcome {
-        .Completed(v) -> "got " + Display.to_string(v)
+        .Completed(v) -> "got ${v}"
         .Cancelled -> "timed out, falling back"
         .Failed(_) -> "broke"
     }
@@ -812,7 +774,7 @@ fn main() {
 
     // Reached because `Task.outcome` sits outside the deadline.
     result = case outcome {
-        .Completed(v) -> "got " + Display.to_string(v)
+        .Completed(v) -> "got ${v}"
         .Cancelled -> "timed out, falling back"
         .Failed(_) -> "broke"
     }
@@ -827,7 +789,7 @@ dbg line 39: result = "timed out, falling back"
 The five-minute sleep ends after 50 milliseconds, and the caller gets an
 ordinary value to `case` on.
 
-## When a task actually breaks
+## When a task fails
 
 So far, tasks ended because they finished or because you stopped them. A
 task can also break: a bug, a bad FFI call, a division by zero.
@@ -844,20 +806,13 @@ A task ends in one of three ways:
 cancelled or failed, `await` passes that on to the code that awaited it, as
 if it had happened there.
 
-A task that returns `Err` on purpose has completed. `await` gives you the
-`Err` as a value, and you pass it on with `?`, as in
-[Errors cancel siblings](#errors-cancel-siblings). The two cases travel
-differently:
-
-| What happened | Passed on by | How |
-| --- | --- | --- |
-| The function returned `Err(e)` | `?` | as a value |
-| The task failed or was cancelled | `await` | to the owner, and its owner, and so on |
-
-Nothing at the call site shows the second case. `Task.await` on a
-`Task<Int>` returns an `Int`. Like any other call, it returns its value
-unless something breaks. A failed task is like a division by zero, not like
-an `Err` your code chose to return.
+A task that returns `Err` completed; `?` passes the `Err` on, as in
+[Errors cancel siblings](#errors-cancel-siblings). A failed or cancelled
+task is passed on by `Task.await` itself, up through owners until
+`Task.outcome`, a supervisor or the top of the program stops it. Nothing at
+the call site shows this. `Task.await` on a `Task<Int>` returns an `Int`.
+A failed task is like a division by zero, not like an `Err` your code chose
+to return.
 
 To look at what happened instead of having it passed on, ask for the
 outcome:
@@ -874,99 +829,23 @@ case Task.outcome(worker) {
 on for you. Use `outcome` when you cancelled the task yourself, or when you
 want to check on background work.
 
-If nothing catches a failure, it keeps going up through owners until one of
-these stops it:
-
-| Where | How | When |
-| --- | --- | --- |
-| At the await | `Task.outcome(t)` instead of `Task.await(t)` | You want to check or recover right here |
-| At a supervisor | its restart rule | Background work: restart it, or report it |
-| At the top | nothing; the program exits with an error message | Work that isn't under a supervisor |
-
 So programs can still crash, but an owner always sees the failure:
 
 - A failure under a supervisor doesn't stop the program. The supervisor
   reports it, restarts the task, or gives up, as you told it to.
 - A failure that nothing catches ends the program with a report, not a
-  panic dump.
+  crash dump.
 - You can catch it at any owner along the way with `Task.outcome`.
 
-Nomi values are immutable, so a task that dies halfway through can't leave
-shared data half written. There is no shared data that can change.
-
-## Testing background work
-
-Background work is hard to test. Your test calls the code, the code returns
-at once, and the work happens somewhere else. If you sleep for a while and
-hope, the test is slow and sometimes fails.
-
-`Supervisor.flush` waits until the supervisor's tasks have finished. It
-returns nothing useful when called without a limit, so the examples assign
-it to `_`:
-
-```nomi
-test "signup sends a welcome email" {
-    signup("ada@example.com")
-
-    _ = Supervisor.flush(Config.notify)
-
-    assert was_sent_to("ada@example.com")
-}
-```
-
-To limit how long it waits, pass a `Wait`:
-
-```nomi
-case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5))) {
-    .Flushed -> report_sent()
-    .TimedOut -> carry_on()
-}
-```
-
-The limit is the longest it will wait. It returns as soon as the work is
-done, so a flush that usually takes 3 ms still takes 3 ms. `TimedOut`
-doesn't cancel anything. The work carries on until it finishes or shutdown
-stops it. You just stopped waiting for it.
-
-A context deadline around the call is different:
-
-```nomi
-// Exceeding this deadline aborts the rest of the block.
-with Config.context = Context.with_timeout(Config.context, Duration.seconds(5))
-
-_ = Supervisor.flush(Config.notify)
-```
-
-When a deadline passes, it stops all the code under it. `Wait.UpTo` gives
-you an answer either way. Use a deadline when there's nothing worth doing
-after the limit. Use `Wait.UpTo` when you want to find out and then decide.
-
-In tests, use [`clock Clock.Virtual`](/testing/#virtual-time). With it,
-waiting takes no real time, and work that can never finish is reported as a
-deadlock.
-
-Some things `Supervisor.flush` does not do:
-
-- It never cancels anything, with or without a limit. Shutdown cancels what
-  is left when its timeout runs out. A flush only stops waiting.
-- It doesn't wait only for the work that existed when you called it. If a
-  task starts more work under the same supervisor, flush waits for that too.
-  Work that keeps starting new work never finishes. Use `Wait.UpTo` if that
-  can happen.
-- It tells you nothing about a supervisor whose tasks are
-  [meant to run forever](#work-that-shouldnt-finish). Without a limit it
-  never returns. With a limit it always returns `TimedOut`. To wait for such
-  a worker, send it a request and wait for its reply. When the reply comes,
-  everything you sent before the request has been handled.
-
-Outside tests, you can call flush at a checkpoint, for example to make sure
-the queued notifications went out before you report success.
+Nomi values are immutable, so a task that dies halfway can't leave in-memory
+data half written. Writes it made outside the program, to a file or a
+database, stay made.
 
 ## Restarting work that breaks
 
 By default a supervisor restarts nothing. That default is
-`Restart.Temporary`. Choose another restart rule when a failed task should
-run again:
+`Restart.Temporary`, which only reports failures. Choose another restart
+rule when a failed task should run again:
 
 ```nomi
 fn boot() -> Result<Config, String> {
@@ -993,8 +872,6 @@ fn boot() -> Result<Config, String> {
 `Restart.Transient` restarts a task that failed. A task that completed, or
 that you cancelled, is not restarted.
 
-A supervisor without `restart:` only reports failures.
-
 ### Work that shouldn't finish
 
 A restart happens when a task fails. For one-off work, a task that returns
@@ -1006,12 +883,13 @@ Nomi can't tell these apart, so you say which one you have:
 ```nomi
 workers: Supervisor.new(
     max_running: 8,
-    restart: Restart.Permanent),
+    restart: Restart.Permanent,
+),
 ```
 
 `Restart.Permanent` means the work should never end on its own. If a task
 returns, that counts as a failure, so it is reported and restarted. Without
-it, the worker would stop while `boot` still treats it as running.
+it, a worker that returned would stay stopped and nothing would report it.
 
 Being cancelled isn't returning on its own, so shutdown still works. When
 shutdown or `Task.cancel` stops a permanent task, it is cancelled, not
@@ -1020,18 +898,9 @@ failed.
 ### Restarts wait, and the wait grows
 
 A task that fails at once and restarts at once could loop, use up the CPU,
-and fill the logs. So restarts wait. The first wait is one second. Each
-wait after that is twice as long, up to a maximum of one minute. A little
-randomness is added, so many identical tasks don't all retry at the same
-moment.
-
-You set the limits: `max_restarts` and `max_elapsed`.
-
-If a task runs for longer than one minute, the longest wait, and then fails,
-it counts as recovered. The next failure starts again from a one-second
-wait, with the restart count and the clock reset. So a worker that fails
-once a month isn't affected by last month's failure. If shutdown starts
-while a task is waiting to restart, it isn't restarted.
+and fill the logs. So restarts wait 1 second, then twice as long each time,
+up to a minute. The
+[`Backoff`](/reference/supervisors/#enum-backoff) reference has the details.
 
 ### When it gives up
 
@@ -1047,32 +916,122 @@ those. Then `on_give_up` decides what happens:
   an outbox worker, where the program is no use if the queue isn't being
   processed.
 
-`GiveUp.Exit` doesn't restart the program. Nomi never restarts itself.
-Whatever started the process decides whether to start it again: systemd's
-`Restart=`, a Kubernetes `restartPolicy`, `docker run --restart`, or
-something like them. The new process runs `boot` again and builds its
-connections, app state and supervisors from scratch.
-
-So `Exit` is a poor choice when nothing will restart the process, such as a
-desktop app or an embedded runtime. Use `GiveUp.Report` there, with your own
-monitoring.
+`GiveUp.Exit` doesn't restart the program; whatever started the process
+decides that. So `Exit` is a poor choice when nothing will restart the
+process, such as a desktop app. Use `GiveUp.Report` there.
 
 `max_restarts` counts restarts, not runs. With
 `#Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}`,
 the email is sent at most four times: the first try, then three retries
 after waits of 1s, 2s and 4s.
 
-Choose `max_restarts` and `max_elapsed` to match the outage you want to
-survive. Whichever limit is reached first stops the retries. The worker
-above keeps trying through about an hour of database downtime. Three
-retries would give up much sooner.
+A task can retry its own `Err` values in a loop. It can't catch a trap in
+its own code. The restart rule is the first thing that sees those.
 
-A task can retry its own `Err` values in a loop. It can't catch a panic or a
-runtime error inside its own code. The restart rule is the first thing that
-sees those.
+To test restart schedules, use [`clock Clock.Virtual`](#virtual-time). The
+waits are the same as in production, but they take no real time.
 
-To test restart schedules, use `clock Clock.Virtual`. The waits are the same
-as in production, but they take no real time.
+## Testing background work
+
+Background work is hard to test. Your test calls the code, the code returns
+at once, and the work happens somewhere else. If you sleep for a while and
+hope, the test is slow and sometimes fails.
+
+`Supervisor.flush` waits until the supervisor's tasks have finished. Without
+a limit it always returns `Flushed`, so the examples assign it to `_`:
+
+```nomi
+test "signup sends a welcome email" {
+    signup("ada@example.com")
+
+    _ = Supervisor.flush(Config.notify)
+
+    assert was_sent_to("ada@example.com")
+}
+```
+
+To limit how long it waits, pass a `Wait`:
+
+```nomi
+case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5))) {
+    .Flushed -> report_sent()
+    .TimedOut -> carry_on()
+}
+```
+
+The limit is the longest it will wait. It returns as soon as the work is
+done, so a flush that usually takes 3 ms still takes 3 ms. `TimedOut`
+doesn't cancel anything. The work carries on until it finishes or shutdown
+stops it. You only stopped waiting for it.
+
+A context deadline around the call is different:
+
+```nomi
+// Exceeding this deadline aborts the rest of the block.
+with Config.context = Context.with_timeout(Config.context, Duration.seconds(5))
+
+_ = Supervisor.flush(Config.notify)
+```
+
+When a deadline passes, it stops all the code under it. `Wait.UpTo` gives
+you an answer either way. Use a deadline when there's nothing worth doing
+after the limit. Use `Wait.UpTo` when you want to find out and then decide.
+
+Outside tests, you can call flush at a checkpoint, for example to make sure
+the queued notifications went out before you report success.
+
+### Virtual time
+
+A test that waits is slow, and on a busy machine it may fail by accident.
+Add `clock Clock.Virtual` to a group to avoid both. Its tests run under a fake
+clock. Whenever every task in the test is waiting, the clock jumps forward,
+so waiting takes no real time.
+
+```nomi-run
+import {
+    std/duration.Duration
+    std/testing.Clock
+    std/timer
+}
+
+group "retry policy" {
+    clock Clock.Virtual
+
+    test "gives up after backing off" {
+        timer.sleep(Duration.minutes(5))
+        assert True
+    }
+}
+```
+
+That test finishes at once. It also takes the same path every time, because
+the clock only moves when the program is waiting.
+
+`clock` takes an ordinary expression naming a
+[`testing.Clock`](/reference/testing/) variant, so `Clock` has to be imported,
+as above. If you import `std/testing` instead, write
+`clock testing.Clock.Virtual`.
+
+A group's `clock`, `boot` and `setup` lines can be in any order. They always
+run clock first, then boot, then setup. `nomi fmt` moves them to the top of
+the group in that order.
+
+Tests outside a group with a `clock` line use the real clock.
+
+Under the fake clock, a test that can never finish is reported as a deadlock.
+It doesn't hang the run. So you can safely test calls that wait with no
+timeout, such as `Supervisor.flush`.
+
+The fake clock is off by default because it changes how a test behaves:
+
+- Waiting on something outside the program, such as reading input or a real
+  network call, never lets the clock move. The test is reported as deadlocked.
+- Background work still running when a test ends is an error. It does not
+  carry on into the next test.
+- `Instant.now` starts at midnight UTC on 1 January 2000.
+
+The first two usually point to a problem in the test. Still, they change
+behaviour, so each group opts in.
 
 ## Where mutable state lives
 
@@ -1129,20 +1088,13 @@ fn serve(inbox: Channel<Request>) -> Unit {
 }
 
 fn increment(counter: Counter, n: Int) -> Unit {
-    case Sender.send(counter.inbox.sender, .Increment(n)) {
-        Ok(_) -> Unit
-        Err(_) -> Unit
-    }
+    _ = Sender.send(counter.inbox.sender, .Increment(n))
 }
 
 fn get(counter: Counter) -> Int {
     reply = Channel.buffered<Int>(1)
     _ = Sender.send(counter.inbox.sender, #.Get{reply})
-
-    case Receiver.receive(reply.receiver) {
-        Some(v) -> v
-        None -> 0
-    }
+    Receiver.receive(reply.receiver)!
 }
 
 struct Config {
@@ -1161,10 +1113,7 @@ fn main() {
 }
 
 group "a counter server" {
-    // Nothing here sleeps, but the worker blocks on its inbox and the
-    // supervisor drains at the end of every case — both instant under a
-    // virtual clock, and repeatable, which is what you want when the thing
-    // under test is a running server.
+    // Waits take no real time under a virtual clock.
     clock Clock.Virtual
 
     boot boot()
@@ -1172,11 +1121,6 @@ group "a counter server" {
     test "messages accumulate into state a caller can read back" {
         increment(Config.counter, 5)
         increment(Config.counter, 7)
-
-        // `increment` returned the moment the message was queued, so nothing
-        // has necessarily run yet. `get` round-trips through the worker, and
-        // the inbox is FIFO, so both increments are applied by the time the
-        // reply comes back.
         assert get(Config.counter) == 12
     }
 }
@@ -1216,20 +1160,11 @@ The shutdown timeout gives work time to finish. It doesn't guarantee that
 the work happens.
 
 That's fine for a welcome email. It isn't fine for a password reset or a
-receipt. A longer timeout won't fix it. Instead, don't send it in the
-background at all:
-
-1. In the request, write an outbox row to the database in the same
-   transaction as the change itself. Once the transaction commits, the
-   message is safely stored, because it is a row in a database, not a task
-   in memory.
-2. Run a long-lived background worker that processes the outbox: fetch the
-   pending rows, send each message, and mark it sent. If a send fails, the
-   row stays pending and is tried again. If the process dies, the rows are
-   still there when it starts again.
-
-The worker still runs under a supervisor, because it is long-lived
-background work. The send itself doesn't.
+receipt. A longer timeout won't fix it. Instead, write the message as an
+outbox row in the same database transaction as the change itself, and let a
+long-lived worker under a supervisor send the pending rows and mark them
+sent. If the process dies, the rows are still there when it starts again.
+[Databases](/databases/#transactions) shows transactions.
 
 ---
 

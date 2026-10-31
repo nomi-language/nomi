@@ -28,8 +28,7 @@ pub fn classify(number: Int) -> Result<Classification, Error> {
 /// `d` and `number / d`, so the search stops at the square root.
 fn aliquot_sum(number: Int) -> Int {
     divisors =
-        Iter.from(1)
-        |> Iter.take_while(fn d -> d * d <= number)
+        1..=Int.sqrt(number)
         |> Iter.filter(fn d -> number % d == 0)
         |> Iter.map(fn d -> divisor_pair(number, d))
         |> Iter.sum()

@@ -772,6 +772,187 @@ fn main() {
 	}
 }
 
+// A Go *big.Int crosses as an Int of any size, as a parameter and as a
+// result, whether the bound package names it from math/big (`*big.Int`) or
+// the binding is to math/big itself (`*Int`).
+func TestFFIRun_BigIntProjectsToInt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test invokes go run; skipped in -short mode")
+	}
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+
+	projectRoot := t.TempDir()
+	nomiRoot := repoRoot(t)
+
+	bindingDir := filepath.Join(projectRoot, "bigbinding")
+	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
+		t.Fatalf("mkdir bigbinding: %v", err)
+	}
+	mustWriteHelper(t, filepath.Join(bindingDir, "big.go"), `package bigbinding
+
+import "math/big"
+
+func Square(x *big.Int) *big.Int {
+	return new(big.Int).Mul(x, x)
+}
+
+// Bump changes the value it was handed, which must not change the Int the
+// caller holds.
+func Bump(x *big.Int) *big.Int {
+	return x.Add(x, big.NewInt(1))
+}
+`)
+	mustWriteHelper(t, filepath.Join(bindingDir, "go.mod"), `module bigbinding
+
+go 1.26.3
+`)
+	mustWriteHelper(t, filepath.Join(projectRoot, "go.mod"), fmt.Sprintf(`module bigtest
+
+go 1.26.3
+
+require bigbinding v0.0.0
+
+require github.com/nomi-language/nomi v0.0.0
+
+replace bigbinding => ./bigbinding
+
+replace github.com/nomi-language/nomi => %s
+`, nomiRoot))
+	mustWriteHelper(t, filepath.Join(projectRoot, "nomi.toml"), `[module]
+name = "bigtest"
+entry_points = ["main"]
+`)
+	entryPath := filepath.Join(projectRoot, "main.nomi")
+	mustWriteHelper(t, entryPath, `import std/io
+
+gopkg "bigbinding" as bigs
+gopkg "math/big" as big
+
+fn square(x: Int) -> Int go bigs.Square
+fn bump(x: Int) -> Int go bigs.Bump
+fn new_int(x: Int) -> Int go big.NewInt
+fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
+
+fn main() {
+  io.print(square(-98765432109876543210))
+  io.print(square(3))
+  x = 123456789012345678901234567890
+  io.print(bump(x))
+  io.print(x)
+  io.print(new_int(-7))
+  io.print(jacobi(x, 987654321098765432109876543211))
+}
+`)
+
+	res, err := Prepare(entryPath)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	cmd := exec.Command("go", "run", "-mod=mod", res.WrapperPath, wrapperModeFlag, "vmrun", entryPath)
+	cmd.Dir = res.WrapperDir
+	userCwd, _ := os.Getwd()
+	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_USER_CWD="+userCwd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("go run wrapper: %v\nstdout:\n%s\nstderr:\n%s",
+			err, stdout.String(), stderr.String())
+	}
+	got := strings.TrimSpace(stdout.String())
+	want := "9754610579850632525677488187778997104100\n9\n123456789012345678901234567891\n123456789012345678901234567890\n-7\n-1"
+	if got != want {
+		t.Errorf("got %q, want %q\nstderr:\n%s", got, want, stderr.String())
+	}
+}
+
+// A Go result Nomi cannot hold, a nil *big.Int where the binding declares
+// an Int or a time.Time outside an Instant's range, traps at the call naming
+// the Go function.
+func TestFFIRun_UnconvertibleResultsTrap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test invokes go run; skipped in -short mode")
+	}
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+
+	projectRoot := t.TempDir()
+	nomiRoot := repoRoot(t)
+
+	bindingDir := filepath.Join(projectRoot, "results")
+	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
+		t.Fatalf("mkdir results: %v", err)
+	}
+	mustWriteHelper(t, filepath.Join(bindingDir, "results.go"), `package results
+
+import (
+	"math/big"
+	"time"
+)
+
+func Nothing() *big.Int { return nil }
+
+func Far() time.Time { return time.Date(3000, 1, 1, 0, 0, 0, 0, time.UTC) }
+`)
+	mustWriteHelper(t, filepath.Join(bindingDir, "go.mod"), `module results
+
+go 1.26.3
+`)
+	mustWriteHelper(t, filepath.Join(projectRoot, "go.mod"), fmt.Sprintf(`module resultstest
+
+go 1.26.3
+
+require results v0.0.0
+
+require github.com/nomi-language/nomi v0.0.0
+
+replace results => ./results
+
+replace github.com/nomi-language/nomi => %s
+`, nomiRoot))
+	mustWriteHelper(t, filepath.Join(projectRoot, "nomi.toml"), `[module]
+name = "resultstest"
+entry_points = ["nothing", "far"]
+`)
+	for _, c := range []struct{ name, call, want string }{
+		{"nothing", "nothing()", "line 10: `results.Nothing` returned a nil *big.Int, which is not an Int"},
+		{"far", "far() == far()", "line 10: `results.Far` returned 3000-01-01T00:00:00Z, which is not an Instant from 1677-09-21T00:12:43Z to 2262-04-11T23:47:16Z"},
+	} {
+		entryPath := filepath.Join(projectRoot, c.name+".nomi")
+		mustWriteHelper(t, entryPath, `import std/io
+import std/instant.Instant
+
+gopkg "results" as results
+
+fn nothing() -> Int go results.Nothing
+fn far() -> Instant go results.Far
+
+fn main() {
+  io.print(`+c.call+`)
+}
+`)
+		res, err := Prepare(entryPath)
+		if err != nil {
+			t.Fatalf("Prepare: %v", err)
+		}
+		cmd := exec.Command("go", "run", "-mod=mod", res.WrapperPath, wrapperModeFlag, "vmrun", entryPath)
+		cmd.Dir = res.WrapperDir
+		userCwd, _ := os.Getwd()
+		cmd.Env = append(os.Environ(), "NOMI_FFIRUN_USER_CWD="+userCwd)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err == nil {
+			t.Fatalf("%s: the wrapper ran to the end:\n%s", c.name, stdout.String())
+		}
+		if !strings.Contains(stderr.String(), c.want) {
+			t.Errorf("%s: want %q on stderr, got:\n%s", c.name, c.want, stderr.String())
+		}
+		if strings.Contains(stderr.String(), "machine limit") {
+			t.Errorf("%s: a machine limit, not a trap:\n%s", c.name, stderr.String())
+		}
+	}
+}
+
 func TestFFIRun_TimeTimeProjectsToInstant(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test invokes go run; skipped in -short mode")
@@ -1136,5 +1317,118 @@ func TestFFIRun_FastPathNoFFIDeps(t *testing.T) {
 	}
 	if !res.FastPath {
 		t.Errorf("expected FastPath=true for project with no FFI deps; got %+v", res)
+	}
+}
+
+// TestFFIRun_StreamsProjectToReaderAndWriter: a Go io.Writer or io.Reader
+// a function returns is a Writer or Reader over it, closed through its own
+// Close, and a Writer or Reader passed to Go is written or read through the
+// handle: gzip round-trips through Writer.collect and Reader.from_bytes,
+// Go writes to io.stdout in order with io.print, and io.TeeReader copies
+// what the program reads to a Writer.
+func TestFFIRun_StreamsProjectToReaderAndWriter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test invokes go run; skipped in -short mode")
+	}
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+
+	projectRoot := t.TempDir()
+	nomiRoot := repoRoot(t)
+
+	bindingDir := filepath.Join(projectRoot, "streams")
+	if err := os.MkdirAll(bindingDir, 0o755); err != nil {
+		t.Fatalf("mkdir streams: %v", err)
+	}
+	mustWriteHelper(t, filepath.Join(bindingDir, "streams.go"), `package streams
+
+import (
+	"compress/gzip"
+	"io"
+	"strings"
+)
+
+// Gzip and Gunzip answer the interfaces, which is what a binding names;
+// gzip's own constructors answer concrete types.
+func Gzip(w io.Writer) io.WriteCloser { return gzip.NewWriter(w) }
+
+func Gunzip(r io.Reader) (io.ReadCloser, error) { return gzip.NewReader(r) }
+
+func Shout(w io.Writer, s string) error {
+	_, err := io.WriteString(w, strings.ToUpper(s)+"\n")
+	return err
+}
+`)
+	mustWriteHelper(t, filepath.Join(bindingDir, "go.mod"), `module streams
+
+go 1.26.3
+`)
+	mustWriteHelper(t, filepath.Join(projectRoot, "go.mod"), fmt.Sprintf(`module streamtest
+
+go 1.26.3
+
+require streams v0.0.0
+
+require github.com/nomi-language/nomi v0.0.0
+
+replace streams => ./streams
+
+replace github.com/nomi-language/nomi => %s
+`, nomiRoot))
+	mustWriteHelper(t, filepath.Join(projectRoot, "nomi.toml"), `[module]
+name = "streamtest"
+entry_points = ["main"]
+`)
+	entryPath := filepath.Join(projectRoot, "main.nomi")
+	mustWriteHelper(t, entryPath, `import std/io.{self, Reader, Writer}
+
+gopkg "streams" as st
+gopkg "io" as goio
+
+fn gzip(w: Writer) -> Writer go st.Gzip
+fn gunzip(r: Reader) -> Result<Reader, String> go st.Gunzip
+fn shout(w: Writer, s: String) -> Result<Unit, String> go st.Shout
+fn tee(r: Reader, w: Writer) -> Reader go goio.TeeReader
+
+fn main() {
+    #(closed, packed) = Writer.collect(fn w -> {
+        z = gzip(w)
+        _ = Writer.write_text(z, "hello, gzip")
+        Writer.close(z)
+    })
+    io.inspect(closed)
+
+    case gunzip(Reader.from_bytes(packed)) {
+        Ok(r) -> io.inspect(Reader.read_all_text(r))
+        Err(e) -> io.print("gunzip: ${e}")
+    }
+
+    io.print("before")
+    io.inspect(shout(io.stdout, "from go"))
+    io.print("after")
+
+    #(_, copied) = Writer.collect(fn w -> Reader.read_all_text(tee(Reader.from_text("teed"), w)))
+    io.inspect(copied == String.to_bytes("teed"))
+}
+`)
+
+	res, err := Prepare(entryPath)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	cmd := exec.Command("go", "run", "-mod=mod", res.WrapperPath, wrapperModeFlag, "vmrun", entryPath)
+	cmd.Dir = res.WrapperDir
+	userCwd, _ := os.Getwd()
+	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_USER_CWD="+userCwd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("go run wrapper: %v\nstdout:\n%s\nstderr:\n%s",
+			err, stdout.String(), stderr.String())
+	}
+	got := strings.TrimSpace(stdout.String())
+	want := "Ok(Unit)\nOk(\"hello, gzip\")\nbefore\nFROM GO\nOk(Unit)\nafter\nTrue"
+	if got != want {
+		t.Errorf("got %q, want %q\nstderr:\n%s", got, want, stderr.String())
 	}
 }

@@ -134,12 +134,7 @@ fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
             answer(reply, balance, opened(balance))
 
         #Request.Close{reply} ->
-            answer(
-                reply,
-                balance,
-                Maybe.to_result(balance, Error.AccountNotOpen)
-                |> Result.map(fn _ -> None),
-            )
+            answer(reply, balance, closed(balance))
 
         #Request.Deposit{amount, reply} ->
             answer(reply, balance, deposited(balance, amount))
@@ -169,6 +164,13 @@ fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
     case balance {
         Some(_) -> Err(.AccountAlreadyOpen)
         None -> Ok(Some(0))
+    }
+}
+
+fn closed(balance: Maybe<Int>) -> Result<Maybe<Int>, Error> {
+    case balance {
+        Some(_) -> Ok(None)
+        None -> Err(.AccountNotOpen)
     }
 }
 
@@ -207,10 +209,8 @@ enum Step {
 /// answers the balance after them or the refusal.
 fn replay(steps: List<Step>) -> Result<Int, Error> {
     bank_account.with_account(fn account -> {
-        steps
-        |> Iter.map(fn step -> run(account, step))
-        |> Result.collect()
-        |> Result.flat_map(fn _ -> Account.balance(account))
+        _ = steps |> Iter.map(fn step -> run(account, step)) |> Result.collect()?
+        Account.balance(account)
     })
 }
 
@@ -276,8 +276,8 @@ test "Can handle concurrent transactions" {
             1..=1000
             |> Task.spawn_all(
                 fn _ -> {
-                    Account.deposit(account, 1)
-                    |> Result.flat_map(fn _ -> Account.withdraw(account, 1))
+                    Account.deposit(account, 1)?
+                    Account.withdraw(account, 1)
                 },
                 max_running: 100,
             )
@@ -305,7 +305,7 @@ test "errors read as the canonical messages" {
 - Adapted: the exercise asks for a mutable account object whose methods change its balance, safely under concurrent calls. Nomi values are immutable, so the balance is the state of one task, the teller, which answers requests one at a time (`std/tasks` and `std/channels`). An `Account` is the teller's inbox, and each operation sends a request with its own reply channel and waits for the answer. Two tasks never touch the balance, so there is nothing to lock.
 - `Account` is an opaque type over the `Sender` half of the teller's inbox, and the operations are its functions (`Account.deposit(account, 1)`). Code outside the file cannot take it apart, so `Request` stays private.
 - `with_account(body)` makes an account that is not open yet, runs its teller beside `body` inside a `concurrent` block, closes the inbox when `body` returns, and answers what `body` answers. A teller cannot outlive the block that spawned it, so the account is scoped to `body` rather than returned.
-- The teller is an `Iter.loop` whose state is the balance, `None` while the account is not open. `handle` answers one request with the pure functions `opened`, `deposited` and `withdrawn`, which check in the canonical order: not open, then a non-positive amount, then an amount above the balance.
+- The teller is an `Iter.loop` whose state is the balance, `None` while the account is not open. `handle` answers one request with the pure functions `opened`, `closed`, `deposited` and `withdrawn`, which check in the canonical order: not open, then a non-positive amount, then an amount above the balance.
 - The four canonical errors are an `Error` enum with an `impl Display` giving the canonical messages, which one test checks.
 - The canonical cases are lists of operations ending in the one whose result is expected. The test file's `replay` runs a case's operations as `Step`s on a new account, stopping at the first refused one, and then asks the balance, so each row is the operations before the final balance check and the expected `Result<Int, Error>`. A case that ends in a refused operation never reaches the balance check.
 - The 16 sequential cases are one `subtests` table named by the description column. "Can handle concurrent transactions" is its own test: 1000 tasks (100 running at once, `Task.spawn_all`) each deposit 1 and withdraw 1, and the balance is 0 after.

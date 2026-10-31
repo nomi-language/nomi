@@ -35,7 +35,7 @@ fn enum_of(number: Int, line: String) -> Result<String, String> {
         _ -> return Err("enums.choices:${number}: write `Name: first second third`")
     }
 
-    if Some(word) = Iter.find(words, fn w -> !is_snake_case(w)) {
+    if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) {
         return Err("enums.choices:${number}: `${word}` is not a snake_case word")
     }
 

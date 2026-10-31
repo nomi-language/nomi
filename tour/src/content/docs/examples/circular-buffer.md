@@ -39,7 +39,7 @@ impl Buffer<T> {
         if Buffer.is_full(buffer) {
             Err(.Full)
         } else {
-            Ok(#{..buffer, items: List.concat(buffer.items, [item])})
+            Ok(#{..buffer, items: [..buffer.items, item]})
         }
     }
 
@@ -52,7 +52,7 @@ impl Buffer<T> {
             buffer.items
         }
 
-        #{..buffer, items: List.concat(kept, [item])}
+        #{..buffer, items: [..kept, item]}
     }
 
     /// The oldest item and the buffer without it, or `Empty`.
@@ -97,19 +97,17 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
         steps
         |> Iter.map_reduce(fn buffer = Buffer.new(capacity), step -> {
             case step {
-                .Write(item) or .WriteFails(item) -> {
+                .Write(item) or .WriteFails(item) ->
                     case Buffer.write(buffer, item) {
                         Ok(written) -> #(Step.Write(item), written)
                         Err(_) -> #(Step.WriteFails(item), buffer)
                     }
-                }
 
-                .Read(_) or .ReadFails -> {
+                .Read(_) or .ReadFails ->
                     case Buffer.read(buffer) {
                         Ok(#(item, rest)) -> #(Step.Read(item), rest)
                         Err(_) -> #(Step.ReadFails, buffer)
                     }
-                }
 
                 .Clear ->
                     #(Step.Clear, Buffer.clear(buffer))

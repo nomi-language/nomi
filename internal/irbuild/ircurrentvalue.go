@@ -232,6 +232,16 @@ func (bl *irScalarBuilder) setUpdate(t *ast.SetLit) (ir.Temp, kind, bool, bool) 
 	if !ok {
 		return no()
 	}
+	// A base that is another Iter (`%[..maybe, x]`) is made a Set.
+	p, ok := bl.collectSpread(spreadPart{at: spread, v: base, k: bk}, setSpreadJoin)
+	if !ok {
+		return no()
+	}
+	base, bk = p.v, p.k
+	if len(t.Items) == 0 && bk != kindEmptySet {
+		// `%[..maybe]`: the Iter made a Set is the literal.
+		return base, bk, false, true
+	}
 	items := *t
 	items.Spreads = nil
 	// kindInvalid: sentinel — an open base gives the elements no kind.
@@ -336,6 +346,16 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.VectorLit) (ir.Temp, kind, bool, 
 	base, bk, _, ok := bl.lower(spread)
 	if !ok {
 		return no()
+	}
+	// A spread that is another Iter (`#[x, ..maybe]`) is made a Vector.
+	p, ok := bl.collectSpread(spreadPart{at: spread, v: base, k: bk}, vectorSpreadJoin)
+	if !ok {
+		return no()
+	}
+	base, bk = p.v, p.k
+	if len(t.Items) == 0 && bk != kindEmptyVector {
+		// `#[..maybe]`: the Iter made a Vector is the literal.
+		return base, bk, false, true
 	}
 	// kindInvalid: sentinel — an open base gives the elements no kind.
 	elem := kindInvalid

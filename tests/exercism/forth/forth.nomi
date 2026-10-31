@@ -112,7 +112,7 @@ fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error> {
         #(.Add, [b, a, ..rest]) -> Ok([a + b, ..rest])
         #(.Subtract, [b, a, ..rest]) -> Ok([a - b, ..rest])
         #(.Multiply, [b, a, ..rest]) -> Ok([a * b, ..rest])
-        #(.Divide, [0, _, .._]) -> Err(.DivideByZero)
+        #(.Divide, [0, _, ..]) -> Err(.DivideByZero)
         #(.Divide, [b, a, ..rest]) -> Ok([a / b, ..rest])
     }
 }

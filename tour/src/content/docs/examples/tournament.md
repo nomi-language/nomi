@@ -90,7 +90,7 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
         line(s.team, Iter.map(numbers, Int.to_string))
     })
 
-    Ok([line("Team", ["MP", "W", "D", "L", "P"]), ..Iter.to_list(table)])
+    Ok([line("Team", ["MP", "W", "D", "L", "P"]), ..table])
 }
 
 /// The outcome of the match in `row` for each of its two teams.

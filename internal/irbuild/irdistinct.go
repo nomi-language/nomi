@@ -155,7 +155,7 @@ func irDistinctOverValue(d *typeDef) bool {
 
 // irDistinctOverKind reports whether k is a composite distinct whose inner
 // is a map or a list (inner), which a map or list pattern matches through the
-// distinct (`%Kvs{"a" => v}`, `Stack[a, .._]`, or the bare `[a, .._]`).
+// distinct (`%Kvs{"a" => v}`, `Stack[a, ..]`, or the bare `[a, ..]`).
 func irDistinctOverKind(k kind, inner tag) bool {
 	return k.tag == tagNamed && irCompositeDistinct(k.def) && k.def.inner.tag == inner
 }

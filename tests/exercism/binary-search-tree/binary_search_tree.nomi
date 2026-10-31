@@ -34,11 +34,8 @@ impl Tree<T> {
     /// Every value in `tree`, smallest first.
     pub fn sorted(tree: Tree<T>) -> List<T> {
         case tree {
-            .Leaf ->
-                []
-
-            #.Node{left, value, right} ->
-                List.concat(Tree.sorted(left), [value, ..Tree.sorted(right)])
+            .Leaf -> []
+            #.Node{left, value, right} -> [..Tree.sorted(left), value, ..Tree.sorted(right)]
         }
     }
 }

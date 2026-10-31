@@ -211,11 +211,13 @@ func (c *checker) checkPatchLit(lit *ast.StructLit, target Type) (Type, bool) {
 }
 
 // checkSetUpdateLit checks a set literal with spreads, `%[..base, x]` or
-// `%[x, ..s, ..t]`: the union of the spread sets and the elements. The first
-// spread must be a `Set<T>`, every other spread one too, and each element a
-// T; the result has the first spread's type.
+// `%[x, ..s, ..t]`: the union of the spreads and the elements. Each spread
+// is a `Set<T>` or another Iter of T, and each element a T; the result has
+// the first set spread's type (checkSpreadHeads). A lone spread that is a
+// set is its base value; a lone other Iter (`%[..maybe]`) makes a set of
+// it.
 func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
-	head, ok := c.checkSpreadHeads(n.Spreads, expected, setSpreads)
+	head, allSets, ok := c.checkSpreadHeads(n.Spreads, expected, setSpreads)
 	if !ok {
 		for _, item := range n.Items {
 			c.checkNode(item)
@@ -223,7 +225,7 @@ func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
 		return nil
 	}
 	elemTy, _ := setElemType(head)
-	if len(n.Items) == 0 && len(n.Spreads) == 1 {
+	if len(n.Items) == 0 && len(n.Spreads) == 1 && allSets {
 		c.reportEmptySpread(n.Spreads[0], "a set spread with no elements")
 		return head
 	}
@@ -239,16 +241,16 @@ func (c *checker) checkSetUpdateLit(n *ast.SetLit, expected Type) Type {
 // checkVectorUpdateLit checks a vector literal with spreads: `#[..v, x]`,
 // `#[x, ..v]`, `#[..v, x, ..w]`, the spread vectors and the elements joined
 // in the order written; a bare `..` (`#[.., x]`, `#[x, ..]`) stands for the
-// vector at a field or key of an update. The first spread must be a
-// `Vector<T>`, every other spread one too, and each element a T; the result
-// has the first spread's type. elemTy, when not nil, is the element type
+// vector at a field or key of an update. Each spread is a `Vector<T>` or
+// another Iter of T, and each element a T; the result has the first vector
+// spread's type (checkSpreadHeads). elemTy, when not nil, is the element type
 // the context expects, which an open spread (`#[..#[], x]`) takes.
 func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
 	var expected Type
 	if elemTy != nil && !ContainsTypeParam(elemTy) && !containsTypeVar(elemTy) {
 		expected = makeVectorType(elemTy, c.reg)
 	}
-	head, ok := c.checkSpreadHeads(n.Spreads, expected, vectorSpreads)
+	head, allVectors, ok := c.checkSpreadHeads(n.Spreads, expected, vectorSpreads)
 	if !ok {
 		for _, item := range n.Items {
 			c.checkNode(item)
@@ -256,7 +258,7 @@ func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
 		return nil
 	}
 	elemTy, _ = vectorElemType(head)
-	if len(n.Items) == 0 && len(n.Spreads) == 1 {
+	if len(n.Items) == 0 && len(n.Spreads) == 1 && allVectors {
 		c.reportEmptySpread(n.Spreads[0], "a vector spread with no elements")
 		return head
 	}

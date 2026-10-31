@@ -12,12 +12,12 @@ fn main() {
  xs = Iter.filter([1, 2, 3, 4], fn n -> { io.print(n); n > 2 })
  io.print("created")
  io.print(Iter.is_empty(xs))
- io.print(!Iter.is_empty(xs))
+ io.print(not Iter.is_empty(xs))
  io.print(Iter.count(xs))
  io.print(Iter.is_empty(empty()))
- io.print(!Iter.is_empty(empty()))
+ io.print(not Iter.is_empty(empty()))
  io.print(Iter.is_empty([1]))
- io.print(!Iter.is_empty([1]))
+ io.print(not Iter.is_empty([1]))
 }
 `, "0\n0\n3\ncreated\n1\n2\n3\nFalse\n1\n2\n3\nTrue\n1\n2\n3\n4\n2\nTrue\nFalse\nFalse\nTrue\n")
 }

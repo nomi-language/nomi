@@ -8,7 +8,7 @@
 //
 pub fn combinations(sum: Int, size: Int, exclude: List<Int> = []) -> List<List<Int>> {
     1..=9
-    |> Iter.filter(fn digit -> !List.contains(exclude, digit))
+    |> Iter.reject(&List.contains(exclude, &1))
     |> Iter.combinations(size)
     |> Iter.filter(fn combination -> Iter.sum(combination) == sum)
     |> Iter.to_list()

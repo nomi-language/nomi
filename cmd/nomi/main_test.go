@@ -386,8 +386,11 @@ fn main() {
 	if err == nil {
 		t.Fatalf("expected nomi run to fail, got output:\n%s", out)
 	}
-	if !strings.Contains(out, "unmarshal to int8") || !strings.Contains(out, "value 128 overflows") {
-		t.Fatalf("expected int8 overflow in output, got:\n%s", out)
+	if want := "line 8: `widthbinding.DoubleInt8`'s `n` takes an Int that fits in 8 bits; got 128"; !strings.Contains(out, want) {
+		t.Fatalf("expected %q in output, got:\n%s", want, out)
+	}
+	if strings.Contains(out, "BLOCKED") || strings.Contains(out, "machine limit") {
+		t.Fatalf("an Int past the Go slot is a trap, not a machine limit:\n%s", out)
 	}
 	_ = projectRoot
 }
@@ -1018,7 +1021,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"  assert String.find(\"a12b34\", digits) == Some(\"12\")\n"+
 		"  assert String.find(\"abc\", digits) == None\n"+
 		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
-		"  assert Regex.replace_all(\"a12b34\", digits, \"#\") == \"a#b#\"\n"+
+		"  assert String.replace(\"a12b34\", digits, \"#\") == \"a#b#\"\n"+
 		"}\n\n"+
 		"test \"invalid double-quoted regex literals return Err\" {\n"+
 		"  assert Err(_msg) = Regex\"[\"\n"+
@@ -1831,7 +1834,7 @@ func TestTestCommand_AssertionFailureShowsNegatedPredicateInput(t *testing.T) {
 
 test "fails" {
   value: Maybe<Int> = None
-  assert !Maybe.is_none(value)
+  assert not Maybe.is_none(value)
 }
 `)
 	out, err := runNomi(t, cacheRoot, "test", dir)

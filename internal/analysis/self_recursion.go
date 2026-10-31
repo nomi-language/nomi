@@ -563,6 +563,8 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		return r.mustRecurse(x.Fn(), false, clean)
 	case *ast.Unary:
 		return r.mustRecurse(x.Right, false, clean)
+	case *ast.Is:
+		return r.mustRecurse(x.Value, false, clean)
 	case *ast.FieldAccess:
 		return r.mustRecurse(x.Object, false, clean)
 	case *ast.NamedArg:
@@ -798,6 +800,8 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 		return r.mayExit(x.Object)
 	case *ast.Unary:
 		return r.mayExit(x.Right)
+	case *ast.Is:
+		return r.mayExit(x.Value)
 	case *ast.NamedArg:
 		return r.mayExit(x.Value)
 	case *ast.Binary:

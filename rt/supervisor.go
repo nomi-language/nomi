@@ -448,9 +448,10 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 	// budget covers one bout rather than the process lifetime.
 	var troubleStarted time.Time
 
+	stop := stopFlag(taskCtx)
 	for {
 		runStart := time.Now()
-		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, park: g.park, capture: capture, files: files}
+		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, stop: stop, park: g.park, capture: capture, files: files}
 		outcome, failure := runSupervisedBody(body, taskFrame)
 		ranFor := Duration(time.Since(runStart))
 

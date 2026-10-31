@@ -618,13 +618,13 @@ func TestCheckUnaryNegate(t *testing.T) {
 }
 
 func TestCheckUnaryNotBool(t *testing.T) {
-	_, errs := checkSource(`fn f(b: Bool) -> Bool { !b }`)
+	_, errs := checkSource(`fn f(b: Bool) -> Bool { not b }`)
 	expectNoErrors(t, errs)
 }
 
 func TestCheckUnaryNotNonBool(t *testing.T) {
-	_, errs := checkSource(`fn f() -> Bool { !42 }`)
-	expectError(t, errs, "must be Bool")
+	_, errs := checkSource(`fn f() -> Bool { not 42 }`)
+	expectError(t, errs, "`not` takes a Bool, got Int")
 }
 
 // Comparison operators

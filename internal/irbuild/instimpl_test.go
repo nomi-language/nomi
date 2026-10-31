@@ -14,7 +14,7 @@ interface Holds<T> {
     fn holds(b: self, x: T) -> Bool
 
     fn holds_none(b: self, xs: List<T>) -> Bool {
-        Iter.all(xs, fn x -> !Holds.holds(b, x))
+        Iter.all(xs, fn x -> not Holds.holds(b, x))
     }
 }
 

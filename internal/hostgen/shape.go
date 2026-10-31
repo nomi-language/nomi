@@ -328,10 +328,14 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		// them is written when one does rather than guessed at now.
 		return nil, fmt.Errorf("type %s: the adapter generator does not convert this type yet", name)
 	}
-	if len(params) != 0 {
+	home, decl := r.lookup(mod, name)
+	if _, isHost := decl.(*ast.ExternType); len(params) != 0 && !isHost {
+		// A generic host type is one Go handle whatever its type arguments
+		// (std/regex's `Regex<C>`, whose argument only the checker reads), so
+		// it crosses as its handle; any other generic type has a layout per
+		// instance, which no adapter builds.
 		return nil, fmt.Errorf("type %s: a generic user type does not cross the host boundary", name)
 	}
-	home, decl := r.lookup(mod, name)
 	if decl == nil {
 		if r.Unloaded {
 			return &Shape{Kind: SHost, Name: "?" + mod.Name + ":" + name}, nil

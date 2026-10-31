@@ -40,10 +40,9 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
 fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>> {
     coins
     |> Iter.filter(&(&1 <= amount))
-    |> Iter.map(fn coin -> {
+    |> Iter.flat_map(fn coin -> {
         Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
     })
-    |> Maybe.values()
     |> Iter.min_by(Iter.count)
 }
 
@@ -99,4 +98,4 @@ test "find fewest coins" {
 - Each entry is the coin list itself, not a count with a back pointer, so the answer needs no reconstruction pass. The lists share their tails, since each is a coin consed onto an earlier entry.
 - The answer is sorted at the end with `Iter.sort`, smallest coin first, as the canonical data lists it.
 - The two canonical errors are an `Error` enum, `NegativeTarget` and `CannotMakeTarget`, rather than the canonical message strings. A negative target returns early, before the table, since `1..=target` would be empty and answer the 0 entry.
-- The 13 canonical cases are one `subtests` table named by the description column, annotated so the `Ok` and `Err` rows share a type.
+- The 13 canonical cases are one `subtests` table named by the description column. The first error row names the enum, `Err(Error.CannotMakeTarget)`, and the rows after it write `Err(.CannotMakeTarget)`, so the table needs no annotation.

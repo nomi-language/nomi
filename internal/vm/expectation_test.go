@@ -219,9 +219,8 @@ func tourBlock(t *testing.T, chapter, marker string) string {
 // UNLINKED case and require it to fail: a list computed by "which records need
 // a link" would be computed by the very mechanism under test.
 var vmLinkedRecords = []struct{ chapter, marker string }{
-	{"modules-and-imports.md", `name = "myproject"`},        // `io.print(math.double(7))`
-	{"modules-and-imports.md", `name = "vis_demo"`},         // the same program with a private sibling beside it
-	{"modules-and-imports.md", `name = "nested_file_demo"`}, // a sibling named `header`
+	{"modules-and-imports.md", `name = "myproject"`}, // `io.print(math.double(7))`
+	{"modules-and-imports.md", `name = "vis_demo"`},  // the same program with a private sibling beside it
 }
 
 // usesDbg reports whether a block's source spells the `dbg` keyword, read
@@ -317,7 +316,7 @@ func vmRun(path string) (transcript string, reason string) {
 	}
 	// THE WHOLE PROGRAM'S MODULE SET, not just the entry's module. A Nomi
 	// program with sibling files lowers to one `ir.Module` per unit, and a
-	// callee may sit in the module next door (vmLinkedRecords' three
+	// callee may sit in the module next door (vmLinkedRecords' two
 	// modules-and-imports.md blocks). Running the entry's module alone would report them
 	// as a retention boundary when nothing is missing but the link.
 	var out, errOut bytes.Buffer

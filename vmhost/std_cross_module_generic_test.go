@@ -16,7 +16,7 @@ func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testi
 		"\n"+
 		"struct Rule {\n"+
 		"    name: String\n"+
-		"    re: Regex\n"+
+		"    re: Regex<Unit>\n"+
 		"}\n"+
 		"\n"+
 		"fn main() {\n"+
@@ -28,7 +28,7 @@ func TestStdCrossModuleGeneric_NonGenericBodyCallsAnotherModulesGeneric(t *testi
 		"    io.inspect([re])\n"+
 		"    io.inspect(#Rule{name: \"n\", re: re})\n"+
 		"    io.inspect(Some(re))\n"+
-		"    tick = Regex.compile(\"a`b\") |> Result.with_default(re)\n"+
+		"    tick = Regex.compile(\"a`b\")!\n"+
 		"    io.inspect(tick)\n"+
 		"    io.inspect(String.strip_prefix(\"hello world\", \"hello \"))\n"+
 		"    io.inspect(String.strip_suffix(\"hello.txt\", \".txt\"))\n"+

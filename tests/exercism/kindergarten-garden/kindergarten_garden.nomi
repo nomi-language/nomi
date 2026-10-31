@@ -50,11 +50,13 @@ impl Garden {
     /// Reads a diagram of one line per row of cups, or `None` when a letter
     /// names no plant.
     pub fn parse(diagram: String) -> Maybe<Garden> {
-        diagram
-        |> String.lines()
-        |> Iter.map(parse_row)
-        |> Maybe.collect()
-        |> Maybe.map(&#Garden{rows: &1})
+        rows =
+            diagram
+            |> String.lines()
+            |> Iter.map(parse_row)
+            |> Maybe.collect()?
+
+        Some(#Garden{rows})
     }
 
     /// The plants in `student`'s cups: two in each row, left to right, the

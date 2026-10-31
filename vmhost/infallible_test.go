@@ -115,7 +115,7 @@ func TestInfallible_ACallToANeverReturningFunctionStops(t *testing.T) {
 	}{
 		{"statement", "nev()"},
 		{"argument", "io.print(Debug.inspect(twice(nev())))"},
-		{"negation", "io.print(Debug.inspect(!nev()))"},
+		{"negation", "io.print(Debug.inspect(not nev()))"},
 		{"right operand", "io.print(Debug.inspect(1 + nev()))"},
 		{"case subject", "case nev() {\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    }"},
 		{"todo case subject", "case todo {\n        1 -> io.print(\"one\")\n        _ -> io.print(\"other\")\n    }"},

@@ -100,7 +100,7 @@ impl Game {
 
 /// Whether `letter` is in the word and not yet revealed.
 fn is_hidden(game: Game, letter: Codepoint) -> Bool {
-    List.contains(game.word, letter) and !Set.contains(game.revealed, letter)
+    List.contains(game.word, letter) and not Set.contains(game.revealed, letter)
 }
 
 /// `game` with `letter` revealed, won when that reveals the whole word.
@@ -117,9 +117,7 @@ import save_the_cow.{Error, Game, State}
 /// A new game of `word` after each of `guesses` in turn, or the first
 /// guess it refuses.
 fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
-    Iter.reduce(guesses, fn game = Ok(Game.new(word)), letter -> {
-        Result.flat_map(game, &Game.guess(&1, letter))
-    })
+    Iter.try_reduce(guesses, Game.new(word), Game.guess)
 }
 
 test "guess" {
@@ -193,4 +191,5 @@ test "guessing after the game is over" {
 - `Game` is an opaque struct of the word's letters, the set of revealed letters, the failures remaining and the `State`. `guess` is one `case` on the state, with `when` guards for the ongoing game: a letter in the word and not yet revealed reveals it, any other guess (a wrong letter, or a right one guessed again) is a failure, and a failure with none remaining loses. The canonical counts fix that rule: 9 failures remain at the start, 0 after nine and still 0 after the tenth, which loses.
 - Guessing after the game is over is an `Err`, one `Error` variant per outcome, whose `Display` gives the canonical messages.
 - A guess is a `Codepoint`, since the game works letter by letter (style §19), and `masked_word` maps each letter of the word to itself or `_`.
-- The test file's `play` folds the guesses over `Result.flat_map`, so the first refused guess is the answer. The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.
+- The test file's `play` folds the guesses with `Iter.try_reduce(guesses, Game.new(word), Game.guess)`, which stops at the first refused guess and answers its `Err`.
+ The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.

@@ -1,12 +1,13 @@
 import {
     assertions.{Assertable, AssertionDetails}
+    bool.Bool.{self, False, True}
     bytes.Bytes
     display.Display
     equatable.Equatable
     int.Int
     iter.Iter
     maybe.Maybe.{self, None, Some}
-    results.Result
+    results.Result.{self, Err, Ok}
     strings.String
     unit.Unit
 }
@@ -239,6 +240,32 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 //
 pub host fn read_line() -> Result<Maybe<String>, Error>
 
+/// Each line of standard input, as `io.read_line` reads them:
+/// `Reader.lines(io.stdin)`, from the same buffer. It reads as it runs, so
+/// a loop over it handles each line before the next is read, and it runs
+/// once: a second run carries on from where the input is. Inside
+/// `io.capture` it reads the capture's input.
+///
+/// ```nomi
+/// io.lines()
+/// |> Iter.each(fn line -> {
+///     case line {
+///         Ok(text) -> io.print(String.uppercase(text))
+///         Err(e) -> io.eprint(e)
+///     }
+/// })
+/// ```
+//! run = capture("one\ntwo\n", fn -> {
+//!     first = read_line()
+//!     #(first, Result.collect(lines()))
+//! })
+//!
+//! assert run.value == #(Result.Ok(Some("one")), Result.Ok(["two"]))
+//
+pub fn lines() -> Iter<Result<String, Error>> {
+    Reader.lines(stdin)
+}
+
 /// A stream bytes are read from. Standard input is one (`io.stdin`). A
 /// `Reader` is a value that names something outside the program: the value
 /// never changes, and reading it moves the stream it names on.
@@ -350,11 +377,75 @@ impl Reader {
     //! run = capture("one\ntwo\n", fn -> Reader.read_all_text(io.stdin))
     //! assert run.value == Result.Ok("one\ntwo\n")
     //!
-    //! high = Int.to_byte(255)?
-    //! bad = Reader.from_bytes(Bytes.concat(String.to_bytes("hi"), Bytes.from_list([high])))
+    //! bad = Reader.from_bytes(Bytes.concat(String.to_bytes("hi"), Bytes.from_list([255])))
     //! assert Reader.read_all_text(bad) == Result.Err(#Error.InvalidText{path: "<bytes>", offset: 2})
     //
     pub host fn read_all_text(r: Reader) -> Result<String, Error>
+
+    /// Each line left in the stream, without its `\n` and a `\r` before it,
+    /// as `Reader.read_line` reads them. The iterator reads `r` as it runs,
+    /// so it runs once: a second run carries on from where the stream is,
+    /// which after a run to the end yields nothing. A failure (a line that
+    /// is not UTF-8, a read that fails) is an item, and the last one. A
+    /// consumer that stops early leaves the rest of the stream unread, and
+    /// the reader open. `fs.lines(path)` opens the file on each run, so it
+    /// can run again.
+    ///
+    /// ```nomi
+    /// count = Reader.lines(r) |> Iter.count()
+    /// ```
+    //! r = Reader.from_text("pear\r\napple")
+    //! each = Reader.lines(r)
+    //!
+    //! assert Result.collect(each) == Ok(["pear", "apple"])
+    //! assert Iter.to_list(each) == []
+    //!
+    //! bad = Reader.from_bytes(Bytes.concat(String.to_bytes("ok\n"), Bytes.from_list([255, 10, 65])))
+    //!
+    //! assert Iter.to_list(Reader.lines(bad)) == [
+    //!     Ok("ok"),
+    //!     Err(#Error.InvalidText{path: "<bytes>", offset: 0}),
+    //! ]
+    //
+    pub fn lines(r: Reader) -> Iter<Result<String, Error>> {
+        Iter.repeat(r)
+        |> Iter.scan(fn _: Result<String, Error> = Ok(""), reader -> {
+            case Reader.read_line(reader) {
+                Ok(Some(line)) -> Ok(line)
+                Ok(None) -> break
+                Err(e) -> break Err(e)
+            }
+        })
+    }
+
+    /// The rest of the stream in pieces of at most `size` bytes, as
+    /// `Reader.read` reads them. Like `Reader.lines`, it reads `r` as it
+    /// runs, so it runs once, and a failure is the last item.
+    ///
+    /// ```nomi
+    /// sizes =
+    ///     Reader.chunks(r, size: 4096)
+    ///     |> Iter.map(fn chunk -> Result.map(chunk, Bytes.length))
+    ///     |> Result.collect()
+    /// ```
+    //! r = Reader.from_text("abcde")
+    //!
+    //! assert Result.collect(Reader.chunks(r, size: 2)) == Ok([
+    //!         String.to_bytes("ab"),
+    //!         String.to_bytes("cd"),
+    //!         String.to_bytes("e"),
+    //!     ])
+    //
+    pub fn chunks(r: Reader, size: Int = 65536) -> Iter<Result<Bytes, Error>> {
+        Iter.repeat(r)
+        |> Iter.scan(fn _: Result<Bytes, Error> = Ok(String.to_bytes("")), reader -> {
+            case Reader.read(reader, max: size) {
+                Ok(Some(chunk)) -> Ok(chunk)
+                Ok(None) -> break
+                Err(e) -> break Err(e)
+            }
+        })
+    }
 
     /// Copies everything left in `r` into `w` and answers how many bytes it
     /// copied. It reads and writes a chunk at a time, so a large file never
@@ -572,7 +663,144 @@ impl Writer {
     pub fn close_quietly(w: Writer) -> Unit {
         _ = close(w)
     }
+
+    /// Writes each chunk in order and stops at the first failure, which it
+    /// answers. A chunk is pulled when the one before it is written, so the
+    /// sequence may be long.
+    ///
+    /// ```nomi
+    /// Writer.write_all(w, [header, body])?
+    /// ```
+    //! #(written, data) = Writer.collect(fn w -> {
+    //!     Writer.write_all(w, [String.to_bytes("ab"), String.to_bytes("c")])
+    //! })
+    //!
+    //! assert written == Result.Ok(Unit)
+    //! assert data == String.to_bytes("abc")
+    //
+    pub fn write_all(w: Writer, chunks: Iter<Bytes>) -> Result<Unit, Error> {
+        Iter.reduce(chunks, fn written: Result<Unit, Error> = Ok(Unit), chunk -> {
+            case Writer.write(w, chunk) {
+                Ok(_) -> written
+                failed -> break failed
+            }
+        })
+    }
+
+    /// Writes each item's user-facing representation followed by `\n`, as
+    /// `Writer.print` writes one, and stops at the first failure, which it
+    /// answers.
+    ///
+    /// ```nomi
+    /// Writer.write_lines(io.stdout, ["pear", "apple"])?
+    /// ```
+    //! #(_, data) = Writer.collect(fn w -> {
+    //!     Writer.write_lines(
+    //!         w,
+    //!         Iter.from(1)
+    //!         |> Iter.take(3),
+    //!     )
+    //! })
+    //!
+    //! assert data == String.to_bytes("1\n2\n3\n")
+    //!
+    //! full = Writer.from_fn(unbuffered: True, fn _ -> Result.Err(Error.BrokenPipe))
+    //! assert Writer.write_lines(full, ["a", "b"]) == Result.Err(Error.BrokenPipe)
+    //
+    pub fn write_lines<T>(w: Writer, lines: Iter<T>) -> Result<Unit, Error> where T: Display {
+        Iter.reduce(lines, fn written: Result<Unit, Error> = Ok(Unit), line -> {
+            case Writer.write_text(w, "${line}\n") {
+                Ok(_) -> written
+                failed -> break failed
+            }
+        })
+    }
+
+    /// A writer that hands what is written to `write`, for code written
+    /// against `Writer` that should send its bytes somewhere a function can
+    /// reach: a channel, a list, another writer. The writer is buffered, so
+    /// `write` receives what accumulated when the buffer fills and on
+    /// `flush` and `close`, and the boundaries of the program's writes are
+    /// not kept; with `unbuffered: True` each write reaches `write` as it is
+    /// made. `close`, named, runs when the writer is closed, after the last
+    /// bytes. An `Err` from either is the error the write, flush or close
+    /// answers, and a buffered writer answers a failed send's error to every
+    /// later write, as a writer over a file does. Both run on the task that
+    /// writes, flushes or closes. `write` may write to another writer, but
+    /// not to the one it is fed by.
+    ///
+    /// Close the writer when done: once the program no longer holds it, or
+    /// when the program ends, what it still buffers is dropped, since
+    /// nothing may run `write` then.
+    ///
+    /// ```nomi
+    /// w = Writer.from_fn(fn chunk -> Channel.send(sender, chunk))
+    /// ```
+    //! #(_, data) = Writer.collect(fn sink -> {
+    //!     upper = Writer.from_fn(fn chunk -> {
+    //!         text = Bytes.to_string(chunk) |> Result.with_default("")
+    //!         Writer.write_text(sink, String.uppercase(text))
+    //!     })
+    //!
+    //!     _ = Writer.write_text(upper, "hello, ")
+    //!     _ = Writer.write_text(upper, "world")
+    //!     Writer.close(upper)
+    //! })
+    //!
+    //! assert data == String.to_bytes("HELLO, WORLD")
+    //!
+    //! failing = Writer.from_fn(unbuffered: True, fn _ -> Result.Err(#Error.NoSpace{path: "disk"}))
+    //! assert Writer.write_text(failing, "x") == Result.Err(#Error.NoSpace{path: "disk"})
+    //
+    pub fn from_fn(
+        close: () -> Result<Unit, Error> = fn -> Ok(Unit),
+        unbuffered: Bool = False,
+        write: (Bytes) -> Result<Unit, Error>,
+    ) -> Writer {
+        writer_from_fn(write, close, unbuffered)
+    }
+
+    /// Calls `body` with a writer into memory and answers what `body`
+    /// returned and every byte it wrote. The writer is closed when `body`
+    /// returns, so a write through it after that is `Closed`. It is the
+    /// writer a test hands code written against `Writer`;
+    /// `Bytes.to_string` reads the bytes as text.
+    ///
+    /// ```nomi
+    /// #(_, data) = Writer.collect(fn w -> Writer.print(w, "hi"))
+    /// ```
+    //! #(value, data) = Writer.collect(fn w -> {
+    //!     _ = Writer.print(w, "one")
+    //!     _ = Writer.write(w, String.to_bytes("two"))
+    //!     42
+    //! })
+    //!
+    //! assert value == 42
+    //! assert Bytes.to_string(data) == Result.Ok("one\ntwo")
+    //!
+    //! #(kept, _) = Writer.collect(fn w -> w)
+    //! assert Writer.write_text(kept, "late") == Result.Err(Error.Closed)
+    //
+    pub fn collect<T>(body: (Writer) -> T) -> #(T, Bytes) {
+        w = memory_writer()
+        value = body(w)
+        _ = close(w)
+        #(value, collected(w))
+    }
 }
+
+/// `Writer.from_fn`.
+host fn writer_from_fn(
+    write: (Bytes) -> Result<Unit, Error>,
+    close: () -> Result<Unit, Error>,
+    unbuffered: Bool,
+) -> Writer
+
+/// The writer into memory `Writer.collect` hands its body.
+host fn memory_writer() -> Writer
+
+/// Everything written to a `memory_writer`.
+host fn collected(w: Writer) -> Bytes
 
 /// One file open for reads and writes at a position, from `fs.open_file`.
 ///

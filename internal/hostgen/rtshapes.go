@@ -402,3 +402,29 @@ func (g *Generator) outEnum(w *bytes.Buffer, s *Shape, t Type) error {
 	fmt.Fprintf(w, "\t}\n\treturn nil, fmt.Errorf(\"Go %s carries tag %%d, which names no variant of %s\", v.Tag)\n", goT, s.Name)
 	return nil
 }
+
+// goStreams maps the Go stream interfaces that cross as std/io's Reader and
+// Writer to the Nomi host type each projects to. A Go type that is both
+// (io.ReadWriter) projects to neither.
+var goStreams = map[string]string{
+	"io.Reader":      "io.Reader",
+	"io.ReadCloser":  "io.Reader",
+	"io.Writer":      "io.Writer",
+	"io.WriteCloser": "io.Writer",
+}
+
+// rtStreamType and streamWord spell each stream's rt type and the word in
+// its hostadapt converters.
+var (
+	rtStreamType = map[string]string{"io.Reader": "rt.Reader", "io.Writer": "rt.Writer"}
+	streamWord   = map[string]string{"io.Reader": "Reader", "io.Writer": "Writer"}
+)
+
+// goStreamFor is the Nomi stream type a Go interface type t projects to,
+// or "".
+func goStreamFor(t Type) string {
+	if t == nil || t.Kind() != reflect.Interface {
+		return ""
+	}
+	return goStreams[TypeKey(t)]
+}

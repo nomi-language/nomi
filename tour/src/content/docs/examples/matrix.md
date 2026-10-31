@@ -40,8 +40,9 @@ impl Matrix {
     /// The numbers of row `index`, counted from 1, or `None` past the last.
     pub fn row(matrix: Matrix, index: Int) -> Maybe<List<Int>> {
         matrix.rows
-        |> Vector.get(index - 1)
-        |> Maybe.map(Iter.to_list)
+        |> Vector.get(index - 1)?
+        |> Iter.to_list()
+        |> Some()
     }
 
     /// The numbers of column `index`, counted from 1, top to bottom, or
@@ -57,8 +58,9 @@ fn parse_row(line: String) -> Result<Vector<Int>, Error> {
     line
     |> String.words()
     |> Iter.map(fn word -> String.to_int(word) |> Maybe.to_result(Error.NotANumber(word)))
-    |> Result.collect()
-    |> Result.map(Iter.to_vector)
+    |> Result.collect()?
+    |> Iter.to_vector()
+    |> Ok()
 }
 
 // FILE: matrix_test.nomi
@@ -126,6 +128,6 @@ test "an index past the last row or column is None" {
 ## How it's written
 
 - `Matrix.parse` reads the text once into an opaque struct of a `Vector<Vector<Int>>`, so `row` and `column` index it and never parse again. Each line is split with `String.words`, which ignores the different widths of the numbers.
-- A word that is not a number is `Err(Error.NotANumber(word))`, through `Maybe.to_result` per word and `Result.collect` per row and over the rows. The canonical data has no such case; the test file adds one, marked not canonical.
+- A word that is not a number is `Err(Error.NotANumber(word))`, through `Maybe.to_result` per word and `Result.collect()?` per row and over the rows. `row` is `Vector.get(index - 1)?` as one stage of a pipe. The canonical data has no such case; the test file adds one, marked not canonical.
 - `row` and `column` count from 1, as the canonical data does, and answer `Maybe<List<Int>>`: an index past the last row or column is `None`, which the test file also checks outside the canonical cases. `column` is `Vector.get` on every row, gathered with `Maybe.collect`, so it is `None` if any row is too short.
 - The row and column groups are one `subtests` table each, named by the description column. A row's body takes the matrix apart with `assert Ok(matrix) = Matrix.parse(text)`, since a `?` cannot leave a `subtests` row.

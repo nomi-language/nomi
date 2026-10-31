@@ -11,17 +11,17 @@ import (
 
 // A reference editor checks its stdlib module's source afresh
 // (LoadStdlibSource). A typed literal there must be the module's own type:
-// Regex`\d+` passed to `Regex.replace_all` was refused with "argument 1: expected
+// Regex`\d+` passed to a Regex function was refused with "argument 1: expected
 // Regex, got Regex" while the impl index held the shared stdlib's analysis of
 // std/regex in place of the fresh one, so `from_fragments` returned the shared
-// Regex and `replace_all` took the fresh one. `Regex` is a non-generic `host type`,
+// Regex and the function took the fresh one. `Regex` is a non-generic `host type`,
 // which was then compared by object rather than by (file, name), so it split
 // where calendar's opaque structs did not. Either fix alone passes this: the
 // fresh analysis in the index, or host-type identity by (file, name).
 func TestStdlibReference_TypedLiteralIsTheModulesOwnType(t *testing.T) {
 	for _, c := range []struct{ module, body string }{
 		{"regex", "assert String.find(\"order 66\", Regex`\\d+`) == Maybe.Some(\"66\")"},
-		{"regex", "assert Regex.replace_all(\"6 and 7\", Regex`\\d+`, \"#\") == \"# and #\""},
+		{"regex", "assert Regex.pattern(Regex`\\d+`) == \"\\\\d+\""},
 		{"calendar", "assert Date.days_between(Date\"2026-05-04\"?, Date\"2026-05-07\"?) == 3"},
 		{"toml", "assert Toml.text(Toml\"a = 1\") == \"a = 1\""},
 	} {

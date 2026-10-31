@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 629
-declared-cases 3600
+records 637
+declared-cases 3679
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -195,6 +195,21 @@ T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quote
 T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: triple-quoted strings can be empty
 T ok <root>/tests/01-foundations/triple_quoted_strings_test.nomi :: single-line triple-quoted bodies produce their body text
 T test result: ok. 8 passed, 0 failed
+T
+C 01-foundations/writer_fn_test.nomi
+E 0
+N 9
+H e462f781f29b86157f4f9be3ec10d36bc6872f89d5ec73184457903d218d8722
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: a buffered from_fn writer hands on what accumulated, on flush
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: an unbuffered from_fn writer hands on each write
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: close runs after the last bytes, and its error is close's
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: a failing write is the error of the operation that sends the bytes
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: a from_fn writer feeds another writer it holds
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: a from_fn writer inside io.capture prints into the capture
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: collect answers the body's value and the bytes, and closes the writer
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: write_all writes a sequence of chunks
+T ok <root>/tests/01-foundations/writer_fn_test.nomi :: write_all and write_lines stop at the first failure
+T test result: ok. 9 passed, 0 failed
 T
 C 02-testing/assert_refute_test.nomi
 E 0
@@ -485,6 +500,53 @@ H 23f903203043afbad4094cb4f65ee0f3862f4f4a01e424c8cef64441d0ed804b
 T ok <root>/tests/03-tooling-and-diagnostics/unused_import/unused_import_test.nomi :: unused imports report the unused item
 T test result: ok. 1 passed, 0 failed
 T
+C 04-scalars-and-text/bits_test.nomi
+E 0
+N 9
+H aac550752eeeb2443f059d1a6a81a08fd802011dfa37b6e3f7ec642d1471c7fd
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern matches the Ints whose fixed bits it names
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: bits above the pattern's width must be zero
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: the field reads the bits under its letter
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: mask, value and width
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern wider than 64 bits
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: Debug writes the literal as written
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: parse reads text at run time
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: an error says what is wrong with the text
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern with no field letter has no field to read
+T test result: ok. 9 passed, 0 failed
+T
+C 04-scalars-and-text/bitwise_test.nomi
+E 0
+N 14
+H 24e5b676cc10cba49cb1d6cdc66c1a262dcbc48a5cb1aeca40a614bd28b67079
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: each operator on Int
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: the operators are the Int functions
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: shifts and &&& bind like *, ||| and ^^^ like +
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: pipes take the operators' results
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: negative Ints read as two's complement with endless ones
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: shifts past 64 bits are exact
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative shift count stops the program
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative right shift count stops the program
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a type with no impl names the interface
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a Byte has no shift
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: each operator on Byte
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a distinct type opts in with impls
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: bit count and bit length
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative bit count stops the program
+T test result: ok. 14 passed, 0 failed
+T
+C 04-scalars-and-text/byte_literals_test.nomi
+E 0
+N 6
+H 0f0f22ca3f02de03a4e321bf2b6f878efb7fcafdadb74a802d6be85cc468cee9
+T ok <root>/tests/04-scalars-and-text/byte_literals_test.nomi :: an Int literal where a Byte is expected is a Byte
+T ok <root>/tests/04-scalars-and-text/byte_literals_test.nomi :: a literal compares and combines with a Byte
+T ok <root>/tests/04-scalars-and-text/byte_literals_test.nomi :: a case arm's literal pattern over a Byte
+T ok <root>/tests/04-scalars-and-text/byte_literals_test.nomi :: an Int literal elsewhere stays an Int
+T ok <root>/tests/04-scalars-and-text/byte_literals_test.nomi :: a literal outside 0 to 255 is a compile error
+T ok <root>/tests/04-scalars-and-text/byte_literals_test.nomi :: a negative literal is not a Byte
+T test result: ok. 6 passed, 0 failed
+T
 C 04-scalars-and-text/code_points_test.nomi
 E 0
 N 8
@@ -592,8 +654,8 @@ T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/ints_test.nomi
 E 0
-N 12
-H 806f8c139f4956ec843f54901ddc447f0221e2e4ce01d68007a2b47cd353c27a
+N 13
+H a7aa7bd86c43abf7481faab315a0999a95c873027b2b29b92a054038e7c270b6
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: ints convert to floats
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero refinement validates divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: non-zero integers make division total
@@ -606,17 +668,18 @@ T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive integers can be
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: positive refinement rejects zero divisors
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int abs and sign
 T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: int min and max
-T test result: ok. 12 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/ints_test.nomi :: the / operator divides by a non-zero integer
+T test result: ok. 13 passed, 0 failed
 T
 C 04-scalars-and-text/matcher_test.nomi
 E 0
-N 13
-H cf0851ad872efcf4723208bfc90e89fe62bdb14e4ee3af23a3ed58c291267e0e
+N 15
+H 6480d6f628a6c867b1a33226d9952d44421c5c1a6b98df3c01970d10746c97ab
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: split takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: contains takes a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: starts_with and ends_with anchor a regex to that end
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: ends_with finds a match ending at the end, not only the leftmost one
-T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and inserts the replacement literally
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: replace takes a string or a regex and replaces every match
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find_all lists every match
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find returns the first match, from a string or a regex
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find with an empty needle or an empty regex match finds the empty string
@@ -625,7 +688,25 @@ T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: find is the first ele
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a function of your own takes any matcher
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a matcher prints what each call finds
 T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a value that is not a matcher is rejected
-T test result: ok. 13 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a regex replacement expands group references
+T ok <root>/tests/04-scalars-and-text/matcher_test.nomi :: a string or codepoint matcher keeps the replacement literal
+T test result: ok. 15 passed, 0 failed
+T
+C 04-scalars-and-text/not_test.nomi
+E 0
+N 10
+H a59d3c403915867cdb83f5eabda82dae1ebaa28a0f05a30797b1c72e61859661
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: not negates a Bool
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: not takes the comparison to its right
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: and and or take the not to their left
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: not takes a pipeline and the postfix marks
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: not over a ? propagates first
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: a pipe stage can start with not
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: a capture negates in parentheses
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: the C-family ! names not
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: not under a tighter operator asks for parentheses
+T ok <root>/tests/04-scalars-and-text/not_test.nomi :: not takes a Bool
+T test result: ok. 10 passed, 0 failed
 T
 C 04-scalars-and-text/path_test.nomi
 E 0
@@ -678,8 +759,8 @@ T test result: ok. 9 passed, 0 failed
 T
 C 04-scalars-and-text/strings_test.nomi
 E 0
-N 15
-H ecbd4105f738fdb0a924f4e1cd72b86e0a5efdb8b64dd017451727c54d092c0f
+N 19
+H 937c8f0f1166acf9bc694ba89fde4d8301f16ea3fc88cc22167baae8ad73cae0
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings report length containment and slices
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings join and split text
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings expose bytes, graphemes, and codepoints
@@ -689,13 +770,17 @@ T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: strings parse signed 
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: grapheme transforms materialize back to strings
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: normalization is explicit before byte-based equality
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: join reads any iterator of strings and defaults to no separator
-T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures lists the groups of the first match, without the whole match
-T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a group that does not take part is None, and an empty one is Some("")
-T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all lists the groups of every match, left to right
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures gives the groups of the first match as a tuple, without the whole match
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a group a match can leave out is a Maybe, and an empty one is Some("")
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: one group is its text, and a pattern with none answers Unit
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a pattern whose every group is named gives a struct
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a regex compiled while the program runs lists its groups
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a typed regex passes through a generic function
+T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all gives the groups of every match, left to right
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures work over Unicode text
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: captures_all finds the matches find_all finds
 T ok <root>/tests/04-scalars-and-text/strings_test.nomi :: a carriage return is written \r in a string and in its Debug
-T test result: ok. 15 passed, 0 failed
+T test result: ok. 19 passed, 0 failed
 T
 C 04-scalars-and-text/words_and_lines_test.nomi
 E 0
@@ -916,17 +1001,27 @@ T ok <root>/tests/06-collections/sets_test.nomi :: sets can feed iter reductions
 T ok <root>/tests/06-collections/sets_test.nomi :: sets combine with + and -
 T test result: ok. 8 passed, 0 failed
 T
+C 06-collections/spread_diagnostics_test.nomi
+E 0
+N 1
+H bff037a0e55c4b7ead30933aaa417dfe6abaff9d0323e9475a7a639cbdb9600f
+T ok <root>/tests/06-collections/spread_diagnostics_test.nomi :: a spread that is no Iter, or an Iter of other elements, is refused
+T test result: ok. 1 passed, 0 failed
+T
 C 06-collections/spreads_test.nomi
 E 0
-N 6
-H 659a41ef26d557033ef51ab32dcc1018185cea8caadd646fffd6ea7935f3d031
+N 9
+H 1186dfd2331a9228a0e695a999d50a73a21432e022ae5a19606e717f0b6067aa
 T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a map spread goes first, between entries, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a repeated map key takes the later value and keeps the first place
 T ok <root>/tests/06-collections/spreads_test.nomi :: a bare spread stands anywhere, and a map entry after spreads updates what they hold
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Set
+T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread takes any Iter of its elements
+T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread takes any Iter of its elements
+T test result: ok. 9 passed, 0 failed
 T
 C 06-collections/tuples_test.nomi
 E 0
@@ -1237,6 +1332,23 @@ T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: distinc
 T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: list and map distinct sub-patterns
 T ok <root>/tests/08-pattern-matching/distinct_sub_patterns_test.nomi :: a parameter takes a tuple distinct apart
 T test result: ok. 4 passed, 0 failed
+T
+C 08-pattern-matching/is_test.nomi
+E 0
+N 11
+H 48d391d03655c903f8763180ca82181b6eae94886de361dd827785f83f7415b5
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: is tests a variant and its payload
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: an or pattern goes in parentheses
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: literals, string prefixes and nesting
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: collection patterns
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: is binds like ==
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: is in lambdas and captures
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: a name in the pattern is an error
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: a bare or before a pattern asks for parentheses
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: is does not chain with a comparison
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: a pattern that cannot match the type is the case arm's error
+T ok <root>/tests/08-pattern-matching/is_test.nomi :: a pattern that always matches is an error
+T test result: ok. 11 passed, 0 failed
 T
 C 08-pattern-matching/map_binding_else_test.nomi
 E 0
@@ -2345,14 +2457,15 @@ T test result: ok. 5 passed, 0 failed
 T
 C 13-iterators-and-pipes/maybe_iter_test.nomi
 E 0
-N 5
-H e3908a4885bded97eaded5ddae20dd1727faee0194ea9853d7868409c64f184d
+N 6
+H fe70eec3ea859fd51696c369886ccb453efff3400a360d55bf02b0ab84b2ffbf
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Some pushes its value and a None pushes nothing
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe knows its count
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: flat_map keeps the Some values a function answers
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe enters an Iter position
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: Maybe.map and Iter.map stay apart
-T test result: ok. 5 passed, 0 failed
+T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a lambda in a pipeline compares a prelude Maybe
+T test result: ok. 6 passed, 0 failed
 T
 C 13-iterators-and-pipes/min_max_test.nomi
 E 0
@@ -2389,6 +2502,20 @@ T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: partial applications
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: bare dbg pipe stages inspect and pass through the previous value
 T ok <root>/tests/13-iterators-and-pipes/pipes_test.nomi :: pipes into dispatch functions preserve interface dispatch
 T test result: ok. 4 passed, 0 failed
+T
+C 13-iterators-and-pipes/reader_iter_test.nomi
+E 0
+N 8
+H 4c54830c451c7a4bb9b8c8b865476508c8aba091d7512b047295864bb18224e1
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: a reader over text yields its lines
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: the lines of a reader stop where a consumer stops
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: a second run carries on from where the stream is
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: chunks round-trip through from_chunks
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: a failing reader's error is the only item
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: a reader that fails after a line yields the line, then the error
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: io.lines reads the capture's input after io.read_line
+T ok <root>/tests/13-iterators-and-pipes/reader_iter_test.nomi :: io.lines hands over each line before it reads the next
+T test result: ok. 8 passed, 0 failed
 T
 C 13-iterators-and-pipes/scan_map_reduce_test.nomi
 E 0

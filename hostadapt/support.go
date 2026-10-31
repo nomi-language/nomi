@@ -1,10 +1,13 @@
 package hostadapt
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/nomi-language/nomi/rt"
 )
@@ -29,6 +32,65 @@ func Arity(name string, want, got int) error {
 // Arg wraps an operand conversion failure with the adapter and position.
 func Arg(name string, i int, err error) error {
 	return fmt.Errorf("%s: arg %d: %w", name, i, err)
+}
+
+// ConvertError is a value the other side's type cannot hold: an Int past a
+// fixed-width Go integer, a Float past float32, a nil *big.Int, a time.Time
+// outside an Instant's range. It is the program's value that is wrong, not
+// the adapter, so a call that meets one traps as a Nomi fault (Param,
+// Returned) rather than failing the machine.
+type ConvertError struct {
+	// Takes is what the receiving slot holds, in the author's words: "an Int
+	// that fits in 64 bits".
+	Takes string
+	// Got is the value as the author would write or read it.
+	Got string
+	// msg is the conversion's own text, which Error answers where no
+	// binding names it.
+	msg string
+}
+
+func (e *ConvertError) Error() string { return e.msg }
+
+// Param is the failure of converting argument i of the adapter key, which
+// calls fn, whose parameter there is param. A value the parameter's Go type
+// cannot hold is an *rt.Error, which the machine raises at the call as a
+// Nomi fault: "`strconv.FormatInt`'s `i` takes an Int that fits in 64 bits;
+// got 123456789012345678901234567890". Anything else fails as Arg does.
+func Param(key string, i int, fn, param string, err error) error {
+	var ce *ConvertError
+	if !errors.As(err, &ce) {
+		return Arg(key, i, err)
+	}
+	if at := within(err, ce); at != "" {
+		param += "` (" + at + ")"
+	} else {
+		param += "`"
+	}
+	return &rt.Error{Msg: fmt.Sprintf("`%s`'s `%s takes %s; got %s", fn, param, ce.Takes, ce.Got)}
+}
+
+// Returned is the failure of converting fn's result. A value Nomi's
+// declared type cannot hold is an *rt.Error, raised at the call as a Nomi
+// fault: "`big.NewInt` returned a nil *big.Int, which is not an Int".
+// Anything else is err.
+func Returned(fn string, err error) error {
+	var ce *ConvertError
+	if !errors.As(err, &ce) {
+		return err
+	}
+	got := ce.Got
+	if at := within(err, ce); at != "" {
+		got += " at " + at
+	}
+	return &rt.Error{Msg: fmt.Sprintf("`%s` returned %s, which is not %s", fn, got, ce.Takes)}
+}
+
+// within is where in a value its unconvertible part sits, `index 2` for an
+// element of a list, from the path the conversions wrapped ce in; "" when
+// ce is the whole value.
+func within(err error, ce *ConvertError) string {
+	return strings.TrimSuffix(strings.TrimSuffix(err.Error(), ce.Error()), ": ")
 }
 
 // Want is the error for an operand whose dynamic type is not the one the
@@ -247,21 +309,25 @@ type Unsigned interface {
 // at any size and a Go integer is not, so this is where a value too large
 // for the Go side stops, with an error the adapter names its binding in.
 func ToSigned[T Signed](v rt.Value, goType string) (T, error) {
+	var zero T
+	takes := fmt.Sprintf("an Int that fits in %d bits", unsafe.Sizeof(zero)*8)
 	n, ok := v.(int64)
 	if !ok {
-		return 0, overflows(goType, v)
+		return 0, overflows(goType, takes, v)
 	}
 	t := T(n)
 	if int64(t) != n {
-		return 0, overflows(goType, v)
+		return 0, overflows(goType, takes, v)
 	}
 	return t, nil
 }
 
 // ToUnsigned narrows an Int to a Go unsigned type.
 func ToUnsigned[T Unsigned](v rt.Value, goType string) (T, error) {
+	var zero T
+	takes := fmt.Sprintf("an Int from 0 to %d", uint64(^zero))
 	if !rt.IsInt(v) || rt.IntSign(v) < 0 {
-		return 0, overflows(goType, v)
+		return 0, overflows(goType, takes, v)
 	}
 	var u uint64
 	switch x := v.(type) {
@@ -270,28 +336,33 @@ func ToUnsigned[T Unsigned](v rt.Value, goType string) (T, error) {
 	case *rt.BigInt:
 		z := x.Big()
 		if !z.IsUint64() {
-			return 0, overflows(goType, v)
+			return 0, overflows(goType, takes, v)
 		}
 		u = z.Uint64()
 	}
 	t := T(u)
 	if uint64(t) != u {
-		return 0, overflows(goType, v)
+		return 0, overflows(goType, takes, v)
 	}
 	return t, nil
 }
 
-func overflows(goType string, v rt.Value) error {
+// overflows is the failure of narrowing v to goType, which holds takes. A v
+// that is no Int is the adapter's mistake, not the program's.
+func overflows(goType, takes string, v rt.Value) error {
 	if rt.IsInt(v) {
-		return fmt.Errorf("unmarshal to %s: value %s overflows", goType, rt.FormatIntValue(v))
+		got := rt.FormatIntValue(v)
+		return &ConvertError{Takes: takes, Got: got, msg: fmt.Sprintf("unmarshal to %s: value %s overflows", goType, got)}
 	}
 	return fmt.Errorf("unmarshal to %s: %w", goType, Want("Int", v))
 }
 
-// FromBig is a Go *big.Int as an Int. A nil pointer is no number.
+// FromBig is a Go *big.Int as an Int. A nil pointer is no number, so a Go
+// function that returns one where the binding declares an Int traps at the
+// call.
 func FromBig(z *big.Int) (rt.Value, error) {
 	if z == nil {
-		return nil, fmt.Errorf("marshal *big.Int: the pointer is nil")
+		return nil, &ConvertError{Takes: "an Int", Got: "a nil *big.Int", msg: "marshal *big.Int: the pointer is nil"}
 	}
 	return rt.IntFromBig(z), nil
 }
@@ -299,7 +370,11 @@ func FromBig(z *big.Int) (rt.Value, error) {
 // ToFloat32 narrows a Float, refusing a finite magnitude float32 cannot hold.
 func ToFloat32[T ~float32](v float64, goType string) (T, error) {
 	if !math.IsInf(v, 0) && !math.IsNaN(v) && (v > math.MaxFloat32 || v < -math.MaxFloat32) {
-		return 0, fmt.Errorf("unmarshal to %s: value %v overflows", goType, v)
+		return 0, &ConvertError{
+			Takes: "a Float within float32's range",
+			Got:   rt.FormatFloat(v),
+			msg:   fmt.Sprintf("unmarshal to %s: value %v overflows", goType, v),
+		}
 	}
 	return T(v), nil
 }
@@ -313,12 +388,16 @@ var (
 // outside the range UnixNano represents, as the marshaller does.
 func InstantNanos(t time.Time) (int64, error) {
 	if t.Before(instantMinTime) || t.After(instantMaxTime) {
-		return 0, fmt.Errorf(
-			"marshal time.Time: %s is outside Instant's representable range (%s .. %s); "+
-				"UnixNano would wrap silently and name a different moment",
-			t.UTC().Format(time.RFC3339Nano),
-			instantMinTime.UTC().Format(time.RFC3339),
-			instantMaxTime.UTC().Format(time.RFC3339))
+		got := t.UTC().Format(time.RFC3339Nano)
+		lo, hi := instantMinTime.UTC().Format(time.RFC3339), instantMaxTime.UTC().Format(time.RFC3339)
+		return 0, &ConvertError{
+			Takes: "an Instant from " + lo + " to " + hi,
+			Got:   got,
+			msg: fmt.Sprintf(
+				"marshal time.Time: %s is outside Instant's representable range (%s .. %s); "+
+					"UnixNano would wrap silently and name a different moment",
+				got, lo, hi),
+		}
 	}
 	return t.UnixNano(), nil
 }

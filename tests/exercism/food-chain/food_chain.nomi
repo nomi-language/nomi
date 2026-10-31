@@ -45,11 +45,9 @@ fn verse(number: Int) -> List<String> {
     if number > Iter.count(animals) { return horse_verse }
 
     swallowed = animals |> Iter.take(number) |> Iter.reverse()
-    [newest, .._] = swallowed else {
+    [newest, ..] = swallowed else {
         unreachable "every verse up to the cow swallows at least the fly"
     }
-
-    reaction = Iter.to_list(newest.reaction)
 
     chain =
         swallowed
@@ -57,7 +55,6 @@ fn verse(number: Int) -> List<String> {
         |> Iter.map(fn #(predator, prey) -> {
             "She swallowed the ${predator.name} to catch the ${prey.name}${prey.detail}."
         })
-        |> Iter.to_list()
 
-    ["I know an old lady who swallowed a ${newest.name}.", ..reaction] + chain + [closing]
+    ["I know an old lady who swallowed a ${newest.name}.", ..newest.reaction, ..chain, closing]
 }

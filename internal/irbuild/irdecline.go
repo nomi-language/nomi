@@ -382,8 +382,10 @@ func (bl *irScalarBuilder) declineReason(n ast.Node) string {
 		return "an ident kind outside the domain: " + l.k.nomi()
 	case *ast.TypeIdent:
 		return "a type name in value position: " + t.Name
+	case *ast.Is:
+		return "an `is` test's value or pattern"
 	case *ast.Unary:
-		if t.Op != "-" && t.Op != "!" {
+		if t.Op != "-" && t.Op != "not" {
 			return "the unary operator `" + t.Op + "`"
 		}
 		return "a unary operand or its kind"

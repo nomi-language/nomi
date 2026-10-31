@@ -62,7 +62,7 @@ func TestAsPattern_NameHasTheTypeOfItsPosition(t *testing.T) {
 
 fn nested(xs: List<#(Maybe<Int>, String)>, m: Map<String, Kind>, l: Line) -> Int {
     a = case xs {
-        [#(Some(_) as first, label), .._] as all -> Iter.count(all) + Maybe.with_default(first, 0) + String.length(label)
+        [#(Some(_) as first, label), ..] as all -> Iter.count(all) + Maybe.with_default(first, 0) + String.length(label)
         _ -> 0
     }
     b = case m {

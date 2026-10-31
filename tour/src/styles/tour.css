@@ -1082,6 +1082,27 @@ dialog.nomi-modal::backdrop {
 }
 .nomi-split[data-split="tree"] { grid-area: split-tree; }
 .nomi-split[data-split="out"] { grid-area: split-out; }
+.nomi-split[data-split="outh"] { grid-area: split-out; cursor: row-resize; }
+/* The output can sit below the code instead (outPlaceButton in
+   tour-client.mjs): it spans the code, both groups of a split editor, and
+   leaves the file tree its full height. */
+@media (min-width: 901px) {
+  .nomi-interactive.is-modal.nomi-out-below {
+    --nomi-out-h: 35%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 4px var(--nomi-out-h);
+    grid-template-areas: "main" "split-out" "out";
+  }
+  .nomi-interactive.nomi-has-tree.is-modal.nomi-out-below {
+    grid-template-columns: var(--nomi-tree-w) 4px minmax(0, 1fr);
+    grid-template-areas:
+      "tree split-tree main"
+      "tree split-tree split-out"
+      "tree split-tree out";
+  }
+}
+.nomi-out-place { display: none; flex: none; }
+.is-modal .nomi-out-place { display: inline-flex; }
 .nomi-split:hover,
 .nomi-split:focus-visible,
 .nomi-split.is-dragging {
@@ -1199,7 +1220,8 @@ dialog.nomi-modal::backdrop {
 .nomi-move-slot { display: inline-flex; align-items: center; }
 @media (max-width: 900px) {
   .nomi-split { display: none; }
-  .is-modal .nomi-move-controls { display: none; }
+  .is-modal .nomi-move-controls,
+  .is-modal .nomi-out-place { display: none; }
   .nomi-interactive.is-modal {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(6rem, 40%);
@@ -1359,28 +1381,6 @@ dialog.nomi-modal::backdrop {
 .sl-markdown-content .nomi-examples-filter select:focus-visible {
   outline: 2px solid var(--sl-color-text-accent);
   outline-offset: 2px;
-}
-/* The rough edges badge: starting an example page's credit line, and in
-   the Examples table, where the name column is narrow, on its own line
-   under the name and aligned with it. */
-.sl-markdown-content .nomi-rough-badge {
-  display: inline-block;
-  margin-inline-end: 0.25rem;
-  padding: 0 0.4rem;
-  border: 1px solid var(--sl-color-orange);
-  border-radius: 999px;
-  color: var(--sl-color-orange-high);
-  font-size: var(--sl-text-xs);
-  line-height: 1.5;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.sl-markdown-content td .nomi-rough-badge {
-  display: table;
-  margin: 0.3rem 0 0;
-}
-.sl-markdown-content .nomi-rough-badge:hover {
-  background: var(--sl-color-orange-low);
 }
 .sl-markdown-content .nomi-examples-count {
   color: var(--sl-color-gray-3);

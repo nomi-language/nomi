@@ -14,7 +14,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/zebra-puzzle.
 - Each stage carries what came before as a tuple of orders, `#(colors, nations, drinks)`, and takes it apart in its parameter pattern.
 - The puzzle has one solution, so `solve` takes the list of solutions apart with `[solution]`, and anything else is an `unreachable` that says so.
 - `orders` is a `once` of the 120 permutations of the five houses, computed once and shared by every stage. They come from std's `Iter.permutations`.
-- `resident` finds the nationality in a house with guarded arms, one per nationality.
+- `resident` finds the nationality in a house with a `case` of conditions, one arm per nationality (style §35).
+
 
 ## Friction
 

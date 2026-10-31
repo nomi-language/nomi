@@ -30,8 +30,8 @@ pub fn planted_decline() -> Int {
     1
 }
 
-pub fn digits() -> Regex {
-    `+literal+`
+pub fn digits() -> List<String> {
+    String.find_all("a1", `+literal+`)
 }
 `)
 	return write("main.nomi", `import {
@@ -41,7 +41,7 @@ pub fn digits() -> Regex {
 }
 
 fn main() {
-    io.print(String.find_all("a1", helper.digits()))
+    io.print(helper.digits())
     io.inspect(planted_decline())
 }
 `)

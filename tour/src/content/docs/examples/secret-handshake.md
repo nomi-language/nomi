@@ -50,7 +50,7 @@ fn bit(action: Action) -> Int {
 }
 
 fn is_set(number: Int, bit: Int) -> Bool {
-    Int.bitwise_and(number, bit) != 0
+    number &&& bit != 0
 }
 
 // FILE: secret_handshake_test.nomi

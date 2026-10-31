@@ -85,7 +85,7 @@ impl Float {
     //! refute Float.is_finite(Float.negative_infinity())
     //
     pub fn is_finite(x: Float) -> Bool {
-        !Float.is_nan(x) and !Float.is_infinite(x)
+        not Float.is_nan(x) and not Float.is_infinite(x)
     }
 
     /// Converts a Float to an Int by truncating toward zero, exactly at any
@@ -185,7 +185,7 @@ impl Float {
     pub fn equal_within(a: Float, b: Float, tolerance: Float) -> Bool {
         require_tolerance(tolerance)
         // `==` holds for two NaNs, so NaN is ruled out first.
-        !Float.is_nan(a) and !Float.is_nan(b) and (a == b or Float.abs(a - b) <= tolerance)
+        not Float.is_nan(a) and not Float.is_nan(b) and (a == b or Float.abs(a - b) <= tolerance)
     }
 
     /// Returns the sign of `x` as -1, 0, or +1. Both zeros give 0, and so does

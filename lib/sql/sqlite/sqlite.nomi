@@ -381,7 +381,7 @@ fn affinity(declared: String) -> String {
     upper = declared |> String.uppercase() |> String.trim()
 
     name = case String.split(upper, "(") {
-        [first, .._] -> String.trim(first)
+        [first, ..] -> String.trim(first)
         _ -> upper
     }
 

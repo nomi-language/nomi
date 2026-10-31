@@ -1,0 +1,144 @@
+// Writers made by the program: `Writer.from_fn` hands what is written to a
+// function, `Writer.collect` writes into memory, and `Writer.write_all` and
+// `Writer.write_lines` write a sequence into any writer.
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/io.{self, Error, Writer}
+}
+
+fn text(data: Bytes) -> String {
+    Bytes.to_string(data) |> Result.with_default("<not text>")
+}
+
+test "a buffered from_fn writer hands on what accumulated, on flush" {
+    #(_, sent) = Writer.collect(fn log -> {
+        w = Writer.from_fn(fn chunk -> Writer.print(log, "chunk ${text(chunk)}"))
+        _ = Writer.write_text(w, "a")
+        _ = Writer.write_text(w, "b")
+        _ = Writer.flush(w)
+        _ = Writer.write_text(w, "c")
+        Writer.close(w)
+    })
+
+    assert text(sent) == "chunk ab\nchunk c\n"
+}
+
+test "an unbuffered from_fn writer hands on each write" {
+    ch = Channel.buffered<Bytes>(4)
+
+    w = Writer.from_fn(unbuffered: True, fn chunk -> {
+        Sender.send(ch.sender, chunk) |> Result.map_err(fn _ -> Error.BrokenPipe)
+    })
+
+    _ = Writer.write_text(w, "one")
+    _ = Writer.write_text(w, "two")
+
+    assert Receiver.receive(ch.receiver) == Some(String.to_bytes("one"))
+    assert Receiver.receive(ch.receiver) == Some(String.to_bytes("two"))
+}
+
+test "close runs after the last bytes, and its error is close's" {
+    #(closed, log) = Writer.collect(fn log -> {
+        w = Writer.from_fn(close: fn -> {
+            _ = Writer.write_text(log, "|closed")
+            Err(Error.TimedOut)
+        }, fn chunk -> {
+            Writer.write(log, chunk)
+        })
+
+        _ = Writer.write_text(w, "data")
+        Writer.close(w)
+    })
+
+    assert closed == Err(Error.TimedOut)
+    assert text(log) == "data|closed"
+}
+
+test "a failing write is the error of the operation that sends the bytes" {
+    failing = Writer.from_fn(fn _ -> Err(Error.BrokenPipe))
+
+    // Buffered: the write is held, and the flush fails.
+    assert Writer.write_text(failing, "x") == Ok(Unit)
+    assert Writer.flush(failing) == Err(Error.BrokenPipe)
+}
+
+test "a from_fn writer feeds another writer it holds" {
+    #(_, outer) = Writer.collect(fn sink -> {
+        #(_, inner) = Writer.collect(fn mid -> {
+            relay = Writer.from_fn(unbuffered: True, fn chunk -> {
+                _ = Writer.write(mid, chunk)
+                Writer.write(sink, chunk)
+            })
+
+            Writer.write_text(relay, "both")
+        })
+
+        Writer.write(sink, inner)
+    })
+
+    assert text(outer) == "bothboth"
+}
+
+test "a from_fn writer inside io.capture prints into the capture" {
+    run = io.capture("", fn -> {
+        w = Writer.from_fn(fn chunk -> {
+            io.write(text(chunk))
+            Ok(Unit)
+        })
+
+        _ = Writer.print(w, "through the writer")
+        Writer.close(w)
+    })
+
+    assert run.output == "through the writer\n"
+}
+
+test "collect answers the body's value and the bytes, and closes the writer" {
+    #(#(count, kept), data) = Writer.collect(fn w -> {
+        _ = Writer.write_lines(w, ["pear", "apple"])
+        #(2, w)
+    })
+
+    assert count == 2
+    assert text(data) == "pear\napple\n"
+    assert Writer.write_text(kept, "late") == Err(Error.Closed)
+}
+
+test "write_all writes a sequence of chunks" {
+    #(copied, data) = Writer.collect(fn w -> {
+        Writer.write_all(
+            w,
+            ["abc", "defg"]
+            |> Iter.map(String.to_bytes),
+        )
+    })
+
+    assert copied == Ok(Unit)
+    assert text(data) == "abcdefg"
+}
+
+test "write_all and write_lines stop at the first failure" {
+    #(#(written, lines), sizes) = Writer.collect(fn log -> {
+        limited = Writer.from_fn(unbuffered: True, fn chunk -> {
+            _ = Writer.write_text(log, "${Bytes.length(chunk)} ")
+
+            if Bytes.length(chunk) > 2 {
+                Err(#Error.NoSpace{path: "<fn>"})
+            } else {
+                Ok(Unit)
+            }
+        })
+
+        #(
+            Writer.write_all(
+                limited,
+                [String.to_bytes("ab"), String.to_bytes("cde"), String.to_bytes("f")],
+            ),
+            Writer.write_lines(limited, Iter.from(8)),
+        )
+    })
+
+    assert written == Err(#Error.NoSpace{path: "<fn>"})
+    assert lines == Err(#Error.NoSpace{path: "<fn>"})
+    assert text(sizes) == "2 3 2 2 3 "
+}

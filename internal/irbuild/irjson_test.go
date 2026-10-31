@@ -130,7 +130,7 @@ fn main() {
 `, "dbg line 14: shape = {\"items\":[1,{\"ok\":true},null,2.5]}\n")
 }
 
-// A nested pattern inside a Json payload (`Json.Arr([Json.Int(n), .._])`)
+// A nested pattern inside a Json payload (`Json.Arr([Json.Int(n), ..])`)
 // retains through the nested list test and prints the expected output.
 func TestIRJSON_NestedPayloadPatternRetains(t *testing.T) {
 	verifyLambdaProgram(t, `import {

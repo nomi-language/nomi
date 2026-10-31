@@ -7,7 +7,7 @@ scope: source.nomi
 variables:
   ident: '[a-z_][a-zA-Z0-9_]*'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with'
 
 contexts:
   main:
@@ -158,15 +158,14 @@ contexts:
     - match: '\b(if|else|case|when|break|continue|return|concurrent|then|tap|assert|refute|dbg|todo|unreachable)\b'
       scope: keyword.control.nomi
     # A postfix `!`, written right after an operand (`Map.get(m, k)!`), can
-    # stop the program as `unreachable` does. A prefix `!` and `!=` stay
-    # operators.
+    # stop the program as `unreachable` does. `!=` stays an operator.
     - match: '(?<=[A-Za-z0-9_?!)\]}"])!(?!=)'
       scope: keyword.control.nomi
     # A postfix `?`, written right after an operand (`parse(s)?`), can
     # return from the function as `return` does.
     - match: '(?<=[A-Za-z0-9_?!)\]}"])\?'
       scope: keyword.control.nomi
-    - match: '\b(and|or)\b'
+    - match: '\b(and|or|not|is)\b'
       scope: keyword.operator.word.nomi
     - match: '\b(true|false)\b'
       scope: constant.language.nomi
@@ -177,6 +176,10 @@ contexts:
     # with a space after it is the remainder operator.
     - match: '%(?=[\{\[.A-Z]|{{ident}}\.[A-Z])'
       scope: punctuation.section.nomi
+    # The bitwise operators, three characters each: `&&&`, `|||`, `^^^`,
+    # `~~~`, `<<<`, `>>>`.
+    - match: '&&&|\|\|\||\^\^\^|~~~|<<<|>>>'
+      scope: keyword.operator.bitwise.nomi
     - match: '\|>|->|=>|==|!=|<=|>=|\.\.=|\.\.'
       scope: keyword.operator.nomi
     - match: '[+\-*/%<>!=]'

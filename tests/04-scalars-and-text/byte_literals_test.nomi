@@ -1,0 +1,91 @@
+import std/compiler
+
+struct Header {
+    tag: Byte
+    length: Int
+}
+
+fn marker() -> Byte {
+    0xFF
+}
+
+fn name(b: Byte) -> String {
+    case b {
+        0x00 -> "nul"
+        0b0111_1111 -> "del"
+        0o377 -> "max"
+        _ -> "other"
+    }
+}
+
+fn has_high_bit(b: Byte) -> Bool {
+    b &&& 0x80 == 0x80
+}
+
+test "an Int literal where a Byte is expected is a Byte" {
+    b: Byte = 0x81
+    bytes: List<Byte> = [0x81, 0x00, 1_0]
+    header = #Header{tag: 7, length: 300}
+
+    assert Byte.to_int(b) == 129
+    assert Iter.map(bytes, Byte.to_int) |> Iter.to_list() == [129, 0, 10]
+    assert Byte.to_int(header.tag) == 7
+    assert Byte.to_int(marker()) == 255
+    assert Bytes.from_list([104, 105]) |> Bytes.to_string() == Ok("hi")
+}
+
+test "a literal compares and combines with a Byte" {
+    b: Byte = 0x81
+
+    assert b == 0x81
+    assert 0x81 == b
+    assert b != 0x80
+    assert b &&& 0x7F == 0x01
+    assert 0x0F ||| b == 0x8F
+    assert b ^^^ 0xFF == 0x7E
+    assert has_high_bit(b)
+    refute has_high_bit(0x7F)
+    assert [b, 0x00] == [0x81, 0x00]
+    assert Some(b) == Some(0x81)
+}
+
+test "a case arm's literal pattern over a Byte" {
+    assert name(0) == "nul"
+    assert name(0x7F) == "del"
+    assert name(255) == "max"
+    assert name(0x81) == "other"
+}
+
+test "an Int literal elsewhere stays an Int" {
+    n = 0x81
+
+    assert n + 1 == 130
+}
+
+test "a literal outside 0 to 255 is a compile error" {
+    result =
+        """
+            fn main() {
+              b: Byte = 300
+              _ = b
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "`300` does not fit in a Byte (0 to 255)")
+}
+
+test "a negative literal is not a Byte" {
+    result =
+        """
+            fn main() {
+              b: Byte = -1
+              _ = b
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "`-1` does not fit in a Byte (0 to 255)")
+}

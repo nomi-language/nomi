@@ -59,7 +59,7 @@ once n = "4" |> String.to_int()!
 Not equal and negation keep their meaning
 ==========
 
-once d = a != !b!
+once d = a != b! and not c!
 
 ---
 
@@ -67,7 +67,11 @@ once d = a != !b!
   (once_binding
     (identifier)
     (binary_expression
-      (identifier)
+      (binary_expression
+        (identifier)
+        (unwrap_expression
+          (identifier)
+          (bang)))
       (unary_expression
         (unwrap_expression
           (identifier)

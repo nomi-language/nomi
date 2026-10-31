@@ -46,7 +46,7 @@ pub struct Resistance {
 /// of zeros after them. Bands after the third are ignored. `None` when there
 /// are fewer than three bands.
 pub fn label(bands: List<Color>) -> Maybe<Resistance> {
-    [first, second, zeros, .._] = bands else { return None }
+    [first, second, zeros, ..] = bands else { return None }
 
     ohms = (digit(first) * 10 + digit(second)) * Int.pow(10, digit(zeros))
     Some(in_largest_unit(ohms))

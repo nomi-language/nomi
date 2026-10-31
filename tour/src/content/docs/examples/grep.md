@@ -19,41 +19,45 @@ import {
     std/io
 }
 
-/// The canonical flags, each `False` unless set.
-pub struct Options {
+/// The canonical flags.
+pub enum Flag {
     /// `-n`: put each line's number, from 1, before it.
-    line_numbers: Bool = False
+    LineNumbers
     /// `-l`: answer the names of the files with a match, not the lines.
-    file_names: Bool = False
+    FileNames
     /// `-i`: compare without regard to case.
-    ignore_case: Bool = False
+    IgnoreCase
     /// `-v`: answer the lines that do not match.
-    invert: Bool = False
+    Invert
     /// `-x`: match only a line that is the whole pattern.
-    whole_line: Bool = False
+    WholeLine
 }
 
-/// The lines of `files` that contain `pattern`, in file order, as `options`
-/// says. With more than one file each line starts with its file's name.
+derive Equatable for Flag
+derive Hashable for Flag
+
+/// The lines of `files` that contain `pattern`, in file order, as `flags`
+/// say. With more than one file each line starts with its file's name.
 /// A file that cannot be read is the error reading it gave.
 pub fn grep(
     pattern: String,
-    options: Options,
+    flags: Set<Flag>,
     files: List<String>,
 ) -> Result<List<String>, io.Error> {
     named = Iter.count(files) > 1
 
     files
-    |> Iter.map(&search(&1, pattern, options, named))
-    |> Result.collect()
-    |> Result.map(Iter.flatten)
+    |> Iter.map(&search(&1, pattern, flags, named))
+    |> Result.collect()?
+    |> Iter.flatten()
+    |> Ok()
 }
 
 /// What `grep` answers for one file.
 fn search(
     file: String,
     pattern: String,
-    options: Options,
+    flags: Set<Flag>,
     named: Bool,
 ) -> Result<List<String>, io.Error> {
     text = fs.read_text(file)?
@@ -61,17 +65,17 @@ fn search(
     found =
         String.lines(text)
         |> Iter.with_index()
-        |> Iter.filter(fn #(_index, line) -> matches(line, pattern, options))
+        |> Iter.filter(fn #(_index, line) -> matches(line, pattern, flags))
         |> Iter.to_list()
 
-    if options.file_names {
+    if Set.contains(flags, .FileNames) {
         Ok(if Iter.is_empty(found) { [] } else { [file] })
     } else {
         found
         |> Iter.map(fn #(index, line) -> {
             file_part = if named { "${file}:" } else { "" }
 
-            number_part = if options.line_numbers {
+            number_part = if Set.contains(flags, .LineNumbers) {
                 "${index + 1}:"
             } else {
                 ""
@@ -84,27 +88,27 @@ fn search(
     }
 }
 
-fn matches(line: String, pattern: String, options: Options) -> Bool {
-    #(line, pattern) = if options.ignore_case {
+fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool {
+    #(line, pattern) = if Set.contains(flags, .IgnoreCase) {
         #(String.fold_case(line), String.fold_case(pattern))
     } else {
         #(line, pattern)
     }
 
-    found = if options.whole_line {
+    found = if Set.contains(flags, .WholeLine) {
         line == pattern
     } else {
         String.contains(line, pattern)
     }
 
-    found != options.invert
+    found != Set.contains(flags, .Invert)
 }
 
 // FILE: grep_test.nomi
 import {
     std/fs_testing.{self, Sandbox}
     std/io
-    grep.{self, Options}
+    grep.{self, Flag}
 }
 
 once all_files = ["iliad.txt", "midsummer-night.txt", "paradise-lost.txt"]
@@ -148,60 +152,60 @@ once sandbox = #Sandbox{
 /// in-memory file system.
 fn grep_in_sandbox(
     pattern: String,
-    options: Options,
+    flags: Set<Flag>,
     files: List<String>,
 ) -> Result<List<String>, io.Error> {
-    fs_testing.run(sandbox, fn -> grep.grep(pattern, options, files)).value
+    fs_testing.run(sandbox, fn -> grep.grep(pattern, flags, files)).value
 }
 
 test "Test grepping a single file" {
-    cases: List<#(String, String, Options, String, List<String>)> = [
+    cases = [
         #(
             "One file, one match, no flags",
             "Agamemnon",
-            #{},
+            %[],
             "iliad.txt",
             ["Of Atreus, Agamemnon, King of men."],
         ),
         #(
             "One file, one match, print line numbers flag",
             "Forbidden",
-            #{line_numbers: True},
+            %[Flag.LineNumbers],
             "paradise-lost.txt",
             ["2:Of that Forbidden Tree, whose mortal tast"],
         ),
         #(
             "One file, one match, case-insensitive flag",
             "FORBIDDEN",
-            #{ignore_case: True},
+            %[.IgnoreCase],
             "paradise-lost.txt",
             ["Of that Forbidden Tree, whose mortal tast"],
         ),
         #(
             "One file, one match, print file names flag",
             "Forbidden",
-            #{file_names: True},
+            %[.FileNames],
             "paradise-lost.txt",
             ["paradise-lost.txt"],
         ),
         #(
             "One file, one match, match entire lines flag",
             "With loss of Eden, till one greater Man",
-            #{whole_line: True},
+            %[.WholeLine],
             "paradise-lost.txt",
             ["With loss of Eden, till one greater Man"],
         ),
         #(
             "One file, one match, multiple flags",
             "OF ATREUS, Agamemnon, KIng of MEN.",
-            #{line_numbers: True, ignore_case: True, whole_line: True},
+            %[.LineNumbers, .IgnoreCase, .WholeLine],
             "iliad.txt",
             ["9:Of Atreus, Agamemnon, King of men."],
         ),
         #(
             "One file, several matches, no flags",
             "may",
-            #{},
+            %[],
             "midsummer-night.txt",
             [
                 "Nor how it may concern my modesty,",
@@ -212,7 +216,7 @@ test "Test grepping a single file" {
         #(
             "One file, several matches, print line numbers flag",
             "may",
-            #{line_numbers: True},
+            %[.LineNumbers],
             "midsummer-night.txt",
             [
                 "3:Nor how it may concern my modesty,",
@@ -223,21 +227,21 @@ test "Test grepping a single file" {
         #(
             "One file, several matches, match entire lines flag",
             "may",
-            #{whole_line: True},
+            %[.WholeLine],
             "midsummer-night.txt",
             [],
         ),
         #(
             "One file, several matches, case-insensitive flag",
             "ACHILLES",
-            #{ignore_case: True},
+            %[.IgnoreCase],
             "iliad.txt",
             ["Achilles sing, O Goddess! Peleus' son;", "The noble Chief Achilles from the son"],
         ),
         #(
             "One file, several matches, inverted flag",
             "Of",
-            #{invert: True},
+            %[.Invert],
             "paradise-lost.txt",
             [
                 "Brought Death into the World, and all our woe,",
@@ -250,21 +254,21 @@ test "Test grepping a single file" {
         #(
             "One file, no matches, various flags",
             "Gandalf",
-            #{line_numbers: True, file_names: True, whole_line: True, ignore_case: True},
+            %[.LineNumbers, .FileNames, .WholeLine, .IgnoreCase],
             "iliad.txt",
             [],
         ),
         #(
             "One file, one match, file flag takes precedence over line flag",
             "ten",
-            #{line_numbers: True, file_names: True},
+            %[.LineNumbers, .FileNames],
             "iliad.txt",
             ["iliad.txt"],
         ),
         #(
             "One file, several matches, inverted and match entire lines flags",
             "Illustrious into Ades premature,",
-            #{whole_line: True, invert: True},
+            %[.WholeLine, .Invert],
             "iliad.txt",
             [
                 "Achilles sing, O Goddess! Peleus' son;",
@@ -279,23 +283,23 @@ test "Test grepping a single file" {
         ),
     ]
 
-    subtests cases, #(description, pattern, options, file, expected), description {
-        assert grep_in_sandbox(pattern, options, [file]) == Ok(expected)
+    subtests cases, #(description, pattern, flags, file, expected), description {
+        assert grep_in_sandbox(pattern, flags, [file]) == Ok(expected)
     }
 }
 
 test "Test grepping multiples files at once" {
-    cases: List<#(String, String, Options, List<String>)> = [
+    cases = [
         #(
             "Multiple files, one match, no flags",
             "Agamemnon",
-            #{},
+            %[],
             ["iliad.txt:Of Atreus, Agamemnon, King of men."],
         ),
         #(
             "Multiple files, several matches, no flags",
             "may",
-            #{},
+            %[],
             [
                 "midsummer-night.txt:Nor how it may concern my modesty,",
                 "midsummer-night.txt:But I beseech your grace that I may know",
@@ -305,7 +309,7 @@ test "Test grepping multiples files at once" {
         #(
             "Multiple files, several matches, print line numbers flag",
             "that",
-            #{line_numbers: True},
+            %[Flag.LineNumbers],
             [
                 "midsummer-night.txt:5:But I beseech your grace that I may know",
                 "midsummer-night.txt:6:The worst that may befall me in this case,",
@@ -316,13 +320,13 @@ test "Test grepping multiples files at once" {
         #(
             "Multiple files, one match, print file names flag",
             "who",
-            #{file_names: True},
+            %[.FileNames],
             ["iliad.txt", "paradise-lost.txt"],
         ),
         #(
             "Multiple files, several matches, case-insensitive flag",
             "TO",
-            #{ignore_case: True},
+            %[.IgnoreCase],
             [
                 "iliad.txt:Caused to Achaia's host, sent many a soul",
                 "iliad.txt:Illustrious into Ades premature,",
@@ -339,7 +343,7 @@ test "Test grepping multiples files at once" {
         #(
             "Multiple files, several matches, inverted flag",
             "a",
-            #{invert: True},
+            %[.Invert],
             [
                 "iliad.txt:Achilles sing, O Goddess! Peleus' son;",
                 "iliad.txt:The noble Chief Achilles from the son",
@@ -349,31 +353,31 @@ test "Test grepping multiples files at once" {
         #(
             "Multiple files, one match, match entire lines flag",
             "But I beseech your grace that I may know",
-            #{whole_line: True},
+            %[.WholeLine],
             ["midsummer-night.txt:But I beseech your grace that I may know"],
         ),
         #(
             "Multiple files, one match, multiple flags",
             "WITH LOSS OF EDEN, TILL ONE GREATER MAN",
-            #{line_numbers: True, ignore_case: True, whole_line: True},
+            %[.LineNumbers, .IgnoreCase, .WholeLine],
             ["paradise-lost.txt:4:With loss of Eden, till one greater Man"],
         ),
         #(
             "Multiple files, no matches, various flags",
             "Frodo",
-            #{line_numbers: True, file_names: True, whole_line: True, ignore_case: True},
+            %[.LineNumbers, .FileNames, .WholeLine, .IgnoreCase],
             [],
         ),
         #(
             "Multiple files, several matches, file flag takes precedence over line number flag",
             "who",
-            #{line_numbers: True, file_names: True},
+            %[.LineNumbers, .FileNames],
             ["iliad.txt", "paradise-lost.txt"],
         ),
         #(
             "Multiple files, several matches, inverted and match entire lines flags",
             "Illustrious into Ades premature,",
-            #{whole_line: True, invert: True},
+            %[.WholeLine, .Invert],
             [
                 "iliad.txt:Achilles sing, O Goddess! Peleus' son;",
                 "iliad.txt:His wrath pernicious, who ten thousand woes",
@@ -402,14 +406,14 @@ test "Test grepping multiples files at once" {
         ),
     ]
 
-    subtests cases, #(description, pattern, options, expected), description {
-        assert grep_in_sandbox(pattern, options, all_files) == Ok(expected)
+    subtests cases, #(description, pattern, flags, expected), description {
+        assert grep_in_sandbox(pattern, flags, all_files) == Ok(expected)
     }
 }
 
 // Not a canonical case: the exercise reads only files that exist.
 test "a missing file is the error reading it" {
-    assert grep_in_sandbox("Of", #{}, ["odyssey.txt"])
+    assert grep_in_sandbox("Of", %[], ["odyssey.txt"])
         == Err(#io.Error.NotFound{path: "odyssey.txt"})
 }
 ```
@@ -417,8 +421,8 @@ test "a missing file is the error reading it" {
 ## How it's written
 
 - The files are read with std/fs's `fs.read_text` and split with `String.lines`. The tests never touch the disk: `grep_in_sandbox` runs each search inside `fs_testing.run` over a `Sandbox` holding the three canonical files, so std/fs reads them from an in-memory file system rooted at `/work`, and a relative name such as `iliad.txt` resolves there.
-- The flags are an `Options` struct of five `Bool` fields that default to `False`, so a case writes only what it sets: `#{line_numbers: True, ignore_case: True}`. The order the canonical data lists flags in never matters, which a struct says and a list of flag strings would not.
-- `grep` answers `Result<List<String>, io.Error>`. A file that cannot be read is the error `fs.read_text` gave, passed up with `?`; one file's error stops the search, through `Result.collect`. The canonical data has no such case; the test file adds one, marked not canonical, for a missing file.
-- `matches` folds the case of both sides with `String.fold_case` for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != options.invert`.
+- The flags are a `Set<Flag>` of a `Flag` enum, so a case writes the flags it sets, as grep's command line does: `%[.LineNumbers, .IgnoreCase]`. The order the canonical data lists flags in never matters, which a set says and a list of flag strings would not. An `Options` struct of five `Bool` fields defaulting to `False` was the other form; the set is shorter in the tables, and the first row that names a flag writes `Flag.LineNumbers`, so neither table needs a type annotation. The solution asks `Set.contains(flags, .IgnoreCase)` where the struct read `options.ignore_case`.
+- `grep` answers `Result<List<String>, io.Error>`. A file that cannot be read is the error `fs.read_text` gave, passed up with `?`; one file's error stops the search, through `Result.collect()?`. The canonical data has no such case; the test file adds one, marked not canonical, for a missing file.
+- `matches` folds the case of both sides with `String.fold_case` for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != Set.contains(flags, .Invert)`.
 - `-l` answers the file's name once if any line matched and takes precedence over `-n`, as two canonical cases ask. With more than one file each line starts with its file's name.
 - Each canonical group is a test with one `subtests` table named by the description column.

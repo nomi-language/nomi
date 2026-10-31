@@ -186,7 +186,7 @@ pub fn base(p: String) -> String {
     cleaned = clean(p)
 
     case names_reversed(cleaned) {
-        [last, .._] -> last
+        [last, ..] -> last
         [] -> cleaned
     }
 }
@@ -208,8 +208,8 @@ pub fn extension(p: String) -> Maybe<String> {
     case String.split(base(p), ".") |> Iter.reverse() {
         [_] or [] -> None
         [_, ""] -> None
-        ["", .._] -> None
-        [ext, .._] -> Some(ext)
+        ["", ..] -> None
+        [ext, ..] -> Some(ext)
     }
 }
 
@@ -320,7 +320,7 @@ fn match_names(patterns: List<String>, names: List<String>) -> Bool {
             if match_names(rest, names) {
                 True
             } else {
-                !String.starts_with(name, ".") and match_names(patterns, more)
+                not String.starts_with(name, ".") and match_names(patterns, more)
             }
 
         #([pattern, ..rest], [name, ..more]) ->
@@ -338,7 +338,7 @@ fn match_names(patterns: List<String>, names: List<String>) -> Bool {
 
 /// A name that starts with `.` needs a pattern that starts with `.`.
 fn matches_hidden(pattern: String, name: String) -> Bool {
-    !String.starts_with(name, ".") or String.starts_with(pattern, ".")
+    not String.starts_with(name, ".") or String.starts_with(pattern, ".")
 }
 
 /// Whether one name matches one pattern name, codepoint by codepoint.
@@ -381,7 +381,7 @@ fn in_set(set: List<Codepoint>, c: Codepoint) -> Maybe<#(Bool, List<Codepoint>)>
     case set {
         ['!', ..items] ->
             case set_items(items, c, False) {
-                Some(#(found, rest)) -> Some(#(!found, rest))
+                Some(#(found, rest)) -> Some(#(not found, rest))
                 None -> None
             }
 

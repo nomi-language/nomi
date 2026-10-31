@@ -171,6 +171,155 @@ fn main() {}
 	}
 }
 
+// A binding to math/big, with no go.mod, takes and returns a Go *big.Int as
+// an Int of any size.
+func TestFFI_StdBigInt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds FFI wrappers; -short")
+	}
+	dir := t.TempDir()
+	if goModAbove(dir) {
+		t.Skip("a go.mod above the temp directory")
+	}
+	entry := filepath.Join(dir, "main.nomi")
+	mustWrite(t, entry, `import std/io
+
+gopkg "math/big" as big
+
+fn new_int(x: Int) -> Int go big.NewInt
+fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
+
+fn main() {
+    io.print(new_int(-9223372036854775807) - 2)
+    io.print(jacobi(123456789012345678901234567890, 987654321098765432109876543211))
+}
+`)
+	const want = "-9223372036854775809\n-1\n"
+	env := buildEnv(t.TempDir())
+	if r := runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry); r.exit != 0 || r.stdout != want {
+		t.Errorf("nomi run: exit %d, stdout %q, want %q\nstderr:\n%s", r.exit, r.stdout, want, r.stderr)
+	}
+}
+
+// Go's stream interfaces cross as std/io's Reader and Writer with no
+// go.mod: encoding/hex's encoder writes through a Writer.collect writer,
+// its decoder reads a Reader, and io.LimitReader cuts one short.
+func TestFFI_StdStreams(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds FFI wrappers; -short")
+	}
+	dir := t.TempDir()
+	if goModAbove(dir) {
+		t.Skip("a go.mod above the temp directory")
+	}
+	entry := filepath.Join(dir, "main.nomi")
+	mustWrite(t, entry, `import std/io.{self, Reader, Writer}
+
+gopkg "encoding/hex" as hex
+gopkg "io" as goio
+
+fn hex_encoder(w: Writer) -> Writer go hex.NewEncoder
+fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder
+fn limit(r: Reader, n: Int) -> Reader go goio.LimitReader
+
+fn main() {
+    #(_, encoded) = Writer.collect(fn w -> Writer.write_text(hex_encoder(w), "Nomi"))
+    io.print(Bytes.to_string(encoded) |> Result.with_default("?"))
+    decoded = hex_decoder(Reader.from_bytes(encoded)) |> Reader.read_all_text()
+    io.print(decoded |> Result.with_default("?"))
+    io.print(limit(Reader.from_text("abcdef"), 3) |> Reader.read_all_text() |> Result.with_default("?"))
+}
+`)
+	const want = "4e6f6d69\nNomi\nabc\n"
+	env := buildEnv(t.TempDir())
+	if r := runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry); r.exit != 0 || r.stdout != want {
+		t.Errorf("nomi run: exit %d, stdout %q, want %q\nstderr:\n%s", r.exit, r.stdout, want, r.stderr)
+	}
+}
+
+// An Int a Go binding's integer parameter cannot hold is a trap at the
+// call, naming the Go function and its parameter: `nomi test` fails the
+// case, `nomi run` exits 1 with the trap, and neither reports a machine
+// limit or a program the VM cannot run.
+func TestFFI_IntPastAGoSlotTraps(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; builds FFI wrappers; -short")
+	}
+	dir := t.TempDir()
+	if goModAbove(dir) {
+		t.Skip("a go.mod above the temp directory")
+	}
+	env := buildEnv(t.TempDir())
+	tests := filepath.Join(dir, "widths_test.nomi")
+	mustWrite(t, tests, `gopkg "strconv" as strconv
+gopkg "math/bits" as bits
+
+fn format(i: Int, base: Int) -> String go strconv.FormatInt
+fn format_unsigned(i: Int, base: Int) -> String go strconv.FormatUint
+fn len32(x: Int) -> Int go bits.Len32
+
+test "an Int past int64" {
+    assert format(123456789012345678901234567890, 10) == ""
+}
+
+test "a negative Int for uint64" {
+    assert format_unsigned(-1, 10) == ""
+}
+
+test "an Int past uint32" {
+    assert len32(4294967296) == 0
+}
+
+test "in range" {
+    assert format(-9223372036854775808, 10) == "-9223372036854775808"
+    assert format_unsigned(18446744073709551615, 16) == "ffffffffffffffff"
+    assert len32(4294967295) == 32
+}
+`)
+	r := runProcess(t, env, t.TempDir(), "", nomiBin, "test", tests)
+	if r.exit == 0 {
+		t.Fatalf("nomi test passed:\n%s", r.transcript())
+	}
+	for _, want := range []string{
+		"line 9: `strconv.FormatInt`'s `i` takes an Int that fits in 64 bits; got 123456789012345678901234567890",
+		"line 13: `strconv.FormatUint`'s `i` takes an Int from 0 to 18446744073709551615; got -1",
+		"line 17: `bits.Len32`'s `x` takes an Int from 0 to 4294967295; got 4294967296",
+		"1 passed, 3 failed",
+	} {
+		if !strings.Contains(r.stdout+r.stderr, want) {
+			t.Errorf("nomi test: missing %q\n%s", want, r.transcript())
+		}
+	}
+	for _, refused := range []string{"BLOCKED", "machine limit", "cannot run"} {
+		if strings.Contains(r.stdout+r.stderr, refused) {
+			t.Errorf("nomi test reports %q:\n%s", refused, r.transcript())
+		}
+	}
+
+	entry := filepath.Join(dir, "run", "main.nomi")
+	mustWrite(t, entry, `import std/io
+
+gopkg "strconv" as strconv
+
+fn format(i: Int, base: Int) -> String go strconv.FormatInt
+
+fn main() {
+    io.print(format(12, 10))
+    io.print(format(123456789012345678901234567890, 10))
+    io.print("not reached")
+}
+`)
+	r = runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry)
+	if want := "line 9: `strconv.FormatInt`'s `i` takes an Int that fits in 64 bits; got 123456789012345678901234567890"; r.exit != 1 || r.stdout != "12\n" || !strings.Contains(r.stderr, want) {
+		t.Errorf("nomi run: exit %d, stdout %q, want exit 1, stdout \"12\\n\" and %q on stderr\n%s", r.exit, r.stdout, want, r.transcript())
+	}
+	for _, refused := range []string{"BLOCKED", "machine limit", "cannot run"} {
+		if strings.Contains(r.stderr, refused) {
+			t.Errorf("nomi run reports %q:\n%s", refused, r.transcript())
+		}
+	}
+}
+
 // goModAbove reports whether a go.mod sits in dir or a directory above it.
 func goModAbove(dir string) bool {
 	for {

@@ -26,7 +26,7 @@ impl Buffer<T> {
         if Buffer.is_full(buffer) {
             Err(.Full)
         } else {
-            Ok(#{..buffer, items: List.concat(buffer.items, [item])})
+            Ok(#{..buffer, items: [..buffer.items, item]})
         }
     }
 
@@ -39,7 +39,7 @@ impl Buffer<T> {
             buffer.items
         }
 
-        #{..buffer, items: List.concat(kept, [item])}
+        #{..buffer, items: [..kept, item]}
     }
 
     /// The oldest item and the buffer without it, or `Empty`.

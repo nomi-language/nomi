@@ -170,7 +170,7 @@ func TestBindingElse_ATrapEndsALeavingElse(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 fn pair(xs: List<Int>) -> Int {
-    [a, b, .._] = xs else {
+    [a, b, ..] = xs else {
         io.print("short list")
         unreachable "callers pass two or more"
     }
@@ -246,7 +246,7 @@ func TestBindingElse_ATrapInALeavingElseTraps(t *testing.T) {
 	verifyIterFault(t, `import std/io
 
 fn pair(xs: List<Int>) -> Int {
-    [a, b, .._] = xs else {
+    [a, b, ..] = xs else {
         io.print("short list")
         unreachable "callers pass two or more"
     }
@@ -266,7 +266,7 @@ func TestBindingElse_ATrapEndsALeavingElseInATest(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	out := irTestBodyVM(t, `test "binds two names" {
-    [a, b, .._] = [1, 2, 3] else {
+    [a, b, ..] = [1, 2, 3] else {
         unreachable "the list has three"
     }
 

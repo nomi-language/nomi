@@ -47,18 +47,12 @@ impl Status {
 
     /// True iff `s` is the `Active` variant.
     pub fn is_active(s: Status) -> Bool {
-        case s {
-            .Active -> True
-            _ -> False
-        }
+        s is .Active
     }
 
     /// True iff `s` is the `Suspended` variant.
     pub fn is_suspended(s: Status) -> Bool {
-        case s {
-            #.Suspended{} -> True
-            _ -> False
-        }
+        s is #.Suspended{}
     }
 
     /// Returns `Some(reason)` if `s` is `Inactive`, otherwise `None`.

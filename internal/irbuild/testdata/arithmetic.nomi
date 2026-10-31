@@ -22,7 +22,7 @@ fn main() {
     io.print("flag = ${flag}")
     io.print("neg = ${-n}")
     io.print("eq = ${a == b}")
-    io.print("not = ${!flag}")
+    io.print("not = ${not flag}")
 
     if flag {
         io.print("branch taken")

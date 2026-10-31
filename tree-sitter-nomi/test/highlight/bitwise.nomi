@@ -1,0 +1,15 @@
+// The bitwise operators read as operators. The caret lines below each line
+// name the highlight of the token they point at.
+pub fn low_bits(n: Int, mask: Int) -> Int {
+    n &&& mask <<< 1
+    //^^^ operator
+    //         ^^^ operator
+}
+
+pub fn flip(n: Int) -> Int {
+    ~~~n ^^^ n >>> 1 ||| 0
+    // <- operator
+    //   ^^^ operator
+    //         ^^^ operator
+    //               ^^^ operator
+}

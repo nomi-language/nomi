@@ -15,13 +15,20 @@ import (
 )
 
 // irArithOps is Nomi's arithmetic surface syntax as IR operators. Binary only:
-// unary `-` is `ir.OpNeg` and reaches the IR through irUnaryArith.
+// unary `-` is `ir.OpNeg` and `~~~` is `ir.OpNot`, lowered with the unary
+// operators. The bitwise operators are arithmetic on Int alone; on any other
+// type they are a call of its impl.
 var irArithOps = map[string]ir.ArithOp{
-	"+": ir.OpAdd,
-	"-": ir.OpSub,
-	"*": ir.OpMul,
-	"/": ir.OpDiv,
-	"%": ir.OpRem,
+	"+":   ir.OpAdd,
+	"-":   ir.OpSub,
+	"*":   ir.OpMul,
+	"/":   ir.OpDiv,
+	"%":   ir.OpRem,
+	"&&&": ir.OpAnd,
+	"|||": ir.OpOr,
+	"^^^": ir.OpXor,
+	"<<<": ir.OpShl,
+	">>>": ir.OpShr,
 }
 
 // irHold is the temporary a value is held in inside the open destructuring
@@ -98,6 +105,9 @@ func (g *gen) ownPos(p ir.Pos) ir.Pos {
 // `Domain` has no String member, so `arith()`'s String arm is outside this
 // class by construction rather than by omission.
 func (g *gen) irArithKind(op ir.ArithOp, k kind, wrapping bool) (ir.ArithKind, bool) {
+	if op.Bitwise() && k != kindInt {
+		return ir.ArithKind{}, false
+	}
 	switch {
 	case k == kindInt:
 		// The discipline, which is the one part of an Int operation the front

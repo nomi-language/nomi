@@ -157,17 +157,9 @@ fn deserialize(content: String) -> Result<Map<Int, TodoTask>, String> {
         Ok(%{})
     } else {
         String.split(trimmed, "\n")
-        |> Iter.reduce(fn acc = Ok(%{}), line -> {
-            case acc {
-                Err(e) ->
-                    Err(e)
-
-                Ok(tasks) ->
-                    case deserialize_one(line) {
-                        Err(e) -> Err(e)
-                        Ok(t) -> Ok(Map.put(tasks, t.id, t))
-                    }
-            }
+        |> Iter.try_reduce(%{}, fn tasks, line -> {
+            t = deserialize_one(line)?
+            Ok(Map.put(tasks, t.id, t))
         })
     }
 }

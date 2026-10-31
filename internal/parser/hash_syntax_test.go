@@ -441,7 +441,6 @@ func TestVectorPatterns(t *testing.T) {
 		{"#[.., last]", 0, 1, true, ""},
 		{"#[a, b, ..]", 2, 0, true, ""},
 		{"#[a, ..mid, z]", 1, 1, true, "mid"},
-		{"#[.._]", 0, 0, true, "_"},
 		{"#[..all]", 0, 0, true, "all"},
 	} {
 		v := vec(arms(c.pat))
@@ -465,7 +464,7 @@ func TestVectorPatterns(t *testing.T) {
 	wantKinds(t, "x = if #[a, ..] = v { a } else { 0 }", "vector-pattern block block")
 	wantKinds(t, "f = fn #[a, ..] -> a", "vector-pattern block")
 	wantParseError(t, arms("#[a, .., b, ..]"), "a vector pattern takes one `..`")
-	wantParseError(t, arms("#[..Some(x)]"), "the rest of a vector pattern is a name, `_` or nothing")
+	wantParseError(t, arms("#[..Some(x)]"), "the rest of a vector pattern is a name or nothing")
 }
 
 func TestSetPatterns(t *testing.T) {

@@ -26,7 +26,7 @@ pub enum Kind {
 pub fn kind(#(a, b, c): #(Float, Float, Float)) -> Maybe<Kind> {
     positive = a > 0.0 and b > 0.0 and c > 0.0
     inequality = a + b >= c and b + c >= a and a + c >= b
-    if !(positive and inequality) { return None }
+    if not (positive and inequality) { return None }
 
     case [a, b, c] |> Iter.to_set() |> Set.size() {
         1 -> Some(.Equilateral)
@@ -42,10 +42,7 @@ pub fn is_equilateral(sides: #(Float, Float, Float)) -> Bool {
 
 /// At least two sides are equal, so every equilateral triangle is isosceles.
 pub fn is_isosceles(sides: #(Float, Float, Float)) -> Bool {
-    case kind(sides) {
-        Some(.Equilateral or .Isosceles) -> True
-        _ -> False
-    }
+    kind(sides) is Some(.Equilateral or .Isosceles)
 }
 
 /// No two sides are equal.
@@ -111,4 +108,4 @@ test "scalene triangle" {
 - `kind` answers `Maybe<Kind>` over a `Kind` enum, `None` for a non-triangle; the three canonical predicates are thin wrappers over it.
 - The kind comes from the size of the set of sides (1, 2 or 3 distinct lengths) rather than pairwise comparisons.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.
-- `is_isosceles` matches `Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one arm says both kinds count.
+- `is_isosceles` is `kind(sides) is Some(.Equilateral or .Isosceles)`: the `or` sits inside the payload, so one test says both kinds count.

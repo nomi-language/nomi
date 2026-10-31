@@ -21,7 +21,7 @@ pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date {
     #[first, second, third, fourth, ..] = days else {
         unreachable "a weekday falls at least four times in every month"
     }
-    #[.., last] = days else { unreachable "the pattern above matched, so days is not empty" }
+    last = Iter.last(days)!
 
     case week {
         .First -> first
@@ -36,10 +36,8 @@ pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date {
 /// Every day of the month that falls on `weekday`, in order: four or five
 /// of them.
 fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date> {
-    1..=31
-    |> Iter.map(&Date.new(year, month, &1))
-    |> Iter.map(Result.to_maybe)
-    |> Maybe.values()
+    1..=Date.days_in_month(year, month)!
+    |> Iter.map(&Date.new(year, month, &1)!)
     |> Iter.filter(&(Date.weekday(&1) == weekday))
     |> Iter.to_vector()
 }

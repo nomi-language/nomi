@@ -203,4 +203,4 @@ test "one grade" {
 - The roster is one `Iter.sort_by` with the tuple key `#(grade, name)` (style §32): tuples compare element by element, so the grade decides and the name breaks a tie.
 - `School.grade` filters the map's pairs to the grade and sorts the names with `Iter.sort`.
 - The tests build each school with an `enroll` helper, one `Iter.map_reduce` over the students whose state is the school and whose output is whether each `add` succeeded. A refused add keeps the school as it was, which is what the canonical cases expect of the roster after a duplicate.
-- The three canonical properties are three `subtests` tables. The roster and grade tables are annotated, since their first rows hold empty lists that give the element types nothing. The three cases that newer ones reimplement are left out.
+- The three canonical properties are three `subtests` tables. The roster and grade tables open with empty lists and need no annotation, since later rows give the element types. The three cases that newer ones reimplement are left out.

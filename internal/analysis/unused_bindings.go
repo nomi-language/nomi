@@ -69,6 +69,11 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 			// it does not read yet is expected, not a mistake.
 			continue
 		}
+		if _, isTest := sym.PatternBody.(*ast.Is); isTest {
+			// A name an `is` test's pattern binds is the checker's error
+			// (rejectIsBindings): the test binds nothing.
+			continue
+		}
 		if sym.PatternBody != nil && containsTodo(sym.PatternBody) {
 			// The same for an arm: `#.Rect{w, h} -> todo`, as the editor's
 			// fill-arms action writes it.

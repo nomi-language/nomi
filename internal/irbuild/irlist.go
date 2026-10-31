@@ -122,10 +122,18 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 	restKind := kindInvalid
 	if tail != nil {
 		v, k, _, ok := bl.lower(tail)
-		// The checker gives a spread a List tail. Its elements are any values
-		// with a stored type, as the heads' are (a list of Iters, of
-		// functions, of structs).
-		if !ok || !(irRetainedListKind(k) || irListTransportKind(k) || bl.g.irSpreadTailKind(k)) {
+		if !ok {
+			return no()
+		}
+		// A tail that is another Iter (`[x, ..maybe]`) is made a List.
+		p, ok := bl.collectSpread(spreadPart{at: tail, v: v, k: k}, listSpreadJoin)
+		if !ok {
+			return no()
+		}
+		v, k = p.v, p.k
+		// The tail's elements are any values with a stored type, as the
+		// heads' are (a list of Iters, of functions, of structs).
+		if !(irRetainedListKind(k) || irListTransportKind(k) || bl.g.irSpreadTailKind(k)) {
 			return no()
 		}
 		rest, restKind = v, k

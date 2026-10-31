@@ -64,6 +64,8 @@ hidden parameter.
 
 Each impl writes its own type in place of `self`. The parameter's name doesn't
 have to match: the interface says `animal`, and the impls say `d` and `c`.
+Every other parameter keeps the interface's name, since a caller can pass it by
+name. An impl that doesn't use one writes `_ = name` in its body.
 
 ## Qualified call shapes
 
@@ -92,10 +94,10 @@ impl Speech for Dog {
 fn main() {
     rex = #Dog{name: "Rex"}
 
-    // Type-qualified — names the implementing type.
+    // Through the type.
     io.print(Dog.speak(rex))
 
-    // Interface-qualified — same dispatch through the contract.
+    // Through the interface: the same impl runs.
     io.print(Speech.speak(rex))
 
     // Most printing does not need explicit stringification.
@@ -124,7 +126,7 @@ To sum up the rule for every call:
 - A bare name such as `speak` means a function or binding in the current
   file. It never finds an interface function by itself.
 
-## Default Functions
+## Default functions
 
 A function in an interface can have a body. That body is the default: every
 type that implements the interface gets it, and the impl doesn't write it.
@@ -138,12 +140,12 @@ import std/io
 interface Formatted {
     fn label(value: self) -> String
 
-    // Final default — overriding it is a compile error.
+    // No `open`: an impl can't replace this.
     fn shout(value: self) -> String {
         "${label(value)}!"
     }
 
-    // Open default — implementors MAY override.
+    // `open`: an impl may replace this.
     open fn brief(value: self) -> String {
         label(value)
     }
@@ -249,68 +251,6 @@ hidden
 Without the `where self` clause, `"${value}"` in that default is an error:
 `` `value` is a `self`, and Scale does not require Display of its implementors ``.
 
-### Defaults over distinct types
-
-A distinct type wraps another type. Every distinct type implements
-`Distinct<T>`, where `T` is the type it wraps: `Celsius` below wraps
-`Decimal`, so it is a `Distinct<Decimal>`.
-
-A default with `where self: Distinct<T>` can unwrap `self` with the pattern
-`self(n)`, and wrap a value with `self(x)`. This lets several wrapper types
-share one function body. For `Celsius`, `self(n)` unwraps a `Celsius` and
-`self(x)` makes one.
-
-```nomi-run
-import std/io
-
-type Celsius Decimal
-type Fahrenheit Decimal
-
-interface Temperature {
-    fn unit(t: self) -> String
-
-    fn label(self(n) as t) -> String where self: Distinct<Decimal> {
-        "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
-    }
-
-    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal> {
-        self(n * by)
-    }
-}
-
-impl Temperature for Celsius {
-    fn unit(_t: Celsius) -> String {
-        "C"
-    }
-}
-
-impl Temperature for Fahrenheit {
-    fn unit(_t: Fahrenheit) -> String {
-        "F"
-    }
-}
-
-fn main() {
-    io.print(Temperature.label(Celsius(21.456d)))
-    io.print(Temperature.label(Fahrenheit(70d)))
-    io.inspect(Celsius.scale(Celsius(10d), 2d))
-}
-```
-<!-- expect
-21.5 C
-70.0 F
-Celsius(20d)
--->
-
-`self(n)` also works in a `case` arm and in a binding (`self(m) = other`).
-`self` on its own is the wrapping function, which you can pass around:
-`Iter.map(ns, self)`.
-
-A type that isn't a distinct type over `Decimal` must write these functions
-itself, as with any `where self` bound. So must an opaque type whose impl is
-in another file, because the default would unwrap it there, where its
-contents are hidden.
-
 ## Universal `Debug`
 
 [`Debug`](/reference/debug/) is the only interface every type has
@@ -383,38 +323,46 @@ The function is named `to_string`, as in the `Display` interface, and takes a
 
 ## Interface-bounded generics
 
-A generic function can require its type parameter to implement an interface.
-Each call is checked against that requirement:
+[Generics](/generics/#bounds-with-where) showed bounds such as
+`where T: Comparable`. A bound can name an interface you declare, and it can
+mention another type parameter. That links two type parameters without making
+them the same type:
 
 ```nomi-run
-fn first_two_sorted<T>(xs: List<T>) -> List<T> where T: Comparable {
-    xs
-    |> Iter.sort()
-    |> Iter.take(2)
-    |> Iter.to_list()
+interface StepBy<S> {
+    fn step_by(value: self, step: S) -> self
+}
+
+type Counter Int
+
+impl StepBy<Int> for Counter {
+    fn step_by(value: Counter, step: Int) -> Counter {
+        Counter(n) = value
+        Counter(n + step)
+    }
+}
+
+fn advance<T, S>(value: T, step: S) -> T where T: StepBy<S> {
+    T.step_by(value, step)
 }
 
 fn main() {
-    first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6])
-    |> dbg
-
-    first_two_sorted(["banana", "apple", "cherry"])
-    |> dbg
+    dbg advance(Counter(10), 5)
 }
 
 ```
 <!-- expect
-dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
-dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
+dbg line 19: advance(Counter(10), 5) = Counter(15)
 -->
 
-The standard library makes [`Int`](/reference/int/) and
-[`String`](/reference/strings/#type-string) implement
-[`Comparable`](/reference/comparable/), so both calls are allowed.
+`advance<T, S>` has two type parameters. The bound `where T: StepBy<S>` says
+`T` must be able to step by an `S`. In this call, `T` is `Counter` and `S` is
+`Int`. Inside `advance`, `T.step_by` calls the impl for whatever type `T` is.
 
-[Generics](/generics/) covers bounds in full. Some examples:
-`where T: Comparable`, `where T: Display and Debug`,
-`where T: Steppable<S>`.
+A value often steps by something of a different type: a date steps by a
+number of days, not by another date. The standard library's `Date` uses the
+same idea for `+`: `date + Days(10)` steps a date by a number of days, as
+[Dates & Times](/dates-and-times/) shows.
 
 A function in an interface can have its own `where` clause, written before
 its body if it has one. If it needs its own type parameter, declare it in
@@ -484,21 +432,32 @@ impl Add<Days, Day> for Day {
     }
 }
 
+fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
+    lhs + rhs
+}
+
 fn main() {
     score = Score(2) + Score(3)
     day = Day(10) + Days(4)
 
     dbg score_number(score)
     dbg day_number(day)
+    dbg plus(Day(10), Days(4))
 }
 
 ```
 <!-- expect
-dbg line 38: score_number(score) = 5
-dbg line 39: day_number(day) = 14
+dbg line 42: score_number(score) = 5
+dbg line 43: day_number(day) = 14
+dbg line 44: plus(Day(10), Days(4)) = Day(14)
 -->
 
-## `derive` entries — structural shortcuts
+A generic function can use an operator through its interface, as `plus` does.
+From the arguments, `L` is `Day` and `R` is `Days`. The only matching impl is
+`impl Add<Days, Day> for Day`, so Nomi works out that `Out` is `Day`. The call
+doesn't have to say so.
+
+## Deriving impls
 
 `derive Interface for Type` asks Nomi to write the impl for you. The impl it
 writes works field by field, or variant by variant. You can derive:
@@ -517,81 +476,44 @@ Some derives take options after `with`. The JSON derives use them to rename
 fields:
 
 ```nomi-run
-import {
-    std/json.{FromJson, Json, ToJson}
-    std/json.Json.Case.Camel
-}
+import std/json.{FromJson, Json, ToJson}
 
 struct User {
     first_name: String
     age: Int
 }
 
-derive ToJson for User with #ToJson.Options{rename_all: Camel}
-derive FromJson for User with #FromJson.Options{rename_all: Camel}
+derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for User with #FromJson.Options{rename_all: Json.Case.Camel}
 
-fn main() -> Result<Unit, Json.ShapeError> {
-    user = #User{first_name: "Ada", age: 36}
-    shape = User.to_json(user)
+fn main() -> Result<Unit, Json.Error> {
+    text = Json.encode_as(#User{first_name: "Ada", age: 36})
+    dbg text
 
-    dbg Json.encode(shape)
-
-    user = User.from_json(shape)?
-
-    user
-    |> Json.encode_as()
-    |> dbg
+    user: User = Json.decode_as(text)?
+    dbg user
 
     Ok(Unit)
 }
 
 ```
 <!-- expect
-dbg line 18: Json.encode(shape) = "{\"firstName\":\"Ada\",\"age\":36}"
-dbg line 24:
-  user
-  |> Json.encode_as()
-  = "{\"firstName\":\"Ada\",\"age\":36}"
+dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
+dbg line 16: user = #User{first_name: "Ada", age: 36}
 -->
 
-`Json.encode_as` writes a value as JSON text in one call, `ToJson.to_json`
-and then `Json.encode`. `Json.decode_as` is the other direction: it reads
-the text back as a `User`.
-
-### Choosing a dispatch surface
-
-An interface function can be called through the type or through the
-interface. Both run the same code, so pick the one that reads best.
-
-For a `User` declared in `users.nomi`, you would usually write the type:
-
-```nomi
-encoded = User.to_json(user)
-
-user = User.from_json(encoded)?
-```
-
-The interface's name helps when the type's name would be ambiguous, or in
-generic code that has a bound instead of a type. `from_json` has no `User`
-argument to go by, so this form names the type in `<...>`:
-
-```nomi
-encoded = ToJson.to_json(user)
-
-user = FromJson.from_json<User>(encoded)?
-```
-
-A type annotation on the binding works too:
-
-```nomi
-user: User = FromJson.from_json(encoded)?
-```
+`Json.encode_as` turns a value into JSON text, and `Json.decode_as` reads it
+back. The annotation `user: User` tells `decode_as` which type to read, since
+no argument says so. The derived functions can be called on their own too.
+Through the type, that is `User.to_json(user)` and `User.from_json(json)`.
+Through the interface, name the type in `<...>`:
+`FromJson.from_json<User>(json)?`.
 
 ### Structural equality
 
-You can compare any two values of the same type with `==`, with no impl or
-derive. They are equal when their fields are equal. In the same way, any value
-can be a `Map` key.
+Values of your own types compare with `==` with no impl or derive: they are
+equal when their fields are equal, and they can be `Map` keys. Function values
+are the exception; they have no equality.
 
 ```nomi-run
 struct Point {
@@ -649,24 +571,26 @@ error. `derive Comparable` compares the first field, then the next field if
 those are equal, and so on:
 
 ```nomi-run
-struct Money {
-    amount: Int
+struct Version {
+    major: Int
+    minor: Int
 }
 
-derive Comparable for Money
+derive Comparable for Version
 
 fn main() {
-    dbg #Money{amount: 100} < #Money{amount: 250}
-
-    ms = [#Money{amount: 3}, #Money{amount: 1}, #Money{amount: 2}]
-    Iter.sort(ms) |> dbg
+    dbg #Version{major: 1, minor: 9} < #Version{major: 1, minor: 10}
+    dbg #Version{major: 2, minor: 0} < #Version{major: 1, minor: 10}
 }
 
 ```
 <!-- expect
-dbg line 8: #Money{amount: 100} < #Money{amount: 250} = True
-dbg line 11: Iter.sort(ms) = [#Money{amount: 1}, #Money{amount: 2}, #Money{amount: 3}]
+dbg line 9: #Version{major: 1, minor: 9} < #Version{major: 1, minor: 10} = True
+dbg line 10: #Version{major: 2, minor: 0} < #Version{major: 1, minor: 10} = False
 -->
+
+The first comparison ties on `major`, so `minor` decides. In the second,
+`major` decides and `minor` is never compared.
 
 ### Ranked enums
 
@@ -807,9 +731,8 @@ order of its fields or variants gives it:
 - A type that wraps one value, such as `type Score Int` or
   `type Priority Int`.
 - An enum whose variants are in rank order, such as `Severity` above.
-- A struct like `#Version{major, minor, patch}`, where comparing field by field
-  is what the order means. The standard library's `Date` and `Time` are like
-  this.
+- A struct like `Version` above, where comparing field by field is what the
+  order means. The standard library's `Date` and `Time` are like this.
 
 On an ordinary struct, deriving `Comparable` picks one order for every sort.
 Code comes to depend on it without saying so. Then reordering the struct's
@@ -824,7 +747,67 @@ detail on impls.
 
 ## Going deeper
 
-### Coherence: at most one impl per (Iface, T)
+### Defaults over distinct types
+
+A distinct type wraps another type. Every distinct type implements
+`Distinct<T>`, where `T` is the type it wraps: `Celsius` below wraps
+`Decimal`, so it is a `Distinct<Decimal>`.
+
+A default with `where self: Distinct<T>` can unwrap `self` with the pattern
+`self(n)`, and wrap a value with `self(x)`. This lets several wrapper types
+share one function body. For `Celsius`, `self(n)` unwraps a `Celsius` and
+`self(x)` makes one.
+
+```nomi-run
+import std/io
+
+type Celsius Decimal
+type Fahrenheit Decimal
+
+interface Temperature {
+    fn unit(t: self) -> String
+
+    fn label(self(n) as t) -> String where self: Distinct<Decimal> {
+        "${Decimal.round(n, 1, .HalfUp)} ${Temperature.unit(t)}"
+    }
+
+    fn scale(self(n), by: Decimal) -> self where self: Distinct<Decimal> {
+        self(n * by)
+    }
+}
+
+impl Temperature for Celsius {
+    fn unit(_t: Celsius) -> String {
+        "C"
+    }
+}
+
+impl Temperature for Fahrenheit {
+    fn unit(_t: Fahrenheit) -> String {
+        "F"
+    }
+}
+
+fn main() {
+    io.print(Temperature.label(Celsius(21.456d)))
+    io.print(Temperature.label(Fahrenheit(70d)))
+    io.inspect(Celsius.scale(Celsius(10d), 2d))
+}
+```
+<!-- expect
+21.5 C
+70.0 F
+Celsius(20d)
+-->
+
+`self(n)` also works in a `case` arm and in a binding (`self(m) = other`).
+`self` on its own is the wrapping function, which you can pass around:
+`Iter.map(ns, self)`.
+
+A type that isn't a distinct type over `Decimal` must write these functions
+itself, as with any `where self` bound.
+
+### One impl per type and interface
 
 A type can implement an interface only once in a whole program. Two
 `impl Display for User { ... }` blocks anywhere in the program are a compile
@@ -832,85 +815,18 @@ error, reported before anything runs.
 
 A generic interface is the one exception: a type may implement it once at
 each set of type arguments. `String` implements `Contains<String>`,
-`Contains<Regex>` and `Contains<Codepoint>`, and each call takes the impl its
+`Contains<Regex<C>>` and `Contains<Codepoint>`, and each call takes the impl its
 argument's type chooses, so `String.contains(s, "x")` and
 `String.contains(s, '-')` call different impls. Each such impl writes its
-type arguments in its header, and a generic impl such as
-`impl Holds<T> for Wrap<T>` must stand alone.
+type arguments in its header.
 
 Two types with the same name in different files are different types. So a
 `Display` impl for one file's `Date` doesn't clash with a `Display` impl for
 another file's `Date`.
 
-### The orphan rule
-
-Suppose two libraries each wrote `impl Display for Int { … }`. Each would
-compile on its own, but a program that used both would have two impls of
-`Display` for `Int`. The **orphan rule** prevents this. An
-`impl Iface for T { ... }` block must be in the Nomi module that declares
-`Iface` or the one that declares `T`. An impl anywhere else is called an
-orphan impl, and it is a compile error.
-
-A Nomi module is a directory with a `nomi.toml`, and everything under it, as
-[Modules & Imports](/modules-and-imports/#nomi-modules) explains. A program
-with no `nomi.toml`, such as a lone script, is a module of its own. It
-declares neither `Display` nor `Int`, so it can't write
-`impl Display for Int` either.
-
-To implement someone else's interface for someone else's type, wrap the type
-in one of your own. Declare `type MyId Int` in your module. Then
-`impl Display for MyId { ... }` is allowed, because `MyId` is yours.
-
-A generic interface, one with type parameters, gives one more way. Take
-`Multiply<Rhs, Out>`, which `*` uses. Its one function is
-`multiply(lhs: self, rhs: Rhs) -> Out`, so `Rhs` is the type of a parameter.
-When a type you declare fills a parameter's slot like that, you may implement
-the interface for someone else's type. A module that declares `Rate` may
-write `impl Multiply<Rate, Decimal> for Decimal`, and then `price * rate`
-works:
-
-```nomi-run
-import std/io
-
-struct Rate {
-    per_unit: Decimal
-}
-
-impl Multiply<Rate, Decimal> for Decimal {
-    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
-        lhs * rhs.per_unit
-    }
-}
-
-fn main() {
-    rate = #Rate{per_unit: 4.25d}
-    io.print(12.5d * rate)
-}
-```
-<!-- expect
-53.125
--->
-
-The program multiplies the `Decimal` 12.5 by a `Rate` of 4.25 and prints the
-result.
-
-Two libraries can't clash this way. No other module can write an impl that
-names your `Rate`. If one library writes `Multiply<Rate, Decimal>` and
-another writes `Multiply<Shares, Decimal>`, those are two impls at different
-type arguments. Each call uses the one that matches the type on the right of
-the `*`.
-
-Your type has to meet two conditions:
-
-- It must be the type argument itself, not inside one. `List<Rate>` doesn't
-  count.
-- It must fill a parameter's slot. `impl Multiply<Decimal, Rate> for Decimal`
-  puts `Rate` in `Out`, which only the result uses, so it is still an orphan
-  impl. It would give an existing `price * 2d` a second possible result type.
-
-Any file can write ordinary functions that take an imported type. But it
-can't add a function, field or variant to that type, or an impl the orphan
-rule forbids.
+Where an impl may be written is the orphan rule: it must be in the module that
+declares the interface or the type, with one exception for type arguments.
+[Modules & Imports](/modules-and-imports/#the-orphan-rule) explains it.
 
 ### Why not structural field matching?
 

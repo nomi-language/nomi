@@ -1,0 +1,11 @@
+// `is` reads as a keyword. The caret lines below each line name the
+// highlight of the token they point at.
+pub fn present(m: Maybe<Int>) -> Bool {
+    m is Some(_)
+    //^^ keyword
+}
+
+pub fn either(m: Maybe<Int>) -> Bool {
+    not m is (Some(0) or None)
+    //    ^^ keyword
+}

@@ -12,16 +12,13 @@ pub enum Value {
 
 derive Equatable for Value
 
-/// Attributes by name.
-pub typealias Attributes Map<String, Value>
-
 /// A graph: its nodes and edges, each with its attributes, and the graph's
 /// own attributes. An edge is keyed by its two nodes in order, so `b -- a`
 /// is the edge `#("a", "b")`.
 pub struct Graph {
-    nodes: Map<String, Attributes>
-    edges: Map<#(String, String), Attributes>
-    attrs: Attributes
+    nodes: Map<String, Map<String, Value>>
+    edges: Map<#(String, String), Map<String, Value>>
+    attrs: Map<String, Value>
 }
 
 /// Why a text is not a graph.
@@ -47,9 +44,9 @@ impl Display for Error {
 
 /// One statement inside a graph's braces.
 enum Statement {
-    GraphAttributes Attributes
-    Node {name: String, attributes: Attributes}
-    Edges {names: List<String>, attributes: Attributes}
+    GraphAttributes Map<String, Value>
+    Node {name: String, attributes: Map<String, Value>}
+    Edges {names: List<String>, attributes: Map<String, Value>}
 }
 
 /// Reads `text`, a `graph { ... }` with one statement on each line between
@@ -58,16 +55,16 @@ pub fn parse(text: String) -> Result<Graph, Error> {
     lines =
         String.lines(text)
         |> Iter.map(String.trim)
-        |> Iter.filter(fn line -> line != "" and !is_comment(line))
+        |> Iter.filter(fn line -> line != "" and not is_comment(line))
         |> Iter.to_list()
 
     ["graph {", ..body, "}"] = lines else { return Err(.InvalidGraph) }
 
-    statements = body |> Iter.map(statement) |> Result.collect()
+    statements = body |> Iter.map(statement) |> Result.collect()?
 
     empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
 
-    Ok(Iter.reduce(statements?, add, from: empty))
+    Ok(Iter.reduce(statements, add, from: empty))
 }
 
 fn is_comment(line: String) -> Bool {
@@ -101,7 +98,7 @@ fn statement(line: String) -> Result<Statement, Error> {
             Ok(.GraphAttributes(attributes))
 
         [name] -> {
-            if !is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
+            if not is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
 
             Ok(#Statement.Node{name, attributes})
         }
@@ -113,18 +110,17 @@ fn statement(line: String) -> Result<Statement, Error> {
 
 /// The attributes of `name=value, ...`, the text between a statement's
 /// brackets.
-fn attributes_in(list: String) -> Result<Attributes, Error> {
-    pairs =
-        String.split(list, ",")
-        |> Iter.map(fn pair -> {
-            case pair |> String.trim() |> String.split("=") {
-                [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
-                _ -> Err(Error.InvalidAttribute)
-            }
-        })
-        |> Result.collect()
-
-    Ok(Iter.to_map(pairs?))
+fn attributes_in(list: String) -> Result<Map<String, Value>, Error> {
+    String.split(list, ",")
+    |> Iter.map(fn pair -> {
+        case pair |> String.trim() |> String.split("=") {
+            [name, value] when name != "" and value != "" -> Ok(#(name, value_of(value)))
+            _ -> Err(Error.InvalidAttribute)
+        }
+    })
+    |> Result.collect()?
+    |> Iter.to_map()
+    |> Ok()
 }
 
 /// The value written `text`: quoted text, a whole number, `true` or
@@ -193,9 +189,9 @@ fn add(graph: Graph, statement: Statement) -> Graph {
 /// `entries` with `attributes` merged into those of `key`, which it gains
 /// if it lacks it.
 fn with_attributes<K>(
-    entries: Map<K, Attributes>,
+    entries: Map<K, Map<String, Value>>,
     key: K,
-    attributes: Attributes,
-) -> Map<K, Attributes> {
+    attributes: Map<String, Value>,
+) -> Map<K, Map<String, Value>> {
     Map.update(entries, key, %{}, &Map.merge(&1, attributes))
 }

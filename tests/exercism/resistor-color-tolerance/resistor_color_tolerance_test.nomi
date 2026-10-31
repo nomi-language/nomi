@@ -81,9 +81,9 @@ test "labels read as the description writes them" {
 }
 
 test "bands that make no label" {
-    cases: List<#(String, List<Color>)> = [
+    cases = [
         #("no bands", []),
-        #("one band that is not black", [.Brown]),
+        #("one band that is not black", [Color.Brown]),
         #("three bands", [.Brown, .Black, .Red]),
         #("a tolerance color as a digit", [.Gold, .Black, .Red, .Red]),
         #("a digit color as a tolerance", [.Brown, .Black, .Red, .Orange]),

@@ -40,7 +40,7 @@ func TestAdapterWall_TheCoLocatedAdapterLowersEndToEnd(t *testing.T) {
 		"regex.Regex.compile",
 		"regex.Regex.pattern",
 		"regex.Regex.find_in",
-		"regex.Regex.replace_all",
+		"regex.Regex.replace_in",
 		"regex.Regex.is_contained_in",
 		"regex.Regex.find_all_in",
 		"regex.Regex.split_in",

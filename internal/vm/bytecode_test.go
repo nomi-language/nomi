@@ -97,7 +97,7 @@ func TestBytecode_AHostForwarderRunsAsItsCrossing(t *testing.T) {
     std/regex.Regex
 }
 
-fn probe(s: String, re: Regex) -> Bool {
+fn probe<C>(s: String, re: Regex<C>) -> Bool {
     parts = String.split(s, ",")
     words = String.split(s, re)
     String.contains(s, "b") and Iter.count(parts) == Iter.count(words)

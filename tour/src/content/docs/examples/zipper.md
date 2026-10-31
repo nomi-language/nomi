@@ -66,20 +66,14 @@ impl Zipper<T> {
     pub fn left(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
         #Tree{value, left, right} = zipper.focus
 
-        Maybe.map(left, fn child -> #Zipper{
-            focus: child,
-            path: [#.FromLeft{value, right}, ..zipper.path],
-        })
+        Some(#Zipper{focus: left?, path: [#.FromLeft{value, right}, ..zipper.path]})
     }
 
     /// The zipper on the focus's right subtree, or `None` when it has none.
     pub fn right(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
         #Tree{value, left, right} = zipper.focus
 
-        Maybe.map(right, fn child -> #Zipper{
-            focus: child,
-            path: [#.FromRight{value, left}, ..zipper.path],
-        })
+        Some(#Zipper{focus: right?, path: [#.FromRight{value, left}, ..zipper.path]})
     }
 
     /// The zipper on the focus's parent, or `None` at the root.
@@ -140,9 +134,7 @@ fn initial_tree() -> Tree<Int> {
 fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
     start = initial_tree() |> Zipper.from_tree() |> Some()
 
-    Iter.reduce(operations, fn zipper = start, operation -> {
-        Maybe.flat_map(zipper, &apply(&1, operation))
-    })
+    Iter.reduce(operations, fn zipper = start, operation -> apply(zipper?, operation))
 }
 
 fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>> {
@@ -249,7 +241,8 @@ test "different paths to same zipper" {
 
 - `Tree<T>` is a struct of a value and two `Maybe<Tree<T>>` subtrees, so the canonical data's `null` subtree is `None` and every tree has a root node to focus on. `Zipper.from_tree` therefore cannot fail.
 - Nomi values cannot change, so the zipper is the persistent structure zippers were invented for: an opaque struct of the focus subtree and the path back to the root, nearest parent first. Each step of the path is a private `Crumb`, `FromLeft` or `FromRight`, holding the parent's value and its other subtree. A move or a change answers a new zipper and rebuilds only the nodes on the path; `to_tree` walks `up` until there is no parent.
-- `left`, `right` and `up` answer `Maybe<Zipper<T>>`, with `None` where there is no node to move to, which is the canonical "dead end" and "traversing up from top". `set_value`, `set_left` and `set_right` cannot fail and answer a `Zipper<T>`, each one spread update of the focus (`#{..zipper, focus: #{.., value}}`).
+- `left`, `right` and `up` answer `Maybe<Zipper<T>>`, with `None` where there is no node to move to, which is the canonical "dead end" and "traversing up from top". `left` and `right` read the subtree with `?` inside the new zipper's literal (`focus: left?`).
+ `set_value`, `set_left` and `set_right` cannot fail and answer a `Zipper<T>`, each one spread update of the focus (`#{..zipper, focus: #{.., value}}`).
 - `derive Equatable` on `Zipper` and `Crumb` makes the "different paths to same zipper" case one `==` between two zippers.
-- The canonical cases are a starting tree and a list of operations, all on the same tree. The test file writes each operation as an `Operation` variant and `follow` applies them with one `Iter.reduce` over a `Maybe<Zipper<Int>>`, stopping at the first move that finds no node through `Maybe.flat_map`. The cases are three `subtests` tables by what they expect (a tree, a value, no zipper) and one test for the two paths. `leaf` and `initial_tree` keep the expected trees short.
+- The canonical cases are a starting tree and a list of operations, all on the same tree. The test file writes each operation as an `Operation` variant and `follow` applies them with one `Iter.reduce` over a `Maybe<Zipper<Int>>`, as `apply(zipper?, operation)`: the `?` exits the lambda, so the first move that finds no node leaves `None` for the rest of the fold. The cases are three `subtests` tables by what they expect (a tree, a value, no zipper) and one test for the two paths. `leaf` and `initial_tree` keep the expected trees short.
 - The canonical data's `left`, `right` and `value` operations at the end of a case are what the table asserts: a case ending in `value` is a row of the value table, and `to_tree` is applied by the tree table.

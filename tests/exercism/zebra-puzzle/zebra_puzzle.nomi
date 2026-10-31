@@ -128,12 +128,12 @@ fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order))
 fn resident(nations: Order, house: Int) -> Nationality {
     #(english, spaniard, ukrainian, norwegian, japanese) = nations
 
-    case house {
-        _ when house == english -> .Englishman
-        _ when house == spaniard -> .Spaniard
-        _ when house == ukrainian -> .Ukrainian
-        _ when house == norwegian -> .Norwegian
-        _ when house == japanese -> .Japanese
+    case {
+        house == english -> .Englishman
+        house == spaniard -> .Spaniard
+        house == ukrainian -> .Ukrainian
+        house == norwegian -> .Norwegian
+        house == japanese -> .Japanese
         _ -> unreachable "the five nationalities live in the five houses"
     }
 }

@@ -33,7 +33,7 @@ pub fn tick(board: Vector<Vector<Int>>) -> Vector<Vector<Int>> {
 
 fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int {
     neighbours
-    |> Iter.map(fn #(dr, dc) -> cell_at(board, row + dr, column + dc) |> Maybe.with_default(0))
+    |> Iter.flat_map(fn #(dr, dc) -> cell_at(board, row + dr, column + dc))
     |> Iter.sum()
 }
 
@@ -120,7 +120,7 @@ test "tick" {
 ## How it's written
 
 - The board is `Vector<Vector<Int>>`, with cells as the canonical `0` and `1`. A `Bool` or a `Cell` enum would read better in the solution, but the test grids of `#[1, 0, 1]` read as the board; `next_state` is the only place that knows `1` means alive.
-- Neighbours are counted by indexed reads (`cell_at`), with an off-board neighbour read as `None` and counted as dead by `Maybe.with_default(0)`. A `Set<#(Int, Int)>` of live cells, as flower-field uses, was the other natural form; I chose the vector because the input already is one and `Vector.get`'s `None` is exactly "off the board".
+- Neighbours are counted by indexed reads (`cell_at`), with an off-board neighbour read as `None`. A `Maybe` is an `Iter` of zero or one elements, so `Iter.flat_map` over the offsets drops the off-board ones before `Iter.sum`. A `Set<#(Int, Int)>` of live cells, as flower-field uses, was the other natural form; I chose the vector because the input already is one and `Vector.get`'s `None` is exactly "off the board".
 - The next generation is built by mapping over rows and cells with `Iter.with_index`, not by updating cells of a copy, so no indexed update is needed. This was the natural form, not a retreat from `Vector.set`.
 - The eight offsets are a `once` literal, as in flower-field.
 - `next_state` is one `case` on `#(cell, live_neighbours)` with the or-pattern `#(1, 2) or #(_, 3)`.

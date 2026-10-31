@@ -316,15 +316,15 @@ func TestGrouping(t *testing.T) {
 	}
 }
 
-func TestUnaryBang(t *testing.T) {
-	// !true → Unary{"!", Ident{true}}
-	expr := parseExpr(t, "!true")
+func TestUnaryNot(t *testing.T) {
+	// not true → Unary{"not", Ident{true}}
+	expr := parseExpr(t, "not true")
 	un, ok := expr.(*ast.Unary)
 	if !ok {
 		t.Fatalf("expected *ast.Unary, got %T", expr)
 	}
-	if un.Op != "!" {
-		t.Errorf("expected op !, got %s", un.Op)
+	if un.Op != "not" {
+		t.Errorf("expected op not, got %s", un.Op)
 	}
 	ident, ok := un.Right.(*ast.Ident)
 	if !ok || ident.Name != "true" {
@@ -534,9 +534,9 @@ func TestNestedGrouping(t *testing.T) {
 	}
 }
 
-func TestUnaryBangPrecedence(t *testing.T) {
-	// !true and false → Binary{Unary{!, true}, "and", false}
-	expr := parseExpr(t, "!true and false")
+func TestUnaryNotPrecedence(t *testing.T) {
+	// not true and false → Binary{Unary{not, true}, "and", false}
+	expr := parseExpr(t, "not true and false")
 	bin, ok := expr.(*ast.Binary)
 	if !ok {
 		t.Fatalf("expected *ast.Binary, got %T", expr)
@@ -548,8 +548,8 @@ func TestUnaryBangPrecedence(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected left *ast.Unary, got %T", bin.Left)
 	}
-	if left.Op != "!" {
-		t.Errorf("expected left op !, got %s", left.Op)
+	if left.Op != "not" {
+		t.Errorf("expected left op not, got %s", left.Op)
 	}
 }
 

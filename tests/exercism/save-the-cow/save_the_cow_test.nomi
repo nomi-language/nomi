@@ -3,9 +3,7 @@ import save_the_cow.{Error, Game, State}
 /// A new game of `word` after each of `guesses` in turn, or the first
 /// guess it refuses.
 fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
-    Iter.reduce(guesses, fn game = Ok(Game.new(word)), letter -> {
-        Result.flat_map(game, &Game.guess(&1, letter))
-    })
+    Iter.try_reduce(guesses, Game.new(word), Game.guess)
 }
 
 test "guess" {

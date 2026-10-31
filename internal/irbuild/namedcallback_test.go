@@ -279,7 +279,7 @@ impl Date {
   }
 
   fn is_same(a: Date, b: Date, strict: Bool = True) -> Bool {
-    a.year == b.year and (!strict or a.day == b.day)
+    a.year == b.year and (not strict or a.day == b.day)
   }
 }
 

@@ -67,19 +67,16 @@ This is a good way to check for a particular enum variant, such as one kind of
 error:
 
 ```nomi-run
-import {
-    std/calendar.Error
-    std/calendar.Date
-}
+import std/calendar.{Date, Error}
 
 test "assert can match an error variant" {
-    assert Err(Error.InvalidFormat(_)) = Date"not-a-date"
+    assert Err(Error.InvalidFormat(_)) = Date.parse("not-a-date")
 }
 ```
 
-When a value that might fail is only setup for the rest of the test, end it
-with `?`. If it fails, the test fails. Use a pattern assertion instead when the
-result is the thing you are testing.
+When a `Result` or `Maybe` is only setup for the rest of the test, put `?`
+after the call. If it is `Err` or `None`, the test fails there. Use a pattern
+assertion instead when the result is the thing you are testing.
 
 ```nomi-run
 import std/calendar.Date
@@ -91,14 +88,16 @@ test "formats parsed date" {
 }
 ```
 
-## Attached Tests
+## Attached tests
 
 A short test can sit right above the function it checks. Write each line of
-it after `//!`. `nomi test` runs each group of `//!` lines as one test.
+it after `//!`. `nomi test` runs each group of `//!` lines as one test. A
+bare `//` line ends the test. `nomi test` doesn't need it, but it keeps the
+test apart from the function's doc comment.
 
 ```nomi-run
 //! assert answer() == 42
-//! assert (answer() + 1) == 43
+//! assert answer() + 1 == 43
 //
 fn answer() -> Int {
     42
@@ -111,25 +110,15 @@ fn label(text: String) -> String {
 }
 ```
 
-An attached test can bind names before it asserts:
+An attached test can bind names before it asserts, and hold several
+assertions:
 
 ```nomi-run
 //! value = parse_int("42")
 //! assert value == Some(42)
+//! assert parse_int("forty") == None
 //
 fn parse_int(text: String) -> Maybe<Int> {
-    String.to_int(text)
-}
-```
-
-It can also hold several assertions:
-
-```nomi-run
-//! value = parse_int_again("42")
-//! assert value == Some(42)
-//! refute value == None
-//
-fn parse_int_again(text: String) -> Maybe<Int> {
     String.to_int(text)
 }
 ```
@@ -182,7 +171,7 @@ report:
 
 ```console
 FAIL palindrome_test.nomi :: determines palindromes
-  subtest #("abc", True): line 10: assertion failed
+  subtest #("abc", True): line 9: assertion failed
     assert is_palindrome(line) == known_palindrome
     values:
       line
@@ -194,14 +183,12 @@ FAIL palindrome_test.nomi :: determines palindromes
   1 of 3 subtests failed
 ```
 
-Each row counts as a case in the totals. The rows that pass are not listed: a
-test whose rows all pass prints one line with how many it ran, such as
-`ok palindrome_test.nomi :: determines palindromes (3 cases)`, and a test of 3
-rows with one failing adds `2 passed, 1 failed` to the `test result:` line.
-`--line` and an editor still run the whole statement as one test. A row cannot
-`return`, `break` or `?`: every row runs to its end.
+Each row counts as a case in the totals, and passing rows are not listed:
+`ok palindrome_test.nomi :: determines palindromes (3 cases)`. A row can't use
+`return`, `break` or `?`, so every row runs to its end. To get a value out of
+a `Result` in a row, use `assert Ok(value) = ...`.
 
-### Naming Rows
+### Naming rows
 
 A third part after the pattern names each row. It is any `String`, and it can
 use the names the pattern binds. A table often carries a description column
@@ -246,7 +233,7 @@ You can also build a name from the row, as in
 `subtests cases, #(a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
 name it `_` as usual.
 
-## Input And Output
+## Input and output
 
 [`io.capture`](/reference/io/) runs a function and gives it the text you pass
 as its input. It returns what the function returned, in `value`, and
@@ -367,23 +354,9 @@ Some programs print a prompt with no newline and then read, as
 an output line of its own, and the typed text goes on the input line below
 it.
 
-Every line that is not an input line is output, exactly as written. Spaces
-past the closing `"""` column are part of the output. A `> ` prompt at the
-start of a line is output too: write `>`, then the input line `    > north`
-under it. If an indented output line starts with `> `, write a backslash
-before the `>`, as in `    \> quoted`, so it is not read as input.
-
-Trailing spaces and the final newline are ignored. An input line the program
-never reads fails the test. A script holds standard output only: what the
-program writes to standard error is left out of the comparison, so a warning
-never fails a replay. Check it with `io.capture`'s `errors`.
-
-When a replay fails, the report shows a diff, with each line's number in the
-file. A `-` line is in the script but the program didn't print it. A `+` line
-is what the program printed instead. Above the diff, the script is shortened
-to `""" lines 11-23 """`. To check the session some other way, use
-`io.capture`: its result holds the session in this same form, in
-`transcript`.
+An input line the program never reads fails the test, and standard error is
+not compared. The [`io.replay`](/reference/io/#ioreplay) reference has the
+rest of the rules.
 
 A program that reads nothing gets a script of output lines only. The second
 line below expects one leading space.
@@ -411,7 +384,7 @@ test "converts to Fahrenheit" {
  -5.0 C |   23.0 F
 -->
 
-## Groups And Setup
+## Groups and setup
 
 `group` gathers related tests under one name. A group can have a `setup`. It
 runs before each test in the group and produces a value. A test receives that
@@ -444,218 +417,18 @@ and match it in the test's body.
 Groups don't nest. When two sets of tests need different setup, write two
 groups side by side. Put the part they share in an ordinary function.
 
-## Booting The Application
+## Booting the application
 
-Some code reads [application fields](/capabilities-and-context/), such as
-`Config.env`. Those fields come from the program's `boot` function. To test
-that code, the group calls `boot` on a `boot` line, passing a `Startup` if
-`boot` takes one. Code that reads no application field needs no `boot` line.
+A group can also start the application with a `boot` line;
+[App Fields, Defer & Context](/capabilities-and-context/#testing-code-that-reads-app-fields)
+shows how.
 
-Each test starts fresh. First the group's clock is chosen, then `boot` runs,
-then `setup`, then the test's body.
+## Virtual time
 
-```nomi-run
-import std/io
+A group can run its tests under a fake clock, so waiting takes no real time:
+[Concurrency](/concurrency/#virtual-time) shows `clock Clock.Virtual`.
 
-struct Config {
-    env: String
-}
-
-fn boot(startup: Startup) -> Result<Config, String> {
-    Ok(#Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")})
-}
-
-fn main() {
-    io.print("env: ${Config.env}")
-}
-
-group "app-backed behavior" {
-    boot boot(#Startup{env: %{"APP_ENV" => "test"}})
-
-    test "reads the booted field" {
-        assert Config.env == "test"
-    }
-
-    test "a with line replaces a field for the rest of the body" {
-        with Config.env = "staging"
-        assert Config.env == "staging"
-    }
-}
-```
-<!-- expect
-env: dev
--->
-
-The tests here are in the same file as `main`, so the `boot` line calls
-`boot` by its bare name. `Startup`'s fields are empty unless you set them, so
-the group sets only `env`. The `with` line in the second test is explained in
-[App Fields, Defer & Context](/capabilities-and-context/#with-replaces-a-field-for-the-rest-of-the-block).
-
-Most tests need no startup input. If `boot` reads none, it takes no
-parameter, and groups write `boot boot()`. If `boot` does read startup input,
-give its parameter a default. Then a group that needs no input writes
-`boot boot()`, and the others pass the inputs they want:
-
-```nomi-run
-import std/io
-
-struct Config {
-    verbose: Bool
-}
-
-fn boot(startup: Startup = #Startup{}) -> Result<Config, String> {
-    Ok(#Config{verbose: List.contains(startup.args, "-v")})
-}
-
-fn main() {
-    io.print("verbose: ${Config.verbose}")
-}
-
-group "quiet by default" {
-    boot boot()
-
-    test "takes no arguments" {
-        assert Config.verbose == False
-    }
-}
-
-group "verbose" {
-    boot boot(#Startup{args: ["-v"]})
-
-    test "reads -v" {
-        assert Config.verbose
-    }
-}
-```
-<!-- expect
-verbose: False
--->
-
-When the program itself runs, `boot` still gets the real arguments. The
-default is used only by a `boot` line that passes nothing.
-
-In a larger project, tests live in their own file. They import the file that
-holds `main` and call its boot, as `server.boot` below.
-
-A `with` line in `setup` stays in force for the whole test, so `setup` is a
-good place to swap in a fake. A `defer` in `boot` or `setup` runs when the
-test finishes:
-
-```nomi
-// server_test.nomi
-import {
-    server
-    server.App
-    test_support
-    test_support.FakeMailer
-}
-
-group "welcome email" {
-    boot server.boot(test_support.startup())
-
-    setup {
-        with App.mailer = FakeMailer
-        "ada@example.com"
-    }
-
-    test "sends through the fake", to {
-        assert server.welcome(to)
-    }
-}
-```
-
-Here `test_support.startup()` builds the inputs this group needs. If
-`server.nomi` declares
-`pub fn boot(startup: Startup = #Startup{}) -> Result<App, String>`, a group
-that needs no input writes `boot server.boot()`.
-
-### A boot that fails
-
-A `boot` returns a `Result`, and a group's `boot` line takes it. When `boot`
-returns `Err`, each test in the group fails before its setup and body run.
-The report is the one a `?` gives when it ends a test early: the `boot`
-line, and the `Err` it returned. The cleanup `boot` deferred still runs when
-the test ends.
-
-```nomi
-group "without a database path" {
-    boot server.boot(#Startup{})
-
-    test "never gets this far" {
-        assert server.is_ready()
-    }
-}
-```
-
-If `server.boot` returns `Err("DATABASE_PATH is not set")` for an empty
-`Startup`, `nomi test` reports:
-
-```text
-FAIL server_test.nomi :: without a database path / never gets this far
-  line 2: test returned early
-    boot server.boot(#Startup{})
-    returned:
-      Err("DATABASE_PATH is not set")
-```
-
-A test that checks how `boot` fails calls the code `boot` calls, such as the
-function that reads the settings, and asserts on its `Err`, since a group's
-`boot` line runs only to start a test.
-
-## Virtual Time
-
-A test that waits is slow, and on a busy machine it may fail by accident.
-Add `clock Clock.Virtual` to a group to avoid both. Its tests run under a fake
-clock. Whenever every task in the test is waiting, the clock jumps forward,
-so waiting takes no real time.
-
-```nomi-run
-import {
-    std/duration.Duration
-    std/testing.Clock
-    std/timer
-}
-
-group "retry policy" {
-    clock Clock.Virtual
-
-    test "gives up after backing off" {
-        timer.sleep(Duration.minutes(5))
-        assert True
-    }
-}
-```
-
-That test finishes at once. It also takes the same path every time, because
-the clock only moves when the program is waiting.
-
-`clock` takes an ordinary expression naming a
-[`testing.Clock`](/reference/testing/) variant, so `Clock` has to be imported,
-as above. If you import `std/testing` instead, write
-`clock testing.Clock.Virtual`.
-
-A group's `clock`, `boot` and `setup` lines can be in any order. They always
-run clock first, then boot, then setup. `nomi fmt` moves them to the top of
-the group in that order.
-
-Tests outside a group with a `clock` line use the real clock.
-
-Under the fake clock, a test that can never finish is reported as a deadlock.
-It doesn't hang the run. So you can safely test calls that wait with no
-timeout, such as [`Supervisor.flush`](/concurrency/#testing-background-work).
-
-The fake clock is off by default because it changes how a test behaves:
-
-- Waiting on something outside the program, such as reading input or a real
-  network call, never lets the clock move. The test is reported as deadlocked.
-- Background work still running when a test ends is an error. It does not
-  carry on into the next test.
-- `Instant.now` starts at midnight UTC on 1 January 2000.
-
-The first two usually point to a problem in the test. Still, they change
-behaviour, so each group opts in.
-
-## A Test That Never Finishes
+## A test that never finishes
 
 `nomi test` gives each test 10 seconds. A test that is still running after
 that is stopped and reported as failed. The report shows the line the test was
@@ -669,7 +442,7 @@ running and the calls that led to it. Then the next test runs as usual.
 - A test run in the debugger, described next, has no limit, so pausing it
   never makes it fail.
 
-## Debugging A Test
+## Debugging a test
 
 In VS Code and Neovim (with nvim-dap), click Debug test beside a test. In
 Zed, pick the test's debug entry. Helix starts one with `:debug-start`. Each

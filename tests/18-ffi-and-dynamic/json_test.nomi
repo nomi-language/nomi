@@ -33,7 +33,7 @@ fn describe_root(jv: Json) -> String {
 
 fn extract_first_tag(jv: Json) -> Maybe<String> {
     case jv {
-        %.Obj{"tags" => .Arr[.String(t), .._]} -> Some(t)
+        %.Obj{"tags" => .Arr[.String(t), ..]} -> Some(t)
         _ -> None
     }
 }

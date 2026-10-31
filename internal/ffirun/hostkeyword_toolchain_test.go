@@ -60,7 +60,7 @@ func TestHostKeyword_AGoBoundStdModuleLeavesTheToolchainFreePath(t *testing.T) {
 		},
 		{
 			name:         "std/regex",
-			source:       "import std/regex.Regex\n\nfn pat(r: Regex) -> String {\n  Regex.pattern(r)\n}\n",
+			source:       "import std/regex.Regex\n\nfn pat<C>(r: Regex<C>) -> String {\n  Regex.pattern(r)\n}\n",
 			wantFastPath: true,
 			why:          "regex's Go is nomi/stdregex and its facade declares host fn",
 		},

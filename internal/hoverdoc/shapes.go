@@ -190,6 +190,8 @@ func (s *shapeSearch) visit(n ast.Node) {
 		}
 	case *ast.Unary:
 		s.unary(n)
+	case *ast.Is:
+		s.isTest(n)
 	case *ast.RangeLit:
 		s.rangeOp(n)
 	case *ast.Lambda:

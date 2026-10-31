@@ -124,6 +124,12 @@ type writeState struct {
 	sink   WriteSink
 	w      *bufio.Writer
 	closed bool
+	// held marks a writer into memory (Writer.collect's), which writes
+	// nothing outside the machine.
+	held bool
+	// push is the sink of a writer whose bytes the program takes as they
+	// are written (Writer.from_fn), or nil.
+	push *pushWriter
 }
 
 // openWriters holds every writer state not yet closed, for FlushOpenWriters.
@@ -157,7 +163,9 @@ func FlushOpenWriters() {
 	openWriters.Range(func(k, _ any) bool {
 		st := k.(*writeState)
 		st.mu.Lock()
-		if !st.closed && st.w != nil {
+		// A from_fn writer's function is program code, and the program
+		// has ended.
+		if !st.closed && st.w != nil && st.push == nil {
 			_ = st.w.Flush()
 		}
 		st.mu.Unlock()
@@ -201,13 +209,15 @@ func (st *readState) close() Result[Unit, IOError] {
 	return Ok[Unit, IOError](Unit{})
 }
 
-// close flushes and commits the sink.
-func (st *writeState) close() Result[Unit, IOError] {
+// close flushes and commits the sink, running a from_fn writer's
+// function on fr.
+func (st *writeState) close(fr *Frame) Result[Unit, IOError] {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if st.closed {
 		return Err[Unit](IOError{Tag: TagIOClosed})
 	}
+	st.at(fr)
 	st.closed = true
 	openWriters.Delete(st)
 	if st.w != nil {
@@ -236,9 +246,16 @@ func (st *writeState) discard() {
 		st.mu.Unlock()
 		return
 	}
+	if st.push != nil {
+		// Its function is program code, which nothing may run here.
+		st.closed = true
+		openWriters.Delete(st)
+		st.mu.Unlock()
+		return
+	}
 	if st.sink.Abort == nil {
 		st.mu.Unlock()
-		_ = st.close()
+		_ = st.close(nil)
 		return
 	}
 	st.closed = true
@@ -499,6 +516,7 @@ func WriterWriteText(fr *Frame, w Writer, text string) Result[Unit, IOError] {
 		if st.closed {
 			return Err[Unit](IOError{Tag: TagIOClosed})
 		}
+		st.at(fr)
 		var err error
 		if st.w != nil {
 			_, err = st.w.WriteString(text)
@@ -516,7 +534,7 @@ func WriterWriteText(fr *Frame, w Writer, text string) Result[Unit, IOError] {
 
 // WriterFlush is `Writer.flush`: what the writer buffered reaches what it
 // writes to. The standard streams are never buffered here.
-func WriterFlush(w Writer) Result[Unit, IOError] {
+func WriterFlush(fr *Frame, w Writer) Result[Unit, IOError] {
 	if w.stream != streamHandle {
 		return Ok[Unit, IOError](Unit{})
 	}
@@ -526,6 +544,7 @@ func WriterFlush(w Writer) Result[Unit, IOError] {
 	if st.closed {
 		return Err[Unit](IOError{Tag: TagIOClosed})
 	}
+	st.at(fr)
 	if st.w != nil {
 		if err := st.w.Flush(); err != nil {
 			return Err[Unit](st.fail("write", err))
@@ -536,9 +555,9 @@ func WriterFlush(w Writer) Result[Unit, IOError] {
 
 // WriterClose is `Writer.close`: flush, then commit. Closing a standard
 // stream does nothing.
-func WriterClose(w Writer) Result[Unit, IOError] {
+func WriterClose(fr *Frame, w Writer) Result[Unit, IOError] {
 	if w.stream == streamHandle {
-		return w.h.st.close()
+		return w.h.st.close(fr)
 	}
 	return Ok[Unit, IOError](Unit{})
 }

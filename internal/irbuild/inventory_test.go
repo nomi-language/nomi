@@ -20,6 +20,8 @@ type stdModuleRow struct {
 var stdlibInventory = []stdModuleRow{
 	{module: "add"},
 	{module: "assertions"},
+	{module: "bits"},
+	{module: "bitwise"},
 	{module: "bool"},
 	{module: "bytes"},
 	{module: "calendar"},

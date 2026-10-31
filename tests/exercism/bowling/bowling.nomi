@@ -25,7 +25,7 @@ impl Game {
 
         Some(standing) = pins_standing(game.rolls, frame: 1) else { return Err(.GameOver) }
         if pins > standing { return Err(.TooManyPins) }
-        Ok(#{rolls: List.concat(game.rolls, [pins])})
+        Ok(#{rolls: [..game.rolls, pins]})
     }
 
     /// The total score of a finished game.

@@ -25,8 +25,7 @@ fn translate(text: String) -> List<String> {
     text
     |> String.lowercase()
     |> String.to_codepoints()
-    |> Iter.map(swap)
-    |> Maybe.values()
+    |> Iter.flat_map(swap)
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
 }

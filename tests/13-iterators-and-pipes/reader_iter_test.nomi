@@ -1,0 +1,97 @@
+// A reader as an iterator: `Reader.lines` and `Reader.chunks` read the
+// stream as they run, so they run once, and a failure is the last item.
+// `io.lines()` reads standard input the way `io.read_line` does.
+import std/io.{self, Error, Reader}
+
+test "a reader over text yields its lines" {
+    lines = Reader.from_text("pear\napple\r\n\nfig") |> Reader.lines() |> Result.collect()
+    assert lines == Ok(["pear", "apple", "", "fig"])
+}
+
+test "the lines of a reader stop where a consumer stops" {
+    r = Reader.from_text("one\ntwo\nthree\n")
+    first_two = Reader.lines(r) |> Iter.take(2) |> Iter.to_list()
+
+    assert first_two == [Ok("one"), Ok("two")]
+    assert Reader.read_all_text(r) == Ok("three\n")
+}
+
+test "a second run carries on from where the stream is" {
+    each = Reader.lines(Reader.from_text("a\nb\n"))
+
+    assert Iter.to_list(each) == [Ok("a"), Ok("b")]
+    assert Iter.to_list(each) == []
+}
+
+test "chunks round-trip through from_chunks" {
+    pieces = [String.to_bytes("ab"), String.to_bytes("cde"), String.to_bytes("f")]
+
+    sizes =
+        Reader.from_chunks(pieces)
+        |> Reader.chunks(size: 2)
+        |> Iter.map(fn chunk -> Result.map(chunk, Bytes.length))
+        |> Result.collect()
+
+    // A read answers what is buffered: the rest of a chunk, then the next.
+    assert sizes == Ok([2, 2, 1, 1])
+
+    joined =
+        Reader.from_chunks(pieces)
+        |> Reader.chunks()
+        |> Result.collect()
+        |> Result.map(fn chunks -> Iter.reduce(chunks, Bytes.concat, from: String.to_bytes("")))
+
+    assert joined == Ok(String.to_bytes("abcdef"))
+}
+
+test "a failing reader's error is the only item" {
+    failing = Reader.from_fn(fn -> Err(Error.TimedOut))
+
+    assert Iter.to_list(Reader.lines(failing)) == [Err(Error.TimedOut)]
+    assert Iter.to_list(Reader.chunks(failing)) == [Err(Error.TimedOut)]
+}
+
+test "a reader that fails after a line yields the line, then the error" {
+    inner = Reader.from_chunks([String.to_bytes("ok\n"), String.to_bytes("bad")])
+
+    flaky = Reader.from_fn(fn -> {
+        case Reader.read(inner) {
+            Ok(Some(chunk)) when chunk == String.to_bytes("bad") -> Err(Error.BrokenPipe)
+            other -> other
+        }
+    })
+
+    assert Iter.to_list(Reader.lines(flaky)) == [Ok("ok"), Err(Error.BrokenPipe)]
+}
+
+test "io.lines reads the capture's input after io.read_line" {
+    run = io.capture("first\nsecond\nthird", fn -> {
+        head = io.read_line()
+        rest = io.lines() |> Result.collect()
+        #(head, rest)
+    })
+
+    assert run.value == #(Ok(Some("first")), Ok(["second", "third"]))
+}
+
+test "io.lines hands over each line before it reads the next" {
+    shout = fn -> {
+        io.lines()
+        |> Iter.each(fn line -> {
+            case line {
+                Ok(text) -> io.print(String.uppercase(text))
+                Err(e) -> io.eprint(e)
+            }
+        })
+    }
+
+    assert io.replay(
+        """
+            > hi
+        HI
+            > there
+        THERE
+        """,
+        shout,
+    )
+}

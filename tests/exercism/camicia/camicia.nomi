@@ -47,7 +47,7 @@ fn rounds(
     tricks: Int,
 ) -> Game {
     #(collector, pile, hands) = play(hands, turn: leader, pile: [], owed: 0, collector: leader)
-    hands = with_hand(hands, collector, List.concat(hand(hands, collector), Iter.reverse(pile)))
+    hands = with_hand(hands, collector, [..hand(hands, collector), ..Iter.reverse(pile)])
     cards = cards + Iter.count(pile)
     tricks = tricks + 1
     now = shape(hands)

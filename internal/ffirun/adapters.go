@@ -15,6 +15,7 @@ package ffirun
 
 import (
 	"fmt"
+	goast "go/ast"
 	goparser "go/parser"
 	"os"
 	"path/filepath"
@@ -174,7 +175,26 @@ func exportBinding(gt *goTypes, mods *adapterModules, pkg DiscoveredPackage, e D
 	if err != nil {
 		return hostgen.Binding{}, err
 	}
-	return hostgen.Binding{Key: e.Key, Go: &hostgen.GoFunc{Pkg: pkg.ImportPath, Name: e.FuncName, Type: ty}, Decl: hf, Res: res}, nil
+	gf := &hostgen.GoFunc{Pkg: pkg.ImportPath, Name: e.FuncName, Type: ty, Shown: p.name + "." + e.FuncName, Params: goParamNames(fn.typ)}
+	return hostgen.Binding{Key: e.Key, Go: gf, Decl: hf, Res: res}, nil
+}
+
+// goParamNames is each parameter's name in a Go function type, "" for an
+// unnamed one, one entry per parameter.
+func goParamNames(ft *goast.FuncType) []string {
+	if ft.Params == nil {
+		return nil
+	}
+	var names []string
+	for _, f := range ft.Params.List {
+		if len(f.Names) == 0 {
+			names = append(names, "")
+		}
+		for _, n := range f.Names {
+			names = append(names, n.Name)
+		}
+	}
+	return names
 }
 
 // adapterModules finds each export's `host fn` declaration and resolves the

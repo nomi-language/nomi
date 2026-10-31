@@ -20,12 +20,12 @@ fn main() {
     io.inspect(n)
     m = case [] {
         [] -> "empty"
-        [_, .._] -> "more"
+        [_, ..] -> "more"
     }
     io.inspect(m)
     io.inspect(case [] {
         [_, _] -> 2
-        [.._] -> 3
+        [..] -> 3
     })
     io.inspect(case [] {
         [_, ..rest] -> Iter.count(rest)

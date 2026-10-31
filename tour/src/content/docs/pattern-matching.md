@@ -16,32 +16,29 @@ program runs.
 ## Binding patterns and guards
 
 ```nomi-run
-fn classify(n: Int) -> String {
-    case n {
-        0 -> "zero"
-        n when n < 0 -> "negative"
-        n when n > 100 -> "huge"
-        _ -> "regular"
+fn label(text: String) -> String {
+    case String.length(text) {
+        0 -> "empty"
+        n when n > 10 -> "long, ${n} characters"
+        n -> "${n} characters"
     }
 }
 
 fn main() {
-    dbg classify(0)
-    dbg classify(-5)
-    dbg classify(500)
-    dbg classify(42)
+    dbg label("")
+    dbg label("hello")
+    dbg label("hello there, world")
 }
 ```
 <!-- expect
-dbg line 11: classify(0) = "zero"
-dbg line 12: classify(-5) = "negative"
-dbg line 13: classify(500) = "huge"
-dbg line 14: classify(42) = "regular"
+dbg line 10: label("") = "empty"
+dbg line 11: label("hello") = "5 characters"
+dbg line 12: label("hello there, world") = "long, 18 characters"
 -->
 
-A plain name in a pattern, like `n`, matches any value and gives it that name.
-`when` adds a condition, called a guard. The arm runs only if the condition is
-true. `_` matches anything and names nothing.
+A plain name in a pattern, like `n`, matches any value and gives it that name,
+here the length. `when` adds a condition, called a guard. The arm runs only if
+the condition is true. `_` matches anything and names nothing.
 
 ## Destructuring
 
@@ -128,8 +125,10 @@ others. Reaching a list's last items walks the list once. The compiler checks
 list and vector arms by length, so `first_two` and `last` need no `_` arm.
 
 A set pattern matches when the set holds every value it lists, in any order.
-The values are expressions, looked up rather than bound, so a set pattern
-can never cover every set, and `access` needs its `_` arm.
+`..others` names the values it did not list, and without a `..` the set must
+hold exactly the values written. The values are expressions, looked up rather
+than bound, so a set pattern can never cover every set, and `access` needs its
+`_` arm.
 
 ### Naming the whole match with `as`
 
@@ -196,25 +195,14 @@ fn size(s: Shape) -> String {
     }
 }
 
-fn closes(c: Codepoint) -> Bool {
-    case c {
-        ')' or ']' or '}' -> True
-        _ -> False
-    }
-}
-
 fn main() {
     dbg size(.Square(12.0))
     dbg size(.Circle(2.0))
-    dbg closes(']')
-    dbg closes('x')
 }
 ```
 <!-- expect
-dbg line 23: size(.Square(12.0)) = "big, 12.0 across"
-dbg line 24: size(.Circle(2.0)) = "2.0 across"
-dbg line 25: closes(']') = True
-dbg line 26: closes('x') = False
+dbg line 16: size(.Square(12.0)) = "big, 12.0 across"
+dbg line 17: size(.Circle(2.0)) = "2.0 across"
 -->
 
 Every alternative must bind the same names, with the same types. Here both
@@ -222,11 +210,45 @@ bind `r` as a `Float`, and `r` holds the value from whichever one matched.
 The `when` guard applies to the whole arm: if it is false, matching goes on to
 the next arm.
 
-`or` works inside other patterns too, as in `Some(.Circle(_) or .Square(_))`
-or `[')' or ']' as closer, ..rest]`. A trailing `as` names the whole value
+`or` works inside other patterns too, as in `Some(.Circle(_) or .Square(_))`.
+A trailing `as` names the whole value
 whichever alternative matched. Together, the alternatives count toward
 covering every value, so `.Red or .Green` and `.Blue` cover a three-color enum
 without `_`.
+
+### Testing a match with `is`
+
+`value is Pattern` asks whether a value matches a pattern. It is a `Bool`
+and binds nothing, so it fits wherever a condition does, in place of a
+`case` with a `True` arm and a `_ -> False` arm:
+
+```nomi-run
+enum Block {
+    Item String
+    Text String
+}
+
+fn closes(c: Codepoint) -> Bool {
+    c is (')' or ']' or '}')
+}
+
+fn main() {
+    blocks = [Block.Item("milk"), Block.Text("note"), Block.Item("eggs")]
+    dbg blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count()
+    dbg closes(']')
+    dbg not Some(3) is None
+}
+```
+<!-- expect
+dbg line 12: blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count() = 2
+dbg line 13: closes(']') = True
+dbg line 14: not Some(3) is None = True
+-->
+
+An `or` pattern after `is` goes in parentheses, since a bare `or` there joins
+two `Bool`s. A name in the pattern is an error: to use the payload, bind it
+with a `case` or with `if Some(n) = x`, as
+[`Maybe<T>` and `Result<T, E>`](#maybet-and-resultt-e) shows.
 
 ## `Maybe<T>` and `Result<T, E>`
 
@@ -322,9 +344,10 @@ dbg line 16: calculate(100, 5) = Ok(11)
 dbg line 17: calculate(100, 0) = Err("div by zero")
 -->
 
-A `?` goes right after a call that returns a `Maybe` or a `Result`. If the call
-succeeds, the `?` gives you the value inside. If it fails, the whole function
-returns the failure straight away.
+A `?` after a `Maybe` or `Result` value gives you the value inside, or returns
+the `None` or `Err` from the whole function at once. The function must return
+the same kind: a `Maybe`'s `?` needs a function that returns a `Maybe`. To turn
+one into the other, use `Maybe.to_result`, as below.
 
 In `calculate(100, 0)`, the second `safe_div` fails, so `calculate` returns
 `Err("div by zero")` and never reaches `Ok(ratio + 1)`.
@@ -365,8 +388,9 @@ is printed with `Debug`.
 type is a compile error, because nothing would use the value. To show a value,
 print it with `io.print` and return `Ok(Unit)`.
 
-To exit with a status other than 1, return an `Exit` from `std/process`, as
-[Input & Output](/input-and-output/#exit-codes) shows.
+To exit with a status other than 1, make `E` an `Exit` from `std/process` and
+return it in an `Err`, as [Input & Output](/input-and-output/#exit-codes)
+shows.
 
 Inside a lambda, a `?` returns from the lambda, not from the function around
 it, just as `return` does.
@@ -376,11 +400,11 @@ To parse a list of inputs, map each one to a `Result` and end the pipe with
 
 ```nomi-run
 fn parse(text: String) -> Result<Int, String> {
-    Maybe.to_result(String.to_int(text), "not a number: " + text)
+    Maybe.to_result(String.to_int(text), "not a number: ${text}")
 }
 
 fn total(inputs: List<String>) -> Result<Int, String> {
-    numbers = inputs |> Iter.map(&parse(&1)) |> Result.collect()?
+    numbers = inputs |> Iter.map(parse) |> Result.collect()?
 
     Ok(Iter.sum(numbers))
 }
@@ -388,7 +412,11 @@ fn total(inputs: List<String>) -> Result<Int, String> {
 fn main() {
     dbg total(["1", "2", "3"])
     dbg total(["1", "x", "y"])
-    #(numbers, errors) = ["1", "x", "y"] |> Iter.map(&parse(&1)) |> Result.partition()
+
+    #(numbers, errors) =
+        ["1", "x", "y"]
+        |> Iter.map(parse)
+        |> Result.partition()
 
     dbg numbers
     dbg errors
@@ -397,20 +425,22 @@ fn main() {
 <!-- expect
 dbg line 12: total(["1", "2", "3"]) = Ok(6)
 dbg line 13: total(["1", "x", "y"]) = Err("not a number: x")
-dbg line 16: numbers = [1]
-dbg line 17: errors = ["not a number: x", "not a number: y"]
+dbg line 20: numbers = [1]
+dbg line 21: errors = ["not a number: x", "not a number: y"]
 -->
 
 `Result.collect` gives the list of values when every input parsed. Otherwise it
 gives the first `Err`, and stops reading at that input.
 
 When you want every error, not just the first, `Result.partition` splits the
-results into two lists: the values and the errors. `Maybe.collect` and
-`Maybe.values` do the same jobs for `Maybe`.
+results into two lists: the values and the errors. For `Maybe`,
+`Maybe.collect` gives `Some` of every value or `None`, and `Maybe.values` keeps
+the `Some` values and drops the rest.
 
 A `Maybe` is also an `Iter` of zero or one elements, so it goes where an
 `Iter` does: `Iter.to_list(Some(3))` is `[3]`, `Iter.to_list(None)` is `[]`,
-and a `flat_map` whose function answers a `Maybe` keeps the `Some` values.
+and `Iter.flat_map` with a function that returns a `Maybe` keeps only the
+`Some` values.
 
 ## Calls that cannot fail
 
@@ -509,7 +539,7 @@ value to use in place of the matched one, as `8080` does for `n`. That works
 only when the pattern binds a single value. `[first, ..rest] = xs else { ... }`
 binds two, so its `else` must leave.
 
-The next chapter, [Interfaces & Dispatch](/interfaces-and-dispatch/), covers
-how types share behavior: `interface`, `impl` blocks, how Nomi picks which
-function to call, and the built-in `Debug` that `dbg` has been using to print
-every value so far.
+The next chapter, [Testing](/testing/), shows how to write and run tests.
+[Interfaces & Dispatch](/interfaces-and-dispatch/) later covers how types
+share behavior, and the `Debug` that `dbg` has been using to print every value
+so far.

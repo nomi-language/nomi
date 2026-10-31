@@ -277,6 +277,110 @@ func IntNeg(a Value) Value {
 	return intOwned(new(big.Int).Neg(intView(a, &sa)))
 }
 
+// The bitwise operations read an Int as two's complement with as many bits
+// as it needs, a negative one with infinitely many leading ones, as math/big's
+// And, Or, Xor and Not do. So they agree with int64's for every pair of int64
+// operands.
+
+// IntAnd is a &&& b.
+func IntAnd(a, b Value) Value {
+	if x, ok := a.(int64); ok {
+		if y, ok := b.(int64); ok {
+			return x & y
+		}
+	}
+	var sa, sb big.Int
+	return intOwned(new(big.Int).And(intView(a, &sa), intView(b, &sb)))
+}
+
+// IntOr is a ||| b.
+func IntOr(a, b Value) Value {
+	if x, ok := a.(int64); ok {
+		if y, ok := b.(int64); ok {
+			return x | y
+		}
+	}
+	var sa, sb big.Int
+	return intOwned(new(big.Int).Or(intView(a, &sa), intView(b, &sb)))
+}
+
+// IntXor is a ^^^ b.
+func IntXor(a, b Value) Value {
+	if x, ok := a.(int64); ok {
+		if y, ok := b.(int64); ok {
+			return x ^ y
+		}
+	}
+	var sa, sb big.Int
+	return intOwned(new(big.Int).Xor(intView(a, &sa), intView(b, &sb)))
+}
+
+// IntNot is ~~~a, the one's complement: -a - 1.
+func IntNot(a Value) Value {
+	if x, ok := a.(int64); ok {
+		return ^x
+	}
+	var sa big.Int
+	return intOwned(new(big.Int).Not(intView(a, &sa)))
+}
+
+// IntShl is a <<< n: a times 2 to the n, exact, so no bit is shifted out.
+// ok is false for a count ShiftCountProblem refuses.
+func IntShl(a, n Value) (v Value, ok bool) {
+	if ShiftCountProblem(n, true) != "" {
+		return nil, false
+	}
+	count := IntSaturated(n)
+	if IntSign(a) == 0 {
+		return int64(0), true
+	}
+	if x, small := a.(int64); small && count < 63 {
+		if s := x << count; s>>count == x {
+			return s, true
+		}
+	}
+	var sa big.Int
+	return intOwned(new(big.Int).Lsh(intView(a, &sa), uint(count))), true
+}
+
+// IntShr is a >>> n: a divided by 2 to the n, rounded toward negative
+// infinity, an arithmetic shift. A count past a's bits answers 0 for a
+// non-negative a and -1 for a negative one. ok is false for a negative count.
+func IntShr(a, n Value) (v Value, ok bool) {
+	if ShiftCountProblem(n, false) != "" {
+		return nil, false
+	}
+	count := IntSaturated(n)
+	if x, small := a.(int64); small {
+		if count > 63 {
+			count = 63
+		}
+		return x >> count, true
+	}
+	var sa big.Int
+	return intOwned(new(big.Int).Rsh(intView(a, &sa), uint(count))), true
+}
+
+// ShiftCountProblem is why n is no count for a shift, left or right, or ""
+// when it is one. A count must be non-negative, and a left shift's must
+// leave a result that fits in memory (maxShift bits). A right shift takes
+// any non-negative count.
+func ShiftCountProblem(n Value, left bool) string {
+	if IntSign(n) < 0 {
+		return "negative shift count " + FormatIntValue(n)
+	}
+	if left && IntSaturated(n) > maxShift {
+		return fmt.Sprintf("shift count %s is too large: the result would have more than %d bits", FormatIntValue(n), maxShift)
+	}
+	return ""
+}
+
+// ShiftCountError is the fault `<<<` and `>>>` report at line for a count
+// ShiftCountProblem refuses.
+func ShiftCountError(line int, n Value, left bool) error {
+	return positioned(line, linePrefix(line)+ShiftCountProblem(n, left))
+}
+
 // IntCompare is -1, 0 or 1 as a is less than, equal to or greater than b.
 func IntCompare(a, b Value) int {
 	if x, ok := a.(int64); ok {

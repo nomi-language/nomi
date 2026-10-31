@@ -16,9 +16,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// Counts the 1 bits in the binary form of a non-negative `number`: the
 /// eggs in Eliud's coop, one bit per nest.
 pub fn egg_count(number: Int) -> Int {
-    Iter.iterate(number, &Int.shift_right(&1, 1))
+    Iter.iterate(number, &(&1 >>> 1))
     |> Iter.take_while(&(&1 > 0))
-    |> Iter.map(&Int.bitwise_and(&1, 1))
+    |> Iter.map(&(&1 &&& 1))
     |> Iter.sum()
 }
 
@@ -41,7 +41,7 @@ test "counts the eggs" {
 
 ## How it's written
 
-- The number is shifted right one bit at a time with `Iter.iterate(number, &Int.shift_right(&1, 1))`, cut at zero, and each step's low bit, `Int.bitwise_and(&1, 1)`, is summed. Every stage is one call, so each is a capture.
-- The exercise forbids a built-in bit count; std has none to forbid.
+- The number is shifted right one bit at a time with `Iter.iterate(number, &(&1 >>> 1))`, cut at zero, and each step's low bit, `&(&1 &&& 1)`, is summed. Every stage is one operator, so each is a capture.
+- The exercise forbids a built-in bit count, so the solution does not call `Int.bit_count(number)`, which answers the same.
 - A negative number counts as 0 eggs, since the chain stops before its first step. The exercise only has non-negative inputs.
 - The four cases are one `subtests` table.

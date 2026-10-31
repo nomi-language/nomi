@@ -229,8 +229,8 @@ fn size(t: Tree<Int>) -> Int {
 
 fn first_leaf(t: Tree<Int>) -> String {
     case t {
-        Tree.Node([Tree.Leaf(n), .._]) -> "first ${n}"
-        Tree.Node([Tree.Node(_), .._]) -> "nested"
+        Tree.Node([Tree.Leaf(n), ..]) -> "first ${n}"
+        Tree.Node([Tree.Node(_), ..]) -> "nested"
         Tree.Node([]) -> "empty"
         Tree.Leaf(n) -> "leaf ${n}"
     }
@@ -240,7 +240,7 @@ fn depth(t: Tree<String>) -> Int {
     case t {
         Tree.Leaf(_) -> 0
         Tree.Node([]) -> 1
-        Tree.Node([k, .._]) -> 1 + depth(k)
+        Tree.Node([k, ..]) -> 1 + depth(k)
     }
 }
 
@@ -481,7 +481,7 @@ fn build_rose(n: Int, acc: Rose<Int>) -> Rose<Int> {
 fn evens(e: Even<String>) -> Int {
     case e {
         Even.Zero(_) -> 0
-        Even.E([Odd.O(inner), .._]) -> 2 + evens(inner)
+        Even.E([Odd.O(inner), ..]) -> 2 + evens(inner)
         Even.E([]) -> 1
     }
 }

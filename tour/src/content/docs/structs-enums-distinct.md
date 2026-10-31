@@ -14,9 +14,9 @@ This chapter covers the ways to declare your own data:
 In a declaration, each struct field and each enum variant goes on its own line,
 with no commas between them. When you build a value, you do use commas.
 
-The examples print values with `dbg`. The next chapter,
-[Interfaces & Dispatch](/interfaces-and-dispatch/), shows how to give a type
-its own printed form with [`Display`](/reference/display/).
+The examples print values with `dbg`.
+[Interfaces & Dispatch](/interfaces-and-dispatch/), later in the tour, shows
+how to give a type its own printed form with [`Display`](/reference/display/).
 
 ## Structs
 
@@ -107,10 +107,6 @@ its fields, written the way the value is: here `#{x: Int, y: Int}`. You read
 its fields the same way. Punning works here too: with a binding `name` in scope,
 `#{name}` is `#{name: name}`.
 
-The `#` starts every struct literal, named or not, as it starts a tuple
-`#(...)` (below) and a vector `#[...]`. Maps and sets start with `%` instead:
-`%{"a" => 1}`, `%[1, 2]` ([Collections](/collections/)).
-
 ## Updating a struct
 
 A value never changes. To change a field, you build a new value from the old
@@ -185,9 +181,6 @@ Anything else you put in a field replaces the whole value. That includes a
 `#{...}` literal without `..`. So `#{..ada, address: #{city: "NYC"}}` is an error,
 because it builds a new `Address` with no street. The compiler says
 `missing field 'street' of Address` and suggests `#{.., city: "NYC"}`.
-
-A field whose type is an interface can only be replaced whole. An interface
-declares no fields, so there are none to update.
 
 The same `..` works for a map's values and for list fields (`[t, ..]`), as the
 [collections chapter](/collections/#spreads) shows.
@@ -337,7 +330,7 @@ type Expired
 type Online
 
 fn main() {
-    // Bare types are constructed by name — no parens, no fields.
+    // A bare type's value is its name, with no parentheses or fields.
     state = Expired
     dbg state
     dbg Online
@@ -353,8 +346,7 @@ A `type` with nothing after its name is a bare type. It is a tag with no data,
 and it takes no memory. You write its value as just its name.
 
 Bare types are useful as marker values, and as data-free variants of an enum
-(see [Embedding existing types](#embedding-existing-types)). They also suit
-an interface implementation that needs a value but no data.
+(see [Embedding existing types](#embedding-existing-types)).
 
 ## Enums
 
@@ -435,14 +427,10 @@ argument (`describe(.North)`), a return value, a list element
 (`walk: List<Direction> = [.North, .East]`) and an annotated binding
 (`d: Direction = .North`).
 
-In a list, vector, set or map with no annotation, the first element can name
-the enum for the rest. In `walk = [Direction.North, .East, .East]` the first
-element makes the list a `List<Direction>`, and each bare variant after it is
-a `Direction`. A map's keys and values work the same way, each on its own:
-`%{Direction.North => 1, .South => 2}`. The compiler reads left to right, so
-`[.North, Direction.East]` is an error at `.North`.
+With no annotation, name the enum on the first element and the rest follow
+it: `walk = [Direction.North, .East]`.
 
-## Type-Owned Functions
+## Type-owned functions
 
 ```nomi-run
 struct User {
@@ -456,7 +444,7 @@ impl User {
     }
 
     fn rename(user: User, first: String) -> User {
-        #User{first, last: user.last}
+        #{..user, first}
     }
 }
 
@@ -480,9 +468,8 @@ them with the type's name in front: `User.full_name(user)`. Nomi has no
 stdlib works the same way: `String.trim(text)`, `List.concat(xs, ys)`.
 
 Put functions here that build, read, check, convert or change values of the
-type. An `impl` block works for any named type: structs, enums, distinct
-types, opaque types, host types, and generic types such as
-`impl Box<T> { ... }`.
+type. An `impl` block works for any type you declare: structs, enums, distinct
+types, and generic types such as `impl Box<T> { ... }`.
 
 :::note[Continue or dig deeper]
 The tour moves on to [**Pattern Matching, Maybe & Result**](/pattern-matching/),
@@ -505,7 +492,7 @@ struct KeyDown {
     key: String
 }
 
-type FocusLost // bare — zero-sized
+type FocusLost // a bare type: no data
 
 enum Event {
     embeds Click
@@ -514,7 +501,7 @@ enum Event {
 }
 
 fn main() {
-    // Each event constructed standalone — no `#Event.Click{...}` wrapping.
+    // Each event is built as its own type, with no `#Event.Click{...}` wrapping.
     // Structs use `#Name{...}`; the bare type is just its name.
     events: List<Event> = [#Click{x: 10, y: 20}, #KeyDown{key: "Enter"}, FocusLost]
     dbg events
@@ -583,13 +570,15 @@ dbg line 30: problems("ada", rules) = []
 A `typealias` is another name for an existing type. `Rule` and
 `(String) -> Maybe<String>` are the same type, and you can use either one
 anywhere. There is no wrapping and no conversion: `too_short` is an ordinary
-function, and the list holds it as a `Rule`.
+function, and the list holds it as a `Rule`. `Maybe.values` keeps the `Some`
+answers and drops the `None`s.
 
 The point is shorter signatures. `problems` takes a `List<Rule>` instead of a
 `List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long
 anonymous shape like this one: a function type, an anonymous struct or a long
-tuple. An alias takes no type parameters, and you cannot `impl` one or call a
-function through it; it only stands for its target.
+tuple. An alias takes no type parameters. You cannot write an `impl` for it,
+and you call its target's functions by the target's name (`List.head`, not
+`Names.head` for `typealias Names List<String>`).
 
 Use `type` when you want the compiler to tell two things apart. A `UserId` and
 an `OrderId` may both hold an `Int`, but you should not pass one where the

@@ -99,6 +99,8 @@ func (r *refactorRequest) lambdaPlaceholder(l *ast.Lambda) (placeholderRewrite, 
 		operands = []ast.Node{e.Left, e.Right}
 	case *ast.Unary:
 		operands = []ast.Node{e.Right}
+	case *ast.Is:
+		operands = []ast.Node{e.Value}
 	case *ast.StructLit:
 		if e.Spread != nil {
 			return none, notPlaceholderShape

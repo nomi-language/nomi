@@ -1,0 +1,164 @@
+import std/compiler
+
+enum Shape {
+    Circle {r: Float}
+    Square {side: Float}
+    Point
+}
+
+enum Block {
+    Item String
+    Text String
+}
+
+struct Order {
+    id: Int
+    state: State
+}
+
+enum State {
+    Open
+    Shipped Int
+}
+
+test "is tests a variant and its payload" {
+    shape = Shape.Point
+    assert shape is .Point
+    refute shape is #.Circle{r: _}
+    assert #Shape.Circle{r: 1.0} is #.Circle{r: 1.0}
+    refute #Shape.Circle{r: 2.0} is #.Circle{r: 1.0}
+    assert Some(3) is Some(_)
+    assert Some(3) is Some(3)
+    refute Some(3) is Some(4)
+    m: Maybe<Int> = None
+    assert m is None
+    assert Shape.Point is Shape.Point
+}
+
+test "an or pattern goes in parentheses" {
+    assert Shape.Point is (#.Circle{r: _} or .Point)
+    refute #Shape.Square{side: 1.0} is (#.Circle{r: _} or .Point)
+    assert 3 is (1 or 2 or 3)
+    assert 'b' is ('a' or 'b')
+}
+
+test "literals, string prefixes and nesting" {
+    assert -1 is -1
+    assert "/users/7" is "/users/" + _id
+    refute "/posts/7" is "/users/" + _id
+    assert Ok(Some(2)) is Ok(Some(_))
+    refute Ok(None) is Ok(Some(_))
+    order = #Order{id: 1, state: State.Shipped(4)}
+    assert order is #Order{state: .Shipped(_)}
+    refute order is #Order{state: .Open}
+    assert #(1, "a") is #(_, "a")
+}
+
+test "collection patterns" {
+    assert [1, 2, 3] is [_, _, ..]
+    refute [1] is [_, _, ..]
+    assert [1, 2, 3] is [1, ..]
+    assert #[1, 2] is #[1, _]
+    assert %{"a" => 1} is %{"a" => 1}
+    key = "a"
+    assert %{"a" => 1} is %{key => _}
+    refute %{"b" => 1} is %{key => _}
+    assert %[1, 2] is %[1, ..]
+    refute %[2] is %[1, ..]
+}
+
+test "is binds like ==" {
+    shape = Shape.Point
+    assert not shape is #.Circle{r: _}
+    assert shape is .Point and not shape is #.Square{side: _}
+    assert shape is #.Circle{r: _} or shape is .Point
+    assert [1, 2] |> List.head() is Some(1)
+    assert not [] |> List.head() is Some(_)
+    assert (shape is .Point) == True
+    assert 2 + 1 is 3
+}
+
+test "is in lambdas and captures" {
+    blocks = [Block.Item("a"), Block.Text("b"), Block.Item("c")]
+    assert (blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count()) == 2
+    assert (blocks |> Iter.reject(&(&1 is .Item(_))) |> Iter.count()) == 1
+    assert (blocks |> Iter.filter(fn b -> b is .Text(_)) |> Iter.count()) == 1
+    assert ([Some(1), None] |> Iter.reject(&(&1 is None)) |> Iter.to_list()) == [Some(1)]
+}
+
+test "a name in the pattern is an error" {
+    result =
+        """
+            fn main() {
+              m = Some(1)
+              _ = m is Some(n)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "an `is` test binds nothing, so its pattern cannot name `n`")
+}
+
+test "a bare or before a pattern asks for parentheses" {
+    result =
+        """
+            enum K {
+              A
+              B
+              C
+            }
+
+            fn main() {
+              k = K.A
+              _ = k is .A or .B
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "a pattern cannot be its right operand: `is` takes one pattern")
+}
+
+test "is does not chain with a comparison" {
+    result =
+        """
+            fn main() {
+              _ = 1 == 1 is True
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "`is` does not chain with a comparison")
+}
+
+test "a pattern that cannot match the type is the case arm's error" {
+    result =
+        """
+            fn main() {
+              _ = 1 is "one"
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "pattern \"one\" is a String, but the value is an Int")
+}
+
+test "a pattern that always matches is an error" {
+    result =
+        """
+            fn main() {
+              _ = 1 is _
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+
+    assert String.contains(
+        message,
+        "`_` matches every value of type Int, so this test is always True",
+    )
+}

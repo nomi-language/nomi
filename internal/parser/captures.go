@@ -33,16 +33,12 @@ func (p *Parser) parseCapture() (ast.Node, error) {
 }
 
 // captureBody reports whether n can be a capture's body: a call, a
-// parenthesized expression or a literal, or the negation of one
-// (`&!String.is_empty(&1)`), which reads as the capture of the call it
-// negates.
+// parenthesized expression or a literal.
 func captureBody(n ast.Node) bool {
 	switch v := n.(type) {
 	case *ast.Call, *ast.GroupedExpr, *ast.StructLit, *ast.TupleLit, *ast.ListLit,
 		*ast.ListSpreadLit, *ast.VectorLit, *ast.SetLit, *ast.MapLit:
 		return true
-	case *ast.Unary:
-		return v.Op == "!" && captureBody(v.Right)
 	case *ast.Unwrap:
 		// `&Vector.get(v, &1)!`: the body unwraps a call's result, so its
 		// `&1` is the capture's parameter, not a partial application's.

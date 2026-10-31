@@ -241,6 +241,60 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	return tpl
 }
 
+// solvePhantomParams binds each type parameter of params that te names as a
+// phantom host type's argument (`C` in `Regex<C>`) and solved does not hold
+// yet, by walking te beside ty, the checker's type at that position.
+func (g *gen) solvePhantomParams(te ast.TypeExpr, ty analysis.Type, params map[string]bool, solved map[string]kind) {
+	ty = analysis.ResolveTypeVar(ty)
+	switch t := te.(type) {
+	case *ast.GenericType:
+		var args []analysis.Type
+		switch at := ty.(type) {
+		case *analysis.DistinctType:
+			if phantomHostSpec(at.Origin, at.Name) >= 0 {
+				for i, a := range t.Params {
+					if st, isSimple := a.(*ast.SimpleType); isSimple && params[st.Name] && i < len(at.TypeArgs) {
+						if _, done := solved[st.Name]; !done {
+							// kindInvalid: lookup — an argument with no kind solves nothing, and monoSolve refuses the unsolved parameter.
+							if k := g.project(at.TypeArgs[i]); k != kindInvalid {
+								solved[st.Name] = k
+							}
+						}
+					}
+				}
+				return
+			}
+			args = at.TypeArgs
+		case *analysis.StructType:
+			args = at.TypeArgs
+		case *analysis.EnumType:
+			args = at.TypeArgs
+		case *analysis.ListType:
+			args = []analysis.Type{at.Elem}
+		case *analysis.MapType:
+			args = []analysis.Type{at.Key, at.Val}
+		}
+		for i, a := range t.Params {
+			if i < len(args) {
+				g.solvePhantomParams(a, args[i], params, solved)
+			}
+		}
+	case *ast.FuncType:
+		ft, isFunc := ty.(*analysis.FuncType)
+		if !isFunc {
+			return
+		}
+		for i, p := range t.Params {
+			if i < len(ft.Params) {
+				g.solvePhantomParams(p, ft.Params[i], params, solved)
+			}
+		}
+		if t.Return != nil && ft.Return != nil {
+			g.solvePhantomParams(t.Return, ft.Return, params, solved)
+		}
+	}
+}
+
 // markMentionedParams records every member of `params` that te names, at any
 // depth.
 //
@@ -335,7 +389,7 @@ func (g *gen) checkedMonoTypeArgs(t *ast.Call, tpl *monoTemplate) ([]kind, bool)
 	if !ok {
 		return nil, false
 	}
-	return g.monoSolve(tpl, params, result)
+	return g.monoSolveChecked(tpl, params, result, g.checkedCallSignature(t))
 }
 
 // checkedMonoCallKinds is the checker's instantiated signature at the call t
@@ -391,6 +445,15 @@ func (g *gen) checkedMonoCallKinds(t *ast.Call, arity int) ([]kind, kind, bool) 
 // monoSolve binds tpl's type parameters by unifying its declared annotations
 // against the call's parameter and result kinds, which are this gen's.
 func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, bool) {
+	return g.monoSolveChecked(tpl, params, result, nil)
+}
+
+// monoSolveChecked is monoSolve that also reads checked, the checker's
+// instantiated signature at the call, when it has one: a type parameter that
+// stands only as a phantom host type's argument (`fn pattern_of<C>(re:
+// Regex<C>)`) has no trace in the kinds, since `Regex<X>` is one kind for
+// every X (stdhost.go's phantom row), and is solved from the checker's types.
+func (g *gen) monoSolveChecked(tpl *monoTemplate, params []kind, result kind, checked *analysis.FuncType) ([]kind, bool) {
 	if len(params) != len(tpl.decl.Params) {
 		return nil, false
 	}
@@ -403,6 +466,11 @@ func (g *gen) monoSolve(tpl *monoTemplate, params []kind, result kind) ([]kind, 
 		g.unifyTypeParams(tpl.decl.ReturnTypeExpr, result, tpl.paramSet, solved)
 	}
 	g.monoSolveFromBounds(tpl, solved)
+	if checked != nil && len(checked.Params) == len(tpl.decl.Params) {
+		for i, param := range tpl.decl.Params {
+			g.solvePhantomParams(param.TypeAnnotation, checked.Params[i], tpl.paramSet, solved)
+		}
+	}
 	args := make([]kind, len(tpl.params))
 	for i, name := range tpl.params {
 		k, found := solved[name]

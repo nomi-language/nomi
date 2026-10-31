@@ -33,8 +33,7 @@ pub fn solve(puzzle: String) -> Maybe<Map<String, Int>> {
     addends = left |> String.split("+") |> Iter.map(fn word -> #(String.trim(word), 1))
 
     letters =
-        addends
-        |> Iter.concat([#(String.trim(right), -1)])
+        [..addends, #(String.trim(right), -1)]
         |> Iter.flat_map(fn #(word, sign) -> places(word, sign))
         |> Iter.group_by(fn #(name, _value, _leading) -> name)
         |> Iter.map(fn #(name, uses) -> letter(name, uses))
@@ -77,7 +76,9 @@ fn assign(
     [letter, ..rest] = letters else { return if total == 0 { Some(digits) } else { None } }
 
     0..=9
-    |> Iter.filter(fn digit -> !Set.contains(used, digit) and !(letter.leading and digit == 0))
+    |> Iter.filter(fn digit -> {
+        not Set.contains(used, digit) and not (letter.leading and digit == 0)
+    })
     |> Iter.map(fn digit -> #(digit, total + letter.weight * digit))
     |> Iter.filter(fn #(_digit, after) -> is_reachable(after, rest))
     |> Iter.find_map(fn #(digit, after) -> {

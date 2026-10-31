@@ -1,6 +1,7 @@
 // A list, vector, set or map literal takes spreads anywhere, any number of
 // them. The parts join in the order written; in a map a later key wins and
-// keeps the earlier key's place.
+// keeps the earlier key's place. A spread in a list, vector or set may be
+// any Iter of its elements; a map spread is a map.
 test "a list spread goes first, between elements, last, or several times" {
     xs = [2, 3]
     ys = [7, 8]
@@ -81,4 +82,40 @@ test "a bare spread stands anywhere, and a map entry after spreads updates what 
         #("ada", %{"q2" => 7, "q3" => 9}),
         #("cy", %{"q1" => 1}),
     ]
+}
+
+fn evens(xs: List<Int>) -> Iter<Int> {
+    xs |> Iter.filter(fn x -> x % 2 == 0)
+}
+
+test "a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Set" {
+    some_line: Maybe<String> = Some("b")
+    no_line: Maybe<String> = None
+    shouted = ["c", "d"] |> Iter.map(fn w -> w + "!")
+
+    assert ["a", ..some_line, ..no_line, ..shouted] == ["a", "b", "c!", "d!"]
+    assert ["a", ..some_line] == ["a", "b"]
+    assert [..no_line, "z"] == ["z"]
+    assert [0, ..evens([1, 2, 3, 4]), 5] == [0, 2, 4, 5]
+    assert [0, ..%[3, 1], 7] == [0, 3, 1, 7]
+    assert [..(1..4)] == [1, 2, 3]
+}
+
+test "a vector spread takes any Iter of its elements" {
+    some_n: Maybe<Int> = Some(1)
+
+    assert #[0, ..some_n] == #[0, 1]
+    assert #[..evens([2, 3, 4]), 9, ..some_n] == #[2, 4, 9, 1]
+    assert #[..evens([2, 4])] == #[2, 4]
+    assert #[..[5, 6], 7] == #[5, 6, 7]
+    assert #[..%[8], ..#[9]] == #[8, 9]
+}
+
+test "a set spread takes any Iter of its elements" {
+    some_n: Maybe<Int> = Some(4)
+
+    assert Iter.to_list(%[0, ..some_n, ..evens([4, 6, 7])]) == [0, 4, 6]
+    assert Iter.to_list(%[..[1, 2, 2], 3]) == [1, 2, 3]
+    assert Iter.to_list(%[..some_n]) == [4]
+    assert Iter.to_list(%[..%[1], ..[1, 5]]) == [1, 5]
 }

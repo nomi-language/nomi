@@ -12,12 +12,12 @@ import (
 // Result, interpolated or not.
 func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 	src := "import std/regex.Regex\n\n" +
-		"fn f(w: String) -> List<Regex> {\n" +
-		"  a: Regex = Regex`\\d+`\n" +
-		"  b: Result<Regex, String> = Regex\"\\\\d+\"\n" +
-		"  c: Result<Regex, String> = Regex\"${w}\\\\d\"\n" +
+		"fn f(w: String) -> List<Regex<Unit>> {\n" +
+		"  a: Regex<Unit> = Regex`\\d+`\n" +
+		"  b: Result<Regex<Unit>, String> = Regex\"\\\\d+\"\n" +
+		"  c: Result<Regex<List<Maybe<String>>>, String> = Regex\"${w}\\\\d\"\n" +
 		"  case #(b, c) {\n" +
-		"    #(Ok(x), Ok(y)) -> [a, x, y]\n" +
+		"    #(Ok(x), Ok(_)) -> [a, x]\n" +
 		"    _ -> [a]\n" +
 		"  }\n" +
 		"}\n"
@@ -25,8 +25,8 @@ func TestTypedLiteral_BacktickLiteralHasTheHandlersOkType(t *testing.T) {
 		t.Fatalf("the literals' types are rejected: %v", errs)
 	}
 	for _, mistyped := range []string{
-		"  a: Result<Regex, String> = Regex`\\d+`\n",
-		"  a: Regex = Regex\"\\\\d+\"\n",
+		"  a: Result<Regex<Unit>, String> = Regex`\\d+`\n",
+		"  a: Regex<Unit> = Regex\"\\\\d+\"\n",
 	} {
 		src := "import std/regex.Regex\n\nfn f() -> Unit {\n" + mistyped + "  _ = a\n}\n"
 		if errs := checkTypedLiteralSource(src); len(errs) == 0 {
@@ -42,18 +42,18 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 	for _, line := range []string{
 		"  digits = Regex`\\d+`?\n",
 	} {
-		src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n" + line + "  Ok(digits)\n}\n"
+		src := "import std/regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n" + line + "  Ok(digits)\n}\n"
 		errs := checkTypedLiteralSource(src)
 		var found *analysis.TypeError
 		for i := range errs {
-			if errs[i].Message == "`?` requires a Result or Maybe, got Regex" {
+			if errs[i].Message == "`?` requires a Result or Maybe, got Regex<Unit>" {
 				found = &errs[i]
 			}
 		}
 		if found == nil {
 			t.Fatalf("%q: no error, got %v", strings.TrimSpace(line), errs)
 		}
-		want := "a backtick typed literal is checked at compile time, so this one is already a Regex: remove the `?`"
+		want := "a backtick typed literal is checked at compile time, so this one is already a Regex<Unit>: remove the `?`"
 		if len(found.Hints) != 1 || found.Hints[0] != want {
 			t.Errorf("%q: hints = %q, want %q", strings.TrimSpace(line), found.Hints, want)
 		}
@@ -62,7 +62,7 @@ func TestTypedLiteral_TryOnBacktickLiteralIsRejectedWithHint(t *testing.T) {
 		}
 	}
 	// A double-quoted literal is still a Result, so `?` on it stands.
-	src := "import std/regex.Regex\n\nfn f() -> Result<Regex, String> {\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\n}\n"
+	src := "import std/regex.Regex\n\nfn f() -> Result<Regex<Unit>, String> {\n  digits = Regex\"\\\\d+\"?\n  Ok(digits)\n}\n"
 	if errs := checkTypedLiteralSource(src); len(errs) != 0 {
 		t.Fatalf("try on a double-quoted literal is rejected: %v", errs)
 	}

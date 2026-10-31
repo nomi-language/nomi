@@ -34,7 +34,7 @@ test "comparisons and logic return booleans" {
 
     assert x > 10
     assert active and True
-    assert !False
+    assert not False
 }
 
 test "unary minus works on numeric expressions" {

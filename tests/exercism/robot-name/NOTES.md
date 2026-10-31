@@ -12,7 +12,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/robot-name.
 - Randomness is std/random's: a `Seed` threaded through `Generator.step`. The tests make the factory from a fixed seed, `Seed.from_int(42)`, so they are deterministic, and check properties (the format, different names, a thousand distinct names, the same seed giving the same names) rather than particular names.
 - A name is one draw, `Generator.int` below 676,000 (26 × 26 × 1000), read as two letters and three digits, so every name is equally likely with no retry inside a name.
 - A drawn name the factory has given before is drawn again. Once all 676,000 names are given, `build` answers `Error.NamesExhausted` rather than looping. A reset never gives back the robot's old name, nor any name given before, so `reset` needs only the factory; it takes the robot to say which one is reset.
-- The tests are a `group` whose `setup` makes the factory, one test per rule. `names` builds many robots with `Iter.map_reduce` over the factory; a factory that runs out within a thousand robots would be a bug, which its `unreachable` says.
+- The tests are a `group` whose `setup` makes the factory, one test per rule. `names` builds many robots with `Iter.map_reduce` over the factory; a factory that runs out within a thousand robots would be a bug, so it unwraps each build with `!`, whose trap would show `NamesExhausted`.
 
 ## Friction
 

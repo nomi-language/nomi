@@ -1008,8 +1008,9 @@ import {
 ```
 
 Several names from one path go in one selector list,
-`import std/calendar.{Date, Months}`; `fmt` merges separate selections of the
-same path into that form.
+`import std/calendar.{Date, Months}`. `fmt` merges separate `import` lines of
+the same path into that form, but not two entries of one `import { ... }`
+block; merge those by hand.
 
 Use `self` only when you need both an owner (a file or an enum type) and
 selected children from it. `self` inside an owner selector binds the owner as
@@ -1690,6 +1691,10 @@ under a `take`. Use `map_reduce` when each element has its own output and
 the state only carries what the next one needs. Keep `Iter.reduce` when only
 the final state is wanted.
 
+A fold whose step can fail is `Iter.try_reduce(rolls, Game.new(), Game.roll)`,
+which stops at the first `Err`, not an `Iter.reduce` with `?` on a `Result`
+accumulator, which visits every element and whose `?` leaves only the lambda.
+
 A fold's starting value goes where its callback is written. A lambda carries
 it as its first parameter's default; a named function is passed itself, with
 the starting value as `from:`:
@@ -1914,3 +1919,83 @@ not `case digits { _ when count < 10 -> ... }`, where every arm matches
 the subject with `_` and only the guards decide. Keep the subject when an
 arm's pattern reads it, and write a condition there as that arm's `when`
 guard.
+
+An `if` chain that picks a value from three or more branches is the same
+choice, so it is this `case` too:
+
+```nomi
+size = case {
+    bytes < 1_024 -> "${bytes} B"
+    bytes < 1_048_576 -> "${bytes / 1_024} KB"
+    _ -> "${bytes / 1_048_576} MB"
+}
+```
+
+not
+
+```nomi
+size = if bytes < 1_024 {
+    "${bytes} B"
+} else if bytes < 1_048_576 {
+    "${bytes / 1_024} KB"
+} else {
+    "${bytes / 1_048_576} MB"
+}
+```
+
+A plain `if`/`else` of two branches stays an `if`, and so does a chain
+whose branches run statements for their effects rather than produce a
+value.
+
+## 36. Write bit operations with the operators
+
+Mask, combine and shift Ints with `&&&`, `|||`, `^^^`, `~~~`, `<<<` and
+`>>>`, not with the `Int.bitwise_*` and `Int.shift_*` functions:
+
+```nomi
+low = byte &&& 0x7F
+
+value = value <<< 7 ||| low
+```
+
+not `Int.bitwise_or(Int.shift_left(value, 7), Int.bitwise_and(byte, 0x7F))`.
+The functions are for passing as values (`Iter.reduce(flags, Int.bitwise_or,
+from: 0)`). The shifts and `&&&` bind like `*`, so a shift count that is a sum
+or product takes parentheses: `byte >>> (7 - i) &&& 1`.
+
+## 37. Negate with `!=`, `refute` and `Iter.reject` before `not`
+
+`not` takes everything down to `==`, so `not a == b` reads as `a != b` and is
+best written that way. An assertion that something is false is `refute x`,
+not `assert not x`. A predicate passed to `Iter.filter` only to be negated is
+`Iter.reject`:
+
+```nomi
+fresh = candidates |> Iter.reject(&Set.contains(seen, &1))
+```
+
+not `Iter.filter(fn c -> not Set.contains(seen, c))`. Elsewhere a negated
+call reads well as a `not` pipe stage when the value is already flowing
+through a pipeline (`name |> String.trim() |> not String.is_empty()`), and as
+a plain `not f(x)` otherwise. A capture's body cannot start with `not`; when
+`Iter.reject` does not fit, write `&(not f(&1))`.
+
+## 38. Test a match with `is`, bind with `if Pattern = x`, branch with `case`
+
+When only whether a value matches matters, write `value is Pattern`, not a
+`case` with a `True` arm and a `_ -> False` arm:
+
+```nomi
+fn is_isosceles(sides: #(Float, Float, Float)) -> Bool {
+    kind(sides) is Some(.Equilateral or .Isosceles)
+}
+```
+
+A predicate that only tests a pattern needs no function of its own: pass a
+capture, `Iter.filter(&(&1 is .Item(_)))`, or `Iter.reject(&(&1 is None))`.
+When the branch that matched uses the payload, `is` cannot help, since it
+binds nothing: write `if Some(n) = x { ... }` when only the match continues,
+and `case` when every outcome does, or when the arms answer more than
+`True` and `False`. An equality test against one value stays `==` (`state ==
+.Open`); `is` reads better once the pattern has a payload, a wildcard or an
+`or` (`state is (.Open or .Paused)`).

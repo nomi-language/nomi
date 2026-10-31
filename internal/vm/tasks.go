@@ -40,6 +40,33 @@ func rtFault(f func()) (err error) {
 	return nil
 }
 
+// safePoint stops the computation on runtime at a call, a backward branch or
+// an iteration element when its task was cancelled or its deadline passed
+// (rt.SafePoint), as a wait there would: a main line's deadline fault comes
+// back as this machine's fault, and a task's cancellation unwind continues
+// to the task wrapper. The callers read runtime.Stopping() first, so a run
+// nothing stops never gets here.
+//
+//go:noinline
+func safePoint(runtime *rt.Frame) error {
+	return rtFault(func() { rt.SafePoint(runtime) })
+}
+
+// stoppable is seq with a safe point before each element it passes along,
+// so an iteration driven in Go with no Nomi callback per element (a long
+// `Iter.to_list` or `Iter.count` over a filtered range) stops too. iterInstr
+// wraps a source only on a frame something can stop.
+func stoppable(seq rt.Seq[any]) rt.Seq[any] {
+	run := seq.Run
+	seq.Run = func(fr *rt.Frame, yield func(*rt.Frame, any) bool) bool {
+		return run(fr, func(efr *rt.Frame, item any) bool {
+			rt.SafePoint(fr)
+			return yield(efr, item)
+		})
+	}
+	return seq
+}
+
 // taskLimit is the first machine limit any task body reached, shared by every
 // view of one machine.
 //

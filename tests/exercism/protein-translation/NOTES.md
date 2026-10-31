@@ -10,7 +10,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/protein-translatio
 
 - Amino acids are an `AminoAcid` enum, not the canonical strings.
 - The error is `Error.InvalidCodon(String)`, carrying the codon that did not translate: `"XYZ"`, or the short tail `"U"` of `"AUGU"`. The canonical data gives only the message "Invalid codon".
-- `proteins` is one pipeline: `Iter.chunks(3)` cuts the codons, `translate` reads each as `Result<Maybe<AminoAcid>, Error>` with `Ok(None)` for STOP, `Iter.take_while` stops at the first STOP, `Result.collect` keeps the first error, and `Maybe.values` unwraps the amino acids. Because `take_while` is lazy, nothing after a STOP is read, which is why `"UUCUUCUAAUGGU"` translates despite its short tail.
+- `proteins` is one pipeline: `Iter.chunks(3)` cuts the codons, `translate` reads each as `Result<Maybe<AminoAcid>, Error>` with `Ok(None)` for STOP, `Iter.take_while` stops at the first STOP, `Result.collect()?` passes the first error up, and `Maybe.values` unwraps the amino acids. Because `take_while` is lazy, nothing after a STOP is read, which is why `"UUCUUCUAAUGGU"` translates despite its short tail.
 - STOP is `None` rather than a variant of a private `Codon` enum. A `Codon` enum names it better, but its `Stop` would have to be filtered out again after `take_while`, the same as `None` is.
 - `Iter.map(String.join)` passes the function itself: where a function of one parameter is expected, `String.join` takes its default separator.
 - "Non-existing codon can't translate" (`"AAA"`) is left out: "Unknown amino acids, not part of a codon, can't translate" reimplements it.

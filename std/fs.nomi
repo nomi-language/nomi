@@ -199,11 +199,11 @@ pub fn write_text(
     fs_host.write(path, String.to_bytes(text), mode_code(mode))
 }
 
-/// Each line of the file at `path`, without its `\n` and a `\r` before it.
-/// Each run of the iterator opens the file, reads it and closes it, so it
-/// can run more than once, and a consumer that stops early closes the file
-/// when it stops. A failure (the file is missing, a line is not UTF-8) is
-/// the last item.
+/// Each line of the file at `path`, without its `\n` and a `\r` before it,
+/// as `Reader.lines` reads them. Each run of the iterator opens the file,
+/// reads it and closes it, so it can run more than once, and a consumer that
+/// stops early closes the file when it stops. A failure (the file is
+/// missing, a line is not UTF-8) is the last item.
 ///
 /// ```nomi
 /// names = Result.collect(fs.lines("names.txt"))?
@@ -259,28 +259,10 @@ impl Iter<Result<String, Error>> for Lines {
                 defer Reader.close_quietly(r)
                 // Bound rather than returned, so the call is not a tail
                 // call, which would run the deferred close first.
-                more = each_line(r, yield)
+                more = Iter.each_while(Reader.lines(r), yield)
                 more
             }
         }
-    }
-}
-
-/// Hands each line left in r to yield until it stops or the lines end.
-fn each_line(r: Reader, yield: (Result<String, Error>) -> Bool) -> Bool {
-    case Reader.read_line(r) {
-        Ok(Some(line)) ->
-            if yield(Ok(line)) {
-                each_line(r, yield)
-            } else {
-                False
-            }
-
-        Ok(None) ->
-            True
-
-        Err(e) ->
-            yield(Err(e))
     }
 }
 
@@ -297,27 +279,10 @@ impl Iter<Result<Bytes, Error>> for Chunks {
 
             Ok(r) -> {
                 defer Reader.close_quietly(r)
-                more = each_chunk(r, chunks.size, yield)
+                more = Iter.each_while(Reader.chunks(r, size: chunks.size), yield)
                 more
             }
         }
-    }
-}
-
-fn each_chunk(r: Reader, size: Int, yield: (Result<Bytes, Error>) -> Bool) -> Bool {
-    case Reader.read(r, max: size) {
-        Ok(Some(chunk)) ->
-            if yield(Ok(chunk)) {
-                each_chunk(r, size, yield)
-            } else {
-                False
-            }
-
-        Ok(None) ->
-            True
-
-        Err(e) ->
-            yield(Err(e))
     }
 }
 
@@ -710,7 +675,7 @@ fn walk_entries(
             True
 
         [Ok(entry), ..rest] ->
-            if !yield(Ok(entry)) {
+            if not yield(Ok(entry)) {
                 False
             } else if entry.kind == Kind.Directory and depth != 0 {
                 if walk_dir(entry.path, depth - 1, yield) {

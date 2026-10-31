@@ -94,20 +94,14 @@ fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool {
         ]
         |> Iter.all(fn #(known, actual) -> agrees(known, actual))
 
-    ratio_agrees = case clues.aspect_ratio {
-        Some(ratio) -> Float.equal_within(ratio, jigsaw.aspect_ratio, 0.000000001)
-        None -> True
-    }
+    ratio_agrees = Iter.all(clues.aspect_ratio, &Float.equal_within(&1, jigsaw.aspect_ratio, 1e-9))
 
     counts_agree and ratio_agrees and agrees(clues.format, jigsaw.format)
 }
 
 /// Whether `actual` is the `known` value, when there is one.
 fn agrees<T>(known: Maybe<T>, actual: T) -> Bool where T: Equatable {
-    case known {
-        Some(value) -> value == actual
-        None -> True
-    }
+    Iter.all(known, &(&1 == actual))
 }
 
 /// The row counts worth trying: the known one, or every count up to a bound

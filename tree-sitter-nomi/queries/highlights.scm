@@ -83,7 +83,7 @@
 
 ; A postfix `!` (`Map.get(m, k)!`) can stop the program, as `unreachable`
 ; does, and a postfix `?` (`parse(s)?`) can return from it, as `return`
-; does, so both read as keywords. A prefix `!` (logical not) is an operator.
+; does, so both read as keywords.
 (bang) @keyword
 (question) @keyword
 
@@ -583,6 +583,8 @@
 "return" @keyword
 "and" @keyword
 "or" @keyword
+"not" @keyword
+"is" @keyword
 "typealias" @keyword
 "extern" @keyword
 "embeds" @keyword
@@ -662,7 +664,12 @@
 ">" @operator
 "<=" @operator
 ">=" @operator
-"!" @operator
+"&&&" @operator
+"|||" @operator
+"^^^" @operator
+"~~~" @operator
+"<<<" @operator
+">>>" @operator
 "=" @operator
 "->" @operator
 

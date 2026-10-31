@@ -58,7 +58,7 @@ fn variant(e: E) -> Int {
 
 fn top(s: Stack) -> Int {
     case s {
-        [a, .._] -> a
+        [a, ..] -> a
         _ -> -1
     }
 }
@@ -72,7 +72,7 @@ fn kvs(m: Map<String, Kvs>) -> Int {
 
 fn record_stack(c: #{r: Int, q: Stack}) -> Int {
     case c {
-        #{q: Stack[a, .._]} -> a
+        #{q: Stack[a, ..]} -> a
         _ -> 0
     }
 }

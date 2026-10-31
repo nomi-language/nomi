@@ -118,6 +118,7 @@ type iterAdapterRule struct {
 var infiniteIterAdapters = map[string]iterAdapterRule{
 	"Iter.map":         {iterKeeps, iterCallbackArg},
 	"Iter.filter":      {iterKeeps, &iterArg{1, "pred"}},
+	"Iter.reject":      {iterKeeps, &iterArg{1, "pred"}},
 	"Iter.drop":        {iterKeeps, nil},
 	"Iter.drop_while":  {iterKeeps, &iterArg{1, "pred"}},
 	"Iter.with_index":  {iterKeeps, nil},

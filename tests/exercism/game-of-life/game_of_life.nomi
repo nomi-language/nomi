@@ -20,7 +20,7 @@ pub fn tick(board: Vector<Vector<Int>>) -> Vector<Vector<Int>> {
 
 fn live_neighbours(board: Vector<Vector<Int>>, row: Int, column: Int) -> Int {
     neighbours
-    |> Iter.map(fn #(dr, dc) -> cell_at(board, row + dr, column + dc) |> Maybe.with_default(0))
+    |> Iter.flat_map(fn #(dr, dc) -> cell_at(board, row + dr, column + dc))
     |> Iter.sum()
 }
 

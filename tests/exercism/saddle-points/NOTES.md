@@ -26,7 +26,8 @@ One indexed read.
 
 | Read | Where | Result | Real use for a miss? |
 |---|---|---|---|
-| `Vector.get(minima, column)!` | the filter in `saddle_points`, line 20 | `== height` | No: `column` comes from `Iter.with_index` over a row of the same width |
+| `Vector.get(minima, column)!` | the filter in `saddle_points`, line 23
+ | `== height` | No: `column` comes from `Iter.with_index` over a row of the same width |
 
 The filter compares `Vector.get(minima, column)! == height`, which reads as what it means. `Iter.min`'s `Maybe` remains, so `column_minima` drops it with `Maybe.values()`.
 

@@ -100,15 +100,22 @@ func (bl *irScalarBuilder) stdUnretainedPlan(f *stdFunc) *irQualPlan {
 		irDeclineNote(why)
 		return nil
 	}
-	if len(inst.view.params) != len(f.params) || inst.view.result != f.result {
+	if len(inst.view.params) != len(f.params) {
 		return nil
 	}
-	for i, k := range f.params {
-		if inst.view.params[i] != k {
+	if f.why != stdIterSigWhy {
+		// An Iter has no kind in the index (stdIterSigWhy); every other
+		// signature is the one the index resolved.
+		if inst.view.result != f.result {
 			return nil
 		}
+		for i, k := range f.params {
+			if inst.view.params[i] != k {
+				return nil
+			}
+		}
 	}
-	return &irQualPlan{token: f, name: f.key, result: f.result, sym: inst.sym}
+	return &irQualPlan{token: f, name: f.key, result: inst.view.result, sym: inst.sym}
 }
 
 // irStdSiblingSym is the declaration symbol of a same-module stdlib body that

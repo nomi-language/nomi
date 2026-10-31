@@ -285,6 +285,11 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isGenHost := g.projectStdGenHost(ty); isGenHost {
 			return k
 		}
+		// `Regex<#(String)>`: a std host type whose type parameter is
+		// phantom, one leaf for every argument. See stdhost.go.
+		if k, isPhantom := projectPhantomHost(ty); isPhantom {
+			return k
+		}
 		if len(ty.TypeArgs) > 0 {
 			return kindInvalid
 		}

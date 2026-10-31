@@ -54,7 +54,7 @@ func TestUnwrap_BindsToTheOperandBeforeIt(t *testing.T) {
 		{"f(x)!.y", "(f(x))!.y"},
 		{"(a |> b())!", "([(a |> b())])!"},
 		{`Row.get<Int>(row, "n")!`, `(Row.get(row, "n"))!`},
-		{"!x!", "!(x)!"},
+		{"not x!", "not(x)!"},
 		{"x!!", "((x)!)!"},
 		{"is_valid!", "(is_valid)!"},
 		{"x! == y", "((x)! == y)"},
@@ -91,7 +91,7 @@ func TestUnwrap_PipeStage(t *testing.T) {
 }
 
 // `!=` is still not-equal, written with or without spaces, and a prefix `!`
-// still negates.
+// is an error that names `not`.
 func TestUnwrap_NotEqualAndNegationKeepTheirMeaning(t *testing.T) {
 	toks := lexer.Lex("x!= y")
 	if len(toks) < 3 || toks[1].Type != token.BANGEQ {
@@ -102,8 +102,8 @@ func TestUnwrap_NotEqualAndNegationKeepTheirMeaning(t *testing.T) {
 			t.Errorf("%s: %s", src, shape(parseExpr(t, src)))
 		}
 	}
-	if got := shape(parseExpr(t, "!f(x)")); got != "!f(x)" {
-		t.Errorf("!f(x): %s", got)
+	if _, err := Parse(lexer.Lex("!f(x)")); err == nil || !strings.Contains(err.Error(), "Nomi spells logical not `not`") {
+		t.Errorf("!f(x): %v", err)
 	}
 	toks = lexer.Lex("is_valid!")
 	if len(toks) < 2 || toks[0].Type != token.IDENT || toks[0].Lexeme != "is_valid" || toks[1].Type != token.BANG {
@@ -111,10 +111,10 @@ func TestUnwrap_NotEqualAndNegationKeepTheirMeaning(t *testing.T) {
 	}
 }
 
-// A `!` at the start of a line is a negation that starts a statement; the
+// A `not` at the start of a line is a negation that starts a statement; the
 // `!` at the end of the line before belongs to its own line's expression.
 func TestUnwrap_DoesNotJoinLines(t *testing.T) {
-	nodes := parse(t, "a = f(x)!\n!done\n(g)\n")
+	nodes := parse(t, "a = f(x)!\nnot done\n(g)\n")
 	if len(nodes) != 3 {
 		t.Fatalf("%d statements", len(nodes))
 	}
@@ -122,7 +122,7 @@ func TestUnwrap_DoesNotJoinLines(t *testing.T) {
 	if !ok || shape(b.Value) != "(f(x))!" {
 		t.Errorf("first statement: %#v", nodes[0])
 	}
-	if es, ok := nodes[1].(*ast.ExprStmt); !ok || shape(es.Expr) != "!done" {
+	if es, ok := nodes[1].(*ast.ExprStmt); !ok || shape(es.Expr) != "notdone" {
 		t.Errorf("second statement: %#v", nodes[1])
 	}
 }

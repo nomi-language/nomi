@@ -158,6 +158,8 @@ func mark(n ast.Node, tail, deferred bool) {
 		mark(x.Object, false, deferred)
 	case *ast.Unary:
 		mark(x.Right, false, deferred)
+	case *ast.Is:
+		mark(x.Value, false, deferred)
 	case *ast.StringInterp:
 		for _, part := range x.Parts {
 			if se, ok := part.(ast.StringExpr); ok {

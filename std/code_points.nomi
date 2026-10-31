@@ -36,7 +36,7 @@ impl Codepoint {
     //! assert Codepoint.is_letter('a')
     //! zhe = Int.to_codepoint(0x0436)?
     //! assert Codepoint.is_letter(zhe)
-    //! assert !Codepoint.is_letter('7')
+    //! refute Codepoint.is_letter('7')
     //
     pub host fn is_letter(cp: Codepoint) -> Bool
 
@@ -47,8 +47,8 @@ impl Codepoint {
     /// digits (general category Nd).
     //! assert Codepoint.is_digit('7')
     //! three = Int.to_codepoint(0x0663)?
-    //! assert !Codepoint.is_digit(three)
-    //! assert !Codepoint.is_digit('x')
+    //! refute Codepoint.is_digit(three)
+    //! refute Codepoint.is_digit('x')
     //
     pub fn is_digit(Codepoint(n)) -> Bool {
         n >= 48 and n <= 57
@@ -79,7 +79,7 @@ impl Codepoint {
     //! assert Codepoint.is_whitespace('\t')
     //! nbsp = Int.to_codepoint(0x00A0)?
     //! assert Codepoint.is_whitespace(nbsp)
-    //! assert !Codepoint.is_whitespace('a')
+    //! refute Codepoint.is_whitespace('a')
     //
     pub host fn is_whitespace(cp: Codepoint) -> Bool
 
@@ -90,7 +90,7 @@ impl Codepoint {
     //! assert Codepoint.is_upper('A')
     //! zhe = Int.to_codepoint(0x0416)?
     //! assert Codepoint.is_upper(zhe)
-    //! assert !Codepoint.is_upper('a')
+    //! refute Codepoint.is_upper('a')
     //
     pub host fn is_upper(cp: Codepoint) -> Bool
 
@@ -101,7 +101,7 @@ impl Codepoint {
     //! assert Codepoint.is_lower('a')
     //! e_acute = Int.to_codepoint(0x00E9)?
     //! assert Codepoint.is_lower(e_acute)
-    //! assert !Codepoint.is_lower('A')
+    //! refute Codepoint.is_lower('A')
     //
     pub host fn is_lower(cp: Codepoint) -> Bool
 }

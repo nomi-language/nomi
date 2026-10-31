@@ -326,7 +326,7 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
     name = slice(chars, start, name_end)
     bad = fn col: Int, message: String -> Err(problem(path, number, col + 1, message, [usage()]))
 
-    if !sqltext.is_name(name) {
+    if not sqltext.is_name(name) {
         return bad(start, "a query's name is lower case letters, digits and `_`")
     }
 

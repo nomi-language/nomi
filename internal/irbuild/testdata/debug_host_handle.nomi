@@ -5,7 +5,7 @@ import {
 
 struct Holder {
     name: String
-    re: Regex
+    re: Regex<List<Maybe<String>>>
 }
 
 fn main() {

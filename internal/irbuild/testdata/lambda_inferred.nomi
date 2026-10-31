@@ -101,7 +101,7 @@ fn main() {
     shout = apply_string(fn s -> s + "!", "hi")
     io.print("string = ${shout}")
 
-    io.print("bool = ${apply_bool(fn b -> !b, True)}")
+    io.print("bool = ${apply_bool(fn b -> not b, True)}")
 
     told = apply_unit(fn _u -> "got unit", unit_value())
     io.print("unit = ${told}")

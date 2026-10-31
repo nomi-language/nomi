@@ -488,6 +488,8 @@ var liveCrossings = map[string]bool{
 	"fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
 	// A reader over data the program holds reads nothing outside it.
 	"io.Reader.from_bytes": true, "io.Reader.from_text": true,
+	// Nor does a writer into memory (Writer.collect's).
+	"io.memory_writer": true, "io.collected": true,
 }
 
 // readLineKey is `io.read_line`, which reads the program's input, or the
@@ -535,7 +537,7 @@ func fileCrossingKind(fr *rt.Frame, name string, args []any) (kind crossingKind,
 		if h.Standard() {
 			return 0, false
 		}
-		if held {
+		if held || h.Held() {
 			return crossLive, true
 		}
 	default:

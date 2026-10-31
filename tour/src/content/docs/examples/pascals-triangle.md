@@ -23,7 +23,7 @@ pub fn rows(count: Int) -> List<List<Int>> {
 /// The row below `row`: each value is the sum of the two above it, with a
 /// zero standing in past either end.
 fn next_row(row: List<Int>) -> List<Int> {
-    Iter.zip([0, ..row], Iter.concat(row, [0]))
+    Iter.zip([0, ..row], [..row, 0])
     |> Iter.map(fn #(left, right) -> left + right)
     |> Iter.to_list()
 }
@@ -71,5 +71,5 @@ test "rows" {
 ## How it's written
 
 - `rows` is `Iter.iterate([1], next_row)` under `Iter.take(count)`: the triangle is an unbounded sequence of rows, each from the last, and the count only says how many to keep.
-- `next_row` zips the row shifted right by a leading zero (`[0, ..row]`) with the row followed by a zero (`Iter.concat(row, [0])`) and adds the pairs. The two ends are written differently because a list spread must come last, so `[..row, 0]` is not a list literal.
+- `next_row` zips the row shifted right by a leading zero (`[0, ..row]`) with the row followed by a zero (`[..row, 0]`) and adds the pairs.
 - The eight canonical cases are one `subtests` table.

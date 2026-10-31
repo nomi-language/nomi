@@ -49,7 +49,7 @@ fn main() {
   xs = [[1, 2], [3]]
   empty: List<Int> = []
   read = fn -> case xs {
-    [head, .._] -> head
+    [head, ..] -> head
     [] -> empty
   }
   io.inspect(read())

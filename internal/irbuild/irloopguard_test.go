@@ -47,7 +47,7 @@ fn main() {
     io.inspect(a)
     // not, and nested parentheses
     b = Iter.loop(fn i = 0 -> {
-        if !(i < 4 or (i == 5 and !(i > 9))) { break i }
+        if not (i < 4 or (i == 5 and not (i > 9))) { break i }
         i + 1
     })
     io.inspect(b)
@@ -66,13 +66,13 @@ fn main() {
             return i + 1
         }
         if i > 6 and small(0) { break i * 10 }
-        if !small(i) and i == 5 { return i + 1 }
+        if not small(i) and i == 5 { return i + 1 }
         i + 1
     })
     io.inspect(d)
     // a Bool state whose break value branches
     e = Iter.loop(fn done = False -> {
-        if !done { return True }
+        if not done { return True }
         break done and small(1)
     })
     io.inspect(e)
@@ -86,7 +86,7 @@ fn main() {
     inbox = fill([1, 2, 3, 4])
     Iter.loop(fn -> {
         Some(n) = Receiver.receive(inbox) else { break }
-        if n == 1 or (n == 3 and !small(n)) { continue }
+        if n == 1 or (n == 3 and not small(n)) { continue }
         io.print("kept ${n}")
     })
 }

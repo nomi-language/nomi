@@ -11,14 +11,11 @@ pub enum Relation {
 /// How `first` relates to `second`. One list is inside another when its
 /// elements appear there in order and next to each other.
 pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatable {
-    if first == second {
-        .Equal
-    } else if contains_run(second, first) {
-        .Sublist
-    } else if contains_run(first, second) {
-        .Superlist
-    } else {
-        .Unequal
+    case {
+        first == second -> .Equal
+        contains_run(second, first) -> .Sublist
+        contains_run(first, second) -> .Superlist
+        _ -> .Unequal
     }
 }
 

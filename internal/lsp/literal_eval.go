@@ -271,15 +271,17 @@ func literalHandler(fa *analysis.FileAnalysis, tok token.Token, text string) (st
 		text: text,
 		key:  home + "." + tok.Tag + "\x00" + text,
 		std:  strings.HasPrefix(home, "std/"),
-		typ:  ft.Return.String(),
 	}
 	raw := tok.Type == token.RAW_TAGGED_STRING_LITERAL || tok.Type == token.RAW_TAGGED_TRIPLE_STRING_LITERAL
+	// The checker's type for the literal: a `Regex` literal's names its
+	// capture groups.
+	typ := analysis.StaticLiteralType(raw, text, ft.Return)
+	lit.typ = typ.String()
 	if ok, _ := analysis.RawLiteralType(raw, ft.Return); ok != nil {
 		// A backtick literal checked at compile time is its handler's Ok
 		// payload: the lowering check reports one that fails
 		// (loweringDiagnostics), and a buffer holding an invalid one does not
 		// load, so its probes are skipped.
-		lit.typ = ok.String()
 		return lit, true
 	}
 	if et, ok := analysis.ResolveTypeVar(ft.Return).(*analysis.EnumType); ok && et.Name == "Result" && len(et.TypeArgs) == 2 {

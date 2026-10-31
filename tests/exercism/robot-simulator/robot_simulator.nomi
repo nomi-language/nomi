@@ -47,10 +47,7 @@ impl Robot {
     /// turns left and `A` advances one step. Stops at the first letter it
     /// does not know.
     pub fn move(robot: Robot, instructions: String) -> Result<Robot, Error> {
-        Iter.reduce(instructions, fn result = Ok(robot), letter -> {
-            robot = result?
-            step(robot, letter)
-        })
+        Iter.try_reduce(instructions, robot, step)
     }
 }
 

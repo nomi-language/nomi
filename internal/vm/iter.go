@@ -163,6 +163,9 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 	if m.fuel != nil {
 		seq = m.metered(seq)
 	}
+	if fr.runtime.Stoppable() {
+		seq = stoppable(seq)
+	}
 	if mustReachEnd(n) {
 		// Before anything is asked of the source: a terminal that has to
 		// reach the end of an endless one traps at once instead of

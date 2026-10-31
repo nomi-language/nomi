@@ -170,10 +170,12 @@ contract asks for it.
 
 A shop may count in something that isn't money in a bank, such as loyalty
 points. A custom currency has its own code and says how many digits it has
-after the point: `PTS:0` has none. A module lists the custom currencies it
-writes in its `nomi.toml`, in the `[money]` section, and then writes them in
-`Currency` and `Money` literals the same way. A currency read while the
-program runs, with `Currency.custom` or `Currency.parse`, needs no listing.
+after the point: `PTS:0` has none.
+
+A module lists the custom currencies it writes in its `nomi.toml`, in the
+`[money]` section, and then writes them in `Currency` and `Money` literals
+the same way. A currency built from text the program reads while it runs
+needs no listing.
 
 This example is a small project of two files; each tab is one file:
 
@@ -220,10 +222,10 @@ the program is checked, and it suggests a listed one that is close. With
 
 ```console
 error: typed literal Money`5 PST:0`: `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml
- --> main.nomi:7:17
+ --> main.nomi:7:14
   |
 7 |     io.print(Money`5 PST:0`)
-  |                 ^^^^^^^^^^^^
+  |              ^^^^^^^^^^^^^^
   = help: did you mean `PTS:0`? nomi.toml lists it
 ```
 
@@ -277,3 +279,7 @@ payment, invoicing and accounting libraries can share one type. Std has no
 exchange rates. A library that has them takes a `Money`, checks its
 `currency`, and returns a new `Money` in the other currency, rounded with
 `Money.round` when it is ready to charge.
+
+[Typed Literals](/typed-literals/) is next. It shows how ``Money`…` ``,
+``Date`…` `` and the other backtick literals work, and how to write one for
+your own type.

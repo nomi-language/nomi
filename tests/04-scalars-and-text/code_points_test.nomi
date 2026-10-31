@@ -55,11 +55,11 @@ test "is_letter is Unicode general category L" {
     // ASCII, Latin-1, Cyrillic, CJK and title-case letters.
     assert String.to_codepoints("Azéжд中ǅ") |> Iter.all(Codepoint.is_letter)
     // A digit, a space and an emoji.
-    assert !(String.to_codepoints("7 🙂") |> Iter.any(Codepoint.is_letter))
+    refute String.to_codepoints("7 🙂") |> Iter.any(Codepoint.is_letter)
 
     assert Some(combining_acute) = Int.to_codepoint(0x0301)
 
-    assert !Codepoint.is_letter(combining_acute)
+    refute Codepoint.is_letter(combining_acute)
 }
 
 test "is_digit and to_digit read ASCII digits only" {
@@ -73,7 +73,7 @@ test "is_digit and to_digit read ASCII digits only" {
     ]
 
     // Full-width ０ and １, Arabic-Indic ٣, a letter and a space.
-    assert !(String.to_codepoints("０１٣a ") |> Iter.any(Codepoint.is_digit))
+    refute String.to_codepoints("０１٣a ") |> Iter.any(Codepoint.is_digit)
 
     assert String.to_codepoints("０１٣a ")
         |> Iter.map(Codepoint.to_digit)
@@ -85,16 +85,16 @@ test "is_whitespace is Unicode White_Space" {
     // ideographic space U+3000.
     assert String.to_codepoints(" \t\n\r\u{a0}\u{3000}") |> Iter.all(Codepoint.is_whitespace)
     // A letter, a digit, an emoji and the zero-width space U+200B.
-    assert !(String.to_codepoints("a7🙂\u{200b}") |> Iter.any(Codepoint.is_whitespace))
+    refute String.to_codepoints("a7🙂\u{200b}") |> Iter.any(Codepoint.is_whitespace)
 }
 
 test "is_upper and is_lower are general categories Lu and Ll" {
     assert String.to_codepoints("AÉЖ") |> Iter.all(Codepoint.is_upper)
-    assert !(String.to_codepoints("AÉЖ") |> Iter.any(Codepoint.is_lower))
+    refute String.to_codepoints("AÉЖ") |> Iter.any(Codepoint.is_lower)
     assert String.to_codepoints("aéжß") |> Iter.all(Codepoint.is_lower)
-    assert !(String.to_codepoints("aéжß") |> Iter.any(Codepoint.is_upper))
+    refute String.to_codepoints("aéжß") |> Iter.any(Codepoint.is_upper)
     // CJK has no case, nor do digits and emoji, and title-case ǅ (category
     // Lt) is neither upper nor lower.
-    assert !(String.to_codepoints("中7🙂ǅ") |> Iter.any(Codepoint.is_upper))
-    assert !(String.to_codepoints("中7🙂ǅ") |> Iter.any(Codepoint.is_lower))
+    refute String.to_codepoints("中7🙂ǅ") |> Iter.any(Codepoint.is_upper)
+    refute String.to_codepoints("中7🙂ǅ") |> Iter.any(Codepoint.is_lower)
 }

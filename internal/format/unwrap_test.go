@@ -11,7 +11,7 @@ func TestUnwrap_KeepsTheBang(t *testing.T) {
     d = "4" |> String.to_int()! |> Int.abs()
     e = user.address!.city
     f = Iter.map(xs, &half(&1)!)
-    g = !found! and x! == y
+    g = not found! and x! == y
     h = (a |> b())!
 }
 `)

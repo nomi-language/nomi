@@ -77,7 +77,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"list concatenation", "fn f() -> (List<Int>) -> List<Int> { &(&1 + [0]) }\n", "(List<Int>) -> List<Int>"},
 		{"half-open range", "fn f() -> (Int) -> Range<Int> { &(0..&1) }\n", "(Int) -> Range<Int>"},
 		{"negation", "fn f() -> (Int) -> Int { &(-&1) }\n", "(Int) -> Int"},
-		{"not", "fn f() -> (Bool) -> Bool { &(!&1) }\n", "(Bool) -> Bool"},
+		{"not", "fn f() -> (Bool) -> Bool { &(not &1) }\n", "(Bool) -> Bool"},
 		{"a field read", "fn f() -> (Point) -> Bool { &(&1.x > 2) }\n", "(Point) -> Bool"},
 		{"a parenthesized parameter", "fn f() -> (Int, Int) -> Int { &(&2) }\n", "(Int, Int) -> Int"},
 		{"a call", "fn f() -> (Int) -> Int { &Int.max(&1, 0) }\n", "(Int) -> Int"},

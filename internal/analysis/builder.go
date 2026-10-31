@@ -4625,6 +4625,16 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.Unary:
 		b.walkNode(n.Right, scope)
 
+	case *ast.Is:
+		// The pattern is read in a scope of its own, as a `case` arm's is;
+		// a name it binds is the checker's error, and reaches nothing.
+		b.walkNode(n.Value, scope)
+		if n.Pattern != nil {
+			child := NewScope(scope)
+			b.definePatternIn(n.Pattern, child, n)
+			b.walkNode(n.Pattern, child)
+		}
+
 	case *ast.FieldAccess:
 		if obj, ok := n.Object.(*ast.TypeIdent); ok {
 			if modSym := b.synthStdFileQualifier(obj); modSym != nil {

@@ -22,7 +22,7 @@ fn ends(xs: List<Int>) -> String {
     case xs {
         [1, .., 9] -> "one to nine"
         [.., 9] -> "ends in nine"
-        [a, b, .._, y, z] -> "${a} ${b} .. ${y} ${z}"
+        [a, b, .., y, z] -> "${a} ${b} .. ${y} ${z}"
         _ -> "other"
     }
 }

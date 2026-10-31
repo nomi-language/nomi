@@ -1,6 +1,6 @@
 // A postfix `!` can stop the program, as `unreachable` does, so it reads as a
-// keyword; a prefix `!` is an operator. The caret lines below each line name
-// the highlight of the token they point at.
+// keyword, and so does `not`. The caret lines below each line name the
+// highlight of the token they point at.
 pub fn half(n: Int) -> Result<Int, String> {
     if n % 2 == 0 { Ok(n / 2) } else { Err("odd") }
 }
@@ -17,6 +17,11 @@ pub fn parsed(text: String) -> Int {
 }
 
 pub fn odd(n: Int) -> Bool {
-    !Result.is_ok(half(n))
-    // <- operator
+    not Result.is_ok(half(n))
+    // <- keyword
+}
+
+pub fn even(n: Int) -> Bool {
+    n |> not odd()
+    //   ^^^ keyword
 }

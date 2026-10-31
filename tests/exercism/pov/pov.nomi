@@ -22,23 +22,22 @@ impl Tree {
     /// labelled `to`, both included. `None` when either label is missing.
     pub fn path_to(tree: Tree, from: String, to: String) -> Maybe<List<String>> {
         tree
-        |> Tree.from_pov(from)
-        |> Maybe.flat_map(&labels_to(&1, to))
+        |> Tree.from_pov(from)?
+        |> labels_to(to)
     }
 }
 
 /// `tree`, whose old parent is `above` re-hung as a tree (none at the old
 /// root), rerooted at the node labelled `label`.
 fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
-    if tree.label == label { return Some(#{..tree, children: List.concat(tree.children, above)}) }
+    if tree.label == label { return Some(#{..tree, children: [..tree.children, ..above]}) }
 
     Iter.find_map(tree.children, fn child -> {
         siblings =
             tree.children
             |> Iter.filter(&(&1.label != child.label))
-            |> Iter.to_list()
 
-        reroot(child, label, [#{..tree, children: List.concat(siblings, above)}])
+        reroot(child, label, [#{..tree, children: [..siblings, ..above]}])
     })
 }
 
@@ -47,7 +46,6 @@ fn reroot(tree: Tree, label: String, above: List<Tree>) -> Maybe<Tree> {
 fn labels_to(tree: Tree, label: String) -> Maybe<List<String>> {
     if tree.label == label { return Some([label]) }
 
-    tree.children
-    |> Iter.find_map(&labels_to(&1, label))
-    |> Maybe.map(fn below -> [tree.label, ..below])
+    below = Iter.find_map(tree.children, &labels_to(&1, label))?
+    Some([tree.label, ..below])
 }

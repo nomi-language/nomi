@@ -30,19 +30,12 @@ dbg line 11: add(3, 4) = 7
 dbg line 12: abs(-9) = 9
 -->
 
-A function is written `fn name(params) -> ReturnType { body }`. The last
-expression in the body is the return value, so most functions never write
-`return`. Use `return` to leave early, as `abs` does for a negative number.
+The last expression is the return value. Use `return` only to leave early,
+as `abs` does for a negative number.
 
 Every parameter must be read in the body. If a parameter is unused on
 purpose, name it `_` or start its name with `_`, as in
-`fn constant(_input: Int) -> Int { 42 }`. The rule covers functions, lambdas,
-functions in `impl` blocks, and `boot`. Interface and host declarations have
-no body, so it doesn't apply to them.
-
-A function that implements an interface sometimes has to keep the
-interface's parameter name. To ignore that parameter, write `_ = name` in the
-body.
+`fn constant(_input: Int) -> Int { 42 }`.
 
 ## Lambdas
 
@@ -50,16 +43,26 @@ body.
 fn main() {
     inc = fn x: Int -> x + 1
     dbg inc(41)
+
+    describe = fn name: String, count: Int -> {
+        noun = if count == 1 { "item" } else { "items" }
+        "${name}: ${count} ${noun}"
+    }
+
+    dbg describe("cart", 3)
 }
 
 ```
 <!-- expect
 dbg line 3: inc(41) = 42
+dbg line 10: describe("cart", 3) = "cart: 3 items"
 -->
 
-A lambda is written `fn params -> body`. Write a parameter's type when nothing
-else tells the compiler what it is. When the lambda is passed to a function
-that expects a certain type, the type is inferred.
+A lambda is written `fn params -> body`. Several parameters are separated by
+commas, and a body of more than one line goes in a `{ ... }` block. Write a
+parameter's type when nothing else tells the compiler what it is. When the
+lambda is passed to a function that expects a certain type, the type is
+inferred.
 
 A lambda is a value. You can bind it to a name, pass it to a function, or
 return it from one.
@@ -96,21 +99,22 @@ A capture writes a small function in place: `&`, then the function's body.
 1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, and `&#Point{x: &1, y: 0}` is
 `fn x -> #Point{x: x, y: 0}`.
 
-The body after `&` is a call, a parenthesized expression or a literal, or
-one of those negated (`&!Iter.is_empty(&1)`), so any other operator goes in
-parentheses. A call that takes the `&1`, `&2`, ... as
-its own arguments, in order, is a partial application: `&Int.max(&1, 2)`
-is `fn x -> Int.max(x, 2)`, and its parameters are the callee's, with
-their names and defaults, so `inc = &Int.max(&1, 0)` needs no annotation.
+`Iter.filter` and `Iter.map` work on any collection, and `Iter.to_list`
+collects the result into a list. [Collections](/collections/) covers them.
 
-The function the call expects gives the other captures' parameters their
-types. Each call of a capture runs its whole body, as the lambda would.
-Write a lambda when the body takes more than one step or needs names.
+The body after `&` is a call, a literal, or an expression in parentheses, so
+`&(&1 > 1)` needs its parentheses. A capture that only passes `&1` on to a
+call is a partial application: `at_least_zero = &Int.max(&1, 0)` keeps
+`Int.max`'s parameter types, so it needs no annotation. Write a lambda when
+the body takes more than one step or needs names.
 
-## No Function Overloads
+## No function overloads
 
 Two functions in the same scope can't have the same name. Nomi never picks
-between functions by the types of the arguments, so this is an error:
+between functions by the types of the arguments, so this is an error.
+(`type UserId String` declares a distinct type, which
+[Structs, Enums, Distinct Types](/structs-enums-distinct/#distinct-types)
+covers.)
 
 ```nomi-run error
 type UserId String
@@ -177,11 +181,9 @@ which code in other files relies on, so changing a default never changes
 the function's type. A lambda is checked where it stands, so it can leave
 the type off, as `y = 10` does, and the type comes from the default value.
 
-Passed where a function with fewer parameters is expected, a named function
-fills the rest from its defaults too: `["Ada", "Lin"] |> Iter.map(greet)`
-greets each name with `"Hello"`, and `Iter.map(rows, String.join)` joins each
-row with no separator. Bound with nothing expected, as in `g = greet`, the
-value keeps every parameter, and a call through it passes every argument.
+Passed to a function such as `Iter.map`, `greet` still fills `greeting` from
+its default: `["Ada", "Lin"] |> Iter.map(greet)` greets each name with
+`"Hello"`.
 
 ## Named arguments
 
@@ -290,9 +292,9 @@ The last call passes `double`, an existing function, instead of a lambda. It
 goes to `f` the same way. What decides is the parameter list, not how the
 argument is written.
 
-The rule: a final unnamed argument goes to the last parameter when that
-parameter takes a function and the parameter it would otherwise fill does
-not. When both take functions, the arguments fill the parameters in order.
+This happens only when the last parameter takes a function and the skipped
+one does not. When both take functions, the arguments fill the parameters in
+order.
 
 ## Unwritten code
 
@@ -322,22 +324,22 @@ If the program reaches it, the program stops with
 
 ## Code that cannot be reached
 
-```nomi-run error
-fn initial(name: String) -> String {
-    case Iter.first(name) {
-        Some(letter) -> letter
-        None -> unreachable "names are never empty"
+```nomi-run
+fn first_field(line: String) -> String {
+    case String.split(line, ",") |> Iter.first() {
+        Some(field) -> field
+        None -> unreachable "split always returns at least one part"
     }
 }
 
 fn main() {
-    dbg initial("Ada")
-    dbg initial("")
+    dbg first_field("a,b")
+    dbg first_field("")
 }
 ```
 <!-- expect
-dbg line 9: initial("Ada") = "A"
-line 4: unreachable: names are never empty
+dbg line 9: first_field("a,b") = "a"
+dbg line 10: first_field("") = ""
 -->
 
 `unreachable` marks a place your own code guarantees it never gets to, and
@@ -345,9 +347,10 @@ its reason says why. Like `todo`, it fits any type. Unlike `todo`, it is
 finished code: `nomi build` accepts it.
 
 If the program does reach it, the guarantee was wrong, so the program stops
-with `line 4: unreachable: names are never empty`. Use it only for what the
-program itself makes true. A name a user typed can be empty, and that case
-needs a real answer.
+with `line 4: unreachable: split always returns at least one part`. Use it
+only for what the program itself makes true, as here: `String.split` never
+returns an empty list. Input a user typed makes no such promise, so a
+missing value there needs a real answer.
 
 When the guarantee is that one call succeeds, a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail) says it after the

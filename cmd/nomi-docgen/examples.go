@@ -44,11 +44,8 @@ type exercise struct {
 	description string // NOTES.md's first paragraph, on one line
 	specPath    string // `exercises/<slug>` in problem-specifications
 	choices     string // the body of NOTES.md's `## Choices` section
-	// roughEdges are NOTES.md's `## Friction` items, each rendered with
-	// its tag in words (frictionLabels).
-	roughEdges []string
-	files      []exerciseFile
-	chapters   []chapter
+	files       []exerciseFile
+	chapters    []chapter
 }
 
 type exerciseFile struct {
@@ -248,8 +245,9 @@ var (
 
 // parseNotes reads a NOTES.md: its `# ` title, the `Subject:` line under
 // it, an optional `Run: manual` line under that, its first paragraph, its "Adapted from" line, its `## Choices`
-// section and its `## Friction` items. Any other section (Indexing)
-// stays out of the tour.
+// section. Its `## Friction` items are checked (checkFriction) but stay
+// out of the tour: they are the log of what to fix in the language, and a
+// page shows what is true. Any other section (Indexing) stays out too.
 func parseNotes(ex *exercise, notes string) error {
 	lines := strings.Split(strings.ReplaceAll(notes, "\r\n", "\n"), "\n")
 	if len(lines) == 0 || !strings.HasPrefix(lines[0], "# ") {
@@ -311,18 +309,14 @@ func parseNotes(ex *exercise, notes string) error {
 			friction = append(friction, line)
 		}
 	}
-	edges, err := roughEdges(friction)
-	if err != nil {
+	if err := checkFriction(friction); err != nil {
 		return err
 	}
-	ex.roughEdges = edges
-	// A Choices line may point at Friction, which the page calls Rough
-	// edges.
-	for k, line := range choices {
-		if strings.Contains(line, " (see Friction)") && len(edges) == 0 {
-			return fmt.Errorf("a Choices line says \"(see Friction)\", and Friction has no item")
+	// The page has no Friction section for a Choices line to point at.
+	for _, line := range choices {
+		if strings.Contains(line, "(see Friction)") {
+			return fmt.Errorf("a Choices line says \"(see Friction)\", which the page does not show; say it in the line")
 		}
-		choices[k] = strings.ReplaceAll(line, " (see Friction)", " (see [Rough edges](#rough-edges))")
 	}
 	if ex.specPath == "" {
 		return fmt.Errorf("no `Adapted from Exercism problem-specifications (MIT), exercises/<slug>.` line")
@@ -334,23 +328,23 @@ func parseNotes(ex *exercise, notes string) error {
 	return nil
 }
 
-// frictionLabels name a `## Friction` item's tag for a reader.
-var frictionLabels = map[string]string{
-	"stdlib":        "Not in the standard library",
-	"verbose":       "Longer than it should be",
-	"feature":       "A missing feature",
-	"error-message": "A confusing error",
-	"idiom":         "Two ways to write it",
-	"bug":           "A bug",
+// frictionTags are the tags a `## Friction` item may carry.
+var frictionTags = map[string]bool{
+	"stdlib":        true, // not in the standard library
+	"verbose":       true, // longer than it should be
+	"feature":       true, // a missing feature
+	"error-message": true, // a confusing error
+	"idiom":         true, // two ways to write it
+	"bug":           true,
 }
 
 var frictionItem = regexp.MustCompile(`^- \[([a-z-]+)\] (.*)$`)
 
-// roughEdges renders a `## Friction` section's items for the page: each
-// `- [tag] text` item, with its indented continuation lines, becomes
-// `- **Label.** text`. `None.` is no item. Friction lists only what is
-// still true, so an item that says `Fixed:` is refused: a fix deletes it.
-func roughEdges(lines []string) ([]string, error) {
+// checkFriction checks a `## Friction` section: each item is a `- [tag]
+// text` line with a known tag, its continuation lines indented under it,
+// and `None.` means no item. Friction lists only what is still true, so an
+// item that says `Fixed:` is refused: a fix deletes it.
+func checkFriction(lines []string) error {
 	var items [][]string
 	for _, line := range lines {
 		switch {
@@ -359,26 +353,22 @@ func roughEdges(lines []string) ([]string, error) {
 		case len(items) > 0:
 			items[len(items)-1] = append(items[len(items)-1], line)
 		case strings.TrimSpace(line) != "" && strings.TrimSpace(line) != "None.":
-			return nil, fmt.Errorf("`## Friction` text outside a `- [tag]` item: %q", line)
+			return fmt.Errorf("`## Friction` text outside a `- [tag]` item: %q", line)
 		}
 	}
-	var out []string
 	for _, item := range items {
 		m := frictionItem.FindStringSubmatch(item[0])
 		if m == nil {
-			return nil, fmt.Errorf("a `## Friction` item does not start with `- [tag] `: %q", item[0])
+			return fmt.Errorf("a `## Friction` item does not start with `- [tag] `: %q", item[0])
 		}
-		label, ok := frictionLabels[m[1]]
-		if !ok {
-			return nil, fmt.Errorf("unknown `## Friction` tag [%s]", m[1])
+		if !frictionTags[m[1]] {
+			return fmt.Errorf("unknown `## Friction` tag [%s]", m[1])
 		}
-		text := strings.TrimRight(strings.Join(append([]string{m[2]}, item[1:]...), "\n"), "\n ")
-		if strings.Contains(text, "Fixed:") {
-			return nil, fmt.Errorf("a `## Friction` item says `Fixed:`; delete a fixed item instead: %q", item[0])
+		if strings.Contains(strings.Join(append([]string{m[2]}, item[1:]...), "\n"), "Fixed:") {
+			return fmt.Errorf("a `## Friction` item says `Fixed:`; delete a fixed item instead: %q", item[0])
 		}
-		out = append(out, fmt.Sprintf("- **%s.** %s", label, text))
 	}
-	return out, nil
+	return nil
 }
 
 func subjectNamed(title string) (subject, bool) {
@@ -433,8 +423,10 @@ func chaptersOf(files []exerciseFile) []chapter {
 				uses[chapterScalars] = true
 			case token.IF, token.ONCE:
 				uses[chapterBindings] = true
-			case token.AND, token.OR:
+			case token.AND, token.OR, token.NOT:
 				uses[chapterScalars] = true
+			case token.BIT_AND, token.BIT_OR, token.BIT_XOR, token.BIT_NOT, token.SHL:
+				uses[chapterScalars] = true // the bitwise operators
 			case token.PERCENT:
 				if adjacent(t, next) && (next.Type == token.LBRACE || next.Type == token.LBRACKET) {
 					uses[chapterCollection] = true
@@ -458,7 +450,7 @@ func chaptersOf(files []exerciseFile) []chapter {
 				if next.Type == token.TYPE_IDENT && at(i+2).Type == token.LT {
 					uses[chapterGenerics] = true
 				}
-			case token.CASE:
+			case token.CASE, token.IS:
 				uses[chapterPatterns] = true
 			case token.INTERFACE:
 				uses[chapterInterfaces] = true
@@ -548,14 +540,8 @@ func renderExample(ex exercise) string {
 	fmt.Fprintf(&b, "%s\n\n", ex.description)
 	// The subject shares the line, so the block's line, which keys its
 	// tour.expect record, stays where it was.
-	// So does the rough edges badge, which starts it and links down to the
-	// section.
-	rough := ""
-	if len(ex.roughEdges) > 0 {
-		rough = `<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> `
-	}
-	fmt.Fprintf(&b, "%sAdapted from Exercism's [problem specification](%s/tree/main/%s) (MIT). Listed under [%s](/examples/?subject=%s).\n\n",
-		rough, problemSpecsURL, ex.specPath, ex.subject.title, ex.subject.slug)
+	fmt.Fprintf(&b, "Adapted from Exercism's [problem specification](%s/tree/main/%s) (MIT). Listed under [%s](/examples/?subject=%s).\n\n",
+		problemSpecsURL, ex.specPath, ex.subject.title, ex.subject.slug)
 	if ex.manual {
 		b.WriteString("```nomi-run manual\n")
 	} else {
@@ -571,12 +557,6 @@ func renderExample(ex exercise) string {
 	b.WriteString("\n## How it's written\n\n")
 	b.WriteString(ex.choices)
 	b.WriteString("\n")
-	if len(ex.roughEdges) > 0 {
-		b.WriteString("\n## Rough edges\n\n")
-		b.WriteString("Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.\n\n")
-		b.WriteString(strings.Join(ex.roughEdges, "\n"))
-		b.WriteString("\n")
-	}
 	return b.String()
 }
 
@@ -651,13 +631,7 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 			slugs = append(slugs, c.slug())
 		}
 		fmt.Fprintf(&b, "<tr data-subject=\"%s\" data-chapters=\"%s\">\n", ex.subject.slug, strings.Join(slugs, " "))
-		// An example with open friction carries a badge that links to its
-		// Rough edges section.
-		rough := ""
-		if len(ex.roughEdges) > 0 {
-			rough = fmt.Sprintf(" <a class=\"nomi-rough-badge\" href=\"/examples/%s/#rough-edges\">rough edges</a>", ex.slug)
-		}
-		fmt.Fprintf(&b, "<td><a href=\"/examples/%s/\">%s</a>%s</td>\n", ex.slug, html.EscapeString(ex.title), rough)
+		fmt.Fprintf(&b, "<td><a href=\"/examples/%s/\">%s</a></td>\n", ex.slug, html.EscapeString(ex.title))
 		fmt.Fprintf(&b, "<td>%s</td>\n", html.EscapeString(ex.subject.title))
 		fmt.Fprintf(&b, "<td>%s</td>\n", html.EscapeString(ex.description))
 		fmt.Fprintf(&b, "<td>%s</td>\n", strings.Join(links, ", "))

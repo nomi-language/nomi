@@ -359,7 +359,7 @@ var projectedNomiNames = map[string]bool{
 	ffitypes.NomiString: true, ffitypes.NomiBool: true, ffitypes.NomiByte: true,
 	ffitypes.NomiInt: true, ffitypes.NomiFloat: true, ffitypes.NomiBytes: true,
 	ffitypes.NomiDuration: true, ffitypes.NomiInstant: true, ffitypes.NomiDynamic: true,
-	ffitypes.NomiUnit: true,
+	ffitypes.NomiUnit: true, ffitypes.NomiReader: true, ffitypes.NomiWriter: true,
 }
 
 // matches reports whether the declared Nomi type t agrees with the
@@ -643,6 +643,9 @@ func goExprNomiType(expr goast.Expr, pkg *goPkgTypes, imports map[string]string,
 				return projLeafOf(binding.localName), nil
 			}
 		}
+		if nomi, ok := goPointerNomiType(v.X, pkg, imports); ok {
+			return projLeafOf(nomi), nil
+		}
 		inner, err := goExprNomiType(v.X, pkg, imports, allowCallbacks)
 		if err != nil {
 			return nil, fmt.Errorf("*%s: %w", goNodeString(v.X), err)
@@ -719,6 +722,23 @@ func goExprNomiType(expr goast.Expr, pkg *goPkgTypes, imports map[string]string,
 	return nil, fmt.Errorf("unsupported Go type %s", goNodeString(expr))
 }
 
+// goPointerNomiType is the Nomi type a pointer to elem projects to when the
+// table names one (`*big.Int` is Int), whether elem is written in another
+// package (`big.Int`) or in the declaring one (`Int` in math/big).
+func goPointerNomiType(elem goast.Expr, pkg *goPkgTypes, imports map[string]string) (string, bool) {
+	switch e := elem.(type) {
+	case *goast.ParenExpr:
+		return goPointerNomiType(e.X, pkg, imports)
+	case *goast.Ident:
+		return ffitypes.NomiForGoPointerType(pkg.path, e.Name)
+	case *goast.SelectorExpr:
+		if importPath, ok := selectorImportPath(e, imports); ok {
+			return ffitypes.NomiForGoPointerType(importPath, e.Sel.Name)
+		}
+	}
+	return "", false
+}
+
 func isProjectedNomiMapKeyType(p *goProjection) bool {
 	switch p.kind {
 	case projFunc:
@@ -743,6 +763,11 @@ func goIdentNomiType(name string, pkg *goPkgTypes, allowCallbacks bool) (*goProj
 		return projLeafOf("error"), nil
 	}
 	if nomi, projected := ffitypes.NomiForGoIdent(name); projected {
+		return projLeafOf(nomi), nil
+	}
+	// A projected named type written inside its own package: `Reader` in
+	// package io.
+	if nomi, projected := ffitypes.NomiForGoNamedType(pkg.path, name); projected {
 		return projLeafOf(nomi), nil
 	}
 	if binding, ok := pkg.bindings[name]; ok {

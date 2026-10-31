@@ -449,6 +449,8 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		// The two traps of a failed postfix `!` (unwrap.go).
 		"vm.bang_failed": bangFailedHost,
 		"vm.bang_none":   bangNoneHost,
+		// `String.captures`' groups as the regex's capture type (captureshape.go).
+		captureShapeKey: captureShapeHost,
 		// `Hashable.hash` of an interface value (keys.go).
 		"vm.hash_value": hashValueHost,
 		// std/message_format's `variant_name`: an enum value's variant.
@@ -831,6 +833,12 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 			// receiver is what is not.
 			s, err := rt.DebugText(v, m.debugImplHook(fr, n))
 			if err != nil {
+				if _, fault := asFault(err); fault {
+					// A fault inside a hand-written Debug impl, or a safe
+					// point in it that stopped the run, is the program's
+					// own failure at this rendering, not a machine error.
+					return err
+				}
 				return fmt.Errorf("vm: %s: %w", fr.fn.Name(), err)
 			}
 			fr.write(n.Dst(), s)
@@ -1195,7 +1203,7 @@ func (m *Machine) arith(fr *frame, n *ir.Arith) error {
 			return fmt.Errorf("vm: %s: an Int operation's left operand is %T",
 				fr.fn.Name(), lhs)
 		}
-		if n.Op() != ir.OpNeg && !rt.IsInt(rhs) {
+		if !n.Op().Unary() && !rt.IsInt(rhs) {
 			return fmt.Errorf("vm: %s: an Int operation's right operand is %T",
 				fr.fn.Name(), rhs)
 		}
@@ -1288,6 +1296,24 @@ func intArith(n *ir.Arith, a, b any, line int) (any, error) {
 			return r, nil
 		}
 		return nil, rt.DivByZeroError(line)
+	case ir.OpAnd:
+		return rt.IntAnd(a, b), nil
+	case ir.OpOr:
+		return rt.IntOr(a, b), nil
+	case ir.OpXor:
+		return rt.IntXor(a, b), nil
+	case ir.OpNot:
+		return rt.IntNot(a), nil
+	case ir.OpShl:
+		if v, ok := rt.IntShl(a, b); ok {
+			return v, nil
+		}
+		return nil, rt.ShiftCountError(line, b, true)
+	case ir.OpShr:
+		if v, ok := rt.IntShr(a, b); ok {
+			return v, nil
+		}
+		return nil, rt.ShiftCountError(line, b, false)
 	}
 	return nil, fmt.Errorf("vm: no such Int operator %s", n.Op())
 }
@@ -1304,6 +1330,8 @@ func constValue(c *ir.Const) (any, error) {
 			return rt.IntFromBig(big), nil
 		}
 		return c.Int(), nil
+	case ir.ConstByte:
+		return rt.Byte(c.Int()), nil
 	case ir.ConstFloat:
 		return c.Float(), nil
 	case ir.ConstDecimal:

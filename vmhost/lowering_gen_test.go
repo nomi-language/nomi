@@ -762,6 +762,11 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 	case "Int":
 		add(
 			func() string { return paren(lit(tInt)) + " + " + paren(lit(tInt)) },
+			func() string {
+				ops := []string{"&&&", "|||", "^^^"}
+				return paren(lit(tInt)) + " " + ops[g.aux.Intn(len(ops))] + " " + paren(lit(tInt))
+			},
+			func() string { return "~~~" + paren(lit(tInt)) + " >>> 2 <<< 1" },
 			func() string { return "case " + g.expr(tMeters, d, sc) + " {\nMeters(k) -> k\n}" },
 			func() string { return "Iter.count(" + g.expr(of("List", g.typ(1)), d, sc) + ")" },
 			// A callback over a list, where `tally` and `Iter.count` take
@@ -801,6 +806,14 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 				u := g.typ(1)
 				return "Iter.any([" + lit(u) + "], " + g.callback(u, tBool, d, sc, false) + ")"
 			},
+			func() string { u := g.eqType(); return "not " + paren(lit(u)) + " == " + paren(lit(u)) },
+			func() string {
+				u := g.typ(1)
+				return "[" + lit(u) + "] |> not Iter.any(" + g.callback(u, tBool, d, sc, false) + ")"
+			},
+			func() string { return paren(g.expr(tShape, d, sc)) + " is .Circle(_)" },
+			func() string { return "not " + paren(g.expr(tShape, d, sc)) + " is (.Square(_) or .Dot)" },
+			func() string { u := g.typ(1); return "[" + g.expr(u, d, sc) + "] is [_, ..]" },
 		)
 	case "Meters":
 		add(
@@ -1585,7 +1598,7 @@ func (g *gen) iterBlock() string {
 		}
 	case 1:
 		fmt.Fprintf(&out, "%s = %s\n", fs, lambdas)
-		fmt.Fprintf(&out, "case %s {\n[] -> io.inspect(0)\n[f, .._] -> io.inspect(f(%d))\n}\n", fs, k)
+		fmt.Fprintf(&out, "case %s {\n[] -> io.inspect(0)\n[f, ..] -> io.inspect(f(%d))\n}\n", fs, k)
 		fmt.Fprintf(&out, "%s = #[fn x: Int -> x + %d, fn x: Int -> x * %d]\n", name("iv"), a, b)
 		fmt.Fprintf(&out, "case Vector.get(%s, 1) {\nSome(f) -> io.inspect(f(%d))\nNone -> io.inspect(0)\n}\n", name("iv"), k)
 		fmt.Fprintf(&out, "%s = %%{\"a\" => fn x: Int -> x + %d}\n", name("im"), a)
@@ -1692,7 +1705,7 @@ func (g *gen) patternBlock(inTest bool) string {
 	case 4:
 		stack := name("Stk")
 		fmt.Fprintf(&out, "type %s List<Int>\n", stack)
-		head := "[h, .._]"
+		head := "[h, ..]"
 		if r.Intn(2) == 0 {
 			head = stack + head
 		}
@@ -1838,7 +1851,7 @@ func (g *gen) callBlock() string {
 // leaveBlock writes a block whose code the IR builder once declined for
 // engineering reasons alone: an `and` or `or` whose right operand leaves (a
 // block ending in `return`, `break` or `continue`, a `case` or `if` every
-// arm of which leaves, in parentheses, under `!` or as a call's argument,
+// arm of which leaves, in parentheses, under `not` or as a call's argument,
 // a failing `?`), a nested fn's destructuring parameter, and a
 // `Struct.update` patch that is a value rather than a literal, and a
 // partial whose open slot has a computed default, and a Context value keyed
@@ -1865,7 +1878,7 @@ func (g *gen) leaveBlock() string {
 		case 2:
 			return fmt.Sprintf("(if x > %d { return %s } else { return %s })", n, ret, ret)
 		case 3:
-			return fmt.Sprintf("!case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
+			return fmt.Sprintf("not case x {\n%d -> return %s\n_ -> return %s\n}", n, ret, ret)
 		}
 		return fmt.Sprintf("Debug.inspect(case x {\n%d -> return %s\n_ -> return %s\n}) == \"True\"", n, ret, ret)
 	}
@@ -1885,7 +1898,7 @@ func (g *gen) leaveBlock() string {
 	case 8:
 		// A list pattern over the untyped `[]`, and one that is only a
 		// suffix.
-		heads := []string{"[_]", "[_, .._]", "[_, _]"}
+		heads := []string{"[_]", "[_, ..]", "[_, _]"}
 		fmt.Fprintf(&out, "io.inspect(case [] {\n%s -> %d\n_ -> %d\n})\n", heads[r.Intn(3)], n, n+1)
 		fmt.Fprintf(&out, "io.inspect(case [%d, %d] {\n[_, _, _] -> 0\n[..%s] -> Iter.count(%s)\n})\n", n, n+1, name("lr"), name("lr"))
 	case 7:

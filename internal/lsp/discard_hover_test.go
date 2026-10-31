@@ -60,14 +60,6 @@ fn count() -> Int {
   io.inspect(n)
 }
 `, "`Int`, discarded: matches any `Int`", false},
-		{"a list pattern's rest", coin + `fn main() {
-  n = case [1, 2] {
-    [first, ..▮_] -> first
-    [] -> 0
-  }
-  io.inspect(n)
-}
-`, "`List<Int>`, discarded: matches any `List<Int>`", false},
 		{"a vector element in a case arm", coin + `fn main() {
   n = case #[1, 2] {
     #[▮_, ..] -> 1
@@ -76,14 +68,6 @@ fn count() -> Int {
   io.inspect(n)
 }
 `, "`Int`, discarded: matches any `Int`", false},
-		{"a set pattern's rest", coin + `fn main() {
-  n = case %["a", "b"] {
-    %["a", ..▮_] -> 1
-    _ -> 0
-  }
-  io.inspect(n)
-}
-`, "`Set<String>`, discarded: matches any `Set<String>`", false},
 		{"a case arm's whole pattern", coin + `fn main() {
   n = case Coin.Dime {
     .Penny -> 1

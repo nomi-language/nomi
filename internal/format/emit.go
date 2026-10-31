@@ -659,6 +659,8 @@ func emitNode(n ast.Node) Doc {
 		return emitCapture(v)
 	case *ast.Unary:
 		return emitUnary(v, followsOther)
+	case *ast.Is:
+		return emitIs(v)
 	case *ast.Block:
 		// Flat form:   "{ expr }"
 		// Broken form: "{\n  stmt1\n  stmt2\n  ...\n}"
@@ -3578,9 +3580,9 @@ func emitPatternNode(n ast.Node) Doc {
 //	< > <= >=    = 5
 //	|>           = 6
 //	.. ..=       = 7
-//	+ -          = 8
-//	* / %        = 9
-//	(unary)      = 10
+//	+ - ||| ^^^           = 8
+//	* / % &&& <<< >>>     = 9
+//	(unary)               = 10
 func precedence(op string) int {
 	switch op {
 	case "|>":
@@ -3593,9 +3595,9 @@ func precedence(op string) int {
 		return 4
 	case "<", ">", "<=", ">=":
 		return 5
-	case "+", "-":
+	case "+", "-", "|||", "^^^":
 		return 8
-	case "*", "/", "%":
+	case "*", "/", "%", "&&&", "<<<", ">>>":
 		return 9
 	}
 	// Unknown operator — treat as tight-binding; callers add parens
@@ -3603,10 +3605,48 @@ func precedence(op string) int {
 	return 100
 }
 
-// unaryPrecedence is the binding level of unary `-` and `!` (parser's
+// unaryPrecedence is the binding level of unary `-` and `~~~` (parser's
 // prefixPrecedence). It's greater than any binary precedence, so any
 // binary child of a unary needs parenthesizing.
 const unaryPrecedence = 10
+
+// notOperandPrecedence is the loosest operator `not`'s operand holds bare
+// (the parser's notOperandPrecedence): `not a == b` negates the comparison,
+// and an `and` or `or` under a `not` keeps its parentheses.
+const notOperandPrecedence = 4
+
+// isPrecedence is the binding level of `is` (the parser's, `==`'s). It
+// does not chain with a comparison, so its value holds only what binds more
+// tightly than a comparison bare: `xs |> List.head() is Some(_)`, `(a < b)
+// is True`.
+const isPrecedence = 4
+
+// emitIs writes `value is Pattern` with one space on each side of `is`. A
+// pattern that is an `or` (or names one with `as`) keeps its parentheses,
+// since a bare `or` after the pattern is the Boolean `or`.
+func emitIs(v *ast.Is) Doc {
+	value := emitOperand(v.Value, precedence("<")+1, followsOther)
+	if u, ok := v.Value.(*ast.Unary); ok && u.Op == "not" {
+		value = Concat(Text("("), emit(v.Value), Text(")"))
+	}
+	pattern := emitPattern(v.Pattern)
+	if isOrPattern(v.Pattern) {
+		pattern = Concat(Text("("), pattern, Text(")"))
+	}
+	return Concat(value, Text(" is "), pattern)
+}
+
+// isOrPattern reports whether n is an `or` pattern, possibly named with
+// `as`.
+func isOrPattern(n ast.Node) bool {
+	switch v := n.(type) {
+	case *ast.OrPattern:
+		return true
+	case *ast.AsPattern:
+		return isOrPattern(v.Pattern)
+	}
+	return false
+}
 
 // follower is the token written straight after an operand whose
 // parentheses the formatter may drop, when that token can join a bare
@@ -3792,9 +3832,13 @@ func continuesLine(op string) bool {
 	return false
 }
 
-// emitUnary writes a unary operation. Unary binds tighter than any binary,
-// so any binary operand is parenthesized.
+// emitUnary writes a unary operation. `-` and `~~~` bind tighter than any
+// binary, so any binary operand is parenthesized; `not`, a keyword, is
+// followed by a space and holds everything down to `==` bare.
 func emitUnary(v *ast.Unary, next follower) Doc {
+	if v.Op == "not" {
+		return Concat(Text("not "), emitOperand(v.Right, notOperandPrecedence, next))
+	}
 	return Concat(Text(v.Op), emitOperand(v.Right, unaryPrecedence, next))
 }
 
@@ -3813,6 +3857,9 @@ func emitUnary(v *ast.Unary, next follower) Doc {
 //     `case (Shape) {` writes `case Shape {`, which opens a literal.
 func emitOperand(child ast.Node, minPrec int, next follower) Doc {
 	if b, ok := child.(*ast.Binary); ok && precedence(b.Op) < minPrec {
+		return Concat(Text("("), emit(child), Text(")"))
+	}
+	if _, ok := child.(*ast.Is); ok && minPrec > isPrecedence {
 		return Concat(Text("("), emit(child), Text(")"))
 	}
 	if next == followsOther {
@@ -3868,7 +3915,7 @@ func emitCapture(v *ast.Capture) Doc {
 
 // captureBody writes a capture's body, keeping the parentheses of a body
 // that is a parenthesized expression, possibly under postfix `!` or `?`
-// marks (`&("")!`) or a prefix operator (`&!(x)`): without them the body
+// marks (`&("")!`): without them the body
 // would not start with `(`, a call or a literal, which is what a capture's
 // `&` is written against.
 func captureBody(n ast.Node) Doc {
@@ -3885,16 +3932,12 @@ func captureBody(n ast.Node) Doc {
 		if v.Expr != nil && groupedHead(v.Expr) {
 			return Concat(captureBody(v.Expr), Text("?"))
 		}
-	case *ast.Unary:
-		if groupedHead(v.Right) {
-			return Concat(Text(v.Op), captureBody(v.Right))
-		}
 	}
 	return emit(n)
 }
 
 // groupedHead reports whether n is a parenthesized expression, possibly
-// under postfix `!` and `?` marks and prefix operators.
+// under postfix `!` and `?` marks.
 func groupedHead(n ast.Node) bool {
 	switch v := n.(type) {
 	case *ast.GroupedExpr:
@@ -3903,8 +3946,6 @@ func groupedHead(n ast.Node) bool {
 		return groupedHead(v.Expr)
 	case *ast.TryOp:
 		return v.Expr != nil && groupedHead(v.Expr)
-	case *ast.Unary:
-		return groupedHead(v.Right)
 	}
 	return false
 }

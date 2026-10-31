@@ -2,6 +2,7 @@ package rt
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 )
 
@@ -21,8 +22,8 @@ import (
 //
 // This is the design's one hard constraint. Iter callback dispatch is a
 // cancellation safe point, so the frame rides the iterator hot loop, which
-// allocates nothing per element. Threading a pointer and polling ctx.Done()
-// per element keeps it that way. A frame allocated per call would add
+// allocates nothing per element. Threading a pointer and reading the frame's
+// stop flag per element (stopFlag) keeps it that way. A frame allocated per call would add
 // allocations on every element: a performance regression rather than a wrong
 // answer, which makes it easy to miss.
 //
@@ -97,6 +98,12 @@ type Frame struct {
 	// several frames down sees the flag and a sibling statement afterwards does
 	// not.
 	underDeadline bool
+	// stop is set once the context of the task or deadline this frame
+	// answers to has ended, or nil on a frame nothing can stop while it
+	// computes (the main line outside any deadline). SafePoint reads it at
+	// every call, loop iteration and Go-driven iteration element, so a task
+	// that never waits still stops; see stopFlag.
+	stop *atomic.Bool
 	// park is the supervisor tracker a supervised task's blocking waits report
 	// to, or nil. Read only by the drain, to tell "still working" from "nothing
 	// left to wait for" — see supervisor.go's drainOnce.
@@ -212,7 +219,71 @@ func EnterDeadline(parent *Frame, next Context) (*Frame, func()) {
 	child := *parent
 	child.ctx = ctx
 	child.underDeadline = true
+	child.stop = stopFlag(ctx)
 	return &child, cancel
+}
+
+// stopFlag answers a flag that is set once ctx ends, for Frame.stop.
+//
+// # Safe points
+//
+// A wait selects on the frame's context, so a cancelled task blocked in one
+// wakes at once. Code that never waits needs a second route: a task spinning
+// in `Iter.loop`, a deep recursion or a long `Iter.reduce` would otherwise
+// run to its end after `Task.cancel`, a block's teardown or its deadline. The
+// VM asks SafePoint at every call, every backward branch and every element an
+// iteration driven in Go passes along, and SafePoint raises there exactly what
+// a wait raises (CancelIfDone): a task unwinds and settles Cancelled, a main
+// line past its deadline reports MainDeadlineFault.
+//
+// A flag rather than a select on `ctx.Done()` at each point: a select costs
+// an interface call and a channel read, while the flag is one atomic load,
+// and a frame nothing can stop has no flag at all, so the main line pays a
+// nil comparison. The flag belongs to the context, and only the places that
+// make a context a Nomi program can be stopped by make one: a task's frame
+// and EnterDeadline. A frame derived from one (a block, a `once` force, a
+// scoped field, a test's time limit) shares its parent's flag, since its own
+// context ends whenever the parent's does, and before that only at the
+// block's exit, when nothing runs on it any more.
+func stopFlag(ctx context.Context) *atomic.Bool {
+	stop := new(atomic.Bool)
+	if ctx.Err() != nil {
+		stop.Store(true)
+		return stop
+	}
+	context.AfterFunc(ctx, func() { stop.Store(true) })
+	return stop
+}
+
+// Stopping reports whether the task or deadline fr answers to has ended, so
+// the next SafePoint raises. One atomic load; false at once on a frame
+// nothing can stop.
+func (fr *Frame) Stopping() bool { return fr != nil && fr.stop != nil && fr.stop.Load() }
+
+// Stoppable reports whether anything can stop fr while it computes: it runs
+// in a task or under a deadline.
+func (fr *Frame) Stoppable() bool { return fr != nil && fr.stop != nil }
+
+// SafePoint stops the computation on fr when its task was cancelled or its
+// deadline passed, raising what a wait would raise (CancelIfDone), and does
+// nothing otherwise. See stopFlag.
+func SafePoint(fr *Frame) {
+	if fr.Stopping() {
+		CancelIfDone(fr)
+	}
+}
+
+// Unstoppable is fr with no safe point that stops it: the frame a deferred
+// call runs on while the work it cleans up after is being stopped, so the
+// cleanup runs to its end rather than unwinding at its first call. A wait in
+// it still answers to the context.
+func Unstoppable(fr *Frame) *Frame {
+	if fr == nil || fr.stop == nil {
+		return fr
+	}
+	child := *fr
+	child.stop = nil
+	return &child
 }
 
 // NewFrame returns the root frame for a program or a task.

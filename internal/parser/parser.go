@@ -1739,7 +1739,13 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 	defer p.leaveNested()
 	p.exprParses++
 	start := p.pos
-	left, err := p.parsePrefixWithPipeStop(stopAtPipe)
+	var left ast.Node
+	var err error
+	if !p.atEnd() && p.peek().Type == token.NOT && minPrec <= notOperandPrecedence {
+		left, err = p.parseNot(stopAtPipe)
+	} else {
+		left, err = p.parsePrefixWithPipeStop(stopAtPipe)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1762,8 +1768,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		// keeps parsing. Otherwise we leave the COMMENT in place so the
 		// statement-level trailing-comment logic can attach it.
 		if p.peek().Type == token.COMMENT {
-			next := p.peekAt(1).Type
-			if infixPrecedence(next) >= minPrec {
+			if p.pos+1 < len(p.tokens) && p.infixPrecedenceAt(p.pos+1) >= minPrec {
 				// Mid-expression COMMENT tokens between infix operators attach
 				// as TRAILING trivia so formatters can emit them after the
 				// corresponding step (e.g. mid-pipe trailing comments:
@@ -1792,7 +1797,8 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		}
 		// A postfix `!`, `Map.get(m, k)!`, unwraps the expression's Result
 		// or Maybe. It is written against the expression, on its line; a
-		// `!` that starts the next line is a negation.
+		// `!` that starts the next line is the prefix `!` parsePrefix
+		// rejects.
 		if bang := p.peek(); bang.Type == token.BANG && p.pos > 0 && p.tokens[p.pos-1].Line == bang.Line && postfixBangAllowed(p.tokens[p.pos-1]) {
 			p.advance()
 			left = &ast.Unwrap{Expr: left, Line: bang.Line, Col: bang.Col}
@@ -1839,7 +1845,11 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		if p.atOrOperatorSpelledBars(tok) {
 			return nil, errorAt(tok.Line, tok.Col, "Nomi spells logical or `or`: write `a or b`, not `a || b`")
 		}
-		prec := infixPrecedence(tok.Type)
+		shr := p.shiftRightAt(p.pos)
+		if !shr && tok.Type == token.GT && p.adjacentGTs(p.pos) && p.prevLine() == tok.Line {
+			return nil, errorAt(tok.Line, tok.Col, "Nomi spells shift right `>>>`: write `a >>> n`, not `a >> n`")
+		}
+		prec := p.infixPrecedenceAt(p.pos)
 		if prec < minPrec || p.percentOpensLiteral(0) {
 			// `%{` and `%[` written together open a map or set; after an
 			// operand they are not the remainder operator.
@@ -1910,8 +1920,33 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			}
 			left = right
 
+		case token.IS:
+			if err := chainedWithIs(left, tok); err != nil {
+				return nil, err
+			}
+			p.advance() // consume IS
+			pattern, err := p.parseIsPattern(tok)
+			if err != nil {
+				return nil, err
+			}
+			left = &ast.Is{Value: left, Pattern: pattern, Line: tok.Line, Col: tok.Col}
+			if err := p.isPatternEnds(); err != nil {
+				return nil, err
+			}
+
 		default:
+			if tok.Type == token.OR && trailingIs(left) != nil && p.orStartsPattern() {
+				return nil, ParseError{Line: tok.Line, Col: tok.Col,
+					Message: "this `or` joins two Bool values, and a pattern cannot be its right operand: `is` takes one pattern",
+					Hints:   []string{"to test several patterns, put them in parentheses: `kind is (.Circle or .Square)`"}}
+			}
+			op := tok.Lexeme
 			p.advance()
+			if shr {
+				p.advance()
+				p.advance()
+				op = ">>>"
+			}
 			// Left-associative: use prec+1 for the right operand.
 			right, err := p.parseExprWithPipeStop(prec+1, stopAtPipe)
 			if err != nil {
@@ -1924,7 +1959,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			}
 			left = &ast.Binary{
 				Left:  left,
-				Op:    tok.Lexeme,
+				Op:    op,
 				Right: right,
 				Line:  tok.Line,
 				Col:   tok.Col,
@@ -1934,6 +1969,142 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 
 	p.recordSpan(left, start)
 	return left, nil
+}
+
+// isComparison reports whether n is a comparison written without
+// parentheses: `a == b`, `a < b`. `is` does not chain with one.
+func isComparison(n ast.Node) bool {
+	b, ok := n.(*ast.Binary)
+	if !ok {
+		return false
+	}
+	switch b.Op {
+	case "==", "!=", "<", ">", "<=", ">=":
+		return true
+	}
+	return false
+}
+
+// chainedWithIs is the error for an `is` whose left operand is a comparison
+// written without parentheses: `a == b is P` does not chain, as `x is P ==
+// b` does not (isPatternEnds), since a reader cannot tell which side the
+// test takes.
+func chainedWithIs(left ast.Node, isTok token.Token) error {
+	if !isComparison(left) {
+		return nil
+	}
+	return ParseError{Line: isTok.Line, Col: isTok.Col,
+		Message: "`is` does not chain with a comparison",
+		Hints:   []string{"put one side in parentheses: `(a == b) is True`, or `a == (b is P)`"}}
+}
+
+// parseIsPattern parses the pattern after `is`, the cursor just past it: one
+// pattern as a `case` arm writes it, with an `as` after it, and an `or` only
+// in parentheses (`kind is (.Circle or .Square)`), since a bare `or` after
+// the pattern is the Boolean `or`. A name the pattern binds is the checker's
+// error: `is` binds nothing.
+func (p *Parser) parseIsPattern(isTok token.Token) (ast.Node, error) {
+	if !p.atEnd() && p.peek().Type == token.NOT {
+		not := p.peek()
+		return nil, ParseError{Line: not.Line, Col: not.Col,
+			Message: "`is not` is not an operator",
+			Hints:   []string{"to test that a value does not match, write `not x is P`"}}
+	}
+	if p.atEnd() || !canStartPatternAssertion(p.peek().Type) {
+		return nil, errorAt(isTok.Line, isTok.Col, "expected a pattern after `is`, as a `case` arm writes one: `x is Some(_)`")
+	}
+	if err := p.enterNested(); err != nil {
+		return nil, err
+	}
+	defer p.leaveNested()
+	start := p.pos
+	pattern, err := p.parseSinglePatternInner()
+	if err != nil {
+		return nil, err
+	}
+	p.recordSpan(pattern, start)
+	if pattern, err = p.parsePatternAs(pattern, start); err != nil {
+		return nil, err
+	}
+	p.recordSpan(pattern, start)
+	return pattern, nil
+}
+
+// isPatternEnds checks the token after an `is` test's pattern. The pattern
+// is not an expression, so no operator that binds more tightly than `is`
+// may follow it, and `is` does not chain with a comparison: `x is P == b`
+// and `x is P |> f()` are errors that ask for parentheses.
+func (p *Parser) isPatternEnds() error {
+	if p.atEnd() {
+		return nil
+	}
+	tok := p.peek()
+	switch tok.Type {
+	case token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ, token.IS:
+		if tok.Type == token.GT && p.shiftRightAt(p.pos) {
+			break
+		}
+		if tok.Type == token.IS {
+			return ParseError{Line: tok.Line, Col: tok.Col,
+				Message: "`is` does not chain with another `is`",
+				Hints:   []string{"join two tests with `and`: `x is P and y is Q`"}}
+		}
+		return ParseError{Line: tok.Line, Col: tok.Col,
+			Message: fmt.Sprintf("`is` does not chain with `%s`", tok.Lexeme),
+			Hints:   []string{"put the test in parentheses: `(x is P) == b`"}}
+	}
+	if p.infixPrecedenceAt(p.pos) > infixPrecedence(token.IS) {
+		op := tok.Lexeme
+		if p.shiftRightAt(p.pos) {
+			op = ">>>"
+		}
+		return ParseError{Line: tok.Line, Col: tok.Col,
+			Message: fmt.Sprintf("an `is` test's pattern ends before `%s`", op),
+			Hints:   []string{fmt.Sprintf("to use the test's value, put the test in parentheses: `(x is P) %s ...`", op)}}
+	}
+	return nil
+}
+
+// trailingIs is the `is` test that ends n, written last in a run of `and`,
+// `or` and `not` (`a and x is P`), or nil.
+func trailingIs(n ast.Node) *ast.Is {
+	for {
+		switch v := n.(type) {
+		case *ast.Is:
+			return v
+		case *ast.Binary:
+			if v.Op != "and" && v.Op != "or" {
+				return nil
+			}
+			n = v.Right
+		case *ast.Unary:
+			if v.Op != "not" {
+				return nil
+			}
+			n = v.Right
+		default:
+			return nil
+		}
+	}
+}
+
+// orStartsPattern reports whether the `or` at the cursor is followed by what
+// can only be a pattern: `_`, a dot-leading variant `.Square`, or `#.` and
+// `%.` variant patterns. After an `is` test that `or` is the author writing
+// `x is .A or .B` for `x is (.A or .B)`. Any other operand is read as the
+// Boolean `or`'s, and the checker hints at the parentheses when it is not
+// a Bool.
+func (p *Parser) orStartsPattern() bool {
+	next := p.peekAt(1)
+	switch next.Type {
+	case token.UNDERSCORE:
+		return true
+	case token.DOT:
+		return p.peekAt(2).Type == token.TYPE_IDENT
+	case token.HASH, token.PERCENT:
+		return p.peekAt(2).Type == token.DOT
+	}
+	return false
 }
 
 // atOrOperatorSpelledBars reports whether tok, just after an operand, starts
@@ -1958,6 +2129,8 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 		return p.parsePipeCaseStage(left, pipeTok, leadingForRight)
 	case !p.atEnd() && (p.peek().Type == token.THEN || p.peek().Type == token.TAP):
 		return p.parsePipeLambdaStage(left, pipeTok, leadingForRight)
+	case !p.atEnd() && p.peek().Type == token.NOT:
+		return p.parsePipeNotStage(left, pipeTok, leadingForRight)
 	default:
 		right, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
 		if err != nil {
@@ -1971,6 +2144,42 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 		}
 		return questionStages(pipeNode(left, right, pipeTok.Line, pipeTok.Col), tries), nil
 	}
+}
+
+// parsePipeNotStage parses `|> not stage`, the negation of the stage's
+// result: `x |> not String.is_empty()` is `not String.is_empty(x)`. The
+// stage is an ordinary stage, a call possibly unwrapped with `!`, or another
+// `not` stage; the pipe's Right is the ast.Unary over it.
+func (p *Parser) parsePipeNotStage(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {
+	tok := p.peek()
+	start := p.pos
+	p.advance() // consume NOT
+	var stage ast.Node
+	if !p.atEnd() && p.peek().Type == token.NOT {
+		inner, err := p.parsePipeNotStage(left, pipeTok, nil)
+		if err != nil {
+			return nil, err
+		}
+		stage = inner.(*ast.Binary).Right
+	} else {
+		right, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
+		if err != nil {
+			return nil, err
+		}
+		if _, tries := peelQuestions(right); len(tries) > 0 {
+			q := tries[0]
+			return nil, ParseError{Line: q.Line, Col: q.Col,
+				Message: "a `not` stage cannot end in `?`: the `?` would propagate the call's failure, not the negation's",
+				Hints:   []string{"propagate in a stage of its own and negate after it: `|> f()? |> then fn ok -> not ok`"}}
+		}
+		stage = right
+	}
+	not := &ast.Unary{Op: "not", Right: stage, Line: tok.Line, Col: tok.Col}
+	p.recordSpan(not, start)
+	for _, tr := range leadingForRight {
+		not.AddLeading(tr)
+	}
+	return pipeNode(left, not, pipeTok.Line, pipeTok.Col), nil
 }
 
 // peelQuestions takes the `?`s off a pipe stage: `x |> f()?` is the stage
@@ -2629,12 +2838,14 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		return p.parseTaggedStringInterp()
 
 	case token.BANG:
-		p.advance()
-		right, err := p.parseExpr(prefixPrecedence)
-		if err != nil {
-			return nil, err
-		}
-		return &ast.Unary{Op: "!", Right: right, Line: tok.Line, Col: tok.Col}, nil
+		return nil, errorAt(tok.Line, tok.Col, "Nomi spells logical not `not`: write `not x`, not `!x`")
+
+	case token.NOT:
+		// parseExpr reads a `not` where it may stand; here it is the operand
+		// of an operator that binds tighter than it.
+		return nil, ParseError{Line: tok.Line, Col: tok.Col,
+			Message: "`not` binds looser than comparisons and arithmetic, so it cannot be their operand",
+			Hints:   []string{"put the negation in parentheses: `a == (not b)`, `&(not f(&1))`"}}
 
 	case token.ASSERT, token.REFUTE:
 		return p.parseAssertion()
@@ -2673,6 +2884,14 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 			return nil, err
 		}
 		return &ast.Unary{Op: "-", Right: right, Line: tok.Line, Col: tok.Col}, nil
+
+	case token.BIT_NOT:
+		p.advance()
+		right, err := p.parseExpr(prefixPrecedence)
+		if err != nil {
+			return nil, err
+		}
+		return &ast.Unary{Op: "~~~", Right: right, Line: tok.Line, Col: tok.Col}, nil
 
 	case token.UNDERSCORE:
 		// `_` is a discard name; read as a value it is the checker's
@@ -3290,16 +3509,76 @@ func (p *Parser) skipSeparatorsOnly() {
 
 // Precedence table:
 //
-//	or           = 2
-//	and          = 3
-//	== !=        = 4
-//	< > <= >=    = 5
-//	|>           = 6
-//	.. ..=       = 7
-//	+ -          = 8
-//	* / %        = 9
-//	unary ! -    = 10
+//	or                    = 2
+//	and                   = 3
+//	== !=                 = 4
+//	< > <= >=             = 5
+//	|>                    = 6
+//	.. ..=                = 7
+//	+ - ||| ^^^           = 8
+//	* / % &&& <<< >>>     = 9
+//	unary - ~~~           = 10
+//
+// Prefix `not` sits between `and` and `==`, as in Python: its operand is
+// everything that binds at least as tightly as `==` (notOperandPrecedence),
+// so `not a == b` is `not (a == b)`, `not x |> f()` is `not (x |> f())`, and
+// `not a and b` is `(not a) and b`. It stands only where such an operand
+// could: alone, or as an operand of `and`, `or` or another `not`. As an
+// operand of a tighter operator (`a == not b`, `-not x`) it is an error that
+// asks for parentheses.
+//
+// The bitwise operators sit where Go puts them: `&&&` and the shifts with
+// `*`, `|||` and `^^^` with `+`, so `x &&& mask == 0` is `(x &&& mask) == 0`
+// and `hi <<< 8 ||| lo` is `(hi <<< 8) ||| lo`.
 const prefixPrecedence = 10
+
+// notOperandPrecedence is the minimum infix precedence `not`'s operand
+// consumes: `==`'s.
+const notOperandPrecedence = 4
+
+// parseNot parses `not operand`.
+func (p *Parser) parseNot(stopAtPipe bool) (ast.Node, error) {
+	tok := p.peek()
+	p.advance() // consume NOT
+	right, err := p.parseExprWithPipeStop(notOperandPrecedence, stopAtPipe)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.Unary{Op: "not", Right: right, Line: tok.Line, Col: tok.Col}, nil
+}
+
+// shiftRightAt reports whether the tokens from i are `>>>`: three `>` on one
+// line with nothing between them. The lexer leaves each `>` its own token,
+// so the `>>>` that closes three nested type argument lists
+// (`List<List<List<Int>>>`) needs no splitting; after an operand, the
+// expression parser joins them into the shift.
+func (p *Parser) shiftRightAt(i int) bool {
+	if i+2 >= len(p.tokens) {
+		return false
+	}
+	a, b, c := p.tokens[i], p.tokens[i+1], p.tokens[i+2]
+	return a.Type == token.GT && b.Type == token.GT && c.Type == token.GT &&
+		a.Line == b.Line && b.Line == c.Line && b.Col == a.Col+1 && c.Col == b.Col+1
+}
+
+// adjacentGTs reports whether the tokens from i are two `>` written
+// together, `>>`: the C-family shift, which Nomi spells `>>>`.
+func (p *Parser) adjacentGTs(i int) bool {
+	if i+1 >= len(p.tokens) {
+		return false
+	}
+	a, b := p.tokens[i], p.tokens[i+1]
+	return a.Type == token.GT && b.Type == token.GT && a.Line == b.Line && b.Col == a.Col+1
+}
+
+// infixPrecedenceAt is the precedence of the infix operator starting at
+// token i, `>>>` included.
+func (p *Parser) infixPrecedenceAt(i int) int {
+	if p.shiftRightAt(i) {
+		return infixPrecedence(token.STAR)
+	}
+	return infixPrecedence(p.tokens[i].Type)
+}
 
 // tryOperandPrecedence is the minimum infix precedence consumed by the
 // operand of a prefix `?`. It sits just above `*`/`/`/`%` (STAR, 9) and
@@ -3318,8 +3597,9 @@ func canStartRangeOperand(tt token.TokenType) bool {
 	switch tt {
 	case token.RPAREN, token.RBRACKET, token.RBRACE,
 		token.COMMA, token.SEMICOLON, token.NEWLINE, token.EOF,
-		token.COLON, token.PIPE, token.AND, token.OR,
+		token.COLON, token.PIPE, token.AND, token.OR, token.IS,
 		token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ,
+		token.BIT_AND, token.BIT_OR, token.BIT_XOR, token.SHL,
 		token.DOTDOT, token.DOTDOTEQ,
 		token.COMMENT, token.BLANK_LINE:
 		return false
@@ -3335,7 +3615,7 @@ func infixPrecedence(tt token.TokenType) int {
 		return 2
 	case token.AND:
 		return 3
-	case token.EQEQ, token.BANGEQ:
+	case token.EQEQ, token.BANGEQ, token.IS:
 		return 4
 	case token.LT, token.GT, token.LTEQ, token.GTEQ:
 		return 5
@@ -3344,9 +3624,9 @@ func infixPrecedence(tt token.TokenType) int {
 	// `(1..5) == (1..5)`.
 	case token.DOTDOT, token.DOTDOTEQ:
 		return 7
-	case token.PLUS, token.MINUS:
+	case token.PLUS, token.MINUS, token.BIT_OR, token.BIT_XOR:
 		return 8
-	case token.STAR, token.SLASH, token.PERCENT:
+	case token.STAR, token.SLASH, token.PERCENT, token.BIT_AND, token.SHL:
 		return 9
 	case token.LPAREN:
 		return 11
@@ -5680,7 +5960,7 @@ func isTurbofishCallable(left ast.Node) bool {
 
 // postfixBangAllowed reports whether a `!` right after prev can be the
 // postfix unwrap: prev ends an operand. After an operator or an opening
-// bracket a `!` is a negation.
+// bracket a `!` is the prefix `!` parsePrefix rejects.
 func postfixBangAllowed(prev token.Token) bool {
 	switch prev.Type {
 	case token.IDENT, token.TYPE_IDENT, token.RPAREN, token.RBRACKET, token.RBRACE, token.BANG, token.QUESTION,
@@ -8143,25 +8423,34 @@ func (p *Parser) parsePercentPattern() (ast.Node, error) {
 	return nil, errorAt(tok.Line, tok.Col, "expected '{' or '[' after `%%%s` in a pattern", typeName.TypeString())
 }
 
-// vectorRestMessage is the error for something other than a name, `_` or
+// vectorRestMessage is the error for something other than a name or
 // nothing after a vector or set pattern's `..`.
-const vectorRestMessage = "the rest of a %s pattern is a name, `_` or nothing: `..rest`, `.._` or `..`"
+const vectorRestMessage = "the rest of a %s pattern is a name or nothing: `..rest` or `..`"
+
+// discardedRest is the error for a `_` right after a pattern's `..`, or
+// nil. A bare `..` already ignores the rest; `.._name` stays, a labeled
+// discard as `_name` is. what names the pattern.
+func (p *Parser) discardedRest(what string) error {
+	if t := p.peek(); !p.atEnd() && t.Type == token.UNDERSCORE {
+		return errorAt(t.Line, t.Col, "write `..` to ignore the rest of a %s pattern, not `.._`", what)
+	}
+	return nil
+}
 
 // parseSpreadRest parses what follows a vector or set pattern's `..`
-// (consumed): a name, `_`, or nothing before a comma or close. what names
-// the pattern for the error.
+// (consumed): a name, or nothing before a comma or close. what names the
+// pattern for the error.
 func (p *Parser) parseSpreadRest(spreadTok token.Token, close token.TokenType, what string) (ast.Node, error) {
 	if p.bareSpreadEnds(close) {
 		return nil, nil
 	}
 	p.skipNewlines()
-	switch t := p.peek(); t.Type {
-	case token.IDENT:
+	if err := p.discardedRest(what); err != nil {
+		return nil, err
+	}
+	if t := p.peek(); t.Type == token.IDENT {
 		p.advance()
 		return &ast.IdentPattern{Name: t.Lexeme, Line: t.Line, Col: t.Col}, nil
-	case token.UNDERSCORE:
-		p.advance()
-		return &ast.WildcardPattern{Line: t.Line, Col: t.Col}, nil
 	}
 	return nil, errorAt(spreadTok.Line, spreadTok.Col, vectorRestMessage, what)
 }
@@ -8471,9 +8760,12 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			bare := !p.atEnd() && (p.peek().Type == token.RBRACKET || p.peek().Type == token.COMMA)
 			if bare {
 				// `[first, ..]` or `[first, .., last]`: the rest is
-				// ignored, as `.._` ignores it.
+				// ignored.
 				rest = &ast.WildcardPattern{Line: spreadTok.Line, Col: spreadTok.Col}
 			} else {
+				if err := p.discardedRest("list"); err != nil {
+					return nil, err
+				}
 				tail, err := p.parseSinglePattern()
 				if err != nil {
 					return nil, err
@@ -8494,7 +8786,7 @@ func (p *Parser) parseListPatternBody(typeName ast.TypeExpr, line, col int) (ast
 			switch rest.(type) {
 			case *ast.IdentPattern, *ast.WildcardPattern:
 			default:
-				return nil, errorAt(spreadTok.Line, spreadTok.Col, "a list pattern's `..` takes a name, `_` or nothing when elements follow it")
+				return nil, errorAt(spreadTok.Line, spreadTok.Col, "a list pattern's `..` takes a name or nothing when elements follow it")
 			}
 			return p.parseListPatternTails(&ast.ListPattern{TypeName: typeName, Heads: heads, TailSpread: rest, BareRest: bare, Line: line, Col: col}, openTok, &lc)
 		}

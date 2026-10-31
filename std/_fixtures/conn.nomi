@@ -115,7 +115,7 @@ fn decode<T>(rows: List<List<Value>>, done: List<T>) -> Result<List<T>, Error> w
 
         [row, ..rest] -> {
             value = case row {
-                [first, .._] -> first
+                [first, ..] -> first
                 [] -> Value.Null
             }
 

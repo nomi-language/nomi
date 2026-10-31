@@ -564,7 +564,6 @@ func (p *parity) regex() {
 		for _, input := range []string{"xaab ab", "12-34 and 5-6", "", "ééé"} {
 			p.check("Regex.pattern", argSet{args: a(re)})
 			p.check("Regex.find_in", argSet{args: a(re, s(input))})
-			p.check("Regex.replace_all", argSet{args: a(s(input), re, s("<$1>"))})
 			p.check("Regex.is_contained_in", argSet{args: a(re, s(input))})
 			p.check("Regex.is_prefix_of", argSet{args: a(re, s(input))})
 			p.check("Regex.is_suffix_of", argSet{args: a(re, s(input))})
@@ -573,7 +572,7 @@ func (p *parity) regex() {
 			p.check("Regex.replace_in", argSet{args: a(re, s(input), s("<$1>"))})
 		}
 	}
-	// std/strings' captures take the text first and a handle second. The
+	// std/strings' capture_groups take the text first and a handle second. The
 	// patterns add a group that may not take part (`(a)|(b)`) and one that
 	// may match empty (`(x*)`).
 	for _, pattern := range []string{`(\d+)-(\d+)`, "(a)|(b)", "(x*)(y)", "é+"} {
@@ -583,8 +582,8 @@ func (p *parity) regex() {
 		}
 		re := res.(*rt.Record).Field(0)
 		for _, input := range []string{"12-34 and 5-6", "ab b", "y xy", "", "ééé"} {
-			p.check("String.captures", argSet{args: a(s(input), re)})
-			p.check("String.captures_all", argSet{args: a(s(input), re)})
+			p.check("strings.capture_groups", argSet{args: a(s(input), re)})
+			p.check("strings.capture_groups_all", argSet{args: a(s(input), re)})
 		}
 	}
 	p.check("Regex.compile", argSet{args: a(s("(")), shapeOnly: false})

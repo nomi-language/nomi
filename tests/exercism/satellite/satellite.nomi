@@ -23,14 +23,11 @@ pub fn tree_from_traversals<T>(
 ) -> Result<Tree<T>, Error> where T: Hashable and Equatable {
     items = Iter.to_set(preorder)
 
-    if Iter.count(preorder) != Iter.count(inorder) {
-        Err(.DifferentLengths)
-    } else if items != Iter.to_set(inorder) {
-        Err(.DifferentElements)
-    } else if Set.size(items) != Iter.count(preorder) {
-        Err(.RepeatedItems)
-    } else {
-        Ok(build(preorder, inorder))
+    case {
+        Iter.count(preorder) != Iter.count(inorder) -> Err(.DifferentLengths)
+        items != Iter.to_set(inorder) -> Err(.DifferentElements)
+        Set.size(items) != Iter.count(preorder) -> Err(.RepeatedItems)
+        _ -> Ok(build(preorder, inorder))
     }
 }
 

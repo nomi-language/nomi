@@ -80,7 +80,7 @@ fn labels(ds: List<AssertionDetail>) -> String {
     case ds {
         [] -> "[]"
         [one] -> one.label
-        [first, .._] -> first.label + "+more"
+        [first, ..] -> first.label + "+more"
     }
 }
 

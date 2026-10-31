@@ -115,3 +115,13 @@ test "int min and max" {
     assert Int.min(-Int.pow(10, 30), Int.pow(10, 30)) == -Int.pow(10, 30)
     assert Int.max(-Int.pow(10, 30), Int.pow(10, 30)) == Int.pow(10, 30)
 }
+
+test "the / operator divides by a non-zero integer" {
+    three = Int.to_non_zero(3)!
+    minus_two = Int.to_non_zero(-2)!
+    assert 10 / three == 3
+    assert -7 / minus_two == 3
+    assert 7 / minus_two == Int.divide(7, minus_two)
+    quotients = [9, 10, 11] |> Iter.map(fn n -> n / three) |> Iter.to_list()
+    assert quotients == [3, 3, 3]
+}

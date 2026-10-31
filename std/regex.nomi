@@ -3,15 +3,21 @@
 //# literal's pattern is compiled when the program is checked, so an invalid
 //# one is a compile error and the literal is a `Regex`; a double-quoted
 //# literal (``Regex"room ${word}"``) is compiled when it runs and is a
-//# `Result<Regex, String>`.
+//# `Result` of one.
+//# A `Regex<C>` names its capture groups: `C` is what `String.captures`
+//# gives for a match. A literal's `C` comes from its pattern, a tuple of
+//# `String` and `Maybe<String>` groups (``Regex`(\d+)-(\w+)?` `` is a
+//# `Regex<#(String, Maybe<String>)>`), an anonymous struct when every group
+//# is named, one group's type alone, or `Unit` for none; a regex compiled
+//# while the program runs is a `Regex<List<Maybe<String>>>`.
 //# A `Regex` is a `Matcher`, so String's search functions take one in place of
 //# a plain string. Test for a match with ``String.contains(text, Regex`\d+`)``,
 //# collect every match with `String.find_all(text, re)`, and split around
 //# matches with ``String.split(text, Regex`,\s*`)``. Find the first match with
 //# `String.find(text, re)`, and read its capture groups with
 //# `String.captures(text, re)` (every match's with `String.captures_all`).
-//# `Regex.replace_all` replaces matches with `$1`-style capture expansion,
-//# which `String.replace` does not do.
+//# Replace every match with `String.replace(text, re, replacement)`, whose
+//# replacement names a group as `$1` or `${name}`.
 
 import {
     bool.Bool.False
@@ -26,7 +32,7 @@ import {
     strings.String
 }
 
-/// A compiled regular expression.
+/// A compiled regular expression whose capture groups have the type `C`.
 ///
 /// Nomi regexes use Go's `regexp` package, so matching is RE2-style:
 /// predictable and non-backtracking, without lookaround or backreferences.
@@ -34,68 +40,63 @@ import {
 /// the pattern is checked at compile time: `` Regex`\d+` ``.
 ///
 /// A `Regex` is a `Matcher`: test, find, collect and split with the String
-/// functions.
+/// functions. `C` is what `String.captures` gives for a match; a literal's
+/// comes from its pattern, so ``Regex`(\w+)@(\w+)?` `` is a
+/// `Regex<#(String, Maybe<String>)>`, and the functions that do not read
+/// groups take a `Regex` of any `C`.
 //! assert String.contains("order 66", Regex`\d+`)
 //! assert String.contains("room", Regex`\d+`) == False
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
 //! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
+//! assert String.captures("ann@home", Regex`(\w+)@(\w+)?`) == Maybe.Some(#("ann", Maybe.Some("home")))
 //
-pub host type Regex
+pub host type Regex<C>
 
-impl Regex {
-    /// Compile a pattern into a `Regex`.
+impl Regex<C> {
+    /// Compile a pattern into a `Regex`. Its groups are known only once it
+    /// runs, so `String.captures` gives them as a list, one `Maybe` per
+    /// group.
     //! assert Regex.pattern(Regex.compile("a+")?) == "a+"
     //! assert Err(_msg) = Regex.compile("(")
+    //! assert String.captures("b", Regex.compile("(a)|(b)")?) == Maybe.Some([Maybe.None, Maybe.Some("b")])
     //
-    pub host fn compile(pattern: String) -> Result<Regex, String>
+    pub host fn compile(pattern: String) -> Result<Regex<List<Maybe<String>>>, String>
 
     /// Return the source pattern for a compiled regex.
     //! assert Regex.pattern(Regex`\d+`) == "\\d+"
     //
-    pub host fn pattern(re: Regex) -> String
-
-    /// Replace every non-overlapping match of `re` in `text` with
-    /// `replacement`.
-    ///
-    /// Replacement text follows Go's `regexp` rules, so `$1`, `${name}`, and
-    /// friends expand capture groups.
-    ///
-    /// The text comes first, so a pipe of text can end in it:
-    /// ``text |> Regex.replace_all(Regex`\s+`, " ")``.
-    //! assert Regex.replace_all("order 66", Regex`\d+`, "#") == "order #"
-    //! assert Regex.replace_all("ann@home", Regex`(\w+)@(\w+)`, "$2:$1") == "home:ann"
-    //! assert "a  b   c" |> Regex.replace_all(Regex`\s+`, " ") == "a b c"
-    //
-    pub host fn replace_all(text: String, re: Regex, replacement: String) -> String
+    pub host fn pattern<C>(re: Regex<C>) -> String
 }
 
-impl Matcher for Regex {
+impl Matcher for Regex<C> {
     /// True if the regex matches anywhere in `text`.
-    host fn is_contained_in(re: Regex, text: String) -> Bool
+    host fn is_contained_in(re: Regex<C>, text: String) -> Bool
 
     /// True if a match starts at the beginning of `text`.
-    host fn is_prefix_of(re: Regex, text: String) -> Bool
+    host fn is_prefix_of(re: Regex<C>, text: String) -> Bool
 
     /// True if a match ends at the end of `text`.
-    host fn is_suffix_of(re: Regex, text: String) -> Bool
+    host fn is_suffix_of(re: Regex<C>, text: String) -> Bool
 
     /// Splits around every non-overlapping match.
-    host fn split_in(re: Regex, text: String) -> List<String>
+    host fn split_in(re: Regex<C>, text: String) -> List<String>
 
-    /// Replaces every non-overlapping match with `replacement`, taken
-    /// literally: `$1` is not expanded.
-    host fn replace_in(re: Regex, text: String, replacement: String) -> String
+    /// Replaces every non-overlapping match with `replacement`, in which `$1`,
+    /// `${1}` and `${name}` are capture groups and `$$` is a literal `$`.
+    host fn replace_in(re: Regex<C>, text: String, replacement: String) -> String
 
     /// Every non-overlapping match, left to right.
-    host fn find_all_in(re: Regex, text: String) -> List<String>
+    host fn find_all_in(re: Regex<C>, text: String) -> List<String>
 
     /// The leftmost match, which may be empty.
-    host fn find_in(re: Regex, text: String) -> Maybe<String>
+    host fn find_in(re: Regex<C>, text: String) -> Maybe<String>
 }
 
-impl Literal for Regex {
-    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Regex, String> {
+impl Literal for Regex<C> {
+    fn from_fragments(
+        fragments: List<Fragment<String>>,
+    ) -> Result<Regex<List<Maybe<String>>>, String> {
         body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {
                 .Static(s) -> acc + s
@@ -107,9 +108,9 @@ impl Literal for Regex {
     }
 }
 
-impl Display for Regex {
+impl Display for Regex<C> {
     /// The source pattern.
-    fn to_string(re: Regex) -> String {
+    fn to_string(re: Regex<C>) -> String {
         Regex.pattern(re)
     }
 }
@@ -121,12 +122,12 @@ fn occurs<M>(m: M, text: String) -> Bool where M: Matcher {
     M.is_contained_in(m, text)
 }
 
-impl Debug for Regex {
+impl Debug for Regex<C> {
     /// The typed literal that builds this regex: raw, unless the pattern holds
     /// a backtick, which a raw literal cannot.
     //! assert Debug.inspect(Regex`\d+`) == "Regex`\\d+`"
     //! assert Debug.inspect(Regex.compile("a`b")?) == "Regex\"a`b\""
-    fn inspect(re: Regex) -> String {
+    fn inspect(re: Regex<C>) -> String {
         pattern = Regex.pattern(re)
 
         if occurs("`", pattern) {

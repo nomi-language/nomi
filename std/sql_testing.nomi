@@ -579,7 +579,7 @@ fn child_violation(statement: Statement, visible: List<Statement>) -> Result<Uni
 
     if int_param(statement, 0) == None {
         Err(violation(ConstraintKind.NotNull, "${table}_n_not_null", table, Some("n")))
-    } else if !has_parent {
+    } else if not has_parent {
         Err(
             violation(
                 ConstraintKind.ForeignKey,

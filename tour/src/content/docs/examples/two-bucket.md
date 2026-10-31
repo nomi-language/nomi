@@ -66,7 +66,7 @@ fn search(
             next =
                 frontier
                 |> Iter.flat_map(&actions(&1, sizes))
-                |> Iter.filter(fn state -> !Set.contains(seen, state))
+                |> Iter.reject(&Set.contains(seen, &1))
                 |> Iter.to_set()
 
             if Iter.is_empty(next) {

@@ -43,6 +43,12 @@ type GoFunc struct {
 	Pkg  string
 	Name string
 	Type Type
+	// Shown is the function as the binding names it (`strconv.FormatInt`),
+	// and Params its parameters' Go names ("" for an unnamed one), which a
+	// trap for a value the Go side cannot hold names. Empty, the binding's
+	// key and the declaration's parameter names stand in.
+	Shown  string
+	Params []string
 }
 
 // Generator accumulates the adapters of one generated file.
@@ -328,6 +334,19 @@ func (g *Generator) adapter(b Binding) (string, error) {
 		}
 	}
 
+	// shown and paramName are the function and its parameters as a trap
+	// for a value the Go side cannot hold names them.
+	shown := b.Key
+	if b.Go != nil && b.Go.Shown != "" {
+		shown = b.Go.Shown
+	}
+	paramName := func(i int) string {
+		if gi := first + i; b.Go != nil && gi < len(b.Go.Params) && b.Go.Params[gi] != "" && b.Go.Params[gi] != "_" {
+			return b.Go.Params[gi]
+		}
+		return decl.Params[i].Name
+	}
+
 	name := g.fresh("fn")
 	var w bytes.Buffer
 	key := strconv.Quote(b.Key)
@@ -352,7 +371,7 @@ func (g *Generator) adapter(b Binding) (string, error) {
 			return "", fmt.Errorf("parameter %s (%s) to Go %s: %w", decl.Params[i].Name, ps, ft.In(first+i), err)
 		}
 		argNames = append(argNames, fmt.Sprintf("a%d", i))
-		fmt.Fprintf(&w, "\ta%d, err := b.%s(fr, args[%d])\n\tif err != nil {\n\t\treturn nil, hostadapt.Arg(%s, %d, err)\n\t}\n", i, conv, i, key, i)
+		fmt.Fprintf(&w, "\ta%d, err := b.%s(fr, args[%d])\n\tif err != nil {\n\t\treturn nil, hostadapt.Param(%s, %d, %q, %q, err)\n\t}\n", i, conv, i, key, i, shown, paramName(i))
 	}
 	results := make([]string, numOut)
 	for i := range numVals {
@@ -380,7 +399,7 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	for i := range numVals {
 		vals[i] = ft.Out(i)
 	}
-	value, err := g.results(&w, key, payload, vals)
+	value, err := g.results(&w, key, shown, payload, vals)
 	if err != nil {
 		return "", err
 	}
@@ -399,8 +418,9 @@ func (g *Generator) adapter(b Binding) (string, error) {
 
 // results converts the value-carrying Go results r0..rN-1 into one rt.Value
 // of shape want, and answers the expression holding it: Unit for none, the
-// value for one, a tuple for more.
-func (g *Generator) results(w *bytes.Buffer, key string, want *Shape, vals []Type) (string, error) {
+// value for one, a tuple for more. A result Nomi cannot hold traps naming
+// shown, the function.
+func (g *Generator) results(w *bytes.Buffer, key, shown string, want *Shape, vals []Type) (string, error) {
 	switch len(vals) {
 	case 0:
 		if want.Kind != SUnit {
@@ -412,7 +432,7 @@ func (g *Generator) results(w *bytes.Buffer, key string, want *Shape, vals []Typ
 		if err != nil {
 			return "", fmt.Errorf("result %s from Go %s: %w", want, vals[0], err)
 		}
-		fmt.Fprintf(w, "\tv0, err := b.%s(r0)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n", conv)
+		fmt.Fprintf(w, "\tv0, err := b.%s(r0)\n\tif err != nil {\n\t\treturn nil, hostadapt.Returned(%q, err)\n\t}\n", conv, shown)
 		return "v0", nil
 	}
 	if want.Kind != STuple || len(want.Elems) != len(vals) {
@@ -426,7 +446,7 @@ func (g *Generator) results(w *bytes.Buffer, key string, want *Shape, vals []Typ
 	fmt.Fprintf(w, "\ttup := b.%s.New()\n", d)
 	offsets := layoutOffsets(slots)
 	for i, e := range want.Elems {
-		if err := g.store(w, "tup", offsets[i], e, vals[i], fmt.Sprintf("r%d", i), false, fmt.Sprintf("fmt.Errorf(\"%%s: marshaling return %d: %%v\", %s, err)", i, key)); err != nil {
+		if err := g.store(w, "tup", offsets[i], e, vals[i], fmt.Sprintf("r%d", i), false, fmt.Sprintf("hostadapt.Returned(%q, fmt.Errorf(\"%%s: marshaling return %d: %%w\", %s, err))", shown, i, key)); err != nil {
 			return "", fmt.Errorf("tuple item %d: %w", i, err)
 		}
 	}
@@ -543,6 +563,10 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		fmt.Fprintf(&w, "\txs, err := hostadapt.List(v)\n\tif err != nil {\n%s\t}\n", fail)
 		fmt.Fprintf(&w, "\tout = make(%s, 0, hostadapt.Len(xs))\n\ti := 0\n", goT)
 		fmt.Fprintf(&w, "\tfor c := xs; c != nil; c = c.Tail {\n\t\te, err := b.%s(fr, c.Head)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"index %%d: %%w\", i, err)\n\t\t}\n\t\tout = append(out, e)\n\t\ti++\n\t}\n\treturn out, nil\n", elem)
+	case s.Kind == SUnit && TypeKey(t) == rtPkg+".Unit":
+		// A callback's `Result<Unit, E>` (Writer.from_fn's write): Unit
+		// carries nothing to read.
+		w.WriteString("\treturn rt.Unit{}, nil\n")
 	case isRtGeneric(t, "Maybe", "Result", "List", "Map"):
 		if err := g.inRtGeneric(&w, s, t, goT); err != nil {
 			return "", err
@@ -567,6 +591,15 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		if err := g.inEnum(&w, s, t); err != nil {
 			return "", err
 		}
+	case s.Kind == SHost && goStreamFor(t) != "" && g.handles[TypeKey(t)] == "":
+		// A Reader fills a Go io.Reader or io.ReadCloser slot, and a Writer
+		// an io.Writer or io.WriteCloser one, read or written through the
+		// handle (hostadapt.GoReader, GoWriter).
+		if goStreamFor(t) != s.Name {
+			return "", fmt.Errorf("Go %s projects to %s, not %s", t, goStreamFor(t), s)
+		}
+		fmt.Fprintf(&w, "\tx, ok := v.(%s)\n\tif !ok {\n\t\treturn out, hostadapt.Want(%q, v)\n\t}\n", rtStreamType[s.Name], s.String())
+		fmt.Fprintf(&w, "\treturn hostadapt.Go%s(fr, x), nil\n", streamWord[s.Name])
 	case s.Kind == SHost && s.Name == dynamicName && isEmptyInterface(t) && g.handles[TypeKey(t)] == "":
 		// A Dynamic is an rt.Dynamic; a Go empty-interface slot takes the
 		// value it wraps.
@@ -886,6 +919,13 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 		if err := g.outEnum(&w, s, t); err != nil {
 			return "", err
 		}
+	case s.Kind == SHost && goStreamFor(t) != "" && g.handles[TypeKey(t)] == "":
+		// A Go io.Reader or io.Writer result is a Reader or Writer over it
+		// (hostadapt.ReaderFromGo, WriterFromGo).
+		if goStreamFor(t) != s.Name {
+			return "", fmt.Errorf("Go %s projects to %s, not %s", t, goStreamFor(t), s)
+		}
+		fmt.Fprintf(&w, "\treturn hostadapt.%sFromGo(v)\n", streamWord[s.Name])
 	case s.Kind == SHost && s.Name == dynamicName && isEmptyInterface(t) && g.handles[TypeKey(t)] == "":
 		// A Go empty-interface value becomes the Dynamic that wraps it; one
 		// that already holds an rt.Dynamic is that Dynamic.

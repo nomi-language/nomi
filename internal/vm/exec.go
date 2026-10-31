@@ -581,6 +581,11 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 			return nil, err
 		}
 	}
+	if runtime.Stopping() {
+		if err := safePoint(runtime); err != nil {
+			return nil, err
+		}
+	}
 	pooled := stk == nil
 	if pooled {
 		stk = getStack()
@@ -704,6 +709,11 @@ func (m *Machine) finish(fr *frame, err error) error {
 func (m *Machine) transfer(fr *frame, next *tailTransfer) error {
 	if m.fuel != nil {
 		if err := m.fuel.burn(); err != nil {
+			return err
+		}
+	}
+	if fr.runtime.Stopping() {
+		if err := safePoint(fr.runtime); err != nil {
 			return err
 		}
 	}
@@ -982,6 +992,64 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			fr.setWrapped(d, -wrapWord(w, fr.shadows(), code[pc+1]))
 			pc += 2
 
+		// Bitwise Int operations. Two int64 operands give an int64, which
+		// takes the slow path only when it is math.MinInt64 (BigWord).
+		case opAndI:
+			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+			if x := a & b; a == math.MinInt64 || b == math.MinInt64 || x == math.MinInt64 {
+				fr.slowInt(opAndI, d, code[pc+1], code[pc+2])
+			} else {
+				w[d] = uint64(x)
+			}
+			pc += 3
+		case opOrI:
+			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+			if x := a | b; a == math.MinInt64 || b == math.MinInt64 || x == math.MinInt64 {
+				fr.slowInt(opOrI, d, code[pc+1], code[pc+2])
+			} else {
+				w[d] = uint64(x)
+			}
+			pc += 3
+		case opXorI:
+			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+			if x := a ^ b; a == math.MinInt64 || b == math.MinInt64 || x == math.MinInt64 {
+				fr.slowInt(opXorI, d, code[pc+1], code[pc+2])
+			} else {
+				w[d] = uint64(x)
+			}
+			pc += 3
+		case opNotI:
+			if a := int64(w[code[pc+1]]); a == math.MinInt64 || a == math.MaxInt64 {
+				fr.slowInt(opNotI, d, code[pc+1], 0)
+			} else {
+				w[d] = uint64(^a)
+			}
+			pc += 2
+		case opShlI:
+			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+			if b >= 0 && b < 63 && a != math.MinInt64 {
+				if x := a << b; x>>b == a && x != math.MinInt64 {
+					w[d] = uint64(x)
+					pc += 3
+					break
+				}
+			}
+			if err = fr.slowShift(opShlI, d, code[pc+1], code[pc+2], c.line(at)); err != nil {
+				goto failed
+			}
+			pc += 3
+		case opShrI:
+			a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+			if b >= 0 && b != math.MinInt64 && a != math.MinInt64 {
+				w[d] = uint64(a >> min(b, 63))
+				pc += 3
+				break
+			}
+			if err = fr.slowShift(opShrI, d, code[pc+1], code[pc+2], c.line(at)); err != nil {
+				goto failed
+			}
+			pc += 3
+
 		case opAddF:
 			w[d] = math.Float64bits(math.Float64frombits(w[code[pc+1]]) + math.Float64frombits(w[code[pc+2]]))
 			pc += 3
@@ -1160,6 +1228,11 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 					goto failed
 				}
 			}
+			if fr.runtime.Stopping() {
+				if err = safePoint(fr.runtime); err != nil {
+					goto failed
+				}
+			}
 			callee := m.codeOf(c.callees[code[pc+1]])
 			n := int(code[pc+2])
 			args := code[pc+3 : pc+3+n]
@@ -1233,9 +1306,16 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 
 		case opJmp:
 			pc = int(code[pc+1])
-			if m.fuel != nil && pc <= at {
-				if err = m.fuel.burn(); err != nil {
-					goto failed
+			if pc <= at {
+				if m.fuel != nil {
+					if err = m.fuel.burn(); err != nil {
+						goto failed
+					}
+				}
+				if fr.runtime.Stopping() {
+					if err = safePoint(fr.runtime); err != nil {
+						goto failed
+					}
 				}
 			}
 		case opBr:
@@ -1244,9 +1324,16 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			} else {
 				pc = int(code[pc+2])
 			}
-			if m.fuel != nil && pc <= at {
-				if err = m.fuel.burn(); err != nil {
-					goto failed
+			if pc <= at {
+				if m.fuel != nil {
+					if err = m.fuel.burn(); err != nil {
+						goto failed
+					}
+				}
+				if fr.runtime.Stopping() {
+					if err = safePoint(fr.runtime); err != nil {
+						goto failed
+					}
 				}
 			}
 		case opBrX:
@@ -1264,9 +1351,16 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			} else {
 				pc = int(code[pc+2])
 			}
-			if m.fuel != nil && pc <= at {
-				if err = m.fuel.burn(); err != nil {
-					goto failed
+			if pc <= at {
+				if m.fuel != nil {
+					if err = m.fuel.burn(); err != nil {
+						goto failed
+					}
+				}
+				if fr.runtime.Stopping() {
+					if err = safePoint(fr.runtime); err != nil {
+						goto failed
+					}
 				}
 			}
 
@@ -1420,8 +1514,38 @@ func (fr *frame) slowInt(op opcode, d, a, b uint32) {
 		v, _ = rt.IntRem(x, intAt(w, sh, b))
 	case opNegI:
 		v = rt.IntNeg(x)
+	case opAndI:
+		v = rt.IntAnd(x, intAt(w, sh, b))
+	case opOrI:
+		v = rt.IntOr(x, intAt(w, sh, b))
+	case opXorI:
+		v = rt.IntXor(x, intAt(w, sh, b))
+	case opNotI:
+		v = rt.IntNot(x)
 	}
 	fr.stk.setInt(w, sh, d, v)
+}
+
+// slowShift is a shift's slow path: an operand is big or math.MinInt64, the
+// count is negative or past 62, or the result left int64. A count the shift
+// refuses is the fault it answers.
+//
+//go:noinline
+func (fr *frame) slowShift(op opcode, d, a, b uint32, line int) error {
+	w, sh := fr.stk.w[fr.wb:fr.wb+fr.c.nW], fr.shadows()
+	x, n := intAt(w, sh, a), intAt(w, sh, b)
+	var v any
+	var ok bool
+	if op == opShlI {
+		v, ok = rt.IntShl(x, n)
+	} else {
+		v, ok = rt.IntShr(x, n)
+	}
+	if !ok {
+		return rt.ShiftCountError(line, n, op == opShlI)
+	}
+	fr.stk.setInt(w, sh, d, v)
+	return nil
 }
 
 // slowCompare is -1, 0 or 1 for the Ints in word registers a and b, one of

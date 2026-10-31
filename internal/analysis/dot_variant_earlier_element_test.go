@@ -39,6 +39,12 @@ func TestDotVariant_EarlierElementSetsTheEnum(t *testing.T) {
 		"empty first list":      "  xs = [[], [N.A], [.C]]\n  _ = xs",
 		"empty first map value": "  m = %{\"a\" => [], \"b\" => [N.A], \"c\" => [.C]}\n  _ = m",
 		"None first":            "  ms = [None, Some(N.A), Some(.C)]\n  _ = ms",
+		// An Ok's error type, and an Err's value type, stays open until a
+		// later element solves it; the enum in the other one still carries.
+		"Ok payload":      "  rs = [Ok(N.A), Ok(.C), Err(\"x\")]\n  _ = rs",
+		"Ok list payload": "  rs = [Ok([N.A]), Ok([.C, .G]), Err(\"x\")]\n  _ = rs",
+		"Err payload":     "  rs = [Err(N.A), Err(.C), Ok(1)]\n  _ = rs",
+		"Ok map values":   "  m = %{\"a\" => Ok(N.A), \"c\" => Ok(.C)}\n  _ = m",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -113,6 +119,19 @@ func TestDotVariant_EarlierElementWithoutAnEnumSetsNothing(t *testing.T) {
 // The earlier element's enum is the one a later bare variant must name.
 func TestDotVariant_EarlierElementsEnumLacksTheVariant(t *testing.T) {
 	errs := checkEarlierElem(t, "  xs = [N.A, .Z]\n  _ = xs")
+	want := "no variant 'Z' on enum N"
+	for _, e := range errs {
+		if strings.HasPrefix(e, want) {
+			return
+		}
+	}
+	t.Fatalf("want %q, got:\n%s", want, strings.Join(errs, "\n"))
+}
+
+// An Ok's open error type does not stop the enum its value fixes from
+// reaching a later Ok's bare variant, which must name a variant of it.
+func TestDotVariant_EarlierOksEnumLacksTheVariant(t *testing.T) {
+	errs := checkEarlierElem(t, "  rs = [Ok(N.A), Ok(.Z), Err(\"x\")]\n  _ = rs")
 	want := "no variant 'Z' on enum N"
 	for _, e := range errs {
 		if strings.HasPrefix(e, want) {

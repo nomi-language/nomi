@@ -628,7 +628,7 @@ type Stack List<Int>
 
 fn top(s: Stack) -> Int {
     case s {
-        [a, .._] -> a
+        [a, ..] -> a
         _ -> 0
     }
 }
@@ -847,7 +847,7 @@ fn main() {
     c = #{r: 1, q: Stack([1])}
 
     n = case c {
-        #{q: Stack[a, .._]} -> a
+        #{q: Stack[a, ..]} -> a
         _ -> 0
     }
 

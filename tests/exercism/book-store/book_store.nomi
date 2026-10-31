@@ -29,7 +29,7 @@ fn group_sizes(basket: List<Int>) -> Map<Int, Int> {
         |> Map.values()
         |> Iter.sort(.Descending)
 
-    next = copies |> Iter.drop(1) |> Iter.concat([0])
+    next = [..Iter.drop(copies, 1), 0]
 
     Iter.zip(copies, next)
     |> Iter.with_index()

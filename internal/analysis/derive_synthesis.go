@@ -2123,7 +2123,7 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 			Kind:   RecordingKindDeriveSynth,
 			Derive: ctx,
 		})
-		if hasInterfaceImpl(fa, impls, baseName, ifaceName) {
+		if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 			// Generic-instantiation recursion: when the base type itself
 			// implements `ifaceName` and is being instantiated with type
 			// arguments, the base type's @derive'd body will dispatch
@@ -2204,6 +2204,14 @@ func typeArgs(te ast.TypeExpr) []ast.TypeExpr {
 // own TypeArgs when the base type itself has an impl — same rationale as
 // the outer report closure's generic-instantiation recursion: the impl's
 // synth body will dispatch through each TypeArg slot too.
+// phantomTypeArgs reports whether a type's arguments are phantom, so no
+// derived body dispatches on them: std/regex's `Regex<C>`, whose C only
+// types what `String.captures` answers (regex_literal.go). The walk here
+// keys types by bare name, as the impl manifest does.
+func phantomTypeArgs(baseName string) bool {
+	return baseName == regexName
+}
+
 func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) {
 	if te == nil {
 		return
@@ -2228,7 +2236,7 @@ func recordDeriveTypeArg(fa *FileAnalysis, impls *ProjectImplIndex, ifaceName st
 	})
 	// Recurse further: an impl on a generic type will dispatch through
 	// each layer of its TypeArgs in turn.
-	if hasInterfaceImpl(fa, impls, baseName, ifaceName) {
+	if hasInterfaceImpl(fa, impls, baseName, ifaceName) && !phantomTypeArgs(baseName) {
 		for _, inner := range typeArgs(te) {
 			recordDeriveTypeArg(fa, impls, ifaceName, inner, ctx, typeParamSet)
 		}

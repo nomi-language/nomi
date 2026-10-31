@@ -61,7 +61,7 @@ func TestAsPattern_EveryNestedPosition(t *testing.T) {
 	asPatternOf(t, tp.Patterns[0], "a")
 	asPatternOf(t, tp.Patterns[1], "xs")
 
-	lp, ok := caseArmPattern(t, "[Some(n) as first, .._]").(*ast.ListPattern)
+	lp, ok := caseArmPattern(t, "[Some(n) as first, ..]").(*ast.ListPattern)
 	if !ok {
 		t.Fatal("want a list pattern")
 	}

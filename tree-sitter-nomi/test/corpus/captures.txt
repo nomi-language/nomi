@@ -113,35 +113,3 @@ fn h() {
                 (placeholder)))))
         (call_expression
           function: (identifier))))))
-
-================================================================================
-A capture of a negated call
-================================================================================
-
-fn f() {
-  a = &!keep(&1)
-  b = &!(&1 > 2)
-}
-
---------------------------------------------------------------------------------
-
-(source_file
-  (function_definition
-    name: (identifier)
-    (parameters)
-    (body
-      (binding
-        (identifier)
-        (capture
-          body: (unary_expression
-            (call_expression
-              function: (identifier)
-              (placeholder)))))
-      (binding
-        (identifier)
-        (capture
-          body: (unary_expression
-            (paren_expression
-              (binary_expression
-                (placeholder)
-                (integer)))))))))

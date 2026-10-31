@@ -164,6 +164,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfInterfaceMethod(n, fn)
 		}
+	case *Is:
+		if n != nil {
+			childrenOfIs(n, fn)
+		}
 	case *KeywordDecl:
 		if n != nil {
 			childrenOfKeywordDecl(n, fn)
@@ -437,6 +441,8 @@ func absent(n Node) bool {
 	case *InterfaceDef:
 		return n == nil
 	case *InterfaceMethod:
+		return n == nil
+	case *Is:
 		return n == nil
 	case *KeywordDecl:
 		return n == nil
@@ -1109,6 +1115,15 @@ func childrenOfInterfaceMethod(x *InterfaceMethod, fn func(Node)) {
 	}
 }
 
+func childrenOfIs(x *Is, fn func(Node)) {
+	if !absent(x.Value) {
+		fn(x.Value)
+	}
+	if !absent(x.Pattern) {
+		fn(x.Pattern)
+	}
+}
+
 func childrenOfKeywordDecl(x *KeywordDecl, fn func(Node)) {
 	for i1 := range x.Params {
 		childrenOfParam(&x.Params[i1], fn)
@@ -1754,6 +1769,7 @@ var generatedTypes = []any{
 	(*IntLit)(nil),
 	(*InterfaceDef)(nil),
 	(*InterfaceMethod)(nil),
+	(*Is)(nil),
 	(*KeywordDecl)(nil),
 	(*Lambda)(nil),
 	(*ListLit)(nil),

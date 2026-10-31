@@ -5,6 +5,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/format"
 )
 
 // Hover on an operator: what it does at that site. An arithmetic operator
@@ -13,8 +14,9 @@ import (
 // checker chose (FileAnalysis.OperatorImpls), named with its file. `==` and
 // `!=` say whether equality is structural or an `Equatable` impl's, the
 // ordering operators name the `Comparable` impl, `and` and `or` say when
-// their right side runs, a range's `..` or `..=` the range it builds, and
-// a unary `-` or `!` its type.
+// their right side runs, a range's `..` or `..=` the range it builds, a
+// unary `-`, `not` or `~~~` its type, and `is` the value's type and the
+// pattern it tests.
 //
 // Every type shown is one the checker recorded. An operand with no type
 // shows as `…`, and an operator neither of whose operands has a type shows
@@ -32,6 +34,7 @@ func (s *shapeSearch) operator(b *ast.Binary) {
 // hover they get.
 var operatorWords = map[string]string{
 	"+": "arithmetic", "-": "arithmetic", "*": "arithmetic", "/": "arithmetic", "%": "arithmetic",
+	"&&&": "arithmetic", "|||": "arithmetic", "^^^": "arithmetic", "<<<": "arithmetic", ">>>": "arithmetic",
 	"==": "equality", "!=": "equality",
 	"<": "ordering", "<=": "ordering", ">": "ordering", ">=": "ordering",
 	"and": "logical", "or": "logical",
@@ -46,12 +49,31 @@ func nodeSize(n ast.Node) int {
 	return 1 << 30
 }
 
-// unary claims the `-` or `!` of u.
+// unary claims the `-`, `not` or `~~~` of u.
 func (s *shapeSearch) unary(u *ast.Unary) {
-	if u.Line <= 0 || u.Col <= 0 || (u.Op != "-" && u.Op != "!") {
+	if u.Line <= 0 || u.Col <= 0 || (u.Op != "-" && u.Op != "not" && u.Op != "~~~") {
 		return
 	}
-	s.claim(u.Line, u.Col, 1, nodeSize(u), func() string { return s.renderUnary(u) })
+	s.claim(u.Line, u.Col, len(u.Op), nodeSize(u), func() string { return s.renderUnary(u) })
+}
+
+// isTest claims the `is` of an `is` test.
+func (s *shapeSearch) isTest(n *ast.Is) {
+	if n.Line <= 0 || n.Col <= 0 {
+		return
+	}
+	s.claim(n.Line, n.Col, len("is"), nodeSize(n), func() string { return s.renderIs(n) })
+}
+
+// renderIs is the hover of an `is` test: the value's type, the pattern and
+// the Bool it answers.
+func (s *shapeSearch) renderIs(n *ast.Is) string {
+	value := s.pipeType(analysis.ResolveTypeVar(s.fa.ExprTypes[n.Value]))
+	if value == "" || n.Pattern == nil {
+		return ""
+	}
+	return "Is: `" + value + "` is `" + format.RenderPattern(n.Pattern) + "` → `Bool`" +
+		"\n\nTests whether the value matches the pattern, as a `case` arm would. It binds nothing."
 }
 
 // rangeOp claims the `..` or `..=` of r.
@@ -79,12 +101,27 @@ func (s *shapeSearch) renderRange(r *ast.RangeLit) string {
 
 func (s *shapeSearch) renderUnary(u *ast.Unary) string {
 	operand := analysis.ResolveTypeVar(s.fa.ExprTypes[u.Right])
+	if u.Op == "not" && operand == nil {
+		// A `not` pipe stage's operand is the stage, which has no type of
+		// its own; a checked `not` takes a Bool.
+		operand = analysis.ResolveTypeVar(s.fa.ExprTypes[u])
+	}
 	spelled := s.pipeType(operand)
 	if spelled == "" {
 		return ""
 	}
-	if u.Op == "!" {
+	if u.Op == "not" {
 		return "Not: `" + spelled + "` → `Bool`"
+	}
+	if u.Op == "~~~" {
+		out := "Bitwise not: `" + spelled + "`"
+		if result := s.pipeType(s.fa.ExprTypes[u]); result != "" {
+			out += " → `" + result + "`"
+		}
+		if operand == analysis.TypeInt {
+			out += "\n\nEvery bit flipped: `-n - 1`, at any size."
+		}
+		return out
 	}
 	out := "Negation: `" + spelled + "` → `" + spelled + "`"
 	if operand == analysis.TypeInt {
@@ -156,6 +193,12 @@ func arithmeticNote(op string, t analysis.Type) string {
 	switch t {
 	case analysis.TypeInt:
 		switch op {
+		case "&&&", "|||", "^^^":
+			return "Two's complement at any size: a negative Int has endless leading ones."
+		case "<<<":
+			return "Times 2 to the count, exact: no bit is shifted out. Traps on a negative count."
+		case ">>>":
+			return "Arithmetic shift: divides by 2 to the count, rounding toward negative infinity. Traps on a negative count."
 		case "/":
 			return "Truncates toward zero; traps on division by zero."
 		case "%":
@@ -187,6 +230,7 @@ func arithmeticNote(op string, t analysis.Type) string {
 // parameter dispatches.
 var operatorBounds = map[string]string{
 	"+": "Add", "-": "Subtract", "*": "Multiply", "/": "Divide",
+	"&&&": "BitwiseAnd", "|||": "BitwiseOr", "^^^": "BitwiseXor", "<<<": "ShiftLeft", ">>>": "ShiftRight",
 	"<": "Comparable", "<=": "Comparable", ">": "Comparable", ">=": "Comparable",
 }
 

@@ -10,8 +10,8 @@ pub fn transmit(message: List<Int>) -> List<Int> {
     |> Iter.flat_map(bits)
     |> Iter.chunks(7)
     |> Iter.map(fn chunk -> {
-        data = Int.shift_left(from_bits(chunk), 7 - Iter.count(chunk))
-        Int.shift_left(data, 1) + Iter.sum(chunk) % 2
+        data = from_bits(chunk) <<< (7 - Iter.count(chunk))
+        data <<< 1 + Iter.sum(chunk) % 2
     })
     |> Iter.to_list()
 }
@@ -49,10 +49,11 @@ fn data_bits(byte: Int) -> Result<List<Int>, String> {
 
 /// The eight bits of `byte`, most significant first.
 fn bits(byte: Int) -> Iter<Int> {
-    Iter.map(0..8, fn i -> Int.shift_right(byte, 7 - i) |> Int.bitwise_and(1))
+    Iter.map(0..8, fn i -> byte >>> (7 - i) &&& 1)
 }
 
-/// The number whose bits, most significant first, are `bits`.
+/// The number whose bits, most significant first, are `bits`. Every bit is
+/// a 0 or a 1, so each is a digit of base 2.
 fn from_bits(bits: List<Int>) -> Int {
-    Iter.reduce(bits, fn n = 0, bit -> n * 2 + bit)
+    Int.from_digits(bits, 2)!
 }

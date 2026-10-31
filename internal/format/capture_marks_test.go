@@ -3,7 +3,7 @@ package format
 import "testing"
 
 // A capture's parenthesized body keeps its parentheses under postfix `!` and
-// `?` marks and a prefix `!`: `&""!` does not parse, since a capture's `&` is written against
+// `?` marks: `&""!` does not parse, since a capture's `&` is written against
 // `(`, a call or a `#` literal.
 func TestFormat_CaptureBodyKeepsParensUnderPostfixMarks(t *testing.T) {
 	src := "fn main() {\n" +
@@ -11,7 +11,7 @@ func TestFormat_CaptureBodyKeepsParensUnderPostfixMarks(t *testing.T) {
 		"    b = &(x)?\n" +
 		"    c = &(\"\")!?\n" +
 		"    d = &f(&1)!\n" +
-		"    e = &!(x)\n" +
+		"    e = &(not x)\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, src)
 }

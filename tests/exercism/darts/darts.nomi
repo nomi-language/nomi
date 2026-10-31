@@ -6,10 +6,10 @@
 pub fn score(x: Float, y: Float) -> Int {
     distance_squared = x * x + y * y
 
-    case distance_squared {
-        d when d <= 1.0 -> 10
-        d when d <= 25.0 -> 5
-        d when d <= 100.0 -> 1
+    case {
+        distance_squared <= 1.0 -> 10
+        distance_squared <= 25.0 -> 5
+        distance_squared <= 100.0 -> 1
         _ -> 0
     }
 }

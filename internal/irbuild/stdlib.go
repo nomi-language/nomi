@@ -1642,8 +1642,12 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr, t.Public,
 				len(t.TypeParams) > 0 || len(t.WhereClauses) > 0, len(t.Decorators) > 0, t, anchors))
 		case *ast.ExternFunc:
+			generic := len(t.TypeParams) > 0 || len(t.WhereClauses) > 0
+			if generic && phantomOnly(typeParamNames(t.TypeParams), anchors, nil, stdSig{t.Params, t.ReturnTypeExpr, t.WhereClauses}) {
+				generic = false
+			}
 			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr, t.Public,
-				len(t.TypeParams) > 0 || len(t.WhereClauses) > 0, false, nil, anchors))
+				generic, false, nil, anchors))
 		case *ast.ImplBlock:
 			recv := analysis.TypeExprBaseName(t.Receiver)
 			iface := analysis.TypeExprBaseName(t.Interface)
@@ -1666,6 +1670,30 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 					}
 				}
 			}
+			// A block whose every type parameter is a phantom host type's
+			// argument (`impl Matcher for Regex<C>`, `impl<C> Contains<Regex<C>>
+			// for String`) is not generic to this builder: see phantomOnly.
+			if blockTP := typeParamNames(t.Generics); len(t.WhereClauses) == 0 && len(blockTP)+len(recvTP) > 0 {
+				if blockTP == nil {
+					blockTP = map[string]bool{}
+				}
+				for n := range recvTP {
+					blockTP[n] = true
+				}
+				sigs := make([]stdSig, 0, len(t.Items))
+				for _, item := range t.Items {
+					switch it := item.(type) {
+					case *ast.FuncDef:
+						sigs = append(sigs, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
+					case *ast.ExternFunc:
+						sigs = append(sigs, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
+					}
+				}
+				if phantomOnly(blockTP, anchors, []ast.TypeExpr{t.Receiver, t.Interface}, sigs...) {
+					implGeneric = false
+					recvTP = map[string]bool{}
+				}
+			}
 			blocked := recv == ""
 			// A DERIVE-SYNTHESIZED block's signatures resolve their type names
 			// through the COMPILER-KNOWN route rather than through this file's
@@ -1682,13 +1710,16 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 					// namesBlockParam is the owner-function rule a user
 					// gen applies too (ownerimpl.go): `Iter.from(start:
 					// Int)` names no block parameter and is monomorphic.
+					own := (len(it.TypeParams) > 0 || len(it.WhereClauses) > 0) &&
+						!phantomOnly(typeParamNames(it.TypeParams), anchors, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
 					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr, it.Public,
-						implGeneric || len(it.TypeParams) > 0 || len(it.WhereClauses) > 0 ||
-							namesBlockParam(it, recvTP),
+						implGeneric || own || namesBlockParam(it, recvTP),
 						blocked || len(it.Decorators) > 0, it, at))
 				case *ast.ExternFunc:
+					own := (len(it.TypeParams) > 0 || len(it.WhereClauses) > 0) &&
+						!phantomOnly(typeParamNames(it.TypeParams), anchors, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
 					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr, it.Public,
-						implGeneric || len(it.TypeParams) > 0 || len(it.WhereClauses) > 0 ||
+						implGeneric || own ||
 							sigNamesTypeParam(it.Params, it.ReturnTypeExpr, recvTP), blocked, nil, at))
 				}
 			}
@@ -1729,6 +1760,7 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 }
 
 func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, pub, generic, blocked bool, fd *ast.FuncDef, anchors stdAnchors) *stdCandidate {
+	iterSig := false
 	f := &stdFunc{
 		key:      stdKey(module, recv, ifaceKey, name),
 		ifaceKey: ifaceKey,
@@ -1757,7 +1789,11 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		}
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if k == kindInvalid {
-			blocked = true
+			if fd != nil && fd.Body != nil && isIterType(p.TypeAnnotation) {
+				iterSig = true
+			} else {
+				blocked = true
+			}
 		}
 		// A DEFAULT is counted, not folded into `blocked`: a default says
 		// nothing about the SIGNATURE. `stdcalendar.DateTime.in_zone` projects
@@ -1782,7 +1818,11 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		f.result = stdTypeKind(ret, anchors)
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
 		if f.result == kindInvalid {
-			blocked = true
+			if fd != nil && fd.Body != nil && isIterType(ret) {
+				iterSig = true
+			} else {
+				blocked = true
+			}
 		}
 	}
 	c := &stdCandidate{f: f, fd: fd, sib: recv + "." + name}
@@ -1799,6 +1839,8 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		f.why = "stdlib generic function"
 	case blocked:
 		f.why = "stdlib function outside the scalar subset"
+	case iterSig:
+		f.why = stdIterSigWhy
 	case fd == nil && defaulted > 0:
 		// A `host fn` whose declared default THIS BUILDER MAY NOT READ, and the
 		// reason is which side owns the value.
@@ -2118,6 +2160,9 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		if k, isGenHost := genHostSigKind(gt, anchors); isGenHost {
 			return k
 		}
+		if k, isPhantom := phantomHostSigKind(gt, anchors); isPhantom {
+			return k
+		}
 	}
 	return kindInvalid
 }
@@ -2341,6 +2386,10 @@ func stdNestedTypeName(te ast.TypeExpr) string {
 func stdHeadTypeName(te ast.TypeExpr) string {
 	if n := simpleTypeName(te); n != "" {
 		return n
+	}
+	// `Regex<C>`: a phantom-parameter host type is its one leaf (stdhost.go).
+	if gt, isGeneric := te.(*ast.GenericType); isGeneric && phantomHostSpec("", gt.Name) >= 0 {
+		return gt.Name
 	}
 	return stdNestedTypeName(te)
 }
@@ -2740,10 +2789,37 @@ func (g *gen) emitStdDefaultWrappers(f *stdFunc, fd *ast.FuncDef) {
 // absent because std declares no Modulo interface: `%` on a named type has
 // nothing to dispatch to and keeps refusing.
 var stdOperatorIfaces = map[string]string{
-	"+": "Add.add",
-	"-": "Subtract.subtract",
-	"*": "Multiply.multiply",
-	"/": "Divide.divide",
+	"+":   "Add.add",
+	"-":   "Subtract.subtract",
+	"*":   "Multiply.multiply",
+	"/":   "Divide.divide",
+	"&&&": "BitwiseAnd.bitwise_and",
+	"|||": "BitwiseOr.bitwise_or",
+	"^^^": "BitwiseXor.bitwise_xor",
+	"<<<": "ShiftLeft.shift_left",
+	">>>": "ShiftRight.shift_right",
+}
+
+// stdBitwiseNot is `~~~`'s interface method, the unary member of the family
+// stdOperatorIfaces maps.
+const stdBitwiseNot = "BitwiseNot.bitwise_not"
+
+// stdlibUnaryOperatorFor is std's `BitwiseNot` impl for an operand of kind
+// k (`impl BitwiseNot<Byte> for Byte`), or nil.
+func (g *gen) stdlibUnaryOperatorFor(k kind) *stdFunc {
+	// kindInvalid: lookup — an operand with no kind has no impl to find.
+	if g.std == nil || k == kindInvalid {
+		return nil
+	}
+	if k.def != nil {
+		return g.stdlibImplOf(stdBitwiseNot, k, k)
+	}
+	params := []kind{k}
+	f := stdPick(g.std.byIface[stdBitwiseNot][k], params)
+	if f == nil || f.why != "" || !sameParamKinds(f.params, params) {
+		return nil
+	}
+	return f
 }
 
 // stdlibImplOf resolves one stdlib interface METHOD at a statically-known
@@ -2780,10 +2856,29 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 
 // stdlibOperatorFor is the shared binary-operator selection. Decimal arithmetic
 // belongs to its primitive implementation, ahead of stdlib dispatch.
+//
+// A scalar left operand (`Int`, `Float`) at its own kind is native
+// arithmetic and answers nil here. At another right-hand kind it is std's
+// impl for that pair or nothing: `7 / d` with `d: NonZeroInt` is `impl
+// Divide<NonZeroInt, Int> for Int`, the body `Int.divide(7, d)` calls.
 func (g *gen) stdlibOperatorFor(op string, left, right kind) *stdFunc {
 	key, known := stdOperatorIfaces[op]
-	if !known || left.def == nil || (isDecimalKind(left) && isDecimalKind(right)) {
+	if !known || (isDecimalKind(left) && isDecimalKind(right)) {
 		return nil
+	}
+	if left.def == nil {
+		// Two operands of one scalar kind are native arithmetic, except a
+		// bitwise operator on a kind other than Int (Byte's `&&&`), which
+		// is std's impl.
+		if g.std == nil || left == right && (!irArithOps[op].Bitwise() || left == kindInt) {
+			return nil
+		}
+		params := []kind{left, right}
+		f := stdPick(g.std.byIface[key][left], params)
+		if f == nil || f.why != "" || !sameParamKinds(f.params, params) {
+			return nil
+		}
+		return f
 	}
 	return g.stdlibImplOf(key, left, left, right)
 }

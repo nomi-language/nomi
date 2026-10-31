@@ -72,7 +72,7 @@ test "ranges and unary operators" {
     upto: (Int) -> Range<Int> = &(0..&1)
     assert Iter.to_list(upto(3)) == [0, 1, 2]
     assert ([1, -2] |> Iter.map(&(-&1)) |> Iter.to_list()) == [-1, 2]
-    assert ([True, False] |> Iter.filter(&(!&1)) |> Iter.count()) == 1
+    assert ([True, False] |> Iter.filter(&(not &1)) |> Iter.count()) == 1
 }
 
 test "a literal with a parameter is a construction of it" {

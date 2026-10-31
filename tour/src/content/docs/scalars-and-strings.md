@@ -19,11 +19,14 @@ fn main() {
     dbg 42 + 8
     dbg 10 - 3
     dbg 2 * 21
-    dbg 20 / 4
+    dbg 7 / 2
+    dbg 7 % 2
     dbg -(3 + 4)
     dbg 42 > 10
-    dbg True and !False
+    dbg True and not False
     dbg Int.pow(2, 100)
+    dbg 0b1011 >>> 1 &&& 1 // the second-lowest bit
+    dbg 0b0011 ||| 0b0100 // set a bit
 }
 
 ```
@@ -31,16 +34,30 @@ fn main() {
 dbg line 2: 42 + 8 = 50
 dbg line 3: 10 - 3 = 7
 dbg line 4: 2 * 21 = 42
-dbg line 5: 20 / 4 = 5
-dbg line 6: -(3 + 4) = -7
-dbg line 7: 42 > 10 = True
-dbg line 8: True and !False = True
-dbg line 9: Int.pow(2, 100) = 1267650600228229401496703205376
+dbg line 5: 7 / 2 = 3
+dbg line 6: 7 % 2 = 1
+dbg line 7: -(3 + 4) = -7
+dbg line 8: 42 > 10 = True
+dbg line 9: True and not False = True
+dbg line 10: Int.pow(2, 100) = 1267650600228229401496703205376
+dbg line 11: 0b1011 >>> 1 &&& 1 = 1
+dbg line 12: 0b0011 ||| 0b0100 = 7
 -->
 
 Arithmetic and comparisons work as in most languages. The logical operators
-are `and`, `or` and `!`. An [`Int`](/reference/int/) is a whole number of any
-size, so arithmetic never overflows.
+are `and`, `or` and `not`. `not` binds looser than a comparison, so
+`not a == b` is `not (a == b)`. An [`Int`](/reference/int/) is a whole number
+of any size, so arithmetic never overflows. `/` on `Int` drops the remainder,
+rounding toward zero, and `%` gives the remainder. Dividing by zero stops the
+program. The bitwise operators are `&&&`, `|||`, `^^^`, prefix `~~~`, `<<<`
+and `>>>`; `&&&` and the shifts bind like `*`, and `|||` and `^^^` like `+`.
+
+Each arithmetic operator comes from an interface: `+` from
+[`Add`](/reference/add/), `-` from [`Subtract`](/reference/subtract/), `*`
+from [`Multiply`](/reference/multiply/) and `/` from
+[`Divide`](/reference/divide/). The number types implement them. Your own
+types can implement them too, when an operator is the clearest way to write
+the operation.
 
 ## Number literal forms
 
@@ -64,7 +81,7 @@ A number can use `_` to separate digits. `0x` starts a hexadecimal number,
 `0b` a binary one, and `0o` an octal one. `e` writes a number in scientific
 notation.
 
-## Decimal — exact arithmetic
+## Exact arithmetic with `Decimal`
 
 ```nomi-run
 fn main() {
@@ -74,7 +91,7 @@ fn main() {
     // Decimal is exact
     dbg 0.1d + 0.2d == 0.3d
 
-    // Sum four prices to the cent — exactly
+    // Sum four prices
     dbg 19.99d + 5.00d + 2.50d + 0.99d
 }
 
@@ -96,10 +113,11 @@ decimal literal ends in `d`.
 
 `Decimal` has `+`, `-` and `*` but no `/`, since 10 divided by 3 never ends
 in base 10. `Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven)` rounds to the
-number of digits and the rounding you name, and `Decimal.divide_exact(10d, 4d)`
+number of digits and the rounding you name (import
+`std/decimal.RoundingMode` to name one), and `Decimal.divide_exact(10d, 4d)`
 returns `Some(2.5d)`, or `None` when the quotient never ends.
 
-## Strings — interpolation and concatenation
+## String interpolation and concatenation
 
 ```nomi-run
 import std/io
@@ -119,7 +137,7 @@ Hello, Nomi
 -->
 
 `${expr}` inside a string inserts the value of `expr`. `+` joins two
-strings.
+strings, because `String` implements `Add`, the interface behind `+`.
 
 Interpolation turns each value into text with
 [`Display.to_string`](/reference/display/#displayto_string).
@@ -142,14 +160,6 @@ fn main() {
 echo ${HOME} costs $5 #{not a struct}
 -->
 
-Each arithmetic operator comes from an interface: `+` from
-[`Add`](/reference/add/), `-` from [`Subtract`](/reference/subtract/), `*`
-from [`Multiply`](/reference/multiply/) and `/` from
-[`Divide`](/reference/divide/). The number types implement them, and
-`String` implements `Add`, which is how `+` joins strings. Your own types can
-implement them too, when an operator is the clearest way to write the
-operation.
-
 To split text:
 
 - [`String.split`](/reference/strings/#stringsplit) splits at a separator.
@@ -157,29 +167,9 @@ To split text:
   whitespace.
 - [`String.lines`](/reference/strings/#stringlines) splits into lines.
 
-The [`String` reference](/reference/strings/) lists the rest.
-
-`String.split`, `String.contains`, `String.starts_with`,
-`String.ends_with`, `String.replace`, `String.find` and `String.find_all`
-take a [`Matcher`](/reference/matcher/) for the text to look for. A `Matcher` is
-either a plain `String` or a [`Regex`](/typed-literals/#backtick-literals-are-checked-at-compile-time):
-
-```nomi-run
-import std/regex.Regex
-
-fn main() {
-    text = "one, two,three"
-
-    dbg String.split(text, ",")
-    dbg text |> String.split(Regex`,\s*`)
-    dbg String.contains(text, Regex`\d`)
-}
-```
-<!-- expect
-dbg line 6: String.split(text, ",") = ["one", " two", "three"]
-dbg line 7: text |> String.split(Regex`,\s*`) = ["one", "two", "three"]
-dbg line 8: String.contains(text, Regex`\d`) = False
--->
+The [`String` reference](/reference/strings/) lists the rest, and
+[Regular expressions](#regular-expressions) below shows how to split and
+search by a pattern.
 
 ## Text model
 
@@ -267,15 +257,13 @@ dbg line 14:
 -->
 
 To classify a codepoint, ask `Codepoint`:
-[`is_letter`](/reference/code_points/#codepointletter),
-[`is_whitespace`](/reference/code_points/#codepointwhitespace),
-[`is_upper`](/reference/code_points/#codepointupper) and
-[`is_lower`](/reference/code_points/#codepointlower) follow Unicode, so `é` and
-`ж` are letters. [`is_digit`](/reference/code_points/#codepointdigit) and
-[`to_digit`](/reference/code_points/#codepointto_digit) accept only ASCII `0`
-to `9`, which is what a phone number or a checksum means. A function that
-answers a `Bool` is named `is_` for a state, as these are, or for the verb it
-is, as `String.contains` is.
+[`is_letter`](/reference/code_points/#codepointis_letter),
+[`is_whitespace`](/reference/code_points/#codepointis_whitespace),
+[`is_upper`](/reference/code_points/#codepointis_upper) and
+[`is_lower`](/reference/code_points/#codepointis_lower) follow Unicode, so `é`
+and `ж` are letters. [`is_digit`](/reference/code_points/#codepointis_digit)
+and [`to_digit`](/reference/code_points/#codepointto_digit) accept only ASCII
+`0` to `9`, which is what a phone number or a checksum means.
 
 ```nomi-run
 fn main() {
@@ -317,7 +305,7 @@ more than one Unicode form, and two such strings are not equal. Before
 comparing text from different sources, put both in the same form with
 [`String.normalize`](/reference/strings/#stringnormalize).
 
-## Bytes — binary data
+## Binary data with `Bytes`
 
 ```nomi-run
 import std/io
@@ -327,7 +315,7 @@ fn main() {
     dbg Bytes.length(raw)
     dbg raw |> Iter.map(Byte.to_int) |> Iter.to_list()
 
-    prefix = String.to_bytes("go:")
+    prefix = Bytes.from_list([0x67, 0x6F, 0x3A])
 
     case Bytes.to_string(prefix + raw) {
         Ok(text) -> io.print(text)
@@ -353,7 +341,9 @@ go:café
 
 A `Byte` is not a number, so you can't do arithmetic on it. Convert with
 [`Int.to_byte`](/reference/int/#intto_byte) and `Byte.to_int` when you
-need the number.
+need the number. An integer literal where a `Byte` is expected is one, so
+`[0x67, 0x6F, 0x3A]` above is the bytes of `go:`, and a literal outside 0
+to 255 there is a compile error.
 
 ## Triple-quoted strings
 
@@ -422,15 +412,16 @@ as ``Regex`\d+` ``, so its backslashes stay as written. The compiler checks
 the pattern, so ``Regex`[` `` is an error before the program runs
 ([Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time) explains how).
 
-A `Regex` is a [`Matcher`](/reference/matcher/), so the `String` functions
-above take one where they take a plain string: `String.contains` tests for
-a match, `String.find` returns the first, `String.find_all` returns every
-one, and `String.split` and `String.replace` split and replace around them.
-`String.captures` returns the text each group in parentheses matched in the
-first match, `None` for a group that took no part, and `String.captures_all`
-does the same for every match. `String.replace` takes its replacement
-literally, and `Regex.replace_all` reads `$1`, `$2` and so on in it as the
-groups' text:
+`String.split`, `String.contains`, `String.starts_with`,
+`String.ends_with`, `String.replace`, `String.find` and `String.find_all`
+take a [`Matcher`](/reference/matcher/) for the text to look for: a plain
+`String` or a `Regex`. `String.find` returns the first match and
+`String.find_all` every one. `String.captures` returns the text each group in
+parentheses matched, shaped by the literal's type: `date` below is a
+`Regex<#(String, String, String)>`, a group a match can skip is a
+`Maybe<String>`, and named groups (`(?P<year>\d{4})`) make a struct. With a
+`Regex`, `String.replace` reads `$1`, `$2` in the replacement as the groups'
+text (`$$` is a literal `$`):
 
 ```nomi-run
 import std/regex.Regex
@@ -445,7 +436,7 @@ fn main() -> Result<Unit, String> {
     dbg String.captures(text, date)
     dbg String.split("a, b,c ,  d", Regex`\s*,\s*`)
     dbg String.replace(text, Regex`\d{3,4} `, "# ")
-    dbg Regex.replace_all(text, date, "$3/$2/$1")
+    dbg String.replace(text, date, "$3/$2/$1")
 
     word = "order"
     orders = Regex"(?i)${word} \\d+"?
@@ -458,18 +449,18 @@ fn main() -> Result<Unit, String> {
 dbg line 7: String.contains(text, date) = True
 dbg line 8: String.find(text, Regex`\d+`) = Some("1042")
 dbg line 9: String.find_all(text, date) = ["2026-10-25", "2026-10-26"]
-dbg line 10: String.captures(text, date) = Some([Some("2026"), Some("10"), Some("25")])
+dbg line 10: String.captures(text, date) = Some(#("2026", "10", "25"))
 dbg line 11: String.split("a, b,c ,  d", Regex`\s*,\s*`) = ["a", "b", "c", "d"]
 dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 2026-10-25, order # on 2026-10-26"
-dbg line 13: Regex.replace_all(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
+dbg line 13: String.replace(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
 dbg line 17: String.find_all(text, orders) = ["Order 1042", "order 977"]
 -->
 
 A pattern built from a value is written in double quotes, as
 `Regex"(?i)${word} \\d+"` (`(?i)` ignores case). The compiler can't check
 it, since the value is known only when the program runs, so it is a
-`Result` that you unwrap with `?` or `case`. Inside double quotes a backslash starts an escape, so the
-pattern's `\d` is written `\\d`.
+`Result` that you unwrap with `?` or `case`. Inside double quotes a backslash
+starts an escape, so the pattern's `\d` is written `\\d`.
 
 [Collections](/collections/) is next. It puts these values into lists, maps
 and sets.

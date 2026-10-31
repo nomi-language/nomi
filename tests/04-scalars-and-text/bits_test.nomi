@@ -1,0 +1,80 @@
+import {
+    std/bits.{self, Bits}
+    std/compiler
+}
+
+test "a pattern matches the Ints whose fixed bits it names" {
+    lead = Bits`110x_xxxx`
+    assert Bits.matches(lead, 0b1100_0000)
+    assert Bits.matches(lead, 0b1101_1111)
+    refute Bits.matches(lead, 0b1110_0000)
+    refute Bits.matches(lead, 0b0100_0000)
+}
+
+test "bits above the pattern's width must be zero" {
+    assert Bits.matches(Bits`1xxx_xxxx`, 128)
+    refute Bits.matches(Bits`1xxx_xxxx`, 384)
+    refute Bits.matches(Bits`xxxx`, 16)
+    refute Bits.matches(Bits`xxxx`, -1)
+}
+
+test "the field reads the bits under its letter" {
+    continuation = Bits`10aa_aaaa`
+    assert Bits.field(continuation, 0b1011_1111) == Some(63)
+    assert Bits.field(continuation, 0b1000_0001) == Some(1)
+    assert Bits.field(continuation, 0b1100_0001) == None
+    assert Bits.field(Bits`1bbb_0000`, 0b1101_0000) == Some(5)
+    assert Bits.field(Bits`b`, 1) == Some(1)
+}
+
+test "mask, value and width" {
+    p = Bits`10xx_aa01`
+    assert Bits.mask(p) == 0b1100_0011
+    assert Bits.value(p) == 0b1000_0001
+    assert Bits.width(p) == 8
+}
+
+test "a pattern wider than 64 bits" {
+    p = Bits`1xxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx`
+    assert Bits.width(p) == 68
+    assert Bits.matches(p, 1 <<< 67)
+    refute Bits.matches(p, 1 <<< 68)
+}
+
+test "Debug writes the literal as written" {
+    assert Debug.inspect(Bits`10xx_xxxx`) == "Bits`10xx_xxxx`"
+}
+
+test "parse reads text at run time" {
+    assert Bits.parse("10x") == Ok(Bits`10x`)
+    assert Bits.parse("_") == Err(bits.Error.Empty)
+    assert Bits.parse("1 0") == Err(#bits.Error.Character{index: 1, found: " "})
+    assert Bits.parse("1X") == Err(#bits.Error.Character{index: 1, found: "X"})
+    assert Bits.parse("ab") == Err(#bits.Error.SecondField{index: 1, field: "a", found: "b"})
+    assert Bits.field(Bits.parse("a_a")?, 3) == Some(3)
+    assert Bits.parse("aa1a") == Err(#bits.Error.SplitField{index: 3, field: "a"})
+}
+
+test "an error says what is wrong with the text" {
+    assert Display.to_string(bits.Error.Empty)
+        == "a bit pattern needs at least one bit: `0`, `1`, `x` or a field letter"
+
+    assert Bits.parse("aa0a") |> Result.map_err(Display.to_string) == Err(
+        "`a` at index 3 splits field `a`: write its bits together"
+    )
+}
+
+test "a pattern with no field letter has no field to read" {
+    result =
+        """
+            import std/bits.Bits
+
+            fn main() {
+              _ = Bits.field(Bits`10xx`, 8)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "Bits.field: the pattern has no field letter")
+}

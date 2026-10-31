@@ -22,7 +22,7 @@ fn translate_word(word: String) -> String {
 /// `xr` or `yt` keeps its start, as one that starts with a vowel does.
 fn onset_length(letters: List<String>) -> Int {
     case letters {
-        ["x", "r", .._] or ["y", "t", .._] -> 0
+        ["x", "r", ..] or ["y", "t", ..] -> 0
         ["y", ..rest] -> 1 + consonants(rest)
         _ -> consonants(letters)
     }
@@ -32,8 +32,8 @@ fn onset_length(letters: List<String>) -> Int {
 /// is two consonants.
 fn consonants(letters: List<String>) -> Int {
     case letters {
-        ["q", "u", .._] -> 2
-        [letter, ..rest] when !Set.contains(vowels, letter) -> 1 + consonants(rest)
+        ["q", "u", ..] -> 2
+        [letter, ..rest] when not Set.contains(vowels, letter) -> 1 + consonants(rest)
         _ -> 0
     }
 }

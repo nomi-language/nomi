@@ -107,43 +107,104 @@ test "join reads any iterator of strings and defaults to no separator" {
     assert slash_joined(%["r"]) == "r"
 }
 
-test "captures lists the groups of the first match, without the whole match" {
+test "captures gives the groups of the first match as a tuple, without the whole match" {
     pair = Regex`(\w+)@(\w+)`
 
-    assert String.captures("mail ann@home now", pair) == Some([Some("ann"), Some("home")])
+    assert String.captures("mail ann@home now", pair) == Some(#("ann", "home"))
     assert String.captures("no address", pair) == None
-    assert String.captures("x", Regex`x`) == Some([])
 }
 
-test "a group that does not take part is None, and an empty one is Some(\"\")" {
-    assert String.captures("b", Regex`(a)|(b)`) == Some([None, Some("b")])
-    assert String.captures("y", Regex`(x*)(y)`) == Some([Some(""), Some("y")])
-    assert String.captures("ac", Regex`a(b)?c`) == Some([None])
+test "a group a match can leave out is a Maybe, and an empty one is Some(\"\")" {
+    assert String.captures("b", Regex`(a)|(b)`) == Some(#(None, Some("b")))
+    assert String.captures("y", Regex`(x*)(y)`) == Some(#("", "y"))
+    assert String.captures("ac", Regex`a(b)?c`) == Some(None)
+    assert String.captures("abc", Regex`a(b)?c`) == Some(Some("b"))
+    assert String.captures("aaa", Regex`(a)+`) == Some("a")
+    assert String.captures("ab", Regex`((a)?)b`) == Some(#("a", Some("a")))
 }
 
-test "captures_all lists the groups of every match, left to right" {
-    assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [
-        [Some("a"), Some("1")],
-        [Some("b"), Some("22")],
+test "one group is its text, and a pattern with none answers Unit" {
+    assert String.captures("v12", Regex`v(\d+)`) == Some("12")
+    assert String.captures("x", Regex`x`) == Some(Unit)
+    assert String.captures("y", Regex`x`) == None
+}
+
+test "a pattern whose every group is named gives a struct" {
+    date = Regex`(?P<year>\d{4})-(?P<month>\d\d)(?:-(?P<day>\d\d))?`
+
+    assert String.captures("on 2024-05", date) == Some(#{year: "2024", month: "05", day: None})
+
+    #{year, month, day} = String.captures("2024-05-17", date)!
+    assert year == "2024"
+    assert month == "05"
+    assert day == Some("17")
+
+    mixed = Regex`(?P<key>\w+)=(\w+)`
+    assert String.captures("a=1", mixed) == Some(#("a", "1"))
+}
+
+test "a regex compiled while the program runs lists its groups" {
+    re = Regex.compile("(\\d)(\\d)?")!
+    assert String.captures("7", re) == Some([Some("7"), None])
+    assert String.captures_all("1 23", re) == [[Some("1"), None], [Some("2"), Some("3")]]
+}
+
+fn first_groups<C>(re: Regex<C>, texts: List<String>) -> List<C> {
+    texts |> Iter.flat_map(fn text -> String.captures(text, re)) |> Iter.to_list()
+}
+
+fn match_count<C>(re: Regex<C>, text: String) -> Int {
+    Iter.count(String.captures_all(text, re))
+}
+
+struct Rule<C> {
+    name: String
+    re: Regex<C>
+}
+
+test "a typed regex passes through a generic function" {
+    assert first_groups(Regex`(\w)=(\d)`, ["a=1", "none", "b=2"]) == [#("a", "1"), #("b", "2")]
+    assert first_groups(Regex`(\d)`, ["x", "7"]) == ["7"]
+    assert match_count(Regex`\d`, "1 2 3") == 3
+    assert match_count(Regex.compile("(\\d)")!, "1 2") == 2
+    assert String.contains("a=1", Regex`(\w)=(\d)`)
+    assert String.split("a1b2c", Regex`(\d)`) == ["a", "b", "c"]
+
+    rule = #Rule{name: "pair", re: Regex`(\w)=(\d)`}
+    assert String.captures("a=1", rule.re) == Some(#("a", "1"))
+
+    numbers: List<Regex<String>> = [Regex`(\d+)`, Regex`#(\w+)`]
+
+    assert numbers |> Iter.map(fn re -> String.captures("#12", re)) |> Iter.to_list() == [
+        Some("12"),
+        Some("12"),
     ]
+}
+
+test "captures_all gives the groups of every match, left to right" {
+    assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [#("a", "1"), #("b", "22")]
 
     assert "ab b" |> String.captures_all(Regex`(a)|(b)`) == [
-        [Some("a"), None],
-        [None, Some("b")],
-        [None, Some("b")],
+        #(Some("a"), None),
+        #(None, Some("b")),
+        #(None, Some("b")),
     ]
 
     assert String.captures_all("none", Regex`(\d)`) == []
+
+    pairs =
+        "x=1 y=2"
+        |> String.captures_all(Regex`(?P<name>\w)=(?P<value>\d)`)
+        |> Iter.map(fn #{name, value} -> name + value)
+        |> Iter.to_list()
+
+    assert pairs == ["x1", "y2"]
 }
 
 test "captures work over Unicode text" {
-    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`)
-        == Some([Some("café"), Some("crème")])
+    assert String.captures("café crème", Regex`(\p{L}+) (\p{L}+)`) == Some(#("café", "crème"))
 
-    assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [
-        [Some("🙂"), Some("1")],
-        [Some("é"), Some("2")],
-    ]
+    assert String.captures_all("🙂=1 é=2", Regex`(\S)=(\d)`) == [#("🙂", "1"), #("é", "2")]
 }
 
 test "captures_all finds the matches find_all finds" {
@@ -153,10 +214,10 @@ test "captures_all finds the matches find_all finds" {
     assert Iter.count(String.captures_all(text, re)) == Iter.count(String.find_all(text, re))
 
     assert String.captures_all(text, re) == [
-        [Some("1"), None],
-        [Some("2"), Some("3")],
-        [Some("4"), Some("5")],
-        [Some("6"), None],
+        #("1", None),
+        #("2", Some("3")),
+        #("4", Some("5")),
+        #("6", None),
     ]
 }
 

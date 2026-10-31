@@ -70,7 +70,7 @@ var sweepConstructs = []sweepConstruct{
 	{"binding and if", sweepAll, "v = if True { $A } else { $B }\n  assert v == $A"},
 	{"list map", sweepAll, "xs = [$A, $B]\n  ys = xs |> Iter.map(fn x -> x) |> Iter.to_list()\n  assert ys == xs"},
 	{"list filter count", sweepAll, "n = [$A, $B, $A] |> Iter.filter(fn x -> x == $A) |> Iter.count()\n  assert n == 2"},
-	{"list pattern", sweepAll, "case [$A, $B] {\n    [h, .._] -> assert h == $A\n    [] -> assert False\n  }"},
+	{"list pattern", sweepAll, "case [$A, $B] {\n    [h, ..] -> assert h == $A\n    [] -> assert False\n  }"},
 	{"list head", sweepAll, "assert List.head([$A, $B]) == Some($A)"},
 	{"maybe", sweepAll, "assert Maybe.with_default(Some($A), $B) == $A"},
 	{"result", sweepAll, "r: Result<$T, String> = Ok($A)\n  assert r == Ok($A)"},
@@ -171,7 +171,7 @@ fn same<X>(x: X) -> X {
 
 fn first_or<X>(xs: List<X>, d: X) -> X {
   case xs {
-    [h, .._] -> h
+    [h, ..] -> h
     [] -> d
   }
 }
@@ -197,7 +197,7 @@ fn echo(x: $T) -> $T {
 
 fn pick_first(xs: List<$T>) -> Maybe<$T> {
   case xs {
-    [h, .._] -> Some(h)
+    [h, ..] -> Some(h)
     [] -> None
   }
 }

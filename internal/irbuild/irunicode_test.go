@@ -58,7 +58,7 @@ func TestIRUnicode_NominalListPatterns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
   case String.to_codepoints("a") {
-    [_, .._] -> io.print(1)
+    [_, ..] -> io.print(1)
     _ -> io.print(0)
   }
 }

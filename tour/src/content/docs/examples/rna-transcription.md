@@ -18,8 +18,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 pub fn to_rna(dna: String) -> Result<String, String> {
     dna
     |> Iter.map(complement)
-    |> Result.collect()
-    |> Result.map(String.join)
+    |> Result.collect()?
+    |> String.join()
+    |> Ok()
 }
 
 fn complement(nucleotide: String) -> Result<String, String> {
@@ -60,7 +61,6 @@ test "transcribes DNA to RNA" {
 - The nucleotides stay one-letter Strings matched by a `case`, not an enum.
   An enum would need a parse step and a render step around a four-arm table
   for no gain in a function this size.
-- `Result.collect` turns the per-nucleotide results into one, so the first
-  invalid nucleotide becomes the error.
-- The parts are joined with `Result.map(String.join)`: where a function of
-  one parameter is expected, `String.join` takes its default separator.
+- `Result.collect()?` turns the per-nucleotide results into one and passes
+  the first invalid nucleotide up as the error; the parts are then joined
+  with `String.join()` and wrapped in `Ok`.

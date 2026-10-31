@@ -14,7 +14,7 @@ fn read_to_end(meter: MeteredReader, max: Int) -> Result<#(Bytes, MeteredReader)
 
         Some(bytes) -> {
             #(rest, meter) = read_to_end(meter, max)?
-            Ok(#(Bytes.concat(bytes, rest), meter))
+            Ok(#(bytes + rest, meter))
         }
     }
 }

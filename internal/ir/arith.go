@@ -43,6 +43,18 @@ const (
 	OpRem
 	// OpNeg is unary `-`. It reads one operand.
 	OpNeg
+	// OpAnd is `&&&`, Int only.
+	OpAnd
+	// OpOr is `|||`, Int only.
+	OpOr
+	// OpXor is `^^^`, Int only.
+	OpXor
+	// OpNot is prefix `~~~`, Int only. It reads one operand.
+	OpNot
+	// OpShl is `<<<`, Int only.
+	OpShl
+	// OpShr is `>>>`, Int only: an arithmetic shift.
+	OpShr
 )
 
 // Symbol is the source spelling.
@@ -58,6 +70,18 @@ func (o ArithOp) Symbol() string {
 		return "/"
 	case OpRem:
 		return "%"
+	case OpAnd:
+		return "&&&"
+	case OpOr:
+		return "|||"
+	case OpXor:
+		return "^^^"
+	case OpNot:
+		return "~~~"
+	case OpShl:
+		return "<<<"
+	case OpShr:
+		return ">>>"
 	}
 	return "?"
 }
@@ -70,7 +94,11 @@ func (o ArithOp) String() string {
 }
 
 // Unary reports whether this operator reads one operand.
-func (o ArithOp) Unary() bool { return o == OpNeg }
+func (o ArithOp) Unary() bool { return o == OpNeg || o == OpNot }
+
+// Bitwise reports whether this is one of the bitwise operators, which only
+// Int's domain has.
+func (o ArithOp) Bitwise() bool { return o >= OpAnd && o <= OpShr }
 
 // Domain is the operand type family the operation runs in. It is not a full
 // type: it is the distinction the arithmetic itself turns on.
@@ -143,6 +171,9 @@ const (
 	FaultTodo
 	// FaultUnreachable: an `unreachable` was reached. See unreachable.go.
 	FaultUnreachable
+	// FaultShiftCount: a shift's count is negative, or a left shift's is too
+	// large for its result to fit in memory.
+	FaultShiftCount
 )
 
 // Any reports whether the operation can fault at all.
@@ -160,7 +191,8 @@ func (f Faults) String() string {
 		bit  Faults
 		name string
 	}{{FaultDivByZero, "div0"}, {FaultUndefined, "undefined"},
-		{FaultNoMatch, "nomatch"}, {FaultTodo, "todo"}, {FaultUnreachable, "unreachable"}} {
+		{FaultNoMatch, "nomatch"}, {FaultTodo, "todo"}, {FaultUnreachable, "unreachable"},
+		{FaultShiftCount, "shiftcount"}} {
 		if f.Has(k.bit) {
 			if s != "" {
 				s += "|"
@@ -264,7 +296,7 @@ func NewArith(pos Pos, dst Temp, op ArithOp, k ArithKind, lhs, rhs Temp) *Arith 
 	return a
 }
 
-// NewUnaryArith is a unary arithmetic operation. Only OpNeg is one.
+// NewUnaryArith is a unary arithmetic operation: OpNeg or OpNot.
 func NewUnaryArith(pos Pos, dst Temp, op ArithOp, k ArithKind, operand Temp) *Arith {
 	a := newArith(pos, dst, op, k, "NewUnaryArith")
 	if !op.Unary() {
@@ -282,8 +314,11 @@ func newArith(pos Pos, dst Temp, op ArithOp, k ArithKind, who string) *Arith {
 	if dst == NoTemp {
 		panic("ir: " + who + ": an arithmetic operation with no destination is dead; do not build it")
 	}
-	if op < OpAdd || op > OpNeg {
+	if op < OpAdd || op > OpShr {
 		panic("ir: " + who + ": unknown operator")
+	}
+	if op.Bitwise() && k.dom != DomainInt {
+		panic("ir: " + who + ": `" + op.Symbol() + "` is an Int operation only")
 	}
 	if k.dom == 0 {
 		panic("ir: " + who + ": an ArithKind must come from IntArith, FloatArith, " +
@@ -334,6 +369,8 @@ func (a *Arith) Faults() Faults {
 		switch a.op {
 		case OpDiv, OpRem:
 			return FaultDivByZero
+		case OpShl, OpShr:
+			return FaultShiftCount
 		}
 		return 0
 	case DomainFloat:

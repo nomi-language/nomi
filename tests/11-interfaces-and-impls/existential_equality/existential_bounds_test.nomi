@@ -27,11 +27,11 @@ test "List.contains and Iter.contains find a value by its own equality" {
     spot: Show = #Spot{x: 1, y: 2}
     ada: Show = #Name{text: "ADA"}
     four: Show = [4]
-    assert !List.contains(xs, spot)
+    refute List.contains(xs, spot)
     assert List.contains(xs, ada)
     assert List.contains(xs, four)
     assert Iter.contains(xs, ada)
-    assert !Iter.contains(xs, spot)
+    refute Iter.contains(xs, spot)
 }
 
 test "a generic function bounded by Equatable takes interface values" {
@@ -40,11 +40,11 @@ test "a generic function bounded by Equatable takes interface values" {
     point: Show = #Point{x: 1, y: 2}
     spot: Show = #Spot{x: 1, y: 2}
     assert has(xs, ada)
-    assert !has(xs, point)
+    refute has(xs, point)
     assert same(ada, #Name{text: "ADA"})
-    assert !same(point, spot)
+    refute same(point, spot)
     assert Equatable.equal(ada, ada)
-    assert !Equatable.equal(point, spot)
+    refute Equatable.equal(point, spot)
 }
 
 test "a generic function bounded by Hashable takes interface values" {

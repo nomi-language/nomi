@@ -154,6 +154,9 @@ const (
 	mxPoint = "struct Point {\n    x: Int\n    y: Int = 2\n}"
 	mxShape = "struct Spot {\n    n: Int\n}\n\ntype Tag String\n\nenum Shape {\n    embeds Spot\n    embeds Tag\n    Circle Float\n    Rect {w: Int, h: Int}\n    Dot\n}"
 	mxNamed = "interface Named {\n    fn name(value: self) -> String\n    fn shout(value: self) -> String {\n        name(value) + \"!\"\n    }\n}\n\nstruct Pt {\n    x: Int\n}\n\nimpl Named for Pt {\n    fn name(p: Pt) -> String {\n        \"pt${p.x}\"\n    }\n}"
+	// A distinct type with `|||` and `~~~` of its own.
+	mxFlags = "type Flags Int\n\nimpl BitwiseOr<Flags, Flags> for Flags {\n    fn bitwise_or(lhs: Flags, rhs: Flags) -> Flags {\n        Flags(x) = lhs\n        Flags(y) = rhs\n        Flags(x ||| y)\n    }\n}\n\n" +
+		"impl BitwiseNot<Flags> for Flags {\n    fn bitwise_not(value: Flags) -> Flags {\n        Flags(x) = value\n        Flags(~~~x)\n    }\n}"
 	mxAdd3  = "fn add3(a: Int, b: Int, c: Int = 100) -> Int {\n    a + b + c\n}"
 	mxGreet = "fn greet(name: String, punct: String = \"!\", times: Int = 1) -> String {\n    \"${name}${punct}${times}\"\n}"
 	mxBox   = "struct Box<T> {\n    v: T\n}"
@@ -228,6 +231,12 @@ var mxFeatures = []mxFeature{
 	{name: "tuple", typ: "#(Int, String)", expr: `#(1, "a")`, want: `#(1, "a")`},
 	{name: "record", typ: "#{a: Int, b: String}", expr: `#{a: 1, b: "x"}`, want: `#{a: 1, b: "x"}`},
 	{name: "range", typ: "Range<Int>", expr: "1..4", want: "1..4"},
+	{name: "not", typ: "Bool", expr: `not 1 == 2 and not ([1] |> Iter.is_empty())`, want: "True"},
+	{name: "not stage", typ: "Bool", expr: `"" |> not String.contains("x")`, want: "True"},
+	{name: "is test", typ: "Bool", expr: `Some(2) is Some(1 or 2) and not [1] is []`, want: "True"},
+	{name: "bitwise operators", typ: "Int", expr: "(12 &&& 10 ||| 1 <<< 4) ^^^ ~~~0 >>> 1", want: "-25"},
+	{name: "byte bitwise operators", typ: "Byte", expr: "~~~Int.to_byte(15)! &&& 0xFF", want: "240"},
+	{name: "byte literal", typ: "Byte", expr: "0x81", want: "129", tags: tagWidens},
 
 	// Declared types.
 	{name: "struct", decls: mxPoint, typ: "Point", expr: "#Point{x: 1}", want: "#Point{x: 1, y: 2}"},
@@ -239,6 +248,7 @@ var mxFeatures = []mxFeature{
 	{name: "dot variant", decls: mxShape, typ: "Shape", expr: ".Circle(2.0)", want: "Circle(2.0)", tags: tagExpects,
 		reject: "requires a determinable enum type|resolves only to enum variants|cannot be resolved here|is not determined"},
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
+	{name: "bitwise operator impl", decls: mxFlags, typ: "Flags", expr: "~~~(Flags(1) ||| Flags(4))", want: "Flags(-6)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
 	{name: "message", decls: "message greet(name: String) `Hello, {$name}!`", typ: "Message", expr: `greet("Ann")`,
 		obs: "Message.format($v, Locale`pl`)", want: "Hello, Ann!"},
@@ -370,7 +380,7 @@ var mxFeatures = []mxFeature{
 	{name: "vector get!", typ: "String", expr: `Vector.get(#["a", "b"], 1)!`, want: `"b"`, tags: tagCall},
 	{name: "result bang", decls: mxHalf, typ: "Int", expr: `8 |> half()! |> half()!`, want: "2", tags: tagCall},
 	{name: "list contains", typ: "Bool", expr: `List.contains(["a", "b"], "b")`, want: "True", tags: tagCall},
-	{name: "contains bound", decls: mxHolds, typ: "Bool", expr: `has(%{"k" => 1}, "k") and !has(#[1, 2], 3)`,
+	{name: "contains bound", decls: mxHolds, typ: "Bool", expr: `has(%{"k" => 1}, "k") and not has(#[1, 2], 3)`,
 		want: "True", tags: tagCall},
 
 	// Iter chains.
@@ -1111,6 +1121,36 @@ var mxCheckerRules = []mxCheckerRule{
 	},
 		want: mxIterSensitiveUse,
 		why:  "an iter-sensitive function may only be passed as an iteration callback itself, and this callback calls it"},
+	{match: mxByteLiteralFixedAsInt, want: "Byte.*, (got|but the pipe passes) .*Int|is Int, expected Byte",
+		why: "an Int literal is a Byte only where a Byte is expected of it; a context that types it first makes it an Int, " +
+			"and an Int never becomes a Byte where one is later required"},
+}
+
+// mxByteLiteralFixedAsInt matches the byte literal inside a context that
+// types it as an Int before any context expects a Byte of it (a binding, a
+// case subject, a lambda, a pipe's head), when a context further out
+// requires a Byte. Walking out from the literal: a context that gives Byte
+// makes it one; a block tail, an arm, and a generic call whose result is
+// expected pass the expected type in; a pipe stage's parameter is unified
+// with its head after the head is typed; anything else fixes Int. The
+// `defer` shell binds the value and then passes it to a Byte parameter.
+func mxByteLiteralFixedAsInt(c mxCell) bool {
+	if c.f.name != "byte literal" {
+		return false
+	}
+	deferShell := c.shell.name == "defer" && c.place.name != "value from another file"
+	for i, w := range c.wraps {
+		switch {
+		case w.typing == mxGives:
+			return false
+		case w.typing == mxPasses, w.name == "generic type argument", w.name == "generic function of another file":
+			continue
+		case w.typing == mxUnifies:
+			return true
+		}
+		return mxLaterGives(c, i+1) || deferShell
+	}
+	return deferShell
 }
 
 // mxIterSensitiveUse matches the rejection of a call to an iter-sensitive

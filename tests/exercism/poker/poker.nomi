@@ -40,7 +40,7 @@ struct Card {
 pub fn best_hands(hands: List<String>) -> Result<List<String>, Error> {
     scored =
         hands
-        |> Iter.map(fn hand -> score(hand) |> Result.map(&#(hand, &1)))
+        |> Iter.map(fn hand -> Ok(#(hand, score(hand)?)))
         |> Result.collect()?
 
     Some(best) = scored |> Iter.map(.1) |> Iter.max() else { return Ok([]) }
@@ -102,6 +102,8 @@ fn card(text: String) -> Maybe<Card> {
     length = String.length(text)
     suit = String.drop(text, length - 1)
 
+    if not List.contains(["S", "H", "D", "C"], suit) { return None }
+
     rank = case String.take(text, length - 1) {
         "J" -> Some(11)
         "Q" -> Some(12)
@@ -110,11 +112,7 @@ fn card(text: String) -> Maybe<Card> {
         digits -> pip_rank(digits)
     }
 
-    if List.contains(["S", "H", "D", "C"], suit) {
-        rank |> Maybe.map(&#Card{rank: &1, suit})
-    } else {
-        None
-    }
+    Some(#Card{rank: rank?, suit})
 }
 
 /// The rank of a numbered card, 2 to 10.

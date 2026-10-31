@@ -150,7 +150,7 @@ func stringTokenSourceEnd(line string, start int) int {
 
 func nomiTokenColor(tok token.Token) string {
 	switch tok.Type {
-	case token.AND, token.OR, token.IF, token.ELSE, token.FN, token.RETURN,
+	case token.AND, token.OR, token.NOT, token.IS, token.IF, token.ELSE, token.FN, token.RETURN,
 		token.CASE, token.WHEN, token.TYPE, token.STRUCT, token.ENUM,
 		token.TYPEALIAS, token.BREAK, token.CONTINUE, token.IT,
 		token.INTERFACE, token.IMPL, token.AS, token.FOR, token.IMPORT,

@@ -262,7 +262,7 @@
         {
           "comment": "Keyword-shaped import path segments are file names: `std/structs.Struct`.",
           "name": "variable.other.nomi",
-          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(?:alias)?|unreachable|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(?:alias)?|unreachable|where|with)\\b"
+          "match": "\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(?:alias)?|unreachable|where|with)\\b(?=/)|(?<=/)\\b(?:and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(?:alias)?|unreachable|where|with)\\b"
         },
         {
           "comment": "A function definition: `fn name`.",
@@ -336,7 +336,7 @@
           "match": "\\b(?:if|else|case|when|break|continue|return|concurrent|then|tap|assert|refute|dbg|todo|unreachable)\\b"
         },
         {
-          "comment": "A postfix `!`, written right after an operand (`Map.get(m, k)!`), can stop the program as `unreachable` does. A prefix `!` and `!=` stay operators.",
+          "comment": "A postfix `!`, written right after an operand (`Map.get(m, k)!`), can stop the program as `unreachable` does. `!=` stays an operator.",
           "name": "keyword.control.nomi",
           "match": "(?<=[A-Za-z0-9_?!)\\]}\"])!(?!=)"
         },
@@ -347,7 +347,7 @@
         },
         {
           "name": "keyword.operator.word.nomi",
-          "match": "\\b(?:and|or)\\b"
+          "match": "\\b(?:and|or|not|is)\\b"
         },
         {
           "name": "constant.language.boolean.nomi",
@@ -361,6 +361,11 @@
           "comment": "A map or set literal starts with `%` written right before its bracket or its type name: `%{`, `%[`, `%Kvs{`, `%.Obj{`, `%geo.Tags[`. A `%` with a space after it is the remainder operator.",
           "name": "punctuation.section.nomi",
           "match": "%(?=[{\\[.A-Z]|[a-z_][A-Za-z0-9_]*\\.[A-Z])"
+        },
+        {
+          "comment": "The bitwise operators, three characters each.",
+          "name": "keyword.operator.bitwise.nomi",
+          "match": "&&&|\\|\\|\\||\\^\\^\\^|~~~|<<<|>>>"
         },
         {
           "name": "keyword.operator.pipe.nomi",

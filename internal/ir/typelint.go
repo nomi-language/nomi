@@ -50,6 +50,8 @@ func intrinsicType(in Instr) *ValType {
 			return BoolType
 		case ConstInt:
 			return IntType
+		case ConstByte:
+			return ByteType
 		case ConstFloat:
 			return FloatType
 		case ConstDecimal:

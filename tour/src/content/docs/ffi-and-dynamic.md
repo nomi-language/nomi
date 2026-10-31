@@ -4,8 +4,8 @@ description: "Call Go packages from Nomi, and handle values whose shape you don'
 ---
 
 :::caution[Early FFI surface]
-You can build real programs on the binding syntax below, and the FFI tests
-in this repository do. What may still change is the packaging around it:
+You can build real programs on the binding syntax below, and Nomi's own
+FFI tests do. What may still change is the packaging around it:
 how you lay out and publish a Go adapter, and the error messages you get
 when something is wrong.
 :::
@@ -16,7 +16,7 @@ A Nomi module can call functions from ordinary Go packages. The usual steps:
   module path names your Go code. `nomi new <module path>` starts one in a
   new directory, and `nomi init <module path>` makes the current directory
   one. A binding to the [Go standard library](#binding-the-go-standard-library)
-  needs neither.
+  needs no project.
 - Write Go adapter code in a normal `.go` file.
 - Name the Go package in your Nomi file with `gopkg`.
 - Bind each Nomi function to a Go function with `go package.Function`. Each
@@ -128,17 +128,20 @@ function and converts values in both directions. The table below lists the
 Go types it converts.
 
 For any other Go type, convert it in your Go adapter. If Nomi only needs to
-hold a Go value and hand it back, declare an `opaque type` for it. If Nomi
+hold a Go value and hand it back, declare an `opaque type` for it, such as
+`opaque type Conn go dbtools.Conn`. If Nomi
 needs to look inside a value whose shape you can't write in the signature,
 pass it as `Dynamic` and decode it on the Nomi side.
 
 | Go type | Nomi type | Notes |
 | --- | --- | --- |
-| `string`, `bool`, `int64`, `float64`, `uint8` | `String`, `Bool`, `Int`, `Float`, `Byte` | `Int` is Go's `int64`. |
-| a smaller Go integer (`int32`, `int8`, …) | `Int` | A value that doesn't fit is an error. It is never cut short. |
+| `string`, `bool`, `int64`, `float64`, `uint8` | `String`, `Bool`, `Int`, `Float`, `Byte` | An `Int` too big for `int64` is an error at the call. It is never cut short. |
+| `int`, another sized or unsigned Go integer (`int32`, `uint64`, …) | `Int` | Range-checked the same way. |
+| `*big.Int` | `Int` | Takes and returns any Int. |
 | `[]byte` | `Bytes` | A byte buffer, not the same type as `List<Byte>`. |
 | `[]T`, `map[K]V` | `List<T>`, `Map<K, V>` | The element, key and value types must be in this table too. |
 | `time.Duration`, `time.Time` | `Duration`, `Instant` | |
+| `io.Reader`, `io.ReadCloser`, `io.Writer`, `io.WriteCloser` | `Reader`, `Writer` from `std/io` | A Go stream becomes a Nomi stream over it. A Nomi stream passed to Go is read or written through its own buffer. |
 | `*T` | `Maybe<T>` | A pointer to a Go type you bound with `opaque type` crosses as that opaque type instead. |
 | two or more return values | a Nomi tuple | `func(string, string) (string, string)` binds to `#(String, String)`. |
 | a trailing `error` | `Result<_, String>` | `#(T, error)` becomes `Result<T, String>`, and a lone `error` becomes `Result<Unit, String>`. The `Err` holds the Go error's message. |
@@ -176,9 +179,10 @@ Ok(42)
 -->
 
 This runs from any directory, as a `.nomi` file or as a `#!` script. The Go
-function must still use the types in [Go and Nomi types](#go-and-nomi-types). A function that takes
-an `io.Reader`, or a generic one such as `slices.Max`, needs a small adapter
-of your own, like `urltools` above. You can't bind a package that is internal
+function must still use the types in [Go and Nomi types](#go-and-nomi-types).
+A function that returns
+a concrete type such as `*gzip.Reader`, or a generic one such as
+`slices.Max`, needs a small adapter of your own, like `urltools` above. You can't bind a package that is internal
 to the standard library, such as `internal/abi`.
 
 ## Shipping a binding
@@ -258,7 +262,7 @@ the site compiles the Go they bind ahead of time, and an example's Go file is
 read-only. You can edit its Nomi files and call the bound functions however
 you like, but binding a Go function the site did not compile is an error.
 
-## Dynamic Values
+## Dynamic values
 
 Sometimes you get a value with no known Nomi type: a plugin message, a
 decoded payload, loosely typed configuration, or data from another runtime.
@@ -337,7 +341,9 @@ data real types.
 
 ---
 
-The last chapter, [Building & Shipping](/building-and-shipping/), shows how
-to package a Nomi program as an executable, a web page, or a WebAssembly
+The next chapter, [Generating Code](/generating-code/), shows how a tool
+writes Nomi code from data, as sqlkit does in [Databases](/databases/). The
+last chapter, [Building & Shipping](/building-and-shipping/), shows how to
+package a Nomi program as an executable, a web page, or a WebAssembly
 module. After that, the [Standard Library](/reference/) reference covers
 every module, generated from the library's own doc comments.

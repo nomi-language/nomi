@@ -138,7 +138,7 @@ impl Uuid {
     //! assert Uuid.version(Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`) == 1
     //
     pub fn version(id: Uuid) -> Int {
-        Int.bitwise_and(Int.shift_right(id.high, 12), 15)
+        id.high >>> 12 &&& 15
     }
 
     /// A version 4 UUID: 122 random bits from the operating system's
@@ -165,7 +165,7 @@ impl Uuid {
         millis = Instant.as_nanos(Instant.now()) / 1000000
         random_high = random_int()?
         low = random_int()?
-        high = Int.bitwise_or(Int.shift_left(millis, 16), Int.bitwise_and(random_high, 4095))
+        high = millis <<< 16 ||| random_high &&& 4095
         Ok(#Uuid{high: with_version(high, 7), low: with_variant(low)})
     }
 }
@@ -228,7 +228,7 @@ once sign_bit = -9_223_372_036_854_775_808
 // Each half flips its sign bit, so Int's signed order is the unsigned order
 // of the bits.
 fn unsigned_key(half: Int) -> Int {
-    Int.bitwise_xor(half, sign_bit)
+    half ^^^ sign_bit
 }
 
 // One character of the 36: a hyphen at 8, 13, 18 and 23, otherwise a digit
@@ -250,9 +250,9 @@ fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> #(Int, Int, Int,
 
         Some(digit) ->
             if index < 19 {
-                #(next, Int.bitwise_or(Int.wrapping_mul(high, 16), digit), low, None)
+                #(next, Int.wrapping_mul(high, 16) ||| digit, low, None)
             } else {
-                #(next, high, Int.bitwise_or(Int.wrapping_mul(low, 16), digit), None)
+                #(next, high, Int.wrapping_mul(low, 16) ||| digit, None)
             }
     }
 }
@@ -272,7 +272,7 @@ fn hex_value(code: Int) -> Maybe<Int> {
 // The low `count` hexadecimal digits of n, most significant first.
 fn hex(n: Int, count: Int) -> String {
     0..count
-    |> Iter.map(fn i -> hex_digit(Int.bitwise_and(Int.shift_right(n, (count - 1 - i) * 4), 15)))
+    |> Iter.map(fn i -> hex_digit(n >>> ((count - 1 - i) * 4) &&& 15))
     |> String.join()
 }
 
@@ -289,13 +289,13 @@ fn read_half(data: Bytes, start: Int) -> Int {
             None -> 0
         }
 
-        Int.bitwise_or(Int.wrapping_mul(acc, 256), byte)
+        Int.wrapping_mul(acc, 256) ||| byte
     })
 }
 
 fn half_bytes(half: Int) -> Bytes {
     0..8
-    |> Iter.flat_map(fn i -> Int.to_byte(Int.bitwise_and(Int.shift_right(half, (7 - i) * 8), 255)))
+    |> Iter.flat_map(fn i -> Int.to_byte(half >>> ((7 - i) * 8) &&& 255))
     |> Iter.to_list()
     |> Bytes.from_list()
 }
@@ -310,10 +310,10 @@ fn random_int() -> Result<Int, random.Error> {
 
 // The version in bits 48 to 51 of the high half.
 fn with_version(high: Int, version: Int) -> Int {
-    Int.bitwise_or(Int.bitwise_and(high, Int.bitwise_not(61440)), Int.shift_left(version, 12))
+    high &&& ~~~61440 ||| version <<< 12
 }
 
 // The RFC 9562 variant, binary 10, in the top two bits of the low half.
 fn with_variant(low: Int) -> Int {
-    Int.bitwise_or(Int.bitwise_and(low, 4_611_686_018_427_387_903), sign_bit)
+    low &&& 4_611_686_018_427_387_903 ||| sign_bit
 }

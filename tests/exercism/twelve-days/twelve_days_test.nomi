@@ -82,7 +82,7 @@ test "lyrics" {
             verses
             |> Iter.drop(start - 1)
             |> Iter.take(end - start + 1)
-            |> Iter.map(.2)
+            |> Iter.map(fn #(_description, _number, verse) -> verse)
             |> Iter.to_list()
 
         assert twelve_days.recite(start, end) == expected

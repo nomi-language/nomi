@@ -73,6 +73,11 @@ fn main() -> Result<Unit, Error> {
 In a terminal both lines appear, but `nomi run report.nomi > /dev/null`
 shows only the second. This page shows both streams in one box.
 
+A test checks what such a function writes with `Writer.collect(fn w ->
+report(w, 3))`, which hands it a writer into memory and returns the bytes.
+[`Writer.from_fn`](/reference/io/#writer) hands each write to a function
+of yours instead.
+
 ## Reading input
 
 `io.read_line` reads one line of standard input, without its newline. It
@@ -117,11 +122,10 @@ import std/io
 
 struct App {
     args: List<String>
-    context: Context
 }
 
 fn boot(startup: Startup) -> Result<App, String> {
-    Ok(#App{args: startup.args, context: Context.root()})
+    Ok(#App{args: startup.args})
 }
 
 fn main() {
@@ -218,7 +222,7 @@ are the same pair for `Bytes`.
 
 The error is an [`io.Error`](/reference/io/#error), an enum whose variants
 name the path they are about. A program branches on the ones it expects,
-and its `Display` text is a sentence for the rest:
+and its `Display` text names the path and the problem for the rest:
 
 ```nomi-run
 import {
@@ -252,7 +256,8 @@ the directory. `fs.create_dir("logs")` makes it.
 `fs.lines(path)` is an `Iter` over a file's lines, each without its line
 ending. Each item is a `Result`, since a read can fail partway through.
 `Result.collect` turns the items into one `Result` holding a list, which
-stops at the first error:
+stops at the first error. `Iter.try_reduce` folds them with a function that
+returns a `Result`, and stops at the first `Err`:
 
 ```nomi-run
 // FILE: main.nomi
@@ -263,11 +268,11 @@ import {
 
 fn count_errors(path: String) -> Result<Int, io.Error> {
     fs.lines(path)
-    |> Iter.reduce(fn count = Ok(0), line -> {
-        case line {
-            Ok(text) when String.starts_with(text, "ERROR") -> Result.map(count, fn n -> n + 1)
-            Ok(_) -> count
-            Err(e) -> break Err(e)
+    |> Iter.try_reduce(0, fn count, line -> {
+        if String.starts_with(line?, "ERROR") {
+            Ok(count + 1)
+        } else {
+            Ok(count)
         }
     })
 }
@@ -292,8 +297,8 @@ ERROR disk full
 Some(Ok(INFO started))
 -->
 
-`count_errors` folds over the file a line at a time, so a log of any size
-fits in memory. Each run of `fs.lines` opens the file, reads it and closes
+`count_errors` folds over the file a line at a time, so it never holds the
+whole file in memory. Each run of `fs.lines` opens the file, reads it and closes
 it, so running the same iterator twice reads the file twice, and if the
 file changed in between, the second run sees the change. `Iter.first` stops
 after one line and closes the file as it stops. `fs.chunks(path)` is the
@@ -349,29 +354,26 @@ error. When its function returns an `Err` instead, `with_writer` gives the
 write up, and with `.ReplaceAtomically` the old file stays as it was.
 
 A stream you hold past one function closes with `Reader.close` or
-`Writer.close`. A `defer` cannot report an error, so the form for one is
-`defer Reader.close_quietly(r)`.
+`Writer.close`. A `defer` cannot return an error, so close a stream from a
+`defer` with `defer Reader.close_quietly(r)`, which ignores a failed close.
 
 A stream goes from the start of a file to its end. For reading and
 writing anywhere in a file, such as a record in the middle of a database
 file, `fs.with_file` opens it as an [`io.File`](/reference/io/#file), whose
 `File.read_at`, `File.write_at` and `File.seek` take a position in bytes.
 
-Standard input is a stream too, but one that can be read only once, so it
-is not an `Iter`. A loop reads it a line at a time with `Iter.loop`, as a
-channel is read:
+Standard input is a stream too. `io.stdin` is a `Reader`, so a function
+that takes a `Reader` reads standard input, a file or text alike.
+`Reader.lines(r)` is a reader's lines as an `Iter`, read as the iterator
+runs, so unlike `fs.lines` it runs only once. `io.lines()` is the lines of
+standard input:
 
 ```nomi-run
 import std/io.{self, Reader}
 
 fn count_lines(r: Reader) -> Result<Int, io.Error> {
-    Iter.loop(fn count: Result<Int, io.Error> = Ok(0) -> {
-        case Reader.read_line(r) {
-            Ok(Some(_)) -> Result.map(count, fn n -> n + 1)
-            Ok(None) -> break count
-            Err(e) -> break Err(e)
-        }
-    })
+    lines = Reader.lines(r) |> Result.collect()?
+    Ok(Iter.count(lines))
 }
 
 fn main() {
@@ -387,36 +389,8 @@ Ok(2)
 
 `Reader.from_text` and `Reader.from_bytes` make a reader over data the
 program already holds, which is how a test feeds a function that takes a
-`Reader`. A reader can also make its bytes as it is read.
-`Reader.from_chunks` reads an `Iter` of `Bytes`, and
-`Reader.from_text_chunks` one of `String`, pulling a chunk only when a read
-needs it, so the sequence can be endless. `Reader.from_fn` calls a function
-for each chunk, which answers `Ok(Some(chunk))`, `Ok(None)` at the end or an
-`io.Error`:
-
-```nomi-run
-import std/io.{self, Reader}
-
-fn main() {
-    lines = Iter.from(1) |> Iter.map(fn n -> "${n}\n")
-    numbers = Reader.from_text_chunks(lines)
-    io.print(Reader.read_line(numbers))
-    io.print(Reader.read_line(numbers))
-
-    source = Reader.from_text("slow\n")
-    trickle = Reader.from_fn(fn -> Reader.read(source, max: 2))
-    io.print(Reader.read_all_text(trickle))
-}
-```
-<!-- expect
-Ok(Some(1))
-Ok(Some(2))
-Ok(slow
-)
--->
-
-The function or the sequence runs on the task that reads, inside whatever
-`io.capture` that read is in.
+`Reader`. [`std/io`](/reference/io/#reader) also has readers that make
+their bytes as they are read.
 
 ## Directories and paths
 
@@ -551,9 +525,8 @@ Ok(home)
 Err(invalid path "../private.txt": the path leads outside the directory fs.within confines calls to)
 -->
 
-On the disk `fs.within` is the operating system's own confinement (Go's
-`os.Root`), so a symlink changed while the function runs cannot lead out
-either.
+On the disk the operating system enforces the confinement, so a symlink
+changed while the function runs cannot lead out either.
 
 ## Testing code that uses files
 
@@ -610,9 +583,6 @@ same sandbox.
 
 For code whose behavior depends on the real disk, `fs.with_temp_dir` makes
 a fresh directory, runs a function with its path and removes it afterwards.
-`fs_testing.conformance(dir)` checks that a directory behaves as std/fs
-promises, and std's own tests run it against a temporary directory and
-against a sandbox, which is how the sandbox is kept honest.
 
 ## Output in tests
 

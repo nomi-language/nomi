@@ -44,7 +44,7 @@ impl CustomSet<T> {
 
     /// Whether `set` and `other` share no value.
     pub fn is_disjoint(set: CustomSet<T>, other: CustomSet<T>) -> Bool where T: Equatable {
-        !Iter.any(set.items, &CustomSet.contains(other, &1))
+        not Iter.any(set.items, &CustomSet.contains(other, &1))
     }
 
     /// `set` with `element` in it.
@@ -62,7 +62,7 @@ impl CustomSet<T> {
     /// The values in `set` that are not in `other`.
     pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
         #CustomSet{
-            items: set.items |> Iter.filter(&(!CustomSet.contains(other, &1))) |> Iter.to_list(),
+            items: set.items |> Iter.reject(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 

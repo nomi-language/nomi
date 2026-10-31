@@ -53,8 +53,8 @@ Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
 used and tested parts. Concurrency, calling Go, and module management are
-newer. Next on the list is incremental compilation, which will make the
-editor and `nomi check` faster.
+newer. The editor already rechecks only what an edit touches. Next is doing
+the same for `nomi run`, `nomi check` and `nomi test`.
 :::
 
 ## Running Nomi
@@ -120,10 +120,10 @@ newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
 macros: a library [generates code](/generating-code/) into ordinary files
 instead. Type inference stays inside a function body.
 
-**Go.** You will recognize modules that work like Go modules, a standard formatter,
-explicit imports, channels and context-style cancellation. Nomi has no Go
-packages. Values are immutable, errors are `Result` values, a type says which
-interfaces it implements, and concurrency is structured.
+**Go.** You will recognize modules that work like Go modules, a standard
+formatter, explicit imports, channels and context-style cancellation. Values
+are immutable, errors are `Result` values, a type says which interfaces it
+implements, and concurrency is structured.
 
 Start with [Bindings & Expressions](/bindings-and-expressions/). Each chapter
 builds on the one before.

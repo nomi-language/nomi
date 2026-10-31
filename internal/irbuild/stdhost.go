@@ -142,6 +142,18 @@ type stdHostSpec struct {
 	// writes its own `impl Debug` for, which is why inspectorBody's
 	// `case def.rtOpaque:` declines — see stdGoHandleDef.
 	handle bool
+	// phantom names the declaration's type parameters when every one is
+	// PHANTOM: no value of the type stores anything of it, so the
+	// representation is one leaf whatever the arguments are. std/regex's
+	// `Regex<C>` is the row: C is the shape the checker gives a match's
+	// capture groups (`String.captures`), and the compiled pattern the handle
+	// holds is the same for every C. Each channel reads `Regex<X>` as the
+	// row's one kind and drops X (phantomHostTypeOf, phantomHostSigKind,
+	// projectPhantomHost), a std function whose type parameters stand only
+	// there is not generic to the builder (stdrecvgeneric.go's phantomOnly),
+	// and a generic function of a program's is instantiated at X from the
+	// checker's types (genericmono.go's solvePhantomParams).
+	phantom []string
 }
 
 // declaredHostType reports whether decl is the `host type` declaration this
@@ -150,15 +162,22 @@ type stdHostSpec struct {
 // Everything checked here decides REPRESENTATION, and each check fails toward NO
 // anchor rather than a wrong layout — opaqueSpec.matches' rule, applied to the
 // other declaration node. `Public`, because a file-private declaration cannot be
-// the type another module names. No TYPE PARAMETERS, because a generic
-// `host type` is a `*DistinctType` and a different mechanism entirely (see
-// buildExternTypeShell's other branch) — a row here must not redirect one. No
+// the type another module names. Exactly the row's PHANTOM type parameters,
+// unbounded, and none for any other row, because a generic `host type` is a
+// `*DistinctType` and a different mechanism entirely (see
+// buildExternTypeShell's other branch): a row here must not redirect one whose
+// parameters a value stores. No
 // body or items, because each is layout-relevant. An attached `//!` test is NOT
 // checked: it cannot affect layout and it refuses at its own position — see
 // stdStructSpec.matches.
 func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
-	if decl.Name != s.nomi || !decl.Public || len(decl.TypeParams) > 0 {
+	if decl.Name != s.nomi || !decl.Public || len(decl.TypeParams) != len(s.phantom) || len(decl.WhereClauses) > 0 {
 		return false
+	}
+	for i, tp := range decl.TypeParams {
+		if tp.Name != s.phantom[i] || len(tp.Bounds) > 0 {
+			return false
+		}
 	}
 	if decl.HasBody || len(decl.Items) > 0 {
 		return false
@@ -297,7 +316,7 @@ var stdHostSpecs = []stdHostSpec{
 	// Types()), which is what makes its value a host handle and its `values:`
 	// operand `<Regex>`. TestStdHostHandleRowsMatchTheBindingsTypeTable asserts
 	// that correspondence in both directions.
-	{origin: "std/regex", nomi: "Regex", goType: reflect.TypeFor[rt.Regex](), handle: true},
+	{origin: "std/regex", nomi: "Regex", goType: reflect.TypeFor[rt.Regex](), handle: true, phantom: []string{"C"}},
 	// `Reader` and `Writer`, std/io's streams, origin-identified for the
 	// reason `Supervisor` is: a `pub host type` with rt's representation, a
 	// one-field struct over an unexported stream, so the value is copyable
@@ -461,8 +480,14 @@ func stdHostAnchors(fa *analysis.FileAnalysis) map[string]int {
 // path lives on the import symbol and the declaration on its target, so both
 // halves are needed and neither substitutes for the other.
 func stdHostOriginAnchored(fa *analysis.FileAnalysis, sym, resolved *analysis.Symbol, s *stdHostSpec) bool {
-	p, isPrim := resolved.Type.(*analysis.PrimitiveType)
-	if !isPrim || p.String() != s.nomi {
+	if len(s.phantom) > 0 {
+		// A generic `host type` is a `*DistinctType`: the declaration's own
+		// shell, with no arguments (stdGenHostDeclIn's rule).
+		dt, isDistinct := resolved.Type.(*analysis.DistinctType)
+		if !isDistinct || dt.Name != s.nomi || len(dt.TypeArgs) > 0 {
+			return false
+		}
+	} else if p, isPrim := resolved.Type.(*analysis.PrimitiveType); !isPrim || p.String() != s.nomi {
 		return false
 	}
 	decl, isExtern := resolved.Node.(*ast.ExternType)
@@ -561,6 +586,60 @@ func (g *gen) projectOriginHost(t *analysis.PrimitiveType) kind {
 		}
 	}
 	return kindInvalid
+}
+
+// phantomHostSpec is the stdHostSpecs row for a phantom-parameter std host
+// type (std/regex's `Regex<C>`) named name, with its index, or -1.
+func phantomHostSpec(origin, name string) int {
+	for i := range stdHostSpecs {
+		s := &stdHostSpecs[i]
+		if len(s.phantom) > 0 && s.nomi == name && (origin == "" || s.origin == origin) {
+			return i
+		}
+	}
+	return -1
+}
+
+// projectPhantomHost is the kind of a solved `Regex<X>`: the row's one leaf,
+// whatever X is (stdHostSpec.phantom).
+func projectPhantomHost(ty *analysis.DistinctType) (kind, bool) {
+	if ty.Origin == "" {
+		return kindInvalid, false
+	}
+	i := phantomHostSpec(ty.Origin, ty.Name)
+	// No arguments is the declaration's own shell, which a witness
+	// (`Context.value(c, Regex)`) names.
+	if i < 0 || (len(ty.TypeArgs) != 0 && len(ty.TypeArgs) != len(stdHostSpecs[i].phantom)) {
+		return kindInvalid, false
+	}
+	return stdHostKind(i), true
+}
+
+// phantomHostTypeOf is the kind of an annotation `Regex<X>` whose name this
+// module anchors to a phantom-parameter row: the row's one leaf.
+func (g *gen) phantomHostTypeOf(gt *ast.GenericType) (kind, bool) {
+	g.loadStdHosts()
+	i, anchored := g.stdHostByName[gt.Name]
+	if !anchored || len(stdHostSpecs[i].phantom) == 0 {
+		return kindInvalid, false
+	}
+	if len(gt.Params) != len(stdHostSpecs[i].phantom) {
+		return kindInvalid, true
+	}
+	return stdHostKind(i), true
+}
+
+// phantomHostSigKind is phantomHostTypeOf for a stdlib signature, against the
+// module's anchors.
+func phantomHostSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
+	i, anchored := anchors.hosts[gt.Name]
+	if !anchored || len(stdHostSpecs[i].phantom) == 0 {
+		return kindInvalid, false
+	}
+	if len(gt.Params) != len(stdHostSpecs[i].phantom) {
+		return kindInvalid, true
+	}
+	return stdHostKind(i), true
 }
 
 // irHostHandleKind is a std `host type` carried as an opaque Go handle, such

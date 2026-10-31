@@ -170,7 +170,7 @@ impl Currency {
     //
     pub fn is_iso(currency: Currency) -> Bool {
         Currency(text) = currency
-        !String.contains(text, ":")
+        not String.contains(text, ":")
     }
 }
 

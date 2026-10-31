@@ -21,15 +21,15 @@ numbers:
 
 ```nomi-run
 fn main() {
-    // Countdown — break when n reaches 0.
+    // Countdown: break when n reaches 0.
     countdown = Iter.loop(fn n = 5 -> {
-        if n == 0 { break n }
+        if n == 0 { break }
         n - 1
     })
 
     dbg countdown
 
-    // Tuple state — first Fibonacci pair where the second is > 100.
+    // Tuple state: the first Fibonacci pair whose second number is over 100.
     #(a, b) = Iter.loop(fn #(x, y) = #(0, 1) -> {
         if y > 100 { break #(x, y) }
         #(y, x + y)
@@ -50,9 +50,9 @@ dbg line 17: b = 144
 parameter is the loop's state, and its default value is the starting state. In
 the countdown, `n` starts at 5.
 
-Each round, the function returns the state for the next round. `break value`
-ends the loop, and `value` becomes the loop's result. A bare `break` ends it
-with the current state.
+Each round, the function returns the state for the next round. A bare `break`
+ends the loop with the current state as its result. `break value` ends it with
+`value`, which has the same type as the state.
 
 The state is a single value. To carry more than one thing, use a tuple or a
 struct. The Fibonacci loop carries a pair, and its parameter is a pattern that
@@ -85,6 +85,10 @@ fn main() {
 }
 ```
 
+`Ok(Some(line)) = io.read_line() else { break }` binds `line` when the read
+gives a line, and runs the `else` block otherwise
+([Binding with `else`](/pattern-matching/#binding-with-else)).
+
 You can also give the starting state as a named argument, `from:`. You need
 it when the loop's body is a named function, such as `step`. A function passed
 as a value leaves its parameter defaults behind, so a default can't give the
@@ -96,8 +100,7 @@ the starting state one way or the other, not both.
 `Iter.reduce` gives back only the final total.
 [`Iter.scan`](/reference/iter/#iterscan) gives back the total after each
 element. Like `Iter.map`, it is lazy: it computes each total only when
-something asks for it. Its starting value is given the same way as a loop's,
-as the default of the callback's first parameter or by name as `from:`:
+something asks for it. Its starting value is given the same way as a loop's:
 
 ```nomi-run
 fn main() {
@@ -117,7 +120,7 @@ dbg line 7: running = [3, 4, 8, 9, 14]
 The starting value itself is not in the output, so there is one total per
 element. When each element should produce its own result while a value is
 carried along, use [`Iter.map_reduce`](/reference/iter/#itermap_reduce). Its
-callback returns `#(result, next_state)`, and the call gives back the list of
+function returns `#(result, next_state)`, and the call gives back the list of
 results and the final state.
 
 ## `break` and `continue` in iter callbacks
@@ -128,7 +131,7 @@ use `break` to stop early and `continue` to skip an element:
 
 ```nomi-run
 fn main() {
-    // break in reduce — stop accumulating once total would exceed 60.
+    // break in reduce: stop adding once the total would pass 60.
     partial_sum =
         [10, 20, 30, 40, 50]
         |> Iter.reduce(fn acc = 0, x -> {
@@ -138,7 +141,7 @@ fn main() {
 
     dbg partial_sum
 
-    // continue in map — skip odd numbers from the output.
+    // continue in map: leave odd numbers out of the output.
     evens_doubled =
         [1, 2, 3, 4, 5]
         |> Iter.map(fn x -> {
@@ -186,10 +189,7 @@ A named function can use `break` and `continue` too. They act on the
 iteration you pass the function to. Pass the function itself as the callback,
 as in `Iter.map(keep_small)`.
 
-A fold such as `reduce` needs a starting value. A lambda gives it as the
-default of its first parameter, as in `fn total = 0, x -> ...`. A named
-function passed as a value leaves its defaults behind, so give the start by
-name instead, as `from:`:
+A named fold takes its start as `from:`, as with `Iter.loop`:
 
 ```nomi-run
 fn keep_small(x: Int) -> Int {
@@ -279,15 +279,13 @@ dbg line 14: doubled = [10, 14]
 `small` gives `None` for 500. The callback skips that element with its own
 `continue` and doubles the others.
 
-## `return` is lambda-scoped
+## `return` inside a lambda
 
 `return` inside a lambda leaves that lambda, not the function the lambda is
 written in:
 
 ```nomi-run
 fn main() {
-    // `return 300` exits the map callback's lambda; the map keeps going
-    // and the value lands in the output list at this position.
     mapped =
         [1, 2, 3, 4, 5]
         |> Iter.map(fn x -> {
@@ -301,7 +299,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 12: mapped = [10, 20, 300, 40, 50]
+dbg line 10: mapped = [10, 20, 300, 40, 50]
 -->
 
 In a callback, `return value` makes `value` the result for this element, and
@@ -347,10 +345,5 @@ The standard library uses the same pieces you do. Collections have no `map` of
 their own that builds a new list right away. To get a list, you write
 `Iter.map(xs, f) |> Iter.to_list()`.
 
-### No Go panics
-
-Nomi runs on a virtual machine written in Go. `break` and `continue` do not
-throw an exception or a Go panic to get out of a callback. The callback
-returns as usual and hands back a signal with its result. The iteration
-function reads the signal and decides whether to go on, skip the element or
-stop. Stopping early is an ordinary return, so it costs little.
+`break` and `continue` are ordinary returns that carry a signal, so stopping
+early costs little.

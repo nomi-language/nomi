@@ -41,6 +41,11 @@ const (
 	AT        // @ (decorator marker)
 	HASH      // # (collection literal sigil)
 	CARET     // ^ (reserved; not an expression prefix)
+	BIT_AND   // &&& (bitwise and)
+	BIT_OR    // ||| (bitwise or)
+	BIT_XOR   // ^^^ (bitwise exclusive or)
+	BIT_NOT   // ~~~ (prefix bitwise not)
+	SHL       // <<< (shift left); `>>>` is three adjacent GTs, which the parser joins
 
 	// Comparison
 	EQEQ   // ==
@@ -53,6 +58,8 @@ const (
 	// Keywords
 	AND
 	OR
+	NOT // not (prefix logical not)
+	IS  // is (pattern test: `x is Some(_)`)
 	IF
 	ELSE
 	FN
@@ -195,6 +202,11 @@ var tokenNames = [...]string{
 	AT:                               "AT",
 	HASH:                             "HASH",
 	CARET:                            "CARET",
+	BIT_AND:                          "BIT_AND",
+	BIT_OR:                           "BIT_OR",
+	BIT_XOR:                          "BIT_XOR",
+	BIT_NOT:                          "BIT_NOT",
+	SHL:                              "SHL",
 	EQEQ:                             "EQEQ",
 	BANGEQ:                           "BANGEQ",
 	LT:                               "LT",
@@ -203,6 +215,8 @@ var tokenNames = [...]string{
 	GTEQ:                             "GTEQ",
 	AND:                              "AND",
 	OR:                               "OR",
+	NOT:                              "NOT",
+	IS:                               "IS",
 	IF:                               "IF",
 	ELSE:                             "ELSE",
 	FN:                               "FN",

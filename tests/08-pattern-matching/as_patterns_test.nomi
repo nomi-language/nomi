@@ -21,7 +21,7 @@ fn change(r: Result<Tx, String>) -> Int {
 
 fn first_of(xs: List<Maybe<Int>>) -> #(Int, Int) {
     case xs {
-        [Some(n) as head, .._] as all -> #(Maybe.with_default(head, n), Iter.count(all))
+        [Some(n) as head, ..] as all -> #(Maybe.with_default(head, n), Iter.count(all))
         _ -> #(0, 0)
     }
 }

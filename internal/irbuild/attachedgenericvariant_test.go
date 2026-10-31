@@ -36,7 +36,7 @@ fn first(b: shapes.Bag<Int>) -> String {
 
 fn label(b: shapes.Bag<String>) -> String {
     case b {
-        shapes.Bag.Items[s, .._] -> s
+        shapes.Bag.Items[s, ..] -> s
         %N{"k" => v} -> v
         _ -> "-"
     }

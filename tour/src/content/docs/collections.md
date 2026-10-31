@@ -26,8 +26,8 @@ A type you build on a collection writes its name right after the symbol:
 `type Scores Map<String, Int>`. A list type writes its name before the
 brackets, `Ids[1, 2]`. [Distinct types](/structs-enums-distinct/) covers these.
 
-Every stdlib function takes the collection it works on as its first argument.
-That is what lets you chain calls with pipes.
+A function that works on a collection takes it as its first argument. That is
+what lets you chain calls with pipes.
 
 ## Iter
 
@@ -92,10 +92,10 @@ error: `Iter.to_list` of an infinite iterator (`Range.naturals`) never finishes;
 
 Sometimes the compiler can't see where the values come from, for example
 when an endless iterator is passed in as a parameter. Then the program stops
-with the same message when it reaches `Iter.to_list`, before it squares
+with a similar message at the `Iter.to_list` line, before it squares
 anything, instead of running until it runs out of memory. An iterator says
 that it never ends through
-[`Iter.is_infinite`](/reference/iter/#iterinfinite).
+[`Iter.is_infinite`](/reference/iter/#iteris_infinite).
 
 ## Lists
 
@@ -143,7 +143,6 @@ fn main() {
     dbg Vector.get(names, 5)
     dbg Vector.get(names, 1)!
     dbg names + #["Dorothy"]
-    Unit
 }
 
 ```
@@ -164,8 +163,9 @@ items up by index or add them at the end. Use a list when you add items at the
 front.
 
 Indexes start at 0.
-[`Vector.get`](/reference/vectors/#vectorget) answers `None` when the index is
-outside the vector, so use it when the index comes from data.
+[`Vector.get`](/reference/vectors/#vectorget) answers a
+[`Maybe`](/reference/maybe/): `Some(item)` when the index is inside the
+vector, `None` when it is not. Use it when the index comes from data.
 `Vector.get(names, 1)!`, with a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail), returns the item
 itself and stops the program when the index is outside, so use it when your
@@ -177,46 +177,8 @@ stops the program the same way.
 [`List.concat`](/reference/lists/#listconcat) and
 [`Vector.concat`](/reference/vectors/#vectorconcat) do the same thing by name.
 
-A vector pattern takes a vector apart, from either end:
-
-```nomi-run
-fn ends(v: Vector<Int>) -> String {
-    case v {
-        #[] -> "empty"
-        #[only] -> "just ${only}"
-        #[first, .., last] -> "${first} to ${last}"
-    }
-}
-
-fn sum(v: Vector<Int>) -> Int {
-    case v {
-        #[] -> 0
-        #[x, ..rest] -> x + sum(rest)
-    }
-}
-
-fn main() {
-    dbg ends(#[])
-    dbg ends(#[7])
-    dbg ends(#[1, 2, 3])
-    dbg sum(#[1, 2, 3, 4])
-}
-
-```
-<!-- expect
-dbg line 17: ends(#[]) = "empty"
-dbg line 18: ends(#[7]) = "just 7"
-dbg line 19: ends(#[1, 2, 3]) = "1 to 3"
-dbg line 20: sum(#[1, 2, 3, 4]) = 10
--->
-
-The items before the `..` match from the front and the items after it from
-the end. A name after the `..` gets the items in between, as a vector:
-`#[x, ..rest]` binds the first item to `x` and the others to `rest`. Binding
-`rest` copies nothing, so `sum` walks the vector without rebuilding it. A
-pattern with no `..`, such as `#[only]`, matches a vector of exactly that
-length. The compiler checks that the arms cover every length, as it does for
-a list ([Pattern Matching](/pattern-matching/)).
+A `case` can take a vector apart from either end, as
+[Pattern Matching](/pattern-matching/#lists-vectors-and-sets) shows.
 
 ## Maps
 
@@ -238,8 +200,8 @@ dbg line 6: Map.get(config, "user") = None
 
 You write a map as `%{"key" => value, ...}`, and the empty map as `%{}`.
 
-[`Map.get`](/reference/maps/#mapget) returns a [`Maybe<V>`](/reference/maybe/).
-That is `Some(value)` when the key is there and `None` when it is not.
+[`Map.get`](/reference/maps/#mapget) also returns a `Maybe`: `Some(value)`
+when the key is there and `None` when it is not.
 [Pattern Matching](/pattern-matching/) shows how to get the value out.
 
 `a + b` merges two maps. When both have the same key, the value from `b` wins.
@@ -285,39 +247,8 @@ not in `b`. [`Set.union`](/reference/sets/#setunion) and
 or remove one value, use [`Set.insert`](/reference/sets/#setinsert) and
 [`Set.remove`](/reference/sets/#setremove).
 
-A set pattern asks whether the set holds certain values:
-
-```nomi-run
-fn describe(roles: Set<String>) -> String {
-    case roles {
-        %["admin", ..others] -> "admin, and ${Set.size(others)} more"
-        %["guest", ..] -> "a guest"
-        %[] -> "nobody"
-        _ -> "someone else"
-    }
-}
-
-fn main() {
-    dbg describe(%["admin", "editor", "viewer"])
-    dbg describe(%["guest"])
-    dbg describe(%[])
-    dbg describe(%["editor"])
-}
-
-```
-<!-- expect
-dbg line 11: describe(%["admin", "editor", "viewer"]) = "admin, and 2 more"
-dbg line 12: describe(%["guest"]) = "a guest"
-dbg line 13: describe(%[]) = "nobody"
-dbg line 14: describe(%["editor"]) = "someone else"
--->
-
-`%["admin", ..others]` matches a set that holds `"admin"`, and binds the
-other values to `others`. `%["guest", ..]` only checks that `"guest"` is
-there. Without a `..`, as in `%[]`, the set must hold exactly the values
-written. Each value in a set pattern is an expression, so a name there means
-the value it is bound to, not a new binding. No set pattern matches every set,
-so a `case` over a set needs a `_` arm.
+A `case` can ask whether a set holds certain values, as
+[Pattern Matching](/pattern-matching/#lists-vectors-and-sets) shows.
 
 ## Spreads
 
@@ -347,44 +278,28 @@ dbg line 11: %{..m, "port" => "9090", "user" => "ada"} = %{"host" => "localhost"
 -->
 
 A spread can go anywhere in the literal, and a literal can have several:
-`[..xs, "Cy", ..ys]` joins two lists around `"Cy"`. In a map a later key
-wins, so `%{..m, k => v}` is `m` with `k => v` added or replaced, and
-`%{k => v, ..m}` keeps `m`'s value when `m` has `k`. `[x, ..xs]`,
-`%[..s, x]` and `%{..m, k => v}` reuse the existing collection; a spread
-anywhere else copies it, as `+` does.
+`[..xs, "Cy", ..ys]`. In a map a later key wins, so `%{..m, "port" => "9090"}`
+replaces `m`'s port, and `%{"port" => "9090", ..m}` keeps it. In a list,
+vector or set, a spread can be any `Iter`, such as `[0, ..xs |> Iter.map(f)]`.
 
-A spread also works inside a struct or a map that you are updating. There, a
-`..` with nothing after it means the value that is already there:
+In a map you are updating, a `..` with nothing after it means the value
+already under that key:
 
 ```nomi-run
-struct Team {
-    members: List<String>
-    roster: Vector<String>
-    tags: Set<String>
-}
-
 fn main() {
-    team = #Team{members: ["Bo"], roster: #["Bo"], tags: %["red"]}
-    dbg #{..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: %[.., "blue"]}
-
-    teams = %{"hawks" => %{"name" => "Hawks"}}
     scores = %{"ada" => [3]}
-    dbg %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}}
     dbg %{..scores, "ada" => [5, ..], "bob" => [1, ..]}
 }
 
 ```
 <!-- expect
-dbg line 9: #{..team, members: ["Ada", ..], roster: #[.., "Cy"], tags: %[.., "blue"]} = #Team{members: ["Ada", "Bo"], roster: #["Bo", "Cy"], tags: %["red", "blue"]}
-dbg line 13: %{..teams, "hawks" => %{.., "city" => "Atlanta"}, "kites" => %{.., "city" => "Leeds"}} = %{"hawks" => %{"name" => "Hawks", "city" => "Atlanta"}, "kites" => %{"city" => "Leeds"}}
-dbg line 14: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
+dbg line 3: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3], "bob" => [1]}
 -->
 
-`members: ["Ada", ..]` puts `"Ada"` in front of the members the team already
-has. Without the `..`, the new list would replace the old one.
-
-For a map key that is not there yet, `..` starts from an empty collection. That
-is why `"kites"` and `"bob"` come out with only the new values.
+`"ada" => [5, ..]` puts 5 in front of Ada's scores. Without the `..`, the new
+list would replace the old one. For a key that is not there yet, `..` starts
+from an empty collection, so `"bob"` gets only `[1]`. A struct field updates
+the same way ([Updating a struct](/structs-enums-distinct/#updating-a-struct)).
 
 ## Ranges
 
@@ -401,23 +316,12 @@ because each number has a next one:
 fn main() {
     dbg Iter.to_list(1..5)
     dbg Iter.to_list(1..=5)
-
-    // Unbounded ranges work too; bound them with Iter.take downstream.
-    Range.naturals()
-    |> Iter.take(3)
-    |> Iter.to_list()
-    |> dbg
 }
 
 ```
 <!-- expect
 dbg line 2: Iter.to_list(1..5) = [1, 2, 3, 4]
 dbg line 3: Iter.to_list(1..=5) = [1, 2, 3, 4, 5]
-dbg line 9:
-  Range.naturals()
-  |> Iter.take(3)
-  |> Iter.to_list()
-  = [0, 1, 2]
 -->
 
 So does a range of [`Codepoint`](/reference/code_points/) values. A codepoint is
@@ -482,25 +386,6 @@ dbg line 5:
 A range whose end is below its start, such as `5..=1`, is empty. To count
 down, step by a negative amount: `Range.step_by(5..=1, -1)` gives 5, 4, 3,
 2 and 1.
-## Persistent immutability
-
-```nomi-run
-fn main() {
-    m1 = %{"a" => 1, "b" => 2}
-    m2 = Map.put(m1, "c", 3)
-
-    dbg Map.size(m1)
-    dbg Map.size(m2)
-}
-
-```
-<!-- expect
-dbg line 5: Map.size(m1) = 2
-dbg line 6: Map.size(m2) = 3
--->
-
-`Map.put` returns a new map with the extra entry. `m1` still has its two
-entries.
 
 The next chapter, [Iteration & Loops](/iteration-and-loops/), covers
 [`Iter.loop`](/reference/iter/#iterloop) for loops that carry state. It also

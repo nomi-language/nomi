@@ -103,12 +103,14 @@ fn main() {
     ) {
         Ok(hover) -> {
             io.print(
-                "signature_is_one_line = " + Bool.to_string(!String.contains(hover.signature, "\n"))
+                "signature_is_one_line = " + Bool.to_string(
+                    not String.contains(hover.signature, "\n")
+                )
             )
 
             io.print(
                 "signature_has_no_fence = " + Bool.to_string(
-                    !String.contains(hover.signature, "```")
+                    not String.contains(hover.signature, "```")
                 )
             )
 

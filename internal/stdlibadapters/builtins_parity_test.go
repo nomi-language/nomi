@@ -43,8 +43,8 @@ var builtinCheckedRows = map[string]bool{
 	"decimal.Decimal.to_float": true, "float.Float.to_decimal": true, "decimal.Decimal.divide": true,
 	"decimal.Decimal.divide_exact": true,
 	"decimal.Decimal.round":        true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
-	"strings.String.repeat": true, "int.Int.shift_left": true, "int.Int.shift_right": true,
-	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.Bytes.hash": true,
+	"strings.String.repeat": true,
+	"bytes.Bytes.to_list":   true, "bytes.Bytes.from_list": true, "bytes.Bytes.hash": true,
 	"strings.String.normalize": true, "strings.String.to_literal": true,
 	"fs_host.read": true, "fs_host.read_text": true, "fs_host.write": true, "fs_host.list": true,
 	"fs_host.create_dir": true, "fs_host.remove": true, "fs_host.remove_all": true, "fs_host.rename": true,
@@ -79,7 +79,12 @@ var contextCheckedRows = map[string]bool{
 	// Calls back into Nomi on each read's frame: rt's
 	// TestPullReaders_* and vmhost's TestReaderSources_*.
 	"io.Reader.from_fn": true,
-	"fs_host.open":      true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
+	// Calls back into Nomi on each send's frame: rt's TestPushWriters_*
+	// and tests/01-foundations/writer_fn_test.nomi.
+	"io.writer_from_fn": true,
+	// Writer.collect's writer: TestRtFuncs_MemoryWriterCollects.
+	"io.memory_writer": true, "io.collected": true,
+	"fs_host.open": true, "fs_host.create": true, "fs_host.discard": true, "fs_host.temp_dir": true,
 	"fs_host.make_temp_dir": true, "fs_host.current_dir": true, "fs_host.new_sandbox": true,
 	"fs_host.sandbox_fail": true, "fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
 	// A File on the disk and in a sandbox, and fs.within's crossings:
@@ -260,8 +265,6 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		"decimal.Decimal.divide_exact": {},
 		"decimal.Decimal.round":        {},
 		"strings.String.repeat":        {{sv("ab"), iv(3)}, {sv("x"), iv(0)}, {sv("é"), iv(2)}, {sv("x"), iv(-1)}},
-		"int.Int.shift_left":           {{iv(1), iv(3)}, {iv(1), iv(63)}, {iv(1), iv(64)}, {iv(-8), iv(1)}, {iv(1), iv(-1)}},
-		"int.Int.shift_right":          {{iv(8), iv(3)}, {iv(-8), iv(1)}, {iv(1), iv(64)}, {iv(1), iv(-1)}},
 		"bytes.Bytes.to_list":          {{rt.Bytes("")}, {rt.Bytes("ab\xff")}},
 		"bytes.Bytes.from_list":        {{rtList()}, {rtList(rt.Byte(1), rt.Byte(255))}},
 		"bytes.Bytes.hash":             {{rt.Bytes("")}, {rt.Bytes("ab")}, {rt.Bytes("ab\xff")}},

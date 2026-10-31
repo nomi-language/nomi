@@ -111,6 +111,9 @@ func normalizeNestedImportLayout(node ast.Node) {
 		normalizeNestedImportLayout(n.Body)
 	case *ast.Unary:
 		normalizeNestedImportLayout(n.Right)
+	case *ast.Is:
+		normalizeNestedImportLayout(n.Value)
+		normalizeNestedImportLayout(n.Pattern)
 	case *ast.Binary:
 		normalizeNestedImportLayout(n.Left)
 		normalizeNestedImportLayout(n.Right)

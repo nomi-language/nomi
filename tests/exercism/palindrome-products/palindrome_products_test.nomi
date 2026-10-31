@@ -1,7 +1,7 @@
 import palindrome_products.{self, Error, Product}
 
 test "smallest" {
-    cases: List<#(String, Int, Int, Result<Maybe<Product>, Error>)> = [
+    cases = [
         #(
             "find the smallest palindrome from single digit factors",
             1,
@@ -27,7 +27,7 @@ test "smallest" {
             Ok(Some(#Product{value: 1002001, factors: [#(1001, 1001)]})),
         ),
         #("empty result for smallest if no palindrome in the range", 1002, 1003, Ok(None)),
-        #("error result for smallest if min is more than max", 10000, 1, Err(.MinAboveMax)),
+        #("error result for smallest if min is more than max", 10000, 1, Err(Error.MinAboveMax)),
         #(
             "smallest product does not use the smallest factor",
             3215,
@@ -42,7 +42,7 @@ test "smallest" {
 }
 
 test "largest" {
-    cases: List<#(String, Int, Int, Result<Maybe<Product>, Error>)> = [
+    cases = [
         #(
             "find the largest palindrome from single digit factors",
             1,
@@ -68,7 +68,7 @@ test "largest" {
             Ok(Some(#Product{value: 99000099, factors: [#(9901, 9999)]})),
         ),
         #("empty result for largest if no palindrome in the range", 15, 15, Ok(None)),
-        #("error result for largest if min is more than max", 2, 1, Err(.MinAboveMax)),
+        #("error result for largest if min is more than max", 2, 1, Err(Error.MinAboveMax)),
     ]
 
     subtests cases, #(description, min, max, expected), description {

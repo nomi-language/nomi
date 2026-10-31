@@ -161,26 +161,72 @@ func TestInt_Wrap64IsTheLowSixtyFourBits(t *testing.T) {
 	}
 }
 
-// TestInt_TheBitwiseFunctionsReadTwosComplementAtAnySize.
-func TestInt_TheBitwiseFunctionsReadTwosComplementAtAnySize(t *testing.T) {
+// TestInt_TheBitwiseOperationsReadTwosComplementAtAnySize.
+func TestInt_TheBitwiseOperationsReadTwosComplementAtAnySize(t *testing.T) {
+	two80 := bigOf(t, "1208925819614629174706176")
+	str := FormatIntValue
+	if got := IntAnd(int64(-1), two80); str(got) != str(two80) {
+		t.Errorf("-1 &&& 2^80 = %s", str(got))
+	}
+	if got := IntOr(two80, int64(5)); str(got) != "1208925819614629174706181" {
+		t.Errorf("2^80 ||| 5 = %s", str(got))
+	}
+	if got := IntXor(two80, two80); got != int64(0) {
+		t.Errorf("2^80 ^^^ 2^80 = %s", str(got))
+	}
+	if got := IntNot(two80); str(got) != "-1208925819614629174706177" {
+		t.Errorf("~~~2^80 = %s", str(got))
+	}
+	if got := IntNot(int64(math.MaxInt64)); got != int64(math.MinInt64) {
+		t.Errorf("~~~MaxInt64 = %s", str(got))
+	}
+	if got, ok := IntShl(int64(1), int64(80)); !ok || str(got) != str(two80) {
+		t.Errorf("1 <<< 80 = %s", str(got))
+	}
+	if got, ok := IntShl(int64(-1), int64(63)); !ok || got != int64(math.MinInt64) {
+		t.Errorf("-1 <<< 63 = %s", str(got))
+	}
+	if got, ok := IntShr(IntNeg(two80), int64(79)); !ok || got != int64(-2) {
+		t.Errorf("-2^80 >>> 79 = %s", str(got))
+	}
+	if got, ok := IntShr(int64(-1), int64(500)); !ok || got != int64(-1) {
+		t.Errorf("-1 >>> 500 = %s", str(got))
+	}
+	if got, ok := IntShr(int64(7), two80); !ok || got != int64(0) {
+		t.Errorf("7 >>> 2^80 = %s", str(got))
+	}
+}
+
+// TestInt_AShiftRefusesANegativeCountAndAnUnholdableResult.
+func TestInt_AShiftRefusesANegativeCountAndAnUnholdableResult(t *testing.T) {
+	if _, ok := IntShl(int64(1), int64(-1)); ok {
+		t.Error("1 <<< -1 answered")
+	}
+	if _, ok := IntShr(int64(1), int64(-1)); ok {
+		t.Error("1 >>> -1 answered")
+	}
+	if _, ok := IntShl(int64(1), int64(maxShift+1)); ok {
+		t.Error("a left shift past maxShift bits answered")
+	}
+	if err := ShiftCountError(3, int64(-1), true); err.Error() != "line 3: negative shift count -1" {
+		t.Errorf("negative count: %q", err)
+	}
+}
+
+// TestInt_BitCountAndBitLength.
+func TestInt_BitCountAndBitLength(t *testing.T) {
 	two80 := IntOf(bigOf(t, "1208925819614629174706176"))
-	if got := IntBitAnd(SmallInt(-1), two80); got.String() != two80.String() {
-		t.Errorf("-1 & 2^80 = %s", got)
+	if got := IntBitCount(two80); got != 1 {
+		t.Errorf("bit_count(2^80) = %d", got)
 	}
-	if got := IntBitOr(two80, SmallInt(5)); got.String() != "1208925819614629174706181" {
-		t.Errorf("2^80 | 5 = %s", got)
+	if got := IntBitLength(two80); got != 81 {
+		t.Errorf("bit_length(2^80) = %d", got)
 	}
-	if got := IntBitNot(two80); got.String() != "-1208925819614629174706177" {
-		t.Errorf("^2^80 = %s", got)
+	if got := IntBitLength(IntOf(IntNeg(two80.Value()))); got != 80 {
+		t.Errorf("bit_length(-2^80) = %d", got)
 	}
-	if got := IntShiftLeft(SmallInt(1), SmallInt(80)); got.String() != two80.String() {
-		t.Errorf("1 << 80 = %s", got)
-	}
-	if got := IntShiftRight(IntOf(IntNeg(two80.Value())), SmallInt(79)); got.String() != "-2" {
-		t.Errorf("-2^80 >> 79 = %s", got)
-	}
-	if got := IntShiftRight(SmallInt(-1), SmallInt(500)); got.String() != "-1" {
-		t.Errorf("-1 >> 500 = %s", got)
+	if got := IntBitLength(SmallInt(-8)); got != 3 {
+		t.Errorf("bit_length(-8) = %d", got)
 	}
 }
 

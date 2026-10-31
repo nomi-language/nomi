@@ -27,6 +27,8 @@ const (
 	NomiInstant  = "Instant"
 	NomiDynamic  = "Dynamic"
 	NomiUnit     = "Unit"
+	NomiReader   = "Reader"
+	NomiWriter   = "Writer"
 )
 
 // scalar is one row of the projection table.
@@ -40,6 +42,9 @@ type scalar struct {
 	// goNamed are the named Go types of another package that project to
 	// nomi, as "importPath.Name".
 	goNamed []string
+	// goPointers are the named Go types, as "importPath.Name", a pointer to
+	// which projects to nomi. A pointer to any other type is a Maybe.
+	goPointers []string
 }
 
 // intSpellings are the Go integer type names that project to Nomi Int.
@@ -58,7 +63,9 @@ var table = []scalar{
 	// `byte` and `uint8` are one Go type under two spellings; the go/ast
 	// side sees whichever the author wrote.
 	{nomi: NomiByte, goIdents: []string{"byte", "uint8"}},
-	{nomi: NomiInt, goIdents: intSpellings},
+	// A *big.Int holds an Int of any size, so it crosses as one, not as a
+	// Maybe of a struct.
+	{nomi: NomiInt, goIdents: intSpellings, goPointers: []string{"math/big.Int"}},
 	{nomi: NomiFloat, goIdents: []string{"float32", "float64"}},
 	// Bytes has no Go ident of its own: the go/ast side reaches it through a
 	// slice whose element projects to Byte, which is container knowledge and
@@ -74,6 +81,10 @@ var table = []scalar{
 	// Unit carries no value. How many Go results a declared Unit return
 	// allows is a SHAPE rule, owned by the caller's arity check.
 	{nomi: NomiUnit},
+	// std/io's streams cross as Go's stream interfaces. A Go type that is
+	// both (io.ReadWriter, net.Conn) projects to neither.
+	{nomi: NomiReader, goNamed: []string{"io.Reader", "io.ReadCloser"}},
+	{nomi: NomiWriter, goNamed: []string{"io.Writer", "io.WriteCloser"}},
 }
 
 // RtImportPath is the import path of the runtime library, whose rt.Dynamic
@@ -82,7 +93,8 @@ const RtImportPath = "github.com/nomi-language/nomi/rt"
 
 var (
 	byGoIdent = make(map[string]string, len(table)*3)
-	byGoNamed = make(map[string]string, 3)
+	byGoNamed = make(map[string]string, 7)
+	byGoPtr   = make(map[string]string, 1)
 )
 
 func init() {
@@ -92,6 +104,9 @@ func init() {
 		}
 		for _, named := range row.goNamed {
 			byGoNamed[named] = row.nomi
+		}
+		for _, named := range row.goPointers {
+			byGoPtr[named] = row.nomi
 		}
 	}
 }
@@ -105,10 +120,18 @@ func NomiForGoIdent(name string) (string, bool) {
 
 // NomiForGoNamedType maps a named Go type of another package onto the Nomi
 // type it projects to: `time.Duration` -> Duration, `time.Time` -> Instant,
-// `rt.Dynamic` -> Dynamic. importPath is the RESOLVED path of the
+// `rt.Dynamic` -> Dynamic, `io.Reader` -> Reader, `io.Writer` -> Writer. importPath is the RESOLVED path of the
 // selector's package, so a local type that merely spells `time.Time` cannot
 // masquerade as one.
 func NomiForGoNamedType(importPath, name string) (string, bool) {
 	nomi, ok := byGoNamed[importPath+"."+name]
+	return nomi, ok
+}
+
+// NomiForGoPointerType maps a pointer to the named Go type importPath.name
+// onto the Nomi type it projects to: `*big.Int` -> Int. A pointer the table
+// does not name is a Maybe of its element, which is container knowledge.
+func NomiForGoPointerType(importPath, name string) (string, bool) {
+	nomi, ok := byGoPtr[importPath+"."+name]
 	return nomi, ok
 }

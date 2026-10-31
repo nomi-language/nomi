@@ -27,9 +27,8 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
 fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe<List<Int>> {
     coins
     |> Iter.filter(&(&1 <= amount))
-    |> Iter.map(fn coin -> {
+    |> Iter.flat_map(fn coin -> {
         Vector.get(table, amount - coin)! |> Maybe.map(fn rest -> [coin, ..rest])
     })
-    |> Maybe.values()
     |> Iter.min_by(Iter.count)
 }

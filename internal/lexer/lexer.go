@@ -202,7 +202,8 @@ func (l *lexer) scanNewline() {
 
 // startsContinuationOperator reports whether rest, the text where the next
 // line starts, begins with a binary operator that no expression starts
-// with: `==`, `!=`, `<`, `<=`, `>`, `>=`, `and` or `or`. Such a line
+// with: `==`, `!=`, `<`, `<=`, `>`, `>=`, `<<<`, `>>>`, `&&&`, `|||`, `^^^`,
+// `and`, `or` or `is`. Such a line
 // continues the expression on the line above, as one starting with `|>`
 // does. `-` and `!` start expressions too, so a line starting with one
 // keeps its line break.
@@ -212,8 +213,10 @@ func startsContinuationOperator(rest string) bool {
 		return true
 	case strings.HasPrefix(rest, "<"), strings.HasPrefix(rest, ">"):
 		return true
+	case strings.HasPrefix(rest, "&&&"), strings.HasPrefix(rest, "|||"), strings.HasPrefix(rest, "^^^"):
+		return true
 	}
-	for _, word := range []string{"and", "or"} {
+	for _, word := range []string{"and", "or", "is"} {
 		if strings.HasPrefix(rest, word) && (len(rest) == len(word) || !isIdentPart(rest[len(word)])) {
 			return true
 		}
@@ -1020,6 +1023,8 @@ var keywords = map[string]token.TokenType{
 	"else":        token.ELSE,
 	"and":         token.AND,
 	"or":          token.OR,
+	"not":         token.NOT,
+	"is":          token.IS,
 	"fn":          token.FN,
 	"return":      token.RETURN,
 	"case":        token.CASE,
@@ -1137,9 +1142,12 @@ func (l *lexer) scanOperatorOrDelimiter() {
 		// `&1`, `&2`, ...: the parameter of that number of the capture
 		// around it, and `&` written against a call, a parenthesized
 		// expression or a literal starts a capture (spec §5, *Captures*).
-		// Nomi has no `&` operator otherwise. `&&` is the C-family spelling
-		// of `and`, so it is one ILLEGAL token that says so.
-		if startsCaptureBody(l.peekAt(1)) {
+		// `&&&` is bitwise and. `&&` is the C-family spelling of `and`, so
+		// it is one ILLEGAL token that says so.
+		if l.peekAt(1) == '&' && l.peekAt(2) == '&' {
+			l.advanceN(3)
+			l.tokens = append(l.tokens, token.Token{Type: token.BIT_AND, Lexeme: "&&&", Line: startLine, Col: startCol})
+		} else if startsCaptureBody(l.peekAt(1)) {
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.CAPTURE, Lexeme: "&", Line: startLine, Col: startCol})
 		} else if isDigit(l.peekAt(1)) {
@@ -1191,7 +1199,16 @@ func (l *lexer) scanOperatorOrDelimiter() {
 			l.tokens = append(l.tokens, token.Token{Type: token.EQ, Lexeme: "=", Line: startLine, Col: startCol})
 		}
 	case '<':
-		if l.peekAt(1) == '=' {
+		if l.peekAt(1) == '<' && l.peekAt(2) == '<' {
+			l.advanceN(3)
+			l.tokens = append(l.tokens, token.Token{Type: token.SHL, Lexeme: "<<<", Line: startLine, Col: startCol})
+		} else if l.peekAt(1) == '<' {
+			// No construct writes two `<` together, so `<<` is the C-family
+			// shift, which Nomi spells `<<<`.
+			l.advanceN(2)
+			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "<<",
+				Problem: "Nomi spells shift left `<<<`: write `a <<< n`, not `a << n`", Line: startLine, Col: startCol})
+		} else if l.peekAt(1) == '=' {
 			l.advance()
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.LTEQ, Lexeme: "<=", Line: startLine, Col: startCol})
@@ -1209,7 +1226,10 @@ func (l *lexer) scanOperatorOrDelimiter() {
 			l.tokens = append(l.tokens, token.Token{Type: token.GT, Lexeme: ">", Line: startLine, Col: startCol})
 		}
 	case '|':
-		if l.peekAt(1) == '>' {
+		if l.peekAt(1) == '|' && l.peekAt(2) == '|' {
+			l.advanceN(3)
+			l.tokens = append(l.tokens, token.Token{Type: token.BIT_OR, Lexeme: "|||", Line: startLine, Col: startCol})
+		} else if l.peekAt(1) == '>' {
 			l.advance()
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.PIPE, Lexeme: "|>", Line: startLine, Col: startCol})
@@ -1267,8 +1287,22 @@ func (l *lexer) scanOperatorOrDelimiter() {
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.HASH, Lexeme: "#", Line: startLine, Col: startCol})
 	case '^':
+		if l.peekAt(1) == '^' && l.peekAt(2) == '^' {
+			l.advanceN(3)
+			l.tokens = append(l.tokens, token.Token{Type: token.BIT_XOR, Lexeme: "^^^", Line: startLine, Col: startCol})
+			break
+		}
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.CARET, Lexeme: "^", Line: startLine, Col: startCol})
+	case '~':
+		if l.peekAt(1) == '~' && l.peekAt(2) == '~' {
+			l.advanceN(3)
+			l.tokens = append(l.tokens, token.Token{Type: token.BIT_NOT, Lexeme: "~~~", Line: startLine, Col: startCol})
+			break
+		}
+		l.advance()
+		l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "~", Line: startLine, Col: startCol,
+			Problem: "Nomi spells bitwise not `~~~`: write `~~~n`"})
 	default:
 		l.advance()
 		l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: string(ch), Line: startLine, Col: startCol})
@@ -1276,6 +1310,13 @@ func (l *lexer) scanOperatorOrDelimiter() {
 }
 
 // --- Helpers ---
+
+// advanceN consumes n bytes.
+func (l *lexer) advanceN(n int) {
+	for range n {
+		l.advance()
+	}
+}
 
 func (l *lexer) atEnd() bool {
 	return l.pos >= len(l.source)
@@ -1316,8 +1357,9 @@ func isDigit(ch byte) bool {
 }
 
 // startsCaptureBody reports whether ch, written right after `&`, starts a
-// capture's body: a call's callee (a name or `.Variant`), `(`, a literal's
-// `#`, `%` or `[`, or the `!` that negates one.
+// capture's body: a call's callee (a name or `.Variant`), `(`, or a literal's
+// `#`, `%` or `[`. A `!` there is taken too, so the parser can name `not`
+// for the C-family negation `&!f(&1)`.
 func startsCaptureBody(ch byte) bool {
 	switch {
 	case ch == '(', ch == '[', ch == '#', ch == '%', ch == '.', ch == '!':

@@ -33,8 +33,8 @@ different types.
 
 ## Generic types
 
-Structs, enums, opaque types, host types, interfaces and type aliases can all
-have type parameters:
+Structs, enums, interfaces and type aliases can have type parameters. A
+distinct type, such as `type Score Int`, can't.
 
 ```nomi-run
 struct Box<T> {
@@ -89,6 +89,9 @@ dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana
 [`Int`](/reference/int/) and [`String`](/reference/strings/#type-string) both
 implement [`Comparable`](/reference/comparable/), so both calls are allowed.
 
+Without the `where` clause, `Iter.sort` is an error:
+`` `xs` holds values of `T`, and `first_two_sorted` does not require Comparable of `T` ``.
+
 To require more than one interface, join them with `and`:
 
 ```nomi ignore
@@ -97,122 +100,22 @@ fn describe<T>(value: T) -> String where T: Display and Debug
 
 `T` must implement every interface listed.
 
-## Relational bounds
-
-A bound can mention another type parameter. This links two type parameters
-without making them the same type:
-
-```nomi-run
-interface StepBy<S> {
-    fn step_by(value: self, step: S) -> self
-}
-
-type Counter Int
-
-impl StepBy for Counter {
-    fn step_by(value: Counter, step: Int) -> Counter {
-        Counter(n) = value
-        Counter(n + step)
-    }
-}
-
-fn advance<T, S>(value: T, step: S) -> T where T: StepBy<S> {
-    T.step_by(value, step)
-}
-
-fn main() {
-    dbg advance(Counter(10), 5)
-}
-
-```
-<!-- expect
-dbg line 19: advance(Counter(10), 5) = Counter(15)
--->
-
-`advance<T, S>` has two type parameters. The bound `where T: StepBy<S>` says
-`T` must be able to step by an `S`. In this call, `T` is `Counter` and `S` is
-`Int`.
-
-This matters for ranges and dates. A value often steps by something of a
-different type: a date steps by a number of days, not by another date. The
-[Dates & Times](/dates-and-times/) chapter uses this for adding durations,
-days and months.
-
-Operators work the same way. [`Add<Rhs, Out>`](/reference/add/) says what the
-right-hand side of `+` may be, and what type the sum is. So do
-[`Subtract`](/reference/subtract/), [`Multiply`](/reference/multiply/) and
-[`Divide`](/reference/divide/) for their operators:
-
-```nomi-run
-type Day Int
-
-fn day_number(day: Day) -> Int {
-    Day(n) = day
-    n
-}
-
-type Days Int
-
-fn days_number(days: Days) -> Int {
-    Days(n) = days
-    n
-}
-
-impl Add<Days, Day> for Day {
-    fn add(lhs: Day, rhs: Days) -> Day {
-        Day(day_number(lhs) + days_number(rhs))
-    }
-}
-
-fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out> {
-    lhs + rhs
-}
-
-fn main() {
-    dbg plus(Day(10), Days(4))
-}
-
-```
-<!-- expect
-dbg line 26: plus(Day(10), Days(4)) = Day(14)
--->
-
-From the arguments, `L` is `Day` and `R` is `Days`. The only matching impl is
-`impl Add<Days, Day> for Day`, so Nomi works out that `Out` is `Day`. The call
-doesn't have to say so.
-
 ## Bounds on declarations
 
-Types, impls and derives can have a `where` clause too:
+Types and derives can have a `where` clause too:
 
 ```nomi ignore
-struct Range<T> where T: Comparable {
+struct Span<T> where T: Comparable {
     start: T
     end: T
-}
-
-impl Contains for Range<T> {
-    fn contains(r: Range<T>, x: T) -> Bool {
-        r.start <= x and x <= r.end
-    }
 }
 
 derive Display for Box<T> where T: Display
 ```
 
-A bound on a type declaration applies everywhere the type is used. A bound on
-an `impl`, a `derive` or a function applies only to that one declaration.
+A bound on a type declaration carries into every impl of that type, so an
+impl for `Span<T>` can compare `start` and `end` without its own `where`. A
+bound on a `derive` or a function applies only to that one declaration.
 
-A function in an interface can have its own type parameters:
-
-```nomi ignore
-interface Ranked<T> {
-    fn item(value: self) -> T
-    fn prefer<K>(value: self, lhs: K, rhs: K) -> Bool where K: Comparable
-}
-```
-
-`T` comes from `Ranked<T>`. `K` comes from `prefer<K>`. A `where` clause can
-only name type parameters declared in one of those two places.
-
-Next: [Interfaces & Dispatch](/interfaces-and-dispatch/).
+Next: [Interfaces & Dispatch](/interfaces-and-dispatch/), which also covers
+bounds that name an interface's own type parameters.

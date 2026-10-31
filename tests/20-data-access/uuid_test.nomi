@@ -114,7 +114,7 @@ group "v7 under a virtual clock" {
 fn hex48(n: Int) -> String {
     0..12
     |> Iter.map(fn i -> {
-        d = Int.bitwise_and(Int.shift_right(n, (11 - i) * 4), 15)
+        d = n >>> ((11 - i) * 4) &&& 15
         String.slice("0123456789abcdef", d, d + 1)
     })
     |> String.join()

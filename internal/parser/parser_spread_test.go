@@ -208,7 +208,7 @@ func TestParsePatternListSpreadNoHeads(t *testing.T) {
 }
 
 func TestParsePatternListSpreadWildcardTail(t *testing.T) {
-	pat := parseFirstCasePattern(t, "case xs { [h, .._] -> 1 }")
+	pat := parseFirstCasePattern(t, "case xs { [h, ..] -> 1 }")
 	lp, ok := pat.(*ast.ListPattern)
 	if !ok {
 		t.Fatalf("expected *ast.ListPattern, got %T", pat)

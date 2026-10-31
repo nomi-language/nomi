@@ -12,5 +12,5 @@ pub fn keep<T>(list: List<T>, predicate: (T) -> Bool) -> List<T> {
 
 /// The items of `list` that `predicate` does not hold for, in order.
 pub fn discard<T>(list: List<T>, predicate: (T) -> Bool) -> List<T> {
-    keep(list, &!predicate(&1))
+    keep(list, &(not predicate(&1)))
 }

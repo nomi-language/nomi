@@ -12,10 +12,11 @@ pub fn encode(text: String) -> String {
 }
 
 fn encode_run(run: List<String>) -> String {
-    case run {
-        [letter] -> letter
-        [letter, .._] -> "${Iter.count(run)}${letter}"
-        [] -> unreachable "chunk_by never yields an empty run"
+    letter = List.head(run)!
+
+    case Iter.count(run) {
+        1 -> letter
+        count -> "${count}${letter}"
     }
 }
 
@@ -24,18 +25,9 @@ fn encode_run(run: List<String>) -> String {
 pub fn decode(encoded: String) -> String {
     encoded
     |> String.captures_all(Regex`(\d*)(\D)`)
-    |> Iter.map(decode_run)
+    |> Iter.map(fn #(count, letter) -> {
+        times = String.to_int(count) |> Maybe.with_default(1)
+        String.repeat(letter, times)
+    })
     |> String.join()
-}
-
-fn decode_run(groups: List<Maybe<String>>) -> String {
-    case groups {
-        [Some(count), Some(letter)] -> {
-            times = String.to_int(count) |> Maybe.with_default(1)
-            String.repeat(letter, times)
-        }
-
-        _ ->
-            unreachable `(\d*)(\D) always has two groups, and both take part`
-    }
 }

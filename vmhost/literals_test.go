@@ -34,14 +34,14 @@ func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
 		"}\n\n" +
 		"once letters = Regex`[A-Za-z]+`\n\n" +
 		"fn main() {\n" +
-		"    digits: Regex = Regex`\\d+`\n" +
+		"    digits: Regex<Unit> = Regex`\\d+`\n" +
 		"    io.print(String.find_all(\"order 66, aisle 7\", digits))\n" +
 		"    io.print(String.find_all(\"order 66, aisle 7\", letters))\n" +
 		"    io.print(String.find_all(\"banana\", Regex`a.`))\n" +
-		"    plain: Result<Regex, String> = Regex\"\\\\d\"\n" +
+		"    plain: Result<Regex<Unit>, String> = Regex\"\\\\d\"\n" +
 		"    word = \"an\"\n" +
-		"    spliced: Result<Regex, String> = Regex\"${word}+\"\n" +
-		"    bad: Result<Regex, String> = Regex\"[${word}\"\n" +
+		"    spliced: Result<Regex<List<Maybe<String>>>, String> = Regex\"${word}+\"\n" +
+		"    bad: Result<Regex<List<Maybe<String>>>, String> = Regex\"[${word}\"\n" +
 		"    io.print(Debug.inspect(plain))\n" +
 		"    io.print(Debug.inspect(spliced))\n" +
 		"    io.print(Result.with_default(Result.map(bad, Regex.pattern), \"invalid at run time\"))\n" +
@@ -128,7 +128,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 // Maybe" error, with the hint.
 func TestBacktickLiteral_TryIsRejected(t *testing.T) {
 	ds := literalDiagnostics(t, "import std/regex.Regex\n\nfn main() -> Result<Unit, String> {\n    _ = Regex`\\d+`?\n    Ok(Unit)\n}\n")
-	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Maybe, got Regex" {
+	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Maybe, got Regex<Unit>" {
 		t.Fatalf("diagnostics = %v", ds)
 	}
 	if len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], "checked at compile time") {

@@ -60,7 +60,7 @@ fn main() {
   newer = #Version{major: 1, minor: 2} < #Version{major: 1, minor: 3}
   same = #Tag{name: "a"} == #Tag{name: "A"}
   origin = #Point{x: 0} != #Point{x: 1}
-  ok = 1 < 2 and !newer or same
+  ok = 1 < 2 and not newer or same
   big = [1, 5] |> Iter.filter(&(&1 > 2)) |> Iter.map(fn n -> n * 2) |> Iter.to_list()
   io.inspect(#(m, ok, origin, big, 0..3, 1..=3, later, sizes))
   bad = nope + 1
@@ -95,7 +95,7 @@ fn main() {
 		{"Int <", "  ok = 1", "<", 1, "`Int` < `Int` → `Bool`\n\n`impl Comparable for Int` in `std/int`."},
 		{"and", "  ok = 1", "and", 1, "`Bool` and `Bool` → `Bool`\n\nShort-circuits: the right side runs only when the left is `True`."},
 		{"or", "  ok = 1", "or", 1, "`Bool` or `Bool` → `Bool`\n\nShort-circuits: the right side runs only when the left is `False`."},
-		{"!", "  ok = 1", "!", 1, "Not: `Bool` → `Bool`"},
+		{"not", "  ok = 1", "not", 1, "Not: `Bool` → `Bool`"},
 		{"inside a capture", "  big =", "> 2", 1, "`Int` > `Int` → `Bool`\n\n`impl Comparable for Int` in `std/int`."},
 		{"inside a lambda", "  big =", "*", 1, "`Int` * `Int` → `Int`\n\nExact at any size: never overflows.\n\n`impl Multiply<Int, Int> for Int` in `std/int`."},
 		{"..", "  io.inspect(", "..", 1, "```nomi\nRange<Int>\n```\n\nExclusive: from the start up to, not including, the end."},

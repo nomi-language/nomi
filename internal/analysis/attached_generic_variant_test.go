@@ -47,7 +47,7 @@ func TestAttachedGenericVariant_InfersInEverySpelling(t *testing.T) {
 		{"an empty literal as an argument", "import shapes.Bag.{Items}",
 			"    _ = shapes.count(Items[])\n"},
 		{"nested generics", "import shapes.Bag.{Items, Named}",
-			"    b = Items[[1], [2, 3]]\n    c = %Named{\"a\" => Items[\"x\"]}\n    _ = case b {\n        Items[xs, .._] -> Iter.count(xs)\n        _ -> 0\n    }\n    _ = c\n"},
+			"    b = Items[[1], [2, 3]]\n    c = %Named{\"a\" => Items[\"x\"]}\n    _ = case b {\n        Items[xs, ..] -> Iter.count(xs)\n        _ -> 0\n    }\n    _ = c\n"},
 		{"bare list and map patterns", "import shapes.Bag.{Items, Named}",
 			"    b = Items[1, 2]\n    _ = case b {\n        Items[x, y] -> x + y\n        %Named{\"k\" => v} -> v\n        _ -> 0\n    }\n"},
 		{"aliased list and map patterns", "import shapes.Bag.{Items as I, Named as N}",

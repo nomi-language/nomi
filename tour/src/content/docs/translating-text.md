@@ -40,8 +40,9 @@ pub message cart_count(count: Int) `
 It reads like this:
 
 - `message cart_count(count: Int)` declares a function, `cart_count`, that
-  takes an `Int` and returns a [`Message`](/reference/message/). Call it
-  as you would any function in `cart.nomi`: `cart.cart_count(3)`.
+  takes an `Int` and returns a [`Message`](/reference/message/). If the
+  declaration is in `cart.nomi`, another file calls it as
+  `cart.cart_count(3)`.
 - The text goes in backticks. Inside it, `$count` is the parameter.
 - `.input {$count :integer}` says how to read `$count`: as a whole number.
   `:integer` is a **function**, MessageFormat's word for what turns a
@@ -156,8 +157,8 @@ lists which numbers take it in each language:
 A `.match` on a count has a variant for each category the language uses,
 and `*` stands for `other`. English needs `one` and `*`. The Polish text
 above needs `one`, `few` and `many` as well. Its `*` variant is for
-fractions, which an `Int` never has. Other languages use `zero` and `two` too, and some,
-such as Japanese, use `other` alone.
+fractions, which an `Int` never has. Other languages use `zero` and `two`
+too, and some, such as Japanese, use `other` alone.
 
 Count with an `Int` or a `Decimal`. A `Decimal` keeps the digits you wrote,
 and they change the category: English says "1 item" but "1.0 items". A
@@ -170,13 +171,6 @@ A `case` on the category holds one language's words, chosen by that
 language's rules, and every new language needs another branch that only a
 programmer can change. Put the words in a message instead, and let each
 translation choose its own forms.
-
-## Choosing by an enum
-
-A message can also choose by an enum: `:string` reads an enum value as the
-name of its variant, and `.match` then needs a key for every one, as
-`order_status` on [the full cart page](#lists-and-messages-inside-messages)
-shows.
 
 ## What the compiler checks
 
@@ -371,8 +365,11 @@ Anna, Ben i Chloé oglądają ten produkt
 Anna, masz 22 produkty w koszyku
 -->
 
-Two of the lines need more than a plain translation:
+Three of the lines need more than a plain translation:
 
+- **The order status.** `:string` reads an enum value as the name of its
+  variant, and `.match` then needs a key for every variant. It still needs
+  `*`, as every `.match` does.
 - **The watchers.** The names are joined in each locale's way: English puts
   a comma before "and", Polish uses "i". The verb follows the number of
   people: one person "ogląda" (is watching), more "oglądają".
@@ -447,9 +444,9 @@ Wysyłka: wtorek, 20 października
 -->
 
 The compiler checks the types here as well: `:currency` on a `Decimal` is
-an error, since a `Decimal` has no currency. A translation can also choose its words by the day of the week with
-`:nomi:weekday`, which the [`std/message` reference](/reference/message/)
-describes.
+an error, since a `Decimal` has no currency. A translation can also choose
+its words by the day of the week with `:nomi:weekday`, which the
+[`std/message` reference](/reference/message/) describes.
 
 ## Nouns
 
@@ -462,8 +459,8 @@ ones.
 
 A `noun` declaration names a thing a message can talk about. Its text is
 the English word, written as a small message over `$count`, so it can say
-"book" or "books". The catalog gives the noun's Polish `gender` and its forms, and the
-translation of a message chooses a variant by the gender with
+"book" or "books". The catalog gives the noun's Polish `gender` and its
+forms, and the translation of a message chooses a variant by the gender with
 `:nomi:gender`:
 
 ```nomi-run
@@ -650,11 +647,12 @@ $ nomi messages accept pl cart_count
 It records the new English as the entry's `source`, and the error goes
 away. The editor's quick fix does the same.
 
-A program can also load corrected translations while it runs, from a
-translation service, with
-[`Catalog.load`](/reference/message/#catalogload). It checks each entry as
-the compiler does and returns the ones it rejects; pass the catalog to
-`Message.format` as `catalogs:`.
+A program can also take corrected translations while it runs. Fetch the
+catalog text, from a translation service say, and read it with
+[`Catalog.load`](/reference/message/#catalogload)`(text, locale)`. It
+checks each entry as the compiler does, and returns the catalog with the
+entries it rejected. Pass the catalog to `Message.format` in a list:
+`catalogs: [catalog]`.
 
 ## Messages in the browser
 

@@ -105,7 +105,7 @@ func TestPlaceholder_LegalPositionsAreAccepted(t *testing.T) {
 		"lambda tuple param":      "fn f() -> List<Int> { [#(1, 2)] |> Iter.map(fn #(_, v) -> v) |> Iter.to_list() }\n",
 		"tuple pattern":           "fn f() -> Int {\n    #(a, _) = #(1, 2)\n    a\n}\n",
 		"struct pattern":          "fn f(p: Point) -> Int {\n    #Point{x, y: _} = p\n    x\n}\n",
-		"list pattern":            "fn f(xs: List<Int>) -> Int {\n    case xs {\n        [_, b, .._] -> b\n        _ -> 0\n    }\n}\n",
+		"list pattern":            "fn f(xs: List<Int>) -> Int {\n    case xs {\n        [_, b, ..] -> b\n        _ -> 0\n    }\n}\n",
 		"case wildcard":           "fn f(e: E) -> Int {\n    case e {\n        .A -> 1\n        _ -> 2\n    }\n}\n",
 		"variant pattern":         "fn f(m: Maybe<Int>) -> Int {\n    case m {\n        Some(_) -> 1\n        None -> 0\n    }\n}\n",
 		"binding else":            "fn f(m: Maybe<Int>) -> Int {\n    Some(_) = m else { return 0 }\n    1\n}\n",

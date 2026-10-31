@@ -1154,6 +1154,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		if k, isGenHost := g.stdGenHostTypeOf(gt); isGenHost {
 			return k
 		}
+		// `Regex<#(String)>` — a std host type whose type parameter is
+		// phantom: one leaf whatever the argument. See stdhost.go.
+		if k, isPhantom := g.phantomHostTypeOf(gt); isPhantom {
+			return k
+		}
 		// `Box<Inner>` — a USER generic struct, MONOMORPHIZED per
 		// instantiation. LAST of the three named arms, so a program declaring
 		// its own `Set` or `Maybe` cannot shadow the std or prelude family

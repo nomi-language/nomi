@@ -53,7 +53,7 @@ func TestLambdaParamUninferable_HintShowsTheAnnotation(t *testing.T) {
 	errs := checkWithStdlib(`
 fn is_leap(year: Int) -> Bool {
   is_divisible = fn n -> year % n == 0
-  is_divisible(4) and (!is_divisible(100) or is_divisible(400))
+  is_divisible(4) and (not is_divisible(100) or is_divisible(400))
 }
 `)
 	if len(errs) == 0 {

@@ -38,8 +38,7 @@ fn translate(text: String) -> List<String> {
     text
     |> String.lowercase()
     |> String.to_codepoints()
-    |> Iter.map(swap)
-    |> Maybe.values()
+    |> Iter.flat_map(swap)
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
 }
@@ -107,6 +106,6 @@ test "decode" {
 ## How it's written
 
 - The cipher is a map from each letter to its mirror, `Iter.zip('a'..='z', Iter.reverse('a'..='z')) |> Iter.to_map()`, built once. Arithmetic on code point numbers (`219 - n`) was the other option; the map shows the two alphabets the description shows.
-- `translate` works on code points, since the cipher is ASCII. `swap` keeps a digit and looks a letter up in the map, so anything else answers `None` and `Maybe.values` drops it.
+- `translate` works on code points, since the cipher is ASCII. `swap` keeps a digit and looks a letter up in the map, so anything else answers `None`, and `Iter.flat_map(swap)` drops it: a `Maybe` iterates as zero or one value.
 - The cipher is its own inverse, so `encode` and `decode` share `translate` and differ only in how they join the letters: groups of five from `Iter.chunks(5)`, or one run.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; a `group` block is for shared `clock`, `boot` or `setup`, which none needs.

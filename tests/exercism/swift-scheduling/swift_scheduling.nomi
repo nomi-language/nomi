@@ -123,10 +123,7 @@ fn first_workday(year: Int, month: Int) -> Date {
 
 /// The last Monday to Friday of `quarter` in `year`.
 fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
-    Ok(last_month) = Date.new(year, quarter * 3, 1) else {
-        unreachable "every quarter ends in a month from 3 to 12"
-    }
-
+    last_month = Date.new(year, quarter * 3, 1)!
     last_day = last_month + Months(1) - Days(1)
 
     Some(found) =
@@ -141,10 +138,7 @@ fn last_workday_of_quarter(year: Int, quarter: Int) -> Date {
 }
 
 fn is_workday(day: Date) -> Bool {
-    case Date.weekday(day) {
-        .Saturday or .Sunday -> False
-        _ -> True
-    }
+    not Date.weekday(day) is (.Saturday or .Sunday)
 }
 
 /// The quarter, 1 to 4, that `month` falls in.

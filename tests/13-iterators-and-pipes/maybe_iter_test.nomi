@@ -55,3 +55,12 @@ test "Maybe.map and Iter.map stay apart" {
     assert Maybe.map(Some(2), fn n -> n + 1) == Some(3)
     assert Iter.map(Some(2), fn n -> n + 1) |> Iter.to_list() == [3]
 }
+
+test "a lambda in a pipeline compares a prelude Maybe" {
+    found =
+        "  Ada  "
+        |> String.trim()
+        |> then fn name -> Some(name) == Some("Ada")
+
+    assert found
+}

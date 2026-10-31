@@ -97,7 +97,7 @@ fn main() {
     piped: Bool = b |> Box.holds("b")
     bounded: Bool = via(b, 2)
     partial: (String) -> Bool = &Holds.holds(b, &1)
-    _ok = direct and qualified and !variant and !piped and !bounded and !partial("z")
+    _ok = direct and qualified and not variant and not piped and not bounded and not partial("z")
 }
 `, nil)
 	expectSelectionClean(t, errs)
@@ -438,7 +438,7 @@ impl Fits<Square> for Hole {
 
 fn main() {
     h = #Hole{size: 4}
-    _ok = Hole.fits(h, #Circle{r: 2}) and !Fits.fits(h, #Square{side: 5})
+    _ok = Hole.fits(h, #Circle{r: 2}) and not Fits.fits(h, #Square{side: 5})
 }
 `, map[string]string{"shapes": `
 pub struct Circle {

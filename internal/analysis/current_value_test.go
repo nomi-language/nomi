@@ -74,15 +74,11 @@ func TestCurrentValue_Diagnostics(t *testing.T) {
 		{"an empty vector update", `  _a = #{..ada(), recent: #[‸..]}`, empty},
 		{"an empty list update", `  _a = #{..ada(), tags: [‸..]}`, empty},
 		{"an empty map update", "  m = %{\"a\" => %{\"b\" => 1}}\n  _a = %{..m, \"a\" => %{‸..}}", empty},
-		{"a set spread over a list", `  _a = %[‸..ada().tags, "x"]`, "set spread `..` requires a set, got List<String>"},
+		{"a set spread over an Int", `  _a = %[‸..1, "x"]`, "set spread `..` requires an Iter of the set's elements, got Int"},
 		{"a named set spread with no elements", "  s = %[1]\n  _a = %[‸..s]", "a set spread with no elements is its base value; write `s`"},
 		{"a set element of the wrong type", "  s = %[1]\n  _a = %[..s, ‸\"x\"]", "set spread element type mismatch: expected Int, got String"},
-		{"a vector spread over a list", `  _a = #[‸..ada().tags, "x"]`,
-			"vector spread `..` requires a vector, got List<String>\n" +
-				"help: make a vector of another collection's elements with `Iter.to_vector`, as in `xs |> Iter.to_vector()`"},
-		{"a last vector spread over a set", "  s = %[1]\n  _a = #[2, ‸..s]",
-			"vector spread `..` requires a vector, got Set<Int>\n" +
-				"help: make a vector of another collection's elements with `Iter.to_vector`, as in `xs |> Iter.to_vector()`"},
+		{"a vector spread over a list of another element", `  _a = #[..#[1], ‸..ada().tags]`, "vector spread element type mismatch: expected Int, got String"},
+		{"a last vector spread over an Int", "  n = 1\n  _a = #[2, ‸..n]", "vector spread `..` requires an Iter of the vector's elements, got Int"},
 		{"a named vector spread with no elements", "  v = #[1]\n  _a = #[‸..v]", "a vector spread with no elements is its base value; write `v`"},
 		{"a computed vector spread with no elements", `  _a = #[‸..ada().recent]`, "a vector spread with no elements is its base value; write the value itself"},
 		{"a vector element after a spread of the wrong type", "  v = #[1]\n  _a = #[..v, ‸\"x\"]", "vector element type mismatch: expected Int, got String"},

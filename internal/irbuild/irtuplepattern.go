@@ -17,7 +17,7 @@ func tupleCaseComponents(pattern ast.Node, k kind) ([]int, bool) {
 		case *ast.WildcardPattern:
 		case *ast.IdentPattern:
 		case *ast.IntLit:
-			if k.comp.parts[i] != kindInt {
+			if !irIntLiteralKind(k.comp.parts[i]) {
 				return nil, false
 			}
 			tested = append(tested, i)

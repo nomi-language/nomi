@@ -183,10 +183,10 @@ test "Reroot a tree so that its root is the specified node." {
 }
 
 test "Given two nodes, find the path between them" {
-    cases: List<#(String, Tree, String, String, Maybe<List<String>>)> = [
+    cases = [
         #(
             "Can find path to parent",
-            #{
+            #Tree{
                 label: "parent",
                 children: [#{label: "x"}, #{label: "sibling"}],
             },

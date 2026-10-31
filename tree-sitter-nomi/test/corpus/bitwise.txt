@@ -1,0 +1,112 @@
+================================================================================
+Shifts and bitwise and bind like multiplication
+================================================================================
+
+once a = x >>> 2 &&& 1
+once b = x <<< 1 + y
+once c = x &&& mask == 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (identifier)
+        (integer))
+      (integer)))
+  (once_binding
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (identifier)
+        (integer))
+      (identifier)))
+  (once_binding
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (identifier)
+        (identifier))
+      (integer))))
+
+================================================================================
+Bitwise or and xor bind like addition, bitwise not like negation
+================================================================================
+
+once d = ~~~x ||| y ^^^ z
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (unary_expression
+          (identifier))
+        (identifier))
+      (identifier))))
+
+================================================================================
+Three type argument lists closed together
+================================================================================
+
+fn f(y: Map<String, List<List<Int>>>) -> List<List<List<Int>>> {
+    Iter.to_list<List<List<Int>>>(y)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier)
+          (generic_type
+            (type_identifier)
+            (generic_type
+              (type_identifier)
+              (type_identifier))))))
+    return_type: (generic_type
+      (type_identifier)
+      (generic_type
+        (type_identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    (body
+      (call_expression
+        function: (field_access
+          (type_identifier)
+          (identifier))
+        type_arguments: (generic_type
+          (type_identifier)
+          (generic_type
+            (type_identifier)
+            (type_identifier)))
+        (identifier)))))
+
+================================================================================
+A line that starts with a bitwise operator continues the one above
+================================================================================
+
+once g = x
+    &&& 255
+    ||| 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (once_binding
+    (identifier)
+    (binary_expression
+      (binary_expression
+        (identifier)
+        (integer))
+      (integer))))

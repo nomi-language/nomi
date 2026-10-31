@@ -54,7 +54,7 @@ impl List<T> {
     //
     pub fn head<T>(list: List<T>) -> Maybe<T> {
         case list {
-            [head, .._] -> Some(head)
+            [head, ..] -> Some(head)
             [] -> None
         }
     }

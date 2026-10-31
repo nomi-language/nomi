@@ -32,6 +32,16 @@ func (re *Regex) Regexp() *regexp.Regexp {
 	return re.re
 }
 
+// GroupNames is the name of each capture group from group 1, "" for an
+// unnamed one: the VM's capture_shape places a named group by it
+// (internal/vm's captureshape.go).
+func (re *Regex) GroupNames() []string {
+	if re == nil || re.re == nil {
+		return nil
+	}
+	return re.re.SubexpNames()[1:]
+}
+
 func FFIPattern(re *Regex) string {
 	if re == nil || re.re == nil {
 		return ""
@@ -59,13 +69,6 @@ func FFIFindAll(re *Regex, input string) []string {
 		return nil
 	}
 	return re.re.FindAllString(input, -1)
-}
-
-func FFIReplaceAll(input string, re *Regex, replacement string) string {
-	if re == nil || re.re == nil {
-		return input
-	}
-	return re.re.ReplaceAllString(input, replacement)
 }
 
 func FFISplit(re *Regex, input string) []string {
@@ -100,11 +103,12 @@ func FFISuffixOf(re *Regex, input string) bool {
 	return re.suffix.MatchString(input)
 }
 
-// FFIReplaceLiteral replaces every non-overlapping match with replacement,
-// taken literally: `$1` is not expanded.
-func FFIReplaceLiteral(re *Regex, input, replacement string) string {
+// FFIReplace replaces every non-overlapping match with replacement, expanded
+// by Go's regexp.Expand rules: `$1`, `${1}` and `${name}` are capture groups
+// and `$$` is a literal `$`.
+func FFIReplace(re *Regex, input, replacement string) string {
 	if re == nil || re.re == nil {
 		return input
 	}
-	return re.re.ReplaceAllLiteralString(input, replacement)
+	return re.re.ReplaceAllString(input, replacement)
 }

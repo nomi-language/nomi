@@ -42,7 +42,8 @@ func tokenShown(tok token.Token) string {
 func binaryOnlyOperator(tt token.TokenType) bool {
 	switch tt {
 	case token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ,
-		token.AND, token.OR, token.PLUS, token.STAR, token.SLASH, token.PERCENT:
+		token.AND, token.OR, token.IS, token.PLUS, token.STAR, token.SLASH, token.PERCENT,
+		token.BIT_AND, token.BIT_OR, token.BIT_XOR, token.SHL:
 		return true
 	}
 	return false

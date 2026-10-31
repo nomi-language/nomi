@@ -229,6 +229,12 @@ func isUnenumerableConstraint(t Type, p ast.Node) bool {
 // set of them (or is not known). column is the patterns over t, which fix
 // how many list lengths need telling apart.
 func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
+	if TypesEqual(t, TypeCodepoint) {
+		// Codepoint is a distinct type over Int, but its literals test
+		// values it has no finite set of: a literal is a constraint
+		// (isUnenumerableConstraint), not its one constructor.
+		return nil
+	}
 	if elem, ok := vectorElemType(t); ok {
 		return seqCtors(elem, column, "#[")
 	}

@@ -77,6 +77,6 @@ test "raindrop sounds" {
 - The number becomes text by interpolation, `"${number}"`, rather than
   `Int.to_string(number)`; both are the same `Display` call.
 - The table is tuples, not structs: for a three-row local table a tuple is
-  the right size. The filter destructures its row (`fn #(factor, _sound) ->`)
-  because it computes with the factor; the map only reads the sound, so it is
-  the tuple accessor `.1` (style §21).
+  the right size. The filter and the map take each row apart in the lambda
+  (`fn #(factor, _sound) ->`, `fn #(_factor, sound) ->`) rather than reading
+  `.0` and `.1`, since the table is a `once` away from them (style §21).

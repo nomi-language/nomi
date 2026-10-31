@@ -216,6 +216,12 @@ func spreadOperandDocs(items []ast.Node, spreads []ast.Spread, child func(ast.No
 	elems := make([]Doc, 0, len(ops))
 	for _, it := range ops {
 		if ast.IsSpreadHead(it, spreads) {
+			// A spread of a range is written in parentheses, `..(1..4)`, so
+			// the spread's `..` and the range's do not run together.
+			if _, isRange := it.(*ast.RangeLit); isRange {
+				elems = append(elems, Concat(Text("..("), child(it), Text(")")))
+				continue
+			}
 			elems = append(elems, Concat(Text(".."), child(it)))
 			continue
 		}

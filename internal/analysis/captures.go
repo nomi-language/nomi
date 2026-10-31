@@ -324,7 +324,7 @@ climb:
 			}
 			cur = v
 			continue
-		case *ast.Unary, *ast.RangeLit, *ast.GroupedExpr:
+		case *ast.Unary, *ast.Is, *ast.RangeLit, *ast.GroupedExpr:
 			cur = v
 			continue
 		case *ast.FieldAccess:
@@ -677,7 +677,7 @@ func isArithmeticOp(n ast.Node) bool {
 		return false
 	}
 	switch b.Op {
-	case "+", "-", "*", "/", "%":
+	case "+", "-", "*", "/", "%", "&&&", "|||", "^^^", "<<<", ">>>":
 		return true
 	}
 	return false
@@ -763,6 +763,10 @@ func replaceHoles(n ast.Node, names map[ast.Node]string) ast.Node {
 	case *ast.Unary:
 		cp := *v
 		cp.Right = replaceHoles(v.Right, names)
+		return &cp
+	case *ast.Is:
+		cp := *v
+		cp.Value = replaceHoles(v.Value, names)
 		return &cp
 	case *ast.RangeLit:
 		cp := *v

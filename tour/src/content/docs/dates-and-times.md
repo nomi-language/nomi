@@ -5,10 +5,15 @@ description: "Calendar dates and clock times, machine timestamps, and exact dura
 
 Three standard library modules cover dates and times:
 
-- [`std/calendar`](/reference/calendar/) has `Date`, `Time`,
-  `NaiveDateTime`, `OffsetDateTime` and `DateTime`, plus periods such as
-  `Days` and `Months`. These are what a person reads off a calendar or a
-  clock.
+- [`std/calendar`](/reference/calendar/) has the types a person reads off a
+  calendar or a clock, plus periods such as `Days` and `Months`:
+  - `Date`: a day on the calendar.
+  - `Time`: a time of day.
+  - `NaiveDateTime`: a date and a time with no zone.
+  - `OffsetDateTime`: a date and time at a fixed offset from UTC, such as
+    `-04:00`.
+  - `DateTime`: a date and time in a named zone such as
+    `America/New_York`.
 - [`std/instant.Instant`](/reference/instant/) is a machine timestamp.
 - [`std/duration.Duration`](/reference/duration/) is an exact length of
   time, such as 5 seconds or 30 minutes.
@@ -23,17 +28,14 @@ and for data that came without a zone. It does not name a real moment, so
 don't use it for "when the meeting happens". The word "Naive" in its name is
 there as a warning.
 
-## Civil Construction
+## Writing dates and times
 
 Each calendar type has a typed literal. Written with backticks, it is
 checked when the program compiles, so it needs no `?`. `DateTime` puts the
 zone name in square brackets at the end, a format from RFC 9557:
 
 ```nomi-run
-import {
-    std/calendar.Date
-    std/calendar.DateTime
-}
+import std/calendar.{Date, DateTime}
 
 fn main() {
     d = Date`2026-06-15`
@@ -49,24 +51,21 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 8: d = 2026-06-15
-dbg line 11: dt = 2026-06-15T14:30:00-04:00[America/New_York]
-dbg line 13: DateTime.year(dt) = 2026
-dbg line 14: DateTime.month(dt) = 6
-dbg line 15: DateTime.hour(dt) = 14
+dbg line 5: d = 2026-06-15
+dbg line 8: dt = 2026-06-15T14:30:00-04:00[America/New_York]
+dbg line 10: DateTime.year(dt) = 2026
+dbg line 11: DateTime.month(dt) = 6
+dbg line 12: DateTime.hour(dt) = 14
 -->
 
-## Civil Periods
+## Adding days, months and years
 
 Add or subtract days, weeks, months and years from a `Date` with `+` and
 `-`. When you add months or years and the target month is too short for the
 day, you get the month's last day. January 31 plus one month is February 28:
 
 ```nomi-run
-import {
-    std/calendar.{Days, Months, Weeks, Years}
-    std/calendar.Date
-}
+import std/calendar.{Date, Days, Months, Weeks, Years}
 
 fn main() {
     start = Date`2026-05-04`
@@ -83,12 +82,12 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 11: start + Days(10) = 2026-05-14
-dbg line 12: start + Weeks(2) = 2026-05-18
-dbg line 13: start - Weeks(1) = 2026-04-27
-dbg line 14: jan31 + Months(1) = 2026-02-28
-dbg line 15: jan31 - Months(1) = 2025-12-31
-dbg line 16: leap + Years(1) = 2025-02-28
+dbg line 8: start + Days(10) = 2026-05-14
+dbg line 9: start + Weeks(2) = 2026-05-18
+dbg line 10: start - Weeks(1) = 2026-04-27
+dbg line 11: jan31 + Months(1) = 2026-02-28
+dbg line 12: jan31 - Months(1) = 2025-12-31
+dbg line 13: leap + Years(1) = 2025-02-28
 -->
 
 ## Machine clock and durations
@@ -120,28 +119,21 @@ fn main() {
 
     later = start + five_minutes
     dbg Instant.to_seconds(later)
-
-    // Instant.between returns the Duration between two Instants
-    gap = Instant.between(start, later)
-    dbg Duration.as_seconds(gap)
-    dbg later - start == gap
-
-    Unit
+    dbg later - start
 }
 
 ```
 <!-- expect
 dbg line 10: Duration.as_minutes(five_minutes) = 5
 dbg line 13: Instant.to_seconds(later) = 1700000300
-dbg line 17: Duration.as_seconds(gap) = 300
-dbg line 18: later - start == gap = True
+dbg line 14: later - start = 5m
 -->
 
 This example doesn't use `Instant.now()` or `timer.sleep`, because they read
 the real clock and wait in real time, so their output changes from run to
-run. The [Concurrency](/concurrency/) chapter uses `timer.sleep`.
+run.
 
-## Instant-only equality
+## Equality compares moments
 
 A `DateTime` holds a moment and the zone to show it in. Two `DateTime`s are
 equal when they are the same moment, even if their zones differ. Noon in
@@ -166,16 +158,15 @@ dbg line 8: ny = 2026-06-15T12:00:00-04:00[America/New_York]
 dbg line 9: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
 -->
 
-## DST is real
+## Daylight saving time
 
-In 2026, New York's clocks jump forward one hour early on March 8. Start at
-noon on March 7. Adding one calendar day gives noon on March 8. Adding
+In 2026, New York's clocks jump from 2 AM to 3 AM on March 8. Start at noon
+on March 7. Adding one calendar day gives noon on March 8. Adding
 exactly 24 hours gives 1 PM, because that night was one hour short:
 
 ```nomi-run
 import {
-    std/calendar.Days
-    std/calendar.DateTime
+    std/calendar.{DateTime, Days}
     std/duration.Duration
 }
 
@@ -191,9 +182,9 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 12: start = 2026-03-07T12:00:00-05:00[America/New_York]
-dbg line 13: civil = 2026-03-08T12:00:00-04:00[America/New_York]
-dbg line 14: physical = 2026-03-08T13:00:00-04:00[America/New_York]
+dbg line 11: start = 2026-03-07T12:00:00-05:00[America/New_York]
+dbg line 12: civil = 2026-03-08T12:00:00-04:00[America/New_York]
+dbg line 13: physical = 2026-03-08T13:00:00-04:00[America/New_York]
 -->
 
 Both answers are correct; they answer different questions. `+ Days(1)`
@@ -217,7 +208,6 @@ fn main() {
     ships = Date`2026-10-20`
     dbg Date.format(ships, Locale`en-US`, style: .Long)
     dbg Date.format(ships, Locale`de`, style: .Long)
-    Unit
 }
 
 ```
@@ -230,36 +220,21 @@ dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
 the styles, choosing the fields, times, and reading dates people type.
 
 :::note[Continue or dig deeper]
-The next chapter, [Typed Literals](/typed-literals/), shows how ``Date`…` ``
-and ``DateTime`…` `` work, and how to write literals for your own types. The
+The [Typed Literals](/typed-literals/) chapter, after Money, shows how
+``Date`…` `` and ``DateTime`…` `` work, and how to write literals for your own types. The
 rest of this page goes into more detail on dates and times.
 :::
 
 ## Going deeper
 
-### Five civil types
-
-From least to most specific:
-
-- `Date`: a day on the calendar.
-- `Time`: a time of day.
-- `NaiveDateTime`: a date and a time with no zone. It is not a real moment.
-- `OffsetDateTime`: a date and time at a fixed offset from UTC, such as
-  `-04:00`.
-- `DateTime`: a date and time in a named zone such as `America/New_York`,
-  which follows that zone's daylight saving rules.
-
-### Re-projecting a moment into another zone
+### Showing a moment in another zone
 
 [`DateTime.with_zone(dt, zone)`](/reference/calendar/#datetimewith_zone)
 keeps the same moment and shows it in another zone. Noon in New York is
 1 AM the next day in Tokyo:
 
 ```nomi-run
-import {
-    std/calendar.Error
-    std/calendar.DateTime
-}
+import std/calendar.{DateTime, Error}
 
 fn main() -> Result<Unit, Error> {
     ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
@@ -271,8 +246,8 @@ fn main() -> Result<Unit, Error> {
 
 ```
 <!-- expect
-dbg line 9: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
-dbg line 10: ny == tokyo = True
+dbg line 6: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
+dbg line 7: ny == tokyo = True
 -->
 
 ### DST: gaps and folds
@@ -286,12 +261,7 @@ dbg line 10: ny == tokyo = True
 The `Disambiguation` argument says which moment to pick:
 
 ```nomi-run
-import {
-    std/calendar.Error
-    std/calendar.{DateTime, Disambiguation}
-    std/calendar.NaiveDateTime
-    std/instant.Instant
-}
+import std/calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
 
 fn main() -> Result<Unit, Error> {
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
@@ -304,24 +274,20 @@ fn main() -> Result<Unit, Error> {
     dbg earlier
     dbg later
 
-    // One hour apart in the underlying instant.
-    earlier_sec = DateTime.to_instant(earlier) |> Instant.to_seconds()
+    // One hour apart as moments.
+    dbg DateTime.to_instant(later) - DateTime.to_instant(earlier)
 
-    later_sec = DateTime.to_instant(later) |> Instant.to_seconds()
-
-    dbg later_sec - earlier_sec
-
-    // Instant-only equality: they are NOT equal.
+    // Different moments, so not equal.
     dbg earlier == later
     Ok(Unit)
 }
 
 ```
 <!-- expect
-dbg line 16: earlier = 2026-11-01T01:30:00-04:00[America/New_York]
-dbg line 17: later = 2026-11-01T01:30:00-05:00[America/New_York]
-dbg line 24: later_sec - earlier_sec = 3600
-dbg line 27: earlier == later = False
+dbg line 11: earlier = 2026-11-01T01:30:00-04:00[America/New_York]
+dbg line 12: later = 2026-11-01T01:30:00-05:00[America/New_York]
+dbg line 15: DateTime.to_instant(later) - DateTime.to_instant(earlier) = 1h
+dbg line 18: earlier == later = False
 -->
 
 If you pass no mode, you get `Disambiguation.Compatible`. In a fold it picks
@@ -339,14 +305,11 @@ system clock and gives the time in that zone. It is short for
 `Instant.now() |> DateTime.from_instant_in(zone)`:
 
 ```nomi-run no-run
-import {
-    std/calendar.Error
-    std/calendar.DateTime
-}
+import std/calendar.{DateTime, Error}
 
 fn main() -> Result<Unit, Error> {
     now = DateTime.now_in("America/New_York")?
-    dbg now // example: dbg line 6: now = 2026-05-26T17:42:00-04:00[America/New_York]
+    dbg now // example: dbg line 5: now = 2026-05-26T17:42:00-04:00[America/New_York]
     Ok(Unit)
 }
 

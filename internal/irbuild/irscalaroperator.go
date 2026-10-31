@@ -7,6 +7,19 @@ import (
 
 func (bl *irScalarBuilder) scalarOperatorCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if method == "bitwise_not" && (owner == "Int" || owner == "BitwiseNot") {
+		// `Int.bitwise_not(n)`, `~~~n` written as a call.
+		if !args.ok || len(args.kinds) != 1 || args.kinds[0] != kindInt {
+			return no()
+		}
+		if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
+			return no()
+		}
+		shape, _ := bl.g.irArithKind(ir.OpNot, kindInt, false)
+		n := ir.NewUnaryArith(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OpNot, shape, args.temps[0])
+		bl.b.Append(n)
+		return n.Dst(), kindInt, false, true
+	}
 	op, known := scalarArithOp(owner, method)
 	if !known || !args.ok || len(args.kinds) != 2 || args.kinds[0] != args.kinds[1] {
 		return no()

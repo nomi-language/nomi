@@ -795,6 +795,21 @@ type Unary struct {
 func (*Unary) NodeType() string { return "Unary" }
 func (n *Unary) LineNum() int   { return n.Line }
 
+// Is tests whether Value matches Pattern: `block is .Item(_)`. It is a Bool,
+// binds nothing, and holds the pattern a `case` arm would. Line and Col are
+// the `is` keyword's.
+type Is struct {
+	TriviaCarrier
+	SpanCarrier
+	Value   Node
+	Pattern Node
+	Line    int
+	Col     int
+}
+
+func (*Is) NodeType() string { return "Is" }
+func (n *Is) LineNum() int   { return n.Line }
+
 type Binary struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2951,7 +2966,7 @@ type ListPattern struct {
 	TailSpread Node     // pattern after .., nil if no spread (exact-length match)
 	Tails      []Node   // element patterns after the `..`; empty without one
 	// BareRest is true for a `..` written with no pattern after it
-	// (`[first, ..]`), which ignores the rest as `.._` does: TailSpread is
+	// (`[first, ..]`), which ignores the rest: TailSpread is
 	// then the wildcard at the `..`, and the formatter writes the `..` alone.
 	BareRest bool
 	// EndTrivia holds trailing comments / blank lines between the last

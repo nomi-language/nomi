@@ -53,20 +53,14 @@ impl Zipper<T> {
     pub fn left(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
         #Tree{value, left, right} = zipper.focus
 
-        Maybe.map(left, fn child -> #Zipper{
-            focus: child,
-            path: [#.FromLeft{value, right}, ..zipper.path],
-        })
+        Some(#Zipper{focus: left?, path: [#.FromLeft{value, right}, ..zipper.path]})
     }
 
     /// The zipper on the focus's right subtree, or `None` when it has none.
     pub fn right(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
         #Tree{value, left, right} = zipper.focus
 
-        Maybe.map(right, fn child -> #Zipper{
-            focus: child,
-            path: [#.FromRight{value, left}, ..zipper.path],
-        })
+        Some(#Zipper{focus: right?, path: [#.FromRight{value, left}, ..zipper.path]})
     }
 
     /// The zipper on the focus's parent, or `None` at the root.

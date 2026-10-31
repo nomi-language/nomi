@@ -27,8 +27,9 @@ impl Matrix {
     /// The numbers of row `index`, counted from 1, or `None` past the last.
     pub fn row(matrix: Matrix, index: Int) -> Maybe<List<Int>> {
         matrix.rows
-        |> Vector.get(index - 1)
-        |> Maybe.map(Iter.to_list)
+        |> Vector.get(index - 1)?
+        |> Iter.to_list()
+        |> Some()
     }
 
     /// The numbers of column `index`, counted from 1, top to bottom, or
@@ -44,6 +45,7 @@ fn parse_row(line: String) -> Result<Vector<Int>, Error> {
     line
     |> String.words()
     |> Iter.map(fn word -> String.to_int(word) |> Maybe.to_result(Error.NotANumber(word)))
-    |> Result.collect()
-    |> Result.map(Iter.to_vector)
+    |> Result.collect()?
+    |> Iter.to_vector()
+    |> Ok()
 }

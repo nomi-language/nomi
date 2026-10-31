@@ -125,6 +125,16 @@ func (s *shapeSearch) describeStage(b *ast.Binary, in string) pipeStage {
 			st.text += "!"
 			return st
 		}
+	case *ast.Unary:
+		// `|> not Set.contains(seen)`: the stage's result, negated.
+		if r.Op == "not" {
+			inner := *b
+			inner.Right = r.Right
+			st := s.describeStage(&inner, in)
+			st.text = "not " + st.text
+			st.out = out
+			return st
+		}
 	case *ast.Then:
 		if r.Capture != nil {
 			return pipeStage{text: "then " + format.RenderNode(r.Capture), out: out,

@@ -61,6 +61,9 @@ const (
 	// ConstEmptyVector is the empty Vector at an element type. Owner:
 	// vectorEmptyCall.
 	ConstEmptyVector
+	// ConstByte is an Int literal written where a Byte is expected: a value
+	// from 0 to 255, which the checker has range-checked.
+	ConstByte
 )
 
 func (k ConstKind) String() string {
@@ -85,6 +88,8 @@ func (k ConstKind) String() string {
 		return "set"
 	case ConstEmptyVector:
 		return "vector"
+	case ConstByte:
+		return "byte"
 	}
 	return "const?"
 }
@@ -118,6 +123,13 @@ func NewBool(pos Pos, dst Temp, v bool) *Const {
 func NewInt(pos Pos, dst Temp, v int64) *Const {
 	c := newConst(pos, dst, ConstInt, "NewInt")
 	c.num = v
+	return c
+}
+
+// NewByte is a Byte literal.
+func NewByte(pos Pos, dst Temp, v uint8) *Const {
+	c := newConst(pos, dst, ConstByte, "NewByte")
+	c.num = int64(v)
 	return c
 }
 
@@ -208,7 +220,7 @@ func (c *Const) Kind() ConstKind { return c.kind }
 // Bool is the value of a ConstBool.
 func (c *Const) Bool() bool { return c.kind == ConstBool && c.num != 0 }
 
-// Int is the value of a ConstInt that fits int64.
+// Int is the value of a ConstInt that fits int64, or of a ConstByte.
 func (c *Const) Int() int64 { return c.num }
 
 // Big is the value of a ConstInt past int64's range, or nil. The caller must
@@ -264,6 +276,8 @@ func (c *Const) String() string {
 			s += " " + c.big.String()
 			break
 		}
+		s += " " + strconv.FormatInt(c.num, 10)
+	case ConstByte:
 		s += " " + strconv.FormatInt(c.num, 10)
 	case ConstFloat:
 		s += " " + strconv.FormatFloat(c.flt, 'g', -1, 64)

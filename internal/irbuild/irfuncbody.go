@@ -367,6 +367,9 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.lower(t.Expr)
 
 	case *ast.IntLit:
+		if bl.g.byteLiteral(t) {
+			return bl.byteLiteral(t)
+		}
 		c := ir.NewInt(bl.g.irPos(line, col), bl.f.NewTemp(), t.Value)
 		if t.Big != nil {
 			c = ir.NewBigInt(bl.g.irPos(line, col), c.Dst(), t.Big)
@@ -463,8 +466,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.StringInterp:
 		return bl.interp(t)
 
+	case *ast.Is:
+		return bl.isTest(t)
+
 	case *ast.Unary:
-		if t.Op != "-" && t.Op != "!" {
+		if t.Op != "-" && t.Op != "not" && t.Op != "~~~" {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 		// A unary operator never hoists its operand into a `vN :=` temporary.
@@ -472,13 +478,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
-		if t.Op == "!" {
-			if k != kindBool {
-				return ir.NoTemp, kindInvalid, false, false
-			}
-			n := ir.NewNot(bl.g.irNodePos(t), bl.f.NewTemp(), src)
-			bl.b.Append(n)
-			return n.Dst(), kindBool, false, true
+		if t.Op == "not" {
+			return bl.not(t, src, k)
+		}
+		if t.Op == "~~~" {
+			return bl.bitwiseNot(t, src, k)
 		}
 		ak, modelled := bl.g.irArithKind(ir.OpNeg, k, false)
 		if !modelled {
@@ -1005,6 +1009,11 @@ func stdDeclaringSymbol(fa *analysis.FileAnalysis, origin, name string) *analysi
 // its order; omitted defaults follow in parameter order, in callee scope.
 func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	if v, k, mobile, ok, handled := bl.captureShapeCall(t); handled {
+		// `String.captures`' groups as the regex's capture type
+		// (captureshape.go).
+		return v, k, mobile, ok
+	}
 	// Anywhere: `check` answers a value, so
 	// no boundary decides its delivery.
 	if bl.testingCheckCall(t) {
@@ -3147,7 +3156,8 @@ func isContinueNode(n ast.Node) bool {
 
 // irLiteralCaseKind is a `case` scrutinee whose only patterns are literals
 // the VM tests with rt.Equal beside the Int, String and Bool ones: Float and
-// Decimal, whose equality is EqFloat's and EqDecimal's.
+// Decimal, whose equality is EqFloat's and EqDecimal's, and Byte, whose Int
+// literal patterns the checker types as Bytes.
 // irCaseListKind is a list a list pattern takes apart: a retained or
 // transported list, or a list of any value the callable domain holds, an
 // Iter, a Range or a Map among them (`case [it] { [p] -> p ... }`). The
@@ -3161,7 +3171,7 @@ func irCaseListKind(k kind) bool {
 }
 
 func irLiteralCaseKind(k kind, bl *irScalarBuilder) bool {
-	return (k == kindFloat || isDecimalKind(k))
+	return (k == kindFloat || isDecimalKind(k) || k == irByteKind())
 }
 
 // lambdaResultWant records, for the length of one lowering, the result type

@@ -35,16 +35,16 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
     spelling = Iter.to_list(word)
     last = Iter.count(spelling) - 1
 
-    letters
-    |> Iter.with_index()
-    |> Iter.flat_map(fn #(row, line) -> Iter.map(0..Vector.length(line), &#(row, &1)))
-    |> Iter.flat_map(fn cell -> Iter.map(directions, &#(cell, &1)))
-    |> Iter.find(fn #(cell, step) -> reads(letters, spelling, cell, step))
-    |> Maybe.map(fn #(#(row, column), #(down, across)) -> {
-        #Span{
-            start: #{column: column + 1, row: row + 1},
-            end: #{column: column + 1 + across * last, row: row + 1 + down * last},
-        }
+    #(#(row, column), #(down, across)) =
+        letters
+        |> Iter.with_index()
+        |> Iter.flat_map(fn #(row, line) -> Iter.map(0..Vector.length(line), &#(row, &1)))
+        |> Iter.flat_map(fn cell -> Iter.map(directions, &#(cell, &1)))
+        |> Iter.find(fn #(cell, step) -> reads(letters, spelling, cell, step))?
+
+    Some(#Span{
+        start: #{column: column + 1, row: row + 1},
+        end: #{column: column + 1 + across * last, row: row + 1 + down * last},
     })
 }
 
@@ -65,5 +65,5 @@ fn reads(
 }
 
 fn letter_at(letters: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<String> {
-    letters |> Vector.get(row) |> Maybe.flat_map(&Vector.get(&1, column))
+    letters |> Vector.get(row)? |> Vector.get(column)
 }

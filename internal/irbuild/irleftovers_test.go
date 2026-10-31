@@ -34,7 +34,7 @@ fn empty(n: Int) -> Bool {
 }
 
 fn full(n: Int) -> Bool {
-  !Iter.is_empty(1..n)
+  not Iter.is_empty(1..n)
 }
 
 fn main() {

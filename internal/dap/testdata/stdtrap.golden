@@ -12,7 +12,7 @@
 -> exceptionInfo {"threadId":1}
 <- response exceptionInfo {"breakMode":"always","description":"line 5: division by zero","details":{"message":"line 5: division by zero","typeName":"Trap"},"exceptionId":"trap"}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":15,"id":1,"line":202,"name":"floor_div","presentationHint":"subtle","source":{"name":"int.nomi","path":"$STD/int.nomi","presentationHint":"deemphasize"}},{"column":26,"id":2,"line":5,"name":"main","source":{"name":"stdtrap.nomi","path":"$TESTDATA/stdtrap.nomi"}}],"totalFrames":2}
+<- response stackTrace {"stackFrames":[{"column":15,"id":1,"line":185,"name":"floor_div","presentationHint":"subtle","source":{"name":"int.nomi","path":"$STD/int.nomi","presentationHint":"deemphasize"}},{"column":26,"id":2,"line":5,"name":"main","source":{"name":"stdtrap.nomi","path":"$TESTDATA/stdtrap.nomi"}}],"totalFrames":2}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}
 <- event output {"category":"stderr","output":"line 5: division by zero\n"}

@@ -58,6 +58,7 @@ var infiniteIterCases = []infiniteIterCase{
 	{"map", []string{"Iter.map"}, pipe("Iter.from(0)", " |> Iter.map(&(&1 * 2)) |> Iter.to_list()"), true},
 	{"map that can break", []string{"Iter.map"}, pipe("Iter.from(0)", " |> Iter.map(fn x -> {\n        if x > 2 {\n            break x\n        } else {\n            x\n        }\n    }) |> Iter.to_list()"), false},
 	{"filter", []string{"Iter.filter"}, pipe("Iter.from(0)", " |> Iter.filter(&(&1 > 3)) |> Iter.to_list()"), true},
+	{"reject", []string{"Iter.reject"}, pipe("Iter.from(0)", " |> Iter.reject(&(&1 > 3)) |> Iter.to_list()"), true},
 	{"filter that can break", []string{"Iter.filter"}, pipe("Iter.from(0)", " |> Iter.filter(fn x -> {\n        if x > 2 {\n            break False\n        } else {\n            True\n        }\n    }) |> Iter.to_list()"), false},
 	{"drop", []string{"Iter.drop"}, pipe("Iter.from(0)", " |> Iter.drop(2) |> Iter.to_list()"), true},
 	{"drop_while", []string{"Iter.drop_while"}, pipe("Iter.from(0)", " |> Iter.drop_while(&(&1 < 10)) |> Iter.to_list()"), true},
@@ -88,6 +89,10 @@ var infiniteIterCases = []infiniteIterCase{
 	}, false},
 	{"take", []string{"Iter.take"}, pipe("Iter.from(0)", " |> Iter.take(3) |> Iter.to_list()"), false},
 	{"take_while", []string{"Iter.take_while"}, pipe("Iter.from(0)", " |> Iter.take_while(&(&1 < 3)) |> Iter.to_list()"), false},
+	// A reader's lines and chunks end with the stream, though each is
+	// built over an endless `Iter.repeat`.
+	{"Reader.lines", []string{"Reader.lines"}, pipe(`Reader.lines(Reader.from_text("a\nb"))`, " |> Iter.to_list()"), false},
+	{"Reader.chunks", []string{"Reader.chunks"}, pipe(`Reader.chunks(Reader.from_text("abc"), size: 2)`, " |> Iter.count()"), false},
 	// Terminals that must reach the end.
 	{"to_list", []string{"Iter.to_list"}, pipe("Iter.repeat(1)", " |> Iter.to_list()"), true},
 	{"to_vector", []string{"Iter.to_vector"}, pipe("Iter.from(0)", " |> Iter.to_vector()"), true},
@@ -126,6 +131,7 @@ var infiniteIterCases = []infiniteIterCase{
 	}, true},
 	// Terminals that may stop early.
 	{"find", []string{"Iter.find"}, pipe("Iter.from(0)", " |> Iter.find(&(&1 > 3))"), false},
+	{"try_reduce", []string{"Iter.try_reduce"}, pipe("Iter.from(0)", " |> Iter.try_reduce(0, fn total, x -> if x > 4 { Err(total) } else { Ok(total + x) })"), false},
 	{"find_map", []string{"Iter.find_map"}, pipe("Iter.from(0)", " |> Iter.find_map(fn x -> if x > 3 { Some(x) } else { None })"), false},
 	{"find_index", []string{"Iter.find_index"}, pipe("Iter.from(0)", " |> Iter.find_index(&(&1 > 3))"), false},
 	{"first", []string{"Iter.first"}, pipe("Iter.repeat(1)", " |> Iter.first()"), false},
@@ -168,6 +174,9 @@ func infiniteIterProgram(expr string) string {
 	src := strings.Replace(infiniteIterMain, "EXPR", expr, 1)
 	if strings.Contains(expr, "Task.") {
 		src = "import std/tasks.Task\n\n" + src
+	}
+	if strings.Contains(expr, "Reader.") {
+		src = "import std/io.Reader\n\n" + src
 	}
 	return src
 }

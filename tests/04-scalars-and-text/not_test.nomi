@@ -1,0 +1,112 @@
+import std/compiler
+
+fn positive(n: Int) -> Bool {
+    n > 0
+}
+
+fn small(n: Int) -> Result<Bool, String> {
+    if n < 0 { Err("negative") } else { Ok(n < 10) }
+}
+
+test "not negates a Bool" {
+    assert not False
+    refute not True
+    assert not not True
+    yes = True
+    assert (not yes) == False
+}
+
+test "not takes the comparison to its right" {
+    a = 1
+    b = 2
+    assert not a == b
+    assert not a > b
+    assert not a + 1 == 3
+    assert not a < b == False
+}
+
+test "and and or take the not to their left" {
+    t = True
+    f = False
+    assert not f and t
+    assert (not f) and t
+    refute not t and t
+    assert not t or t
+    refute not (t or f)
+    assert f or not f
+    assert t and not f and t
+}
+
+test "not takes a pipeline and the postfix marks" {
+    assert not [1, 2] |> Iter.is_empty()
+    assert not -3 |> positive()
+    assert not small(12)!
+    maybe: Maybe<Bool> = Some(False)
+    assert not maybe!
+}
+
+fn large_check(n: Int) -> Result<Bool, String> {
+    large = not small(n)?
+    Ok(large)
+}
+
+test "not over a ? propagates first" {
+    assert Ok(True) = large_check(20)
+    assert Ok(False) = large_check(1)
+    assert Err("negative") = large_check(-1)
+}
+
+test "a pipe stage can start with not" {
+    assert "" |> not String.contains("x")
+    refute "abc" |> not String.contains("b")
+    assert -1 |> not positive()
+    assert 3 |> not not positive()
+    assert 12 |> not small()!
+    seen = %[1, 2]
+    fresh = [1, 2, 3, 4] |> Iter.filter(fn n -> seen |> not Set.contains(n)) |> Iter.to_list()
+    assert fresh == [3, 4]
+}
+
+test "a capture negates in parentheses" {
+    assert ([1, -2, 3] |> Iter.filter(&(not positive(&1))) |> Iter.to_list()) == [-2]
+    assert ([1, -2, 3] |> Iter.reject(positive) |> Iter.to_list()) == [-2]
+}
+
+test "the C-family ! names not" {
+    result =
+        """
+            fn main() {
+              _ = !True
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "Nomi spells logical not `not`: write `not x`, not `!x`")
+}
+
+test "not under a tighter operator asks for parentheses" {
+    result =
+        """
+            fn main() {
+              _ = True == not False
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "`not` binds looser than comparisons and arithmetic")
+}
+
+test "not takes a Bool" {
+    result =
+        """
+            fn main() {
+              _ = not 1
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "`not` takes a Bool, got Int")
+}

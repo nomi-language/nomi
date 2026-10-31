@@ -15,7 +15,7 @@ fn is_balanced(rest: List<Codepoint>, awaited: List<Codepoint>) -> Bool {
         #(['[', ..rest], _) -> is_balanced(rest, [']', ..awaited])
         #(['{', ..rest], _) -> is_balanced(rest, ['}', ..awaited])
         #([cp, ..rest], [next, ..awaited]) when cp == next -> is_balanced(rest, awaited)
-        #([')' or ']' or '}', .._], _) -> False
+        #([')' or ']' or '}', ..], _) -> False
         #([_, ..rest], _) -> is_balanced(rest, awaited)
     }
 }

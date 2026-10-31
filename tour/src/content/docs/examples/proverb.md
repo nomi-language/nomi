@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The proverb's lines for `pieces`: one line for each piece and the piece
 /// after it, then a closing line for the first piece. No pieces, no lines.
 pub fn recite(pieces: List<String>) -> List<String> {
-    [first, .._] = pieces else { return [] }
+    [first, ..] = pieces else { return [] }
 
     Iter.zip(pieces, Iter.drop(pieces, 1))
     |> Iter.map(fn #(wanted, lost) -> "For want of a ${wanted} the ${lost} was lost.")
@@ -77,5 +77,5 @@ test "four pieces modernized" {
 - `recite` returns the lines as a `List<String>`, as the canonical data does, rather than one string with newlines.
 - Neighbouring pieces are paired with `Iter.zip(pieces, Iter.drop(pieces, 1))`, which stops at the shorter side, so the last piece pairs with nothing. `Iter.windows(pieces, 2)` gives the same pairs as two-element Lists, but a List pattern is refutable, so the lambda could not take each pair apart in its parameter as it takes apart the tuple `zip` yields.
 - The closing line is added with `Iter.concat` as one more pipe stage, so the function is one guard and one pipeline.
-- The empty list is a binding `else` on `[first, .._]`, which also binds the first piece the closing line names.
+- The empty list is a binding `else` on `[first, ..]`, which also binds the first piece the closing line names.
 - Each case is a plain `test`. A `subtests` table fits the shape, but the expected lists run to seven lines each, and a row per case read worse than a test per case.

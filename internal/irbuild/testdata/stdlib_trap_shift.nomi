@@ -1,7 +1,7 @@
-// The second faulting extern, and it is here because its text is qualified
-// DIFFERENTLY from `String.repeat`'s: `Int.shift_left: …` where the other reads
-// `strings.String.repeat: …`. Both are pinned as written rather than
-// normalized, because each is the user-visible text.
+// `Int.shift_left` written as a call is the `<<<` operator, an Int operation
+// lowered as the operator is, so its fault is the operator's text at the
+// call's line: `line 9: negative shift count -1`, with no function name in
+// it, where `String.repeat`'s reads `strings.String.repeat: …`.
 import std/io
 
 fn main() {

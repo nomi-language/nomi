@@ -116,7 +116,7 @@ fn tuple(s: Shape) -> String {
 
 fn list(s: Shape) -> String {
   case s {
-    Shape.Ids([x, .._]) -> "ids ${x}"
+    Shape.Ids([x, ..]) -> "ids ${x}"
     _ -> "ids miss"
   }
 }
@@ -347,7 +347,7 @@ fn plain(m: Maybe<Plain>) -> String {
 
 fn list(xs: List<Shape>) -> String {
   case xs {
-    [Shape.Wrapped(#{r}), .._] -> "list ${r}"
+    [Shape.Wrapped(#{r}), ..] -> "list ${r}"
     _ -> "list miss"
   }
 }

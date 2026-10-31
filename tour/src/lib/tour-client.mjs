@@ -769,12 +769,18 @@ function openModal(widget, opener) {
     liveHome = { parent: live.parentElement, next: live.nextSibling };
     head.append(live);
   }
-  m.current = { widget, placeholder, opener, restoreScroll, live, liveHome };
+  const place = head ? outPlaceButton(widget) : null;
+  if (place) head.append(place);
+  m.current = { widget, placeholder, opener, restoreScroll, live, liveHome, place };
   document.documentElement.classList.add("nomi-modal-open");
   m.dialog.showModal();
-  // The bars measure the panes, so they go in once the dialog is shown.
-  addSplitters(widget);
+  // The editor's split, the output's place and then the bars, which measure
+  // the panes, go in once the dialog is shown.
   widget.onModalOpen?.();
+  const chosen = outPlace();
+  widget.classList.toggle("nomi-out-below", chosen ? chosen === "below" : !!widget.pairedFiles?.());
+  place?.refresh();
+  addSplitters(widget);
   restoreScroll();
   const editor = focused?.matches("textarea")
     ? focused
@@ -786,8 +792,10 @@ function closeModal() {
   const m = modal;
   if (!m?.current) return;
   // The page's view of the widget comes back scrolled as it was left.
-  const { widget, placeholder, opener, restoreScroll, live, liveHome } = m.current;
+  const { widget, placeholder, opener, restoreScroll, live, liveHome, place } = m.current;
   if (liveHome) liveHome.parent.insertBefore(live, liveHome.next);
+  place?.remove();
+  widget.classList.remove("nomi-out-below");
   hideTooltip();
   widget.closeFileMenu?.();
   m.current = null;
@@ -800,13 +808,56 @@ function closeModal() {
   opener.focus({ preventScroll: true });
 }
 
+// --- the output's place in the large view ---
+
+// The output sits right of the code or below it, as the reader last chose,
+// kept for the rest of the visit like the pane sizes. Until the reader
+// chooses, it sits on the right, except below a solution and its test
+// opened side by side (pairedFiles in splitPanes). Below, it spans the code
+// (both groups of a split editor) but not the file tree. A narrow screen
+// always stacks it, so the button hides there.
+const OUT_PLACE_KEY = "nomi-out-place";
+function outPlace() {
+  try {
+    return sessionStorage.getItem(OUT_PLACE_KEY);
+  } catch {
+    return null;
+  }
+}
+function outPlaceButton(widget) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "nomi-move-btn nomi-out-place";
+  const show = () => {
+    const below = widget.classList.contains("nomi-out-below");
+    const label = below ? "Move the output to the right" : "Move the output below the code";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+    btn.innerHTML = arrowIcon(MOVE_ARROWS[below ? "right" : "below"][1]);
+  };
+  btn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    const below = !widget.classList.contains("nomi-out-below");
+    try {
+      sessionStorage.setItem(OUT_PLACE_KEY, below ? "below" : "right");
+    } catch {}
+    removeSplitters(widget);
+    widget.classList.toggle("nomi-out-below", below);
+    addSplitters(widget);
+    show();
+  });
+  btn.refresh = show;
+  return btn;
+}
+
 // --- resizing the large view's panes ---
 
-// The widths a reader chose for the file tree and the output, in pixels,
-// kept for the rest of the visit.
-const SPLIT_KEYS = { tree: "nomi-split-tree", out: "nomi-split-out" };
-const SPLIT_PROPS = { tree: "--nomi-tree-w", out: "--nomi-out-w" };
-function savedWidth(which) {
+// The sizes a reader chose, in pixels, kept for the rest of the visit: the
+// file tree's width, and the output's width beside the code or its height
+// below it.
+const SPLIT_KEYS = { tree: "nomi-split-tree", out: "nomi-split-out", outh: "nomi-split-out-h" };
+const SPLIT_PROPS = { tree: "--nomi-tree-w", out: "--nomi-out-w", outh: "--nomi-out-h" };
+function savedSize(which) {
   try {
     const n = Number(sessionStorage.getItem(SPLIT_KEYS[which]));
     return n > 0 ? n : null;
@@ -814,46 +865,52 @@ function savedWidth(which) {
     return null;
   }
 }
-function saveWidth(which, px) {
+function saveSize(which, px) {
   try {
     sessionStorage.setItem(SPLIT_KEYS[which], String(Math.round(px)));
   } catch {}
 }
 
-// clampWidth keeps the tree between 8rem and 24rem, the output at least
-// 12rem wide, and the editor at least 20rem wide between them.
-function clampWidth(widget, which, px) {
+// clampSize keeps the tree between 8rem and 24rem, the output at least
+// 12rem wide beside the code and the code at least 20rem wide between them;
+// below the code, the output at least 6rem tall and the code at least 10rem.
+function clampSize(widget, which, px) {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  const total = widget.getBoundingClientRect().width;
-  const tree = widget.querySelector('.nomi-split[data-split="tree"]') ? paneWidth(widget, "tree") : 0;
-  const out = paneWidth(widget, "out");
-  const room = total - 20 * rem - (which === "tree" ? out : tree);
+  const rect = widget.getBoundingClientRect();
+  if (which === "outh") return Math.max(6 * rem, Math.min(rect.height - 10 * rem, px));
+  const tree = widget.querySelector('.nomi-split[data-split="tree"]') ? paneSize(widget, "tree") : 0;
+  const out = widget.classList.contains("nomi-out-below") ? 0 : paneSize(widget, "out");
+  const room = rect.width - 20 * rem - (which === "tree" ? out : tree);
   const min = which === "tree" ? 8 * rem : 12 * rem;
   const max = which === "tree" ? Math.min(24 * rem, room) : room;
   return Math.max(min, Math.min(max, px));
 }
-function paneWidth(widget, which) {
+function paneSize(widget, which) {
   const pane = widget.querySelector(which === "tree" ? ".nomi-tree" : ".nomi-out-panel");
-  return pane ? pane.getBoundingClientRect().width : 0;
+  if (!pane) return 0;
+  const rect = pane.getBoundingClientRect();
+  return which === "outh" ? rect.height : rect.width;
 }
-function setWidth(widget, which, px) {
-  const w = clampWidth(widget, which, px);
-  widget.style.setProperty(SPLIT_PROPS[which], w + "px");
-  widget.querySelector(`.nomi-split[data-split="${which}"]`)?.setAttribute("aria-valuenow", String(Math.round(w)));
-  return w;
+function setSize(widget, which, px) {
+  const size = clampSize(widget, which, px);
+  widget.style.setProperty(SPLIT_PROPS[which], size + "px");
+  widget.querySelector(`.nomi-split[data-split="${which}"]`)?.setAttribute("aria-valuenow", String(Math.round(size)));
+  return size;
 }
 
 // addSplitters puts a bar between the tree and the editor (when the block
-// has a tree) and between the editor and the output.
+// has a tree) and between the editor and the output: an upright bar when
+// the output is beside the code, a flat one when it is below.
 function addSplitters(widget) {
-  const kinds = widget.classList.contains("nomi-has-tree") ? ["tree", "out"] : ["out"];
+  const out = widget.classList.contains("nomi-out-below") ? "outh" : "out";
+  const kinds = widget.classList.contains("nomi-has-tree") ? ["tree", out] : [out];
   for (const which of kinds) {
     const bar = document.createElement("div");
     bar.className = "nomi-split";
     bar.dataset.split = which;
     bar.tabIndex = 0;
     bar.setAttribute("role", "separator");
-    bar.setAttribute("aria-orientation", "vertical");
+    bar.setAttribute("aria-orientation", which === "outh" ? "horizontal" : "vertical");
     bar.setAttribute("aria-label", which === "tree" ? "Resize the file list" : "Resize the output");
     widget.append(bar);
     bar.addEventListener("pointerdown", (ev) => {
@@ -862,7 +919,8 @@ function addSplitters(widget) {
       bar.classList.add("is-dragging");
       const move = (e) => {
         const rect = widget.getBoundingClientRect();
-        setWidth(widget, which, which === "tree" ? e.clientX - rect.left : rect.right - e.clientX);
+        const px = which === "tree" ? e.clientX - rect.left : which === "out" ? rect.right - e.clientX : rect.bottom - e.clientY;
+        setSize(widget, which, px);
       };
       const up = (e) => {
         bar.releasePointerCapture(e.pointerId);
@@ -870,25 +928,27 @@ function addSplitters(widget) {
         bar.removeEventListener("pointermove", move);
         bar.removeEventListener("pointerup", up);
         bar.removeEventListener("pointercancel", up);
-        saveWidth(which, paneWidth(widget, which));
+        saveSize(which, paneSize(widget, which));
       };
       bar.addEventListener("pointermove", move);
       bar.addEventListener("pointerup", up);
       bar.addEventListener("pointercancel", up);
     });
-    // Arrow keys move the bar 16px, 64px with Shift; Left always moves it left.
+    // Arrow keys move the bar 16px, 64px with Shift: Left and Right for an
+    // upright bar, Up and Down for a flat one, always in the arrow's direction.
+    const keys = which === "outh" ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
     bar.addEventListener("keydown", (ev) => {
-      if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+      if (!keys.includes(ev.key)) return;
       ev.preventDefault();
-      const step = (ev.shiftKey ? 64 : 16) * (ev.key === "ArrowLeft" ? -1 : 1);
-      const now = paneWidth(widget, which);
-      saveWidth(which, setWidth(widget, which, which === "tree" ? now + step : now - step));
+      const step = (ev.shiftKey ? 64 : 16) * (ev.key === keys[0] ? -1 : 1);
+      const now = paneSize(widget, which);
+      saveSize(which, setSize(widget, which, which === "tree" ? now + step : now - step));
     });
   }
   for (const which of kinds) {
-    const saved = savedWidth(which);
-    if (saved) setWidth(widget, which, saved);
-    else widget.querySelector(`.nomi-split[data-split="${which}"]`).setAttribute("aria-valuenow", String(Math.round(paneWidth(widget, which))));
+    const saved = savedSize(which);
+    if (saved) setSize(widget, which, saved);
+    else widget.querySelector(`.nomi-split[data-split="${which}"]`).setAttribute("aria-valuenow", String(Math.round(paneSize(widget, which))));
   }
 }
 
@@ -916,6 +976,9 @@ const MOVE_ARROWS = {
   left: ["Move {} to the pane on the left", "M10 3L5 8l5 5"],
   above: ["Move {} to the pane above", "M3 10l5-5 5 5"],
 };
+function arrowIcon(path) {
+  return `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
 function moveArrows(sides, file, onMove) {
   const span = document.createElement("span");
   span.className = "nomi-move-controls";
@@ -926,7 +989,7 @@ function moveArrows(sides, file, onMove) {
     btn.className = "nomi-move-btn";
     btn.setAttribute("aria-label", label.replace("{}", file));
     btn.title = btn.getAttribute("aria-label");
-    btn.innerHTML = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    btn.innerHTML = arrowIcon(path);
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
       onMove(where);
@@ -1125,9 +1188,37 @@ function splitPanes(widget, main, bar, editors, panes, first) {
     });
   };
 
+  // pairedFiles answers whether the block is a solution and its test: two
+  // Nomi files besides any setup file, one of which declares tests, in a
+  // large view wide enough to show each at about 70 columns. The large view
+  // opens such a block the first time with the solution on the left and the
+  // test on the right, and the output below them.
+  const PAIRED_MIN_WIDTH = 1100;
+  const paired = () => {
+    const code = panes.map((p, j) => j).filter((j) => !isSetupFile(panes[j].file.name));
+    if (code.length !== 2 || !code.every((j) => panes[j].file.name.endsWith(".nomi"))) return null;
+    const tests = code.filter((j) => /^(test|group)\s/m.test(panes[j].ta.value));
+    if (tests.length !== 1) return null;
+    if (widget.getBoundingClientRect().width < PAIRED_MIN_WIDTH) return null;
+    return { solution: code.find((j) => j !== tests[0]), test: tests[0] };
+  };
+  widget.pairedFiles = () => side === "right" && !!paired();
+  let opened = false;
+
   // Leaving the large view puts every file back in one group and keeps the
   // split, which the large view opens with again.
   widget.onModalOpen = () => {
+    const first = !opened;
+    opened = true;
+    const pair = first && !kept ? paired() : null;
+    if (pair) {
+      build("right");
+      second = [pair.test];
+      b = pair.test;
+      a = pair.solution;
+      render();
+      return;
+    }
     if (!kept) return;
     const k = kept;
     kept = null;

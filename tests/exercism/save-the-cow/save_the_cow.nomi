@@ -87,7 +87,7 @@ impl Game {
 
 /// Whether `letter` is in the word and not yet revealed.
 fn is_hidden(game: Game, letter: Codepoint) -> Bool {
-    List.contains(game.word, letter) and !Set.contains(game.revealed, letter)
+    List.contains(game.word, letter) and not Set.contains(game.revealed, letter)
 }
 
 /// `game` with `letter` revealed, won when that reveals the whole word.

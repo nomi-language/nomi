@@ -6,41 +6,45 @@ import {
     std/io
 }
 
-/// The canonical flags, each `False` unless set.
-pub struct Options {
+/// The canonical flags.
+pub enum Flag {
     /// `-n`: put each line's number, from 1, before it.
-    line_numbers: Bool = False
+    LineNumbers
     /// `-l`: answer the names of the files with a match, not the lines.
-    file_names: Bool = False
+    FileNames
     /// `-i`: compare without regard to case.
-    ignore_case: Bool = False
+    IgnoreCase
     /// `-v`: answer the lines that do not match.
-    invert: Bool = False
+    Invert
     /// `-x`: match only a line that is the whole pattern.
-    whole_line: Bool = False
+    WholeLine
 }
 
-/// The lines of `files` that contain `pattern`, in file order, as `options`
-/// says. With more than one file each line starts with its file's name.
+derive Equatable for Flag
+derive Hashable for Flag
+
+/// The lines of `files` that contain `pattern`, in file order, as `flags`
+/// say. With more than one file each line starts with its file's name.
 /// A file that cannot be read is the error reading it gave.
 pub fn grep(
     pattern: String,
-    options: Options,
+    flags: Set<Flag>,
     files: List<String>,
 ) -> Result<List<String>, io.Error> {
     named = Iter.count(files) > 1
 
     files
-    |> Iter.map(&search(&1, pattern, options, named))
-    |> Result.collect()
-    |> Result.map(Iter.flatten)
+    |> Iter.map(&search(&1, pattern, flags, named))
+    |> Result.collect()?
+    |> Iter.flatten()
+    |> Ok()
 }
 
 /// What `grep` answers for one file.
 fn search(
     file: String,
     pattern: String,
-    options: Options,
+    flags: Set<Flag>,
     named: Bool,
 ) -> Result<List<String>, io.Error> {
     text = fs.read_text(file)?
@@ -48,17 +52,17 @@ fn search(
     found =
         String.lines(text)
         |> Iter.with_index()
-        |> Iter.filter(fn #(_index, line) -> matches(line, pattern, options))
+        |> Iter.filter(fn #(_index, line) -> matches(line, pattern, flags))
         |> Iter.to_list()
 
-    if options.file_names {
+    if Set.contains(flags, .FileNames) {
         Ok(if Iter.is_empty(found) { [] } else { [file] })
     } else {
         found
         |> Iter.map(fn #(index, line) -> {
             file_part = if named { "${file}:" } else { "" }
 
-            number_part = if options.line_numbers {
+            number_part = if Set.contains(flags, .LineNumbers) {
                 "${index + 1}:"
             } else {
                 ""
@@ -71,18 +75,18 @@ fn search(
     }
 }
 
-fn matches(line: String, pattern: String, options: Options) -> Bool {
-    #(line, pattern) = if options.ignore_case {
+fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool {
+    #(line, pattern) = if Set.contains(flags, .IgnoreCase) {
         #(String.fold_case(line), String.fold_case(pattern))
     } else {
         #(line, pattern)
     }
 
-    found = if options.whole_line {
+    found = if Set.contains(flags, .WholeLine) {
         line == pattern
     } else {
         String.contains(line, pattern)
     }
 
-    found != options.invert
+    found != Set.contains(flags, .Invert)
 }

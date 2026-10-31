@@ -63,7 +63,7 @@ fn main() {
     // inside-out
     dbg Iter.count(Iter.filter([1, 2, 3, 4, 5], &(&1 > 2)))
 
-    // pipeline — data first, transformations next, output last
+    // pipeline
     [1, 2, 3, 4, 5]
     |> Iter.filter(&(&1 > 2))
     |> Iter.count()
@@ -114,26 +114,19 @@ a call stage, as in `10 |> divide(100, &1)`, is an error that suggests the
 ## The `then` stage
 
 ```nomi-run
-fn find_name(id: Int) -> Maybe<String> {
-    case id {
-        1 -> Some("Ada")
-        _ -> None
-    }
-}
-
 fn main() {
-    1
-    |> find_name()
-    |> then fn name -> name == Some("Ada")
+    "  ada  "
+    |> String.trim()
+    |> then fn name -> "Hello, ${name}!"
     |> dbg
 }
 ```
 <!-- expect
-dbg line 12:
-  1
-  |> find_name()
-  |> then fn name -> name == Some("Ada")
-  = True
+dbg line 5:
+  "  ada  "
+  |> String.trim()
+  |> then fn name -> "Hello, ${name}!"
+  = "Hello, ada!"
 -->
 
 `then` calls a lambda, or a capture, with the piped value and passes on
@@ -170,41 +163,41 @@ and suggests `then`, because `tap` would throw that value away. To look at a
 value while debugging, a bare `dbg` stage is shorter. Use `tap` for effects
 the program keeps.
 
-## Keyword stages
+## Other stages
 
-Some keywords can be pipeline stages too, and a `?` can end one:
-
-- A bare `dbg` prints the value and passes it on.
-- A [`?`](/pattern-matching/#passing-failures-up) after a stage unwraps the
-  stage's [`Maybe`](/reference/maybe/) or [`Result`](/reference/results/).
-- [Assertions](/testing/#assertions) often start a pipeline in a test.
-- `if` and `case` can take the piped value.
+A bare `dbg` prints the value and passes it on. A
+[`?`](/pattern-matching/#passing-failures-up) after a stage unwraps its
+[`Maybe`](/reference/maybe/) or [`Result`](/reference/results/). An
+[assertion](/testing/#assertions) can start a pipeline, and `if` and `case`
+can take the piped value. A stage that starts with `not` negates the stage's
+result: `name |> not String.is_empty()` is `not String.is_empty(name)`.
 
 A `?` unwraps a `Some` or an `Ok` and passes the value inside on. On `None`
 or `Err`, it returns that from the function straight away:
 
 ```nomi-run
-fn parse() -> Maybe<Int> {
-    "  42  "
+fn parse(text: String) -> Maybe<Int> {
+    text
     |> String.trim()
     |> String.to_int()?
+    |> then &(&1 * 2)
     |> Some()
-    |> dbg
 }
 
 fn main() {
-    _ = parse()
+    dbg parse("  21  ")
+    dbg parse("abc")
 }
 
 ```
 <!-- expect
-dbg line 6:
-  "  42  "
-  |> String.trim()
-  |> String.to_int()?
-  |> Some()
-  = Some(42)
+dbg line 10: parse("  21  ") = Some(42)
+dbg line 11: parse("abc") = None
 -->
+
+When a `then` lambda's result is what can fail, write `then?`:
+`|> then? fn n -> half(n)` passes on the value inside, or returns the `None`
+or `Err` from the function.
 
 An assertion can check the result of a whole pipeline:
 
@@ -235,8 +228,8 @@ fn main() {
 
     Some("Ada")
     |> case {
-        .Some(name) -> "named ${name}"
-        .None -> "missing"
+        Some(name) -> "named ${name}"
+        None -> "missing"
     }
     |> dbg
 }
@@ -253,8 +246,8 @@ dbg line 8:
 dbg line 15:
   Some("Ada")
   |> case {
-      .Some(name) -> "named ${name}"
-      .None -> "missing"
+      Some(name) -> "named ${name}"
+      None -> "missing"
   }
   = "named Ada"
 -->

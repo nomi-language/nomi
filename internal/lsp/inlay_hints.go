@@ -298,6 +298,9 @@ func (c *hintCollector) walkNode(node ast.Node) {
 	case *ast.Unary:
 		c.walkNode(n.Right)
 
+	case *ast.Is:
+		c.walkNode(n.Value)
+
 	case *ast.Return:
 		c.walkNode(n.Value)
 
@@ -500,6 +503,8 @@ func nodePosition(node ast.Node) (int, int) {
 		return nodePosition(n.Func)
 	case *ast.Unary:
 		return n.Line, n.Col
+	case *ast.Is:
+		return nodePosition(n.Value)
 	case *ast.Binary:
 		return n.Line, n.Col
 	case *ast.Block:

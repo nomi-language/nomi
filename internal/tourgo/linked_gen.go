@@ -100,12 +100,12 @@ func (b *tourBlock0Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("urls.escape_query", 0, err)
+		return nil, hostadapt.Param("urls.escape_query", 0, "urltools.EscapeQuery", "value", err)
 	}
 	r0 := urltools.EscapeQuery(a0)
 	v0, err := b.out3(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("urltools.EscapeQuery", err)
 	}
 	return v0, nil
 }
@@ -164,7 +164,7 @@ func (b *tourBlock0Bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("urls.parse", 0, err)
+		return nil, hostadapt.Param("urls.parse", 0, "urltools.Parse", "raw", err)
 	}
 	r0, e := urltools.Parse(a0)
 	if e != nil {
@@ -174,7 +174,7 @@ func (b *tourBlock0Bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("urltools.Parse", err)
 	}
 	ok := b.d0.NewVariant(0)
 	ok.R[0] = v0
@@ -189,7 +189,7 @@ func (b *tourBlock0Bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("urls.parse_query", 0, err)
+		return nil, hostadapt.Param("urls.parse_query", 0, "urltools.ParseQuery", "raw", err)
 	}
 	r0, e := urltools.ParseQuery(a0)
 	if e != nil {
@@ -199,7 +199,7 @@ func (b *tourBlock0Bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	v0, err := b.out6(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("urltools.ParseQuery", err)
 	}
 	ok := b.d0.NewVariant(0)
 	ok.R[0] = v0
@@ -214,7 +214,7 @@ func (b *tourBlock0Bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("urls.unescape_query", 0, err)
+		return nil, hostadapt.Param("urls.unescape_query", 0, "urltools.UnescapeQuery", "value", err)
 	}
 	r0, e := urltools.UnescapeQuery(a0)
 	if e != nil {
@@ -224,7 +224,7 @@ func (b *tourBlock0Bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	v0, err := b.out3(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("urltools.UnescapeQuery", err)
 	}
 	ok := b.d2.NewVariant(0)
 	ok.S[0] = v0.(string)
@@ -298,7 +298,7 @@ func (b *tourBlock1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("parse_int", 0, err)
+		return nil, hostadapt.Param("parse_int", 0, "strconv.Atoi", "s", err)
 	}
 	r0, e := strconv.Atoi(a0)
 	if e != nil {
@@ -308,7 +308,7 @@ func (b *tourBlock1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	v0, err := b.out3(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("strconv.Atoi", err)
 	}
 	ok := b.d0.NewVariant(0)
 	ok.SetIntSlot(0, v0)
@@ -328,12 +328,12 @@ func (b *tourBlock1Bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("upper", 0, err)
+		return nil, hostadapt.Param("upper", 0, "strings.ToUpper", "s", err)
 	}
 	r0 := strings.ToUpper(a0)
 	v0, err := b.out5(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("strings.ToUpper", err)
 	}
 	return v0, nil
 }

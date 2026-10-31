@@ -53,24 +53,15 @@ fn main() {
 
     io.print("clock-after=${Clock.now(EffectsApp.clock)}")
 
-    io.print(
-        "context-before=${Context.deadline_remaining(EffectsApp.context)
-            == Some(Duration.seconds(0))}"
-    )
+    io.print("context-before=${Context.deadline_remaining(EffectsApp.context) != None}")
 
     {
-        with EffectsApp.context = Context.with_timeout(EffectsApp.context, Duration.seconds(0))
+        with EffectsApp.context = Context.with_timeout(EffectsApp.context, Duration.seconds(60))
 
-        io.print(
-            "context-inside=${Context.deadline_remaining(EffectsApp.context)
-                == Some(Duration.seconds(0))}"
-        )
+        io.print("context-inside=${Context.deadline_remaining(EffectsApp.context) != None}")
     }
 
-    io.print(
-        "context-after=${Context.deadline_remaining(EffectsApp.context)
-            == Some(Duration.seconds(0))}"
-    )
+    io.print("context-after=${Context.deadline_remaining(EffectsApp.context) != None}")
 
     greeter.greet("Ada")
     Logger.warn(EffectsApp.logger, "config checked")

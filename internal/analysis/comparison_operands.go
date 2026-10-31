@@ -50,6 +50,12 @@ func (c *checker) checkComparisonOperands(n *ast.Binary) (left, right Type) {
 
 	leftNeeds := leftHead != nil || needsExpectedType(n.Left)
 	rightNeeds := rightHead != nil || needsExpectedType(n.Right)
+	// An Int literal takes Byte from the other operand (byte_literal.go).
+	if !leftNeeds && !rightNeeds {
+		if left, right, ok := c.checkLiteralComparison(n); ok {
+			return left, right
+		}
+	}
 	if leftNeeds && !rightNeeds {
 		right = c.checkNode(n.Right)
 		left = c.checkOperandAgainst(n.Left, right)

@@ -26,8 +26,8 @@ pub fn rows(widest: Codepoint) -> List<String> {
         |> Iter.map(fn #(i, letter) -> row(letter, i, size))
         |> Iter.to_list()
 
-    bottom = top |> Iter.reverse() |> Iter.drop(1) |> Iter.to_list()
-    List.concat(top, bottom)
+    bottom = top |> Iter.reverse() |> Iter.drop(1)
+    [..top, ..bottom]
 }
 
 /// Row `i` of a diamond `size` letters tall to its middle, holding `letter`.
@@ -141,6 +141,6 @@ test "Largest possible diamond" {
 ## How it's written
 
 - `rows` takes the widest letter as a `Codepoint`, so `'A'..=widest` is the list of letters with no conversion. The canonical input is a one-letter string; `'C'` says the same and cannot be two letters.
-- The top half is built row by row from `Iter.with_index`, and the bottom half is the top reversed without its last row, joined with `List.concat`.
+- The top half is built row by row from `Iter.with_index`, and the bottom half is the top reversed without its last row, joined as `[..top, ..bottom]`.
 - `row` pads with `String.repeat`. The first row is its own branch, since it holds one letter rather than two.
 - The five cases are plain `test` blocks rather than a `subtests` table. Each expected value is a list of up to 51 rows, which reads better under its own test name than as a table row.

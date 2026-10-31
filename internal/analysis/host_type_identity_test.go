@@ -57,7 +57,7 @@ func assertOneType(t *testing.T, what string, a, b *analysis.PrimitiveType) {
 func TestHostTypeIdentity_StdHostTypeAcrossTwoLoads(t *testing.T) {
 	first, second := std.Load(), std.Load()
 	for _, c := range []struct{ module, name string }{
-		{"regex", "Regex"},
+		{"dynamic", "Dynamic"},
 		{"context", "Context"},
 		{"supervisors", "Supervisor"},
 	} {

@@ -21,9 +21,7 @@ derive Equatable for Step
 
 /// The reactor that holds `cells`, made in order.
 fn build(cells: List<Cell>) -> Result<Reactor, Error> {
-    Iter.reduce(cells, fn reactor = Ok(Reactor.new()), cell -> {
-        reactor = reactor?
-
+    Iter.try_reduce(cells, Reactor.new(), fn reactor, cell -> {
         case cell {
             .Input(#(name, value)) -> Reactor.input(reactor, name, value)
             .Compute(#(name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)

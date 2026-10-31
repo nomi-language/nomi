@@ -710,11 +710,9 @@ these:
 - a call: `&Int.max(&1, 0)`, `&String.length(&1)`, `&Some(&1 + 1)`,
   `&T.from_json(&1)`, `&f(&2, &1)`;
 - a parenthesized expression: `&(&1 > 2)`, `&(&1 * 2 + 1)`,
-  `&(&1 % 2 == 0)`, `&(&2)`, `&(!&1)`;
+  `&(&1 % 2 == 0)`, `&(&2)`, `&(not &1)`, `&(not Iter.is_empty(&1))`;
 - a literal or a construction: `&#Point{x: &1, y: 0}`, `&#(&1, 0)`,
-  `&#.Circle{radius: &1}`, `&%{&1 => 0}`, `&[&1, 0]`, `&#[&1]`, `&%[&1]`;
-- the negation of one of these: `&!Iter.is_empty(&1)` is
-  `fn xs -> !Iter.is_empty(xs)`, and `&!(&1 > 2)` is `&(!(&1 > 2))`.
+  `&#.Circle{radius: &1}`, `&%{&1 => 0}`, `&[&1, 0]`, `&#[&1]`, `&%[&1]`.
 
 The body is one postfix-level operand. So
 `&f(&1)(2)` captures the call `f(&1)(2)`, and `&f(&1) + 1` adds 1 to a
@@ -722,8 +720,9 @@ capture, which is a type error; the function of the sum is
 `&(f(&1) + 1)`. Anything else after `&` is the parse error `` a capture
 is `&` and a call, a parenthesized expression or a literal, as in `&f(&1)`
 or `&(&1 > 2)` ``: `&x`, `&f(&1).x` (write `&(f(&1).x)`), `&Int.max`,
-which is no call (the function itself is `Int.max`), and `&!&1` (write
-`&(!&1)`). `& (x)`, with a space, is the error that says the `&` goes
+which is no call (the function itself is `Int.max`). `&not f(&1)` is the
+error that asks for parentheses around a `not` (§22 *Logical*), `&(not
+f(&1))`, and `& (x)`, with a space, is the error that says the `&` goes
 against its body.
 
 `&N` is parameter N of the capture around it: `&(&1 > 2)` is `fn x -> x >
@@ -921,7 +920,7 @@ fn area(shape: Shape) -> Float {
   field, a `case` arm or `if` branch (whose type its other arms decide), a
   lambda body, a pipe stage (`items |> Iter.to_list() |> todo`), a generic
   function's result, an `if` condition or an operand whose type its operator
-  decides (`!todo` and `todo and ok` are `Bool`, `n == todo` has `n`'s type,
+  decides (`not todo` and `todo and ok` are `Bool`, `n == todo` has `n`'s type,
   `1 + todo` is the type `+` takes on the right). As a statement it is `Unit`. A binding with no
   annotation expects nothing, so `x = todo` is an error asking for one
   (`x: Int = todo`); `_ = todo` is fine.
@@ -973,7 +972,7 @@ fn position(student: Student) -> Int {
 fn encode_run(run: List<String>) -> String {
     case run {
         [letter] -> letter
-        [letter, .._] -> "${Iter.count(run)}${letter}"
+        [letter, ..] -> "${Iter.count(run)}${letter}"
         [] -> unreachable "chunk_by never yields an empty run"
     }
 }
@@ -1049,10 +1048,10 @@ fn main() {
   `text |> String.to_int()! |> Int.abs()`. In a capture, `&half(&1)!` is
   `fn x -> half(x)!` and takes its parameter's type from where it is used.
 - **It is written against the expression.** The `!` follows the expression
-  with no space, on its line; a `!` that starts the next line is a negation
-  that starts a statement. `!=` is not-equal, so `x!= y` compares `x` and `y`;
-  to compare an unwrapped value, write a space: `x! == y`. A prefix `!` still
-  negates, so `!found!` is the negation of `found!`.
+  with no space, on its line; a `!` that starts the next line is the C-family
+  negation, an error that says to write `not` (§22 *Logical*). `!=` is
+  not-equal, so `x!= y` compares `x` and `y`; to compare an unwrapped value,
+  write a space: `x! == y`. `not found!` is the negation of `found!`.
 - **What it accepts.** The expression must be a `Result` or a `Maybe`.
   Anything else is an error at the `!`: `` `!` unwraps a Result or a Maybe,
   and `count(1)` is Int ``, whose help says to remove the `!`. For a `Bool`,
@@ -2229,7 +2228,7 @@ Qualified pattern forms (`#Shape.Circle{radius} -> ...`) are also accepted when 
 
 A `.Variant` expression (or `.Variant(payload)` / `#.Variant{fields}` / `.Variant[elements]` / `#.Variant[elements]` / `%.Variant{entries}`) resolves to the variant `Variant` of enum `E` when, at the expression's syntactic position, the **expected type** — as determined by the checker's standard outside-in walk from the position to the enclosing declaration — is `E`. The walk passes through transparent constructs (`case`/`if-else` arm result positions, block-expression returns, `return` statements, list, tuple and map literal elements, and generic-function argument positions whose `T` is constrained by the call's return type against an outer expected type, including the head of a pipe into such a call and the arguments the stage writes after it). The constraint is solved before the arguments are checked, so it reaches a variant nested anywhere inside them: `exits: Map<Direction, Place> = Iter.to_map([#(.North, .Cave)])` checks the list against `Iter<#(Direction, Place)>`. An `if` or `case` argument is the value of its branches, so the constraint reaches through it too: in `fn pick(n: Int) -> Maybe<Color>`, `Some(if n == 1 { .Red } else { .Blue })` resolves both variants to `Color`, and `Ok(case ... { ... -> #{category: .FullHouse, ranks} })` builds the `Ok` type's struct in every arm. A list, vector or set literal checked against `Iter<T>` checks each item against `T`, as it would against `List<T>`. The heads of a list spread are elements too: `a: List<Color> = [.Red, ..rest]` resolves `.Red` against `Color` and checks `rest` against `List<Color>`. Inside a generic function its own type parameters determine as any type does, so `[.Right(x), ..path]` against `List<Crumb<T>>` resolves `.Right` to `Crumb<T>.Right`. An operand of `==`, `!=`, `<`, `>`, `<=` or `>=` is a determining position too: the two operands have one type (§22), so each is checked against the other's. The operand whose type depends on its position (a `.Variant` in any spelling, or a `#{...}` literal with no type name) is checked second, against the type of the other: `k == .Deposit` and `.Deposit == k` both resolve against `k`'s enum, and `p == #{x: 1, y: 2}` builds `p`'s struct. The comparison's own expected type (`Bool`, or none at a statement or `if` condition) is never its operands'. When both operands are dot-leading (`.Deposit == .Withdrawal`), neither names the enum, and the comparison is an error that asks for one to be qualified. A **generic variant constructor** is exactly such a position: `Ok(.Quit)` in a `fn (): Result<Input, String>` resolves `.Quit` to `Input.Quit`, because `Ok`'s payload param is pinned from `Ok`'s `Result<T, E>` return against the outer `Result<Input, String>` — and likewise inside a `case`/`if` arm, an annotated binding, or an argument slot. The outer type may name the enclosing function's own type parameters: in `fn write<T>(buffer: Buffer<T>, item: T) -> Result<Buffer<T>, Error>`, `Err(.Full)` takes `E` from it as `Error` and leaves `T` to the arguments, since a callee parameter is pinned only to a type that names no type parameter. It does **not** look at later uses, unannotated `=` bindings, a bare `.Variant` standing alone as a **pipe stage** (`… |> .Guess() |> Ok()`, where the enum would have to be read from the downstream `Ok()`), or any other site that would require backward inference. This matches Nomi's broader explicit-types philosophy — the same outside-in walk the checker already does for ordinary type checking, reused for variant resolution.
 
-**An earlier element of the same literal.** A list, vector, set or map literal checked with no expected type (an unannotated binding, a row of a `subtests` table, an argument whose parameter type nothing has solved) checks its elements left to right, and checks each element after the first against the type the elements before it give, as against an expected type, whenever that type has an enum or a named struct in it: it is one, or one is among its element, key, value, tuple element or type argument types. A map's keys and its values are two positions, each with its own type. So the first qualified element sets the enum for the bare variants after it, as Swift's `[Color.red, .green]` does: `[Color.Red, .Green]` is a `List<Color>`, and `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`. Nesting is the same rule applied at each level, since the earlier element's whole type is what the later one is checked against: `[%{N.A => 0}, %{.C => 1}]`, `[#(Color.Red, 1), #(.Green, 2)]` and `[Some(Color.Red), Some(.Green)]` resolve. A `#{...}` literal with no type name after an element of a named struct builds that struct, as it would under an annotation: `[#Point{x: 0, y: 0}, #{x: 1, y: 2}]` is a `List<Point>`, and `[#(#Point{x: 0, y: 0}, "origin"), #(#{x: 1, y: 2}, "corner")]` a `List<#(Point, String)>`. An element whose type is still open sets nothing and blocks nothing: in `[[], [Color.Red], [.Green]]`, `[Color.Red]` fixes the element type `[]` left open, so `.Green` resolves. The heads of `[h1, h2, ..rest]` count as elements. Resolution runs left to right only: in `[.Red, Color.Green]` nothing before `.Red` gives it an enum, so `.Red` is the *no determinable enum type* error, whose hint asks for the first element to be qualified. A tuple's elements are separate positions of separate types, so `#(Color.Red, .Green)` gives `.Green` nothing. An expected type, when the literal has one, is what every element is checked against instead: in `xs: List<Size> = [Color.Red, .Large]`, `.Large` resolves to `Size.Large` and `Color.Red` is a mismatch.
+**An earlier element of the same literal.** A list, vector, set or map literal checked with no expected type (an unannotated binding, a row of a `subtests` table, an argument whose parameter type nothing has solved) checks its elements left to right, and checks each element after the first against the type the elements before it give, as against an expected type, whenever that type has an enum or a named struct in it: it is one, or one is among its element, key, value, tuple element or type argument types. A map's keys and its values are two positions, each with its own type. So the first qualified element sets the enum for the bare variants after it, as Swift's `[Color.red, .green]` does: `[Color.Red, .Green]` is a `List<Color>`, and `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`. Nesting is the same rule applied at each level, since the earlier element's whole type is what the later one is checked against: `[%{N.A => 0}, %{.C => 1}]`, `[#(Color.Red, 1), #(.Green, 2)]` and `[Some(Color.Red), Some(.Green)]` resolve, and so does `[Ok([Color.Red]), Ok([.Green]), Err("none")]`, where the error type the first `Ok` leaves open does not stop the enum its value fixes from reaching the next. A `#{...}` literal with no type name after an element of a named struct builds that struct, as it would under an annotation: `[#Point{x: 0, y: 0}, #{x: 1, y: 2}]` is a `List<Point>`, and `[#(#Point{x: 0, y: 0}, "origin"), #(#{x: 1, y: 2}, "corner")]` a `List<#(Point, String)>`. An element whose type is still open sets nothing and blocks nothing: in `[[], [Color.Red], [.Green]]`, `[Color.Red]` fixes the element type `[]` left open, so `.Green` resolves. The heads of `[h1, h2, ..rest]` count as elements. Resolution runs left to right only: in `[.Red, Color.Green]` nothing before `.Red` gives it an enum, so `.Red` is the *no determinable enum type* error, whose hint asks for the first element to be qualified. A tuple's elements are separate positions of separate types, so `#(Color.Red, .Green)` gives `.Green` nothing. An expected type, when the literal has one, is what every element is checked against instead: in `xs: List<Size> = [Color.Red, .Large]`, `.Large` resolves to `Size.Large` and `Color.Red` is a mismatch.
 
 **An earlier arm of the same `case`, or the first branch of the same `if`.** A `case` or an `if` checked with no expected type follows the same rule for its arms: each arm's value after the first is checked against the type the arms before it give, as against an expected type, whenever that type has an enum or a named struct in it (and, for a struct, the arm's value holds a `#{...}` literal with no type name). So `format = case order { .Less -> Format.Portrait  .Equal -> .Square  .Greater -> .Landscape }` is a `Format`, as `format = if wide { Format.Landscape } else { .Portrait }` is. A diverging arm (`todo`, `return`) gives nothing, and the arms after it take the type from the first arm that has a value. Resolution runs from the first arm on: with `.Square` first and `Format.Portrait` second, `.Square` is the *no determinable enum type* error. An expected type, when the `case` or `if` has one, is what every arm is checked against instead.
 
@@ -2626,8 +2625,8 @@ id
   `user.address?.city` the address's `city`, and `a.b()?.c()?` propagates
   from each call. After a `!` it applies to the payload, so `half(4)!?` is
   the error `` `?` requires a Result or Maybe, got Int `` unless the payload
-  is itself a `Result` or a `Maybe`. A prefix `!` negates the `?`'s value:
-  `!ready(x)?` is `!(ready(x)?)`. `nomi fmt` writes the `?` against its
+  is itself a `Result` or a `Maybe`. A `not` negates the `?`'s value:
+  `not ready(x)?` is `not (ready(x)?)`. `nomi fmt` writes the `?` against its
   expression, with no space.
 - **In a pipe it follows a stage.** `text |> parse()? |> validate()?`
   propagates from each stage, and the stage after a `?` gets the unwrapped
@@ -3006,7 +3005,7 @@ case args {
 
 // nested destructuring
 case grid {
-    [[first, .._], .._] -> first // first element of first row
+    [[first, ..], ..] -> first // first element of first row
     _ -> default
 }
 
@@ -3018,9 +3017,9 @@ case lines {
 }
 ```
 
-`.._` ignores the tail, and so does a bare `..` (`[first, ..]`), as in a vector pattern. Note: structs don't need a spread — partial matching is already the default (see Struct Destructuring above).
+A bare `..` ignores the tail (`[first, ..]`), as in a vector pattern. `.._` is the parse error ``write `..` to ignore the rest of a list pattern, not `.._` ``; a labeled discard such as `.._rest` names the tail without binding it, as `_word` does. Note: structs don't need a spread — partial matching is already the default (see Struct Destructuring above).
 
-- **One `..`, anywhere among the elements.** Elements before it match from the front and elements after it from the end. After it comes a pattern for the rest, which is a `List`, or nothing. With elements after it, the rest is a name, `_` or nothing (`[first, ..mid, last]`, `[1, .., 9]`), and anything else is the parse error ``a list pattern's `..` takes a name, `_` or nothing when elements follow it``. A second `..` is the parse error ``a list pattern takes one `..` ``.
+- **One `..`, anywhere among the elements.** Elements before it match from the front and elements after it from the end. After it comes a pattern for the rest, which is a `List`, or nothing. With elements after it, the rest is a name or nothing (`[first, ..mid, last]`, `[1, .., 9]`), and anything else is the parse error ``a list pattern's `..` takes a name or nothing when elements follow it``. A second `..` is the parse error ``a list pattern takes one `..` ``.
 - **A rest at the end shares the list's cells.** `[x, ..rest]` takes no copy, so a recursive walk over it is linear.
 - **Elements after the `..` walk the list.** A List is cons cells that know their length, so reaching its last elements takes one walk to them, and a name for the rest before them (`..mid`) is a copy of those elements, made in one more walk. `[first, .., last]` is linear in the list's length, where `[first, ..rest]` reads two cells.
 
@@ -3061,7 +3060,7 @@ case v {
 }
 ```
 
-- **One `..`, anywhere among the elements.** It is followed by a name, which binds the elements between the heads and the tails as a `Vector`, by `_`, or by nothing. A second `..` is the parse error ``a vector pattern takes one `..` ``, and anything else after it is ``the rest of a vector pattern is a name, `_` or nothing``.
+- **One `..`, anywhere among the elements.** It is followed by a name, which binds the elements between the heads and the tails as a `Vector`, or by nothing. A second `..` is the parse error ``a vector pattern takes one `..` ``, `.._` is ``write `..` to ignore the rest of a vector pattern, not `.._` ``, and anything else after it is ``the rest of a vector pattern is a name or nothing``.
 - **Without a `..`, the pattern matches only vectors of its length.** `#[a, b]` matches a two-element vector, and `#[]` the empty one.
 - **The rest shares the vector's storage.** Binding it takes no copy, so a recursive walk over `#[x, ..rest]` is linear.
 - **Coverage is by length, as a list's is**: `#[]` and `#[x, ..rest]` cover every vector, and `#[]` with `#[x]` is ``non-exhaustive case on Vector<Int>: missing #[_, _, ..]``. `#[..all]` covers every vector. Elements after the `..` are tested against the vector's last elements: `#[]`, `#[_]` and `#[_, .., _]` cover every vector, while `#[1, .., 3]` can fail, so as a binding it takes an `else` and alone in a `case` it is ``non-exhaustive case on Vector<Int>: missing #[]``.
@@ -3318,7 +3317,61 @@ fn main() {
 }
 ```
 
-Which to reach for: `?` passes an error up unchanged; a binding `else` handles or replaces one step's failure in place, or supplies a fallback; `case` when both outcomes continue; `if Pattern = expr` when only the success branch needs the names.
+Which to reach for: `?` passes an error up unchanged; a binding `else` handles or replaces one step's failure in place, or supplies a fallback; `case` when both outcomes continue; `if Pattern = expr` when only the success branch needs the names; `value is Pattern` when only whether it matches matters.
+
+### Testing a pattern: `is`
+
+`value is Pattern` is a `Bool`: whether the value matches the pattern. It
+answers what a `case` with a `True` arm and a `_ -> False` arm answers, as
+Rust's `matches!` and C#'s `is` do:
+
+```nomi
+import std/io
+
+enum Block {
+    Item String
+    Text String
+}
+
+fn main() {
+    blocks = [Block.Item("milk"), Block.Text("note"), Block.Item("eggs")]
+    items = blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count()
+    io.print(items) // 2
+    io.print(Some(3) is Some(_)) // True
+    io.print(3 is (1 or 2)) // False
+    io.print(not [1, 2] |> List.head() is None) // True
+}
+```
+
+- **The pattern is a `case` arm's.** Every pattern an arm takes works here,
+  nested to any depth: `_`, literals, variants with their payloads, tuple,
+  struct, list, vector, set and map patterns, and a string prefix. It is
+  checked against the value's type with the arm's errors: a dot-leading
+  variant resolves against the value's type (`block is .Item(_)`), and a
+  pattern that cannot match it is an error (`` pattern "x" is a String, but
+  the value is an Int ``, `variant D not found in enum Kind`). A map pattern's
+  keys are expressions evaluated where the test is, as an arm's are.
+- **It binds nothing.** A name in the pattern is the error `` an `is` test
+  binds nothing, so its pattern cannot name `n` ``, whose help names the
+  binding form, `if Some(n) = m { ... }`, or `m == n` when the whole pattern
+  is the name; an `as` name is the same error. A discard name (`_rest`) binds
+  nothing and is allowed.
+- **An `or` pattern goes in parentheses:** `kind is (.Circle or .Square)`. A
+  bare `or` after the pattern is the Boolean `or`, so `x is .A or y > 0` is
+  `(x is .A) or (y > 0)`. One whose right side can only be a pattern (`_`, a
+  dot-leading variant `.B`, or `#.B{...}` and `%.B{...}`) is the parse error
+  `` this `or` joins two Bool values, and a pattern cannot be its right
+  operand: `is` takes one pattern ``, whose help shows the parentheses. Any
+  other right side is read as a Bool, and when it is not one, the `'or'
+  operands must be Bool` error's help names the parenthesized form: `m is
+  Some(_) or None` is `` m is (Some(_) or None) ``.
+- **There is no exhaustiveness to check**, since a test answers `False` for
+  what it does not match. A pattern that matches every value of the type
+  tests nothing, and is an error: `` `_` matches every value of type Kind, so
+  this test is always True ``.
+- **The value is evaluated once**, before the pattern is tested.
+- `is not` is not an operator: write `not x is P`, which `not`'s precedence
+  reads as `not (x is P)`.
 
 ## 11. If/Else
 
@@ -3414,7 +3467,7 @@ Nomi has two iteration mechanisms: **stdlib higher-order functions** for collect
 
 ### Collection Iteration
 
-**Every generic iteration op is an `Iter` owner function** over any `Iter<T>`: `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.each`, `Iter.find`, `Iter.count`, `Iter.sort`, `Iter.reverse`, and the rest. The adapters (`map`/`filter`/`take`/`drop`/`flat_map`/…) are **lazy** — they return new iterators that fuse, building no intermediate collection. The terminals (`reduce`/`each`/`find`/`any`/`all`/`is_empty`/`count`/`sort`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) **consume** the iterator. There are no eager collection-adapter functions: to get a container back from a chain, append an explicit materialize step. An `Iter<String>` is joined into one `String` with `String.join`.
+**Every generic iteration op is an `Iter` owner function** over any `Iter<T>`: `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.each`, `Iter.find`, `Iter.count`, `Iter.sort`, `Iter.reverse`, and the rest. The adapters (`map`/`filter`/`reject`/`take`/`drop`/`flat_map`/…) are **lazy** — they return new iterators that fuse, building no intermediate collection. The terminals (`reduce`/`each`/`find`/`any`/`all`/`is_empty`/`count`/`sort`/…) and materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`) **consume** the iterator. There are no eager collection-adapter functions: to get a container back from a chain, append an explicit materialize step. An `Iter<String>` is joined into one `String` with `String.join`.
 
 ```nomi
 // transform (lazy — materialize with Iter.to_list)
@@ -3456,7 +3509,7 @@ Iter.loop(fn sum = 0 -> {
 ```nomi
 // Skip inactive items
 Iter.each(items, fn item -> {
-    if !item.active { continue }
+    if not item.active { continue }
     process(item)
 })
 
@@ -3976,7 +4029,7 @@ An interface body is an item list. Each item's *form* determines its role, on tw
 
 Every bodied/host item is part of the contract (a default), reachable both interface-qualified (`Iter.known_count(xs)`) and type-qualified on an implementor (`List.known_count(xs)`) with full generic inference — the two are the *same* function, selected by the concrete type bound to `self`. Operations that take no `self` are **not** interface functions — put them in an inherent `impl Iface { ... }` block beside the interface and call them owner-qualified (`Iter.from(0)`).
 
-> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `is_infinite`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`map_reduce`/`find`/`each`/`any`/`all`/`is_empty`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `is_infinite` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
+> The example uses `known_count` because, for `Iter`, the defaults are protocol hooks — the interface is pure protocol, just `each_while` (required) plus the two `open` defaults `known_count` and `is_infinite`. **Every generic iteration algorithm is an `Iter` owner function, not a dispatched interface function**: the adapters (`map`/`scan`/`filter`/`take`/`drop`/`take_while`/`drop_while`/`flat_map`/`zip`/`cycle`/`concat`/`with_index`), the terminals (`reduce`/`try_reduce`/`map_reduce`/`find`/`each`/`any`/`all`/`is_empty`/`first`/`last`/`get`/`count`/`min`/`max`/`min_by`/`max_by`/`sum`/`sort`/`sort_by`/`partition`/`group_by`/`frequencies`), and the materializers (`to_list`/`to_vector`/`to_set`/`to_map`/`reverse`/`flatten`/`transpose`). So `Iter.map(xs, f)` and `Iter.reduce(xs, f)` are owner-qualified calls, not dispatch calls. There are also no eager collection-adapter functions: a `List` back from a chain is the explicit `Iter.map(xs, f) |> Iter.to_list()`. Container-specific work a generic adapter can't express because it reads or rebuilds a container's structure lives on the relevant owner — `Map.map_values`, `Set.union`, `List.concat`, `Vector.get`, `Map.size`/`Set.size`, native `String.reverse`. The one rule: generic over any iterable → `Iter.X`; specific to a container → that container's owner. `known_count` and `is_infinite` are the only ops that are dispatched defaults rather than owner functions, because they are the protocol hooks `Iter.count` consults for an O(1) count and every full-consuming terminal consults before it starts (see §19).
 
 A Nomi-bodied default function may give its **trailing parameters default values**, exactly like a free `fn` (`fn announce(value: self, loud: Bool = False) -> String { … }`); a caller omitting the trailing argument gets the default. Defaults are rejected on a required or host-backed function — only a Nomi default body carries the value at runtime.
 
@@ -4628,7 +4681,7 @@ Interface arguments may be inferred from the implementation function signatures 
 
 #### Several instantiations for one type
 
-A type may implement one generic interface at several type arguments: `impl Contains<String> for String`, `impl Contains<Regex> for String` and `impl Contains<Codepoint> for String` are three impls, as are `impl Add<Days, Day> for Day` and `impl Add<Weeks, Day> for Day`. The operator interfaces follow the same rule as every other generic interface. Two rules keep the impls apart:
+A type may implement one generic interface at several type arguments: `impl Contains<String> for String`, `impl<C> Contains<Regex<C>> for String` and `impl Contains<Codepoint> for String` are three impls (the second's `<C>` declares the type parameter its argument names, since the receiver names none), as are `impl Add<Days, Day> for Day` and `impl Add<Weeks, Day> for Day`. The operator interfaces follow the same rule as every other generic interface. Two rules keep the impls apart:
 
 - **Each writes its type arguments.** An impl whose header leaves them to be inferred beside another impl of the interface for the type is the error `` `Box` implements `Holds` more than once, so each impl writes its type arguments in its header ``, whose help is the header to write (`` write `impl Holds<Int> for Box` ``).
 - **No two overlap.** Either every impl names its interface type arguments with distinct concrete types, or there is exactly one impl, which may be generic in them. `impl Holds<T> for Wrap<T>` beside `impl Holds<Int> for Wrap<T>` is the error `` overlapping impls: `Holds<T>` for `Wrap` is generic in its type arguments, so it covers `Holds<Int>`, which `Wrap` also implements ``. Two impls at the same arguments are a duplicate impl, `` duplicate impl: `Holds<Int>` is implemented for `Box` by modules main (function `holds`); a type implements an interface once at each set of type arguments ``.
@@ -4669,7 +4722,7 @@ fn held_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
 
 fn first_text(hs: List<Holds<String>>) -> Bool {
     case hs {
-        [h, .._] -> Holds.holds(h, "a")
+        [h, ..] -> Holds.holds(h, "a")
         [] -> False
     }
 }
@@ -4966,7 +5019,7 @@ Name collisions between specific imports are a compiler error.
 - File API aliases use `as`: `import http/request as req`, then `req.get(...)`.
 - Stdlib files use the `std/` prefix: `import std/io`, `import std/iter`. The `std/` prefix routes to the embedded stdlib filesystem and prevents user modules from shadowing stdlib names. `std` alone, like the short name of any module with no file of that name at its root, is a directory and names no file: `import std` and `import std.io` (which selects `io` from a file `std`) are errors whose hint spells `import std/io`.
 - Variants must come through their enum. `import shape.Circle` (a flat selective variant import) is rejected with a clear error pointing at the owner selector form (`import shape.Shape.Circle`) or the qualified form (`import shape.Shape` then `Shape.Circle`). The owner selector path makes the originating enum visible at the import line, so cross-module collisions are caught at the import rather than silently shadowed.
-- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.is_ok`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
+- Every user file is preceded conceptually by the imports listed in `std/prelude.nomi`. That file pulls in the primitives (`Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set`), `Bool` (with `True`/`False` variants) from `std/bool`, the `Maybe`/`Some`/`None` and `Result`/`Ok`/`Err` enums, the `Range` struct (so range literals like `1..=10` resolve everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`BitwiseAnd`/`BitwiseOr`/`BitwiseXor`/`BitwiseNot`/`ShiftLeft`/`ShiftRight`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), `Ordering`, `Type`, and the application lifecycle types `Startup` and `Context`. Owner functions on those types need no import (`Iter.map`, `String.trim`, `Map.get`, `Result.is_ok`). The prelude exports no file API objects, so a file-level function needs its file imported (`import std/io` for `io.print`), and an owner function on a type outside the prelude needs that type imported (`import std/assertions.AssertionFailure` for `AssertionFailure.format`). The `std/literals` cluster (`Literal`/`Fragment`) and niche/helper types such as `Assertable` and `AssertionFailure` are *not* preluded — their authors import them explicitly. The prelude exports no bare functions — bare names are types, interfaces, and variant constructors only. Anything not listed in the prelude must be imported explicitly. Stdlib files do not receive the prelude — they import their dependencies by hand. See §24 for details.
 - Imports may appear inside a function body. A nested `import` binds names in the enclosing block's scope only and shadows any file-level binding of the same name. The file load itself is cached, so a nested import has no per-call cost beyond the first.
 
 ```nomi
@@ -5072,7 +5125,7 @@ Resolution rules per `X`:
 
 `Int` (an integer of any size, exact), `Float` (64-bit IEEE 754 floating point), `Decimal` (arbitrary-precision, exact base-10), `Bool`, `String` (UTF-8, always), `Unit`. All primitive types implement `Display` and `Debug` — see §16 *Display and Debug* for the per-type rendering rules.
 
-`Int` is the single integer type: signed, exact at any size, with no largest or smallest value. There are no sized (`Int32`) or unsigned (`UInt`) variants and no separate big-integer type; this follows Python's and Elixir's one unbounded integer and the one-`Int` simplicity of Elm and Gleam. A value that fits in 64 bits costs what a machine integer costs, and arithmetic past that grows the value instead of overflowing (§22 *Integer arithmetic is exact*), so an Int literal may have any number of digits. Where an Int meets something that holds a fixed number of bits (a Go binding, a `Duration`, a database column), a value that does not fit is an error there. Bitwise operations are stdlib functions in `std/int` — `Int.bitwise_and` / `or` / `xor` / `not` and `Int.shift_left` / `shift_right` — rather than operators, matching the functional-language convention (Gleam `int.bitwise_*`, Elm `Bitwise.*`).
+`Int` is the single integer type: signed, exact at any size, with no largest or smallest value. There are no sized (`Int32`) or unsigned (`UInt`) variants and no separate big-integer type; this follows Python's and Elixir's one unbounded integer and the one-`Int` simplicity of Elm and Gleam. A value that fits in 64 bits costs what a machine integer costs, and arithmetic past that grows the value instead of overflowing (§22 *Integer arithmetic is exact*), so an Int literal may have any number of digits. Where an Int meets something that holds a fixed number of bits (a Go binding, a `Duration`, a database column), a value that does not fit is an error there. The bitwise operators `&&&`, `|||`, `^^^`, `~~~`, `<<<` and `>>>` (§22 *Bitwise*) work on Ints of any size; `Int.bitwise_and`, `bitwise_or`, `bitwise_xor`, `bitwise_not`, `shift_left` and `shift_right` are the same operations as functions, for passing as values.
 
 `Float` follows the IEEE 754 binary64 format. That includes the three special values **NaN**, **+Infinity**, and **-Infinity** — they are valid `Float` values (not separate types), produced by IEEE 754 arithmetic and constructable directly. See *Float Special Values* below.
 
@@ -5121,6 +5174,8 @@ String.to_codepoints("é")
 `Bytes` is distinct from text `String` and is the FFI boundary type for Go
 `[]byte`. `Byte` is not a numeric type: convert explicitly with
 `Byte.to_int` / `Int.to_byte` when integer arithmetic or display is wanted.
+An integer literal written where a `Byte` is expected is a `Byte`
+(`b: Byte = 0x81`, §32 *Byte literals*); an `Int` value never is.
 `Bytes + Bytes` concatenates buffers, matching `Bytes.concat`.
 
 ### Built-in Types
@@ -5689,7 +5744,7 @@ template = `price tag: $${PRICE}` // literal $$ {PRICE}
 
 **Raw strings cannot contain a backtick** — the body terminates at the first bare backtick. Variable-length delimiters along the lines of Rust's `r#"..."#` are a known future gap.
 
-Backticks also compose with typed literals (for example, `` Regex`\d+` `` and multi-line `Bash` raw literals). Because a raw body is always fixed text, a backtick typed literal whose handler can fail is checked at compile time and has the handler's success type: `` Regex`\d+` `` is a `Regex`, and `` Regex`[` `` is a compile error. See "Typed literals" below.
+Backticks also compose with typed literals (for example, `` Regex`\d+` `` and multi-line `Bash` raw literals). Because a raw body is always fixed text, a backtick typed literal whose handler can fail is checked at compile time and has the handler's success type: `` Regex`\d+` `` is a `Regex<Unit>` (a regex's type names its capture groups, §*Capture types*), and `` Regex`[` `` is a compile error. See "Typed literals" below.
 
 ### Codepoint literals
 
@@ -5883,7 +5938,7 @@ At each `${expr}` slot, the analyzer checks that the slot expression's type impl
 
 **Raw typed literals are checked at compile time.** A raw body never interpolates, so the handler's input is fixed text. When the handler can fail (it returns `Result<T, E>`), the compiler runs it while checking the program, and the literal's type is `T`:
 
-- `Ok(v)`: the literal is a `T`. `` Regex`\d+` `` is a `Regex`, so it needs no `?`, and `` once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
+- `Ok(v)`: the literal is a `T`. `` Regex`\d+` `` is a `Regex<Unit>`, so it needs no `?`, and `` once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
 - `Err(e)`: the literal is a compile error at the literal, carrying the handler's message (the `Display` rendering of `e`, or its `Debug` rendering when `E` has no `Display`): `` Regex`[` `` is ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
 - A handler that reaches an effect (output, files, the clock, tasks, an app field), or that does not finish within the compiler's step limit, cannot be run at compile time, and the literal is a compile error saying so. Write such a literal with double quotes and handle its `Result`.
 
@@ -5896,7 +5951,7 @@ import {
 once letters = Regex`[A-Za-z]+`
 
 fn main() {
-    digits: Regex = Regex`\d+`
+    digits: Regex<Unit> = Regex`\d+`
     io.print(String.find_all("order 66, aisle 7", digits)) // [66, 7]
     io.print(String.find_all("ab 12 cd", letters)) // [ab, cd]
 }
@@ -5904,7 +5959,7 @@ fn main() {
 
 A `?` on a backtick literal checked at compile time is the ordinary `` `?` requires a Result or Maybe `` error, whose hint says the literal is already a `T` and to remove the `?`.
 
-The quote style alone decides this. A double-quoted typed literal keeps its handler's result type, interpolated or not: `Regex"\\d+"` and `Regex"room ${n}"` are both `Result<Regex, String>`, built when the program runs. A handler that cannot fail (returns `T` itself) gives the same type in both forms.
+The quote style alone decides this. A double-quoted typed literal keeps its handler's result type, interpolated or not: `Date"2026-05-04"` and `Date"${year}-05-04"` are both `Result<Date, Error>`, built when the program runs. A handler that cannot fail (returns `T` itself) gives the same type in both forms. A `Regex` literal is the one whose type the compiler computes from its text: with no `${...}` its pattern is known, so `Regex"(\\d+)"` is a `Result<Regex<String>, String>`, while `Regex"room ${n}"` is a `Result<Regex<List<Maybe<String>>>, String>`, the type of a regex compiled while the program runs (§*Capture types*).
 
 At run time a backtick literal still calls its handler, once per literal site: the first evaluation builds the value and later evaluations reuse it, so a literal in a loop is not rebuilt on each iteration. The handler is pure and its input fixed, so the run finds the `Ok` the compiler found.
 
@@ -6000,7 +6055,7 @@ fn slice(s: String, start: Int, end: Int) -> String                  // grapheme
 fn pad_start(s: String, width: Int, fill: String = " ") -> String    // to `width` graphemes; never truncates
 fn pad_end(s: String, width: Int, fill: String = " ") -> String
 fn contains(c: String, x: String) -> Bool                         // Contains<String> impl: a substring
-fn contains(c: String, x: Regex) -> Bool                          // Contains<Regex> impl: a match anywhere
+fn contains<C>(c: String, x: Regex<C>) -> Bool                    // Contains<Regex<C>> impl: a match anywhere
 fn contains(c: String, x: Codepoint) -> Bool                      // Contains<Codepoint> impl: it occurs
 fn starts_with<M>(s: String, prefix: M) -> Bool where M: Matcher
 fn ends_with<M>(s: String, suffix: M) -> Bool where M: Matcher
@@ -6016,8 +6071,8 @@ fn split<M>(s: String, separator: M) -> List<String> where M: Matcher
 fn replace<M>(s: String, old: M, new: String) -> String where M: Matcher  // every match; `new` is literal
 fn find_all<M>(s: String, needle: M) -> List<String> where M: Matcher     // every match, left to right
 fn find<M>(s: String, needle: M) -> Maybe<String> where M: Matcher        // the first match: find_all's first element
-fn captures(s: String, re: Regex) -> Maybe<List<Maybe<String>>>      // the first match's groups 1.., None for one that did not take part
-fn captures_all(s: String, re: Regex) -> List<List<Maybe<String>>>    // the groups of every match, left to right
+fn captures<C>(s: String, re: Regex<C>) -> Maybe<C>                 // the first match's groups 1.., as re's capture type C
+fn captures_all<C>(s: String, re: Regex<C>) -> List<C>               // the groups of every match, left to right
 fn words(s: String) -> List<String>                                  // split on runs of whitespace
 fn lines(s: String) -> List<String>                                  // split on \n or \r\n
 fn repeat(s: String, count: Int) -> String                           // count >= 0
@@ -6031,7 +6086,35 @@ fn strip_suffix(s: String, suffix: String) -> Maybe<String>
 fn join(parts: Iter<String>, separator: String = "") -> String       // any Iter<String>, driven once
 ```
 
-The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text, a `Regex` (`std/regex`) matches its pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. `String.contains` is String's `Contains` impl at the same three types, chosen by the needle's type (§*Several instantiations for one type*), so a `String` also satisfies `where C: Contains<String>` (§*Membership: `Contains`*). Each Matcher function answers one of these operations with the matcher first (`is_contained_in`, `is_prefix_of`, `is_suffix_of`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` inserts its replacement literally for a regex too; `Regex.replace_all(text, re, replacement)` expands `$1` capture references, and takes the text first as the String functions do, so it is a pipe stage over the text. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups. Each match gives one entry per group from group 1 in the order the pattern opens them (the whole match is `String.find`'s answer, not an entry), `Some` of the text for a group that took part, even an empty one, and `None` for one that did not: `` String.captures("b", Regex`(a)|(b)`) `` is `Some([None, Some("b")])`. `String.split` and the other Matcher search functions are generic, so naming one as a value needs a function type to settle `M`: `split: (String, String) -> List<String> = String.split`.
+The search functions take any `Matcher` (`std/matcher`) as the thing to look for: a `String` matches its own text, a `Regex` (`std/regex`) matches its pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")` and `` String.split(text, Regex`\s+`) `` are the same function. `String.contains` is String's `Contains` impl at the same three types, chosen by the needle's type (§*Several instantiations for one type*), so a `String` also satisfies `where C: Contains<String>` (§*Membership: `Contains`*). Each Matcher function answers one of these operations with the matcher first (`is_contained_in`, `is_prefix_of`, `is_suffix_of`, `split_in`, `replace_in`, `find_all_in`, `find_in`), and a type of your own implements it to become searchable. A generic function of your own takes either with `where M: Matcher`. "Pattern" is not the name because a pattern in Nomi is a destructuring shape (§10). `String.replace` replaces every match; with a `Regex` it expands group references in the replacement by Go's `regexp` rules (`$1` or `${1}` for a numbered group, `${name}` for a named one, `$$` for a literal `$`), and with any other matcher the replacement is literal text. `String.captures` and `String.captures_all` take a `Regex` rather than any `Matcher`, since only a regex has groups, and answer each match's groups as the regex's capture type (*Capture types* below). `String.split` and the other Matcher search functions are generic, so naming one as a value needs a function type to settle `M`: `split: (String, String) -> List<String> = String.split`.
+
+#### Capture types
+
+`Regex<C>` (`std/regex`) carries the type of its capture groups: `C` is what `String.captures` answers for a match, inside a `Maybe`, and what `String.captures_all` lists. The groups are the pattern's from group 1, in the order the pattern opens them; the whole match is `String.find`'s answer, not a group. A `Regex` literal whose pattern is fixed text (a backtick literal, or a double-quoted one with no `${...}`) has `C` computed from the pattern by the compiler, as Swift types `/(\d+)-(\w+)?/`:
+
+- A group is `String` when every match fills it and `Maybe<String>` when a match can leave it out: it stands under `?`, `*` or a repetition whose minimum is 0, in one alternative of a `|`, or inside a group that can be left out. A group under `+` or `{n,m}` with `n > 0` holds its last repetition and is `String`, as is one that can match the empty text (`(a*)` takes part, empty, in every match).
+- When every group is named (`(?P<year>...)` or `(?<year>...)`) with a name a field can have, `C` is the anonymous struct of the groups: `` Regex`(?P<year>\d{4})-(?P<month>\d\d)?` `` is a `Regex<#{year: String, month: Maybe<String>}>`.
+- Otherwise several groups are a tuple in order (`` Regex`(\d+)-(\w+)?` `` is a `Regex<#(String, Maybe<String>)>`, and `` Regex`(a)|(b)` `` a `Regex<#(Maybe<String>, Maybe<String>)>`), one group is its type alone, since Nomi has no one-element tuple (`` Regex`v(\d+)` `` is a `Regex<String>`), and a pattern with no group is a `Regex<Unit>`, whose `String.captures` is `Some(Unit)` for a match.
+
+```nomi
+import std/regex.Regex
+
+test "capture types" {
+    pair = Regex`(\w+)@(\w+)?`
+    assert String.captures("ann@home", pair) == Some(#("ann", Some("home")))
+    assert String.captures("ann@", pair) == Some(#("ann", None))
+    assert String.captures("none", pair) == None
+
+    #{year, month} = String.captures("2024-05", Regex`(?P<year>\d{4})-(?P<month>\d\d)`)!
+    assert year + month == "202405"
+
+    assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [#("a", "1"), #("b", "2")]
+}
+```
+
+A regex compiled while the program runs, by `Regex.compile` or by a literal that interpolates, has groups no one knows before it runs, and is a `Regex<List<Maybe<String>>>`: one entry per group, `Some` of the text for a group that took part, even an empty one, and `None` for one that did not, so `String.captures("b", Regex.compile("(a)|(b)")?)` is `Some([None, Some("b")])`.
+
+`C` is phantom: every `Regex` holds a compiled pattern and nothing of `C`, so the functions that do not read groups (`Regex.pattern`, `String.contains`, the `Matcher` search functions, `Display` and `Debug`) take a `Regex<C>` for any `C`, and ordinary code never writes it. A function of your own that takes any regex is generic in it: `fn first<C>(re: Regex<C>, text: String) -> Maybe<C> { String.captures(text, re) }`. Annotating a binding of a literal names its type, as `` digits: Regex<Unit> = Regex`\d+` ``.
 
 `String` also implements `Iter<String>` (one grapheme cluster per step), so every `Iter` owner function works on a string. To map or filter graphemes, run the generic adapter and join the result back into a `String`: `Iter.map(s, f) |> String.join()`, `Iter.filter(s, p) |> String.join()`. `String.join` takes any `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a separator that defaults to `""`. `String.reverse`/`String.length` stay container-specific (native, by grapheme cluster).
 
@@ -6057,7 +6140,9 @@ fn contains(c: Bytes, x: Byte) -> Bool            // Contains<Byte> impl; linear
 
 `Bytes` implements `Contains<Byte>`, `Iter<Byte>`, `Add<Bytes, Bytes>`,
 `Display`, `Debug`, `Equatable`, and `Hashable`. `Byte` intentionally does not implement arithmetic
-operators; use `Byte.to_int` for numeric work.
+operators; use `Byte.to_int` for numeric work. It does have the bitwise
+operators that stay within 8 bits, `&&&`, `|||`, `^^^` and `~~~`
+(§22 *Bitwise*).
 
 ### Display and Debug
 
@@ -6366,13 +6451,13 @@ Every literal of a built-in shape except a list starts with that shape's symbol:
 | struct | `#{x: 1}` | `#Point{x: 1}`, `#geo.Point{x: 1}`, `#Shape.Circle{radius: 1.0}`, `#.Circle{radius: 1.0}` | `#{..p, x: 2}`, `#{.., x: 2}` | `#{x, y}`, `#Point{x, y}`, `#.Circle{radius}` |
 | tuple | `#(a, b)` | `#Pair(1, "x")` | | `#(a, b)`, `#Pair(a, b)` |
 | vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[..v, x]`, `#[x, ..v, ..w]`, `#[.., x]` | `#[first, ..rest]`, `#[.., last]`, `#[a, b]`, `#Path[a, ..]` |
-| list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[x, ..xs]`, `[..xs, x, ..ys]`, `[x, ..]` | `[first, ..rest]`, `[a, b]` |
+| list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[x, ..xs]`, `[..xs, x, ..ys]`, `[x, ..maybe, ..iter]`, `[x, ..]` | `[first, ..rest]`, `[a, b]` |
 | map | `%{"k" => v}`, `%{}` | `%Kvs{"k" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` | `%{..m, k => v}`, `%{k => v, ..m, ..n}`, `%{.., k => v}` | `%{"k" => v}`, `%Kvs{"k" => v}` |
 | set | `%[1, 2]`, `%[]` | `%Tags["a"]` | `%[..s, x]`, `%[x, ..s, ..t]`, `%[.., x]` | `%["admin", ..rest]`, `%["admin", ..]`, `%[1, 2]` |
 
 - A spread has no named form: the base already carries the type (`#Point{..q, x: 1}` is `struct spread \`..\` has no named form; write \`#{..base, field: value}\``).
-- A list, vector, set or anonymous map literal takes any number of `..` spreads, anywhere among its elements: `[1, ..xs, 2, ..ys]`, `%[..s, ..t]`, `%{"a" => 1, ..m, ..n}`. The literal is its parts joined in the order written. A list's and a vector's parts are concatenated, and a set's are unioned. A map's apply left to right: a later key replaces an earlier key's value and keeps the earlier key's position, as Map's `+` does, so `%{"a" => 0, ..m}` is `m` with a default for `"a"`, and `%{..m, "a" => 0}` is `m` with `"a"` replaced. Each spread must be a collection of the literal's own type (`set spread \`..\` requires a set, got List<Int>`; `map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>`). A vector, set or map literal of one spread and no element is that spread's value, and is the error `a set spread with no elements is its base value; write \`s\`` (or `vector`, `map`), while `%[..s, ..t]` joins two sets. The spreads are evaluated first, from left to right, then the elements from left to right. Each expression runs once.
-- A spread shares the collection it spreads, and costs only the elements added, where the collection allows it: a list's last spread when nothing follows it (`[x, ..xs]` puts `x` in front of `xs`), and a set's or map's first spread (`%[..s, x]` inserts `x` into `s`, and `%{..m, k => v}` puts `k` into `m`). Any other spread is copied, as `xs + [3]`, `Set.union` and Map's `+` copy: `[..xs, 3]` is O(n) in `xs`, and `%{"a" => 0, ..m}` merges all of `m`. A vector spread is one `Vector.concat` wherever it stands.
+- A list, vector, set or anonymous map literal takes any number of `..` spreads, anywhere among its elements: `[1, ..xs, 2, ..ys]`, `%[..s, ..t]`, `%{"a" => 1, ..m, ..n}`. The literal is its parts joined in the order written. A list's and a vector's parts are concatenated, and a set's are unioned. A map's apply left to right: a later key replaces an earlier key's value and keeps the earlier key's position, as Map's `+` does, so `%{"a" => 0, ..m}` is `m` with a default for `"a"`, and `%{..m, "a" => 0}` is `m` with `"a"` replaced. A spread in a list, vector or set literal is any `Iter` of the literal's elements: a collection of the literal's own type, or a `Maybe` (zero or one element), a `Range`, another collection, a lazy `Iter` chain or any type with an `impl Iter`, whose elements join in the order it hands them out, so `["a", ..maybe_line, ..lines |> Iter.map(String.trim)]` is a list. `nomi fmt` writes a spread of a range in parentheses, `[0, ..(1..4)]`, so the two `..` do not run together. The literal is still its own collection. A spread that is no `Iter` is `list spread \`..\` requires an Iter of the list's elements, got Int` (or `vector`, `set`), and one of other elements is `list spread element type mismatch: String vs Int` (`vector spread element type mismatch: expected Int, got String`). A map spread must be a map of the literal's type (`map spread type mismatch: expected Map<String, Int>, got Map<Int, Int>`), since its entries are keys and values, not elements. A vector, set or map literal of one spread of its own type and no element is that spread's value, and is the error `a set spread with no elements is its base value; write \`s\`` (or `vector`, `map`), while `%[..s, ..t]` joins two sets; a lone spread of another `Iter`, `%[..maybe]` or `#[..iter]`, builds the collection from it. The spreads are evaluated first, from left to right, then the elements from left to right. Each expression runs once.
+- A spread shares the collection it spreads, and costs only the elements added, where the collection allows it: a list's last spread when nothing follows it (`[x, ..xs]` puts `x` in front of `xs`), and a set's or map's first spread (`%[..s, x]` inserts `x` into `s`, and `%{..m, k => v}` puts `k` into `m`). Any other spread is copied, as `xs + [3]`, `Set.union` and Map's `+` copy: `[..xs, 3]` is O(n) in `xs`, and `%{"a" => 0, ..m}` merges all of `m`. A vector spread is one `Vector.concat` wherever it stands. A spread that is another `Iter` is first collected into the literal's collection, as `Iter.to_list`, `Iter.to_vector` or `Iter.to_set` would, and then joined like a spread of it.
 - Types are written without a symbol, except a tuple's and an anonymous struct's: `Vector<T>`, `Set<T>`, `Map<K, V>`, `#(Int, Int)`, `#{x: Int}`.
 - A plain `{` only opens a block, and a name followed by `{` never starts a literal. `Point{x: 1}`, `.Circle{radius: 1.0}`, `Kvs{"a" => 1}` and `Map{"a" => 1}` are parse errors, and `Vector[1]` and `Set[1]` are list literals naming a type that is not a list type.
 - A payload variant and a distinct type over a scalar are calls, not literals: `Some(1)`, `.Circle(2.0)`, `UserId(5)`.
@@ -6460,7 +6545,7 @@ numbers = [1, 2, 3, 4, 5]
 - Immutable — operations return new lists
 - `List.contains(xs, x)` is the `Contains` impl, a linear scan (§*Membership: `Contains`*)
 - `List.remove_at(xs, i)` is the list without its element at index `i`, and traps on an index outside the list as `Vector.set` does; `List.remove(xs, x)` is the list without its first element `==` to `x`. Both are O(n)
-- `..xs` spreads a list into a list literal, anywhere and any number of times (*Literal forms*): `[item, ..list]` conses `item` onto `list`, O(1) with structural sharing, while `[..list, item]` and `[..a, ..b]` copy every list but a last spread, as `list + [item]` does. A list pattern may have elements after its `..` (List Destructuring). A spread must be a list: an `Iter`, a range or any other collection is the error ``list spread `..` requires a list, got Iter<Int>``, whose help names `Iter.to_list` (`[heading, ..Iter.to_list(lines)]`).
+- `..xs` spreads a list into a list literal, anywhere and any number of times (*Literal forms*): `[item, ..list]` conses `item` onto `list`, O(1) with structural sharing, while `[..list, item]` and `[..a, ..b]` copy every list but a last spread, as `list + [item]` does. A list pattern may have elements after its `..` (List Destructuring). A spread may be any `Iter` of the list's elements, not only a list: `[heading, ..lines]` with `lines` a lazy `Iter<String>`, and `[first, ..maybe_line]` with a `Maybe<String>` (*Literal forms*).
 - At a field or key of an update, a bare `..` is the list already there: `#{..account, log: [t, ..]}` puts `t` in front of the old `log`, and `[.., t]` puts it at the end (§7 *Nested updates*). A missing map key starts from `[]`.
 - A literal with spreads evaluates its spreads first, from left to right, then its elements from left to right. Each expression runs once. A plain list literal evaluates its elements from left to right.
 - Works in both construction and pattern matching:
@@ -6513,7 +6598,7 @@ Iter.count(xs) // O(1) via known_count
 
 Iter.first(xs) / Iter.last(xs) / Iter.get(xs, i)
 
-Iter.is_empty(xs) / !Iter.is_empty(xs)
+Iter.is_empty(xs)
 
 Iter.reverse(xs) // → List
 
@@ -6582,9 +6667,9 @@ empty: Vector<Int> = #[]
 - `#[..v, x]` is `Vector.concat(v, #[x])` and `#[x, ..v]` is
   `Vector.concat(#[x], v)`, written as a literal. A vector takes spreads
   anywhere, any number of them, as every collection literal does (*Literal
-  forms*): `#[..a, x, ..b]` joins `a`, `#[x]` and `b`. A spread must be a
-  vector (`vector spread ".." requires a vector, got List<String>`, whose
-  help names `Iter.to_vector`), each element has its element type, with the
+  forms*): `#[..a, x, ..b]` joins `a`, `#[x]` and `b`. A spread is a
+  vector or any other `Iter` of its elements (`#[0, ..xs |> Iter.map(f)]`),
+  each element has its element type, with the
   coercions a vector literal's elements take, and an empty `#[]` spread takes
   the elements' type. A spread with no elements is `a vector spread with no
   elements is its base value; write \`v\``. The spreads are evaluated
@@ -6632,8 +6717,8 @@ empty: Set<String> = %[]
   anywhere, any number of them (*Literal forms*): `%[x, ..s, ..t]` is the
   union of `%[x]`, `s` and `t` in that order. A first spread is shared, so
   `%[..s, x]` is one insert into `s`, while `%[x, ..s]` builds a new set. A
-  spread requires a set (`set spread ".." requires a set, got List<Int>`),
-  and a literal of one spread needs an element
+  spread is a set or any other `Iter` of its elements (`%[..tags, "new"]`
+  with `tags` a list), and a literal of one set spread needs an element
   (`a set spread with no elements is its base value; write \`s\``). At a field
   or key of an update, the bare `%[.., x]` adds to the set already there (§7
   *Nested updates*); a missing map key starts from `%[]`
@@ -6880,7 +6965,7 @@ interface Iter<T> {
 }
 ```
 
-`each_while` walks the collection and pushes each element to `yield`; returning `False` from `yield` asks the source to stop, and `each_while` itself answers `True` when the source ran out and `False` when a consumer stopped it. That single Bool is the whole early-termination mechanism: `Iter.take(3)` over an infinite source stops it by refusing a fourth element, and `find`/`any`/`all`/`first` stop at the first decisive one. Because `each_while` reads a value it never mutates, Nomi iterators are replayable. An `Iter<T>` is an ordinary value: a binding, a parameter or result, a struct field, a tuple or record part, a `Some`/`Ok` or enum payload, a list element and a closure capture can all hold one. Holding it runs nothing, and each consumer runs it from its start, so a field read twice with `Iter.to_list` yields the same list twice. Any source can enter a position declared `Iter<T>` — a `List`, `Vector`, `Set`, `Map`, `String`, `Bytes`, `Maybe`, range or a user type that implements `Iter` — and it keeps its own `known_count` there: `Iter.known_count(xs)` for an `xs: Iter<Int>` holding `[1, 2, 3]` is `Some(3)`. `List`, `Vector`, `Map`, `String` (via the grapheme iterator), and ranges over `Discrete` values all implement `Iter<T>` — so they feed the `Iter` owner functions directly. `List`/`Vector`/`Map`/`Set`/`Maybe` and bounded ranges whose element type can count steps override `known_count`; everything else inherits the `None` default.
+`each_while` walks the collection and pushes each element to `yield`; returning `False` from `yield` asks the source to stop, and `each_while` itself answers `True` when the source ran out and `False` when a consumer stopped it. That single Bool is the whole early-termination mechanism: `Iter.take(3)` over an infinite source stops it by refusing a fourth element, and `find`/`any`/`all`/`first` stop at the first decisive one. Because `each_while` reads a value it never mutates, Nomi iterators are replayable; the exceptions are a stream's iterators (`Reader.lines`, `Reader.chunks`, `io.lines`), which read the stream as they run (§24, *Standard streams*). An `Iter<T>` is an ordinary value: a binding, a parameter or result, a struct field, a tuple or record part, a `Some`/`Ok` or enum payload, a list element and a closure capture can all hold one. Holding it runs nothing, and each consumer runs it from its start, so a field read twice with `Iter.to_list` yields the same list twice. Any source can enter a position declared `Iter<T>` — a `List`, `Vector`, `Set`, `Map`, `String`, `Bytes`, `Maybe`, range or a user type that implements `Iter` — and it keeps its own `known_count` there: `Iter.known_count(xs)` for an `xs: Iter<Int>` holding `[1, 2, 3]` is `Some(3)`. `List`, `Vector`, `Map`, `String` (via the grapheme iterator), and ranges over `Discrete` values all implement `Iter<T>` — so they feed the `Iter` owner functions directly. `List`/`Vector`/`Map`/`Set`/`Maybe` and bounded ranges whose element type can count steps override `known_count`; everything else inherits the `None` default.
 
 **Infinite iterators.** `is_infinite` says that an iterator never ends. `Iter.repeat`, `Iter.from`, `Iter.iterate` (whose step cannot `break`), `Range.from` and `Range.naturals` (an Int has no largest value, so they never end), `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle` of a source that is infinite or knows a non-zero count answer `True`; a user type answers `False` unless its `impl Iter` writes `is_infinite`. The adapters carry the answer when the pipeline is built, so it costs nothing per element:
 
@@ -7243,10 +7328,12 @@ concurrent {
 
 ### Cancellation visibility
 
-Cancellation has two shapes; user code observes them differently.
+Cancellation has two sources, and both stop the work at its next safe point.
 
 - **Internal cancellation** — the `concurrent { }` block exits non-normally (via `?`, `return`, `break`, or `continue`) and cancels every still-running sibling as cleanup. This is invisible to user code: the cancelled task's body just stops executing at the next safe point and its goroutine wrapper unwinds silently. There is no `finally` and no exception type — immutability means there's nothing to clean up at the value level.
-- **Ancestor cancellation** — the active app context fires because of an earlier `with App.context = Context.with_timeout(App.context, d)` override or because the embedder cancels the runtime root. Ancestor cancellation surfaces naturally through cancellation-aware operations: `timer.sleep`, `Sender.send` / `Receiver.receive`, and context-aware HTTP requests all `select` on the context's done channel and return an `Err` (or `None`) when the context fires. That outcome becomes the task body's return value — a normal task return — and `Task.await(t)?` propagates it through the concurrent block. Pure-compute code that never reads the context ignores deadlines and runs to completion, matching Go's behavior. The language guarantees cancellation is observed only at those cancellation-aware operations. A program must not depend on where, between two cancellation-aware operations, a cancelled task stops.
+- **Ancestor cancellation** — the active app context fires because of an earlier `with App.context = Context.with_timeout(App.context, d)` override or because the embedder cancels the runtime root. A passed deadline is observed the same way: the work under it stops at its next safe point and unwinds, a task settling `Cancelled` and the main line ending with the deadline's error.
+
+A **safe point** is every function call (a tail call included), every loop iteration (an `Iter.loop` step, and each element an iteration passes along, a callback-free one driven by the runtime included), and every operation that waits (`timer.sleep`, `Sender.send`, `Receiver.receive`, `Task.await`, a read of standard input). A task that was cancelled, or whose deadline has passed, stops at the first safe point it reaches, so pure computation stops too; the stop unwinds exactly as a stop in a wait does, running deferred calls on the way out. A single call into Go (a host function or a Go binding) is not interrupted partway; the work stops at the next safe point after it returns. A program must not depend on which safe point a stop lands on.
 
 Put `with App.context = Context.with_timeout(App.context, d)` before a `concurrent` block to give the whole block a deadline:
 
@@ -7565,8 +7652,30 @@ Rules*).
 ## 22. Operators
 
 The operator token set is fixed: users cannot define new operators or change
-precedence. The arithmetic operators `+`, `-`, `*`, and `/` are extensible
-through standard interfaces. `%` stays closed to the numeric scalar types.
+precedence. The arithmetic operators `+`, `-`, `*`, and `/` and the bitwise
+operators are extensible through standard interfaces. `%` stays closed to the
+numeric scalar types.
+
+**Precedence**, from loosest to tightest. Binary operators of one level
+associate to the left; the bitwise levels are Go's, so `x &&& mask == 0` is
+`(x &&& mask) == 0` and `hi <<< 8 ||| lo` is `(hi <<< 8) ||| lo`. Prefix
+`not` sits between `and` and the comparisons (*Logical* below). `is` binds as `==` does but does not associate: it does
+not chain with `==`, `!=`, an ordering operator or another `is` (*Pattern
+test* below).
+
+| Level | Operators |
+|---|---|
+| 1 | `or` |
+| 2 | `and` |
+| 3 | prefix `not` |
+| 4 | `==` `!=` `is` |
+| 5 | `<` `>` `<=` `>=` |
+| 6 | `\|>` |
+| 7 | `..` `..=` |
+| 8 | `+` `-` `\|\|\|` `^^^` |
+| 9 | `*` `/` `%` `&&&` `<<<` `>>>` |
+| 10 | prefix `-` `~~~` |
+| 11 | calls, field access, postfix `?` and `!` |
 
 **Arithmetic:**
 `+` `-` `*` `/` `%`
@@ -7669,7 +7778,7 @@ interface Productable {
 Where a value must fit a machine integer, the edge says so:
 
 - An index, a count or a size reads an Int past 64 bits as past any collection: `List.get(xs, Int.pow(10, 30))` is `None`, `Iter.take(xs, Int.pow(10, 30))` takes all of `xs`, and `Vector.get(v, Int.pow(10, 30))!` traps as any index out of range does.
-- A Go function bound with `go` (§33) that takes `int64`, `int` or a narrower integer refuses an Int it cannot hold: the call fails with an error naming the binding and the value (`ffx.triple: arg 0: unmarshal to int64: value 123456789012345678901234567890 overflows`). A Go `uint64` result past 64 signed bits is an exact Int, and a Go `*big.Int` parameter or result takes any Int.
+- A Go function bound with `go` (§33) that takes `int64`, `int` or a narrower integer refuses an Int it cannot hold: the call traps, as a division by zero does, naming the Go function, its parameter and the value (`` `strconv.FormatInt`'s `i` takes an Int that fits in 64 bits; got 123456789012345678901234567890 ``); an unsigned slot names its range (`` takes an Int from 0 to 4294967295 ``). A Go `uint64` result past 64 signed bits is an exact Int, and a Go `*big.Int` parameter or result takes any Int; a nil `*big.Int` result traps (`` `pkg.F` returned a nil *big.Int, which is not an Int ``).
 - `Duration` and `Instant` count nanoseconds in 64 bits, about 292 years either way, as clocks and timers do. A constructor or an operator whose answer is past that traps (`Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way`); `Duration.parse` answers `Err(.OutOfRange)`.
 - `Date` and the other calendar functions that take a count (`Date.add_days`) refuse one past 64 bits as a Go binding does.
 - JSON (§*JSON*) reads an integer of any length as an exact `Int` and writes an Int as its digits. A call from JavaScript into an `export fn` (§5 *Exported Functions*) passes an Int past `Number.MAX_SAFE_INTEGER` as a `BigInt`, both ways.
@@ -7677,9 +7786,9 @@ Where a value must fit a machine integer, the edge says so:
 
 **No implicit numeric conversion.** `Int`, `Float`, and `Decimal` are three non-mixing islands — none mixes implicitly with either of the others. Mixed-operand arithmetic (`1 + 2.0`, `1 + 1.50d`, `2.0 + 1.50d`), comparison (`1 < 2.0`, `1 < 2.50d`), and equality (`1 == 1.0`, `1.0 == 1d`) are all compile errors; convert explicitly across the boundary with `Int.to_float` / `Float.to_int` / `Int.to_decimal` / `Decimal.to_float` / `Float.to_decimal`. This avoids the silent precision loss that implicit `Int`→`Float` widening causes for magnitudes above 2^53. More generally, `==` / `!=` require operands of the same type — comparing unrelated types (e.g. `String` to `Int`) is a compile error, not a silent `false`.
 
-**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign. `Int.floor_div(a, b)` is the floored division it pairs with, so `b * Int.floor_div(a, b) + Int.modulo(a, b) == a` (`Int.floor_div(-7, 2) == -4`); it traps where `/` does. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl; the ordinary `/` operator uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
+**Integer division and modulo.** `/` truncates toward zero and `%` takes the sign of the dividend, so the identity `(a / b) * b + (a % b) == a` holds (`-7 / 3 == -2`, `-7 % 3 == -1`). `%` is the remainder of that division. `Int.modulo(a, b)` is floored modulo: its result is zero or takes the sign of the divisor, which wraps a value into a range (`Int.modulo(-7, 3) == 2`, `Int.modulo(-1, 1440) == 1439`, `Int.modulo(7, -3) == -2`). The two agree when the operands have the same sign. `Int.floor_div(a, b)` is the floored division it pairs with, so `b * Int.floor_div(a, b) + Int.modulo(a, b) == a` (`Int.floor_div(-7, 2) == -4`); it traps where `/` does. `/`, `%` and `Int.modulo` raise a runtime error on a zero divisor. A zero divisor is a promise the caller broke, so it traps (§17 *Traps, `Maybe` and `Result`*). When the divisor is proven non-zero, `Int.divide` takes a `NonZeroInt` and is total; `Int.to_non_zero(d)` is the check that makes one. `Int.divide` is a `Divide<NonZeroInt, Int>` impl, and `/` uses it when its right operand is a `NonZeroInt` (`10 / nz`); with an `Int` divisor `/` uses `Divide<Int, Int>`. Modulo is not defined on `Float`.
 
-**Integer powers, roots and digits.** `Int.pow(n, exp)` is exact and traps on a negative `exp`, whose answer is a fraction (`Float.pow` gives one), and on a power of more bits than memory holds. `Int.sqrt(n)` is the root rounded down and traps on a negative `n`. `Int.gcd` and `Int.lcm` are never negative (`Int.gcd(0, 0) == 0`, `Int.lcm(n, 0) == 0`). `Int.to_digits(n, base = 10)` lists a non-negative `n`'s digits most significant first (`[0]` for 0) and traps on a negative `n` or a base below 2; `Int.from_digits(digits, base = 10)` reads them back as a `Maybe<Int>`, `None` for a digit outside the base, as `String.to_int` answers for text that is no Int. The bitwise functions (`Int.bitwise_and` and the rest) read an Int as two's complement with as many bits as it needs, a negative one with endless leading ones, and `Int.shift_left(a, n)` is `a` times 2 to the `n`, so no bit is shifted out.
+**Integer powers, roots and digits.** `Int.pow(n, exp)` is exact and traps on a negative `exp`, whose answer is a fraction (`Float.pow` gives one), and on a power of more bits than memory holds. `Int.sqrt(n)` is the root rounded down and traps on a negative `n`. `Int.gcd` and `Int.lcm` are never negative (`Int.gcd(0, 0) == 0`, `Int.lcm(n, 0) == 0`). `Int.to_digits(n, base = 10)` lists a non-negative `n`'s digits most significant first (`[0]` for 0) and traps on a negative `n` or a base below 2; `Int.from_digits(digits, base = 10)` reads them back as a `Maybe<Int>`, `None` for a digit outside the base, as `String.to_int` answers for text that is no Int. `Int.bit_count(n)` is the number of 1 bits in a non-negative `n` and traps on a negative one, which has endless 1 bits. `Int.bit_length(n)` is the number of bits `n` needs besides a sign: `0` for `0`, `k` for `n` from `2^(k-1)` to `2^k - 1`, and for a negative `n` that of `~~~n` (`Int.bit_length(-1) == 0`, `Int.bit_length(-8) == 3`), as Java's `BigInteger.bitLength` answers.
 
 **Where a trap is reported.** A runtime fault (a zero divisor, a `case` with no arm, a call past the depth limit, a failed host function) prints `line N:` and then the fault's own text. `N` is a line of the program's own code: the line of the operation that faulted, or, when the fault happens inside the standard library, the line of the program's call into the standard library that led to it, however many std calls deep the fault is. The text after the line is the fault's own and does not name the std function; the call on line `N` does. So both of these programs print `line 2: division by zero`:
 
@@ -7699,13 +7808,111 @@ A lambda of the program that faults while a std function runs it (`Iter.map(xs, 
 
 **Decimal arithmetic.** `Decimal` is the third blessed operator type (§*Primitive Types*): `+ - *` and `< > <= >= == !=` work on two `Decimal` operands and yield a `Decimal` / `Bool`. `+ - *` are always **exact** — they never round; the scale grows as needed (`1.50d + 1.5d == 3.00d`, `1.50d * 1.5d == 2.250d`). There is **no `/`** on `Decimal`: whether a quotient terminates in base 10 depends on the divisor's value, so an operator would work on `10.00d / 4d` and fail on `10d / 3d`, and a program dividing by a count would pass its tests and stop in production. `a / b` with a `Decimal` on either side (`1d / 3d`, `x / y`, `1d / 3`, `1 / 3d`) is a compile error at the operator, ``Decimal has no `/`: write `Decimal.divide(a, b, scale, mode)` to round, or `Decimal.divide_exact(a, b)` for a quotient that must terminate``, and so is `Divide.divide` on decimals. `Decimal.divide` rounds to the scale and `RoundingMode` it is given; `Decimal.divide_exact` answers `Some` of the exact quotient at its preferred scale (the dividend's scale less the divisor's, or more when the quotient needs more digits: `Decimal.divide_exact(10.00d, 4d) == Some(2.50d)`, `Decimal.divide_exact(1d, 8d) == Some(0.125d)`) and `None` for one that does not terminate (`Decimal.divide_exact(10d, 3d) == None`), by the rule in §17 *Traps, `Maybe` and `Result`*. Either with a zero divisor is a runtime error (no Infinity); `divide_exact`'s reads `division by zero`, as `Int`'s `/` does. There is **no `%`** on `Decimal`. Equality and comparison are value-based and scale-insensitive (`1.50d == 1.5d` is `True`); scale is preserved only for display (`Decimal.scale(1.50d) == 2`, `Decimal.to_string(1.50d) == "1.50"`). Decimal literals carry the `1.50d` / `1.50D` suffix.
 
+**Bitwise:**
+`&&&` (and) `|||` (or) `^^^` (exclusive or) `~~~` (prefix not) `<<<` (shift
+left) `>>>` (arithmetic shift right)
+
+The spellings are Elixir's: `&` starts a capture (§5 *Captures*) and `&&` is
+a parse error that says to write `and`. `&&&` and the shifts bind like `*`,
+`|||` and `^^^` like `+`, and `~~~` like unary `-`, as Go places them:
+
+```nomi
+bit = byte >>> (7 - i) &&& 1 // (byte >>> (7 - i)) &&& 1
+
+framed = data <<< 1 + parity // (data <<< 1) + parity
+
+clear = x &&& mask == 0 // (x &&& mask) == 0
+```
+
+On `Int` they read the value as two's complement with as many bits as it
+needs, a negative one with endless leading ones, so `&&&`, `|||`, `^^^` and
+`~~~` answer at any size (`-1 &&& Int.pow(2, 80) == Int.pow(2, 80)`, `~~~n ==
+-n - 1`). `a <<< n` is `a` times 2 to the `n`, exact, so no bit is shifted
+out (`1 <<< 64 == 18_446_744_073_709_551_616`); `a >>> n` divides by 2 to the
+`n` rounding toward negative infinity, so a count past `a`'s bits answers `0`
+for a non-negative `a` and `-1` for a negative one. A negative count is a
+runtime error, `line 3: negative shift count -1`, and so is a left shift whose
+result would not fit in memory. `C`-family `a << n` and `a >> n` are parse
+errors that name `<<<` and `>>>`; a `>>` or `>>>` that closes nested type
+arguments (`List<List<List<Int>>>`) is still three closing brackets.
+
+`Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose answers stay within 8 bits
+(`~~~b` is `255 - b`), and no shift: a left shift could carry bits past 8,
+and Nomi traps rather than wrap, so shift the Int (`Byte.to_int(b) <<< 1`).
+
+The operators dispatch through std interfaces as `+` does through `Add`:
+`BitwiseAnd<Rhs, Out>`, `BitwiseOr<Rhs, Out>`, `BitwiseXor<Rhs, Out>`,
+`ShiftLeft<Rhs, Out>` and `ShiftRight<Rhs, Out>`, each with one function
+named for its operation (`fn bitwise_and(lhs: self, rhs: Rhs) -> Out`), and
+`BitwiseNot<Out>` with `fn bitwise_not(value: self) -> Out`. A distinct type
+opts in with an impl:
+
+```nomi
+type Flags Int
+
+impl BitwiseOr<Flags, Flags> for Flags {
+    fn bitwise_or(lhs: Flags, rhs: Flags) -> Flags {
+        Flags(a) = lhs
+        Flags(b) = rhs
+        Flags(a ||| b)
+    }
+}
+```
+
+An operand type with no impl is an error at the operator that names the
+interface: ``no impl of `BitwiseAnd` for `Float` (required via bitwise and
+operator `&&&`)``. `Int.bitwise_and(a, b)` and the other five are the Int
+impls' functions, the operators written as calls, and useful as values
+(`Iter.reduce(flags, Int.bitwise_or, from: 0)`).
+
 **Comparison:**
 `==` `!=` `<` `>` `<=` `>=`
 
 `==` / `!=` work on any two operands of the same type — structural equality is the universal fallback. The ordering operators `<` `>` `<=` `>=` require the operand type to have a declared `Comparable` impl (`derive Comparable` or an `impl Comparable for T` block); using them on a type without one is a compile-time missing-impl error. See §30 for the rationale behind the asymmetry.
 
+**Pattern test:**
+`is` (keyword)
+
+`value is Pattern` is `True` when the value matches the pattern, as a `case`
+arm's pattern would (§10 *Testing a pattern: `is`*). It binds as `==` does:
+looser than `|>`, ranges and arithmetic, so `xs |> List.head() is Some(_)`
+tests the pipeline's result and `a + 1 is 2` the sum, and tighter than
+`not`, `and` and `or`, so `not block is .Item(_)` is `not (block is
+.Item(_))`. It does not chain: `a == b is True` and `x is P == b` are parse
+errors that ask for parentheses (`(a == b) is True`, `(x is P) == b`), and
+so is any operator that binds more tightly than `is` written after the
+pattern (`x is P |> f()`, `x is 1 + 1`), since a pattern is not an
+expression.
+
 **Logical:**
-`and` `or` (keywords) `!` (negation)
+`and` `or` `not` (keywords)
+
+`not x` is `True` when the `Bool` `x` is `False`, and an operand of another
+type is a compile error: `` `not` takes a Bool, got Int ``. Its operand is
+everything to its right that binds at least as tightly as `==`: `not a ==
+b` is `not (a == b)`, `not a < b and c`
+is `(not (a < b)) and c`, and `not a and b` is `(not a) and b`. Write `a !=
+b` for the first. A pipeline binds more tightly than a comparison, so `not`
+takes it whole: `not xs |> Iter.is_empty()` is `not (xs |> Iter.is_empty())`.
+Postfix `?` and `!` bind to the operand before them, so `not ready()?` is
+`not (ready()?)`. `not not x` is `x`.
+
+A `not` stands alone, after `and` or `or`, or after another `not`. As the
+operand of a tighter operator it is an error that asks for parentheses:
+`a == not b` (write `a == (not b)`), `-not x`, and a capture's body
+`&not f(&1)` (write `&(not f(&1))`, or reach for `Iter.reject`). `nomi fmt`
+writes one space after it and keeps the parentheses written around it or
+around its operand.
+
+A pipe stage may start with `not`, which negates the stage's result, as a
+postfix `!` unwraps it: `name |> not String.is_empty()` is `not
+String.is_empty(name)`, and the stages after it take the negated value. The
+stage is a call, possibly unwrapped with `!` (`text |> not
+String.to_bool()!`), or another `not` stage. A `?` there is an error, since
+it would propagate the call's failure rather than the negation's; propagate
+in a stage of its own first.
+
+The C-family `!x` is a parse error at the `!` that says to write `not x`.
 
 `and` and `or` short-circuit: the right operand runs only when the left does not decide the answer. `a and b` is `if a { b } else { False }`, and `a or b` is `if a { True } else { b }`. So the right operand may leave instead of answering: a block ending in `return`, `break` or `continue`, an `if` or `case` every arm of which leaves, a failing `?` or a trap. When it leaves, the expression has no value on that path, and its value is the left operand's on the other. `ok = is_ready or { return Err("not ready") }` returns early when `is_ready` is `False` and binds `ok` to `True` otherwise; `_ = n < limit or { break }` ends an `Iter` callback's iteration.
 
@@ -7778,7 +7985,7 @@ host fn abs(n: Int) -> Int
 - User-facing Go interop binds ordinary Go packages through `gopkg` declarations. A declaration such as `gopkg "example.com/app/ffi" as ffi` introduces a compile-time package handle whose import path is resolved by Go's normal module machinery. The path must be a valid Go import path. A Go standard library package (`gopkg "strings"`) needs no `go.mod` and no Go package of the project's own: its source is the Go toolchain's, and a script binding only the standard library runs from a directory with no `go.mod` at all. A package internal to the standard library (`internal/abi`) is a check error, since no other module may import it. Any other path must be provided by the nearest `go.mod` above the declaring file: a package of the project's own module, or a package of a module that `go.mod` requires or replaces. Any other is a check error at the path, such as `gopkg "callback:= f(s": not a valid Go import path: invalid char ':'`, or one naming the project's module for a path outside all of those. A file held in memory rather than on disk (a sibling an embedder passes with the source it loads, such as a tour example's tab) has no `go.mod` above it: its bindings are answered by the host table its program is loaded with, and one the table does not answer is a load error naming it. A Go type binding must be opaque. It may remain private as a raw implementation handle (`opaque type RawConn go ffi.Conn`) behind a Nomi facade, or it may be intentionally public as a public opaque foreign type (`pub opaque type Regex go ffi.Regex`) when the module deliberately commits to that Go-backed representation. Public opaque foreign types can be named and passed across the module boundary but cannot be constructed, unwrapped, or inspected structurally. A Go function binding maps an exported Go function into a local Nomi function name: `fn open_raw(path: String) -> Result<RawConn, String> go ffi.OpenRaw`. The alias in `go alias.Symbol` must be one a `gopkg` declaration of the same file introduces; any other is a check error at the alias. A `gopkg` is a top-level declaration, as the bindings that use it are; one inside a body is the error `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
 - A program with `gopkg` bindings needs a Go toolchain: `nomi run`, `nomi check` and `nomi test` build a cached Go wrapper that links the bound packages (see [`implementation-notes.md`](implementation-notes.md#go-ffi-wrapper)). With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that (§31, *Dependencies*). A bound package may be in a module from the Go module cache, a dependency's included; its adapters are generated from its source there. The wrapper builds with `CGO_ENABLED=0`, so a `gopkg` naming a package that needs cgo, itself or through a package it imports, is a check error at the path: `` gopkg "example.com/app/wrap": needs cgo: it imports example.com/cdriver/internal/csql (...), whose files import "C", and Go bindings build with CGO_ENABLED=0 ``. Pure-Nomi programs and tests need no toolchain.
 - Every std declaration is a bare `host fn` / `host type`, so importing any std module, Go-backed ones such as `std/regex` included, needs no Go toolchain — see "The rule: `host` for the standard library, `go` for user FFI" below. A user's own Go binding is declared in Nomi source with `gopkg` and `go alias.Symbol`; there is no Go-side registration function. A Go program that embeds Nomi answers the `host fn`s its program declares from a host table passed to `vmhost.Load` (`vmhost.WithHosts`). A plain `host type` in such a program is an opaque handle: the table's functions create and read its values, which Nomi code passes around and stores and reads only through those functions, and the type itself needs no registration. A table answers each function by its declaration's key: its name in the entry file, `module.name` in a sibling file. A program's own host functions never answer a standard library call, nor the reverse, even when a file of the program shares a Go-backed std module's name: a project's `regex.nomi` may bind a Go function named `compile` and use it beside `std/regex`'s.
-- Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int`, the sized signed widths and the unsigned widths other than `uint8` project to `Int` too, and so does Go's `*big.Int`, which holds any Int; an Int is exact at any size, so every narrowing to a fixed-width Go integer is range-checked rather than truncated, and an Int past the width is an error naming the binding; a Go `uint64` past 2^63 - 1 is an exact Int), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window is rejected rather than wrapped, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T`, a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth; the Go struct may be the bound package's or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`), while a struct of a Go standard library package crosses only from a bound standard library package), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A Go type alias (`type ID = core.ID`, `type Check = func(string) bool`) is its target and projects as the target does. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace` or a required module in the Go module cache, of the packages a bound package's signatures and struct fields name, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
+- Go binding signatures project Nomi `String` → Go `string`, `Bool` → `bool`, `Int` → `int64` (Go `int`, the sized signed widths and the unsigned widths other than `uint8` project to `Int` too, and so does Go's `*big.Int`, which holds any Int; an Int is exact at any size, so every narrowing to a fixed-width Go integer is range-checked rather than truncated, and an Int past the width traps at the call, naming the Go function and its parameter; a Go `uint64` past 2^63 - 1 is an exact Int), `Byte` → `uint8` (`Byte` is its own Nomi type, so an `Int` does not fill a `uint8` parameter and a `Byte` does not fill an `int64` one), `Float` → `float64` (a `float32` slot is range-checked; `NaN` and `±Inf` cross unchanged, and `NaN` stays reflexive under Nomi's equality so it remains usable as a map key), `Bytes` → `[]byte`, std/io's `Reader` → Go `io.Reader` or `io.ReadCloser` and `Writer` → Go `io.Writer` or `io.WriteCloser` (a Go stream a function returns becomes a `Reader` or `Writer` over it, a `Writer` handing it each write as it is made, either closed through the Go value's `Close` when it has one; a stream passed to Go is read or written through the handle's own buffer and lock, so Go reads what the program would read next and writes in order with it; the Go type must be the interface itself, so a function that answers a concrete type such as `*gzip.Reader` is bound through a Go function that answers `io.Reader`, and a type that is both, such as `io.ReadWriter` or `net.Conn`, has no projection), `Duration` → `time.Duration`, `Instant` → `time.Time` (an `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that window traps at the call rather than wrapping, and an `Instant` returns to Go as UTC — the projection carries no zone and no monotonic reading, so two round-tripped times are `Equal`, not `==`), `List<T>` → `[]T`, `Map<K, V>` → `map[K]V` (the projected key must be a valid Go map key; a Nomi `Map` iterates in a defined order and a Go map has none, so a Go map projects with its keys in ascending order rather than inheriting Go's randomized walk (strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order; a Go key type with no such order, such as a pointer or an interface, is refused at the binding), and two keys that would collapse into one on either side fail the conversion rather than silently drop an entry), `Maybe<T>` → `*T` (except `*big.Int`, which is the `Int` above), a declared Nomi struct → a Go struct with the matching exported fields (snake_case by default, overridable with a `nomi:"..."` tag), where the Nomi type identity always comes from the declaration at that position — the `host fn`'s declared return type, or the declared parameter type of the Nomi function being called — never from the Go type, because `Point` and `Vec` are one Go shape and a struct with no identity misses every impl keyed on it (so the two names need not agree: a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`, and only the fields are compared, at every depth; the Go struct may be the bound package's or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`), while a struct of a Go standard library package crosses only from a bound standard library package), `Dynamic` → a Go empty interface (`any`, `interface{}`, or a named type over one), which holds the value the `Dynamic` wraps (a `Dynamic` from `Json.to_dynamic` holds the shapes `encoding/json` decodes into: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`), or `rt.Dynamic` from `github.com/nomi-language/nomi/rt`, which is the `Dynamic` itself, and nothing else (a Go `int64` slot does not take a `Dynamic`; declare the type the Go value has), bound opaque Go types → their registered Go pointer type, and direct callback parameters `(A, ...) -> R` → `func(A, ...) R`. A Go type alias (`type ID = core.ID`, `type Check = func(string) bool`) is its target and projects as the target does. A user-declared `enum` has no Go projection: the only enums that cross are `Result`, `Maybe`, and `Bool`, as a trailing Go `error`, `*T`, and `bool`, and they are matched on the stdlib type's own runtime identity — a same-named type from another module is a different type and is rejected rather than projected as the stdlib one. The return position is driven by the Go signature: counting the non-`error` results as `N`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `#(A, B, ...)`; an optional trailing `error` wraps whatever that produced in `Result<_, String>`, so `error` alone is `Result<Unit, String>`, `#(T, error)` is `Result<T, String>`, and `#(A, B, error)` is `Result<#(A, B), String>`. `N` is uncapped, so a Go function that naturally returns several values needs no carrier struct. Tuples project one way only: a tuple in *parameter* position is rejected because Go has no tuple type to bind it to, and a plain Go struct against a Nomi struct of the same shape already carries several values in both directions. Type/function bindings are preflighted against the Go source of the project's own packages, of packages reached through a local `replace` or a required module in the Go module cache, of the packages a bound package's signatures and struct fields name, and of bound standard library packages (read from the toolchain's GOROOT with this platform's build constraints) for missing bound names, generic Go functions (a binding needs one concrete signature, so bind a non-generic Go function that calls the generic one) and signature mismatches. Unsupported projected shapes fail before program load with a diagnostic that points back to the binding declaration.
 - A distinct type, opaque or not, crosses as its inner type does, at every depth: `type Id Int` crosses as `int64` (or any Go integer width an `Int` takes), `type Ids List<Int>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int` as `int64`, in a parameter, a result, a `List`, `Maybe`, `Map` or `Result`, a tuple, a struct field and a callback's own parameters and result. The value Go returns is wrapped in the declared distinct again. That is what gives `Duration` and `Instant` (both `opaque type ... Int` in the stdlib) a second legal Go spelling alongside `time.Duration` and `time.Time`: an `int64` slot carries either one. A marker (`type Expired`, no inner type) holds no value and has no Go projection.
 - The projection is checked in the FORWARD direction only. For each declared Nomi type the boundary computes the Go type it projects to and compares that against the Go type actually bound, read from the bound Go declaration's signature: a scalar by its row of the table above, `Dynamic` against a Go empty interface or `rt.Dynamic`, a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure, an opaque binding by the Go type it binds, and a struct of the binding's file field by field. A distinct type declared in the binding's file, and std's `Duration` and `Instant`, is compared through its inner type. The check does not read the declarations of another file: a name declared there fills a Go struct slot on trust, its fields held to the Go struct's by the adapter generator, and fills no other slot, so a binding that passes a distinct of another file declares it in that file. The inverse direction is deliberately NOT checked: a Go type does not determine the Nomi type it must be (`int64` is `Int` and equally every distinct over `Int`, a Go struct is any Nomi struct with matching fields), so an inverse check would reject declarations that work. Disagreements the forward rule proves (a declared `String` against a Go `int64`, a `Dynamic` against a Go `int64`, a `type Name String` against a Go `int64`, in a parameter, a return, a tuple element, a `Result` payload, a struct field, or a callback's own argument or return) are rejected at load, naming both sides and what the declaration projects to.
 
@@ -7794,7 +8001,7 @@ The stdlib `.nomi` files are embedded in the compiler binary and analyzed once p
 
 ### Prelude
 
-One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.uppercase`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
+One stdlib file, `std/prelude.nomi`, has a special role: it lists the imports every user file gets implicitly. It is itself a regular Nomi file containing only a `pub import` block — no special syntax. After every other stdlib module loads, the analyzer and runtime each evaluate `prelude.nomi`; the resulting module scope becomes the parent scope of every user file (analysis side) and the bindings are written into the root environment (runtime side). The set is intentionally minimal: primitives (`Int`/`Float`/`Decimal`/`String`/`Unit`/`Infallible`/`Byte`/`Bytes`/`Codepoint`/`List`/`Vector`/`Map`/`Set`), `Bool`/`True`/`False` from `std/bool`, `Maybe`/`Some`/`None`, `Result`/`Ok`/`Err`, the `Range` struct (so range literals work everywhere), the core interfaces (`Add`/`Subtract`/`Multiply`/`Divide`/`BitwiseAnd`/`BitwiseOr`/`BitwiseXor`/`BitwiseNot`/`ShiftLeft`/`ShiftRight`/`Comparable`/`Display`/`Equatable`/`Hashable`/`Discrete`/`Iter`/`Steppable`/`Struct`/`Distinct`/`Summable`/`Productable`/`Contains`/`Variants`, plus universal `Debug`), the `Ordering` and `Type` types, and the application lifecycle types `Startup` and `Context`. File API objects are deliberately left out: importing `String` into the prelude does not import `strings`, importing `Map` does not import `maps`, and importing `Iter` does not import `iter`. Type-qualified calls such as `String.uppercase`, `Map.get`, `Iter.map`, and `Context.root` use the prelude types directly. File-qualified calls such as `io.print` require the corresponding file import (`import std/io`). `Ordering`'s `Less`/`Equal`/`Greater` variants are deliberately left out: `derive Comparable`'s synthesized body references them *qualified* (`Ordering.Less`), so nothing depends on the bare names being in scope, and — like the `std/literals` cluster (`Literal`/`Fragment` and the `Fragment` variants) and assertion-authoring types such as `Assertable`/`AssertionFailure` — they're named only by a narrower authoring audience that imports them explicitly. The prelude exports no bare functions. Anything else must be imported explicitly.
 
 Stdlib files themselves do **not** receive the prelude — they each import their dependencies by hand. The "is this a stdlib file?" check is the only place that distinguishes who gets the implicit imports. A stdlib file's `//!` prompts are part of the file and see the file's scope, as its bodies do: a prompt that writes a bare `False` or `Some` needs the file to import it (`import bool.Bool.False`). `nomi test`, `nomi check`, the language server and the reference editors all check a prompt in that scope.
 
@@ -7802,13 +8009,15 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 
 | Module | What it holds |
 |---|---|
-| `int`, `float`, `decimal`, `bool`, `unit`, `code_points` | Primitives: `Int` (bitwise ops, 64-bit modular arithmetic, `NonZeroInt`/`PositiveInt`), `Float` (special values, rounding), `Decimal` and `RoundingMode`, `Bool`, `Unit`, `Codepoint` |
+| `int`, `float`, `decimal`, `bool`, `unit`, `code_points` | Primitives: `Int` (bit counts, 64-bit modular arithmetic, `NonZeroInt`/`PositiveInt`), `Float` (special values, rounding), `Decimal` and `RoundingMode`, `Bool`, `Unit`, `Codepoint` |
+| `bitwise` | The interfaces behind the bitwise operators: `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight` (prelude) |
+| `bits` | `Bits`, a bit pattern with a ``Bits`10xx_xxxx` `` typed literal: `matches` and `field` (§45) |
 | `strings`, `bytes`, `matcher` | `String` (grapheme-based text, `NormalForm`), `Byte`, `Bytes`, and `Matcher`, what String's search functions accept |
 | `lists`, `vectors`, `maps`, `sets`, `ranges` | `List`, `Vector`, `Map`, `Set`, `Range` and their container-specific owner functions |
 | `iter` | The `Iter` interface and every generic iteration owner function, plus `Iter.loop` |
 | `maybe`, `results` | `Maybe` (an `Iter` of zero or one elements), `Result`, `Infallible` |
 | `add`, `subtract`, `multiply`, `divide`, `comparable`, `equatable`, `hashable`, `discrete`, `steppable`, `variants`, `display`, `debug`, `structs`, `type` | The core interfaces, `Ordering`, `Direction`, and `Type<T>` |
-| `io` | Standard output and error (`print`, `write` with no trailing newline, `inspect`, `eprint`, `ewrite`), `read_line`, the stream types `Reader` and `Writer` with the standard streams as values, `File` (reads and writes at a position), `Error`, and `capture` and `replay`, which run a function against given input and collect what it prints (§36); *Standard streams* below |
+| `io` | Standard output and error (`print`, `write` with no trailing newline, `inspect`, `eprint`, `ewrite`), `read_line` and `lines`, the stream types `Reader` and `Writer` with the standard streams as values, `File` (reads and writes at a position), `Error`, and `capture` and `replay`, which run a function against given input and collect what it prints (§36); *Standard streams* below |
 | `fs`, `path` | Files and directories by path (`read_text`, `write_text` with a `WriteMode`, `lines`, `with_reader`, `with_writer`, `list`, `walk`, `glob`, `metadata`, symlinks, `open_file`, `within`, ...), and paths as `String`s with `/` on every system; *Files* below |
 | `fs_testing` | `fs_testing.run`, which runs a function against an in-memory sandbox, and the conformance rules every file system std/fs reaches keeps (§36) |
 | `process` | `Exit`, what a `main` or a boot returns in its `Err` to choose the exit status (§26, *Entry callbacks*) |
@@ -7818,7 +8027,7 @@ Batteries-included philosophy (like Go): minimize the need for third-party depen
 | `locale`, `plural`, `localize` | `Locale` with a ``Locale`pt-BR` `` typed literal, CLDR fallback chains and negotiation; `PluralCategory` and CLDR's cardinal and ordinal plural rules; `Localize` and `NumberParseError`, for the locale-aware `format`, `format_percent` and `parse_in` functions of `Int`, `Float` and `Decimal` and `String.join_list` (§41) |
 | `collation` | `Collator`, `Strength` and `CaseFirst`: ordering strings as a locale orders them (the Unicode Collation Algorithm with CLDR's tailorings) and their sort keys; `String.uppercase_in`, `lowercase_in` and `fold_case` are in `strings` (§41) |
 | `json`, `toml`, `dynamic` | `Json` with `ToJson`/`FromJson` and their derives, `Json.decode_as<T>(text) -> Result<T, Json.Error>` from JSON text to a typed value in one call (`Json.Error` is `Decode Json.DecodeError` or `Shape Json.ShapeError`) and `Json.encode_as<T>(value) -> String` back to compact JSON text, the `Toml` typed literal, `Dynamic` for untyped host data |
-| `regex` | `Regex`, with a ``Regex`...` `` typed literal. A `Regex` is a `Matcher`, so `String.contains`, `String.find`, `String.find_all`, `String.split` and the other search functions take one; `String.captures` and `String.captures_all` take only a `Regex` and answer its capture groups; `Regex.replace_all` (`$1` expansion) is its own |
+| `regex` | `Regex`, with a ``Regex`...` `` typed literal. A `Regex` is a `Matcher`, so `String.contains`, `String.find`, `String.find_all`, `String.split` and the other search functions take one; `String.captures` and `String.captures_all` take only a `Regex` and answer its capture groups as its capture type (`Regex<#(String, Maybe<String>)>`, §*Capture types*), and `String.replace` with a `Regex` expands `$1` in its replacement |
 | `literals` | `Literal` and `Fragment`, for typed-literal authors (§16) |
 | `assertions`, `testing` | `AssertionFailure`, `Assertable`, `testing.check`, test `Clock` (§36) |
 | `compiler` | The compiler as a library: `check`, `run`, `hover` |
@@ -7833,7 +8042,7 @@ Not in the stdlib: math functions beyond the numeric types' own (no trigonometry
 
 The three standard streams are also values: `once` constants `io.stdin: Reader`, `io.stdout: Writer` and `io.stderr: Writer`, of the host types `io.Reader` and `io.Writer`, written with no parentheses (`Writer.print(io.stderr, "warning")`). A stream value names the stream outside the program and never changes; using it moves the stream on, and where a use goes is decided when it is made, so a value read before an `io.capture` began writes into the capture inside it. `Reader.read_line(r)` on standard input answers what `io.read_line()` answers and reads from the same buffer. A write to `io.stdout` lands in order with `io.print`'s. Inside `io.capture` the handles reach the capture as `io.print` and `io.read_line` do. A read of standard input that is waiting for input is a safe point: a task cancelled while it waits (`Task.cancel`, the teardown of its `concurrent` block, a supervisor drain) unwinds there at once, as one waiting on a channel does, and what arrives afterwards is answered to the next read, a partial line included.
 
-A `Reader` is read with `Reader.read_line(r) -> Result<Maybe<String>, io.Error>` (the next line, as `io.read_line` reads one), `Reader.read(r, max: 65536) -> Result<Maybe<Bytes>, io.Error>` (at least one and at most `max` bytes, `Ok(None)` at the end; `max` below 1 is a trap), `Reader.read_all(r) -> Result<Bytes, io.Error>` and `Reader.read_all_text(r) -> Result<String, io.Error>` (everything left; bytes that are not UTF-8 are `InvalidText` with the offset from where the read began), and `Reader.copy_to(r, w) -> Result<Int, io.Error>`, which writes everything left to a writer a piece at a time and answers the byte count. `Reader.from_bytes(data)` and `Reader.from_text(text)` read data the program holds. Three readers make their bytes as they are read: `Reader.from_chunks(chunks: Iter<Bytes>)` and `Reader.from_text_chunks(chunks: Iter<String>)` pull the sequence one chunk per read that needs one, so it may be endless, and closing the reader stops it; `Reader.from_fn(next: () -> Result<Maybe<Bytes>, io.Error>)` calls `next` for each chunk, `Ok(None)` ending the stream and an `Err` being the failure of the read that asked. An empty chunk is skipped. The function or sequence runs on the task of the read, inside the `io.capture` that read is in, and a trap in it is a trap of the read; `next` must not read the reader it feeds. A `Writer` is written with `Writer.write(w, bytes)`, `Writer.write_text(w, text)` and `Writer.print(w, x)` (`x`'s `Display` text and a newline), each `-> Result<Unit, io.Error>`. A one-shot stream is not an `Iter`, since an `Iter` can run again from its start; a loop pulls it inside `Iter.loop`.
+A `Reader` is read with `Reader.read_line(r) -> Result<Maybe<String>, io.Error>` (the next line, as `io.read_line` reads one), `Reader.read(r, max: 65536) -> Result<Maybe<Bytes>, io.Error>` (at least one and at most `max` bytes, `Ok(None)` at the end; `max` below 1 is a trap), `Reader.read_all(r) -> Result<Bytes, io.Error>` and `Reader.read_all_text(r) -> Result<String, io.Error>` (everything left; bytes that are not UTF-8 are `InvalidText` with the offset from where the read began), and `Reader.copy_to(r, w) -> Result<Int, io.Error>`, which writes everything left to a writer a piece at a time and answers the byte count. `Reader.from_bytes(data)` and `Reader.from_text(text)` read data the program holds. Three readers make their bytes as they are read: `Reader.from_chunks(chunks: Iter<Bytes>)` and `Reader.from_text_chunks(chunks: Iter<String>)` pull the sequence one chunk per read that needs one, so it may be endless, and closing the reader stops it; `Reader.from_fn(next: () -> Result<Maybe<Bytes>, io.Error>)` calls `next` for each chunk, `Ok(None)` ending the stream and an `Err` being the failure of the read that asked. An empty chunk is skipped. The function or sequence runs on the task of the read, inside the `io.capture` that read is in, and a trap in it is a trap of the read; `next` must not read the reader it feeds. A `Writer` is written with `Writer.write(w, bytes)`, `Writer.write_text(w, text)` and `Writer.print(w, x)` (`x`'s `Display` text and a newline), each `-> Result<Unit, io.Error>`, and a sequence is written with `Writer.write_all(w, chunks: Iter<Bytes>)` and `Writer.write_lines(w, lines: Iter<T>)` (each item's `Display` text and a newline), which stop at the first failure and answer it. `Writer.from_fn(close: () -> Result<Unit, io.Error> = <Ok>, unbuffered: False, write: (Bytes) -> Result<Unit, io.Error>)` hands what is written to `write`: buffered, `write` receives what accumulated when the buffer fills and on flush and close, so the boundaries of the writes are not kept; `unbuffered: True` passes each write through as it is made. `close` runs when the writer is closed, after the last bytes. An `Err` from either is the error the write, flush or close answers, and a buffered writer answers a failed send's error to every later write, as a writer over a file does. Both run on the task of the operation, inside its `io.capture`; `write` must not write to the writer it is fed by, and may write to any other. Nothing runs `write` once the program no longer holds the writer or has ended, so what such a writer still buffers then is dropped. `Writer.collect(body: (Writer) -> T) -> #(T, Bytes)` calls `body` with a writer into memory and answers what it returned and every byte it wrote; the writer is closed when `body` returns, so a later write through it is `Closed`. `Reader.lines(r) -> Iter<Result<String, io.Error>>` is the lines left in `r`, as `Reader.read_line` reads them, and `Reader.chunks(r, size: 65536) -> Iter<Result<Bytes, io.Error>>` the rest of it in pieces of at most `size` bytes, as `Reader.read` reads them. Each reads `r` as it runs and hands an item on before it reads the next, so it runs once: a second run carries on from where the stream is, which after a run to the end yields nothing. These are the iterators that are not replayable (§19, *Iter Interface*); `fs.lines` and `fs.chunks` open the file on each run and are. A failure is an item, and the last: the iterator stops after it. A consumer that stops early leaves the rest of the stream unread and the reader open. `io.lines()` is `Reader.lines(io.stdin)`, which reads standard input from the buffer `io.read_line` reads.
 
 A writer over a file is buffered: `Writer.flush(w)` sends what it holds on, and `Writer.close(w)` flushes and closes, answering the error of a write the buffer held or of the close, since a failed close of a written file can lose data. `Reader.close(r)` closes a reader. An operation on a closed stream, a second close included, is `Closed`; closing a standard stream does nothing. `Reader.close_quietly` and `Writer.close_quietly` close and drop the result, the form for a `defer`. A stream the program no longer holds is closed when the runtime collects it, and what a writer the program never closed has buffered is flushed when the program ends. Each call on a stream is atomic, so two tasks sharing one never interleave inside a call.
 
@@ -8962,6 +9171,54 @@ above); a separate `nomi.lock` is not planned.
 0o77 // octal (Go/Rust style, not C-style 077)
 ```
 
+An integer literal is an `Int`, except where a `Byte` is expected.
+
+### Byte literals
+
+An integer literal written where a `Byte` is expected is a `Byte`, as Rust,
+Go and Swift give a literal the type its position expects:
+
+```nomi
+b: Byte = 0x81
+
+bytes: List<Byte> = [0x81, 0x00, 0b0111_1111]
+
+data = Bytes.from_list([104, 105])
+
+fn tag(b: Byte) -> String {
+    case b {
+        0x00 -> "nul"
+        0x7F -> "del"
+        _ -> "other"
+    }
+}
+```
+
+A Byte is expected in an annotated binding or `once`, an argument to a
+`Byte` parameter, a `Byte` field of a struct literal, a parameter's default,
+a function's result (its last expression or a `return`), an element, key or
+value of a collection or tuple literal whose type is expected, a payload of
+a generic constructor whose result is expected (`Some(0x81)` as a
+`Maybe<Byte>`), each branch of an `if` or `case` whose value is expected, and
+an arm pattern over a `Byte` (`0x80 -> ...`, `Some(0x80) -> ...`). Without an
+expected type, a literal element or branch after a `Byte` one is a `Byte`
+too (`[b, 0x42]`, `if keep { b } else { 0x00 }`). In a comparison, and in
+`&&&`, `|||` and `^^^`, a literal operand takes `Byte` from the other operand
+(`b == 0x80`, `0x80 == b`, `bytes == [0x81, 0x00]`, `b &&& 0x7F`). A generic
+call is checked left to right, so in `Iter.map(bytes, fn b -> b &&& 0x7F)`
+the lambda's `b` is a `Byte` from `bytes` and the literal follows it.
+
+Only the literal itself, or the literal under a unary minus, takes its type
+from its position. A literal anywhere else stays an `Int` (`n = 0x81` is an
+`Int`), and an `Int` value never becomes a `Byte`: `b: Byte = n` is a type
+mismatch, and `Int.to_byte(n)` converts one, answering `None` outside the
+range. `Byte` has no arithmetic, so `b + 1` is still an error.
+
+A literal in a `Byte` position whose value is outside 0 to 255 is a compile
+error that names the range, in any spelling: `` `300` does not fit in a Byte
+(0 to 255) ``, `` `0x100` does not fit in a Byte (0 to 255) ``, and the same
+for `-1`. `-0` is refused too: a Byte literal has no sign.
+
 ### Floats
 
 ```nomi
@@ -9703,9 +9960,9 @@ Maybe assertions mirror the same shape: `assert maybe` requires `Some(_)`,
 while `refute maybe` requires `None`. Custom `Assertable` subjects succeed by
 returning their original subject value after `Assertable.failure(...)` returns
 `None`. An assertion stands as a statement or as a binding's value (`ok = assert
-x`), and is not an operand: `!assert x` passes when `x` holds and is then
-`False`, so it is the error `` `assert` cannot be an operand of `!` ``, whose help
-suggests `refute x` or `assert !x`. An assertion on either side of a binary
+x`), and is not an operand: `not assert x` passes when `x` holds and is then
+`False`, so it is the error `` `assert` cannot be an operand of `not` ``, whose help
+suggests `refute x` or `assert not x`. An assertion on either side of a binary
 operator other than `|>` is the same error. Anywhere else a value is needed,
 an assertion is the error `` `assert` cannot be used as a value here ``: as
 another assertion's subject (`assert assert x`), a call's argument, a
@@ -12380,7 +12637,52 @@ functions from SQL queries or an enum from a list of words, is written by a
 tool the library ships (`nomi tool`, §*CLI*) into ordinary `.nomi`
 files that a program imports and commits.
 
-## 45. Open Design Questions
+## 45. Bit Patterns
+
+`std/bits` provides `Bits`, a pattern over an Int's low bits written as the
+raw typed literal ``Bits`10xx_xxxx` ``, most significant bit first. Each `0`
+and `1` is a bit the Int must have, each `x` a bit it may have either way,
+and each lowercase letter other than `x` a bit of the pattern's one field.
+`_` groups bits and is not one. A pattern is a mask and a value, so it says
+in one literal what `n &&& 0b1100_0000 == 0b1000_0000` says in two numbers:
+
+```nomi
+import std/bits.Bits
+
+once continuation = Bits`10aa_aaaa`
+
+fn payload(byte: Int) -> Maybe<Int> {
+    Bits.field(continuation, byte)
+}
+```
+
+- `Bits.matches(pattern, n)` is `True` when `n`'s bits under the pattern's
+  `0` and `1` are those bits and `n` has no bit above the pattern's width.
+  So ``Bits`1xxx_xxxx` `` matches `128` and not `384`, whose ninth bit is
+  set, and a negative `n`, whose bits go on forever, matches no pattern.
+- `Bits.field(pattern, n)` is `Some` of the bits under the field letter,
+  read as a number (``Bits.field(Bits`10aa_aaaa`, 0b1010_0011) ==
+  Some(0b10_0011)``), when `n` matches, and `None` when it does not. A
+  pattern with no field letter has no field; asking it for one traps.
+- `Bits.width`, `Bits.mask` and `Bits.value` give the pattern's width in
+  bits, the mask of its `0` and `1` bits, and the value those bits must
+  have.
+- `Bits.parse(text)` reads a pattern at run time as a
+  `Result<Bits, bits.Error>`; the backtick literal is checked at compile
+  time (§16 *Typed literals*), so a malformed one is a compile error at the
+  literal. The errors are an empty pattern (`Empty`), a character that is
+  not a bit (`Character`, ``typed literal Bits`10x2` is invalid: `2` at
+  index 3 is not a bit: ...``), a second field letter (`SecondField`: a
+  pattern has one field), and a field whose letters are not written
+  together (`SplitField`: ``Bits`aa0a` ``). `_` between a field's letters
+  does not split it.
+
+`Debug` writes the literal as it was written (``Bits`10xx_xxxx` ``), and two
+patterns are equal when they are written alike. A pattern has any width,
+since an Int has any size. `Bits` takes an `Int`; a `Byte` is
+`Byte.to_int(b)` first.
+
+## 46. Open Design Questions
 
 1. **Exhaustive struct pattern opt-in.** Struct pattern matching is partial by
    default: unmentioned fields are ignored. A `!..` marker could opt into

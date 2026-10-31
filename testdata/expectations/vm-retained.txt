@@ -33,6 +33,7 @@
 01-foundations/redeclarations/test_helpers.nomi:hover_signature	ran
 01-foundations/standard_streams/streams.nomi:main	ran
 01-foundations/standard_streams/streams.nomi:main failure	ran
+01-foundations/writer_fn_test.nomi:text	ran
 02-testing/assert_refute_test.nomi:fails_assertion	ran
 02-testing/assert_refute_test.nomi:fails_check	ran
 02-testing/assertable_test.nomi:EqualsAssertion.failure	ran
@@ -104,6 +105,27 @@
 03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi:hover_signature	ran
 03-tooling-and-diagnostics/unused_import/test_helpers.nomi:has_diagnostic	ran
 03-tooling-and-diagnostics/unused_import/test_helpers.nomi:hover_signature	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`10aa_aaaa` at 22:20 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`10x` at 49:36 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`10xx_aa01` at 31:9 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`10xx_xxxx` at 45:26 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`110x_xxxx` at 7:12 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`1bbb_0000` at 26:23 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`1xxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx` at 38:9 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`1xxx_xxxx` at 15:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`1xxx_xxxx` at 16:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`b` at 27:23 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`xxxx` at 17:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`xxxx` at 18:25 failure	ran
+04-scalars-and-text/bitwise_test.nomi:Flags.bitwise_and	ran
+04-scalars-and-text/bitwise_test.nomi:Flags.bitwise_not	ran
+04-scalars-and-text/bitwise_test.nomi:Flags.bitwise_or	ran
+04-scalars-and-text/bitwise_test.nomi:Flags.inspect	ran
+04-scalars-and-text/bitwise_test.nomi:Flags.shift_left	ran
+04-scalars-and-text/byte_literals_test.nomi:Header.inspect	ran
+04-scalars-and-text/byte_literals_test.nomi:has_high_bit	ran
+04-scalars-and-text/byte_literals_test.nomi:marker	ran
+04-scalars-and-text/byte_literals_test.nomi:name	ran
 04-scalars-and-text/codepoint_literals_test.nomi:token_kind	ran
 04-scalars-and-text/decimals/test_helpers.nomi:has_diagnostic	ran
 04-scalars-and-text/decimals/test_helpers.nomi:hover_signature	ran
@@ -139,6 +161,14 @@
 04-scalars-and-text/matcher_test.nomi:count	ran
 04-scalars-and-text/matcher_test.nomi:first_agrees	ran
 04-scalars-and-text/matcher_test.nomi:first_agrees	ran
+04-scalars-and-text/not_test.nomi:large_check	ran
+04-scalars-and-text/not_test.nomi:positive	ran
+04-scalars-and-text/not_test.nomi:small	ran
+04-scalars-and-text/strings_test.nomi:Rule.inspect	ran
+04-scalars-and-text/strings_test.nomi:first_groups	ran
+04-scalars-and-text/strings_test.nomi:first_groups	ran
+04-scalars-and-text/strings_test.nomi:match_count	ran
+04-scalars-and-text/strings_test.nomi:match_count	ran
 04-scalars-and-text/strings_test.nomi:slash_joined	ran
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
@@ -288,7 +318,9 @@
 06-collections/named_literals_test.nomi:Kvs.inspect	ran
 06-collections/named_literals_test.nomi:Settings.inspect	ran
 06-collections/named_literals_test.nomi:depth_of	ran
+06-collections/spread_diagnostics_test.nomi:at	ran
 06-collections/spreads_test.nomi:Team.inspect	ran
+06-collections/spreads_test.nomi:evens	ran
 06-collections/tuples_test.nomi:classify	ran
 06-collections/tuples_test.nomi:divide	ran
 06-collections/vectors_test.nomi:Countdown.each_while	ran
@@ -455,6 +487,10 @@
 08-pattern-matching/distinct_sub_patterns_test.nomi:top	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:tuple_case	ran
 08-pattern-matching/distinct_sub_patterns_test.nomi:variant	ran
+08-pattern-matching/is_test.nomi:Block.inspect	ran
+08-pattern-matching/is_test.nomi:Order.inspect	ran
+08-pattern-matching/is_test.nomi:Shape.inspect	ran
+08-pattern-matching/is_test.nomi:State.inspect	ran
 08-pattern-matching/map_binding_else_test.nomi:address	ran
 08-pattern-matching/map_binding_else_test.nomi:host_or	ran
 08-pattern-matching/map_binding_else_test.nomi:mode	ran
@@ -2314,6 +2350,7 @@ exercism/bank-account/bank_account.nomi:Request.inspect	ran
 exercism/bank-account/bank_account.nomi:answer	ran
 exercism/bank-account/bank_account.nomi:ask	ran
 exercism/bank-account/bank_account.nomi:ask	ran
+exercism/bank-account/bank_account.nomi:closed	ran
 exercism/bank-account/bank_account.nomi:deposited	ran
 exercism/bank-account/bank_account.nomi:handle	ran
 exercism/bank-account/bank_account.nomi:opened	ran
@@ -2531,12 +2568,9 @@ exercism/grade-school/grade_school_test.nomi:enroll	ran
 exercism/grains/grains.nomi:grains_on	ran
 exercism/grains/grains.nomi:square	ran
 exercism/grains/grains.nomi:total	ran
-exercism/grep/grep.nomi:Options.file_names default	ran
-exercism/grep/grep.nomi:Options.ignore_case default	ran
-exercism/grep/grep.nomi:Options.inspect	ran
-exercism/grep/grep.nomi:Options.invert default	ran
-exercism/grep/grep.nomi:Options.line_numbers default	ran
-exercism/grep/grep.nomi:Options.whole_line default	ran
+exercism/grep/grep.nomi:Flag.equal	ran
+exercism/grep/grep.nomi:Flag.hash	ran
+exercism/grep/grep.nomi:Flag.inspect	ran
 exercism/grep/grep.nomi:grep	ran
 exercism/grep/grep.nomi:matches	ran
 exercism/grep/grep.nomi:search	ran
@@ -2583,7 +2617,7 @@ exercism/ledger/ledger.nomi:Style.sign	ran
 exercism/ledger/ledger.nomi:format_change	ran
 exercism/ledger/ledger.nomi:format_entries	ran
 exercism/ledger/ledger.nomi:format_entry	ran
-exercism/ledger/ledger.nomi:literal DateFields`yMMdd` at 66:51 failure	ran
+exercism/ledger/ledger.nomi:literal DateFields`yMMdd` at 65:51 failure	ran
 exercism/ledger/ledger.nomi:literal Locale`en-US` at 27:26 failure	ran
 exercism/ledger/ledger.nomi:literal Locale`nl-NL` at 28:23 failure	ran
 exercism/ledger/ledger.nomi:row	ran
@@ -2671,7 +2705,6 @@ exercism/luhn/luhn.nomi:is_valid	ran
 exercism/markdown/markdown.nomi:Block.inspect	ran
 exercism/markdown/markdown.nomi:block	ran
 exercism/markdown/markdown.nomi:emphasize	ran
-exercism/markdown/markdown.nomi:is_item	ran
 exercism/markdown/markdown.nomi:parse	ran
 exercism/markdown/markdown.nomi:render	ran
 exercism/markdown/markdown.nomi:render_run	ran
@@ -2684,6 +2717,7 @@ exercism/matrix/matrix.nomi:Matrix.parse	ran
 exercism/matrix/matrix.nomi:Matrix.row	ran
 exercism/matrix/matrix.nomi:parse_row	ran
 exercism/meetup/meetup.nomi:Week.inspect	ran
+exercism/meetup/meetup.nomi:`!` failure Error	ran
 exercism/meetup/meetup.nomi:days_on	ran
 exercism/meetup/meetup.nomi:meetup	ran
 exercism/meetup/meetup.nomi:teenth	ran
@@ -2995,6 +3029,7 @@ exercism/robot-name/robot_name.nomi:Factory.reset	ran
 exercism/robot-name/robot_name.nomi:Robot.inspect	ran
 exercism/robot-name/robot_name.nomi:Robot.name	ran
 exercism/robot-name/robot_name.nomi:names	ran
+exercism/robot-name/robot_name_test.nomi:`!` failure Error	ran
 exercism/robot-name/robot_name_test.nomi:is_well_formed	ran
 exercism/robot-name/robot_name_test.nomi:names	ran
 exercism/robot-simulator/robot_simulator.nomi:Direction.inspect	ran
@@ -3010,7 +3045,6 @@ exercism/roman-numerals/roman_numerals.nomi:roman	ran
 exercism/rotational-cipher/rotational_cipher.nomi:rotate	ran
 exercism/rotational-cipher/rotational_cipher.nomi:shifted	ran
 exercism/run-length-encoding/run_length_encoding.nomi:decode	ran
-exercism/run-length-encoding/run_length_encoding.nomi:decode_run	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode	ran
 exercism/run-length-encoding/run_length_encoding.nomi:encode_run	ran
 exercism/saddle-points/saddle_points.nomi:Position.inspect	ran
@@ -3326,6 +3360,20 @@ exercism/zipper/zipper_test.nomi:apply	ran
 exercism/zipper/zipper_test.nomi:follow	ran
 exercism/zipper/zipper_test.nomi:initial_tree	ran
 exercism/zipper/zipper_test.nomi:leaf	ran
+std/bits.nomi:Bits.equal	ran
+std/bits.nomi:Bits.field	ran
+std/bits.nomi:Bits.from_fragments	ran
+std/bits.nomi:Bits.inspect	ran
+std/bits.nomi:Bits.mask	ran
+std/bits.nomi:Bits.matches	ran
+std/bits.nomi:Bits.parse	ran
+std/bits.nomi:Bits.value	ran
+std/bits.nomi:Bits.width	ran
+std/bits.nomi:Error.equal	ran
+std/bits.nomi:Error.inspect	ran
+std/bits.nomi:Error.to_string	ran
+std/bits.nomi:Scan.inspect	ran
+std/bits.nomi:read_bit	ran
 std/fs.nomi:Access.equal	ran
 std/fs.nomi:Access.inspect	ran
 std/fs.nomi:Chunks.each_while	ran
@@ -3352,8 +3400,6 @@ std/fs.nomi:create_dir default 2	ran
 std/fs.nomi:create_symlink	ran
 std/fs.nomi:current_dir	ran
 std/fs.nomi:decoded	ran
-std/fs.nomi:each_chunk	ran
-std/fs.nomi:each_line	ran
 std/fs.nomi:exists	ran
 std/fs.nomi:glob	ran
 std/fs.nomi:glob_split	ran

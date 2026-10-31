@@ -93,7 +93,7 @@ keyword_groups = {
     "keyword.conditional": ["if", "else", "case", "when"],
     "keyword.repeat": ["break"],
     "keyword.return": ["return"],
-    "keyword.operator": ["and", "or"],
+    "keyword.operator": ["and", "or", "not", "is"],
     "keyword.modifier": ["opaque", "once", "extern"],
     "keyword.coroutine": ["concurrent"],
     "keyword.debug": ["dbg"],

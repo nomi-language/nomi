@@ -631,8 +631,8 @@ fn main() {
 // `tests/exercism` file and once in the Examples page generated from it.
 var fieldDefaultDenominator = map[string]int{
 	"std":             22,
-	"tests":           67,
-	"tour (nomi-run)": 24,
+	"tests":           62,
+	"tour (nomi-run)": 19,
 	"tour (nomi)":     0,
 }
 

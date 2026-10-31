@@ -9,6 +9,7 @@
 01-foundations/raw_strings_test.nomi
 01-foundations/shadowing_test.nomi
 01-foundations/triple_quoted_strings_test.nomi
+01-foundations/writer_fn_test.nomi
 02-testing/assert_refute_test.nomi
 02-testing/assertable_test.nomi
 02-testing/assertion_pattern_destructuring_test.nomi
@@ -121,6 +122,7 @@
 13-iterators-and-pipes/maybe_iter_test.nomi
 13-iterators-and-pipes/min_max_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi
+13-iterators-and-pipes/reader_iter_test.nomi
 13-iterators-and-pipes/scan_map_reduce_test.nomi
 13-iterators-and-pipes/sort_keys_test.nomi
 13-iterators-and-pipes/string_iterators_test.nomi

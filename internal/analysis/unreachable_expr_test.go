@@ -19,7 +19,7 @@ fn parse(_text: String) -> Header {
 
 fn first<T>(xs: List<T>) -> T {
     case xs {
-        [x, .._] -> x
+        [x, ..] -> x
         [] -> unreachable "callers pass a non-empty list"
     }
 }

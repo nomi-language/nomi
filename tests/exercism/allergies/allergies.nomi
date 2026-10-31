@@ -17,7 +17,7 @@ derive Variants for Allergen
 
 /// Reports whether `score` includes `allergen`.
 pub fn is_allergic_to(score: Int, allergen: Allergen) -> Bool {
-    Int.bitwise_and(score, value(allergen)) != 0
+    score &&& value(allergen) != 0
 }
 
 /// Lists every allergen `score` includes, in score order. Parts of the score

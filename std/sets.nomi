@@ -64,7 +64,7 @@ impl Set<T> {
     //! assert Set.difference(%[1, 2, 3], %[2]) == %[1, 3]
     //
     pub fn difference<T>(a: Set<T>, b: Set<T>) -> Set<T> {
-        Iter.filter(a, fn e -> !Set.contains(b, e)) |> Iter.to_set()
+        Iter.reject(a, &Set.contains(b, &1)) |> Iter.to_set()
     }
 
     /// True if every element of `a` is also in `b`.

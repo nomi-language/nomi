@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/bits"
 	"strings"
 	"unicode"
 )
@@ -24,12 +25,10 @@ import (
 //
 // # The trap texts are fixed, not invented
 //
-// Two of these fault, and the text is Nomi-observable: `nomi run` prints the
-// fault verbatim with no `line N:` prefix. So
-// `Int.shift_left: negative shift count -1` and
-// `strings.String.repeat: negative count -2` are the recorded texts,
-// inconsistent qualification included. Do not tidy them: the golden files
-// hold these exact strings.
+// Some of these fault, and the text is Nomi-observable: `nomi run` prints the
+// fault after the line of the program's call. So
+// `strings.String.repeat: negative count -2` is a recorded text. Do not tidy
+// one: the golden files hold these exact strings.
 
 // --- std/strings -----------------------------------------------------------
 //
@@ -201,88 +200,33 @@ func IntWrapSub(a, b Int) int64 { return Wrap64(a.Value()) - Wrap64(b.Value()) }
 // IntWrapMul is `Int.wrapping_mul`: a * b modulo 2^64, as an int64.
 func IntWrapMul(a, b Int) int64 { return Wrap64(a.Value()) * Wrap64(b.Value()) }
 
-// The bitwise functions read an Int as two's complement with as many bits as
-// it needs, a negative one with infinitely many leading ones, as math/big's
-// And, Or, Xor and Not do. So the answers agree with int64's for every pair
-// of int64 operands.
-
-// IntBitAnd is `Int.bitwise_and`.
-func IntBitAnd(a, b Int) Int {
-	if x, ok := a.Int64(); ok {
-		if y, ok := b.Int64(); ok {
-			return SmallInt(x & y)
-		}
-	}
-	return Int{intOwned(new(big.Int).And(a.Big(), b.Big()))}
-}
-
-// IntBitOr is `Int.bitwise_or`.
-func IntBitOr(a, b Int) Int {
-	if x, ok := a.Int64(); ok {
-		if y, ok := b.Int64(); ok {
-			return SmallInt(x | y)
-		}
-	}
-	return Int{intOwned(new(big.Int).Or(a.Big(), b.Big()))}
-}
-
-// IntBitXor is `Int.bitwise_xor`.
-func IntBitXor(a, b Int) Int {
-	if x, ok := a.Int64(); ok {
-		if y, ok := b.Int64(); ok {
-			return SmallInt(x ^ y)
-		}
-	}
-	return Int{intOwned(new(big.Int).Xor(a.Big(), b.Big()))}
-}
-
-// IntBitNot is `Int.bitwise_not`: one's complement, -a - 1.
-func IntBitNot(a Int) Int {
-	if x, ok := a.Int64(); ok {
-		return SmallInt(^x)
-	}
-	return Int{intOwned(new(big.Int).Not(a.Big()))}
-}
-
-// IntShiftLeft is `Int.shift_left`: a * 2^n, exact. A negative count faults.
-func IntShiftLeft(a, n Int) Int {
-	count := shiftCount("shift_left", n)
-	if a.Sign() == 0 {
-		return a
-	}
-	if x, ok := a.Int64(); ok && count < 63 {
-		if s := x << count; s>>count == x && uint64(s) != BigWord {
-			return SmallInt(s)
-		}
-	}
-	return Int{intOwned(new(big.Int).Lsh(a.Big(), uint(count)))}
-}
-
-// IntShiftRight is `Int.shift_right`: a / 2^n rounded toward negative
-// infinity, an arithmetic shift. A negative count faults.
-func IntShiftRight(a, n Int) Int {
-	count := shiftCount("shift_right", n)
-	if x, ok := a.Int64(); ok {
-		if count > 63 {
-			count = 63
-		}
-		return SmallInt(x >> count)
-	}
-	return Int{intOwned(new(big.Int).Rsh(a.Big(), uint(count)))}
-}
-
-// shiftCount is a shift's count, which must be non-negative. A count past
-// int64's range shifts every bit of any Int that fits in memory, so it reads
-// as the largest count, which shift_right answers for and shift_left refuses.
-func shiftCount(op string, n Int) int64 {
+// IntBitCount is `Int.bit_count`: the number of 1 bits in a non-negative n.
+// A negative n has endless 1 bits, and faults.
+func IntBitCount(n Int) int64 {
 	if n.Sign() < 0 {
-		Trap(fmt.Sprintf("Int.%s: negative shift count %s", op, n))
+		Trap(fmt.Sprintf("Int.bit_count: %s is negative, and a negative Int has endless 1 bits", n))
 	}
-	count := n.Saturated()
-	if op == "shift_left" && count > maxShift {
-		Trap(fmt.Sprintf("Int.%s: shift count %s is too large: the result would have more than %d bits", op, n, maxShift))
+	if x, ok := n.Int64(); ok {
+		return int64(bits.OnesCount64(uint64(x)))
 	}
-	return count
+	count := 0
+	for _, w := range n.Big().Bits() {
+		count += bits.OnesCount(uint(w))
+	}
+	return int64(count)
+}
+
+// IntBitLength is `Int.bit_length`: the bits n needs besides a sign, a
+// non-negative n's math/big BitLen and a negative n's ~n's.
+func IntBitLength(n Int) int64 {
+	v := n.Value()
+	if n.Sign() < 0 {
+		v = IntNot(v)
+	}
+	if x, ok := v.(int64); ok {
+		return int64(bits.Len64(uint64(x)))
+	}
+	return int64(IntBig(v).BitLen())
 }
 
 // maxShift bounds Int.shift_left's count and Int.pow's result: an Int of more

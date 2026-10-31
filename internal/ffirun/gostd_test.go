@@ -186,3 +186,94 @@ func TestComputeHashes_StdBindingKeysTheToolchain(t *testing.T) {
 		t.Errorf("GoStd = %q for a project with no standard library binding", h.GoStd)
 	}
 }
+
+// TestStdBindings_BigIntCrossesAsInt: a Go *big.Int, written in its own
+// package (`*Int` in math/big), projects to Int in both directions rather
+// than to a Maybe of a struct, and its adapter converts it as an Int of any
+// size. Declaring it as a Maybe is a mismatch that names Int.
+func TestStdBindings_BigIntCrossesAsInt(t *testing.T) {
+	root, got := discoverStd(t, `gopkg "math/big" as big
+
+fn new_int(x: Int) -> Int go big.NewInt
+fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
+`)
+	if err := validateDiscoveredGoBindings(root, got); err != nil {
+		t.Fatalf("validation: %v", err)
+	}
+	adapters, err := generateAdapters(root, got)
+	if err != nil {
+		t.Fatalf("generateAdapters: %v", err)
+	}
+	for _, r := range adapters.Refused {
+		t.Errorf("refused %s: %s", r.Key, r.Reason)
+	}
+	for _, want := range []string{"big.NewInt(", "big.Jacobi(", "rt.IntBig(", "hostadapt.FromBig("} {
+		if !strings.Contains(adapters.Decls, want) {
+			t.Errorf("no adapter contains %s:\n%s", want, adapters.Decls)
+		}
+	}
+
+	root, got = discoverStd(t, `gopkg "math/big" as big
+
+fn new_int(x: Int) -> Maybe<Int> go big.NewInt
+`)
+	err = validateDiscoveredGoBindings(root, got)
+	if want := `return projects to Int, but Nomi declares Maybe<Int>`; err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("validation: got %v, want an error containing %q", err, want)
+	}
+}
+
+// Go's stream interfaces cross as std/io's Reader and Writer, with no
+// go.mod: io.TeeReader takes both and answers an io.Reader, io.NopCloser
+// answers an io.ReadCloser, and encoding/hex's encoder and decoder take
+// and answer them. A Go type that is both, io.ReadWriter, projects to
+// neither, and a Reader declared for an io.Writer is the mismatch.
+func TestStdBindings_StreamsCrossAsReaderAndWriter(t *testing.T) {
+	root, got := discoverStd(t, `import std/io.{Reader, Writer}
+
+gopkg "io" as goio
+gopkg "encoding/hex" as hex
+
+fn tee(r: Reader, w: Writer) -> Reader go goio.TeeReader
+fn limit(r: Reader, n: Int) -> Reader go goio.LimitReader
+fn no_close(r: Reader) -> Reader go goio.NopCloser
+fn hex_encoder(w: Writer) -> Writer go hex.NewEncoder
+fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder
+`)
+	if err := validateDiscoveredGoBindings(root, got); err != nil {
+		t.Fatalf("validation: %v", err)
+	}
+	adapters, err := generateAdapters(root, got)
+	if err != nil {
+		t.Fatalf("generateAdapters: %v", err)
+	}
+	for _, r := range adapters.Refused {
+		t.Errorf("refused %s: %s", r.Key, r.Reason)
+	}
+	for _, want := range []string{"hostadapt.GoReader(", "hostadapt.GoWriter(", "hostadapt.ReaderFromGo(", "hostadapt.WriterFromGo("} {
+		if !strings.Contains(adapters.Decls, want) {
+			t.Errorf("no adapter contains %s:\n%s", want, adapters.Decls)
+		}
+	}
+
+	for _, c := range []struct{ src, want string }{
+		{`import std/io.Reader
+
+gopkg "encoding/hex" as hex
+
+fn hex_encoder(w: Reader) -> Reader go hex.NewEncoder
+`, `parameter 1 "w" projects to Writer, but Nomi declares Reader`},
+		{`import std/io.Writer
+
+gopkg "io" as goio
+
+fn pipe() -> #(Writer, Writer) go goio.Pipe
+`, `Maybe<a struct (Go PipeReader)>`},
+	} {
+		root, got := discoverStd(t, c.src)
+		err := validateDiscoveredGoBindings(root, got)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("validation of\n%s\ngot %v, want an error containing %q", c.src, err, c.want)
+		}
+	}
+}

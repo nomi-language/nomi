@@ -46,6 +46,7 @@ Ok(2026-05-27)
   You then call it as plain `parse`.
 - `as console` renames what you import. Here `std/io` is reached as `console`
   instead of `io`. Use this when a name clashes with one you already have.
+- `String`, `Iter`, `List`, `Map` and the other prelude types need no import.
 
 To import several items from one type or file, list them in `.{...}`:
 
@@ -61,10 +62,17 @@ import shape.Shape.{self, Circle, Rectangle}
 ```
 
 That imports `Shape`, `Circle` and `Rectangle`. `self` means whatever is
-before the `.{`. So `import std/maps.{self, Map}` imports both the file
-`maps` and the type `Map`.
+before the `.{`. So `import std/calendar.{self, Date}` imports both the file
+`calendar` and the type `Date`.
 
-## Files And Modules
+## Declaration order and cycles
+
+A file can use a name declared anywhere in it or in any file it imports, in
+any order. You don't need to declare anything ahead of time. Two files can
+even import each other. That works, though it may mean the code should be
+split differently.
+
+## Files and modules
 
 A program in one file, like every example so far, needs nothing more. A
 larger project is a Nomi module: a directory with a `nomi.toml` and one or
@@ -96,9 +104,7 @@ fn main() {
 
 // FILE: nomi.toml
 [module]
-
 name = "myproject"
-
 entry_points = ["main"]
 ```
 <!-- expect
@@ -109,8 +115,10 @@ entry_points = ["main"]
 program. A file in the module's `tools/` directory is a
 [tool](/generating-code/), which is an entry point without being listed.
 
-Files in a directory named `internal/` can be imported only by files in the
-same module.
+Files under a directory named `internal/` can be imported only by files under
+that directory's parent. `a/internal/x.nomi` is open to `a/` and below; an
+`internal/` at the module root is open to the whole module and closed to other
+modules.
 
 ## Visibility
 
@@ -138,16 +146,14 @@ import {
 fn main() {
     io.print(math.double(7))
 
-    // Uncomment to see the file boundary in action — main.nomi can't
-    // see math.nomi's private `helper`:
+    // Uncomment to see that main.nomi can't call math.nomi's private
+    // `helper`:
     // io.print(math.helper(7))
 }
 
 // FILE: nomi.toml
 [module]
-
 name = "vis_demo"
-
 entry_points = ["main"]
 ```
 <!-- expect
@@ -156,37 +162,6 @@ entry_points = ["main"]
 
 Every kind of declaration can be `pub`: `pub fn`, `pub struct`, `pub enum`,
 `pub interface`, `pub type` and `pub once`.
-
-`main` is where a program starts. It is never something other files import.
-
-A part of an API that stands on its own can go in a file of its own:
-
-```nomi-run
-// FILE: header.nomi
-pub fn canonical_name(name: String) -> String {
-    name
-}
-
-// FILE: main.nomi
-import {
-    std/io
-    header
-}
-
-fn main() {
-    io.print(header.canonical_name("content-type"))
-}
-
-// FILE: nomi.toml
-[module]
-
-name = "nested_file_demo"
-
-entry_points = ["main"]
-```
-<!-- expect
-content-type
--->
 
 Privacy is per file, not per module. Two files in the same module still can't
 see each other's private declarations.
@@ -245,16 +220,14 @@ fn main() {
         Err(e) -> io.print("error: ${e}")
     }
 
-    // Uncomment to see the opaque barrier — main.nomi can hold a
-    // UserId, but can't construct or destructure one directly:
+    // Uncomment to see that main.nomi can hold a UserId, but can't
+    // build or take apart one directly:
     // bad = UserId(7)
 }
 
 // FILE: nomi.toml
 [module]
-
 name = "ids_demo"
-
 entry_points = ["main"]
 ```
 <!-- expect
@@ -285,7 +258,7 @@ files can then import them from your file. This lets one file gather an API
 from several files, so its users import from one place:
 
 ```nomi
-// Re-export an imported type — consumers of this file see `Parser`.
+// Re-export an imported type: files that import this one see `Parser`.
 pub import other/parser.Parser
 
 // Re-export several items at once.
@@ -320,8 +293,6 @@ declaration of your own public under another name, rename it, or write a
 small function that calls it.
 
 ## Nomi modules
-
-Modules are one of the newer parts of Nomi, and they will change.
 
 A directory with a `nomi.toml` is a Nomi module, and the files under it import
 each other. The `nomi.toml` alone makes a module. The standard library is one
@@ -476,35 +447,73 @@ repository. The Go module proxy then serves that version to anyone who adds
 the module.
 
 A Nomi module is built on a Go module, which is why both use the word
-"module". When the tour says "Go package", it means Go code that a `gopkg`
-declaration binds to. When it says "Nomi module", it means a directory with a
-`nomi.toml`.
-
-## Import order doesn't matter
-
-A file can use a name declared in any other file, in any order. You don't need
-to declare anything ahead of time. Two files can even import each other. That
-works, though it may mean the code should be split differently.
+"module".
 
 ## The orphan rule
 
-Modules are where the
-[orphan rule](/interfaces-and-dispatch/#the-orphan-rule) applies. It decides
-which module may write an `impl Iface for T { ... }` block. The impl must be
-in one of these:
+Suppose two libraries each wrote `impl Display for Int { … }`. Each would
+compile on its own, but a program that used both would have two impls of
+`Display` for `Int`. The **orphan rule** prevents this. An
+`impl Iface for T { ... }` block must be in the Nomi module that declares
+`Iface` or the one that declares `T`. An impl anywhere else is called an
+orphan impl, and it is a compile error. The rule covers generic impls too,
+such as `impl Iface for Box<T> where T: Bound { ... }`.
 
-- the Nomi module that declares the interface;
-- the Nomi module that declares the type;
-- the Nomi module that declares a type the interface's functions take as a
-  parameter, through a type argument. For example, the module that declares
-  `Rate` may write `impl Multiply<Rate, Decimal> for Decimal`.
+A program with no `nomi.toml`, such as a lone script, is a module of its own.
+It declares neither `Display` nor `Int`, so it can't write
+`impl Display for Int` either.
 
-The rule covers generic impls too, such as
-`impl Iface for Box<T> where T: Bound { ... }`. So you can't write an impl of
-one library's interface for another library's type, unless one of your types
-is a type argument as above. If two of your dependencies could each write the
-same impl, no program could use both of them. Breaking the rule is a compile
-error.
+To implement someone else's interface for someone else's type, wrap the type
+in one of your own. Declare `type MyId Int` in your module. Then
+`impl Display for MyId { ... }` is allowed, because `MyId` is yours.
+
+A generic interface, one with type parameters, gives one more way. Take
+`Multiply<Rhs, Out>`, which `*` uses. Its one function is
+`multiply(lhs: self, rhs: Rhs) -> Out`, so `Rhs` is the type of a parameter.
+When a type you declare fills a parameter's slot like that, you may implement
+the interface for someone else's type. A module that declares `Rate` may
+write `impl Multiply<Rate, Decimal> for Decimal`, and then `price * rate`
+works:
+
+```nomi-run
+import std/io
+
+struct Rate {
+    per_unit: Decimal
+}
+
+impl Multiply<Rate, Decimal> for Decimal {
+    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {
+        lhs * rhs.per_unit
+    }
+}
+
+fn main() {
+    rate = #Rate{per_unit: 4.25d}
+    io.print(12.5d * rate)
+}
+```
+<!-- expect
+53.125
+-->
+
+Two libraries can't clash this way. No other module can write an impl that
+names your `Rate`. If one library writes `Multiply<Rate, Decimal>` and
+another writes `Multiply<Shares, Decimal>`, those are two impls at different
+type arguments. Each call uses the one that matches the type on the right of
+the `*`.
+
+Your type has to meet two conditions:
+
+- It must be the type argument itself, not inside one. `List<Rate>` doesn't
+  count.
+- It must fill a parameter's slot. `impl Multiply<Decimal, Rate> for Decimal`
+  puts `Rate` in `Out`, which only the result uses, so it is still an orphan
+  impl. It would give an existing `price * 2d` a second possible result type.
+
+Any file can write ordinary functions that take an imported type. But it
+can't add a function, field or variant to that type, or an impl the orphan
+rule forbids.
 
 The next chapter, [App Fields, Defer & Context](/capabilities-and-context/),
 shows how to give code things like a logger or a config without global

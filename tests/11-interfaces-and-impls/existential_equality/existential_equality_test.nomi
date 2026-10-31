@@ -17,7 +17,7 @@ test "two values of one struct type compare by its fields" {
     c: Show = #Point{x: 1, y: 3}
     assert a == b
     assert a != c
-    assert !(a != b)
+    refute a != b
 }
 
 test "values of two concrete types are unequal" {
@@ -102,7 +102,7 @@ test "a Set keeps one of each equal value" {
 
     assert Set.size(s) == 5
     assert Set.contains(s, #Name{text: "ADA"})
-    assert !Set.contains(s, #Name{text: "Bob"})
+    refute Set.contains(s, #Name{text: "Bob"})
     tags: Set<Show> = %[#Tag{text: "x"}, #Tag{text: "X"}, #Tag{text: "y"}]
     assert Set.size(tags) == 2
     assert Set.size(Set.insert(tags, #Tag{text: "Y"})) == 2

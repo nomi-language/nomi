@@ -65,6 +65,11 @@ func RenderNode(n ast.Node) string {
 	return Render(emit(n), defaultWidth)
 }
 
+// RenderPattern renders a pattern as a `case` arm writes it.
+func RenderPattern(n ast.Node) string {
+	return Render(emitPattern(n), defaultWidth)
+}
+
 // RenderAttachedTestBody renders the code a reader edits for an attached test:
 // `//! ...` attached tests become the body text without the surrounding prompt
 // markers.

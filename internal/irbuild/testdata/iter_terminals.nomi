@@ -6,7 +6,7 @@ import std/io
 //
 // Three things are being pinned, and only the first is about types.
 //
-//  1. POLARITY. `any` is lowered as `!each_while(src, fn x -> !f(x))`, which
+//  1. POLARITY. `any` is lowered as `not each_while(src, fn x -> not f(x))`, which
 //     type-checks whichever way the two negations land. A predicate that
 //     matches in the MIDDLE, one that matches NOTHING, one that matches
 //     EVERYTHING, and an EMPTY source are four different answers; a
@@ -48,8 +48,8 @@ fn main() {
     // --- empty? / not_empty? -------------------------------------------------
     io.print("${none |> Iter.is_empty()}")
     io.print("${[1] |> Iter.is_empty()}")
-    io.print("${!(none |> Iter.is_empty())}")
-    io.print("${!([1] |> Iter.is_empty())}")
+    io.print("${not (none |> Iter.is_empty())}")
+    io.print("${not ([1] |> Iter.is_empty())}")
     // Over a LAZY source, where `known_count` answers None.
     io.print("${[1, 2, 3] |> Iter.filter(&(&1 > 99)) |> Iter.is_empty()}")
     io.print("${[1, 2, 3] |> Iter.filter(&(&1 > 2)) |> Iter.is_empty()}")
@@ -139,7 +139,7 @@ fn main() {
     io.print("${Iter.from(1) |> Iter.any(&(&1 > 3))}")
     io.print("${Iter.from(1) |> Iter.all(&(&1 < 3))}")
     io.print("${Iter.from(1) |> Iter.is_empty()}")
-    io.print("${!(Iter.from(1) |> Iter.is_empty())}")
+    io.print("${not (Iter.from(1) |> Iter.is_empty())}")
 
     show(
         "first",

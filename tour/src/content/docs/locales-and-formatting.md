@@ -27,8 +27,8 @@ Portuguese as written in Brazil. The language comes first, then the region.
 
 `Int.format`, `Float.format` and `Decimal.format` write a number the way a
 reader of a locale expects. `format_percent` writes a fraction as a
-percentage, so `0.15` becomes `15%`. Use `Decimal` for prices, so the cents
-stay exact.
+percentage, so `0.15` becomes `15%`. Use `Decimal` for amounts that must
+stay exact. A price in a currency is a `Money`, shown below.
 
 ```nomi-run
 import {
@@ -87,10 +87,11 @@ Each format function takes options as named arguments:
 - `format_percent`: `max_fraction`, and for a `Decimal` also `min_fraction`
   and `mode`.
 
-A `Float` is rounded to three digits after the point unless you pass
-`max_fraction`, and a tie rounds to the even digit. A `Decimal` shows every digit it has unless you pass `max_fraction`.
-Then it rounds by `mode`, which is also half to even unless you pass
-another, such as `.HalfUp`.
+A `Float` is rounded to three digits after the point, and a percentage to
+none, unless you pass `max_fraction`. A tie rounds to the even digit. A
+`Decimal` shows every digit it has unless you pass `max_fraction`. Then it
+rounds by `mode`, which is also half to even unless you pass another, such
+as `.HalfUp`.
 
 ```nomi-run
 import std/locale.Locale
@@ -178,25 +179,22 @@ import {
 fn main() {
     usd = Money`5 USD`
     dbg Money.format(usd, Locale`en-US`, display: .Code)
-    dbg Money.format(usd, Locale`en-US`, display: .Name)
     dbg Money.format(usd, Locale`en-CA`)
-    dbg Money.format(usd, Locale`en-CA`, display: .Narrow)
     Unit
 }
 
 ```
 <!-- expect
 dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
-dbg line 9: Money.format(usd, Locale`en-US`, display: .Name) = "5.00 US dollars"
-dbg line 10: Money.format(usd, Locale`en-CA`) = "US$5.00"
-dbg line 11: Money.format(usd, Locale`en-CA`, display: .Narrow) = "$5.00"
+dbg line 9: Money.format(usd, Locale`en-CA`) = "US$5.00"
 -->
 
 After `USD` is a no-break space, which `dbg` writes `\u{a0}`. Canadian
 English writes `US$` for the US dollar, since `$` alone would mean the
-Canadian dollar. `.Narrow` drops the `US`, for a page where the currency is
-clear. A [custom currency](/money/#custom-currencies) has no symbol or name
-in CLDR, so it is always shown by its code.
+Canadian dollar. `display: .Narrow` writes `$5.00`, for a page where the
+currency is clear, and `.Name` writes `5.00 US dollars`. A
+[custom currency](/money/#custom-currencies) has no symbol or name in CLDR,
+so it is always shown by its code.
 
 ## Dates and times
 
@@ -241,7 +239,8 @@ Dienstag, 20. Oktober 2026
 A time is written with the clock the locale uses: `5:30 PM` in American
 English and `17:30` in German. `Time.format` writes a time on its own. A
 `DateTime` takes a style for each half, as `date:` (`.Medium` by default)
-and `time:` (`.Short`). `.Long` and `.Full` times show the offset from UTC, here four hours behind.
+and `time:` (`.Short`). `.Long` and `.Full` times show the offset from
+UTC, here four hours behind.
 
 ### Choosing the fields
 
@@ -439,31 +438,20 @@ each way takes. `Decimal.parse_in` keeps the digits the reader typed, so
 `49,90` becomes `49.90d`, and
 `` Decimal.parse_percent_in("15 %", Locale`de`) `` is `Ok(0.15d)`.
 
-`Money.parse_in` reads a price in a currency you name, and gives the same
-errors. `Date.parse_in` reads a date written in a locale's style, `.Short`
-unless you pass another:
+`Money.parse_in` reads a price the same way, as the
+[Money](/money/#reading-what-people-type) chapter shows. `Date.parse_in`
+reads a date written in a locale's style, `.Short` unless you pass another:
 
 ```nomi-run
 import {
     std/calendar.Date
-    std/currency.Currency
     std/locale.Locale
-    std/money.Money
 }
 
 fn main() {
-    usd = Currency`USD`
     us = Locale`en-US`
 
-    dbg Money.parse_in("$1,299.50", us, usd)
-    dbg Money.parse_in("1.299,50 $", Locale`de`, usd)
-    dbg Money.parse_in("1299.50", us, usd)
-    dbg Money.parse_in("1299.50", us, usd, lenient: True)
-    dbg Money.parse_in("€12.50", us, usd)
-    dbg Money.parse_in("$12.505", us, usd)
-
     dbg Date.parse_in("10/20/26", us)
-    dbg Date.parse_in("20.10.26", Locale`de`)
     dbg Date.parse_in("10/20/2026", us)
     dbg Date.parse_in("10/20/2026", us, lenient: True)
     dbg Date.parse_in("2/31/26", us)
@@ -473,32 +461,19 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 12: Money.parse_in("$1,299.50", us, usd) = Ok(#Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 13: Money.parse_in("1.299,50 $", Locale`de`, usd) = Ok(#Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 14: Money.parse_in("1299.50", us, usd) = Err(#Unexpected{at: 0, text: "1"})
-dbg line 15: Money.parse_in("1299.50", us, usd, lenient: True) = Ok(#Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 16: Money.parse_in("€12.50", us, usd) = Err(#WrongCurrency{expected: Currency`USD`, found: "€"})
-dbg line 17: Money.parse_in("$12.505", us, usd) = Err(#TooManyFractionDigits{max: 2})
-dbg line 19: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
-dbg line 20: Date.parse_in("20.10.26", Locale`de`) = Ok(2026-10-20)
-dbg line 21: Date.parse_in("10/20/2026", us) = Err(InvalidFormat("unexpected `2` at 8 after the date"))
-dbg line 22: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
-dbg line 23: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
-dbg line 24: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
+dbg line 9: Date.parse_in("10/20/26", us) = Ok(2026-10-20)
+dbg line 10: Date.parse_in("10/20/2026", us) = Err(InvalidFormat("unexpected `2` at 8 after the date"))
+dbg line 11: Date.parse_in("10/20/2026", us, lenient: True) = Ok(2026-10-20)
+dbg line 12: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 has no day 31"))
+dbg line 13: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
 -->
-
-By default a price must have the currency's symbol or code, written where
-the locale writes it. `lenient: True` also accepts the amount alone. A price
-in another currency is an error, and so is a price with more digits than the
-currency has.
 
 A strict date may leave out a leading zero, as in `2/3/26`. `lenient: True`
 also accepts a four-digit year where the locale writes two, a month name in
 any width or case, and any spaces or punctuation between the fields. A date
 that doesn't exist, such as February 31, is an error even when it is written
-correctly. [`Money.parse_in`](/reference/money/#moneyparse_in) and
-[`Date.parse_in`](/reference/calendar/#dateparse_in) in the reference list
-the rest.
+correctly. [`Date.parse_in`](/reference/calendar/#dateparse_in) in the
+reference lists the rest.
 
 ## The reader's locale
 
@@ -589,8 +564,8 @@ A program usually keeps the reader's locale in an
 [app field](/capabilities-and-context/). You can call the field anything;
 `locale` is the usual name. `boot` sets a default. Code that handles one
 request replaces it with a `with` line, which lasts until the request is
-done. The functions that format text don't read the field themselves, so
-pass it to them:
+done. Std's format functions don't read the field, so pass `App.locale` to
+them, as `cart_total` does:
 
 ```nomi-run
 import {
@@ -677,14 +652,12 @@ dbg line 4: Iter.contains(Locale.available(), Locale`pl`) = True
 dbg line 5: Iter.count(Locale.available()) = 765
 -->
 
-A locale you didn't list still formats, as its nearest listed parent. When
-no parent is listed, it formats in the **source locale**, the language the
-program is written in, which is English unless `[i18n]` says otherwise (or
-in CLDR's neutral root data when the source locale isn't listed). For
-example, with `en` and `de` listed, `de-CH` (Swiss German) is formatted as
-German, and `fr` as English, so `Date.format` at `.Long` writes
-`October 20, 2026`. A locale read from a reader's settings falls back this
-way while the program runs.
+A locale you didn't list still formats. It uses its nearest listed parent,
+so with `en` and `de` listed, `de-CH` (Swiss German) formats as German. A
+locale with no listed parent formats in the **source locale**, the language
+the program is written in, which is English unless `[i18n]` says otherwise.
+So `fr` formats as English, and `Date.format` at `.Long` writes
+`October 20, 2026`.
 
 A locale you write as a literal is checked against the list. With `en` and
 `de` listed, ``Locale`fr` `` is an error, since the program would never
@@ -700,7 +673,7 @@ of locale data adds to a built program.
 ## Sorting and case
 
 The shop's staff page lists customers by name. `Iter.sort` puts strings in
-the order of their bytes, which is wrong for every language: every name that
+the order of their bytes, which is no language's order: every name that
 starts with an accented letter comes after `Z`. Each language also has its own
 alphabet. German puts `Ä` with `A`, Swedish puts `Å`, `Ä` and `Ö` after
 `Z`, and Polish puts `Ś` after `S` and `Ż` after `Z`.
@@ -742,12 +715,8 @@ In German, `Śliwa` sorts as if it were `Sliwa`, so it comes before
 after `Sowa`. Make a collator once and use it for the whole sort.
 
 `Collator.new` takes options, such as `numeric: True`, which puts
-`order-9` before `order-10`. The
-[`Collator.new` reference](/reference/collation/#collatornew) lists them,
-and the [`Collator` reference](/reference/collation/#type-collator) shows
-how a locale's tag picks another order of a language, such as the German
-phone book's. To sort many strings, or to keep an order in a database,
-compute each string's `Collator.sort_key` once and sort by the keys.
+`order-9` before `order-10`. The [`Collator` reference](/reference/collation/)
+lists the rest.
 
 Upper and lower case depend on the language too. `String.uppercase` and
 `String.lowercase` follow one rule for every language. Turkish has a dotted

@@ -71,7 +71,7 @@ impl Reactor {
     ) -> Result<Reactor, Error> {
         if Map.contains(reactor.values, name) { return Err(.Duplicate(name)) }
 
-        if Some(unknown) = Iter.find(inputs, &!Map.contains(reactor.values, &1)) {
+        if Some(unknown) = Iter.find(inputs, &(not Map.contains(reactor.values, &1))) {
             return Err(.UnknownCell(unknown))
         }
 
@@ -80,7 +80,7 @@ impl Reactor {
         Ok(#{
             ..reactor,
             values: Map.put(reactor.values, name, value_of(cell, reactor.values)),
-            computed: List.concat(reactor.computed, [cell]),
+            computed: [..reactor.computed, cell],
         })
     }
 
@@ -97,9 +97,9 @@ impl Reactor {
         name: String,
         value: Int,
     ) -> Result<#(Reactor, Map<String, Int>), Error> {
-        if !Map.contains(reactor.values, name) { return Err(.UnknownCell(name)) }
+        if not Map.contains(reactor.values, name) { return Err(.UnknownCell(name)) }
 
-        if !Set.contains(reactor.inputs, name) { return Err(.NotAnInput(name)) }
+        if not Set.contains(reactor.inputs, name) { return Err(.NotAnInput(name)) }
 
         set = Map.put(reactor.values, name, value)
 
@@ -124,7 +124,7 @@ impl Reactor {
         cell: String,
         callback: String,
     ) -> Result<Reactor, Error> {
-        if !Map.contains(reactor.values, cell) { return Err(.UnknownCell(cell)) }
+        if not Map.contains(reactor.values, cell) { return Err(.UnknownCell(cell)) }
 
         Ok(#{..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
     }
@@ -132,12 +132,10 @@ impl Reactor {
     /// `reactor` without the callback `callback` on `cell`; the same
     /// reactor when it is not there.
     pub fn remove_callback(reactor: Reactor, cell: String, callback: String) -> Reactor {
-        case Map.get(reactor.callbacks, callback) {
-            Some(watched) when watched == cell ->
-                #{..reactor, callbacks: Map.remove(reactor.callbacks, callback)}
-
-            _ ->
-                reactor
+        if Map.get(reactor.callbacks, callback) == Some(cell) {
+            #{..reactor, callbacks: Map.remove(reactor.callbacks, callback)}
+        } else {
+            reactor
         }
     }
 }
@@ -176,9 +174,7 @@ derive Equatable for Step
 
 /// The reactor that holds `cells`, made in order.
 fn build(cells: List<Cell>) -> Result<Reactor, Error> {
-    Iter.reduce(cells, fn reactor = Ok(Reactor.new()), cell -> {
-        reactor = reactor?
-
+    Iter.try_reduce(cells, Reactor.new(), fn reactor, cell -> {
         case cell {
             .Input(#(name, value)) -> Reactor.input(reactor, name, value)
             .Compute(#(name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)

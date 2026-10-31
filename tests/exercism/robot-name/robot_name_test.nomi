@@ -21,9 +21,7 @@ fn names(factory: Factory, count: Int) -> List<String> {
     #(names, _factory) =
         1..=count
         |> Iter.map_reduce(fn factory = factory, _n -> {
-            Ok(#(robot, next)) = Factory.build(factory) else {
-                unreachable "a new factory has names for many more robots"
-            }
+            #(robot, next) = Factory.build(factory)!
             #(Robot.name(robot), next)
         })
 

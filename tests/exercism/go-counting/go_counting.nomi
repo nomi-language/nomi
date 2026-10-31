@@ -105,12 +105,12 @@ fn spread(
                 Map.get(points, point) == Some(" ")
             })
 
-            new = empty |> Iter.filter(fn point -> !Set.contains(area, point)) |> Iter.to_list()
+            new = empty |> Iter.reject(&Set.contains(area, &1)) |> Iter.to_list()
             touched = stones |> Iter.map(&Map.get(points, &1)!) |> Iter.to_set()
 
             spread(
                 points,
-                List.concat(new, rest),
+                [..new, ..rest],
                 Set.union(area, Iter.to_set(new)),
                 Set.union(borders, touched),
             )

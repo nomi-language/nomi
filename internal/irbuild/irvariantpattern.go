@@ -56,7 +56,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 	switch pat.Payload.(type) {
 	case nil, *ast.WildcardPattern, *ast.IdentPattern:
 	case *ast.IntLit:
-		if pk != kindInt {
+		if !irIntLiteralKind(pk) {
 			return nil, nil, false
 		}
 	case *ast.StringLit:
@@ -582,7 +582,7 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 	case nil, *ast.IdentPattern, *ast.WildcardPattern:
 		return true
 	case *ast.IntLit:
-		return k == kindInt
+		return irIntLiteralKind(k)
 	case *ast.StringLit:
 		return k == kindString
 	case *ast.FloatLit:

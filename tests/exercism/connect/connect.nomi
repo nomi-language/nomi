@@ -26,7 +26,7 @@ pub fn winner(board: List<String>) -> Maybe<Player> {
         |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
         |> Iter.to_list()
 
-    [Player.X, Player.O] |> Iter.find(&connects(rows, &1))
+    Iter.find([Player.X, Player.O], &connects(rows, &1))
 }
 
 /// Whether `player`'s stones join their two sides of the board.
@@ -89,10 +89,10 @@ fn reaches(
             next =
                 neighbours
                 |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
-                |> Iter.filter(fn n -> Set.contains(stones, n) and !Set.contains(seen, n))
+                |> Iter.filter(fn n -> Set.contains(stones, n) and not Set.contains(seen, n))
                 |> Iter.to_list()
 
-            reaches(stones, List.concat(next, rest), Set.union(seen, Iter.to_set(next)), is_goal)
+            reaches(stones, [..next, ..rest], Set.union(seen, Iter.to_set(next)), is_goal)
         }
     }
 }

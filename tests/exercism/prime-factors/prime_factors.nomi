@@ -7,13 +7,10 @@ pub fn factors(value: Int) -> List<Int> {
 }
 
 fn factors_from(n: Int, divisor: Int) -> List<Int> {
-    if n == 1 {
-        []
-    } else if divisor * divisor > n {
-        [n]
-    } else if n % divisor == 0 {
-        [divisor, ..factors_from(n / divisor, divisor)]
-    } else {
-        factors_from(n, divisor + 1)
+    case {
+        n == 1 -> []
+        divisor * divisor > n -> [n]
+        n % divisor == 0 -> [divisor, ..factors_from(n / divisor, divisor)]
+        _ -> factors_from(n, divisor + 1)
     }
 }

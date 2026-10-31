@@ -118,7 +118,7 @@ fn as_map(m: Map<String, String>) -> String {
 }
 
 fn nested(v: Maybe<List<#(Int, String)>>) -> String {
-  if Some([#(0, s), .._]) = v {
+  if Some([#(0, s), ..]) = v {
     "nested ${s}"
   } else {
     "nested miss"
@@ -188,7 +188,7 @@ test "pattern if kinds" {
     io.print("host ${h}")
   }
   r = if #(0, y) = #(0, 5) { y } else { -1 }
-  f = fn xs: List<Int> -> if [x, .._] = xs { x } else { 0 }
+  f = fn xs: List<Int> -> if [x, ..] = xs { x } else { 0 }
   io.print("${r} ${f([4, 5])} ${f([])}")
   assert r == 5
 }

@@ -382,10 +382,7 @@ test "the suite names the close rules a driver that never closes breaks" {
 }
 
 fn is_closed<T>(result: Result<T, sql.Error>) -> Bool {
-    case result {
-        Err(sql.Error.Closed) -> True
-        _ -> False
-    }
+    result is Err(sql.Error.Closed)
 }
 
 // Every operation of conn answers Closed.
@@ -506,7 +503,7 @@ test "a transaction inside sql.with_connection commits before the close" {
 // `defer` cannot assert, so a connection left open traps here, which fails
 // the test as a failed cleanup.
 fn expect_closed(fake: Fake) {
-    if !Fake.is_closed(fake) {
+    if not Fake.is_closed(fake) {
         zero = Iter.count([])
         _ = 1 / zero
     }

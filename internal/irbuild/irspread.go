@@ -8,6 +8,12 @@ package irbuild
 // either end (vectorUpdate), and a set's or map's written first
 // (`%[..s, x]`, setUpdate; `%{..m, k => v}`, mapUpdate).
 //
+// A spread in a list, vector or set literal may be any Iter of the
+// literal's elements (a Maybe, a Set in a list, an Iter chain): it is
+// materialized as the literal's collection where it is lowered, with
+// `Iter.to_list`, `Iter.to_vector` or `Iter.to_set` (collectSpread), and
+// then joined as a spread of the collection is.
+//
 // Here the literal is cut into parts, each spread and each run of elements
 // between them, and the parts are joined in the order written with the
 // collection's own join: `List.concat`, `Vector.concat`, `Set.union` or
@@ -34,6 +40,11 @@ type spreadJoin struct {
 	// fromRight joins the last two parts first, as a List is joined, so
 	// each element is copied once.
 	fromRight bool
+	// empty is the kind of the shape's empty literal, and collect the
+	// `Iter` function that makes another Iter a collection of the shape:
+	// `to_list`. collect is empty for a map, whose spreads are maps.
+	empty   kind
+	collect string
 }
 
 var (
@@ -45,6 +56,8 @@ var (
 		kindOf: func(g *gen, parts []kind) kind { return g.listKind(parts[0]) },
 		// A List is cons cells: `List.concat(a, b)` copies a and shares b.
 		fromRight: true,
+		empty:     kindEmptyList,
+		collect:   "to_list",
 	}
 	vectorSpreadJoin = spreadJoin{
 		owner:  "Vector",
@@ -53,8 +66,10 @@ var (
 			_, ok := vectorElem(k)
 			return ok && k != kindEmptyVector
 		},
-		of:     tagEmptyVector,
-		kindOf: func(g *gen, parts []kind) kind { return g.vectorKindOf(parts[0]) },
+		of:      tagEmptyVector,
+		kindOf:  func(g *gen, parts []kind) kind { return g.vectorKindOf(parts[0]) },
+		empty:   kindEmptyVector,
+		collect: "to_vector",
 	}
 	setSpreadJoin = spreadJoin{
 		owner:  "Set",
@@ -63,8 +78,10 @@ var (
 			_, ok := setElem(k)
 			return ok && k != kindEmptySet
 		},
-		of:     tagEmptySet,
-		kindOf: func(g *gen, parts []kind) kind { return g.setKindOf(parts[0]) },
+		of:      tagEmptySet,
+		kindOf:  func(g *gen, parts []kind) kind { return g.setKindOf(parts[0]) },
+		empty:   kindEmptySet,
+		collect: "to_set",
 	}
 	mapSpreadJoin = spreadJoin{
 		owner:  "Map",
@@ -74,6 +91,7 @@ var (
 		},
 		of:     tagMap,
 		kindOf: func(g *gen, parts []kind) kind { return g.mapKind(parts[0], parts[1]) },
+		empty:  kindEmptyMap,
 	}
 )
 
@@ -86,17 +104,60 @@ type spreadPart struct {
 	k  kind
 }
 
-// spreadHeads lowers the heads of spreads from left to right.
-func (bl *irScalarBuilder) spreadHeads(spreads []ast.Spread) ([]spreadPart, bool) {
+// spreadHeads lowers the heads of spreads from left to right, each made a
+// collection of join's shape (collectSpread).
+func (bl *irScalarBuilder) spreadHeads(spreads []ast.Spread, join spreadJoin) ([]spreadPart, bool) {
 	out := make([]spreadPart, len(spreads))
 	for i, sp := range spreads {
 		v, k, _, ok := bl.lower(sp.Head)
 		if !ok {
 			return nil, false
 		}
-		out[i] = spreadPart{at: sp.Head, v: v, k: k}
+		if out[i], ok = bl.collectSpread(spreadPart{at: sp.Head, v: v, k: k}, join); !ok {
+			return nil, false
+		}
 	}
 	return out, true
+}
+
+// collectSpread answers the spread p of a literal of join's shape as a
+// collection of that shape: a spread of the shape as it is, and any other
+// Iter (a Maybe, a Range, a Set in a list, an Iter chain) materialized with
+// join's `Iter` function, `Iter.to_list(p)`, as the checker allows
+// (spreadElemType). An empty literal of another shape (`%[]` in a list)
+// spreads nothing, so it is the shape's empty literal.
+func (bl *irScalarBuilder) collectSpread(p spreadPart, join spreadJoin) (spreadPart, bool) {
+	if join.collect == "" || join.typed(p.k) || p.k == join.empty {
+		return p, true
+	}
+	if p.k == kindEmptyList || p.k == kindEmptyVector || p.k == kindEmptySet || p.k == kindEmptyMap {
+		var dst ir.Temp
+		switch join.empty {
+		case kindEmptyList:
+			n := ir.NewEmptyList(bl.g.irNodePos(p.at), bl.f.NewTemp(), nil)
+			bl.b.Append(n)
+			dst = n.Dst()
+		case kindEmptyVector:
+			n := ir.NewEmptyVector(bl.g.irNodePos(p.at), bl.f.NewTemp(), nil)
+			bl.b.Append(n)
+			dst = n.Dst()
+		default:
+			n := ir.NewEmptySet(bl.g.irNodePos(p.at), bl.f.NewTemp(), nil)
+			bl.b.Append(n)
+			dst = n.Dst()
+		}
+		bl.side(dst, irScalarSide{k: join.empty})
+		return spreadPart{at: p.at, v: dst, k: join.empty}, true
+	}
+	line, col := nodePos(p.at)
+	call := &ast.Call{Line: line, Col: col, Args: []ast.Node{p.at}}
+	args := irQualArgs{temps: []ir.Temp{p.v}, kinds: []kind{p.k}, mobile: []bool{true}, ok: true}
+	v, k, _, ok := bl.iterCall(call, args, join.collect)
+	if !ok || !join.typed(k) {
+		irDeclineNote("a spread of kind " + p.k.nomi() + " that Iter." + join.collect + " does not make a collection")
+		return spreadPart{}, false
+	}
+	return spreadPart{at: p.at, v: v, k: k}, true
 }
 
 // spreadKind is the kind of the literal at, whose spreads lowered to heads:
@@ -196,7 +257,7 @@ func (bl *irScalarBuilder) joinAll(at ast.Node, parts []spreadPart, k kind, join
 func (bl *irScalarBuilder) seqSpreadLit(at ast.Node, items []ast.Node, spreads []ast.Spread, join spreadJoin,
 	run func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool)) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	heads, ok := bl.spreadHeads(spreads)
+	heads, ok := bl.spreadHeads(spreads, join)
 	if !ok {
 		return no()
 	}
@@ -277,7 +338,7 @@ func (bl *irScalarBuilder) setSpreadLit(t *ast.SetLit) (ir.Temp, kind, bool, boo
 // the value at its key from the map the parts before it make.
 func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	heads, ok := bl.spreadHeads(t.Spreads)
+	heads, ok := bl.spreadHeads(t.Spreads, mapSpreadJoin)
 	if !ok {
 		return no()
 	}

@@ -194,16 +194,16 @@ func (b *bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.apply", 0, err)
+		return nil, hostadapt.Param("ffx.apply", 0, "ffx.apply", "f", err)
 	}
 	a1, err := b.in3(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.apply", 1, err)
+		return nil, hostadapt.Param("ffx.apply", 1, "ffx.apply", "x", err)
 	}
 	r0 := fixture.Apply(a0, a1)
 	v0, err := b.out4(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.apply", err)
 	}
 	return v0, nil
 }
@@ -263,11 +263,11 @@ func (b *bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in6(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.attempt", 0, err)
+		return nil, hostadapt.Param("ffx.attempt", 0, "ffx.attempt", "f", err)
 	}
 	a1, err := b.in7(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.attempt", 1, err)
+		return nil, hostadapt.Param("ffx.attempt", 1, "ffx.attempt", "s", err)
 	}
 	r0, e := fixture.Attempt(a0, a1)
 	if e != nil {
@@ -277,7 +277,7 @@ func (b *bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	v0, err := b.out4(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.attempt", err)
 	}
 	ok := b.d0.NewVariant(0)
 	ok.SetIntSlot(0, v0)
@@ -298,7 +298,7 @@ func (b *bound) fn8(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	r0 := fixture.Biggest()
 	v0, err := b.out9(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.biggest", err)
 	}
 	return v0, nil
 }
@@ -324,12 +324,12 @@ func (b *bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in11(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.box_value", 0, err)
+		return nil, hostadapt.Param("ffx.box_value", 0, "ffx.box_value", "b", err)
 	}
 	r0 := fixture.BoxValue(a0)
 	v0, err := b.out4(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.box_value", err)
 	}
 	return v0, nil
 }
@@ -417,16 +417,16 @@ func (b *bound) fn12(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in13(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.check", 0, err)
+		return nil, hostadapt.Param("ffx.check", 0, "ffx.check", "f", err)
 	}
 	a1, err := b.in16(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.check", 1, err)
+		return nil, hostadapt.Param("ffx.check", 1, "ffx.check", "p", err)
 	}
 	r0 := fixture.Check(a0, a1)
 	v0, err := b.out17(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.check", err)
 	}
 	return v0, nil
 }
@@ -708,12 +708,12 @@ func (b *bound) fn18(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in19(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.echo", 0, err)
+		return nil, hostadapt.Param("ffx.echo", 0, "ffx.echo", "t", err)
 	}
 	r0 := fixture.Echo(a0)
 	v0, err := b.out24(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.echo", err)
 	}
 	return v0, nil
 }
@@ -740,12 +740,12 @@ func (b *bound) fn35(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in36(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.flip", 0, err)
+		return nil, hostadapt.Param("ffx.flip", 0, "ffx.flip", "b", err)
 	}
 	r0 := fixture.Flip(a0)
 	v0, err := b.out37(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.flip", err)
 	}
 	return v0, nil
 }
@@ -772,12 +772,12 @@ func (b *bound) fn38(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in39(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.halve", 0, err)
+		return nil, hostadapt.Param("ffx.halve", 0, "ffx.halve", "f", err)
 	}
 	r0 := fixture.Halve(a0)
 	v0, err := b.out40(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.halve", err)
 	}
 	return v0, nil
 }
@@ -790,16 +790,16 @@ func (b *bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in20(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.later", 0, err)
+		return nil, hostadapt.Param("ffx.later", 0, "ffx.later", "t", err)
 	}
 	a1, err := b.in21(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.later", 1, err)
+		return nil, hostadapt.Param("ffx.later", 1, "ffx.later", "by", err)
 	}
 	r0 := fixture.Later(a0, a1)
 	v0, err := b.out25(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.later", err)
 	}
 	return v0, nil
 }
@@ -812,12 +812,12 @@ func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.mirror", 0, err)
+		return nil, hostadapt.Param("ffx.mirror", 0, "ffx.mirror", "p", err)
 	}
 	r0 := fixture.Mirror(a0)
 	v0, err := b.out32(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.mirror", err)
 	}
 	return v0, nil
 }
@@ -902,40 +902,40 @@ func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in44(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 0, err)
+		return nil, hostadapt.Param("ffx.narrow", 0, "ffx.narrow", "a", err)
 	}
 	a1, err := b.in45(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 1, err)
+		return nil, hostadapt.Param("ffx.narrow", 1, "ffx.narrow", "b", err)
 	}
 	a2, err := b.in46(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 2, err)
+		return nil, hostadapt.Param("ffx.narrow", 2, "ffx.narrow", "c", err)
 	}
 	a3, err := b.in47(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 3, err)
+		return nil, hostadapt.Param("ffx.narrow", 3, "ffx.narrow", "d", err)
 	}
 	a4, err := b.in48(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 4, err)
+		return nil, hostadapt.Param("ffx.narrow", 4, "ffx.narrow", "e", err)
 	}
 	a5, err := b.in49(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 5, err)
+		return nil, hostadapt.Param("ffx.narrow", 5, "ffx.narrow", "f", err)
 	}
 	a6, err := b.in50(fr, args[6])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 6, err)
+		return nil, hostadapt.Param("ffx.narrow", 6, "ffx.narrow", "g", err)
 	}
 	a7, err := b.in51(fr, args[7])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.narrow", 7, err)
+		return nil, hostadapt.Param("ffx.narrow", 7, "ffx.narrow", "h", err)
 	}
 	r0 := fixture.Narrow(a0, a1, a2, a3, a4, a5, a6, a7)
 	v0, err := b.out4(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.narrow", err)
 	}
 	return v0, nil
 }
@@ -948,12 +948,12 @@ func (b *bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in15(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.negate", 0, err)
+		return nil, hostadapt.Param("ffx.negate", 0, "ffx.negate", "b", err)
 	}
 	r0 := fixture.Negate(a0)
 	v0, err := b.out17(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.negate", err)
 	}
 	return v0, nil
 }
@@ -971,12 +971,12 @@ func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in3(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.new_box", 0, err)
+		return nil, hostadapt.Param("ffx.new_box", 0, "ffx.new_box", "n", err)
 	}
 	r0 := fixture.NewBox(a0)
 	v0, err := b.out54(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.new_box", err)
 	}
 	return v0, nil
 }
@@ -999,7 +999,7 @@ func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in15(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.nothing_or_fail", 0, err)
+		return nil, hostadapt.Param("ffx.nothing_or_fail", 0, "ffx.nothing_or_fail", "fail", err)
 	}
 	e := fixture.NothingOrFail(a0)
 	if e != nil {
@@ -1046,12 +1046,12 @@ func (b *bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in58(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.octets", 0, err)
+		return nil, hostadapt.Param("ffx.octets", 0, "ffx.octets", "b", err)
 	}
 	r0 := fixture.Octets(a0)
 	v0, err := b.out59(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.octets", err)
 	}
 	return v0, nil
 }
@@ -1077,12 +1077,12 @@ func (b *bound) fn60(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in3(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.points", 0, err)
+		return nil, hostadapt.Param("ffx.points", 0, "ffx.points", "n", err)
 	}
 	r0 := fixture.Points(a0)
 	v0, err := b.out61(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.points", err)
 	}
 	return v0, nil
 }
@@ -1125,16 +1125,16 @@ func (b *bound) fn62(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in7(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.query", 0, err)
+		return nil, hostadapt.Param("ffx.query", 0, "ffx.query", "path", err)
 	}
 	a1, err := b.in22(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.query", 1, err)
+		return nil, hostadapt.Param("ffx.query", 1, "ffx.query", "words", err)
 	}
 	r0 := fixture.MakeQuery(a0, a1)
 	v0, err := b.out63(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.query", err)
 	}
 	return v0, nil
 }
@@ -1175,7 +1175,7 @@ func (b *bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in67(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.run", 0, err)
+		return nil, hostadapt.Param("ffx.run", 0, "ffx.run", "f", err)
 	}
 	e := fixture.Run(a0)
 	if e != nil {
@@ -1210,12 +1210,12 @@ func (b *bound) fn68(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in69(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.shout", 0, err)
+		return nil, hostadapt.Param("ffx.shout", 0, "ffx.shout", "s", err)
 	}
 	r0 := fixture.Shout(a0)
 	v0, err := b.out70(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.shout", err)
 	}
 	return v0, nil
 }
@@ -1268,12 +1268,12 @@ func (b *bound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in72(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.sizes", 0, err)
+		return nil, hostadapt.Param("ffx.sizes", 0, "ffx.sizes", "m", err)
 	}
 	r0 := fixture.Sizes(a0)
 	v0, err := b.out73(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.sizes", err)
 	}
 	return v0, nil
 }
@@ -1286,7 +1286,7 @@ func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in3(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.triple", 0, err)
+		return nil, hostadapt.Param("ffx.triple", 0, "ffx.triple", "n", err)
 	}
 	r0, r1, r2 := fixture.Triple(a0)
 	tup := b.d8.New()
@@ -1304,7 +1304,7 @@ func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in3(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.triple_or_fail", 0, err)
+		return nil, hostadapt.Param("ffx.triple_or_fail", 0, "ffx.triple_or_fail", "n", err)
 	}
 	r0, r1, e := fixture.TripleOrFail(a0)
 	if e != nil {
@@ -1342,11 +1342,11 @@ func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	}
 	a0, err := b.in77(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.visit", 0, err)
+		return nil, hostadapt.Param("ffx.visit", 0, "ffx.visit", "f", err)
 	}
 	a1, err := b.in3(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("ffx.visit", 1, err)
+		return nil, hostadapt.Param("ffx.visit", 1, "ffx.visit", "n", err)
 	}
 	fixture.Visit(a0, a1)
 	return rt.Unit{}, nil
@@ -1361,7 +1361,7 @@ func (b *bound) fn78(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	r0 := fixture.ZeroTime()
 	v0, err := b.out25(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("ffx.zero_time", err)
 	}
 	return v0, nil
 }

@@ -79,18 +79,14 @@ pub fn label(bands: List<Color>) -> Maybe<Label> {
 /// The label of the digit bands `digits`, then `multiplier`, the number of
 /// zeros after them, and `tolerance`.
 fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label> {
-    Some(number) =
+    number =
         digits
         |> Iter.map(digit)
-        |> Maybe.collect()
-        |> Maybe.flat_map(Int.from_digits)
-    else {
-        return None
-    }
+        |> Maybe.collect()?
+        |> Int.from_digits()!
 
-    Some(zeros) = digit(multiplier) else { return None }
-    Some(percent) = tolerance_of(tolerance) else { return None }
-
+    zeros = digit(multiplier)?
+    percent = tolerance_of(tolerance)?
     ohms = number * Int.pow(10, zeros)
     #(value, unit) = in_largest_unit(ohms)
     Some(#{value, unit, tolerance: Some(percent)})

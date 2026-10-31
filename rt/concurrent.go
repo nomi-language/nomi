@@ -148,7 +148,7 @@ func EnterScope(parent *Frame) *Frame {
 	ctx, cancel := context.WithCancel(parent.ctx)
 	s := &Scope{ctx: ctx, cancel: cancel, failed: make(chan struct{})}
 	return &Frame{ctx: ctx, forcing: parent.forcing, scopedFields: parent.scopedFields, scopedContext: parent.scopedContext,
-		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, park: parent.park, capture: parent.capture,
+		booted: parent.booted, scope: s, inTask: parent.inTask, underDeadline: parent.underDeadline, stop: parent.stop, park: parent.park, capture: parent.capture,
 		files: parent.files, debug: parent.debug}
 }
 
@@ -167,8 +167,9 @@ func EnterScope(parent *Frame) *Frame {
 // ancestor. The panic continues afterwards, so the exit signal is re-raised
 // outward for free.
 //
-// Waiting is unbounded, deliberately. A task that never reaches a safe point
-// hangs the block on every path; the `drain:` budget that bounds a supervisor's
+// Waiting is unbounded, deliberately. Every call, loop iteration and wait is
+// a safe point (stopFlag), so only a task inside one long crossing into Go
+// can keep the block waiting after the cancel; the `drain:` budget that bounds a supervisor's
 // shutdown is a supervisor concept and a block has no equivalent, because a
 // block's tasks are all awaited by Rule 2.
 func ScopeExit(fr *Frame) {
@@ -440,7 +441,7 @@ func spawnScopeTask[T any](fr *Frame, s *Scope, sem chan struct{}, body func(*Fr
 		// spawn. A block task keeps the spawner's deadline,
 		// unlike a supervised one, because the block joins it — see
 		// supervisorEnrol.
-		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, scopedFields: fr.scopedFields, scopedContext: fr.scopedContext, booted: fr.booted, inTask: true, park: fr.park, capture: fr.capture, files: fr.files})
+		t.value = body(&Frame{ctx: ctx, forcing: fr.forcing, scopedFields: fr.scopedFields, scopedContext: fr.scopedContext, booted: fr.booted, inTask: true, stop: stopFlag(ctx), park: fr.park, capture: fr.capture, files: fr.files})
 		t.tag = TagCompleted
 	}()
 	return Task[T]{t: t}

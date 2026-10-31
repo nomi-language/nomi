@@ -33,6 +33,6 @@ func TestBoolLiteral_LowercaseIsUnbound(t *testing.T) {
 
 // TestBoolLiteral_CapitalizedIsAccepted is the acceptance mirror.
 func TestBoolLiteral_CapitalizedIsAccepted(t *testing.T) {
-	_, errs := checkSourceWithStdlib("fn f() -> Bool {\n  x: Bool = True\n  y: Bool = False\n  x && !y\n}\n")
+	_, errs := checkSourceWithStdlib("fn f() -> Bool {\n  x: Bool = True\n  y: Bool = False\n  x and not y\n}\n")
 	expectNoStdlibErrors(t, errs)
 }

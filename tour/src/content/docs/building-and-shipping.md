@@ -44,10 +44,11 @@ folder holds:
 
 - `app.wasm`: your program and the VM, as WebAssembly
 - `nomi.js`: the JavaScript that runs it
+- `nomi.d.ts`: TypeScript types for `nomi.js`
 - `index.html`: the page
 
 While you work, `nomi run --web app.nomi` serves the page at
-`http://localhost:8000/`. Each time you save, it rebuilds and reloads the
+`http://localhost:8000/`, or the next free port (`--port` picks one). Each time you save, it rebuilds and reloads the
 page. If the build fails, the error shows on the page until you fix it.
 `--open` opens the page in your browser.
 
@@ -126,8 +127,8 @@ game = await nomi.call("guess", game, "e"); // { word: "pipeline", guesses: ["e"
 ```
 
 If a call fails, its promise rejects with the Nomi error, and the next call
-still works. The build also writes `nomi.d.ts`, so your editor can check
-each `call` against the Nomi function.
+still works. The folder's `nomi.d.ts` lets your editor check each `call`
+against the Nomi function.
 
 Renaming an exported function, or changing its parameters, breaks the page,
 and the compiler can't tell you. To keep that risk in one place, put the
@@ -226,7 +227,7 @@ $ nomi build --target wasip1/wasm greet.nomi -o greet.wasm
 
 Then `echo Ada | wasmtime greet.wasm` prints `Hello, Ada!`. The program's
 `main` reads the tool's input and prints to its output, like any
-command-line program. The file holds the VM, so it is about 11 MB.
+command-line program. The file holds the VM, so it is about 15 MB.
 
 ### Your own WASI host
 

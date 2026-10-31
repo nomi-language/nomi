@@ -122,6 +122,8 @@ func (s *shapeSearch) noteRefutablePositions(n ast.Node) {
 		}
 	case *ast.If:
 		s.noteRefutable(n.CondPattern)
+	case *ast.Is:
+		s.noteRefutable(n.Pattern)
 	case *ast.PatternBinding:
 		if n.Else != nil {
 			s.noteRefutable(n.Pattern)

@@ -4,7 +4,7 @@
 
 /// The grains on `square`, numbered from 1 to 64.
 pub fn square(square: Int) -> Result<Int, String> {
-    if !Range.contains(1..=64, square) { return Err("square must be between 1 and 64") }
+    if not Range.contains(1..=64, square) { return Err("square must be between 1 and 64") }
 
     Ok(grains_on(square))
 }

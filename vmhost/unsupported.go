@@ -536,6 +536,8 @@ func nodeStart(n ast.Node) (int, int) {
 		return t.Line, t.Col
 	case *ast.Unary:
 		return t.Line, t.Col
+	case *ast.Is:
+		return t.Line, t.Col
 	case *ast.If:
 		return t.Line, t.Col
 	case *ast.Case:
@@ -613,6 +615,8 @@ func describeConstruct(n ast.Node) string {
 		return "the `" + t.Op + "` operator here"
 	case *ast.Unary:
 		return "the `" + t.Op + "` operator here"
+	case *ast.Is:
+		return "this `is` test"
 	case *ast.If:
 		return "this `if`"
 	case *ast.Case:

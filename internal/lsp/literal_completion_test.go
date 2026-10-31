@@ -125,7 +125,7 @@ func TestLiteralCompletion_EveryStdlibLiteralTypeHasAnExample(t *testing.T) {
 			t.Fatalf("std/%s declares no Literal impl", module)
 		}
 		for _, name := range names {
-			if !strings.Contains(string(src), "impl Literal for "+name+" {") {
+			if !strings.Contains(string(src), "impl Literal for "+name+" {") && !strings.Contains(string(src), "impl Literal for "+name+"<") {
 				t.Errorf("std/%s has no Literal impl for %s", module, name)
 			}
 			if len(docExamples(string(src), name)) == 0 {

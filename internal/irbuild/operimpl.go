@@ -116,6 +116,10 @@ type operIfaceSpec struct {
 	// Maybe<self>`. The arithmetic four have two, `Rhs` and `Out`, and return
 	// `Out`.
 	maybeSelf bool
+	// unary marks an interface with ONE type parameter, `Out`, whose method
+	// takes `self` alone and returns it: `BitwiseNot<Out>`'s
+	// `bitwise_not(value: self) -> Out`, the prefix `~~~`.
+	unary bool
 }
 
 // operIfaceSpecs is the whole set: the four arithmetic operators std declares an
@@ -140,6 +144,12 @@ var operIfaceSpecs = []operIfaceSpec{
 	{module: "std/multiply", nomi: "Multiply", method: "multiply", op: "*"},
 	{module: "std/divide", nomi: "Divide", method: "divide", op: "/"},
 	{module: "std/steppable", nomi: "Steppable", method: "step_by", maybeSelf: true},
+	{module: "std/bitwise", nomi: "BitwiseAnd", method: "bitwise_and", op: "&&&"},
+	{module: "std/bitwise", nomi: "BitwiseOr", method: "bitwise_or", op: "|||"},
+	{module: "std/bitwise", nomi: "BitwiseXor", method: "bitwise_xor", op: "^^^"},
+	{module: "std/bitwise", nomi: "ShiftLeft", method: "shift_left", op: "<<<"},
+	{module: "std/bitwise", nomi: "ShiftRight", method: "shift_right", op: ">>>"},
+	{module: "std/bitwise", nomi: "BitwiseNot", method: "bitwise_not", unary: true},
 }
 
 // operIfaceByOp indexes operIfaceSpecs by the surface operator.
@@ -224,7 +234,7 @@ func operIfaceAnchoredIn(fa *analysis.FileAnalysis, name string) (*operIfaceSpec
 // block's header instantiates. See operShapeRefusal.
 func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 	typeParams := 2
-	if s.maybeSelf {
+	if s.maybeSelf || s.unary {
 		typeParams = 1
 	}
 	switch {
@@ -238,6 +248,11 @@ func (s *operIfaceSpec) matchesDecl(decl *ast.InterfaceDef) bool {
 		return false
 	}
 	m := &decl.Methods[0]
+	if s.unary {
+		return m.Name == s.method && m.Body == nil && len(m.TypeParams) == 0 && len(m.WhereClauses) == 0 &&
+			len(m.Params) == 1 && isSelfTypeExpr(m.Params[0].TypeAnnotation) &&
+			isNamedTypeExpr(m.ReturnTypeExpr, decl.TypeParams[0].Name)
+	}
 	switch {
 	case m.Name != s.method, m.Body != nil:
 		return false
@@ -321,8 +336,21 @@ func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string) bool {
 		return false
 	}
 	args, explicit := ifaceHeaderArgs(ib.Interface)
-	if !explicit || (s.maybeSelf && len(args) != 1) || (!s.maybeSelf && len(args) != 2) {
+	one := s.maybeSelf || s.unary
+	if !explicit || (one && len(args) != 1) || (!one && len(args) != 2) {
 		return false
+	}
+	if s.unary {
+		// `BitwiseNot<Out>`: no right-hand operand. kindUnit stands in for
+		// it in the index's key.
+		out := g.typeOf(args[0])
+		// An unrepresentable `Out` is reported by `generic interface impl`.
+		// kindInvalid: lookup — no kind, no operator impl.
+		if out == kindInvalid {
+			return false
+		}
+		d.oper, d.operRhs, d.operOut, d.ifaceName = s, kindUnit, out, name
+		return true
 	}
 	rhs := g.typeOf(args[0])
 	// The header's `Out`, or for a maybeSelf interface `Maybe<self>`, which
@@ -367,6 +395,20 @@ func (g *gen) operShapeRefusal(d *implDef) (string, string) {
 		d.operOut = g.preludeInstance(a, []kind{d.recv})
 	}
 	it := d.items[d.oper.method]
+	if d.oper.unary && it != nil && len(d.order) == 1 {
+		switch {
+		case len(it.params) != 1:
+			return "operator impl shape",
+				fmt.Sprintf("%s.%s takes %d parameter(s), want 1", label, it.name, len(it.params))
+		case it.params[0] != d.recv:
+			return "operator impl shape",
+				label + "." + it.name + " parameter 1 is " + it.params[0].nomi() + ", want " + d.recv.nomi()
+		case it.result != d.operOut:
+			return "operator impl shape",
+				label + "." + it.name + " returns " + it.result.nomi() + ", want " + d.operOut.nomi()
+		}
+		return "", ""
+	}
 	switch {
 	case len(d.order) != 1 || it == nil:
 		// The interface declares exactly one method, so a block supplying a
@@ -411,6 +453,9 @@ func (g *gen) registerOperImpl(d *implDef) {
 // operLabel names an operator impl the way its source spells it, which is what
 // makes a duplicate report distinguish the three `Add` impls for one receiver.
 func (d *implDef) operLabel() string {
+	if d.oper.unary {
+		return fmt.Sprintf("%s<%s> for %s", d.ifaceName, d.operOut.nomi(), d.recv.nomi())
+	}
 	if d.oper.maybeSelf {
 		return fmt.Sprintf("%s<%s> for %s", d.ifaceName, d.operRhs.nomi(), d.recv.nomi())
 	}

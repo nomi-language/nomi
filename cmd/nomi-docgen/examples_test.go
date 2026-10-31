@@ -100,23 +100,24 @@ func TestExampleChaptersComeFromTheCode(t *testing.T) {
 	}
 }
 
-// A Friction item reaches its page with its tag in words, and an item that
-// says it was fixed is refused, since a fix deletes it.
-func TestExampleRoughEdges(t *testing.T) {
-	edges, err := roughEdges([]string{"", "- [stdlib] No transpose.", "  Gleam has one.", ""})
-	if err != nil {
+// A Friction item is checked but never reaches a page: a known tag is
+// accepted, `None.` is no item, an item that says it was fixed is refused
+// (a fix deletes it), and so is an unknown tag.
+func TestExampleFrictionIsCheckedNotPublished(t *testing.T) {
+	if err := checkFriction([]string{"", "- [stdlib] No transpose.", "  Gleam has one.", ""}); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := strings.Join(edges, "\n"), "- **Not in the standard library.** No transpose.\n  Gleam has one."; got != want {
-		t.Fatalf("got %q, want %q", got, want)
+	if err := checkFriction([]string{"", "None."}); err != nil {
+		t.Fatalf("None. gave %v", err)
 	}
-	if edges, err := roughEdges([]string{"", "None."}); err != nil || len(edges) != 0 {
-		t.Fatalf("None. gave %q, %v", edges, err)
-	}
-	if _, err := roughEdges([]string{"- [verbose] Long. Fixed: now short."}); err == nil || !strings.Contains(err.Error(), "delete a fixed item") {
+	if err := checkFriction([]string{"- [verbose] Long. Fixed: now short."}); err == nil || !strings.Contains(err.Error(), "delete a fixed item") {
 		t.Fatalf("a fixed item gave %v", err)
 	}
-	if _, err := roughEdges([]string{"- [vague] Hm."}); err == nil || !strings.Contains(err.Error(), "unknown") {
+	if err := checkFriction([]string{"- [vague] Hm."}); err == nil || !strings.Contains(err.Error(), "unknown") {
 		t.Fatalf("an unknown tag gave %v", err)
+	}
+	ex := exercise{title: "T", slug: "t", description: "D.", specPath: "exercises/t", choices: "- A choice."}
+	if page := renderExample(ex); strings.Contains(page, "Rough edges") || strings.Contains(page, "rough") {
+		t.Fatalf("a page mentions rough edges:\n%s", page)
 	}
 }

@@ -47,7 +47,7 @@ fn describe(result: Result<Tx, String>) -> String {
 fn head(xs: List<Maybe<Int>>) -> String {
     case xs {
         [Some(n) as first, ..rest] as all -> "${n} ${Maybe.with_default(first, 0)} ${Iter.count(rest)} of ${Iter.count(all)}"
-        [None, .._] -> "none first"
+        [None, ..] -> "none first"
         [] -> "empty"
     }
 }

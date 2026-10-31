@@ -42,10 +42,10 @@ test "ends_with finds a match ending at the end, not only the leftmost one" {
     assert String.ends_with("xab", Regex`b|xab`)
 }
 
-test "replace takes a string or a regex and inserts the replacement literally" {
+test "replace takes a string or a regex and replaces every match" {
     assert String.replace("a.b.c", ".", "-") == "a-b-c"
     assert String.replace("call 555-0100", Regex`\d`, "#") == "call ###-####"
-    assert "x1y22" |> String.replace(Regex`(\d)+`, "<$1>") == "x<$1>y<$1>"
+    assert "x1y22" |> String.replace(Regex`(\d)+`, "<$1>") == "x<1>y<2>"
     assert "x1y22" |> String.replace("1", "$") == "x$y22"
 }
 
@@ -154,3 +154,20 @@ test "a value that is not a matcher is rejected" {
         "Int does not implement Matcher (required by `where M: Matcher`)",
     )
 }
+
+test "a regex replacement expands group references" {
+    date = Regex`(?P<year>\d{4})-(?P<month>\d{2})`
+
+    assert String.replace("2026-10 and 2027-01", date, "$2/$1") == "10/2026 and 01/2027"
+    assert String.replace("2026-10", date, `${month}/${year}`) == "10/2026"
+    assert String.replace("2026-10", date, `${2}x`) == "10x"
+    assert String.replace("2026-10", date, "$2x") == ""
+    assert String.replace("cost 5", Regex`(\d)`, "$$$1") == "cost $5"
+    assert String.replace("cost 5", Regex`\d`, "$0$0") == "cost 55"
+}
+
+test "a string or codepoint matcher keeps the replacement literal" {
+    assert String.replace("a1b1", "1", "$1") == "a$1b$1"
+    assert String.replace("a-b", '-', `${x}$$`) == `a${x}$$b`
+}
+

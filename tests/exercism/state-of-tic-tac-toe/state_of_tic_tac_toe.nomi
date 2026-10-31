@@ -51,18 +51,13 @@ pub fn gamestate(board: List<String>) -> Result<State, Error> {
     x_won = has_won(cells, 'X')
     o_won = has_won(cells, 'O')
 
-    if os > xs {
-        Err(.OStarted)
-    } else if xs > os + 1 {
-        Err(.XWentTwice)
-    } else if x_won and (o_won or xs == os) or o_won and xs > os {
-        Err(.PlayedAfterWin)
-    } else if x_won or o_won {
-        Ok(.Win)
-    } else if xs + os == 9 {
-        Ok(.Draw)
-    } else {
-        Ok(.Ongoing)
+    case {
+        os > xs -> Err(.OStarted)
+        xs > os + 1 -> Err(.XWentTwice)
+        x_won and (o_won or xs == os) or o_won and xs > os -> Err(.PlayedAfterWin)
+        x_won or o_won -> Ok(.Win)
+        xs + os == 9 -> Ok(.Draw)
+        _ -> Ok(.Ongoing)
     }
 }
 

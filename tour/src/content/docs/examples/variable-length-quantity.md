@@ -7,7 +7,7 @@ description: "Encode numbers as variable-length quantities, seven bits to a byte
 
 Encode numbers as variable-length quantities, seven bits to a byte with the high bit marking that more follow, and decode them back.
 
-<a class="nomi-rough-badge" href="#rough-edges">rough edges</a> Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/variable-length-quantity) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
+Adapted from Exercism's [problem specification](https://github.com/exercism/problem-specifications/tree/main/exercises/variable-length-quantity) (MIT). Listed under [Encoding & Ciphers](/examples/?subject=encoding-and-ciphers).
 
 ```nomi-run
 // FILE: variable_length_quantity.nomi
@@ -15,7 +15,7 @@ Encode numbers as variable-length quantities, seven bits to a byte with the high
 //# per byte, with the high bit set on every byte but the number's last.
 
 /// The bytes of `integers`, each written as its variable-length quantity.
-pub fn encode(integers: List<Int>) -> List<Int> {
+pub fn encode(integers: List<Int>) -> List<Byte> {
     integers
     |> Iter.flat_map(encode_one)
     |> Iter.to_list()
@@ -23,31 +23,28 @@ pub fn encode(integers: List<Int>) -> List<Int> {
 
 /// The base-128 digits of `n`, most significant first, with the high bit set
 /// on all but the last.
-fn encode_one(n: Int) -> List<Int> {
+fn encode_one(n: Int) -> List<Byte> {
     digits = Int.to_digits(n, 128)
     last = Iter.count(digits) - 1
 
     digits
     |> Iter.with_index()
     |> Iter.map(fn #(i, digit) -> {
-        if i == last {
-            digit
-        } else {
-            Int.bitwise_or(digit, 0x80)
-        }
+        byte = Int.to_byte(digit)!
+        if i == last { byte } else { byte ||| 0x80 }
     })
     |> Iter.to_list()
 }
 
 /// The numbers `bytes` encode, or an error when the last number's final byte
 /// is missing.
-pub fn decode(bytes: List<Int>) -> Result<List<Int>, String> {
+pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String> {
     #(values, pending) =
         bytes
         |> Iter.map_reduce(fn pending: Maybe<Int> = None, byte -> {
-            value = Maybe.with_default(pending, 0) * 0x80 + Int.bitwise_and(byte, 0x7F)
+            value = Maybe.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
 
-            if Int.bitwise_and(byte, 0x80) == 0 {
+            if byte &&& 0x80 == 0 {
                 #(Some(value), None)
             } else {
                 #(None, Some(value))
@@ -66,7 +63,7 @@ pub fn decode(bytes: List<Int>) -> Result<List<Int>, String> {
 import variable_length_quantity
 
 test "encode a series of integers, producing a series of bytes" {
-    cases = [
+    cases: List<#(String, List<Int>, List<Byte>)> = [
         #("zero", [0x0], [0x0]),
         #("arbitrary single byte", [0x40], [0x40]),
         #("asymmetric single byte", [0x53], [0x53]),
@@ -105,7 +102,7 @@ test "encode a series of integers, producing a series of bytes" {
 }
 
 test "decode a series of bytes, producing a series of integers" {
-    cases = [
+    cases: List<#(String, List<Byte>, Result<List<Int>, String>)> = [
         #("one byte", [0x7F], Ok([0x7F])),
         #("two bytes", [0xC0, 0x0], Ok([0x2000])),
         #("three bytes", [0xFF, 0xFF, 0x7F], Ok([0x1FFFFF])),
@@ -135,15 +132,9 @@ test "decode a series of bytes, producing a series of integers" {
 
 ## How it's written
 
-- A number's bytes are its base-128 digits from `Int.to_digits(n, 128)`, with the high bit set on every digit but the last. No loop shifts seven bits at a time.
+- A number's bytes are its base-128 digits from `Int.to_digits(n, 128)`, with the high bit set on every digit but the last, `byte ||| 0x80`. No loop shifts seven bits at a time.
+- Decoding reads seven bits at a time, `value <<< 7 ||| Byte.to_int(byte &&& 0x7F)`, and a byte's continuation bit is `byte &&& 0x80`. The shifts and `&&&` bind like `*` and `|||` like `+`, as in Go, so neither needs parentheses.
 - `decode` is one `Iter.map_reduce` whose state is the number read so far, `Some` while its bytes continue and `None` between numbers, and whose output is `Some(value)` at each number's last byte. `Maybe.values` keeps those, and a state still `Some` at the end is the incomplete sequence.
 - The one error is `Err("incomplete sequence")`, the canonical message, as grains does: an `Error` enum would add a type for one variant.
-- Bytes are `List<Int>`, written in hex in the tests (`0x7F`), as the canonical data's comments ask of a track's tests. See Friction for why not `Bytes`.
+- Bytes are `List<Byte>`, as the canonical `List<u8>` is, written in hex in the tests (`0x7F`), as the canonical data's comments ask of a track's tests. An Int literal where a `Byte` is expected is one, so the tables' types are written once on `cases` and every byte is a plain literal. Encoding turns each digit, always below 128, into a Byte with `Int.to_byte(digit)!`; decoding reads a byte's bits back with `Byte.to_int`.
 - The encode and decode groups are one `subtests` table each, named by the description column.
-
-## Rough edges
-
-Where Nomi made this exercise harder than it should be. Each is an open question for the language, not a settled answer.
-
-- **A missing feature.** `Byte` has no literal and is not a number (`Byte.to_int` and `Int.to_byte`, which answers a `Maybe`), so a byte sequence in a test would be `Int.to_byte(0x81)?` per byte. The bytes are `List<Int>` instead, which also holds 300 or -1. Rust writes `[0x81u8, 0x00]`, Go `[]byte{0x81, 0x00}`, and Python `b"\x81\x00"`.
-- **Longer than it should be.** There are no bitwise operators, so a mask is `Int.bitwise_and(byte, 0x7F)` and a flag `Int.bitwise_or(digit, 0x80)`, where Rust, Go and Python write `byte & 0x7f` and `digit | 0x80`.

@@ -53,7 +53,7 @@ fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Er
 
     low = min * min
     high = max * max
-    outside = fn p: Int -> !Range.contains(low..=high, p)
+    outside = fn p: Int -> not Range.contains(low..=high, p)
 
     in_order(digit_count(low), digit_count(high), direction)
     |> Iter.flat_map(fn length -> {
@@ -61,7 +61,7 @@ fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Er
         in_order(first, last, direction) |> Iter.map(&mirror(&1, length))
     })
     |> Iter.drop_while(outside)
-    |> Iter.take_while(&(!outside(&1)))
+    |> Iter.take_while(&(not outside(&1)))
     |> first_product(min, max)
     |> Ok()
 }
@@ -123,7 +123,7 @@ fn digit_count(n: Int) -> Int {
 import palindrome_products.{self, Error, Product}
 
 test "smallest" {
-    cases: List<#(String, Int, Int, Result<Maybe<Product>, Error>)> = [
+    cases = [
         #(
             "find the smallest palindrome from single digit factors",
             1,
@@ -149,7 +149,7 @@ test "smallest" {
             Ok(Some(#Product{value: 1002001, factors: [#(1001, 1001)]})),
         ),
         #("empty result for smallest if no palindrome in the range", 1002, 1003, Ok(None)),
-        #("error result for smallest if min is more than max", 10000, 1, Err(.MinAboveMax)),
+        #("error result for smallest if min is more than max", 10000, 1, Err(Error.MinAboveMax)),
         #(
             "smallest product does not use the smallest factor",
             3215,
@@ -164,7 +164,7 @@ test "smallest" {
 }
 
 test "largest" {
-    cases: List<#(String, Int, Int, Result<Maybe<Product>, Error>)> = [
+    cases = [
         #(
             "find the largest palindrome from single digit factors",
             1,
@@ -190,7 +190,7 @@ test "largest" {
             Ok(Some(#Product{value: 99000099, factors: [#(9901, 9999)]})),
         ),
         #("empty result for largest if no palindrome in the range", 15, 15, Ok(None)),
-        #("error result for largest if min is more than max", 2, 1, Err(.MinAboveMax)),
+        #("error result for largest if min is more than max", 2, 1, Err(Error.MinAboveMax)),
     ]
 
     subtests cases, #(description, min, max, expected), description {
@@ -206,4 +206,4 @@ test "largest" {
 - `smallest` and `largest` are one `search` from either end, picked by a `Direction`. `in_order` gives the numbers between two bounds from that end: the range `first..=last`, or `Range.step_by(last..=first, -1)`, which counts down lazily. The two branches are different Iters, which join as one because `in_order` declares its result as `Iter<Int>`. The search drops the palindromes outside `min²` to `max²` from the near end and stops at the far one, so the same two steps serve both directions. The pipeline is lazy, so the search stops at the first palindrome with factors.
 - A result is `Result<Maybe<Product>, Error>`: `Err(.MinAboveMax)` for the canonical error, `Ok(None)` for the canonical "empty result" (a `null` value with no factors), and a `Product` struct holding the value and its factor pairs otherwise. A `Product` with an empty factor list cannot be built by the search, so `Maybe` says "none" instead.
 - `first_product` takes an `Iter<Int>`, so both directions share it.
-- The canonical cases are two `subtests` tables, one per property, named by the description column and annotated so the `Ok` and `Err` rows share a type.
+- The canonical cases are two `subtests` tables, one per property, named by the description column. Each table's error row writes `Error.MinAboveMax`, which settles the error type the `Ok` rows leave open, so neither table needs an annotation.

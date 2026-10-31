@@ -59,7 +59,7 @@ once scales = [
 /// `number` in English words, from "zero" to the largest number below a
 /// trillion.
 pub fn say(number: Int) -> Result<String, Error> {
-    if !Range.contains(0..=largest, number) {
+    if not Range.contains(0..=largest, number) {
         Err(.OutOfRange)
     } else {
         Ok(words(number))
@@ -87,12 +87,10 @@ fn words(n: Int) -> String {
 }
 
 fn below_hundred(n: Int) -> String {
-    if n < 20 {
-        Vector.get(small, n)!
-    } else if n % 10 == 0 {
-        Vector.get(tens, n / 10)!
-    } else {
-        "${Vector.get(tens, n / 10)!}-${Vector.get(small, n % 10)!}"
+    case {
+        n < 20 -> Vector.get(small, n)!
+        n % 10 == 0 -> Vector.get(tens, n / 10)!
+        _ -> "${Vector.get(tens, n / 10)!}-${Vector.get(small, n % 10)!}"
     }
 }
 

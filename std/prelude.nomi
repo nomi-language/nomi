@@ -6,6 +6,7 @@
 // types. File API objects such as `io` still require imports.
 pub import {
     add.Add
+    bitwise.{BitwiseAnd, BitwiseNot, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight}
 
     // `Literal` / `Fragment` are intentionally not preluded. Typed-literal authors
     // import them explicitly; ordinary call sites only name the prefix type.

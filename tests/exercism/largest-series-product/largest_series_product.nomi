@@ -28,6 +28,6 @@ pub fn largest_product(digits: String, span: Int) -> Result<Int, Error> {
     numbers
     |> Iter.windows(span)
     |> Iter.map(Iter.product)
-    |> Iter.reduce(fn largest = 0, candidate -> Int.max(largest, candidate))
+    |> Iter.max()!
     |> Ok()
 }

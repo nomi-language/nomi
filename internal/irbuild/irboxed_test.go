@@ -335,7 +335,7 @@ impl Show for P {
 }
 
 fn held(a: Show, b: Show) -> Bool {
-    a == b and !(a != b)
+    a == b and not (a != b)
 }
 
 fn plain(a: P, b: P) -> Bool {

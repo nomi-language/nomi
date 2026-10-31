@@ -2,7 +2,7 @@
 //# per byte, with the high bit set on every byte but the number's last.
 
 /// The bytes of `integers`, each written as its variable-length quantity.
-pub fn encode(integers: List<Int>) -> List<Int> {
+pub fn encode(integers: List<Int>) -> List<Byte> {
     integers
     |> Iter.flat_map(encode_one)
     |> Iter.to_list()
@@ -10,31 +10,28 @@ pub fn encode(integers: List<Int>) -> List<Int> {
 
 /// The base-128 digits of `n`, most significant first, with the high bit set
 /// on all but the last.
-fn encode_one(n: Int) -> List<Int> {
+fn encode_one(n: Int) -> List<Byte> {
     digits = Int.to_digits(n, 128)
     last = Iter.count(digits) - 1
 
     digits
     |> Iter.with_index()
     |> Iter.map(fn #(i, digit) -> {
-        if i == last {
-            digit
-        } else {
-            Int.bitwise_or(digit, 0x80)
-        }
+        byte = Int.to_byte(digit)!
+        if i == last { byte } else { byte ||| 0x80 }
     })
     |> Iter.to_list()
 }
 
 /// The numbers `bytes` encode, or an error when the last number's final byte
 /// is missing.
-pub fn decode(bytes: List<Int>) -> Result<List<Int>, String> {
+pub fn decode(bytes: List<Byte>) -> Result<List<Int>, String> {
     #(values, pending) =
         bytes
         |> Iter.map_reduce(fn pending: Maybe<Int> = None, byte -> {
-            value = Maybe.with_default(pending, 0) * 0x80 + Int.bitwise_and(byte, 0x7F)
+            value = Maybe.with_default(pending, 0) <<< 7 ||| Byte.to_int(byte &&& 0x7F)
 
-            if Int.bitwise_and(byte, 0x80) == 0 {
+            if byte &&& 0x80 == 0 {
                 #(Some(value), None)
             } else {
                 #(None, Some(value))

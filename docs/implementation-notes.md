@@ -305,6 +305,21 @@ array) is refused when the adapter is generated, since its only order is an
 address or a dynamic type and would differ from run to run. A Nomi `Map`
 passed to Go needs no order: a Go map has none.
 
+A Go `io.Reader` or `io.ReadCloser` result becomes a `Reader` handle whose
+source is the Go value (`hostadapt.ReaderFromGo`, over `rt.NewReader`), and
+an `io.Writer` or `io.WriteCloser` result a `Writer` that hands it each
+write as it is made, leaving buffering to the Go value
+(`hostadapt.WriterFromGo`); either closes the Go value through its own
+`Close` when it has one. A `Reader` or `Writer` passed to such a parameter
+reaches Go as an `io.ReadCloser` or `io.WriteCloser` that calls the
+handle's own operations (`hostadapt.GoReader`, `GoWriter`, over
+`rt.ReaderRead` and `rt.WriterWrite`), so Go reads from the handle's buffer
+and writes in order with the program, under the handle's lock, on the frame
+of the binding's call. A Go value that keeps the stream past the call reads
+or writes it later on that frame. The match is by the declared Go type, so
+a function that answers a concrete type (`*gzip.Reader`) needs a one-line
+Go function in the project that answers the interface.
+
 ## Standard-library adapters
 
 A Go-backed std module keeps its public import, such as `std/regex`. The
@@ -435,8 +450,11 @@ bits of the exact result as a signed int64 (`rt.Wrap64`), so a hash stays a
   `Bytes.get`, ...) reads an Int past int64's range as past any collection
   (`rt.IntSaturated`): out of range, all of it or none of it.
 - A Go function bound with `go`: an `int64`, `int` or narrower parameter
-  refuses a value it cannot hold, with an error that names the binding
-  (`hostadapt.ToSigned`); a `uint64` result past int64's range is a big Int;
+  refuses a value it cannot hold (`hostadapt.ToSigned`, a
+  `hostadapt.ConvertError`), and the adapter turns that into an `*rt.Error`
+  naming the Go function and parameter (`hostadapt.Param`; a result Nomi
+  cannot hold, `hostadapt.Returned`), which the VM raises at the call as a
+  fault (`callAdapter`); a `uint64` result past int64's range is a big Int;
   a `*big.Int` or `rt.Int` parameter or result takes any Int.
 - A std host function written in Go takes `rt.Int` when it handles every Int
   (`Int.pow`, `Int.format`, `Bytes.get`), and `int64` otherwise, where the

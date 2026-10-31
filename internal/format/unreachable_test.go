@@ -11,7 +11,7 @@ func TestFormat_Unreachable(t *testing.T) {
 		"}\n\n" +
 		"fn first(xs: List<String>) -> String {\n" +
 		"    case xs {\n" +
-		"        [x, .._] -> x\n" +
+		"        [x, ..] -> x\n" +
 		"        [] ->    unreachable `raw ${reason}`\n" +
 		"    }\n" +
 		"}\n"
@@ -21,7 +21,7 @@ func TestFormat_Unreachable(t *testing.T) {
 		"}\n\n" +
 		"fn first(xs: List<String>) -> String {\n" +
 		"    case xs {\n" +
-		"        [x, .._] -> x\n" +
+		"        [x, ..] -> x\n" +
 		"        [] -> unreachable `raw ${reason}`\n" +
 		"    }\n" +
 		"}\n"

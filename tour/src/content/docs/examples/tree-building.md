@@ -54,7 +54,7 @@ pub fn build_tree(records: List<Record>) -> Result<Maybe<Node>, Error> {
         |> Iter.with_index()
         |> Iter.all(fn #(index, record) -> record.id == index)
 
-    if !ids_in_order { return Err(.InvalidRecord) }
+    if not ids_in_order { return Err(.InvalidRecord) }
 
     case sorted {
         [] ->

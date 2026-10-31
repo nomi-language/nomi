@@ -83,7 +83,7 @@ fn f(p: P) -> Int {
 `, `pattern "no" is a String, but the value is an Int`},
 		{"list element", `fn f(xs: List<Int>) -> Int {
   case xs {
-    ["q", .._] -> 1
+    ["q", ..] -> 1
     _ -> 2
   }
 }

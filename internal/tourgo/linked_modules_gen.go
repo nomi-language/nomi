@@ -379,16 +379,16 @@ func (b *tourModule0Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("describe.describe", 0, err)
+		return nil, hostadapt.Param("describe.describe", 0, "goside.Describe", "migrations", err)
 	}
 	a1, err := b.in4(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("describe.describe", 1, err)
+		return nil, hostadapt.Param("describe.describe", 1, "goside.Describe", "statements", err)
 	}
 	r0 := goside.Describe(a0, a1)
 	v0, err := b.out6(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Describe", err)
 	}
 	return v0, nil
 }
@@ -449,20 +449,20 @@ func (b *tourModule0Bound) fn22(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.begin_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.begin_raw", 0, "goside.Begin", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.begin_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.begin_raw", 1, "goside.Begin", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.begin_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.begin_raw", 2, "goside.Begin", "token", err)
 	}
 	r0 := goside.Begin(a0, a1, a2)
 	v0, err := b.out25(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Begin", err)
 	}
 	return v0, nil
 }
@@ -475,12 +475,12 @@ func (b *tourModule0Bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.close_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.close_raw", 0, "goside.Close", "c", err)
 	}
 	r0 := goside.Close(a0)
 	v0, err := b.out26(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Close", err)
 	}
 	return v0, nil
 }
@@ -493,20 +493,20 @@ func (b *tourModule0Bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.commit_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.commit_raw", 0, "goside.Commit", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.commit_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.commit_raw", 1, "goside.Commit", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.commit_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.commit_raw", 2, "goside.Commit", "token", err)
 	}
 	r0 := goside.Commit(a0, a1, a2)
 	v0, err := b.out26(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Commit", err)
 	}
 	return v0, nil
 }
@@ -666,32 +666,32 @@ func (b *tourModule0Bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.each_row_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.each_row_raw", 0, "goside.EachRow", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.each_row_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.each_row_raw", 1, "goside.EachRow", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.each_row_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.each_row_raw", 2, "goside.EachRow", "token", err)
 	}
 	a3, err := b.in4(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.each_row_raw", 3, err)
+		return nil, hostadapt.Param("sqlite.each_row_raw", 3, "goside.EachRow", "parts", err)
 	}
 	a4, err := b.in31(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.each_row_raw", 4, err)
+		return nil, hostadapt.Param("sqlite.each_row_raw", 4, "goside.EachRow", "params", err)
 	}
 	a5, err := b.in33(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.each_row_raw", 5, err)
+		return nil, hostadapt.Param("sqlite.each_row_raw", 5, "goside.EachRow", "f", err)
 	}
 	r0 := goside.EachRow(a0, a1, a2, a3, a4, a5)
 	v0, err := b.out26(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.EachRow", err)
 	}
 	return v0, nil
 }
@@ -744,28 +744,28 @@ func (b *tourModule0Bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.exec_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.exec_raw", 0, "goside.Exec", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.exec_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.exec_raw", 1, "goside.Exec", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.exec_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.exec_raw", 2, "goside.Exec", "token", err)
 	}
 	a3, err := b.in4(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.exec_raw", 3, err)
+		return nil, hostadapt.Param("sqlite.exec_raw", 3, "goside.Exec", "parts", err)
 	}
 	a4, err := b.in31(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.exec_raw", 4, err)
+		return nil, hostadapt.Param("sqlite.exec_raw", 4, "goside.Exec", "params", err)
 	}
 	r0 := goside.Exec(a0, a1, a2, a3, a4)
 	v0, err := b.out42(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Exec", err)
 	}
 	return v0, nil
 }
@@ -783,7 +783,7 @@ func (b *tourModule0Bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in5(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.open_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.open_raw", 0, "goside.Open", "path", err)
 	}
 	r0, e := goside.Open(a0)
 	if e != nil {
@@ -793,7 +793,7 @@ func (b *tourModule0Bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	v0, err := b.out49(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Open", err)
 	}
 	ok := b.d11.NewVariant(0)
 	ok.R[0] = v0
@@ -808,20 +808,20 @@ func (b *tourModule0Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.ping_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.ping_raw", 0, "goside.Ping", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.ping_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.ping_raw", 1, "goside.Ping", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.ping_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.ping_raw", 2, "goside.Ping", "token", err)
 	}
 	r0 := goside.Ping(a0, a1, a2)
 	v0, err := b.out26(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Ping", err)
 	}
 	return v0, nil
 }
@@ -834,20 +834,20 @@ func (b *tourModule0Bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.rollback_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.rollback_raw", 0, "goside.Rollback", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.rollback_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.rollback_raw", 1, "goside.Rollback", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.rollback_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.rollback_raw", 2, "goside.Rollback", "token", err)
 	}
 	r0 := goside.Rollback(a0, a1, a2)
 	v0, err := b.out26(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Rollback", err)
 	}
 	return v0, nil
 }
@@ -860,28 +860,28 @@ func (b *tourModule0Bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.run_raw", 0, err)
+		return nil, hostadapt.Param("sqlite.run_raw", 0, "goside.Run", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.run_raw", 1, err)
+		return nil, hostadapt.Param("sqlite.run_raw", 1, "goside.Run", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.run_raw", 2, err)
+		return nil, hostadapt.Param("sqlite.run_raw", 2, "goside.Run", "token", err)
 	}
 	a3, err := b.in4(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.run_raw", 3, err)
+		return nil, hostadapt.Param("sqlite.run_raw", 3, "goside.Run", "parts", err)
 	}
 	a4, err := b.in31(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Arg("sqlite.run_raw", 4, err)
+		return nil, hostadapt.Param("sqlite.run_raw", 4, "goside.Run", "params", err)
 	}
 	r0 := goside.Run(a0, a1, a2, a3, a4)
 	v0, err := b.out42(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("goside.Run", err)
 	}
 	return v0, nil
 }
@@ -957,7 +957,7 @@ func (b *tourModule1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("remove_all", 0, err)
+		return nil, hostadapt.Param("remove_all", 0, "testside.RemoveAll", "path", err)
 	}
 	e := testside.RemoveAll(a0)
 	if e != nil {
@@ -989,7 +989,7 @@ func (b *tourModule1Bound) fn3(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	v0, err := b.out4(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("testside.TempDir", err)
 	}
 	ok := b.d1.NewVariant(0)
 	ok.S[0] = v0.(string)
@@ -1004,7 +1004,7 @@ func (b *tourModule1Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Arg("tools/generate.config_text", 0, err)
+		return nil, hostadapt.Param("tools/generate.config_text", 0, "toolside.Config", "root", err)
 	}
 	r0, e := toolside.Config(a0)
 	if e != nil {
@@ -1014,7 +1014,7 @@ func (b *tourModule1Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	}
 	v0, err := b.out4(r0)
 	if err != nil {
-		return nil, err
+		return nil, hostadapt.Returned("toolside.Config", err)
 	}
 	ok := b.d1.NewVariant(0)
 	ok.S[0] = v0.(string)

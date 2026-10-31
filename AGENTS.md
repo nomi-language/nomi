@@ -1304,7 +1304,13 @@ its files in two groups, each a pane with its own tabs (`splitPanes`): the
 open tab of a lone group has a right and a down arrow that split it off into
 a new group on that side, and in a split each group's open tab has one arrow
 pointing at the other group, which moves it there; a group a move empties
-closes. The split lasts while the page is open. Plain ` ```nomi `
+closes. The split lasts while the page is open. The output's header has an
+arrow that moves it below the code, across both groups but beside the file
+tree, and back (`outPlaceButton`); that choice and the panes' sizes last for
+the visit. A block that is a solution and its test (two Nomi files, one
+declaring tests) opens the first time, in a large view at least 1100px wide,
+with the two side by side and, until the reader picks a side, the output
+below (`pairedFiles`). Plain ` ```nomi `
 blocks are highlighted only. Highlighting,
 hovers and runs happen client-side with the same grammar, queries, analyzer
 and VM the editor uses (compiled to wasm).
@@ -1375,15 +1381,17 @@ tour/src/content/docs/examples` (`cmd/nomi-docgen/examples.go`), which
 (NOTES.md's title, a `Run: manual` line under its `Subject:` line that
 makes the block ` ```nomi-run manual ` with an expect block holding the
 tests' report, which the generator runs the exercise to write
-(`vmhost.CaseReport`, the playground's report), its first paragraph, `## Choices`, and `## Friction` as "Rough
-edges", which lists only what is still true, so a fix deletes its item and
-the generator refuses one that says `Fixed:`; and one block holding the
+(`vmhost.CaseReport`, the playground's report), its first paragraph and `## Choices`; and one block holding the
 exercise's files, solution first) and an intro page whose table lists the
 chapters each solution's tokens show it uses. It removes the page of an
 exercise that is gone. The pages are committed because the doctests and
 tour.expect read every page under `src/content/docs`;
 `TestExamplePagesAreCurrent` fails while one is stale, missing or left over.
-Edit the exercise, then regenerate the pages and tour.expect.
+Edit the exercise, then regenerate the pages and tour.expect. NOTES.md's
+`## Friction` section is the log of what made an exercise harder than it
+should be, for fixing in the language; the generator checks it (known tags,
+`None.` for no item, no item that says `Fixed:`, since a fix deletes it) and
+never publishes it, and a Choices line may not point at it.
 
 Needs Node 22+. `NODE22_BIN` in the Makefile defaults to Homebrew's path;
 override it elsewhere.

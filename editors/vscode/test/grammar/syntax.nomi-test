@@ -129,6 +129,11 @@ kvs = %Kvs{"a" => 1}
 // <~~~~~~~--- entity.name.type.nomi
 rest = n % 2
 // <~~~~~~~~~- keyword.operator.nomi
+low = n &&& 255
+// <~~~~~~~~--- keyword.operator.bitwise.nomi
+flipped = ~~~n >>> 1
+// <~~~~~~~~~~--- keyword.operator.bitwise.nomi
+// <~~~~~~~~~~~~~~~--- keyword.operator.bitwise.nomi
 shape = .Circle(1.0)
 // <~~~~~~~~- punctuation.accessor.nomi
 // <~~~~~~~~~------ variable.other.enummember.nomi
@@ -168,6 +173,12 @@ group "group" {
 // <~~~~~~~~~~~~~~~---- constant.language.boolean.nomi
 // <~~~~~~~~~~~~~~~~~~~~--- keyword.operator.word.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~--------- variable.other.nomi
+        assert not is_undone
+// <~~~~~~~~------ keyword.control.nomi
+// <~~~~~~~~~~~~~~~--- keyword.operator.word.nomi
+        assert db is Some(_)
+// <~~~~~~~~------ keyword.control.nomi
+// <~~~~~~~~~~~~~~~~~~-- keyword.operator.word.nomi
         subtests cases, (a, b) {
 // <~~~~~~~~-------- keyword.control.nomi
             assert a == b

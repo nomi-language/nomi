@@ -46,14 +46,14 @@ impl Contains<String> for String {
     }
 }
 
-impl Contains<Regex> for String {
+impl<C> Contains<Regex<C>> for String {
     /// True if `x` matches anywhere in `c`.
     //! import std/regex.Regex
     //!
     //! assert String.contains("order 66", Regex`\d+`)
     //! refute String.contains("room", Regex`\d+`)
     //
-    fn contains(c: String, x: Regex) -> Bool {
+    fn contains(c: String, x: Regex<C>) -> Bool {
         Regex.is_contained_in(x, c)
     }
 }
@@ -106,10 +106,10 @@ impl String {
     /// every cased letter is upper case, as `Codepoint.is_upper` decides it.
     /// Characters with no case, such as digits and punctuation, count
     /// neither way. This is Python's `str.isupper`.
-    //! assert !String.is_upper("1, 2, 3")
+    //! refute String.is_upper("1, 2, 3")
     //! assert String.is_upper("ÜMLÄÜTS!")
     //! assert String.is_upper("WHAT'S UP?")
-    //! assert !String.is_upper("Hello")
+    //! refute String.is_upper("Hello")
     //
     pub host fn is_upper(s: String) -> Bool
 
@@ -117,10 +117,10 @@ impl String {
     /// every cased letter is lower case, as `Codepoint.is_lower` decides it.
     /// Characters with no case count neither way. This is Python's
     /// `str.islower`.
-    //! assert !String.is_lower("1, 2, 3")
+    //! refute String.is_lower("1, 2, 3")
     //! assert String.is_lower("ümläüts!")
     //! assert String.is_lower("what's up?")
-    //! assert !String.is_lower("Hello")
+    //! refute String.is_lower("Hello")
     //
     pub host fn is_lower(s: String) -> Bool
 
@@ -222,14 +222,20 @@ impl String {
     //
     pub host fn camel_case(s: String) -> String
 
-    /// Replaces every non-overlapping match of `old` with `new`. `old` is a
-    /// `String` or a `Regex`; `new` is literal text either way, so `$1` is not
-    /// a capture group here (`Regex.replace_all` expands those).
+    /// Replaces every non-overlapping match of `old` with `new`. `old` is any
+    /// `Matcher`. With a `Regex`, `new` expands the match's groups as Go's
+    /// `regexp` does: `$1` or `${1}` is group 1, `${name}` a named group, `$0`
+    /// the whole match and `$$` a literal `$`; a reference to no group is
+    /// empty. With any other matcher, `new` is literal text.
     //! import std/regex.Regex
     //!
     //! assert String.replace("a.b.c", ".", "-") == "a-b-c"
     //! assert String.replace("call 555-0100", Regex`\d`, "#") == "call ###-####"
-    //! assert String.replace("a1b", Regex`\d`, "$1") == "a$1b"
+    //! assert String.replace("ann@home", Regex`(\w+)@(\w+)`, "$2:$1") == "home:ann"
+    //! assert String.replace("2026-10", Regex`(?P<y>\d+)-(?P<m>\d+)`, `${m}/${y}`) == "10/2026"
+    //! assert String.replace("5 apples", Regex`(\d+)`, "$$$1") == "$5 apples"
+    //! assert String.replace("a  b   c", Regex`\s+`, " ") == "a b c"
+    //! assert String.replace("pay $1", "$1", "$2") == "pay $2"
     //
     pub fn replace<M>(s: String, old: M, new: String) -> String where M: Matcher {
         M.replace_in(old, s, new)
@@ -438,18 +444,32 @@ impl String {
     }
 
     /// The capture groups of the first match of `re` in `s`, the leftmost, or
-    /// `None` when there is none. The list holds one entry per group in the
-    /// order the pattern opens them, from group 1: the whole match (group 0)
-    /// is not in it, so `String.find` gives that. A group that took part in
-    /// the match is `Some` of its text, which may be empty; one that did not,
-    /// such as the unused side of `(a)|(b)`, is `None`.
+    /// `None` when there is none, as the `C` of `re`'s type `Regex<C>`
+    /// shapes them. The groups are the pattern's from group 1, in the order
+    /// it opens them: the whole match is not one, and `String.find` gives
+    /// it. A `Regex` literal's `C` has one part per group, `String` for a
+    /// group every match fills and `Maybe<String>` for one a match can leave
+    /// out, such as either side of `(a)|(b)`: a tuple of them, an anonymous
+    /// struct when every group is named, the one part alone for a single
+    /// unnamed group, and `Unit` when there is none. A regex compiled while
+    /// the program runs is a `Regex<List<Maybe<String>>>`, whose groups are
+    /// a list.
     //! import std/regex.Regex
     //!
-    //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some([Some("ann"), Some("home")])
-    //! assert String.captures("b", Regex`(a)|(b)`) == Some([None, Some("b")])
+    //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some(#("ann", "home"))
+    //! assert String.captures("b", Regex`(a)|(b)`) == Some(#(None, Some("b")))
+    //! assert String.captures("v12", Regex`v(\d+)`) == Some("12")
+    //! date = Regex`(?P<year>\d{4})-(?P<month>\d\d)?`
+    //! assert String.captures("2024-", date) == Some(#{year: "2024", month: None})
     //! assert String.captures("no address", Regex`(\w+)@(\w+)`) == None
+    //! assert String.captures("a1", Regex.compile("(\\w)(\\d)")?) == Some([Some("a"), Some("1")])
     //
-    pub host fn captures(s: String, re: Regex) -> Maybe<List<Maybe<String>>>
+    pub fn captures<C>(s: String, re: Regex<C>) -> Maybe<C> {
+        case capture_groups(s, re) {
+            Some(groups) -> Some(capture_shape(re, groups))
+            None -> None
+        }
+    }
 
     /// The capture groups of every non-overlapping match of `re` in `s`, left
     /// to right, each as `String.captures` gives them; `[]` when nothing
@@ -457,10 +477,14 @@ impl String {
     //! import std/regex.Regex
     //!
     //! pairs = String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`)
-    //! assert pairs == [[Some("a"), Some("1")], [Some("b"), Some("22")]]
+    //! assert pairs == [#("a", "1"), #("b", "22")]
     //! assert String.captures_all("none", Regex`(\d)`) == []
     //
-    pub host fn captures_all(s: String, re: Regex) -> List<List<Maybe<String>>>
+    pub fn captures_all<C>(s: String, re: Regex<C>) -> List<C> {
+        capture_groups_all(s, re)
+        |> Iter.map(fn groups -> capture_shape(re, groups))
+        |> Iter.to_list()
+    }
 
     /// The words of `s`: the pieces between runs of Unicode whitespace, which
     /// includes U+00A0 NO-BREAK SPACE and U+3000. Unlike `split`, leading,
@@ -641,6 +665,20 @@ derive Equatable for ListWidth
 /// `ListStyle` and `ListWidth` order) for a locale tag. Private helper
 /// behind `String.join_list`.
 host fn join_list_raw(locale: Locale, items: List<String>, style: Int, width: Int) -> String
+
+// The capture groups of re's leftmost match in s, group 1 onward, each
+// `Some` of its text or `None` when it took no part; `None` when nothing
+// matches. Behind `String.captures`, which shapes them.
+host fn capture_groups<C>(s: String, re: Regex<C>) -> Maybe<List<Maybe<String>>>
+
+// capture_groups for every non-overlapping match, left to right.
+host fn capture_groups_all<C>(s: String, re: Regex<C>) -> List<List<Maybe<String>>>
+
+// The C value of a match whose groups are groups: the tuple, struct, text,
+// Unit or list the checker gave re's type (analysis/regex_literal.go). A VM
+// intrinsic built by C alone (irbuild's captureShapeCall), since C is
+// phantom in the handle.
+host fn capture_shape<C>(re: Regex<C>, groups: List<Maybe<String>>) -> C
 
 /// Byte-lexicographic comparison of UTF-8 bytes. Returns -1 if `a < b`,
 /// 1 if `a > b`, 0 if equal. Private helper backing the `Comparable` impl.

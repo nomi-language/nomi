@@ -8,7 +8,7 @@ func TestTriviaCarrier_Interface(t *testing.T) {
 		&SimpleType{}, &QualifiedType{}, &GenericType{}, &FuncType{}, &SelfType{}, &AnonStructType{},
 		&IntLit{}, &FloatLit{}, &StringLit{}, &StringInterp{}, &ListLit{}, &VectorLit{}, &SetLit{},
 		&ListSpreadLit{}, &MapLit{}, &TupleLit{}, &Ident{}, &SelfExpr{}, &TypeIdent{},
-		&Unary{}, &Binary{}, &GroupedExpr{}, &If{}, &Block{}, &Call{}, &FieldAccess{},
+		&Unary{}, &Is{}, &Binary{}, &GroupedExpr{}, &If{}, &Block{}, &Call{}, &FieldAccess{},
 		&StructDef{}, &StructLit{}, &EnumDef{}, &TypeDef{}, &TypeAlias{},
 		&OnceBinding{}, &Binding{}, &TupleDestructure{}, &StructDestructure{},
 		&PatternDestructure{}, &PatternBinding{}, &BindingElse{}, &DistinctDestructure{}, &ExprStmt{},

@@ -56,8 +56,7 @@ fn translate(text: String, step: (Int) -> Int) -> List<String> {
     text
     |> String.lowercase()
     |> String.to_codepoints()
-    |> Iter.map(&shift(&1, step))
-    |> Maybe.values()
+    |> Iter.flat_map(&shift(&1, step))
     |> Iter.map(Codepoint.to_string)
     |> Iter.to_list()
 }

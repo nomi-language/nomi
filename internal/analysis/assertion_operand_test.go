@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-// An `assert` or `refute` is not an operand: `!assert x` reads as a negated
+// An `assert` or `refute` is not an operand: `not assert x` reads as a negated
 // check but passes when x holds and then evaluates to False.
 func TestAssertionOperand_IsRejected(t *testing.T) {
 	for _, tc := range []struct{ stmt, want, hint string }{
-		{"!assert 1 == 1", "`assert` cannot be an operand of `!`",
-			"to check that a condition is false, write `refute condition` or `assert !condition`"},
-		{"x = !(refute 1 == 2)\n  assert x", "`refute` cannot be an operand of `!`", ""},
+		{"not assert 1 == 1", "`assert` cannot be an operand of `not`",
+			"to check that a condition is false, write `refute condition` or `assert not condition`"},
+		{"x = not (refute 1 == 2)\n  assert x", "`refute` cannot be an operand of `not`", ""},
 		{"x = (assert 1 == 1) and True\n  assert x", "`assert` cannot be an operand of `and`",
 			"write the assertion as its own statement, or bind its value first: `ok = assert condition`"},
 		{"x = True == (assert True)\n  assert x", "`assert` cannot be an operand of `==`", ""},
@@ -29,7 +29,7 @@ func TestAssertionOperand_IsRejected(t *testing.T) {
 // negated subject, are accepted.
 func TestAssertionOperand_StatementForms(t *testing.T) {
 	for _, stmt := range []string{
-		"assert !(1 == 2)",
+		"assert not (1 == 2)",
 		"refute 1 == 2",
 		"b = assert 1 == 1\n  assert b",
 	} {
@@ -53,14 +53,14 @@ func TestAssertionAsValue_IsRejected(t *testing.T) {
 	}{
 		{"assertion subject", "assert assert x", "assert", 10,
 			"remove the outer `assert`: it would check the value this `assert` passes on, not a condition"},
-		{"refute subject", "assert refute !x", "refute", 10,
+		{"refute subject", "assert refute not x", "refute", 10,
 			"remove the outer `assert`: it would check the value this `refute` passes on, not a condition"},
 		{"pattern assertion value", "assert True = assert x", "assert", 17, ""},
 		{"call argument", "assert id(assert x)", "assert", 13, ""},
 		{"call statement", "id(assert x)", "assert", 6, ""},
 		{"list element", "xs = [assert x]\n  assert xs == [True]", "assert", 9, ""},
 		{"tuple element", "t = #(assert x, 1)\n  assert t == #(True, 1)", "assert", 9, ""},
-		{"variant payload", "m = Some(refute !x)\n  assert m", "refute", 12, ""},
+		{"variant payload", "m = Some(refute not x)\n  assert m", "refute", 12, ""},
 		{"parenthesized binding value", "ok = (assert x)\n  assert ok", "assert", 9, ""},
 		{"if condition", "assert if assert x { True } else { False }", "assert", 13, ""},
 		{"case scrutinee", "assert case assert x {\n    True -> True\n    False -> False\n  }", "assert", 15, ""},
@@ -99,10 +99,10 @@ func TestAssertionAsValue_IsRejected(t *testing.T) {
 func TestAssertionAsValue_StatementPositions(t *testing.T) {
 	for _, stmt := range []string{
 		"assert x",
-		"refute !x",
+		"refute not x",
 		"assert x |> id()",
 		"ok = assert x |> id()\n  assert ok",
-		"ok = refute !x\n  refute ok",
+		"ok = refute not x\n  refute ok",
 		"assert True = x",
 		"case id(x) {\n    True -> assert x\n    False -> refute x\n  }",
 	} {

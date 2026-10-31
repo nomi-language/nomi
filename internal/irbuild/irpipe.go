@@ -87,6 +87,13 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		// `x |> f()!`: the stage's result unwrapped (unwrap.go).
 		return bl.unwrapStage(t, r)
 
+	case *ast.Unary:
+		if r.Op != "not" {
+			return no()
+		}
+		// `x |> not f()`: the stage's result negated (not.go).
+		return bl.notStage(t, r)
+
 	case *ast.TryOp:
 		if r.Expr != nil {
 			return no()

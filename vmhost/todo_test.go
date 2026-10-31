@@ -184,21 +184,21 @@ fn main() {
 	}
 }
 
-// A `todo` as an operand has the type its operator gives that operand (`!`
+// A `todo` as an operand has the type its operator gives that operand (`not`
 // and `and` take Bool, `==` the other side's type, `+` the type it takes on
 // its right, an `if` condition Bool), so each form lowers and traps at the
 // `todo`, after what ran before it.
 func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
 	forms := []string{
-		"x = !todo",
-		"x = !(todo)",
-		"x = !!todo",
-		"x: Bool = !todo",
-		"x = g(!todo)",
-		"x = !(if True { todo } else { todo })",
+		"x = not todo",
+		"x = not (todo)",
+		"x = not not todo",
+		"x: Bool = not todo",
+		"x = g(not todo)",
+		"x = not (if True { todo } else { todo })",
 		"x = todo and True",
 		"x = False or todo",
-		"x = True and !todo",
+		"x = True and not todo",
 		"x = todo == 1",
 		"x = 1 == todo",
 		"x = todo != \"a\"",
@@ -208,7 +208,7 @@ func TestTodo_AnOperandTodoTrapsAtTheTodo(t *testing.T) {
 		"x = \"a\" + todo",
 		"x = loud(1) * todo",
 		"x = if todo { 1 } else { 2 }",
-		"x = if !todo { 1 } else { 2 }",
+		"x = if not todo { 1 } else { 2 }",
 	}
 	for _, form := range forms {
 		t.Run(form, func(t *testing.T) {
@@ -242,7 +242,7 @@ fn main() {
 		})
 	}
 	path, _, err := runTodo(t, `fn main() {
-    _ = !todo "negate"
+    _ = not todo "negate"
 }
 `)
 	if want := "todo reached at " + path + ":2: negate"; err == nil || err.Error() != want {
@@ -257,12 +257,12 @@ func TestTodo_UntakenOperandTodosDoNotTrap(t *testing.T) {
 
 fn main() {
     a = False and todo
-    b = True or !todo
+    b = True or not todo
     c = if False { todo == 1 } else { False }
     d = if False { 1 + todo } else { 7 }
-    e = if False { !todo } else { True }
+    e = if False { not todo } else { True }
     if False {
-        if !todo {
+        if not todo {
             io.print("never")
         }
     }

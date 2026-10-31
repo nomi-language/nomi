@@ -24,7 +24,12 @@
 ">" @operator
 "<=" @operator
 ">=" @operator
-"!" @operator
+"&&&" @operator
+"|||" @operator
+"^^^" @operator
+"~~~" @operator
+"<<<" @operator
+">>>" @operator
 "=" @operator
 "->" @operator
 "#{" @punctuation.bracket
@@ -63,6 +68,8 @@
 "return" @keyword.return
 "and" @keyword.operator
 "or" @keyword.operator
+"not" @keyword.operator
+"is" @keyword.operator
 (pub) @keyword.modifier
 (export) @keyword
 "opaque" @keyword.modifier
@@ -739,8 +746,7 @@
 
 ; A postfix `!` (`Map.get(m, k)!`) can stop the program, as `unreachable`
 ; does, and a postfix `?` (`parse(s)?`) can return from it, as `return`
-; does, so both read as keywords; the catch-all `"!" @operator` above keeps
-; a prefix `!` (logical not) an operator. Last, so they win.
+; does, so both read as keywords. Last, so they win.
 (bang) @keyword
 (question) @keyword.exception
 

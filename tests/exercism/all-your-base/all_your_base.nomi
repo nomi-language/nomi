@@ -13,10 +13,9 @@ pub enum Error {
 pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error> {
     if input_base < 2 { return Err(.InvalidInputBase) }
 
-    if Iter.any(digits, fn d -> !Range.contains(0..input_base, d)) { return Err(.InvalidDigit) }
+    Some(number) = Int.from_digits(digits, input_base) else { return Err(.InvalidDigit) }
 
     if output_base < 2 { return Err(.InvalidOutputBase) }
 
-    number = Iter.reduce(digits, fn total = 0, d -> total * input_base + d)
     Ok(Int.to_digits(number, output_base))
 }
