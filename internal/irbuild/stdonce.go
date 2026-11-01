@@ -25,7 +25,7 @@ import (
 //
 // # Semantics come from rt.OnceCell
 //
-// Spec §2 gives `once` three properties (lazy, exactly-once, cycle-rejecting)
+// Spec §6 *`once` Bindings* gives `once` three properties (lazy, exactly-once, cycle-rejecting)
 // and once.go explains why no simpler Go encoding holds all three. Nothing about
 // those properties changes for a stdlib binding, so the emitted shape is
 // onceDecl's, unchanged: an RHS function, an rt.OnceCell, and an exported getter

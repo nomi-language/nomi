@@ -12,7 +12,7 @@ func TestIRAppBoot_ProgramsBootThroughTheVM(t *testing.T) {
 		name, src, want string
 		retained        []string
 	}{
-		{"capabilities-and-context.md:L13", `import {
+		{"app-fields.md:L13", `import {
   std/io
 }
 
@@ -29,7 +29,7 @@ fn main() {
   io.print("listening on :${App.port}")
 }
 `, "listening on :8080\n", []string{"boot", "main"}},
-		{"capabilities-and-context.md:L80", `import {
+		{"app-fields.md:L80", `import {
   std/io
 }
 

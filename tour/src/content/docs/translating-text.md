@@ -175,20 +175,8 @@ translation choose its own forms.
 ## What the compiler checks
 
 The compiler reads the catalogs with the program and holds each
-translation to its message. Every one of these is an error:
-
-- A locale in `locales` has no translation of a message.
-- A catalog entry names no message, a catalog belongs to no Nomi file, or
-  a catalog directory is for a locale `[i18n]` doesn't list.
-- A text uses a parameter the message doesn't have. The English text must
-  use every parameter, so a translator can see what each one is for.
-- A function is used on the wrong type, such as `:integer` on a `String`.
-- A plural `.match` is missing a category the locale needs, or an enum
-  `.match` is missing a variant.
-- A translation was made from an older English text, as
-  [When the English changes](#when-the-english-changes) shows.
-
-A Polish `cart_count` with no `few` variant gives this error:
+translation to its message. A Polish `cart_count` with no `few` variant
+gives this error:
 
 ```console
 error: pl: `cart_count` has no `few` arm; 2, 3 and 4 select `few` in Polish
@@ -206,6 +194,26 @@ every locale. In a catalog, the editor completes message names, parameter
 names after `$`, and the keys a `.match` needs. Its quick fixes add a
 missing translation (a copy of the English with every variant the locale
 needs, ready to translate) and add missing variants.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A locale in `locales` with no translation of a message is an error.
+- So is a catalog entry that names no message, a catalog that belongs to
+  no Nomi file, and a catalog directory for a locale `[i18n]` doesn't list.
+- A text may use only the message's parameters, and the English text must
+  use every one, so a translator can see what each is for.
+- A function on the wrong type, such as `:integer` on a `String`, is an
+  error, and so is a plural `.match` missing a category the locale needs or
+  an enum `.match` missing a variant.
+- A translation made from an older English text is an error, as
+  [When the English changes](#when-the-english-changes) shows.
+
+Spec: [Messages](/spec/typed-literals-and-keyword-declarations/#messages),
+[Nouns and agreement](/spec/typed-literals-and-keyword-declarations/#nouns-and-agreement),
+[What the compiler checks](/spec/typed-literals-and-keyword-declarations/#what-the-compiler-checks).
+
+</div>
 
 ## Lists, and messages inside messages
 
@@ -577,38 +585,20 @@ and these checks in full.
 
 ## The `[i18n]` settings
 
-`nomi.toml`'s `[i18n]` section takes these settings:
+`nomi.toml`'s `[i18n]` section says which locales must translate every
+message (`locales`), which may leave some out and show the source text
+instead (`partial_locales`, for a translation still being written), the
+source locale when it is not English, and where the catalogs live. English
+has no catalog: its text is in the declarations.
 
-- `source_locale`: the language of the `message` declarations' own text.
-  It is `"en"` when left out.
-- `locales`: the locales the program supports. Each must have every
-  message, in its own catalog or in a parent locale's: `pt-PT` (Portugal's
-  Portuguese) may leave out what `pt` already says.
-- `partial_locales`: locales that may leave messages out. A missing or
-  stale message shows in the source locale instead. This suits a
-  translation that is still being written.
-- `catalogs`: the directory that holds a directory of catalogs per locale.
-  It is `"locales"` when left out.
-- `web_embedded`: the locales a browser build puts in `app.wasm`, the
-  source locale when left out, as
-  [Messages in the browser](#messages-in-the-browser) explains.
-
-```toml
-# nomi.toml
-[i18n]
-source_locale = "en"
-locales = ["en", "pl", "pt", "pt-PT"]
-partial_locales = ["de"]
-catalogs = "locales"
-```
-
-With this, `cart.nomi`'s catalogs are `locales/pl/cart.toml`,
-`locales/pt/cart.toml`, `locales/pt-PT/cart.toml` (which may be left out)
-and `locales/de/cart.toml`. English has no catalog: its text is in the
-declarations. The listed locales also decide which locale data the program
-carries, as
-[Which locales a program carries](/locales-and-formatting/#which-locales-a-program-carries)
-explains.
+The same lists decide which CLDR data the program carries: only that of the
+locales it lists. A locale it didn't list formats as its nearest listed
+parent, or else in the source locale, and a ``Locale`…` `` literal of one is
+a compile error. A program with no `[i18n]` section, such as each example
+in the tour, carries every locale. [`[i18n]`](/tooling/projects/#i18n) lists
+every setting, and
+[A program's locale data](/tooling/building/#a-programs-locale-data) what a
+build carries.
 
 ## When the English changes
 
@@ -663,6 +653,7 @@ and translations to its own file beside it. Call
 before showing a page in it. Outside the browser every listed locale is in
 the program, and `Locale.load` returns `Ok(Unit)` at once.
 
-The next chapter, [FFI & Dynamic](/ffi-and-dynamic/), shows how Nomi calls
-Go code, and how to handle a value whose shape you don't know yet with
-[`Dynamic`](/reference/dynamic/).
+`web_embedded` under `[i18n]` names the locales to put in `app.wasm`
+([Locales in the browser](/tooling/building/#locales-in-the-browser)).
+
+[Files](/files/) is next. It reads and writes files.

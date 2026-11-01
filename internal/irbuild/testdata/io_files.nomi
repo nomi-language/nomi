@@ -1,7 +1,7 @@
 // std/fs's whole-file pair end to end on the disk: write, read back, and
 // io.Error variants reached by pattern.
 //
-// The path is under /tmp and is TRUNCATED FIRST, so a re-run sees the same
+// The path is under fs.temp_dir() and is TRUNCATED FIRST, so a re-run sees the same
 // starting state: each run begins by replacing the file.
 //
 // `NotFound` is reached by reading a path nothing creates. `NotADirectory` is
@@ -12,7 +12,7 @@ import {
     std/io
 }
 
-once path: String = "/tmp/nomi-io-files-fixture.txt"
+once path: String = "${fs.temp_dir()}/nomi-io-files-fixture.txt"
 
 fn describe(e: io.Error) -> String {
     case e {
@@ -40,18 +40,20 @@ test "Append appends" {
 }
 
 test "a missing file reads as NotFound carrying the path verbatim" {
-    missing = "/tmp/nomi-io-files-fixture-absent.txt"
+    missing = "${fs.temp_dir()}/nomi-io-files-fixture-absent.txt"
 
     case fs.read_text(missing) {
         Ok(_) -> assert False
-        Err(e) -> assert describe(e) == "missing:/tmp/nomi-io-files-fixture-absent.txt"
+        Err(e) -> assert describe(e) == "missing:${missing}"
     }
 }
 
 test "io.Error renders through its Display impl" {
-    case fs.read_text("/tmp/nomi-io-files-fixture-absent.txt") {
+    missing = "${fs.temp_dir()}/nomi-io-files-fixture-absent.txt"
+
+    case fs.read_text(missing) {
         Ok(_) -> assert False
-        Err(e) -> assert Display.to_string(e) == "/tmp/nomi-io-files-fixture-absent.txt: not found"
+        Err(e) -> assert Display.to_string(e) == "${missing}: not found"
     }
 }
 

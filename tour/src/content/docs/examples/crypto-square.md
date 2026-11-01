@@ -58,7 +58,7 @@ fn width(length: Int) -> Int {
 import crypto_square
 
 test "crypto square" {
-    cases = [
+    [
         #("empty plaintext results in an empty ciphertext", "", ""),
         #("normalization results in empty plaintext", "... --- ...", ""),
         #("Lowercase", "A", "a"),
@@ -80,12 +80,15 @@ test "crypto square" {
             "imtgdvs fearwer mayoogo anouuio ntnnlvt wttddes aohghn  sseoau ",
         ),
     ]
-
-    subtests cases, #(description, plaintext, expected), description {
+    |> subtests #(description, plaintext, expected), description {
         assert crypto_square.ciphertext(plaintext) == expected
     }
 }
 ```
+<!-- expect
+ok crypto square (8 cases)
+test result: ok. 8 passed, 0 failed
+-->
 
 ## How it's written
 

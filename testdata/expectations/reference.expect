@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
 records 53
-declared-cases 619
+declared-cases 632
 failing 0
 C assertions
 E 0
@@ -32,9 +32,10 @@ T ok Bits.mask
 T ok Bits.value
 C bool
 E 0
-N 1
-H c38eff71742a56683ebc1beaadb1f546559e2f2ee154e3040c583e73d9c11969
+N 2
+H 882e87e375dc61512a5334c6566a0621628331c760db4aba9a58198a23476447
 T ok enum Bool
+T ok Bool.inspect (impl Debug for Bool)
 C bytes
 E 0
 N 20
@@ -61,8 +62,11 @@ T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 55
-H fddf52fa8607229d9036151a4fa0985f7c776a0487f050f3d062744e63597e60
+N 60
+H 8c66439b27a7685e77a5d917b2183de6b1743fe26a9667a113a3e68b26562e48
+T ok type Months
+T ok type Hours
+T ok struct Date
 T ok Date.new
 T ok Date.parse
 T ok Date.days_between
@@ -100,6 +104,8 @@ T ok OffsetDateTime.with_offset
 T ok OffsetDateTime.from_instant
 T ok OffsetDateTime.parse
 T ok OffsetDateTime.between
+T ok enum Disambiguation
+T ok struct DateTime
 T ok DateTime.format
 T ok DateTime.format_fields
 T ok DateTime.to_string_with
@@ -250,8 +256,8 @@ T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 C float
 E 0
-N 36
-H e37c192160019e37c2c8397b7a48f14c9d08954718a86aa2a9eb58532d749ef4
+N 37
+H 5469ca179cc08c356fbce0347f5820c1d803aa7466666244a0a6f77259c2f6eb
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -288,6 +294,7 @@ T ok Float.parse_percent_in
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
 T ok Float.empty_product (impl Productable for Float)
+T ok Float.inspect (impl Debug for Float)
 C fs
 E 0
 N 31
@@ -352,8 +359,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 37
-H 379db86c0fa7949cd976254fd8bb7f8b78be57b1c71429d3facdd28b4f9c7492
+N 38
+H 74fd8df1728ee36d9d4838c5a7ec7b74b4599c93ad1f29dfa508c2bfb698124f
 T ok type Int
 T ok Int.to_non_zero
 T ok Int.to_positive
@@ -390,6 +397,7 @@ T ok Int.bitwise_xor (impl BitwiseXor<Int, Int> for Int)
 T ok Int.bitwise_not (impl BitwiseNot<Int> for Int)
 T ok Int.shift_left (impl ShiftLeft<Int, Int> for Int)
 T ok Int.shift_right (impl ShiftRight<Int, Int> for Int)
+T ok Int.inspect (impl Debug for Int)
 T ok PositiveInt.to_non_zero
 C io
 E 0
@@ -499,8 +507,9 @@ T ok Json.decode_as
 T ok Json.encode_as
 C lists
 E 0
-N 10
-H d538c14eb253d083c5d0f4b4849a93bc631064b418ab0fe819788ef51d009af4
+N 11
+H aae88a5d28f696e7961a49ca25c26feba0287a832e1e6008b61ed778a7d86c82
+T ok type List
 T ok List.next_item
 T ok List.concat
 T ok List.head
@@ -537,8 +546,9 @@ T ok enum NumberParseError
 T ok NumberParseError.to_string (impl Display for NumberParseError)
 C maps
 E 0
-N 15
-H 7d803e79be33b8a16cae7a6ee9921cb5ec0118c94372e8b7342684eedb24cb18
+N 16
+H 993ac2105af2efee84e9a9665cf98a9e6f16da76041e61d42351b17c45e68b65
+T ok type Map
 T ok Map.get
 T ok Map.put
 T ok Map.remove
@@ -645,13 +655,14 @@ T ok Generator.flat_map
 T ok Generator.list
 C ranges
 E 0
-N 5
-H e02e00b53deb89a471c72344bcaa5e1526f372b46e2e32dc584fa6727ba28efc
+N 6
+H d9a0d675c8bc90282c1ced311c9c778cedfad73f6ec4477a01ea657d7cb819a9
 T ok Range.from
 T ok Range.naturals
 T ok Range.step_by
 T ok Range.is_bounded
 T ok Range.contains (impl Contains for Range<T>)
+T ok Range.to_string (impl Display for Range<T>)
 C regex
 E 0
 N 4
@@ -720,18 +731,19 @@ T ok sql.with_connection
 T ok sql.close_quietly
 C sql_testing
 E 0
-N 6
-H 5b64721d49411552f149e8c0e880ddb59a077f062e88b99d56cb43b45ed7403c
+N 7
+H bb5259e82e02083b8c2ebcfed1b466fbf173aa7650d7873d800081467683c099
 T ok struct Fake
 T ok Fake.new
 T ok Fake.committed
 T ok Fake.is_closed
+T ok struct Failure
 T ok sql_testing.conformance
 T ok sql_testing.rules
 C strings
 E 0
-N 48
-H 5f38a9eced1e501430862bb0c2d6bebb503d58252473137276808c7d323c3edc
+N 49
+H eca0e1c97b0168c027ae7bf5449315b8e17773bc71f6aae4aa54c72e1122e578
 T ok String.contains Contains<String> (impl Contains<String> for String)
 T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -778,6 +790,7 @@ T ok String.to_literal
 T ok String.strip_prefix
 T ok String.strip_suffix
 T ok String.length
+T ok String.to_string (impl Display for String)
 T ok String.empty_sum (impl Summable for String)
 T ok String.inspect (impl Debug for String)
 C summable

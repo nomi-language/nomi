@@ -55,7 +55,7 @@ test "Personal best" {
 
 group "Top 3 scores" {
     test "personal top three" {
-        cases = [
+        [
             #(
                 "Personal top three from a list of scores",
                 [10, 30, 90, 30, 100, 20, 10, 0, 30, 40, 40, 70, 70],
@@ -66,8 +66,7 @@ group "Top 3 scores" {
             #("Personal top when there are less than 3", [30, 70], [70, 30]),
             #("Personal top when there is only one", [40], [40]),
         ]
-
-        subtests cases, #(description, scores, expected), description {
+        |> subtests #(description, scores, expected), description {
             assert high_scores.personal_top_three(scores) == expected
         }
     }
@@ -101,6 +100,17 @@ group "Top 3 scores" {
     }
 }
 ```
+<!-- expect
+ok List of scores
+ok Latest score
+ok Personal best
+ok Top 3 scores / personal top three (5 cases)
+ok Top 3 scores / Latest score after personal top scores
+ok Top 3 scores / Scores after personal top scores
+ok Top 3 scores / Latest score after personal best
+ok Top 3 scores / Scores after personal best
+test result: ok. 12 passed, 0 failed
+-->
 
 ## How it's written
 

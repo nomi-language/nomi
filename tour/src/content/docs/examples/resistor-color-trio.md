@@ -86,7 +86,7 @@ import {
 }
 
 test "label" {
-    cases = [
+    [
         #("Orange and orange and black", [Color.Orange, .Orange, .Black], 33, Magnitude.Ohms),
         #("Blue and grey and brown", [.Blue, .Grey, .Brown], 680, .Ohms),
         #("Red and black and red", [.Red, .Black, .Red], 2, .Kiloohms),
@@ -98,8 +98,7 @@ test "label" {
         #("First two colors make an invalid octal number", [.Black, .Grey, .Black], 8, .Ohms),
         #("Ignore extra colors", [.Blue, .Green, .Yellow, .Orange], 650, .Kiloohms),
     ]
-
-    subtests cases, #(description, bands, value, unit), description {
+    |> subtests #(description, bands, value, unit), description {
         assert resistor_color_trio.label(bands) == Some(#Resistance{value, unit})
     }
 }
@@ -109,6 +108,11 @@ test "fewer than three bands have no label" {
     assert resistor_color_trio.label([Color.Orange, .Orange]) == None
 }
 ```
+<!-- expect
+ok label (10 cases)
+ok fewer than three bands have no label
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

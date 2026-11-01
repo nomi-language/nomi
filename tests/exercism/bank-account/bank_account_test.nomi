@@ -31,7 +31,7 @@ fn run(account: Account, step: Step) -> Result<Unit, Error> {
 }
 
 test "bank account" {
-    cases = [
+    [
         #("Newly opened account has zero balance", [Step.Open], Ok(0)),
         #("Single deposit", [.Open, .Deposit(100)], Ok(100)),
         #("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
@@ -69,8 +69,7 @@ test "bank account" {
         ),
         #("Cannot deposit negative", [.Open, .Deposit(-50)], Err(.AmountNotPositive)),
     ]
-
-    subtests cases, #(description, steps, expected), description {
+    |> subtests #(description, steps, expected), description {
         assert replay(steps) == expected
     }
 }

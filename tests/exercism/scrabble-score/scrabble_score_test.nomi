@@ -1,7 +1,7 @@
 import scrabble_score
 
 test "score" {
-    cases = [
+    [
         #("lowercase letter", "a", 1),
         #("uppercase letter", "A", 1),
         #("valuable letter", "f", 4),
@@ -14,8 +14,7 @@ test "score" {
         #("empty input", "", 0),
         #("entire alphabet available", "abcdefghijklmnopqrstuvwxyz", 87),
     ]
-
-    subtests cases, #(description, word, expected), description {
+    |> subtests #(description, word, expected), description {
         assert scrabble_score.score(word) == expected
     }
 }

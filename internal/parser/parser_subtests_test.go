@@ -172,3 +172,93 @@ func TestParseSubtestsNameErrors(t *testing.T) {
 		}
 	}
 }
+
+// `rows |> subtests pattern, name { body }` is the `subtests` statement with
+// the pipe's source as its rows: a literal table, a name, or a pipeline
+// that builds the rows, whose stages stay the rows' own.
+func TestParseSubtestsStage(t *testing.T) {
+	src := "test \"t\" {\n" +
+		"  [\n    #(\"a\", 1),\n  ]\n  |> subtests #(description, n), description {\n    assert n > 0\n  }\n" +
+		"  cases |> subtests n {\n    assert n > 0\n  }\n" +
+		"  xs\n  |> Iter.map(g)\n  // the rows\n  |> subtests _ {\n    assert True\n  }\n" +
+		"}"
+	stmts := parse(t, src)[0].(*ast.TestDecl).Body.Stmts
+	if len(stmts) != 3 {
+		t.Fatalf("%d statements, want 3", len(stmts))
+	}
+	first, ok := stmts[0].(*ast.Subtests)
+	if !ok || !first.Piped {
+		t.Fatalf("statement 0: %#v, want a piped *ast.Subtests", stmts[0])
+	}
+	if first.Line != 5 || first.Col != 6 {
+		t.Errorf("subtests at %d:%d, want 5:6, the keyword", first.Line, first.Col)
+	}
+	if _, ok := first.Rows.(*ast.ListLit); !ok {
+		t.Errorf("rows: %#v", first.Rows)
+	}
+	if name, ok := first.Name.(*ast.Ident); !ok || name.Name != "description" {
+		t.Errorf("name: %#v", first.Name)
+	}
+	if span := first.GetSpan(); span.StartLine != 2 || span.StartCol != 3 || span.EndLine != 7 {
+		t.Errorf("span %+v, want it from the rows (2:3) to the body's end (line 7)", span)
+	}
+	if rows, ok := stmts[1].(*ast.Subtests).Rows.(*ast.Ident); !ok || rows.Name != "cases" {
+		t.Errorf("rows: %#v", stmts[1].(*ast.Subtests).Rows)
+	}
+	third := stmts[2].(*ast.Subtests)
+	if pipe, ok := third.Rows.(*ast.Binary); !ok || pipe.Op != "|>" {
+		t.Errorf("rows: %#v, want the pipeline before the stage", third.Rows)
+	}
+	if len(third.StageLeading) != 1 || third.StageLeading[0].Text != "// the rows" {
+		t.Errorf("stage leading trivia: %#v", third.StageLeading)
+	}
+}
+
+// After a `|>`, `subtests` is the stage's keyword only when a pattern
+// follows it after a space; a call, a bare name or a remainder (`%` with no
+// map or set pattern against it) stays an ordinary stage.
+func TestParseSubtestsStageIsAContextualKeyword(t *testing.T) {
+	stmts := parse(t, "fn f() {\n  x |> subtests(y)\n  x |> subtests\n  x |> subtests % 2\n  x |> subtests%2\n}")[0].(*ast.FuncDef).Body.Stmts
+	if len(stmts) != 4 {
+		t.Fatalf("%d statements, want 4", len(stmts))
+	}
+	for i, s := range stmts {
+		es, ok := s.(*ast.ExprStmt)
+		if !ok {
+			t.Fatalf("statement %d: %#v", i, s)
+		}
+		if pipe, ok := es.Expr.(*ast.Binary); !ok || pipe.Op != "|>" {
+			t.Errorf("statement %d: %#v, want a pipeline", i, es.Expr)
+		}
+	}
+}
+
+// A map or set pattern after the word makes it the stage's keyword.
+func TestParseSubtestsStageTakesAMapOrSetPattern(t *testing.T) {
+	src := "test \"t\" {\n  xs |> subtests %{\"a\" => n} {\n    assert n > 0\n  }\n  xs |> subtests %[n] {\n    assert n > 0\n  }\n}"
+	for i, s := range parse(t, src)[0].(*ast.TestDecl).Body.Stmts {
+		if st, ok := s.(*ast.Subtests); !ok || !st.Piped {
+			t.Errorf("statement %d: %#v, want a piped *ast.Subtests", i, s)
+		}
+	}
+}
+
+// The stage has no value: its pipeline must stand as a statement, and the
+// stage must be its last.
+func TestParseSubtestsStageErrors(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{"test \"t\" {\n  x = [1] |> subtests n {\n    assert n > 0\n  }\n}", "line 2, col 14: a `|> subtests` stage has no value, so its pipeline must be a statement of its own"},
+		{"test \"t\" {\n  f([1] |> subtests n {\n    assert n > 0\n  })\n}", "line 2, col 12: a `|> subtests` stage has no value, so its pipeline must be a statement of its own"},
+		{"test \"t\" {\n  assert [1] |> subtests n {\n    assert n > 0\n  }\n}", "line 2, col 17: a `|> subtests` stage has no value"},
+		{"test \"t\" {\n  [1]\n  |> subtests n {\n    assert n > 0\n  }\n  |> dbg\n}", "line 6, col 3: `|> subtests` must be the last stage of its pipeline: it has no value to pass on"},
+		{"test \"t\" {\n  [1] |> subtests n {\n    assert n > 0\n  } |> dbg\n}", "line 4, col 5: `|> subtests` must be the last stage of its pipeline"},
+		{"once x = [1] |> subtests n {\n  assert n > 0\n}", "line 1, col 17: a `|> subtests` stage has no value"},
+		{"test \"t\" {\n  [1] |> subtests n\n  assert True\n}", "line 2, col 10: expected '{' for the `subtests` body after its pattern"},
+	}
+	for _, tc := range cases {
+		err := parseError(t, tc.src)
+		if !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("Parse(%q) = %v, want %q", tc.src, err, tc.want)
+		}
+	}
+}

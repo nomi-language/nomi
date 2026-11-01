@@ -144,10 +144,10 @@ func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 	s.at(st, vm.StopBreakpoint, "main:5", "m: Maybe<Int> = Some(2)")
 	s.d.StepIn(st.Thread)
 	st = s.stop()
-	s.at(st, vm.StopStep, "<lambda>:6 maybe.Maybe.map<Int, Int>:54 main:5", "v: Int = 2")
+	s.at(st, vm.StopStep, "<lambda>:6 maybe.Maybe.map<Int, Int>:69 main:5", "v: Int = 2")
 	s.d.StepOver(st.Thread)
 	st = s.stop()
-	s.at(st, vm.StopStep, "<lambda>:7 maybe.Maybe.map<Int, Int>:54 main:5", "v: Int = 2, w: Int = 6")
+	s.at(st, vm.StopStep, "<lambda>:7 maybe.Maybe.map<Int, Int>:69 main:5", "v: Int = 2, w: Int = 6")
 	s.d.StepOver(st.Thread)
 	st = s.stop()
 	s.at(st, vm.StopStep, "main:9", "m: Maybe<Int> = Some(2), r: Maybe<Int> = Some(6)")
@@ -165,7 +165,7 @@ func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) 
 	s.d.StepIn(st.Thread)
 	st = s.stop()
 	frames, stack := s.stack(st.Thread)
-	if stack != "maybe.Maybe.map<Int, Int>:53 main:5" || !std.IsSourcePath(frames[0].Pos.File()) {
+	if stack != "maybe.Maybe.map<Int, Int>:68 main:5" || !std.IsSourcePath(frames[0].Pos.File()) {
 		t.Fatalf("step in from main: %s in %s", stack, frames[0].Pos.File())
 	}
 	s.d.Continue()

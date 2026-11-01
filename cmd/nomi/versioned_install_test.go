@@ -51,8 +51,8 @@ func TestVersionedInstallRunsAGoFFIProject(t *testing.T) {
 	publishModule(t, root, proxy, versionedTestVersion)
 
 	parentModCache := goEnv(t, goBin, "GOMODCACHE")
-	goProxy := fileuri.FromPath(filepath.ToSlash(proxy)) + ",file://" +
-		filepath.ToSlash(filepath.Join(parentModCache, "cache", "download"))
+	goProxy := fileuri.FromPath(proxy) + "," +
+		fileuri.FromPath(filepath.Join(parentModCache, "cache", "download"))
 	cacheRoot := filepath.Join(tmp, "nomi-cache")
 	gobin := filepath.Join(tmp, "bin")
 	env := []string{
@@ -70,6 +70,7 @@ func TestVersionedInstallRunsAGoFFIProject(t *testing.T) {
 		"GOBIN=" + gobin,
 		"GOFLAGS=-modcacherw",
 	}
+	env = withUserDirs(env)
 
 	install := exec.Command(goBin, "install", "-trimpath", "github.com/nomi-language/nomi/cmd/nomi@"+versionedTestVersion)
 	install.Dir = tmp

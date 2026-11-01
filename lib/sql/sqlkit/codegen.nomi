@@ -565,7 +565,7 @@ pub fn type_names(text: String) -> List<String> {
         }
 
         first = String.slice(t.text, 0, 1)
-        upper = first != "" and String.contains("ABCDEFGHIJKLMNOPQRSTUVWXYZ", first)
+        upper = first != "" and first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
         if t.kind == sqltext.Kind.Word and upper and before != "." {
             [t.text]
@@ -1354,10 +1354,10 @@ pub fn row_name(db: Database, table: String) -> String {
 fn is_type_name(text: String) -> Bool {
     first = String.slice(text, 0, 1)
 
-    String.contains("ABCDEFGHIJKLMNOPQRSTUVWXYZ", first)
+    first in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         and first != ""
         and Iter.all(text, fn c -> {
-            String.contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", c)
+            c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
         })
 }
 
@@ -1367,6 +1367,6 @@ fn has_valid_enum_values(values: List<String>) -> Bool {
 
     Iter.count(Iter.to_set(names)) == Iter.count(names)
         and Iter.all(names, fn n -> {
-            n != "" and not String.contains("0123456789", String.slice(n, 0, 1))
+            n != "" and not String.slice(n, 0, 1) in "0123456789"
         })
 }

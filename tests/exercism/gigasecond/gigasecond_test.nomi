@@ -4,7 +4,7 @@ import {
 }
 
 test "date only specification of time" {
-    cases = [
+    [
         #("date only specification of time", Date`2011-04-25`, NaiveDateTime`2043-01-01T01:46:40`),
         #(
             "second test for date only specification of time",
@@ -17,14 +17,13 @@ test "date only specification of time" {
             NaiveDateTime`1991-03-27T01:46:40`,
         ),
     ]
-
-    subtests cases, #(description, day, expected), description {
+    |> subtests #(description, day, expected), description {
         assert NaiveDateTime.at_midnight(day) |> gigasecond.add() == expected
     }
 }
 
 test "full time specified" {
-    cases = [
+    [
         #(
             "full time specified",
             NaiveDateTime`2015-01-24T22:00:00`,
@@ -36,8 +35,7 @@ test "full time specified" {
             NaiveDateTime`2046-10-03T01:46:39`,
         ),
     ]
-
-    subtests cases, #(description, moment, expected), description {
+    |> subtests #(description, moment, expected), description {
         assert gigasecond.add(moment) == expected
     }
 }

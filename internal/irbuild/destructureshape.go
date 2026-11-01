@@ -18,7 +18,7 @@ import (
 //	                    components are addressed by position, as `case`'s
 //	                    tupleArm matches one.
 //
-// Both are ordinary Nomi rather than corners. Spec §5's self-typing rule is why
+// Both are ordinary Nomi rather than corners. Spec §7's self-typing rule is why
 // each carries an annotation and `#Point{x, y}` does not: a pattern whose head
 // NAMES a type is its own annotation, and neither of these has a head, so Nomi
 // requires `: Type` and patternParamKind reads the kind straight off it.

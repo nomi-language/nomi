@@ -19,7 +19,7 @@ import (
 //     has one inhabitant and no instruction computes it.
 //   - `embeds` OF A WRAPPING DISTINCT unwraps. The slot holds the distinct, but
 //     the pattern must see the INNER value: the checker's contract is that the
-//     variant's payload type is the wrapped type (spec §8), so
+//     variant's payload type is the wrapped type (spec §4 *Enums (Algebraic Data Types)*), so
 //     `Identifier.UserId(name)` binds a String.
 //   - A BOXED payload is behind a pointer, because its type can reach its own
 //     container.
@@ -105,6 +105,16 @@ func (g *gen) patternHead(te ast.TypeExpr) (owner, member string, ok bool) {
 			return "", d.nomi, true
 		}
 		return "", "", false
+	case *ast.QualifiedType:
+		// `Civil.Days(n)`: a namespaced type registered under its whole
+		// dotted name is the head itself, as `Duration(n)` is, not a
+		// variant of `Civil`.
+		if t.Member != nil {
+			whole := t.Module + "." + t.Member.TypeString()
+			if _, found := g.types[whole]; found {
+				return "", whole, true
+			}
+		}
 	}
 	return patternHeadAsWritten(te)
 }

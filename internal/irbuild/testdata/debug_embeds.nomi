@@ -9,7 +9,7 @@
 // behaves as the embedded type at the value level". At that call site
 // `foreignIfaceCall` scored candidates with `argsFit`, which accepts an exact
 // kind match OR `g.widens`, and `widens` is TRUE for an `embeds` subtype (spec
-// §8: `Worker ≤ Node`). So `Debug.inspect(w)` with `w: Worker` matched BOTH
+// §4 *Enums (Algebraic Data Types)*: `Worker ≤ Node`). So `Debug.inspect(w)` with `w: Worker` matched BOTH
 // `impl Debug for Worker` (exactly) and `impl Debug for Node` (by widening),
 // the arm refused `ambiguous interface call`, and `buildImpls`' `g.speculate`
 // DISCARDED that refusal — silently dropping the whole synthesized impl, so
@@ -22,7 +22,7 @@
 //
 // # Why this file has THREE embedded shapes and not one
 //
-// Spec §7 gives `embeds` three embedded shapes: a struct (`Worker`), a
+// Spec §4 gives `embeds` three embedded shapes: a struct (`Worker`), a
 // zero-sized distinct (`Expired`) and a wrapping distinct (`UserId`). Each arm
 // delegates to the embedded type's own Debug — the wrapping distinct's arm
 // rebuilds the `UserId` from the inner value its pattern binds — so each
@@ -31,7 +31,7 @@
 //
 // # TWO widening rivals, not one, and that is the discrimination
 //
-// `Worker` is embedded in `Node` AND in `Other` — legal per §7 ("The embedded
+// `Worker` is embedded in `Node` AND in `Other` — legal per §4 ("The embedded
 // type exists independently — it can appear in multiple enums"). So
 // `Debug.inspect(w)` has THREE candidates: one exact and TWO widened. A fix
 // that merely broke the tie by taking the first match would pass a

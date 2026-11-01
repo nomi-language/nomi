@@ -291,7 +291,13 @@ func TestProgramStd_AnEditedModuleRunsWhereverItsCodeSits(t *testing.T) {
 		}
 		src := string(embedded)
 		lines := strings.SplitAfter(src, "\n")
-		middle := strings.Join(lines[:len(lines)/2], "") + "\n\n\n\n" + strings.Join(lines[len(lines)/2:], "")
+		// The lines go in at the first blank line past the middle, so they
+		// never split a doc comment or a `//!` prompt in two.
+		at := len(lines) / 2
+		for at < len(lines) && strings.TrimSpace(lines[at]) != "" {
+			at++
+		}
+		middle := strings.Join(lines[:at], "") + "\n\n\n\n" + strings.Join(lines[at:], "")
 		for name, edited := range map[string]string{
 			"as written":      src,
 			"moved down one":  "\n" + src,

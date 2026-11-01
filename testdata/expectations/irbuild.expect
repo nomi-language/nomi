@@ -4058,7 +4058,7 @@ T user:bob
 T anonymous
 T 42
 T
-C internal/irbuild/testdata/case_embeds.nomi@68f10fc01153dfb0
+C internal/irbuild/testdata/case_embeds.nomi@0f5a49161553a2b3
 E 0
 N 0
 H 6d5675b74f074dbbe13288d75c8572078b63cbeae1c101c65c4fc7ee7abc275e
@@ -4201,7 +4201,7 @@ T     assert Ok(_) = testing.check(find_name(2))
 T     actual: Err(#AssertionFailure{actual: Some("None"), binding: None, details: [], expression: "find_name(2)", keyword: "check", line: 34, reason: "check failed", subtests: [], values: []})
 T test result: FAILED. 1 passed, 1 failed
 T
-C internal/irbuild/testdata/closures.nomi@ce78191c769f89e5
+C internal/irbuild/testdata/closures.nomi@ecfdf944c921cfe0
 E 0
 N 0
 H 25d012262fac8b5938000c78ab41c841718527771532ed4ac2f5f82ee20ce422
@@ -4562,7 +4562,7 @@ T       m
 T         = Meters(7)
 T test result: FAILED. 1 passed, 6 failed
 T
-C internal/irbuild/testdata/debug_embeds.nomi@697eb0d9f531ea4c
+C internal/irbuild/testdata/debug_embeds.nomi@6600e0fbd5ae33e0
 E 1
 N 0
 H eedbd531a35f81e7d4d9f99933f2adaa0e00d4e0a2872078215067d82a49f3d9
@@ -5681,7 +5681,7 @@ T   default ran
 T   default ran
 T test result: ok. 4 passed, 0 failed
 T
-C internal/irbuild/testdata/io_files.nomi@cfd1cbfb8395b7fb
+C internal/irbuild/testdata/io_files.nomi@140234acbfe8806a
 E 0
 N 0
 H dd8356d4f779f2137b3891009fadf347eca97c9da12145fedc6cbda1478172f5
@@ -6034,7 +6034,7 @@ T True
 T False
 T True
 T
-C internal/irbuild/testdata/lambda_defaults.nomi@0e9405c60e709ff6
+C internal/irbuild/testdata/lambda_defaults.nomi@85305d2891dade90
 E 0
 N 0
 H 975c064449e1607fb8ca19bdb6a5cd2841b7bacd932d9e6dcd8753931d68528f
@@ -6063,7 +6063,7 @@ T unread: 3
 T unread: [2, 4]
 T unread: 103
 T
-C internal/irbuild/testdata/lambda_destructure.nomi@edc3f6808331b86a
+C internal/irbuild/testdata/lambda_destructure.nomi@d5def3f7b37cb4fa
 E 0
 N 0
 H f4889ca71318254e95371aa7d9921d4427ba29c7a1fb55a77a65f824c2feadd9
@@ -6129,7 +6129,7 @@ T Less
 T T
 T T
 T
-C internal/irbuild/testdata/list_embeds.nomi@48f28023c8fed914
+C internal/irbuild/testdata/list_embeds.nomi@18d7a471cb4ab0d2
 E 0
 N 0
 H d025419582c7d590669cbafca1fc9958c75311a95f55cf0c99e819d55a0fa348
@@ -6480,7 +6480,7 @@ T chained = 30
 T total = 19
 T widened = 0
 T
-C internal/irbuild/testdata/nested_fn.nomi@410f55afe90660f0
+C internal/irbuild/testdata/nested_fn.nomi@55e8dc706fb7c977
 E 0
 N 0
 H 854e8c229fe9801a0407c7e19d5faa133586fdcbead06c874856ed97bc16d749
@@ -9763,7 +9763,7 @@ T     assert [a, b] = ["one"]
 T     actual: ["one"]
 T test result: FAILED. 2 passed, 2 failed
 T
-C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@ea043016e6e4a74b
+C tests/01-foundations/inline_annotations/inline_annotations_test.nomi@bc3f082b625cc362
 E 0
 N 0
 H 5021b367003179fc2b49a2322a84aea55c7880ec1461fcbec43b7bf84f8e5451
@@ -9776,7 +9776,7 @@ T ok <dir>/inline_annotations_test.nomi :: annotation mismatches are rejected
 T ok <dir>/inline_annotations_test.nomi :: annotated bindings expose the annotated hover signature
 T test result: ok. 7 passed, 0 failed
 T
-C tests/01-foundations/once_bindings/once_bindings_test.nomi@3d14f96b1a3e4072
+C tests/01-foundations/once_bindings/once_bindings_test.nomi@0687d9ed679dcafa
 E 0
 N 0
 H 35398e1f58e3d2d2065c10f2038e7159668120627ce6f971296cf5d79500ed31
@@ -9846,7 +9846,7 @@ T ok <dir>/naive_datetime_test.nomi :: naive datetime differences return duratio
 T ok <dir>/naive_datetime_test.nomi :: naive datetime construction validates component combinations
 T test result: ok. 10 passed, 0 failed
 T
-C tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi@f7f01c20fa357799
+C tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi@eac178b79da585d7
 E 0
 N 0
 H 755efa6e91cbf37cee6da132c48d6e12561cac0d96d35acda66e76d8a59e8535
@@ -9856,7 +9856,7 @@ T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameters match by f
 T ok <dir>/anonymous_structs_test.nomi :: anonymous struct parameter mismatches report diagnostics
 T test result: ok. 4 passed, 0 failed
 T
-C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@e61f2754952c22b1
+C tests/07-structs-and-enums/struct_spread/struct_spread_test.nomi@9861344e28155d0c
 E 0
 N 0
 H 92bd0d2641b7a03171076b0eb9cd1cf113633622fe3964569279c3ae641cb339
@@ -9885,7 +9885,7 @@ T ok <dir>/struct_spread_test.nomi :: ordinary construction is not a patch
 T ok <dir>/struct_spread_test.nomi :: a spread with no fields is rejected
 T test result: ok. 23 passed, 0 failed
 T
-C tests/09-functions-and-control-flow/call_semantics_test.nomi@6d8438e7b21b9043
+C tests/09-functions-and-control-flow/call_semantics_test.nomi@c7701adbe94fe29f
 E 0
 N 0
 H cd1ef70afeeadd6e49dfb427623801901d9c8e1075fabcc7af411addf41331aa
@@ -9914,7 +9914,7 @@ H 35acb010380e426fc3b27cc2e71d0bbda566f541b00832d9e8a3a77839c69ee2
 T ok <dir>/generics_test.nomi :: generic structs enums interfaces and functions preserve types
 T test result: ok. 1 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi@38b656924774b8c8
+C tests/11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi@7d9beb3eb9b81df3
 E 0
 N 0
 H 06b4791bfbd074593fb0d61aa7018e23008fe76120aeb437fb42ab7dc805b2ec
@@ -9933,7 +9933,7 @@ T ok <dir>/interface_defaults_test.nomi :: interface method-local generics must 
 T ok <dir>/interface_defaults_test.nomi :: derive where clauses reject unsatisfied receiver arguments
 T test result: ok. 13 passed, 0 failed
 T
-C tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi@2295670e3caa03f1
+C tests/11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi@4b065dc823af7c57
 E 0
 N 0
 H a25ade1c072643689d8df8e46de85effcbc3d2816153227f5188cf3b80cbfdce
@@ -10014,7 +10014,7 @@ T [INFO] hello, Ada
 T [WARN] config checked
 T console ready
 T
-C tests/16-concurrency/supervisors/supervisors_test.nomi@24b41c7ebf3bd191
+C tests/16-concurrency/supervisors/supervisors_test.nomi@3f20e39c824c30c6
 E 0
 N 0
 H d2caeccdfc0a9c5e2d9a1ecff6e49c162eb0c8e7eaa586b4fe9f2ddebefe06fe
@@ -10026,7 +10026,7 @@ T ok <dir>/supervisors_test.nomi :: named task groups / cancelling one grouped t
 T ok <dir>/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
 T test result: ok. 6 passed, 0 failed
 T
-C tests/17-typed-literals/toml_literal_test.nomi@a24f9fc605126db5
+C tests/17-typed-literals/toml_literal_test.nomi@be2a820d43ab7e97
 E 0
 N 0
 H bc232debfbea660082a06b48cca94f25007741cabc79200e23b77499167ba249

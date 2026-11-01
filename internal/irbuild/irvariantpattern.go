@@ -140,7 +140,7 @@ func irRecordAlternatives(p *ast.OrPattern) bool {
 // payloadPatternKind is the kind the checker types a single-payload
 // variant's payload pattern against. An `embeds` of a distinct over a value
 // (`type UserId String`, `type Wrapped Circle`) matches the distinct's inner
-// value (spec §8), so `Shape.Wrapped(#{r})` is a struct pattern over Circle.
+// value (spec §4 *Enums (Algebraic Data Types)*), so `Shape.Wrapped(#{r})` is a struct pattern over Circle.
 // Every other payload matches its own kind.
 func payloadPatternKind(v *variantDef) kind {
 	if irEmbedsValueDistinct(v) {

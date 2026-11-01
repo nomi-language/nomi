@@ -222,6 +222,11 @@ test "invalid records" {
     }
 }
 ```
+<!-- expect
+ok build tree (7 cases)
+ok invalid records (9 cases)
+test result: ok. 16 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -50,7 +50,7 @@ pub enum Slot<T> {
 }
 `
 
-// A top-level declaration without `pub` is private to its file (spec §3).
+// A top-level declaration without `pub` is private to its file (spec §14 *Visibility*).
 // Each spelling below names another file's private type or interface and
 // must be rejected with the same message a private function gets. Before
 // this check every type spelling here passed `nomi check`, and the IR builder

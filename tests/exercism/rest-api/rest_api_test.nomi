@@ -38,7 +38,7 @@ group "user management" {
 }
 
 test "iou" {
-    cases = [
+    [
         #(
             "both users have 0 balance",
             adam_and_bob,
@@ -76,8 +76,7 @@ test "iou" {
             `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`,
         ),
     ]
-
-    subtests cases, #(description, database, payload, expected), description {
+    |> subtests #(description, database, payload, expected), description {
         assert Ok(api) = RestApi.new(database)
         assert Ok(#(answer, _api)) = RestApi.post(api, "/iou", payload)
         assert Ok(wanted) = Json.decode_as<Users>(expected)

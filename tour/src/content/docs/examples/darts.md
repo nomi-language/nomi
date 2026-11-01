@@ -31,7 +31,7 @@ pub fn score(x: Float, y: Float) -> Int {
 import darts
 
 test "scores a toss" {
-    cases = [
+    [
         #("Missed target", #(-9.0, 9.0), 0),
         #("On the outer circle", #(0.0, 10.0), 1),
         #("On the middle circle", #(-5.0, 0.0), 5),
@@ -46,12 +46,15 @@ test "scores a toss" {
         #("Just outside the outer circle", #(7.1, -7.1), 0),
         #("Asymmetric position between the inner and middle circles", #(0.5, -4.0), 5),
     ]
-
-    subtests cases, #(description, #(x, y), expected), description {
+    |> subtests #(description, #(x, y), expected), description {
         assert darts.score(x, y) == expected
     }
 }
 ```
+<!-- expect
+ok scores a toss (13 cases)
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

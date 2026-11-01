@@ -121,7 +121,7 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
 }
 
 test "circular buffer" {
-    cases = [
+    [
         #("reading empty buffer should fail", 1, [Step.ReadFails]),
         #("can read an item just written", 1, [.Write(1), .Read(1)]),
         #("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
@@ -184,12 +184,15 @@ test "circular buffer" {
             ],
         ),
     ]
-
-    subtests cases, #(description, capacity, steps), description {
+    |> subtests #(description, capacity, steps), description {
         assert replay(capacity, steps) == steps
     }
 }
 ```
+<!-- expect
+ok circular buffer (14 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -221,6 +221,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	}
 	golden := readOutcomes(t, builtinGoldenPath)
 	dir := t.TempDir()
+	quotedDir := strings.Trim(strconv.Quote(dir), `"`)
 	existing := filepath.Join(dir, "in.txt")
 	binary := filepath.Join(dir, "binary.dat")
 	if err := os.WriteFile(binary, []byte("ok\xff"), 0o644); err != nil {
@@ -431,7 +432,9 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			continue
 		}
 		for n, args := range cases[key] {
-			label := strings.ReplaceAll(fmt.Sprintf("%s#%d%s", key, n, hostArgText(args)), dir, "<dir>")
+			// A string argument is quoted, so a Windows dir's `\` is doubled.
+			label := strings.ReplaceAll(fmt.Sprintf("%s#%d%s", key, n, hostArgText(args)), quotedDir, "<dir>")
+			label = strings.ReplaceAll(label, dir, "<dir>")
 			// The cases on files were recorded on a Unix file system: its
 			// modes, its error texts and paths that come back with dir's
 			// spelling. Windows answers each differently.
@@ -447,7 +450,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			case !recorded:
 				t.Errorf("%s: no recorded outcome", label)
 				continue
-			case text != want:
+			case text != want && !(transcendental[key] && withinOneULP(want, text)):
 				t.Errorf("%s:\n  recorded %s\n  adapter  %s", label, want, text)
 				continue
 			}
@@ -507,5 +510,51 @@ func TestRtFuncs_ContextRowsConvertRtsContext(t *testing.T) {
 	text := canonText(left, true)
 	if err != nil || !strings.HasPrefix(text, "maybe.Maybe/4.Some{0=duration.Duration/5{") {
 		t.Errorf("deadline_remaining(bounded) answered %s, %v", text, err)
+	}
+}
+
+// transcendental names the Float functions whose result Go's math package
+// may round differently by one unit in the last place on another
+// architecture (an amd64 exp against the arm64 one the outcomes were
+// recorded on). sqrt is exactly rounded everywhere, so it is compared
+// exactly, as is every other row.
+var transcendental = map[string]bool{
+	"float.Float.exp": true, "float.Float.log": true, "float.Float.log2": true,
+	"float.Float.log10": true, "float.Float.sin": true, "float.Float.cos": true,
+	"float.Float.tan": true, "float.Float.pow": true, "float.Float.atan2": true,
+}
+
+// withinOneULP reports whether two recorded outcomes are both Float values,
+// written `value Float(0x<bits>)`, whose bits are at most one apart.
+func withinOneULP(want, got string) bool {
+	var a, b uint64
+	if _, err := fmt.Sscanf(want, "value Float(0x%x)", &a); err != nil {
+		return false
+	}
+	if _, err := fmt.Sscanf(got, "value Float(0x%x)", &b); err != nil {
+		return false
+	}
+	if a > b {
+		a, b = b, a
+	}
+	return b-a <= 1
+}
+
+// The amd64 exp of -8.0 is one unit in the last place from the arm64 one
+// the outcomes were recorded on; two units, or a trap against a value, are
+// still a difference.
+func TestWithinOneULP(t *testing.T) {
+	for _, c := range []struct {
+		want, got string
+		same      bool
+	}{
+		{"value Float(0x3f35fc21041027ad)", "value Float(0x3f35fc21041027ac)", true},
+		{"value Float(0x3f35fc21041027ad)", "value Float(0x3f35fc21041027ae)", true},
+		{"value Float(0x3f35fc21041027ad)", "value Float(0x3f35fc21041027ab)", false},
+		{"value Float(0x3f35fc21041027ad)", "trap overflow", false},
+	} {
+		if got := withinOneULP(c.want, c.got); got != c.same {
+			t.Errorf("withinOneULP(%q, %q) = %v, want %v", c.want, c.got, got, c.same)
+		}
 	}
 }

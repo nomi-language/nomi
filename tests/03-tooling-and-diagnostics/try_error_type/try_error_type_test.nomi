@@ -1,4 +1,4 @@
-// `?` may not launder the error type. Spec §9's boundary rule has three
+// `?` may not launder the error type. Spec §11's boundary rule has three
 // parts and all three are checked at the `?`, naming both sides:
 //
 //   1. the boundary must be a `Result` or a `Maybe` at all;

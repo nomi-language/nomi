@@ -49,7 +49,7 @@ pub fn decode(encoded: String) -> String {
 import run_length_encoding
 
 test "run-length encode a string" {
-    cases = [
+    [
         #("empty string", "", ""),
         #("single characters only are encoded without count", "XYZ", "XYZ"),
         #("string with no single characters", "AABBBCCCC", "2A3B4C"),
@@ -61,14 +61,13 @@ test "run-length encode a string" {
         #("multiple whitespace mixed in string", "  hsqq qww  ", "2 hs2q q2w2 "),
         #("lowercase characters", "aabbbcccc", "2a3b4c"),
     ]
-
-    subtests cases, #(description, text, expected), description {
+    |> subtests #(description, text, expected), description {
         assert run_length_encoding.encode(text) == expected
     }
 }
 
 test "run-length decode a string" {
-    cases = [
+    [
         #("empty string", "", ""),
         #("single characters only", "XYZ", "XYZ"),
         #("string with no single characters", "2A3B4C", "AABBBCCCC"),
@@ -80,8 +79,7 @@ test "run-length decode a string" {
         #("multiple whitespace mixed in string", "2 hs2q q2w2 ", "  hsqq qww  "),
         #("lowercase string", "2a3b4c", "aabbbcccc"),
     ]
-
-    subtests cases, #(description, encoded, expected), description {
+    |> subtests #(description, encoded, expected), description {
         assert run_length_encoding.decode(encoded) == expected
     }
 }
@@ -92,6 +90,12 @@ test "encode and then decode" {
     assert text |> run_length_encoding.encode() |> run_length_encoding.decode() == text
 }
 ```
+<!-- expect
+ok run-length encode a string (6 cases)
+ok run-length decode a string (6 cases)
+ok encode and then decode
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

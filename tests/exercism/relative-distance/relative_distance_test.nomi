@@ -113,7 +113,7 @@ once split_family = %{
 }
 
 test "degree of separation" {
-    cases = [
+    [
         #(
             "Direct parent-child relation",
             %{"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
@@ -146,8 +146,7 @@ test "degree of separation" {
             Some(12),
         ),
     ]
-
-    subtests cases, #(description, tree, from, to, expected), description {
+    |> subtests #(description, tree, from, to, expected), description {
         assert relative_distance.degree_of_separation(tree, from, to) == expected
     }
 }

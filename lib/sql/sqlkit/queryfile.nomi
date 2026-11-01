@@ -513,7 +513,7 @@ fn skip_spaces(chars: Vector<String>, i: Int) -> Int {
 }
 
 fn is_name_char(c: String) -> Bool {
-    c != "" and String.contains("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+    c != "" and c in "abcdefghijklmnopqrstuvwxyz0123456789_"
 }
 
 fn is_space(c: String) -> Bool {

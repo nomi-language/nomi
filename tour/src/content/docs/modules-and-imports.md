@@ -65,12 +65,47 @@ That imports `Shape`, `Circle` and `Rectangle`. `self` means whatever is
 before the `.{`. So `import std/calendar.{self, Date}` imports both the file
 `calendar` and the type `Date`.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- An imported name nothing uses is an error, item by item:
+  `imported name 'Months' is unused — remove it from the import`.
+- Importing a name the prelude already gives you is an error too:
+  `import std/iter.Iter` is
+  `imported name 'Iter' is already in scope from the prelude — remove it from the import`.
+- A variant comes in through its enum: `import shape.Circle` is an error
+  that suggests `import shape.Shape.{Circle}`.
+- Braces select names from one file. `import std/{io, regex.Regex}` is an
+  error, and `import std` alone names no file.
+- Imports come first in a file. An import at the top of a block binds its
+  names in that block only.
+
+Spec: [Import forms](/spec/files-modules-and-imports/#import-forms),
+[Unused imports are errors](/spec/files-modules-and-imports/#unused-imports-are-errors),
+[Re-importing a prelude name is an error](/spec/files-modules-and-imports/#re-importing-a-prelude-name-is-an-error).
+
+</div>
+
 ## Declaration order and cycles
 
 A file can use a name declared anywhere in it or in any file it imports, in
 any order. You don't need to declare anything ahead of time. Two files can
 even import each other. That works, though it may mean the code should be
 split differently.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A `once` whose initializer ends up reading its own value traps when the
+  program runs, whichever files the cycle passes through.
+- A `fn` nested in a body is the exception to "any order": it is visible
+  only below its declaration, so nested functions can't call each other in
+  a cycle.
+
+Spec: [Cyclic imports](/spec/files-modules-and-imports/#cyclic-imports),
+[Resolution and declaration order](/spec/declarations-and-scope/#resolution-and-declaration-order).
+
+</div>
 
 ## Files and modules
 
@@ -173,6 +208,26 @@ so are they.
 Other functions take `pub` one by one, like any declaration. A file can't add
 functions to a type declared in another file. To give another file's type new
 behavior, implement an interface for it.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A `pub` declaration can't expose a private type. A `pub fn` that returns
+  a private `Secret` is `function return exposes private type Secret`, and
+  the same holds for parameters, fields, `embeds`, aliases and `pub once`.
+  A `pub opaque` type is the exception, since nothing outside reaches its
+  contents.
+- A file may still pass its private type to another file's generic
+  function. Only its own file can name it.
+- A file qualifier is not a value: `x = io` is `` `io` is a file, not a value ``.
+- A function in an `impl` block is reached through its type, never its
+  file: `duration.seconds(1)` is an error whose help names
+  `Duration.seconds`.
+
+Spec: [Visibility](/spec/files-modules-and-imports/#visibility),
+[Visibility consistency](/spec/files-modules-and-imports/#visibility-consistency).
+
+</div>
 
 ## Opaque types
 
@@ -292,6 +347,20 @@ the same kind of name as the original: snake_case for a function, such as
 declaration of your own public under another name, rename it, or write a
 small function that calls it.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- `self` after a type re-exports the type:
+  `pub import std/bool.Bool.{self, False, True}` is allowed. `self` after a
+  file would re-export the file, which is an error.
+- A file that a facade imports is not one of the facade's items.
+  `import facade.{leaf}` is an error that says to import `leaf` directly.
+- A re-exported item counts as used, so it needs no other use in the file.
+
+Spec: [Re-exporting imported names](/spec/files-modules-and-imports/#re-exporting-imported-names).
+
+</div>
+
 ## Nomi modules
 
 A directory with a `nomi.toml` is a Nomi module, and the files under it import
@@ -302,75 +371,23 @@ A module that uses other modules, or that you publish for others to use, also
 has a `go.mod` file. Nomi publishes and downloads modules the same way Go
 does, so it keeps Go's file to give the module's full name and list the
 modules it uses. You don't need Go installed, and you don't edit `go.mod`
-yourself: `nomi` writes it. Start a project with `nomi new` and the module's
-full name, which is usually the address of its repository:
+yourself: `nomi` writes it.
 
-```console
-$ nomi new github.com/you/myproject
-wrote myproject/nomi.toml, myproject/go.mod and myproject/main.nomi
-next: cd myproject && nomi run main.nomi
-```
+- `nomi new github.com/you/myproject` starts a project in a new directory,
+  and `nomi init` makes the current directory one.
+- `nomi add github.com/user/somelib` adds a dependency, downloading it and
+  recording its checksum in `go.sum`. `nomi add ../shared` adds a module
+  beside yours by its directory.
+- `nomi remove` and `nomi update` take one out or move it to a newer
+  release, and `nomi fetch` downloads everything ahead of time.
 
-The project's short name is the last part of the full name, `myproject`.
-The `go.mod` it writes holds the full name and the Go version:
+The tooling reference's [Modules and dependencies](/tooling/modules-and-dependencies/)
+covers each command, versions and working offline.
 
-```gomod
-module github.com/you/myproject
-
-go 1.27.0
-```
-
-To make a directory that already holds your files a project, run `nomi init`
-in it with the full name. It writes the `nomi.toml` and `go.mod` the
-directory lacks and no source file, lists each file with a `fn main` as an
-entry point, and never replaces a file. A directory that already has a
-`go.mod` needs no name, since `go.mod` holds it:
-
-```console
-$ nomi init github.com/you/myproject
-wrote nomi.toml and go.mod
-next: nomi run main.nomi
-```
-
-`nomi.toml` describes the Nomi side of the module: its short name and its
-entry points. `go.mod` lists its **dependencies**, the other modules it uses.
-Commit `go.mod` and `go.sum` with your code. To add a dependency, run `nomi
-add` with the module's full name:
-
-```console
-$ nomi add github.com/user/somelib
-```
-
-`nomi add` does this:
-
-- It adds the module to `go.mod`, at its latest release. To pick a version,
-  write it after an `@`: `nomi add github.com/user/somelib@v1.2.0`.
-- It downloads the module from the Go module proxy, the public server that
-  Go uses to hand out published modules.
-- It writes the module's checksum to `go.sum`. A checksum is a fingerprint of
-  the module's files. A later download that doesn't match it is refused, so
-  everyone who builds the project gets the same code.
-
-A module that isn't published, such as one beside your project, is added by
-its directory. The path starts with `./` or `../`:
-
-```console
-$ nomi add ../shared
-added example.com/shared from ../shared (module shared; import shared)
-```
-
-`go.mod` then requires the module and points it at that directory:
-
-```gomod
-require example.com/shared v0.0.0
-
-replace example.com/shared => ../shared
-```
-
-This example holds both projects: `app`, which runs, and `shared` beside
-it, which `app` added this way. `app/main.nomi` imports the function `greet`
-from `shared`'s file `shared.nomi`. Change the greeting in `shared.nomi` and
-run it again.
+This example holds two projects: `app`, which runs, and `shared` beside it,
+which `app` added with `nomi add ../shared`. `app/main.nomi` imports the
+function `greet` from `shared`'s file `shared.nomi`. Change the greeting in
+`shared.nomi` and run it again.
 
 ```nomi-run
 // FILE: app/main.nomi
@@ -416,35 +433,12 @@ go 1.27.0
 Hello, Ada!
 -->
 
-Two more commands change the list:
-
-- `nomi remove github.com/user/somelib` takes a dependency out of `go.mod`
-  and `go.sum`. It refuses while a file still imports it, and names the file.
-- `nomi update` moves every dependency to its latest release, and `nomi
-  update github.com/user/somelib` moves one. It prints each change, such as
-  `github.com/user/somelib v1.2.0 -> v1.3.0`. A new major version has a new
-  full name ending in `/v2`, so `nomi update` never takes it; add it with
-  `nomi add github.com/user/somelib/v2`.
-
-Other commands download dependencies too:
-
-- `nomi run`, `nomi test`, `nomi check` and `nomi build` download any
-  dependency in `go.mod` that isn't on your machine yet.
-- `nomi fetch` downloads everything the project needs ahead of time, for
-  example before you go offline.
-- `--offline`, given to any of these commands, downloads nothing. A
-  dependency that isn't on your machine is then an error that names it.
-
 To import a dependency's files, start the path with its short name, the
 `name` in its `nomi.toml`. If `somelib`'s `nomi.toml` says
 `name = "somelib"`, then `import somelib/parse` imports its file
 `parse.nomi`. `import somelib` alone imports the file at its root that has
 the module's name, `somelib.nomi`. If your own module also has a file
 named `somelib.nomi`, the import still means the dependency's file.
-
-To publish a module, push a version tag such as `v0.1.0` to its public
-repository. The Go module proxy then serves that version to anyone who adds
-the module.
 
 A Nomi module is built on a Go module, which is why both use the word
 "module".
@@ -515,7 +509,7 @@ Any file can write ordinary functions that take an imported type. But it
 can't add a function, field or variant to that type, or an impl the orphan
 rule forbids.
 
-The next chapter, [App Fields, Defer & Context](/capabilities-and-context/),
+The next chapter, [App Fields, Defer & Context](/app-fields/),
 shows how to give code things like a logger or a config without global
 variables. It covers app fields, replacing one with `with App.field = value`,
 cleanup with `defer`, and contexts.

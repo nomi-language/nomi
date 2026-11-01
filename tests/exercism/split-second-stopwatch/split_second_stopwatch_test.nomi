@@ -60,7 +60,7 @@ fn command(watch: Stopwatch, step: Step) -> #(Step, Stopwatch) {
 }
 
 test "split second stopwatch" {
-    cases = [
+    [
         #("new stopwatch starts in ready state", [Step.IsIn(.Ready)]),
         #("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration`0s`)]),
         #("new stopwatch's total has no elapsed time", [.Total(Duration`0s`)]),
@@ -233,8 +233,7 @@ test "split second stopwatch" {
             ],
         ),
     ]
-
-    subtests cases, #(description, steps), description {
+    |> subtests #(description, steps), description {
         assert replay(steps) == steps
     }
 }

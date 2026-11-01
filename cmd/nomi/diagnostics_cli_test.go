@@ -457,16 +457,23 @@ func TestDiagnostics_AnOrphanImplInAnotherModuleNamesItsFile(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "fx", "go.mod"), "module fx\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(dir, "fx", "rate.nomi"), "pub struct Rate {\n    per_unit: Int\n}\n\nimpl Display for Bool {\n    fn to_string(_b: Bool) -> String {\n        \"b\"\n    }\n}\n")
 
-	want := "fx/rate.nomi:6:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules fx/rate, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
-		"fx/rate.nomi:6:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"fx\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n"
-	// A path outside the working directory is printed whole.
+	// The file is printed as a path of the system, the module by its name.
+	file := filepath.Join("fx", "rate.nomi")
+	want := file + ":6:8: duplicate impl: `Display` is implemented for `bool.Bool` by modules fx/rate, std/bool (function `to_string`); a type implements an interface once at each set of type arguments\n" +
+		file + ":6:8: orphan impl: `Display` (declared in module \"std\") for `Bool` (declared in module \"std\") cannot be implemented in module \"fx\" (function `to_string`): the interface, the implementing type, or a type heading a type argument the interface's functions take must be declared in the implementing module\n"
+	// A path outside the working directory is printed whole. On macOS the
+	// temporary directory is printed resolved (/private/var/...); on Windows
+	// as the test spells it, whose short names (RUNNER~1) EvalSymlinks
+	// expands.
 	real, err := filepath.EvalSymlinks(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, cmd := range []string{"run", "check"} {
 		o := runProcess(t, env, filepath.Join(dir, "app"), "", nomiBin, cmd, "main.nomi")
-		if got := strings.ReplaceAll(o.stderr, real+string(filepath.Separator), ""); o.exit != 1 || got != want {
+		got := strings.ReplaceAll(o.stderr, real+string(filepath.Separator), "")
+		got = strings.ReplaceAll(got, dir+string(filepath.Separator), "")
+		if o.exit != 1 || got != want {
 			t.Errorf("nomi %s: exit %d\nstdout:\n%s\nstderr:\n%s\nwant stderr (under the temporary directory):\n%s", cmd, o.exit, o.stdout, o.stderr, want)
 		}
 	}

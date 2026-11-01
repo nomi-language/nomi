@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Spec §8 *Type Narrowing*: only an embedded struct or distinct type narrows.
+// Spec §10 *Type Narrowing*: only an embedded struct or distinct type narrows.
 // Bool's `embeds True` names a host singleton, and the prelude's and a user's
 // plain, payload and struct-shaped variants (a plain one named like a type
 // included) have no type of their own, so a

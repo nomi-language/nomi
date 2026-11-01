@@ -492,6 +492,15 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 			}
 		}
 	}
+	switch bound.Name {
+	case "Equatable", "Hashable", "Comparable":
+		if part, none := c.noEqualityPart(concrete, map[Type]bool{}); none {
+			if part == resolveTypeVar(concrete) {
+				return fmt.Sprintf("%s has no equality", noEqualityWhat(part))
+			}
+			return fmt.Sprintf("`%s` holds `%s`, and %s has no equality", name, part, noEqualityWhat(part))
+		}
+	}
 	ownsType := programDeclares(concrete)
 	if !ownsType && IsStdlibKey(bound.Origin) {
 		origin, _ := nominalOrigin(resolveTypeVar(concrete))
@@ -732,8 +741,8 @@ func boundAt(bound *InterfaceType, param string, concrete Type) *InterfaceType {
 
 // formatRecordingVia renders the demand-site kind in user-relevant
 // terms. For derive-sourced Recordings, unpacks the DeriveCtx into the
-// "via" clause naming the @derive interface, the type, and (when known)
-// the offending field.
+// "via" clause naming the derive declaration and (when known) the
+// offending field.
 func formatRecordingVia(rec Recording) string {
 	switch rec.Kind {
 	case RecordingKindCallSite:
@@ -747,19 +756,19 @@ func formatRecordingVia(rec Recording) string {
 	case RecordingKindDeriveSynth:
 		if rec.Derive != nil {
 			if rec.Derive.FieldName != "" {
-				return fmt.Sprintf("@derive(%s) on %s field %s",
+				return fmt.Sprintf("`derive %s for %s`, field `%s`",
 					rec.Derive.Iface, rec.Derive.TypeName, rec.Derive.FieldName)
 			}
-			return fmt.Sprintf("@derive(%s) on %s",
+			return fmt.Sprintf("`derive %s for %s`",
 				rec.Derive.Iface, rec.Derive.TypeName)
 		}
-		return "@derive synth"
+		return "a derive"
 	case RecordingKindDerivePayload:
 		if rec.Derive != nil {
-			return fmt.Sprintf("@derive(%s) on %s (interpolated payload)",
+			return fmt.Sprintf("`derive %s for %s` (an interpolated payload)",
 				rec.Derive.Iface, rec.Derive.TypeName)
 		}
-		return "@derive payload"
+		return "a derive's interpolated payload"
 	case RecordingKindEqualityOperator:
 		if rec.Op != "" {
 			return fmt.Sprintf("equality operator `%s`", rec.Op)

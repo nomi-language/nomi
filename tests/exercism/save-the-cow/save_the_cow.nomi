@@ -69,11 +69,7 @@ impl Game {
     pub fn masked_word(game: Game) -> String {
         game.word
         |> Iter.map(fn letter -> {
-            if Set.contains(game.revealed, letter) {
-                letter
-            } else {
-                '_'
-            }
+            if letter in game.revealed { letter } else { '_' }
         })
         |> Iter.to_list()
         |> String.from_codepoints()
@@ -87,13 +83,13 @@ impl Game {
 
 /// Whether `letter` is in the word and not yet revealed.
 fn is_hidden(game: Game, letter: Codepoint) -> Bool {
-    List.contains(game.word, letter) and not Set.contains(game.revealed, letter)
+    letter in game.word and not letter in game.revealed
 }
 
 /// `game` with `letter` revealed, won when that reveals the whole word.
 fn reveal(game: Game, letter: Codepoint) -> Game {
     revealed = Set.insert(game.revealed, letter)
-    won = Iter.all(game.word, &Set.contains(revealed, &1))
+    won = Iter.all(game.word, &(&1 in revealed))
 
     #{..game, revealed, state: if won { .Win } else { .Ongoing }}
 }

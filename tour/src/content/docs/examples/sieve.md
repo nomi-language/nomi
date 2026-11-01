@@ -17,7 +17,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// each prime marks its multiples, and the numbers left unmarked are prime.
 pub fn primes(limit: Int) -> List<Int> {
     composites = Iter.reduce(2..=limit, fn marked = %[], n -> {
-        if Set.contains(marked, n) {
+        if n in marked {
             marked
         } else {
             multiples = Range.step_by(n * n..=limit, n) |> Iter.to_set()
@@ -26,7 +26,7 @@ pub fn primes(limit: Int) -> List<Int> {
     })
 
     2..=limit
-    |> Iter.reject(&Set.contains(composites, &1))
+    |> Iter.reject(&(&1 in composites))
     |> Iter.to_list()
 }
 
@@ -63,6 +63,14 @@ test "find primes up to 1000" {
     ]
 }
 ```
+<!-- expect
+ok no primes under two
+ok find first prime
+ok find primes up to 10
+ok limit is prime
+ok find primes up to 1000
+test result: ok. 5 passed, 0 failed
+-->
 
 ## How it's written
 

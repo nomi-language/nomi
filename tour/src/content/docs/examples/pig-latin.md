@@ -46,7 +46,7 @@ fn onset_length(letters: List<String>) -> Int {
 fn consonants(letters: List<String>) -> Int {
     case letters {
         ["q", "u", ..] -> 2
-        [letter, ..rest] when not Set.contains(vowels, letter) -> 1 + consonants(rest)
+        [letter, ..rest] when not letter in vowels -> 1 + consonants(rest)
         _ -> 0
     }
 }
@@ -55,7 +55,7 @@ fn consonants(letters: List<String>) -> Int {
 import pig_latin
 
 test "ay is added to words that start with vowels" {
-    cases = [
+    [
         #("word beginning with a", "apple", "appleay"),
         #("word beginning with e", "ear", "earay"),
         #("word beginning with i", "igloo", "iglooay"),
@@ -63,28 +63,26 @@ test "ay is added to words that start with vowels" {
         #("word beginning with u", "under", "underay"),
         #("word beginning with a vowel and followed by a qu", "equal", "equalay"),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert pig_latin.translate(phrase) == expected
     }
 }
 
 test "first letter and ay are moved to the end of words that start with consonants" {
-    cases = [
+    [
         #("word beginning with p", "pig", "igpay"),
         #("word beginning with k", "koala", "oalakay"),
         #("word beginning with x", "xenon", "enonxay"),
         #("word beginning with q without a following u", "qat", "atqay"),
         #("word beginning with consonant and vowel containing qu", "liquid", "iquidlay"),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert pig_latin.translate(phrase) == expected
     }
 }
 
 test "some letter clusters are treated like a single consonant" {
-    cases = [
+    [
         #("word beginning with ch", "chair", "airchay"),
         #("word beginning with qu", "queen", "eenquay"),
         #("word beginning with qu and a preceding consonant", "square", "aresquay"),
@@ -92,31 +90,28 @@ test "some letter clusters are treated like a single consonant" {
         #("word beginning with thr", "thrush", "ushthray"),
         #("word beginning with sch", "school", "oolschay"),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert pig_latin.translate(phrase) == expected
     }
 }
 
 test "some letter clusters are treated like a single vowel" {
-    cases = [
+    [
         #("word beginning with yt", "yttria", "yttriaay"),
         #("word beginning with xr", "xray", "xrayay"),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert pig_latin.translate(phrase) == expected
     }
 }
 
 test "position of y in a word determines if it is a consonant or a vowel" {
-    cases = [
+    [
         #("y is treated like a consonant at the beginning of a word", "yellow", "ellowyay"),
         #("y is treated like a vowel at the end of a consonant cluster", "rhythm", "ythmrhay"),
         #("y as second letter in two letter word", "my", "ymay"),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert pig_latin.translate(phrase) == expected
     }
 }
@@ -125,10 +120,19 @@ test "phrases are translated" {
     assert pig_latin.translate("quick fast run") == "ickquay astfay unray"
 }
 ```
+<!-- expect
+ok ay is added to words that start with vowels (6 cases)
+ok first letter and ay are moved to the end of words that start with consonants (5 cases)
+ok some letter clusters are treated like a single consonant (6 cases)
+ok some letter clusters are treated like a single vowel (2 cases)
+ok position of y in a word determines if it is a consonant or a vowel (3 cases)
+ok phrases are translated
+test result: ok. 23 passed, 0 failed
+-->
 
 ## How it's written
 
 - The four rules become one count, `onset_length`: how many letters at the start of the word move. The word is then `String.drop(word, onset)`, `String.take(word, onset)` and `"ay"`.
 - The count walks the word's letters with list patterns. `["q", "u", ..]` is rule 3, `["x", "r", ..] or ["y", "t", ..]` is the `xr`/`yt` part of rule 1, and a leading `["y", ..rest]` makes `y` a consonant only as the first letter, which is rule 4 without a flag parameter.
-- The vowels are a `once` Set, looked up with `Set.contains` in a guard; `y` is among them because after the first letter it acts as one.
+- The vowels are a `once` Set, looked up with `in` in a guard; `y` is among them because after the first letter it acts as one.
 - Each canonical group is a test named by the group's description, holding one `subtests` table; the one-case "phrases are translated" group is a plain test.

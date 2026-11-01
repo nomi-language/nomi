@@ -118,12 +118,11 @@ test "single verses" {
 }
 
 test "several verses" {
-    cases = [
+    [
         #("multiple verses", 4, 8),
         #("full rhyme", 1, 12),
     ]
-
-    subtests cases, #(description, start, end), description {
+    |> subtests #(description, start, end), description {
         expected =
             verses
             |> Iter.drop(start - 1)
@@ -135,6 +134,11 @@ test "several verses" {
     }
 }
 ```
+<!-- expect
+ok single verses (12 cases)
+ok several verses (2 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

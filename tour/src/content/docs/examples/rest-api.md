@@ -116,7 +116,7 @@ impl RestApi {
             "/add" -> {
                 request: NewUser = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
 
-                if Map.contains(api.users, request.user) { return Err(.UserExists(request.user)) }
+                if request.user in api.users { return Err(.UserExists(request.user)) }
 
                 user = #User{name: request.user}
                 Ok(#(Json.encode_as(user), #RestApi{users: Map.put(api.users, user.name, user)}))
@@ -218,7 +218,7 @@ group "user management" {
 }
 
 test "iou" {
-    cases = [
+    [
         #(
             "both users have 0 balance",
             adam_and_bob,
@@ -256,8 +256,7 @@ test "iou" {
             `{"users":[{"name":"Adam","owes":{},"owed_by":{},"balance":0.0},{"name":"Bob","owes":{},"owed_by":{},"balance":0.0}]}`,
         ),
     ]
-
-    subtests cases, #(description, database, payload, expected), description {
+    |> subtests #(description, database, payload, expected), description {
         assert Ok(api) = RestApi.new(database)
         assert Ok(#(answer, _api)) = RestApi.post(api, "/iou", payload)
         assert Ok(wanted) = Json.decode_as<Users>(expected)
@@ -265,6 +264,13 @@ test "iou" {
     }
 }
 ```
+<!-- expect
+ok user management / no users
+ok user management / add user
+ok user management / get single user
+ok iou (6 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

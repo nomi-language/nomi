@@ -9,6 +9,275 @@
 //# and `parse_with`. `TimeUnit.format_relative` writes "in 3 days" or
 //# "yesterday". The calendar is the Gregorian one; the words and patterns
 //# come from CLDR, from the data the program carries.
+//#
+//# `std/calendar` covers the civil date-time surface: wall-clock readings,
+//# zoned moments, the conversions between them, and DST-aware arithmetic.
+//# With `std/instant` (the absolute-instant clock and the `Instant` type)
+//# and `std/duration` (exact elapsed time, `Duration`), it is the whole
+//# date and time story.
+//#
+//# ## The type ladder
+//#
+//# Five civil types, in increasing specificity:
+//#
+//# - **`Date`**: a calendar day. Year, month and day; no time of day.
+//# - **`Time`**: a time of day. Hour, minute, second and nanosecond; no
+//#   calendar.
+//# - **`NaiveDateTime`**: a wall-clock reading. A date and a time of day, no
+//#   zone. **Not a real moment in history.**
+//# - **`OffsetDateTime`**: anchored at a fixed UTC offset. A real moment; no
+//#   DST.
+//# - **`DateTime`**: anchored in an IANA zone (`America/New_York`,
+//#   `Asia/Tokyo`, ...). Fully DST-aware. **The default for real moments.**
+//#
+//# Two adjacent types live in sibling modules:
+//#
+//# - **`Instant`** (`std/instant`): pure UTC nanoseconds since the Unix
+//#   epoch. No calendar, no zone, no display ceremony. `Instant + Duration`
+//#   and `Instant - Duration` are Instants; `a - b` on two Instants is the
+//#   `Duration` from `b` to `a` (`Instant.between(b, a)`).
+//# - **`Duration`** (`std/duration`): exact elapsed time, in nanoseconds at
+//#   the storage layer. Construct it with unit functions such as
+//#   `Duration.seconds(5)`, or with a literal as `Display` writes it,
+//#   ``Duration`1h30m` ``. Hours, minutes and seconds exist there; months
+//#   and years do not, since they are not exact units.
+//#
+//# The five-type ladder mirrors `java.time` (`LocalDate`, `LocalTime`,
+//# `LocalDateTime`, `OffsetDateTime`, `ZonedDateTime`), but the naming
+//# reverses the usual pattern: the bare name `DateTime` is the IANA-zoned
+//# safe default, and `NaiveDateTime` carries the "Naive" prefix as a
+//# warning. The longer name goes on the unsafe shape, so a caller opts into
+//# it by spelling it out, the opposite of "Local" or "Zoned" prefixes that
+//# make the unsafe form the easier reach.
+//#
+//# ## Construction and typed literals
+//#
+//# Every calendar type has a same-named `Literal` handler, so the typed
+//# literal is the primary way to write a value:
+//#
+//# ```
+//# Date`YYYY-MM-DD`
+//# Time`HH:MM:SS[.fff…]`
+//# NaiveDateTime`YYYY-MM-DDTHH:MM:SS[.fff…]`
+//# OffsetDateTime`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM`  // or trailing Z
+//# DateTime`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`
+//# ```
+//#
+//# A backtick literal (`` Date`2026-05-04` ``) is parsed when the program
+//# compiles: it is a `Date`, and a malformed one is a compile error. A
+//# double-quoted literal (`Date"2026-${month}-04"`) is parsed at run time,
+//# and its parse failure returns `Err(calendar.Error)`; unwrap it with `?`
+//# at the call site. The spec's
+//# [typed literals](/spec/typed-literals-and-keyword-declarations/) give the
+//# mechanism.
+//#
+//# `DateTime`'s literal uses RFC 9557 bracket notation, and the IANA zone
+//# bracket is required. A bare offset (no bracket) parses as
+//# ``OffsetDateTime`…` `` instead: the bracket tells "anchored in a zone"
+//# from "anchored at a fixed offset".
+//#
+//# The programmatic constructors are `Date.new`, `Time.new` and
+//# `NaiveDateTime.new` (validated, each a `Result`), `DateTime.in_zone` (a
+//# wall reading projected through a zone, below),
+//# `OffsetDateTime.with_offset`, `OffsetDateTime.from_instant` (total),
+//# `DateTime.from_instant_in` (total once the zone is known: it fails only
+//# on `UnknownZone`) and `DateTime.now_in` (the system clock projected into
+//# a zone).
+//#
+//# ## Arithmetic: `Duration` and civil periods
+//#
+//# Arithmetic has two intents, and they differ because `+ Hours(24)` is not
+//# always `+ Duration.hours(24)` around a DST transition.
+//#
+//# - **`value + Duration`** and **`value - Duration`** are exact elapsed
+//#   time. Adding 24 real hours shifts the instant by 24 hours of physical
+//#   time, wherever the wall clock lands. Each time-bearing type implements
+//#   `Add` and `Subtract` with `Duration` as the right-hand operand and
+//#   itself as the result (`impl Add<Duration, DateTime> for DateTime`).
+//# - **`value + Years(...)`** and `Months`, `Weeks`, `Days`, `Hours`,
+//#   `Minutes`, `Seconds`, `Milliseconds`, `Microseconds` and `Nanoseconds`
+//#   (and `-` of each) are civil period arithmetic. They adjust the wall
+//#   reading and, for a zoned `DateTime`, resolve it through the zone again.
+//#   Months and years clamp to the end of the month (``Date`2026-01-31` +
+//#   Months(1)`` is ``Date`2026-02-28` ``).
+//#
+//# Across a spring-forward transition the two differ:
+//#
+//# ```nomi
+//# start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
+//#
+//# start + Hours(24) // → noon Mar 8 EDT (23h physical)
+//#
+//# start + Duration.hours(24) // → 1pm  Mar 8 EDT (24h physical)
+//# ```
+//#
+//# The wall reading "tomorrow at noon" stays at noon after the jump, and
+//# only 23 hours of real time pass. "Add 24 real hours" advances through
+//# the transition and lands at 1pm. Both are correct; the split lets the
+//# caller say which intent applies.
+//#
+//# ## DST: gaps, folds and `Disambiguation`
+//#
+//# Projecting a wall reading into an IANA zone (`DateTime.in_zone`) can hit
+//# one of two anomalies:
+//#
+//# - **A spring-forward gap**: the wall reading never exists.
+//#   `2026-03-08T02:30` in New York is in the gap: 02:00 EST jumps straight
+//#   to 03:00 EDT, and the half hour between is unreachable.
+//# - **A fall-back fold**: the wall reading exists twice.
+//#   `2026-11-01T01:30` in New York happens twice: 02:00 EDT rolls back to
+//#   01:00 EST, so 01:30 occurs once before the rollback and once after.
+//#
+//# The `Disambiguation` enum says how `in_zone` resolves them:
+//#
+//# | Mode | In a fold | In a gap |
+//# |---|---|---|
+//# | `Compatible` (default) | Earlier instant (pre-transition) | Post-transition instant |
+//# | `Earlier` | Earlier instant | Pre-transition instant |
+//# | `Later` | Later instant | Post-transition instant |
+//# | `Reject` | `Err(Ambiguous ...)` | `Err(Nonexistent ...)` |
+//#
+//# `Compatible` is total and deterministic. `Reject` is the strict mode for
+//# a wall reading that came from user input (a form, an API payload), where
+//# the right answer is to hand the ambiguity back to the user. Civil shifts
+//# (`+ Years(...)`, `+ Months(...)`, `+ Hours(...)`, ...) always use
+//# `Compatible` internally, so they are total; only
+//# `DateTime.in_zone(..., Disambiguation.Reject)` reports a gap or a fold.
+//#
+//# ## The conversion lattice
+//#
+//# ```
+//#                                 Date  ──────┐
+//#                                             │
+//#                                 Time  ──────┤  of / at_midnight
+//#                                             ▼
+//# Instant  ◄─────────────►  OffsetDateTime ◄────►  NaiveDateTime
+//#    │                            ▲                    │
+//#    │                            │ to_offset          │ in_zone
+//#    │                            │ (lossy)            │ (with mode)
+//#    ▼                            │                    ▼
+//# Duration                        └──────  DateTime  ◄─┘
+//#                                             │
+//#                                             └─ with_zone
+//#                                                (same instant,
+//#                                                 different zone)
+//# ```
+//#
+//# Three conversions are missing on purpose:
+//#
+//# 1. **`NaiveDateTime` to `Instant`.** A wall reading is not a moment. The
+//#    only way to an instant is to commit to a zone with
+//#    `DateTime.in_zone(naive, zone, mode)` or to an offset with
+//#    `OffsetDateTime.with_offset(naive, offset)`, so the zone choice is made
+//#    in the calling code, where the author has the context to make it.
+//# 2. **`OffsetDateTime` to `DateTime`.** A fixed offset does not determine
+//#    an IANA zone: offset `-05:00` is in effect in many zones at various
+//#    points in history. The caller names the zone:
+//#    `OffsetDateTime` to `Instant`, then `DateTime.from_instant_in(instant,
+//#    zone)`.
+//# 3. **`Date` or `Time` to `Instant`.** A calendar day or a time of day is
+//#    not a moment without a zone. `NaiveDateTime.of(date, time)` makes a
+//#    `NaiveDateTime`, and `in_zone` carries it the rest of the way.
+//#
+//# The API will not turn a wall reading into a moment unless a zone is
+//# named, which rules out the most common date-time bug in the type system.
+//#
+//# ## Equality and ordering
+//#
+//# `OffsetDateTime` and `DateTime` compare and order by their instant only.
+//# Two values with the same underlying nanoseconds and different offsets or
+//# zones are equal:
+//#
+//# ```nomi
+//# ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+//#
+//# paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
+//#
+//# ny == paris // → True (same instant)
+//# ```
+//#
+//# The offset or zone is display metadata, not identity. To ask for "same
+//# instant and same zone", compare the rendered forms too, since a
+//# `DateTime` displays with its zone bracket:
+//#
+//# ```nomi
+//# a == b and Display.to_string(a) == Display.to_string(b)
+//# ```
+//#
+//# `==` reaches these types' `Equatable` impls by the spec's rule for
+//# operators on a type with a hand-written `Equatable`
+//# ([Type relations](/spec/type-relations/)). `Date`, `Time` and
+//# `NaiveDateTime` use structural equality (every field equal) and order
+//# chronologically by field order.
+//#
+//# ## Text for a reader
+//#
+//# The calendar types write themselves for a reader in three ways,
+//# Gregorian only: by a style (`format`), by a skeleton (`format_fields`),
+//# and by a fixed numeric pattern (`to_string_with`, read back with
+//# `parse_with`). `parse_in` reads what a reader typed. `Date`, `Time`,
+//# `NaiveDateTime` and `DateTime` implement `Localize` with `format`'s
+//# defaults; `Display` stays ISO 8601.
+//#
+//# **Styles.** `DateStyle` and `TimeStyle` are `Full`, `Long`, `Medium` and
+//# `Short`, and the locale decides the rest. A date and a time join as the
+//# locale's date-time pattern for the date's style joins them. A `Full` or
+//# `Long` time of a `DateTime` ends with its offset in the locale's GMT
+//# format (`GMT+02:00`, `UTC+2` in `fr`); zone names are not std's. A `Time`
+//# and a `NaiveDateTime` have no zone, so their `Full` and `Long` times
+//# write what `Medium` does.
+//#
+//# **Skeletons.** `DateFields`, `TimeFields` and `DateTimeFields` name the
+//# fields a value shows and their widths as a CLDR skeleton: `y` the year,
+//# `M` or `L` the month (`M` its number, `MMM` its short name, `MMMM` its
+//# name), `d` the day, `E` the weekday, `G` the era, `j` the hour as the
+//# locale writes it (`h` a 12-hour clock's, `H` a 24-hour one's), `m`, `s`
+//# and `S`. Each locale's data gives the order, the punctuation and the
+//# words: `` DateFields`MMMMd` `` is `October 20` in `en`, `20 października`
+//# in `pl` and `10月20日` in `ja`. This is ICU's date-time pattern generator
+//# over the locale's available formats (UTS #35, *Matching Skeletons*): the
+//# available skeleton with the same fields and the nearest widths, widened
+//# to the widths asked for, except a field the locale writes in another
+//# form (`ja` writes a month as a number where a skeleton names it); a
+//# skeleton with date and time fields that no one format covers is the two
+//# joined. The literal is checked when the program is checked: a letter
+//# that is no field, a field the type does not hold (an hour in a
+//# `DateFields`), a field named twice or one too wide is a compile error at
+//# the literal. When every skeleton a built program uses is a literal, the
+//# build resolves each one for each listed locale, and the image carries
+//# those patterns instead of the locales' available formats.
+//#
+//# **Fixed patterns.** `DatePattern`, `TimePattern` and `DateTimePattern`
+//# are numeric LDML patterns that write the same text in every locale, for
+//# file names, logs and protocols: `y` (`yy` two digits), `M`, `d`, `D`,
+//# `H`, `m`, `s` (each doubled for two digits), `S` (one per fraction
+//# digit), and quoted or non-letter text. A month or weekday name, AM or
+//# PM, an era and a zone are words or need them, so a pattern holds none:
+//# ``typed literal DatePattern`dd MMM yyyy` is invalid: invalid format:
+//# `MMM` writes the month's name, which is a word of a language: a fixed
+//# pattern writes numbers, the same in every locale; write it for a reader
+//# with a skeleton and a locale, as Date.format_fields(date, locale,
+//# DateFields`yMMMd`)``. `parse_with` reads what `to_string_with` writes, a
+//# one-digit field standing for a two-digit one. `DatePattern.parse` and its
+//# kin check a pattern made while the program runs.
+//#
+//# **Parsing.** `parse_in` reads text by the locale's pattern at a style,
+//# strictly by default: a two-digit field may be written with one digit,
+//# any space stands for a space the locale writes, and ASCII digits for the
+//# locale's. Lenient parsing also reads names in any width or case, with or
+//# without their final period, any spaces and punctuation between fields, a
+//# four-digit year where the locale writes two, and spaces around the text.
+//# A two-digit year is 2000 plus its digits. Text that does not read is
+//# `Error.InvalidFormat`, naming what was expected where, and a value that
+//# is no date is `Error.InvalidValue` (`month 2 of 2026 has no day 31`).
+//#
+//# ## Embedded IANA tzdata
+//#
+//# `std/calendar` embeds Go's `time/tzdata` package, so IANA zone lookups
+//# (`America/New_York`, `Asia/Tokyo`, ...) work on every host without
+//# system-provided tzdata. Programs ship with their own zone database, and
+//# behavior is the same on every operating system and in minimal Docker
+//# images.
 
 import {
     add.Add
@@ -76,6 +345,9 @@ derive Comparable for Years
 derive Display for Years
 
 /// Whole calendar months for civil calendar arithmetic on date-bearing values.
+/// Adding months clamps to the end of the month.
+//! assert Date`2026-01-31` + Months(1) == Date`2026-02-28`
+//
 pub type Months Int
 
 derive Equatable for Months
@@ -99,7 +371,13 @@ derive Hashable for Days
 derive Comparable for Days
 derive Display for Days
 
-/// Whole civil hours for date-time wall-clock arithmetic.
+/// Whole civil hours for date-time wall-clock arithmetic. They move the wall
+/// reading, so across a spring-forward transition `+ Hours(24)` keeps the
+/// time of day where `+ Duration.hours(24)` moves it.
+//! start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
+//! assert start + Hours(24) == DateTime`2026-03-08T12:00:00-04:00[America/New_York]`
+//! assert start + Duration.hours(24) == DateTime`2026-03-08T13:00:00-04:00[America/New_York]`
+//
 pub type Hours Int
 
 derive Equatable for Hours
@@ -177,6 +455,8 @@ pub interface Anchored {
 /// via `Date.new(y, m, d)` (validating), `Date.parse`, or the
 /// ``Date`…` `` typed literal. Components reachable via `year`/`month`/`day`
 /// (or the `DateParts` interface).
+//! assert Display.to_string(Date`2026-05-04`) == "2026-05-04"
+//
 pub opaque struct Date {
     year: Int
     month: Int
@@ -1447,6 +1727,25 @@ impl Comparable for OffsetDateTime {
 ///   that should never silently disambiguate — typically when the
 ///   wall reading came from a user (UI form, API request) and the
 ///   right answer is to bounce the ambiguity back to them.
+///
+/// Civil shifts (`+ Hours(...)`, `+ Months(...)`, ...) always resolve with
+/// `Compatible`, so they are total.
+//! gap = NaiveDateTime`2026-03-08T02:30:00`
+//! fold = NaiveDateTime`2026-11-01T01:30:00`
+//! zone = "America/New_York"
+//! assert DateTime.in_zone(gap, zone)? == DateTime`2026-03-08T03:30:00-04:00[America/New_York]`
+//!
+//! assert DateTime.in_zone(gap, zone, Disambiguation.Earlier)?
+//!     == DateTime`2026-03-08T01:30:00-05:00[America/New_York]`
+//!
+//! assert DateTime.in_zone(fold, zone)? == DateTime`2026-11-01T01:30:00-04:00[America/New_York]`
+//!
+//! assert DateTime.in_zone(fold, zone, Disambiguation.Later)?
+//!     == DateTime`2026-11-01T01:30:00-05:00[America/New_York]`
+//!
+//! assert Err(Error.Nonexistent(_why)) = DateTime.in_zone(gap, zone, Disambiguation.Reject)
+//! assert Err(Error.Ambiguous(_why)) = DateTime.in_zone(fold, zone, Disambiguation.Reject)
+//
 pub enum Disambiguation {
     Compatible
     Earlier
@@ -1474,6 +1773,13 @@ pub enum Disambiguation {
 /// `DateTime.now_in(zone)` (the system clock projected into a zone),
 /// `DateTime.parse`, or the ``DateTime`…` `` typed literal (RFC 9557
 /// bracket form).
+//! dt = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+//! assert Display.to_string(dt) == "2026-06-15T12:00:00-04:00[America/New_York]"
+//!
+//! paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
+//! assert dt == paris
+//! refute Display.to_string(dt) == Display.to_string(paris)
+//
 pub opaque struct DateTime {
     instant_nanos: Int
     zone: String

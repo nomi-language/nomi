@@ -52,7 +52,7 @@ impl Reactor {
 
     /// `reactor` with an input cell `name` holding `value`.
     pub fn input(reactor: Reactor, name: String, value: Int) -> Result<Reactor, Error> {
-        if Map.contains(reactor.values, name) { return Err(.Duplicate(name)) }
+        if name in reactor.values { return Err(.Duplicate(name)) }
 
         Ok(#{
             ..reactor,
@@ -69,7 +69,7 @@ impl Reactor {
         inputs: List<String>,
         compute: (Vector<Int>) -> Int,
     ) -> Result<Reactor, Error> {
-        if Map.contains(reactor.values, name) { return Err(.Duplicate(name)) }
+        if name in reactor.values { return Err(.Duplicate(name)) }
 
         if Some(unknown) = Iter.find(inputs, &(not Map.contains(reactor.values, &1))) {
             return Err(.UnknownCell(unknown))
@@ -97,9 +97,9 @@ impl Reactor {
         name: String,
         value: Int,
     ) -> Result<#(Reactor, Map<String, Int>), Error> {
-        if not Map.contains(reactor.values, name) { return Err(.UnknownCell(name)) }
+        if not name in reactor.values { return Err(.UnknownCell(name)) }
 
-        if not Set.contains(reactor.inputs, name) { return Err(.NotAnInput(name)) }
+        if not name in reactor.inputs { return Err(.NotAnInput(name)) }
 
         set = Map.put(reactor.values, name, value)
 
@@ -124,7 +124,7 @@ impl Reactor {
         cell: String,
         callback: String,
     ) -> Result<Reactor, Error> {
-        if not Map.contains(reactor.values, cell) { return Err(.UnknownCell(cell)) }
+        if not cell in reactor.values { return Err(.UnknownCell(cell)) }
 
         Ok(#{..reactor, callbacks: Map.put(reactor.callbacks, callback, cell)})
     }
@@ -220,7 +220,7 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error> {
 }
 
 test "react" {
-    cases = [
+    [
         #(
             "input cells have a value",
             [Cell.Input("input", 10)],
@@ -379,8 +379,7 @@ test "react" {
             ],
         ),
     ]
-
-    subtests cases, #(description, cells, steps), description {
+    |> subtests #(description, cells, steps), description {
         assert Ok(reactor) = build(cells)
 
         assert replay(reactor, steps) == Ok(steps)
@@ -410,6 +409,13 @@ test "only an input cell can be set" {
     assert Err(Error.UnknownCell("missing")) = Reactor.set_value(reactor, "missing", 2)
 }
 ```
+<!-- expect
+ok react (14 cases)
+ok a cell's name is used once
+ok a compute cell reads only cells that exist
+ok only an input cell can be set
+test result: ok. 17 passed, 0 failed
+-->
 
 ## How it's written
 

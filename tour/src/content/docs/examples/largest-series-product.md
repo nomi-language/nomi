@@ -52,7 +52,7 @@ import {
 }
 
 test "largest product" {
-    cases = [
+    [
         #("finds the largest product if span equals length", "29", 2, 18),
         #("can find the largest product of 2 with numbers in order", "0123456789", 2, 72),
         #("can find the largest product of 2", "576802143", 2, 48),
@@ -70,25 +70,28 @@ test "largest product" {
         #("reports 1 for empty string and empty product (0 span)", "", 0, 1),
         #("reports 1 for nonempty string and empty product (0 span)", "123", 0, 1),
     ]
-
-    subtests cases, #(description, digits, span, expected), description {
+    |> subtests #(description, digits, span, expected), description {
         assert largest_series_product.largest_product(digits, span) == Ok(expected)
     }
 }
 
 test "rejects" {
-    cases = [
+    [
         #("rejects span longer than string length", "123", 4, Error.SpanTooLong),
         #("rejects empty string and nonzero span", "", 1, .SpanTooLong),
         #("rejects invalid character in digits", "1234a5", 2, .NotADigit),
         #("rejects negative span", "12345", -1, .NegativeSpan),
     ]
-
-    subtests cases, #(description, digits, span, expected), description {
+    |> subtests #(description, digits, span, expected), description {
         assert largest_series_product.largest_product(digits, span) == Err(expected)
     }
 }
 ```
+<!-- expect
+ok largest product (11 cases)
+ok rejects (4 cases)
+test result: ok. 15 passed, 0 failed
+-->
 
 ## How it's written
 
@@ -96,6 +99,6 @@ test "rejects" {
 - The digits become a `List<Int>` in one pipe: `String.to_codepoints`, `Codepoint.to_digit` on each and `Maybe.collect`, whose `None` is the not-a-digit error through a binding `else`.
 - The span check compares the span with the digit count, before any series is built, since `Iter.windows` yields no series for a span longer than the digits and the error must be told apart from a product.
 - Each series is a window from `Iter.windows(span)`, and its product is `Iter.product`, passed to `Iter.map` as a function value.
-- The largest product is `Iter.max()!`. The span is checked against the digit count first, so there is always one series and the `None` would be a bug (style §28). An `Iter.reduce` from 0 also works, since no product is negative, but it spells out what `Iter.max` names.
+- The largest product is `Iter.max()!`. The span is checked against the digit count first, so there is always one series and the `None` would be a bug (style §29). An `Iter.reduce` from 0 also works, since no product is negative, but it spells out what `Iter.max` names.
 - A span of 0 returns 1, the empty product, before the windows: `Iter.windows(0)` yields no window, as a non-positive size does in `Iter.chunks`, where the exercise wants one empty series.
 - The canonical cases are two `subtests` tables, the products and the rejections, since the rows of each share an assertion.

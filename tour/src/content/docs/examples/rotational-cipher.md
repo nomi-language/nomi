@@ -35,7 +35,7 @@ fn shifted(alphabet: Range<Codepoint>, key: Int) -> Map<Codepoint, Codepoint> {
 import rotational_cipher
 
 test "rotate" {
-    cases = [
+    [
         #("rotate a by 0, same output as input", "a", 0, "a"),
         #("rotate a by 1", "a", 1, "b"),
         #("rotate a by 26, same output as input", "a", 26, "a"),
@@ -52,12 +52,15 @@ test "rotate" {
             "Gur dhvpx oebja sbk whzcf bire gur ynml qbt.",
         ),
     ]
-
-    subtests cases, #(description, text, key, expected), description {
+    |> subtests #(description, text, key, expected), description {
         assert rotational_cipher.rotate(text, key) == expected
     }
 }
 ```
+<!-- expect
+ok rotate (10 cases)
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 

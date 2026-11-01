@@ -10,7 +10,7 @@ import (
 //
 // # What the construct is
 //
-// `<Type>"..."` is sugar for one call. The spec (§16) and std/literals say the
+// `<Type>"..."` is sugar for one call. The spec (§18 *Typed literals*) and std/literals say the
 // same thing: the site desugars to
 //
 //	<Type>.from_fragments([Fragment.Static(…), Fragment.Dynamic(…), …])

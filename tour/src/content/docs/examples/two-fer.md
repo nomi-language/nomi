@@ -33,6 +33,12 @@ test "another name given" {
     assert two_fer("Bob") == "One for Bob, one for me."
 }
 ```
+<!-- expect
+ok no name given
+ok a name given
+ok another name given
+test result: ok. 3 passed, 0 failed
+-->
 
 ## How it's written
 

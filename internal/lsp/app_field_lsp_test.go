@@ -67,7 +67,7 @@ func wantDefinitionAt(t *testing.T, what string, loc protocol.Location, uri stri
 	}
 }
 
-// The tour's capabilities-and-context example, with a field doc comment: the
+// The tour's app-fields example, with a field doc comment: the
 // read sits inside string interpolation. The field name is the field; the
 // type name is the type.
 func TestAppFieldHoverAndDefinition_InInterpolation(t *testing.T) {

@@ -111,7 +111,7 @@ fn play(rolls: List<Int>) -> Result<Game, Error> {
 }
 
 test "score" {
-    cases = [
+    [
         #(
             "should be able to score a game with all zeros",
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -210,15 +210,14 @@ test "score" {
             Err(.GameNotOver),
         ),
     ]
-
-    subtests cases, #(description, rolls, expected), description {
+    |> subtests #(description, rolls, expected), description {
         assert Ok(game) = play(rolls)
         assert Game.score(game) == expected
     }
 }
 
 test "roll" {
-    cases = [
+    [
         #("rolls cannot score negative points", [], -1, Error.NegativeRoll),
         #("a roll cannot score more than 10 points", [], 11, .TooManyPins),
         #("two rolls in a frame cannot score more than 10 points", [5], 6, .TooManyPins),
@@ -265,13 +264,17 @@ test "roll" {
             .GameOver,
         ),
     ]
-
-    subtests cases, #(description, previous, pins, expected), description {
+    |> subtests #(description, previous, pins, expected), description {
         assert Ok(game) = play(previous)
         assert Game.roll(game, pins) == Err(expected)
     }
 }
 ```
+<!-- expect
+ok score (21 cases)
+ok roll (10 cases)
+test result: ok. 31 passed, 0 failed
+-->
 
 ## How it's written
 

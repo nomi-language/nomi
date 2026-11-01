@@ -523,7 +523,7 @@ impl Speech for Dog {
 }
 
 // TestImplBlock_VisibilityInheritance: a `pub interface` + bare `fn` inside
-// the block still yields a public method symbol (spec §3: impl functions
+// the block still yields a public method symbol (spec §14 *Visibility*: impl functions
 // inherit visibility from the interface).
 func TestImplBlock_VisibilityInheritance(t *testing.T) {
 	src := `pub interface Formatted {

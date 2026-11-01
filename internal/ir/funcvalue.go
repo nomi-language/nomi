@@ -7,7 +7,7 @@ import "fmt"
 // arguments supply the prefix. A capture is the operand's VALUE when the
 // FuncValue runs: a Nomi closure sees what a name held when the closure was
 // made, and a later rebinding of the name is a new binding it never sees
-// (spec §23). Nothing a later instruction does can change a closure.
+// (spec §7 *Closures*). Nothing a later instruction does can change a closure.
 //
 // A recursive nested fn refers to itself through its own closure: its FIRST
 // capture is the closure being built (Self), which has no operand. The

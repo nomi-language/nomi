@@ -42,6 +42,44 @@
 //# `first`, `get`, `contains`, `is_empty`, or a `reduce` whose callback can
 //# `break`.
 //#
+//# `is_infinite` is True for `Iter.repeat`, `Iter.from`, `Iter.iterate`
+//# (whose step cannot `break`), `Range.from`, `Range.naturals`,
+//# `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle`
+//# of a source that is infinite or knows a non-zero count. The adapters
+//# carry it:
+//#
+//# | Adapter | Infinite when |
+//# |---|---|
+//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `flat_map` | the source is, unless the callback can `break` |
+//# | `chunks(n)` | the source is and `n > 0` |
+//# | `cycle` | the source is, or knows a count above zero |
+//# | `concat(a, b)` | either is |
+//# | `zip(a, b)` | both are |
+//# | `take`, `take_while` | never |
+//#
+//# `filter` of an infinite source stays infinite even when nothing passes,
+//# and `flat_map` is infinite only through its outer source. `Iter.take(n)`
+//# knows its count: `n` over an infinite source, and the lesser of `n` and
+//# the source's count when it has one.
+//#
+//# The terminals that trap on an infinite source are `to_list`,
+//# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`,
+//# `transpose`, `permutations`, `combinations`, `sort`, `sort_by`,
+//# `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`,
+//# `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`,
+//# `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and
+//# `reduce`, `each` and `map_reduce` when their callback cannot `break`. The
+//# ones that may stop early do not: `first`, `find`, `any`, `all`,
+//# `contains`, `get`, `is_empty`, `each_while`, `Maybe.collect`,
+//# `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback
+//# can `break`.
+//#
+//# A `List`, `Vector` or `Set` yields its elements, a `List` and a `Vector`
+//# in order. A `Map<K, V>` yields `#(key, value)` pairs in insertion order, a
+//# `String` its grapheme clusters, and a `Maybe` its value when it is `Some`,
+//# so `Iter.flat_map(xs, f)` with an `f` that answers a `Maybe` keeps the
+//# `Some` values.
+//#
 //# If you want a List back from a List, the spelling is always the explicit
 //# `Iter.map(xs, f) |> Iter.to_list()` — the lazy adapter plus a materialize
 //# step. There is no eager `List.map`; the materialize step is what makes the
@@ -63,6 +101,94 @@
 //# itself and never called: `Iter.map(xs, keep)`, or with the starting value
 //# by name for a fold, `Iter.reduce(xs, add_until_zero, from: 0)`. See
 //# [helper functions that break or continue](/iteration-and-loops/#helper-functions-that-break-or-continue).
+//#
+//# ## The operations
+//#
+//# The protocol is only `each_while` (required) and the two `open` defaults
+//# `known_count` (`None` unless a type stores its size) and `is_infinite`
+//# (`False` unless the source never ends). Every other function here is an
+//# owner function, reached `Iter.X(...)`, not a dispatch call:
+//#
+//# - **Adapters** are lazy and return an `Iter`: `map`, `filter`, `reject`,
+//#   `scan`, `take`, `drop`, `take_while`, `drop_while`, `flat_map`, `zip`,
+//#   `cycle`, `concat`, `intersperse`, `with_index`, `chunks`, `windows`,
+//#   `chunk_by`, `permutations`, `combinations`. Each is built once, when the
+//#   chain is built, not per element, so a pipeline fuses.
+//# - **Terminals** consume the source and answer a value: `reduce`,
+//#   `try_reduce`, `map_reduce`, `find`, `find_index`, `find_map`, `each`,
+//#   `any`, `all`, `contains`, `is_empty`, `first`, `last`, `get`, `count`,
+//#   `min`, `max`, `min_by`, `max_by`, `sum`, `product`, `sort`, `sort_by`,
+//#   `sort_with`, `partition`, `group_by`, `frequencies`.
+//# - **Materializers and constructors** consume a source into a collection,
+//#   or seed one: `to_list`, `to_vector`, `to_set`, `to_map`, `reverse`,
+//#   `flatten`, `transpose`, `from`, `repeat`, `iterate`.
+//#
+//# They work on the built-in sources (`List`, `Vector`, `Set`, `Map`,
+//# `Maybe`, `String`, `Range`, `Bytes`) and on any type with an `Iter` impl.
+//# `Iter.count` is O(1) on a source that stores or can compute its count
+//# (`List`, `Vector`, `Map`, `Set`, `Maybe`, a bounded range whose element
+//# type can count steps, through `known_count`) and an O(n) fold otherwise.
+//# The short-circuit terminals (`find`, `any`, `all`, `is_empty`, `first`)
+//# end on an infinite source when the predicate permits; the full-consuming
+//# ones (`count`, `reduce`, `last`, `sort`, `to_list`, ...) trap on a source
+//# that is `Iter.is_infinite`, and never finish on one that never ends
+//# without saying so. `break` and `continue` work in every `Iter` callback.
+//#
+//# ## Starting values
+//#
+//# `Iter.reduce` starts from `from`, or from the default of its callback
+//# lambda's first parameter: `Iter.reduce(xs, Int.add, from: 0)` and
+//# `Iter.reduce(xs, fn sum = 0, x -> sum + x)` are the same fold, 0 for an
+//# empty `xs`. `from:` works with any callback: a named function, a capture,
+//# a lambda without a default. Exactly one of the two gives the starting
+//# value.
+//#
+//# - A call with neither is a compile error at the callback,
+//#   "`Iter.reduce` needs a starting value", whose help names both spellings
+//#   (`` give it with `from:`: `Iter.reduce(xs, add, from: <start>)` ``, and
+//#   for a lambda also its accumulator's default). This covers a function
+//#   value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda
+//#   whose first parameter has no default (`fn a, b -> a + b`), a capture
+//#   (`&add(&1, &2)`), a callback slot left open (`&Iter.reduce(xs, &1)`)
+//#   and `Iter.reduce` named as a value.
+//# - A call with both is "`Iter.reduce` has two starting values: `from:` and
+//#   the default of the callback's first parameter", at `from:`, with the
+//#   help "keep one: remove `from:`, or remove the default from `acc`".
+//# - `from` is given by name: `Iter.reduce(xs, 0, add)` is "`Iter.reduce`
+//#   takes its starting value by name". The callback is the positional
+//#   argument after the source wherever `from:` is written, so
+//#   `Iter.reduce(xs, from: 0, add)` is the same call.
+//#
+//# There is no first-element fallback, so a reduction never fails at run
+//# time for an empty source. For the least or greatest element, which has no
+//# answer for an empty source, use `Iter.min` and `Iter.max`: each answers a
+//# `Maybe`, `None` when the source is empty.
+//#
+//# `Iter.scan` and `Iter.map_reduce` take their starting value the same way,
+//# and the errors are the same with their own names ("`Iter.scan` needs a
+//# starting value"). `Iter.scan` is lazy and yields each state after the
+//# starting value, one per element; `Iter.map_reduce` is eager and answers
+//# the outputs in order with the final state, `#([], start)` for an empty
+//# source.
+//#
+//# ## Element types
+//#
+//# `Iter.to_map` and `String.join` check their element types at compile
+//# time. A source whose element type is not a `#(K, V)` pair or a `String`
+//# is a type error:
+//#
+//# ```nomi
+//# Iter.to_map([1, 2, 3]) // type error: Iter<#(K, V)> expected, got Iter<Int>
+//#
+//# String.join([1, 2, 3], ", ") // type error: Iter<String> expected, got Iter<Int>
+//# ```
+//#
+//# `Iter.sum` is bounded by `where T: Add<T, T> and Summable`, so an empty
+//# source sums to the type's empty sum, and a type without the two impls is
+//# a compile error at the call: `Iter.sum([True])` reports
+//# `` Bool does not implement Summable (required by `where T: Summable`) ``.
+//# `Iter.product` is bounded the same way by
+//# `where T: Multiply<T, T> and Productable`.
 
 import {
     add.Add
@@ -215,6 +341,7 @@ impl Iter<T> {
     //! assert Iter.reduce([1, 2, 3], fn acc = 0, x -> acc + x) == 6
     //! assert Iter.reduce([], fn acc = 0, x -> acc + x) == 0
     //! assert Iter.reduce([1, 2, 3], Int.add, from: 10) == 16
+    //! assert Iter.reduce([1, 2, 3], from: 10, Int.add) == 16
     //
     pub host fn reduce<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> U
 

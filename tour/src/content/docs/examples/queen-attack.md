@@ -56,21 +56,20 @@ group "Test creation of Queens with valid and invalid positions" {
     }
 
     test "invalid positions" {
-        cases = [
+        [
             #("queen must have positive row", -2, 2, Error.RowNotPositive),
             #("queen must have row on board", 8, 4, .RowNotOnBoard),
             #("queen must have positive column", 2, -2, .ColumnNotPositive),
             #("queen must have column on board", 4, 8, .ColumnNotOnBoard),
         ]
-
-        subtests cases, #(description, row, column, error), description {
+        |> subtests #(description, row, column, error), description {
             assert Queen.new(row, column) == Err(error)
         }
     }
 }
 
 test "Test the ability of one queen to attack another" {
-    cases = [
+    [
         #("cannot attack", #(2, 4), #(6, 6), False),
         #("can attack on same row", #(2, 4), #(2, 6), True),
         #("can attack on same column", #(4, 5), #(2, 5), True),
@@ -85,8 +84,7 @@ test "Test the ability of one queen to attack another" {
             False,
         ),
     ]
-
-    subtests cases, #(
+    |> subtests #(
         description,
         #(white_row, white_column),
         #(black_row, black_column),
@@ -98,6 +96,12 @@ test "Test the ability of one queen to attack another" {
     }
 }
 ```
+<!-- expect
+ok Test creation of Queens with valid and invalid positions / queen with a valid position
+ok Test creation of Queens with valid and invalid positions / invalid positions (4 cases)
+ok Test the ability of one queen to attack another (8 cases)
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

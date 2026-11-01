@@ -27,7 +27,7 @@ fn main() {
     // Qualified construction: the payload is built and wrapped at the same site.
     io.print("${area(#Shape.Circle{radius: 2})}")
     // SUBTYPE COERCION, argument position. `embeds Circle` makes Circle a
-    // subtype of Shape (spec §8), so a bare Circle is a legal Shape argument.
+    // subtype of Shape (spec §4 *Enums (Algebraic Data Types)*), so a bare Circle is a legal Shape argument.
     // The builder wraps the bare Circle in its Shape variant at the call, so
     // the `case` in `area` has a tag to switch on.
     io.print("${area(#Circle{radius: 3})}")

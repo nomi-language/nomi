@@ -155,25 +155,23 @@ import complex_numbers.Complex
 once tolerance = 1e-12
 
 test "Real part" {
-    cases = [
+    [
         #("Real part of a purely real number", Complex.new(1.0, 0.0), 1.0),
         #("Real part of a purely imaginary number", Complex.new(0.0, 1.0), 0.0),
         #("Real part of a number with real and imaginary part", Complex.new(1.0, 2.0), 1.0),
     ]
-
-    subtests cases, #(description, z, expected), description {
+    |> subtests #(description, z, expected), description {
         assert Complex.real(z) == expected
     }
 }
 
 test "Imaginary part" {
-    cases = [
+    [
         #("Imaginary part of a purely real number", Complex.new(1.0, 0.0), 0.0),
         #("Imaginary part of a purely imaginary number", Complex.new(0.0, 1.0), 1.0),
         #("Imaginary part of a number with real and imaginary part", Complex.new(1.0, 2.0), 2.0),
     ]
-
-    subtests cases, #(description, z, expected), description {
+    |> subtests #(description, z, expected), description {
         assert Complex.imaginary(z) == expected
     }
 }
@@ -184,7 +182,7 @@ test "Imaginary unit" {
 
 group "Arithmetic" {
     test "Addition" {
-        cases = [
+        [
             #(
                 "Add purely real numbers",
                 Complex.new(1.0, 0.0),
@@ -204,14 +202,13 @@ group "Arithmetic" {
                 Complex.new(4.0, 6.0),
             ),
         ]
-
-        subtests cases, #(description, z1, z2, expected), description {
+        |> subtests #(description, z1, z2, expected), description {
             assert z1 + z2 == expected
         }
     }
 
     test "Subtraction" {
-        cases = [
+        [
             #(
                 "Subtract purely real numbers",
                 Complex.new(1.0, 0.0),
@@ -231,14 +228,13 @@ group "Arithmetic" {
                 Complex.new(-2.0, -2.0),
             ),
         ]
-
-        subtests cases, #(description, z1, z2, expected), description {
+        |> subtests #(description, z1, z2, expected), description {
             assert z1 - z2 == expected
         }
     }
 
     test "Multiplication" {
-        cases = [
+        [
             #(
                 "Multiply purely real numbers",
                 Complex.new(1.0, 0.0),
@@ -258,14 +254,13 @@ group "Arithmetic" {
                 Complex.new(-5.0, 10.0),
             ),
         ]
-
-        subtests cases, #(description, z1, z2, expected), description {
+        |> subtests #(description, z1, z2, expected), description {
             assert z1 * z2 == expected
         }
     }
 
     test "Division" {
-        cases = [
+        [
             #(
                 "Divide purely real numbers",
                 Complex.new(1.0, 0.0),
@@ -285,15 +280,14 @@ group "Arithmetic" {
                 Complex.new(0.44, 0.08),
             ),
         ]
-
-        subtests cases, #(description, z1, z2, expected), description {
+        |> subtests #(description, z1, z2, expected), description {
             assert Complex.equal_within(z1 / z2, expected, tolerance)
         }
     }
 }
 
 test "Absolute value" {
-    cases = [
+    [
         #("Absolute value of a positive purely real number", Complex.new(5.0, 0.0), 5.0),
         #("Absolute value of a negative purely real number", Complex.new(-5.0, 0.0), 5.0),
         #(
@@ -308,14 +302,13 @@ test "Absolute value" {
         ),
         #("Absolute value of a number with real and imaginary part", Complex.new(3.0, 4.0), 5.0),
     ]
-
-    subtests cases, #(description, z, expected), description {
+    |> subtests #(description, z, expected), description {
         assert Complex.abs(z) == expected
     }
 }
 
 test "Complex conjugate" {
-    cases = [
+    [
         #("Conjugate a purely real number", Complex.new(5.0, 0.0), Complex.new(5.0, 0.0)),
         #("Conjugate a purely imaginary number", Complex.new(0.0, 5.0), Complex.new(0.0, -5.0)),
         #(
@@ -324,14 +317,13 @@ test "Complex conjugate" {
             Complex.new(1.0, -1.0),
         ),
     ]
-
-    subtests cases, #(description, z, expected), description {
+    |> subtests #(description, z, expected), description {
         assert Complex.conjugate(z) == expected
     }
 }
 
 test "Complex exponential function" {
-    cases = [
+    [
         #("Euler's identity/formula", Complex.new(0.0, Float.pi), Complex.new(-1.0, 0.0)),
         #("Exponential of 0", Complex.new(0.0, 0.0), Complex.new(1.0, 0.0)),
         #("Exponential of a purely real number", Complex.new(1.0, 0.0), Complex.new(Float.e, 0.0)),
@@ -346,14 +338,13 @@ test "Complex exponential function" {
             Complex.new(1.0, 1.0),
         ),
     ]
-
-    subtests cases, #(description, z, expected), description {
+    |> subtests #(description, z, expected), description {
         assert Complex.equal_within(Complex.exp(z), expected, tolerance)
     }
 }
 
 test "Operations between real numbers and complex numbers" {
-    cases = [
+    [
         #("Add real number to complex number", Complex.new(1.0, 2.0) + 5.0, Complex.new(6.0, 2.0)),
         #("Add complex number to real number", 5.0 + Complex.new(1.0, 2.0), Complex.new(6.0, 2.0)),
         #(
@@ -387,12 +378,25 @@ test "Operations between real numbers and complex numbers" {
             Complex.new(2.5, -2.5),
         ),
     ]
-
-    subtests cases, #(description, actual, expected), description {
+    |> subtests #(description, actual, expected), description {
         assert Complex.equal_within(actual, expected, tolerance)
     }
 }
 ```
+<!-- expect
+ok Real part (3 cases)
+ok Imaginary part (3 cases)
+ok Imaginary unit
+ok Arithmetic / Addition (3 cases)
+ok Arithmetic / Subtraction (3 cases)
+ok Arithmetic / Multiplication (3 cases)
+ok Arithmetic / Division (3 cases)
+ok Absolute value (5 cases)
+ok Complex conjugate (3 cases)
+ok Complex exponential function (5 cases)
+ok Operations between real numbers and complex numbers (8 cases)
+test result: ok. 40 passed, 0 failed
+-->
 
 ## How it's written
 

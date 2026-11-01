@@ -32,7 +32,7 @@ fn next_row(row: List<Int>) -> List<Int> {
 import pascals_triangle
 
 test "rows" {
-    cases = [
+    [
         #("zero rows", 0, []),
         #("single row", 1, [[1]]),
         #("two rows", 2, [[1], [1, 1]]),
@@ -61,12 +61,15 @@ test "rows" {
             ],
         ),
     ]
-
-    subtests cases, #(description, count, expected), description {
+    |> subtests #(description, count, expected), description {
         assert pascals_triangle.rows(count) == expected
     }
 }
 ```
+<!-- expect
+ok rows (8 cases)
+test result: ok. 8 passed, 0 failed
+-->
 
 ## How it's written
 

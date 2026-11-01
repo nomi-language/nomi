@@ -101,7 +101,7 @@ fn rational(#(numerator, denominator): #(Int, Int)) -> Rational {
 }
 
 test "addition" {
-    cases = [
+    [
         #("Add two positive rational numbers", #(1, 2), #(2, 3), #(7, 6)),
         #(
             "Add a positive rational number and a negative rational number",
@@ -112,14 +112,13 @@ test "addition" {
         #("Add two negative rational numbers", #(-1, 2), #(-2, 3), #(-7, 6)),
         #("Add a rational number to its additive inverse", #(1, 2), #(-1, 2), #(0, 1)),
     ]
-
-    subtests cases, #(description, a, b, expected), description {
+    |> subtests #(description, a, b, expected), description {
         assert rational(a) + rational(b) == rational(expected)
     }
 }
 
 test "subtraction" {
-    cases = [
+    [
         #("Subtract two positive rational numbers", #(1, 2), #(2, 3), #(-1, 6)),
         #(
             "Subtract a positive rational number and a negative rational number",
@@ -130,14 +129,13 @@ test "subtraction" {
         #("Subtract two negative rational numbers", #(-1, 2), #(-2, 3), #(1, 6)),
         #("Subtract a rational number from itself", #(1, 2), #(1, 2), #(0, 1)),
     ]
-
-    subtests cases, #(description, a, b, expected), description {
+    |> subtests #(description, a, b, expected), description {
         assert rational(a) - rational(b) == rational(expected)
     }
 }
 
 test "multiplication" {
-    cases = [
+    [
         #("Multiply two positive rational numbers", #(1, 2), #(2, 3), #(1, 3)),
         #(
             "Multiply a negative rational number by a positive rational number",
@@ -150,14 +148,13 @@ test "multiplication" {
         #("Multiply a rational number by 1", #(1, 2), #(1, 1), #(1, 2)),
         #("Multiply a rational number by 0", #(1, 2), #(0, 1), #(0, 1)),
     ]
-
-    subtests cases, #(description, a, b, expected), description {
+    |> subtests #(description, a, b, expected), description {
         assert rational(a) * rational(b) == rational(expected)
     }
 }
 
 test "division" {
-    cases = [
+    [
         #("Divide two positive rational numbers", #(1, 2), #(2, 3), #(3, 4)),
         #(
             "Divide a positive rational number by a negative rational number",
@@ -168,14 +165,13 @@ test "division" {
         #("Divide two negative rational numbers", #(-1, 2), #(-2, 3), #(3, 4)),
         #("Divide a rational number by 1", #(1, 2), #(1, 1), #(1, 2)),
     ]
-
-    subtests cases, #(description, a, b, expected), description {
+    |> subtests #(description, a, b, expected), description {
         assert rational(a) / rational(b) == rational(expected)
     }
 }
 
 test "absolute value" {
-    cases = [
+    [
         #("Absolute value of a positive rational number", #(1, 2), #(1, 2)),
         #(
             "Absolute value of a positive rational number with negative numerator and denominator",
@@ -191,14 +187,13 @@ test "absolute value" {
         #("Absolute value of zero", #(0, 1), #(0, 1)),
         #("Absolute value of a rational number is reduced to lowest terms", #(2, 4), #(1, 2)),
     ]
-
-    subtests cases, #(description, r, expected), description {
+    |> subtests #(description, r, expected), description {
         assert Rational.abs(rational(r)) == rational(expected)
     }
 }
 
 test "a rational to an integer power" {
-    cases = [
+    [
         #("Raise a positive rational number to a positive integer power", #(1, 2), 3, #(1, 8)),
         #("Raise a negative rational number to a positive integer power", #(-1, 2), 3, #(-1, 8)),
         #("Raise a positive rational number to a negative integer power", #(3, 5), -2, #(25, 9)),
@@ -219,26 +214,24 @@ test "a rational to an integer power" {
         #("Raise a positive rational number to the power of zero", #(1, 2), 0, #(1, 1)),
         #("Raise a negative rational number to the power of zero", #(-1, 2), 0, #(1, 1)),
     ]
-
-    subtests cases, #(description, r, n, expected), description {
+    |> subtests #(description, r, n, expected), description {
         assert Rational.pow(rational(r), n) == rational(expected)
     }
 }
 
 test "a real number to a rational power" {
-    cases = [
+    [
         #("Raise a real number to a positive rational number", 8.0, #(4, 3), 16.0),
         #("Raise a real number to a negative rational number", 9.0, #(-1, 2), 0.3333333333333333),
         #("Raise a real number to a zero rational number", 2.0, #(0, 1), 1.0),
     ]
-
-    subtests cases, #(description, x, r, expected), description {
+    |> subtests #(description, x, r, expected), description {
         assert Float.equal_within(Rational.raise(x, rational(r)), expected, 1e-12)
     }
 }
 
 test "reduction to lowest terms" {
-    cases = [
+    [
         #("Reduce a positive rational number to lowest terms", #(2, 4), #(1, 2)),
         #("Reduce places the minus sign on the numerator", #(3, -4), #(-3, 4)),
         #("Reduce a negative rational number to lowest terms", #(-4, 6), #(-2, 3)),
@@ -251,18 +244,28 @@ test "reduction to lowest terms" {
         #("Reduce an integer to lowest terms", #(-14, 7), #(-2, 1)),
         #("Reduce one to lowest terms", #(13, 13), #(1, 1)),
     ]
-
-    subtests cases, #(description, r, expected), description {
+    |> subtests #(description, r, expected), description {
         reduced = rational(r)
         assert #(Rational.numerator(reduced), Rational.denominator(reduced)) == expected
     }
 }
 ```
+<!-- expect
+ok addition (4 cases)
+ok subtraction (4 cases)
+ok multiplication (6 cases)
+ok division (4 cases)
+ok absolute value (6 cases)
+ok a rational to an integer power (9 cases)
+ok a real number to a rational power (3 cases)
+ok reduction to lowest terms (7 cases)
+test result: ok. 43 passed, 0 failed
+-->
 
 ## How it's written
 
 - `Rational` is an opaque struct that is always in lowest terms with a positive denominator. `Rational.new` is the only way to make one, so `derive Equatable` compares two rationals by their fields, and `1/2 == 2/4` holds because both are stored as `1/2`.
-- `Rational.new` reduces by dividing both parts by their greatest common divisor times the denominator's sign, which also moves a minus sign to the numerator. A zero denominator makes that divisor zero, so it traps as `/` does: the denominator is a divisor the caller chose (style §28). The canonical data has no zero denominator.
+- `Rational.new` reduces by dividing both parts by their greatest common divisor times the denominator's sign, which also moves a minus sign to the numerator. A zero denominator makes that divisor zero, so it traps as `/` does: the denominator is a divisor the caller chose (style §29). The canonical data has no zero denominator.
 - The four operations are `Add`, `Subtract`, `Multiply` and `Divide` impls, so the tests write `a + b` and `a / b`. Each builds its result with `Rational.new`, which reduces it. The impl functions name their parameters `lhs` and `rhs`, as the interfaces do; the checker requires the interface's names.
 - `Rational.pow` raises the reciprocal for a negative exponent, with `Int.pow` on each part. `Rational.raise` raises a `Float` to a rational power through `Float.pow` and the exponent as a `Float`.
 - `Rational.numerator` and `Rational.denominator` read the parts, since the struct is opaque. The reduction cases check the parts, which is what "reduced" means; the other cases compare rationals.

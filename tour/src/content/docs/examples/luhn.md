@@ -45,7 +45,7 @@ fn double(digit: Int) -> Int {
 import luhn
 
 test "validates numbers with the Luhn checksum" {
-    cases = [
+    [
         #("single digit strings can not be valid", "1", False),
         #("a single zero is invalid", "0", False),
         #("a simple valid SIN that remains valid if reversed", "059", True),
@@ -77,12 +77,15 @@ test "validates numbers with the Luhn checksum" {
             False,
         ),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert luhn.is_valid(number) == expected
     }
 }
 ```
+<!-- expect
+ok validates numbers with the Luhn checksum (22 cases)
+test result: ok. 22 passed, 0 failed
+-->
 
 ## How it's written
 

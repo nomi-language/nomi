@@ -210,24 +210,22 @@ test "the tree after the operations" {
 }
 
 test "the value at the focus" {
-    cases = [
+    [
         #("left, right and value", [Operation.Left, .Right], 3),
         #("left, right, and up", [.Left, .Up, .Right, .Up, .Left, .Right], 3),
         #("test ability to descend multiple levels and return", [.Left, .Right, .Up, .Up], 1),
     ]
-
-    subtests cases, #(description, operations, expected), description {
+    |> subtests #(description, operations, expected), description {
         assert follow(operations) |> Maybe.map(Zipper.value) == Some(expected)
     }
 }
 
 test "no node to move to" {
-    cases = [
+    [
         #("dead end", [Operation.Left, .Left]),
         #("traversing up from top", [.Up]),
     ]
-
-    subtests cases, #(description, operations), description {
+    |> subtests #(description, operations), description {
         assert follow(operations) == None
     }
 }
@@ -236,6 +234,13 @@ test "different paths to same zipper" {
     assert follow([.Left, .Up, .Right]) == follow([.Right])
 }
 ```
+<!-- expect
+ok the tree after the operations (8 cases)
+ok the value at the focus (3 cases)
+ok no node to move to (2 cases)
+ok different paths to same zipper
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

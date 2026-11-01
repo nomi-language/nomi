@@ -223,6 +223,41 @@ fn new_int(x: Int) -> Maybe<Int> go big.NewInt
 	}
 }
 
+// The adapters a wrapper links must compile whatever the bindings are: a
+// tuple result builds its descriptor with no env lookup, so Bind declares
+// no `err` it would never use, and a file that binds Go types alone still
+// uses its rt import.
+func TestStdBindings_AdaptersDeclareOnlyWhatTheyUse(t *testing.T) {
+	root, got := discoverStd(t, `gopkg "strings" as strs
+
+fn cut(s: String, sep: String) -> #(String, String, Bool) go strs.Cut
+`)
+	if err := validateDiscoveredGoBindings(root, got); err != nil {
+		t.Fatalf("validation: %v", err)
+	}
+	adapters, err := generateAdapters(root, got)
+	if err != nil {
+		t.Fatalf("generateAdapters: %v", err)
+	}
+	if !strings.Contains(adapters.Decls, "rt.TupleDesc(") || strings.Contains(adapters.Decls, "var err error") {
+		t.Errorf("Bind of a tuple-only adapter declares an unused err:\n%s", adapters.Decls)
+	}
+
+	root, got = discoverStd(t, `gopkg "strings" as strs
+
+opaque type B go strs.Builder
+`)
+	if err := validateDiscoveredGoBindings(root, got); err != nil {
+		t.Fatalf("validation: %v", err)
+	}
+	if adapters, err = generateAdapters(root, got); err != nil {
+		t.Fatalf("generateAdapters: %v", err)
+	}
+	if !strings.Contains(adapters.Decls, "_ = rt.TupleDesc") {
+		t.Errorf("a file with no adapters leaves its rt import unused:\n%s", adapters.Decls)
+	}
+}
+
 // Go's stream interfaces cross as std/io's Reader and Writer, with no
 // go.mod: io.TeeReader takes both and answers an io.Reader, io.NopCloser
 // answers an io.ReadCloser, and encoding/hex's encoder and decoder take

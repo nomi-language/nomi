@@ -175,6 +175,24 @@ error: 1 problem in the SQL; nothing was written
   expression with no type in an anonymous row.
 - A type in a signature that nothing imports.
 
+One mistake can give two errors. Here `user_by_email` says `@mail` where it
+means `@email`, so `mail` names no parameter and `email` is not used:
+
+```
+db/queries/queries.sql:9:15: `mail` is not a parameter of `user_by_email`
+db/queries/queries.sql:9:15: help: its parameters are `email`
+db/queries/queries.sql:5:25: the parameter `email` is not used in the SQL of `user_by_email`
+db/queries/queries.sql:5:25: help: write `@email` where it is bound, or remove it
+error: 2 problems in the SQL; nothing was written
+```
+
+Taking `RETURNING id` off `insert_user` leaves an `INSERT` that returns no
+row, so there is no id to answer:
+
+```
+db/queries/queries.sql:11:62: `insert_user` returns no rows, so it cannot answer an `Int`; write `-> Changed` for the number of rows it changed, or `-> Unit`
+```
+
 The checker then checks the generated code like any other. A column read
 into a field of the wrong type, or a NULL-able one into a field that is not
 a `Maybe`, is an error at the column's reader in the generated file:
@@ -257,6 +275,65 @@ fresh database and migrates one that lives on, run after run. A migration
 whose text changed after it ran is refused before anything runs, with
 `sql.Error.Database` coded `sqlkit` naming the file: write the change as a
 new migration.
+
+### Testing with the schema
+
+A test group's `setup` can hand each test a fresh in-memory database with
+the schema, so no test sees another's rows:
+
+```nomi
+group "the shop" {
+    setup {
+        db = sqlite.memory()?
+        defer sql.close_quietly(db)
+        sqlkit.migrate(db, schema.migrations)?
+        db
+    }
+
+    test "a user reads back as its row", db {
+        id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
+        assert Some(#User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
+        assert read_id == id
+    }
+}
+```
+
+A constraint the schema leaves unnamed gets the name Postgres would give
+it, so a broken `UNIQUE` on `users.email` is a `sql.Error.Constraint` named
+`users_email_key` on either database. The shop example's `shop_test.nomi`
+has eleven such tests: joins, `Maybe` columns of an outer join, decimal
+scale, transactions over queries and a `-> Changed` count.
+
+### In an application
+
+A program that serves requests opens the database once, in its `boot`, and
+keeps the connection in an app field, so every function reads it as
+`App.db`:
+
+```nomi
+pub struct App {
+    db: Conn
+    context: Context
+}
+
+pub fn boot(startup: Startup) -> Result<App, Error> {
+    path = Map.get(startup.env, "SHOP_DATABASE") |> Maybe.with_default(":memory:")
+    db = sqlite.open(path)?
+    defer sql.close_quietly(db)
+    sqlkit.migrate(db, schema.migrations)?
+    Ok(#App{db, context: Context.root()})
+}
+
+pub fn sign_up(email: String) -> Result<Int, Error> {
+    queries.insert_user(App.db, email, None)
+}
+```
+
+When the file does not open or a migration fails, `boot` returns the `Err`
+and `main` does not run. The `defer` closes the database when the program
+ends. A test group that writes `boot main.boot(#Startup{})` gets a fresh
+in-memory database and its own `App.db` for each test; a test that builds
+its own database replaces the field with `with App.db = db` in its `setup`.
 
 ## Limits
 

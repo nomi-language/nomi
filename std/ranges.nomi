@@ -13,6 +13,16 @@ import {
     strings.String
 }
 
+//# Ranges: `1..5`, `1..=5` and the unbounded `Range.from(n)`. A range's own
+//# functions are `contains` (its `Contains` impl, two comparisons),
+//# `is_bounded`, `from`, `naturals` and `step_by`. A range whose endpoint
+//# type implements `Discrete` is also an `Iter`: `Iter.known_count(r)` is
+//# `Some(n)` for a bounded range that can count its steps and `None` for an
+//# unbounded one, the safe, non-consuming bounded count. Everything else is
+//# generic over iterables: materialize with `Iter.to_list(r)`, which traps
+//# on an unbounded range (it is `Iter.is_infinite`; bound it with
+//# `Iter.take` first), and count with `Iter.count(r)`.
+
 /// Comparable `Range`. Bounded range literals desugar to this single struct:
 /// `1..5`, `"a".."z"`, and `0.0..=1.0` carry their start/end values and whether
 /// the end is inclusive. `end` is `None` only for integer ranges built via
@@ -126,6 +136,14 @@ impl Contains for Range<T> where T: Comparable {
 impl Display for Range<T> {
     // Use Debug for endpoints so every comparable value can be rendered, even
     // if it has no user-facing Display impl.
+    /// The range as its literal, each endpoint in its `Debug` form:
+    /// `start..end`, `start..=end`, or `start..` for an unbounded integer
+    /// range. `Debug` renders a range the same way.
+    //! assert Display.to_string(1..5) == "1..5"
+    //! assert Display.to_string("a"..="z") == "\"a\"..=\"z\""
+    //! assert Display.to_string(Range.from(3)) == "3.."
+    //! assert Debug.inspect(1..=5) == Display.to_string(1..=5)
+    //
     fn to_string(r: Range<T>) -> String {
         start_str = Debug.inspect(r.start)
 

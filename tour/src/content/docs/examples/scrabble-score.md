@@ -39,7 +39,7 @@ fn letter_value(letter: String) -> Int {
 import scrabble_score
 
 test "score" {
-    cases = [
+    [
         #("lowercase letter", "a", 1),
         #("uppercase letter", "A", 1),
         #("valuable letter", "f", 4),
@@ -52,16 +52,19 @@ test "score" {
         #("empty input", "", 0),
         #("entire alphabet available", "abcdefghijklmnopqrstuvwxyz", 87),
     ]
-
-    subtests cases, #(description, word, expected), description {
+    |> subtests #(description, word, expected), description {
         assert scrabble_score.score(word) == expected
     }
 }
 ```
+<!-- expect
+ok score (11 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 
 - The letter table is one `case` over one-letter strings, each value one arm with its letters joined by `or` (style §25). A `Map` built from the table was the other option; the `case` reads as the problem's table and needs no lookup that may miss.
 - The word is case-folded once with `String.fold_case`, then iterated as graphemes, so the table lists lowercase letters only.
-- The total is `Iter.sum` (style §26).
+- The total is `Iter.sum` (style §33).
 - Anything not in the table scores 0, which the canonical data does not test.

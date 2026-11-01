@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // The call form of a generic struct runs at the instance its fields solve
-// (spec §7 Construction): over a record literal, with a default filled, and
+// (spec §4 *Construction*): over a record literal, with a default filled, and
 // over a record value, whose field kinds solve the instance.
 func TestIRGenericStructCallForm_Runs(t *testing.T) {
 	if testing.Short() {

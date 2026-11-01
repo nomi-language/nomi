@@ -53,7 +53,7 @@ import std/io as console
 			t.Errorf("link at %s targets a missing file: %v", fmtRange(l.Range), err)
 		}
 		if rel, err := filepath.Rel(dir, target); err == nil && !strings.HasPrefix(rel, "..") {
-			target = rel
+			target = filepath.ToSlash(rel)
 		} else {
 			target = "std:" + filepath.Base(target)
 		}

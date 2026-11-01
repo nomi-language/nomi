@@ -50,7 +50,7 @@ func (bl *irScalarBuilder) fnAssertion(line, col int) bool {
 // a binding's value (`ok = assert x`, `ok: Bool = assert x`, `_ = assert x`,
 // `Some(n) = assert m else { ... }`), a block's final statement, or an `if`
 // or `case` arm whose value is used. Its value is the judged subject (spec
-// §36): True for `assert` of a Bool, False for `refute`, and the subject
+// §17): True for `assert` of a Bool, False for `refute`, and the subject
 // itself for a Maybe, Result or Assertable. A failure leaves through the
 // same boundary a statement assertion's does.
 func (bl *irScalarBuilder) assertionExpr(t *ast.Assertion) (ir.Temp, kind, bool, bool) {

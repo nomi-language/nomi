@@ -32,7 +32,7 @@ pub fn response(remark: String) -> String {
 import bob.response
 
 test "bob's responses" {
-    cases = [
+    [
         #("asking a question", "Does this cryogenic chamber make me look fat?", "Sure."),
         #("shouting", "WATCH OUT!", "Whoa, chill out!"),
         #("forceful question", "WHAT'S GOING ON?", "Calm down, I know what I'm doing!"),
@@ -76,12 +76,15 @@ test "bob's responses" {
             "Whatever.",
         ),
     ]
-
-    subtests cases, #(description, remark, expected), description {
+    |> subtests #(description, remark, expected), description {
         assert response(remark) == expected
     }
 }
 ```
+<!-- expect
+ok bob's responses (26 cases)
+test result: ok. 26 passed, 0 failed
+-->
 
 ## How it's written
 
@@ -95,7 +98,7 @@ test "bob's responses" {
   remark with `String.uppercase` of it was the alternative, but `"1, 2, 3"`
   equals its own upper case, so that needs a second check for a letter.
 - The parameter is trimmed into a binding of the same name
-  (`remark = String.trim(remark)`), per style §11.
+  (`remark = String.trim(remark)`), per style §6.
 - Replies are plain Strings, since the canonical data compares strings and
   nothing else consumes them.
 - The "other whitespace" case writes its remark `"\n\r \t"`, the escapes the

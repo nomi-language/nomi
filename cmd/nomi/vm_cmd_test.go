@@ -119,7 +119,7 @@ func TestReplCommand_VMBanner(t *testing.T) {
 	}
 	home := t.TempDir()
 	cmd := exec.Command(nomiBin)
-	cmd.Env = append(cmd.Environ(), "HOME="+home)
+	cmd.Env = withUserDirs(append(cmd.Environ(), "HOME="+home))
 	cmd.Stdin = strings.NewReader("1 + 2\n")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

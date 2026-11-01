@@ -31,7 +31,7 @@ pub fn find(subject: String, candidates: List<String>) -> List<String> {
 import anagram
 
 test "finds anagrams" {
-    cases = [
+    [
         #("no matches", "diaper", ["hello", "world", "zombies", "pants"], []),
         #("detects two anagrams", "solemn", ["lemons", "cherry", "melons"], ["lemons", "melons"]),
         #("does not detect anagram subsets", "good", ["dog", "goody"], []),
@@ -91,12 +91,15 @@ test "finds anagrams" {
         #("handles case of greek letters", "ΑΒΓ", ["ΒΓΑ", "ΒΓΔ", "γβα", "αβγ"], ["ΒΓΑ", "γβα"]),
         #("different characters may have the same bytes", "a⬂", ["€a"], []),
     ]
-
-    subtests cases, #(description, subject, candidates, expected), description {
+    |> subtests #(description, subject, candidates, expected), description {
         assert anagram.find(subject, candidates) == expected
     }
 }
 ```
+<!-- expect
+ok finds anagrams (18 cases)
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 

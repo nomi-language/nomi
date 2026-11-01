@@ -236,6 +236,15 @@ test "Follow series of instructions" {
     }
 }
 ```
+<!-- expect
+ok Create robot / at origin facing north
+ok Create robot / at negative position facing south
+ok Rotating clockwise (4 cases)
+ok Rotating counter-clockwise (4 cases)
+ok Moving forward one (4 cases)
+ok Follow series of instructions (4 cases)
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 

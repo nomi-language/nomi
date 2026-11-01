@@ -1,5 +1,5 @@
 ---
-title: "Formatting for a Reader"
+title: "Locales & Formatting"
 description: "Write numbers, prices, dates, durations and lists the way a reader's language writes them, read what people type, pick the reader's locale, and sort names as their language orders them."
 ---
 
@@ -77,124 +77,19 @@ Putting a number in a string, as in `"${sold}"`, always gives `1234567`.
 That text often ends up in web addresses, headers or CSV files, which a
 program reads, so it must not change from reader to reader.
 
-Each format function takes options as named arguments:
-
-- `Int.format`: `grouping` turns the thousands separators on or off, and
-  `min_digits` pads with zeros.
-- `Float.format` and `Decimal.format`: `min_fraction` and `max_fraction`
-  set how many digits come after the decimal point, and `grouping` works as
-  for `Int`.
-- `format_percent`: `max_fraction`, and for a `Decimal` also `min_fraction`
-  and `mode`.
-
-A `Float` is rounded to three digits after the point, and a percentage to
-none, unless you pass `max_fraction`. A tie rounds to the even digit. A
-`Decimal` shows every digit it has unless you pass `max_fraction`. Then it
-rounds by `mode`, which is also half to even unless you pass another, such
-as `.HalfUp`.
-
-```nomi-run
-import std/locale.Locale
-
-fn main() {
-    rating = 4.8125
-
-    dbg Float.format(rating, Locale`de`, max_fraction: 1)
-    dbg Float.format(4.5, Locale`de`, min_fraction: 2)
-    dbg Float.format_percent(0.256, Locale`en-US`)
-    dbg Decimal.format(2.665d, Locale`en-US`, max_fraction: 2)
-    dbg Decimal.format(2.665d, Locale`en-US`, max_fraction: 2, mode: .HalfUp)
-    dbg Int.format(1234567, Locale`en-US`, grouping: False)
-    dbg Int.format(7, Locale`en-US`, min_digits: 2)
-    Unit
-}
-
-```
-<!-- expect
-dbg line 6: Float.format(rating, Locale`de`, max_fraction: 1) = "4,8"
-dbg line 7: Float.format(4.5, Locale`de`, min_fraction: 2) = "4,50"
-dbg line 8: Float.format_percent(0.256, Locale`en-US`) = "26%"
-dbg line 9: Decimal.format(2.665d, Locale`en-US`, max_fraction: 2) = "2.66"
-dbg line 10: Decimal.format(2.665d, Locale`en-US`, max_fraction: 2, mode: .HalfUp) = "2.67"
-dbg line 11: Int.format(1234567, Locale`en-US`, grouping: False) = "1234567"
-dbg line 12: Int.format(7, Locale`en-US`, min_digits: 2) = "07"
--->
+Each format function takes named arguments for the digits:
+`Float.format(rating, locale, max_fraction: 1)` writes `4.8125` as `4,8`
+in German. [`Int.format`](/reference/int/#intformat),
+[`Float.format`](/reference/float/#floatformat) and
+[`Decimal.format`](/reference/decimal/#decimalformat) list every option
+and how each type rounds.
 
 ## Money
 
-A `Money` is an amount in a currency, such as
-`` Money`1299.5 USD` ``. `Money.format` writes a price the way a reader of a
-locale expects, with the currency's symbol in the right place. The
-[Money](/money/) chapter covers writing amounts, adding and rounding them,
-and custom currencies.
-
-```nomi-run
-import {
-    std/io
-    std/locale.Locale
-    std/money.Money
-}
-
-fn main() {
-    price = Money`1299.5 USD`
-
-    [Locale`en-US`, Locale`de`, Locale`fr`]
-    |> Iter.each(fn locale -> io.print("${locale}: ${Money.format(price, locale)}"))
-
-    dbg "${price}"
-    dbg Money.format(Money`1500 JPY`, Locale`ja`)
-    Unit
-}
-
-```
-<!-- expect
-en-US: $1,299.50
-de: 1.299,50 $
-fr: 1 299,50 $US
-dbg line 13: "${price}" = "1299.5 USD"
-dbg line 14: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
--->
-
-The dollar sign comes before the amount in American English and after it in
-German and French. French writes `$US`, since several countries call their
-money a dollar. CLDR also knows how many digits each currency has after the
-decimal point. The dollar has two, so `1299.5` becomes `1,299.50`. The yen
-has none.
-
-Putting a `Money` in a string, as in `"${price}"`, gives the amount and the
-code: `1299.5 USD`, the text its literal is written in. Like a number in a
-string, it is the same for every reader.
-
-### Showing the currency
-
-`display:` picks how the currency is shown: its symbol (the default), its
-narrow symbol, its code, or its name.
-
-```nomi-run
-import {
-    std/locale.Locale
-    std/money.Money
-}
-
-fn main() {
-    usd = Money`5 USD`
-    dbg Money.format(usd, Locale`en-US`, display: .Code)
-    dbg Money.format(usd, Locale`en-CA`)
-    Unit
-}
-
-```
-<!-- expect
-dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
-dbg line 9: Money.format(usd, Locale`en-CA`) = "US$5.00"
--->
-
-After `USD` is a no-break space, which `dbg` writes `\u{a0}`. Canadian
-English writes `US$` for the US dollar, since `$` alone would mean the
-Canadian dollar. `display: .Narrow` writes `$5.00`, for a page where the
-currency is clear, and `.Name` writes `5.00 US dollars`. A
-[custom currency](/money/#custom-currencies) has no symbol or name in CLDR,
-so it is always shown by its code.
+`Money.format` writes a price the way a reader of a locale expects:
+`$1,299.50` in American English and `1.299,50 $` in German.
+[Money](/money/#showing-an-amount-to-a-reader) shows it, with the ways to
+show the currency, and how to read a price someone typed.
 
 ## Dates and times
 
@@ -375,15 +270,9 @@ dbg line 17: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "
 American English puts a comma before "and", and British English doesn't.
 Polish uses "i" for "and" and "lub" for "or".
 
-The `style` argument
-([`ListStyle`](/reference/strings/#enum-liststyle)) says what the list means:
-
-- `And`, the default: all of the items.
-- `Or`: one of the items.
-- `Unit`: the parts of one amount, such as a weight.
-
-The `width` argument ([`ListWidth`](/reference/strings/#enum-listwidth))
-chooses `Wide` (the default), `Short` or `Narrow`. To join numbers, format
+The `style` argument ([`ListStyle`](/reference/strings/#enum-liststyle))
+says what the list means: all of the items (`And`, the default), one of
+them (`Or`), or the parts of one amount (`Unit`). To join numbers, format
 each number first, then join the strings.
 
 ## Reading what people type
@@ -431,12 +320,10 @@ error is a
 [`NumberParseError`](/reference/localize/#enum-numberparseerror), which says
 what went wrong and where. `at` counts characters from the start of the text.
 
-`lenient: True` accepts more: separators in any position, spaces around the
-number, a leading `+`, and a negative number written as `(12)` or `12-`.
-[`Int.parse_in`](/reference/int/#intparse_in) in the reference lists what
-each way takes. `Decimal.parse_in` keeps the digits the reader typed, so
-`49,90` becomes `49.90d`, and
-`` Decimal.parse_percent_in("15 %", Locale`de`) `` is `Ok(0.15d)`.
+`lenient: True` accepts more, such as spaces around the number.
+[`Int.parse_in`](/reference/int/#intparse_in) lists what each way takes.
+`Decimal.parse_in` keeps the digits the reader typed, so `49,90` becomes
+`49.90d`.
 
 `Money.parse_in` reads a price the same way, as the
 [Money](/money/#reading-what-people-type) chapter shows. `Date.parse_in`
@@ -468,12 +355,10 @@ dbg line 12: Date.parse_in("2/31/26", us) = Err(InvalidValue("month 2 of 2026 ha
 dbg line 13: Date.parse_in("Oct 20, 2026", us, style: .Medium) = Ok(2026-10-20)
 -->
 
-A strict date may leave out a leading zero, as in `2/3/26`. `lenient: True`
-also accepts a four-digit year where the locale writes two, a month name in
-any width or case, and any spaces or punctuation between the fields. A date
-that doesn't exist, such as February 31, is an error even when it is written
-correctly. [`Date.parse_in`](/reference/calendar/#dateparse_in) in the
-reference lists the rest.
+`lenient: True` also accepts a four-digit year where the locale writes two.
+A date that doesn't exist, such as February 31, is an error even when it is
+written correctly. [`Date.parse_in`](/reference/calendar/#dateparse_in)
+lists the rest.
 
 ## The reader's locale
 
@@ -561,7 +446,7 @@ default, English.
 ### Where the locale lives
 
 A program usually keeps the reader's locale in an
-[app field](/capabilities-and-context/). You can call the field anything;
+[app field](/app-fields/). You can call the field anything;
 `locale` is the usual name. `boot` sets a default. Code that handles one
 request replaces it with a `with` line, which lasts until the request is
 done. Std's format functions don't read the field, so pass `App.locale` to
@@ -619,56 +504,9 @@ program, `boot` would take the default from the `LANG` environment variable
 with `Locale.from_posix`. A library can't see your app fields, so a library
 function that writes text for people should take a `Locale` argument.
 
-## Which locales a program carries
-
-List the locales your program supports in `nomi.toml`'s `[i18n]` section,
-which [Translating Text](/translating-text/#the-i18n-settings) covers in
-full:
-
-```toml
-# nomi.toml
-[i18n]
-locales = ["en", "de", "pl"]
-```
-
-The program then carries the CLDR data for those locales only, and
-`nomi build` keeps only the parts of it the program uses. `Locale.available()`
-returns the listed locales, in the order you wrote them. A program without
-an `[i18n]` section carries every locale CLDR has. That includes a single
-script outside any project, and the examples on this page:
-
-```nomi-run
-import std/locale.Locale
-
-fn main() {
-    dbg Iter.contains(Locale.available(), Locale`pl`)
-    dbg Iter.count(Locale.available())
-    Unit
-}
-
-```
-<!-- expect
-dbg line 4: Iter.contains(Locale.available(), Locale`pl`) = True
-dbg line 5: Iter.count(Locale.available()) = 765
--->
-
-A locale you didn't list still formats. It uses its nearest listed parent,
-so with `en` and `de` listed, `de-CH` (Swiss German) formats as German. A
-locale with no listed parent formats in the **source locale**, the language
-the program is written in, which is English unless `[i18n]` says otherwise.
-So `fr` formats as English, and `Date.format` at `.Long` writes
-`October 20, 2026`.
-
-A locale you write as a literal is checked against the list. With `en` and
-`de` listed, ``Locale`fr` `` is an error, since the program would never
-format in it:
-
-```console
-error: typed literal Locale`fr`: `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them
-```
-
-The [`std/locale` reference](/reference/locale/) lists how much each kind
-of locale data adds to a built program.
+A program carries the CLDR data of only the locales its `nomi.toml` lists,
+as [Translating Text](/translating-text/#the-i18n-settings) explains; each
+example here lists none, so it carries every locale.
 
 ## Sorting and case
 

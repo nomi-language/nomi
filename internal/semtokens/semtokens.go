@@ -42,8 +42,9 @@ func Collect(fa *analysis.FileAnalysis) []Token {
 			return
 		}
 		// Synthesized @derive bodies sit in a line band past EOF; they have
-		// no on-screen text to color.
-		if analysis.IsSynthesizedLine(pos.Line) {
+		// no on-screen text to color. An `in` is a keyword the grammars
+		// color, though it references Contains.
+		if analysis.IsSynthesizedLine(pos.Line) || fa.MembershipReference(pos) {
 			return
 		}
 		if isHoverOnlySymbol(sym.Kind) {

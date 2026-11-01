@@ -338,6 +338,10 @@ test "search" {
     }
 }
 ```
+<!-- expect
+ok search (24 cases)
+test result: ok. 24 passed, 0 failed
+-->
 
 ## How it's written
 

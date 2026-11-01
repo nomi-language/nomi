@@ -84,6 +84,13 @@ test "multiple scores with differing numbers of letters" {
     }
 }
 ```
+<!-- expect
+ok single letter
+ok single score with multiple letters
+ok multiple scores with multiple letters
+ok multiple scores with differing numbers of letters
+test result: ok. 4 passed, 0 failed
+-->
 
 ## How it's written
 

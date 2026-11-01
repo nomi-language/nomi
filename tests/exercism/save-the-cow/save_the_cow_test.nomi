@@ -7,7 +7,7 @@ fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
 }
 
 test "guess" {
-    cases = [
+    [
         #(
             "Initially 9 failures are allowed and no letters are guessed",
             [],
@@ -41,8 +41,7 @@ test "guess" {
             0,
         ),
     ]
-
-    subtests cases, #(description, guesses, state, masked_word, remaining_failures), description {
+    |> subtests #(description, guesses, state, masked_word, remaining_failures), description {
         assert Ok(game) = play("loot", guesses)
         assert Game.state(game) == state
         assert Game.masked_word(game) == masked_word
@@ -51,7 +50,7 @@ test "guess" {
 }
 
 test "guessing after the game is over" {
-    cases = [
+    [
         #(
             "Guessing after a lose is error",
             ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'],
@@ -63,8 +62,7 @@ test "guessing after the game is over" {
             "cannot guess after the game is won",
         ),
     ]
-
-    subtests cases, #(description, guesses, message), description {
+    |> subtests #(description, guesses, message), description {
         assert Err(error) = play("loot", guesses)
         assert "${error}" == message
     }

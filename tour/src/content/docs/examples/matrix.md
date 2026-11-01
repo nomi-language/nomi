@@ -67,7 +67,7 @@ fn parse_row(line: String) -> Result<Vector<Int>, Error> {
 import matrix.{Error, Matrix}
 
 test "rows" {
-    cases = [
+    [
         #("extract row from one number matrix", "1", 1, [1]),
         #("can extract row", "1 2\n3 4", 2, [3, 4]),
         #("extract row where numbers have different widths", "1 2\n10 20", 2, [10, 20]),
@@ -78,8 +78,7 @@ test "rows" {
             [8, 7, 6],
         ),
     ]
-
-    subtests cases, #(description, text, index, expected), description {
+    |> subtests #(description, text, index, expected), description {
         assert Ok(matrix) = Matrix.parse(text)
 
         assert Matrix.row(matrix, index) == Some(expected)
@@ -87,7 +86,7 @@ test "rows" {
 }
 
 test "columns" {
-    cases = [
+    [
         #("extract column from one number matrix", "1", 1, [1]),
         #("can extract column", "1 2 3\n4 5 6\n7 8 9", 3, [3, 6, 9]),
         #(
@@ -103,8 +102,7 @@ test "columns" {
             [1903, 3, 4],
         ),
     ]
-
-    subtests cases, #(description, text, index, expected), description {
+    |> subtests #(description, text, index, expected), description {
         assert Ok(matrix) = Matrix.parse(text)
 
         assert Matrix.column(matrix, index) == Some(expected)
@@ -124,6 +122,13 @@ test "an index past the last row or column is None" {
     assert Matrix.column(matrix, 0) == None
 }
 ```
+<!-- expect
+ok rows (4 cases)
+ok columns (4 cases)
+ok a word that is not a number is an error
+ok an index past the last row or column is None
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 

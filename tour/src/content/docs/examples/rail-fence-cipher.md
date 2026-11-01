@@ -52,19 +52,18 @@ fn zigzag(rails: Int) -> Iter<Int> {
 import rail_fence_cipher
 
 test "encode" {
-    cases = [
+    [
         #("encode with two rails", "XOXOXOXOXOXOXOXOXO", 2, "XXXXXXXXXOOOOOOOOO"),
         #("encode with three rails", "WEAREDISCOVEREDFLEEATONCE", 3, "WECRLTEERDSOEEFEAOCAIVDEN"),
         #("encode with ending in the middle", "EXERCISES", 4, "ESXIEECSR"),
     ]
-
-    subtests cases, #(description, message, rails, expected), description {
+    |> subtests #(description, message, rails, expected), description {
         assert rail_fence_cipher.encode(message, rails) == expected
     }
 }
 
 test "decode" {
-    cases = [
+    [
         #("decode with three rails", "TEITELHDVLSNHDTISEIIEA", 3, "THEDEVILISINTHEDETAILS"),
         #("decode with five rails", "EIEXMSMESAORIWSCE", 5, "EXERCISMISAWESOME"),
         #(
@@ -74,8 +73,7 @@ test "decode" {
             "112358132134558914423337761098715972584418167651094617711286",
         ),
     ]
-
-    subtests cases, #(description, ciphertext, rails, expected), description {
+    |> subtests #(description, ciphertext, rails, expected), description {
         assert rail_fence_cipher.decode(ciphertext, rails) == expected
     }
 }
@@ -86,11 +84,17 @@ test "one rail" {
     assert rail_fence_cipher.decode("WEARE", 1) == "WEARE"
 }
 ```
+<!-- expect
+ok encode (3 cases)
+ok decode (3 cases)
+ok one rail
+test result: ok. 7 passed, 0 failed
+-->
 
 ## How it's written
 
 - No fence is built. `zigzag(rails)` is the endless sequence of rails the letters fall on, `0, 1, 2, 1, 0, 1, ...`: the range down, the range back up from `Iter.reverse`, and `Iter.cycle`. `Iter.zip` with the message stops it at the message's end.
 - `encode` pairs each letter with its rail and sorts by rail. `Iter.sort_by` is stable, so letters on one rail keep their order, which is the reading the cipher asks for.
 - `decode` runs the same sort on the positions `0..n` instead of the letters. That answers which position of the message each letter of the ciphertext came from; pairing the positions with the ciphertext and sorting by position puts the letters back. Both directions share the one zig-zag, so neither has a rail-length calculation of its own.
-- The tuples are read with `.0` and `.1` field accessors (style §21).
+- The tuples are read with `.0` and `.1` field accessors (style §10).
 - The encode and decode cases are one `subtests` table each. One rail, which leaves the message as it is, is a test of its own, marked as not canonical.

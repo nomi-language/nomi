@@ -63,55 +63,58 @@ import {
 }
 
 test "Perfect numbers" {
-    cases = [
+    [
         #("Smallest perfect number is classified correctly", 6),
         #("Medium perfect number is classified correctly", 28),
         #("Large perfect number is classified correctly", 33550336),
     ]
-
-    subtests cases, #(description, number), description {
+    |> subtests #(description, number), description {
         assert perfect_numbers.classify(number) == Ok(Classification.Perfect)
     }
 }
 
 test "Abundant numbers" {
-    cases = [
+    [
         #("Smallest abundant number is classified correctly", 12),
         #("Medium abundant number is classified correctly", 30),
         #("Large abundant number is classified correctly", 33550335),
         #("Perfect square abundant number is classified correctly", 196),
     ]
-
-    subtests cases, #(description, number), description {
+    |> subtests #(description, number), description {
         assert perfect_numbers.classify(number) == Ok(Classification.Abundant)
     }
 }
 
 test "Deficient numbers" {
-    cases = [
+    [
         #("Smallest prime deficient number is classified correctly", 2),
         #("Smallest non-prime deficient number is classified correctly", 4),
         #("Medium deficient number is classified correctly", 32),
         #("Large deficient number is classified correctly", 33550337),
         #("Edge case (no factors other than itself) is classified correctly", 1),
     ]
-
-    subtests cases, #(description, number), description {
+    |> subtests #(description, number), description {
         assert perfect_numbers.classify(number) == Ok(Classification.Deficient)
     }
 }
 
 test "Invalid inputs" {
-    cases = [
+    [
         #("Zero is rejected (as it is not a positive integer)", 0),
         #("Negative integer is rejected (as it is not a positive integer)", -1),
     ]
-
-    subtests cases, #(description, number), description {
+    |> subtests #(description, number), description {
         assert perfect_numbers.classify(number) == Err(Error.NotPositive)
     }
 }
 ```
+<!-- expect
+ok Perfect numbers (3 cases)
+ok Abundant numbers (4 cases)
+ok Deficient numbers (5 cases)
+ok Invalid inputs (2 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

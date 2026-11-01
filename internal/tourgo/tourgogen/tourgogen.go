@@ -32,7 +32,7 @@ const GoDir = "internal/tourgo"
 type Block struct {
 	// Name is the block as the generated file names it: its chapter and
 	// its place among the chapter's blocks that declare a `gopkg`
-	// (`ffi-and-dynamic.md, block 1`), which a line moved above it keeps.
+	// (`calling-go.md, block 1`), which a line moved above it keeps.
 	Name string
 	// Line is the line of its opening fence.
 	Line int

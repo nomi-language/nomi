@@ -70,6 +70,7 @@
 "or" @keyword.operator
 "not" @keyword.operator
 "is" @keyword.operator
+"in" @keyword.operator
 (pub) @keyword.modifier
 (export) @keyword
 "opaque" @keyword.modifier

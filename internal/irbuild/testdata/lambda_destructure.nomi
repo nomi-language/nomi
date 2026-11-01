@@ -2,7 +2,7 @@ import std/io
 
 // Probe: IRREFUTABLE DESTRUCTURING ON A LAMBDA PARAMETER.
 //
-// Spec §5 lets a lambda parameter be a pattern rather than a name, with an
+// Spec §7 lets a lambda parameter be a pattern rather than a name, with an
 // optional annotation the self-typing rule usually makes redundant. The value
 // arrives whole in one anonymous parameter and every name the pattern
 // introduces is read back out of it, with no run-time check, because the

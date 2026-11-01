@@ -61,6 +61,8 @@
 02-testing/setup_semantics_test.nomi:parent_fixture	ran
 02-testing/setup_try_test.nomi:find	ran
 02-testing/setup_try_test.nomi:parse	ran
+02-testing/subtests_pipe_test.nomi:abbreviate	ran
+02-testing/subtests_pipe_test.nomi:all_short	ran
 02-testing/subtests_test.nomi:Point.inspect	ran
 02-testing/subtests_test.nomi:all_ordered	ran
 02-testing/subtests_test.nomi:check_palindrome	ran
@@ -312,6 +314,13 @@
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
+06-collections/in_test.nomi:Shelf.contains	ran
+06-collections/in_test.nomi:Shelf.inspect	ran
+06-collections/in_test.nomi:all_in	ran
+06-collections/in_test.nomi:all_in	ran
+06-collections/in_test.nomi:all_in	ran
+06-collections/in_test.nomi:noisy	ran
+06-collections/in_test.nomi:noisy	ran
 06-collections/lists_test.nomi:sum	ran
 06-collections/named_literals_test.nomi:Ids.inspect	ran
 06-collections/named_literals_test.nomi:Json.inspect	ran
@@ -2540,13 +2549,13 @@ exercism/gigasecond/gigasecond_test.nomi:literal Date`1977-06-13` at 11:13 failu
 exercism/gigasecond/gigasecond_test.nomi:literal Date`2011-04-25` at 8:46 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`1991-03-27T01:46:40` at 17:13 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2009-02-19T01:46:40` at 12:13 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T22:00:00` at 30:13 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 35:13 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 46:14 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 49:22 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T22:00:00` at 29:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 34:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 44:14 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2015-01-24T23:59:59` at 47:22 failure	ran
 exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2043-01-01T01:46:40` at 8:64 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-02T23:46:40` at 31:13 failure	ran
-exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-03T01:46:39` at 36:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-02T23:46:40` at 30:13 failure	ran
+exercism/gigasecond/gigasecond_test.nomi:literal NaiveDateTime`2046-10-03T01:46:39` at 35:13 failure	ran
 exercism/go-counting/go_counting.nomi:Owner.equal	ran
 exercism/go-counting/go_counting.nomi:Owner.inspect	ran
 exercism/go-counting/go_counting.nomi:Territories.inspect	ran
@@ -3250,7 +3259,7 @@ exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2008-
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2011-05-19T08:30:00` at 52:13 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2011-05-22T20:00:00` at 54:13 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T09:00:00` at 10:13 failure	ran
-exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T09:00:00` at 118:21 failure	ran
+exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T09:00:00` at 117:21 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2012-02-13T11:00:00` at 12:13 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2013-11-21T15:30:00` at 76:13 failure	ran
 exercism/swift-scheduling/swift_scheduling_test.nomi:literal NaiveDateTime`2014-11-03T08:00:00` at 78:13 failure	ran
@@ -3628,8 +3637,8 @@ std/money.nomi:Money.round default 2	ran
 std/money.nomi:Money.sign	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
-std/money.nomi:literal Currency`XXX` at 316:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 376:53 failure	ran
+std/money.nomi:literal Currency`XXX` at 319:27 failure	ran
+std/money.nomi:literal Currency`XXX` at 379:53 failure	ran
 std/path.nomi:base	ran
 std/path.nomi:clean	ran
 std/path.nomi:climb	ran

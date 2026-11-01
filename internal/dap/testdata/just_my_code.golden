@@ -14,7 +14,7 @@
 <- response stepIn
 <- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":7,"name":"<lambda>","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}},{"column":36,"id":2,"line":54,"name":"maybe.Maybe.map<Int, Int>","presentationHint":"subtle","source":{"name":"maybe.nomi","path":"$STD/maybe.nomi","presentationHint":"deemphasize"}},{"column":18,"id":3,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":3}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":7,"name":"<lambda>","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}},{"column":36,"id":2,"line":69,"name":"maybe.Maybe.map<Int, Int>","presentationHint":"subtle","source":{"name":"maybe.nomi","path":"$STD/maybe.nomi","presentationHint":"deemphasize"}},{"column":18,"id":3,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":3}
 -> next {"threadId":1}
 <- response next
 <- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
@@ -42,6 +42,6 @@
 <- response stepIn
 <- event stopped {"allThreadsStopped":true,"reason":"step","threadId":1}
 -> stackTrace {"threadId":1}
-<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":53,"name":"maybe.Maybe.map<Int, Int>","presentationHint":"subtle","source":{"name":"maybe.nomi","path":"$STD/maybe.nomi"}},{"column":18,"id":2,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":2}
+<- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":68,"name":"maybe.Maybe.map<Int, Int>","presentationHint":"subtle","source":{"name":"maybe.nomi","path":"$STD/maybe.nomi"}},{"column":18,"id":2,"line":6,"name":"main","source":{"name":"stdstep.nomi","path":"$TESTDATA/stdstep.nomi"}}],"totalFrames":2}
 -> disconnect {"terminateDebuggee":true}
 <- response disconnect

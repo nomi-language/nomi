@@ -67,6 +67,7 @@
 "or" @keyword
 "not" @keyword
 "is" @keyword
+"in" @keyword
 (pub) @keyword
 (export) @keyword
 "opaque" @keyword

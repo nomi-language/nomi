@@ -11,7 +11,7 @@ import (
 // `xs |> Iter.map(f) |> Iter.to_list()`. A chain of two or more stages is
 // stacked; one stage stays on its line. Only first arguments are followed:
 // a call in a later argument is a value the call takes, not its subject
-// (style.md, "An incidental, non-subject argument stays nested").
+// (style.md §1, "A nested call that is not the first argument stays nested").
 //
 // "Convert from pipe" folds a pipeline back into the nested form: a call
 // stage takes the value as its first argument, or where its `_` stands; a

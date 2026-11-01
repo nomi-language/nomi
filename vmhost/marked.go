@@ -115,19 +115,35 @@ type underRoot struct {
 
 func (e *underRoot) Error() string { return fromRoot(e.err.Error(), e.root) }
 
-// fromRoot is text with each file under root named by its path from root.
-// The front end names a file by its path from the working directory when it
-// is under it, and by its absolute path otherwise, so both prefixes go,
-// each where a path starts.
+// fromRoot is text with each file under root named by its path from root,
+// with `/` as the source marks it. The front end names a file by its path
+// from the working directory when it is under it, and by its absolute path
+// otherwise, so both prefixes go, each where a path starts.
 func fromRoot(text, root string) string {
-	prefixes := []string{root + string(filepath.Separator)}
+	var rel string
 	if wd, err := os.Getwd(); err == nil {
-		if rel, err := filepath.Rel(wd, root); err == nil && rel != "." && !strings.HasPrefix(rel, "..") {
-			prefixes = append(prefixes, rel+string(filepath.Separator))
+		if r, err := filepath.Rel(wd, root); err == nil && r != "." && !strings.HasPrefix(r, "..") {
+			rel = r
 		}
 	}
+	return fromRootSep(text, root, rel, filepath.Separator)
+}
+
+// fromRootSep is fromRoot for a system whose separator is sep, with rel the
+// root's path from the working directory ("" when it has none): the path
+// after either prefix, up to a space, a colon or a quote, is written with
+// `/`.
+func fromRootSep(text, root, rel string, sep byte) string {
+	prefixes := []string{root + string(sep)}
+	if rel != "" {
+		prefixes = append(prefixes, rel+string(sep))
+	}
 	for _, prefix := range prefixes {
-		text = regexp.MustCompile(`(^|[\s"'(\x60])`+regexp.QuoteMeta(prefix)).ReplaceAllString(text, "${1}")
+		re := regexp.MustCompile(`(^|[\s"'(\x60])` + regexp.QuoteMeta(prefix) + `([^\s:"'()\x60]*)`)
+		text = re.ReplaceAllStringFunc(text, func(m string) string {
+			parts := re.FindStringSubmatch(m)
+			return parts[1] + strings.ReplaceAll(parts[2], string(sep), "/")
+		})
 	}
 	return text
 }

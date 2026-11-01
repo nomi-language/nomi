@@ -33,12 +33,12 @@ fn search(
     relatives: Map<String, Set<String>>,
     to: String,
 ) -> Maybe<Int> {
-    if Set.contains(frontier, to) { return Some(distance) }
+    if to in frontier { return Some(distance) }
 
     next =
         frontier
         |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default(%[])))
-        |> Iter.reject(&Set.contains(seen, &1))
+        |> Iter.reject(&(&1 in seen))
         |> Iter.to_set()
 
     if Iter.is_empty(next) {
@@ -178,7 +178,7 @@ once split_family = %{
 }
 
 test "degree of separation" {
-    cases = [
+    [
         #(
             "Direct parent-child relation",
             %{"Vera" => ["Tomoko"], "Tomoko" => ["Aditi"]},
@@ -211,12 +211,15 @@ test "degree of separation" {
             Some(12),
         ),
     ]
-
-    subtests cases, #(description, tree, from, to, expected), description {
+    |> subtests #(description, tree, from, to, expected), description {
         assert relative_distance.degree_of_separation(tree, from, to) == expected
     }
 }
 ```
+<!-- expect
+ok degree of separation (7 cases)
+test result: ok. 7 passed, 0 failed
+-->
 
 ## How it's written
 

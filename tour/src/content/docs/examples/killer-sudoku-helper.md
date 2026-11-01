@@ -21,7 +21,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //
 pub fn combinations(sum: Int, size: Int, exclude: List<Int> = []) -> List<List<Int>> {
     1..=9
-    |> Iter.reject(&List.contains(exclude, &1))
+    |> Iter.reject(&(&1 in exclude))
     |> Iter.combinations(size)
     |> Iter.filter(fn combination -> Iter.sum(combination) == sum)
     |> Iter.to_list()
@@ -52,6 +52,14 @@ test "Cage with several combinations that is restricted" {
     assert combinations(10, 2, exclude: [1, 4]) == [[2, 8], [3, 7]]
 }
 ```
+<!-- expect
+ok Trivial 1-digit cages (9 cases)
+ok Cage with sum 45 contains all digits 1:9
+ok Cage with only 1 possible combination
+ok Cage with several combinations
+ok Cage with several combinations that is restricted
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

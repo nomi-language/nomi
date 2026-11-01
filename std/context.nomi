@@ -1,3 +1,21 @@
+//# The execution context an application carries in a field of its app
+//# struct: a deadline and values scoped to one request or run
+//# ([Program execution](/spec/program-execution/)). The module's entire public surface is the
+//# opaque `Context` type with inherent functions, so every call is
+//# type-qualified (`Context.deadline(c)`); there are no file-level
+//# functions.
+//#
+//# `with_deadline` takes an absolute `Instant`; `with_timeout` is sugar for
+//# deriving a deadline at `now() + dur`. Both return a fresh `Context`.
+//# Deadlines flow from parent to child and only tighten: the earliest
+//# deadline anywhere along the chain is the one in force, so a child can
+//# bound its own work and can never loosen the bound it inherited.
+//#
+//# There is no cancellation predicate on the surface. A task stopping is
+//# not a state its body reads, because the runtime consults the task's
+//# cancellation at every safe point and unwinds the task there, ahead of
+//# any check the body could run.
+
 import {
     duration.Duration
     instant.Instant

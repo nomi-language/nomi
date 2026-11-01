@@ -31,7 +31,7 @@ group "named task groups" {
         // alternative is sleeping and hoping.
         _ = Supervisor.flush(Config.audit)
 
-        assert List.contains(drain_alerts(), "audited 7")
+        assert "audited 7" in drain_alerts()
     }
 
     test "a failure nobody awaits still goes somewhere" {

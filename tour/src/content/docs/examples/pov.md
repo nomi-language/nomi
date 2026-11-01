@@ -113,7 +113,7 @@ once cousins = #Tree{
 }
 
 test "Reroot a tree so that its root is the specified node." {
-    cases = [
+    [
         #(
             "Results in the same tree if the input tree is a singleton",
             singleton,
@@ -241,15 +241,14 @@ test "Reroot a tree so that its root is the specified node." {
         #("Errors if target does not exist in a singleton tree", singleton, "nonexistent", None),
         #("Errors if target does not exist in a large tree", parent_with_kids, "nonexistent", None),
     ]
-
-    subtests cases, #(description, tree, from, expected), description {
+    |> subtests #(description, tree, from, expected), description {
         rerooted = Tree.from_pov(tree, from) |> Maybe.map(in_label_order)
         assert rerooted == Maybe.map(expected, in_label_order)
     }
 }
 
 test "Given two nodes, find the path between them" {
-    cases = [
+    [
         #(
             "Can find path to parent",
             #Tree{
@@ -293,12 +292,16 @@ test "Given two nodes, find the path between them" {
         #("Errors if destination does not exist", parent_with_kids, "x", "nonexistent", None),
         #("Errors if source does not exist", parent_with_kids, "nonexistent", "x", None),
     ]
-
-    subtests cases, #(description, tree, from, to, expected), description {
+    |> subtests #(description, tree, from, to, expected), description {
         assert Tree.path_to(tree, from, to) == expected
     }
 }
 ```
+<!-- expect
+ok Reroot a tree so that its root is the specified node. (8 cases)
+ok Given two nodes, find the path between them (7 cases)
+test result: ok. 15 passed, 0 failed
+-->
 
 ## How it's written
 

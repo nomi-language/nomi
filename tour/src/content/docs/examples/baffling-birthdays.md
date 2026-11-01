@@ -65,7 +65,7 @@ fn repeats(birthdates: List<Date>, seen: Set<#(Int, Int)>) -> Bool {
         [date, ..rest] -> {
             day = #(Date.month(date), Date.day(date))
 
-            Set.contains(seen, day) or repeats(rest, Set.insert(seen, day))
+            day in seen or repeats(rest, Set.insert(seen, day))
         }
     }
 }
@@ -91,7 +91,7 @@ fn draw<T>(generator: Generator<T>) -> T {
 }
 
 test "shared birthday" {
-    cases = [
+    [
         #("one birthdate", [Date`2000-01-01`], False),
         #(
             "two birthdates with same year, month, and day",
@@ -140,8 +140,7 @@ test "shared birthday" {
             True,
         ),
     ]
-
-    subtests cases, #(description, birthdates, expected), description {
+    |> subtests #(description, birthdates, expected), description {
         assert baffling_birthdays.has_shared_birthday(birthdates) == expected
     }
 }
@@ -170,14 +169,13 @@ group "random birthdates" {
 }
 
 test "estimated probability of at least one shared birthday" {
-    cases = [
+    [
         #("for one person", 1, 0.0),
         #("among ten people", 10, 11.694818),
         #("among twenty-three people", 23, 50.729723),
         #("among seventy people", 70, 99.915958),
     ]
-
-    subtests cases, #(description, group_size, expected), description {
+    |> subtests #(description, group_size, expected), description {
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 
         assert Float.equal_within(estimate, expected, 1.0)

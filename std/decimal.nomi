@@ -28,6 +28,12 @@ import {
 //# `Decimal.divide`, `Decimal.sqrt` and `Decimal.round` round. There is no `/`: `Decimal.divide` names its
 //# rounding, and `Decimal.divide_exact` answers `None` for a quotient that
 //# does not terminate.
+//#
+//# `Decimal.format` and `Decimal.format_percent` write a decimal as a reader
+//# of a locale writes it, and `Decimal.parse_in` and
+//# `Decimal.parse_percent_in` read it back, by the rules std/int's page gives
+//# for [formatting](/reference/int/#formatting-numbers-for-a-reader) and
+//# [parsing](/reference/int/#parsing-numbers-a-reader-wrote) numbers.
 
 /// Arbitrary-precision exact base-10 number. The third blessed numeric type
 /// alongside `Int` and `Float`: `+ - *` are always exact, there is no `/`
@@ -183,11 +189,13 @@ impl Decimal {
     /// `d` as a reader of `locale` writes it, with as many digits after the
     /// decimal point as its scale has, at least `min_fraction` and at most
     /// `max_fraction` (0 <= min_fraction <= max_fraction <= 100, else a
-    /// trap). By default every digit of the scale is kept and none rounded:
-    /// `1234.50d` keeps its zero. A digit past `max_fraction` is rounded as
+    /// trap, as `Float.format`'s bounds do). By default every digit of the
+    /// scale is kept and none rounded: `1234.50d` is `1,234.50` in `en`. A
+    /// digit past `max_fraction` is rounded as
     /// `mode` says, half to even unless it says otherwise, as `Money.round`
     /// rounds.
     //! assert Decimal.format(1234.50d, Locale`de`) == "1.234,50"
+    //! assert Decimal.format(1234.50d, Locale`en`) == "1,234.50"
     //! assert Decimal.format(1234567.89d, Locale`en`) == "1,234,567.89"
     //! assert Decimal.format(-0.5d, Locale`sv`) == "−0,5"
     //! assert Decimal.format(1234.5d, Locale`en`, grouping: False) == "1234.5"
@@ -207,13 +215,15 @@ impl Decimal {
         decimal_format(locale, Display.to_string(shown), min_fraction, max_fraction, grouping)
     }
 
-    /// `d` as a percentage in `locale`: `d` times 100, with the locale's
-    /// percent sign where the locale puts it, and the digits after the
+    /// `d` as a percentage in `locale`: `d` times 100, exactly, with the
+    /// locale's percent sign where the locale's pattern puts it (`%26` in
+    /// `tr`), and the digits after the
     /// decimal point the percentage's scale has (two fewer than `d`'s),
     /// limited by `min_fraction` and `max_fraction` and rounded by `mode` as
     /// `Decimal.format` does. By default every digit is kept.
     //! assert Decimal.format_percent(0.125d, Locale`en`) == "12.5%"
     //! assert Decimal.format_percent(0.5d, Locale`de`) == "50\u{a0}%"
+    //! assert Decimal.format_percent(0.26d, Locale`tr`) == "%26"
     //! assert Decimal.format_percent(0.12345d, Locale`en`, max_fraction: 1) == "12.3%"
     //! assert Decimal.format_percent(0.12355d, Locale`en`, max_fraction: 2) == "12.36%"
     //! assert Decimal.format_percent(0.5d, Locale`en`, min_fraction: 1) == "50.0%"
@@ -254,6 +264,8 @@ impl Decimal {
     //!
     //! assert Decimal.parse_in("1.234,5", Locale`en`)
     //!     == Err(#NumberParseError.Unexpected{at: 5, text: ","})
+    //!
+    //! assert Decimal.parse_in("∞", Locale`en`) == Err(NumberParseError.OutOfRange)
     //
     pub fn parse_in(
         text: String,
@@ -263,11 +275,13 @@ impl Decimal {
         Decimal.lift(decimal_parse_in(text, locale, lenient))
     }
 
-    /// Read a percentage a reader of `locale` wrote, as a fraction:
-    /// `12,5 %` is `0.125d`. The percent sign is required, where the locale
-    /// puts it unless `lenient: True`.
+    /// Read a percentage a reader of `locale` wrote, as a fraction, divided
+    /// by 100 exactly: `12,5 %` is `0.125d`. The percent sign is required,
+    /// where the locale puts it unless `lenient: True`, which takes it on
+    /// either side and ASCII `%` for the locale's sign.
     //! assert Decimal.parse_percent_in("12,5\u{a0}%", Locale`de`) == Ok(0.125d)
     //! assert Decimal.parse_percent_in("12.5%", Locale`en`) == Ok(0.125d)
+    //! assert Decimal.parse_percent_in("%12.5", Locale`en`, True) == Ok(0.125d)
     //!
     //! assert Decimal.parse_percent_in("12.5", Locale`en`)
     //!     == Err(#NumberParseError.Unexpected{at: 4, text: ""})

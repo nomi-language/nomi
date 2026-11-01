@@ -34,41 +34,44 @@ pub fn difference_of_squares(n: Int) -> Int {
 import difference_of_squares
 
 test "Square the sum of the numbers up to the given number" {
-    cases = [
+    [
         #("square of sum 1", 1, 1),
         #("square of sum 5", 5, 225),
         #("square of sum 100", 100, 25502500),
     ]
-
-    subtests cases, #(description, n, expected), description {
+    |> subtests #(description, n, expected), description {
         assert difference_of_squares.square_of_sum(n) == expected
     }
 }
 
 test "Sum the squares of the numbers up to the given number" {
-    cases = [
+    [
         #("sum of squares 1", 1, 1),
         #("sum of squares 5", 5, 55),
         #("sum of squares 100", 100, 338350),
     ]
-
-    subtests cases, #(description, n, expected), description {
+    |> subtests #(description, n, expected), description {
         assert difference_of_squares.sum_of_squares(n) == expected
     }
 }
 
 test "Subtract sum of squares from square of sums" {
-    cases = [
+    [
         #("difference of squares 1", 1, 0),
         #("difference of squares 5", 5, 170),
         #("difference of squares 100", 100, 25164150),
     ]
-
-    subtests cases, #(description, n, expected), description {
+    |> subtests #(description, n, expected), description {
         assert difference_of_squares.difference_of_squares(n) == expected
     }
 }
 ```
+<!-- expect
+ok Square the sum of the numbers up to the given number (3 cases)
+ok Sum the squares of the numbers up to the given number (3 cases)
+ok Subtract sum of squares from square of sums (3 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

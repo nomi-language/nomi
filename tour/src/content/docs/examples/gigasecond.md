@@ -30,7 +30,7 @@ import {
 }
 
 test "date only specification of time" {
-    cases = [
+    [
         #("date only specification of time", Date`2011-04-25`, NaiveDateTime`2043-01-01T01:46:40`),
         #(
             "second test for date only specification of time",
@@ -43,14 +43,13 @@ test "date only specification of time" {
             NaiveDateTime`1991-03-27T01:46:40`,
         ),
     ]
-
-    subtests cases, #(description, day, expected), description {
+    |> subtests #(description, day, expected), description {
         assert NaiveDateTime.at_midnight(day) |> gigasecond.add() == expected
     }
 }
 
 test "full time specified" {
-    cases = [
+    [
         #(
             "full time specified",
             NaiveDateTime`2015-01-24T22:00:00`,
@@ -62,8 +61,7 @@ test "full time specified" {
             NaiveDateTime`2046-10-03T01:46:39`,
         ),
     ]
-
-    subtests cases, #(description, moment, expected), description {
+    |> subtests #(description, moment, expected), description {
         assert gigasecond.add(moment) == expected
     }
 }
@@ -75,10 +73,16 @@ test "does not mutate the input" {
     assert moment == NaiveDateTime`2015-01-24T23:59:59`
 }
 ```
+<!-- expect
+ok date only specification of time (3 cases)
+ok full time specified (2 cases)
+ok does not mutate the input
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 
-- The moment is std/calendar's `NaiveDateTime`. The canonical moments carry no zone or offset, and the answer is the wall-clock reading a gigasecond later, so a zoned `DateTime` would add a zone the data does not have (style §12 keeps `NaiveDateTime` for such readings).
+- The moment is std/calendar's `NaiveDateTime`. The canonical moments carry no zone or offset, and the answer is the wall-clock reading a gigasecond later, so a zoned `DateTime` would add a zone the data does not have (style §22 keeps `NaiveDateTime` for such readings).
 - The gigasecond is `once gigasecond = Seconds(1_000_000_000)`, and `add` is `moment + gigasecond`: std/calendar's `Add<Seconds, NaiveDateTime>` does the carrying into minutes, hours, days, months and years.
 - Three canonical moments are dates alone. The test table holds them as ``Date`2011-04-25` `` literals and the test turns each into midnight with `NaiveDateTime.at_midnight`, so the data says what the canonical data says. The expected moments are ``NaiveDateTime`...` `` literals, compared as values.
 - The canonical "does not mutate the input" case is a test that adds a gigasecond and asserts the moment is still what it was. Nomi values cannot change, so it can only pass; it is kept so every canonical case has a test.

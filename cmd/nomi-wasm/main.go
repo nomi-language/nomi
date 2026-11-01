@@ -31,6 +31,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"syscall/js"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -386,6 +387,19 @@ func semTokensInSrc(this js.Value, args []js.Value) (res any) {
 	return string(data)
 }
 
+// warmOnce lowers the whole standard library, which every run's lowering
+// reads (vmhost.Warm). The page shows a block's recorded output and asks only
+// for its semantic tokens and hovers until the reader edits it, and those
+// need the analysis alone, so the lowering waits for the first run: the
+// worker calls nomiWarm before it posts that run's start, inside the load
+// allowance (LOAD_BUDGET_MS) and outside the run's own budget.
+var warmOnce sync.Once
+
+func warm(this js.Value, args []js.Value) any {
+	warmOnce.Do(vmhost.Warm)
+	return nil
+}
+
 func result(output, errStr string) any {
 	return map[string]any{"output": output, "error": errStr}
 }
@@ -404,10 +418,7 @@ func main() {
 	js.Global().Set("nomiHoverIn", js.FuncOf(hoverInSrc))
 	js.Global().Set("nomiSemTokensIn", js.FuncOf(semTokensInSrc))
 	js.Global().Set("nomiTourModules", js.FuncOf(tourModules))
-	// The first VM run would otherwise lower the whole standard library inside
-	// its own timed budget. Doing it here makes it part of the worker's cold
-	// load, which the tour client budgets separately (LOAD_BUDGET_MS).
-	vmhost.Warm()
+	js.Global().Set("nomiWarm", js.FuncOf(warm))
 	// Keep the Go runtime alive so the exported functions stay callable.
 	select {}
 }

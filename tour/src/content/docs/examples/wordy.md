@@ -82,7 +82,7 @@ fn divide(a: Int, b: Int) -> Result<Int, Error> {
 import wordy.{self, Error}
 
 test "answers word problems" {
-    cases = [
+    [
         #("just a number", "What is 5?", Ok(5)),
         #("just a zero", "What is 0?", Ok(0)),
         #("just a negative number", "What is -123?", Ok(-123)),
@@ -115,8 +115,7 @@ test "answers word problems" {
         #("reject postfix notation", "What is 1 2 plus?", Err(.SyntaxError)),
         #("reject prefix notation", "What is plus 1 2?", Err(.SyntaxError)),
     ]
-
-    subtests cases, #(description, question, expected), description {
+    |> subtests #(description, question, expected), description {
         assert wordy.answer(question) == expected
     }
 }
@@ -126,6 +125,11 @@ test "division by zero" {
     assert wordy.answer("What is 1 divided by 0?") == Err(.DivisionByZero)
 }
 ```
+<!-- expect
+ok answers word problems (27 cases)
+ok division by zero
+test result: ok. 28 passed, 0 failed
+-->
 
 ## How it's written
 

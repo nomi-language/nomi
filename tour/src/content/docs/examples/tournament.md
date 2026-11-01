@@ -307,6 +307,22 @@ test "a row that is not a match is an error" {
         == Err(.InvalidRow("Allegoric Alaskans;win"))
 }
 ```
+<!-- expect
+ok just the header if no input
+ok a win is three points, a loss is zero points
+ok a win can also be expressed as a loss
+ok a different team can win
+ok a draw is one point each
+ok There can be more than one match
+ok There can be more than one winner
+ok There can be more than two teams
+ok typical input
+ok incomplete competition (not all pairs have played)
+ok ties broken alphabetically
+ok ensure points sorted numerically
+ok a row that is not a match is an error
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

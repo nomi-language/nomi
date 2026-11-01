@@ -11,7 +11,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// `break value` is `return value` then stop (spec §12), so a `break []`
+// `break value` is `return value` then stop (spec §13), so a `break []`
 // before a `break [x]` in an `Iter.map` callback is a `List<Int>`, as the
 // same `return []` is: the empty literal's element type is solved by the
 // callback's other results.

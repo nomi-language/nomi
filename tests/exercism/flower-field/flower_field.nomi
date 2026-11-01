@@ -39,7 +39,7 @@ fn annotate_square(
 
     count =
         neighbours
-        |> Iter.filter(fn #(dr, dc) -> Set.contains(flowers, #(row + dr, column + dc)))
+        |> Iter.filter(fn #(dr, dc) -> #(row + dr, column + dc) in flowers)
         |> Iter.count()
 
     if count == 0 {

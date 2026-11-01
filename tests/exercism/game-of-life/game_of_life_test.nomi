@@ -1,7 +1,7 @@
 import game_of_life.tick
 
 test "tick" {
-    cases = [
+    [
         #("empty matrix", #[], #[]),
         #(
             "live cells with zero live neighbors die",
@@ -57,8 +57,7 @@ test "tick" {
             ],
         ),
     ]
-
-    subtests cases, #(description, board, expected), description {
+    |> subtests #(description, board, expected), description {
         assert tick(board) == expected
     }
 }

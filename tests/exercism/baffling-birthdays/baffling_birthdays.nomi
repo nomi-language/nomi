@@ -52,7 +52,7 @@ fn repeats(birthdates: List<Date>, seen: Set<#(Int, Int)>) -> Bool {
         [date, ..rest] -> {
             day = #(Date.month(date), Date.day(date))
 
-            Set.contains(seen, day) or repeats(rest, Set.insert(seen, day))
+            day in seen or repeats(rest, Set.insert(seen, day))
         }
     }
 }

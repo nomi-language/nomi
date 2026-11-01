@@ -10,7 +10,7 @@ for you ships a **tool**, an ordinary Nomi program that reads your data and
 writes ordinary `.nomi` files. You run it, read what it wrote, and commit
 it like any other file of your project.
 
-The next chapter, [Databases](/databases/), shows the biggest example,
+The Libraries chapter [Databases](/databases/) shows the biggest example,
 sqlkit's `nomi tool sqlkit generate`, which writes typed functions for SQL.
 This chapter writes two small generators of its own.
 
@@ -143,7 +143,7 @@ fn enum_of(number: Int, line: String) -> Result<String, String> {
 }
 
 fn is_snake_case(word: String) -> Bool {
-    word != "" and Iter.all(word, fn c -> String.contains("abcdefghijklmnopqrstuvwxyz_", c))
+    word != "" and Iter.all(word, fn c -> c in "abcdefghijklmnopqrstuvwxyz_")
 }
 
 // FILE: go.mod
@@ -177,6 +177,18 @@ error: enums.choices:1: `Small` is not a snake_case word
 
 The tool's `main` returns an `Err`, which `nomi tool` prints after
 `error: `, as `nomi run` does.
+
+<div class="tour-details">
+<p class="tour-details-label">Running tools</p>
+
+- A tool is any file in a module's `tools/` directory with a `fn main`. It
+  needs no entry in `nomi.toml`.
+- The words after the tool's name are its `startup.args`, as the second
+  tool below reads `--check`.
+- [The `nomi` command](/tooling/commands/#the-nomi-command) lists
+  `nomi tool` with the other commands.
+
+</div>
 
 ## Keeping generated files current
 
@@ -516,7 +528,9 @@ test result: ok. 1 passed, 0 failed
 
 sqlkit's `generate` is a whole generator built this way. It reads SQL
 migrations and query files, asks SQLite to describe each query, and writes
-the schema's row types and a typed function per query. Each file it writes
-carries a SHA-256 of its inputs in the header, and it has `--check` and a
-generated test. The next chapter,
-[Databases](/databases/#checked-sql-with-sqlkit), walks through it.
+the schema's row types and a typed function per query, each file headed by a
+digest of its inputs, as above. The Libraries chapter
+[Databases](/databases/#checked-sql-with-sqlkit) walks through it.
+
+[Building & Shipping](/building-and-shipping/) is next. It packages a program
+for someone else to run.

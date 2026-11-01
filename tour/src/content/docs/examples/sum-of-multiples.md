@@ -27,7 +27,7 @@ pub fn sum(factors: List<Int>, limit: Int) -> Int {
 import sum_of_multiples
 
 test "sums the multiples" {
-    cases = [
+    [
         #("no multiples within limit", [3, 5], 1, 0),
         #("one factor has multiples within limit", [3, 5], 4, 3),
         #("more than one multiple within limit", [3], 7, 9),
@@ -50,12 +50,15 @@ test "sums the multiples" {
             39614537,
         ),
     ]
-
-    subtests cases, #(description, factors, limit, expected), description {
+    |> subtests #(description, factors, limit, expected), description {
         assert sum_of_multiples.sum(factors, limit) == expected
     }
 }
 ```
+<!-- expect
+ok sums the multiples (16 cases)
+test result: ok. 16 passed, 0 failed
+-->
 
 ## How it's written
 

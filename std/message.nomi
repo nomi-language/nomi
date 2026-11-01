@@ -59,6 +59,89 @@
 //#
 //# October 20, 2026 is a Tuesday, so it reads "Wysyłka we wtorek, 20
 //# października", and the next day "Wysyłka w środę, 21 października".
+//#
+//# ## Catalogs
+//#
+//# Each translation is an entry in a catalog, a TOML file per locale for each
+//# declaring file, under the directory `[i18n].catalogs` names
+//# ([where the files go](/tooling/projects/#i18n)). An entry is a table named
+//# by the message, holding `text`, the translation, and `source`, the source
+//# text it was translated from:
+//#
+//# ```toml
+//# # locales/pl/cart.toml
+//# [cart_items]
+//# source = '''
+//# .input {$count :integer}
+//# .match $count
+//# one {{{$count} item in your cart}}
+//# * {{{$count} items in your cart}}
+//# '''
+//# text = '''
+//# .input {$count :integer}
+//# .match $count
+//# one {{{$count} produkt w koszyku}}
+//# few {{{$count} produkty w koszyku}}
+//# many {{{$count} produktów w koszyku}}
+//# * {{{$count} produktu w koszyku}}
+//# '''
+//# ```
+//#
+//# A catalog holds comments, tables with bare or quoted names, and the two
+//# keys as strings of any TOML kind; `'''` strings need no escaping of MF2's
+//# braces. `[i18n]` names the locales: `locales` must each have every
+//# message, and `partial_locales` may leave any out.
+//#
+//# ## Functions in a text
+//#
+//# A text formats with the stable MF2 functions, the draft date and time
+//# ones, and four of Nomi's own in MF2's `nomi:` namespace. The compiler
+//# checks each placeholder's parameter type and options against this table:
+//#
+//# | Function | Parameter type | Options |
+//# |---|---|---|
+//# | `:integer` | `Int` | `select`, `useGrouping`, `minimumIntegerDigits` |
+//# | `:number`, `:percent` | `Int`, `Float`, `Decimal` | those, `minimumFractionDigits`, `maximumFractionDigits` |
+//# | `:string` | `String`, an enum whose variants carry nothing | none |
+//# | `:currency` | `Money` (std/money) | `currencyDisplay` (`symbol`, `narrowSymbol`, `code`, `name`) |
+//# | `:date` | `Date`, `NaiveDateTime`, `DateTime` | `style` (`full`, `long`, `medium` when left out, `short`) |
+//# | `:time` | `Time`, `NaiveDateTime`, `DateTime` | `style` (`short` when left out) |
+//# | `:datetime` | `Date`, `Time`, `NaiveDateTime`, `DateTime` | `dateStyle`, `timeStyle`, or the fields `weekday`, `era`, `year`, `month`, `day`, `hour`, `minute`, `second`, `fractionalSecondDigits`, with `hourCycle` |
+//# | `:nomi:noun` | `Noun` | `case` (a case of the locale's language, `nominative` when left out), `count` (a whole number or an `Int` parameter, 1 when left out) |
+//# | `:nomi:gender` | `Noun` | none |
+//# | `:nomi:list` | `List<String>` | none |
+//# | `:nomi:weekday` | `Date` (std/calendar) | none |
+//#
+//# - `select` is `plural` (the default), `ordinal` or `exact`; `useGrouping` is `auto`, `always`, `never` or `min2`.
+//# - `:currency` writes an amount as `Money.format` does. `:date` and `:time` write a value at a style, and `:datetime` at its `dateStyle` and `timeStyle` or by the fields its options name, as a skeleton (`weekday=long month=long day=numeric` is `MMMMEEEEd`; `hour=numeric` is `j`, which `hourCycle` makes `h` or `H`); with neither, it writes the date at `medium` and the time at `short`. A field the value lacks is an error at the option, ``en: `hour` names a time of day, and `$day` is a `Date`, which has none``, and so are styles beside fields. None of these selects: ``en: `:date` writes a calendar value and selects nothing``, whose help points to `:nomi:weekday`.
+//# - `:nomi:list` writes the list as `String.join_list` does in the locale, and selects by its length as a plural selector of an `Int` does.
+//# - `:nomi:weekday` only selects, by the date's day of the week. Its keys are `monday` through `sunday`, and a selector that names one day needs all seven. A placeholder that writes it is ``en: `:nomi:weekday` selects by the day of the week and writes nothing``.
+//#
+//# ## Formatting
+//#
+//# `Message.format` writes the text of the requested locale when the program
+//# has one, else that of the nearest locale on its CLDR fallback chain that
+//# has one, else the source text, so an unlisted locale shows the source.
+//# Numbers are written with the requested locale's symbols and patterns, and
+//# plural categories are its rules', from the CLDR data the program carries.
+//# In a right-to-left locale each placeholder is wrapped in Unicode isolates
+//# (U+2068 and U+2069), as MF2 recommends. Each message's texts are stored in
+//# the function it declares, so a program carries the texts of the messages
+//# it reaches and no others.
+//#
+//# Plural categories are selected by the reader's locale's rules when the
+//# text is a translation into its language (`pt`'s text read in `pt-PT`
+//# selects by `pt-PT`'s rules), and by the text's own language's otherwise,
+//# since its arms are keyed by that language's categories (an unlisted `fr`
+//# reads the English text by English rules). A noun is written in the locale
+//# of the message's text: its entry there, or the nearest listed ancestor's,
+//# else its source form.
+//#
+//# Two pseudo-locales need no catalog: ``Locale`en-XA` `` writes the source
+//# text accented, bracketed and about a third longer (`[3 îţéɱš îñ ýöûŕ çåŕţ
+//# one two]`), and ``Locale`ar-XB` `` writes it mirrored right to left, so
+//# text that was not declared as a message stands out and layouts are tried
+//# at another length and direction.
 
 import {
     bool.Bool.False
@@ -259,8 +342,9 @@ impl Message {
     /// (`Catalog.load`). At each locale of the fallback chain the first of
     /// them for that locale with an entry for the message gives its text,
     /// before the program's own; a message none of them translates keeps
-    /// its compiled text. A message that is an argument of this one is
-    /// formatted with the same catalogs.
+    /// its compiled text, as does one whose entry `Catalog.load` rejected. A
+    /// message that is an argument of this one is formatted with the same
+    /// catalogs.
     pub fn format(message: Message, locale: Locale, catalogs: List<Catalog> = []) -> String {
         arguments = message.arguments
         kinds = arguments |> Iter.map(&argument_kind(&1)) |> Iter.to_list()
@@ -304,16 +388,29 @@ impl Catalog {
     /// file, where each of the program's own catalogs holds one file's.
     ///
     /// Each entry is checked against the program's compiled messages and
-    /// nouns as the compiler checks a catalog: it names one of them, it
-    /// records the declaration's current text as its `source` (a stale
-    /// entry is rejected), its text is valid MessageFormat 2 that reads only
-    /// the message's parameters, with their types and the plural, enum and
-    /// gender arms the locale needs, and its nouns and messages agree with
-    /// the program's. A rejected entry is never used: its message keeps its
-    /// compiled text, so a bad translation never reaches a reader. A Polish
-    /// entry with no `few` variant is rejected with the reason
+    /// nouns as the compiler checks a catalog: it names a message or noun
+    /// the program uses (`` `cart.ghost` is not a message or noun the
+    /// program uses ``), in a locale `[i18n]` lists other than the source
+    /// locale; its keys are a message's or a noun's; it records the
+    /// declaration's current text as its `source`, so a stale entry is
+    /// rejected in every locale; its text is valid MessageFormat 2 that
+    /// reads only the message's parameters, with the types, plural arms and
+    /// enum arms its signature and the locale's rules need; and its nouns
+    /// and messages agree with the program's in that locale (a loaded noun
+    /// has every form a message there asks for, and a loaded message an arm
+    /// for every gender a noun there has). A rejected entry is never used:
+    /// its message keeps its compiled text, so a bad translation never
+    /// reaches a reader. Each rejection gives the first problem the compiler
+    /// would report about the entry, without the locale it starts with: a
+    /// Polish entry with no `few` variant is rejected with the reason
     /// `` `cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish ``.
-    /// A catalog need not translate every message.
+    /// Completeness is not asked: a catalog may translate one message.
+    ///
+    /// The checks read the declarations' types as the compiler resolved
+    /// them, which the program carries for each message it reaches, so an
+    /// entry for a message the program never formats is rejected as one it
+    /// does not use. Each catalog is checked against the compiled program,
+    /// not against the other catalogs a call is handed.
     ///
     /// Hand the catalog to `Message.format` as `catalogs`; a fixed
     /// translation then needs no new build:

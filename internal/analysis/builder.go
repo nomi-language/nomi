@@ -1022,11 +1022,14 @@ func (b *builder) importerModRel() string {
 	if b.file == nil || b.file.FilePath == "" || b.projectRoot == "" {
 		return ""
 	}
-	prefix := b.projectRoot + string(filepath.Separator)
-	if !strings.HasPrefix(b.file.FilePath, prefix) {
+	// filepath.Rel rather than a prefix: the root and the file may spell
+	// the separator differently (`/project` beside `\project\tools\seed.nomi`
+	// on Windows).
+	rel, err := filepath.Rel(b.projectRoot, b.file.FilePath)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return ""
 	}
-	rel := strings.TrimSuffix(strings.TrimPrefix(b.file.FilePath, prefix), ".nomi")
+	rel = strings.TrimSuffix(rel, ".nomi")
 	// importeeModRel is always "/"-joined (importsOf walks segments and
 	// joins with "/"). On Windows, b.file.FilePath uses backslashes — normalize
 	// here so the two sides compare correctly in checkInternalAccess.
@@ -3437,7 +3440,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		}
 		b.recordInterfaceImpl(recv, ifaceName, name)
 		b.file.DispatchNames[name] = true
-		// Visibility inheritance (spec §3): stamp the method symbol's
+		// Visibility inheritance (spec §14 *Visibility*): stamp the method symbol's
 		// Public from the interface.
 		if sym := b.file.Definitions[pos]; sym != nil {
 			sym.Public = ifacePublic
@@ -4192,12 +4195,25 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 			//     which lands in the synth band) have no user-visible
 			//     position to report at. A local declaration of a prelude
 			//     name is diagnosed at its own site by checkReservedTypeName.
-			//   - An import colliding with another IMPORT is left exactly as
-			//     it was. `import std/maybe.{Maybe}` beside the prelude's own
+			//   - An import colliding with another IMPORT is left to the check
+			//     above. `import std/maybe.{Maybe}` beside the prelude's own
 			//     injected `Maybe` is the explicit-is-better idiom, not an
-			//     error, and stdlib files must write it. Import-vs-import
-			//     precedence is a separate open question; this check does not
-			//     touch it.
+			//     error, and stdlib files must write it.
+			// Two user-written imports that bind one name to two different
+			// declarations are an error (spec §14 *Import forms*): the first keeps
+			// the name. Binding the same declaration twice is left to the
+			// unused-import check.
+			if prior := scope.LookupLocal(bindName); prior != nil && real != nil && symbolCameFromImport(prior) &&
+				!IsSynthesizedLine(sym.Pos.Line) && !IsSynthesizedLine(prior.Pos.Line) &&
+				prior.Resolved != nil && importTarget(prior) != importTarget(real) {
+				b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+					Line:    nameNode.LineNum(),
+					Col:     b.nodeCol(nameNode),
+					Message: fmt.Sprintf("'%s' is already imported on line %d from another file; two imports cannot bind one name", bindName, prior.Pos.Line),
+				}.Spanning(nameNode).WithHint(fmt.Sprintf("import one of them under another name, as in `%s as %s`", origName, otherName(origName))))
+				b.define(sym.Pos, sym)
+				continue
+			}
 			if b.importMayTakeScopeSlot(scope, bindName, sym.Pos) {
 				scope.Define(sym)
 			}
@@ -5135,7 +5151,7 @@ func moduleScopeOfSym(sym *Symbol) *Scope {
 }
 
 // walkScopedBlock walks a block in a new scope nested in scope. Bindings
-// inside a block are scoped to that block (spec §33): one in an `if` arm, an
+// inside a block are scoped to that block (spec §8 *Block expressions*): one in an `if` arm, an
 // `else` block or a bare `{ }` does not leak into the enclosing scope, so a
 // read after the block sees the outer binding and an inner binding nothing
 // reads is reported as never read.
@@ -5261,7 +5277,7 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 			}
 
 		case *ast.ImplBlock, *ast.ImplConformance:
-			// Behavior is declared at module top level (spec §5): a block
+			// Behavior is declared at module top level (spec §7): a block
 			// may declare a type or an interface, never an impl of one.
 			// Its references are still walked for hover and navigation.
 			form, line, col := "an `impl` block", 0, 0

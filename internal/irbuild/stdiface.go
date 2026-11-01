@@ -636,6 +636,49 @@ func (g *gen) loadStdIfaces() {
 // uniform, and it is what keeps `projectStdIface` — whose input is a solved
 // type carrying only a NAME — from adopting rt's table for a user's interface,
 // which would be a wrong answer rather than a refusal.
+// qualifiedStdIface reports whether a module-qualified name such as
+// `calendar.DateParts` names a std interface, read through the qualifier's
+// scope as qualifiedStdKind reads a type, so a file's own interface of the
+// same name does not shadow it as it shadows the bare name in
+// stdIfaceNamed. def is the interface's dispatch table, nil for one with
+// none. key is the name its impls are filed under in implsByIface: the bare
+// name, or where this file declares an interface of that name, the std
+// one's stdIfaceKey, so the two interfaces' impls for one type do not
+// collide.
+func (g *gen) qualifiedStdIface(te ast.TypeExpr) (def *ifaceDef, key string, ok bool) {
+	qt, isQualified := te.(*ast.QualifiedType)
+	if !isQualified {
+		return nil, "", false
+	}
+	qualifier, name, named := qualifiedTypeParts(qt)
+	if !named {
+		return nil, "", false
+	}
+	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
+	if sym == nil {
+		return nil, "", false
+	}
+	it, isIface := sym.Type.(*analysis.InterfaceType)
+	if !isIface || !strings.HasPrefix(it.Origin, "std/") {
+		return nil, "", false
+	}
+	key = name
+	if _, shadowed := g.ifaceNamed(name); shadowed {
+		key = stdIfaceKey(it.Origin, name)
+	}
+	g.loadStdIfaces()
+	if i, anchored := g.stdIfaceByName[name]; anchored {
+		def = stdIfaceDefs()[i]
+	}
+	return def, key, true
+}
+
+// stdIfaceKey files the impls of std module origin's interface name where a
+// program interface of the same name holds the bare name: `std/calendar.DateParts`.
+func stdIfaceKey(origin, name string) string {
+	return origin + "." + name
+}
+
 func (g *gen) stdIfaceNamed(name string) (*ifaceDef, bool) {
 	if _, user := g.ifaceNamed(name); user {
 		return nil, false

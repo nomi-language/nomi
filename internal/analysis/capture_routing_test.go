@@ -4,7 +4,7 @@ import "testing"
 
 // A capture is a lambda written another way, so it routes to a trailing
 // callback past a defaulted parameter on sight, as a lambda and a field
-// accessor do (spec §5, *Lambdas at Call Sites*): an operator, a partial
+// accessor do (spec §7, *Lambdas at Call Sites*): an operator, a partial
 // capture (`&String.length(&1)`), a call that is part of a larger
 // expression and a struct literal, directly and through a pipe, into a user
 // function shaped like the spec's `do_thing` and into `Iter.sort_by`, whose

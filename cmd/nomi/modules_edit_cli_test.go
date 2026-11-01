@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/gotoolchain"
 )
 
@@ -33,11 +34,12 @@ func newModuleCLI(t *testing.T) *moduleCLI {
 		"NOMI_COLOR=never",
 		"NOMI_FFIRUN_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
 		"NOMI_TOOLCHAIN_ROOT=" + filepath.Join(tmp, "toolchains"),
-		"GOPROXY=file://" + filepath.ToSlash(proxy),
+		"GOPROXY=" + fileuri.FromPath(proxy),
 		"GOSUMDB=off",
 		"GOMODCACHE=" + filepath.Join(tmp, "modcache"),
 		"GOFLAGS=-modcacherw",
 	}
+	env = withUserDirs(env)
 	if p := os.Getenv("NOMI_STD_PATH"); p != "" {
 		env = append(env, "NOMI_STD_PATH="+p)
 	}

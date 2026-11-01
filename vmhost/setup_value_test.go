@@ -10,7 +10,7 @@ import (
 
 // A test binds a Unit setup value as any Unit binding does, and a setup whose
 // final statement is `assert x` or `refute x` has the assertion's value, the
-// judged subject (spec §36), as the checker types it: True, False or the
+// judged subject (spec §17), as the checker types it: True, False or the
 // Maybe, not Unit. A setup ending in a statement, an empty one and one whose
 // `return` is bare are Unit.
 func TestRun_SetupValuesTestsBind(t *testing.T) {

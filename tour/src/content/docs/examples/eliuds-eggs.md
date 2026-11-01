@@ -26,18 +26,21 @@ pub fn egg_count(number: Int) -> Int {
 import eliuds_eggs
 
 test "counts the eggs" {
-    cases = [
+    [
         #("0 eggs", 0, 0),
         #("1 egg", 16, 1),
         #("4 eggs", 89, 4),
         #("13 eggs", 2000000000, 13),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert eliuds_eggs.egg_count(number) == expected
     }
 }
 ```
+<!-- expect
+ok counts the eggs (4 cases)
+test result: ok. 4 passed, 0 failed
+-->
 
 ## How it's written
 

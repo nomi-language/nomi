@@ -2,7 +2,7 @@ package vmhost_test
 
 import "testing"
 
-// Spec §8 *Type Narrowing*: in an arm that matched a name against an
+// Spec §10 *Type Narrowing*: in an arm that matched a name against an
 // `embeds` variant, the name holds the embedded type. Before, the checker
 // accepted `take(value)` (its unifier admits an enum where an embedded type
 // is expected either way round) and the IR builder declined the call, so the

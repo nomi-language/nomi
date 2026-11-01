@@ -1,7 +1,7 @@
 import alphametics
 
 test "solve" {
-    cases = [
+    [
         #("puzzle with three letters", "I + BB == ILL", Some(%{"I" => 1, "B" => 9, "L" => 0})),
         #("solution must have unique value for each letter", "A == B", None),
         #("leading zero solution is invalid", "ACA + DD == BD", None),
@@ -67,8 +67,7 @@ test "solve" {
             ),
         ),
     ]
-
-    subtests cases, #(description, puzzle, expected), description {
+    |> subtests #(description, puzzle, expected), description {
         assert alphametics.solve(puzzle) == expected
     }
 }

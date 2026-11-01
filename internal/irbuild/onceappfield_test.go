@@ -11,7 +11,7 @@ import (
 )
 
 // A `once` initializer reads the application fields boot PUBLISHED, and never
-// the forcer's `with` overrides. Spec §27: "The runtime publishes application
+// the forcer's `with` overrides. Spec §15 *Scoped application fields*: "The runtime publishes application
 // fields only after boot succeeds", and a cached value must not depend on
 // which caller forced it first. An initializer frame built with no scoped
 // fields at all fails every row here with "$label is not published"

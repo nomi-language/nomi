@@ -34,6 +34,24 @@ dbg line 12: 5 |> add(3) = 8
 When the call takes more arguments, you write the rest in the parentheses.
 `5 |> add(3)` is `add(5, 3)`.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A stage is a call. `5 |> double` is
+  ``a pipe stage is a call: write `double()` ``, since a name without
+  parentheses is a function value.
+- A lambda or a capture is a stage only after `then` or `tap`.
+  `5 |> fn n -> n * 2` is an error that suggests `then`.
+- A variant stage names its enum: `5 |> Shape.Dot()`. A bare `.Dot()` has
+  no enum to look in.
+- `|> if` and `|> case` may prefix the call that computes their operand:
+  `input |> case parse_id() { ... }` is `input |> parse_id() |> case { ... }`.
+
+Spec: [Pipes](/spec/expressions/#pipes),
+[Keyword stages](/spec/expressions/#keyword-stages).
+
+</div>
+
 A longer pipeline puts one stage on each line:
 
 ```nomi-run
@@ -134,6 +152,30 @@ what it returns. Use it for a small step that no named function does. The
 lambda's body ends at the next `|>`, so the stages after it are still part
 of the pipeline.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A `then` capture may use `&1` more than once, positional or named. The
+  piped value is computed once: `3 |> then &add(&1, b: &1)` is 6.
+- A second parameter is an error: the stage passes one value.
+- A lambda's parameter is out of scope after its body ends. Using it in a
+  later stage is an error whose help says to put the body in braces.
+
+```nomi
+fn main() {
+    total =
+        [3, 4]
+        |> then fn xs -> { xs |> Iter.map(&(&1 * 2)) |> Iter.sum() }
+        |> then &(&1 + 1)
+
+    dbg total // 15
+}
+```
+
+Spec: [The `then` stage](/spec/expressions/#the-then-stage).
+
+</div>
+
 ## The `tap` stage
 
 ```nomi-run
@@ -162,6 +204,19 @@ If a `tap` lambda returns some other value, the compiler reports an error
 and suggests `then`, because `tap` would throw that value away. To look at a
 value while debugging, a bare `dbg` stage is shorter. Use `tap` for effects
 the program keeps.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A `tap` body may end in `dbg`, as a `Unit` function body may.
+- A `?` inside the lambda exits the lambda, so its result is a `Result` or
+  `Maybe`, not `Unit`, and the stage is rejected.
+- `tap?` is an error: `tap` passes its input on, so there is nothing for
+  the `?` to propagate. Use `then?`.
+
+Spec: [The `tap` stage](/spec/expressions/#the-tap-stage).
+
+</div>
 
 ## Other stages
 
@@ -210,6 +265,8 @@ test "pipeline result is true" {
 
 ```
 <!-- expect
+ok pipeline result is true
+test result: ok. 1 passed, 0 failed
 -->
 
 `if` and `case` can take the piped value as well. Here the value becomes the
@@ -251,5 +308,15 @@ dbg line 15:
   }
   = "named Ada"
 -->
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/word-count/"><span class="tour-example-name">Word Count</span><span class="tour-example-what">Count each word in a sentence.</span></a>
+<a href="/examples/acronym/"><span class="tour-example-name">Acronym</span><span class="tour-example-what">Build an acronym from a phrase.</span></a>
+<a href="/examples/high-scores/"><span class="tour-example-name">High Scores</span><span class="tour-example-what">The latest, the best and the top three.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=pipes">Every example that uses Pipes</a>
 
 [Scalars & Strings](/scalars-and-strings/) is next.

@@ -42,7 +42,7 @@ fn contains_run<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable {
 import sublist.{self, Relation}
 
 test "sublist" {
-    cases = [
+    [
         #("empty lists", [], [], Relation.Equal),
         #("empty list within non empty list", [], [1, 2, 3], .Sublist),
         #("non empty list contains empty list", [1, 2, 3], [], .Superlist),
@@ -62,12 +62,15 @@ test "sublist" {
         #("order matters to a list", [1, 2, 3], [3, 2, 1], .Unequal),
         #("same digits but different numbers", [1, 0, 1], [10, 1], .Unequal),
     ]
-
-    subtests cases, #(description, first, second, expected), description {
+    |> subtests #(description, first, second, expected), description {
         assert sublist.sublist(first, second) == expected
     }
 }
 ```
+<!-- expect
+ok sublist (18 cases)
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 

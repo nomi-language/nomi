@@ -40,6 +40,24 @@ A plain name in a pattern, like `n`, matches any value and gives it that name,
 here the length. `when` adds a condition, called a guard. The arm runs only if
 the condition is true. `_` matches anything and names nothing.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- An arm with a guard never counts toward covering every value, since its
+  condition may be false.
+- Literal patterns never cover their type: no list of numbers or strings
+  covers `Int` or `String`, so `label` needs its last arm.
+- Coverage works part by part. For a pair of `Maybe<Int>` values, arms for
+  `#(Some(x), _)` and `#(_, Some(y))` miss
+  `non-exhaustive case on #(Maybe<Int>, Maybe<Int>): missing #(None, None)`.
+- A literal never converts: `3` doesn't match a `Float`. Write `3.0`.
+
+Spec: [Exhaustiveness checking](/spec/patterns/#exhaustiveness-checking),
+[Guards](/spec/patterns/#guards),
+[Literal patterns](/spec/patterns/#literal-patterns).
+
+</div>
+
 ## Destructuring
 
 Patterns can also take a value apart. This is the `Shape` enum from
@@ -130,6 +148,40 @@ hold exactly the values written. The values are expressions, looked up rather
 than bound, so a set pattern can never cover every set, and `access` needs its
 `_` arm.
 
+A string pattern can match a prefix: the arm `"/users/" + id -> ...` matches
+a string that starts with `/users/` and names the rest `id`.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A map pattern, `%{"port" => p}`, matches a map that holds every key it
+  names; other keys are ignored. A missing key just fails to match. Like a
+  set pattern, it needs a `_` arm.
+- Map keys and set elements are values to look up, never names to bind:
+  `%[_, ..]` is an error.
+- In a string prefix pattern the left side is a plain string literal and
+  the right side a name. The rest may be empty, and the pattern can nest:
+  `Some("/users/" + id)`.
+- A list pattern takes one `..`. Items before it match from the front, and
+  items after it from the end.
+
+```nomi
+fn route(path: String) -> String {
+    case path {
+        "/users/" + id -> "user ${id}"
+        "/health" -> "ok"
+        _ -> "not found"
+    }
+}
+```
+
+Spec: [Map Destructuring](/spec/patterns/#map-destructuring),
+[Set Destructuring](/spec/patterns/#set-destructuring),
+[String Prefix Patterns](/spec/patterns/#string-prefix-patterns),
+[List Destructuring](/spec/patterns/#list-destructuring).
+
+</div>
+
 ### Naming the whole match with `as`
 
 Sometimes an arm needs both the parts and the whole value. `pattern as name`
@@ -174,6 +226,23 @@ the value it names, so `sq` is a `Shape`.
 
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
 inside other patterns.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- `as` binds looser than `or`: `A or B as x` names the value whichever
+  alternative matched. To name one alternative, use parentheses:
+  `(A as a) or B`.
+- The pattern doesn't narrow the name: `Ok(_) as r` over a
+  `Result<Int, String>` binds a `Result<Int, String>`.
+- It must add a name: `_ as x` is an error that asks for `x`.
+- A guard's names come from the pattern, and the guard applies to the
+  whole arm.
+
+Spec: [Naming the Whole Match](/spec/patterns/#naming-the-whole-match-as),
+[Alternatives](/spec/patterns/#alternatives-or).
+
+</div>
 
 ### Matching alternatives with `or`
 
@@ -442,6 +511,22 @@ A `Maybe` is also an `Iter` of zero or one elements, so it goes where an
 and `Iter.flat_map` with a function that returns a `Maybe` keeps only the
 `Some` values.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- `?` never converts an error. The error types must be the same type, or
+  the `?` is an error that suggests converting first:
+  `status(text) |> Result.map_err(fn code -> "error ${code}")?`.
+- `?` binds as tightly as a call: `load()?.name` reads `name` from the
+  loaded value.
+- A `?` can't stand directly in a `once` initializer or a default value.
+  There is no function for it to return from.
+- In a test body, a failing `?` ends the test and reports the value.
+
+Spec: [Propagating with `?`](/spec/failure/#propagating-with-).
+
+</div>
+
 ## Calls that cannot fail
 
 A `!` written right after an expression unwraps its `Maybe` or `Result`:
@@ -538,6 +623,30 @@ Each path through the `else` must do one of two things. It can leave, with
 value to use in place of the matched one, as `8080` does for `n`. That works
 only when the pattern binds a single value. `[first, ..rest] = xs else { ... }`
 binds two, so its `else` must leave.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The pattern's names are not in scope inside the `else`.
+- A path that traps, with `unreachable "..."` or `todo`, counts as leaving.
+- A fallback stands in for one variant's payload. A nested pattern such as
+  `Ok(Some(x))` has no single payload, so its `else` must leave.
+- A pattern that always matches takes no `else`:
+  `#(x, y) = pair else { ... }` is `this pattern always matches; remove the else`.
+
+Spec: [Bindings with `else`](/spec/patterns/#bindings-with-else).
+
+</div>
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/darts/"><span class="tour-example-name">Darts</span><span class="tour-example-what">Score a dart by where it lands.</span></a>
+<a href="/examples/bob/"><span class="tour-example-name">Bob</span><span class="tour-example-what">A question, a shout, both, or silence.</span></a>
+<a href="/examples/queen-attack/"><span class="tour-example-name">Queen Attack</span><span class="tour-example-what">Can two queens on a board attack?</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=pattern-matching">Every example that uses Pattern Matching, Maybe &amp; Result</a>
 
 The next chapter, [Testing](/testing/), shows how to write and run tests.
 [Interfaces & Dispatch](/interfaces-and-dispatch/) later covers how types

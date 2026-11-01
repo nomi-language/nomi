@@ -201,6 +201,23 @@ hello, world
 A task is different. It keeps the app fields that were in force when it was
 spawned ([Concurrency](/concurrency/)).
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- One field per line. A comma after the value is an error, and so is a `{`
+  after it: `with` takes no block.
+- The target must be an app field. `with Point.x = 1` is an error.
+- `with` works in any block: an `if` or `case` arm, a lambda body, a test
+  body, a group's `setup`. To limit it to part of a function, put it in a
+  block statement or a helper.
+- An app struct can't declare an inherent function or `once` with a
+  field's name, since `App.name` always reads the field.
+
+Spec: [`with`](/spec/program-execution/#with),
+[Reading a field](/spec/program-execution/#reading-a-field).
+
+</div>
+
 ## `defer` runs block-scoped cleanup
 
 `defer` runs a call when the block it is in ends. Several deferred calls run
@@ -244,7 +261,27 @@ defer Writer.close_quietly(notes)
 
 If opening fails, the `?` returns before the `defer` line runs, so there is
 nothing to close. Calls deferred earlier in the block still run.
-[Input & Output](/input-and-output/#streams) has more on closing files.
+[Files](/files/#streams) has more on closing files.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The function and its arguments are evaluated on the `defer` line, with
+  the app fields in force there. Only the call waits.
+- The deferred call must return `Unit`, so it can't report a failure. A
+  cleanup that can fail handles it inside, as `Writer.close_quietly` does.
+- Every way out of the block runs it: the end, `return`, `break`,
+  `continue`, a `?` and a trap. A deferred call that traps doesn't stop the
+  others or hide the failure that ended the block.
+- A `defer` in a lambda runs when that call of the lambda ends, so one in
+  an `Iter` callback runs once per round.
+- A pending `defer` turns a tail call into an ordinary call
+  ([Recursion and tail calls](/iteration-and-loops/#recursion-and-tail-calls)).
+
+Spec: [`defer`](/spec/statements-and-control-flow/#defer),
+[Cleanup and boot failure](/spec/program-execution/#cleanup-and-boot-failure).
+
+</div>
 
 ## Cleanup and failure in `boot`
 
@@ -298,6 +335,61 @@ In a test, a `boot` that returns `Err` fails the test before its setup and
 body run, and the cleanup `boot` deferred runs when the test ends (see
 [A boot that fails](#a-boot-that-fails)).
 
+## Settings per environment
+
+Settings are ordinary code: field defaults for development, a function that
+adjusts them for each environment, and `boot` reading the environment
+variables that override them. `nomi test` sets `NOMI_ENV` to `test` unless it
+is already set, so a program can pick its test settings by it:
+
+```nomi-run
+import std/io
+
+struct Config {
+    deployment: String = "dev"
+    database_url: String = "postgres://localhost/myapp_dev"
+    max_connections: Int = 5
+}
+
+fn configure(deployment: String) -> Config {
+    base = #Config{deployment}
+
+    case deployment {
+        "prod" ->
+            Struct.update(base, #{max_connections: 20})
+
+        "test" ->
+            Struct.update(
+                base,
+                #{database_url: "postgres://localhost/myapp_test", max_connections: 2},
+            )
+
+        _ ->
+            base
+    }
+}
+
+fn boot(startup: Startup) -> Result<Config, String> {
+    deployment = Map.get(startup.env, "NOMI_ENV") |> Maybe.with_default("dev")
+    configured = configure(deployment)
+
+    database_url =
+        Map.get(startup.env, "DATABASE_URL") |> Maybe.with_default(configured.database_url)
+
+    Ok(Struct.update(configured, #{database_url}))
+}
+
+fn main() {
+    io.print("${Config.deployment}: ${Config.database_url}, ${Config.max_connections} connections")
+}
+```
+<!-- expect
+dev: postgres://localhost/myapp_dev, 5 connections
+-->
+
+Every variable the program reads is a `Map.get` in `boot`, so there is no
+hidden mapping from the environment to the struct.
+
 ## Deadlines
 
 A [`Context`](/reference/context/) carries a deadline. To set one for the
@@ -305,6 +397,23 @@ rest of a block, replace the context field:
 `with App.context = Context.with_timeout(App.context, duration)`.
 [Concurrency](/concurrency/#a-tasks-own-context) shows what a deadline stops
 and how each task gets its own context.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A deadline can only get shorter. A child context with a later deadline
+  than its parent keeps the parent's.
+- A program with no `Context` field runs under a root context with no
+  deadline. An app struct has at most one `Context` field, under any name.
+- `boot` gets no context. It builds one with `Context.root()` or a
+  deriver such as `Context.with_timeout(Context.root(), d)`.
+- A context also carries values keyed by their type, for metadata such as a
+  trace ID: `Context.with_value` adds one and `Context.value` reads it.
+
+Spec: [Context](/spec/program-execution/#context),
+[Context values](/spec/program-execution/#context-values).
+
+</div>
 
 ## Testing code that reads app fields
 
@@ -345,6 +454,9 @@ group "app-backed behavior" {
 ```
 <!-- expect
 env: dev
+ok app-backed behavior / reads the booted field
+ok app-backed behavior / a with line replaces a field for the rest of the body
+test result: ok. 2 passed, 0 failed
 -->
 
 The tests here are in the same file as `main`, so the `boot` line calls
@@ -364,7 +476,7 @@ struct Config {
 }
 
 fn boot(startup: Startup = #Startup{}) -> Result<Config, String> {
-    Ok(#Config{verbose: List.contains(startup.args, "-v")})
+    Ok(#Config{verbose: "-v" in startup.args})
 }
 
 fn main() {
@@ -389,6 +501,9 @@ group "verbose" {
 ```
 <!-- expect
 verbose: False
+ok quiet by default / takes no arguments
+ok verbose / reads -v
+test result: ok. 2 passed, 0 failed
 -->
 
 When the program itself runs, `boot` still gets the real arguments. The

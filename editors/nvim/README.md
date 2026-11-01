@@ -144,7 +144,7 @@ column, failure diagnostics on the failing assertion's line, the summary
 tree, the per-test output panel, and jumping between failures. It discovers
 `test` declarations, test groups (as namespaces) and attached `//!` tests
 in every `.nomi` file, and runs them with `nomi test --format json`, which
-prints one JSON record per test (see the spec's §36). Results are matched to
+prints one JSON record per test (see the spec's §17). Results are matched to
 positions by file and first line. The run sets `NOMI_COLOR=always`, so each
 test's output in the output panel is the text report's block for it, coloured
 and with its Nomi source highlighted; diagnostics and the summary's short

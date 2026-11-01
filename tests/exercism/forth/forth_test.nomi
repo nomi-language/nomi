@@ -12,46 +12,43 @@ test "parsing and numbers" {
 }
 
 test "addition" {
-    cases = [
+    [
         #("can add two numbers", ["1 2 +"], Ok([3])),
         #("errors if there is nothing on the stack", ["+"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 +"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 2 3 +"], Ok([1, 5])),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "subtraction" {
-    cases = [
+    [
         #("can subtract two numbers", ["3 4 -"], Ok([-1])),
         #("errors if there is nothing on the stack", ["-"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 -"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 12 3 -"], Ok([1, 9])),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "multiplication" {
-    cases = [
+    [
         #("can multiply two numbers", ["2 4 *"], Ok([8])),
         #("errors if there is nothing on the stack", ["*"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 *"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 2 3 *"], Ok([1, 6])),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "division" {
-    cases = [
+    [
         #("can divide two numbers", ["12 3 /"], Ok([4])),
         #("performs integer division", ["8 3 /"], Ok([2])),
         #("errors if dividing by zero", ["4 0 /"], Err(Error.DivideByZero)),
@@ -59,8 +56,7 @@ test "division" {
         #("errors if there is only one value on the stack", ["1 /"], Err(.OnlyOneValue)),
         #("more than two values on the stack", ["1 12 3 /"], Ok([1, 4])),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
@@ -79,31 +75,29 @@ test "combined arithmetic" {
 }
 
 test "dup" {
-    cases = [
+    [
         #("copies a value on the stack", ["1 dup"], Ok([1, 1])),
         #("copies the top value on the stack", ["1 2 dup"], Ok([1, 2, 2])),
         #("errors if there is nothing on the stack", ["dup"], Err(Error.EmptyStack)),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "drop" {
-    cases = [
+    [
         #("removes the top value on the stack if it is the only one", ["1 drop"], Ok([])),
         #("removes the top value on the stack if it is not the only one", ["1 2 drop"], Ok([1])),
         #("errors if there is nothing on the stack", ["drop"], Err(Error.EmptyStack)),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "swap" {
-    cases = [
+    [
         #(
             "swaps the top two values on the stack if they are the only ones",
             ["1 2 swap"],
@@ -117,27 +111,25 @@ test "swap" {
         #("errors if there is nothing on the stack", ["swap"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 swap"], Err(.OnlyOneValue)),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "over" {
-    cases = [
+    [
         #("copies the second element if there are only two", ["1 2 over"], Ok([1, 2, 1])),
         #("copies the second element if there are more than two", ["1 2 3 over"], Ok([1, 2, 3, 2])),
         #("errors if there is nothing on the stack", ["over"], Err(Error.EmptyStack)),
         #("errors if there is only one value on the stack", ["1 over"], Err(.OnlyOneValue)),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }
 
 test "user-defined words" {
-    cases = [
+    [
         #("can consist of built-in words", [": dup-twice dup dup ;", "1 dup-twice"], Ok([1, 1, 1])),
         #("execute in the right order", [": countup 1 2 3 ;", "countup"], Ok([1, 2, 3])),
         #(
@@ -161,8 +153,7 @@ test "user-defined words" {
         #("cannot redefine negative numbers", [": -1 2 ;"], Err(.IllegalOperation)),
         #("errors if executing a non-existent word", ["foo"], Err(.UndefinedOperation)),
     ]
-
-    subtests cases, #(description, instructions, expected), description {
+    |> subtests #(description, instructions, expected), description {
         assert forth.evaluate(instructions) == expected
     }
 }

@@ -9,7 +9,7 @@ import {
     std/io
 }
 
-once test_path: String = "/tmp/nomi-file-store-pattern.tsv"
+once test_path: String = "${fs.temp_dir()}/nomi-file-store-pattern.tsv"
 
 // --- Domain types ------------------------------------------------
 enum Status {

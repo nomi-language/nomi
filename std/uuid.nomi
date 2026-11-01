@@ -1,5 +1,8 @@
-//# UUIDs (RFC 9562): 128-bit identifiers that cross JSON, URLs and
-//# databases. A `Uuid` is written as 32 hexadecimal digits in five
+//# UUIDs ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562)): 128-bit
+//# identifiers that cross JSON, URLs and databases. `Uuid` is an opaque
+//# type: its values come from parsing, from bytes, or from generation, and
+//# it is `Equatable`, `Hashable` and `Comparable`. The functions are owner
+//# functions of `Uuid` (`Uuid.parse(text)`). A `Uuid` is written as 32 hexadecimal digits in five
 //# groups, `0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`. Read text with
 //# `Uuid.parse`, write a fixed one as the raw typed literal
 //# ``Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` ``, which is checked when the
@@ -142,7 +145,9 @@ impl Uuid {
     }
 
     /// A version 4 UUID: 122 random bits from the operating system's
-    /// entropy source.
+    /// entropy source, with the version and the variant set. It is
+    /// `Err(.OsEntropy{reason})` when the entropy source is unavailable, as
+    /// `Seed.from_os` is.
     //! id = Uuid.v4()?
     //! assert Uuid.version(id) == 4
     //
@@ -153,11 +158,13 @@ impl Uuid {
     }
 
     /// A version 7 UUID: the Unix time in milliseconds from `Instant.now`
-    /// in the first 48 bits, then 74 random bits. UUIDs made in later
+    /// in the first 48 bits, then the 74 bits that are not the version or
+    /// the variant from the operating system's entropy source. UUIDs made in later
     /// milliseconds compare greater, so v7 keys keep a database index in
     /// insertion order; two made in the same millisecond are in random
     /// order. Under a test group's virtual clock the time is the virtual
-    /// one.
+    /// one. It is `Err(.OsEntropy{reason})` when the entropy source is
+    /// unavailable, as `Seed.from_os` is.
     //! id = Uuid.v7()?
     //! assert Uuid.version(id) == 7
     //

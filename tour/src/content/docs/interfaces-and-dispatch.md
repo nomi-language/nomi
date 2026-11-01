@@ -126,6 +126,25 @@ To sum up the rule for every call:
 - A bare name such as `speak` means a function or binding in the current
   file. It never finds an interface function by itself.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- When a type implements two interfaces that both declare `speak`,
+  `Dog.speak(rex)` is ambiguous and an error. Write `Speech.speak(rex)` or
+  the other interface's name.
+- A type's own function can't share a name with a function one of its
+  interface impls writes, since Nomi doesn't overload.
+- An impl's parameter names must match the interface's, except the one in
+  `self`'s place: `fn format(r: R, s: String)` for
+  `format(value: self, style: String)` is an error that asks for `style`.
+- `Display` and `Debug` name their functions `to_string` and `inspect`, so
+  a type implements both with no clash.
+
+Spec: [Function Name Collisions](/spec/interfaces-implementations-and-derive/#function-name-collisions),
+[Matching an impl to its interface](/spec/interfaces-implementations-and-derive/#matching-an-impl-to-its-interface).
+
+</div>
+
 ## Default functions
 
 A function in an interface can have a body. That body is the default: every
@@ -187,6 +206,24 @@ wherever the interface is.
 Inside a default, a bare call such as `label(value)` calls another function of
 the same interface. Inside an `impl` block, you can likewise call the block's
 other functions by their bare names. Everywhere else, write the qualifier.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Writing a default that is not `open` in an impl is an error:
+  `` 'shout' is a final default on interface 'F'; mark it `open` on the interface to allow overriding ``.
+- An interface whose functions all have defaults is implemented with an
+  empty `impl Formatted for User`, no body needed.
+- A default may give its trailing parameters default values. A required
+  function may not.
+- An operation with no `self` that belongs with the interface goes in an
+  inherent `impl Formatted { ... }` block and is called
+  `Formatted.name(...)`.
+
+Spec: [Item kinds](/spec/interfaces-implementations-and-derive/#item-kinds),
+[Implementations](/spec/interfaces-implementations-and-derive/#implementations).
+
+</div>
 
 ### Defaults that need another interface
 
@@ -287,6 +324,23 @@ That's why `dbg` has worked on everything in the tour so far.
 
 To show a type differently, write `impl Debug for Type { ... }`. Your impl is
 used in place of the automatic one.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- An `opaque` type shows only its name, `<opaque Token>`, so `dbg` never
+  reveals what the type hides. Its own file can derive or write `Debug` to
+  show more.
+- A function shows as `<function>`, a lazy `Iter` chain as `<iter>`, a
+  task as `<task>` and a channel end as `<channel>`.
+- A hand-written `impl Debug` wins over `derive Debug`, which wins over the
+  automatic one. `derive Debug` on an ordinary type changes nothing.
+- An `impl Display` that interpolates its own argument, `"${value}"`, would
+  call itself forever and is a compile error.
+
+Spec: [Display and Debug](/spec/interfaces-implementations-and-derive/#display-and-debug).
+
+</div>
 
 ## Opting in to `Display`
 
@@ -457,6 +511,26 @@ From the arguments, `L` is `Day` and `R` is `Days`. The only matching impl is
 `impl Add<Days, Day> for Day`, so Nomi works out that `Out` is `Day`. The call
 doesn't have to say so.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The bitwise operators dispatch the same way: `&&&` through `BitwiseAnd`,
+  `|||` through `BitwiseOr`, and so on.
+- `%` has no interface. It works on `Int` only, and a type of your own
+  can't implement it.
+- `==` uses a hand-written `Equatable` when there is one and compares
+  structurally otherwise. `<` and the other comparisons need `Comparable`.
+- A type with a `+` over its own values can implement `Summable`, whose
+  `empty_sum()` is the sum of nothing. `Iter.sum` needs both.
+- One type may implement an operator several times, told apart by the
+  right-hand type: `Instant - Duration` is an `Instant` and
+  `Instant - Instant` a `Duration`.
+
+Spec: [Operators through interfaces](/spec/expressions/#operators-through-interfaces),
+[Bitwise operators](/spec/expressions/#bitwise-operators).
+
+</div>
+
 ## Deriving impls
 
 `derive Interface for Type` asks Nomi to write the impl for you. The impl it
@@ -473,41 +547,8 @@ You will often write `Display` by hand, since text for users rarely matches
 the fields one for one.
 
 Some derives take options after `with`. The JSON derives use them to rename
-fields:
-
-```nomi-run
-import std/json.{FromJson, Json, ToJson}
-
-struct User {
-    first_name: String
-    age: Int
-}
-
-derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for User with #FromJson.Options{rename_all: Json.Case.Camel}
-
-fn main() -> Result<Unit, Json.Error> {
-    text = Json.encode_as(#User{first_name: "Ada", age: 36})
-    dbg text
-
-    user: User = Json.decode_as(text)?
-    dbg user
-
-    Ok(Unit)
-}
-
-```
-<!-- expect
-dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
-dbg line 16: user = #User{first_name: "Ada", age: 36}
--->
-
-`Json.encode_as` turns a value into JSON text, and `Json.decode_as` reads it
-back. The annotation `user: User` tells `decode_as` which type to read, since
-no argument says so. The derived functions can be called on their own too.
-Through the type, that is `User.to_json(user)` and `User.from_json(json)`.
-Through the interface, name the type in `<...>`:
-`FromJson.from_json<User>(json)?`.
+fields, as [JSON & Dynamic](/json-and-dynamic/#your-own-types-as-json)
+shows.
 
 ### Structural equality
 
@@ -538,37 +579,22 @@ You still sometimes need `derive Equatable` or `derive Hashable`, for one of
 two reasons.
 
 The first is generic bounds. A function with `where T: Equatable` accepts only
-types that implement `Equatable`. Built-in `==` doesn't count. `List`'s
-`contains` is one: `impl Contains for List<T> where T: Equatable`. Without
-the derive, this call is a compile error:
-
-```nomi-run error
-struct Point {
-    x: Int
-    y: Int
-}
-
-fn main() {
-    dbg List.contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})
-}
-```
-<!-- expect
-main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)
-main.nomi:7:9: help: add `derive Equatable` to `Point` or write an `impl Equatable for Point` block with `fn equal(a: Point, b: Point) -> Bool`
--->
-
-Add `derive Equatable for Point` and the call compiles.
+types that implement `Equatable`; built-in `==` doesn't count. `List.contains`
+is one, so `List.contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})` is the
+error `` Point does not implement Equatable (required by `where T: Equatable`) ``
+until you add `derive Equatable for Point`.
 
 The second is custom equality. An `impl Equatable for Type { ... }` block you
 write replaces the built-in `==` for that type. That's how `DateTime` compares
 by the moment it names: the same moment in two time zones is `==` (see
 [Dates and times](/dates-and-times/)).
 
-Ordering is different. There is no built-in `<` for your types. Nomi can't
-guess whether a `Point` should order by `x`, by `y`, or by distance from the
-origin. So using `<` on your own type without a `Comparable` impl is a compile
-error. `derive Comparable` compares the first field, then the next field if
-those are equal, and so on:
+### Ordering
+
+There is no built-in `<` for your types. Nomi can't guess whether a `Point`
+should order by `x`, by `y`, or by distance from the origin, so `<` on your
+own type without a `Comparable` impl is a compile error. `derive Comparable`
+compares the first field, then the next field if those are equal, and so on:
 
 ```nomi-run
 struct Version {
@@ -589,88 +615,14 @@ dbg line 9: #Version{major: 1, minor: 9} < #Version{major: 1, minor: 10} = True
 dbg line 10: #Version{major: 2, minor: 0} < #Version{major: 1, minor: 10} = False
 -->
 
-The first comparison ties on `major`, so `minor` decides. In the second,
-`major` decides and `minor` is never compared.
-
-### Ranked enums
-
-On an enum, `derive Comparable` orders the variants as they are declared.
-Earlier variants sort first. Payloads are compared only between two values of
-the same variant:
-
-```nomi-run
-enum Severity {
-    Info
-    Warning Int
-    Error Int
-}
-
-derive Comparable for Severity
-
-fn main() {
-    dbg Severity.Info < Severity.Warning(1)
-    dbg Severity.Warning(9) < Severity.Error(1)
-    dbg Severity.Warning(1) < Severity.Warning(2)
-}
-
-```
-<!-- expect
-dbg line 10: Severity.Info < Severity.Warning(1) = True
-dbg line 11: Severity.Warning(9) < Severity.Error(1) = True
-dbg line 12: Severity.Warning(1) < Severity.Warning(2) = True
--->
-
-`Warning(9) < Error(1)` is `True`, because `Warning` comes before `Error`. To
-change the order, reorder the variants. This suits severity levels, stages of
-a process and priorities.
-
-### Listing an enum's variants
-
-`derive Variants` gives an enum whose variants carry no data a `variants()`
-function. It returns every variant in a `List`, in the order they are
-declared, which is also the order `derive Comparable` ranks them in:
-
-```nomi-run
-enum Coin {
-    Penny
-    Nickel
-    Dime
-    Quarter
-}
-
-derive Variants for Coin
-
-fn cents(coin: Coin) -> Int {
-    case coin {
-        .Penny -> 1
-        .Nickel -> 5
-        .Dime -> 10
-        .Quarter -> 25
-    }
-}
-
-fn main() {
-    dbg Coin.variants()
-    dbg Coin.variants() |> Iter.map(cents) |> Iter.to_list()
-}
-
-```
-<!-- expect
-dbg line 20: Coin.variants() = [Penny, Nickel, Dime, Quarter]
-dbg line 21: Coin.variants() |> Iter.map(cents) |> Iter.to_list() = [1, 5, 10, 25]
--->
-
-A variant that carries data has no single value to list, so deriving
-`Variants` for such an enum is a compile error that names the variant.
-
-### Deriving vs sorting by key
+On an enum, `derive Comparable` ranks the variants in the order they are
+declared, and compares payloads only between two values of the same variant.
+That suits severity levels, stages of a process and priorities.
 
 Most of your types shouldn't implement [`Comparable`](/reference/comparable/)
-at all. A `User` or an `Order` has no single natural order. A directory sorts
-users by name, and a feed sorts orders by date. Choose the order where you
-sort, with [`Iter.sort_by`](/reference/iter/#itersort_by) and the field to
-sort on, or [`Iter.sort_with`](/reference/iter/#itersort_with) and a function
-that compares two values:
+at all. A `User` or an `Order` has no single natural order, and a derived one
+changes whenever someone reorders the fields. Choose the order where you sort,
+with [`Iter.sort_by`](/reference/iter/#itersort_by) and the field to sort on:
 
 ```nomi-run
 struct User {
@@ -690,64 +642,62 @@ fn main() {
 dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
 -->
 
-To sort by more than one field, make the key a tuple. Tuples compare element
-by element: the first elements decide, and the next ones break a tie. Wrap a
-key in `Reverse.of`, from [`std/reverse`](/reference/reverse/), to put the
-largest first:
+A tuple key sorts by several fields, and
+[`Reverse.of`](/reference/reverse/) around a key puts the largest first:
+`Iter.sort_by(users, fn u -> #(Reverse.of(u.age), u.name))`.
+[`Iter.sort_with`](/reference/iter/#itersort_with) takes a function that
+compares two values. So when the compiler says a type has no `Comparable`
+impl, the fix is usually `sort_by`, not the derive.
+
+### Listing an enum's variants
+
+`derive Variants` gives an enum whose variants carry no data a `variants()`
+function. It returns every variant in a `List`, in the order they are
+declared:
 
 ```nomi-run
-import std/reverse.Reverse
-
-struct User {
-    name: String
-    age: Int
+enum Coin {
+    Penny
+    Nickel
+    Dime
+    Quarter
 }
 
+derive Variants for Coin
+
 fn main() {
-    users = [
-        #User{name: "Cara", age: 35},
-        #User{name: "Ann", age: 35},
-        #User{name: "Bo", age: 41},
-    ]
-
-    oldest_first = users |> Iter.sort_by(fn u -> #(Reverse.of(u.age), u.name))
-
-    dbg oldest_first
+    dbg Coin.variants()
 }
 
 ```
 <!-- expect
-dbg line 17: oldest_first = [#User{name: "Bo", age: 41}, #User{name: "Ann", age: 35}, #User{name: "Cara", age: 35}]
+dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 -->
 
-`Reverse.of` works for any key that can be ordered, names and dates included.
-A comparator that is not a key at all goes to `Iter.sort_with`, and
-[`Ordering.chain`](/reference/comparable/#orderingchain) joins two
-comparisons: the second decides only when the first is `Equal`.
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
 
-Use `derive Comparable` only when the type has one obvious order, and the
-order of its fields or variants gives it:
+- A derive sits in the same file as its type.
+- Each field's type must implement the interface. `derive Hashable for
+  Outer` with a field of type `Inner` needs `Inner` to implement `Hashable`
+  too.
+- On a generic type, `derive Equatable for Box<T>` implies `T: Equatable`,
+  checked where `Box` is used.
+- A distinct type's derive goes through the value it wraps:
+  `Hashable.hash(Id(5)) == Hashable.hash(5)`.
+- A derive beside a hand-written impl of the same interface is an error.
+  Drop one.
+- `with` options are per declaration. There is no per-field rename or
+  exclude, and no derive you write yourself.
+- `derive Variants` on an enum with a variant that carries data is an error
+  that names the variant.
 
-- A type that wraps one value, such as `type Score Int` or
-  `type Priority Int`.
-- An enum whose variants are in rank order, such as `Severity` above.
-- A struct like `Version` above, where comparing field by field is what the
-  order means. The standard library's `Date` and `Time` are like this.
+Spec: [Derive](/spec/interfaces-implementations-and-derive/#derive),
+[Derivable interfaces](/spec/interfaces-implementations-and-derive/#derivable-interfaces).
 
-On an ordinary struct, deriving `Comparable` picks one order for every sort.
-Code comes to depend on it without saying so. Then reordering the struct's
-fields changes how every sort behaves. So when the compiler says a type has no
-`Comparable` impl, the fix is usually `sort_by`, not the derive.
+</div>
 
-:::note[Continue or dig deeper]
-The next chapter is [Modules & Imports](/modules-and-imports/), which covers
-how a program is split across files. The rest of this chapter goes into more
-detail on impls.
-:::
-
-## Going deeper
-
-### Defaults over distinct types
+## Defaults over distinct types
 
 A distinct type wraps another type. Every distinct type implements
 `Distinct<T>`, where `T` is the type it wraps: `Celsius` below wraps
@@ -807,7 +757,7 @@ Celsius(20d)
 A type that isn't a distinct type over `Decimal` must write these functions
 itself, as with any `where self` bound.
 
-### One impl per type and interface
+## One impl per type and interface
 
 A type can implement an interface only once in a whole program. Two
 `impl Display for User { ... }` blocks anywhere in the program are a compile
@@ -828,7 +778,48 @@ Where an impl may be written is the orphan rule: it must be in the module that
 declares the interface or the type, with one exception for type arguments.
 [Modules & Imports](/modules-and-imports/#the-orphan-rule) explains it.
 
-### Why not structural field matching?
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Each impl of a generic interface for one type writes its type arguments
+  in its header: `impl Holds<Int> for Box`, `impl Holds<String> for Box`.
+- Two impls may not overlap. A generic `impl Holds<T> for Wrap<T>` covers
+  every `Holds<Int>`, so another impl at `Int` beside it is an error.
+- The argument's type picks the impl at each call. When nothing picks one,
+  as with an argument of a type no impl takes, the error names the impls
+  there are.
+- An impl is part of the program once its file is imported anywhere, and
+  then it applies in every file.
+
+```nomi
+interface Holds<T> {
+    fn holds(b: self, x: T) -> Bool
+}
+
+struct Box {
+    n: Int
+    s: String
+}
+
+impl Holds<Int> for Box {
+    fn holds(b: Box, x: Int) -> Bool {
+        b.n == x
+    }
+}
+
+impl Holds<String> for Box {
+    fn holds(b: Box, x: String) -> Bool {
+        b.s == x
+    }
+}
+```
+
+Spec: [Several instantiations for one type](/spec/interfaces-implementations-and-derive/#several-instantiations-for-one-type),
+[Foreign Types](/spec/interfaces-implementations-and-derive/#foreign-types).
+
+</div>
+
+## Why not structural field matching?
 
 Why not write `fn greet(v: #{name: String})` and accept any struct with a
 `name` field? TypeScript, Go and OCaml each allow something like this.
@@ -864,3 +855,17 @@ search for it.
 Calls are qualified for the same reason too. A bare name could be a local
 binding or a function in the file. `Type.fn(value)`, `Iface.fn(value)` and
 `file.fn(value)` each say where the function comes from.
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/clock/"><span class="tour-example-name">Clock</span><span class="tour-example-what">A time of day that wraps around.</span></a>
+<a href="/examples/rational-numbers/"><span class="tour-example-name">Rational Numbers</span><span class="tour-example-what">Fractions kept in lowest terms.</span></a>
+<a href="/examples/allergies/"><span class="tour-example-name">Allergies</span><span class="tour-example-what">Decode a score into allergens.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=interfaces-and-dispatch">Every example that uses Interfaces &amp; Dispatch</a>
+
+[Typed Literals](/typed-literals/) is next. It shows how a type turns a string
+literal such as `Date"2026-05-04"` into a checked value, through an
+interface it implements.

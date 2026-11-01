@@ -266,7 +266,7 @@ fn s() -> Set<Maybe<Int>> {
 // A function named as a value and a list literal of several items take
 // their type from a generic call's expected type, as a lambda does: the
 // seed solves Some's T, so `Display.to_string` and `ident` are instantiated
-// at `(Int) -> String` and `(Int) -> Int` (§5), and each of the list's items
+// at `(Int) -> String` and `(Int) -> Int` (§7), and each of the list's items
 // widens to Display. Without the seed the reference had nothing to solve its
 // type parameter from, and the list took its first item's type.
 func TestExpectedTypeSeed_FunctionValueAndWideningList(t *testing.T) {

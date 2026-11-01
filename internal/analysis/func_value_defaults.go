@@ -11,7 +11,7 @@ import (
 // name, and where a function type with fewer parameters is expected: `fn
 // parse(s: String, strict: Bool = False)` named as a value is a `(String,
 // Bool) -> Maybe<Int>`, and where a `(String) -> Maybe<Int>` is expected it is
-// that function, whose call fills `strict` (spec §5, *Default Arguments*:
+// that function, whose call fills `strict` (spec §7, *Default Arguments*:
 // "Defaults fill a function value only where a shorter type is expected";
 // defaultFilledFuncValue). Bound or passed with nothing expected, it keeps
 // every parameter, and a call through the value passes every argument:
@@ -113,7 +113,7 @@ func (c *checker) defaultedFuncValueHint(expected, got Type, arg ast.Node) strin
 // (`parse`, `Parser.parse`, `io.print`, `Display.to_string`): a `fn`, a
 // `host fn` or an interface function. A binding or a parameter that holds a
 // function is not one: a lambda's defaults and a partial's open defaults
-// belong to its binding (spec §5), a named function's to the function.
+// belong to its binding (spec §7), a named function's to the function.
 func (c *checker) namedFuncParams(node ast.Node) ([]ast.Param, bool) {
 	if na, ok := node.(*ast.NamedArg); ok {
 		node = na.Value

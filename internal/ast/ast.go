@@ -293,7 +293,7 @@ func (n *SelfType) TypeString() string { return "self" }
 // analyzer maps this to `*analysis.AnonStructType`, which already
 // impl structural equality.
 //
-// Field names follow the snake_case rule, validated by §4 naming
+// Field names follow the snake_case rule, validated by §2 naming
 // conventions during analysis. Field types resolve recursively under the
 // current type-param scope. Defaults are not allowed in type position
 // (defaults are runtime concepts attached to nominal struct
@@ -530,7 +530,7 @@ func (n *StringInterp) LineNum() int   { return n.Line }
 // single StringText. For interpolated tagged forms Parts alternates
 // StringText and StringExpr just like StringInterp.
 //
-// `Tag"…"` desugars to `Tag.from_fragments([...])` (spec §16, *Typed
+// `Tag"…"` desugars to `Tag.from_fragments([...])` (spec §18, *Typed
 // literals*); the checker's checkTaggedString types it and the IR
 // builder lowers it to that call.
 type TaggedString struct {
@@ -982,15 +982,23 @@ func (n *Assertion) LineNum() int   { return n.Line }
 // `subtests` is a keyword only where a statement starts with it, an
 // expression starts on its line, and a comma follows the expression;
 // anywhere else it is an ordinary identifier.
+//
+// Piped is set on the pipe-stage form, `rows |> subtests pattern { body }`,
+// which is the same statement with the pipe's source as Rows: the parser
+// builds it only when the pipeline stands as a statement and the stage is
+// its last. StageLeading holds the comments on their own lines between the
+// rows and the stage's `|>`.
 type Subtests struct {
 	TriviaCarrier
 	SpanCarrier
-	Rows    Node
-	Pattern Node
-	Name    Node
-	Body    *Block
-	Line    int // the `subtests` keyword
-	Col     int
+	Rows         Node
+	Pattern      Node
+	Name         Node
+	Body         *Block
+	Piped        bool
+	StageLeading []Trivia
+	Line         int // the `subtests` keyword
+	Col          int
 }
 
 func (*Subtests) NodeType() string { return "Subtests" }
@@ -1082,7 +1090,7 @@ func (n *Unreachable) ReasonText() string {
 }
 
 // ConcurrentBlock is `concurrent { body }` — the structured-
-// concurrency scope from spec §20. The body type-checks
+// concurrency scope from spec §16. The body type-checks
 // like a lambda body (last expression is the value; `return` / `?`
 // unwind to the block boundary, not the enclosing fn). At runtime
 // `Task.spawn(fn -> ...)` calls inside this block spawn goroutines that
@@ -1269,7 +1277,7 @@ type TypeParam struct {
 // formatter convention, not a parser requirement. The optional `opaque`
 // modifier publishes the type name while keeping its construction surface
 // (constructor, destructuring, field access) module-private — the field
-// set IS the representation. See spec §15, *Opaque distinct types*.
+// set IS the representation. See spec §4, *Opaque distinct types*.
 type StructDef struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1278,7 +1286,7 @@ type StructDef struct {
 	Name          string
 	Public        bool
 	// Opaque is set when the parser saw `opaque` before `struct`. It marks
-	// the type as opaque per spec §15 *Opaque distinct types*: outside the owning module the
+	// the type as opaque per spec §4 *Opaque distinct types*: outside the owning module the
 	// type name is usable (signatures, generic args) but the field set is
 	// hidden — no `#Name{...}` construction, no destructuring, no field
 	// access. The flag flows through to the symbol and StructType during
@@ -1393,7 +1401,7 @@ type EnumVariant struct {
 // binary separator, not a per-variant prefix). Single-variant enums have
 // no `|` at all. The optional `opaque` modifier publishes the type name
 // while keeping its variant set module-private — the variant set IS the
-// representation. See spec §15, *Opaque distinct types*.
+// representation. See spec §4, *Opaque distinct types*.
 type EnumDef struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1402,7 +1410,7 @@ type EnumDef struct {
 	Name          string
 	Public        bool
 	// Opaque is set when the parser saw `opaque` before `enum`. It marks
-	// the type as opaque per spec §15 *Opaque distinct types*: outside the owning module the
+	// the type as opaque per spec §4 *Opaque distinct types*: outside the owning module the
 	// type name is usable (signatures, generic args) but the variant set
 	// is hidden — no construction of variants, no `case` destructuring,
 	// no payload access. The flag flows through to the symbol and EnumType
@@ -1449,7 +1457,7 @@ type TypeDef struct {
 	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Name          string
 	Public        bool
-	Opaque        bool     // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §15, *Opaque distinct types*.
+	Opaque        bool     // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §4, *Opaque distinct types*.
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
 	// HasBody/Items are retained for compiler-synthesized or legacy internal
 	// nodes. Source `type` declarations do not carry bodies; type-qualified
@@ -2653,7 +2661,7 @@ type Placeholder struct {
 func (*Placeholder) NodeType() string { return "Placeholder" }
 func (n *Placeholder) LineNum() int   { return n.Line }
 
-// Capture is a function written as `&` and its body (spec §5, *Captures*):
+// Capture is a function written as `&` and its body (spec §7, *Captures*):
 // a call (`&Int.max(&1, 0)`), a parenthesized expression (`&(&1 > 2)`) or a
 // literal (`&#Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`). Each `&N` in Body
 // (a PlaceholderParam, or a Placeholder in a partial capture) is the

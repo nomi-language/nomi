@@ -27,6 +27,16 @@ func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
 	}
 }
 
+// `x in c` over a collection with no Contains impl says so at the
+// collection, naming the test, and the missing impl names the operator.
+func TestMissingImpl_AMembershipTestNamesIn(t *testing.T) {
+	src := "struct Bag {\n    items: List<Int>\n}\n\nfn main() {\n    dbg 1 in #Bag{items: [1]}\n}\n"
+	rejects(t, src,
+		"main.nomi:6:14: the collection `in` looks in: Bag does not implement Contains",
+		"main.nomi:6:14: no impl of `Contains` for `Bag` (required via operator `in`)",
+		"write an `impl Contains for Bag` block")
+}
+
 // A demand no bound check covers (an ordering operator) still reports the
 // missing impl, and its message names how the impl is required, not where:
 // the diagnostic's own position says where.

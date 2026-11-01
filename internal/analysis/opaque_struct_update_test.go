@@ -16,8 +16,8 @@ import (
 //
 // The rule is on the PATCH, not on `Struct.update`'s receiver: a patch may not
 // name a field of an opaque struct from outside that struct's defining file.
-// See spec §7 ("Opacity restricts the operation, not the conformance") and
-// the table in §15 *Opaque distinct types*.
+// See spec §4 ("Opacity restricts the operation, not the conformance") and
+// the table in §4 *Opaque distinct types*.
 //
 // Every negative below is paired with a positive that an over-broad rule would
 // break. A fix that refuses `Struct.update` outright, or that refuses any
@@ -263,7 +263,7 @@ fn ok(b: Box) -> Box {
 // `Struct` STAYS UNIVERSAL. This is the positive that distinguishes the two
 // readings of the spec contradiction: under "opaque structs do not satisfy
 // `Struct` from outside their file" both of these are rejected, and neither
-// names a field or exposes anything. Spec §7 keeps its unqualified "every
+// names a field or exposes anything. Spec §4 keeps its unqualified "every
 // struct value satisfies `Struct`" because of this test.
 func TestOpaqueUpdate_OpaqueStructStillSatisfiesStructAtABoundAndAnExistential(t *testing.T) {
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter.{self, Counter}

@@ -3,7 +3,6 @@ package vm
 import (
 	"io"
 	"slices"
-	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -24,13 +23,9 @@ import (
 // (vmhost's imageName), which a runner reads its tables by.
 const MessageModule = "std/message.nomi"
 
-// StdMessageModule reports whether a module, by its name, is std/message:
-// the image's name for it, or a path ending in it, as a program lowered in
-// process names it. No other module can have such a path, since a file at
-// std/ under a project would be shadowed by the stdlib.
-func StdMessageModule(name string) bool {
-	return name == MessageModule || strings.HasSuffix(name, "/"+MessageModule)
-}
+// StdMessageModule reports whether a module, by its name, is std/message
+// (stdModule).
+func StdMessageModule(name string) bool { return stdModule(name, MessageModule) }
 
 // The std/message functions whose second argument is a table.
 const (

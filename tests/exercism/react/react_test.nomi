@@ -67,7 +67,7 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error> {
 }
 
 test "react" {
-    cases = [
+    [
         #(
             "input cells have a value",
             [Cell.Input("input", 10)],
@@ -226,8 +226,7 @@ test "react" {
             ],
         ),
     ]
-
-    subtests cases, #(description, cells, steps), description {
+    |> subtests #(description, cells, steps), description {
         assert Ok(reactor) = build(cells)
 
         assert replay(reactor, steps) == Ok(steps)

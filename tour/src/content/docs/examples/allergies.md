@@ -61,119 +61,111 @@ import {
 }
 
 test "testing for eggs allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to eggs", 1, True),
         #("allergic to eggs and something else", 3, True),
         #("allergic to something, but not eggs", 2, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Eggs) == expected
     }
 }
 
 test "testing for peanuts allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to peanuts", 2, True),
         #("allergic to peanuts and something else", 7, True),
         #("allergic to something, but not peanuts", 5, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Peanuts) == expected
     }
 }
 
 test "testing for shellfish allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to shellfish", 4, True),
         #("allergic to shellfish and something else", 14, True),
         #("allergic to something, but not shellfish", 10, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Shellfish) == expected
     }
 }
 
 test "testing for strawberries allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to strawberries", 8, True),
         #("allergic to strawberries and something else", 28, True),
         #("allergic to something, but not strawberries", 20, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Strawberries) == expected
     }
 }
 
 test "testing for tomatoes allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to tomatoes", 16, True),
         #("allergic to tomatoes and something else", 56, True),
         #("allergic to something, but not tomatoes", 40, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Tomatoes) == expected
     }
 }
 
 test "testing for chocolate allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to chocolate", 32, True),
         #("allergic to chocolate and something else", 112, True),
         #("allergic to something, but not chocolate", 80, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Chocolate) == expected
     }
 }
 
 test "testing for pollen allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to pollen", 64, True),
         #("allergic to pollen and something else", 224, True),
         #("allergic to something, but not pollen", 160, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Pollen) == expected
     }
 }
 
 test "testing for cats allergy" {
-    cases = [
+    [
         #("not allergic to anything", 0, False),
         #("allergic only to cats", 128, True),
         #("allergic to cats and something else", 192, True),
         #("allergic to something, but not cats", 64, False),
         #("allergic to everything", 255, True),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.is_allergic_to(score, Allergen.Cats) == expected
     }
 }
 
 test "list when:" {
-    cases = [
+    [
         #("no allergies", 0, []),
         #("just eggs", 1, [Allergen.Eggs]),
         #("just peanuts", 2, [.Peanuts]),
@@ -193,12 +185,23 @@ test "list when:" {
         ),
         #("no allergen score parts without highest valid score", 257, [.Eggs]),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert allergies.list(score) == expected
     }
 }
 ```
+<!-- expect
+ok testing for eggs allergy (5 cases)
+ok testing for peanuts allergy (5 cases)
+ok testing for shellfish allergy (5 cases)
+ok testing for strawberries allergy (5 cases)
+ok testing for tomatoes allergy (5 cases)
+ok testing for chocolate allergy (5 cases)
+ok testing for pollen allergy (5 cases)
+ok testing for cats allergy (5 cases)
+ok list when: (10 cases)
+test result: ok. 50 passed, 0 failed
+-->
 
 ## How it's written
 

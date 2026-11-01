@@ -127,6 +127,23 @@ mkdir -p "$REF_DIR"
 rm -f "$REF_DIR"/*.md
 go run -C "$ROOT" ./cmd/nomi-docgen "$REF_DIR"
 
+# The Specification pages (tour/src/content/docs/spec/), one per numbered
+# section of docs/spec.md, which stays the one source. Gitignored; the
+# spec's examples are tested from docs/spec.md itself.
+echo "==> generate specification pages (cmd/nomi-docgen -spec)"
+go run -C "$ROOT" ./cmd/nomi-docgen -spec "$ROOT/docs/spec.md" "$ROOT/tour/src/content/docs/spec"
+
+# The Writing Nomi pages (tour/src/content/docs/writing/), one per topic of
+# docs/style.md, which stays the one source. Gitignored; the guide's
+# examples are tested from docs/style.md itself.
+echo "==> generate Writing Nomi pages (cmd/nomi-docgen -style)"
+go run -C "$ROOT" ./cmd/nomi-docgen -style "$ROOT/docs/style.md" "$ROOT/tour/src/content/docs/writing"
+
+# The Tooling pages (tour/src/content/docs/tooling/), one per `##` section of
+# docs/tooling.md, which stays the one source. Gitignored.
+echo "==> generate Tooling pages (cmd/nomi-docgen -tooling)"
+go run -C "$ROOT" ./cmd/nomi-docgen -tooling "$ROOT/docs/tooling.md" "$ROOT/tour/src/content/docs/tooling"
+
 # The Examples pages (tour/src/content/docs/examples/), from the Exercism
 # solutions in tests/exercism. They are committed, since the doctests and
 # tour.expect read them; this keeps a build current with the exercises, and

@@ -143,6 +143,7 @@ func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	t.Helper()
 	env := append([]string{"HOME=" + t.TempDir(), "PATH=" + noGoPath(t), "TERM=dumb",
 		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never"}, append(noManagedGoEnv(t.TempDir()), extra...)...)
+	env = withUserDirs(env)
 	probe := exec.Command("/usr/bin/env", "go", "version")
 	probe.Env = env
 	if out, err := probe.CombinedOutput(); err == nil {

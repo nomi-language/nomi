@@ -10,7 +10,7 @@ import (
 
 // localTypeArgumentProgram is three modules: fx and shares each declare a
 // type and implement std interfaces for std receivers at it, which the
-// orphan rule admits through that type (spec §13, *Foreign Types*), and app
+// orphan rule admits through that type (spec §12, *Foreign Types*), and app
 // uses both. fx's `Multiply<Rate, Decimal>` and shares' `Multiply<Shares,
 // Decimal>` are two impls of one std interface for one std receiver from
 // two libraries, beside std's own `Multiply<Decimal, Decimal>`.

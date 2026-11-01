@@ -22,6 +22,13 @@ import {
 //# Immutable byte buffers and their `Byte` element type. `Bytes` is the FFI
 //# boundary for Go `[]byte`; convert to `List<Byte>` only when Nomi code needs
 //# to inspect or transform individual bytes.
+//#
+//# `Bytes` implements `Contains<Byte>`, `Iter<Byte>`, `Add<Bytes, Bytes>`,
+//# `Summable`, `Display`, `Debug`, `Equatable`, `Comparable` and `Hashable`.
+//# `Byte` does not implement the arithmetic operators; use `Byte.to_int` for
+//# numeric work, and `Int.to_byte` (`None` outside 0 to 255) to come back. It
+//# does have the bitwise operators that stay within 8 bits: `&&&`, `|||`,
+//# `^^^` and `~~~`.
 
 /// A single byte, 0 through 255. An Int literal written where a Byte is
 /// expected is one: `b: Byte = 0x81`, `[0x81, 0x00]` as a `List<Byte>`.

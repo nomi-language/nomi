@@ -123,31 +123,29 @@ group "random key cipher" {
         letters = Cipher.key(cipher) |> String.to_codepoints()
 
         refute Iter.is_empty(letters)
-        assert Iter.all(letters, &Range.contains('a'..='z', &1))
+        assert Iter.all(letters, &(&1 in 'a'..='z'))
     }
 }
 
 test "substitution cipher encodes" {
-    cases = [
+    [
         #("Can encode", "abcdefghij", "aaaaaaaaaa", "abcdefghij"),
         #("Can double shift encode", "iamapandabear", "iamapandabear", "qayaeaagaciai"),
         #("Can wrap on encode", "abcdefghij", "zzzzzzzzzz", "zabcdefghi"),
         #("Can encode messages longer than the key", "abc", "iamapandabear", "iboaqcnecbfcr"),
     ]
-
-    subtests cases, #(description, key, plaintext, expected), description {
+    |> subtests #(description, key, plaintext, expected), description {
         assert Cipher.new(key) |> Cipher.encode(plaintext) == expected
     }
 }
 
 test "substitution cipher decodes" {
-    cases = [
+    [
         #("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
         #("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
         #("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
     ]
-
-    subtests cases, #(description, key, ciphertext, expected), description {
+    |> subtests #(description, key, ciphertext, expected), description {
         assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected
     }
 }
@@ -158,6 +156,16 @@ test "substitution cipher is reversible" {
     assert Cipher.decode(cipher, Cipher.encode(cipher, "abcdefghij")) == "abcdefghij"
 }
 ```
+<!-- expect
+ok random key cipher / Can encode
+ok random key cipher / Can decode
+ok random key cipher / Is reversible
+ok random key cipher / Key is made only of lowercase letters
+ok substitution cipher encodes (4 cases)
+ok substitution cipher decodes (3 cases)
+ok substitution cipher is reversible
+test result: ok. 12 passed, 0 failed
+-->
 
 ## How it's written
 

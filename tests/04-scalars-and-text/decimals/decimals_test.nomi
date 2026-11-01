@@ -83,8 +83,8 @@ test "decimal debug and comparisons are scale insensitive where appropriate" {
 }
 
 test "decimal ranges can be queried and stepped" {
-    assert Range.contains(1.25d..=2.50d, 1.50d)
-    refute Range.contains(1.25d..=2.50d, 3d)
+    assert 1.50d in 1.25d..=2.50d
+    refute 3d in 1.25d..=2.50d
 
     assert 1.0d..=1.3d
         |> Range.step_by(0.1d)
@@ -176,5 +176,5 @@ test "divide_exact by zero is a runtime error" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: division by zero")
+    assert "line 2: division by zero" in message
 }

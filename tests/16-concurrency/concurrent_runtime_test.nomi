@@ -63,8 +63,8 @@ test "buffered rejects a capacity that is not a buffer" {
             assert False
 
         Err(message) -> {
-            assert String.contains(message, "capacity must be at least 1")
-            assert String.contains(message, "Channel.unbuffered()")
+            assert "capacity must be at least 1" in message
+            assert "Channel.unbuffered()" in message
         }
     }
 }
@@ -145,7 +145,7 @@ test "nested concurrent blocks observe parent cancellation" {
 
 // The deadline unblocks both receives, and it is not a value the block
 // hands back: the rest of its region unwinds with the work, so the print
-// after the block never runs (spec §20, "Exceeding that deadline is not a
+// after the block never runs (spec §16, "Exceeding that deadline is not a
 // value the block hands back"). `compiler.run` answers the fault `nomi run`
 // reports, as in 15-app-and-defer/deadline_floor/deadline_floor_test.
 test "env context timeout cancels blocked channel receives" {
@@ -188,7 +188,7 @@ test "env context timeout cancels blocked channel receives" {
     )
 
     assert Err(fault) = result
-    assert String.contains(fault, "the context in force when `main` blocked")
+    assert "the context in force when `main` blocked" in fault
 }
 
 // A `concurrent` block's signature behaviour is cancelling siblings when

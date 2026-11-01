@@ -109,7 +109,7 @@ func below(s, n uint64) (uint64, uint64) {
 // FFIRequireIntRange is std/random's `require_int_range`, the check
 // `Generator.int` makes before it builds a generator: it traps unless
 // from <= to. The caller chose both bounds and can compare them first, so a
-// reversed range is a broken promise (spec §17), not an Err.
+// reversed range is a broken promise (spec §11), not an Err.
 func FFIRequireIntRange(from, to rt.Int) rt.Unit {
 	if rt.IntCompare(from.Value(), to.Value()) > 0 {
 		rt.Trap(IntRangeText(from, to))

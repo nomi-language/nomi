@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"unicode"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -202,6 +203,24 @@ func (b *builder) importMayTakeScopeSlot(scope *Scope, name string, pos Pos) boo
 	return !b.checkRedeclareInScope(scope, name, pos.Line, pos.Col)
 }
 
+// otherName is an alias for an imported name in its own case: `OtherThing`
+// for a type, `other_helper` for a function.
+func otherName(name string) string {
+	if name != "" && unicode.IsUpper(rune(name[0])) {
+		return "Other" + name
+	}
+	return "other_" + name
+}
+
+// importTarget is the declaration an import-bound symbol names, through
+// any re-exports.
+func importTarget(sym *Symbol) *Symbol {
+	for sym.Resolved != nil && sym.Resolved != sym {
+		sym = sym.Resolved
+	}
+	return sym
+}
+
 // symbolCameFromImport reports whether a scope entry was bound by an import
 // statement rather than declared in the file. Import-bound symbols carry the
 // ImportStmt as their Node; a declaration carries its own declaring node.
@@ -222,7 +241,7 @@ func symbolCameFromImport(sym *Symbol) bool {
 // entry, the weakest occupant of all (see checkRedeclareInScopeKind).
 //
 // Why the variant is the one that yields: the spec does not let a same-file
-// variant be referenced bare (§8: `Shape.Circle(5.0)`, `.Circle(5.0)` or a
+// variant be referenced bare (§4 *Enums (Algebraic Data Types)*: `Shape.Circle(5.0)`, `.Circle(5.0)` or a
 // pattern `.Circle` / `Shape.Circle`; bare `Circle` is the error "variant
 // 'Circle' must be qualified through its enum"). Qualified and dot-leading
 // references resolve through the enum's Members or the expected type, never

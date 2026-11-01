@@ -374,7 +374,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 	result := fmt.Sprintf("```nomi\n%s\n```", sig)
 	// Surface opacity in hover so consumers see "this type is opaque"
 	// alongside its signature. Real symbol kinds only — type-parameter
-	// hovers return earlier and skip this branch. See spec §15, *Opaque distinct types*.
+	// hovers return earlier and skip this branch. See spec §4, *Opaque distinct types*.
 	real := sym
 	if real.Resolved != nil {
 		real = real.Resolved

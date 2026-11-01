@@ -16,7 +16,7 @@ enum Shape {
 }
 
 // A heterogeneous list of `embeds` subtypes. `embeds T` makes T a subtype of the
-// enum embedding it (spec §8), so this list's element type is `Shape` — and the
+// enum embedding it (spec §4 *Enums (Algebraic Data Types)*), so this list's element type is `Shape` — and the
 // element that already IS a Shape is the LAST one, which is why the builder
 // cannot take the first element's type as the answer.
 //

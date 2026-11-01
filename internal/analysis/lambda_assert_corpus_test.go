@@ -81,8 +81,8 @@ func TestNoAssertionsInsideLambdas(t *testing.T) {
 		if err != nil || info.IsDir() || !strings.HasSuffix(p, ".md") {
 			return nil
 		}
-		if strings.Contains(filepath.ToSlash(p), "/reference/") {
-			return nil // generated from stdlib sources, already swept above
+		if GeneratedTourPageForTest(p) {
+			return nil // generated from std/, docs/spec.md or docs/style.md, swept at the source
 		}
 		data, readErr := os.ReadFile(p)
 		if readErr != nil {

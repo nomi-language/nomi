@@ -206,7 +206,7 @@ fn main() {
 }
 
 // A path that returns without the call, changed arguments, a call inside a
-// lambda (returned, or handed to Iter.reduce as in spec §12), a tail call
+// lambda (returned, or handed to Iter.reduce as in spec §7 *Tail-call optimization*), a tail call
 // after an effect (a deliberate loop), and mutual recursion are all accepted.
 func TestUnconditionalRecursion_TerminatingOrDeliberateIsAccepted(t *testing.T) {
 	src := `import std/io

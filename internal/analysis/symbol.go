@@ -232,7 +232,7 @@ type Symbol struct {
 	// other path report which type it belongs to.
 	OwningType string
 	// IsImplMethod marks the symbol as an interface method registered by
-	// the block form (`impl Iface for Type { fn name ... }`). Spec §13 allows multiple
+	// the block form (`impl Iface for Type { fn name ... }`). Spec §12 allows multiple
 	// types in the same module to implement the same interface — the
 	// compiler dispatches based on the first argument's type. Same-name
 	// impl methods at module level therefore must NOT trigger the

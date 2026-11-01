@@ -40,7 +40,7 @@ fn values(element: Nested) -> List<Int> {
 import flatten_array.{self, Nested}
 
 test "flatten" {
-    cases = [
+    [
         #("empty", [], []),
         #("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
         #("flattens a nested array", [
@@ -117,12 +117,15 @@ test "flatten" {
             .Null,
         ], []),
     ]
-
-    subtests cases, #(description, array, expected), description {
+    |> subtests #(description, array, expected), description {
         assert flatten_array.flatten(array) == expected
     }
 }
 ```
+<!-- expect
+ok flatten (11 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

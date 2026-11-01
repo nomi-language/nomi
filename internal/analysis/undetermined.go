@@ -8,7 +8,7 @@ import (
 )
 
 // Undetermined type arguments. A generic function is instantiated per
-// type-argument tuple (spec §13), so a call whose type argument nothing in
+// type-argument tuple (spec §12), so a call whose type argument nothing in
 // the program fixes has no instance to run: `Result.collect([])` leaves T and
 // E unknown, and `Maybe.values([None])` leaves T unknown.
 //

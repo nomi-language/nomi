@@ -115,7 +115,7 @@ fn card(text: String) -> Maybe<Card> {
     length = String.length(text)
     suit = String.drop(text, length - 1)
 
-    if not List.contains(["S", "H", "D", "C"], suit) { return None }
+    if not suit in ["S", "H", "D", "C"] { return None }
 
     rank = case String.take(text, length - 1) {
         "J" -> Some(11)
@@ -132,18 +132,14 @@ fn card(text: String) -> Maybe<Card> {
 fn pip_rank(digits: String) -> Maybe<Int> {
     Some(n) = String.to_int(digits) else { return None }
 
-    if Range.contains(2..=10, n) {
-        Some(n)
-    } else {
-        None
-    }
+    if n in 2..=10 { Some(n) } else { None }
 }
 
 // FILE: poker_test.nomi
 import poker.{self, Error}
 
 test "best hands" {
-    cases = [
+    [
         #("single hand always wins", ["4S 5S 7H 8D JC"], ["4S 5S 7H 8D JC"]),
         #(
             "highest card out of all hands wins",
@@ -306,8 +302,7 @@ test "best hands" {
             ["2H 3H 4H 5H 6H"],
         ),
     ]
-
-    subtests cases, #(description, hands, expected), description {
+    |> subtests #(description, hands, expected), description {
         assert poker.best_hands(hands) == Ok(expected)
     }
 }
@@ -319,6 +314,11 @@ test "a hand with a card that is not a card is refused" {
     assert poker.best_hands(["4S 5S 7H 8D"]) == Err(Error.InvalidHand("4S 5S 7H 8D"))
 }
 ```
+<!-- expect
+ok best hands (37 cases)
+ok a hand with a card that is not a card is refused
+test result: ok. 38 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -44,7 +44,7 @@ fn padded(lines: List<String>) -> List<String> {
 import transpose.transpose
 
 test "transpose" {
-    cases = [
+    [
         #("empty string", [], []),
         #("two characters in a row", ["A1"], ["A", "1"]),
         #("two characters in a column", ["A", "1"], ["A1"]),
@@ -142,12 +142,15 @@ test "transpose" {
             ["123456", "1 3456", "  3456", "  3 56", "    56", "    5"],
         ),
     ]
-
-    subtests cases, #(description, lines, expected), description {
+    |> subtests #(description, lines, expected), description {
         assert transpose(lines) == expected
     }
 }
 ```
+<!-- expect
+ok transpose (12 cases)
+test result: ok. 12 passed, 0 failed
+-->
 
 ## How it's written
 

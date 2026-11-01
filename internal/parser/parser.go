@@ -49,6 +49,11 @@ type Parser struct {
 	// blockDepth counts the blocks whose statements are being parsed, so
 	// a top-level-only modifier (`pub`, `export`) inside one is refused.
 	blockDepth int
+	// stmtExpr is one more than the index of the token that starts the
+	// expression statement being parsed, and 0 outside one: a `|> subtests`
+	// stage is accepted only on a pipeline that starts there
+	// (parseSubtestsStage).
+	stmtExpr int
 }
 
 // Span is a closed source region, in 1-based line / 1-based byte column,
@@ -1648,9 +1653,16 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		}
 	}
 
+	outerStmt := p.stmtExpr
+	p.stmtExpr = p.pos + 1
 	expr, err := p.parseExpr(1)
+	p.stmtExpr = outerStmt
 	if err != nil {
 		return nil, err
+	}
+	if st, ok := expr.(*ast.Subtests); ok {
+		// `rows |> subtests pattern { body }` is the `subtests` statement.
+		return st, nil
 	}
 
 	return &ast.ExprStmt{Expr: expr, Line: expr.LineNum(), Col: 0}, nil
@@ -1849,6 +1861,12 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		if !shr && tok.Type == token.GT && p.adjacentGTs(p.pos) && p.prevLine() == tok.Line {
 			return nil, errorAt(tok.Line, tok.Col, "Nomi spells shift right `>>>`: write `a >>> n`, not `a >> n`")
 		}
+		if tok.Type == token.NOT && p.peekAt(1).Type == token.IN && p.prevLine() == tok.Line {
+			// `x not in xs`: Python's spelling. Nomi negates the test.
+			return nil, ParseError{Line: tok.Line, Col: tok.Col,
+				Message: "`not in` is not an operator",
+				Hints:   []string{"to test that a collection does not hold a value, write `not x in xs`"}}
+		}
 		prec := p.infixPrecedenceAt(p.pos)
 		if prec < minPrec || p.percentOpensLiteral(0) {
 			// `%{` and `%[` written together open a map or set; after an
@@ -1914,6 +1932,10 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 
 		case token.PIPE:
 			p.advance()
+			if p.atSubtestsStage() {
+				// The stage ends the statement, so nothing more joins it.
+				return p.parseSubtestsStage(left, start, leadingForRight)
+			}
 			right, err := p.parsePipeRight(left, tok, leadingForRight)
 			if err != nil {
 				return nil, err
@@ -1931,6 +1953,31 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			}
 			left = &ast.Is{Value: left, Pattern: pattern, Line: tok.Line, Col: tok.Col}
 			if err := p.isPatternEnds(); err != nil {
+				return nil, err
+			}
+
+		case token.IN:
+			if err := chainedWithIn(left, tok); err != nil {
+				return nil, err
+			}
+			p.advance() // consume IN
+			if p.atEnd() || !canStartRangeOperand(p.peek().Type) {
+				return nil, errorAt(tok.Line, tok.Col, "expected a collection after `in`: `x in xs`")
+			}
+			// The collection holds what binds more tightly than the ordering
+			// operators, so `x in a < b` is inEnds' error at `<`, not
+			// `x in (a < b)`.
+			right, err := p.parseExprWithPipeStop(infixPrecedence(token.LT)+1, stopAtPipe)
+			if err != nil {
+				return nil, err
+			}
+			for _, tr := range leadingForRight {
+				if hasTrivia, ok := right.(ast.HasTrivia); ok {
+					hasTrivia.AddLeading(tr)
+				}
+			}
+			left = &ast.Binary{Left: left, Op: "in", Right: right, Line: tok.Line, Col: tok.Col}
+			if err := p.inEnds(); err != nil {
 				return nil, err
 			}
 
@@ -1998,6 +2045,50 @@ func chainedWithIs(left ast.Node, isTok token.Token) error {
 		Hints:   []string{"put one side in parentheses: `(a == b) is True`, or `a == (b is P)`"}}
 }
 
+// isMembership reports whether n is an `in` test written without
+// parentheses: `x in xs`.
+func isMembership(n ast.Node) bool {
+	b, ok := n.(*ast.Binary)
+	return ok && b.Op == "in"
+}
+
+// chainedWithIn is the error for an `in` whose left operand is a comparison
+// written without parentheses: `a == b in flags` does not chain, as `x in xs
+// == b` does not (inEnds).
+func chainedWithIn(left ast.Node, inTok token.Token) error {
+	if !isComparison(left) {
+		return nil
+	}
+	return ParseError{Line: inTok.Line, Col: inTok.Col,
+		Message: "`in` does not chain with a comparison",
+		Hints:   []string{"put one side in parentheses: `(a == b) in flags`, or `a == (b in xs)`"}}
+}
+
+// inEnds checks the token after an `in` test's collection. `in` binds like
+// `==` and does not associate: `x in xs == b`, `x in xs < y`, `x in xs is P`
+// and `x in xs in ys` are errors that ask for parentheses.
+func (p *Parser) inEnds() error {
+	if p.atEnd() {
+		return nil
+	}
+	tok := p.peek()
+	switch tok.Type {
+	case token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ, token.IS, token.IN:
+		if tok.Type == token.GT && p.shiftRightAt(p.pos) {
+			return nil
+		}
+		if tok.Type == token.IN {
+			return ParseError{Line: tok.Line, Col: tok.Col,
+				Message: "`in` does not chain with another `in`",
+				Hints:   []string{"join two tests with `and`: `x in xs and x in ys`"}}
+		}
+		return ParseError{Line: tok.Line, Col: tok.Col,
+			Message: fmt.Sprintf("`in` does not chain with `%s`", tok.Lexeme),
+			Hints:   []string{fmt.Sprintf("put the test in parentheses: `(x in xs) %s ...`", tok.Lexeme)}}
+	}
+	return nil
+}
+
 // parseIsPattern parses the pattern after `is`, the cursor just past it: one
 // pattern as a `case` arm writes it, with an `as` after it, and an `or` only
 // in parentheses (`kind is (.Circle or .Square)`), since a bare `or` after
@@ -2040,7 +2131,7 @@ func (p *Parser) isPatternEnds() error {
 	}
 	tok := p.peek()
 	switch tok.Type {
-	case token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ, token.IS:
+	case token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ, token.IS, token.IN:
 		if tok.Type == token.GT && p.shiftRightAt(p.pos) {
 			break
 		}
@@ -2048,6 +2139,11 @@ func (p *Parser) isPatternEnds() error {
 			return ParseError{Line: tok.Line, Col: tok.Col,
 				Message: "`is` does not chain with another `is`",
 				Hints:   []string{"join two tests with `and`: `x is P and y is Q`"}}
+		}
+		if tok.Type == token.IN {
+			return ParseError{Line: tok.Line, Col: tok.Col,
+				Message: "`is` does not chain with `in`",
+				Hints:   []string{"put the test in parentheses: `(x is P) in flags`"}}
 		}
 		return ParseError{Line: tok.Line, Col: tok.Col,
 			Message: fmt.Sprintf("`is` does not chain with `%s`", tok.Lexeme),
@@ -2937,7 +3033,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.IDENT:
 		// Contextual keyword: `concurrent { ... }` is the structured-
-		// concurrency scope from spec §20. We can't reserve
+		// concurrency scope from spec §16. We can't reserve
 		// `concurrent` as a hard keyword in the lexer because the stdlib
 		// `import std/tasks.{Task, spawn, await}` line — and any
 		// user `import std/tasks.{...}` — relies on `concurrent`
@@ -3597,7 +3693,7 @@ func canStartRangeOperand(tt token.TokenType) bool {
 	switch tt {
 	case token.RPAREN, token.RBRACKET, token.RBRACE,
 		token.COMMA, token.SEMICOLON, token.NEWLINE, token.EOF,
-		token.COLON, token.PIPE, token.AND, token.OR, token.IS,
+		token.COLON, token.PIPE, token.AND, token.OR, token.IS, token.IN,
 		token.EQEQ, token.BANGEQ, token.LT, token.GT, token.LTEQ, token.GTEQ,
 		token.BIT_AND, token.BIT_OR, token.BIT_XOR, token.SHL,
 		token.DOTDOT, token.DOTDOTEQ,
@@ -3615,7 +3711,7 @@ func infixPrecedence(tt token.TokenType) int {
 		return 2
 	case token.AND:
 		return 3
-	case token.EQEQ, token.BANGEQ, token.IS:
+	case token.EQEQ, token.BANGEQ, token.IS, token.IN:
 		return 4
 	case token.LT, token.GT, token.LTEQ, token.GTEQ:
 		return 5
@@ -3944,7 +4040,7 @@ func (p *Parser) parseDefer() (ast.Node, error) {
 }
 
 // parseConcurrentBlock parses `concurrent { body }` — the structured
-// concurrency scope from spec §20. Called from the IDENT
+// concurrency scope from spec §16. Called from the IDENT
 // branch of parsePrimary after the caller has confirmed the current
 // token's lexeme is `concurrent` and the next token is `{`; this
 // function consumes the contextual keyword and the body. Body parsing
@@ -4372,23 +4468,34 @@ func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
 	if p.atEnd() || p.peek().Line != comma.Line || !canStartPatternAssertion(p.peek().Type) {
 		return nil, true, errorAt(tok.Line, tok.Col, "expected a pattern after the rows in `subtests`, such as `subtests cases, #(input, expected) { ... }`")
 	}
-	pattern, err := p.parseSinglePattern()
+	st, err := p.parseSubtestsRest(tok, rows)
 	if err != nil {
 		return nil, true, err
+	}
+	return st, true, nil
+}
+
+// parseSubtestsRest parses what follows the rows of a `subtests`
+// statement, with the cursor at its pattern: the pattern, the optional
+// name and the body.
+func (p *Parser) parseSubtestsRest(tok token.Token, rows ast.Node) (*ast.Subtests, error) {
+	pattern, err := p.parseSinglePattern()
+	if err != nil {
+		return nil, err
 	}
 	name, err := p.parseSubtestsName(tok)
 	if err != nil {
-		return nil, true, err
+		return nil, err
 	}
 	if p.atEnd() || p.peek().Type != token.LBRACE {
 		if name != nil {
-			return nil, true, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its name")
+			return nil, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its name")
 		}
-		return nil, true, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its pattern")
+		return nil, errorAt(tok.Line, tok.Col, "expected '{' for the `subtests` body after its pattern")
 	}
 	bodyNode, err := p.parseBlock()
 	if err != nil {
-		return nil, true, err
+		return nil, err
 	}
 	return &ast.Subtests{
 		Rows:    rows,
@@ -4397,7 +4504,70 @@ func (p *Parser) tryParseSubtests() (ast.Node, bool, error) {
 		Body:    bodyNode.(*ast.Block),
 		Line:    tok.Line,
 		Col:     tok.Col,
-	}, true, nil
+	}, nil
+}
+
+// atSubtestsStage reports whether the cursor, just after a `|>`, is at a
+// `subtests` stage: the word, then after a space a pattern on its line.
+// `x |> subtests(y)`, a bare `x |> subtests` and `x |> subtests % 2` stay
+// ordinary stages, where `subtests` is a name.
+func (p *Parser) atSubtestsStage() bool {
+	if p.atEnd() {
+		return false
+	}
+	tok, next := p.peek(), p.peekAt(1)
+	if tok.Type != token.IDENT || tok.Lexeme != "subtests" {
+		return false
+	}
+	if next.Line != tok.Line || next.Col == tok.Col+len(tok.Lexeme) || !canStartPatternAssertion(next.Type) {
+		return false
+	}
+	if next.Type == token.PERCENT {
+		// `%` starts a map or set pattern only against its opener or type
+		// name (`%{`, `%[`, `%Kvs{`); `subtests % 2` is a remainder.
+		after := p.peekAt(2)
+		return after.Line == next.Line && after.Col == next.Col+1 &&
+			(after.Type == token.LBRACE || after.Type == token.LBRACKET || after.Type == token.TYPE_IDENT)
+	}
+	return next.Type != token.MINUS && next.Type != token.DOT
+}
+
+// subtestsStageStatementMsg is the error at a `|> subtests` stage whose
+// pipeline is not a statement of its own, and subtestsStageLastMsg at one
+// a stage follows.
+const (
+	subtestsStageStatementMsg = "a `|> subtests` stage has no value, so its pipeline must be a statement of its own"
+	subtestsStageLastMsg      = "`|> subtests` must be the last stage of its pipeline: it has no value to pass on"
+)
+
+// parseSubtestsStage parses `rows |> subtests pattern, name { body }`, the
+// `subtests` statement with the pipe's source as its rows, with the cursor
+// at the `subtests` word. start is the token index the pipeline starts at:
+// the stage is accepted only on a pipeline that is the whole expression of
+// a statement in a block (stmtExpr), and only as its last stage.
+func (p *Parser) parseSubtestsStage(rows ast.Node, start int, leading []ast.Trivia) (ast.Node, error) {
+	tok := p.peek()
+	if p.blockDepth == 0 || p.stmtExpr != start+1 {
+		return nil, errorAt(tok.Line, tok.Col, subtestsStageStatementMsg)
+	}
+	p.advance() // consume the contextual `subtests`
+	st, err := p.parseSubtestsRest(tok, rows)
+	if err != nil {
+		return nil, err
+	}
+	st.Piped = true
+	st.StageLeading = leading
+	p.recordSpan(st, start)
+	for i := p.pos; i < len(p.tokens); i++ {
+		next := p.tokens[i]
+		if next.Type == token.PIPE {
+			return nil, errorAt(next.Line, next.Col, subtestsStageLastMsg)
+		}
+		if next.Type != token.COMMENT && next.Type != token.BLANK_LINE && next.Type != token.NEWLINE {
+			break
+		}
+	}
+	return st, nil
 }
 
 // parseSubtestsName parses the optional `, name` after a `subtests` pattern,
@@ -4546,8 +4716,24 @@ func (p *Parser) statementEnds() error {
 			return nil
 		}
 	}
+	if prev := p.tokens[p.pos-1]; prev.Type == token.IDENT && isStringStart(next.Type) {
+		// `date"2026"`: a typed literal whose tag is not a type name.
+		return errorAt(prev.Line, prev.Col,
+			"a typed literal starts with a type name, and `%s` is not one: a type name starts with a capital letter, as in `%s\"...\"`",
+			prev.Lexeme, strings.ToUpper(prev.Lexeme[:1])+prev.Lexeme[1:])
+	}
 	return errorAt(next.Line, next.Col, "unexpected %s right after the end of a statement", tokenShown(next))
 
+}
+
+// isStringStart reports whether a token of type t starts a string literal.
+func isStringStart(t token.TokenType) bool {
+	switch t {
+	case token.STRING_LITERAL, token.TRIPLE_STRING_LITERAL, token.RAW_STRING_LITERAL,
+		token.RAW_TRIPLE_STRING_LITERAL, token.STRING_START, token.TRIPLE_STRING_START:
+		return true
+	}
+	return false
 }
 
 // parseCase parses a case expression:
@@ -6375,7 +6561,7 @@ func (p *Parser) parseFuncTypeAnnotation() (_ ast.TypeExpr, grouped bool, _ erro
 // both); run-on fields like `#{a: Int b: Int}` are rejected. Trailing
 // commas are permitted. Empty `%[]` is permitted.
 //
-// Spec §7: "Anonymous structs are structurally typed — the type is its
+// Spec §4: "Anonymous structs are structurally typed — the type is its
 // shape." Two anon struct types unify iff they have the same field names
 // in the same order with the same field types (see TypesEqual on
 // *analysis.AnonStructType).
@@ -9010,7 +9196,7 @@ func (p *Parser) parseInterfaceDef(public bool) (ast.Node, error) {
 			// Plain `fn` — a contract member: signature-only = required
 			// method; with a body = final default method. `pub fn` /
 			// `host fn` below are the inherent-item forms. This is the
-			// permanent four-way classification (spec §13).
+			// permanent four-way classification (spec §12).
 			method, err := p.parseInterfaceMethod()
 			if err != nil {
 				return nil, err

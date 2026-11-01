@@ -77,6 +77,7 @@ globalThis.fs.writeSync = function (fd, buf) {
 
 let ready = false;
 let dead = false;
+let warmed = false;
 const queue = [];
 
 // The wasm is staged gzipped (nomi.wasm.gz): Cloudflare Pages refuses files
@@ -222,8 +223,8 @@ function handleOne(msg) {
     return;
   }
 
-  // A ```nomi-run manual block asks for its tokens before its first run,
-  // which only the reader starts.
+  // A block asks for its tokens when the page loads: its output panel shows
+  // its recorded output until the reader edits it (or presses Run).
   if (msg.op === "sem") {
     const r = callGo(() =>
       msg.files ? self.nomiSemTokensIn(msg.source, ...msg.files) : self.nomiSemTokens(msg.source),
@@ -236,6 +237,20 @@ function handleOne(msg) {
     }
     postMessage({ id: msg.id, op: "sem", semtokens });
     return;
+  }
+
+  // The first run lowers the whole standard library (nomiWarm), which
+  // tokens, hovers and the formatter never need, so a page that is only
+  // read never pays for it. It happens before the run's start, inside the
+  // page's load allowance, not the run's budget.
+  if (!warmed) {
+    const w = callGo(() => self.nomiWarm());
+    if (w.failure) {
+      postMessage({ id: msg.id, kind: "sem", semtokens: msg.files ? {} : [] });
+      postMessage({ id: msg.id, kind: "run", output: "", error: w.failure, written: {} });
+      return;
+    }
+    warmed = true;
   }
 
   // The run starts here, after the loads it waited for: the page's status

@@ -1929,7 +1929,12 @@ func (bl *irScalarBuilder) stdModuleIfaceCall(t *ast.Call, mod, iface, method st
 	if !args.ok || len(args.kinds) == 0 {
 		return no()
 	}
-	plan := bl.ifaceImplPlanOf(t, args, decl.Node, iface, method)
+	// This file declares an interface named iface, so a program impl of the
+	// std one is filed under its key (qualifiedStdIface).
+	plan := bl.ifaceImplPlanOf(t, args, decl.Node, stdIfaceKey("std/"+mod, iface), method)
+	if plan == nil {
+		plan = bl.ifaceImplPlanOf(t, args, decl.Node, iface, method)
+	}
 	if plan == nil {
 		plan = bl.stdModuleIfacePlan(t, args, mod, iface, method)
 	}

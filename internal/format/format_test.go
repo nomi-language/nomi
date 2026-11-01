@@ -341,6 +341,37 @@ func TestFormat_UnaryNot(t *testing.T) {
 }
 
 // `is` is written with one space on each side, its pattern as a `case`
+// `in` is written with one space on each side, and the parentheses the
+// author wrote around the test or an operand stay.
+func TestFormat_In(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"x in xs\n", "x in xs\n"},
+		{"x   in    xs\n", "x in xs\n"},
+		{"x in 1..10\n", "x in 1..10\n"},
+		{"not x in xs\n", "not x in xs\n"},
+		{"not (x in xs)\n", "not (x in xs)\n"},
+		{"(x in xs) and y\n", "(x in xs) and y\n"},
+		{"x in xs and y in ys\n", "x in xs and y in ys\n"},
+		{"(x in xs) == b\n", "(x in xs) == b\n"},
+		{"a == (b in xs)\n", "a == (b in xs)\n"},
+		{"(a < b) in flags\n", "(a < b) in flags\n"},
+		{"x in xs |> Iter.to_set()\n", "x in xs |> Iter.to_set()\n"},
+		{"x + 1 in xs\n", "x + 1 in xs\n"},
+		{"y = &(&1 in seen)\n", "y = &(&1 in seen)\n"},
+		{"y = x\n    in seen\n", "y = x in seen\n"},
+	} {
+		got, err := Format(tc.src)
+		if err != nil {
+			t.Errorf("%q: %v", tc.src, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("%q: got %q, want %q", tc.src, got, tc.want)
+		}
+	}
+}
+
+// `is` is written with one space on each side, its pattern as a `case`
 // arm writes it, and the parentheses the author wrote around the test stay.
 // An `or` pattern keeps its parentheses, which the test needs.
 func TestFormat_Is(t *testing.T) {

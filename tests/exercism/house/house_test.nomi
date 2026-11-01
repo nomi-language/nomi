@@ -67,12 +67,11 @@ test "single verses" {
 }
 
 test "several verses" {
-    cases = [
+    [
         #("multiple verses", 4, 8),
         #("full rhyme", 1, 12),
     ]
-
-    subtests cases, #(description, start, end), description {
+    |> subtests #(description, start, end), description {
         expected =
             verses
             |> Iter.drop(start - 1)

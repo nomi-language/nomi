@@ -484,7 +484,7 @@ type irLambdaCapture struct {
 // capture makes name a parameter of this closure, supplied by the value the
 // enclosing builder holds for it where the closure is built. A closure sees
 // the value a name held when it was made; a later rebinding of the name is a
-// new binding it never reads (spec §23).
+// new binding it never reads (spec §7 *Closures*).
 func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if held, ok := bl.captured[t.Name]; ok {
 		bl.bound[t.Name], bl.boundK[t.Name] = held.temp, held.k

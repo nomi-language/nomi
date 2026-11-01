@@ -108,6 +108,38 @@ call is a partial application: `at_least_zero = &Int.max(&1, 0)` keeps
 `Int.max`'s parameter types, so it needs no annotation. Write a lambda when
 the body takes more than one step or needs names.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The body after `&` is one operand, so `&f(&1) + 1` adds 1 to a capture.
+  The function of the sum is `&(f(&1) + 1)`.
+- Captures don't nest: `&f(&1, &g(&1))` is an error that asks for the inner
+  one as a lambda.
+- Any capture other than a partial application needs a function type from
+  its position. `f = &(&1 > 2)` alone is
+  ``cannot infer type for `&1` in `&(&1 > 2)` ``.
+- A partial application keeps the callee's parameter names and defaults, so
+  it takes named arguments.
+- `_` is not a placeholder: `add(1, _)` is an error whose help writes
+  `&add(1, &1)`.
+
+```nomi
+fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String {
+    "${host}:${port}/${timeout}"
+}
+
+fn main() {
+    c = &connect(&1, port: &2)
+    dbg c(port: 80, host: "x") // "x:80/30"
+    dbg c("y") // "y:8080/30"
+}
+```
+
+Spec: [Captures](/spec/functions-and-closures/#captures),
+[Parameters and their types](/spec/functions-and-closures/#parameters-and-their-types).
+
+</div>
+
 ## No function overloads
 
 Two functions in the same scope can't have the same name. Nomi never picks
@@ -185,6 +217,25 @@ Passed to a function such as `Iter.map`, `greet` still fills `greeting` from
 its default: `["Ada", "Lin"] |> Iter.map(greet)` greets each name with
 `"Hello"`.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A default runs on each call that leaves its argument out, after the
+  written arguments. It may read earlier parameters:
+  `fn area(width: Int, height: Int = width)`.
+- Positional arguments can't skip a default in the middle. For
+  `fn middle(a: Int, b: Int = 10, c: Int)`, `middle(1, 2)` is a missing
+  argument for `c`; write `middle(1, c: 2)`.
+- Defaults belong to a call by name. After `g = greet` with no type
+  expected, `g("World")` is an error, since `g` holds the function with
+  both parameters.
+- `?` and `return` can't stand directly in a default. It has no function
+  to return from.
+
+Spec: [Default Arguments](/spec/functions-and-closures/#default-arguments).
+
+</div>
+
 ## Named arguments
 
 ```nomi-run
@@ -210,6 +261,20 @@ in any order. When you mix the two kinds, positional arguments come first.
 
 Names help most with defaults. The second call sets `timeout` and keeps the
 default `port` without writing it.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Naming a parameter that already has a value, by position or by an
+  earlier name, is `parameter 'port' already has a value`.
+- Only a declared function, or a lambda or partial application bound to a
+  name, has parameter names. A parameter or field of function type has
+  none: `f("a", port: 1)` through one is `no parameter named 'port'`.
+- A variant's payload is positional: `Some(value: 1)` is an error.
+
+Spec: [Named Arguments](/spec/functions-and-closures/#named-arguments).
+
+</div>
 
 ## Destructuring parameters
 
@@ -258,6 +323,21 @@ enums with one variant all qualify.
 When the pattern names a type, as `Dur(a)` and `#Point{x, y}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
 so it needs one, as in `#(a, b): #(Int, Int)`.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A pattern that can fail is
+  ``refutable pattern in parameter; bind the parameter and use a `case` in the body``.
+  That covers literals, a variant of an enum with more than one, and any
+  list, map, vector or set pattern.
+- A type name alone is not a pattern: `fn f(Label)` is
+  `parameter 'Label' needs a name`.
+- Lambdas take the same patterns: `fn #(_, n) -> n`.
+
+Spec: [Parameter Destructuring](/spec/functions-and-closures/#parameter-destructuring).
+
+</div>
 
 ## Trailing callbacks
 
@@ -356,6 +436,32 @@ When the guarantee is that one call succeeds, a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail) says it after the
 call: `Date.new(2024, 1, 1)!`. Keep `unreachable` for a reason the reader cannot see
 from the call, like the one above.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The reason is required and is a plain string literal. A bare
+  `unreachable` is `` `unreachable` needs a reason ``.
+- It counts as an exit: a statement after it is
+  ``unreachable code after `unreachable` ``.
+- It traps in every build, and the compiler never optimizes on it.
+- `todo` is different: as a statement it is `Unit`, so code after it stays
+  legal, and a body holding one may leave its parameters unread.
+
+Spec: [Unreachable code](/spec/failure/#unreachable-code-unreachable),
+[Unwritten code](/spec/failure/#unwritten-code-todo).
+
+</div>
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/two-fer/"><span class="tour-example-name">Two-fer</span><span class="tour-example-what">Say &quot;you&quot; when no name is given.</span></a>
+<a href="/examples/etl/"><span class="tour-example-name">ETL</span><span class="tour-example-what">Turn a score table inside out.</span></a>
+<a href="/examples/anagram/"><span class="tour-example-name">Anagram</span><span class="tour-example-what">Pick out the anagrams of a word.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=functions-and-lambdas">Every example that uses Functions &amp; Lambdas</a>
 
 [Pipes](/pipes/) is next. It shows how `|>` joins these calls into code that
 reads from top to bottom.

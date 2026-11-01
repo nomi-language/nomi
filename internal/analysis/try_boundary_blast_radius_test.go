@@ -123,6 +123,9 @@ func TestTryBoundary_TreeIsClean(t *testing.T) {
 		if err != nil || d.IsDir() {
 			return err
 		}
+		if analysis.GeneratedTourPageForTest(path) {
+			return nil
+		}
 		if !strings.HasSuffix(path, ".md") && !strings.HasSuffix(path, ".mdx") {
 			return nil
 		}

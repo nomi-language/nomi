@@ -190,7 +190,7 @@ func TestFind_NOMIGOWins(t *testing.T) {
 }
 
 func TestArchivePath_RefusesAnEntryOutsideTheArchive(t *testing.T) {
-	for _, name := range []string{"../evil", "go/../../evil", "/etc/passwd"} {
+	for _, name := range []string{"../evil", "go/../../evil", "/etc/passwd", `\evil`, `go\..\..\evil`, "C:/evil", "C:evil", "c:/evil", ""} {
 		if _, err := archivePath("/dest", name); err == nil {
 			t.Errorf("archivePath accepted %q", name)
 		}

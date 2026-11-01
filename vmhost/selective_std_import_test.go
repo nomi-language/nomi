@@ -38,7 +38,7 @@ fn main() {
     print(Result.is_ok(check(1 == 1)))
     print(Result.is_ok(verify(1 == 2)))
 }
-`, "PATH", path)
+`, "PATH", filepath.ToSlash(path))
 	got, err := runCaptureProgram(t, src, "")
 	if err != nil {
 		t.Fatalf("run: %v", err)

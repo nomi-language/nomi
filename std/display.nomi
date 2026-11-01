@@ -1,5 +1,10 @@
 import strings.String
 
+//# The `Display` interface: a value as a person reads it, what `"${value}"`
+//# and `io.print` write. `Debug` is the developer-facing form; the table of
+//# how every built-in type renders in each is on
+//# [std/debug](/reference/debug/#how-built-in-values-render).
+
 /// Protocol for converting a value to a human-readable `String`.
 ///
 /// `Display` is the canonical "stringify" interface. The runtime

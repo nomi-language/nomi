@@ -116,7 +116,7 @@ test "symlinks, modes, a File and within on the disk" {
         fs.write_text(path.join(dir, "site/pages/a.txt"), "a")?
         fs.write_text(path.join(dir, "secret.txt"), "s")?
         fs.create_symlink(path.join(dir, "site/current"), target: "pages")?
-        fs.set_mode(path.join(dir, "secret.txt"), 0o600)?
+        fs.set_mode(path.join(dir, "secret.txt"), 0o444)?
 
         walked =
             fs.walk(path.join(dir, "site"))
@@ -147,7 +147,7 @@ test "symlinks, modes, a File and within on the disk" {
             [#("current", Kind.Symlink), #("pages", Kind.Directory), #("a.txt", Kind.File)],
             3,
             #(Ok("abc"), False),
-            0o600,
+            0o444,
         )
     )
 }

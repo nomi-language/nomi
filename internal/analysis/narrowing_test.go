@@ -18,7 +18,7 @@ func identTypeAt(t *testing.T, fa *FileAnalysis, line, col int) Type {
 	return nil
 }
 
-// Spec §8 *Type Narrowing*: a name matched against an `embeds` variant reads
+// Spec §10 *Type Narrowing*: a name matched against an `embeds` variant reads
 // as the embedded type inside that arm, and as the enum everywhere else.
 func TestNarrowing_RecordsTheEmbeddedTypeInTheArm(t *testing.T) {
 	src := `struct Circle { radius: Float }

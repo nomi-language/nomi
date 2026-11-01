@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -68,6 +68,22 @@ func (f *fetcher) proxyGet(path, name string) ([]byte, error) {
 	return nil, fmt.Errorf("%s", strings.Join(errs, "; "))
 }
 
+// fileURLPath is the operating system path of a file URL's path. On
+// Windows a drive is written after the URL's slash, file:///C:/proxy, so
+// that slash is not part of the path.
+func fileURLPath(urlPath string, windows bool) string {
+	if !windows {
+		return urlPath
+	}
+	if len(urlPath) >= 3 && urlPath[0] == '/' && urlPath[2] == ':' {
+		c := urlPath[1]
+		if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
+			urlPath = urlPath[1:]
+		}
+	}
+	return strings.ReplaceAll(urlPath, "/", `\`)
+}
+
 // readURL reads an http(s) or file URL.
 func readURL(raw string) ([]byte, error) {
 	u, err := url.Parse(raw)
@@ -76,11 +92,10 @@ func readURL(raw string) ([]byte, error) {
 	}
 	switch u.Scheme {
 	case "file":
-		path := u.Path
 		if u.Host != "" { // file://host/path is not a local path
 			return nil, fmt.Errorf("%s: a file URL names no host", raw)
 		}
-		data, err := os.ReadFile(filepath.FromSlash(path))
+		data, err := os.ReadFile(fileURLPath(u.Path, runtime.GOOS == "windows"))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("reading %s: %w", raw, errNotFound)

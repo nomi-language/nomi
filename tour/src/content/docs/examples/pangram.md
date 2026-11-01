@@ -22,14 +22,14 @@ pub fn is_pangram(sentence: String) -> Bool {
         |> String.to_codepoints()
         |> Iter.to_set()
 
-    Iter.all('a'..='z', &Set.contains(letters, &1))
+    Iter.all('a'..='z', &(&1 in letters))
 }
 
 // FILE: pangram_test.nomi
 import pangram.is_pangram
 
 test "pangrams" {
-    cases = [
+    [
         #("empty sentence", "", False),
         #("perfect lower case", "abcdefghijklmnopqrstuvwxyz", True),
         #("only lower case", "the quick brown fox jumps over the lazy dog", True),
@@ -53,21 +53,24 @@ test "pangrams" {
             False,
         ),
     ]
-
-    subtests cases, #(description, sentence, expected), description {
+    |> subtests #(description, sentence, expected), description {
         assert is_pangram(sentence) == expected
     }
 }
 ```
+<!-- expect
+ok pangrams (10 cases)
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 
 - The sentence becomes a `Set<Codepoint>` and the check is
   `Iter.all('a'..='z', ...)` over a codepoint range. Codepoint literals and
-  ranges are what style §19 recommends for ASCII enumeration.
+  ranges are what style §20 recommends for ASCII enumeration.
   `Set.is_subset(Iter.to_set('a'..='z'), letters)` works as well; I picked
   `Iter.all` because it reads as the problem statement. The predicate is
-  `&Set.contains(letters, &1)`, a capture.
+  `&(&1 in letters)`, a capture.
 - Case is ignored with `String.fold_case`, the function for comparing
   without case, rather than `String.lowercase`.
 - The case "case insensitive" (uuid 2577bf54) is left out because canonical

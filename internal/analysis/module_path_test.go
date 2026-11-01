@@ -40,7 +40,7 @@ func TestResolveModulePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ResolveModulePath(tt.projectRoot, tt.modulePath)
-			if got != tt.want {
+			if filepath.ToSlash(got) != filepath.ToSlash(tt.want) {
 				t.Errorf("ResolveModulePath() = %q, want %q", got, tt.want)
 			}
 		})

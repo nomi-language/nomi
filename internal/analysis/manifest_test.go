@@ -226,6 +226,7 @@ func TestParseManifestData_I18nMessageSettings(t *testing.T) {
 		"locales = [\"de\"]\npartial_locales = [\"x_y\"]":  `[i18n] partial_locales: "x_y" is not a locale tag`,
 		"locales = [\"de\"]\ncatalogs = \"../outside\"":    `[i18n] catalogs "../outside" is not a directory under the module root`,
 		"locales = [\"de\"]\ncatalogs = \"/abs/catalogs\"": `[i18n] catalogs "/abs/catalogs" is not a directory under the module root`,
+		"locales = [\"de\"]\ncatalogs = \"C:/catalogs\"":   `[i18n] catalogs "C:/catalogs" is not a directory under the module root`,
 		`web_embedded = ["en"]`:                            "[i18n] web_embedded needs locales",
 		"locales = [\"de\"]\nweb_embedded = [\"fr\"]":      "[i18n] web_embedded lists fr, which neither locales nor partial_locales lists",
 		"locales = [\"de\"]\nweb_embedded = [\"d_e\"]":     `[i18n] web_embedded: "d_e" is not a locale tag`,

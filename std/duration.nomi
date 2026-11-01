@@ -1,3 +1,26 @@
+//# Exact elapsed time. A `Duration` is a span of physical time in
+//# nanoseconds, the same length wherever a wall clock or a calendar puts
+//# it: build one with a unit function (`Duration.seconds(5)`) or the
+//# literal `Display` writes (``Duration`1h30m` ``). Hours, minutes and
+//# seconds are units here; months and years are not, since they are no
+//# exact length. `Instant + Duration` is an `Instant`, and so is `Instant -
+//# Duration`; `a - b` on two instants is the `Duration` from `b` to `a`.
+//#
+//# A time-bearing type of `std/calendar` adds a `Duration` as exact
+//# elapsed time: `start + Duration.hours(24)` moves the instant by 24 real
+//# hours, wherever the wall clock lands. The civil periods of `std/calendar`
+//# (`Hours(24)`, `Days(1)`, `Months(1)`) move the wall reading instead, so
+//# across a daylight-saving change `+ Hours(24)` is not always `+
+//# Duration.hours(24)`; [std/calendar](/reference/calendar/#arithmetic-duration-and-civil-periods)
+//# gives both.
+//#
+//# A length reads for a person with `Duration.format`, in the locale's
+//# words, and as a stopwatch shows it with `Duration.clock`, the same in
+//# every locale. A count of civil units from now ("in 3 days",
+//# "yesterday") is `TimeUnit.format_relative` in `std/calendar`, which
+//# takes a unit and a count, not a `Duration`, because a month is no fixed
+//# length.
+
 import {
     add.Add
     comparable.Comparable
@@ -136,7 +159,8 @@ impl Duration {
 
     /// The length as a reader of `locale` says it: each unit it has, from
     /// hours down to nanoseconds, in the plural form the count takes, joined
-    /// as the locale joins the parts of one measure. `width` picks the
+    /// with CLDR's duration unit patterns, joined by the locale's unit list
+    /// pattern, as the locale joins the parts of one measure. `width` picks the
     /// units' long, short or narrow words (`DurationWidth`). Zero is zero seconds; a negative
     /// length has the locale's minus sign before its first number. Days are
     /// civil, so a length is counted in hours.
@@ -296,7 +320,8 @@ impl Literal for Duration {
 
 /// How long the words `Duration.format` writes for each unit are, CLDR's
 /// unit widths: `Long` (`1 hour, 30 minutes`), `Short` (`1 hr, 30 min`) or
-/// `Narrow` (`1h 30m`).
+/// `Narrow` (`1h 30m`). A list's `ListWidth` is a different set, CLDR's
+/// list widths.
 pub enum DurationWidth {
     Long
     Short

@@ -525,7 +525,7 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
     // `LEFT-JOIN`; a RIGHT or FULL join may leave out any of them.
     outer =
         s.plan
-        |> Iter.filter(fn line -> String.contains(line, "LEFT-JOIN"))
+        |> Iter.filter(fn line -> "LEFT-JOIN" in line)
         |> Iter.map(plan_alias)
         |> Iter.to_list()
 

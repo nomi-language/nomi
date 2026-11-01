@@ -33,7 +33,7 @@ fn onset_length(letters: List<String>) -> Int {
 fn consonants(letters: List<String>) -> Int {
     case letters {
         ["q", "u", ..] -> 2
-        [letter, ..rest] when not Set.contains(vowels, letter) -> 1 + consonants(rest)
+        [letter, ..rest] when not letter in vowels -> 1 + consonants(rest)
         _ -> 0
     }
 }

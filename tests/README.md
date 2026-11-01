@@ -1,13 +1,19 @@
 # Nomi Test Programs
 
 This directory is the runnable corpus for `nomi test`. It is also a browsable
-library of small language examples. The numbered folders are ordered for
-scanning; the numbers are only there to keep the categories in a stable
-sequence.
+library of small language examples. Tests live in numbered category folders,
+`tests/NN-category/`, which `nomi test` discovers recursively, so a new test
+needs no harness wiring: drop it in the right category. The numbers are only
+there to keep the categories in a stable sequence.
+
+How to write a test in Nomi (names, assertions, `subtests`, `io.replay`,
+groups) is in the style guide, [`docs/style.md`](../docs/style.md) §40 to
+§45. This file holds the corpus's own conventions.
 
 ## File Shapes
 
-- `*_test.nomi` files are assertion tests run by `nomi test`.
+- `*_test.nomi` files are assertion tests run by `nomi test`. A single-file
+  test is usually `NN-category/<name>_test.nomi`.
 - Root-level `*_test.nomi` files should be self-contained except for stdlib
   imports.
 - Test programs with local support modules live in a same-category directory.
@@ -26,9 +32,93 @@ sequence.
   test that reads app fields needs such a group, so its directory holds an
   entry file even when the test is the only other file. Every entry's `main`
   must run.
-- Diagnostic and runtime failure cases should be written as ordinary tests that
-  call `compiler.check`, `compiler.check_project`, `compiler.run`, or another
-  explicit API.
+
+## Testing The Compiler
+
+Every corpus test passes. A build-time failure, a runtime failure or a piece of
+tooling output is a value the test asserts on, through `std/compiler` or a
+domain API that returns an inspectable value.
+
+**Compiler diagnostics are tested as values.** Use `compiler.check` (or
+`compiler.check_project`) with a `"""..."""` literal and assert on the
+diagnostics. If a fixture needs helper functions, keep them in a file beside it
+in the same test-program directory. Keep the embedded program focused on the
+rejected shape; when a bad expression only needs to be referenced, prefer
+`dbg bad_expression` over importing `std/io` to call `io.inspect`:
+
+```nomi
+import {
+    std/compiler
+    test_helpers
+}
+
+test "missing members are rejected" {
+    diagnostics = compiler.check(
+        """
+            fn main() {
+                dbg List.empty()
+            }
+        """
+    )
+
+    assert test_helpers.has_diagnostic(diagnostics, "type 'List' has no member 'empty'")
+}
+```
+
+**Program output is tested through `compiler.run`.** Use it when stdout is the
+behavior under test, such as `dbg` rendering, and for runtime failure
+behavior. It returns the captured output:
+
+```nomi
+test "debug output is rendered" {
+    result = compiler.run(
+        """
+        fn main() {
+          _ = dbg 41 + 1
+        }
+        """
+    )
+
+    assert result == Ok(
+        """
+        dbg line 2: 41 + 1 = 42
+
+        """
+    )
+}
+```
+
+**Hover text is tested through `compiler.hover`.** Use a hover test when the
+hover text is the behavior under test: inferred signatures, doc rendering,
+import visibility. Don't add type-describing comments to ordinary value tests;
+assert the value, then add one focused hover test if the signature is part of
+the contract. Put the marker `ˇ` inside the name whose hover is under test:
+
+```nomi
+test "once hover shows its inferred type" {
+    signature = test_helpers.hover_signature(
+        """
+          once defaultˇ_port = 8080
+
+          fn main() {
+            Unit
+          }
+        """
+    )
+
+    assert signature == "once default_port: Int = 8080"
+}
+```
+
+**Use `// expect:` only for intentional output examples.** A trailing
+`// expect:` comment belongs in a runnable example where printed output is the
+behavior being shown, one expected line per comment. It is not the way to test
+ordinary values.
+
+**A test that exercises a syntactic form keeps that form**, even when a style
+rule would rewrite it. The pipe tests in `13-iterators-and-pipes/` keep
+value-seeded and single-stage pipes because the pipe is what they test. Apply
+the pipe rule (style §7) only where the pipe is incidental.
 
 ## Harnesses
 

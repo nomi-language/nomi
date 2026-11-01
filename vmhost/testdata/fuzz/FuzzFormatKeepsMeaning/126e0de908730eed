@@ -1,0 +1,2 @@
+go test fuzz v1
+string("test \"t\" {\n  x = [ // a1\n       1] |> subtests%0 {0assert 00000000} }")

@@ -37,7 +37,7 @@ fn complement(nucleotide: String) -> Result<String, String> {
 import rna_transcription.to_rna
 
 test "transcribes DNA to RNA" {
-    cases = [
+    [
         #("Empty RNA sequence", "", ""),
         #("RNA complement of cytosine is guanine", "C", "G"),
         #("RNA complement of guanine is cytosine", "G", "C"),
@@ -45,12 +45,15 @@ test "transcribes DNA to RNA" {
         #("RNA complement of adenine is uracil", "A", "U"),
         #("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
     ]
-
-    subtests cases, #(description, dna, expected), description {
+    |> subtests #(description, dna, expected), description {
         assert to_rna(dna) == Ok(expected)
     }
 }
 ```
+<!-- expect
+ok transcribes DNA to RNA (6 cases)
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

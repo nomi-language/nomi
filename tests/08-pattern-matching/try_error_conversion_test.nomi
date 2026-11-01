@@ -1,10 +1,10 @@
-// The POSITIVE control for spec §9's `?` error-type rule: a `?` whose
+// The POSITIVE control for spec §11's `?` error-type rule: a `?` whose
 // operand's error type differs from the boundary's is legal once it is
 // CONVERTED at the site, and the converted form runs and propagates exactly
 // the declared error type.
 //
 // This is the shape every laundering site converts to — `Result.map_err` is
-// the language's answer (spec §9 gained it for this purpose), not an implicit
+// the language's answer (spec §11 gained it for this purpose), not an implicit
 // widening at the boundary.
 enum ParseError {
     NotANumber String

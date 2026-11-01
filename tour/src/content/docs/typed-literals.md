@@ -74,6 +74,27 @@ keeps each value apart from the SQL as a query parameter, so a value can
 never change what a query does. The [Databases](/databases/#parameters)
 chapter shows it.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The impl chooses what a `${...}` slot must hold. `Fragment<String>`
+  takes only `String` values; a slot of another type is an error at the
+  slot. An interface such as `Display` takes any implementor.
+- A backtick body has no slots: it is one `Static` fragment holding the
+  text as written.
+- A triple-quoted typed literal drops its shared indentation, as a
+  triple-quoted string does.
+- A prefix that is not a type in scope, or a type with no `impl Literal`,
+  is an error that names what to write.
+- `Literal` and `Fragment` are not in the prelude. Only a handler's author
+  imports them.
+
+Spec: [Typed literals](/spec/typed-literals-and-keyword-declarations/#typed-literals),
+[Desugaring](/spec/typed-literals-and-keyword-declarations/#desugaring),
+[Typed literal forms](/spec/literals/#typed-literal-forms).
+
+</div>
+
 ## Any type can be the prefix
 
 The prefix can be any type, so you have two choices:
@@ -173,11 +194,27 @@ If `from_fragments` cannot fail, as with `Html` and `Box` above, the compiler
 doesn't run it. The literal is built each time it is reached, and both kinds
 of quote give the same type.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A `?` after a checked backtick literal is an error, since the literal is
+  the value, not a `Result`. The hint says to remove the `?`.
+- The compile error shows the `Err` through its `Display`, or its `Debug`
+  when it has none.
+- A handler that doesn't finish within the compiler's step limit is
+  refused the same way as one with effects.
+- A `Regex` literal's type depends on its text. A double-quoted one with
+  `${...}` can't know its groups, so its captures come back as a list.
+
+Spec: [Raw literals are checked at compile time](/spec/typed-literals-and-keyword-declarations/#raw-literals-are-checked-at-compile-time).
+
+</div>
+
 [Scalars & Strings](/scalars-and-strings/#regular-expressions) shows what
 you can do with a `Regex`: find, split, replace and read capture groups.
 [`Bits`](/reference/bits/) from `std/bits` is checked the same way:
 ``Bits`10aa_aaaa` `` is a bit pattern whose `x`s match any bit and whose
 letters name a field, and ``Bits`10z2` `` does not compile.
 
-The next chapter, [Formatting for a Reader](/locales-and-formatting/),
-writes numbers, prices and dates the way a reader's language writes them.
+[Modules & Imports](/modules-and-imports/) is next. It covers how a program
+is split across files.

@@ -20,7 +20,7 @@ func checkParsedSource(t *testing.T, src string) []TypeError {
 	return errs
 }
 
-// Enums do not embed enums (spec §8 *Embedded Types*). The error sits on
+// Enums do not embed enums (spec §4 *Embedded Types*). The error sits on
 // the embedded name in the `embeds` line, and its help gives the variant
 // that carries the enum as its payload.
 func TestEmbed_EnumRejected(t *testing.T) {
@@ -39,7 +39,7 @@ enum Drawable {
 	}
 	if found == nil {
 		if len(errs) == 0 {
-			t.Fatalf("the checker admits `embeds Shape` where Shape is an enum; spec §8 rejects it")
+			t.Fatalf("the checker admits `embeds Shape` where Shape is an enum; spec §4 *Enums (Algebraic Data Types)* rejects it")
 		}
 		expectError(t, errs, want)
 	}

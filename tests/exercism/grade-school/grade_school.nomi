@@ -20,7 +20,7 @@ impl School {
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
     /// the name is on the roster already, in this grade or another.
     pub fn add(school: School, name: String, grade: Int) -> Result<School, Error> {
-        if Map.contains(school.grades, name) {
+        if name in school.grades {
             Err(.AlreadyEnrolled)
         } else {
             Ok(#School{grades: Map.put(school.grades, name, grade)})

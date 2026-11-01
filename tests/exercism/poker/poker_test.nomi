@@ -1,7 +1,7 @@
 import poker.{self, Error}
 
 test "best hands" {
-    cases = [
+    [
         #("single hand always wins", ["4S 5S 7H 8D JC"], ["4S 5S 7H 8D JC"]),
         #(
             "highest card out of all hands wins",
@@ -164,8 +164,7 @@ test "best hands" {
             ["2H 3H 4H 5H 6H"],
         ),
     ]
-
-    subtests cases, #(description, hands, expected), description {
+    |> subtests #(description, hands, expected), description {
         assert poker.best_hands(hands) == Ok(expected)
     }
 }

@@ -36,7 +36,7 @@ fn main() { io.print(work(1)) }
 `, "2\n3\n4\n2\n6\n6\n")
 }
 
-// TestIRRebind_CapturesKeepTheValueAtCreation pins spec §23: a closure
+// TestIRRebind_CapturesKeepTheValueAtCreation pins spec §7 *Closures*: a closure
 // captures the value a name holds when the closure is made, and a later
 // same-scope rebinding is a new binding the closure never sees. A callable
 // rebound after a read is a fresh binding too.

@@ -9,7 +9,7 @@ import (
 // Polymorphic recursion: a generic function that reaches itself at a type
 // built from its own type parameter (`fn grow<T>(x: T) { grow(#Box{inner: x}) }`)
 // needs an instance at T, Box<T>, Box<Box<T>>, … — infinitely many. Nomi
-// instantiates every generic function per type-argument tuple (spec §13), so
+// instantiates every generic function per type-argument tuple (spec §12), so
 // the program has no finite translation and is rejected here rather than at
 // run time. Rust ("reached the recursion limit while instantiating"), C++
 // (template instantiation depth) and Go ("instantiation cycle") reject it too;

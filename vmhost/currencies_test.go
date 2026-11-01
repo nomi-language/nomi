@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -278,8 +279,9 @@ func TestCurrencyLiteral_TheListIsPerModule(t *testing.T) {
 		t.Fatal("the program loads; want the library's PTS:0 unlisted")
 	}
 	d := oneDiagnostic(t, err)
-	if !strings.HasSuffix(d.Path, "gems/shop.nomi") || !strings.Contains(d.Message, "`PTS:0` is a custom currency this module does not list: add it to [money].custom_currencies in ") ||
-		!strings.HasSuffix(d.Message, "gems/nomi.toml") {
+	// Both paths are the system's; Windows spells them with `\`.
+	if !strings.HasSuffix(filepath.ToSlash(d.Path), "gems/shop.nomi") || !strings.Contains(d.Message, "`PTS:0` is a custom currency this module does not list: add it to [money].custom_currencies in ") ||
+		!strings.HasSuffix(filepath.ToSlash(d.Message), "gems/nomi.toml") {
 		t.Errorf("diagnostic in %s: %q; want the library's, naming its nomi.toml", d.Path, d.Message)
 	}
 }

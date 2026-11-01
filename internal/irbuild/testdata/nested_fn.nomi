@@ -20,7 +20,7 @@
 //
 //  2. **CAPTURE.** `adjust` reads `offset`, a local of the enclosing function
 //     that is REBOUND after `adjust` is created. A closure captures the value
-//     a name holds when it is made (spec §23), and the rebinding is a new
+//     a name holds when it is made (spec §7 *Closures*), and the rebinding is a new
 //     binding it never sees, so the call prints 130, not 140. A closure that
 //     read the name when called would print 140, a plausible wrong answer.
 //

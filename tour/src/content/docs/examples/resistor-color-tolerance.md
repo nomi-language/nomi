@@ -222,34 +222,38 @@ test "label decoder" {
 }
 
 test "labels read as the description writes them" {
-    cases = [
+    [
         #([Color.Orange, .Orange, .Black, .Green], "33 ohms ±0.5%"),
         #([.Orange, .Orange, .Orange, .Grey], "33 kiloohms ±0.05%"),
         #([.Orange, .Orange, .Blue, .Red], "33 megaohms ±2%"),
         #([.Red, .Green, .Yellow, .Yellow, .Brown], "2.54 megaohms ±1%"),
         #([.Black], "0 ohms"),
     ]
-
-    subtests cases, #(bands, expected) {
+    |> subtests #(bands, expected) {
         assert Some(label) = resistor_color_tolerance.label(bands)
         assert "${label}" == expected
     }
 }
 
 test "bands that make no label" {
-    cases = [
+    [
         #("no bands", []),
         #("one band that is not black", [Color.Brown]),
         #("three bands", [.Brown, .Black, .Red]),
         #("a tolerance color as a digit", [.Gold, .Black, .Red, .Red]),
         #("a digit color as a tolerance", [.Brown, .Black, .Red, .Orange]),
     ]
-
-    subtests cases, #(description, bands), description {
+    |> subtests #(description, bands), description {
         assert resistor_color_tolerance.label(bands) == None
     }
 }
 ```
+<!-- expect
+ok label decoder (12 cases)
+ok labels read as the description writes them (5 cases)
+ok bands that make no label (5 cases)
+test result: ok. 22 passed, 0 failed
+-->
 
 ## How it's written
 

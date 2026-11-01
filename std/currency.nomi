@@ -14,8 +14,30 @@
 //# ```
 //#
 //# Two currencies are equal when their codes and minor digits are, so two
-//# libraries that each define ``Currency`PTS:0` `` share it. `Money`
-//# (std/money) pairs an amount with its currency.
+//# libraries that each define ``Currency`PTS:0` `` share it, and `PTS:0`
+//# and `PTS:2` are two currencies. `Money` (std/money) pairs an amount with
+//# its currency.
+//#
+//# ## Listed custom currencies
+//#
+//# A custom currency needs no setup, so a typo makes another one. In a file
+//# of a module (one with a `nomi.toml` above it), a ``Currency`…` `` or
+//# ``Money`…` `` literal naming a custom currency must name one its module's
+//# [`[money].custom_currencies`](/tooling/projects/#money) lists, code and
+//# digits; otherwise it is a compile error at the literal that suggests a
+//# listed entry with the same code or one edit away:
+//# ``typed literal Currency`PST:0`: `PST:0` is a custom currency this module
+//# does not list: add it to [money].custom_currencies in nomi.toml``, with
+//# ``help: did you mean `PTS:0`? nomi.toml lists it``.
+//#
+//# A `Currency.custom("PTS", 0)` call whose code and digits are both literals
+//# is checked the same way, at the call, and its error's help names the
+//# literal form. The editor shows a warning at every such call that is no
+//# error, naming the literal (``write Currency`PTS:0`, which the compiler
+//# checks``); `nomi check` prints none. A currency made from values while
+//# the program runs (`Currency.custom(code, digits)`, `Currency.parse`,
+//# `Money.parse_in`) is not checked, and a file in no module (a script, the
+//# REPL) and the standard library's own files may name any.
 
 import {
     bool.Bool
@@ -175,10 +197,14 @@ impl Currency {
 }
 
 impl Literal for Currency {
-    /// ``Currency`EUR` `` is the ISO currency of the code, and
-    /// ``Currency`BTC:8` `` the custom currency of a code and its minor
-    /// digits, as `Currency.parse` reads them. A raw literal is checked when
-    /// the program is checked.
+    /// ``Currency`EUR` `` is the ISO currency of the code, current or
+    /// historical, as the pinned CLDR lists it, and ``Currency`BTC:8` `` the
+    /// custom currency of a code and its minor digits, as `Currency.parse`
+    /// reads them. A raw literal is checked when the program is checked, so
+    /// a code CLDR does not list is a compile error at the literal:
+    /// ``typed literal Currency`BTC` is invalid: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2` ``.
+    /// The literal checks a custom currency by `Currency.custom`'s rules, and
+    /// in a module, against the custom currencies its `nomi.toml` lists.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Currency, Error> {
         body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {

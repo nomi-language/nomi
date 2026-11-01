@@ -50,7 +50,7 @@ fn checksum(values: List<Int>) -> Int {
 import isbn_verifier
 
 test "verifies ISBN-10 numbers" {
-    cases = [
+    [
         #("valid isbn", "3-598-21508-8", True),
         #("invalid isbn check digit", "3-598-21508-9", False),
         #("valid isbn with a check digit of 10", "3-598-21507-X", True),
@@ -73,12 +73,15 @@ test "verifies ISBN-10 numbers" {
         #("invalid characters are not ignored before checking length", "3598P215088", False),
         #("input is too long but contains a valid isbn", "98245726788", False),
     ]
-
-    subtests cases, #(description, isbn, expected), description {
+    |> subtests #(description, isbn, expected), description {
         assert isbn_verifier.is_valid(isbn) == expected
     }
 }
 ```
+<!-- expect
+ok verifies ISBN-10 numbers (21 cases)
+test result: ok. 21 passed, 0 failed
+-->
 
 ## How it's written
 

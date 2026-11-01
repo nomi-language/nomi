@@ -3001,7 +3001,7 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 // irStdTailCycles marks every prebuilt body that makes a tail call into a
 // recursion cycle it belongs to.
 //
-// Nomi guarantees constant-stack tail calls with no annotation (spec §12, *Tail-call optimization*).
+// Nomi guarantees constant-stack tail calls with no annotation (spec §7, *Tail-call optimization*).
 // The VM keeps that guarantee by running a tail call in the caller's
 // activation, so such a body keeps its graph. Go eliminates no tail calls, so
 // its Go is a stub named `stdlib tail-recursive function` and a program that

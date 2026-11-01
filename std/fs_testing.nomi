@@ -3,7 +3,9 @@
 //# every call the tasks it starts make, goes to an in-memory file system
 //# built from the sandbox. `run` answers what `body` returned together
 //# with the files afterwards, each operation in order and the handles left
-//# open. A nested `run` takes over for its own call.
+//# open. As with `io.capture`, the sandbox lasts for the call and follows
+//# its tasks, two tasks running their own `fs_testing.run` at once never
+//# see each other's files, and a nested `run` takes over for its own call.
 //#
 //# The sandbox is the same in-memory file system the browser build uses,
 //# and `fs_testing.conformance` holds it to the operating system's: std's
@@ -46,7 +48,8 @@ import {
     unit.Unit
 }
 
-/// The files a `run` starts with.
+/// The files a `run` starts with. The sandbox keeps permission bits and
+/// answers them, and refuses nothing because of them.
 pub struct Sandbox {
     /// Text files by path. A relative path is under `cwd`, and the
     /// directories above each file exist.
@@ -65,7 +68,9 @@ pub struct Sandbox {
     cwd: String = "/work"
 }
 
-/// An operation on a path that fails with `error` instead of happening.
+/// An operation on a path that fails with `error` instead of happening,
+/// every time, or only the `nth` matching time when `nth` is `Some(n)`. An
+/// atomic write whose `Write` fails leaves the old file in the sandbox.
 //! full = #Failure{path: "out.txt", operation: Operation.Write, error: #Error.NoSpace{path: "out.txt"}}
 //!
 //! ran = run(#Sandbox{files: %{"out.txt" => "old"}, failures: [full]}, fn -> {
@@ -118,6 +123,7 @@ pub struct Ran<T> {
     /// What `body` returned.
     value: T
     /// Every file in the sandbox when `body` returned, by absolute path.
+    /// Directories and symlinks are not files.
     files: Map<String, Bytes>
     /// Each operation as `<operation> <absolute path>`, in order: `read`,
     /// `write`, `open` (`fs.open_file`), `list`, `metadata`,
@@ -246,9 +252,13 @@ pub fn conformance(root: String) -> List<ConformanceFailure> {
     |> Iter.to_list()
 }
 
-/// A rule's directory name: its words joined with `-`.
+/// A rule's directory name: its words joined with `-`, without a glob's
+/// `*`, which Windows refuses in a name.
 fn rule_dir(rule: String) -> String {
-    String.split(rule, " ") |> Iter.filter(fn word -> word != "") |> String.join("-")
+    String.replace(rule, "*", "")
+    |> String.split(" ")
+    |> Iter.filter(fn word -> word != "")
+    |> String.join("-")
 }
 
 /// The first failure among checks made in order, or None.
@@ -820,10 +830,10 @@ fn rule_set_mode(dir: String) -> Maybe<String> {
 
     first([
         check("write", fs.write_text(p, ""), Ok(Unit)),
-        check("set 0o600", fs.set_mode(p, 0o600), Ok(Unit)),
-        check("read it", mode(), Ok(0o600)),
-        check("set 0o755", fs.set_mode(p, 0o755), Ok(Unit)),
-        check("read it again", mode(), Ok(0o755)),
+        check("set 0o444", fs.set_mode(p, 0o444), Ok(Unit)),
+        check("read it", mode(), Ok(0o444)),
+        check("set 0o666", fs.set_mode(p, 0o666), Ok(Unit)),
+        check("read it again", mode(), Ok(0o666)),
         check(
             "a mode out of range",
             fs.set_mode(p, 0o1000),

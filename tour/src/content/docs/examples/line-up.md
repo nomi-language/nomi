@@ -36,7 +36,7 @@ fn suffix(number: Int) -> String {
 import line_up
 
 test "format" {
-    cases = [
+    [
         #("format smallest non-exceptional ordinal numeral 4", "Gianna", 4, "4th"),
         #("format greatest single digit non-exceptional ordinal numeral 9", "Maarten", 9, "9th"),
         #("format non-exceptional ordinal numeral 5", "Petronila", 5, "5th"),
@@ -93,13 +93,16 @@ test "format" {
             "972nd",
         ),
     ]
-
-    subtests cases, #(description, name, number, ordinal), description {
+    |> subtests #(description, name, number, ordinal), description {
         assert line_up.format(name, number)
             == "${name}, you are the ${ordinal} customer we serve today. Thank you!"
     }
 }
 ```
+<!-- expect
+ok format (25 cases)
+test result: ok. 25 passed, 0 failed
+-->
 
 ## How it's written
 

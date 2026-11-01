@@ -219,6 +219,12 @@ func (bl *irScalarBuilder) recordedQualCall(t *ast.Call, lower func() (ir.Temp, 
 		irDeclineNote("a qualified call in an assertion subject whose operands no row can name")
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	if bl.isMembershipCall(t) {
+		// `assert x in xs`: the rows read in the test's order, the value
+		// before the collection, as they run.
+		bl.recordCallArgs([]ast.Node{t.Args[1], t.Args[0]}, []ir.Temp{args.temps[1], args.temps[0]}, []kind{args.kinds[1], args.kinds[0]}, k)
+		return v, k, mobile, true
+	}
 	bl.recordCallArgs(t.Args, args.temps, args.kinds, k)
 	return v, k, mobile, true
 }

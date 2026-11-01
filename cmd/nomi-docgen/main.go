@@ -13,6 +13,21 @@
 // Exercism solutions (examples.go). Those pages are committed.
 //
 //	go run ./cmd/nomi-docgen -examples tests/exercism tour/src/content/docs/examples
+//
+// With -spec it writes the site's Specification section from docs/spec.md
+// (spec.go). Those pages are generated, not committed.
+//
+//	go run ./cmd/nomi-docgen -spec docs/spec.md tour/src/content/docs/spec
+//
+// With -style it writes the site's Writing Nomi section from docs/style.md
+// (style.go). Those pages are generated, not committed.
+//
+//	go run ./cmd/nomi-docgen -style docs/style.md tour/src/content/docs/writing
+//
+// With -tooling it writes the site's Tooling section from docs/tooling.md
+// (tooling.go):
+//
+//	go run ./cmd/nomi-docgen -tooling docs/tooling.md tour/src/content/docs/tooling
 package main
 
 import (
@@ -61,8 +76,20 @@ func main() {
 		must(writeExamples(os.Args[2], os.Args[3]))
 		return
 	}
+	if len(os.Args) == 4 && os.Args[1] == "-spec" {
+		must(writeSpec(os.Args[2], os.Args[3]))
+		return
+	}
+	if len(os.Args) == 4 && os.Args[1] == "-style" {
+		must(writeStyle(os.Args[2], os.Args[3]))
+		return
+	}
+	if len(os.Args) == 4 && os.Args[1] == "-tooling" {
+		must(writeTooling(os.Args[2], os.Args[3]))
+		return
+	}
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: nomi-docgen <reference-output-dir>\n       nomi-docgen -examples <exercism-dir> <examples-output-dir>")
+		fmt.Fprintln(os.Stderr, "usage: nomi-docgen <reference-output-dir>\n       nomi-docgen -examples <exercism-dir> <examples-output-dir>\n       nomi-docgen -spec <spec.md> <spec-output-dir>\n       nomi-docgen -style <style.md> <writing-output-dir>\n       nomi-docgen -tooling <tooling.md> <tooling-output-dir>")
 		os.Exit(1)
 	}
 	outDir := os.Args[1]
@@ -112,13 +139,18 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "---\ntitle: std/%s\n---\n\n", name)
-	if intro := moduleDoc(name); intro != "" {
+	intro, guide := splitModuleDoc(moduleDoc(name))
+	if intro != "" {
 		b.WriteString(intro)
 		b.WriteString("\n\n")
 	}
 	fmt.Fprintf(&b, "Import with `import std/%s`.\n\n", name)
 	if summary := renderExportsSummary(name, entries); summary != "" {
 		b.WriteString(summary)
+	}
+	if guide != "" {
+		b.WriteString(guide)
+		b.WriteString("\n\n")
 	}
 	implLinks := samePageInterfaceMethodLinks(name, entries)
 	for ref, href := range globalLinks {
@@ -888,6 +920,25 @@ func moduleDoc(name string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// splitModuleDoc splits a module's `//#` text at its first `## ` heading
+// outside a code fence: the text before it is the page's intro, above the
+// import line and the exports summary, and the rest is the module's guide,
+// whose sections come after the summary and before the API.
+func splitModuleDoc(doc string) (intro, guide string) {
+	lines := strings.Split(doc, "\n")
+	fence := false
+	for i, line := range lines {
+		if strings.HasPrefix(line, "```") {
+			fence = !fence
+			continue
+		}
+		if !fence && strings.HasPrefix(line, "## ") {
+			return strings.TrimSpace(strings.Join(lines[:i], "\n")), strings.TrimSpace(strings.Join(lines[i:], "\n"))
+		}
+	}
+	return strings.TrimSpace(doc), ""
 }
 
 func renderIndex(names []string) string {

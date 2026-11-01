@@ -8,7 +8,7 @@ import (
 
 // rejectValueAssertions reports each `assert` or `refute` written where
 // nothing may hold one. An assertion stands as its own statement, as a
-// binding's value (`ok = assert x`) or as a case arm's body (spec §36,
+// binding's value (`ok = assert x`) or as a case arm's body (spec §17,
 // Assertions). Anywhere else its value would feed another expression: the
 // subject of another assertion (`assert assert x`), a call's argument, a
 // collection element, a parenthesized expression, a condition, a returned

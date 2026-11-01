@@ -79,7 +79,7 @@ fn draws<T>(generator: Generator<T>) -> List<T> {
 }
 
 fn is_in_range(score: Int) -> Bool {
-    Range.contains(3..=18, score)
+    score in 3..=18
 }
 
 fn is_valid(character: Character) -> Bool {
@@ -97,7 +97,7 @@ fn is_valid(character: Character) -> Bool {
 }
 
 test "ability modifier" {
-    cases = [
+    [
         #("ability modifier for score 3 is -4", 3, -4),
         #("ability modifier for score 4 is -3", 4, -3),
         #("ability modifier for score 5 is -3", 5, -3),
@@ -115,8 +115,7 @@ test "ability modifier" {
         #("ability modifier for score 17 is +3", 17, 3),
         #("ability modifier for score 18 is +4", 18, 4),
     ]
-
-    subtests cases, #(description, score, expected), description {
+    |> subtests #(description, score, expected), description {
         assert dnd_character.modifier(score) == expected
     }
 }
@@ -141,6 +140,13 @@ test "each ability is only calculated once" {
     assert first == again
 }
 ```
+<!-- expect
+ok ability modifier (16 cases)
+ok random ability is within range
+ok random character is valid
+ok each ability is only calculated once
+test result: ok. 19 passed, 0 failed
+-->
 
 ## How it's written
 

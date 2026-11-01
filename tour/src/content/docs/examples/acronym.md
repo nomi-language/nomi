@@ -29,7 +29,7 @@ pub fn abbreviate(phrase: String) -> String {
 import acronym.abbreviate
 
 test "abbreviates phrases" {
-    cases = [
+    [
         #("basic", "Portable Network Graphics", "PNG"),
         #("lowercase words", "Ruby on Rails", "ROR"),
         #("punctuation", "First In, First Out", "FIFO"),
@@ -44,12 +44,15 @@ test "abbreviates phrases" {
         #("apostrophes", "Halley's Comet", "HC"),
         #("underscore emphasis", "The Road _Not_ Taken", "TRNT"),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert abbreviate(phrase) == expected
     }
 }
 ```
+<!-- expect
+ok abbreviates phrases (9 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

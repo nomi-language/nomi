@@ -235,7 +235,7 @@ func TestDetectMissingImplsOperatorKindSplit(t *testing.T) {
 }
 
 // TestDetectMissingImplsDeriveCtxInMessage: a Recording carrying
-// DeriveCtx must surface the @derive interface and the offending field
+// DeriveCtx must surface the derive declaration and the offending field
 // in the "via" clause of the message.
 func TestDetectMissingImplsDeriveCtxInMessage(t *testing.T) {
 	derive := &DeriveCtx{
@@ -261,7 +261,7 @@ func TestDetectMissingImplsDeriveCtxInMessage(t *testing.T) {
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 error, got %d: %+v", len(errs), errs)
 	}
-	for _, want := range []string{"@derive(Display)", "Container", "payload"} {
+	for _, want := range []string{"derive Display for", "Container", "payload"} {
 		if !strings.Contains(diagText(errs[0]), want) {
 			t.Errorf("expected message to mention %q; got:\n%s", want, errs[0].Message)
 		}

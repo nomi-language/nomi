@@ -76,7 +76,7 @@ fn verse(number: Int) -> List<String> {
 import food_chain
 
 test "food chain" {
-    cases = [
+    [
         #(
             "fly",
             1,
@@ -254,12 +254,15 @@ test "food chain" {
             ],
         ),
     ]
-
-    subtests cases, #(description, start, end, expected), description {
+    |> subtests #(description, start, end, expected), description {
         assert food_chain.recite(start, end) == expected
     }
 }
 ```
+<!-- expect
+ok food chain (10 cases)
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 
@@ -267,6 +270,6 @@ test "food chain" {
 - A verse takes the animals swallowed so far, newest first. The chain of "She swallowed the X to catch the Y" lines zips that list with itself shifted by one, so each line pairs a predator with its prey and no line is built by index.
 - A list literal's spread takes any `Iter` of its elements, and a `Maybe` is an `Iter` of zero or one, so `..newest.reaction` splices the reaction's line, or no line for the fly, and `..chain` splices the lazy chain of lines with no `Iter.to_list`.
 - The horse is not an `Animal`: its verse is the opening and "She's dead, of course!", with no chain and no closing line, so it is a fixed `horse_verse` that `verse` answers for any number past the cow.
-- The newest animal is taken with a list pattern, `[newest, ..] = swallowed`, whose `else` is `unreachable`, since every verse up to the cow swallows the fly at least (style §28).
+- The newest animal is taken with a list pattern, `[newest, ..] = swallowed`, whose `else` is `unreachable`, since every verse up to the cow swallows the fly at least (style §29).
 - `recite` answers lines with an empty line between two verses, as bottle-song does.
 - The ten canonical cases are one `subtests` table of the canonical lines written out.

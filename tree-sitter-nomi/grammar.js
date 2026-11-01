@@ -65,6 +65,11 @@ module.exports = grammar({
     // break there. A block on the line of the statement before it is an
     // error, as two statements on one line are (`p = Point{}`).
     $._newline_brace,
+    // The contextual keyword `subtests` as a pipe stage, after the `|>` of a
+    // pipeline that stands as a statement, when a pattern follows it on its
+    // line after a space (`rows |> subtests #(input, want) { ... }`), as the
+    // Go parser reads it. `x |> subtests(y)` leaves it an identifier.
+    $._subtests_stage_keyword,
   ],
 
   word: $ => $.identifier,
@@ -357,7 +362,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -1326,13 +1331,25 @@ module.exports = grammar({
     // `subtests rows, pattern { body }`: the body runs once per row, with the
     // pattern bound to it. `subtests rows, pattern, name { body }` names each
     // row with a String expression that reads the pattern's bindings.
-    subtests_statement: $ => seq(
-      alias($._subtests_keyword, 'subtests'),
-      field('rows', $._expression),
-      ',',
-      field('pattern', $._param_pattern),
-      optional(seq(',', field('name', $._expression))),
-      field('body', $.body),
+    // The stage form, `rows |> subtests pattern { body }`, is the same
+    // statement with the pipe's source as its rows; it ends its pipeline.
+    subtests_statement: $ => choice(
+      seq(
+        alias($._subtests_keyword, 'subtests'),
+        field('rows', $._expression),
+        ',',
+        field('pattern', $._param_pattern),
+        optional(seq(',', field('name', $._expression))),
+        field('body', $.body),
+      ),
+      prec.left(6, seq(
+        field('rows', $._expression),
+        '|>',
+        alias($._subtests_stage_keyword, 'subtests'),
+        field('pattern', $._param_pattern),
+        optional(seq(',', field('name', $._expression))),
+        field('body', $.body),
+      )),
     ),
 
     destructuring_binding: $ => choice(
@@ -1989,11 +2006,14 @@ module.exports = grammar({
     ),
 
     // Operators
+    // `in` is the membership test (`x in xs`), at `==`'s precedence. The
+    // compiler rejects a chain with a comparison (`x in a < b`), which this
+    // grammar reads by precedence.
     binary_expression: $ => choice(
       ...[
         ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
         ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
-        ['==', 4], ['!=', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
+        ['==', 4], ['!=', 4], ['in', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
       ].map(([op, p]) =>
         prec.left(p, seq($._expression, op, $._expression))
       ),
@@ -2005,7 +2025,7 @@ module.exports = grammar({
       ...[
         ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
         ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
-        ['==', 4], ['!=', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
+        ['==', 4], ['!=', 4], ['in', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
       ].map(([op, p]) =>
         prec.left(p, seq($._lambda_body_expression, op, $._lambda_body_expression))
       ),

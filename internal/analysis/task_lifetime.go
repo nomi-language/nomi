@@ -6,7 +6,7 @@ import (
 )
 
 // CheckTaskLifetime enforces Rules 2 and 3 of the task lifetime rules
-// (spec §20):
+// (spec §16):
 //
 //	Rule 2 — every `Task<T>` value bound by a binding inside a
 //	`concurrent { }` block must be consumed (referenced anywhere after

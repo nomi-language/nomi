@@ -58,7 +58,7 @@ impl Factory {
 
         #(name, seed) = Generator.step(names(), factory.seed)
 
-        if Set.contains(factory.given, name) {
+        if name in factory.given {
             Factory.build(#{..factory, seed})
         } else {
             Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))
@@ -152,6 +152,15 @@ group "robot name" {
     }
 }
 ```
+<!-- expect
+ok robot name / has a name
+ok robot name / name is the same each time
+ok robot name / different robots have different names
+ok robot name / reset changes the name to a new well-formed one
+ok robot name / a thousand robots all have different names
+ok robot name / the same seed names the same robots
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

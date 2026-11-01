@@ -9,5 +9,5 @@ pub fn is_pangram(sentence: String) -> Bool {
         |> String.to_codepoints()
         |> Iter.to_set()
 
-    Iter.all('a'..='z', &Set.contains(letters, &1))
+    Iter.all('a'..='z', &(&1 in letters))
 }

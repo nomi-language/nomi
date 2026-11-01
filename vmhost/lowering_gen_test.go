@@ -814,6 +814,11 @@ func (g *gen) expr(t *gt, depth int, sc []gvar) string {
 			func() string { return paren(g.expr(tShape, d, sc)) + " is .Circle(_)" },
 			func() string { return "not " + paren(g.expr(tShape, d, sc)) + " is (.Square(_) or .Dot)" },
 			func() string { u := g.typ(1); return "[" + g.expr(u, d, sc) + "] is [_, ..]" },
+			func() string {
+				u := g.eqType()
+				return paren(g.expr(u, d, sc)) + " in [" + lit(u) + ", " + lit(u) + "]"
+			},
+			func() string { return "not " + paren(g.expr(tInt, d, sc)) + " in 1..10" },
 		)
 	case "Meters":
 		add(

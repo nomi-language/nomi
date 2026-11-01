@@ -21,7 +21,7 @@ impl Named for Pt {
 // A function's declared result is its tail's expected type, as an annotation
 // is a binding's: the embedded and implementor coercion reaches inside a
 // tuple, a list and a type argument at a result as it does at an annotated
-// binding (§8 Embedded Types: "a binding, an argument, a result"). The tail
+// binding (§4 *Embedded Types*: "a binding, an argument, a result"). The tail
 // was compared without it, so `#(1, #Pt{x: 5})` was rejected as a
 // `#(Int, Named)` result though `t: #(Int, Named) = #(1, #Pt{x: 5})` was not.
 func TestResultWidening_TailWidensAsABindingDoes(t *testing.T) {

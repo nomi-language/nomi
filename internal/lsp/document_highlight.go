@@ -142,6 +142,9 @@ func newOccurrenceIndex(fa *analysis.FileAnalysis) *occurrenceIndex {
 	file(fa.References, occurrenceReference)
 	file(fa.PunnedFieldLabels, occurrencePunnedLabel)
 	for at, sym := range fa.References {
+		if fa.MembershipReference(at) {
+			continue
+		}
 		idx.byLine[at.Line] = append(idx.byLine[at.Line], occurrence{at: at, sym: sym, kind: occurrenceReference})
 	}
 	for at, sym := range fa.Definitions {

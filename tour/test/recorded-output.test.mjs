@@ -1,6 +1,8 @@
-// A ```nomi-run manual block runs nothing when its page loads: its output
-// panel shows the output its expect block records, with a note saying so,
-// and only its Run button runs it.
+// A ```nomi-run block runs nothing when its page loads: its output panel
+// shows the output its expect block records, and the reader's first edit
+// runs it. A manual block's panel says the output is recorded, and only its
+// Run button runs it. A block with no record (```nomi-run no-run) runs on
+// load.
 //
 // The first test holds rehype-shiki.mjs to carrying the expect block into
 // the page. The second loads tour-client.mjs into headless Chrome over the
@@ -45,7 +47,7 @@ function recordedSpan(pre) {
   return span ? span.children.map((c) => c.value).join("") : null;
 }
 
-test("the build carries a manual block's expect block into the page", async () => {
+test("the build carries each block's expect block into the page", async () => {
   const transform = rehypeShiki();
   const viaComment = runBlock("manual", [{ type: "comment", value: " expect\nx < y\n--- & more\n" }]);
   await transform(viaComment.tree);
@@ -58,11 +60,15 @@ test("the build carries a manual block's expect block into the page", async () =
 
   const plain = runBlock("", [{ type: "comment", value: " expect\nx < y\n" }]);
   await transform(plain.tree);
-  assert.equal(recordedSpan(plain.pre), null, "a block that is not manual runs on load and carries nothing");
+  assert.equal(recordedSpan(plain.pre), "x < y", "a block that is not manual carries its record too");
 
-  const none = runBlock("manual", [{ type: "element", tagName: "p", properties: {}, children: [] }]);
+  const none = runBlock("", [{ type: "element", tagName: "p", properties: {}, children: [] }]);
   await transform(none.tree);
-  assert.equal(recordedSpan(none.pre), null);
+  assert.equal(recordedSpan(none.pre), "", "a block with no expect block prints nothing");
+
+  const noRun = runBlock("no-run", [{ type: "element", tagName: "p", properties: {}, children: [] }]);
+  await transform(noRun.tree);
+  assert.equal(recordedSpan(noRun.pre), null, "a no-run block has no record and runs on load");
 });
 
 function findChrome() {
@@ -77,8 +83,9 @@ function findChrome() {
   return candidates.find((p) => p && existsSync(p)) || null;
 }
 
-// The page: a single-file manual block, a multi-file manual error block and
-// a block that is not manual, as rehype-shiki.mjs writes them, and a run
+// The page: a single-file manual block, a multi-file manual error block, a
+// block that is not manual and one with no record (a no-run block), as
+// rehype-shiki.mjs writes them, and a run
 // worker faked to record each message and answer it at once. While
 // window.holdRuns is set, it holds each run instead, until the page calls
 // window.startHeld() (the worker has loaded and starts the run) and then
@@ -136,6 +143,10 @@ fn main() {
 two
 </code><span hidden data-nomi-recorded>two
 error: boom</span></pre>
+<pre class="nomi-tour"><code class="language-nomi-run">fn main() {
+    io.print("three")
+}
+</code><span hidden data-nomi-recorded>three</span></pre>
 <pre class="nomi-tour"><code class="language-nomi-run">fn main() {}
 </code></pre>
 </body></html>`;
@@ -287,7 +298,7 @@ const running = (w) => {
 };
 `;
 
-test("a manual block shows its recorded output on load and runs only on Run", async (t) => {
+test("a block shows its recorded output on load and runs when edited, a manual one on Run", async (t) => {
   const chrome = findChrome();
   if (!chrome) return t.skip("no Chrome; NOMI_CHROME names its binary");
   if (!existsSync(join(TOUR, "public/nomi/web-tree-sitter.js"))) {
@@ -299,7 +310,7 @@ test("a manual block shows its recorded output on load and runs only on Run", as
   try {
     page = await openPage(chrome, `http://127.0.0.1:${server.address().port}/`, profile);
     const loaded = await page.evaluate(`(async () => {${IN_PAGE}
-      await waitFor("the three blocks", () => widgets().length === 3 && runs().length === 1 && sems().length === 2);
+      await waitFor("the four blocks", () => widgets().length === 4 && runs().length === 1 && sems().length === 3);
       // Time for a stray run on load to arrive.
       await new Promise((r) => setTimeout(r, 500));
       return {
@@ -308,10 +319,10 @@ test("a manual block shows its recorded output on load and runs only on Run", as
         panels: widgets().map(panel),
       };
     })()`);
-    assert.deepEqual(loaded.runs, ["fn main() {}"], "only the block that is not manual runs on load");
-    assert.deepEqual(loaded.sems, [null, ["main.nomi"]], "each manual block asks for its tokens alone");
+    assert.deepEqual(loaded.runs, ["fn main() {}"], "only the block with no record runs on load");
+    assert.deepEqual(loaded.sems, [null, ["main.nomi"], null], "each recorded block asks for its tokens alone");
     assert.deepEqual(loaded.panels[0], {
-      out: "recorded <one>\nsecond line",
+      out: "recorded <one>\nsecond line\n",
       title: "Output",
       note: "Recorded output. Press Run to run it.",
     });
@@ -320,14 +331,30 @@ test("a manual block shows its recorded output on load and runs only on Run", as
       title: "This example fails on purpose:",
       note: "Recorded output. Press Run to run it.",
     });
-    assert.deepEqual(loaded.panels[2], { out: "ran 12\n", title: "Output", note: null });
+    assert.deepEqual(loaded.panels[2], { out: "three\n", title: "Output", note: null });
+    assert.deepEqual(loaded.panels[3], { out: "ran 12\n", title: "Output", note: null });
+    const failure = await page.evaluate(`(async () => {${IN_PAGE}
+      const out = widgets()[1].querySelector(".nomi-out");
+      return [...out.querySelectorAll(".nomi-err")].map((s) => s.textContent);
+    })()`);
+    assert.deepEqual(failure, ["error: boom"], "an error block's recorded failure is styled as a run's");
+
+    const edited = await page.evaluate(`(async () => {${IN_PAGE}
+      const ta = widgets()[2].querySelector("textarea");
+      ta.value = ta.value + " ";
+      ta.dispatchEvent(new Event("input"));
+      await waitFor("the edit's run", () => panel(widgets()[2]).out.startsWith("ran"));
+      return { runs: runs().map((m) => m.source), panel: panel(widgets()[2]) };
+    })()`);
+    assert.deepEqual(edited.runs, ["fn main() {}", 'fn main() {\n    io.print("three")\n} ']);
+    assert.deepEqual(edited.panel, { out: "ran 36\n", title: "Output", note: null });
 
     const ran = await page.evaluate(`(async () => {${IN_PAGE}
       widgets()[0].querySelector(".nomi-run-button").click();
       await waitFor("the run's output", () => panel(widgets()[0]).out.startsWith("ran"));
       return { runs: runs().map((m) => m.source), panel: panel(widgets()[0]) };
     })()`);
-    assert.deepEqual(ran.runs, ["fn main() {}", 'fn main() {\n    io.print("one")\n}']);
+    assert.deepEqual(ran.runs, ["fn main() {}", 'fn main() {\n    io.print("three")\n} ', 'fn main() {\n    io.print("one")\n}']);
     assert.deepEqual(ran.panel, { out: "ran 33\n", title: "Output", note: null });
   } finally {
     await page?.close();
@@ -348,7 +375,7 @@ test("a run in flight shows its status, and a fast one shows none", async (t) =>
   try {
     page = await openPage(chrome, `http://127.0.0.1:${server.address().port}/`, profile);
     await page.evaluate(`(async () => {${IN_PAGE}
-      await waitFor("the first run's output", () => widgets().length === 3 && panel(widgets()[2]).out === "ran 12\\n");
+      await waitFor("the first run's output", () => widgets().length === 4 && panel(widgets()[3]).out === "ran 12\\n");
     })()`);
 
     // A manual block's run, held open: loading, then running with a
@@ -364,7 +391,7 @@ test("a run in flight shows its status, and a fast one shows none", async (t) =>
     })()`);
     assert.deepEqual(loading, {
       runs: 2,
-      out: "recorded <one>\nsecond line",
+      out: "recorded <one>\nsecond line\n",
       status: "Loading Nomi…",
       announced: "Loading Nomi…",
       dimmed: true,
@@ -404,7 +431,7 @@ test("a run in flight shows its status, and a fast one shows none", async (t) =>
     // one that takes longer than the delay shows it.
     const edits = await page.evaluate(`(async () => {${IN_PAGE}
       window.holdRuns = false;
-      const w = widgets()[2];
+      const w = widgets()[3];
       let shown = false;
       new MutationObserver(() => {
         if (!w.querySelector(".nomi-out-status").hidden) shown = true;

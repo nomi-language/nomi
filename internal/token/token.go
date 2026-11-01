@@ -60,6 +60,7 @@ const (
 	OR
 	NOT // not (prefix logical not)
 	IS  // is (pattern test: `x is Some(_)`)
+	IN  // in (membership test: `x in xs`)
 	IF
 	ELSE
 	FN
@@ -217,6 +218,7 @@ var tokenNames = [...]string{
 	OR:                               "OR",
 	NOT:                              "NOT",
 	IS:                               "IS",
+	IN:                               "IN",
 	IF:                               "IF",
 	ELSE:                             "ELSE",
 	FN:                               "FN",

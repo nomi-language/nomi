@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nomi-language/nomi/rt"
@@ -117,7 +118,7 @@ func (d *disk) Open(p string) (rt.ReadSource, *rt.IOError) {
 	}
 	f, err := d.ops.Open(n)
 	if err != nil {
-		return rt.ReadSource{}, classify("open", p, err)
+		return rt.ReadSource{}, d.classify("open", p, err)
 	}
 	if info, err := f.Stat(); err == nil && info.IsDir() {
 		_ = f.Close()
@@ -220,7 +221,7 @@ func (d *disk) OpenFile(p string, access Access) (rt.FileSource, *rt.IOError) {
 		if access == AccessCreate {
 			return rt.FileSource{}, d.writeFailure("open", p, err)
 		}
-		return rt.FileSource{}, classify("open", p, err)
+		return rt.FileSource{}, d.classify("open", p, err)
 	}
 	if info, err := f.Stat(); err == nil && info.IsDir() {
 		_ = f.Close()
@@ -243,12 +244,12 @@ func (d *disk) List(dir string) ([]DirEntry, *rt.IOError) {
 	}
 	f, err := d.ops.Open(n)
 	if err != nil {
-		return nil, classify("open", dir, err)
+		return nil, d.classify("open", dir, err)
 	}
 	entries, err := f.ReadDir(-1)
 	_ = f.Close()
 	if err != nil {
-		return nil, classify("readdir", dir, err)
+		return nil, d.classify("readdir", dir, err)
 	}
 	out := make([]DirEntry, len(entries))
 	for i, e := range entries {
@@ -265,7 +266,7 @@ func (d *disk) CreateDir(p string, parents bool) *rt.IOError {
 	}
 	if parents {
 		if err := d.ops.MkdirAll(n, 0o755); err != nil {
-			return classify("mkdir", p, err)
+			return d.classify("mkdir", p, err)
 		}
 		return nil
 	}
@@ -281,7 +282,7 @@ func (d *disk) Remove(p string) *rt.IOError {
 		return e
 	}
 	if err := d.ops.Remove(n); err != nil {
-		return classify("remove", p, err)
+		return d.classify("remove", p, err)
 	}
 	return nil
 }
@@ -292,7 +293,7 @@ func (d *disk) RemoveAll(p string) *rt.IOError {
 		return e
 	}
 	if err := d.ops.RemoveAll(n); err != nil {
-		return classify("remove", p, err)
+		return d.classify("remove", p, err)
 	}
 	return nil
 }
@@ -307,7 +308,7 @@ func (d *disk) Rename(from, to string) *rt.IOError {
 		return e
 	}
 	if _, err := d.ops.Lstat(nativeFrom); err != nil {
-		return classify("rename", from, err)
+		return d.classify("rename", from, err)
 	}
 	if err := d.ops.Rename(nativeFrom, nativeTo); err != nil {
 		return d.writeFailure("rename", to, err)
@@ -327,7 +328,7 @@ func (d *disk) Stat(p string) (Info, *rt.IOError) {
 	}
 	info, err := d.ops.Stat(n)
 	if err != nil {
-		return Info{}, classify("stat", p, err)
+		return Info{}, d.classify("stat", p, err)
 	}
 	return infoOf(info), nil
 }
@@ -339,9 +340,17 @@ func (d *disk) Lstat(p string) (Info, *rt.IOError) {
 	}
 	info, err := d.ops.Lstat(n)
 	if err != nil {
-		return Info{}, classify("lstat", p, err)
+		return Info{}, d.classify("lstat", p, err)
 	}
-	return infoOf(info), nil
+	out := infoOf(info)
+	if out.Kind == KindSymlink && out.Size == 0 {
+		// A symlink's size is its target's length, which Unix reports and
+		// Windows does not (it answers 0); no target is empty.
+		if target, err := d.ops.Readlink(n); err == nil {
+			out.Size = int64(len(fromOS(target)))
+		}
+	}
+	return out, nil
 }
 
 func (d *disk) Symlink(p, target string) *rt.IOError {
@@ -362,7 +371,7 @@ func (d *disk) ReadLink(p string) (string, *rt.IOError) {
 	}
 	target, err := d.ops.Readlink(n)
 	if err != nil {
-		return "", classify("readlink", p, err)
+		return "", d.classify("readlink", p, err)
 	}
 	return fromOS(target), nil
 }
@@ -373,7 +382,7 @@ func (d *disk) Chmod(p string, mode int64) *rt.IOError {
 		return e
 	}
 	if err := d.ops.Chmod(n, fs.FileMode(mode)); err != nil {
-		return classify("chmod", p, err)
+		return d.classify("chmod", p, err)
 	}
 	return nil
 }
@@ -391,7 +400,7 @@ func (d *disk) Within(dir string) (Backend, func(), *rt.IOError) {
 		root, err = os.OpenRoot(n)
 	}
 	if err != nil {
-		return nil, nil, classify("open", dir, err)
+		return nil, nil, d.classify("open", dir, err)
 	}
 	var abs string
 	switch {
@@ -401,7 +410,7 @@ func (d *disk) Within(dir string) (Backend, func(), *rt.IOError) {
 		a, err := filepath.Abs(n)
 		if err != nil {
 			_ = root.Close()
-			return nil, nil, classify("open", dir, err)
+			return nil, nil, d.classify("open", dir, err)
 		}
 		abs = fromOS(a)
 	}
@@ -423,7 +432,7 @@ func (d *disk) MakeTempDir() (string, *rt.IOError) {
 	}
 	dir, err := os.MkdirTemp(base, "nomi-")
 	if err != nil {
-		return "", classify("mkdir", fromOS(base), err)
+		return "", d.classify("mkdir", fromOS(base), err)
 	}
 	return fromOS(dir), nil
 }
@@ -437,7 +446,7 @@ func (d *disk) CurrentDir() (string, *rt.IOError) {
 	}
 	dir, err := os.Getwd()
 	if err != nil {
-		return "", classify("getwd", ".", err)
+		return "", d.classify("getwd", ".", err)
 	}
 	return fromOS(dir), nil
 }
@@ -459,11 +468,46 @@ func failer(path string) func(string, error) rt.IOError {
 	return func(op string, err error) rt.IOError { return *classify(op, path, err) }
 }
 
+// classify is the package's classify for a failure on d, with one answer
+// settled by looking: Windows reports a missing directory above p and a
+// file where a directory above p should be with the same code,
+// ERROR_PATH_NOT_FOUND (Go's ENOTDIR there), where Unix reports the first
+// as ENOENT. NotADirectory stays only when p, or a directory above it, is
+// something other than a directory, as the in-memory backend decides it,
+// so the same failure answers the same io.Error on every system.
+func (d *disk) classify(op, p string, err error) *rt.IOError {
+	e := classify(op, p, err)
+	if e.Tag == rt.TagIONotADirectory && !d.notDirectoryAt(p) {
+		e.Tag = rt.TagIONotFound
+	}
+	return e
+}
+
+// notDirectoryAt reports whether p or a directory above it is something
+// other than a directory. The first thing found decides; a failure other
+// than absence keeps the answer the system gave.
+func (d *disk) notDirectoryAt(p string) bool {
+	for at := strings.TrimRight(fromOS(toOS(p)), "/"); at != ""; at = parentOf(at) {
+		n, e := d.native(at)
+		if e != nil {
+			return true
+		}
+		info, err := d.ops.Stat(n)
+		switch {
+		case err == nil:
+			return !info.IsDir()
+		case !notExist(err):
+			return true
+		}
+	}
+	return false
+}
+
 // writeFailure is classify for an operation that makes something at path:
 // when it is NotFound, the file need not exist, its directory must, so the
 // error names the directory that is missing.
 func (d *disk) writeFailure(op, p string, err error) *rt.IOError {
-	e := classify(op, p, err)
+	e := d.classify(op, p, err)
 	if e.Tag == rt.TagIONotFound {
 		if dir := parentOf(p); dir != "" && d.missing(dir) {
 			e.Path = dir
@@ -479,5 +523,5 @@ func (d *disk) missing(p string) bool {
 		return false
 	}
 	_, err := d.ops.Stat(n)
-	return errors.Is(err, fs.ErrNotExist)
+	return notExist(err)
 }

@@ -62,7 +62,7 @@ pub fn age(planet: Planet, seconds: Int) -> Float {
 import space_age.{self, Planet}
 
 test "age" {
-    cases = [
+    [
         #("age on Earth", Planet.Earth, 1000000000, 31.69),
         #("age on Mercury", .Mercury, 2134835688, 280.88),
         #("age on Venus", .Venus, 189839836, 9.78),
@@ -72,8 +72,7 @@ test "age" {
         #("age on Uranus", .Uranus, 1210123456, 0.46),
         #("age on Neptune", .Neptune, 1821023456, 0.35),
     ]
-
-    subtests cases, #(description, planet, seconds, expected), description {
+    |> subtests #(description, planet, seconds, expected), description {
         assert space_age.age(planet, seconds) |> Float.round(2) == expected
     }
 }
@@ -87,6 +86,12 @@ test "invalid planet causes error" {
     assert Planet.parse("Sun") == None
 }
 ```
+<!-- expect
+ok age (8 cases)
+ok planet names
+ok invalid planet causes error
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 

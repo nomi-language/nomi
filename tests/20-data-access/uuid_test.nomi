@@ -59,7 +59,7 @@ fn is_shaped(id: Uuid, version: Int) -> Bool {
 
     Uuid.version(id) == version
         and String.slice(text, 14, 15) == "${version}"
-        and Set.contains(%["8", "9", "a", "b"], String.slice(text, 19, 20))
+        and String.slice(text, 19, 20) in %["8", "9", "a", "b"]
 }
 
 fn generated(count: Int, make: () -> Result<Uuid, random.Error>) -> List<Uuid> {

@@ -569,7 +569,7 @@ func TestUnmatchedParen(t *testing.T) {
 	}
 }
 
-// Spec §7 *Tuples* and §15 *Built-in Types*: "No single-element tuples —
+// Spec §4 *Tuples* and §4 *Built-in Types*: "No single-element tuples —
 // `(x)` is just grouping." The trailing-comma form `#(x,)` was silently
 // constructing a 1-tuple value at runtime even though the type form
 // `#(T,)` doesn't parse — value-side acceptance was a bug.

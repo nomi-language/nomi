@@ -106,6 +106,15 @@ import (
 const replVMBanner = "REPL on the VM: bindings, functions and types carry between inputs."
 
 func runReplVM() {
+	if !readline.IsTerminal(int(os.Stdin.Fd())) {
+		// A piped stdin is read as a script, without the line editor:
+		// on Windows the editor reads only a console, and nowhere does a
+		// pipe need its prompts.
+		fmt.Println(currentVersionLine())
+		fmt.Println(replVMBanner)
+		replScript(os.Stdin, os.Stdout, os.Stderr)
+		return
+	}
 	homeDir, _ := os.UserHomeDir()
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:          ">> ",
@@ -156,7 +165,7 @@ func replLoop(read func(continuation bool) (string, error), s *replSession, out,
 }
 
 // replScript runs a session over the lines of in: what `nomi` does with a
-// piped stdin, without the terminal.
+// stdin that is not a terminal.
 func replScript(in io.Reader, out, errOut io.Writer) {
 	sc := bufio.NewScanner(in)
 	s := newReplSession(out, errOut)

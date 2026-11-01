@@ -9,7 +9,7 @@ import (
 )
 
 // TestStdlibSpellingFollowsWhereTheImplementationLives guards the rule
-// docs/spec.md §24 states: every stdlib declaration whose
+// docs/spec.md §19 *Host and foreign declarations* states: every stdlib declaration whose
 // implementation is Go is spelled `host fn` / `host type`, whatever Go package
 // holds that implementation, and `fn f(x: T) -> U go pkg.Sym` is what a user
 // writes to bind their own code.

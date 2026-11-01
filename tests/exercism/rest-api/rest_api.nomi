@@ -103,7 +103,7 @@ impl RestApi {
             "/add" -> {
                 request: NewUser = Json.decode_as(payload) |> Result.map_err(Error.InvalidJson)?
 
-                if Map.contains(api.users, request.user) { return Err(.UserExists(request.user)) }
+                if request.user in api.users { return Err(.UserExists(request.user)) }
 
                 user = #User{name: request.user}
                 Ok(#(Json.encode_as(user), #RestApi{users: Map.put(api.users, user.name, user)}))

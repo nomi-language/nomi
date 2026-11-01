@@ -40,7 +40,7 @@ import {
 }
 
 test "rebases digits" {
-    cases = [
+    [
         #("single bit one to decimal", 2, [1], 10, Ok([1])),
         #("binary to single decimal", 2, [1, 0, 1], 10, Ok([5])),
         #("single decimal to binary", 10, [5], 2, Ok([1, 0, 1])),
@@ -63,12 +63,15 @@ test "rebases digits" {
         #("output base is negative", 2, [1], -7, Err(.InvalidOutputBase)),
         #("both bases are negative", -2, [1], -7, Err(.InvalidInputBase)),
     ]
-
-    subtests cases, #(description, input_base, digits, output_base, expected), description {
+    |> subtests #(description, input_base, digits, output_base, expected), description {
         assert all_your_base.rebase(input_base, digits, output_base) == expected
     }
 }
 ```
+<!-- expect
+ok rebases digits (21 cases)
+test result: ok. 21 passed, 0 failed
+-->
 
 ## How it's written
 

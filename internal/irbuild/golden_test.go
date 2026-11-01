@@ -259,10 +259,16 @@ func (g goldenProgram) normalize(text, root string) string {
 	return expectation.Normalize(text, root)
 }
 
-// denormalize puts this run's paths back, spelling the directory as
-// DisplayPath would. The jitter mask stays.
+// denormalize puts this run's paths back, spelling each as DisplayPath
+// would: a relative one with `/`, an absolute one with the system's
+// separator. The jitter mask stays.
 func (g goldenProgram) denormalize(text, root string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(text, "<dir>", g.displayDir()), "<root>", root)
+	d, sep := g.displayDir(), byte('/')
+	if d == g.dir {
+		sep = filepath.Separator
+	}
+	text = expectation.ExpandMarker(text, "<dir>", d, sep)
+	return expectation.ExpandMarker(text, "<root>", root, filepath.Separator)
 }
 
 // goldenFor is the golden record for the program at path, and that record as

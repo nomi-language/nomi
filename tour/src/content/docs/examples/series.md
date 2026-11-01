@@ -39,7 +39,7 @@ pub fn slices(series: String, length: Int) -> Result<List<String>, Error> {
 import series.{self, Error}
 
 test "slices" {
-    cases = [
+    [
         #("slices of one from one", "1", 1, ["1"]),
         #("slices of one from two", "12", 1, ["1", "2"]),
         #("slices of two", "35", 2, ["35"]),
@@ -52,26 +52,29 @@ test "slices" {
             ["91849", "18493", "84939", "49390", "93904", "39042", "90424", "04243"],
         ),
     ]
-
-    subtests cases, #(description, digits, length, expected), description {
+    |> subtests #(description, digits, length, expected), description {
         assert series.slices(digits, length) == Ok(expected)
     }
 }
 
 test "errors" {
-    cases = [
+    [
         #("slice length is too large", "12345", 6, Error.LengthTooLarge),
         #("slice length is way too large", "12345", 42, .LengthTooLarge),
         #("slice length cannot be zero", "12345", 0, .ZeroLength),
         #("slice length cannot be negative", "123", -1, .NegativeLength),
         #("empty series is invalid", "", 1, .EmptySeries),
     ]
-
-    subtests cases, #(description, digits, length, expected), description {
+    |> subtests #(description, digits, length, expected), description {
         assert series.slices(digits, length) == Err(expected)
     }
 }
 ```
+<!-- expect
+ok slices (6 cases)
+ok errors (5 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -224,10 +224,58 @@ var socketPath = regexp.MustCompile(`[^"]*/nomi-dap-[^"/]*/terminal\.sock`)
 // normalize replaces the paths a transcript would otherwise depend on.
 func normalize(s string) string {
 	abs, _ := filepath.Abs("testdata")
-	s = strings.ReplaceAll(s, abs, "$TESTDATA")
+	s = maskDir(s, abs, "$TESTDATA")
 	std, _ := filepath.Abs(filepath.Join("..", "..", "std"))
-	s = strings.ReplaceAll(s, std, "$STD")
+	s = maskDir(s, std, "$STD")
 	return socketPath.ReplaceAllString(s, "$$SOCKET")
+}
+
+// maskDir replaces dir in s, a line of the transcript, with mark, and
+// writes the rest of each path under it with `/`. A Windows path is in the
+// transcript's JSON with each `\` escaped as `\\`, and in JSON inside JSON
+// (a test record in an output event) as `\\\\`, so each spelling is masked.
+func maskDir(s, dir, mark string) string {
+	once := strings.ReplaceAll(dir, `\`, `\\`)
+	for _, spelling := range []string{strings.ReplaceAll(once, `\`, `\\`), once, dir} {
+		s = strings.ReplaceAll(s, spelling, mark)
+	}
+	var b strings.Builder
+	for {
+		i := strings.Index(s, mark)
+		if i < 0 {
+			b.WriteString(s)
+			return b.String()
+		}
+		start := i + len(mark)
+		end := start
+		for end < len(s) && !strings.ContainsRune("\" ,:}]\n", rune(s[end])) {
+			// A backslash before a quote escapes the quote that ends the path.
+			if s[end] == '\\' && strings.TrimLeft(s[end:], `\`) != "" && strings.TrimLeft(s[end:], `\`)[0] == '"' {
+				break
+			}
+			end++
+		}
+		path := s[start:end]
+		for _, sep := range []string{`\\\\`, `\\`, `\`} {
+			path = strings.ReplaceAll(path, sep, "/")
+		}
+		b.WriteString(s[:start] + path)
+		s = s[end:]
+	}
+}
+
+// TestMaskDirTakesOutAWindowsPathInJSON is a launch request as a Windows
+// run records it.
+func TestMaskDirTakesOutAWindowsPathInJSON(t *testing.T) {
+	dir := `D:\a\nomi\nomi\internal\dap\testdata`
+	got := maskDir(` {"mode":"run","program":"D:\\a\\nomi\\nomi\\internal\\dap\\testdata\\imports\\main.nomi","x":"a\\b"}`, dir, "$TESTDATA")
+	if want := ` {"mode":"run","program":"$TESTDATA/imports/main.nomi","x":"a\\b"}`; got != want {
+		t.Errorf("maskDir = %s, want %s", got, want)
+	}
+	got = maskDir(`{"output":"{\"file\":\"D:\\\\a\\\\nomi\\\\nomi\\\\internal\\\\dap\\\\testdata\\\\half_test.nomi\",\"line\":5}"}`, dir, "$TESTDATA")
+	if want := `{"output":"{\"file\":\"$TESTDATA/half_test.nomi\",\"line\":5}"}`; got != want {
+		t.Errorf("maskDir = %s, want %s", got, want)
+	}
 }
 
 // check compares the transcript with testdata/name.golden.

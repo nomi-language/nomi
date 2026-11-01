@@ -378,11 +378,9 @@ func modTime(t *testing.T, path string) string {
 // out". Elsewhere it only reports, since a time measured on a slower
 // machine, such as the deploy build's, says nothing about the program.
 //
-// Blocks containing tests are compared on their ERROR channel only. nomiRun
-// concatenates the test report onto program output, and reproducing that
-// composition here would duplicate cmd/nomi-wasm's formatting rather than
-// check it. Both counts are logged so the split is visible rather than
-// implied.
+// A block's expect block holds what its page shows before any run, its
+// tests' report after its output included, so the staged wasm's output is
+// compared with it whole, for a block with tests too.
 func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; loads a 25MB wasm under node; -short")
@@ -500,11 +498,6 @@ TestTourDoctests), so the browser and the source tree disagree. Fix: %s`,
 					b.name, got.Error, rebuildInstruction)
 				return
 			}
-			// A manual block's expect block holds its tests' report too,
-			// since its page shows it as the recorded output.
-			if b.hasTests && !b.block.HasInfo(doctest.InfoManual) {
-				return
-			}
 			if b.block.Expected == nil {
 				if got.Output != "" {
 					t.Errorf("block %s has no <!-- expect --> block but the staged wasm printed:\n%s", b.name, got.Output)
@@ -526,8 +519,9 @@ TestTourDoctests holds the in-process VM to. Fix: %s`,
 		switch {
 		case b.block.HasInfo(doctest.InfoError):
 			errors++
-		case b.hasTests && !b.block.HasInfo(doctest.InfoManual):
+		case b.hasTests:
 			withTests++
+			compared++
 		default:
 			compared++
 		}
@@ -540,7 +534,7 @@ TestTourDoctests holds the in-process VM to. Fix: %s`,
 		fmt.Fprintf(&times, "\n  %6.0f ms  %s", a.Ms, a.Name)
 	}
 	t.Logf("slowest runs under node (limit %.0f ms, %.0f ms for a manual block):%s", runLimit, manualLimit, times.String())
-	t.Logf("staged wasm ran %d tour blocks: %d output-compared against their <!-- expect --> block (%d of them stop on purpose, output and failure compared), %d test-carrying (error channel only), %d error blocks (error compared against their <!-- expect --> block)",
+	t.Logf("staged wasm ran %d tour blocks: %d output-compared against their <!-- expect --> block (%d of them stop on purpose, output and failure compared; %d have tests, their report compared too), %d error blocks (error compared against their <!-- expect --> block)",
 		len(blocks), compared, stops, withTests, errors)
 }
 
@@ -907,6 +901,9 @@ const go = new Go();
   if (typeof globalThis.nomiRun !== "function") {
     throw new Error("nomi.wasm did not register nomiRun");
   }
+  // The page's worker lowers the standard library before its first run's
+  // budget starts (nomiWarm); so does this harness, before it times a run.
+  globalThis.nomiWarm();
   const probes = JSON.parse(fs.readFileSync(process.argv[3], "utf8"));
   const answers = [];
   // A run's time is the lesser of its wall time and the process's CPU

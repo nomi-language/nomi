@@ -1,7 +1,7 @@
 import matching_brackets
 
 test "checks bracket pairing" {
-    cases = [
+    [
         #("paired square brackets", "[]", True),
         #("empty string", "", True),
         #("unpaired brackets", "[[", False),
@@ -27,8 +27,7 @@ test "checks bracket pairing" {
             True,
         ),
     ]
-
-    subtests cases, #(description, text, expected), description {
+    |> subtests #(description, text, expected), description {
         assert matching_brackets.is_paired(text) == expected
     }
 }

@@ -1,0 +1,131 @@
+import {
+    std/assertions.AssertionFailure
+    std/compiler
+}
+
+/// The first letter of each word, upper case. An attached test pipes its
+/// table into `subtests` as a test body does.
+//! [#("Ruby on Rails", "ROR"), #("PHP: Hypertext Preprocessor", "PHP")]
+//! |> subtests #(phrase, expected) {
+//!     assert abbreviate(phrase) == expected
+//! }
+fn abbreviate(phrase: String) -> String {
+    phrase
+    |> String.split(" ")
+    |> Iter.filter(fn word -> word != "")
+    |> Iter.map(fn word -> String.slice(word, 0, 1))
+    |> String.join("")
+    |> String.uppercase()
+}
+
+test "a literal table piped into subtests" {
+    [
+        #("basic", "Portable Network Graphics", "PNG"),
+        #("lowercase words", "Ruby on Rails", "ROR"),
+    ]
+    |> subtests #(description, phrase, expected), description {
+        assert abbreviate(phrase) == expected
+    }
+}
+
+test "a bound table piped into subtests" {
+    cases = [#("abba", True), #("abc", False)]
+
+    cases
+    |> subtests #(line, known) {
+        assert (String.reverse(line) == line) == known
+    }
+}
+
+test "rows built by a pipeline" {
+    1..=3
+    |> Iter.map(fn n -> #(n, n * n))
+    |> Iter.to_list()
+    |> subtests #(n, square) {
+        assert square / n == n
+    }
+}
+
+fn all_short(words: List<String>) -> Result<Unit, AssertionFailure> {
+    words
+    |> subtests word, "word ${word}" {
+        assert String.length(word) < 4
+    }
+
+    Ok(Unit)
+}
+
+test "a failed row is reported as the statement form reports it" {
+    assert all_short(["a", "bb"]) == Ok(Unit)
+
+    assert Err(failure) = all_short(["a", "long", "longer"])
+
+    assert failure.keyword == "subtests"
+    assert failure.reason == "2 of 3 subtests failed"
+    assert Iter.count(failure.subtests) == 2
+    assert Some(first) = List.head(failure.subtests)
+    assert first.row == "\"word long\""
+    assert first.failure.expression == "String.length(word) < 4"
+}
+
+test "the stage ends a pipeline that stands as a statement" {
+    bound = compiler.check(
+        """
+        test "t" {
+          x = [1] |> subtests n {
+            assert n > 0
+          }
+        }
+        """
+    )
+
+    assert [error] = bound
+
+    assert error.message
+        == "a `|> subtests` stage has no value, so its pipeline must be a statement of its own"
+
+    followed = compiler.check(
+        """
+        test "t" {
+          [1]
+          |> subtests n {
+            assert n > 0
+          }
+          |> dbg
+        }
+        """
+    )
+
+    assert [error] = followed
+
+    assert error.message
+        == "`|> subtests` must be the last stage of its pipeline: it has no value to pass on"
+}
+
+test "the stage is checked as the statement is" {
+    assert [error] = compiler.check(
+        """
+        test "t" {
+          [Some(1)] |> subtests Some(n) {
+            assert n > 0
+          }
+        }
+        """
+    )
+
+    assert String.contains(error.message, "a `subtests` pattern must match every row")
+}
+
+test "the stage's keyword hovers as the statement's does" {
+    hover = compiler.hover(
+        """
+        test "t" {
+          [1, 2] |> subˇtests n {
+            assert n > 0
+          }
+        }
+        """
+    )?
+
+    assert hover.signature == "subtests: List<Int> -> Unit"
+}

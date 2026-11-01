@@ -89,7 +89,7 @@ fn reaches(
             next =
                 neighbours
                 |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
-                |> Iter.filter(fn n -> Set.contains(stones, n) and not Set.contains(seen, n))
+                |> Iter.filter(fn n -> n in stones and not n in seen)
                 |> Iter.to_list()
 
             reaches(stones, [..next, ..rest], Set.union(seen, Iter.to_set(next)), is_goal)

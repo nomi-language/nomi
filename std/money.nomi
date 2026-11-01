@@ -155,6 +155,9 @@ impl Money {
     //! assert Money.format(eur, Locale`de`, display: .Code) == "12,50\u{a0}EUR"
     //! assert Money.format(eur, Locale`en`, display: .Name) == "12.50 euros"
     //! assert Money.format(Money`1234 JPY`, Locale`ja`) == "￥1,234"
+    //! assert Money.format(Money`2 EUR`, Locale`en`, display: .Name) == "2.00 euros"
+    //! assert Money.format(Money`5 USD`, Locale`en-CA`) == "US$5.00"
+    //! assert Money.format(Money`5 USD`, Locale`en-CA`, display: .Narrow) == "$5.00"
     //! assert Money.format(Money`0.5 BTC:8`, Locale`en`) == "BTC\u{a0}0.50000000"
     //!
     //! debit = Money`-10 USD`
@@ -392,8 +395,14 @@ impl Literal for Money {
     /// what ``Currency`…` `` reads, so a custom one names its minor digits
     /// (``Money`1200 PTS:0` ``). A raw literal is checked when the program
     /// is checked, so a malformed amount, an unknown currency or a missing
-    /// one is a compile error at the literal. The literal does not
-    /// interpolate: build `#Money{...}` from a computed amount.
+    /// one is a compile error at the literal, whose `Error` names what is
+    /// wrong and shows the form: ``typed literal Money`12.50` is invalid:
+    /// `12.50` has no currency: write the amount, one space and the currency,
+    /// as Money`12.50 EUR` ``. The amount is what `String.to_decimal` reads:
+    /// an optional sign, digits, `_` separators and an optional fraction.
+    /// The literal does not interpolate: a double-quoted `Money"${amount}
+    /// USD"` is `Err(Interpolated)`, whose message says to build
+    /// `#Money{...}` from the fields.
     //! assert Money`1299.50 USD` == #Money{amount: 1299.50d, currency: Currency`USD`}
     //! assert Money`-5.00 USD`.amount == -5.00d
     //! assert Money`1200 PTS:0`.currency == Currency`PTS:0`

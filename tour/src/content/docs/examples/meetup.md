@@ -57,7 +57,7 @@ fn days_on(year: Int, month: Int, weekday: Weekday) -> Vector<Date> {
 
 /// The one of `days` that falls from the 13th to the 19th.
 fn teenth(days: Vector<Date>) -> Date {
-    Some(day) = Iter.find(days, fn day -> Range.contains(13..=19, Date.day(day))) else {
+    Some(day) = Iter.find(days, fn day -> Date.day(day) in 13..=19) else {
         unreachable "the 13th to the 19th are seven days, so one falls on every weekday"
     }
     day
@@ -70,7 +70,7 @@ import {
 }
 
 test "meetup" {
-    cases = [
+    [
         #(
             "when teenth Monday is the 13th, the first day of the teenth week",
             2013,
@@ -783,18 +783,21 @@ test "meetup" {
             Date`2012-12-07`,
         ),
     ]
-
-    subtests cases, #(description, year, month, week, weekday, expected), description {
+    |> subtests #(description, year, month, week, weekday, expected), description {
         assert meetup.meetup(year, month, week, weekday) == expected
     }
 }
 ```
+<!-- expect
+ok meetup (95 cases)
+test result: ok. 95 passed, 0 failed
+-->
 
 ## How it's written
 
 - The week is an enum, `Week`, with the canonical data's six descriptors, and the day is std/calendar's `Weekday`. The canonical strings (`"teenth"`, `"Monday"`) are the test table's data, written as variants: the first row qualifies them (`Week.Teenth`, `Weekday.Monday`) and the rows after it write `.First`, `.Tuesday`.
-- `days_on` lists the month's days on the weekday: `Date.days_in_month(year, month)!` days, each `Date.new(year, month, day)!`, filtered by weekday. The calendar decides the month's length, with no table of month lengths or leap-year rule here. Both `!`s trap only for a month that is not 1 to 12, which the caller chose, and the trap names the call (style §28).
-- The first four weeks are taken apart with a vector pattern, `#[first, second, third, fourth, ..]`. A weekday falls four or five times in every month, so the pattern cannot fail, and its `else` is an `unreachable` that says why (style §28). The last day is `Iter.last(days)!`: the pattern above matched, so `days` is not empty. A vector pattern needs at least as many elements as it names, and the last day is the fourth in a month with four, so it cannot be a fifth name in the same pattern.
+- `days_on` lists the month's days on the weekday: `Date.days_in_month(year, month)!` days, each `Date.new(year, month, day)!`, filtered by weekday. The calendar decides the month's length, with no table of month lengths or leap-year rule here. Both `!`s trap only for a month that is not 1 to 12, which the caller chose, and the trap names the call (style §29).
+- The first four weeks are taken apart with a vector pattern, `#[first, second, third, fourth, ..]`. A weekday falls four or five times in every month, so the pattern cannot fail, and its `else` is an `unreachable` that says why (style §29). The last day is `Iter.last(days)!`: the pattern above matched, so `days` is not empty. A vector pattern needs at least as many elements as it names, and the last day is the fourth in a month with four, so it cannot be a fifth name in the same pattern.
 - The teenth day is `Iter.find` over the days for one from the 13th to the 19th. Those are seven days in a row, so one of them is on every weekday, and the `None` that `Iter.find` can answer is an `unreachable` that says so.
 - The expected dates are `Date` literals, ``Date`2013-05-13` ``, so the table compares dates, not strings.
 - The 95 canonical cases are one `subtests` table named by the description column.

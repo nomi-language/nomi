@@ -29,7 +29,7 @@ pub fn count_words(sentence: String) -> Map<String, Int> {
 import word_count.count_words
 
 test "counts words" {
-    cases = [
+    [
         #("count one word", "word", %{"word" => 1}),
         #("count one of each word", "one of each", %{"one" => 1, "of" => 1, "each" => 1}),
         #(
@@ -95,12 +95,15 @@ test "counts words" {
             %{"can" => 1, "can't" => 2},
         ),
     ]
-
-    subtests cases, #(description, sentence, expected), description {
+    |> subtests #(description, sentence, expected), description {
         assert count_words(sentence) == expected
     }
 }
 ```
+<!-- expect
+ok counts words (14 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

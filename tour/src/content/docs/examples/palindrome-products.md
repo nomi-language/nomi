@@ -53,7 +53,7 @@ fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Er
 
     low = min * min
     high = max * max
-    outside = fn p: Int -> not Range.contains(low..=high, p)
+    outside = fn p: Int -> not p in low..=high
 
     in_order(digit_count(low), digit_count(high), direction)
     |> Iter.flat_map(fn length -> {
@@ -123,7 +123,7 @@ fn digit_count(n: Int) -> Int {
 import palindrome_products.{self, Error, Product}
 
 test "smallest" {
-    cases = [
+    [
         #(
             "find the smallest palindrome from single digit factors",
             1,
@@ -157,14 +157,13 @@ test "smallest" {
             Ok(Some(#Product{value: 10988901, factors: [#(3297, 3333)]})),
         ),
     ]
-
-    subtests cases, #(description, min, max, expected), description {
+    |> subtests #(description, min, max, expected), description {
         assert palindrome_products.smallest(min, max) == expected
     }
 }
 
 test "largest" {
-    cases = [
+    [
         #(
             "find the largest palindrome from single digit factors",
             1,
@@ -192,12 +191,16 @@ test "largest" {
         #("empty result for largest if no palindrome in the range", 15, 15, Ok(None)),
         #("error result for largest if min is more than max", 2, 1, Err(Error.MinAboveMax)),
     ]
-
-    subtests cases, #(description, min, max, expected), description {
+    |> subtests #(description, min, max, expected), description {
         assert palindrome_products.largest(min, max) == expected
     }
 }
 ```
+<!-- expect
+ok smallest (7 cases)
+ok largest (6 cases)
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

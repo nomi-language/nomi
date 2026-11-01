@@ -718,6 +718,9 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	if t.Op == "and" || t.Op == "or" {
 		return bl.shortCircuit(t)
 	}
+	if t.Op == "in" {
+		return bl.membership(t)
+	}
 	if op, isCompare := irCompareOps[t.Op]; isCompare {
 		// `emitCompare` spells it; see ircompare.go.
 		//
@@ -2049,6 +2052,12 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		// which is right after it, and the block answers Unit.
 		return append(lead, w), &ast.TypeIdent{Name: "Unit", Line: w.Line, Col: w.Col}
 	}
+	if d, isDefer := n.(*ast.Defer); isDefer {
+		// A `defer` ending a block: the call is registered and runs at the
+		// block's end, right after it, and the block answers Unit.
+		line, col := nodePos(d)
+		return append(lead, d), &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
+	}
 	if st, isSubtests := n.(*ast.Subtests); isSubtests {
 		// A `subtests` statement ending a block, which answers Unit.
 		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: st.Line, Col: st.Col}
@@ -3005,7 +3014,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		_, bound := bl.bound[b.Name]
 		// A rebinding is a fresh identity, and reads in its initializer see
 		// the previous one. A closure made before it captured the previous
-		// value, which it keeps (spec §23), so nothing here depends on
+		// value, which it keeps (spec §7 *Closures*), so nothing here depends on
 		// whether one did.
 		if shadows && !bound && bl.inTest {
 			irDeclineNote("a test-body binding that shadows a module-level name: " + b.Name)

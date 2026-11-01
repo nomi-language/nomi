@@ -146,7 +146,7 @@ fn replay(steps: List<Step>) -> List<Step> {
 }
 
 test "linked list" {
-    cases = [
+    [
         #("pop gets element from the list", [Step.Push(7), .Pop(7)]),
         #(
             "push/pop respectively add/remove at the end of the list",
@@ -236,8 +236,7 @@ test "linked list" {
             ],
         ),
     ]
-
-    subtests cases, #(description, steps), description {
+    |> subtests #(description, steps), description {
         assert replay(steps) == steps
     }
 }
@@ -249,6 +248,11 @@ test "pop and shift on an empty list find nothing" {
     assert replay(steps) == steps
 }
 ```
+<!-- expect
+ok linked list (19 cases)
+ok pop and shift on an empty list find nothing
+test result: ok. 20 passed, 0 failed
+-->
 
 ## How it's written
 

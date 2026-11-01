@@ -74,7 +74,7 @@ import {
 }
 
 test "cleans phone numbers" {
-    cases = [
+    [
         #("cleans the number", "(223) 456-7890", Ok("2234567890")),
         #("cleans numbers with dots", "223.456.7890", Ok("2234567890")),
         #("cleans numbers with multiple spaces", "223 456   7890   ", Ok("2234567890")),
@@ -122,12 +122,15 @@ test "cleans phone numbers" {
             Err(.ExchangeCodeStartsWithOne),
         ),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert phone_number.clean(phrase) == expected
     }
 }
 ```
+<!-- expect
+ok cleans phone numbers (18 cases)
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 

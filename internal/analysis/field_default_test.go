@@ -162,6 +162,9 @@ func TestFieldDefault_TreeIsClean(t *testing.T) {
 	tmp := t.TempDir()
 	blockN := 0
 	err = filepath.WalkDir(tourRoot, func(path string, d os.DirEntry, err error) error {
+		if analysis.GeneratedTourPageForTest(path) {
+			return nil
+		}
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -619,7 +622,7 @@ fn main() {
 // `Backoff.Exponential` record variant).
 //
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
-// the other site. `capabilities-and-context.md`'s "basic shape" block declared
+// the other site. `app-fields.md`'s "basic shape" block declared
 // `struct MyApp { context: Context = Context.root(); port: Int }` plus an
 // `impl App for MyApp`; migrated, the payload is `struct Config { port: Int }`
 // with no default and the `context` default lives on stdlib's `App`. The one
@@ -629,10 +632,14 @@ fn main() {
 // (its option flags), pov 1, rest-api 3, paasio 4, piecing-it-together 7
 // (its Clues) and tree-building 1. Each is counted twice, once in its
 // `tests/exercism` file and once in the Examples page generated from it.
+//
+// `app-fields.md`'s "Settings per environment" block adds
+// three, on the top-level struct `Config` (deployment, database_url,
+// max_connections), its development defaults.
 var fieldDefaultDenominator = map[string]int{
 	"std":             22,
 	"tests":           62,
-	"tour (nomi-run)": 19,
+	"tour (nomi-run)": 22,
 	"tour (nomi)":     0,
 }
 
@@ -675,6 +682,9 @@ func TestFieldDefault_CensusHasNoBlindPosition(t *testing.T) {
 	}
 	tourRoot := filepath.Join(root, "tour", "src", "content", "docs")
 	if err := filepath.WalkDir(tourRoot, func(path string, d os.DirEntry, err error) error {
+		if analysis.GeneratedTourPageForTest(path) {
+			return nil
+		}
 		if err != nil || d.IsDir() {
 			return err
 		}

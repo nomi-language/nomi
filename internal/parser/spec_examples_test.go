@@ -34,7 +34,7 @@ import (
 //	           not Nomi syntax — is replaced by the identifier `elided`.
 //	signature  parses once every bare `fn`/`host fn` signature line is given
 //	           the body ` { elided }`. Reference sections list signatures
-//	           without bodies; this is the shape of the stdlib tables in §9, §16 and §19.
+//	           without bodies; this is the shape of the stdlib tables in §4 and §11.
 //	types      every non-blank, non-comment line parses as a type expression
 //	           (each line is wrapped as `fn _p() -> <line> { elided }`).
 //	variants   the whole block parses as an enum body (wrapped as

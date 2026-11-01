@@ -4,9 +4,9 @@ The strategic punch list of large, cross-cutting initiatives: the things that
 take a design pass and several changes. It complements:
 
 - [`spec.md`](spec.md), the canonical spec for what the language does.
-- [`feature-status.md`](feature-status.md), what works today: shipped compiler and tooling milestones, the aspirational-spec punch list and known defects.
+- [`feature-status.md`](feature-status.md), the aspirational-spec punch list, gaps in shipped features, tooling capabilities and known defects.
 
-This file is the forward view: open work only. When an item lands, delete it here and record the result in feature-status.md.
+This file is the forward view: open work only. When an item lands, delete it here; the spec says what works, and feature-status.md lists what the item left unbuilt.
 
 ## The organizing principle
 
@@ -39,10 +39,14 @@ on it.
 - [ ] **An npm package for the wasm build** (`cmd/nomi-wasm`, the tour's runtime) with a small JS API: run source, hover, semantic tokens.
 - [ ] **Tour hardening, what remains.** The stack-depth limit (`rt/calldepth_js.go`, 1,000 calls) and the run-worker's recovery were measured in Chrome and Node only; Firefox and Safari are unmeasured. And a Go fatal error prints a goroutine trace to the worker's console naming the build machine's paths; `-trimpath` would remove them, and it must go on both `scripts/build-tour-wasm.sh` and `vmhost/tour_bundle_test.go`'s rebuild at once.
 - [ ] **Doc-gen, registry and package-manager UX.** `nomi doc`, publishing, distribution polish. Nomi modules ride the Go module proxy.
+  - `nomi publish` is reserved. Publishing a module is pushing a version tag to its repository, as for any Go module, and the module proxy serves it from there.
+  - A registry. There is no Nomi-specific registry, and none is planned; if Nomi-specific module discovery becomes a need, the simplest path is metadata indexing on top of existing Go module hosting rather than a parallel registry.
+  - Compiler-enforced semver: a compiler that diffs the public API between versions and rejects mismatched version bumps. A long-horizon nice-to-have. The closest existing precedent is Elm/Gleam; the mechanism requires both a registry hook (where to compare against) and a published-API extraction step that doesn't exist yet.
 
 ## Track 2: Irreversible semantics
 
 - [ ] **Language versioning and compatibility.** The mechanism (editions, fixers, a compatibility promise) for when the language stops breaking. Until then it breaks freely, which is correct before a first release.
+- [ ] **Exhaustive struct pattern opt-in.** Struct pattern matching is partial by default: unmentioned fields are ignored. A `!..` marker could opt into exhaustive field matching, so `#User{name, age, email, !..}` would become a compile error when `User` gains a field. This is the inverse of Rust, where `..` opts *out* of exhaustive matching. It waits on real usage showing the need.
 
 ## Track 3: Architecture to leave room for
 
@@ -64,7 +68,7 @@ What a program needs to talk to the world outside the VM. The items are in the a
 
 - [ ] **2. The file system, the rest.** `std/fs`, `std/path` and `std/fs_testing` exist (whole files with a `WriteMode`, lines and chunks, streams, directories, walks and globs, metadata, symlinks and modes, `io.File` with reads and writes at a position, `fs.within` over `os.Root`, temporary directories, an in-memory sandbox, a conformance suite, the browser's in-memory file system). Missing: `Reader.from_chunks` and `Writer.from_fn`, adapters a program writes; a `Result`-aware `reduce`, which would shorten a fold over `fs.lines`; and a test group line that seals a test's real file calls. Paths use `/` on every system, Windows hosts accepting `\` too; that needs a Windows CI job before a release ships it.
 - [ ] **3. Encodings and hashing.** `std/hash` computes SHA-256 (`hash.sha256`, `hash.sha256_hex`); `Seed.from_os` reads OS entropy only to seed `std/random`. Missing: base64, hex and percent encoding of arbitrary bytes, SHA-512, HMAC with a constant-time compare, and secure random bytes. All but the last are pure, so typed literals may use them.
-- [ ] **4. Channel `select` with timeouts.** Channels multiplex through one channel of a tagged enum (spec §20, *Multiplexing*), and `select` is listed as a follow-on there. Missing: waiting on several channels and a timer at once, and a receive with a timeout, both on the clock in force so `Clock.Virtual` tests stay instant. Open: which ready arm wins, which Go picks at random.
-- [ ] **5. HTTP, then the server.** No networking module exists, and the spec's §24 says so. First a client (`std/http`, `std/url`) whose bodies are item 2's `Reader`s, which honours the context's deadline and works on js/wasm through `fetch`, with a test seam of the same shape as item 2's. Then a server whose requests run as tasks under a supervisor, so `max_running` bounds them and shutdown drains them, plus TCP and TLS.
+- [ ] **4. Channel `select` with timeouts.** Channels multiplex through one channel of a tagged enum (std/channels's module comment, *Multiplexing*). Neither a multi-channel `select` nor non-blocking `try_send` and `try_receive` is a core language construct; each can land as a stdlib helper or runtime primitive once a real use case justifies the surface. Missing: waiting on several channels and a timer at once, and a receive with a timeout, both on the clock in force so `Clock.Virtual` tests stay instant. Open: which ready arm wins, which Go picks at random.
+- [ ] **5. HTTP, then the server.** No networking module exists. First a client (`std/http`, `std/url`) whose bodies are item 2's `Reader`s, which honours the context's deadline and works on js/wasm through `fetch`, with a test seam of the same shape as item 2's. Then a server whose requests run as tasks under a supervisor, so `max_running` bounds them and shutdown drains them, plus TCP and TLS.
 - [ ] **6. Subprocesses.** Nothing exists. Missing: an immutable `Command` value with no shell, `process.run` and `process.output` to completion, and `process.with_spawned` for streaming over item 2's `Reader` and `Writer`, which kills and reaps the child when its body ends so no process outlives its owner, plus a recording fake (`process_testing`) in `std/sql_testing`'s style. Refused at build time on js/wasm and wasip1. It depends only on item 2, so it could move ahead of item 5.
-- [ ] **7. A std `Logger`, then an actor helper.** The spec's §26 example and the tour define a `Logger` interface of their own. Missing: a std `Logger` with levels and fields, text and JSON loggers that write one record per write, and a test recorder; then a helper over item 4's `select` that packages the tour's counter-server pattern (state folded in one supervised task, calls answered on reply channels with a timeout).
+- [ ] **7. A std `Logger`, then an actor helper.** Programs and the tour define a `Logger` interface of their own. Missing: a std `Logger` with levels and fields, text and JSON loggers that write one record per write, and a test recorder; then a helper over item 4's `select` that packages the tour's counter-server pattern (state folded in one supervised task, calls answered on reply channels with a timeout).

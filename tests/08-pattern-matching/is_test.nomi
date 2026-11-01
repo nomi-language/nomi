@@ -97,7 +97,7 @@ test "a name in the pattern is an error" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "an `is` test binds nothing, so its pattern cannot name `n`")
+    assert "an `is` test binds nothing, so its pattern cannot name `n`" in message
 }
 
 test "a bare or before a pattern asks for parentheses" {
@@ -117,7 +117,7 @@ test "a bare or before a pattern asks for parentheses" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "a pattern cannot be its right operand: `is` takes one pattern")
+    assert "a pattern cannot be its right operand: `is` takes one pattern" in message
 }
 
 test "is does not chain with a comparison" {
@@ -130,7 +130,7 @@ test "is does not chain with a comparison" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "`is` does not chain with a comparison")
+    assert "`is` does not chain with a comparison" in message
 }
 
 test "a pattern that cannot match the type is the case arm's error" {
@@ -143,7 +143,7 @@ test "a pattern that cannot match the type is the case arm's error" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "pattern \"one\" is a String, but the value is an Int")
+    assert "pattern \"one\" is a String, but the value is an Int" in message
 }
 
 test "a pattern that always matches is an error" {

@@ -40,7 +40,7 @@ fn triplet(n: Int, a: Int) -> Maybe<#(Int, Int, Int)> {
 import pythagorean_triplet
 
 test "triplets with sum" {
-    cases = [
+    [
         #("triplets whose sum is 12", 12, [#(3, 4, 5)]),
         #("triplets whose sum is 108", 108, [#(27, 36, 45)]),
         #("triplets whose sum is 1000", 1000, [#(200, 375, 425)]),
@@ -72,12 +72,15 @@ test "triplets with sum" {
             ],
         ),
     ]
-
-    subtests cases, #(description, n, expected), description {
+    |> subtests #(description, n, expected), description {
         assert pythagorean_triplet.triplets_with_sum(n) == expected
     }
 }
 ```
+<!-- expect
+ok triplets with sum (7 cases)
+test result: ok. 7 passed, 0 failed
+-->
 
 ## How it's written
 

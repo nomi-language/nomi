@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// Spec §8 *Type Narrowing*: only an embedded struct or distinct type narrows.
+// Spec §10 *Type Narrowing*: only an embedded struct or distinct type narrows.
 // Bool embeds the host singletons True and False, and narrowing there made
 // `x` in a `True -> assert x` arm a `True`, which `assert` rejected
 // ("expects Bool, Result, Maybe, or Assertable, got True").

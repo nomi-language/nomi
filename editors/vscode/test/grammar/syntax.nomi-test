@@ -179,8 +179,16 @@ group "group" {
         assert db is Some(_)
 // <~~~~~~~~------ keyword.control.nomi
 // <~~~~~~~~~~~~~~~~~~-- keyword.operator.word.nomi
+        assert 1 in seen
+// <~~~~~~~~------ keyword.control.nomi
+// <~~~~~~~~~~~~~~~~~-- keyword.operator.word.nomi
         subtests cases, (a, b) {
 // <~~~~~~~~-------- keyword.control.nomi
+            assert a == b
+        }
+        [#(1, 1)]
+        |> subtests #(a, b) {
+// <~~~~~~~~~~~-------- keyword.control.nomi
             assert a == b
         }
         subtests = 3

@@ -6,7 +6,7 @@ import (
 )
 
 // `unreachable "reason"` takes the type its position expects, as `todo`
-// does (spec §5, *Unreachable Code: `unreachable`*).
+// does (spec §11 *Unreachable code: `unreachable`*).
 func TestUnreachable_FitsEveryTypedPosition(t *testing.T) {
 	src := `struct Header {
     name: String

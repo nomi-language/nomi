@@ -113,12 +113,11 @@ fn is_space(c: String) -> Bool {
 }
 
 fn is_word(c: String) -> Bool {
-    String.contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_", c)
-        and c != ""
+    c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" and c != ""
 }
 
 fn is_name_start(c: String) -> Bool {
-    String.contains("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_", c) and c != ""
+    c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_" and c != ""
 }
 
 fn skip(chars: Vector<String>, i: Int, keep: (String) -> Bool) -> Int {
@@ -600,9 +599,9 @@ pub fn is_name(word: String) -> Bool {
     first = String.slice(word, 0, 1)
 
     word != ""
-        and not String.contains("0123456789", first)
+        and not first in "0123456789"
         and Iter.all(word, fn c -> {
-            String.contains("abcdefghijklmnopqrstuvwxyz0123456789_", c)
+            c in "abcdefghijklmnopqrstuvwxyz0123456789_"
         })
 }
 

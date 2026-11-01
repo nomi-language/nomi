@@ -88,6 +88,15 @@ test "discards lists" {
     assert strain.discard(lists, &List.contains(&1, 5)) == [[1, 2, 3], [2, 1, 2], [2, 2, 1]]
 }
 ```
+<!-- expect
+ok keep integers (5 cases)
+ok keeps strings
+ok keeps lists
+ok discard integers (5 cases)
+ok discards strings
+ok discards lists
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

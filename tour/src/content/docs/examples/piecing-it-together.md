@@ -288,6 +288,12 @@ test "puzzle with contradictory data" {
     assert jigsaw_data(clues) == Err(Error.ContradictoryData)
 }
 ```
+<!-- expect
+ok jigsaw data (5 cases)
+ok puzzle with insufficient data
+ok puzzle with contradictory data
+test result: ok. 7 passed, 0 failed
+-->
 
 ## How it's written
 

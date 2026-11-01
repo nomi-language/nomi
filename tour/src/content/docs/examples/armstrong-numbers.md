@@ -32,7 +32,7 @@ pub fn is_armstrong(number: Int) -> Bool {
 import armstrong_numbers
 
 test "recognizes Armstrong numbers" {
-    cases = [
+    [
         #("Zero is an Armstrong number", 0, True),
         #("Single-digit numbers are Armstrong numbers", 5, True),
         #("There are no two-digit Armstrong numbers", 10, False),
@@ -45,12 +45,15 @@ test "recognizes Armstrong numbers" {
         #("Armstrong number containing seven zeroes", 186709961001538790100634132976990, True),
         #("The largest and last Armstrong number", 115132219018763992565095597973971522401, True),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert armstrong_numbers.is_armstrong(number) == expected
     }
 }
 ```
+<!-- expect
+ok recognizes Armstrong numbers (11 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -9,7 +9,7 @@ import (
 // # TAIL CALLS
 //
 // Nomi guarantees that a call in tail position runs in constant stack space
-// (spec §12 "Tail-call optimization"). The graph says which calls may be run
+// (spec §7 "Tail-call optimization"). The graph says which calls may be run
 // that way: `ir.TailTransfers` is a tail-marked call whose result reaches a
 // plain Return unchanged. The bytecode compiler reads that set once per
 // function and compiles a direct one to `tail` (bytecode.go). This machine

@@ -848,7 +848,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 
 		case "embedded":
 			// `embeds T`, where T is a struct or a distinct type (the checker
-			// rejects an enum, spec §8). T may be declared in a SIBLING FILE, in which case it is reached as
+			// rejects an enum, spec §4 *Enums (Algebraic Data Types)*). T may be declared in a SIBLING FILE, in which case it is reached as
 			// a mirror and its layout is the declaring package's — see
 			// foreign.go. A type from anywhere else has no *typeDef and is
 			// refused by name.
@@ -861,7 +861,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 			//                              `case` arm binds its INNER value,
 			//                              because the checker's contract is
 			//                              that the variant's payload type is
-			//                              the wrapped type (spec §8)
+			//                              the wrapped type (spec §4 *Enums (Algebraic Data Types)*)
 			//   embeds <marker>            payload is the marker, which is
 			//                              zero-sized, so it gets no slot and
 			//                              a binding must materialize it

@@ -43,7 +43,7 @@ parses, and hovering shows the same information your editor does.
   [`concurrent { ... }` block](/concurrency/), which keeps them scoped to it.
   Channels and context-style cancellation are built in.
 - **App fields.** Configuration and dependencies live on one
-  [app value](/capabilities-and-context/). A test can swap one with a line
+  [app value](/app-fields/). A test can swap one with a line
   such as `with App.logger = ...`.
 - **Built-in tests.** [`test` blocks](/testing/), assertions and `//!`
   examples are ordinary Nomi code, and `nomi test` runs them.
@@ -58,6 +58,9 @@ the same for `nomi run`, `nomi check` and `nomi test`.
 :::
 
 ## Running Nomi
+
+[Installing Nomi](/tooling/install/) covers getting the `nomi` command.
+Then:
 
 ```console
 $ nomi run app.nomi           # run a program
@@ -96,7 +99,7 @@ tooling, and dependencies. The language itself is different from Go.
   manifest, `nomi.toml`, and it is versioned and used as one unit. Inside a
   module, you import a file, and `pub` controls what other files can see.
   There are no packages.
-- Nomi can [call Go code](/ffi-and-dynamic/) when you need a library the
+- Nomi can [call Go code](/calling-go/) when you need a library the
   standard library doesn't have. A program that calls Go needs the Go
   toolchain to build. Other programs don't.
 

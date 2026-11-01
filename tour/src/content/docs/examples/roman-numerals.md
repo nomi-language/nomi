@@ -43,7 +43,7 @@ pub fn roman(number: Int) -> String {
 import roman_numerals
 
 test "converts to Roman numerals" {
-    cases = [
+    [
         #("1 is I", 1, "I"),
         #("2 is II", 2, "II"),
         #("3 is III", 3, "III"),
@@ -72,16 +72,19 @@ test "converts to Roman numerals" {
         #("3888 is MMMDCCCLXXXVIII", 3888, "MMMDCCCLXXXVIII"),
         #("3999 is MMMCMXCIX", 3999, "MMMCMXCIX"),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert roman_numerals.roman(number) == expected
     }
 }
 ```
+<!-- expect
+ok converts to Roman numerals (27 cases)
+test result: ok. 27 passed, 0 failed
+-->
 
 ## How it's written
 
 - The numerals, subtractive pairs included, are a `once` table of `#(value, symbol)` tuples, largest first.
-- One `Iter.map_reduce` over the table: each numeral's output is its symbol repeated `left / value` times, and the state carried to the next is `left % value`. The parts are joined with `String.join`. An `Iter.reduce` threading `#(left, text)` and concatenating was the other form; style §27 picks `map_reduce` when each element has its own output and the state only carries what the next one needs.
+- One `Iter.map_reduce` over the table: each numeral's output is its symbol repeated `left / value` times, and the state carried to the next is `left % value`. The parts are joined with `String.join`. An `Iter.reduce` threading `#(left, text)` and concatenating was the other form; style §33 picks `map_reduce` when each element has its own output and the state only carries what the next one needs.
 - No validation of the range, since the canonical data has no error cases.
 - One `subtests` table for all 27 cases.

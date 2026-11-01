@@ -33,6 +33,68 @@ import {
 //# a base, conversion to `Float` and `Decimal`, 64-bit modular arithmetic,
 //# and bit operations. The arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable`
 //# impls give `Int` its string form, hashing, and total order.
+//#
+//# ## Formatting numbers for a reader
+//#
+//# `Display` stays locale-independent: `"${1234567}"` is `1234567`
+//# everywhere, because that text goes into file names, URLs, headers and CSV.
+//# Text for a reader comes from owner functions that take a `Locale`, with
+//# options as named arguments: `Int.format`, `Float.format` and
+//# `Float.format_percent` ([std/float](/reference/float/)), and
+//# `Decimal.format` and `Decimal.format_percent`
+//# ([std/decimal](/reference/decimal/)). These rules hold for all of them:
+//#
+//# - **Symbols and patterns** are the locale's CLDR decimal and percent
+//#   patterns and number symbols: decimal and group separators, plus, minus
+//#   and percent signs, infinity and NaN. Grouping follows the pattern's sizes
+//#   (`#,##,##0` groups lakhs), and CLDR's minimum grouping digits: Polish and
+//#   Spanish group only from five integer digits, so `1234` in `pl` is `1234`
+//#   and `12345` is `12 345`.
+//# - **Digits** are the locale's default numbering system's (`ar-EG` writes
+//#   Arabic-Indic digits). A `-u-nu-` extension naming a numeric system
+//#   overrides it (`ar-EG-u-nu-latn`, `en-u-nu-arab`), and `-u-nu-native`
+//#   picks the locale's native system. When the locale has no symbols for
+//#   that system, its Latin symbols stand: `en-u-nu-arab` writes
+//#   `١,٢٣٤,٥٦٧`.
+//# - **Options** out of range trap, naming the function and the option:
+//#   `Int.format: min_digits must be 1 to 100, got 0`.
+//#
+//# ## Parsing numbers a reader wrote
+//#
+//# `Int.parse_in`, `Float.parse_in` and `Decimal.parse_in`, and the
+//# `parse_percent_in` forms of `Float` and `Decimal`, read what the matching
+//# formatter writes, and answer a `NumberParseError`
+//# ([std/localize](/reference/localize/)) when the text is not a number in
+//# the locale. Parsing never guesses the locale: `1.234` is one thousand two
+//# hundred thirty-four in `de` and one point two three four in `en`.
+//#
+//# - **Strict** (the default) accepts what the matching formatter writes for
+//#   the locale, with three allowances: group separators may be left out, any
+//#   Unicode space stands for a space the locale writes (a reader cannot type
+//#   U+202F), and ASCII digits stand for the locale's own. Anything else is an
+//#   error: a group separator where the pattern puts none is `Grouping` (`en`
+//#   `12,34,567` is `Grouping{at: 2}`; `hi` `1,234,567` is `Grouping{at:
+//#   1}`), and any other text is `Unexpected`, including a group separator
+//#   after the decimal separator (`en` `1.234,5` is `Unexpected{at: 5, text:
+//#   ","}`), surrounding space, a leading `+` and a fraction in an `Int`.
+//#   Text that stops early is `Unexpected` at the text's length with empty
+//#   `text` (`Decimal.parse_percent_in("12.5", Locale`en`)`). `at` counts
+//#   grapheme clusters, as `String.length` does.
+//# - **Lenient** (`lenient: True`) also accepts group separators anywhere in
+//#   the integer part, space around the text, a leading `+`, a minus sign
+//#   after the number (`12-`) or parentheses around it (`(12)`), ASCII `-`
+//#   and `%` for the locale's signs, the percent sign on either side, and
+//#   leaves out the invisible direction marks some locales' signs carry.
+//# - **Results.** A number the type cannot hold is `OutOfRange`: the
+//#   locale's infinity or NaN symbol read as an `Int` or a `Decimal`, and a
+//#   `Float` whose digits overflow to infinity. An `Int` is exact at any
+//#   size, so digits alone never put one out of range. `Decimal.parse_in`
+//#   keeps the digits typed after the decimal separator as the scale, so
+//#   `12,50` in `pl` is `12.50d`. `Decimal.parse_percent_in` divides by 100
+//#   exactly: `12,5 %` in `de` is `0.125d`, and `Float.parse_percent_in`
+//#   reads the same text as the nearest `Float` to the fraction, `0.125`.
+//#   `Float.parse_in` reads the infinity and NaN symbols. A formatted number
+//#   parses back to its value in either mode.
 
 /// An integer of any size. Arithmetic is exact: `+`, `-` and `*` never
 /// overflow, and a value grows past 64 bits as it needs to.
@@ -304,14 +366,18 @@ impl Int {
     /// `n` as a reader of `locale` writes it: the locale's digits, minus
     /// sign and group separator, grouped as the locale groups (`hi` writes
     /// lakhs). `grouping: False` leaves the separators out, and `min_digits`
-    /// pads with zeros to at least that many digits (1 to 100). `Display`
-    /// stays `1234567` everywhere.
+    /// pads with zeros to at least that many digits (1 to 100, else a
+    /// trap). `Display` stays `1234567` everywhere. Polish and Spanish group
+    /// only from five integer digits.
     //! assert Int.format(1234567, Locale`en`) == "1,234,567"
     //! assert Int.format(1234567, Locale`de`) == "1.234.567"
     //! assert Int.format(1234567, Locale`pl`) == "1\u{a0}234\u{a0}567"
     //! assert Int.format(1234567, Locale`hi`) == "12,34,567"
     //! assert Int.format(1234567, Locale`ar-EG`) == "١٬٢٣٤٬٥٦٧"
     //! assert Int.format(1234567, Locale`ar-EG-u-nu-latn`) == "1,234,567"
+    //! assert Int.format(1234, Locale`pl`) == "1234"
+    //! assert Int.format(12345, Locale`pl`) == "12\u{a0}345"
+    //! assert Int.format(1234567, Locale`en-u-nu-arab`) == "١,٢٣٤,٥٦٧"
     //! assert Int.format(1234567, Locale`en`, False) == "1234567"
     //! assert Int.format(7, Locale`en`, True, 3) == "007"
     //! assert Int.format(Int.pow(10, 21), Locale`de`) == "1.000.000.000.000.000.000.000"
@@ -324,13 +390,21 @@ impl Int {
     /// the text must be what `Int.format` writes, except that the group
     /// separators may be left out, any space stands for the locale's space,
     /// and ASCII digits for the locale's digits. `lenient: True` also takes
-    /// separators anywhere, surrounding space, `+`, `(12)` and `12-`.
+    /// separators anywhere, surrounding space, `+`, `(12)` and `12-`. A
+    /// fraction is `Unexpected` at the decimal separator, even a zero one.
     //! assert Int.parse_in("1.234.567", Locale`de`) == Ok(1234567)
     //! assert Int.parse_in("12,34,567", Locale`hi`) == Ok(1234567)
     //! assert Int.parse_in("1,234", Locale`de`) == Err(#NumberParseError.Unexpected{at: 1, text: ","})
     //! assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
     //! assert Int.parse_in(" 12,34,567 ", Locale`en`, True) == Ok(1234567)
     //! assert Int.parse_in("", Locale`en`) == Err(NumberParseError.Empty)
+    //! assert Int.parse_in("+12", Locale`en`) == Err(#NumberParseError.Unexpected{at: 0, text: "+"})
+    //! assert Int.parse_in("+12", Locale`en`, True) == Ok(12)
+    //! assert Int.parse_in("12-", Locale`en`, True) == Ok(-12)
+    //! assert Int.parse_in("(12)", Locale`en`, True) == Ok(-12)
+    //! assert Int.parse_in("12.0", Locale`en`) == Err(#NumberParseError.Unexpected{at: 2, text: "."})
+    //! assert Int.parse_in("1,234,567", Locale`hi`) == Err(#NumberParseError.Grouping{at: 1})
+    //! assert Int.parse_in("∞", Locale`en`) == Err(NumberParseError.OutOfRange)
     //! assert Int.parse_in("1,000,000,000,000,000,000,000", Locale`en`) == Ok(Int.pow(10, 21))
     //
     pub fn parse_in(
@@ -480,6 +554,10 @@ impl ShiftRight<Int, Int> for Int {
 }
 
 impl Debug for Int {
+    /// The same text as `Display` (`42`): an Int's literal is its
+    /// user-facing form.
+    //! assert Debug.inspect(42) == Display.to_string(42)
+    //
     fn inspect(n: Int) -> String {
         to_string(n)
     }

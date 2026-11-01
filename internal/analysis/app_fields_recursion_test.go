@@ -46,7 +46,7 @@ test "default" { assert later(1)(0) == 1 }
 `), "this test has no boot, but code it runs reads `App.n` (line 7)")
 }
 
-// The spec's shape (§12, tail position does not cross a lambda): the
+// The spec's shape (§7 *Tail-call optimization*, tail position does not cross a lambda): the
 // function recurses inside the callback it hands to Iter.reduce, and the
 // callback reads the field.
 func TestAppFields_ReadThroughARecursiveReduceCallback(t *testing.T) {

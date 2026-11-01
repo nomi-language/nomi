@@ -23,7 +23,7 @@ pub fn truncate(post: String) -> String {
 import micro_blog
 
 test "truncate" {
-    cases = [
+    [
         #("English language short", "Hi", "Hi"),
         #("English language long", "Hello there", "Hello"),
         #("German language short (broth)", "brühe", "brühe"),
@@ -37,8 +37,7 @@ test "truncate" {
         #("Emoji long", "❄🌡🤧🤒🏥🕰😀", "❄🌡🤧🤒🏥"),
         #("Royal Flush?", "🃎🂸🃅🃋🃍🃁🃊", "🃎🂸🃅🃋🃍"),
     ]
-
-    subtests cases, #(description, post, expected), description {
+    |> subtests #(description, post, expected), description {
         assert micro_blog.truncate(post) == expected
     }
 }
@@ -51,6 +50,11 @@ test "graphemes of several codepoints" {
     assert micro_blog.truncate("cafés") == "cafés"
 }
 ```
+<!-- expect
+ok truncate (12 cases)
+ok graphemes of several codepoints
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -15,7 +15,7 @@ import (
 	strings "strings"
 )
 
-// ffi-and-dynamic.md, block 1
+// calling-go.md, block 1
 
 var (
 	_ = errors.New
@@ -231,7 +231,7 @@ func (b *tourBlock0Bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	return ok, nil
 }
 
-// ffi-and-dynamic.md, block 2
+// calling-go.md, block 2
 
 var (
 	_ = errors.New

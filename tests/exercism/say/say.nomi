@@ -46,7 +46,7 @@ once scales = [
 /// `number` in English words, from "zero" to the largest number below a
 /// trillion.
 pub fn say(number: Int) -> Result<String, Error> {
-    if not Range.contains(0..=largest, number) {
+    if not number in 0..=largest {
         Err(.OutOfRange)
     } else {
         Ok(words(number))

@@ -377,6 +377,10 @@ fn with_effect(levels: List<Level>, statement: Statement) -> List<Level> {
 }
 
 /// A conformance rule a driver broke: the rule's name and what happened.
+/// Its `Display` is `rule: message`.
+//! failure = #Failure{rule: "ping", message: "timed out"}
+//! assert "${failure}" == "ping: timed out"
+//
 pub struct Failure {
     rule: String
     message: String
@@ -393,7 +397,8 @@ impl Display for Failure {
 /// Run every conformance rule against connections from `open`, and answer
 /// the rules broken, in the order `rules` lists them: none for a driver
 /// that conforms. Each rule opens a fresh connection, closes it when the
-/// rule ends, and creates a temporary table on it,
+/// rule ends (a close that fails breaks the rule), and creates a temporary
+/// table on it,
 ///
 /// ```sql
 /// CREATE TEMPORARY TABLE nomi_conformance (n INTEGER NOT NULL, t TEXT)
@@ -403,7 +408,27 @@ impl Display for Failure {
 /// ?2)` and reads with `SELECT n, t FROM nomi_conformance ORDER BY n`. The
 /// timestamp and constraint rules create temporary tables of their own
 /// (`nomi_conformance_times`, `nomi_conformance_parents` and
-/// `nomi_conformance_children`). A driver's test calls it with a function that opens a connection to a
+/// `nomi_conformance_children`).
+///
+/// The rules cover `ping`, parameters as values (a text holding quotes and
+/// `--`), NULL, reading a row by name and by position, `each_row`
+/// stopping, a transaction seeing its own writes, commit and rollback,
+/// savepoints (rolled back, committed inside a rolled-back transaction,
+/// and three deep), rollback after commit and after rollback as no-ops,
+/// commit and a statement after commit as `Finished`, and
+/// `sql.transaction` committing on `Ok` and rolling back on `Err`, on a
+/// trap and in a failed inner transaction, a second close as a no-op,
+/// every operation after close as `Closed`, closing a transaction closing
+/// its connection, closing a connection ending its transaction and
+/// savepoint, and `sql.with_connection` closing on `Ok`, on `Err` and on a
+/// trap, an `Instant` written an hour before and after `CURRENT_TIMESTAMP`
+/// comparing and sorting around it, and the names of a unique,
+/// primary-key, named check, not-null and foreign-key violation, each on
+/// temporary tables of its own. The rollback of an open transaction by a
+/// close is not checked: the suite's table is temporary and goes with the
+/// connection.
+///
+/// A driver's test calls it with a function that opens a connection to a
 /// scratch database:
 ///
 /// ```nomi

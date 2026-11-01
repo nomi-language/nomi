@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/game-of-life.
 - The next generation is built by mapping over rows and cells with `Iter.with_index`, not by updating cells of a copy, so no indexed update is needed. This was the natural form, not a retreat from `Vector.set`.
 - The eight offsets are a `once` literal, as in flower-field.
 - `next_state` is one `case` on `#(cell, live_neighbours)` with the or-pattern `#(1, 2) or #(_, 3)`.
-- `Iter.sum` totals the neighbours (style §26).
+- `Iter.sum` totals the neighbours (style §33).
 - The cases are one `subtests` table of `#(description, board, expected)` rows. The table is three compound levels deep, so `nomi fmt` breaks it one row per line; each row is too wide for one line and breaks into its three parts, and a 3x3 grid fits on one line inside it. The 8x8 grids are written one board row per line, which `nomi fmt` keeps because each breaks after its `#[`.
 
 ## Friction

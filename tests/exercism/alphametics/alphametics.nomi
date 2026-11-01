@@ -64,7 +64,7 @@ fn assign(
 
     0..=9
     |> Iter.filter(fn digit -> {
-        not Set.contains(used, digit) and not (letter.leading and digit == 0)
+        not digit in used and not (letter.leading and digit == 0)
     })
     |> Iter.map(fn digit -> #(digit, total + letter.weight * digit))
     |> Iter.filter(fn #(_digit, after) -> is_reachable(after, rest))

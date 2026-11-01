@@ -11,7 +11,7 @@ import (
 //
 // # Why a Go `map` is not available, and it is not a phasing decision
 //
-// A Nomi Map key is any keyable value (spec §19, *Map*).
+// A Nomi Map key is any keyable value (spec §4, *Map*).
 // Lists, tuples, structs, distincts, variants and maps themselves are
 // keyable, and they compare structurally with no user hook and no
 // `K: Hashable` bound in the signature of `Map.get`. The

@@ -148,7 +148,7 @@ func isDeclaringKind(k SymbolKind) bool {
 // orphanRuleModule is the name the orphan rule gives the program's own
 // module. A project's is its manifest's `[module].name`. A program with no
 // `nomi.toml` is its project root's tree, as a script alone in a directory
-// is its own project (spec §26), so it is named by that directory: an
+// is its own project (spec §15 *Entry point*), so it is named by that directory: an
 // absolute path, which no module short name and not "std" can equal. A
 // program with no root on disk (a source handed in memory) is named
 // fileModeModule. The module is never "", which the rule skips as

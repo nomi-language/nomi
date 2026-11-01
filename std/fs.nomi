@@ -1,14 +1,23 @@
 //# Files and directories. Every function takes a path as a `String`
 //# (std/path works on them) and answers a `Result` whose error is
 //# `io.Error`, which names the path it is about: `NotFound`,
-//# `AlreadyExists`, `IsADirectory` and the rest.
+//# `AlreadyExists`, `IsADirectory` and the rest. An empty path or one
+//# holding a NUL byte is `InvalidPath`, and every error names the path as
+//# the program passed it. A relative path is resolved against the working
+//# directory, `fs.current_dir()`, which a program cannot change. Reads,
+//# writes, `metadata` and `exists` follow symlinks; a path through more
+//# than 40 is `Other` with code `ELOOP`.
 //#
 //# The functions reach the file system the running call is given. A
-//# program run by `nomi run` or built by `nomi build` reaches the
-//# operating system's. A program in the browser reaches an in-memory one
-//# the page seeds through `run`'s `files` option. Inside
-//# `fs_testing.run` a call reaches a sandbox in memory, so a test checks
-//# what a function reads and writes without touching the disk.
+//# native program run by `nomi run` or built by `nomi build`, and a
+//# `wasip1/wasm` module, reach the operating system's (under WASI, the
+//# directories the runner opens for it). A `js/wasm` module reaches one in
+//# memory, whose working directory is `/work`: empty under Go's Node
+//# loader, and seeded by `run`'s `files` option in the browser
+//# ([Building](/tooling/building/)). Inside `fs_testing.run` a call reaches a sandbox
+//# in memory, so a test checks what a function reads and writes without
+//# touching the disk. Tasks reach the file system of the frame they were
+//# started on.
 //#
 //# ```nomi
 //# import {
@@ -132,7 +141,7 @@ pub fn read(path: String) -> Result<Bytes, Error> {
 /// The whole file at `path`, as text. Bytes that are not UTF-8 are
 /// `InvalidText`, with the offset of the first bad one. Nothing at the
 /// path is `NotFound`, which a program that makes its data file on first
-/// run treats as empty.
+/// run treats as empty. A directory is `IsADirectory`.
 ///
 /// ```nomi
 /// case fs.read_text("notes.txt") {
@@ -155,7 +164,8 @@ pub fn read_text(path: String) -> Result<String, Error> {
 
 /// Writes `data` to `path`. By default it replaces the file; `mode` says
 /// otherwise (`WriteMode`). The directory must exist: a missing one is
-/// `NotFound` naming the directory. A new file's permissions are `0o644`.
+/// `NotFound` naming the directory. A new file's permissions are `0o644`,
+/// and an atomic write keeps the old file's.
 ///
 /// ```nomi
 /// fs.write("out.bin", data)?
@@ -200,10 +210,11 @@ pub fn write_text(
 }
 
 /// Each line of the file at `path`, without its `\n` and a `\r` before it,
-/// as `Reader.lines` reads them. Each run of the iterator opens the file,
-/// reads it and closes it, so it can run more than once, and a consumer that
-/// stops early closes the file when it stops. A failure (the file is
-/// missing, a line is not UTF-8) is the last item.
+/// a last line with no newline included, as `Reader.lines` reads them.
+/// Each run of the iterator opens the file, reads it and closes it, so it
+/// can run more than once, and a consumer that stops early closes the file
+/// when it stops. A failure (the file is missing, a line is not UTF-8) is
+/// the last item.
 ///
 /// ```nomi
 /// names = Result.collect(fs.lines("names.txt"))?
@@ -357,8 +368,11 @@ pub fn with_reader<T>(path: String, body: (Reader) -> Result<T, Error>) -> Resul
 }
 
 /// Creates `path`, runs `body` with the writer, and on an `Ok` flushes and
-/// closes it and reports a failed close. On an `Err` or a trap it closes
-/// the writer, and with `ReplaceAtomically` the old file is untouched.
+/// closes it and reports a failed close. On an `Err` or a trap it gives the
+/// write up, so with `ReplaceAtomically` the old file is untouched. `body`
+/// is the last parameter, so a lambda written last routes to it whether or
+/// not `mode` is named before it ([Functions and
+/// closures](/spec/functions-and-closures/)).
 ///
 /// ```nomi
 /// fn prepend_header(input: String, output: String) -> Result<Int, io.Error> {
@@ -507,10 +521,16 @@ pub fn with_file<T>(
 /// confined to the directory `dir`. Inside, a relative path is under
 /// `dir`, an absolute path must be under it, `fs.current_dir()` answers it,
 /// and a path that leads outside it, by `..` or through a symlink, is
-/// `InvalidPath` instead of reaching what is there. An absolute symlink is
-/// refused for the same reason, wherever it points. `fs.with_temp_dir` is
-/// `Unsupported`, since its directory is elsewhere. A `within` inside
-/// another confines the call further.
+/// `InvalidPath` instead of reaching what is there, with the reason `the
+/// path leads outside the directory fs.within confines calls to`. An
+/// absolute symlink is refused for the same reason, wherever it points. On
+/// the operating system's file system each name is resolved under the
+/// directory as it is opened, so a symlink changed during the call cannot
+/// lead out either. `fs.current_dir()` answers `dir` made absolute.
+/// `fs.with_temp_dir` is `Unsupported {operation: "fs.with_temp_dir",
+/// target: "fs.within"}`, since its directory is elsewhere. A `within`
+/// inside another confines the call further. A `dir` that is not a
+/// directory is `NotFound` or `NotADirectory`.
 ///
 /// It is how a program handles paths it was given (an archive's entries, a
 /// request's file name) without reaching files it did not mean to. On the
@@ -545,8 +565,11 @@ pub fn within<T>(dir: String, body: () -> Result<T, Error>) -> Result<T, Error> 
 }
 
 /// The entries of the directory `dir`, sorted by name, so a listing is the
-/// same on every file system and every run. An entry whose name is not
-/// UTF-8 fails the listing with `InvalidPath`.
+/// same on every file system and every run. Each `Entry`'s `path` is `dir`
+/// and its `name` joined with `/`. A symlink is listed as `Symlink`
+/// whatever it points to. An entry whose name is not UTF-8 fails the
+/// listing with `InvalidPath`, naming the entry with U+FFFD in place of
+/// each bad sequence.
 ///
 /// ```nomi
 /// entries = fs.list("photos")?
@@ -702,8 +725,9 @@ fn walk_entries(
 /// with `.` matches only a pattern name that starts with `.`. This is
 /// `path.matches`'s rule, applied to the paths `fs.walk` finds under the
 /// longest part of the pattern with no wildcard, so a symlink matches as
-/// itself and is not followed. A pattern with no wildcard answers the path
-/// when something is there. Nothing under a missing directory is `Ok([])`.
+/// itself and is not followed. A pattern with no `**` is matched no deeper
+/// than it reaches. A pattern with no wildcard answers the path when
+/// something is there. Nothing under a missing directory is `Ok([])`.
 ///
 /// ```nomi
 /// sources = fs.glob("src/**/*.nomi")?
@@ -836,8 +860,9 @@ pub fn create_dir(path: String, parents: Bool = False) -> Result<Unit, Error> {
     fs_host.create_dir(path, parents)
 }
 
-/// Removes a file or an empty directory. A directory with entries is
-/// `DirectoryNotEmpty`; `fs.remove_all` removes it and what it holds.
+/// Removes a file, a symlink or an empty directory. A directory with
+/// entries is `DirectoryNotEmpty`; `fs.remove_all` removes it and what it
+/// holds.
 ///
 /// ```nomi
 /// fs.remove("old.txt")?
@@ -859,7 +884,8 @@ pub fn remove(path: String) -> Result<Unit, Error> {
     fs_host.remove(path)
 }
 
-/// Removes `path` and everything under it. Nothing at the path is `Ok`.
+/// Removes `path` and everything under it, following no symlink in it.
+/// Nothing at the path is `Ok`.
 ///
 /// ```nomi
 /// fs.remove_all("build")?
@@ -877,7 +903,8 @@ pub fn remove_all(path: String) -> Result<Unit, Error> {
     fs_host.remove_all(path)
 }
 
-/// Moves `from` to `to`, replacing a file at `to`.
+/// Moves `from` to `to`, replacing a file at `to`. A symlink at `from` is
+/// moved, rather than what it points to.
 ///
 /// ```nomi
 /// fs.rename("draft.txt", "final.txt")?
@@ -895,7 +922,8 @@ pub fn rename(from: String, to: String) -> Result<Unit, Error> {
     fs_host.rename(from, to)
 }
 
-/// Copies the file at `from` to `to`, replacing a file at `to`.
+/// Copies the file at `from` to `to`, replacing a file at `to`. A symlink
+/// at `from` is read through.
 ///
 /// ```nomi
 /// fs.copy("config.toml", "config.toml.bak")?
@@ -1004,10 +1032,10 @@ pub fn read_link(path: String) -> Result<String, Error> {
 }
 
 /// Sets the permission bits of what `path` names, following a symlink:
-/// `0o644`, `0o755`, `0o600`, from 0 to `0o777`. A mode outside that
-/// range is `Other` with the code `EINVAL`. In memory (the browser, a
-/// sandbox) the bits are kept and answered by `fs.metadata`, but nothing
-/// is refused because of them.
+/// `0o644`, `0o755`, from 0 to `0o777`; any other mode is `Other` with the
+/// code `EINVAL`. Windows keeps only the owner's write bit, so a file reads
+/// back as `0o666` or `0o444`. In memory (the browser, a sandbox) the bits
+/// are kept and answered by `fs.metadata`, but nothing is refused for them.
 ///
 /// ```nomi
 /// fs.set_mode("deploy.sh", 0o755)?
@@ -1078,7 +1106,9 @@ pub fn temp_dir() -> String {
 /// test exercises the real file system; a named temporary file is
 /// `fs.create(path.join(dir, "x"), mode: .New)` inside it. In a wasip1
 /// module whose runtime preopened none of those directories it answers
-/// `Unsupported` and does not call `body`.
+/// `Err(#io.Error.Unsupported{operation: "fs.with_temp_dir", target:
+/// "wasip1/wasm with no preopened directory (TMPDIR, /tmp or the working
+/// directory)"})` and does not call `body`.
 ///
 /// ```nomi
 /// fs.with_temp_dir(fn dir -> fs.write_text(path.join(dir, "x.txt"), "x"))

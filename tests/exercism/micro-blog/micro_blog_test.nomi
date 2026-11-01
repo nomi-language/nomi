@@ -1,7 +1,7 @@
 import micro_blog
 
 test "truncate" {
-    cases = [
+    [
         #("English language short", "Hi", "Hi"),
         #("English language long", "Hello there", "Hello"),
         #("German language short (broth)", "brühe", "brühe"),
@@ -15,8 +15,7 @@ test "truncate" {
         #("Emoji long", "❄🌡🤧🤒🏥🕰😀", "❄🌡🤧🤒🏥"),
         #("Royal Flush?", "🃎🂸🃅🃋🃍🃁🃊", "🃎🂸🃅🃋🃍"),
     ]
-
-    subtests cases, #(description, post, expected), description {
+    |> subtests #(description, post, expected), description {
         assert micro_blog.truncate(post) == expected
     }
 }

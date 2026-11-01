@@ -32,14 +32,13 @@ fn next(n: Int) -> Int {
 import collatz_conjecture
 
 test "counts the steps" {
-    cases = [
+    [
         #("zero steps for one", 1, 0),
         #("divide if even", 16, 4),
         #("even and odd steps", 12, 9),
         #("large number of even and odd steps", 1000000, 152),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert collatz_conjecture.steps(number) == Ok(expected)
     }
 }
@@ -52,6 +51,12 @@ test "negative value is an error" {
     assert collatz_conjecture.steps(-15) == Err("Only positive integers are allowed")
 }
 ```
+<!-- expect
+ok counts the steps (4 cases)
+ok zero is an error
+ok negative value is an error
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

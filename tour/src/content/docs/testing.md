@@ -22,6 +22,10 @@ test "arithmetic has the expected shape" {
     refute 2 * 2 == 5
 }
 ```
+<!-- expect
+ok arithmetic has the expected shape
+test result: ok. 1 passed, 0 failed
+-->
 
 You can also assert a [`Maybe`](/reference/maybe/) or a
 [`Result`](/reference/results/) directly. `assert` passes on `Some` or `Ok`.
@@ -50,6 +54,11 @@ test "refute checks result errors" {
     assert message == "expected a numeric id"
 }
 ```
+<!-- expect
+ok assert checks successful results
+ok refute checks result errors
+test result: ok. 2 passed, 0 failed
+-->
 
 `assert pattern = value` checks that the value matches the pattern. Patterns
 work the same as in `case` arms. The names the pattern binds are available on
@@ -62,6 +71,10 @@ test "assert can destructure expected shapes" {
     assert left + right == 42
 }
 ```
+<!-- expect
+ok assert can destructure expected shapes
+test result: ok. 1 passed, 0 failed
+-->
 
 This is a good way to check for a particular enum variant, such as one kind of
 error:
@@ -73,10 +86,33 @@ test "assert can match an error variant" {
     assert Err(Error.InvalidFormat(_)) = Date.parse("not-a-date")
 }
 ```
+<!-- expect
+ok assert can match an error variant
+test result: ok. 1 passed, 0 failed
+-->
 
 When a `Result` or `Maybe` is only setup for the rest of the test, put `?`
 after the call. If it is `Err` or `None`, the test fails there. Use a pattern
 assertion instead when the result is the thing you are testing.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A test must hold at least one `assert`, `refute` or `subtests`.
+- A failure report lists each operand under `values:`. A literal has no
+  row, and values read structurally: strings are quoted and a type's
+  `Display` is not used.
+- When `assert a == b` fails on two strings and one has a line break, the
+  report shows a line diff instead. The left side is the actual value and
+  the right side the expected one.
+- An assertion is a statement or a binding's value, never an operand:
+  `not assert x` is an error that suggests `refute x`. In a lambda it is an
+  error too.
+
+Spec: [Assertions](/spec/tests/#assertions),
+[Failure reports](/spec/tests/#failure-reports).
+
+</div>
 
 ```nomi-run
 import std/calendar.Date
@@ -87,6 +123,10 @@ test "formats parsed date" {
     assert Date.to_string(d) == "2026-05-04"
 }
 ```
+<!-- expect
+ok formats parsed date
+test result: ok. 1 passed, 0 failed
+-->
 
 ## Attached tests
 
@@ -109,6 +149,11 @@ fn label(text: String) -> String {
     "[" + text + "]"
 }
 ```
+<!-- expect
+ok answer //! test lines 1-2
+ok label //! test line 8
+test result: ok. 2 passed, 0 failed
+-->
 
 An attached test can bind names before it asserts, and hold several
 assertions:
@@ -122,6 +167,10 @@ fn parse_int(text: String) -> Maybe<Int> {
     String.to_int(text)
 }
 ```
+<!-- expect
+ok parse_int //! test lines 1-3
+test result: ok. 1 passed, 0 failed
+-->
 
 ## Pipelines
 
@@ -141,6 +190,10 @@ test "pipeline assertions validate transformed values" {
         |> String.contains("ada")
 }
 ```
+<!-- expect
+ok pipeline assertions validate transformed values
+test result: ok. 1 passed, 0 failed
+-->
 
 ## Subtests
 
@@ -152,17 +205,22 @@ fn is_palindrome(text: String) -> Bool {
 }
 
 test "determines palindromes" {
-    cases = [#("abba", True), #("abc", False), #("x", True)]
-
-    subtests cases, #(line, known_palindrome) {
+    [#("abba", True), #("abc", False), #("x", True)]
+    |> subtests #(line, known_palindrome) {
         assert is_palindrome(line) == known_palindrome
     }
 }
 ```
+<!-- expect
+ok determines palindromes (3 cases)
+test result: ok. 3 passed, 0 failed
+-->
 
-The body runs once for each row, in order. The pattern after the comma names
+The body runs once for each row, in order. The pattern after `subtests` names
 the parts of the row. The rows can be a list, a range, a map's entries or any
-other `Iter`.
+other `Iter`. The `|> subtests` stage ends its pipeline and stands as a
+statement; `subtests cases, #(line, known_palindrome) { ... }` is the same
+check with rows you bound to a name.
 
 A failed assertion ends its row, and the next row still runs. After the last
 row, the test fails if any row failed. The report shows each failed row, then
@@ -171,7 +229,7 @@ report:
 
 ```console
 FAIL palindrome_test.nomi :: determines palindromes
-  subtest #("abc", True): line 9: assertion failed
+  subtest #("abc", True): line 8: assertion failed
     assert is_palindrome(line) == known_palindrome
     values:
       line
@@ -200,24 +258,27 @@ fn is_leap_year(year: Int) -> Bool {
 }
 
 test "leap years" {
-    cases = [
+    [
         #("year divisible by 400 is leap year", 2000, True),
         #("year divisible by 100, not divisible by 400 in common year", 1900, False),
         #("year divisible by 4, not divisible by 100 in leap year", 1996, True),
     ]
-
-    subtests cases, #(description, year, expected), description {
+    |> subtests #(description, year, expected), description {
         assert is_leap_year(year) == expected
     }
 }
 ```
+<!-- expect
+ok leap years (3 cases)
+test result: ok. 3 passed, 0 failed
+-->
 
 A failed row's report shows its name in place of the row. If `is_leap_year`
 returned `False` for 2000, the test would report:
 
 ```console
 FAIL leap_test.nomi :: leap years
-  subtest "year divisible by 400 is leap year": line 13: assertion failed
+  subtest "year divisible by 400 is leap year": line 12: assertion failed
     assert is_leap_year(year) == expected
     values:
       year
@@ -230,8 +291,22 @@ FAIL leap_test.nomi :: leap years
 ```
 
 You can also build a name from the row, as in
-`subtests cases, #(a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
+`|> subtests #(a, b, sum), "${a} + ${b}" { ... }`. To leave a column out,
 name it `_` as usual.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A column that only the row's name reads counts as used.
+- A trap in a row is not caught. It fails the test, and the rows after it
+  don't run. A name that traps fails its row only.
+- `|> subtests` must be the last stage of a pipeline that stands as its
+  own statement, since it has no value.
+- `subtests` can't stand in a `setup` or inside another `subtests` body.
+
+Spec: [Subtests](/spec/tests/#subtests).
+
+</div>
 
 ## Input and output
 
@@ -240,7 +315,7 @@ as its input. It returns what the function returned, in `value`, and
 everything it printed, in `output`. Pass it `main` to check what a program
 prints for some input. For code that reads or writes files, `fs_testing.run`
 does the same with a file system in memory, as
-[Input & Output](/input-and-output/#testing-code-that-uses-files) shows.
+[Files](/files/#testing-code-that-uses-files) shows.
 
 ```nomi-run
 import std/io
@@ -264,6 +339,9 @@ test "greets a stranger when there is no input" {
 ```
 <!-- expect
 hello, stranger
+ok greets the name it reads
+ok greets a stranger when there is no input
+test result: ok. 2 passed, 0 failed
 -->
 
 Inside the call, `io.read_line` reads the text you passed, one line at a
@@ -298,6 +376,10 @@ test "a bad count warns on stderr" {
     assert run.errors == "warning: ten is not a number, counting 0\n"
 }
 ```
+<!-- expect
+ok a bad count warns on stderr
+test result: ok. 1 passed, 0 failed
+-->
 
 Some programs ask a question, read the answer, then ask another.
 [`io.replay`](/reference/io/) tests such a program against a script of the
@@ -347,6 +429,8 @@ test "asks for a name, then an age" {
 <!-- expect
 What is your name?
 hello, stranger
+ok asks for a name, then an age
+test result: ok. 1 passed, 0 failed
 -->
 
 Some programs print a prompt with no newline and then read, as
@@ -382,6 +466,8 @@ test "converts to Fahrenheit" {
 <!-- expect
 -10.0 C |   14.0 F
  -5.0 C |   23.0 F
+ok converts to Fahrenheit
+test result: ok. 1 passed, 0 failed
 -->
 
 ## Groups and setup
@@ -404,6 +490,11 @@ group "user labels" {
     }
 }
 ```
+<!-- expect
+ok user labels / setup value is explicit
+ok user labels / a test may ignore the setup value
+test result: ok. 2 passed, 0 failed
+-->
 
 A test sees only the value `setup` returns. Names bound inside the `setup`
 block don't reach the tests.
@@ -417,51 +508,96 @@ and match it in the test's body.
 Groups don't nest. When two sets of tests need different setup, write two
 groups side by side. Put the part they share in an ordinary function.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A group holds at most one `clock`, one `boot` and one `setup`. For each
+  test they run in that order, wherever they are written, then the test's
+  body. Nothing carries from one test to the next.
+- A `defer` in the setup runs when the test it served finishes.
+- A `with` line in the setup stays in force for the test's body, so setup
+  is where a group installs fakes.
+- A `?` or a failed assertion in the setup fails the test, and the body
+  doesn't run.
+
+Spec: [Groups](/spec/tests/#groups).
+
+</div>
+
 ## Booting the application
 
 A group can also start the application with a `boot` line;
-[App Fields, Defer & Context](/capabilities-and-context/#testing-code-that-reads-app-fields)
+[App Fields, Defer & Context](/app-fields/#testing-code-that-reads-app-fields)
 shows how.
 
 ## Virtual time
 
-A group can run its tests under a fake clock, so waiting takes no real time:
-[Concurrency](/concurrency/#virtual-time) shows `clock Clock.Virtual`.
+A test that waits is slow, and on a busy machine it may fail by accident.
+Add `clock Clock.Virtual` to a group to avoid both. Its tests run under a fake
+clock. Whenever every task in the test is waiting, the clock jumps forward,
+so waiting takes no real time.
 
-## A test that never finishes
+```nomi-run
+import {
+    std/duration.Duration
+    std/testing.Clock
+    std/timer
+}
 
-`nomi test` gives each test 10 seconds. A test that is still running after
-that is stopped and reported as failed. The report shows the line the test was
-running and the calls that led to it. Then the next test runs as usual.
+group "retry policy" {
+    clock Clock.Virtual
 
-- The 10 seconds are real time, even in a group with a fake clock.
-- They cover the whole test: its group's `clock`, `boot` and `setup` lines as
-  well as the test's own block.
-- `nomi test --timeout 30s` gives each test 30 seconds instead.
-  `--timeout 0` removes the limit.
-- A test run in the debugger, described next, has no limit, so pausing it
-  never makes it fail.
+    test "gives up after backing off" {
+        timer.sleep(Duration.minutes(5))
+        assert True
+    }
+}
+```
+<!-- expect
+ok retry policy / gives up after backing off
+test result: ok. 1 passed, 0 failed
+-->
 
-## Debugging a test
+That test finishes at once. It also takes the same path every time, because
+the clock only moves when the program is waiting.
 
-In VS Code and Neovim (with nvim-dap), click Debug test beside a test. In
-Zed, pick the test's debug entry. Helix starts one with `:debug-start`. Each
-runs the test under `nomi dap`, Nomi's debugger. The
-[editor support](https://github.com/nomi-language/nomi#editor-support)
-section of the README has the setup.
+`clock` takes an ordinary expression naming a
+[`testing.Clock`](/reference/testing/) variant, so `Clock` has to be imported,
+as above. If you import `std/testing` instead, write
+`clock testing.Clock.Virtual`.
 
-Breakpoints, stepping and watches work as in any debugger. A few things are
-particular to Nomi:
+A group's `clock`, `boot` and `setup` lines can be in any order. They always
+run clock first, then boot, then setup. `nomi fmt` moves them to the top of
+the group in that order.
 
-- A failed `assert`, or a runtime error such as dividing by zero, stops the
-  test where it happened. Every binding is still there to read.
-- Watches and the debug console run Nomi code in the paused frame. Values
-  can't change, so looking at them can't disturb the test. An expression that
-  would do something outside the program, such as printing or reading the
-  clock, is refused unless it ends with `// allow effects`.
-- The Pipeline scope shows the value each `|>` stage produced.
-- In a frame inside `io.replay` or `io.capture`, you can see the output
-  captured so far.
-- Step back and reverse continue run the test again from the start. It gets
-  the same input, clock readings and random numbers as the first time, and
-  stops at the earlier point. You can't go back in a test that starts tasks.
+Tests outside a group with a `clock` line use the real clock.
+
+Under the fake clock, a test that can never finish is reported as a deadlock.
+It doesn't hang the run. So you can safely test calls that wait with no
+timeout, such as `Supervisor.flush`.
+
+The fake clock is off by default because it changes how a test behaves:
+
+- Waiting on something outside the program, such as reading input or a real
+  network call, never lets the clock move. The test is reported as deadlocked.
+- Background work still running when a test ends is an error. It does not
+  carry on into the next test.
+- `Instant.now` starts at midnight UTC on 1 January 2000.
+
+The first two usually point to a problem in the test. Still, they change
+behaviour, so each group opts in.
+
+## Long-running tests and the debugger
+
+`nomi test` stops a test that runs longer than 10 seconds of real time, even
+under a fake clock, and reports the line it was on and the calls that led
+there. `--timeout` changes the limit
+([Running tests](/tooling/running-tests/#timeouts)).
+
+To step through a test, click Debug test beside it in VS Code or Neovim, or
+pick its debug entry in Zed. The debugger stops where an assertion fails,
+shows the value each `|>` stage produced, and can step back
+([Debugging](/tooling/editors-and-debugger/#debugging)).
+
+[Generics](/generics/) is next. It writes one function or type that works
+with many types.

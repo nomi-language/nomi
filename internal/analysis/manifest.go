@@ -297,12 +297,24 @@ func i18nMessageSettings(m *Manifest, raw manifestFile, sourceLabel string) erro
 	}
 	if raw.I18n.Catalogs != nil {
 		dir := filepath.ToSlash(filepath.Clean(*raw.I18n.Catalogs))
-		if *raw.I18n.Catalogs == "" || filepath.IsAbs(*raw.I18n.Catalogs) || dir == "." || dir == ".." || strings.HasPrefix(dir, "../") {
+		if *raw.I18n.Catalogs == "" || rootedPath(dir) || dir == "." || dir == ".." || strings.HasPrefix(dir, "../") {
 			return fmt.Errorf("%s: [i18n] catalogs %q is not a directory under the module root", sourceLabel, *raw.I18n.Catalogs)
 		}
 		m.Catalogs = dir
 	}
 	return nil
+}
+
+// rootedPath reports whether p, a manifest path in slash form, names a
+// place from a root rather than from the module root: `/abs` or a drive
+// (`C:/x`, `C:x`). A nomi.toml means the same on every system, so a path
+// that is absolute on any of them is refused on all of them; Windows alone
+// would read `/abs` as under the current drive.
+func rootedPath(p string) bool {
+	if strings.HasPrefix(p, "/") || filepath.IsAbs(p) {
+		return true
+	}
+	return len(p) >= 2 && p[1] == ':' && ('a' <= p[0] && p[0] <= 'z' || 'A' <= p[0] && p[0] <= 'Z')
 }
 
 func localeHint(a stdlocale.LocaleAttempt) string {

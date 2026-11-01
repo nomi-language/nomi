@@ -27,7 +27,7 @@ fn main() {
 // what is there now.
 func TestTravel_StepBackNeverWritesAFileTwice(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "log.txt")
-	s := travelProgram(t, strings.ReplaceAll(travelFilesSrc, "PATH", path), "")
+	s := travelProgram(t, strings.ReplaceAll(travelFilesSrc, "PATH", filepath.ToSlash(path)), "")
 	s.breakAt(10)
 	s.runPasses()
 	st := s.stop()

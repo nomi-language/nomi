@@ -68,14 +68,14 @@ fn search(
         |> Iter.filter(fn #(_index, line) -> matches(line, pattern, flags))
         |> Iter.to_list()
 
-    if Set.contains(flags, .FileNames) {
+    if .FileNames in flags {
         Ok(if Iter.is_empty(found) { [] } else { [file] })
     } else {
         found
         |> Iter.map(fn #(index, line) -> {
             file_part = if named { "${file}:" } else { "" }
 
-            number_part = if Set.contains(flags, .LineNumbers) {
+            number_part = if .LineNumbers in flags {
                 "${index + 1}:"
             } else {
                 ""
@@ -89,19 +89,19 @@ fn search(
 }
 
 fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool {
-    #(line, pattern) = if Set.contains(flags, .IgnoreCase) {
+    #(line, pattern) = if .IgnoreCase in flags {
         #(String.fold_case(line), String.fold_case(pattern))
     } else {
         #(line, pattern)
     }
 
-    found = if Set.contains(flags, .WholeLine) {
+    found = if .WholeLine in flags {
         line == pattern
     } else {
-        String.contains(line, pattern)
+        pattern in line
     }
 
-    found != Set.contains(flags, .Invert)
+    found != (.Invert in flags)
 }
 
 // FILE: grep_test.nomi
@@ -159,7 +159,7 @@ fn grep_in_sandbox(
 }
 
 test "Test grepping a single file" {
-    cases = [
+    [
         #(
             "One file, one match, no flags",
             "Agamemnon",
@@ -282,14 +282,13 @@ test "Test grepping a single file" {
             ],
         ),
     ]
-
-    subtests cases, #(description, pattern, flags, file, expected), description {
+    |> subtests #(description, pattern, flags, file, expected), description {
         assert grep_in_sandbox(pattern, flags, [file]) == Ok(expected)
     }
 }
 
 test "Test grepping multiples files at once" {
-    cases = [
+    [
         #(
             "Multiple files, one match, no flags",
             "Agamemnon",
@@ -405,8 +404,7 @@ test "Test grepping multiples files at once" {
             ],
         ),
     ]
-
-    subtests cases, #(description, pattern, flags, expected), description {
+    |> subtests #(description, pattern, flags, expected), description {
         assert grep_in_sandbox(pattern, flags, all_files) == Ok(expected)
     }
 }
@@ -417,12 +415,18 @@ test "a missing file is the error reading it" {
         == Err(#io.Error.NotFound{path: "odyssey.txt"})
 }
 ```
+<!-- expect
+ok Test grepping a single file (14 cases)
+ok Test grepping multiples files at once (11 cases)
+ok a missing file is the error reading it
+test result: ok. 26 passed, 0 failed
+-->
 
 ## How it's written
 
 - The files are read with std/fs's `fs.read_text` and split with `String.lines`. The tests never touch the disk: `grep_in_sandbox` runs each search inside `fs_testing.run` over a `Sandbox` holding the three canonical files, so std/fs reads them from an in-memory file system rooted at `/work`, and a relative name such as `iliad.txt` resolves there.
-- The flags are a `Set<Flag>` of a `Flag` enum, so a case writes the flags it sets, as grep's command line does: `%[.LineNumbers, .IgnoreCase]`. The order the canonical data lists flags in never matters, which a set says and a list of flag strings would not. An `Options` struct of five `Bool` fields defaulting to `False` was the other form; the set is shorter in the tables, and the first row that names a flag writes `Flag.LineNumbers`, so neither table needs a type annotation. The solution asks `Set.contains(flags, .IgnoreCase)` where the struct read `options.ignore_case`.
+- The flags are a `Set<Flag>` of a `Flag` enum, so a case writes the flags it sets, as grep's command line does: `%[.LineNumbers, .IgnoreCase]`. The order the canonical data lists flags in never matters, which a set says and a list of flag strings would not. An `Options` struct of five `Bool` fields defaulting to `False` was the other form; the set is shorter in the tables, and the first row that names a flag writes `Flag.LineNumbers`, so neither table needs a type annotation. The solution asks `.IgnoreCase in flags` where the struct read `options.ignore_case`.
 - `grep` answers `Result<List<String>, io.Error>`. A file that cannot be read is the error `fs.read_text` gave, passed up with `?`; one file's error stops the search, through `Result.collect()?`. The canonical data has no such case; the test file adds one, marked not canonical, for a missing file.
-- `matches` folds the case of both sides with `String.fold_case` for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != Set.contains(flags, .Invert)`.
+- `matches` folds the case of both sides with `String.fold_case` for `-i`, compares the whole line or looks for the pattern in it for `-x`, and turns the answer over for `-v` with `found != (.Invert in flags)`.
 - `-l` answers the file's name once if any line matched and takes precedence over `-n`, as two canonical cases ask. With more than one file each line starts with its file's name.
 - Each canonical group is a test with one `subtests` table named by the description column.

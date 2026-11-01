@@ -28,6 +28,44 @@ import {
 //# The search functions (`starts_with`, `ends_with`, `replace`, `split`,
 //# `find`, `find_all`) take any `Matcher`: a `String`, a `Regex` or a
 //# `Codepoint`. `contains` takes the same three as String's `Contains` impls.
+//#
+//# ## Searching
+//#
+//# A `String` matches its own text, a `Regex` (`std/regex`) matches its
+//# pattern, and a `Codepoint` matches itself, so `String.split("a,b", ",")`
+//# and ``String.split(text, Regex`\s+`)`` are the same function. The thing
+//# to look for is called a matcher, not a pattern, because a pattern in Nomi
+//# is a destructuring shape.
+//#
+//# - Each `Matcher` function answers one of these operations with the
+//#   matcher first (`is_contained_in`, `is_prefix_of`, `is_suffix_of`,
+//#   `split_in`, `replace_in`, `find_all_in`, `find_in`). A type of your own
+//#   implements it to become searchable, and a generic function of your own
+//#   takes any matcher with `where M: Matcher`.
+//# - `String.contains` is String's `Contains` impl at the same three types,
+//#   chosen by the needle's type, so a `String` also satisfies
+//#   `where C: Contains<String>`.
+//# - `String.replace` replaces every match. With a `Regex` it expands group
+//#   references in the replacement by Go's `regexp` rules; with any other
+//#   matcher the replacement is literal text.
+//# - `String.captures` and `String.captures_all` take a `Regex` rather than
+//#   any `Matcher`, since only a regex has groups, and answer each match's
+//#   groups as the regex's capture type
+//#   ([capture types](/reference/regex/#capture-types)).
+//# - `String.split` and the other `Matcher` search functions are generic, so
+//#   naming one as a value needs a function type to settle `M`:
+//#   `split: (String, String) -> List<String> = String.split`.
+//#
+//# ## Graphemes
+//#
+//# `String` implements `Iter<String>`, one grapheme cluster per step, so
+//# every `Iter` owner function works on a string. To map or filter
+//# graphemes, run the generic adapter and join the result back into a
+//# `String`: `Iter.map(s, f) |> String.join()`,
+//# `Iter.filter(s, p) |> String.join()`. `String.join` takes any
+//# `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a
+//# separator that defaults to `""`. `String.reverse` and `String.length`
+//# stay container-specific: native, by grapheme cluster.
 
 /// UTF-8 encoded string.
 pub host type String
@@ -136,19 +174,23 @@ impl String {
     //
     pub host fn capitalize(s: String) -> String
 
-    /// Upper-cases `s` as a reader of `locale` writes it. Turkish and Azeri
-    /// upper-case `i` to `İ`; Lithuanian drops the dot it keeps above an
-    /// accented `i`. Every language upper-cases `ß` to `SS`.
+    /// Upper-cases `s` as a reader of `locale` writes it, with Unicode's
+    /// full case mappings (SpecialCasing) and the rules of the locale's
+    /// language. Turkish and Azeri upper-case `i` to `İ`; Lithuanian drops
+    /// the dot it keeps above an accented `i`. Every language upper-cases
+    /// `ß` to `SS`. `String.uppercase` stays independent of any language.
     //! assert String.uppercase_in("istanbul", Locale`tr`) == "İSTANBUL"
     //! assert String.uppercase_in("istanbul", Locale`en`) == "ISTANBUL"
     //! assert String.uppercase_in("Straße", Locale`de`) == "STRASSE"
     //
     pub host fn uppercase_in(s: String, locale: Locale) -> String
 
-    /// Lower-cases `s` as a reader of `locale` writes it. Turkish and Azeri
-    /// lower-case `I` to dotless `ı` and `İ` to `i`; Lithuanian keeps the dot
-    /// of an `i` under an accent (`Í` is `i̇́`). In every language a capital
-    /// sigma that ends a word becomes `ς`.
+    /// Lower-cases `s` as a reader of `locale` writes it, with Unicode's
+    /// full case mappings (SpecialCasing) and the rules of the locale's
+    /// language. Turkish and Azeri lower-case `I` to dotless `ı` and `İ` to
+    /// `i`; Lithuanian keeps the dot of an `i` under an accent (`Í` is
+    /// `i̇́`). In every language a capital sigma that ends a word becomes
+    /// `ς`. `String.lowercase` stays independent of any language.
     //! assert String.lowercase_in("DİYARBAKIR", Locale`tr`) == "diyarbakır"
     //! assert String.lowercase_in("DIYARBAKIR", Locale`en`) == "diyarbakir"
     //! assert String.lowercase_in("ΟΔΟΣ", Locale`el`) == "οδος"
@@ -158,10 +200,13 @@ impl String {
     /// Capitalizes `s` as a reader of `locale` writes it: its first
     /// grapheme in title case and the rest lowercased, with the language's
     /// rules of `String.uppercase_in` and `String.lowercase_in`. In Turkish
-    /// and Azeri `i` becomes `İ` and `I` stays `I`.
+    /// and Azeri `i` becomes `İ` and `I` stays `I`. Title case differs from
+    /// upper case for the letters that stand for two, as in
+    /// `String.capitalize`: `ǆ` becomes `ǅ`, and `ß` becomes `Ss`.
     //! assert String.capitalize_in("istanbul", Locale`tr`) == "İstanbul"
     //! assert String.capitalize_in("IRMAK", Locale`tr`) == "Irmak"
     //! assert String.capitalize_in("istanbul", Locale`en`) == "Istanbul"
+    //! assert String.capitalize_in("ßa", Locale`de`) == "Ssa"
     //
     pub host fn capitalize_in(s: String, locale: Locale) -> String
 
@@ -203,8 +248,9 @@ impl String {
     //
     pub host fn kebab_case(s: String) -> String
 
-    /// `s`'s words joined with nothing between them, each with its first
-    /// letter in upper (title) case and the rest in lower case, split as
+    /// `s`'s words joined with nothing between them, each capitalized as
+    /// `String.capitalize` does (its first letter in upper (title) case and
+    /// the rest in lower case), split as
     /// `String.snake_case` splits them. An acronym is not kept in capitals:
     /// `HTTPServer` becomes `HttpServer`.
     //! assert String.pascal_case("extra_large") == "ExtraLarge"
@@ -355,9 +401,13 @@ impl String {
     /// Joins `items` into one phrase as a reader of `locale` lists things,
     /// with CLDR's list patterns: `style` says what the list means (`And`,
     /// `Or`, or `Unit` for the parts of one measure, such as "3 feet, 2
-    /// inches") and `width` how short its words are. Materialize an `Iter`
-    /// with `Iter.to_list()` first.
+    /// inches") and `width` picks the pattern's wide, short or narrow words.
+    /// The last two items join by the pattern's end form, each earlier one
+    /// by its middle form and the first by its start form, so `en` writes
+    /// `a, b, and c` and `a and b`. Materialize an `Iter` with
+    /// `Iter.to_list()` first.
     //! assert String.join_list(["a", "b", "c"], Locale`en`) == "a, b, and c"
+    //! assert String.join_list(["a", "b"], Locale`en`) == "a and b"
     //!
     //! assert [1000, 2000]
     //! |> Iter.map(&Int.format(&1, Locale`de`))
@@ -410,6 +460,10 @@ impl String {
     //! assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
     //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
     //! assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
+    //!
+    //! // Named as a value, a generic search function needs its type.
+    //! split: (String, String) -> List<String> = String.split
+    //! assert split("a,b", ",") == ["a", "b"]
     //
     pub fn split<M>(s: String, separator: M) -> List<String> where M: Matcher {
         M.split_in(separator, s)
@@ -591,10 +645,36 @@ impl String {
     /// Persian word. One anywhere else (`a\u{200d}b`, at either end, beside
     /// a space) is escaped. What a program that writes Nomi source, such as
     /// a code generator, writes a string with, and a String's `Debug`.
+    ///
+    /// In detail:
+    ///
+    /// - A newline, tab or other control character shows as its escape
+    ///   rather than raw: `dbg "a\nb"` prints `"a\nb"` on one line. A
+    ///   carriage return is `\r`, and NUL is `\u{0}`, since Nomi has no `\0`
+    ///   escape.
+    /// - A `$` or `{` alone, non-ASCII letters, combining marks and emoji are
+    ///   written as they are, an emoji's zero-width joiners, variation
+    ///   selectors and tags included (`"👩‍💻"`, not `"👩\u{200d}💻"`).
+    /// - A zero-width joiner or non-joiner between two non-ASCII letters or
+    ///   combining marks is part of the word and is written as it is too: a
+    ///   Devanagari conjunct (`"क्‍ष"`, a joiner after a virama) or a Persian
+    ///   word (`"می‌خواهم"`).
+    /// - Any other zero-width joiner, non-joiner or variation selector
+    ///   (`"a\u{200d}b"`, one at either end of the string, beside a space or
+    ///   punctuation, or doubled), and a no-break space (`\u{a0}`,
+    ///   `\u{202f}`), are escaped, so an invisible character stays visible.
+    ///
+    /// `nomi fmt` writes string literals by the same rule. The same literal
+    /// is what a String reads as inside a container's Debug, an assertion's
+    /// `values:` row and the debugger's variable view.
     //! assert String.to_literal("a\tb") == "\"a\\tb\""
     //! assert String.to_literal("say \"hi\"") == "\"say \\\"hi\\\"\""
     //! assert String.to_literal("\${x} costs $5") == "\"\\\${x} costs $5\""
     //! assert String.to_literal("\r") == "\"\\r\""
+    //! assert String.to_literal("a\u{0}b") == "\"a\\u{0}b\""
+    //! assert String.to_literal("a\u{200d}b") == "\"a\\u{200d}b\""
+    //! assert String.to_literal("x\u{202f}y") == "\"x\\u{202f}y\""
+    //! assert String.to_literal("$5 {x}") == "\"$5 {x}\""
     //
     pub host fn to_literal(s: String) -> String
 
@@ -778,6 +858,13 @@ impl Iter for String {
 }
 
 impl Display for String {
+    /// The raw text, with no quotes, so `"hello ${name}"` does not
+    /// double-quote `name`. `Debug` gives the round-trippable literal
+    /// instead (`String.to_literal`), so `io.inspect("a\"b")` reveals the
+    /// escape. String is the one primitive where the two differ.
+    //! assert Display.to_string("a\"b") == "a\"b"
+    //! assert Debug.inspect("a\"b") == "\"a\\\"b\""
+    //
     fn to_string(s: String) -> String {
         s
     }

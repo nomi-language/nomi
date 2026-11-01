@@ -225,7 +225,7 @@ test "a described query generates a function reading its columns" {
 test "a parameter used twice is bound twice" {
     text = "-- query: q(email: String) -> Maybe<User>\nSELECT id, name FROM users WHERE email = @email OR name = @email;\n"
     source = source_of(text, [id_column(), name_column()])
-    assert String.contains(source, "[runtime.bind(email), runtime.bind(email)]")
+    assert "[runtime.bind(email), runtime.bind(email)]" in source
 }
 
 test "a parameter the SQL does not use, and an `@name` no parameter names, are problems" {
@@ -302,7 +302,7 @@ test "a query with no result type answers anonymous rows, its enums and std type
         "pub fn q(conn: sql.Conn) -> Result<List<#{\n    id: Int,\n    status: UserStatus,\n    at: Maybe<Instant>,\n}>, sql.Error> {",
     )
 
-    assert String.contains(source, "            id: runtime.int<Int>(\"q\", row, 0)?,\n")
+    assert "            id: runtime.int<Int>(\"q\", row, 0)?,\n" in source
 
     assert String.contains(
         source,
@@ -318,13 +318,13 @@ test "SQL that returns no rows answers the rows it changed with `-> Changed`, or
         "pub fn q(conn: sql.Conn, id: Int) -> Result<sqlkit.Changed, sql.Error> {",
     )
 
-    assert String.contains(changed, "    runtime.exec(conn, statement)\n")
-    assert String.contains(changed, "\n    sqlkit\n")
+    assert "    runtime.exec(conn, statement)\n" in changed
+    assert "\n    sqlkit\n" in changed
 
     ignored = source_of("-- query: q(id: Int) -> Unit\nDELETE FROM users WHERE id = @id;\n", [])
-    assert String.contains(ignored, "-> Result<Unit, sql.Error> {")
-    assert String.contains(ignored, "    runtime.run(conn, statement)\n")
-    refute String.contains(ignored, "\n    sqlkit\n")
+    assert "-> Result<Unit, sql.Error> {" in ignored
+    assert "    runtime.run(conn, statement)\n" in ignored
+    refute "\n    sqlkit\n" in ignored
 }
 
 test "a query's result must fit whether its SQL returns rows" {
@@ -376,7 +376,7 @@ test "an expression's column needs a type in an anonymous row" {
     ]
 
     typed = source_of("-- query: q()\nSELECT count(*) AS \"n!: Int\" FROM users;\n", [n])
-    assert String.contains(typed, "n: runtime.value<Int>(\"q\", row, 0)?,")
+    assert "n: runtime.value<Int>(\"q\", row, 0)?," in typed
 }
 
 test "a CAST to DECIMAL(p, s) reads the expression at its scale" {
@@ -387,7 +387,7 @@ test "a CAST to DECIMAL(p, s) reads the expression at its scale" {
         [sum],
     )
 
-    assert String.contains(source, "n: runtime.numeric_scaled<Decimal>(\"q\", row, 0, 2)?,")
+    assert "n: runtime.numeric_scaled<Decimal>(\"q\", row, 0, 2)?," in source
 }
 
 test "a type no import gives is a problem, and `-- import:` gives one" {
@@ -404,7 +404,7 @@ test "a type no import gives is a problem, and `-- import:` gives one" {
         [id_column()],
     )
 
-    assert String.contains(source, "\n    shop.Report\n")
+    assert "\n    shop.Report\n" in source
 }
 
 test "a long signature and long SQL are laid out as the formatter lays them out" {
@@ -457,12 +457,12 @@ fn schema_source(db: Database) -> String {
 
 test "a table's row struct is its name in the singular, and its enums take that name" {
     source = schema_source(databases.defaults("main"))
-    assert String.contains(source, "pub struct Category {")
-    assert String.contains(source, "pub struct OrderItem {")
-    assert String.contains(source, "pub struct People {")
-    assert String.contains(source, "pub enum OrderItemKind {")
-    assert String.contains(source, "pub enum PeopleStatus {")
-    refute String.contains(source, "struct Categories")
+    assert "pub struct Category {" in source
+    assert "pub struct OrderItem {" in source
+    assert "pub struct People {" in source
+    assert "pub enum OrderItemKind {" in source
+    assert "pub enum PeopleStatus {" in source
+    refute "struct Categories" in source
 
     assert String.contains(
         source,
@@ -472,9 +472,9 @@ test "a table's row struct is its name in the singular, and its enums take that 
 
 test "nomi.toml names a table's row struct, and its enums follow" {
     source = schema_source(named(%{"people" => "Person"}))
-    assert String.contains(source, "pub struct Person {")
-    assert String.contains(source, "pub enum PersonStatus {")
-    refute String.contains(source, "People")
+    assert "pub struct Person {" in source
+    assert "pub enum PersonStatus {" in source
+    refute "People" in source
 }
 
 test "row names in nomi.toml that are not type names, name no table or clash are problems" {
@@ -659,7 +659,7 @@ test "a DECIMAL(p, s) column reads at its scale, exactly or not at all" {
 
     assert at_scale_2([Value.Float(90_071_992_547_409.94)])
         |> Iter.all(fn m -> {
-            String.contains(m, "not exactly a decimal")
+            "not exactly a decimal" in m
         })
 
     null_row = Row.new("SELECT n", [#("n", Value.Null)])

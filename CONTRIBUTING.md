@@ -55,8 +55,8 @@ files.
 - [Language spec](docs/spec.md): canonical for what
   the language does. Update it in the same change as the feature.
 - [Style guide](docs/style.md): how to write idiomatic Nomi.
-- [Feature status](docs/feature-status.md): compiler and tooling
-  status, known defects.
+- [Feature status](docs/feature-status.md): aspirational spec
+  sections, gaps, tooling capabilities and known defects.
 - [Roadmap](docs/roadmap.md): the larger work ahead.
 - [Tour](tour/): the documentation site; see its README to run
   it locally.

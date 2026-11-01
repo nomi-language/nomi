@@ -229,7 +229,7 @@ fn main() -> Unit {
 }
 
 // A stated loop whose break value mismatches the state type is still an
-// error: the break value's type must match the state's type (spec §12,
+// error: the break value's type must match the state's type (spec §13,
 // *`loop`*).
 func TestLoopState_StatedLoopBreakMismatchStillErrors(t *testing.T) {
 	src := `fn use_loop() -> Int {

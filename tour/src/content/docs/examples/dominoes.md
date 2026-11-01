@@ -69,7 +69,7 @@ fn unturned(#(a, b): #(Int, Int)) -> #(Int, Int) {
 }
 
 test "can chain" {
-    cases = [
+    [
         #("empty input = empty output", []),
         #("singleton input = singleton output", [#(1, 1)]),
         #("three elements", [#(1, 2), #(3, 1), #(2, 3)]),
@@ -81,15 +81,14 @@ test "can chain" {
             [#(1, 2), #(5, 3), #(3, 1), #(1, 2), #(2, 4), #(1, 6), #(2, 3), #(3, 4), #(5, 6)],
         ),
     ]
-
-    subtests cases, #(description, stones), description {
+    |> subtests #(description, stones), description {
         assert Some(chain) = dominoes.chain(stones)
         assert is_chain_of(chain, stones)
     }
 }
 
 test "cannot chain" {
-    cases = [
+    [
         #("singleton that can't be chained", [#(1, 2)]),
         #("can't be chained", [#(1, 2), #(4, 1), #(2, 3)]),
         #("disconnected - simple", [#(1, 1), #(2, 2)]),
@@ -97,12 +96,16 @@ test "cannot chain" {
         #("disconnected - single isolated", [#(1, 2), #(2, 3), #(3, 1), #(4, 4)]),
         #("separate three-domino loops", [#(1, 2), #(2, 3), #(3, 1), #(4, 5), #(5, 6), #(6, 4)]),
     ]
-
-    subtests cases, #(description, stones), description {
+    |> subtests #(description, stones), description {
         assert dominoes.chain(stones) == None
     }
 }
 ```
+<!-- expect
+ok can chain (7 cases)
+ok cannot chain (6 cases)
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

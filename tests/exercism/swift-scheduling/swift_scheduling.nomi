@@ -78,8 +78,8 @@ fn numbered(text: String) -> Maybe<Description> {
     quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
 
     case #(month, quarter) {
-        #(Some(n), _) when Range.contains(1..=12, n) -> Some(.Month(n))
-        #(_, Some(n)) when Range.contains(1..=4, n) -> Some(.Quarter(n))
+        #(Some(n), _) when n in 1..=12 -> Some(.Month(n))
+        #(_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
         _ -> None
     }
 }

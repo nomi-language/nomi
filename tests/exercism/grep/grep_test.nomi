@@ -52,7 +52,7 @@ fn grep_in_sandbox(
 }
 
 test "Test grepping a single file" {
-    cases = [
+    [
         #(
             "One file, one match, no flags",
             "Agamemnon",
@@ -175,14 +175,13 @@ test "Test grepping a single file" {
             ],
         ),
     ]
-
-    subtests cases, #(description, pattern, flags, file, expected), description {
+    |> subtests #(description, pattern, flags, file, expected), description {
         assert grep_in_sandbox(pattern, flags, [file]) == Ok(expected)
     }
 }
 
 test "Test grepping multiples files at once" {
-    cases = [
+    [
         #(
             "Multiple files, one match, no flags",
             "Agamemnon",
@@ -298,8 +297,7 @@ test "Test grepping multiples files at once" {
             ],
         ),
     ]
-
-    subtests cases, #(description, pattern, flags, expected), description {
+    |> subtests #(description, pattern, flags, expected), description {
         assert grep_in_sandbox(pattern, flags, all_files) == Ok(expected)
     }
 }

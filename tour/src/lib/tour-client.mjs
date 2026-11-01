@@ -3,9 +3,12 @@
 // run-on-type example using the same analyzer and grammar as Zed:
 //   syntax     web-tree-sitter (grammar + queries/highlights.scm) on this thread
 //   semantics  the analyzer's tokens, from the Nomi wasm (async overlay)
-//   run        debounced, in a Web Worker so a runaway program can't freeze the page;
-//              a ```nomi-run manual block runs only on its Run button, and shows
-//              its recorded output (its expect block) until then
+//   run        debounced, in a Web Worker so a runaway program can't freeze the page.
+//              A block shows its recorded output (its expect block, which the
+//              build carries) until the reader edits it, and runs only then; a
+//              ```nomi-run manual block runs only on its Run button. A block
+//              with no record (```nomi-run no-run, a stdlib reference example)
+//              runs when it scrolls into view.
 // Served statically from /nomi/ (no bundling); web-tree-sitter + the wasm load
 // lazily when the first example scrolls into view.
 import { render, renderJson, renderToml } from "./highlight.mjs";
@@ -13,8 +16,9 @@ import { render, renderJson, renderToml } from "./highlight.mjs";
 const ASSET = (f) => new URL(f, import.meta.url).href;
 const DEBOUNCE_MS = 300;
 const FORMAT_DEBOUNCE_MS = 1500;
-// wasm cold-load allowance. It covers the fetch and compile AND the worker's
-// VM warm-up (vmhost.Warm), which lowers the whole standard library once:
+// wasm cold-load allowance, from a run's request to its start. It covers the
+// fetch and compile, and before the worker's first run its VM warm-up
+// (nomiWarm, vmhost.Warm), which lowers the whole standard library once:
 // measured at about a minute under Node on a loaded machine, so the budget is
 // generous rather than tight.
 const LOAD_BUDGET_MS = 120000;
@@ -246,8 +250,8 @@ function requestFormat(source, cb, op = "format") {
 }
 
 // requestSem asks for a source's semantic tokens without running it (a
-// ```nomi-run manual block before its first run); files names a multi-file
-// source's Nomi tabs, as for a run.
+// block before its first run); files names a multi-file source's Nomi tabs,
+// as for a run.
 let semSeq = 0;
 function postSem(id, f) {
   ensureWorker();
@@ -1394,24 +1398,48 @@ function outputPanel(label) {
 const RECORDED_NOTE = "Recorded output. Press Run to run it.";
 const UNRECORDED_NOTE = "Press Run to run it.";
 
-// showRecorded fills a ```nomi-run manual block's output panel before its
-// first run: the output its expect block records (null when it has none),
-// which the build carries in a hidden span (rehype-shiki.mjs), under the
-// same heading a run of the block as written gets.
-function showRecorded(panel, recorded, expectError, parser, query) {
-  panel.out.textContent = "";
-  panel.setHeading(expectError);
+// A compile error's first line: the file, line and column it is at.
+const COMPILE_ERROR = /^[^\s:]+\.nomi:\d+:\d+: /;
+// The last line of a process exit's failure, after its message.
+const EXIT_STATUS = /^exit status \d+$/;
+
+// showRecorded fills a block's output panel before its first run with the
+// output its expect block records, which the build carries in a hidden span
+// (rehype-shiki.mjs), as showOutput shows a run of the block as written.
+// A ```nomi-run error block's record is the run's output and then its
+// failure (internal/doctest's Shown): the whole record when it is a compile
+// error, else its last line, or its last two when the last is `exit status
+// N`. TestTourDoctests holds every error block to that split (its
+// recordedFailure keeps the same rule). A manual block's panel says the
+// output is recorded, and one with no record (null) shows only the note.
+function showRecorded(panel, recorded, expectError, manual, parser, query) {
   if (recorded === null) {
+    panel.out.textContent = "";
+    panel.setHeading(expectError);
     panel.setNote(UNRECORDED_NOTE);
     return;
   }
-  panel.setNote(RECORDED_NOTE);
-  if (recorded) appendRunText(panel.out, recorded, "", parser, query);
-  else panel.out.textContent = "(no output)";
+  let output = recorded;
+  let error = "";
+  if (expectError) {
+    const lines = recorded.split("\n");
+    if (COMPILE_ERROR.test(lines[0])) {
+      output = "";
+      error = recorded;
+    } else {
+      const n = lines.length >= 2 && EXIT_STATUS.test(lines[lines.length - 1]) ? 2 : 1;
+      output = lines.slice(0, -n).join("\n");
+      error = lines.slice(-n).join("\n");
+    }
+  }
+  if (output) output += "\n";
+  showOutput(panel, output, error, parser, query, expectError);
+  panel.setNote(manual ? RECORDED_NOTE : "");
 }
 
-// recordedOf answers the recorded output a ```nomi-run manual block's <pre>
-// carries, or null.
+// recordedOf answers the recorded output a ```nomi-run block's <pre>
+// carries ("" for a block that prints nothing), or null for a block the
+// build gave none.
 function recordedOf(pre) {
   const span = pre.querySelector("span[data-nomi-recorded]");
   return span ? span.textContent : null;
@@ -1691,10 +1719,10 @@ async function enhance(pre) {
   const stdlibContext = pre.dataset.nomiStdlibContext || "";
 
   const expectError = pre.dataset.nomiExpect === "error";
-  // ```nomi-run manual: run only when the reader asks, and until then show
-  // the output the block records.
+  // ```nomi-run manual: run only when the reader asks.
   const manual = pre.dataset.nomiManual === "1";
-  const recorded = manual ? recordedOf(pre) : null;
+  // The output the block records, shown until its first run.
+  const recorded = recordedOf(pre);
 
   const files = isStdlibTest ? null : splitFiles(source);
   if (files && files.length > 1) {
@@ -1861,13 +1889,13 @@ async function enhance(pre) {
   attachHover(ta, marked, DOMPurify, (line, col, cb) => requestHover(ta.value, line, col, cb));
 
   paint();
-  if (!manual) {
+  if (recorded === null && !manual) {
     run();
     return;
   }
-  // A manual block shows its recorded output and asks only for the
-  // analyzer's tokens, which a run would bring.
-  showRecorded(out, recorded, expectError, parser, query);
+  // The block shows its recorded output and asks only for the analyzer's
+  // tokens, which a run would bring; the reader's first edit runs it.
+  showRecorded(out, recorded, expectError, manual, parser, query);
   const id = ++reqSeq;
   block.req = id;
   const { code, captures } = block;
@@ -2196,14 +2224,15 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     tabKeys(p.ta, hint);
   });
 
-  if (!manual) {
+  if (recorded === null && !manual) {
     run();
     return;
   }
-  // A manual block shows its recorded output, over the files as the block
-  // holds them (a tool's generated files as committed), and asks only for
-  // the analyzer's tokens, which a run would bring.
-  showRecorded(out, recorded, expectError, parser, query);
+  // The block shows its recorded output, over the files as the block holds
+  // them (a tool's generated files as committed), and asks only for the
+  // analyzer's tokens, which a run would bring; the reader's first edit
+  // runs it.
+  showRecorded(out, recorded, expectError, manual, parser, query);
   const id = ++reqSeq;
   block.req = id;
   const painted = nomiPanes.map((p) => ({ p, code: p.code, captures: p.captures }));

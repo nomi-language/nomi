@@ -13,6 +13,8 @@ import (
 
 	"golang.org/x/mod/module"
 	modzip "golang.org/x/mod/zip"
+
+	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
 // A pure-Nomi dependency is fetched through the module proxy with no Go
@@ -45,11 +47,12 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 		"NOMI_COLOR=never",
 		"NOMI_FFIRUN_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
 		"NOMI_TOOLCHAIN_ROOT=" + filepath.Join(tmp, "toolchains"),
-		"GOPROXY=file://" + filepath.ToSlash(proxy),
+		"GOPROXY=" + fileuri.FromPath(proxy),
 		"GOSUMDB=off",
 		"GOMODCACHE=" + cache,
 		"GOFLAGS=-modcacherw",
 	}
+	env = withUserDirs(env)
 	if p := os.Getenv("NOMI_STD_PATH"); p != "" {
 		env = append(env, "NOMI_STD_PATH="+p)
 	}

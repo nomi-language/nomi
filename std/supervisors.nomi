@@ -1,3 +1,12 @@
+//# Supervisors: long-lived tasks that outlive the code that started them,
+//# restarted by policy when they stop. `Supervisor.new` makes one, and
+//# only during `boot`; `Supervisor.spawn` and `Supervisor.spawn_all` start
+//# work under it with a `Restart` disposition and a `Backoff` schedule,
+//# and `GiveUp` says what happens when the schedule runs out.
+//# `Supervisor.flush` waits for its tasks to finish. Where supervisors fit
+//# in a program's life and how they shut down are language rules
+//# ([Concurrency](/spec/concurrency/)).
+
 import {
     duration.Duration
     iter.Iter

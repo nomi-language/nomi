@@ -224,7 +224,7 @@ fn run(account: Account, step: Step) -> Result<Unit, Error> {
 }
 
 test "bank account" {
-    cases = [
+    [
         #("Newly opened account has zero balance", [Step.Open], Ok(0)),
         #("Single deposit", [.Open, .Deposit(100)], Ok(100)),
         #("Multiple deposits", [.Open, .Deposit(100), .Deposit(50)], Ok(150)),
@@ -262,8 +262,7 @@ test "bank account" {
         ),
         #("Cannot deposit negative", [.Open, .Deposit(-50)], Err(.AmountNotPositive)),
     ]
-
-    subtests cases, #(description, steps, expected), description {
+    |> subtests #(description, steps, expected), description {
         assert replay(steps) == expected
     }
 }
@@ -299,6 +298,12 @@ test "errors read as the canonical messages" {
     assert "${Error.AmountAboveBalance}" == "amount must be less than balance"
 }
 ```
+<!-- expect
+ok bank account (16 cases)
+ok Can handle concurrent transactions
+ok errors read as the canonical messages
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 

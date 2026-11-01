@@ -9,7 +9,7 @@ fn deck(cards: String) -> List<String> {
 }
 
 test "simulate game" {
-    cases = [
+    [
         #(
             "two cards, one trick",
             deck("2"),
@@ -187,8 +187,7 @@ test "simulate game" {
             #{status: .Loop, cards: 474, tricks: 66},
         ),
     ]
-
-    subtests cases, #(description, player_a, player_b, expected), description {
+    |> subtests #(description, player_a, player_b, expected), description {
         assert camicia.simulate_game(player_a, player_b) == expected
     }
 }

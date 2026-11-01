@@ -9,7 +9,7 @@ import (
 //
 // # What has to survive the lowering, and what breaks each cheap answer
 //
-// Spec §2 gives `once` three properties, and the two obvious Go encodings each
+// Spec §6 *`once` Bindings* gives `once` three properties, and the two obvious Go encodings each
 // break a different one:
 //
 //   - LAZY. The RHS runs on first access, so `once a = b + 1` may sit ABOVE

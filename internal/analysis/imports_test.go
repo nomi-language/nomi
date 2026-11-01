@@ -27,7 +27,7 @@ fn main() {
 		"/project/models.nomi": true,
 	}
 	for _, imp := range imports {
-		if !expected[imp] {
+		if !expected[filepath.ToSlash(imp)] {
 			t.Errorf("unexpected import: %s", imp)
 		}
 	}
@@ -60,7 +60,7 @@ fn main() {}
 		"/project/models.nomi": true,
 	}
 	for _, imp := range imports {
-		if !expected[imp] {
+		if !expected[filepath.ToSlash(imp)] {
 			t.Errorf("unexpected import: %s", imp)
 		}
 	}
@@ -88,7 +88,7 @@ import shared: Shared
 		"/project/shared.nomi": true,
 	}
 	for _, imp := range imports {
-		if !expected[imp] {
+		if !expected[filepath.ToSlash(imp)] {
 			t.Errorf("unexpected import: %s", imp)
 		}
 	}

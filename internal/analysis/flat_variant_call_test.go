@@ -6,7 +6,7 @@ import (
 )
 
 // A variant over a tuple has one payload, and `Two.Both(1, 2)` is a call
-// form of that one tuple (spec §8). The flat form of a generic variant
+// form of that one tuple (spec §4 *Enums (Algebraic Data Types)*). The flat form of a generic variant
 // infers its type arguments from the elements, as the tupled
 // `Two.Both(#(1, 2))` does. It was checked against the declaration's own
 // `A` and `B`, and then a second time as a one-argument call, so

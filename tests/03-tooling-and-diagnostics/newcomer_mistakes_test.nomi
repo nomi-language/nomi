@@ -46,7 +46,7 @@ test "a type name is not a conversion function" {
 
     assert Iter.any(diagnostics, fn d -> {
         String.starts_with(d.message, "`Int` is a type, not a function")
-            and String.contains(d.message, "`String.to_int`")
+            and "`String.to_int`" in d.message
     })
 
     assert Iter.any(diagnostics, fn d -> {
@@ -94,7 +94,7 @@ test "a lambda is not a pipe stage" {
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
-        String.contains(d.message, "a lambda is not a pipe stage: write `then fn v -> ...`")
+        "a lambda is not a pipe stage: write `then fn v -> ...`" in d.message
     })
 }
 

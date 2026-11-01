@@ -42,7 +42,7 @@ test "a derived hash over a struct with a unit field" {
 test "unit and values holding it key sets and maps" {
     units = [Unit, Unit, Unit] |> Iter.to_set()
     assert Set.size(units) == 1
-    assert Set.contains(units, Unit)
+    assert Unit in units
 
     m = [#(Unit, 1), #(Unit, 2)] |> Iter.to_map()
     assert Map.size(m) == 1
@@ -66,5 +66,5 @@ test "unit and values holding it key sets and maps" {
         |> Iter.to_set()
 
     assert Set.size(records) == 2
-    assert Set.contains(records, #{name: "s", marker: Unit})
+    assert #{name: "s", marker: Unit} in records
 }

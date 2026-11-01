@@ -347,7 +347,15 @@ func endsInOpenLambda(n ast.Node) bool {
 // stage follows, since the body would take that stage in: the parser builds
 // `x |> dbg fn -> y` as the stages `fn -> y` and `dbg`, and
 // `x |> fn -> y |> dbg` reads as one lambda whose body is `y |> dbg`.
+//
+// A stage unwrapped with `!` is the Unwrap, and the parentheses are under
+// it: `x |> (f())!` keeps them as `x |> (f())` does.
 func emitStage(n ast.Node, more bool) Doc {
+	if u, ok := n.(*ast.Unwrap); ok {
+		if g, ok := u.Expr.(*ast.GroupedExpr); ok && g.Expr != nil {
+			return Concat(emitStage(u.Expr, false), Text("!"))
+		}
+	}
 	g, ok := n.(*ast.GroupedExpr)
 	if !ok || g.Expr == nil {
 		if more && endsInOpenLambda(n) {
@@ -877,7 +885,7 @@ func emitNode(n ast.Node) Doc {
 	case *ast.Dbg:
 		return emitDbg(v)
 	case *ast.Unwrap:
-		return Concat(emit(v.Expr), Text("!"))
+		return Concat(emitMarked(v.Expr), Text("!"))
 	case *ast.Todo:
 		return emitTodo(v)
 	case *ast.Unreachable:
@@ -914,7 +922,7 @@ func emitNode(n ast.Node) Doc {
 		if v.Expr == nil {
 			return Text("?")
 		}
-		return Concat(emit(v.Expr), Text("?"))
+		return Concat(emitMarked(v.Expr), Text("?"))
 	case *ast.Return:
 		if v.Value == nil {
 			return Text("return")
@@ -1488,12 +1496,42 @@ func emitWith(v *ast.With) Doc {
 //	    (white_row, white_column),
 //	    expected
 //	), description {
+//
+// The pipe-stage form puts the rows first and the stage on a line of its
+// own, after the rows' pipeline written one stage per line:
+//
+//	[
+//	    #("basic", "Portable Network Graphics", "PNG"),
+//	]
+//	|> subtests #(description, phrase, expected), description {
 func emitSubtests(v *ast.Subtests) Doc {
+	if v.Piped {
+		return emitPipedSubtests(v)
+	}
 	header := Concat(Text("subtests "), emit(v.Rows), Text(", "), emitSubtestsPattern(v.Pattern))
 	if v.Name != nil {
 		header = Concat(header, Text(", "), emit(v.Name))
 	}
 	return Concat(header, Text(" "), emitBlockForceBroken(v.Body))
+}
+
+func emitPipedSubtests(v *ast.Subtests) Doc {
+	var rows Doc
+	if pipe, ok := v.Rows.(*ast.Binary); ok && pipe.Op == "|>" {
+		rows = emitWithTriviaDoc(pipe, emitPipeChainForced(pipe))
+	} else {
+		rows = emitWithTrivia(v.Rows)
+	}
+	parts := []Doc{rows}
+	for _, leading := range emitLeadingTriviaDocs(v.StageLeading) {
+		parts = append(parts, HardLine(), leading)
+	}
+	stage := Concat(Text("|> subtests "), emitSubtestsPattern(v.Pattern))
+	if v.Name != nil {
+		stage = Concat(stage, Text(", "), emit(v.Name))
+	}
+	parts = append(parts, HardLine(), stage, Text(" "), emitBlockForceBroken(v.Body))
+	return Concat(parts...)
 }
 
 // emitSubtestsPattern is a `subtests` pattern: a tuple pattern without
@@ -1732,6 +1770,24 @@ func startsWithDigit(s string) bool {
 	return s != "" && s[0] >= '0' && s[0] <= '9'
 }
 
+// emitMarked writes the expression a postfix `!` or `?` is written
+// against. A parenthesized `_` keeps its parentheses: `(_)!` parses, and
+// `_!` does not.
+func emitMarked(n ast.Node) Doc {
+	g, ok := n.(*ast.GroupedExpr)
+	if !ok || itemComments(g.Expr) != nil {
+		return emit(n)
+	}
+	inner := g.Expr
+	for next, ok := inner.(*ast.GroupedExpr); ok && next.Expr != nil; next, ok = inner.(*ast.GroupedExpr) {
+		inner = next.Expr
+	}
+	if id, ok := inner.(*ast.Ident); ok && id.Name == "_" {
+		return withDangling(g, Concat(Text("("), emit(inner), Text(")")))
+	}
+	return emit(n)
+}
+
 func groupedExprCanDropParens(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Ident, *ast.SelfExpr, *ast.TypeIdent, *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit,
@@ -1759,7 +1815,7 @@ func emitTodo(v *ast.Todo) Doc {
 	return Concat(Text("todo "), emit(v.Reason))
 }
 
-// emitConcurrentBlock renders `concurrent { body }` — spec §20's
+// emitConcurrentBlock renders `concurrent { body }` — spec §16's
 // structured-concurrency scope. An atomic body (one statement that fits on a
 // line, like `concurrent { 42 }`) stays inline; anything multi-statement breaks
 // the body onto its own lines.
@@ -3591,7 +3647,7 @@ func precedence(op string) int {
 		return 2
 	case "and":
 		return 3
-	case "==", "!=":
+	case "==", "!=", "in":
 		return 4
 	case "<", ">", "<=", ">=":
 		return 5
@@ -3780,6 +3836,14 @@ func binaryChain(v *ast.Binary, next follower) (Doc, []binaryPart, bool) {
 	var head Doc
 	var parts []binaryPart
 	breakable := true
+	if v.Op == "in" {
+		// `in` does not chain with a comparison, so each operand holds
+		// only what binds more tightly than one bare: `x in xs |>
+		// Iter.to_set()`, `(a < b) in flags`.
+		head = emitOperand(v.Left, precedence("<")+1, leftNext)
+		right := emitOperand(v.Right, precedence("<")+1, next)
+		return head, []binaryPart{{op: v.Op, right: right}}, false
+	}
 	if lb, ok := v.Left.(*ast.Binary); ok && boolean && lb.Op == v.Op && !hasDangling(lb) {
 		head, parts, breakable = binaryChain(lb, leftNext)
 	} else {
@@ -5144,7 +5208,7 @@ func isMethodImplBlock(n ast.Node) bool {
 // The body is always multi-line when non-empty. A single space
 // separates the type name (or type-params) from the opening `{`. `pub`
 // precedes `opaque` when both are present; `opaque` is emitted before
-// `struct` whenever the AST carries the flag (see spec §15, *Opaque distinct types*).
+// `struct` whenever the AST carries the flag (see spec §4, *Opaque distinct types*).
 func emitStructDef(v *ast.StructDef) Doc {
 	// Doc-comment first, then any decorators the derive lowering attached.
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
@@ -5221,7 +5285,7 @@ func emitEnumDeclVariant(v ast.EnumVariant) Doc {
 // enum is unreachable for well-formed input but renders as `enum Name {}`
 // for resilience. `pub` precedes `opaque` when both are present; `opaque`
 // is emitted before `enum` whenever the AST carries the flag (see spec
-// §15, *Opaque distinct types*).
+// §4, *Opaque distinct types*).
 func emitEnumDef(v *ast.EnumDef) Doc {
 	// Doc-comment first, then decorators — see emitStructDef for the parser
 	// constraint that drives this order.

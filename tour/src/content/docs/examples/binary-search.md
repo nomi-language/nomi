@@ -42,7 +42,7 @@ fn search<T>(
 import binary_search
 
 test "finds a value" {
-    cases = [
+    [
         #("finds a value in an array with one element", #[6], 6, 0),
         #("finds a value in the middle of an array", #[1, 3, 4, 6, 8, 9, 11], 6, 3),
         #("finds a value at the beginning of an array", #[1, 3, 4, 6, 8, 9, 11], 1, 0),
@@ -60,14 +60,13 @@ test "finds a value" {
             5,
         ),
     ]
-
-    subtests cases, #(description, items, value, expected), description {
+    |> subtests #(description, items, value, expected), description {
         assert binary_search.find(items, value) == Ok(expected)
     }
 }
 
 test "reports a missing value" {
-    cases = [
+    [
         #("identifies that a value is not included in the array", #[1, 3, 4, 6, 8, 9, 11], 7),
         #(
             "a value smaller than the array's smallest value is not found",
@@ -82,12 +81,16 @@ test "reports a missing value" {
         #("nothing is found in an empty array", #[], 1),
         #("nothing is found when the left and right bounds cross", #[1, 2], 0),
     ]
-
-    subtests cases, #(description, items, value), description {
+    |> subtests #(description, items, value), description {
         assert binary_search.find(items, value) == Err("value not in array")
     }
 }
 ```
+<!-- expect
+ok finds a value (6 cases)
+ok reports a missing value (5 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

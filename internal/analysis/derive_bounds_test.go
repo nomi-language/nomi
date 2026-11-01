@@ -11,8 +11,8 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// Tests for derive's field-type requirements (spec §38.1): field/payload/inner type bound
-// checking at the `@derive Iface` site. These need stdlib loaded so the
+// Tests for derive's field-type requirements (spec §12 *Derive*): field/payload/inner type bound
+// checking at the `derive Iface for T` declaration. These need stdlib loaded so the
 // check can see Int/String/Bool/etc.'s impls; without stdlib the check is
 // a no-op (it can't tell missing-from-table from genuinely-unimplemented).
 //
@@ -47,7 +47,7 @@ func buildWithStdlibForDerive(src string) *analysis.FileAnalysis {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	// Lower type-body `derive Iface` entries into synthetic
-	// `@derive Iface` decorators on the owning declaration —
+	// `derive Iface for T` declarations —
 	// CheckDeriveBounds keys off those decorators, so without lowering it
 	// would never see a body-declared derive at all.
 	nodes, _ = analysis.LowerDerives(nodes)
@@ -95,9 +95,9 @@ func errMsgs(errs []analysis.TypeError) string {
 	return strings.Join(msgs, "\n  ")
 }
 
-// TestDeriveEquatableOnFieldWithoutImplErrors pins spec §38.1's field-type requirement: a
+// TestDeriveEquatableOnFieldWithoutImplErrors pins spec §12 *Derive*'s field-type requirement: a
 // `@derive Equatable struct Wrapper { id: User }` where `User` has no
-// Equatable impl errors at the @derive site, naming the field and the
+// Equatable impl errors at the derive declaration, naming the field and the
 // missing interface. Without this check the failure surfaces deep in
 // runtime dispatch with an unhelpful synth-band position.
 //
@@ -117,7 +117,7 @@ derive Equatable for Wrapper`
 	if !hasErrSubstring(fa.TypeErrors, "no impl of `Equatable` for `User`") {
 		t.Fatalf("expected missing-impl error for Equatable/User, got:\n  %s", errMsgs(fa.TypeErrors))
 	}
-	if !hasErrSubstring(fa.TypeErrors, "@derive(Equatable) on Wrapper field id") {
+	if !hasErrSubstring(fa.TypeErrors, "`derive Equatable for Wrapper`, field `id`") {
 		t.Errorf("error must carry DeriveCtx provenance (Wrapper field id), got:\n  %s", errMsgs(fa.TypeErrors))
 	}
 }
@@ -141,14 +141,14 @@ derive Equatable for E`
 	}
 	// DeriveCtx FieldName for enum-positional payloads is the variant
 	// name (see checkDeriveComponentTypes EnumDef branch).
-	if !hasErrSubstring(fa.TypeErrors, "@derive(Equatable) on E field V") {
+	if !hasErrSubstring(fa.TypeErrors, "`derive Equatable for E`, field `V`") {
 		t.Errorf("error must carry DeriveCtx provenance (E variant V), got:\n  %s", errMsgs(fa.TypeErrors))
 	}
 }
 
 // TestDeriveOnDistinctInnerWithoutImplErrors pins the distinct-type
 // case: `@derive Equatable type W NoImpl` where NoImpl has no
-// Equatable impl errors at the @derive site, naming the inner type
+// Equatable impl errors at the derive declaration, naming the inner type
 // via DeriveCtx provenance on the missing-impl diagnostic.
 func TestDeriveOnDistinctInnerWithoutImplErrors(t *testing.T) {
 	src := `struct NoImpl { x: Int }
@@ -162,7 +162,7 @@ derive Equatable for W`
 	}
 	// DeriveCtx FieldName for distinct-type inner is the literal
 	// "inner" sentinel set by checkDeriveComponentTypes (TypeDef branch).
-	if !hasErrSubstring(fa.TypeErrors, "@derive(Equatable) on W field inner") {
+	if !hasErrSubstring(fa.TypeErrors, "`derive Equatable for W`, field `inner`") {
 		t.Errorf("error must carry DeriveCtx provenance (W field inner), got:\n  %s", errMsgs(fa.TypeErrors))
 	}
 }
@@ -280,7 +280,7 @@ derive Comparable for Wrap`
 	if !hasErrSubstring(fa.TypeErrors, "no impl of `Comparable` for `HalfImpl`") {
 		t.Errorf("expected missing-impl error for Comparable/HalfImpl, got:\n  %s", errMsgs(fa.TypeErrors))
 	}
-	if !hasErrSubstring(fa.TypeErrors, "@derive(Comparable) on Wrap field h") {
+	if !hasErrSubstring(fa.TypeErrors, "`derive Comparable for Wrap`, field `h`") {
 		t.Errorf("error must carry DeriveCtx provenance (Wrap field h), got:\n  %s", errMsgs(fa.TypeErrors))
 	}
 	for _, e := range fa.TypeErrors {
@@ -340,7 +340,7 @@ derive Display for B`
 	if !hasErrSubstring(fa.TypeErrors, "no impl of `Display` for `C`") {
 		t.Fatalf("expected missing-impl diagnostic for Display/C, got:\n  %s", errMsgs(fa.TypeErrors))
 	}
-	if !hasErrSubstring(fa.TypeErrors, "@derive(Display) on B field c") {
+	if !hasErrSubstring(fa.TypeErrors, "`derive Display for B`, field `c`") {
 		t.Errorf("expected DeriveCtx provenance (B field c) in message, got:\n  %s", errMsgs(fa.TypeErrors))
 	}
 	// Old (CheckDeriveBounds) terse message MUST NOT appear — the

@@ -203,7 +203,7 @@ func (l *lexer) scanNewline() {
 // startsContinuationOperator reports whether rest, the text where the next
 // line starts, begins with a binary operator that no expression starts
 // with: `==`, `!=`, `<`, `<=`, `>`, `>=`, `<<<`, `>>>`, `&&&`, `|||`, `^^^`,
-// `and`, `or` or `is`. Such a line
+// `and`, `or`, `is` or `in`. Such a line
 // continues the expression on the line above, as one starting with `|>`
 // does. `-` and `!` start expressions too, so a line starting with one
 // keeps its line break.
@@ -216,7 +216,7 @@ func startsContinuationOperator(rest string) bool {
 	case strings.HasPrefix(rest, "&&&"), strings.HasPrefix(rest, "|||"), strings.HasPrefix(rest, "^^^"):
 		return true
 	}
-	for _, word := range []string{"and", "or", "is"} {
+	for _, word := range []string{"and", "or", "is", "in"} {
 		if strings.HasPrefix(rest, word) && (len(rest) == len(word) || !isIdentPart(rest[len(word)])) {
 			return true
 		}
@@ -1025,6 +1025,7 @@ var keywords = map[string]token.TokenType{
 	"or":          token.OR,
 	"not":         token.NOT,
 	"is":          token.IS,
+	"in":          token.IN,
 	"fn":          token.FN,
 	"return":      token.RETURN,
 	"case":        token.CASE,
@@ -1141,7 +1142,7 @@ func (l *lexer) scanOperatorOrDelimiter() {
 	case '&':
 		// `&1`, `&2`, ...: the parameter of that number of the capture
 		// around it, and `&` written against a call, a parenthesized
-		// expression or a literal starts a capture (spec §5, *Captures*).
+		// expression or a literal starts a capture (spec §7, *Captures*).
 		// `&&&` is bitwise and. `&&` is the C-family spelling of `and`, so
 		// it is one ILLEGAL token that says so.
 		if l.peekAt(1) == '&' && l.peekAt(2) == '&' {

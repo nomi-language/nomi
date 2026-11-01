@@ -738,8 +738,8 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 	}
 
-	// Sweep B-bounds: the derive field/payload bound check (spec §38.1,
-	// *Field-type requirements*). Runs
+	// Sweep B-bounds: the derive field/payload bound check (spec §12
+	// *Derive*). Runs
 	// after Sweep B-ann so every file's own Impls is fully
 	// populated, and AFTER the project impl index has been built
 	// so CheckDeriveBounds can consult it

@@ -87,6 +87,25 @@ When nothing says which struct is needed, a `#{...}` literal is an anonymous
 struct. A plain `{` always opens a block, and a name followed by `{`, such as
 `User{name: "Ada"}`, is an error: every struct literal starts with `#`.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A field that may be absent has type `Maybe<T>`. A default only spares
+  the caller from writing a value: `nickname: Maybe<String> = None` is both.
+- A default runs once for each construction that leaves its field out.
+- Each field is named once: `#User{name: "Al", name: "Bo"}` is an error.
+- A struct also has a call form taking an anonymous struct:
+  `User(#{name: "Ada"})`, which a pipe can feed.
+- `#{...}` stays anonymous where an interface or a type parameter is
+  expected, since neither names one struct: `a: Display = #{street: "x"}`
+  is a type mismatch.
+
+Spec: [Structs](/spec/types/#structs),
+[Construction](/spec/types/#construction),
+[Target-typed construction](/spec/types/#target-typed-construction).
+
+</div>
+
 ## Anonymous structs
 
 ```nomi-run
@@ -247,6 +266,21 @@ type comes from the collection before it.
 `Iter.map(pairs, .1)`. An accessor is only ever passed to a function. To read
 a field of a value you have, write `user.name`.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Chains mix fields and slots: `.1.0` reads the first slot of the second.
+- The record type must be known where the accessor stands. Where only a
+  later argument would give it, annotate a binding:
+  `f: (User) -> String = .name`.
+- An accessor is not a pipe stage: `user |> .name` is an error. Write
+  `user.name`.
+- A field that holds a function is returned, not called.
+
+Spec: [Field Accessors](/spec/functions-and-closures/#field-accessors).
+
+</div>
+
 ## Distinct types
 
 ```nomi-run
@@ -323,6 +357,37 @@ distinct type wraps, so for a `Pair` that is the whole tuple,
 `#Pair(...)`. A `Path` or `Scores` prints in its call form, the type's name
 around the collection it wraps.
 
+A type that belongs under another can take a dotted name:
+`type Civil.Days Int` declares `Civil.Days`, written in full wherever it is
+used, as in `Civil.Days(3)`. `Civil` must be a type in scope.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The wrapped value must have the wrapped type: `Id("42")` is
+  `Id wraps Int, so Id(...) takes an Int; got String`.
+- Destructuring reads one level. For `type A Int` and `type B A`,
+  `B(a) = b` binds an `A`.
+- A distinct type can't contain itself: `type L List<L>` is an error. A
+  recursive type is a struct or an enum.
+- A dotted name is a declaration of its own, not an item inside its
+  parent. Impls, derives and patterns use the full name.
+
+```nomi
+struct Civil {}
+
+type Civil.Days Int
+
+fn days_value(Civil.Days(n)) -> Int {
+    n
+}
+```
+
+Spec: [Distinct Types](/spec/types/#distinct-types),
+[Types](/spec/types/), whose opening covers dotted names.
+
+</div>
+
 ## Bare types
 
 ```nomi-run
@@ -347,6 +412,18 @@ and it takes no memory. You write its value as just its name.
 
 Bare types are useful as marker values, and as data-free variants of an enum
 (see [Embedding existing types](#embedding-existing-types)).
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A bare type has no call form: `Expired()` is
+  `Expired is a zero-sized type and takes no arguments; write Expired`.
+- It can implement interfaces and be embedded in an enum like any type.
+- It can't be `opaque`, since it has no representation to hide.
+
+Spec: [Distinct Types](/spec/types/#distinct-types).
+
+</div>
 
 ## Enums
 
@@ -430,6 +507,26 @@ argument (`describe(.North)`), a return value, a list element
 With no annotation, name the enum on the first element and the rest follow
 it: `walk = [Direction.North, .East]`.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A variant is never bare, even in its own file: `North` alone is an error
+  that asks for `Direction.North`. The prelude's `Some`, `None`, `Ok`,
+  `Err`, `True` and `False` are the exceptions.
+- `[.North, Direction.East]` is refused: the shorthand looks at earlier
+  elements only. Tuple items don't help each other either.
+- In a comparison one side must name the enum: `.Red == .Green` is an
+  error.
+- A struct variant has no positional form: `Shape.Rectangle(4.0, 5.0)` is
+  an error. `Shape.Rectangle(#{width: 4.0, height: 5.0})` works.
+- Only a struct variant's fields take defaults. `Circle Float = 3.14` is an
+  error.
+
+Spec: [Variant Resolution](/spec/types/#variant-resolution),
+[Construction and Typing](/spec/types/#construction-and-typing).
+
+</div>
+
 ## Type-owned functions
 
 ```nomi-run
@@ -471,16 +568,7 @@ Put functions here that build, read, check, convert or change values of the
 type. An `impl` block works for any type you declare: structs, enums, distinct
 types, and generic types such as `impl Box<T> { ... }`.
 
-:::note[Continue or dig deeper]
-The tour moves on to [**Pattern Matching, Maybe & Result**](/pattern-matching/),
-which shows how `case` takes apart every value you can now build. The section
-below covers `embeds`, for using existing types as enum variants, and
-`typealias`, for short names for long anonymous types.
-:::
-
-## Going deeper
-
-### Embedding existing types
+## Embedding existing types
 
 ```nomi-run
 struct Click {
@@ -523,10 +611,32 @@ takes a `Click`, match it first. A `case` takes an embedded variant apart like
 any other: `case e { #.Click{x, y} -> ... }`. See
 [Pattern Matching](/pattern-matching/).
 
+Matching also narrows. In an arm whose pattern matches one embedded variant,
+the matched name has that variant's type, so `#.Click{} -> handle_click(e)`
+passes `e` to a function that takes a `Click`.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The widening reaches inside other types: a `List<Click>` goes where a
+  `List<Event>` is expected, and a `Maybe<Click>` where a `Maybe<Event>` is.
+- Where the two meet with no direction, such as the branches of an `if`,
+  the result is the enum.
+- Narrowing needs a plain name: `case e` narrows `e`, `case load()` and
+  `case w.event` narrow nothing. An `or` pattern and a binding with
+  `else` narrow nothing.
+- Only a struct or a distinct type can be embedded. An enum is carried in
+  a payload variant instead: `Shape Shape`.
+
+Spec: [Embedded Types](/spec/types/#embedded-types),
+[Type Narrowing](/spec/patterns/#type-narrowing).
+
+</div>
+
 Where another language would use a class hierarchy, Nomi uses an enum like
 this one, with one `embeds` per kind of event.
 
-### Type aliases
+## Type aliases
 
 ```nomi-run
 typealias Rule (String) -> Maybe<String>
@@ -546,7 +656,7 @@ fn too_short(name: String) -> Maybe<String> {
 }
 
 fn has_space(name: String) -> Maybe<String> {
-    if String.contains(name, " ") {
+    if " " in name {
         Some("has a space")
     } else {
         None
@@ -584,3 +694,16 @@ Use `type` when you want the compiler to tell two things apart. A `UserId` and
 an `OrderId` may both hold an `Int`, but you should not pass one where the
 other belongs. When the thing deserves a name of its own, declare a struct or
 a `type` rather than an alias.
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/queen-attack/"><span class="tour-example-name">Queen Attack</span><span class="tour-example-what">Can two queens on a board attack?</span></a>
+<a href="/examples/resistor-color/"><span class="tour-example-name">Resistor Color</span><span class="tour-example-what">Read a band's color as a digit.</span></a>
+<a href="/examples/complex-numbers/"><span class="tour-example-name">Complex Numbers</span><span class="tour-example-what">A number type with its own arithmetic.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=structs-enums-distinct">Every example that uses Structs, Enums, Distinct Types</a>
+
+Next: [Pattern Matching, Maybe & Result](/pattern-matching/), which shows how
+`case` takes apart every value you can now build.

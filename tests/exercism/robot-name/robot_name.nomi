@@ -45,7 +45,7 @@ impl Factory {
 
         #(name, seed) = Generator.step(names(), factory.seed)
 
-        if Set.contains(factory.given, name) {
+        if name in factory.given {
             Factory.build(#{..factory, seed})
         } else {
             Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))

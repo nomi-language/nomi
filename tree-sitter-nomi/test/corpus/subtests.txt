@@ -197,3 +197,64 @@ test "leap" {
             (binary_expression
               (identifier)
               (integer))))))))
+
+================================================================================
+Subtests as a pipe stage
+================================================================================
+
+test "abbreviates" {
+  [
+    #("basic", "PNG"),
+  ]
+  |> subtests #(description, expected), description {
+    assert expected == "PNG"
+  }
+  rows
+  |> Iter.map(f)
+  |> subtests row {
+    assert row
+  }
+  x |> subtests(y)
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (test_declaration
+    (string
+      (string_content))
+    (body
+      (subtests_statement
+        (list
+          (tuple_expression
+            (string
+              (string_content))
+            (string
+              (string_content))))
+        (tuple_pattern
+          (identifier)
+          (identifier))
+        (identifier)
+        (body
+          (assertion
+            (binary_expression
+              (identifier)
+              (string
+                (string_content))))))
+      (subtests_statement
+        (pipe_expression
+          (identifier)
+          (call_expression
+            (field_access
+              (type_identifier)
+              (identifier))
+            (identifier)))
+        (identifier)
+        (body
+          (assertion
+            (identifier))))
+      (pipe_expression
+        (identifier)
+        (call_expression
+          (identifier)
+          (identifier))))))

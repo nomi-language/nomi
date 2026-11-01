@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // A capture routes to a trailing callback past a defaulted parameter as a
-// lambda does (spec §5, *Lambdas at Call Sites*): a partial capture
+// lambda does (spec §7, *Lambdas at Call Sites*): a partial capture
 // (`&String.length(&1)`, `&twice(by: 3, n: &1)`), an operator, a call
 // inside a larger expression and a struct literal, into `Iter.sort_by` and
 // into a user function shaped like the spec's `do_thing`, directly and

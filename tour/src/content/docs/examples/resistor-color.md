@@ -57,13 +57,12 @@ import {
 }
 
 test "Color codes" {
-    cases = [
+    [
         #("Black", Color.Black, 0),
         #("White", .White, 9),
         #("Orange", .Orange, 3),
     ]
-
-    subtests cases, #(description, color, expected), description {
+    |> subtests #(description, color, expected), description {
         assert resistor_color.color_code(color) == expected
     }
 }
@@ -83,6 +82,11 @@ test "Colors" {
     ]
 }
 ```
+<!-- expect
+ok Color codes (3 cases)
+ok Colors
+test result: ok. 4 passed, 0 failed
+-->
 
 ## How it's written
 

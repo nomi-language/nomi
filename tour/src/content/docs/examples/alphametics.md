@@ -77,7 +77,7 @@ fn assign(
 
     0..=9
     |> Iter.filter(fn digit -> {
-        not Set.contains(used, digit) and not (letter.leading and digit == 0)
+        not digit in used and not (letter.leading and digit == 0)
     })
     |> Iter.map(fn digit -> #(digit, total + letter.weight * digit))
     |> Iter.filter(fn #(_digit, after) -> is_reachable(after, rest))
@@ -100,7 +100,7 @@ fn is_reachable(total: Int, rest: List<Letter>) -> Bool {
 import alphametics
 
 test "solve" {
-    cases = [
+    [
         #("puzzle with three letters", "I + BB == ILL", Some(%{"I" => 1, "B" => 9, "L" => 0})),
         #("solution must have unique value for each letter", "A == B", None),
         #("leading zero solution is invalid", "ACA + DD == BD", None),
@@ -166,12 +166,15 @@ test "solve" {
             ),
         ),
     ]
-
-    subtests cases, #(description, puzzle, expected), description {
+    |> subtests #(description, puzzle, expected), description {
         assert alphametics.solve(puzzle) == expected
     }
 }
 ```
+<!-- expect
+ok solve (10 cases)
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 

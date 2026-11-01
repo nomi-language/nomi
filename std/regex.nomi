@@ -18,6 +18,50 @@
 //# `String.captures(text, re)` (every match's with `String.captures_all`).
 //# Replace every match with `String.replace(text, re, replacement)`, whose
 //# replacement names a group as `$1` or `${name}`.
+//#
+//# ## Capture types
+//#
+//# `Regex<C>` carries the type of its capture groups: `C` is what
+//# `String.captures` answers for a match, inside a `Maybe`, and what
+//# `String.captures_all` lists. The groups are the pattern's from group 1,
+//# in the order the pattern opens them; the whole match is `String.find`'s
+//# answer, not a group. A `Regex` literal whose pattern is fixed text (a
+//# backtick literal, or a double-quoted one with no `${...}`) has `C`
+//# computed from the pattern by the compiler, as Swift types
+//# `/(\d+)-(\w+)?/`:
+//#
+//# - A group is `String` when every match fills it and `Maybe<String>` when
+//#   a match can leave it out: it stands under `?`, `*` or a repetition whose
+//#   minimum is 0, in one alternative of a `|`, or inside a group that can be
+//#   left out. A group under `+` or `{n,m}` with `n > 0` holds its last
+//#   repetition and is `String`, as is one that can match the empty text
+//#   (`(a*)` takes part, empty, in every match).
+//# - When every group is named (`(?P<year>...)` or `(?<year>...)`) with a
+//#   name a field can have, `C` is the anonymous struct of the groups:
+//#   ``Regex`(?P<year>\d{4})-(?P<month>\d\d)?` `` is a
+//#   `Regex<#{year: String, month: Maybe<String>}>`.
+//# - Otherwise several groups are a tuple in order (``Regex`(\d+)-(\w+)?` ``
+//#   is a `Regex<#(String, Maybe<String>)>`, and ``Regex`(a)|(b)` `` a
+//#   `Regex<#(Maybe<String>, Maybe<String>)>`), one group is its type alone,
+//#   since Nomi has no one-element tuple (``Regex`v(\d+)` `` is a
+//#   `Regex<String>`), and a pattern with no group is a `Regex<Unit>`, whose
+//#   `String.captures` is `Some(Unit)` for a match.
+//#
+//# A regex compiled while the program runs, by `Regex.compile` or by a
+//# literal that interpolates, has groups no one knows before it runs, and is
+//# a `Regex<List<Maybe<String>>>`: one entry per group, `Some` of the text
+//# for a group that took part, even an empty one, and `None` for one that
+//# did not, so `String.captures("b", Regex.compile("(a)|(b)")?)` is
+//# `Some([None, Some("b")])`.
+//#
+//# `C` is phantom: every `Regex` holds a compiled pattern and nothing of
+//# `C`, so the functions that do not read groups (`Regex.pattern`,
+//# `String.contains`, the `Matcher` search functions, `Display` and `Debug`)
+//# take a `Regex<C>` for any `C`, and ordinary code never writes it. A
+//# function of your own that takes any regex is generic in it:
+//# `fn first<C>(re: Regex<C>, text: String) -> Maybe<C> { String.captures(text, re) }`.
+//# Annotating a binding of a literal names its type, as
+//# ``digits: Regex<Unit> = Regex`\d+` ``.
 
 import {
     bool.Bool.False
@@ -44,12 +88,27 @@ import {
 /// comes from its pattern, so ``Regex`(\w+)@(\w+)?` `` is a
 /// `Regex<#(String, Maybe<String>)>`, and the functions that do not read
 /// groups take a `Regex` of any `C`.
+//! import std/unit.Unit
+//!
 //! assert String.contains("order 66", Regex`\d+`)
 //! assert String.contains("room", Regex`\d+`) == False
 //! assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
 //! assert String.find("order 66, aisle 7", Regex`\d+`) == Maybe.Some("66")
 //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
 //! assert String.captures("ann@home", Regex`(\w+)@(\w+)?`) == Maybe.Some(#("ann", Maybe.Some("home")))
+//!
+//! pair = Regex`(\w+)@(\w+)?`
+//! assert String.captures("ann@", pair) == Maybe.Some(#("ann", Maybe.None))
+//! assert String.captures("none", pair) == Maybe.None
+//!
+//! #{year, month} = String.captures("2024-05", Regex`(?P<year>\d{4})-(?P<month>\d\d)`)!
+//! assert year + month == "202405"
+//!
+//! assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [#("a", "1"), #("b", "2")]
+//! assert String.captures("aa", Regex`(a*)`) == Maybe.Some("aa")
+//! assert String.captures("x", Regex`x`) == Maybe.Some(Unit)
+//! digits: Regex<Unit> = Regex`\d+`
+//! assert String.contains("a1", digits)
 //
 pub host type Regex<C>
 

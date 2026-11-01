@@ -20,8 +20,81 @@ import {
 //# generic iteration — including `Iter.count` (O(1) via the
 //# `known_count` protocol) — goes through `Iter`:
 //# `Iter.map(xs, f) |> Iter.to_list()` for the strict, List-returning form.
+//#
+//# ## List and Iter
+//#
+//# `List`'s own functions are the ones that read or rebuild its cons
+//# structure (`head`, `tail`, `concat`, `next_item`, `remove_at`, `remove`,
+//# `starts_with`, `ends_with`), its `Contains` impl (`contains`), and the
+//# `Iter` protocol: `each_while`, and `known_count`, O(1), read from the
+//# cached length. Every generic operation (transform, filter, reduce, sort,
+//# count, index access) is an `Iter` owner function over any `Iter<T>`, and
+//# a `List` is an `Iter<T>`. The adapters are lazy and fuse; end a chain with
+//# `Iter.to_list()` to materialize a `List` back, one allocation at the
+//# visible step. The rule: generic over any iterable is `Iter.X`; specific to
+//# a container's structure is that container's owner.
+//#
+//# ```nomi
+//# Iter.count(xs) // O(1) via known_count
+//#
+//# Iter.first(xs) / Iter.last(xs) / Iter.get(xs, i)
+//#
+//# Iter.is_empty(xs)
+//#
+//# Iter.reverse(xs) // → List
+//#
+//# Iter.map(xs, f) |> Iter.to_list()
+//#
+//# Iter.filter(xs, p) |> Iter.to_list()
+//#
+//# Iter.take(xs, n) / Iter.drop(xs, n)
+//#
+//# Iter.take_while(xs, p) / Iter.drop_while(xs, p)
+//#
+//# Iter.flat_map(xs, f) / Iter.flatten(xss) / Iter.zip(a, b) / Iter.with_index(xs)
+//#
+//# Iter.transpose(rows) // → List<List<T>>, column i from each row long enough
+//#
+//# Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
+//#
+//# Iter.permutations(xs) / Iter.combinations(xs, k) // → Iter<List<T>>, by source position
+//#
+//# Iter.reduce(xs, f, from: start) / Iter.each(xs, f) / Iter.find(xs, p)
+//#
+//# Iter.scan(xs, f, from: start) / Iter.map_reduce(xs, fn acc = start, x -> #(out, next))
+//#
+//# Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
+//#
+//# Iter.any(xs, p) / Iter.all(xs, p) / Iter.contains(xs, x)
+//#
+//# Iter.sort(xs) / Iter.sort_by(xs, key) / Iter.sort_with(xs, cmp)
+//#
+//# Iter.partition(xs, p) / Iter.group_by(xs, key) / Iter.frequencies(xs)
+//# ```
 
 /// Ordered, immutable sequence of elements.
+//! names = ["Alice", "Bob"]
+//! names = ["Carol", ..names]
+//! assert names == ["Carol", "Alice", "Bob"]
+//!
+//! // A lazy pipeline with a strict terminal...
+//! total =
+//!     [1, 2, 3, 4, 5]
+//!     |> Iter.filter(fn x -> x > 2)
+//!     |> Iter.map(fn x -> x * 2)
+//!     |> Iter.sum()
+//!
+//! assert total == 24
+//!
+//! // ...or materialized back to a List.
+//! doubled =
+//!     [1, 2, 3, 4, 5]
+//!     |> Iter.filter(fn x -> x > 2)
+//!     |> Iter.map(fn x -> x * 2)
+//!     |> Iter.to_list()
+//!
+//! assert doubled == [6, 8, 10]
+//
 pub host type List<T>
 
 fn list_next<T>(list: List<T>) -> Maybe<#(T, List<T>)> {

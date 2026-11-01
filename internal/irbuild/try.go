@@ -37,7 +37,7 @@ import (
 //	_ = fn x: Int -> { v = parse(x)?; v }                 // lambda result Int
 //
 // `analysis.checkTryBoundary` rejects all three at the `?`, naming both
-// types, and spec §9 states the rule as three clauses. This arm is a FENCE:
+// types, and spec §11 states the rule as three clauses. This arm is a FENCE:
 // if any of the three ever reaches here, refusing by name is still better than
 // lowering a graph that is right by coincidence. The synthetic rows for it
 // assert the FRONT END rejects each, as for `try boundary disagreement`.

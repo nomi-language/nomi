@@ -46,6 +46,7 @@
 05-calendar-and-time/offset_datetime_test.nomi
 05-calendar-and-time/times_test.nomi
 06-collections/contains_test.nomi
+06-collections/in_test.nomi
 06-collections/lists_test.nomi
 06-collections/maps_test.nomi
 06-collections/named_literals_test.nomi

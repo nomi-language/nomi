@@ -9,7 +9,7 @@ import (
 )
 
 // A capture is a function written as `&` and its body (ast.Capture, spec
-// §5, *Captures*): `&(&1 > 2)`, `&Int.max(&1, 0)`, `&#Point{x: &1, y: 0}`.
+// §7, *Captures*): `&(&1 > 2)`, `&Int.max(&1, 0)`, `&#Point{x: &1, y: 0}`.
 // Each `&N` in the body is its parameter N.
 //
 // The function type its position expects fixes its arity and its
@@ -526,8 +526,9 @@ func (c *checker) reportUninferredHoles(n *ast.Capture, holes []*ast.Placeholder
 		}
 	}
 	inner := ungroupExpr(n.Body)
-	if b, ok := inner.(*ast.Binary); ok && len(holes) == 1 {
-		// `&1 > 2`: the other operand's type is the parameter's.
+	if b, ok := inner.(*ast.Binary); ok && len(holes) == 1 && b.Op != "in" {
+		// `&1 > 2`: the other operand's type is the parameter's. An `in`'s
+		// operands differ, and its call recorded what the value takes.
 		if other := b.Right; b.Left == ast.Node(holes[0]) || b.Right == ast.Node(holes[0]) {
 			if other == ast.Node(holes[0]) {
 				other = b.Left

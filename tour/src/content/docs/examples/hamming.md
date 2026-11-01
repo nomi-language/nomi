@@ -30,7 +30,7 @@ pub fn distance(strand1: String, strand2: String) -> Result<Int, String> {
 import hamming.distance
 
 test "hamming distance" {
-    cases = [
+    [
         #("empty strands", "", "", Ok(0)),
         #("single letter identical strands", "A", "A", Ok(0)),
         #("single letter different strands", "G", "T", Ok(1)),
@@ -41,12 +41,15 @@ test "hamming distance" {
         #("disallow empty first strand", "", "G", Err("strands must be of equal length")),
         #("disallow empty second strand", "G", "", Err("strands must be of equal length")),
     ]
-
-    subtests cases, #(description, strand1, strand2, expected), description {
+    |> subtests #(description, strand1, strand2, expected), description {
         assert distance(strand1, strand2) == expected
     }
 }
 ```
+<!-- expect
+ok hamming distance (9 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

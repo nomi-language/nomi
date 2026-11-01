@@ -1,6 +1,6 @@
 ---
 title: "Money"
-description: "Amounts of money with std/money: writing them, adding them, rounding them, custom currencies, and reading prices people type."
+description: "Amounts of money with std/money: writing them, adding them, rounding them, custom currencies, showing them to a reader, and reading prices people type."
 ---
 
 [`std/money`](/reference/money/) has `Money`, an amount in a currency. The
@@ -229,13 +229,93 @@ error: typed literal Money`5 PST:0`: `PST:0` is a custom currency this module do
   = help: did you mean `PTS:0`? nomi.toml lists it
 ```
 
-`Currency.custom("PST", 0)` with both arguments written out is checked the
-same way, and the editor suggests the literal there.
+<div class="tour-details">
+<p class="tour-details-label">The custom currency list</p>
 
-Each module has its own list: a library lists the currencies it writes, and
-the application's list doesn't cover them. A single file with no
-`nomi.toml`, like the other examples on this page, may write any custom
-currency.
+- `Currency.custom("PST", 0)` with both arguments written out is checked
+  the same way as a literal.
+- Each module has its own list: a library lists the currencies it writes,
+  and the application's list doesn't cover them.
+- A single file with no `nomi.toml`, like the other examples on this page,
+  may write any custom currency.
+- [`[money]`](/tooling/projects/#money) lists what an entry may hold, and
+  [`std/currency`](/reference/currency/) what a custom currency can do.
+
+</div>
+
+## Showing an amount to a reader
+
+`Money.format` writes a price the way a reader of a locale expects, with the
+currency's symbol in the right place. How a locale writes numbers is in
+[Locales & Formatting](/locales-and-formatting/).
+
+```nomi-run
+import {
+    std/io
+    std/locale.Locale
+    std/money.Money
+}
+
+fn main() {
+    price = Money`1299.5 USD`
+
+    [Locale`en-US`, Locale`de`, Locale`fr`]
+    |> Iter.each(fn locale -> io.print("${locale}: ${Money.format(price, locale)}"))
+
+    dbg "${price}"
+    dbg Money.format(Money`1500 JPY`, Locale`ja`)
+    Unit
+}
+
+```
+<!-- expect
+en-US: $1,299.50
+de: 1.299,50 $
+fr: 1 299,50 $US
+dbg line 13: "${price}" = "1299.5 USD"
+dbg line 14: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
+-->
+
+The dollar sign comes before the amount in American English and after it in
+German and French. French writes `$US`, since several countries call their
+money a dollar. CLDR also knows how many digits each currency has after the
+decimal point. The dollar has two, so `1299.5` becomes `1,299.50`. The yen
+has none.
+
+Putting a `Money` in a string, as in `"${price}"`, gives the amount and the
+code: `1299.5 USD`, the text its literal is written in. Like a number in a
+string, it is the same for every reader.
+
+### Showing the currency
+
+`display:` picks how the currency is shown: its symbol (the default), its
+narrow symbol, its code, or its name.
+
+```nomi-run
+import {
+    std/locale.Locale
+    std/money.Money
+}
+
+fn main() {
+    usd = Money`5 USD`
+    dbg Money.format(usd, Locale`en-US`, display: .Code)
+    dbg Money.format(usd, Locale`en-CA`)
+    Unit
+}
+
+```
+<!-- expect
+dbg line 8: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
+dbg line 9: Money.format(usd, Locale`en-CA`) = "US$5.00"
+-->
+
+After `USD` is a no-break space, which `dbg` writes `\u{a0}`. Canadian
+English writes `US$` for the US dollar, since `$` alone would mean the
+Canadian dollar. `display: .Narrow` writes `$5.00`, for a page where the
+currency is clear, and `.Name` writes `5.00 US dollars`. A
+[custom currency](#custom-currencies) has no symbol or name in CLDR,
+so it is always shown by its code.
 
 ## Reading what people type
 
@@ -267,8 +347,8 @@ dbg line 11: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(#WrongCurrency
 -->
 
 A price in another currency is an error, and so is one with more digits
-than the currency has: `$12.505` is `Err(#TooManyFractionDigits{max: 2})`. [Formatting for a
-Reader](/locales-and-formatting/#reading-what-people-type) covers how each
+than the currency has: `$12.505` is `Err(#TooManyFractionDigits{max: 2})`.
+[Locales & Formatting](/locales-and-formatting/#reading-what-people-type) covers how each
 locale writes numbers, and the rest of what strict and lenient reading
 accept.
 
@@ -280,6 +360,6 @@ exchange rates. A library that has them takes a `Money`, checks its
 `currency`, and returns a new `Money` in the other currency, rounded with
 `Money.round` when it is ready to charge.
 
-[Typed Literals](/typed-literals/) is next. It shows how ``Money`…` ``,
-``Date`…` `` and the other backtick literals work, and how to write one for
-your own type.
+[Locales & Formatting](/locales-and-formatting/) is next. It writes an
+amount, and numbers, dates and lists, the way a reader's language writes
+them.

@@ -57,11 +57,8 @@ go install ./cmd/nomi ./cmd/nomi-lsp
 
 `go install` puts both in `$(go env GOPATH)/bin` (usually `~/go/bin`); make
 sure that directory is on your `PATH`. Keep the checkout: editor support is
-installed from it, and a `nomi` built from it builds projects with Go bindings
-against it. [`docs/install.md`](docs/install.md) also covers
-`go install ...@<version>` without a clone, and prebuilt binaries of tagged
-versions, which need no Go but are snapshots that fall behind `main`. Either of
-those builds Go bindings against its own released version, which Go fetches.
+installed from it. [`docs/install.md`](docs/install.md) covers the rest,
+including `go install ...@latest` without a clone.
 
 Write a first program in a directory of your own, outside the checkout. Save
 this as `~/hello-nomi/hello.nomi`:

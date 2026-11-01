@@ -4,7 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// parseCapture parses a capture (spec §5, *Captures*): `&` written against
+// parseCapture parses a capture (spec §7, *Captures*): `&` written against
 // the function's body, which is one postfix-level operand: a call (`&Int.max(&1, 0)`), a parenthesized expression
 // (`&(&1 > 2)`) or a literal (`&#Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`,
 // `&%{&1 => 0}`). So `&f(&1) + 1` adds 1 to a function, and the body of a

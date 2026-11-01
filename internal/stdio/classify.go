@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"runtime"
 	"syscall"
 
 	"github.com/nomi-language/nomi/rt"
@@ -32,6 +33,9 @@ func classify(op, path string, err error) *rt.IOError {
 	tag := func(t uint8) *rt.IOError { return errOf(t, path) }
 	var errno syscall.Errno
 	if errors.As(err, &errno) {
+		if windowsCodes {
+			errno = fromWindows(errno)
+		}
 		switch errno {
 		case syscall.EISDIR:
 			return tag(rt.TagIOIsADirectory)
@@ -75,5 +79,49 @@ func classify(op, path string, err error) *rt.IOError {
 	if le != nil && le.Op != "" {
 		op = le.Op
 	}
-	return &rt.IOError{Tag: rt.TagIOOther, Operation: op, Path: path, Code: rt.ErrnoName(err)}
+	code := rt.ErrnoName(err)
+	if errno != 0 {
+		code = rt.ErrnoName(errno)
+	}
+	return &rt.IOError{Tag: rt.TagIOOther, Operation: op, Path: path, Code: code}
+}
+
+// windowsCodes is whether a syscall.Errno is a Windows error code, which
+// fromWindows reads as the errno a Unix system answers for the same
+// failure. A test sets it to read Windows codes on another system.
+var windowsCodes = runtime.GOOS == "windows"
+
+// windowsErrnos are the Windows error codes whose failure Unix names with
+// another errno, by number, so the table means the same on every system.
+// Go's syscall package on Windows names a few of them itself (ENOENT is
+// ERROR_FILE_NOT_FOUND, ENOTDIR is ERROR_PATH_NOT_FOUND); the others it
+// leaves as codes no case below matches, and errors.Is reads
+// ERROR_DIR_NOT_EMPTY as fs.ErrExist.
+var windowsErrnos = map[syscall.Errno]syscall.Errno{
+	2:    syscall.ENOENT,    // ERROR_FILE_NOT_FOUND
+	3:    syscall.ENOTDIR,   // ERROR_PATH_NOT_FOUND: a missing directory above, or a file there
+	123:  syscall.EINVAL,    // ERROR_INVALID_NAME
+	145:  syscall.ENOTEMPTY, // ERROR_DIR_NOT_EMPTY
+	267:  syscall.ENOTDIR,   // ERROR_DIRECTORY: a file opened as a directory
+	1921: syscall.ELOOP,     // ERROR_CANT_RESOLVE_FILENAME: a symlink loop
+	4390: syscall.EINVAL,    // ERROR_NOT_A_REPARSE_POINT: readlink of what is not a link
+}
+
+// notExist reports whether err says nothing is at a path: Go's
+// fs.ErrNotExist, which on Windows matches both of the codes for absence.
+func notExist(err error) bool {
+	if errors.Is(err, fs.ErrNotExist) {
+		return true
+	}
+	var errno syscall.Errno
+	return windowsCodes && errors.As(err, &errno) && (errno == 2 || errno == 3)
+}
+
+// fromWindows is the errno a Unix system answers for the failure Windows
+// reports as code.
+func fromWindows(code syscall.Errno) syscall.Errno {
+	if errno, ok := windowsErrnos[code]; ok {
+		return errno
+	}
+	return code
 }

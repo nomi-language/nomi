@@ -58,7 +58,7 @@ pub fn counts(strand: String) -> Result<Map<Nucleotide, Int>, String> {
 import nucleotide_count.{self, Nucleotide}
 
 test "nucleotide counts" {
-    cases = [
+    [
         #("empty strand", "", Ok(%{Nucleotide.A => 0, .C => 0, .G => 0, .T => 0})),
         #(
             "can count one nucleotide in single-character input",
@@ -77,12 +77,15 @@ test "nucleotide counts" {
         ),
         #("strand with invalid nucleotides", "AGXXACT", Err("Invalid nucleotide in strand")),
     ]
-
-    subtests cases, #(description, strand, expected), description {
+    |> subtests #(description, strand, expected), description {
         assert nucleotide_count.counts(strand) == expected
     }
 }
 ```
+<!-- expect
+ok nucleotide counts (5 cases)
+test result: ok. 5 passed, 0 failed
+-->
 
 ## How it's written
 

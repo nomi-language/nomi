@@ -111,14 +111,14 @@ fn spread(
             around =
                 directions
                 |> Iter.map(fn #(dx, dy) -> #(x + dx, y + dy))
-                |> Iter.filter(&Map.contains(points, &1))
+                |> Iter.filter(&(&1 in points))
                 |> Iter.to_list()
 
             #(empty, stones) = Iter.partition(around, fn point -> {
                 Map.get(points, point) == Some(" ")
             })
 
-            new = empty |> Iter.reject(&Set.contains(area, &1)) |> Iter.to_list()
+            new = empty |> Iter.reject(&(&1 in area)) |> Iter.to_list()
             touched = stones |> Iter.map(&Map.get(points, &1)!) |> Iter.to_set()
 
             spread(
@@ -211,6 +211,11 @@ test "territories" {
     }
 }
 ```
+<!-- expect
+ok territory (8 cases)
+ok territories (3 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

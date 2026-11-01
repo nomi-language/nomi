@@ -483,7 +483,7 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 	switch st := s.(type) {
 	case *ast.Assertion:
 		if bl.testTail && bl.setupExit != nil {
-			// A setup's final `assert x` is its value (spec §36).
+			// A setup's final `assert x` is its value (spec §17).
 			return bl.setupValue(st, st)
 		}
 		return bl.assertion(st)

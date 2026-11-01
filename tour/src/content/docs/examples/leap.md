@@ -24,7 +24,7 @@ pub fn is_leap_year(year: Int) -> Bool {
 import leap.is_leap_year
 
 test "leap years" {
-    cases = [
+    [
         #("year not divisible by 4 in common year", 2015, False),
         #("year divisible by 2, not divisible by 4 in common year", 1970, False),
         #("year divisible by 4, not divisible by 100 in leap year", 1996, True),
@@ -35,12 +35,15 @@ test "leap years" {
         #("year divisible by 400 but not by 125 is still a leap year", 2400, True),
         #("year divisible by 200, not divisible by 400 in common year", 1800, False),
     ]
-
-    subtests cases, #(description, year, expected), description {
+    |> subtests #(description, year, expected), description {
         assert is_leap_year(year) == expected
     }
 }
 ```
+<!-- expect
+ok leap years (9 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -1,7 +1,7 @@
 import food_chain
 
 test "food chain" {
-    cases = [
+    [
         #(
             "fly",
             1,
@@ -179,8 +179,7 @@ test "food chain" {
             ],
         ),
     ]
-
-    subtests cases, #(description, start, end, expected), description {
+    |> subtests #(description, start, end, expected), description {
         assert food_chain.recite(start, end) == expected
     }
 }

@@ -128,6 +128,15 @@ test "a resource is released when the work traps" {
     assert is_closed(reader)
 }
 ```
+<!-- expect
+ok a missing answer is None
+ok a failure the caller handles is an Err
+ok a broken promise traps
+ok a resource is released when the work succeeds
+ok a resource is released when the work fails
+ok a resource is released when the work traps
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -273,6 +273,39 @@ func TestNormalizeTakesOutTheRootAndTheJitter(t *testing.T) {
 	}
 }
 
+// TestNormalizeSlashesAWindowsPath is what a Windows run prints: the root,
+// then the rest of the path with `\`. The record spells it with `/`, and a
+// backslash in the program's own output after the path stays.
+func TestNormalizeSlashesAWindowsPath(t *testing.T) {
+	root := `D:\a\nomi\nomi`
+	got := Normalize(`ok `+root+`\tests\01-foundations\x_test.nomi :: a \n escape`+"\n"+
+		`--> `+root+`\tests\y.nomi:4:14`+"\n", root)
+	want := `ok <root>/tests/01-foundations/x_test.nomi :: a \n escape` + "\n" +
+		"--> <root>/tests/y.nomi:4:14\n"
+	if got != want {
+		t.Errorf("Normalize = %q, want %q", got, want)
+	}
+	dir := `C:\Users\RUNNER~1\AppData\Local\Temp\TestX\001`
+	got = NormalizeDir(`FAIL `+dir+`\sub\control_test.nomi :: fails`+"\n", dir)
+	if want := "FAIL <dir>/sub/control_test.nomi :: fails\n"; got != want {
+		t.Errorf("NormalizeDir = %q, want %q", got, want)
+	}
+}
+
+// TestExpandMarkerSpellsThePathAsTheProgramPrintsIt puts a directory back
+// with the separator rt.DisplayPath prints after it.
+func TestExpandMarkerSpellsThePathAsTheProgramPrintsIt(t *testing.T) {
+	text := "ok <dir>/sub/control_test.nomi :: a/b\nin <dir>\n"
+	got := ExpandMarker(text, "<dir>", `C:\tmp\001`, '\\')
+	if want := "ok C:\\tmp\\001\\sub\\control_test.nomi :: a/b\nin C:\\tmp\\001\n"; got != want {
+		t.Errorf("ExpandMarker = %q, want %q", got, want)
+	}
+	got = ExpandMarker(text, "<dir>", "testdata", '/')
+	if want := "ok testdata/sub/control_test.nomi :: a/b\nin testdata\n"; got != want {
+		t.Errorf("ExpandMarker = %q, want %q", got, want)
+	}
+}
+
 // TestIsFailingIsNotJustANonZeroExit pins the rule the FailureMarkers comment
 // states. A front-end error exits 1 and has no failure REPORT to compare.
 func TestIsFailingIsNotJustANonZeroExit(t *testing.T) {

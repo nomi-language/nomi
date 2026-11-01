@@ -12,7 +12,7 @@ import (
 // both sources (so `==` could consume, and never answer on an infinite one).
 // `==` and `!=` over such a value, or over a tuple, record, collection, prelude
 // wrapper or struct that holds one, are rejected here, so the program never
-// reaches a comparison the VM cannot answer (spec §30, "Functions and Iters
+// reaches a comparison the VM cannot answer (spec §5, "Functions and Iters
 // cannot be compared").
 //
 // A declared struct or enum with its own `impl Equatable` is exempt: its
@@ -174,7 +174,7 @@ func isStdIterType(t Type) bool {
 }
 
 // A Set element and a Map key are found by equality and hashing, so a value
-// with no equality cannot be one (spec §30). rejectKeyWithoutEquality reports
+// with no equality cannot be one (spec §5 *Equality and Ordering Semantics*). rejectKeyWithoutEquality reports
 // the first Set or Map a literal, call or pipe builds whose element or key
 // has no equality. Other nodes only pass such a value along, so reporting at
 // the node that built it, once per collection type per body, is enough.

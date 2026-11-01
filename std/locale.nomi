@@ -3,10 +3,8 @@
 //# `zh-Hant-HK`, Unicode extensions included (`en-US-u-nu-latn`). Write a
 //# fixed one as a raw typed literal, ``Locale`pt-BR` ``, which is checked when
 //# the program is checked; parse text with `Locale.parse`, and read a POSIX
-//# value such as `LANG` with `Locale.from_posix`.
-//# Nothing reads a locale implicitly: every function whose output depends on
-//# one takes it as an argument. An application keeps the current locale in an
-//# application field (by convention `App.locale`) and passes it on.
+//# value such as `LANG` with `Locale.from_posix`. Nothing reads a locale
+//# implicitly ([How code gets a locale](#how-code-gets-a-locale)).
 //# `Locale.fallbacks` gives the chain locale data is looked up along, by
 //# CLDR's parent locales, and `Locale.negotiate` picks the best of the
 //# locales a program offers for the ones a reader asked for.
@@ -21,6 +19,47 @@
 //# KB for Japanese). The Chinese and Korean orders are 160 to 250 KB each,
 //# so a program carries them only when it lists `zh` or `ko`; without them,
 //# Chinese and Korean sort in the basic order.
+//#
+//# `std/locale` is one of a family of modules. [std/plural](/reference/plural/)
+//# provides CLDR's plural rules. `Int`, `Float`, `Decimal` and `String` format
+//# and parse numbers and join lists for a locale
+//# ([std/int](/reference/int/), [std/strings](/reference/strings/)),
+//# [std/currency](/reference/currency/) and [std/money](/reference/money/)
+//# provide `Currency` and `Money`, [std/collation](/reference/collation/)
+//# orders text, the calendar types and `Duration` format and parse dates,
+//# times and lengths of time, [std/localize](/reference/localize/) holds the
+//# `Localize` interface and the parse error, and
+//# [std/message](/reference/message/) holds the `Message` a `message`
+//# declaration returns. All the locale data comes from one pinned CLDR
+//# release, 48.2. Which locales a program carries is set in `nomi.toml`'s
+//# [`[i18n]`](/tooling/projects/#i18n) table.
+//#
+//# ## How code gets a locale
+//#
+//# Nothing reads a locale implicitly. A function whose output depends on one
+//# takes it as an argument, and an application keeps the current one in an
+//# application field, by convention named `locale`. A library cannot read
+//# application fields, so it takes the `Locale` it needs. A locale is not a
+//# `Context` value. An application's boot reads the reader's locale, here from
+//# `LANG`:
+//#
+//# ```nomi
+//# pub struct App {
+//#     locale: Locale
+//# }
+//#
+//# pub fn boot(startup: Startup) -> Result<App, String> {
+//#     locale =
+//#         Map.get(startup.env, "LANG")
+//#         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
+//#         |> Maybe.with_default(Locale`en`)
+//#
+//#     Ok(#App{locale})
+//# }
+//# ```
+//#
+//# A test group pins the locale through its boot, or overrides it with a
+//# `with` line in `setup`.
 
 import {
     debug.Debug
@@ -37,11 +76,14 @@ import {
     unit.Unit
 }
 
-/// A locale: a canonical BCP 47 language tag.
+/// A locale: a canonical [BCP 47](https://www.rfc-editor.org/rfc/rfc5646)
+/// language tag, Unicode extensions included (`en-US-u-nu-latn`).
 ///
-/// Parsing canonicalizes, so two spellings of one locale are equal:
-/// `EN-us` is `en-US`, and the deprecated `iw` is `he`. `Display` gives the
-/// tag; `Debug` gives the literal that builds it.
+/// It is an opaque type: values come from parsing, and parsing
+/// canonicalizes, so two spellings of one locale are equal: `EN-us` is
+/// `en-US`, and the deprecated `iw` is `he`. `Locale` is `Equatable` and
+/// `Hashable`, so it is a map key, and it is not `Comparable`. `Display`
+/// gives the tag; `Debug` gives the literal that builds it.
 //! assert Display.to_string(Locale`pt-BR`) == "pt-BR"
 //! assert Locale.parse("EN-us") == Ok(Locale`en-US`)
 //! assert Locale`iw` == Locale`he`
@@ -125,12 +167,18 @@ impl Display for Error {
 }
 
 impl Locale {
-    /// Parse a BCP 47 tag into its canonical `Locale`. Case is normalized,
-    /// deprecated subtags are replaced (`iw` is `he`, `in` is `id`), and
-    /// Unicode extensions are kept. A POSIX value (`pt_BR`) is an error that
-    /// suggests the tag; use `Locale.from_posix` for those.
+    /// Parse a BCP 47 tag into its canonical `Locale`. Case is normalized
+    /// (`EN-us` is `en-US`, `zh-hant-hk` is `zh-Hant-HK`), deprecated
+    /// subtags are replaced (`iw` is `he`, `in` is `id`, `sh` is
+    /// `sr-Latn`), and Unicode extensions are kept. A failure is an
+    /// `Error`: `Empty`; `Underscore {suggestion}` for a POSIX spelling such
+    /// as `pt_BR`, whose suggestion is `pt-BR` (use `Locale.from_posix` for
+    /// those); `Malformed {text}` for text that is not a well-formed tag;
+    /// `UnknownSubtag {subtag}` for a well-formed tag with an unregistered
+    /// subtag (`xx`).
     //! assert Locale.parse("zh-hant-hk") == Ok(Locale`zh-Hant-HK`)
     //! assert Locale.parse("in") == Ok(Locale`id`)
+    //! assert Locale.parse("sh") == Ok(Locale`sr-Latn`)
     //! assert Locale.parse("pt_BR") == Err(#Error.Underscore{suggestion: "pt-BR"})
     //! assert Locale.parse("") == Err(Error.Empty)
     //! assert Locale.parse("en--US") == Err(#Error.Malformed{text: "en--US"})
@@ -143,13 +191,15 @@ impl Locale {
     /// Read a POSIX locale value, as `LANG` and `LC_ALL` hold it
     /// (`language[_territory][.codeset][@modifier]`). The codeset is dropped;
     /// `@latin`, `@cyrillic` and `@devanagari` become the script and
-    /// `@valencia` the variant, and any other modifier is dropped. `C` and
-    /// `POSIX` name no language, so they are `und`.
+    /// `@valencia` the variant, and any other modifier (`@euro`) is dropped.
+    /// `C` and `POSIX`, with or without a codeset, name no language, so they
+    /// are `und`.
     //! assert Locale.from_posix("pl_PL.UTF-8") == Ok(Locale`pl-PL`)
     //! assert Locale.from_posix("en_US@euro") == Ok(Locale`en-US`)
     //! assert Locale.from_posix("sr_RS@latin") == Ok(Locale`sr-Latn-RS`)
     //! assert Locale.from_posix("C") == Ok(Locale`und`)
     //! assert Locale.from_posix("POSIX") == Ok(Locale`und`)
+    //! assert Locale.from_posix("C.UTF-8") == Ok(Locale`und`)
     //
     pub fn from_posix(value: String) -> Result<Locale, Error> {
         Locale.lift(locale_from_posix_raw(value))
@@ -163,7 +213,8 @@ impl Locale {
         locale_language(tag)
     }
 
-    /// The script subtag the tag spells, if any.
+    /// The script subtag the tag spells, if any. It never guesses a likely
+    /// one.
     //! assert Locale.script(Locale`zh-Hant-HK`) == Maybe.Some("Hant")
     //! assert Locale.script(Locale`pt-BR`) == Maybe.None
     //
@@ -172,7 +223,8 @@ impl Locale {
         locale_script(tag)
     }
 
-    /// The region subtag the tag spells, if any.
+    /// The region subtag the tag spells, if any. It never guesses a likely
+    /// one.
     //! assert Locale.region(Locale`es-419`) == Maybe.Some("419")
     //! assert Locale.region(Locale`pl`) == Maybe.None
     //
@@ -181,14 +233,32 @@ impl Locale {
         locale_region(tag)
     }
 
-    /// The chain locale data is looked up along: the locale itself, the
-    /// locale without its extensions, then its parents by CLDR's parent
-    /// locales, nearest first, root excluded. A parent is not always the tag
-    /// with its last subtag removed: `es-MX` goes to `es-419` before `es`,
-    /// `en-GB` to `en-001` before `en`, and `zh-Hant-HK` never reaches `zh`.
+    /// The chain locale data is looked up along, nearest first: the locale
+    /// itself, the locale without its extensions when it has any, then its
+    /// ancestors by CLDR's parent locales, root (`und`) excluded.
+    ///
+    /// A parent is the one CLDR's parentLocales names, else the tag with its
+    /// last subtag removed, so a parent is not always the shorter tag:
+    /// `es-MX` goes to `es-419` before `es`, `en-GB` and `en-150` to `en-001`
+    /// before `en`, and `pt-AO` to `pt-PT`. Two rules refine truncation. A
+    /// tag with a region and no script, whose region implies a different
+    /// script than the language's own, inherits from the language with that
+    /// script (`zh-TW` goes to `zh-Hant`). A language-and-script tag whose
+    /// script is not the language's likely one has root as its parent
+    /// (`ru-Latn` has no ancestor). So `zh-Hant-HK` never reaches `zh`.
     //! assert Locale.fallbacks(Locale`es-MX`) == [Locale`es-MX`, Locale`es-419`, Locale`es`]
+    //! assert Locale.fallbacks(Locale`en-150`) == [Locale`en-150`, Locale`en-001`, Locale`en`]
+    //! assert Locale.fallbacks(Locale`pt-AO`) == [Locale`pt-AO`, Locale`pt-PT`, Locale`pt`]
     //! assert Locale.fallbacks(Locale`pt-BR`) == [Locale`pt-BR`, Locale`pt`]
     //! assert Locale.fallbacks(Locale`zh-Hant-HK`) == [Locale`zh-Hant-HK`, Locale`zh-Hant`]
+    //! assert Locale.fallbacks(Locale`zh-TW`) == [Locale`zh-TW`, Locale`zh-Hant`]
+    //! assert Locale.fallbacks(Locale`ru-Latn`) == [Locale`ru-Latn`]
+    //!
+    //! assert Locale.fallbacks(Locale`de-CH-u-nu-latn`) == [
+    //!     Locale`de-CH-u-nu-latn`,
+    //!     Locale`de-CH`,
+    //!     Locale`de`,
+    //! ]
     //
     pub fn fallbacks(locale: Locale) -> List<Locale> {
         Locale(tag) = locale
@@ -300,8 +370,17 @@ impl Locale {
 impl Literal for Locale {
     /// ``Locale`pt-BR` `` is the locale `Locale.parse` gives for its text. A
     /// raw literal is checked when the program is checked, so a malformed tag
-    /// is a compile error at the literal, and so, in a program that lists its
-    /// locales, is a locale whose fallback chain reaches none of them.
+    /// is a compile error at the literal, worded by `Error`'s `Display`:
+    /// ``typed literal Locale`pt_BR` is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)``.
+    ///
+    /// In a program that lists its locales (`[i18n].locales` and
+    /// `partial_locales`), a literal whose locale's fallback chain reaches
+    /// none of them is a compile error too, since the program would never
+    /// format in it: with `en` and `de` listed,
+    /// ``typed literal Locale`fr`: `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them``.
+    /// ``Locale`de-CH` `` is valid there, as is any literal in a program that
+    /// lists no locales. A locale the program only compares or negotiates is
+    /// parsed while it runs (`Locale.parse("fr")`), which no check refuses.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Locale, Error> {
         body = Iter.reduce(fragments, fn acc = "", frag -> {
             case frag {

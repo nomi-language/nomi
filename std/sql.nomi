@@ -13,7 +13,12 @@
 //# std holds no driver: drivers are modules of their own, such as the
 //# SQLite driver (`nomi add github.com/nomi-language/nomi/lib/sql/sqlite`,
 //# https://nomi-lang.org/databases/), and `std/sql_testing` has a recording
-//# fake `Conn` and the conformance suite every driver runs.
+//# fake `Conn` and the conformance suite every driver runs. Both std modules
+//# are written in Nomi. The first-party SQLite driver and the checked-SQL
+//# library sqlkit are modules of their own in the nomi repository, under
+//# `lib/sql/`, which a project adds with `nomi add
+//# github.com/nomi-language/nomi/lib/sql/sqlite` and `nomi add
+//# github.com/nomi-language/nomi/lib/sql/sqlkit`.
 
 import {
     add.Add
@@ -66,7 +71,10 @@ import {
 ///   inside it, as the engine does when a connection ends. After that,
 ///   every operation of every `Conn` of the connection but `dialect`,
 ///   `rollback` included, is `Err(.Closed)`, and `close` again is a no-op
-///   that returns `Ok`.
+///   that returns `Ok`, as `rollback` after a finished transaction is.
+///   A transaction's `Conn` is a view of its connection, so there is one
+///   thing to close, and closing only the transaction would be
+///   `rollback`.
 pub interface Conn {
     fn query(conn: self, statement: Statement) -> Result<List<Row>, Error>
     fn each_row(conn: self, statement: Statement, f: (Row) -> Bool) -> Result<Unit, Error>
@@ -83,9 +91,11 @@ pub interface Conn {
 /// parameter, one more than `params`, so a driver writes its own dialect's
 /// placeholders between them. Write one with the `Sql"..."` literal.
 ///
-/// `Display` writes the SQL with `?1`, `?2`, ... for the parameters,
-/// numbered from 1 in the order they appear, whatever placeholders a
-/// driver sends.
+/// Two slots side by side, or a slot at either end, have an empty part
+/// between them or beside them. `Statement` is `Equatable`, and `Display`
+/// writes the SQL with `?1`, `?2`, ... for the parameters, numbered from 1
+/// in the order they appear, whatever placeholders a driver sends
+/// (`SELECT id FROM users WHERE name = ?1`).
 //! s = Sql"SELECT name FROM users WHERE id = ${7} AND active = ${True}"
 //! assert s.parts == ["SELECT name FROM users WHERE id = ", " AND active = ", ""]
 //! assert s.params == [Value.Int(7), Value.Bool(True)]
@@ -117,7 +127,9 @@ impl Literal for Sql {
     /// `Sql"SELECT * FROM users WHERE id = ${id}"` is a `Statement`: the
     /// text between the slots is its SQL, and each slot's value, which must
     /// implement `ToSql`, is a parameter. A value never becomes SQL text, so
-    /// a slot cannot inject SQL whatever it holds.
+    /// a slot cannot inject SQL whatever it holds. `Sql` is the tag type,
+    /// and its `Literal` impl takes `List<Fragment<ToSql>>` ([Typed
+    /// literals](/spec/typed-literals-and-keyword-declarations/)).
     //! name = "x'); DROP TABLE users; --"
     //! s = Sql"SELECT id FROM users WHERE name = ${name}"
     //! assert s.parts == ["SELECT id FROM users WHERE name = ", ""]
@@ -140,8 +152,9 @@ impl Literal for Sql {
     }
 }
 
-/// `a + b` is `a`'s SQL followed by `b`'s, with both statements'
-/// parameters in order, so a query can be built from pieces at run time.
+/// `a + b` is `a`'s SQL followed by `b`'s, with `a`'s parameters then
+/// `b`'s: `a`'s last part and `b`'s first become one part. So a query can
+/// be built from pieces at run time.
 /// Each piece is a `Sql"..."` literal, so a value still goes only in a
 /// `${...}` slot and never becomes SQL text.
 //! status = "paid"
@@ -161,9 +174,12 @@ impl Add<Statement, Statement> for Statement {
 }
 
 impl Statement {
-    /// The statements one after another, with `separator` between each two:
-    /// a list of placeholders for `IN (...)`, or the rows of a multi-row
-    /// `INSERT`. No statements is the empty statement.
+    /// The statements one after another, with `separator`, itself a
+    /// `Statement`, between each two: a list of placeholders for `IN (...)`,
+    /// the rows of a multi-row `INSERT`, or a query's filters joined by
+    /// `Sql" AND "`. No statements is the empty statement. `join` and the
+    /// builders below (`list`, `values`, `all`, `any`, `where_all`,
+    /// `where_any`) take an `Iter`, so a list or a pipe passes.
     //! ids = [3, 5, 8]
     //! placeholders = ids |> Iter.map(fn id -> Sql"${id}") |> Statement.join(Sql", ")
     //! s = Sql"SELECT name FROM users WHERE id IN (" + placeholders + Sql")"
@@ -371,8 +387,11 @@ pub interface ToSql {
 /// the name of the type it expected (`"Int"`) when the value is not one;
 /// `Row.get` turns that into an `Error.Decode`, or an
 /// `Error.UnexpectedNull` when the value was NULL. std implements it for
-/// the types `ToSql` covers; `Maybe<T>` reads NULL as `None`.
+/// the types `ToSql` covers; `Maybe<T>` reads NULL as `None`. Each type
+/// maps to its own variant and reads back only from it, so
+/// `Float.from_sql(Value.Int(1))` is an `Err`.
 //! assert Int.from_sql(Value.Int(3)) == Ok(3)
+//! assert Float.from_sql(Value.Int(1)) == Err("Float")
 //! assert Int.from_sql(Value.Text("3")) == Err("Int")
 //! assert String.from_sql(Value.Null) == Err("String")
 //
@@ -591,8 +610,9 @@ impl FromSql for Maybe<T> where T: FromSql {
 }
 
 /// One result row: its columns' names and values, and the SQL of the
-/// statement that read it, which its errors name. A driver builds it with
-/// `Row.new`.
+/// statement that read it, which its errors name. It is opaque; a driver
+/// builds it with `Row.new`. A column is found by its name (the first of
+/// that name) or by its position from 0.
 //! row = Row.new("SELECT id, name FROM users", [#("id", Value.Int(7)), #("name", Value.Null)])
 //! assert Row.columns(row) == ["id", "name"]
 //! id: Int = Row.get(row, "id")?
@@ -673,8 +693,11 @@ impl Row {
     }
 
     /// The value of the column named `column` as a `T`. A value of another
-    /// type is `Err(.Decode)`, and NULL read as a type that is not a `Maybe`
-    /// is `Err(.UnexpectedNull)`.
+    /// type is `Err(.Decode)`, whose `expected` is what `from_sql` answered
+    /// and `found` the value's `Value.kind`, and NULL read as a type that is
+    /// not a `Maybe` is `Err(.UnexpectedNull)`. `T` is inferred from the
+    /// expected type (`n: Int = Row.get(row, "n")?`) or given
+    /// (`Row.get<Int>(row, "n")`).
     //! row = Row.new("SELECT n, t", [#("n", Value.Int(1)), #("t", Value.Null)])
     //! n: Int = Row.get(row, "n")?
     //! assert n == 1
@@ -726,6 +749,8 @@ pub enum Dialect {
 derive Equatable for Dialect
 
 impl Display for Dialect {
+    /// `SQLite`, `Postgres` or the other engine's name.
+    //! assert "${Dialect.Sqlite}" == "SQLite"
     //! assert "${Dialect.Postgres}" == "Postgres"
     //! assert "${Dialect.Other("duckdb")}" == "duckdb"
     //
@@ -738,9 +763,12 @@ impl Display for Dialect {
     }
 }
 
-/// Why a statement or a connection failed. A driver maps its engine's
-/// errors to these; the variants that name a `query` come from reading a
-/// `Row`, and `query` is the SQL of the statement that read it.
+/// Why a statement or a connection failed: `sql.Error` is every failure.
+/// A driver maps its engine's errors to these; the variants that name a
+/// `query` come from reading a `Row`, and `query` is the SQL of the
+/// statement that read it. `Constraint` keeps the violated constraint's
+/// name, so a library can map it to a field. `Error` and `ConstraintKind`
+/// are both `Equatable` and `Display`.
 pub enum Error {
     /// The database cannot be reached, or the connection broke.
     Connection {message: String}
@@ -760,8 +788,8 @@ pub enum Error {
     /// are there when the driver knows them.
     Constraint {kind: ConstraintKind, name: String, table: Maybe<String>, column: Maybe<String>}
 
-    /// The transaction conflicted with another and was rolled back. Run it
-    /// again.
+    /// The transaction conflicted with another and was rolled back. It
+    /// should run again.
     Serialization {message: String}
 
     /// Any other error the engine reports, with its own code (a Postgres
@@ -791,7 +819,8 @@ pub enum Error {
     Finished
 
     /// The connection was closed, by `close` on it or on one of its
-    /// transactions. Open a new one.
+    /// transactions. The caller needs a new connection, which is why this
+    /// is a variant of its own rather than `Finished`.
     Closed
 
     /// The statement or the connection ran out of time.
@@ -803,6 +832,15 @@ derive Equatable for Error
 impl Display for Error {
     //! e = #Error.Constraint{kind: .Unique, name: "users_email_key", table: Some("users"), column: None}
     //! assert "${e}" == "unique constraint `users_email_key` on table `users` failed"
+    //!
+    //! both = #Error.Constraint{
+    //!     kind: .Unique,
+    //!     name: "users_email_key",
+    //!     table: Some("users"),
+    //!     column: Some("email"),
+    //! }
+    //!
+    //! assert "${both}" == "unique constraint `users_email_key` on `users.email` failed"
     //
     fn to_string(e: Error) -> String {
         case e {
@@ -883,6 +921,11 @@ impl Display for ConstraintKind {
 /// savepoint, so an inner `sql.transaction` that fails rolls back
 /// only its own work. The answer is the body's, or the `Err` of a `begin` or
 /// `commit` that failed.
+///
+/// The rollback is a `defer` that runs whenever the transaction is left;
+/// after a commit it is the no-op `Conn`'s rules make it. A trap ends the
+/// task it happens in ([Failure](/spec/failure/)), so the rollback on a trap is seen
+/// from another task, after a spawned task's `Failed` outcome.
 pub fn transaction<T>(conn: Conn, body: (Conn) -> Result<T, Error>) -> Result<T, Error> {
     tx = Conn.begin(conn)?
     defer settle(tx)
@@ -925,6 +968,24 @@ pub fn with_connection<C, T>(
 /// closes when the test ends. Nothing reports or records a close that
 /// fails, so when the code that uses the connection is one body, run it
 /// in `sql.with_connection`, which answers a failed close.
+///
+/// A `defer` call answers `Unit`, so it cannot report a failed close, and a
+/// `defer` in a group's `setup` runs when the test finishes.
+/// `with_connection`'s own `defer` is `close_quietly`.
+///
+/// ```nomi
+/// group "sessions" {
+///     setup {
+///         conn = sqlite.open("app.db")?
+///         defer sql.close_quietly(conn)
+///         conn
+///     }
+///
+///     test "deletes expired sessions", conn {
+///         assert Conn.exec(conn, Sql"DELETE FROM sessions WHERE expired") == Ok(0)
+///     }
+/// }
+/// ```
 //! import std/sql_testing.Fake
 //!
 //! fake = Fake.new()

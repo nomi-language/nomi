@@ -317,6 +317,10 @@ test "find sequence" {
     }
 }
 ```
+<!-- expect
+ok find sequence (14 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

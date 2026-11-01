@@ -82,7 +82,7 @@ fn leaf(value: String) -> Tree<String> {
 }
 
 test "rebuilds the tree" {
-    cases = [
+    [
         #("Empty tree", [], [], Tree.Leaf),
         #("Tree with one item", ["a"], ["a"], leaf("a")),
         #(
@@ -142,14 +142,13 @@ test "rebuilds the tree" {
             },
         ),
     ]
-
-    subtests cases, #(description, preorder, inorder, expected), description {
+    |> subtests #(description, preorder, inorder, expected), description {
         assert satellite.tree_from_traversals(preorder, inorder) == Ok(expected)
     }
 }
 
 test "rejects traversals of no tree" {
-    cases = [
+    [
         #(
             "Reject traversals of different length",
             ["a", "b"],
@@ -169,12 +168,16 @@ test "rejects traversals of no tree" {
             .RepeatedItems,
         ),
     ]
-
-    subtests cases, #(description, preorder, inorder, expected), description {
+    |> subtests #(description, preorder, inorder, expected), description {
         assert satellite.tree_from_traversals(preorder, inorder) == Err(expected)
     }
 }
 ```
+<!-- expect
+ok rebuilds the tree (6 cases)
+ok rejects traversals of no tree (3 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

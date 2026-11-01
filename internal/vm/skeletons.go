@@ -23,9 +23,7 @@ const CalendarModule = "std/calendar.nomi"
 
 // stdCalendarModule reports whether a module, by its name, is
 // std/calendar, as StdMessageModule reports std/message.
-func stdCalendarModule(name string) bool {
-	return name == CalendarModule || strings.HasSuffix(name, "/"+CalendarModule)
-}
+func stdCalendarModule(name string) bool { return stdModule(name, CalendarModule) }
 
 // fieldsCheck is the crossing a skeleton's parse reaches.
 const fieldsCheck = "calendar.fields_check"

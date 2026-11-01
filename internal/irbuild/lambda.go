@@ -17,8 +17,8 @@ import (
 // # 1. Capture
 //
 // A closure captures the VALUE each free name holds when the closure is made
-// (spec §23). A later rebinding of the name, in the same scope or a nested
-// one, is a new binding (spec §2) that the closure never sees. In the IR a
+// (spec §7 *Closures*). A later rebinding of the name, in the same scope or a nested
+// one, is a new binding (spec §6 *Bindings*) that the closure never sees. In the IR a
 // capture is an operand of the `ir.FuncValue` that builds the closure, read
 // once when it runs, and a rebinding is a fresh `ir.Bind`; nothing more is
 // needed. testdata/closures.nomi and testdata/nested_fn.nomi observe both

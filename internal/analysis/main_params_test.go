@@ -65,7 +65,7 @@ func TestCheckMainParams_AcceptsTheEntryForms(t *testing.T) {
 			if name == "boot with startup" {
 				// A single file outside a project build has no entry boot
 				// registered, so its `App.name` read is reported; the boot
-				// program runs whole in vmhost.TestSpecPrograms (spec §26).
+				// program runs whole in vmhost.TestSpecPrograms (spec §15 *Entry point*).
 				return
 			}
 			expectNoStdlibErrors(t, errs)

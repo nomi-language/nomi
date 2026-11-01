@@ -9,7 +9,22 @@ import {
     results.Result
 }
 
+//# `Maybe<T>`: a value that may be absent, `Some(value)` or `None`. Its
+//# owner functions are called `Maybe.map(m, f)` and so on: test it with
+//# `is_some` and `is_none`, transform the value with `map` and `flat_map`,
+//# take it out with `with_default`, and turn it into a `Result` with
+//# `to_result`. `collect` and `values` work over many maybes at once.
+//#
+//# A `Maybe` is an `Iter` of zero or one elements, so it goes wherever an
+//# `Iter` does. It renders, in `Display` and in `Debug`, as its variant
+//# constructor, never unwrapped: `Some(...)` holding the value rendered by
+//# the same interface, and `None`, not the empty string.
+
 /// A value that may or may not be present.
+//! n: Maybe<Int> = Maybe.None
+//! assert "${Maybe.Some(3)}" == "Some(3)"
+//! assert "${n}" == "None"
+//!
 //! assert Maybe.Some(42)
 //!     |> case {
 //!         .Some(v) -> v

@@ -8,11 +8,28 @@ import {
     maybe.Maybe.{self, None, Some}
 }
 
+//# `Result<T, E>`: the outcome of something that can fail, `Ok(value)` or
+//# `Err(error)`. Its owner functions are called `Result.map(r, f)` and so
+//# on: test it with `is_ok` and `is_err`, transform the value with `map` and
+//# `flat_map` and the error with `map_err`, take the value out with
+//# `with_default`, and drop the error with `to_maybe`. `collect` and
+//# `partition` work over many results at once. `Infallible` is the error
+//# type of a `Result` that cannot fail.
+//#
+//# A `Result` renders, in `Display` and in `Debug`, as its variant
+//# constructor, never unwrapped: `Ok(...)` or `Err(...)` holding the value
+//# rendered by the same interface.
+
 /// Uninhabited type — no values can be constructed. Useful as the error type
 /// of a `Result` that cannot fail.
 pub host type Infallible
 
 /// A value that is either a success (Ok) or a failure (Err).
+//! ok: Result<Int, String> = Result.Ok(1)
+//! failed: Result<Int, String> = Result.Err("no")
+//! assert "${ok}" == "Ok(1)"
+//! assert "${failed}" == "Err(no)"
+//!
 //! parse = fn s: String -> {
 //!     if s == "" {
 //!         Result.Err("empty")

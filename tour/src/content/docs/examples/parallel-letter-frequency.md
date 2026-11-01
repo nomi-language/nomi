@@ -201,7 +201,7 @@ import {
 }
 
 test "letter frequency" {
-    cases = [
+    [
         #("no texts", [], %{}),
         #("one text with one letter", ["a"], %{"a" => 1}),
         #("one text with multiple letters", ["bbcccd"], %{"b" => 2, "c" => 3, "d" => 1}),
@@ -249,8 +249,7 @@ test "letter frequency" {
             %{"a" => 50, "b" => 100, "c" => 150},
         ),
     ]
-
-    subtests cases, #(description, texts, expected), description {
+    |> subtests #(description, texts, expected), description {
         assert parallel_letter_frequency.frequency(texts) == expected
     }
 }
@@ -291,6 +290,11 @@ test "combination of lower- and uppercase letters, punctuation and white space" 
     }
 }
 ```
+<!-- expect
+ok letter frequency (12 cases)
+ok combination of lower- and uppercase letters, punctuation and white space
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

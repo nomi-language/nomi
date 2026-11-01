@@ -75,7 +75,7 @@ fn from_bits(bits: List<Int>) -> Int {
 import intergalactic_transmission.{receive, transmit}
 
 test "calculate transmit sequences" {
-    cases = [
+    [
         #("empty message", [], []),
         #("0x00 is transmitted as 0x0000", [0x00], [0x00, 0x00]),
         #("0x02 is transmitted as 0x0300", [0x02], [0x03, 0x00]),
@@ -114,14 +114,13 @@ test "calculate transmit sequences" {
             ],
         ),
     ]
-
-    subtests cases, #(description, message, expected), description {
+    |> subtests #(description, message, expected), description {
         assert transmit(message) == expected
     }
 }
 
 test "decode received messages" {
-    cases = [
+    [
         #("empty message", [], Ok([])),
         #("zero message", [0x00, 0x00], Ok([0x00])),
         #("0x0300 is decoded to 0x02", [0x03, 0x00], Ok([0x02])),
@@ -171,12 +170,16 @@ test "decode received messages" {
             Err("wrong parity"),
         ),
     ]
-
-    subtests cases, #(description, transmission, expected), description {
+    |> subtests #(description, transmission, expected), description {
         assert receive(transmission) == expected
     }
 }
 ```
+<!-- expect
+ok calculate transmit sequences (11 cases)
+ok decode received messages (15 cases)
+test result: ok. 26 passed, 0 failed
+-->
 
 ## How it's written
 

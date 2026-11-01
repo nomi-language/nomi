@@ -82,11 +82,7 @@ impl Game {
     pub fn masked_word(game: Game) -> String {
         game.word
         |> Iter.map(fn letter -> {
-            if Set.contains(game.revealed, letter) {
-                letter
-            } else {
-                '_'
-            }
+            if letter in game.revealed { letter } else { '_' }
         })
         |> Iter.to_list()
         |> String.from_codepoints()
@@ -100,13 +96,13 @@ impl Game {
 
 /// Whether `letter` is in the word and not yet revealed.
 fn is_hidden(game: Game, letter: Codepoint) -> Bool {
-    List.contains(game.word, letter) and not Set.contains(game.revealed, letter)
+    letter in game.word and not letter in game.revealed
 }
 
 /// `game` with `letter` revealed, won when that reveals the whole word.
 fn reveal(game: Game, letter: Codepoint) -> Game {
     revealed = Set.insert(game.revealed, letter)
-    won = Iter.all(game.word, &Set.contains(revealed, &1))
+    won = Iter.all(game.word, &(&1 in revealed))
 
     #{..game, revealed, state: if won { .Win } else { .Ongoing }}
 }
@@ -121,7 +117,7 @@ fn play(word: String, guesses: List<Codepoint>) -> Result<Game, Error> {
 }
 
 test "guess" {
-    cases = [
+    [
         #(
             "Initially 9 failures are allowed and no letters are guessed",
             [],
@@ -155,8 +151,7 @@ test "guess" {
             0,
         ),
     ]
-
-    subtests cases, #(description, guesses, state, masked_word, remaining_failures), description {
+    |> subtests #(description, guesses, state, masked_word, remaining_failures), description {
         assert Ok(game) = play("loot", guesses)
         assert Game.state(game) == state
         assert Game.masked_word(game) == masked_word
@@ -165,7 +160,7 @@ test "guess" {
 }
 
 test "guessing after the game is over" {
-    cases = [
+    [
         #(
             "Guessing after a lose is error",
             ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'],
@@ -177,19 +172,23 @@ test "guessing after the game is over" {
             "cannot guess after the game is won",
         ),
     ]
-
-    subtests cases, #(description, guesses, message), description {
+    |> subtests #(description, guesses, message), description {
         assert Err(error) = play("loot", guesses)
         assert "${error}" == message
     }
 }
 ```
+<!-- expect
+ok guess (8 cases)
+ok guessing after the game is over (2 cases)
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 
 - Adapted: the canonical comments suggest an object that changes with each guess, or a functional reactive design. The Nomi version is a value: `Game.guess` answers the game after the guess, and a sequence of guesses is a fold.
 - `Game` is an opaque struct of the word's letters, the set of revealed letters, the failures remaining and the `State`. `guess` is one `case` on the state, with `when` guards for the ongoing game: a letter in the word and not yet revealed reveals it, any other guess (a wrong letter, or a right one guessed again) is a failure, and a failure with none remaining loses. The canonical counts fix that rule: 9 failures remain at the start, 0 after nine and still 0 after the tenth, which loses.
 - Guessing after the game is over is an `Err`, one `Error` variant per outcome, whose `Display` gives the canonical messages.
-- A guess is a `Codepoint`, since the game works letter by letter (style §19), and `masked_word` maps each letter of the word to itself or `_`.
+- A guess is a `Codepoint`, since the game works letter by letter (style §20), and `masked_word` maps each letter of the word to itself or `_`.
 - The test file's `play` folds the guesses with `Iter.try_reduce(guesses, Game.new(word), Game.guess)`, which stops at the first refused guess and answers its `Err`.
  The cases are two `subtests` tables, one for the games that end in a state and one for the refused guesses.

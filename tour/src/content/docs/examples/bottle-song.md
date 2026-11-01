@@ -67,7 +67,7 @@ fn green_bottles(bottles: Int) -> String {
 import bottle_song
 
 test "single verse" {
-    cases = [
+    [
         #(
             "first generic verse",
             10,
@@ -113,14 +113,13 @@ test "single verse" {
             ],
         ),
     ]
-
-    subtests cases, #(description, start_bottles, take_down, expected), description {
+    |> subtests #(description, start_bottles, take_down, expected), description {
         assert bottle_song.recite(start_bottles, take_down) == expected
     }
 }
 
 test "multiple verses" {
-    cases = [
+    [
         #(
             "first two verses",
             10,
@@ -215,12 +214,16 @@ test "multiple verses" {
             ],
         ),
     ]
-
-    subtests cases, #(description, start_bottles, take_down, expected), description {
+    |> subtests #(description, start_bottles, take_down, expected), description {
         assert bottle_song.recite(start_bottles, take_down) == expected
     }
 }
 ```
+<!-- expect
+ok single verse (4 cases)
+ok multiple verses (3 cases)
+test result: ok. 7 passed, 0 failed
+-->
 
 ## How it's written
 

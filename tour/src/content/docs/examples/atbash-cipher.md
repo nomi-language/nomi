@@ -55,7 +55,7 @@ fn swap(cp: Codepoint) -> Maybe<Codepoint> {
 import atbash_cipher
 
 test "encode" {
-    cases = [
+    [
         #("encode yes", "yes", "bvh"),
         #("encode no", "no", "ml"),
         #("encode OMG", "OMG", "lnt"),
@@ -69,14 +69,13 @@ test "encode" {
             "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
         ),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert atbash_cipher.encode(phrase) == expected
     }
 }
 
 test "decode" {
-    cases = [
+    [
         #("decode exercism", "vcvix rhn", "exercism"),
         #(
             "decode a sentence",
@@ -96,12 +95,16 @@ test "decode" {
             "anobstacleisoftenasteppingstone",
         ),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert atbash_cipher.decode(phrase) == expected
     }
 }
 ```
+<!-- expect
+ok encode (8 cases)
+ok decode (6 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

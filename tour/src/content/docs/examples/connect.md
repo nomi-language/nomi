@@ -102,7 +102,7 @@ fn reaches(
             next =
                 neighbours
                 |> Iter.map(fn #(dr, dc) -> #(row + dr, column + dc))
-                |> Iter.filter(fn n -> Set.contains(stones, n) and not Set.contains(seen, n))
+                |> Iter.filter(fn n -> n in stones and not n in seen)
                 |> Iter.to_list()
 
             reaches(stones, [..next, ..rest], Set.union(seen, Iter.to_set(next)), is_goal)
@@ -117,7 +117,7 @@ import {
 }
 
 test "winner" {
-    cases = [
+    [
         #(
             "an empty board has no winner",
             [
@@ -232,12 +232,15 @@ test "winner" {
             Some(.X),
         ),
     ]
-
-    subtests cases, #(description, board, expected), description {
+    |> subtests #(description, board, expected), description {
         assert connect.winner(board) == expected
     }
 }
 ```
+<!-- expect
+ok winner (12 cases)
+test result: ok. 12 passed, 0 failed
+-->
 
 ## How it's written
 

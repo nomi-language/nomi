@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // A value of an `embeds` type in a position typed as the enum dispatches as
-// the enum. `b: Shape = #Circle{...}` is a Shape (spec §8, Subtype coercion),
+// the enum. `b: Shape = #Circle{...}` is a Shape (spec §4, *Subtype coercion*),
 // so `Display.to_string(b)` runs Shape's impl: the VM types the value
 // statically.
 //

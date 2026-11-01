@@ -58,7 +58,9 @@ func (m *Machine) unwindDefers(fr *frame, v any, err error) (any, error) {
 		if _, cleanupErr := m.invokeDeferred(fr, d); cleanupErr != nil {
 			wrapped := rt.DeferredCleanupError(d.call.Pos().Line(), cleanupErr)
 			if err != nil {
-				err = fmt.Errorf("%v; cleanup error: %w", err, wrapped)
+				// Both wrapped: the first failure keeps its kind (a fault, an
+				// assertion), and the cleanup's is reported after it.
+				err = fmt.Errorf("%w; cleanup error: %w", err, wrapped)
 			} else {
 				v, err = nil, wrapped
 			}

@@ -24,8 +24,9 @@ import {
     strings.String
 }
 
-/// A value as a reader of `locale` reads it. `Int`, `Float` and `Decimal`
-/// give their `format`, and `String` itself. Std also implements it for
+/// A value as a reader of `locale` reads it, as `Display` is how it reads
+/// in a log line. `Int`, `Float` and `Decimal` give their `format` with its
+/// defaults, and `String` itself. Std also implements it for
 /// `Money` (`Money.format` with the currency's symbol), `Date`, `Time`,
 /// `NaiveDateTime` and `DateTime` (`format` with its default styles),
 /// `Duration` (`Duration.format` in long words), `Message` (`Message.format`)

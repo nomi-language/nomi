@@ -66,7 +66,7 @@ fn search(
             next =
                 frontier
                 |> Iter.flat_map(&actions(&1, sizes))
-                |> Iter.reject(&Set.contains(seen, &1))
+                |> Iter.reject(&(&1 in seen))
                 |> Iter.to_set()
 
             if Iter.is_empty(next) {
@@ -171,6 +171,10 @@ test "measure" {
     }
 }
 ```
+<!-- expect
+ok measure (11 cases)
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 

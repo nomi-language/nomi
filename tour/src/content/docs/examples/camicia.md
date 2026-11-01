@@ -67,7 +67,7 @@ fn rounds(
 
     case {
         Iter.is_empty(hand(hands, other(collector))) -> #{status: .Finished, cards, tricks}
-        Set.contains(seen, now) -> #{status: .Loop, cards, tricks}
+        now in seen -> #{status: .Loop, cards, tricks}
         _ -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
     }
 }
@@ -159,7 +159,7 @@ fn deck(cards: String) -> List<String> {
 }
 
 test "simulate game" {
-    cases = [
+    [
         #(
             "two cards, one trick",
             deck("2"),
@@ -337,12 +337,15 @@ test "simulate game" {
             #{status: .Loop, cards: 474, tricks: 66},
         ),
     ]
-
-    subtests cases, #(description, player_a, player_b, expected), description {
+    |> subtests #(description, player_a, player_b, expected), description {
         assert camicia.simulate_game(player_a, player_b) == expected
     }
 }
 ```
+<!-- expect
+ok simulate game (28 cases)
+test result: ok. 28 passed, 0 failed
+-->
 
 ## How it's written
 

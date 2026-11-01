@@ -13,7 +13,7 @@ fn enroll(students: List<#(String, Int)>) -> #(List<Bool>, School) {
 }
 
 test "adding students" {
-    cases = [
+    [
         #("Add a student", [#("Aimee", 2)], [True]),
         #(
             "Adding multiple students in the same grade in the roster",
@@ -32,15 +32,14 @@ test "adding students" {
             [True, True, False, True],
         ),
     ]
-
-    subtests cases, #(description, students, expected), description {
+    |> subtests #(description, students, expected), description {
         #(added, _school) = enroll(students)
         assert added == expected
     }
 }
 
 test "the roster" {
-    cases = [
+    [
         #("Roster is empty when no student is added", [], []),
         #("Student is added to the roster", [#("Aimee", 2)], ["Aimee"]),
         #(
@@ -87,15 +86,14 @@ test "the roster" {
             ["Anna", "Barb", "Charlie", "Alex", "Peter", "Zoe", "Jim"],
         ),
     ]
-
-    subtests cases, #(description, students, expected), description {
+    |> subtests #(description, students, expected), description {
         #(_added, school) = enroll(students)
         assert School.roster(school) == expected
     }
 }
 
 test "one grade" {
-    cases = [
+    [
         #("Grade is empty if no students in the roster", [], 1, []),
         #(
             "Grade is empty if no students in that grade",
@@ -128,8 +126,7 @@ test "one grade" {
             ["Bradley", "Franklin"],
         ),
     ]
-
-    subtests cases, #(description, students, grade, expected), description {
+    |> subtests #(description, students, grade, expected), description {
         #(_added, school) = enroll(students)
         assert School.grade(school, grade) == expected
     }

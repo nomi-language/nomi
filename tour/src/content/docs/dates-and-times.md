@@ -216,18 +216,10 @@ dbg line 8: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
 dbg line 9: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
 -->
 
-[Formatting for a Reader](/locales-and-formatting/#dates-and-times) covers
+[Locales & Formatting](/locales-and-formatting/#dates-and-times) covers
 the styles, choosing the fields, times, and reading dates people type.
 
-:::note[Continue or dig deeper]
-The [Typed Literals](/typed-literals/) chapter, after Money, shows how
-``Date`…` `` and ``DateTime`…` `` work, and how to write literals for your own types. The
-rest of this page goes into more detail on dates and times.
-:::
-
-## Going deeper
-
-### Showing a moment in another zone
+## Showing a moment in another zone
 
 [`DateTime.with_zone(dt, zone)`](/reference/calendar/#datetimewith_zone)
 keeps the same moment and shows it in another zone. Noon in New York is
@@ -250,7 +242,7 @@ dbg line 6: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
 dbg line 7: ny == tokyo = True
 -->
 
-### DST: gaps and folds
+## DST: gaps and folds
 
 [`DateTime.in_zone`](/reference/calendar/#datetimein_zone) puts a
 `NaiveDateTime` into a zone. Daylight saving makes two cases hard:
@@ -298,7 +290,7 @@ the earlier moment. In a gap it moves forward past the jump, so 2:30 becomes
 picking. Use it when a person typed the time, so you can ask them which one
 they meant.
 
-### Reading the current time
+## Reading the current time
 
 [`DateTime.now_in(zone)`](/reference/calendar/#datetimenow_in) reads the
 system clock and gives the time in that zone. It is short for
@@ -316,3 +308,20 @@ fn main() -> Result<Unit, Error> {
 ```
 
 The output changes each time, because it reads the real clock.
+
+<div class="tour-details">
+<p class="tour-details-label">Where to look next</p>
+
+- [Typed Literals](/typed-literals/) shows how ``Date`…` `` and
+  ``DateTime`…` `` literals work.
+- [`std/calendar`](/reference/calendar/) has every calendar type and
+  function: weekdays, the periods, parsing ISO 8601 text and each type's
+  conversions.
+- [`std/instant`](/reference/instant/) and
+  [`std/duration`](/reference/duration/) hold the machine clock's types.
+- A built program carries the IANA time zone data, so it needs none from
+  the system it runs on ([A program's locale data](/tooling/building/#a-programs-locale-data)).
+
+</div>
+
+[Money](/money/) is next. It works with amounts in a currency.

@@ -78,7 +78,7 @@ fn set_cell(
 import spiral_matrix.spiral_matrix
 
 test "spiral_matrix" {
-    cases = [
+    [
         #("empty spiral", 0, #[]),
         #("trivial spiral", 1, #[#[1]]),
         #("spiral of size 2", 2, #[#[1, 2], #[4, 3]]),
@@ -105,12 +105,15 @@ test "spiral_matrix" {
             ],
         ),
     ]
-
-    subtests cases, #(description, size, expected), description {
+    |> subtests #(description, size, expected), description {
         assert spiral_matrix(size) == expected
     }
 }
 ```
+<!-- expect
+ok spiral_matrix (6 cases)
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -42,54 +42,6 @@ type loweringGap struct {
 
 var knownLoweringGaps = []loweringGap{
 	{
-		name: "gapStdInterfaceImplBesideALocalInterfaceOfItsName",
-		fix: "builder: in a file that declares its own interface of a std interface's name, an " +
-			"`impl calendar.DateParts for Q` block resolves its interface by the bare name " +
-			"(resolveImplDef, ifaceHeaderName), which is the file's own interface, so its functions " +
-			"that interface does not declare make it unlowerable (\"impl function not declared on the " +
-			"interface\") and `calendar.DateParts.year(q)` finds no impl to call",
-		reason: "qualified call with a 3-segment qualifier",
-		noSkip: true,
-		src: `import {
-    std/calendar
-    std/io
-}
-
-interface DateParts {
-    fn year(value: self) -> Int
-}
-
-struct Q {
-    y: Int
-}
-
-impl DateParts for Q {
-    fn year(q: Q) -> Int {
-        q.y + 1000
-    }
-}
-
-impl calendar.DateParts for Q {
-    fn year(q: Q) -> Int {
-        q.y
-    }
-
-    fn month(q: Q) -> Int {
-        q.y
-    }
-
-    fn day(q: Q) -> Int {
-        q.y
-    }
-}
-
-fn main() {
-    io.print(Int.to_string(calendar.DateParts.year(#Q{y: 7})))
-    io.print(Int.to_string(DateParts.year(#Q{y: 7})))
-}
-`,
-	},
-	{
 		name: "gapStdGenericInterfaceExistential",
 		fix: "builder: a value held as an instantiation of a std generic interface (`Contains<Int>`) " +
 			"has no kind: ifaceInstTypeOf instantiates only a program interface's template, and std's " +
@@ -111,6 +63,20 @@ impl Contains<Int> for Bag {
 fn main() {
     b: Contains<Int> = #Bag{n: 3}
     io.print(Bool.to_string(Contains.contains(b, 3)))
+}
+`,
+	},
+	{
+		name: "gapCovariantTypeArgumentToAnInterface",
+		fix: "checker or builder: the checker accepts `Maybe<Int>` where `Maybe<Display>` is " +
+			"expected (and `List<Int>` for `List<Display>`), which the spec's assignability rule " +
+			"refuses (an open design question, docs/spec.md §5 Assignability); the builder then has " +
+			"no Display box for the payload",
+		reason: "stdlib instance maybe.Maybe.inspect<Display>",
+		src: `fn main() {
+    x: Maybe<Int> = Some(1)
+    y: Maybe<Display> = x
+    dbg y
 }
 `,
 	},

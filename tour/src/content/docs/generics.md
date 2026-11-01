@@ -33,8 +33,8 @@ different types.
 
 ## Generic types
 
-Structs, enums, interfaces and type aliases can have type parameters. A
-distinct type, such as `type Score Int`, can't.
+Structs, enums and interfaces can have type parameters. A distinct type,
+such as `type Score Int`, can't, and neither can a type alias.
 
 ```nomi-run
 struct Box<T> {
@@ -116,6 +116,38 @@ derive Display for Box<T> where T: Display
 A bound on a type declaration carries into every impl of that type, so an
 impl for `Span<T>` can compare `start` and `end` without its own `where`. A
 bound on a `derive` or a function applies only to that one declaration.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- `Debug` and `==` need no bound, since every type has them.
+- Bounds join with `and` only. There is no `or`.
+- Each type parameter must appear in a parameter's type, the result, or a
+  bound on one that does. Otherwise no call could decide it:
+  ``type parameter `U` is not used in the signature of `f`, so no call can determine it``.
+- A call whose type doesn't meet a bound is an error at the call, and the
+  help offers a `derive` or an impl block to write.
+- A generic function used as a value needs a function type from its
+  position: `f = ident` alone is an error that asks for an annotation.
+- A generic function that calls itself at a type built from its own
+  parameter, such as `Box<T>` from `T`, is an error, since it would need
+  endless instances.
+
+Spec: [Bounds and dispatch in generic code](/spec/interfaces-implementations-and-derive/#bounds-and-dispatch-in-generic-code),
+[Generics](/spec/types/#generics),
+[Function values](/spec/functions-and-closures/#function-values).
+
+</div>
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/list-ops/"><span class="tour-example-name">List Ops</span><span class="tour-example-what">Map, filter and the folds, by hand.</span></a>
+<a href="/examples/binary-search-tree/"><span class="tour-example-name">Binary Search Tree</span><span class="tour-example-what">Insert values and read them back sorted.</span></a>
+<a href="/examples/zipper/"><span class="tour-example-name">Zipper</span><span class="tour-example-what">Move a focus around a tree.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=generics">Every example that uses Generics</a>
 
 Next: [Interfaces & Dispatch](/interfaces-and-dispatch/), which also covers
 bounds that name an interface's own type parameters.

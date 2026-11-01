@@ -81,7 +81,7 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 		subject = "`" + sym.Name + "`"
 		param = sym.Name
 	}
-	article := "a"
+	article := articleFor(it.Name)
 	if verb == "holds" {
 		article = "values of"
 	}

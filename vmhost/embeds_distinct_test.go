@@ -6,7 +6,7 @@ import (
 )
 
 // An enum that embeds a distinct type over a struct, an enum or a generic
-// struct instance (spec §8, Embedded Types). `Shape.Wrapped(c)` builds a
+// struct instance (spec §4, *Embedded Types*). `Shape.Wrapped(c)` builds a
 // Wrapped from the inner Circle, as `Shape.UserId(8)` builds a UserId from
 // an Int, and the pattern `Shape.Wrapped(c)` binds the inner Circle. Every
 // form declined in the IR builder: the enum was outside the retained domain,

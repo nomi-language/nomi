@@ -4,7 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// CheckConcurrentScope enforces Rule 1 of structured concurrency (spec §20):
+// CheckConcurrentScope enforces Rule 1 of structured concurrency (spec §16):
 //
 //	A `Task.spawn(...)` call is legal only inside the dynamic extent of a
 //	`concurrent { }` block. Reaches transitively — `Task.spawn(fn -> helper())`

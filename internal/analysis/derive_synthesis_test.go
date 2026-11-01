@@ -1406,11 +1406,11 @@ derive Debug for Pair`
 }
 
 // ---------------------------------------------------------------------------
-// Manual impl block + derive collision detection (spec §38.1, *Manual +
+// Manual impl block + derive collision detection (spec §12, *Manual +
 // derive collision*)
 // ---------------------------------------------------------------------------
 
-// TestDeriveCollidesWithManualImplErrors pins spec §38.1: combining
+// TestDeriveCollidesWithManualImplErrors pins spec §12 *Derive*: combining
 // `@derive Iface` with a manual `impl Iface for T { fn ... }` block for the
 // same type must surface a compile error rather than silently dropping the
 // synthesized impl in favour of the manual one. The diagnostic must name
@@ -1485,7 +1485,7 @@ impl Comparable for Point {
 }
 
 // ---------------------------------------------------------------------------
-// Implicit generic interface bounds (spec §38.1, *Generic types*)
+// Implicit generic interface bounds (spec §12, *Generic types*)
 // ---------------------------------------------------------------------------
 
 // synthFnBy locates the synthesized FuncDef whose `impl <ifaceName> for T`
@@ -1503,7 +1503,7 @@ func synthFnBy(t *testing.T, src, fnName, ifaceName, typeName string) *ast.FuncD
 // Bool` whose TypeParams carry an implicit `T: Equatable` bound. Without
 // this bound, calling `Equatable.equal(#Box{value: #NoEqType{}}, ...)`
 // would fall through to a runtime "no impl found" error instead of a
-// compile-time type-check failure (spec §38.1).
+// compile-time type-check failure (spec §12 *Derive*).
 func TestDeriveOnGenericStructAddsInterfaceBound(t *testing.T) {
 	src := `struct Box<T> { value: T }
 derive Equatable for Box<T>`

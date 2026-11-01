@@ -82,7 +82,7 @@ fn main() {
 	// the on-disk stdlib whose absence is the subject.
 	run := exec.Command(bin, "run", filepath.Join(proj, "main.nomi"))
 	run.Dir = dir
-	run.Env = append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, noManagedGoEnv(dir)...)
+	run.Env = withUserDirs(append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, noManagedGoEnv(dir)...))
 	out, err := run.CombinedOutput()
 	if err != nil {
 		t.Fatalf("nomi run failed with no stdlib source tree and no go on PATH: %v\n%s", err, out)
@@ -119,7 +119,7 @@ fn main() {
 	}
 	run = exec.Command(bin, "run", filepath.Join(bootDir, "main.nomi"))
 	run.Dir = dir
-	run.Env = append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, noManagedGoEnv(dir)...)
+	run.Env = withUserDirs(append([]string{"HOME=" + dir, "PATH=" + noGoPath(t), "TERM=dumb"}, noManagedGoEnv(dir)...))
 	out, err = run.CombinedOutput()
 	if err != nil || strings.TrimSpace(string(out)) != "listening on :8080" {
 		t.Fatalf("nomi run of a boot program with no stdlib source tree: %v\n%s", err, out)
@@ -252,7 +252,8 @@ func buildTrimmedNomi(t *testing.T) (bin, dir string) {
 // installation has them too.
 func installedEnv(t *testing.T, dir, goBin string) []string {
 	t.Helper()
-	env := []string{"HOME=" + dir, "PATH=" + filepath.Dir(goBin) + ":/usr/bin:/bin", "TERM=dumb"}
+	list := string(os.PathListSeparator)
+	env := withUserDirs([]string{"HOME=" + dir, "PATH=" + filepath.Dir(goBin) + list + "/usr/bin" + list + "/bin", "TERM=dumb"})
 	for _, name := range []string{"GOMODCACHE", "GOCACHE"} {
 		out, err := exec.Command(goBin, "env", name).Output()
 		if err != nil {
@@ -263,4 +264,25 @@ func installedEnv(t *testing.T, dir, goBin string) []string {
 		}
 	}
 	return env
+}
+
+// withUserDirs completes env, which sets HOME, with the variables Windows
+// reads instead: USERPROFILE for os.UserHomeDir, LocalAppData for
+// os.UserCacheDir and AppData for os.UserConfigDir, each under HOME. On
+// other systems they are inert. The last HOME in env decides.
+func withUserDirs(env []string) []string {
+	home := ""
+	for _, kv := range env {
+		if v, ok := strings.CutPrefix(kv, "HOME="); ok {
+			home = v
+		}
+	}
+	if home == "" {
+		return env
+	}
+	return append(env,
+		"USERPROFILE="+home,
+		"LocalAppData="+filepath.Join(home, "AppData", "Local"),
+		"AppData="+filepath.Join(home, "AppData", "Roaming"),
+	)
 }

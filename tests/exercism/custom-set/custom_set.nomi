@@ -21,7 +21,7 @@ impl CustomSet<T> {
 
     /// Whether `set` holds `element`.
     pub fn contains(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
-        List.contains(set.items, element)
+        element in set.items
     }
 
     /// Whether every value of `set` is in `other`.

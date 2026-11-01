@@ -129,6 +129,11 @@ test "decode a series of bytes, producing a series of integers" {
     }
 }
 ```
+<!-- expect
+ok encode a series of integers, producing a series of bytes (23 cases)
+ok decode a series of bytes, producing a series of integers (8 cases)
+test result: ok. 31 passed, 0 failed
+-->
 
 ## How it's written
 

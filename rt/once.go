@@ -9,7 +9,7 @@ import (
 //
 // # The three guarantees, and why none of them is Go's package-level `var`
 //
-// Spec §2 makes `once` lazy, cached, and exactly-once. A Go package-level
+// Spec §6 *`once` Bindings* makes `once` lazy, cached, and exactly-once. A Go package-level
 // `var x = rhs()` is eager and ordered by the initialization graph, so it
 // breaks the first two outright: `once a = b + 1` above `once b = 5` is legal
 // Nomi and definition order is irrelevant, while Go would either reorder it or
@@ -97,7 +97,7 @@ type forcing struct {
 // The forcer's `scopedFields` and `scopedContext` deliberately do not travel:
 // a cached value must not depend on which caller's `with` overrides were in
 // force when it happened to be forced first. The RHS reads what boot
-// published instead (spec §27): the module-level app state, which holds
+// published instead (spec §15 *Scoped application fields*): the module-level app state, which holds
 // boot's result and none of the rebinds. A force before boot
 // has published sees no fields, and a read traps as any pre-boot read does.
 func (fr *Frame) forcingOnce(cell *onceID) *Frame {
@@ -157,7 +157,7 @@ func (c *OnceCell[T]) force(fr *Frame, rhs func(fr *Frame) T) T {
 		return c.v
 	}
 	// Held across the RHS so concurrent forcers wait and observe the one
-	// cached value: spec §2's "side effects happen exactly once".
+	// cached value: spec §6 *`once` Bindings*: "side effects happen exactly once".
 	v := rhs(fr.forcingOnce(&c.id))
 	c.v = v
 	c.done.Store(true)

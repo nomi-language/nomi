@@ -54,21 +54,20 @@ pub fn is_scalene(sides: #(Float, Float, Float)) -> Bool {
 import triangle
 
 test "equilateral triangle" {
-    cases = [
+    [
         #("all sides are equal", #(2.0, 2.0, 2.0), True),
         #("any side is unequal", #(2.0, 3.0, 2.0), False),
         #("no sides are equal", #(5.0, 4.0, 6.0), False),
         #("all zero sides is not a triangle", #(0.0, 0.0, 0.0), False),
         #("sides may be floats", #(0.5, 0.5, 0.5), True),
     ]
-
-    subtests cases, #(description, sides, expected), description {
+    |> subtests #(description, sides, expected), description {
         assert triangle.is_equilateral(sides) == expected
     }
 }
 
 test "isosceles triangle" {
-    cases = [
+    [
         #("last two sides are equal", #(3.0, 4.0, 4.0), True),
         #("first two sides are equal", #(4.0, 4.0, 3.0), True),
         #("first and last sides are equal", #(4.0, 3.0, 4.0), True),
@@ -79,14 +78,13 @@ test "isosceles triangle" {
         #("third triangle inequality violation", #(3.0, 1.0, 1.0), False),
         #("sides may be floats", #(0.5, 0.4, 0.5), True),
     ]
-
-    subtests cases, #(description, sides, expected), description {
+    |> subtests #(description, sides, expected), description {
         assert triangle.is_isosceles(sides) == expected
     }
 }
 
 test "scalene triangle" {
-    cases = [
+    [
         #("no sides are equal", #(5.0, 4.0, 6.0), True),
         #("all sides are equal", #(4.0, 4.0, 4.0), False),
         #("first and second sides are equal", #(4.0, 4.0, 3.0), False),
@@ -95,12 +93,17 @@ test "scalene triangle" {
         #("may not violate triangle inequality", #(7.0, 3.0, 2.0), False),
         #("sides may be floats", #(0.5, 0.4, 0.6), True),
     ]
-
-    subtests cases, #(description, sides, expected), description {
+    |> subtests #(description, sides, expected), description {
         assert triangle.is_scalene(sides) == expected
     }
 }
 ```
+<!-- expect
+ok equilateral triangle (5 cases)
+ok isosceles triangle (9 cases)
+ok scalene triangle (7 cases)
+test result: ok. 21 passed, 0 failed
+-->
 
 ## How it's written
 

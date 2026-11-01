@@ -22,7 +22,7 @@ pub fn reverse(text: String) -> String {
 import reverse_string.reverse
 
 test "reverses strings" {
-    cases = [
+    [
         #("an empty string", "", ""),
         #("a word", "robot", "tobor"),
         #("a capitalized word", "Ramen", "nemaR"),
@@ -33,12 +33,15 @@ test "reverses strings" {
         #("grapheme cluster with pre-combined form", "Würstchenstand", "dnatsnehctsrüW"),
         #("grapheme clusters", "ผู้เขียนโปรแกรม", "มรกแรปโนยขีเผู้"),
     ]
-
-    subtests cases, #(description, text, expected), description {
+    |> subtests #(description, text, expected), description {
         assert reverse(text) == expected
     }
 }
 ```
+<!-- expect
+ok reverses strings (9 cases)
+test result: ok. 9 passed, 0 failed
+-->
 
 ## How it's written
 

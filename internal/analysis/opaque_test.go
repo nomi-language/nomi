@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// Tests for opaque distinct types (spec §15, *Opaque distinct types*).
+// Tests for opaque distinct types (spec §4, *Opaque distinct types*).
 
 func TestOpaque_SymbolFlagSet(t *testing.T) {
 	src := `pub opaque type PositiveInt Int`
@@ -35,7 +35,7 @@ func TestOpaque_NonOpaqueSymbolFlagFalse(t *testing.T) {
 // Round 2.6 — visibility consistency relaxation.
 // For opaque distinct types, the wrapped representation may be private.
 // This test exercises a public opaque type wrapping a module-private
-// type — without the relaxation, §3 would reject the export. With the
+// type — without the relaxation, §14 *Visibility* would reject the export. With the
 // relaxation, this is the canonical "public handle, private internals"
 // idiom and must be allowed.
 
@@ -58,7 +58,7 @@ pub fn name(h: UserHandle) -> String {
 }
 
 func TestVisibility_NonOpaquePublicTypeStillRequiresPublicRepresentation(t *testing.T) {
-	// Sanity check that the existing §3 rule still fires for non-opaque
+	// Sanity check that the existing §14 *Visibility* rule still fires for non-opaque
 	// distinct types: their wrapped representation must be exported.
 	src := `struct Internal { x: Int }
 

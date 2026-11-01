@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -78,10 +79,13 @@ func prepareCall(t *testing.T, s *Server, uri string, pos protocol.Position) []p
 }
 
 func itemString(dir string, it protocol.CallHierarchyItem) string {
-	rel, _ := filepath.Rel(dir, uriToPath(string(it.URI)))
-	if strings.HasPrefix(rel, "..") {
-		rel = "std:" + filepath.Base(string(it.URI))
+	// A std file on another volume (Windows: the checkout on D:, the
+	// temporary directory on C:) has no relative path at all.
+	rel, err := filepath.Rel(dir, uriToPath(string(it.URI)))
+	if err != nil || strings.HasPrefix(rel, "..") {
+		rel = "std:" + path.Base(string(it.URI))
 	}
+	rel = filepath.ToSlash(rel)
 	return fmt.Sprintf("%s %s %s sel %s", it.Name, rel, fmtRange(it.Range), fmtRange(it.SelectionRange))
 }
 

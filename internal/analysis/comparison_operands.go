@@ -17,7 +17,7 @@ func isComparisonOp(op string) bool {
 }
 
 // checkComparisonOperands checks the two operands of a comparison. Both
-// operands have one type (spec §22), so each is the other's expected type:
+// operands have one type (spec §8 *Comparison and equality*), so each is the other's expected type:
 // in `k == .Deposit` the right operand resolves against `k`'s enum, and in
 // `.Deposit == k` the left one does. The operand whose type depends on its
 // position is checked second, against the type of the other. The expected

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 637
-declared-cases 3679
+records 639
+declared-cases 3703
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -378,6 +378,20 @@ T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` in a pipe stage in setup
 T ok <root>/tests/02-testing/setup_try_test.nomi :: `?` after other statements in setup / the setup's earlier bindings reach the result of the `?`
 T ok <root>/tests/02-testing/setup_try_test.nomi :: assert in setup / the setup's assertion held
 T test result: ok. 5 passed, 0 failed
+T
+C 02-testing/subtests_pipe_test.nomi
+E 0
+N 17
+H ee74dc0a80175f4568594111472a2d5884f8afe50b3feb6c179fadc1be517749
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: abbreviate //! test lines 8-11 (2 cases)
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: a literal table piped into subtests (2 cases)
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: a bound table piped into subtests (2 cases)
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: rows built by a pipeline (3 cases)
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: a failed row is reported as the statement form reports it (5 cases)
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: the stage ends a pipeline that stands as a statement
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: the stage is checked as the statement is
+T ok <root>/tests/02-testing/subtests_pipe_test.nomi :: the stage's keyword hovers as the statement's does
+T test result: ok. 17 passed, 0 failed
 T
 C 02-testing/subtests_test.nomi
 E 0
@@ -934,6 +948,19 @@ T ok <root>/tests/06-collections/contains_test.nomi :: Iter.contains scans any i
 T ok <root>/tests/06-collections/contains_test.nomi :: Contains is the one interface the collections share
 T ok <root>/tests/06-collections/contains_test.nomi :: a bound takes any collection that implements Contains
 T test result: ok. 11 passed, 0 failed
+T
+C 06-collections/in_test.nomi
+E 0
+N 7
+H a8840360fc65b9b5646641bbf1af65d0a92e78dc9f8b986407b2ef2a43740567
+T ok <root>/tests/06-collections/in_test.nomi :: in tests membership in each std collection
+T ok <root>/tests/06-collections/in_test.nomi :: a map holds its keys, not its values
+T ok <root>/tests/06-collections/in_test.nomi :: a string holds substrings, regex matches and codepoints
+T ok <root>/tests/06-collections/in_test.nomi :: a program's own Contains impl answers in
+T ok <root>/tests/06-collections/in_test.nomi :: a type parameter bounded by Contains answers in
+T ok <root>/tests/06-collections/in_test.nomi :: in binds like ==, under not, and, or and a pipe's result
+T ok <root>/tests/06-collections/in_test.nomi :: the value is evaluated before the collection
+T test result: ok. 7 passed, 0 failed
 T
 C 06-collections/index_traps_test.nomi
 E 0

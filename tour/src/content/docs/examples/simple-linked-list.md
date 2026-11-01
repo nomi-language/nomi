@@ -131,33 +131,31 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
 }
 
 test "count" {
-    cases = [
+    [
         #("Empty list has length of zero", [], [Step.Count(0)]),
         #("Singleton list has length of one", [1], [.Count(1)]),
         #("Non-empty list has correct length", [1, 2, 3], [.Count(3)]),
     ]
-
-    subtests cases, #(description, values, steps), description {
+    |> subtests #(description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "pop" {
-    cases = [
+    [
         #("Pop from empty list is an error", [], [Step.PopFails]),
         #("Can pop from singleton list", [1], [.Pop(1)]),
         #("Can pop from non-empty list", [1, 2], [.Pop(2)]),
         #("Can pop multiple items", [1, 2], [.Pop(2), .Pop(1)]),
         #("Pop updates the count", [1, 2], [.Count(2), .Pop(2), .Count(1), .Pop(1), .Count(0)]),
     ]
-
-    subtests cases, #(description, values, steps), description {
+    |> subtests #(description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "push" {
-    cases = [
+    [
         #("Can push to an empty list", [], [Step.Push(1)]),
         #("Can push to a non-empty list", [1, 2], [.Push(3)]),
         #("Push updates count", [1, 2], [.Push(3), .Count(3)]),
@@ -167,14 +165,13 @@ test "push" {
             [.Push(1), .Push(2), .Pop(2), .Push(3), .Count(2), .Pop(3), .Pop(1), .Count(0)],
         ),
     ]
-
-    subtests cases, #(description, values, steps), description {
+    |> subtests #(description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "peek" {
-    cases = [
+    [
         #("Peek on empty list is an error", [], [Step.PeekFails]),
         #("Can peek on singleton list", [1], [.Peek(1)]),
         #("Can peek on non-empty list", [1, 2], [.Peek(2)]),
@@ -185,14 +182,13 @@ test "peek" {
             [.Push(1), .Push(2), .Peek(2), .Pop(2), .Peek(1), .Push(3), .Peek(3)],
         ),
     ]
-
-    subtests cases, #(description, values, steps), description {
+    |> subtests #(description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "toList LIFO" {
-    cases = [
+    [
         #("Empty linked list to list is empty", [], [Step.ToList([])]),
         #("To list with multiple values", [1, 2, 3], [.ToList([3, 2, 1])]),
         #(
@@ -201,14 +197,13 @@ test "toList LIFO" {
             [.Push(1), .Push(2), .Push(3), .Pop(3), .Push(4), .ToList([4, 2, 1])],
         ),
     ]
-
-    subtests cases, #(description, values, steps), description {
+    |> subtests #(description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 
 test "reverse" {
-    cases = [
+    [
         #("Reversed empty list has same values", [], [Step.Reverse, .ToList([])]),
         #("Reversed singleton list is same list", [1], [.Reverse, .ToList([1])]),
         #(
@@ -218,12 +213,20 @@ test "reverse" {
         ),
         #("Double reverse", [1, 2, 3], [.Reverse, .Reverse, .Pop(3), .Pop(2), .Pop(1)]),
     ]
-
-    subtests cases, #(description, values, steps), description {
+    |> subtests #(description, values, steps), description {
         assert replay(values, steps) == steps
     }
 }
 ```
+<!-- expect
+ok count (3 cases)
+ok pop (5 cases)
+ok push (4 cases)
+ok peek (5 cases)
+ok toList LIFO (3 cases)
+ok reverse (4 cases)
+test result: ok. 24 passed, 0 failed
+-->
 
 ## How it's written
 

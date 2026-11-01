@@ -20,12 +20,12 @@ fn search(
     relatives: Map<String, Set<String>>,
     to: String,
 ) -> Maybe<Int> {
-    if Set.contains(frontier, to) { return Some(distance) }
+    if to in frontier { return Some(distance) }
 
     next =
         frontier
         |> Iter.flat_map(&(Map.get(relatives, &1) |> Maybe.with_default(%[])))
-        |> Iter.reject(&Set.contains(seen, &1))
+        |> Iter.reject(&(&1 in seen))
         |> Iter.to_set()
 
     if Iter.is_empty(next) {

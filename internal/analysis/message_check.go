@@ -16,7 +16,7 @@ import (
 	"github.com/nomi-language/nomi/internal/stdplural"
 )
 
-// The checks of a `message` declaration and its catalogs (spec §41). Every
+// The checks of a `message` declaration and its catalogs (spec §18 *Messages*). Every
 // one is an error, at the declaration, in its text, or in a catalog's
 // entry:
 //

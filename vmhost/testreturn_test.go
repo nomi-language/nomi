@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// `return` in a test body ends the case (spec §36): its pending deferred calls
+// `return` in a test body ends the case (spec §17): its pending deferred calls
 // run, nothing after it runs, and a returned value is the body's final value,
 // so a returned failed `testing.check` fails the case.
 func TestTest_ReturnEndsTheCase(t *testing.T) {

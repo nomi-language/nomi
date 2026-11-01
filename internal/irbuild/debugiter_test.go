@@ -3,7 +3,7 @@ package irbuild
 import "testing"
 
 // TestDebugIter_ViewedSourcesRender pins Debug of a declared `Iter<T>`
-// position. A view inspects as its source (spec §16), so the rendering must be
+// position. A view inspects as its source (spec §12 *Display and Debug*), so the rendering must be
 // told the Debug impl of every source that position can hold: std's generic
 // Range impl, a user `Iter` implementor's, and a declared element's inside a
 // List, Set or Map. Each of rows 1 to 10 and the dbg line was BLOCKED with

@@ -52,7 +52,7 @@ fn annotate_square(
 
     count =
         neighbours
-        |> Iter.filter(fn #(dr, dc) -> Set.contains(flowers, #(row + dr, column + dc)))
+        |> Iter.filter(fn #(dr, dc) -> #(row + dr, column + dc) in flowers)
         |> Iter.count()
 
     if count == 0 {
@@ -223,11 +223,27 @@ test "multiple adjacent flowers" {
     assert flower_field.annotate(garden) == ["1**1"]
 }
 ```
+<!-- expect
+ok no rows
+ok no columns
+ok no flowers
+ok garden full of flowers
+ok flower surrounded by spaces
+ok space surrounded by flowers
+ok horizontal line
+ok horizontal line, flowers at edges
+ok vertical line
+ok vertical line, flowers at edges
+ok cross
+ok large garden
+ok multiple adjacent flowers
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 
 - The garden stays `List<String>` in and out. Flowers are collected once into a `Set<#(Int, Int)>` of coordinates, so counting neighbours is eight set lookups and there is no grid indexing or bounds check.
-- Rows are iterated as strings of graphemes (`Iter` over `String`), comparing squares with `"*"`, not as codepoints; style §19 keeps text in strings.
+- Rows are iterated as strings of graphemes (`Iter` over `String`), comparing squares with `"*"`, not as codepoints; style §20 keeps text in strings.
 - The eight offsets are a `once` literal rather than generated from `-1..=1` twice with the centre removed.
 - Each canonical case is its own `test`, with the garden bound to `garden` before the assertion.
 - Every garden of more than one row, input and expected output, is written one row per line. `nomi fmt` keeps a list broken after its `[` that way even when it would fit on one line.

@@ -25,6 +25,10 @@ test "Say Hi!" {
     assert hello() == "Hello, World!"
 }
 ```
+<!-- expect
+ok Say Hi!
+test result: ok. 1 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -755,13 +755,19 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			return
 		}
 		d.ifaceName = name
+		// `impl calendar.DateParts for Q`: the qualifier names std's
+		// interface, whatever this file declares under the bare name.
+		stdQualified := false
+		if std, key, named := g.qualifiedStdIface(ib.Interface); named {
+			d.iface, d.ifaceName, stdQualified = std, key, true
+		}
 		// A GENERIC interface, monomorphized at this block's type arguments.
 		// Asked FIRST, and the order is the whole safety argument: the template
 		// def below is deliberately unlowerable, so falling through would
 		// refuse the very block this instantiation serves. The instance is
 		// the template at the block's type arguments, solved under the frame
 		// a generic receiver's instance was registered at. See ifaceinst.go.
-		if tpl := g.ifaceTemplate(name); tpl != nil {
+		if tpl := g.ifaceTemplate(name); tpl != nil && !stdQualified {
 			inst, why, detail := g.ifaceInstanceFor(tpl, ib)
 			if why != "" {
 				d.lowerable, d.why, d.whyDetail = false, why, detail
@@ -815,7 +821,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 				d.instArgs = args
 			}
 		}
-		if d.iface == nil {
+		if d.iface == nil && !stdQualified {
 			// A sibling file's interface resolves to a MIRROR, so an impl
 			// written here binds into the OWNER's dispatch table rather than a
 			// second one. See existential.go.

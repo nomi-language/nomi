@@ -71,7 +71,7 @@ fn group_price(size: Int) -> Int {
 import book_store
 
 test "total" {
-    cases = [
+    [
         #("Only a single book", [1], 800),
         #("Two of the same book", [2, 2], 1600),
         #("Empty basket", [], 0),
@@ -131,12 +131,15 @@ test "total" {
             10000,
         ),
     ]
-
-    subtests cases, #(description, basket, expected), description {
+    |> subtests #(description, basket, expected), description {
         assert book_store.total(basket) == expected
     }
 }
 ```
+<!-- expect
+ok total (18 cases)
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 

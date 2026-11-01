@@ -2,7 +2,25 @@
 //# 1, 0 and then anything, and reads a field out of them. A pattern is
 //# written most significant bit first in `0`, `1`, `x` (any bit) and one
 //# lowercase field letter, with `_` between bits to group them. It is a
-//# mask and a value: an Int matches when its masked bits are the value's.
+//# mask and a value: an Int matches when its masked bits are the value's,
+//# so one literal says what `n &&& 0b1100_0000 == 0b1000_0000` says in two
+//# numbers:
+//#
+//# ```nomi
+//# import std/bits.Bits
+//#
+//# once continuation = Bits`10aa_aaaa`
+//#
+//# fn payload(byte: Int) -> Maybe<Int> {
+//#     Bits.field(continuation, byte)
+//# }
+//# ```
+//#
+//# A pattern has any width, since an Int has any size. `Bits` takes an
+//# `Int`; a `Byte` is `Byte.to_int(b)` first. The backtick literal is
+//# checked when the program is checked, so a malformed one is a compile
+//# error at the literal, whose text is the `Error`'s: ``typed literal
+//# Bits`10x2` is invalid: `2` at index 3 is not a bit: ...``.
 
 import {
     bool.Bool.{self, False}
@@ -86,6 +104,7 @@ impl Bits {
     //! assert Bits.parse("10x2") == Err(#Error.Character{index: 3, found: "2"})
     //! assert Bits.parse("aabb") == Err(#Error.SecondField{index: 2, field: "a", found: "b"})
     //! assert Bits.parse("a0a") == Err(#Error.SplitField{index: 2, field: "a"})
+    //! assert Bits.parse("aa0a") == Err(#Error.SplitField{index: 3, field: "a"})
     //! assert Bits.width(Bits.parse("aa_aa")?) == 4
     //
     pub fn parse(text: String) -> Result<Bits, Error> {
@@ -126,6 +145,8 @@ impl Bits {
     /// pattern is `n`'s, and `n` has no bit above the pattern's width. A
     /// negative `n`, whose bits go on forever, matches no pattern.
     //! lead = Bits`1xxx_xxxx`
+    //! assert Bits.matches(lead, 128)
+    //! refute Bits.matches(lead, 384)
     //! assert Bits.matches(lead, 0b1000_0001)
     //! refute Bits.matches(lead, 0b0000_0001)
     //! refute Bits.matches(lead, 0b1_1000_0000)

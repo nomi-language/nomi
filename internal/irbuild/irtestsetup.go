@@ -81,7 +81,7 @@ func (bl *irScalarBuilder) testSetupBody(body ast.Node) (ir.Temp, kind, bool) {
 	}
 	if a, isAssertion := block.Stmts[last].(*ast.Assertion); isAssertion {
 		// A final `assert x` is the setup's value, as it is a block's:
-		// the judged subject (spec §36).
+		// the judged subject (spec §17).
 		return bl.assertionValue(a)
 	}
 	tail, isExpr := block.Stmts[last].(*ast.ExprStmt)

@@ -221,7 +221,7 @@ func TestDocumentManager_IndexWorkspace(t *testing.T) {
 	var rels []string
 	for _, uri := range uris {
 		rel, _ := filepath.Rel(dir, fileuri.ToPath(uri))
-		rels = append(rels, rel)
+		rels = append(rels, filepath.ToSlash(rel))
 	}
 	sort.Strings(rels)
 	if got, want := strings.Join(rels, " "), "lib/text.nomi main.nomi math.nomi"; got != want {
@@ -379,7 +379,7 @@ func TestDocumentManager_CrossFileDiagnostics(t *testing.T) {
 // Project-root discovery walks upward from the file looking for nomi.toml
 // or main.nomi, falling back to the file's own directory. Until this
 // rule landed the LSP used the file's immediate parent unconditionally,
-// breaking spec §26's nested-directory file-mode layouts.
+// breaking spec §15 *Entry point*'s nested-directory file-mode layouts.
 
 func TestFindProjectRoot_FindsMainNomiInParent(t *testing.T) {
 	tmp := t.TempDir()
@@ -509,7 +509,7 @@ pub struct Effects {
   logger: Logger
 }
 
-pub fn prod() -> Effects { #Effects{logger: #ProdLogger{}} }
+pub fn prod() -> Effects { #Effects{logger: ProdLogger} }
 `)
 
 	dm := NewDocumentManager()
@@ -670,7 +670,7 @@ func TestDocumentManager_SubdirectoryImportResolvesAgainstProjectRoot(t *testing
 	//   <tmp>/sub/uses_types.nomi ← imports from project root
 	//
 	// Type chosen as `Settings` (not `Config`) — Config is the project's
-	// flat root struct per spec §26/§27; declaring one without a
+	// flat root struct per spec §15; declaring one without a
 	// matching `fn boot() -> Result<Config, E>` is a separate analyzer error.
 	mustWrite("main.nomi", "import types\n\nfn main() { io.inspect(#types.Settings{port: 80}.port) }\n")
 	mustWrite("types.nomi", "pub struct Settings { port: Int }\n")

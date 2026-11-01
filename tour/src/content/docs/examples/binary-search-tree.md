@@ -57,7 +57,7 @@ impl Tree<T> {
 import binary_search_tree.Tree
 
 test "data is inserted" {
-    cases = [
+    [
         #("data is retained", [4], #Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
         #(
             "smaller number at left node",
@@ -100,26 +100,29 @@ test "data is inserted" {
             },
         }),
     ]
-
-    subtests cases, #(description, values, expected), description {
+    |> subtests #(description, values, expected), description {
         assert Tree.from(values) == expected
     }
 }
 
 test "can sort data" {
-    cases = [
+    [
         #("can sort single number", [2], [2]),
         #("can sort if second number is smaller than first", [2, 1], [1, 2]),
         #("can sort if second number is same as first", [2, 2], [2, 2]),
         #("can sort if second number is greater than first", [2, 3], [2, 3]),
         #("can sort complex tree", [2, 1, 3, 6, 7, 5], [1, 2, 3, 5, 6, 7]),
     ]
-
-    subtests cases, #(description, values, expected), description {
+    |> subtests #(description, values, expected), description {
         assert Tree.from(values) |> Tree.sorted() == expected
     }
 }
 ```
+<!-- expect
+ok data is inserted (5 cases)
+ok can sort data (5 cases)
+test result: ok. 10 passed, 0 failed
+-->
 
 ## How it's written
 

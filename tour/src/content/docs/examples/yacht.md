@@ -98,7 +98,7 @@ fn group_sizes(dice: List<Int>) -> List<Int> {
 import yacht.{self, Category}
 
 test "yacht" {
-    cases = [
+    [
         #("Yacht", [5, 5, 5, 5, 5], Category.Yacht, 50),
         #("Not Yacht", [1, 3, 3, 2, 5], .Yacht, 0),
         #("Ones", [1, 1, 1, 3, 5], .Ones, 3),
@@ -134,12 +134,15 @@ test "yacht" {
         #("Choice", [3, 3, 5, 6, 6], .Choice, 23),
         #("Yacht as choice", [2, 2, 2, 2, 2], .Choice, 10),
     ]
-
-    subtests cases, #(description, dice, category, expected), description {
+    |> subtests #(description, dice, category, expected), description {
         assert yacht.score(dice, category) == expected
     }
 }
 ```
+<!-- expect
+ok yacht (29 cases)
+test result: ok. 29 passed, 0 failed
+-->
 
 ## How it's written
 

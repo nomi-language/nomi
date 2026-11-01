@@ -67,7 +67,7 @@ import {
 }
 
 test "proteins" {
-    cases = [
+    [
         #("Empty RNA sequence results in no proteins", "", []),
         #("Methionine RNA sequence", "AUG", [AminoAcid.Methionine]),
         #("Phenylalanine RNA sequence 1", "UUU", [.Phenylalanine]),
@@ -129,14 +129,13 @@ test "proteins" {
             [.Phenylalanine, .Phenylalanine],
         ),
     ]
-
-    subtests cases, #(description, strand, expected), description {
+    |> subtests #(description, strand, expected), description {
         assert protein_translation.proteins(strand) == Ok(expected)
     }
 }
 
 test "invalid codons" {
-    cases = [
+    [
         #(
             "Unknown amino acids, not part of a codon, can't translate",
             "XYZ",
@@ -144,12 +143,16 @@ test "invalid codons" {
         ),
         #("Incomplete RNA sequence can't translate", "AUGU", .InvalidCodon("U")),
     ]
-
-    subtests cases, #(description, strand, expected), description {
+    |> subtests #(description, strand, expected), description {
         assert protein_translation.proteins(strand) == Err(expected)
     }
 }
 ```
+<!-- expect
+ok proteins (28 cases)
+ok invalid codons (2 cases)
+test result: ok. 30 passed, 0 failed
+-->
 
 ## How it's written
 

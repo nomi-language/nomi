@@ -585,6 +585,7 @@
 "or" @keyword
 "not" @keyword
 "is" @keyword
+"in" @keyword
 "typealias" @keyword
 "extern" @keyword
 "embeds" @keyword

@@ -4,7 +4,7 @@ import {
 }
 
 test "winner" {
-    cases = [
+    [
         #(
             "an empty board has no winner",
             [
@@ -119,8 +119,7 @@ test "winner" {
             Some(.X),
         ),
     ]
-
-    subtests cases, #(description, board, expected), description {
+    |> subtests #(description, board, expected), description {
         assert connect.winner(board) == expected
     }
 }

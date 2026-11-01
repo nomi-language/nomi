@@ -31,7 +31,7 @@ pub fn convert(number: Int) -> String {
 import raindrops.convert
 
 test "raindrop sounds" {
-    cases = [
+    [
         #("the sound for 1 is 1", 1, "1"),
         #("the sound for 3 is Pling", 3, "Pling"),
         #("the sound for 5 is Plang", 5, "Plang"),
@@ -59,12 +59,15 @@ test "raindrop sounds" {
         ),
         #("the sound for 3125 is Plang as it has a factor 5", 3125, "Plang"),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert convert(number) == expected
     }
 }
 ```
+<!-- expect
+ok raindrop sounds (18 cases)
+test result: ok. 18 passed, 0 failed
+-->
 
 ## How it's written
 
@@ -79,4 +82,4 @@ test "raindrop sounds" {
 - The table is tuples, not structs: for a three-row local table a tuple is
   the right size. The filter and the map take each row apart in the lambda
   (`fn #(factor, _sound) ->`, `fn #(_factor, sound) ->`) rather than reading
-  `.0` and `.1`, since the table is a `once` away from them (style §21).
+  `.0` and `.1`, since the table is a `once` away from them (style §10).

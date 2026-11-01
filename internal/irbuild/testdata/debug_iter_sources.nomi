@@ -1,6 +1,6 @@
 // Debug of a declared `Iter<T>` position, whose runtime value is either a lazy
 // pipeline (`<iter>`) or a VIEW of the source that entered the position, which
-// inspects as that source (spec §16). Each source kind here is one whose Debug
+// inspects as that source (spec §12 *Display and Debug*). Each source kind here is one whose Debug
 // is a Nomi impl the renderer must be told about: a Range (std's generic
 // impl), a user `Iter` implementor, and collections of a declared struct. The
 // list of Ints and the pipeline are the controls that needed no impl.

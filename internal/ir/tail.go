@@ -3,7 +3,7 @@ package ir
 // Tail calls.
 //
 // Nomi guarantees that a call in tail position runs in constant stack space
-// (spec §12 "Tail-call optimization", §29). The grammar that decides tail
+// (spec §7 "Tail-call optimization"). The grammar that decides tail
 // position is `analysis.MarkTailCalls`, and a producer carries its answer onto
 // the call as `TailCall` (see call.go). That mark is the fact the source
 // states: the call is written where its value is the function's value.

@@ -78,7 +78,7 @@ fn symbol_at(grid: Vector<Vector<String>>, row: Int, column: Int) -> Maybe<Strin
 import rectangles
 
 test "rectangles" {
-    cases = [
+    [
         #("no rows", [], 0),
         #("no columns", [""], 0),
         #("no rectangles", [" "], 0),
@@ -199,12 +199,15 @@ test "rectangles" {
             5,
         ),
     ]
-
-    subtests cases, #(description, lines, expected), description {
+    |> subtests #(description, lines, expected), description {
         assert rectangles.count(lines) == expected
     }
 }
 ```
+<!-- expect
+ok rectangles (14 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

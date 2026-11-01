@@ -21,7 +21,7 @@ func TestHover_StdFunctionShowsItsExamples(t *testing.T) {
 	if !strings.Contains(got, want) {
 		t.Fatalf("hover on String.split lacks its example after the doc:\n%s", got)
 	}
-	if !strings.HasSuffix(got, "assert \"one  two\\tthree\" |> String.split(Regex`\\s+`) == [\"one\", \"two\", \"three\"]\n```") {
+	if !strings.HasSuffix(got, "assert split(\"a,b\", \",\") == [\"a\", \"b\"]\n```") {
 		t.Fatalf("hover on String.split does not end with its last example line:\n%s", got)
 	}
 	if strings.Contains(got, "//!") {

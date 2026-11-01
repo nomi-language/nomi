@@ -4,7 +4,7 @@ import {
 }
 
 test "delivery date" {
-    cases = [
+    [
         #(
             "NOW translates to two hours later",
             NaiveDateTime`2012-02-13T09:00:00`,
@@ -108,8 +108,7 @@ test "delivery date" {
             NaiveDateTime`2019-06-28T08:00:00`,
         ),
     ]
-
-    subtests cases, #(description, meeting_start, text, expected), description {
+    |> subtests #(description, meeting_start, text, expected), description {
         assert swift_scheduling.delivery_date(meeting_start, text) == Ok(expected)
     }
 }

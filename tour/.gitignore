@@ -26,6 +26,18 @@ pnpm-debug.log*
 # Generated stdlib API reference (cmd/nomi-docgen, via build-tour-wasm.sh)
 /src/content/docs/reference/
 
+# Generated language specification pages (cmd/nomi-docgen -spec, from
+# docs/spec.md, via build-tour-wasm.sh)
+/src/content/docs/spec/
+
+# Generated Writing Nomi pages (cmd/nomi-docgen -style, from docs/style.md,
+# via build-tour-wasm.sh)
+/src/content/docs/writing/
+
+# Generated Tooling pages (cmd/nomi-docgen -tooling, from docs/tooling.md,
+# via build-tour-wasm.sh)
+/src/content/docs/tooling/
+
 # scripts/build-tour-wasm.sh's build and vendoring directory, staged from here
 # into public/nomi/
 /.wasm-build/

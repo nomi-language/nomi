@@ -177,6 +177,32 @@ group "reverse the elements of the list" {
     }
 }
 ```
+<!-- expect
+ok append entries to a list and return the new list / empty lists
+ok append entries to a list and return the new list / list to empty list
+ok append entries to a list and return the new list / empty list to list
+ok append entries to a list and return the new list / non-empty lists
+ok concatenate a list of lists / empty list
+ok concatenate a list of lists / list of lists
+ok concatenate a list of lists / list of nested lists
+ok filter list returning only values that satisfy the filter function / empty list
+ok filter list returning only values that satisfy the filter function / non-empty list
+ok returns the length of a list / empty list
+ok returns the length of a list / non-empty list
+ok return a list of elements whose values equal the list value transformed by the mapping function / empty list
+ok return a list of elements whose values equal the list value transformed by the mapping function / non-empty list
+ok folds (reduces) the given list from the left with a function / empty list
+ok folds (reduces) the given list from the left with a function / direction independent function applied to non-empty list
+ok folds (reduces) the given list from the left with a function / direction dependent function applied to non-empty list
+ok folds (reduces) the given list from the right with a function / empty list
+ok folds (reduces) the given list from the right with a function / direction independent function applied to non-empty list
+ok folds (reduces) the given list from the right with a function / direction dependent function applied to non-empty list
+ok reverse the elements of the list / empty list
+ok reverse the elements of the list / non-empty even-length list
+ok reverse the elements of the list / non-empty odd-length list
+ok reverse the elements of the list / list of lists is not flattened
+test result: ok. 23 passed, 0 failed
+-->
 
 ## How it's written
 
@@ -185,6 +211,6 @@ group "reverse the elements of the list" {
 - Both folds call `f(accumulator, item)`, the argument order the canonical data's reimplemented cases fix.
 - The direction-dependent fold cases use `Float` lists, since `el / acc` on the canonical numbers is fractional and Nomi has one `/` per type.
 - The functions are file-level and called `list_ops.map(...)`; the names do not clash with `Iter.map` because file qualification keeps them apart.
-- The file comment is `//#`, the file-comment form style §7 gives for every file: a plain `//` comment above the first declaration is joined to it by `nomi fmt`.
+- The file comment is `//#`, the file-comment form style §49 gives for every file: a plain `//` comment above the first declaration is joined to it by `nomi fmt`.
 - `concat([])` needs a typed empty list (`List<List<Int>>`), which the checker asks for by name; `append([], [])` and the other empty cases need nothing.
 - The "list of nested lists" input is one literal. It is three lists deep, so `nomi fmt` writes it one inner list per line, each on one line.

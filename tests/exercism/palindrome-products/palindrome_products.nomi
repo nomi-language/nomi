@@ -40,7 +40,7 @@ fn search(min: Int, max: Int, direction: Direction) -> Result<Maybe<Product>, Er
 
     low = min * min
     high = max * max
-    outside = fn p: Int -> not Range.contains(low..=high, p)
+    outside = fn p: Int -> not p in low..=high
 
     in_order(digit_count(low), digit_count(high), direction)
     |> Iter.flat_map(fn length -> {

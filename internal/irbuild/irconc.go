@@ -42,6 +42,11 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{},
 		boundK: map[string]kind{}, inferReturn: &resultInference{}, concTries: &tries, tryBoundary: "concurrent"}
 	child.root = t
+	// A `defer` in the body runs when the body's activation ends, at each of
+	// its exits, as one in a lambda's body does. The checker holds every task
+	// the body spawns to an await in the body, so the body ends after them.
+	child.deferOK = true
+	child.openDeferScope(t.Body)
 	child.openWithScope(true)
 	if !child.leading(lead) {
 		return no()

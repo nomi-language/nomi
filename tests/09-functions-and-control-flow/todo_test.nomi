@@ -43,7 +43,7 @@ test "reaching a todo stops the program with its place and reason" {
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "todo reached at ")
+    assert "todo reached at " in message
     assert String.ends_with(message, ":2: finish main")
 }
 
@@ -58,6 +58,6 @@ test "an unannotated binding of a todo asks for a type" {
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
-        String.contains(d.message, "cannot infer a type for 'x' from `todo`")
+        "cannot infer a type for 'x' from `todo`" in d.message
     })
 }

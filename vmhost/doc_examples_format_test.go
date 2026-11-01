@@ -23,7 +23,7 @@ import (
 // It reads:
 //
 //   - every ```nomi and ```nomi-run block of the tour's chapters, the docs
-//     under docs/, README.md and CONTRIBUTING.md, and the ```nomi fences in
+//     under docs/, README.md, CONTRIBUTING.md and tests/README.md, and the ```nomi fences in
 //     std's `///` and `//#` doc comments, which the stdlib reference renders;
 //     a block holding `// FILE: <name>` markers is checked per file, its
 //     Nomi files only, as the tour's multi-file editor formats them;
@@ -43,7 +43,7 @@ func TestDocExamplesAreFormatted(t *testing.T) {
 	root := filepath.Clean("..")
 	tally := &docTally{root: root, files: map[string]*docFileTally{}, edits: map[string][]docEdit{}}
 
-	markdown := []string{"README.md", "CONTRIBUTING.md"}
+	markdown := []string{"README.md", "CONTRIBUTING.md", "tests/README.md"}
 	docs, err := filepath.Glob(filepath.Join(root, "docs", "*.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -58,6 +58,15 @@ func TestDocExamplesAreFormatted(t *testing.T) {
 		}
 		if d.IsDir() && path == filepath.Join(tourDocs, "reference") {
 			return fs.SkipDir // generated from std's doc comments, read below
+		}
+		if d.IsDir() && path == filepath.Join(tourDocs, "spec") {
+			return fs.SkipDir // generated from docs/spec.md, read above
+		}
+		if d.IsDir() && path == filepath.Join(tourDocs, "writing") {
+			return fs.SkipDir // generated from docs/style.md, read above
+		}
+		if d.IsDir() && path == filepath.Join(tourDocs, "tooling") {
+			return fs.SkipDir // generated from docs/tooling.md, read above
 		}
 		if !d.IsDir() && (strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".mdx")) {
 			markdown = append(markdown, relTo(t, root, path))

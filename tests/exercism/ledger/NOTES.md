@@ -14,7 +14,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/ledger.
 - An American negative amount is in parentheses, `($10.00)`, which is CLDR's accounting pattern for `en`: `Money.format` with `sign: .Accounting` writes it, and `Style.sign` picks it for American style only, since the canonical Dutch lines write `$ -123,45`.
 - One thing is the ledger's own and is done by hand: the Dutch amount's no-break space after the symbol becomes a plain space, which the canonical lines use.
 - An entry holds its change in cents, as the canonical input does, and the currency is the ledger's. The change becomes a `Money` only to be formatted.
-- The entries are sorted by one tuple key, `#(date, description, cents)` (style §32).
+- The entries are sorted by one tuple key, `#(date, description, cents)` (style §37).
 - A row is its three columns padded and joined with `" | "`. The heading pads its last title on the right before the row pads it on the left, so the title sits at the left of its column and the amounts at the right.
 - The twelve canonical cases are one `subtests` table. Two canonical cases share the description "multiple entries on same date ordered by description"; the first of them, whose entries are on different dates, is named "..., as first written" so each row has its own name.
 

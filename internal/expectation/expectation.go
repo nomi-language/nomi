@@ -148,6 +148,7 @@ func Normalize(transcript, root string) string {
 	if root != "" {
 		transcript = strings.ReplaceAll(transcript, root+string(filepath.Separator), "<root>/")
 		transcript = strings.ReplaceAll(transcript, root, "<root>")
+		transcript = SlashPathsAfter(strings.ReplaceAll(transcript, `<root>\`, "<root>/"), "<root>/")
 	}
 	return jitteredBackoff.ReplaceAllString(transcript, "retrying in <jitter>")
 }
@@ -215,7 +216,72 @@ func NormalizeDir(transcript, dir string) string {
 		transcript = strings.ReplaceAll(transcript, d+string(filepath.Separator), "<dir>/")
 		transcript = strings.ReplaceAll(transcript, d, "<dir>")
 	}
-	return transcript
+	return SlashPathsAfter(strings.ReplaceAll(transcript, `<dir>\`, "<dir>/"), "<dir>/")
+}
+
+// pathRunEnd is where the path that starts at s[i] ends: at the first
+// space, line break, quote, colon or closing bracket. A path a transcript
+// names under a masked directory is followed by `:line`, ` ::` or the end
+// of the line, so this stops before anything that is not path text.
+func pathRunEnd(s string, i int) int {
+	for ; i < len(s); i++ {
+		switch s[i] {
+		case ' ', '\t', '\n', '\r', ':', '"', '\'', '`', ',', ')', ']', '}', '>':
+			return i
+		}
+	}
+	return i
+}
+
+// SlashPathsAfter writes the path after each marker (`<root>/`, `<dir>/`)
+// with `/`. A Windows run prints the rest of a native path with `\`, and a
+// record holds one spelling for every system. Only the path after a marker
+// changes, so a backslash in a program's own output stays.
+func SlashPathsAfter(text, marker string) string {
+	if !strings.Contains(text, marker) {
+		return text
+	}
+	var b strings.Builder
+	for {
+		i := strings.Index(text, marker)
+		if i < 0 {
+			b.WriteString(text)
+			return b.String()
+		}
+		start := i + len(marker)
+		end := pathRunEnd(text, start)
+		b.WriteString(text[:start])
+		b.WriteString(strings.ReplaceAll(text[start:end], `\`, "/"))
+		text = text[end:]
+	}
+}
+
+// ExpandMarker undoes the masking for one run: it replaces each marker
+// (`<dir>`, `<root>`) with dir, and writes the path after a `marker/` with
+// sep, the separator the program prints there. rt.DisplayPath prints an
+// absolute path natively (pass filepath.Separator) and a relative one with
+// `/`.
+func ExpandMarker(text, marker, dir string, sep byte) string {
+	slashed := marker + "/"
+	var b strings.Builder
+	for {
+		i := strings.Index(text, marker)
+		if i < 0 {
+			b.WriteString(text)
+			return b.String()
+		}
+		b.WriteString(text[:i])
+		b.WriteString(dir)
+		if strings.HasPrefix(text[i:], slashed) {
+			start := i + len(slashed)
+			end := pathRunEnd(text, start)
+			b.WriteByte(sep)
+			b.WriteString(strings.ReplaceAll(text[start:end], "/", string(sep)))
+			text = text[end:]
+			continue
+		}
+		text = text[i+len(marker):]
+	}
 }
 
 // Lookup is the record with the given id.

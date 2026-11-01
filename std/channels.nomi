@@ -1,3 +1,39 @@
+//# Channels: typed queues between tasks, each split into a `Sender` and a
+//# `Receiver`. `Channel.buffered(capacity)` lets a producer run ahead of
+//# its consumer; `Channel.unbuffered()` makes every send wait for a
+//# receive. `Sender.send` answers `Err` once the channel is closed,
+//# `Sender.close` closes it, and `Receiver.receive` answers `None` when it
+//# is closed and drained. How a task waiting on a channel is cancelled is a
+//# language rule ([Concurrency](/spec/concurrency/)).
+//#
+//# ## Multiplexing
+//#
+//# To wait on multiple event sources, use a single channel with an enum:
+//#
+//# ```nomi
+//# concurrent {
+//#     events: Channel<Event> = Channel.buffered(2)
+//#
+//#     p1 = Task.spawn(fn -> Sender.send(events.sender, Event.UserMsg("hello")))
+//#     p2 = Task.spawn(fn -> Sender.send(events.sender, Event.Tick(1)))
+//#
+//#     case Receiver.receive(events.receiver) {
+//#         Some(.UserMsg(msg)) -> handle_msg(msg)
+//#         Some(.Tick(n)) -> handle_tick(n)
+//#         Some(.Shutdown) -> io.print("shutting down")
+//#         None -> io.print("channel closed")
+//#     }
+//#
+//#     _ = Task.await(p1)
+//#     _ = Task.await(p2)
+//#     Ok(Unit)
+//# }
+//# ```
+//#
+//# The enum is the multiplexing mechanism: producers tag their messages,
+//# and the consumer pattern matches on variants. There is no multi-channel
+//# `select` construct; the tagged-enum channel covers the realistic cases.
+
 import {
     int.Int
     maybe.Maybe

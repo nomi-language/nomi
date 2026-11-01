@@ -77,8 +77,8 @@ func TestStdlibExternOperatorImplsAreUncheckedButCollisionFree(t *testing.T) {
 }
 
 // TestStdlibInstantiationsAreWrittenAndDistinct holds std to the rule for a
-// receiver that implements one interface at several type arguments (spec,
-// "Generic Interfaces"): each of its impls writes its type arguments in the
+// receiver that implements one interface at several type arguments (spec §12
+// *Several instantiations for one type*): each of its impls writes its type arguments in the
 // header, and no two write the same ones. The check is the program's own
 // (checkImplInstantiations and detectImplCollisions); this reads the index
 // they read and lists any std receiver outside the rule by name.

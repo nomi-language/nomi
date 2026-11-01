@@ -9,7 +9,7 @@ import (
 )
 
 // deriveSupportedList lists the interfaces `derive` can synthesize, in the
-// order of spec §38.1's *v1 derivable protocols* table.
+// order of spec §12's *Derivable interfaces* table.
 //
 // Use a map for O(1) membership but keep the canonical list as a slice so the
 // "unknown protocol" error message can name the supported set in deterministic
@@ -386,7 +386,7 @@ func IsSynthesizedLine(line int) bool {
 // (typeName, ifaceName) pairs already synthesized in the input. That
 // scan also distinguishes user-written collisions (manual `impl Iface
 // for T` block alongside `derive Iface`) and surfaces them as compile errors per
-// spec §38.1.
+// spec §12 *Derive*.
 func SynthesizeDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
 	prior := existingDerivedImpls(nodes)
 	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
@@ -472,7 +472,7 @@ type priorDeriveImpls struct {
 // names a struct/enum/typedef in the same file that
 // ALSO carries `@derive <Iface>`. Returns a priorDeriveImpls that
 // separates synthesized matches (used for idempotency) from user-written
-// matches (used for spec §38.1 collision errors).
+// matches (used for spec §12 *Derive* collision errors).
 //
 // Synth-band detection: every synthesized FuncDef's Line lands at
 // `synthLineBase + k*16384` (see nextSynthBase / uniquifyPositions).
@@ -608,7 +608,7 @@ func (b *builder) SynthesizeDerives(nodes []ast.Node) []ast.Node {
 // processTypeDeclDeriveDecorators returns synthesized FuncDef nodes for any
 // `@derive` decorators on the given type-decl, plus any validation errors
 // hit (unknown interface, duplicates, malformed args, manual-impl
-// collisions per spec §38.1). Returns (nil, nil) for non-type nodes or
+// collisions per spec §12 *Derive*). Returns (nil, nil) for non-type nodes or
 // nodes without decorators. The `prior` info — produced by
 // existingDerivedImpls — short-circuits emission for (typeName,
 // ifaceName) pairs already covered by a previously-synthesized impl, and
@@ -696,7 +696,7 @@ func processTypeDeclDeriveDecorators(n ast.Node, site synthSite, prior priorDeri
 				continue
 			}
 
-			// Spec §38.1: a manual `impl Iface for T { fn ... }` alongside
+			// Spec §12 *Derive*: a manual `impl Iface for T { fn ... }` alongside
 			// `@derive Iface` on the same type is a compile error.
 			// Surface it here and skip emission so the analyzer's
 			// duplicate-method validation doesn't pile a misleading
@@ -969,7 +969,7 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 //
 //   - OPAQUE: for an opaque struct/enum/distinct type the auto-default is a
 //     name-only body `"<opaque TypeName>"` — a global structural impl would
-//     leak exactly the internals `opaque` exists to hide (spec §15, *Opaque distinct types*).
+//     leak exactly the internals `opaque` exists to hide (spec §4, *Opaque distinct types*).
 //   - EXTERN: for a declared `host type` the auto-default is the bare type
 //     name `"TypeName"` — the declaration carries no payload shape the
 //     synthesizer can see (internals are host-side), which is the same shape
@@ -2063,6 +2063,16 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 		if te == nil {
 			return
 		}
+		if fn := functionTypeIn(te); fn != nil && noEqualityIface[ifaceName] {
+			// A function value has no equality, so no hash or order: a
+			// derived body would compare it.
+			errs = append(errs, TypeError{
+				Line: fieldPos.Line, Col: fieldPos.Col, File: fieldPos.File,
+				Message: fmt.Sprintf("no impl of `%s` for `%s` (required via `derive %s for %s`, field `%s`)",
+					ifaceName, fn.TypeString(), ifaceName, typeName, fieldName),
+			}.WithHint(fmt.Sprintf("a function value has no equality; write an `impl %s for %s` that leaves the field out", ifaceName, typeName)))
+			return
+		}
 		baseName := TypeExprBaseName(te)
 		if baseName == "" {
 			// Function/anonymous types — synthesizer doesn't recurse into
@@ -2185,6 +2195,35 @@ func checkDeriveComponentTypes(fa *FileAnalysis, impls *ProjectImplIndex, typeNo
 	return errs
 }
 
+// noEqualityIface is the derivable interfaces whose derived body compares
+// each component, so a component with no equality cannot have one.
+var noEqualityIface = map[string]bool{"Equatable": true, "Hashable": true, "Comparable": true}
+
+// functionTypeIn answers the first function type te is or holds, through
+// tuples, type arguments and a module qualifier, or nil.
+func functionTypeIn(te ast.TypeExpr) *ast.FuncType {
+	switch t := te.(type) {
+	case *ast.FuncType:
+		if t.Return != nil {
+			return t
+		}
+		for _, p := range t.Params {
+			if fn := functionTypeIn(p); fn != nil {
+				return fn
+			}
+		}
+	case *ast.GenericType:
+		for _, p := range t.Params {
+			if fn := functionTypeIn(p); fn != nil {
+				return fn
+			}
+		}
+	case *ast.QualifiedType:
+		return functionTypeIn(t.Member)
+	}
+	return nil
+}
+
 // typeArgs returns the type-argument list of a TypeExpr — non-empty for
 // GenericType, empty otherwise. Used by checkDeriveComponentTypes to
 // recurse into nested generic instantiations the parent type's @derive
@@ -2294,7 +2333,7 @@ func isInterfaceTypeName(fa *FileAnalysis, name string) bool {
 }
 
 // boundedTypeParams mirrors the source type's TypeParams onto a synthesized
-// FuncDef, attaching the named interface as a bound on each. Spec §38.1:
+// FuncDef, attaching the named interface as a bound on each. Spec §12 *Derive*:
 // `@derive Iface struct Box<T>` synthesizes `fn equal(a: Box<T>, b: Box<T>):
 // Bool` with the implicit bound `T: Iface`. Without the bound the type
 // checker would accept calls with a payload type that has no Iface impl;
@@ -2302,7 +2341,7 @@ func isInterfaceTypeName(fa *FileAnalysis, name string) bool {
 //
 // User-written bounds on the source type (e.g. `where T: SomeOther`) are NOT
 // propagated; only the @derive'd interface is added as a bound, matching
-// what spec §38.1 documents. If the user wants tighter bounds they can
+// what spec §12 *Derive* documents. If the user wants tighter bounds they can
 // hand-write the impl.
 func boundedTypeParams(typeParams []ast.TypeParam, ifaceName string, line, col int) []ast.TypeParam {
 	if len(typeParams) == 0 {
@@ -2332,7 +2371,7 @@ func boundedTypeParams(typeParams []ast.TypeParam, ifaceName string, line, col i
 //   - Enum: outer `case value` with one branch per variant; branch body mixes
 //     the variant's declaration index (as IntLit) with the structural hash of
 //     its payload. Bare variant: just the index. Variant index is per
-//     spec §38.1 — declaration order determines hash buckets.
+//     spec §12 *Derive* — declaration order determines hash buckets.
 //   - Distinct type: zero-sized → 0; tuple inner → unwrap then mix component
 //     hashes; primitive / generic / qualified → unwrap then delegate to
 //     `Hashable.hash` on the inner value.
@@ -2414,7 +2453,7 @@ func hashableStructExpr(fields []ast.StructField, obj string, line, col int) ast
 // hashableEnumExpr builds the outer `case value { ... }` expression. Each
 // variant's branch body is `<index> * 31 + <payload hash>`, or just `<index>`
 // for bare variants. Variant declaration order determines the index — same
-// as the spec §38.1 description for `@derive Hashable` on enums.
+// as the spec §12 *Derive* description for `@derive Hashable` on enums.
 func hashableEnumExpr(e *ast.EnumDef, line, col int) ast.Node {
 	branches := make([]ast.CaseBranch, 0, len(e.Variants))
 	for i, v := range e.Variants {
@@ -2541,7 +2580,7 @@ func hashableHashCall(arg ast.Node, line, col int) ast.Node {
 //
 // Note: this matches the FNV-style multiply-then-add convention used by
 // Java's String#hashCode and most language-level structural hashes — same
-// behaviour the spec §38.1 example assumes for `@derive Hashable`.
+// behaviour the spec §12 *Derive* example assumes for `@derive Hashable`.
 func mixHashChain(parts []ast.Node, line, col int) ast.Node {
 	if len(parts) == 0 {
 		return intLit(0, line, col)
@@ -3148,7 +3187,7 @@ func stringifyVariantBody(iface string, v ast.EnumVariant, wrapping map[string]b
 		// Embedded variants behave as the embedded type at the value
 		// level — output is the embedded value's output unwrapped, no
 		// `VariantName(...)` wrapping. The pattern binds a wrapping
-		// distinct's INNER value (spec §8, *Embedded Types*), so that value is rebuilt into
+		// distinct's INNER value (spec §4, *Embedded Types*), so that value is rebuilt into
 		// the distinct first: `Shape.Id(5)` renders `Id(5)`, as the `Id`
 		// does on its own. Only a same-file distinct is known to wrap here.
 		bound := ast.Node(identExpr(positionalBindName(0, "_v"), line, col))

@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -321,13 +322,24 @@ func fetchArchive(url string, w io.Writer, progress io.Writer, version, goos, go
 }
 
 // archivePath is where an archive entry goes under dest, refusing one that
-// would land outside it.
+// would land outside it. An entry's name is a slash path; a backslash
+// counts as a separator too, so a name is refused alike on every system:
+// rooted (`/x`, `\x`), naming a drive (`C:/x`, `C:x`) or climbing out.
 func archivePath(dest, name string) (string, error) {
-	clean := filepath.Clean(filepath.FromSlash(name))
-	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+	slashed := strings.ReplaceAll(name, `\`, "/")
+	if !localArchiveName(slashed) || !filepath.IsLocal(filepath.FromSlash(slashed)) {
 		return "", fmt.Errorf("entry %q is outside the archive", name)
 	}
-	return filepath.Join(dest, clean), nil
+	return filepath.Join(dest, filepath.FromSlash(path.Clean(slashed))), nil
+}
+
+// localArchiveName reports a slash path that stays under its directory.
+func localArchiveName(name string) bool {
+	if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, ":") {
+		return false
+	}
+	clean := path.Clean(name)
+	return clean != ".." && !strings.HasPrefix(clean, "../")
 }
 
 func extractTarGz(r io.Reader, dest string) error {

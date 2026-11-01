@@ -2,8 +2,27 @@
 //# recipe for producing a `T`; run it against a `random.Seed` with
 //# `Generator.step` to get back the value paired with the next seed.
 //# Same seed in -> same value out, so every draw is reproducible and testable.
-//# The only impurity is `Seed.from_os`, which reads OS entropy for a fresh
+//# There is no stateful global generator and no mutation: randomness is an
+//# explicit value, threaded by hand or composed with combinators. The only
+//# impurity is `Seed.from_os`, which reads OS entropy for a fresh
 //# starting seed.
+//#
+//# ```nomi
+//# seed = Seed.from_int(42)
+//#
+//# die = Generator.int(1, 6)
+//#
+//# #(roll, seed) = die |> Generator.step(seed)
+//#
+//# #(next, _) = die |> Generator.step(seed) // a fresh seed → a fresh draw
+//# ```
+//#
+//# When several draws are known up front, compose them into one generator
+//# and `step` once; thread the `random.Seed` by hand only when draws are
+//# interleaved with other work, such as across turns of an interactive
+//# loop. There is no applicative `mapN` family (`map2`, `map3`, ...):
+//# `step` makes hand-threading the natural move, and `flat_map` and `map`
+//# express any composite generator when one is needed.
 
 import {
     bool.Bool.{self, False, True}
@@ -45,7 +64,9 @@ impl Display for Error {
 pub opaque type Seed Int
 
 impl Seed {
-    /// A reproducible seed from an integer. Same `n` -> same sequence, forever.
+    /// A reproducible seed from an integer. Same `n` -> same sequence,
+    /// forever: splitmix64 is fully specified, so this holds across
+    /// platforms and releases.
     //! seed = Seed.from_int(123)
     //! #(roll, _) = Generator.step(Generator.int(1, 6), seed)
     //! assert roll == 2
@@ -55,7 +76,9 @@ impl Seed {
     }
 
     /// A non-deterministic seed from OS entropy. The one impure call on `Seed`
-    /// -- the entry point when you want real randomness.
+    /// -- the entry point when you want real randomness. A program seeded
+    /// with `from_os` is no longer reproducible (so it cannot be doctested);
+    /// reach for `from_int` in tests.
     pub fn from_os() -> Result<Seed, Error> {
         case os_state() {
             Ok(state) -> Ok(Seed(state))
@@ -94,7 +117,8 @@ fn unit_float(Seed(state)) -> #(Float, Seed) {
     #(value, Seed(next))
 }
 
-/// An immutable recipe for producing a `T`. Build one with a constructor
+/// An immutable recipe for producing a `T`: not a value, but a description
+/// of how to produce one from a seed. Build one with a constructor
 /// (`Generator.int`, ...), reshape it with `map` / `flat_map`, then run it with
 /// `Generator.step`. `Generator.weighted` returns a `Result`, since its weights
 /// may come from data; unwrap it with `?` or `case` before composing.
@@ -121,7 +145,7 @@ impl Generator<T> {
     /// Uniform integer in the inclusive range `[from, to]`, which must hold
     /// `from <= to`. A reversed range traps: `Generator.int: from 6 is greater
     /// than to 1`. Compare the bounds first when they come from data. Any
-    /// range that passes draws, of any width.
+    /// range that passes draws uniformly, the whole of `Int` included.
     //! die = Generator.int(1, 6)
     //! #(roll, _) = Generator.step(die, Seed.from_int(123))
     //! assert roll >= 1 and roll <= 6
@@ -142,7 +166,7 @@ impl Generator<T> {
     /// `from < to`, with both bounds finite. Any other pair, a NaN bound
     /// included, traps: `Generator.float: from 2.5 is not less than to 1.5`,
     /// or `Generator.float: bounds must be finite, got -Inf and 1.0`. Bounds
-    /// whose difference is too large for a Float still draw.
+    /// whose difference is too large for a Float still draw uniformly.
     //! gen = Generator.float(1.5, 2.5)
     //! #(x, _) = Generator.step(gen, Seed.from_int(123))
     //! assert x >= 1.5 and x < 2.5
@@ -219,7 +243,9 @@ impl Generator<T> {
         }
     }
 
-    /// Sequence a dependent generator -- the bind operation.
+    /// Sequence a dependent generator (the next draw depends on the previous
+    /// value) -- the bind operation, and the way to build a composite
+    /// generator.
     ///
     /// ```nomi
     /// gen = Generator.int(1, 6)
@@ -244,6 +270,13 @@ impl Generator<T> {
 
     /// A list of `length` independent draws from `gen`. A non-positive length
     /// produces an empty list.
+    //! #(hand, _) =
+    //!     Generator.int(1, 6)
+    //!     |> Generator.list(5)
+    //!     |> Generator.step(Seed.from_int(7))
+    //!
+    //! assert hand == [4, 1, 1, 4, 5]
+    //!
     //! gen = Generator.constant("ha") |> Generator.list(3)
     //!
     //! #(values, _) = Generator.step(gen, Seed.from_int(123))

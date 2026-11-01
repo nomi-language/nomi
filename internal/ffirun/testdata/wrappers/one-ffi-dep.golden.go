@@ -229,6 +229,7 @@ func runTestFileVM(testPath string, args []string, format nomivmhost.TestFormat)
 var (
 	_ = errors.New
 	_ = fmt.Errorf
+	_ = rt.TupleDesc
 )
 
 // nomiHostBound holds the descriptors the adapters build with, resolved once.

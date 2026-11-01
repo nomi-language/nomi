@@ -69,7 +69,7 @@ fn glyphs(rows: List<String>) -> List<String> {
 import ocr_numbers.{self, Error}
 
 test "convert" {
-    cases = [
+    [
         #(
             "Recognizes 0",
             [
@@ -248,12 +248,15 @@ test "convert" {
             Ok("123,456,789"),
         ),
     ]
-
-    subtests cases, #(description, rows, expected), description {
+    |> subtests #(description, rows, expected), description {
         assert ocr_numbers.convert(rows) == expected
     }
 }
 ```
+<!-- expect
+ok convert (17 cases)
+test result: ok. 17 passed, 0 failed
+-->
 
 ## How it's written
 

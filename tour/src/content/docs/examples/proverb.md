@@ -71,6 +71,15 @@ test "four pieces modernized" {
     ]
 }
 ```
+<!-- expect
+ok zero pieces
+ok one piece
+ok two pieces
+ok three pieces
+ok full proverb
+ok four pieces modernized
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

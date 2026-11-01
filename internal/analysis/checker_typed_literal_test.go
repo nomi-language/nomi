@@ -392,7 +392,7 @@ func pickDecls(inherentFirst bool) string {
 // ambiguous typed literal calls" defect.
 //
 // The construct is REJECTED rather than resolved, and the argument is that
-// neither pick is available. `Tag"…"` IS `Tag.from_fragments([…])` (spec §16),
+// neither pick is available. `Tag"…"` IS `Tag.from_fragments([…])` (spec §18 *Typed literals*),
 // which resolves inherent-beats-interface-impl; but preferTypeMethodSymbol's
 // justification for that rule is "the source said which one wins", and at a
 // typed literal the source names no method at all — `from_fragments` is the

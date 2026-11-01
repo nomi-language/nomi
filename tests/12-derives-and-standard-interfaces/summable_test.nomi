@@ -113,6 +113,6 @@ test "summing a type that is not Summable is a compile error" {
         |> compiler.check()
 
     assert Iter.any(diagnostics, fn d -> {
-        String.contains(d.message, "Bool does not implement Summable")
+        "Bool does not implement Summable" in d.message
     })
 }

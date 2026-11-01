@@ -3,7 +3,7 @@ package analysis
 import "testing"
 
 // A single-variant enum's pattern is irrefutable, so `E.V(x) = value` binds
-// x to V's payload, as the same pattern does as a parameter (§5 Parameter
+// x to V's payload, as the same pattern does as a parameter (§7 Parameter
 // Destructuring). It was rejected as a distinct destructure of a non-distinct
 // type.
 func TestSingleVariantBinding_BindsThePayload(t *testing.T) {

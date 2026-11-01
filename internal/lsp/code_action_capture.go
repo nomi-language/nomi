@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// "Use a capture" rewrites a lambda as the capture it says (spec §5,
+// "Use a capture" rewrites a lambda as the capture it says (spec §7,
 // *Captures*): `fn s -> s > 50` becomes `&(&1 > 50)`, `fn l
 // -> Set.contains(letters, l)` becomes `&Set.contains(letters, &1)`, `fn
 // x -> #Point{x: x, y: 0}` becomes `&#Point{x: &1, y: 0}`. "Write as a

@@ -4,7 +4,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 
 // An impl block whose receiver is a generic type ANOTHER file declares:
 // `impl Holds for Wrap<T>` in impls.nomi over `pub struct Wrap<T>` in
-// wrap.nomi. The orphan rule admits it (§13), and the checker's impl index
+// wrap.nomi. The orphan rule admits it (§12), and the checker's impl index
 // answers a call through it wherever it is written.
 //
 // The block's body is written against its own file's scope, so its instances

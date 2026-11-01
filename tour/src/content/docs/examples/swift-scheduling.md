@@ -91,8 +91,8 @@ fn numbered(text: String) -> Maybe<Description> {
     quarter = String.strip_prefix(text, "Q") |> Maybe.flat_map(String.to_int)
 
     case #(month, quarter) {
-        #(Some(n), _) when Range.contains(1..=12, n) -> Some(.Month(n))
-        #(_, Some(n)) when Range.contains(1..=4, n) -> Some(.Quarter(n))
+        #(Some(n), _) when n in 1..=12 -> Some(.Month(n))
+        #(_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
         _ -> None
     }
 }
@@ -171,7 +171,7 @@ import {
 }
 
 test "delivery date" {
-    cases = [
+    [
         #(
             "NOW translates to two hours later",
             NaiveDateTime`2012-02-13T09:00:00`,
@@ -275,8 +275,7 @@ test "delivery date" {
             NaiveDateTime`2019-06-28T08:00:00`,
         ),
     ]
-
-    subtests cases, #(description, meeting_start, text, expected), description {
+    |> subtests #(description, meeting_start, text, expected), description {
         assert swift_scheduling.delivery_date(meeting_start, text) == Ok(expected)
     }
 }
@@ -290,6 +289,11 @@ test "descriptions that name no delivery date" {
     }
 }
 ```
+<!-- expect
+ok delivery date (17 cases)
+ok descriptions that name no delivery date (6 cases)
+test result: ok. 23 passed, 0 failed
+-->
 
 ## How it's written
 

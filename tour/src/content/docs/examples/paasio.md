@@ -163,6 +163,16 @@ test "earlier meters keep their own counts" {
     assert third.stats == #Stats{bytes: 4, operations: 2}
 }
 ```
+<!-- expect
+ok a new meter has counted nothing
+ok reads count their bytes and themselves
+ok one read takes what fits, and the next finds the end
+ok reading an empty stream is one operation and no bytes
+ok a read error passes through
+ok writes count their bytes and themselves
+ok earlier meters keep their own counts
+test result: ok. 7 passed, 0 failed
+-->
 
 ## How it's written
 

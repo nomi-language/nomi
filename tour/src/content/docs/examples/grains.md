@@ -17,7 +17,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The grains on `square`, numbered from 1 to 64.
 pub fn square(square: Int) -> Result<Int, String> {
-    if not Range.contains(1..=64, square) { return Err("square must be between 1 and 64") }
+    if not square in 1..=64 { return Err("square must be between 1 and 64") }
 
     Ok(grains_on(square))
 }
@@ -36,7 +36,7 @@ import grains
 
 group "returns the number of grains on the square" {
     test "counts the grains" {
-        cases = [
+        [
             #("grains on square 1", 1, 1),
             #("grains on square 2", 2, 2),
             #("grains on square 3", 3, 4),
@@ -45,20 +45,18 @@ group "returns the number of grains on the square" {
             #("grains on square 32", 32, 2147483648),
             #("grains on square 64", 64, 9223372036854775808),
         ]
-
-        subtests cases, #(description, square, expected), description {
+        |> subtests #(description, square, expected), description {
             assert grains.square(square) == Ok(expected)
         }
     }
 
     test "rejects squares off the board" {
-        cases = [
+        [
             #("square 0 is invalid", 0),
             #("negative square is invalid", -1),
             #("square greater than 64 is invalid", 65),
         ]
-
-        subtests cases, #(description, square), description {
+        |> subtests #(description, square), description {
             assert grains.square(square) == Err("square must be between 1 and 64")
         }
     }
@@ -68,11 +66,17 @@ test "returns the total number of grains on the board" {
     assert grains.total() == 18446744073709551615
 }
 ```
+<!-- expect
+ok returns the number of grains on the square / counts the grains (7 cases)
+ok returns the number of grains on the square / rejects squares off the board (3 cases)
+ok returns the total number of grains on the board
+test result: ok. 11 passed, 0 failed
+-->
 
 ## How it's written
 
 - The counts are `Int`s. The 64th square holds 2^63 grains and the board 2^64 - 1, past 64 bits, and an `Int` is exact at any size.
-- A square's grains are `Int.pow(2, square - 1)` (style §26), which says what the count is. `1 <<< (square - 1)` is the same number.
+- A square's grains are `Int.pow(2, square - 1)` (style §33), which says what the count is. `1 <<< (square - 1)` is the same number.
 - `total` sums every square rather than using `2^64 - 1`, so it says what the board holds.
 - A square off the board is `Err` with the canonical message, a `String`, as collatz-conjecture does. There is one error, so an `Error` enum would add a type for one variant.
 - The seven counts are one `subtests` table and the three bad squares another, since they assert different shapes; both sit in the canonical group.

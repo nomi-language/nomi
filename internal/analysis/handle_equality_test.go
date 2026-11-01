@@ -9,7 +9,7 @@ import (
 // state with no value to compare, and the runtime answers no equality for
 // one. `==` over one used to pass the checker and stop the program with "not
 // supported yet"; the checker now rejects it as it rejects `==` on a
-// function (spec §30).
+// function (spec §5 *Equality and Ordering Semantics*).
 func TestHandleEquality_IsRejected(t *testing.T) {
 	cases := []struct{ name, body, want string }{
 		{"sender", "ch: Channel<Int> = Channel.unbuffered()\n    _ = ch.sender == ch.sender",

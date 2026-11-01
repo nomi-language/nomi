@@ -1,6 +1,6 @@
 ---
-title: "FFI & Dynamic"
-description: "Call Go packages from Nomi, and handle values whose shape you don't know yet with Dynamic."
+title: "Calling Go"
+description: "Call functions from Go packages, the Go standard library's included, from Nomi."
 ---
 
 :::caution[Early FFI surface]
@@ -131,7 +131,8 @@ For any other Go type, convert it in your Go adapter. If Nomi only needs to
 hold a Go value and hand it back, declare an `opaque type` for it, such as
 `opaque type Conn go dbtools.Conn`. If Nomi
 needs to look inside a value whose shape you can't write in the signature,
-pass it as `Dynamic` and decode it on the Nomi side.
+pass it as `Dynamic` and decode it on the Nomi side
+([JSON & Dynamic](/json-and-dynamic/#dynamic-values)).
 
 | Go type | Nomi type | Notes |
 | --- | --- | --- |
@@ -151,6 +152,30 @@ pass it as `Dynamic` and decode it on the Nomi side.
 | a Go value Nomi only holds | `opaque type` | Nomi stores it and passes it back, but can't look inside. |
 | a value of unknown shape | `Dynamic` | Nomi decodes it or matches on it. |
 | channels, non-empty interfaces, named function types | Go adapter or opaque handle | Convert to a type in this table, or keep the value opaque. |
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- An `Int` past a Go parameter's width traps at the call, naming the Go
+  function and the parameter:
+  `` `strings.Repeat`'s `count` takes an Int that fits in 64 bits; got 100000000000000000000 ``.
+- `Byte` and `Int` don't stand in for each other: an `Int` doesn't fill a
+  `uint8` parameter.
+- A `float32` slot is range-checked. NaN and the infinities cross
+  unchanged.
+- A `time.Time` outside what an `Instant` holds traps. An `Instant` goes
+  back to Go in UTC, with no zone.
+- A Go map comes back with its keys in ascending order. A Go key type with
+  no order, such as a pointer, is refused at the binding.
+- Your own enums don't cross. Only `Result`, `Maybe` and `Bool` do, as a
+  trailing `error`, `*T` and `bool`. A distinct type crosses as the type it
+  wraps.
+- A generic Go function can't be bound: write a non-generic Go function
+  that calls it, and bind that.
+
+Spec: [How Nomi types project to Go](/spec/host-declarations-and-go-bindings/#how-nomi-types-project-to-go).
+
+</div>
 
 ## Binding the Go standard library
 
@@ -227,123 +252,37 @@ Go has a feature called cgo that lets Go code call C code. Nomi builds the Go
 side without it. A `gopkg` naming a package that needs cgo, itself or through
 a package it imports, is a compile error at the `gopkg`.
 
-Go bindings are compiled with Go. Programs without Go bindings don't need Go
-at all. To find a Go, `nomi` tries these in order:
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
 
-- the `NOMI_GO` environment variable, which names a `go` command or the
-  folder a Go installation lives in;
-- a `go` on your `PATH`;
-- the Go release `nomi` was built with. `nomi` downloads it from go.dev the
-  first time it needs it, which is about 70 MB. It checks the download against
-  a checksum built into `nomi`, and keeps it so it never downloads it again.
+- The cgo check follows the package's imports, so a package that is pure Go
+  itself but imports one that needs cgo is refused too.
+- A package internal to the Go standard library, such as `internal/abi`,
+  is refused at its `gopkg`.
+- A `gopkg` stands at the top level of a file, beside the bindings that use
+  it, and each `go alias.Symbol` names an alias a `gopkg` in the same file
+  declares.
+- A Go type binding is always `opaque type`: Nomi can hold and pass it,
+  never build or look inside it.
 
-The editor's language server never downloads Go. If you have no `go`, run
-`nomi fetch` in the project once. It downloads Go along with the project's
-modules, and the editor uses that Go from then on. A command given
-`--offline` doesn't download Go either.
+Spec: [Binding Go packages](/spec/host-declarations-and-go-bindings/#binding-go-packages-gopkg-and-go).
+Building a project with Go bindings is in the tooling reference's
+[Go bindings](/tooling/go-bindings/).
 
-Your Go code is compiled together with Nomi's own Go module. A `nomi` from a
-release, or from `go install`, uses that module at its own version, which is
-downloaded like any other dependency. So it needs no copy of Nomi's source. A
-`nomi` you built from a clone of the repository uses that clone.
+</div>
 
-`nomi run`, `nomi test` and `nomi check` compile the Go side for you. The
-first run of a project is slower while that happens. Later runs reuse the
-result until the project's Go code, its `go.mod`, or Nomi itself changes.
-Editing `.nomi` files doesn't trigger a recompile.
-
-`nomi build` compiles the Go side into the executable it writes, so the
-program runs without Nomi or Go installed. `nomi build --web` compiles it
-into the page's WebAssembly module the same way, as long as every Go package
-it uses builds for WebAssembly ([Web pages](/building-and-shipping/#web-pages)).
+Go bindings are compiled with Go, and programs without them need no Go at
+all. `nomi` uses the `go` that `NOMI_GO` names, else the one on your `PATH`,
+else it downloads the Go release it was built with. `nomi run`, `nomi test`
+and `nomi check` compile the Go side for you and reuse it until the Go code,
+`go.mod` or Nomi itself changes, and `nomi build` compiles it into the
+executable. The tooling reference's [Go bindings](/tooling/go-bindings/)
+has the details.
 
 The examples on this page run in your browser, which can't compile Go. So
 the site compiles the Go they bind ahead of time, and an example's Go file is
 read-only. You can edit its Nomi files and call the bound functions however
 you like, but binding a Go function the site did not compile is an error.
 
-## Dynamic values
-
-Sometimes you get a value with no known Nomi type: a plugin message, a
-decoded payload, loosely typed configuration, or data from another runtime.
-[`Dynamic`](/reference/dynamic/) holds such a value.
-
-Take the value in as `Dynamic`, then decode it into a real type once you
-know what shape to expect. Every function in
-[`std/dynamic`](/reference/dynamic/) that reads a `Dynamic` returns a
-`Result`. Its error is a [`dynamic.Error`](/reference/dynamic/#struct-error),
-which holds the path to the bad part, what was expected, and what was
-there. So when a payload is wrong, the error tells you where.
-
-For JSON, [`std/json`](/reference/json/) decodes text into a
-[`Json`](/reference/json/#enum-json) enum, which you can match on directly
-with `case`. To read it into types of your own, `Json.to_dynamic` turns it
-into a `Dynamic`. Here a file of users has one bad entry:
-
-```nomi-run
-// FILE: main.nomi
-import {
-    std/dynamic.{self, Dynamic}
-    std/fs
-    std/io
-    std/json.Json
-}
-
-struct User {
-    name: String
-    age: Int
-}
-
-// One user, from a value read as Dynamic.
-fn user(d: Dynamic) -> Result<User, dynamic.Error> {
-    name = Dynamic.at_field(d, "name", Dynamic.as_string)?
-    age = Dynamic.at_field(d, "age", Dynamic.as_int)?
-    Ok(#User{name, age})
-}
-
-// Print each user, or why it could not be read.
-fn print_users(users: Dynamic, count: Int) {
-    0..count
-    |> Iter.each(fn i -> {
-        case Dynamic.at_index(users, i, user) {
-            Ok(u) -> io.print("${u.name} is ${u.age}")
-            Err(e) -> io.print("user ${i}: ${e}")
-        }
-    })
-}
-
-fn main() -> Result<Unit, String> {
-    text = fs.read_text("users.json") |> Result.map_err(fn e -> "${e}")?
-    users = Json.decode(text) |> Result.map_err(fn e -> "${e}")? |> Json.to_dynamic()
-
-    count = Dynamic.as_list(users) |> Result.map_err(fn e -> "${e}")? |> Iter.count()
-    print_users(users, count)
-    Ok(Unit)
-}
-
-// FILE: users.json
-[
-    {"name": "Ada", "age": 36},
-    {"name": "Grace", "age": "unknown"}
-]
-```
-<!-- expect
-Ada is 36
-user 1: decode error at [1].age: expected Int, got String
--->
-
-`user` reads one entry with `Dynamic.at_field`, which adds the field's name
-to the path of any error, and `Dynamic.at_index` adds the entry's position.
-So the second entry's error says where it is, `[1].age`, and what was wrong.
-
-Use `Dynamic` where data comes in from outside. Inside your program, give
-data real types.
-
----
-
-The next chapter, [Generating Code](/generating-code/), shows how a tool
-writes Nomi code from data, as sqlkit does in [Databases](/databases/). The
-last chapter, [Building & Shipping](/building-and-shipping/), shows how to
-package a Nomi program as an executable, a web page, or a WebAssembly
-module. After that, the [Standard Library](/reference/) reference covers
-every module, generated from the library's own doc comments.
+[Generating Code](/generating-code/) is next. It shows how a tool writes
+Nomi code from data, as sqlkit does in [Databases](/databases/).

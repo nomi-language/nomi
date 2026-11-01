@@ -1,6 +1,7 @@
 // Package modfetch puts the Go modules a Nomi project needs into the Go
 // module cache, through the module proxy protocol and the checksum database,
-// with golang.org/x/mod and without the go command (spec §31). A pure-Nomi
+// with golang.org/x/mod and without the go command (docs/tooling.md,
+// *Modules and dependencies*). A pure-Nomi
 // dependency therefore needs no Go toolchain. internal/modcache decides which
 // modules a project needs and reads them; this package downloads, verifies
 // and extracts the ones the cache lacks, and keeps go.mod and go.sum, the

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/gotoolchain"
 )
 
@@ -102,7 +103,7 @@ func TestReleaseArchive_RunsAGoBindingFromAFetchedModule(t *testing.T) {
 		"NOMI_FFIRUN_CACHE_ROOT=" + filepath.Join(tmp, "nomi-cache"),
 		"NOMI_TOOLCHAIN_ROOT=" + toolchains,
 		"NOMI_GO_DOWNLOAD_URL=" + archiveURL,
-		"GOPROXY=file://" + filepath.ToSlash(proxy) + ",file://" + filepath.ToSlash(filepath.Join(parentModCache, "cache", "download")),
+		"GOPROXY=" + fileuri.FromPath(proxy) + "," + fileuri.FromPath(filepath.Join(parentModCache, "cache", "download")),
 		"GOSUMDB=off",
 		"GOTOOLCHAIN=local",
 		"GOMODCACHE=" + filepath.Join(tmp, "modcache"),
@@ -110,6 +111,7 @@ func TestReleaseArchive_RunsAGoBindingFromAFetchedModule(t *testing.T) {
 		"GOCACHE=" + goEnv(t, goBin, "GOCACHE"),
 		"GOFLAGS=-modcacherw",
 	}
+	env = withUserDirs(env)
 	run := func(args ...string) (string, string) {
 		t.Helper()
 		cmd := exec.Command(nomi, args...)

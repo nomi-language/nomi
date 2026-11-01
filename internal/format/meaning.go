@@ -308,6 +308,19 @@ func isGrouped(v reflect.Value) bool {
 	return v.IsValid() && v.Type() == groupedType
 }
 
+// unwrapped is the pipe stage v without a `!` written against it, whose
+// Unwrap holds the stage.
+func unwrapped(v reflect.Value) reflect.Value {
+	e := v
+	if e.Kind() == reflect.Interface && !e.IsNil() {
+		e = e.Elem()
+	}
+	if e.IsValid() && e.Type() == reflect.TypeOf(&ast.Unwrap{}) {
+		return e.Elem().FieldByName("Expr")
+	}
+	return v
+}
+
 // stageEndsInOpenLambda reports whether the pipe stage v, without its
 // parentheses, ends in a lambda's bare body (endsInOpenLambda).
 func stageEndsInOpenLambda(v reflect.Value) bool {
@@ -398,7 +411,7 @@ func equalAST(a, b reflect.Value, path string) (string, bool) {
 			// a stage is a value either way; the formatter adds them when
 			// another stage follows (emitStage).
 			if t == reflect.TypeOf(ast.Binary{}) && name == "Right" && a.FieldByName("Op").String() == "|>" &&
-				isGrouped(a.Field(i)) != isGrouped(b.Field(i)) && !stageEndsInOpenLambda(a.Field(i)) {
+				isGrouped(unwrapped(a.Field(i))) != isGrouped(unwrapped(b.Field(i))) && !stageEndsInOpenLambda(a.Field(i)) {
 				return path + ".Binary.Right: a pipe stage's parentheses changed", false
 			}
 			if p, ok := equalAST(a.Field(i), b.Field(i), path+"."+t.Name()+"."+name); !ok {

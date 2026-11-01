@@ -128,7 +128,7 @@ test "Regex typed literals use the standard adapter" {
     digits = Regex`\d+`
 
     assert Regex.pattern(digits) == "\\d+"
-    assert String.contains("room 42", digits)
+    assert digits in "room 42"
     assert String.find("room 42", digits) == Some("42")
     assert String.find_all("a12b34", digits) == ["12", "34"]
     assert String.replace("a12b34", digits, "<$0>") == "a<12>b<34>"

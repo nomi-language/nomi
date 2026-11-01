@@ -37,7 +37,7 @@ type exercise struct {
 	// on its Run button, with the tour's longer run budget, and shows its
 	// recorded output until then (a ```nomi-run manual block).
 	manual bool
-	// recorded is a manual block's output as the tour's playground shows
+	// recorded is the block's output as the tour's playground shows
 	// it, its tests' report, which the page holds in the block's
 	// <!-- expect ... --> block.
 	recorded    string
@@ -182,13 +182,11 @@ func readExercise(dir string) (exercise, error) {
 	}
 	ex.files = append(append(append(ex.files, solutions...), tests...), others...)
 	ex.chapters = chaptersOf(solutions)
-	if ex.manual {
-		recorded, err := playgroundShows(blockSource(ex))
-		if err != nil {
-			return ex, fmt.Errorf("%s: %w", dir, err)
-		}
-		ex.recorded = recorded
+	recorded, err := playgroundShows(blockSource(ex))
+	if err != nil {
+		return ex, fmt.Errorf("%s: %w", dir, err)
 	}
+	ex.recorded = recorded
 	return ex, nil
 }
 
@@ -436,6 +434,9 @@ func chaptersOf(files []exerciseFile) []chapter {
 			case token.DOTDOT, token.DOTDOTEQ:
 				// A spread (`[x, ..rest]`) or a range (`1..10`).
 				uses[chapterCollection] = true
+			case token.IN:
+				// A membership test, `x in xs`.
+				uses[chapterCollection] = true
 			case token.HASH:
 				if adjacent(t, next) {
 					switch next.Type {
@@ -549,11 +550,9 @@ func renderExample(ex exercise) string {
 	}
 	b.WriteString(blockSource(ex))
 	b.WriteString("```\n")
-	if ex.manual {
-		// The page shows a manual block's recorded output until the
-		// reader runs it, and the doctest holds the block to it.
-		fmt.Fprintf(&b, "<!-- expect\n%s\n-->\n", ex.recorded)
-	}
+	// The page shows the block's recorded output until the reader edits
+	// it (or runs a manual block), and the doctest holds the block to it.
+	fmt.Fprintf(&b, "<!-- expect\n%s\n-->\n", ex.recorded)
 	b.WriteString("\n## How it's written\n\n")
 	b.WriteString(ex.choices)
 	b.WriteString("\n")

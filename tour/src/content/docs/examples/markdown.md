@@ -76,7 +76,7 @@ fn emphasize(text: String) -> String {
 import markdown
 
 test "markdown" {
-    cases = [
+    [
         #(
             "parses normal text as a paragraph",
             "This will be a paragraph",
@@ -131,12 +131,15 @@ test "markdown" {
             "<h1>Start a list</h1><ul><li>Item 1</li><li>Item 2</li></ul><p>End a list</p>",
         ),
     ]
-
-    subtests cases, #(description, text, expected), description {
+    |> subtests #(description, text, expected), description {
         assert markdown.parse(text) == expected
     }
 }
 ```
+<!-- expect
+ok markdown (17 cases)
+test result: ok. 17 passed, 0 failed
+-->
 
 ## How it's written
 

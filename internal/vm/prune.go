@@ -2,7 +2,6 @@ package vm
 
 import (
 	"io"
-	"path"
 	"sort"
 	"strings"
 
@@ -139,9 +138,18 @@ func reachingName(in ir.Instr, f *ir.Func) string {
 		}
 	}
 	if f.Pos().Stdlib() && !strings.Contains(name, ".") {
-		name = strings.TrimSuffix(path.Base(f.Pos().File()), ".nomi") + "." + name
+		name = stdModuleOf(f.Pos().File()) + "." + name
 	}
 	return name
+}
+
+// stdModuleOf is the std module a stdlib file declares: its name without
+// the directory or `.nomi`. The file is a path on the system that loaded
+// the stdlib, so a Windows one is cut at `\` too; no std file's name holds
+// either separator.
+func stdModuleOf(file string) string {
+	file = file[strings.LastIndexAny(file, "/\\")+1:]
+	return strings.TrimSuffix(file, ".nomi")
 }
 
 // PruneImage is the module set a built image carries: entry and mods with

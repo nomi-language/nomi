@@ -9,7 +9,7 @@ import (
 
 // checkQualifiedTypeVisibility reports every type written as `file.Name`
 // whose `Name` is not `pub` in that file. A top-level declaration is private
-// to its file (spec §3), so naming another file's private type is the same
+// to its file (spec §14 *Visibility*), so naming another file's private type is the same
 // error as calling its private function: "file 'other' has no member
 // 'Hidden'".
 //

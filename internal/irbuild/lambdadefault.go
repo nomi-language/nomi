@@ -82,7 +82,7 @@ import (
 //   - A REBIND between declaration and call is NOT observed. `x = 5;
 //     f = fn a = x -> a` then `x = 99` answers 5 both times: the default's
 //     supplier is a closure, and a closure captures the value a name held when
-//     it was made (spec §23).
+//     it was made (spec §7 *Closures*).
 //
 // # What is refused, and why the supplier does not ride on the value
 //

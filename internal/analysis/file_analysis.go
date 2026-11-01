@@ -211,6 +211,12 @@ type FileBodies struct {
 	// struct. Generic structs carry their solved type arguments. Nil until
 	// the first record.
 	TargetStructs map[*ast.StructLit]*StructType
+	// Memberships maps each membership test `x in c` the checker checked to
+	// the call it stands for, `Contains.contains(c, x)` (membershipCall),
+	// whose arguments are the test's own operands. The checker checks that
+	// call, so it records what a written call records, and the IR builder
+	// lowers it with x evaluated first. Nil until the first record.
+	Memberships map[*ast.Binary]*ast.Call
 	// FieldAccessors maps a field accessor (`.name`, `.address.city`) the
 	// checker accepted to the type it reads from: the parameter type of the
 	// function type its position expected. The IR builder lowers the

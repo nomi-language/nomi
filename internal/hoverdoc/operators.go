@@ -15,8 +15,9 @@ import (
 // `!=` say whether equality is structural or an `Equatable` impl's, the
 // ordering operators name the `Comparable` impl, `and` and `or` say when
 // their right side runs, a range's `..` or `..=` the range it builds, a
-// unary `-`, `not` or `~~~` its type, and `is` the value's type and the
-// pattern it tests.
+// unary `-`, `not` or `~~~` its type, `is` the value's type and the
+// pattern it tests, and `in` the value's and the collection's types and
+// the `Contains` call it stands for.
 //
 // Every type shown is one the checker recorded. An operand with no type
 // shows as `…`, and an operator neither of whose operands has a type shows
@@ -38,6 +39,7 @@ var operatorWords = map[string]string{
 	"==": "equality", "!=": "equality",
 	"<": "ordering", "<=": "ordering", ">": "ordering", ">=": "ordering",
 	"and": "logical", "or": "logical",
+	"in": "membership",
 }
 
 // nodeSize is a node's extent for claim, or a large one when the parser
@@ -72,7 +74,7 @@ func (s *shapeSearch) renderIs(n *ast.Is) string {
 	if value == "" || n.Pattern == nil {
 		return ""
 	}
-	return "Is: `" + value + "` is `" + format.RenderPattern(n.Pattern) + "` → `Bool`" +
+	return fence(value+" is "+format.RenderPattern(n.Pattern)+" -> Bool") +
 		"\n\nTests whether the value matches the pattern, as a `case` arm would. It binds nothing."
 }
 
@@ -111,23 +113,24 @@ func (s *shapeSearch) renderUnary(u *ast.Unary) string {
 		return ""
 	}
 	if u.Op == "not" {
-		return "Not: `" + spelled + "` → `Bool`"
+		return fence("not "+spelled+" -> Bool") + "\n\nLogical not."
 	}
 	if u.Op == "~~~" {
-		out := "Bitwise not: `" + spelled + "`"
+		sig := "~~~" + spelled
 		if result := s.pipeType(s.fa.ExprTypes[u]); result != "" {
-			out += " → `" + result + "`"
+			sig += " -> " + result
 		}
+		out := fence(sig) + "\n\nBitwise not"
 		if operand == analysis.TypeInt {
-			out += "\n\nEvery bit flipped: `-n - 1`, at any size."
+			out += ": every bit flipped, `-n - 1`, at any size"
 		}
-		return out
+		return out + "."
 	}
-	out := "Negation: `" + spelled + "` → `" + spelled + "`"
+	out := fence("-"+spelled+" -> "+spelled) + "\n\nNegation"
 	if operand == analysis.TypeInt {
-		out += "\n\nExact at any size."
+		out += ", exact at any size"
 	}
-	return out
+	return out + "."
 }
 
 func (s *shapeSearch) renderOperator(b *ast.Binary) string {
@@ -136,13 +139,13 @@ func (s *shapeSearch) renderOperator(b *ast.Binary) string {
 	if left == "" && right == "" {
 		return ""
 	}
-	head := operandText(left) + " " + b.Op + " " + operandText(right)
+	sig := operandText(left) + " " + b.Op + " " + operandText(right)
 	if left != "" && right != "" {
 		if out := s.pipeType(s.fa.ExprTypes[b]); out != "" {
-			head += " → `" + out + "`"
+			sig += " -> " + out
 		}
 	}
-	lines := []string{head}
+	lines := []string{fence(sig)}
 	add := func(line string) {
 		if line != "" {
 			lines = append(lines, line)
@@ -168,6 +171,11 @@ func (s *shapeSearch) renderOperator(b *ast.Binary) string {
 		if leftType == analysis.TypeFloat {
 			add("IEEE: `nan <= nan` is `False`.")
 		}
+	case "membership":
+		add("Whether the collection holds the value: `Contains.contains(c, x)`, with the value evaluated first.")
+		if _, isMap := analysis.ResolveTypeVar(s.fa.ExprTypes[b.Right]).(*analysis.MapType); isMap {
+			add("A map holds its keys.")
+		}
 	case "logical":
 		if b.Op == "and" {
 			add("Short-circuits: the right side runs only when the left is `True`.")
@@ -178,13 +186,13 @@ func (s *shapeSearch) renderOperator(b *ast.Binary) string {
 	return strings.Join(lines, "\n\n")
 }
 
-// operandText is an operand's type in the summary line, or `…` for one the
-// checker gave none.
+// operandText is an operand's type in the signature line, or `_` for one
+// the checker gave none.
 func operandText(t string) string {
 	if t == "" {
-		return "…"
+		return "_"
 	}
-	return "`" + t + "`"
+	return t
 }
 
 // arithmeticNote is what an arithmetic operator does on a scalar or a

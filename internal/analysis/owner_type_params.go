@@ -91,7 +91,7 @@ func implBlockOwns(ib *ast.ImplBlock, fn *ast.FuncDef) bool {
 
 // checkImplReceiverArity reports an impl block whose receiver names a generic
 // type without its type parameters: `impl Box { ... }` for `struct Box<T>`.
-// The block's type parameters come from the receiver (§13), so the header
+// The block's type parameters come from the receiver (§12), so the header
 // writes them: `impl Box<T> { ... }`.
 func (c *checker) checkImplReceiverArity(n *ast.ImplBlock) {
 	st, bare := n.Receiver.(*ast.SimpleType)

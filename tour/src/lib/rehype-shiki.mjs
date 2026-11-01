@@ -290,12 +290,13 @@ export default function rehypeShiki() {
               const tools = words.filter((w) => w.startsWith("tool:")).map((w) => w.slice("tool:".length));
               if (tools.length) props.dataNomiTools = tools.join(" ");
               child.properties = props;
-              // A manual block runs nothing when the page loads: its output
-              // panel shows its expect block, which the build carries in a
-              // hidden span after the code, as text.
-              if (words.includes("manual")) {
-                const text = recordedOutput(node, i);
-                if (text !== null) recorded.push({ pre: child, text });
+              // A block runs nothing when the page loads: its output panel
+              // shows its expect block, which the build carries in a hidden
+              // span after the code, as text (empty for a block that prints
+              // nothing, which has none). A no-run block's output reads the
+              // clock, so it has no record, and it runs on load.
+              if (!words.includes("no-run")) {
+                recorded.push({ pre: child, text: recordedOutput(node, i) ?? "" });
               }
             }
             if (hasClass(code, "language-nomi-run")) {

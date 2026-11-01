@@ -20,6 +20,9 @@ func TestFormat_PipeStageKeepsItsParentheses(t *testing.T) {
 		"under try": "fn main() {\n" +
 			"    xs = \" 4 \" |> (String.to_int())?\n" +
 			"}\n",
+		"under unwrap": "fn main() {\n" +
+			"    xs = \" 4 \" |> (String.to_int())!\n" +
+			"}\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got, err := Format(src)
@@ -48,5 +51,8 @@ func TestFormat_PipeStageKeepsItsParentheses(t *testing.T) {
 	// SameMeaning sees the difference.
 	if err := SameMeaning("x = y |> (f())\n", "x = y |> f()\n"); err == nil {
 		t.Fatal("SameMeaning takes `y |> (f())` and `y |> f()` for the same program")
+	}
+	if err := SameMeaning("x = y |> (f())!\n", "x = y |> f()!\n"); err == nil {
+		t.Fatal("SameMeaning takes `y |> (f())!` and `y |> f()!` for the same program")
 	}
 }

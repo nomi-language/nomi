@@ -14,7 +14,7 @@ import (
 
 // The orphan rule admits an impl of a foreign interface for a foreign
 // receiver when a type the module declares heads a type argument the
-// interface's functions take (spec §13, *Orphan rule*). These tests build
+// interface's functions take (spec §12, *Orphan rule*). These tests build
 // projects of several modules on disk: app, the entry's module, and the
 // libraries its go.mod replaces with sibling directories.
 

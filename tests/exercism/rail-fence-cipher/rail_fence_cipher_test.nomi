@@ -1,19 +1,18 @@
 import rail_fence_cipher
 
 test "encode" {
-    cases = [
+    [
         #("encode with two rails", "XOXOXOXOXOXOXOXOXO", 2, "XXXXXXXXXOOOOOOOOO"),
         #("encode with three rails", "WEAREDISCOVEREDFLEEATONCE", 3, "WECRLTEERDSOEEFEAOCAIVDEN"),
         #("encode with ending in the middle", "EXERCISES", 4, "ESXIEECSR"),
     ]
-
-    subtests cases, #(description, message, rails, expected), description {
+    |> subtests #(description, message, rails, expected), description {
         assert rail_fence_cipher.encode(message, rails) == expected
     }
 }
 
 test "decode" {
-    cases = [
+    [
         #("decode with three rails", "TEITELHDVLSNHDTISEIIEA", 3, "THEDEVILISINTHEDETAILS"),
         #("decode with five rails", "EIEXMSMESAORIWSCE", 5, "EXERCISMISAWESOME"),
         #(
@@ -23,8 +22,7 @@ test "decode" {
             "112358132134558914423337761098715972584418167651094617711286",
         ),
     ]
-
-    subtests cases, #(description, ciphertext, rails, expected), description {
+    |> subtests #(description, ciphertext, rails, expected), description {
         assert rail_fence_cipher.decode(ciphertext, rails) == expected
     }
 }

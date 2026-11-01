@@ -34,7 +34,7 @@ impl CustomSet<T> {
 
     /// Whether `set` holds `element`.
     pub fn contains(set: CustomSet<T>, element: T) -> Bool where T: Equatable {
-        List.contains(set.items, element)
+        element in set.items
     }
 
     /// Whether every value of `set` is in `other`.
@@ -92,30 +92,28 @@ fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable {
 import custom_set.CustomSet
 
 test "Returns true if the set contains no elements" {
-    cases = [
+    [
         #("sets with no elements are empty", [], True),
         #("sets with elements are not empty", [1], False),
     ]
-
-    subtests cases, #(description, set, expected), description {
+    |> subtests #(description, set, expected), description {
         assert CustomSet.from(set) |> CustomSet.is_empty() == expected
     }
 }
 
 test "Sets can report if they contain an element" {
-    cases = [
+    [
         #("nothing is contained in an empty set", [], 1, False),
         #("when the element is in the set", [1, 2, 3], 1, True),
         #("when the element is not in the set", [1, 2, 3], 4, False),
     ]
-
-    subtests cases, #(description, set, element, expected), description {
+    |> subtests #(description, set, element, expected), description {
         assert CustomSet.from(set) |> CustomSet.contains(element) == expected
     }
 }
 
 test "A set is a subset if all of its elements are contained in the other set" {
-    cases = [
+    [
         #("empty set is a subset of another empty set", [], [], True),
         #("empty set is a subset of non-empty set", [], [1], True),
         #("non-empty set is not a subset of empty set", [1], [], False),
@@ -128,28 +126,26 @@ test "A set is a subset if all of its elements are contained in the other set" {
             False,
         ),
     ]
-
-    subtests cases, #(description, set1, set2, expected), description {
+    |> subtests #(description, set1, set2, expected), description {
         assert CustomSet.is_subset(CustomSet.from(set1), CustomSet.from(set2)) == expected
     }
 }
 
 test "Sets are disjoint if they share no elements" {
-    cases = [
+    [
         #("the empty set is disjoint with itself", [], [], True),
         #("empty set is disjoint with non-empty set", [], [1], True),
         #("non-empty set is disjoint with empty set", [1], [], True),
         #("sets are not disjoint if they share an element", [1, 2], [2, 3], False),
         #("sets are disjoint if they share no elements", [1, 2], [3, 4], True),
     ]
-
-    subtests cases, #(description, set1, set2, expected), description {
+    |> subtests #(description, set1, set2, expected), description {
         assert CustomSet.is_disjoint(CustomSet.from(set1), CustomSet.from(set2)) == expected
     }
 }
 
 test "Sets with the same elements are equal" {
-    cases = [
+    [
         #("empty sets are equal", [], [], True),
         #("empty set is not equal to non-empty set", [], [1, 2, 3], False),
         #("non-empty set is not equal to empty set", [1, 2, 3], [], False),
@@ -158,26 +154,24 @@ test "Sets with the same elements are equal" {
         #("set is not equal to larger set with same elements", [1, 2, 3], [1, 2, 3, 4], False),
         #("set is equal to a set constructed from an array with duplicates", [1], [1, 1], True),
     ]
-
-    subtests cases, #(description, set1, set2, expected), description {
+    |> subtests #(description, set1, set2, expected), description {
         assert (CustomSet.from(set1) == CustomSet.from(set2)) == expected
     }
 }
 
 test "Unique elements can be added to a set" {
-    cases = [
+    [
         #("add to empty set", [], 3, [3]),
         #("add to non-empty set", [1, 2, 4], 3, [1, 2, 3, 4]),
         #("adding an existing element does not change the set", [1, 2, 3], 3, [1, 2, 3]),
     ]
-
-    subtests cases, #(description, set, element, expected), description {
+    |> subtests #(description, set, element, expected), description {
         assert CustomSet.from(set) |> CustomSet.add(element) == CustomSet.from(expected)
     }
 }
 
 test "Intersection returns a set of all shared elements" {
-    cases = [
+    [
         #("intersection of two empty sets is an empty set", [], [], []),
         #("intersection of an empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         #("intersection of a non-empty set and an empty set is an empty set", [1, 2, 3, 4], [], []),
@@ -194,15 +188,14 @@ test "Intersection returns a set of all shared elements" {
             [2, 3],
         ),
     ]
-
-    subtests cases, #(description, set1, set2, expected), description {
+    |> subtests #(description, set1, set2, expected), description {
         intersection = CustomSet.intersection(CustomSet.from(set1), CustomSet.from(set2))
         assert intersection == CustomSet.from(expected)
     }
 }
 
 test "Difference (or Complement) of a set is a set of all elements that are only in the first set" {
-    cases = [
+    [
         #("difference of two empty sets is an empty set", [], [], []),
         #("difference of empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         #(
@@ -219,33 +212,43 @@ test "Difference (or Complement) of a set is a set of all elements that are only
         ),
         #("difference removes all duplicates in the first set", [1, 1], [1], []),
     ]
-
-    subtests cases, #(description, set1, set2, expected), description {
+    |> subtests #(description, set1, set2, expected), description {
         difference = CustomSet.difference(CustomSet.from(set1), CustomSet.from(set2))
         assert difference == CustomSet.from(expected)
     }
 }
 
 test "Union returns a set of all elements in either set" {
-    cases = [
+    [
         #("union of empty sets is an empty set", [], [], []),
         #("union of an empty set and non-empty set is the non-empty set", [], [2], [2]),
         #("union of a non-empty set and empty set is the non-empty set", [1, 3], [], [1, 3]),
         #("union of non-empty sets contains all unique elements", [1, 3], [2, 3], [3, 2, 1]),
     ]
-
-    subtests cases, #(description, set1, set2, expected), description {
+    |> subtests #(description, set1, set2, expected), description {
         assert CustomSet.union(CustomSet.from(set1), CustomSet.from(set2))
             == CustomSet.from(expected)
     }
 }
 ```
+<!-- expect
+ok Returns true if the set contains no elements (2 cases)
+ok Sets can report if they contain an element (3 cases)
+ok A set is a subset if all of its elements are contained in the other set (6 cases)
+ok Sets are disjoint if they share no elements (5 cases)
+ok Sets with the same elements are equal (7 cases)
+ok Unique elements can be added to a set (3 cases)
+ok Intersection returns a set of all shared elements (5 cases)
+ok Difference (or Complement) of a set is a set of all elements that are only in the first set (5 cases)
+ok Union returns a set of all elements in either set (4 cases)
+test result: ok. 40 passed, 0 failed
+-->
 
 ## How it's written
 
 - The exercise asks for a set built by hand, so `CustomSet<T>` does not wrap std's `Set`. It is an opaque struct over one `List<T>` kept in ascending order with no value twice. Every set of the same values then holds the same list, so `derive Equatable` is set equality, and the canonical "constructed from an array with duplicates" case needs no code of its own.
 - Order and uniqueness are kept in one place, the private `insert`: a `case` on the list, then `Comparable.compare` with the head, whose three arms put the value before it, keep the list as it is, or carry on down the tail. `from` and `union` are `Iter.reduce` over `add`, so they keep the order too.
-- `intersection` and `difference` filter the first set's list, which is already in order, so they build the struct directly with the pipe inside its field (style §1).
+- `intersection` and `difference` filter the first set's list, which is already in order, so they build the struct directly with the pipe inside its field (style §7).
 - The functions are in `impl CustomSet<T>`, generic over the block's `T`. The ones that only test membership ask for `T: Equatable`; the ones that build a set ask for `T: Comparable`.
 - A lookup is a linear scan of the list, so `is_subset` and `intersection` are quadratic. A balanced tree would fix that; the canonical sets have at most four values, and the sorted list keeps equality structural.
 - The tests use `Int` values. Each canonical group is a test named by its description, holding one `subtests` table. The tables need no annotation: most open with a row of empty lists, and the numbers in a later row give them their element type.

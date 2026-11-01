@@ -59,6 +59,26 @@ from [`Multiply`](/reference/multiply/) and `/` from
 types can implement them too, when an operator is the clearest way to write
 the operation.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- `%` takes the sign of the dividend: `-7 / 3` is `-2` and `-7 % 3` is
+  `-1`. [`Int.modulo`](/reference/int/#intmodulo) is the floored form:
+  `Int.modulo(-7, 3)` is `2`.
+- `Int` division by zero traps with `division by zero`. `Float` division
+  by zero gives an infinity or NaN instead (see
+  [Exact arithmetic with `Decimal`](#exact-arithmetic-with-decimal)).
+- The number types never mix. `1 + 2.0` is
+  `binary + type mismatch: Int vs Float`; convert with `Int.to_float` or
+  `Float.to_int`, which is `None` for NaN and the infinities.
+- `Float` has no `%`.
+
+Spec: [Integer division and remainder](/spec/expressions/#integer-division-and-remainder),
+[Integer arithmetic is exact](/spec/expressions/#integer-arithmetic-is-exact),
+[No Implicit Conversion](/spec/type-relations/#no-implicit-conversion).
+
+</div>
+
 ## Number literal forms
 
 ```nomi-run
@@ -105,7 +125,29 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 [`Float`](/reference/float/) is fast but not exact. It stores numbers in
 binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
 the difference you accept: `Float.equal_within(0.1 + 0.2, 0.3, 1e-9)` is
-`True`.
+`True`. A `Float` follows IEEE 754, so dividing by zero doesn't stop the
+program: `1.0 / 0.0` is `+Inf`, and `0.0 / 0.0` is NaN, which
+[`Float.is_nan`](/reference/float/#floatis_nan) detects.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+NaN compares three ways, chosen so maps, sorting and patterns behave:
+
+- `==` is reflexive: `nan == nan` is `True`, so a NaN map key is found
+  again. `-0.0 == 0.0` is `True`, and the two are one key.
+- `Float.compare` is a total order with NaN highest, so a sort is
+  deterministic: `Float.compare(nan, nan)` is `Equal`.
+- `<`, `<=`, `>` and `>=` follow IEEE 754: `nan <= nan` is `False`.
+
+`Decimal` has no NaN or infinity, and its division by zero traps. Its scale
+shows in display but not in equality: `1.50d == 1.5d`.
+
+Spec: [Float Special Values](/spec/types/#float-special-values),
+[NaN and the three comparison behaviours](/spec/type-relations/#nan-and-the-three-comparison-behaviours),
+[Decimal arithmetic](/spec/expressions/#decimal-arithmetic).
+
+</div>
 
 [`Decimal`](/reference/decimal/) stores numbers in base 10 and adds them
 exactly. Use it when a rounding error would be a bug, as with money. A
@@ -305,6 +347,22 @@ more than one Unicode form, and two such strings are not equal. Before
 comparing text from different sources, put both in the same form with
 [`String.normalize`](/reference/strings/#stringnormalize).
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A grapheme can be many code points. The family emoji `👨‍👩‍👧` is one
+  grapheme of five code points, so `String.length` counts it as 1.
+- Ordering compares bytes too, which is code point order. For the order a
+  reader expects, use [`std/collation`](/reference/collation/).
+- A `Codepoint` literal holds one ASCII character. Outside ASCII, take one
+  from `String.to_codepoints` or build it with
+  [`Int.to_codepoint`](/reference/int/#intto_codepoint).
+
+Spec: [Strings](/spec/types/#strings),
+[Codepoint literals](/spec/literals/#codepoint-literals).
+
+</div>
+
 ## Binary data with `Bytes`
 
 ```nomi-run
@@ -344,6 +402,19 @@ A `Byte` is not a number, so you can't do arithmetic on it. Convert with
 need the number. An integer literal where a `Byte` is expected is one, so
 `[0x67, 0x6F, 0x3A]` above is the bytes of `go:`, and a literal outside 0
 to 255 there is a compile error.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Only the literal takes its type from where it stands. `n = 0x81` is an
+  `Int`, and `b: Byte = n` is `type mismatch: expected Byte, got Int`.
+- In a comparison or a bitwise operator, a literal takes `Byte` from the
+  other operand: `b == 0x41`, `b &&& 0x7F`.
+- A `Byte` pattern is a literal too: `0x00 -> "nul"`.
+
+Spec: [Byte literals](/spec/literals/#byte-literals).
+
+</div>
 
 ## Triple-quoted strings
 
@@ -405,6 +476,24 @@ A string in backticks is raw. Backslashes and `${...}` are kept as written.
 Use it for text that contains those characters. A raw string can span
 several lines, and its shared indentation is removed the same way.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A raw string has no escapes at all, so it can't hold a backtick: the
+  first backtick ends it.
+- A triple-quoted string reads no escapes either, except `\${`, but it
+  still interpolates `${...}`.
+- In both multi-line forms, a newline right after the opening quote and
+  right before the closing one is dropped, and the closing line's
+  indentation counts toward the shared indentation.
+- A backtick string with a type in front, as in ``Regex`\d+` ``, is a typed
+  literal ([Typed Literals](/typed-literals/)).
+
+Spec: [Raw strings](/spec/literals/#raw-strings),
+[Triple-quoted strings](/spec/literals/#triple-quoted-strings).
+
+</div>
+
 ## Regular expressions
 
 [`std/regex`](/reference/regex/) has `Regex`. Write a pattern in backticks,
@@ -461,6 +550,16 @@ A pattern built from a value is written in double quotes, as
 it, since the value is known only when the program runs, so it is a
 `Result` that you unwrap with `?` or `case`. Inside double quotes a backslash
 starts an escape, so the pattern's `\d` is written `\\d`.
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/reverse-string/"><span class="tour-example-name">Reverse String</span><span class="tour-example-what">Reverse a string as a reader sees it.</span></a>
+<a href="/examples/micro-blog/"><span class="tour-example-name">Micro Blog</span><span class="tour-example-what">Cut a post to five characters, emoji and all.</span></a>
+<a href="/examples/line-up/"><span class="tour-example-name">Line Up</span><span class="tour-example-what">Write 1st, 2nd, 3rd and 11th.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=scalars-and-strings">Every example that uses Scalars &amp; Strings</a>
 
 [Collections](/collections/) is next. It puts these values into lists, maps
 and sets.

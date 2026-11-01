@@ -10,7 +10,7 @@ import (
 )
 
 // An assertion stands as a statement or as a binding's value, and its value
-// is the judged subject (spec §36): True for `assert` of a Bool, False for
+// is the judged subject (spec §17): True for `assert` of a Bool, False for
 // `refute`, and the subject itself for a Maybe or Result. In an ordinary
 // `fn` a failure is the function's Err(AssertionFailure). Each form here
 // ran into a lowering gap before; the parameter subject (`assert x`) did too.

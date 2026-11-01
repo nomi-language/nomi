@@ -43,6 +43,8 @@
 //                                only where what follows makes it one.
 //   NEWLINE_BRACE              — zero-width mark before a `{` that starts
 //                                its line.
+//   SUBTESTS_STAGE_KEYWORD     — the contextual keyword `subtests` as the
+//                                pipe stage `|> subtests pattern { ... }`.
 //
 // Each string scanner emits at least one character; if the first character
 // is already a boundary, the scanner returns false and lets the main
@@ -74,6 +76,9 @@ enum TokenType {
     // Zero-width, before a `{` that starts its line, where that brace may
     // open a block statement or a declaration's body.
     NEWLINE_BRACE,
+    // The contextual keyword `subtests` after a `|>`, emitted only when a
+    // pattern follows it after a space (scan_subtests_stage_keyword).
+    SUBTESTS_STAGE_KEYWORD,
 };
 
 typedef struct {
@@ -306,7 +311,7 @@ static bool at_word(TSLexer *lexer, const char *word) {
 // arm before the line break, as the Go lexer and parser read it. The lexer
 // emits no NEWLINE before a line that starts with `|>`, `)` or `]`, or with
 // an operator no expression starts with (`==`, `!=`, `<`, `<=`, `>`, `>=`,
-// `<<<`, `>>>`, `&&&`, `|||`, `^^^`, `and`, `or`, `is`); the
+// `<<<`, `>>>`, `&&&`, `|||`, `^^^`, `and`, `or`, `is`, `in`); the
 // parser steps over one before `else` (an `if`'s or a binding's) and, after a
 // declaration's signature, before its `{` body and its `where` clause. A
 // statement never starts with `}`, `,` or `{` after a complete statement
@@ -348,7 +353,11 @@ static bool line_continues(TSLexer *lexer) {
         case 'o':
             return at_word(lexer, "or");
         case 'i':
-            return at_word(lexer, "is");
+            // `is` or `in`: at_word advances, so the second letter decides.
+            advance(lexer);
+            if (lexer->lookahead != 's' && lexer->lookahead != 'n') return false;
+            advance(lexer);
+            return !is_ident_char(lexer->lookahead);
         case 'e':
             return at_word(lexer, "else");
         case 'w':
@@ -440,6 +449,24 @@ static bool scan_subtests_keyword(TSLexer *lexer) {
         }
         advance(lexer);
     }
+}
+
+// The contextual keyword `subtests` as a pipe stage, at the lookahead after
+// a `|>`. As in the Go parser (atSubtestsStage), the word is the keyword only
+// when, after a space, a pattern starts on its line: `rows |> subtests
+// #(input, want) { ... }`. `x |> subtests(y)` or a bare `x |> subtests` leave
+// it an identifier. The token ends after the word.
+static bool scan_subtests_stage_keyword(TSLexer *lexer) {
+    if (!at_word(lexer, "subtests")) return false;
+    lexer->mark_end(lexer);
+    if (lexer->lookahead != ' ' && lexer->lookahead != '\t') return false;
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    int32_t c = lexer->lookahead;
+    bool pattern = is_ident_char(c) || c == '[' || c == '(' || c == '#' ||
+        c == '%' || c == '"' || c == '\'' || c == '`';
+    if (!pattern) return false;
+    lexer->result_symbol = SUBTESTS_STAGE_KEYWORD;
+    return true;
 }
 
 // The contextual keyword `group`, at the lookahead where a top-level item can
@@ -598,6 +625,10 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[SUBTESTS_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 's') {
         return scan_subtests_keyword(lexer);
+    }
+
+    if (valid_symbols[SUBTESTS_STAGE_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 's') {
+        return scan_subtests_stage_keyword(lexer);
     }
 
     if (valid_symbols[GROUP_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'g') {

@@ -1,6 +1,6 @@
 ---
 title: "Iteration & Loops"
-description: "Iter.loop for loops that carry state, and what break, continue and return do inside the functions you pass to Iter."
+description: "Iter.loop for loops that carry state, and what break, continue and return do inside the functions you pass to Iter, and recursion with tail calls."
 ---
 
 Most loops in Nomi are calls to [`Iter`](/reference/iter/#interface-iter)
@@ -11,7 +11,7 @@ loop that carries a value from one round to the next, use
 [`Iter.loop`](/reference/iter/#iterloop).
 
 This chapter also covers `break`, `continue` and `return` inside the functions
-you pass to these calls.
+you pass to these calls, and recursion.
 
 ## Loops with `Iter.loop`
 
@@ -174,6 +174,26 @@ and `reduce` keeps the total as it was.
 output. In `filter`, `break True` keeps this element and `break False` drops
 it.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Only these functions' callbacks take `break` and `continue`: `Iter.map`,
+  `scan`, `filter`, `take_while`, `drop_while`, `flat_map`, `iterate`,
+  `reduce`, `map_reduce`, `each`, `find`, `any`, `all`, `Iter.loop`, and
+  `Map.map_values` and `Map.map_keys`. In any other lambda they are an
+  error.
+- `continue` takes no value. To carry a new value forward, make it the
+  callback's result.
+- A bare `break` in `find`, `any` and `all` answers `None`, `False` and
+  `True`.
+- A `defer` in a callback runs at the end of each round, before the next
+  one starts.
+
+Spec: [Callbacks that take `break` and `continue`](/spec/iteration/#callbacks-that-take-break-and-continue),
+[`break` and `continue`](/spec/statements-and-control-flow/#break-and-continue).
+
+</div>
+
 ## Helper functions that `break` or `continue`
 
 `return`, `break` and `continue` each leave only the function they are
@@ -313,15 +333,95 @@ A lambda can't return from the function it is written in. To stop a whole
 iteration because of something a callback saw, `break` from the callback and
 check the result afterwards.
 
-:::note[Continue or dig deeper]
-The tour moves on to [**Structs, Enums, Distinct Types**](/structs-enums-distinct/),
-where you declare your own data types. The section below explains how
-iteration is built.
-:::
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
 
-## Going deeper
+- A `return` in a nested `fn` or a `concurrent` block also belongs to that
+  inner boundary.
+- A bare `return` as the last statement does nothing, and is an error:
+  ``this `return` does nothing``.
+- A statement after a `return`, `break`, `continue` or `unreachable` can
+  never run, and is an error. So is one after an `Iter.loop` with no
+  `break`.
 
-### How iteration works in Nomi
+Spec: [Returning](/spec/functions-and-closures/#returning).
+
+</div>
+
+## Recursion and tail calls
+
+A function may call itself. Recursion fits a problem that breaks into a
+smaller copy of itself, such as counting the digits of a number:
+
+```nomi-run
+fn digits(n: Int) -> Int {
+    if n < 10 { 1 } else { 1 + digits(n / 10) }
+}
+
+fn sum_to(n: Int, total: Int) -> Int {
+    if n == 0 {
+        total
+    } else {
+        sum_to(n - 1, total + n)
+    }
+}
+
+fn main() {
+    dbg digits(2026)
+    dbg sum_to(200_000, 0)
+}
+```
+<!-- expect
+dbg line 14: digits(2026) = 4
+dbg line 15: sum_to(200_000, 0) = 20000100000
+-->
+
+A call is a tail call when its result is the function's result, with
+nothing left to do after it. `sum_to` ends in a tail call. Nomi runs a tail
+call in place of the caller, so it uses no extra memory however many times
+it repeats. Carrying the running total as a parameter is what makes the
+call a tail call.
+
+`digits` adds 1 after its call returns, so each call waits for the next.
+At most 100,000 calls can wait at once. One more stops the program with
+`stack overflow: more than 100000 nested calls`. `digits` never gets near
+that, but a call like it that walks 200,000 steps would.
+
+For a loop over a collection, the `Iter` functions are still the first
+choice. Recursion is for steps that `Iter` doesn't describe well.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A tail call is the last expression of a body, either branch of an `if`
+  or any arm of a `case` in tail position, the last stage of a pipe, the
+  operand of `return`, and the right side of `and` and `or`.
+- A call inside a lambda is in the lambda's tail position, not the outer
+  function's. A default and the operand of `?` are never in tail position.
+- A pending `defer` cancels a tail call, since the deferred call runs after
+  it returns. Recursion that registers a `defer` each round keeps a frame
+  per round and counts toward the limit.
+- Each task has its own 100,000-call limit.
+- A function that always calls itself with the arguments it was given is a
+  compile error: ``every path through grow calls grow(x) with the arguments it was given, so it never returns``.
+
+```nomi
+fn leave(n: Int) {
+    dbg n
+}
+
+fn down(n: Int) -> Int {
+    defer leave(n) // keeps each frame until leave runs
+    if n == 0 { 0 } else { down(n - 1) }
+}
+```
+
+Spec: [Tail-call optimization](/spec/functions-and-closures/#tail-call-optimization),
+[Recursion depth](/spec/functions-and-closures/#recursion-depth).
+
+</div>
+
+## How iteration works in Nomi
 
 Iteration is built from three pieces:
 
@@ -347,3 +447,16 @@ their own that builds a new list right away. To get a list, you write
 
 `break` and `continue` are ordinary returns that carry a signal, so stopping
 early costs little.
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/pascals-triangle/"><span class="tour-example-name">Pascal's Triangle</span><span class="tour-example-what">Build each row from the one above.</span></a>
+<a href="/examples/flatten-array/"><span class="tour-example-name">Flatten Array</span><span class="tour-example-what">Flatten a nested array into one list.</span></a>
+<a href="/examples/killer-sudoku-helper/"><span class="tour-example-name">Killer Sudoku Helper</span><span class="tour-example-what">List every way to fill a cage.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=iteration-and-loops">Every example that uses Iteration &amp; Loops</a>
+
+Next: [Structs, Enums, Distinct Types](/structs-enums-distinct/), where you
+declare your own data types.

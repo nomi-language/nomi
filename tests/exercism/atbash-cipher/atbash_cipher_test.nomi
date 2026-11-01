@@ -1,7 +1,7 @@
 import atbash_cipher
 
 test "encode" {
-    cases = [
+    [
         #("encode yes", "yes", "bvh"),
         #("encode no", "no", "ml"),
         #("encode OMG", "OMG", "lnt"),
@@ -15,14 +15,13 @@ test "encode" {
             "gsvjf rxpyi ldmul cqfnk hlevi gsvoz abwlt",
         ),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert atbash_cipher.encode(phrase) == expected
     }
 }
 
 test "decode" {
-    cases = [
+    [
         #("decode exercism", "vcvix rhn", "exercism"),
         #(
             "decode a sentence",
@@ -42,8 +41,7 @@ test "decode" {
             "anobstacleisoftenasteppingstone",
         ),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert atbash_cipher.decode(phrase) == expected
     }
 }

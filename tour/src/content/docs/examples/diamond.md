@@ -137,6 +137,14 @@ test "Largest possible diamond" {
     ]
 }
 ```
+<!-- expect
+ok Degenerate case with a single 'A' row
+ok Degenerate case with no row containing 3 distinct groups of spaces
+ok Smallest non-degenerate case with odd diamond side length
+ok Smallest non-degenerate case with even diamond side length
+ok Largest possible diamond
+test result: ok. 5 passed, 0 failed
+-->
 
 ## How it's written
 

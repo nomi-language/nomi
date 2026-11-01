@@ -35,8 +35,21 @@ const (
 	MoneyFormatModule = "std/money_format.nomi"
 )
 
+// stdModule reports whether a module, by its name, is the std module a
+// built image names module (`std/money.nomi`): that name, or a path ending
+// in it, as a program lowered in process names it. The path is the loading
+// system's, so on Windows it ends in `std\money.nomi`. No other module can
+// have such a path, since a file at std/ under a project would be shadowed
+// by the stdlib.
 func stdModule(name, module string) bool {
-	return name == module || strings.HasSuffix(name, "/"+module)
+	if name == module {
+		return true
+	}
+	if len(name) <= len(module) {
+		return false
+	}
+	tail := name[len(name)-len(module)-1:]
+	return (tail[0] == '/' || tail[0] == '\\') && strings.ReplaceAll(tail[1:], "\\", "/") == module
 }
 
 // displayName is std/money_format's `format` display that writes the name.

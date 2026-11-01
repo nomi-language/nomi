@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Irrefutable parameter destructuring (spec §5, "Parameter Destructuring").
+// Irrefutable parameter destructuring (spec §7, "Parameter Destructuring").
 //
 // A function-definition or lambda parameter may carry an irrefutable
 // destructuring pattern in place of a bare name. The two analyzer pieces this

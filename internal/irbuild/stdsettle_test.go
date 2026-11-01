@@ -199,7 +199,7 @@ fn depth_plus(n: Int) -> Int {
 }
 
 /// TAIL-recursive, and therefore REFUSED rather than lowered. Nomi guarantees
-/// constant stack for this call (spec §12.7) and a stdlib gen has no trampoline,
+/// constant stack for this call (spec §7 *Tail-call optimization*) and a stdlib gen has no trampoline,
 /// so lowering it as plain Go recursion would be a stack overflow on a large
 /// input rather than a Nomi answer.
 fn spin(n: Int, acc: Int) -> Int {

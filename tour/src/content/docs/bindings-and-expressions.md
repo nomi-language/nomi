@@ -57,6 +57,10 @@ gives when it has nothing useful to return. So use `io.inspect` as a
 statement on its own line. Use `dbg` when you want to look at a value and
 keep using it.
 
+Nomi code has one layout, which `nomi fmt` writes and editors apply when you
+save; the examples here format themselves after each edit
+([Formatting](/tooling/formatting/)).
+
 ## Tiny functions
 
 ```nomi-run
@@ -122,6 +126,10 @@ test "double doubles its input" {
 }
 
 ```
+<!-- expect
+ok double doubles its input
+test result: ok. 1 passed, 0 failed
+-->
 
 `assert` fails the test when its condition is false. `refute` fails it when
 its condition is true.
@@ -136,6 +144,10 @@ fn double(n: Int) -> Int {
 }
 
 ```
+<!-- expect
+ok double //! test lines 1-2
+test result: ok. 1 passed, 0 failed
+-->
 
 `nomi test` runs these as tests. Editors treat them as code, with hovers and
 errors. The standard library uses them for its examples: the reference
@@ -275,6 +287,35 @@ A binding that is replaced before anything reads it is an error. In
 `name = "Jane"` followed by `name = "John"`, the compiler reports that the
 first `name` is never read.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A shadowing binding may have a different type from the one it hides. A
+  lambda made before the shadow keeps the value it captured.
+- `_` can't be read back: using it as a value is an error. A name that
+  starts with two underscores, such as `__x`, is an ordinary binding.
+- The read rule covers every name a pattern binds: a destructured
+  parameter, a `case` arm, an `if` condition.
+- Two statements need a newline, a space or `;` between them. `p = Point{}`
+  is `` unexpected `{` right after the end of a statement ``, not a binding
+  followed by an empty block.
+
+```nomi
+fn main() {
+    name = "a"
+    read_name = fn -> name
+    name = 3
+    dbg read_name() // "a"
+    dbg name // 3
+}
+```
+
+Spec: [Bindings](/spec/declarations-and-scope/#bindings),
+[Shadowing and redeclaration](/spec/declarations-and-scope/#shadowing-and-redeclaration),
+[Discard names](/spec/lexical-structure/#discard-names).
+
+</div>
+
 ## Type annotations
 
 Most bindings don't need a type written out, because Nomi reads it from the
@@ -316,6 +357,23 @@ type:
 Without either, the compiler reports that the binding's type is not locally
 determined.
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A binding is refused only when its type is wholly unknown: `xs = []`,
+  `x = None`, `ch = Channel.buffered(4)`. `x = Ok(42)` is accepted as a
+  `Result<Int, E>` whose error type is fixed later.
+- Type arguments work on any call, constructors included: `Some<Int>(42)`,
+  `Channel.buffered<Int>(4)`.
+- A lambda bound with no annotation, `f = fn x -> x`, is
+  `cannot infer type for parameter x`. Annotate the parameter
+  (`fn x: Int -> x`) or the binding (`f: (Int) -> Int = ...`).
+
+Spec: [Locally-determined bindings and turbofish](/spec/type-relations/#locally-determined-bindings-and-turbofish),
+[Lambda parameter types](/spec/type-relations/#lambda-parameter-types).
+
+</div>
+
 ## Blocks are expressions
 
 ```nomi-run
@@ -337,6 +395,24 @@ dbg line 8: total = 30
 A `{ ... }` block runs its lines and gives the value of its last expression.
 Names bound inside the block, like `a` and `b`, are not visible outside it.
 That makes a block a tidy place for intermediate steps.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A block whose last statement is a binding has the value `Unit`.
+- An expression before the last line must be `Unit`, except a `dbg`. A
+  function that returns `Unit` may end with `dbg expr` or `|> dbg`.
+- `;` ends a statement, so a short block fits on one line:
+  `{ a = 1; a + 1 }`.
+- A line that starts with `|>`, `and`, `or`, `is`, `in` or a comparison
+  continues the line above. A line that starts with `+` or `-` does not, so
+  a long sum breaks after its operator.
+
+Spec: [Block expressions](/spec/expressions/#block-expressions),
+[Statements and the Unit rule](/spec/statements-and-control-flow/#statements-and-the-unit-rule),
+[Statement ends](/spec/lexical-structure/#statement-ends).
+
+</div>
 
 ## `if`/`else` and `case` are expressions
 
@@ -403,15 +479,34 @@ dbg line 6: timeout_ms = 30000
 first time the value is used, and later uses get the saved result. Use it
 for constants and configuration.
 
-:::note[Continue or dig deeper]
-The next chapter is [Functions & Lambdas](/functions-and-lambdas/). The
-section below explains how far Nomi's type inference reaches, if you want
-the detail now.
-:::
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
 
-## Going deeper
+- The initializer runs once even when several tasks read the value at the
+  same time.
+- An initializer is not a function body, so `?`, `return`, `break` and
+  `continue` written directly in it are errors. A lambda inside it is a body
+  of its own.
+- A `once` whose initializer reads itself traps with
+  `cyclic 'once' binding: 'a' depends on itself`.
+- A `once` may also stand in an inherent `impl` block and is read through
+  its type: `Money.zero`.
 
-### How far type inference reaches
+```nomi
+struct Money {
+    cents: Int
+}
+
+impl Money {
+    pub once zero = #Money{cents: 0}
+}
+```
+
+Spec: [`once` Bindings](/spec/declarations-and-scope/#once-bindings).
+
+</div>
+
+## How far type inference reaches
 
 Inside a function body, Nomi works out types from how values are used:
 
@@ -460,5 +555,15 @@ is an annotation or a type argument, as in
 
 Most lines in a function body need no annotation. You write types at
 signatures, and on the few bindings whose type the line itself doesn't show.
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/roman-numerals/"><span class="tour-example-name">Roman Numerals</span><span class="tour-example-what">Write a number in Roman numerals.</span></a>
+<a href="/examples/square-root/"><span class="tour-example-name">Square Root</span><span class="tour-example-what">Find a square root without a built-in.</span></a>
+<a href="/examples/bob/"><span class="tour-example-name">Bob</span><span class="tour-example-what">Answer a remark the way a teenager would.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=bindings-and-expressions">Every example that uses Bindings &amp; Expressions</a>
 
 [Functions & Lambdas](/functions-and-lambdas/) is next.

@@ -6,7 +6,7 @@ import (
 )
 
 // A Set finds its elements and a Map its keys by equality, and a function value
-// or an Iter has none (spec §30). Building such a Set or Map used to pass the
+// or an Iter has none (spec §5 *Equality and Ordering Semantics*). Building such a Set or Map used to pass the
 // checker and stop the program with a BLOCKED line at the literal; the checker
 // now rejects the expression that builds it.
 

@@ -362,6 +362,10 @@ var typeBodyInputs = []parityInput{
 // tree-sitter must also mark with an ERROR or MISSING node, so an editor shows
 // the error `nomi check` reports. A type body holds one item per line.
 var rejectedInputs = []parityInput{
+	// A `|> subtests` stage ends a pipeline that stands as a statement.
+	{"a subtests stage in a binding", "test \"t\" {\n    x = [1] |> subtests n {\n        assert n == 1\n    }\n}\n"},
+	{"a subtests stage in an argument", "test \"t\" {\n    f([1] |> subtests n {\n        assert n == 1\n    })\n}\n"},
+	{"a stage after a subtests stage", "test \"t\" {\n    [1]\n    |> subtests n {\n        assert n == 1\n    }\n    |> dbg\n}\n"},
 	// A keyword declaration's name is never a type name.
 	{"a misspelled type keyword before a type name", "pub strct Point {\n    x: Int\n}\n"},
 	{"a keyword before a type name", "pub one_of Size `small`\n"},

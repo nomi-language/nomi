@@ -185,7 +185,7 @@ test "type hover lists contextual implementations for foreign types" {
 
     case hover {
         Ok(info) -> {
-            assert String.contains(info.markdown, "`Numberish`")
+            assert "`Numberish`" in info.markdown
         }
 
         Err(message) ->

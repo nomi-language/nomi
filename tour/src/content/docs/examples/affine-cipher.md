@@ -89,7 +89,7 @@ import {
 
 group "encode" {
     test "encodes" {
-        cases = [
+        [
             #("encode yes", "yes", #Key{a: 5, b: 7}, "xbt"),
             #("encode no", "no", #{a: 15, b: 18}, "fu"),
             #("encode OMG", "OMG", #{a: 21, b: 3}, "lvz"),
@@ -104,8 +104,7 @@ group "encode" {
                 "swxtj npvyk lruol iejdc blaxk swxmh qzglf",
             ),
         ]
-
-        subtests cases, #(description, phrase, key, expected), description {
+        |> subtests #(description, phrase, key, expected), description {
             assert affine_cipher.encode(phrase, key) == Ok(expected)
         }
     }
@@ -117,7 +116,7 @@ group "encode" {
 
 group "decode" {
     test "decodes" {
-        cases = [
+        [
             #("decode exercism", "tytgn fjr", #Key{a: 3, b: 7}, "exercism"),
             #(
                 "decode a sentence",
@@ -145,8 +144,7 @@ group "decode" {
                 "jollygreengiant",
             ),
         ]
-
-        subtests cases, #(description, phrase, key, expected), description {
+        |> subtests #(description, phrase, key, expected), description {
             assert affine_cipher.decode(phrase, key) == Ok(expected)
         }
     }
@@ -156,6 +154,13 @@ group "decode" {
     }
 }
 ```
+<!-- expect
+ok encode / encodes (8 cases)
+ok encode / encode with a not coprime to m
+ok decode / decodes (6 cases)
+ok decode / decode with a not coprime to m
+test result: ok. 16 passed, 0 failed
+-->
 
 ## How it's written
 

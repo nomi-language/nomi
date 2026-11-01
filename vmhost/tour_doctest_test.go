@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -61,6 +62,18 @@ func TestTourDoctests(t *testing.T) {
 		t.Fatalf("walk tour content: %v", err)
 	}
 
+	// NOMI_REGENERATE_EXPECTATIONS=1 writes each ordinary block's expect
+	// block from its run, its tests' report included.
+	regenerate := os.Getenv("NOMI_REGENERATE_EXPECTATIONS") == "1"
+	shownAt := map[string][]tourShown{}
+	defer func() {
+		for chapter, shown := range shownAt {
+			if err := rewriteTourExpects(chapter, shown); err != nil {
+				t.Errorf("rewrite %s: %v", chapter, err)
+			}
+		}
+	}()
+
 	runnable := 0
 	for _, chapter := range chapters {
 		data, err := os.ReadFile(chapter)
@@ -79,9 +92,11 @@ func TestTourDoctests(t *testing.T) {
 				t.Errorf("%s: %s", name, msg)
 				continue
 			}
-			// A manual block runs nothing when its page loads: the page
-			// shows its expect block as the recorded output until the
-			// reader presses Run (rehype-shiki.mjs, tour-client.mjs).
+			// A block runs nothing when its page loads: the page shows
+			// its expect block as the recorded output until the reader
+			// edits it, or presses a manual block's Run button
+			// (rehype-shiki.mjs, tour-client.mjs). One with no expect
+			// block shows "(no output)", which the run below holds to.
 			if b.HasInfo(doctest.InfoManual) && b.Expected == nil {
 				t.Errorf("%s: a manual block's page shows its <!-- expect ... --> block until the reader runs it, so it needs one:\n%s", name, b.Code)
 				continue
@@ -158,16 +173,14 @@ func TestTourDoctests(t *testing.T) {
 					}
 					t.Fatalf("Run failed for tour block:\n%s\n\nerror: %v\n\nIf it stops on purpose, mark its fence `nomi-run error` and give it an <!-- expect ... --> block holding what the tour shows:\n%s", b.Code, err, shown)
 				}
-				// A manual block's expect block holds what its page shows,
-				// its tests' report included, since the page shows it as
-				// the block's recorded output before any run.
+				// A block's expect block holds what its page shows, its
+				// tests' report included, since the page shows it as the
+				// block's recorded output before any run.
 				report := ""
 				if hasTests {
 					var testOut bytes.Buffer
 					cases := p.Cases(&testOut, vmhost.TestOptions{})
-					if b.HasInfo(doctest.InfoManual) {
-						report = vmhost.CaseReport(cases) + "\n"
-					}
+					report = vmhost.CaseReport(cases) + "\n"
 					for _, result := range cases {
 						if result.Blocked != nil {
 							if _, listed := tourBlockedOnVM[result.Name]; listed {
@@ -182,10 +195,14 @@ func TestTourDoctests(t *testing.T) {
 						}
 					}
 				}
-				if b.Expected == nil && out.String() != "" {
-					t.Fatalf("tour block produced output but has no hidden <!-- expect ... --> block:\n%s\n\noutput:\n%s", b.Code, out.String())
-				}
 				shown := doctest.Shown(out.String()+report, failure)
+				if regenerate {
+					shownAt[chapter] = append(shownAt[chapter], tourShown{line: b.Line, text: shown})
+					return
+				}
+				if b.Expected == nil && shown != "" {
+					t.Fatalf("tour block shows output but has no hidden <!-- expect ... --> block, which the page shows before any run:\n%s\n\nthe page shows:\n%s", b.Code, shown)
+				}
 				if err := doctest.CheckOutput(b.Expected, shown); err != nil {
 					if failure != "" {
 						t.Fatalf("Run failed for tour block, and not as its <!-- expect --> block says:\n%s\n\n%s\n\nthe tour shows:\n%s", b.Code, err, shown)
@@ -201,6 +218,48 @@ func TestTourDoctests(t *testing.T) {
 	}
 }
 
+// tourShown is what the page shows for the block whose fence opens at line.
+type tourShown struct {
+	line int
+	text string
+}
+
+// rewriteTourExpects writes each block's hidden <!-- expect ... --> block in
+// chapter from what the page shows for it: it replaces the one after the
+// block's closing fence, or adds one there, and drops it for a block that
+// shows nothing.
+func rewriteTourExpects(chapter string, shown []tourShown) error {
+	data, err := os.ReadFile(chapter)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	slices.SortFunc(shown, func(a, b tourShown) int { return b.line - a.line })
+	for _, s := range shown {
+		end := s.line
+		for end < len(lines) && strings.TrimSpace(lines[end]) != "```" {
+			end++
+		}
+		if end == len(lines) {
+			return fmt.Errorf("the block at line %d has no closing fence", s.line)
+		}
+		from, to := end+1, end+1
+		if from < len(lines) && strings.TrimSpace(lines[from]) == "<!-- expect" {
+			to = from
+			for to < len(lines) && strings.TrimSpace(lines[to]) != "-->" {
+				to++
+			}
+			to++
+		}
+		var expect []string
+		if text := strings.TrimRight(s.text, "\n"); text != "" {
+			expect = append(append([]string{"<!-- expect"}, strings.Split(text, "\n")...), "-->")
+		}
+		lines = slices.Concat(lines[:from], expect, lines[to:])
+	}
+	return os.WriteFile(chapter, []byte(strings.Join(lines, "\n")), 0o644)
+}
+
 // checkTourErrorBlock holds a ```nomi-run error block to its purpose: it
 // must fail, either to compile or while it runs, and its hidden
 // <!-- expect ... --> block must be what the tour's runner shows for it,
@@ -208,6 +267,9 @@ func TestTourDoctests(t *testing.T) {
 func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 	t.Helper()
 	msg := tourCompileError(t, b.Code)
+	if msg != "" && !tourCompileErrorLine.MatchString(msg) {
+		t.Fatalf("the page shows an error block's record as a compile error when its first line names a file, line and column, and this one's does not:\n%s\n\nerror:\n%s", b.Code, msg)
+	}
 	if msg == "" {
 		msg = tourRunFailure(t, b)
 	}
@@ -354,8 +416,40 @@ func tourRunFailure(t *testing.T, b doctest.Block) string {
 	if _, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("the VM cannot run this tour block:\n%s\n\nerror: %v", code, err)
 	}
-	return doctest.Shown(out.String(), vmhost.FormatFailure(err))
+	// The page shows an error block's record before any run as the run
+	// would (tour-client.mjs's showRecorded), split into output and failure
+	// by recordedFailure, which must find this run's failure.
+	failure := strings.TrimRight(vmhost.FormatFailure(err), "\n")
+	shown := doctest.Shown(out.String(), failure)
+	if got := recordedFailure(shown); got != failure {
+		t.Fatalf("the page shows the end of an error block's record as its failure: the last line, the last two when the last is `exit status N`, or all of it when the first line names a file, line and column (tour-client.mjs's showRecorded); for this block that is %q, but the run's failure is %q:\n%s", got, failure, code)
+	}
+	return shown
 }
+
+// recordedFailure is the part of an error block's record the page shows as
+// its failure before any run (tour-client.mjs's showRecorded, which keeps
+// the same rule): all of it for a compile error, whose first line names a
+// file, line and column; else the last line, or the last two when the last
+// is a process exit's `exit status N`, after its message.
+func recordedFailure(shown string) string {
+	if tourCompileErrorLine.MatchString(shown) {
+		return shown
+	}
+	lines := strings.Split(strings.TrimRight(shown, "\n"), "\n")
+	n := 1
+	if len(lines) >= 2 && tourExitStatusLine.MatchString(lines[len(lines)-1]) {
+		n = 2
+	}
+	return strings.Join(lines[len(lines)-n:], "\n")
+}
+
+var tourExitStatusLine = regexp.MustCompile(`^exit status \d+$`)
+
+// tourCompileErrorLine matches a compile error's first line, which names
+// its file, line and column; tour-client.mjs's COMPILE_ERROR is the same
+// pattern.
+var tourCompileErrorLine = regexp.MustCompile(`^[^\s:]+\.nomi:\d+:\d+: `)
 
 // tourFileSystem is the in-memory file system a block runs on, seeded
 // with its data files as LoadMarked seeds it, and the data files whose

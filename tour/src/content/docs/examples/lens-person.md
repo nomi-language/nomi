@@ -134,6 +134,15 @@ test "a birth month without the birth day is an error" {
     assert Err(_) = lens_person.set_birth_month(born_on_the_31st, 2)
 }
 ```
+<!-- expect
+ok bornStreet
+ok setCurrentStreet
+ok setBirthMonth
+ok renameStreets birth
+ok renameStreets current
+ok a birth month without the birth day is an error
+test result: ok. 6 passed, 0 failed
+-->
 
 ## How it's written
 

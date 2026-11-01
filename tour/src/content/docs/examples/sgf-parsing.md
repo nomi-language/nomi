@@ -314,23 +314,27 @@ test "parse" {
 // Not canonical cases: the canonical data has no case for text the grammar
 // leaves unfinished or follows with more.
 test "malformed trees" {
-    cases = [
+    [
         #("a tree with no closing parenthesis", "(;A[B]"),
         #("a value with no closing bracket", "(;A[B)"),
         #("a value ending in a backslash", "(;A[B\\"),
         #("text after the tree", "(;A[B])x"),
         #("a child tree with no closing parenthesis", "(;A[B](;B[C])"),
     ]
-
-    subtests cases, #(description, encoded), description {
+    |> subtests #(description, encoded), description {
         assert sgf_parsing.parse(encoded) == Err(Error.Malformed)
     }
 }
 ```
+<!-- expect
+ok parse (23 cases)
+ok malformed trees (5 cases)
+test result: ok. 28 passed, 0 failed
+-->
 
 ## How it's written
 
-- The parser is recursive descent over `String.to_codepoints`, one function per part of the grammar (`node`, `variations`, `read_properties`, `read_values`, `read_text`). Each answers what it read and the codepoints after it, `Result<#(T, List<Codepoint>), Error>`, and `?` passes a failure up. The delimiters are codepoint literals in list patterns, `[';', ..rest]` and `['\\', '\n', ..rest]` (style §19).
+- The parser is recursive descent over `String.to_codepoints`, one function per part of the grammar (`node`, `variations`, `read_properties`, `read_values`, `read_text`). Each answers what it read and the codepoints after it, `Result<#(T, List<Codepoint>), Error>`, and `?` passes a failure up. The delimiters are codepoint literals in list patterns, `[';', ..rest]` and `['\\', '\n', ..rest]` (style §20).
 - A `;` after a node starts its one child, and `(` starts its variations. The node that ends a sequence reads the `)` that closes the sequence's tree, so `(;A[B];B[C])` needs no count of open parentheses.
 - A property's key is read as the run of letters, turned into a `String` at once, and checked with `String.is_upper`.
 - `Tree` is a struct

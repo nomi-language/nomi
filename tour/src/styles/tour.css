@@ -52,7 +52,7 @@ code, pre, kbd, samp, textarea {
   --sl-color-bg-inline-code: #eceef1;
   /* Tour code palette. */
   --tour-bg: #fafafa; --tour-fg: #242529; --tour-out-bg: #f0f1f4;
-  --tour-divider: #e4e6ea; --tour-caret: #242529; --tour-err: #d3604f; --tour-ok: #43834a;
+  --tour-divider: #e4e6ea; --tour-rule: #d8dbe0; --tour-caret: #242529; --tour-err: #d3604f; --tour-ok: #43834a;
   --tok-kw: #a449ab; --tok-str: #649f57; --tok-num: #ad6e25; --tok-comment: #a2a3a7;
   --tok-type: #3882b7; --tok-fn: #5b79e3; --tok-variant: #c18401; --tok-prop: #d3604f;
   --tok-plain: #242529;
@@ -75,7 +75,7 @@ code, pre, kbd, samp, textarea {
   --sl-color-bg-inline-code: #2f343d;
   /* Tour code palette. */
   --tour-bg: #282c33; --tour-fg: #acb2be; --tour-out-bg: #21252b;
-  --tour-divider: #464b57; --tour-caret: #acb2be; --tour-err: #d07277; --tour-ok: #98c379;
+  --tour-divider: #464b57; --tour-rule: #4b5160; --tour-caret: #acb2be; --tour-err: #d07277; --tour-ok: #98c379;
   --tok-kw: #b477cf; --tok-str: #a1c181; --tok-num: #bf956a; --tok-comment: #5d636f;
   --tok-type: #6eb4bf; --tok-fn: #73ade9; --tok-variant: #dfc184; --tok-prop: #d07277;
   --tok-plain: #acb2be;
@@ -1397,4 +1397,77 @@ dialog.nomi-modal::backdrop {
   .sidebar-content ul ul .group-label .large {
     font-size: var(--sl-text-sm);
   }
+}
+
+/* A section's fine print: the edge cases and spec links that follow the main
+   text. Quieter than the prose around it (no fill, no icon, smaller muted
+   text behind a thin rule), so it reads as an aside for the reader who wants
+   it rather than the most prominent thing on the page. Starlight's `:::note`
+   stays for the few real callouts. */
+.sl-markdown-content .tour-details {
+  margin-top: 1.75rem;
+  padding: 0.125rem 0 0.125rem 1rem;
+  border-inline-start: 3px solid var(--tour-rule);
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-2);
+}
+.sl-markdown-content .tour-details-label {
+  margin: 0;
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+.sl-markdown-content .tour-details > .tour-details-label + * {
+  margin-top: 0.5rem;
+}
+/* Bullets line up with the label and the Spec line, not indented past them. */
+.sl-markdown-content .tour-details :is(ul, ol) {
+  padding-inline-start: 1.125rem;
+}
+
+/* A chapter's "See it in action" link to the examples table, filtered to the
+   chapter: a card, so it reads as a place to go rather than one more line. */
+.sl-markdown-content .tour-examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+.sl-markdown-content .sl-heading-wrapper + .tour-examples {
+  margin-top: 1.25rem;
+}
+.sl-markdown-content .tour-examples a {
+  display: block;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--tour-rule);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  color: var(--sl-color-text);
+}
+.sl-markdown-content .tour-examples a:hover {
+  border-color: var(--sl-color-text-accent);
+}
+.sl-markdown-content .tour-example-name {
+  display: block;
+  font-weight: 600;
+  color: var(--sl-color-white);
+}
+.sl-markdown-content .tour-example-what {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: var(--sl-text-sm);
+  line-height: 1.4;
+  color: var(--sl-color-gray-3);
+}
+.sl-markdown-content .tour-examples-all {
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.sl-markdown-content .tour-examples-all:hover {
+  text-decoration: underline;
+}
+.sl-markdown-content .tour-examples-all::after {
+  content: " →";
 }

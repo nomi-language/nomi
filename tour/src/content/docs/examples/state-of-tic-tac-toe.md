@@ -90,7 +90,7 @@ fn has_won(cells: Vector<Codepoint>, mark: Codepoint) -> Bool {
 import state_of_tic_tac_toe.{self, State}
 
 test "won games" {
-    cases = [
+    [
         #("Finished game where X won via left column victory", ["XOO", "X  ", "X  "]),
         #("Finished game where X won via middle column victory", ["OXO", " X ", " X "]),
         #("Finished game where X won via right column victory", ["OOX", "  X", "  X"]),
@@ -110,37 +110,34 @@ test "won games" {
         #("Finished game where X won via a row and a column victory", ["XXX", "XOO", "XOO"]),
         #("Finished game where X won via two diagonal victories", ["XOX", "OXO", "XOX"]),
     ]
-
-    subtests cases, #(description, board), description {
+    |> subtests #(description, board), description {
         assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Win)
     }
 }
 
 test "drawn games" {
-    cases = [
+    [
         #("Draw", ["XOX", "XXO", "OXO"]),
         #("Another draw", ["XXO", "OXX", "XOO"]),
     ]
-
-    subtests cases, #(description, board), description {
+    |> subtests #(description, board), description {
         assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Draw)
     }
 }
 
 test "ongoing games" {
-    cases = [
+    [
         #("Ongoing game: one move in", ["   ", "X  ", "   "]),
         #("Ongoing game: two moves in", ["O  ", " X ", "   "]),
         #("Ongoing game: five moves in", ["X  ", " XO", "OX "]),
     ]
-
-    subtests cases, #(description, board), description {
+    |> subtests #(description, board), description {
         assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Ongoing)
     }
 }
 
 test "invalid boards" {
-    cases = [
+    [
         #(
             "Invalid board: X went twice",
             ["XX ", "   ", "   "],
@@ -168,13 +165,19 @@ test "invalid boards" {
             "Impossible board: game should have ended after the game was won",
         ),
     ]
-
-    subtests cases, #(description, board, message), description {
+    |> subtests #(description, board, message), description {
         assert Err(error) = state_of_tic_tac_toe.gamestate(board)
         assert "${error}" == message
     }
 }
 ```
+<!-- expect
+ok won games (18 cases)
+ok drawn games (2 cases)
+ok ongoing games (3 cases)
+ok invalid boards (6 cases)
+test result: ok. 29 passed, 0 failed
+-->
 
 ## How it's written
 

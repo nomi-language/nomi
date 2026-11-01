@@ -208,6 +208,24 @@ when the key is there and `None` when it is not.
 [`Map.merge`](/reference/maps/#mapmerge) does the same thing by name. To add or
 replace a few entries, use a spread, shown [below](#spreads).
 
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A key can be any value with equality, at any depth: a tuple, a list, a
+  struct, a distinct value. Keys match by `==`.
+- A function, an `Iter` and a handle to running state (a `Task`, a
+  `Sender`) have no equality, so they can't be keys or set elements:
+  `` `Iter<Int>` cannot be a Map key: an Iter has no equality or hashing ``.
+- Map keys in a literal are expressions: `%{key => 1}` reads the binding
+  `key`. A string key is quoted.
+- A key of a type with its own `impl Equatable` matches through it. Write a
+  matching `impl Hashable` too, or all its keys share one bucket.
+
+Spec: [Hashing and keys](/spec/type-relations/#hashing-and-keys),
+[Literal forms](/spec/literals/#literal-forms).
+
+</div>
+
 ## Sets
 
 ```nomi-run
@@ -215,8 +233,8 @@ fn main() {
     s = Iter.to_set([1, 2, 3, 2, 1])
 
     dbg Set.size(s)
-    dbg Set.contains(s, 2)
-    dbg Set.contains(s, 9)
+    dbg 2 in s
+    dbg not 9 in s
     dbg s + %[4, 5]
     dbg s - %[1]
 }
@@ -224,8 +242,8 @@ fn main() {
 ```
 <!-- expect
 dbg line 4: Set.size(s) = 3
-dbg line 5: Set.contains(s, 2) = True
-dbg line 6: Set.contains(s, 9) = False
+dbg line 5: 2 in s = True
+dbg line 6: not 9 in s = True
 dbg line 7: s + %[4, 5] = %[1, 2, 3, 4, 5]
 dbg line 8: s - %[1] = %[2, 3]
 -->
@@ -234,12 +252,33 @@ You write a set as `%[a, b, c]`. A set holds each value once, so the set built
 from `[1, 2, 3, 2, 1]` has three values. It keeps them in the order each one
 first appeared.
 
+`x in c` tests whether a collection holds a value, for a list, vector, set,
+range, string and map alike (a map holds its keys): it is
+`Contains.contains(c, x)` written as an operator.
+
 If you write the same value twice in a set literal, as in `%[1, 2, 1]`, the
 compiler reports an error. It does the same for a key written twice in a map
 literal.
 
 An empty set takes its element type from where it is used. On a binding with no
 other use to go by, write the type: `empty: Set<Int> = %[]`.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The duplicate check covers constants only: literals, `True` and `False`,
+  variants without a payload and tuples of those. `255` and `0xFF` are the
+  same key, and so are `0.0` and `-0.0`.
+- Keys equal only at run time are allowed. The later value wins and the key
+  keeps the earlier position: with `x = 1` and `y = 1`,
+  `%{x => "a", 2 => "c", y => "b"}` is `%{1 => "b", 2 => "c"}`.
+- The std collections have only the unnamed forms: `Vector[1]` is a list
+  literal naming a type that is not a list, so it is an error.
+
+Spec: [Repeated keys](/spec/literals/#repeated-keys),
+[Literal forms](/spec/literals/#literal-forms).
+
+</div>
 
 `a + b` is every value in either set, and `a - b` is the values of `a` that are
 not in `b`. [`Set.union`](/reference/sets/#setunion) and
@@ -300,6 +339,24 @@ dbg line 3: %{..scores, "ada" => [5, ..], "bob" => [1, ..]} = %{"ada" => [5, 3],
 list would replace the old one. For a key that is not there yet, `..` starts
 from an empty collection, so `"bob"` gets only `[1]`. A struct field updates
 the same way ([Updating a struct](/structs-enums-distinct/#updating-a-struct)).
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- A list, vector or set spread can be any `Iter` of the elements, including
+  a `Maybe`, which adds zero or one: `[1, ..Some(2), ..None]` is `[1, 2]`.
+- A map spread must be a map of the literal's type. A later key replaces an
+  earlier one's value and keeps its position.
+- A literal holding one spread of its own type and nothing else is an
+  error: `%[..s]` asks you to write `s`.
+- A struct literal takes one spread, and it comes first. That is a struct
+  update.
+- A spread has no named form: `%Kvs{..base, "a" => 1}` is an error, since
+  the base already carries the type.
+
+Spec: [Spreads](/spec/literals/#spreads).
+
+</div>
 
 ## Ranges
 
@@ -386,6 +443,32 @@ dbg line 5:
 A range whose end is below its start, such as `5..=1`, is empty. To count
 down, step by a negative amount: `Range.step_by(5..=1, -1)` gives 5, 4, 3,
 2 and 1.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- Both bounds are required: `..5` and `5..` are not ranges, since `..`
+  alone is a spread. An endless range comes from `Range.from(n)` or
+  `Range.naturals()`.
+- `..` binds looser than arithmetic and tighter than comparison:
+  `1 + 2..5 + 1` is `3..6`.
+- `x in r` tests membership for any range, including one you can't walk
+  through: `"h" in "a".."m"`.
+- Both bounds have one `Comparable` type. `1..2.0` is a type error.
+
+Spec: [Range literals](/spec/literals/#range-literals).
+
+</div>
+
+## See it in action
+
+<div class="tour-examples">
+<a href="/examples/matching-brackets/"><span class="tour-example-name">Matching Brackets</span><span class="tour-example-what">Check every bracket closes in order.</span></a>
+<a href="/examples/isogram/"><span class="tour-example-name">Isogram</span><span class="tour-example-what">Find a word that repeats no letter.</span></a>
+<a href="/examples/binary-search/"><span class="tour-example-name">Binary Search</span><span class="tour-example-what">Find a value by halving its range.</span></a>
+</div>
+
+<a class="tour-examples-all" href="/examples/?chapter=collections">Every example that uses Collections</a>
 
 The next chapter, [Iteration & Loops](/iteration-and-loops/), covers
 [`Iter.loop`](/reference/iter/#iterloop) for loops that carry state. It also

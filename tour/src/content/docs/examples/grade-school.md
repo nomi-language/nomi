@@ -33,7 +33,7 @@ impl School {
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
     /// the name is on the roster already, in this grade or another.
     pub fn add(school: School, name: String, grade: Int) -> Result<School, Error> {
-        if Map.contains(school.grades, name) {
+        if name in school.grades {
             Err(.AlreadyEnrolled)
         } else {
             Ok(#School{grades: Map.put(school.grades, name, grade)})
@@ -73,7 +73,7 @@ fn enroll(students: List<#(String, Int)>) -> #(List<Bool>, School) {
 }
 
 test "adding students" {
-    cases = [
+    [
         #("Add a student", [#("Aimee", 2)], [True]),
         #(
             "Adding multiple students in the same grade in the roster",
@@ -92,15 +92,14 @@ test "adding students" {
             [True, True, False, True],
         ),
     ]
-
-    subtests cases, #(description, students, expected), description {
+    |> subtests #(description, students, expected), description {
         #(added, _school) = enroll(students)
         assert added == expected
     }
 }
 
 test "the roster" {
-    cases = [
+    [
         #("Roster is empty when no student is added", [], []),
         #("Student is added to the roster", [#("Aimee", 2)], ["Aimee"]),
         #(
@@ -147,15 +146,14 @@ test "the roster" {
             ["Anna", "Barb", "Charlie", "Alex", "Peter", "Zoe", "Jim"],
         ),
     ]
-
-    subtests cases, #(description, students, expected), description {
+    |> subtests #(description, students, expected), description {
         #(_added, school) = enroll(students)
         assert School.roster(school) == expected
     }
 }
 
 test "one grade" {
-    cases = [
+    [
         #("Grade is empty if no students in the roster", [], 1, []),
         #(
             "Grade is empty if no students in that grade",
@@ -188,19 +186,24 @@ test "one grade" {
             ["Bradley", "Franklin"],
         ),
     ]
-
-    subtests cases, #(description, students, grade, expected), description {
+    |> subtests #(description, students, grade, expected), description {
         #(_added, school) = enroll(students)
         assert School.grade(school, grade) == expected
     }
 }
 ```
+<!-- expect
+ok adding students (5 cases)
+ok the roster (9 cases)
+ok one grade (6 cases)
+test result: ok. 20 passed, 0 failed
+-->
 
 ## How it's written
 
 - `School` is an opaque struct over one `Map<String, Int>` from each name to its grade. A student is enrolled at most once in the whole school, so the name is the key, and the map refuses a second grade for a name by construction rather than by a check across grades.
 - `School.add` returns `Result<School, Error>`, with `Error.AlreadyEnrolled` for a name already on the roster. The school is a value, so adding returns the new school; the canonical "add" cases' `true` and `false` are whether each `add` answered `Ok`.
-- The roster is one `Iter.sort_by` with the tuple key `#(grade, name)` (style §32): tuples compare element by element, so the grade decides and the name breaks a tie.
+- The roster is one `Iter.sort_by` with the tuple key `#(grade, name)` (style §37): tuples compare element by element, so the grade decides and the name breaks a tie.
 - `School.grade` filters the map's pairs to the grade and sorts the names with `Iter.sort`.
 - The tests build each school with an `enroll` helper, one `Iter.map_reduce` over the students whose state is the school and whose output is whether each `add` succeeded. A refused add keeps the school as it was, which is what the canonical cases expect of the roster after a duplicate.
 - The three canonical properties are three `subtests` tables. The roster and grade tables open with empty lists and need no annotation, since later rows give the element types. The three cases that newer ones reimplement are left out.

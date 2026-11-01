@@ -45,7 +45,7 @@ func TestPreludeInstanceSlotsAreNeverBoxed(t *testing.T) {
 
 // TestTry_TheBoundaryMismatchesAreFrontEndERRORSNow asserts that each `?`
 // whose propagated value its boundary cannot hold is rejected by the FRONT
-// END, naming both types. The checker implements spec §9's boundary rule
+// END, naming both types. The checker implements spec §11's boundary rule
 // (analysis.checker.checkTryBoundary and checkInferredBoundaryFlavour), so
 // `AnalyzeSource` refuses these before the builder is reached.
 //

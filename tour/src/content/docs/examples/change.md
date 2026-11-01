@@ -50,7 +50,7 @@ fn best(table: Vector<Maybe<List<Int>>>, coins: List<Int>, amount: Int) -> Maybe
 import change.{self, Error}
 
 test "find fewest coins" {
-    cases = [
+    [
         #("change for 1 cent", [1, 5, 10, 25], 1, Ok([1])),
         #("single coin change", [1, 5, 10, 25, 100], 25, Ok([25])),
         #("multiple coin change", [1, 5, 10, 25, 100], 15, Ok([5, 10])),
@@ -85,12 +85,15 @@ test "find fewest coins" {
         #("error if no combination can add up to target", [5, 10], 94, Err(.CannotMakeTarget)),
         #("cannot find negative change values", [1, 2, 5], -5, Err(.NegativeTarget)),
     ]
-
-    subtests cases, #(description, coins, target, expected), description {
+    |> subtests #(description, coins, target, expected), description {
         assert change.find_fewest_coins(coins, target) == expected
     }
 }
 ```
+<!-- expect
+ok find fewest coins (13 cases)
+test result: ok. 13 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -1,7 +1,7 @@
 import luhn
 
 test "validates numbers with the Luhn checksum" {
-    cases = [
+    [
         #("single digit strings can not be valid", "1", False),
         #("a single zero is invalid", "0", False),
         #("a simple valid SIN that remains valid if reversed", "059", True),
@@ -33,8 +33,7 @@ test "validates numbers with the Luhn checksum" {
             False,
         ),
     ]
-
-    subtests cases, #(description, number, expected), description {
+    |> subtests #(description, number, expected), description {
         assert luhn.is_valid(number) == expected
     }
 }

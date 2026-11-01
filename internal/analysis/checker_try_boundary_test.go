@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Spec §9's `?` boundary rule, at a `fn` boundary with a DECLARED result
+// Spec §11's `?` boundary rule, at a `fn` boundary with a DECLARED result
 // type. Three parts, all checked at the `?` and all naming both sides:
 //
 //  1. the boundary must be a `Result` or a `Maybe`;
@@ -56,7 +56,7 @@ fn f() -> Result<Int, String> {
 }
 
 // The language's answer to a mismatch is conversion AT THE SITE with
-// `Result.map_err` (spec §9), not an implicit widening at the boundary.
+// `Result.map_err` (spec §11), not an implicit widening at the boundary.
 func TestTryBoundary_MapErrAtTheSiteIsClean(t *testing.T) {
 	src := `fn r() -> Result<Int, Int> {
   Err(7)
@@ -331,9 +331,9 @@ fn demo() -> Int {
 }
 
 // A callback whose body only `break`s still has a result: `break value` is
-// `return value` then stop (spec §12), so `break v` with v an Int makes the
+// `return value` then stop (spec §13), so `break v` with v an Int makes the
 // `Iter.loop` callback's result Int, and a `?` there has no Result or
-// Maybe to propagate into (spec §9, clause 1).
+// Maybe to propagate into (spec §11, clause 1).
 func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)
@@ -367,7 +367,7 @@ fn demo() -> Result<Int, String> {
 
 // A callback whose body only `continue`s produces no value, but its result
 // is still the one its callee declares: Unit for `Iter.each`, which a `?`
-// cannot propagate into (spec §9, clause 1).
+// cannot propagate into (spec §11, clause 1).
 func TestTryBoundary_ContinueOnlyLambdaBodyHasTheCallbacksResult(t *testing.T) {
 	src := `fn parse(n: Int) -> Result<Int, String> {
   Ok(n)

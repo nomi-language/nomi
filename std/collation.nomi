@@ -1,6 +1,7 @@
 //# Collation: ordering text as a reader of a language orders it. `<` on
-//# `String` compares bytes, so `"Zorn" < "apple"` and `"Ärlig"` sorts after
-//# every ASCII word. A `Collator` orders strings by the Unicode Collation
+//# `String` compares UTF-8 bytes, and collation is never implicit, so
+//# `"Zorn" < "apple"` and `"Ärlig"` sorts after every ASCII word. A
+//# `Collator` orders strings by the Unicode Collation
 //# Algorithm with the CLDR rules of a locale: in German `ä` sorts with `a`,
 //# in Swedish after `z`, and in Polish `ł` is a letter after `l`.
 //#
@@ -11,7 +12,37 @@
 //# locale it does not carry orders as that locale's nearest listed parent,
 //# or as the root order every language starts from. The Chinese and Korean
 //# tailorings, 160 to 250 KB each, are carried only when the program lists
-//# those locales.
+//# those locales. Case mapping for a language and caseless matching are
+//# `String.uppercase_in`, `String.lowercase_in`, `String.capitalize_in` and
+//# `String.fold_case` ([std/strings](/reference/strings/)).
+//#
+//# ## The order
+//#
+//# The order is the Unicode Collation Algorithm (UTS #10) over CLDR's root
+//# collation, with the locale's CLDR tailoring laid over it (UTS #35 part 5):
+//# German keeps `ä` with `a`, Swedish puts `å`, `ä` and `ö` after `z`,
+//# Polish puts `ł` after `l`, Czech `ch` after `h`, Lithuanian `y` with `i`,
+//# Chinese sorts Han by pinyin before Latin, and Traditional Chinese by
+//# stroke count. Strings are compared in NFD, so canonically equivalent
+//# strings are equal at every strength below `Identical`. A Han character a
+//# tailoring does not list sorts by its code point, the core ideographs
+//# before the rest, and an unassigned code point after every assigned one.
+//#
+//# The locale's tag chooses among a language's collations and sets the
+//# options: `-u-co-` names a CLDR collation type (`de-u-co-phonebk` sorts `ü`
+//# as `ue`; `es-u-co-trad` sorts `ch` and `ll` as letters; `zh-u-co-stroke`),
+//# and `-u-ks-` (`level1` to `level4`, `identic`), `-u-kn-true`,
+//# `-u-kf-upper` or `-u-kf-lower`, and `-u-ka-shifted` set what `strength`,
+//# `numeric`, `case_first` and `ignore_punctuation` set. The settings apply
+//# in order: the tailoring's own (Danish puts upper case first), then the
+//# tag's keywords, then each argument of `Collator.new` that is not its
+//# default.
+//#
+//# A locale whose collation the program does not carry orders as its nearest
+//# carried parent along the collation chain (the collations component of
+//# CLDR's parent locales, else the main ones short of root, else the tag less
+//# its last subtag: `zh-Hant` takes `zh`'s stroke order), else in the root
+//# order.
 
 import {
     bool.Bool.{self, False, True}
@@ -27,11 +58,13 @@ import {
 }
 
 /// Compares strings as readers of one language order them. Make it with
-/// `Collator.new`.
+/// `Collator.new`. A `Collator` is `Equatable` and `Hashable`, and its
+/// `Debug` is the call that makes it.
 ///
 /// The locale's tag can ask for a different order of the language: a
 /// `-u-co-` keyword picks a CLDR collation type (`de-u-co-phonebk` sorts `ü`
-/// as `ue`, `es-u-co-trad` sorts `ch` after `c`, `zh-Hant` sorts by stroke),
+/// as `ue`, `es-u-co-trad` sorts `ch` after `c` and `ll` after `l`, as
+/// letters of their own, `zh-Hant` sorts by stroke),
 /// and `-u-kn-true` orders digits by value, `-u-kf-upper` puts upper case
 /// first and `-u-ks-level1` compares base letters only, as the arguments
 /// to `Collator.new` do.
@@ -80,11 +113,14 @@ derive Equatable for CaseFirst
 
 impl Collator {
     /// A collator for `locale`. `strength` is how fine a difference counts;
-    /// `numeric` orders runs of digits by their value (`file9` before
-    /// `file10`); `case_first` moves upper case before or after lower case;
-    /// `ignore_punctuation` ignores spaces and punctuation unless the strings
-    /// are otherwise equal (`de luge` with `deluge`). An argument left at its
-    /// default keeps what the locale's tag and its collation say.
+    /// `numeric` orders a run of decimal digits, of any script, by its value
+    /// (`file9` before `file10`); `case_first` moves upper case before or
+    /// after lower case; `ignore_punctuation` is UTS #10's shifted
+    /// alternate: spaces and punctuation are ignored at the first three
+    /// levels and compared at the quaternary, so they count only when the
+    /// strings are otherwise equal (`de luge` with `deluge`). An argument
+    /// left at its default keeps what the locale's tag and its collation
+    /// say.
     //! de = Collator.new(Locale`de`)
     //! assert Collator.compare(de, "Ärger", "Arzt") == Less
     //!
@@ -138,7 +174,8 @@ impl Collator {
     }
 
     /// The bytes that order `text` under the collator: two strings' keys
-    /// compare as `Collator.compare` compares the strings. Compute each
+    /// compare, under `Bytes`' `Comparable` order, as `Collator.compare`
+    /// compares the strings. Compute each
     /// string's key once to sort or index many strings, or to store the
     /// order. A key is only meaningful beside keys from the same collator
     /// and the same version of Nomi.

@@ -935,7 +935,7 @@ fn demo() -> Int { apply(5, fn n -> n + 1) }
 	expectNoErrors(t, errs)
 }
 
-// Trailing-lambda routing (spec §5, *Lambdas at Call Sites*) must apply
+// Trailing-lambda routing (spec §7, *Lambdas at Call Sites*) must apply
 // to GENERIC callees too: a lambda passed as the final positional argument
 // routes into the last param slot, skipping a defaulted middle param. The
 // non-generic path (computePositionalSlots) and the pipe path
@@ -2761,7 +2761,7 @@ fn demo() -> Int {
 }
 
 // The zero-sized embeds counterpart stays accepted: the variant's payload
-// is the zero-sized distinct itself (spec §8, *Embedded Types*), so `Switch.Off(x)` binds
+// is the zero-sized distinct itself (spec §4, *Embedded Types*), so `Switch.Off(x)` binds
 // x: Off.
 func TestCheckEnumPatternBindingOnZeroSizedEmbedAccepted(t *testing.T) {
 	src := `type Off
@@ -2865,7 +2865,7 @@ fn demo() -> Int {
 // --- TryOp (try keyword) tests ---
 
 // These two assert what `?` UNWRAPS — that `v` is usable as an Int. The
-// enclosing function declares a Result boundary, since spec §9 requires one
+// enclosing function declares a Result boundary, since spec §11 requires one
 // for `?` to propagate into.
 func TestCheckTryOpResult(t *testing.T) {
 	src := `enum Result<T, E> { Ok T; Err E }
@@ -3396,7 +3396,7 @@ impl TwoOps for Box {
 // ---------------------------------------------------------------------------
 // Visibility consistency
 //
-// Spec §3 says public definitions must not expose private types. The check
+// Spec §14 *Visibility* says public definitions must not expose private types. The check
 // fires for: public fn param/return types, public struct field types, public
 // enum variant data types and embeds, public interface method signatures,
 // public type aliases.
@@ -3850,7 +3850,7 @@ func TestVariantPattern_BoolBareVariants_OK(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Naming conventions
 //
-// Spec §4 promises: types/enum variants are PascalCase, functions/struct
+// Spec §2 *Naming Conventions* promises: types/enum variants are PascalCase, functions/struct
 // fields/parameters are snake_case. Most first-character violations are
 // already rejected by the lexer (IDENT vs TYPE_IDENT token kinds), so the
 // tests here focus on the violations the parser allows but the analyzer
@@ -3879,7 +3879,7 @@ func TestNaming_FunctionSnakeCase_OK(t *testing.T) {
 	expectNoErrors(t, errs)
 }
 
-// Anonymous struct fields, BOTH positions. Spec §4 says struct fields are
+// Anonymous struct fields, BOTH positions. Spec §2 *Naming Conventions* says struct fields are
 // ALWAYS snake_case with no nominal/anonymous distinction, but
 // checkNamingConventions walks top-level decls only, and an anon struct's
 // fields live in an expression or a type expression — so neither position was
@@ -3912,7 +3912,7 @@ func TestNaming_AnonStructTypeField_Rejected(t *testing.T) {
 }
 
 func TestNaming_AnonStructPredicateSuffix_OK(t *testing.T) {
-	// A trailing `?` IS snake_case (spec §4, the predicate convention), so the
+	// A trailing `?` IS snake_case (spec §2 *Naming Conventions*, the predicate convention), so the
 	// rule must not reject it — only the `_PRED` spelling that collides with it.
 	src := `fn f() -> Int {
   a = #{is_ok: 1, count: 2}

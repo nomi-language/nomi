@@ -1,7 +1,7 @@
 package analysis
 
 // continueValueMessage rejects `continue <value>`. `continue` takes no value
-// (spec, "`break` and `continue` in Callbacks"): it moves on with the state or
+// (spec §9 *`break` and `continue`*): it moves on with the state or
 // accumulator unchanged. Inside `Iter.loop` a written value read as the next
 // state, but it was ignored and the loop spun forever on the old one. The
 // value belongs in the callback's result.

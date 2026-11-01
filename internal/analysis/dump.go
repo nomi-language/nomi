@@ -3,6 +3,7 @@ package analysis
 import (
 	"cmp"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -64,7 +65,7 @@ func dumpErrors(b *strings.Builder, prefix string, errs []TypeError, path func(s
 // the same facts. root is stripped from the paths the dump names, so dumps of
 // one project in two directories compare.
 func DumpFileForTest(fa *FileAnalysis, errs []TypeError, root string) string {
-	path := func(p string) string { return strings.TrimPrefix(p, root) }
+	path := func(p string) string { return filepath.ToSlash(strings.TrimPrefix(p, root)) }
 	typ := dumpType
 	var b strings.Builder
 	fmt.Fprintf(&b, "file %s origin %s\n", path(fa.FilePath), fa.Origin)
@@ -249,7 +250,7 @@ func dumpScope(b *strings.Builder, s *Scope, depth int) {
 //     otherwise the entry's diagnostics and then each other file's.
 func DumpProgramForTest(p *CheckedProgram) string {
 	root := p.Root
-	path := func(s string) string { return strings.TrimPrefix(s, root) }
+	path := func(s string) string { return filepath.ToSlash(strings.TrimPrefix(s, root)) }
 	var b strings.Builder
 	fmt.Fprintf(&b, "program entry %s\n", p.Entry)
 	keys := p.Keys()

@@ -234,6 +234,7 @@ var mxFeatures = []mxFeature{
 	{name: "not", typ: "Bool", expr: `not 1 == 2 and not ([1] |> Iter.is_empty())`, want: "True"},
 	{name: "not stage", typ: "Bool", expr: `"" |> not String.contains("x")`, want: "True"},
 	{name: "is test", typ: "Bool", expr: `Some(2) is Some(1 or 2) and not [1] is []`, want: "True"},
+	{name: "in test", typ: "Bool", expr: `2 in [1, 2] and 3 in 1..5 and not "z" in %{"a" => 1}`, want: "True"},
 	{name: "bitwise operators", typ: "Int", expr: "(12 &&& 10 ||| 1 <<< 4) ^^^ ~~~0 >>> 1", want: "-25"},
 	{name: "byte bitwise operators", typ: "Byte", expr: "~~~Int.to_byte(15)! &&& 0xFF", want: "240"},
 	{name: "byte literal", typ: "Byte", expr: "0x81", want: "129", tags: tagWidens},
@@ -1043,7 +1044,7 @@ func mxExpectedRejection(c mxCell) (want, why, skip string) {
 		// A tagExpects feature where its position expects nothing. A
 		// generic call or a constructor that a later position gives a type
 		// sometimes hands it on (a generic call's own expected type fixes
-		// its parameter, §2) and sometimes not, which the matrix does not
+		// its parameter, §6 *Bindings*) and sometimes not, which the matrix does not
 		// pin: the pairs check each side.
 		if mxLaterGives(c, i+1) {
 			return "", "", "a " + c.f.name + " in `" + w.name + "` inside a context that gives its type"

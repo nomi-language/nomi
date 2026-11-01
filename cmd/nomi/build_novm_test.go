@@ -60,7 +60,9 @@ fn main() {
 
 // wasiImageScript runs a wasip1 runner under Node's node:wasi: with the root
 // preopened and the module's path as argv[0], or, after --no-fs, with no
-// preopen at all, as a browser's WASI shim runs it.
+// preopen at all, as a browser's WASI shim runs it. The root is
+// NOMI_WASI_ROOT when it is set: on Windows, the drive a guest path
+// (wasiGuestPath) is on.
 const wasiImageScript = `import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { WASI } from "node:wasi";
@@ -72,8 +74,8 @@ if (noFs) rest = rest.slice(1);
 const wasi = new WASI({
   version: "preview1",
   args: noFs ? ["nomi-vm", ...rest] : [path, ...rest],
-  env: noFs ? {} : { PWD: process.cwd() },
-  preopens: noFs ? {} : { "/": "/" },
+  env: noFs ? {} : { PWD: process.env.NOMI_WASI_PWD || process.cwd() },
+  preopens: noFs ? {} : { "/": process.env.NOMI_WASI_ROOT || "/" },
   returnOnExit: true,
 });
 const module = await WebAssembly.compile(await readFile(path));
@@ -135,7 +137,8 @@ func TestBuildNoVM_TheRunnerRunsItAsNomiRunDoes(t *testing.T) {
 			"nomi run": runProcess(t, env, dir, input, nomiBin, append([]string{"run", imagePath}, args...)...),
 		}
 		if wasm != "" {
-			runs["wasip1 by path"] = runNode(t, env, dir, input, node, append([]string{"--no-warnings", script, wasm, imagePath}, args...)...)
+			wasiEnv := append(append([]string{}, env...), wasiRootEnv(dir)...)
+			runs["wasip1 by path"] = runNode(t, wasiEnv, dir, input, node, append([]string{"--no-warnings", script, wasm, wasiGuestPath(imagePath)}, args...)...)
 			runs["wasip1 on stdin"] = runNode(t, env, dir, string(data)+input, node, append([]string{"--no-warnings", script, wasm, "--no-fs", "-"}, args...)...)
 		}
 		for how, got := range runs {
@@ -253,4 +256,22 @@ func TestBuildNoVM_Refusals(t *testing.T) {
 	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
 		t.Fatalf("a refused build wrote into %s: %d entries", dir, len(entries))
 	}
+}
+
+// wasiGuestPath is how a wasip1 module whose preopened root is the host's
+// root (or, on Windows, the drive's: wasiRootEnv) names the host path p: a
+// slash path from that root, with no drive.
+func wasiGuestPath(p string) string {
+	return filepath.ToSlash(p[len(filepath.VolumeName(p)):])
+}
+
+// wasiRootEnv is the environment that makes wasiImageScript preopen the
+// drive dir is on and start in dir, on Windows; elsewhere the root and the
+// working directory need nothing.
+func wasiRootEnv(dir string) []string {
+	vol := filepath.VolumeName(dir)
+	if vol == "" {
+		return nil
+	}
+	return []string{"NOMI_WASI_ROOT=" + vol + `\`, "NOMI_WASI_PWD=" + wasiGuestPath(dir)}
 }

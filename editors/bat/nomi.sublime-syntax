@@ -7,7 +7,7 @@ scope: source.nomi
 variables:
   ident: '[a-z_][a-zA-Z0-9_]*'
   type_ident: '[A-Z][a-zA-Z0-9_]*'
-  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with'
+  import_path_keyword: 'and|as|assert|break|case|continue|dbg|defer|else|enum|export|extern|fn|for|go|gopkg|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with'
 
 contexts:
   main:
@@ -140,6 +140,11 @@ contexts:
     - match: '^\s*(subtests)\b(?=[ \t]+[^\s=.,:|)\]}-])'
       captures:
         1: keyword.control.nomi
+    # As a pipe stage it is a keyword when a pattern follows it
+    # (`|> subtests #(a, b) { ... }`); `|> subtests(x)` stays a name.
+    - match: '(?<=\|>)[ \t]*(subtests)\b(?=[ \t]+[A-Za-z0-9_\[(#%"''`])'
+      captures:
+        1: keyword.control.nomi
     # `group` is a keyword only where a top-level line starts with it and the
     # group's name string follows (`group "parsing" { ... }`), or its `{`
     # with the name missing (`group { ... }`, which the compiler reports);
@@ -165,7 +170,7 @@ contexts:
     # return from the function as `return` does.
     - match: '(?<=[A-Za-z0-9_?!)\]}"])\?'
       scope: keyword.control.nomi
-    - match: '\b(and|or|not|is)\b'
+    - match: '\b(and|or|not|is|in)\b'
       scope: keyword.operator.word.nomi
     - match: '\b(true|false)\b'
       scope: constant.language.nomi

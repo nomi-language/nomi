@@ -216,7 +216,7 @@ import {
 }
 
 test "parse" {
-    cases = [
+    [
         #(
             "empty graph",
             """
@@ -344,14 +344,13 @@ test "parse" {
             },
         ),
     ]
-
-    subtests cases, #(description, text, expected), description {
+    |> subtests #(description, text, expected), description {
         assert dot_dsl.parse(text) == Ok(expected)
     }
 }
 
 test "parse errors" {
-    cases = [
+    [
         #(
             "malformed input",
             """
@@ -434,13 +433,17 @@ test "parse errors" {
             "node name must be alphanumeric",
         ),
     ]
-
-    subtests cases, #(description, text, expected), description {
+    |> subtests #(description, text, expected), description {
         assert Err(error) = dot_dsl.parse(text)
         assert "${error}" == expected
     }
 }
 ```
+<!-- expect
+ok parse (9 cases)
+ok parse errors (10 cases)
+test result: ok. 19 passed, 0 failed
+-->
 
 ## How it's written
 

@@ -144,15 +144,11 @@ pub fn precision_and_scale(declared: String) -> Maybe<#(Int, Int)> {
 
 // SQLite's affinity rules, in its order.
 fn by_affinity(name: String) -> Maybe<Family> {
-    if String.contains(name, "INT") {
+    if "INT" in name {
         Some(family("int", "SqlInt", "Int", None))
-    } else if String.contains(name, "CHAR")
-        or String.contains(name, "CLOB")
-        or String.contains(name, "TEXT") {
+    } else if "CHAR" in name or "CLOB" in name or "TEXT" in name {
         Some(family("text", "SqlText", "String", None))
-    } else if String.contains(name, "REAL")
-        or String.contains(name, "FLOA")
-        or String.contains(name, "DOUB") {
+    } else if "REAL" in name or "FLOA" in name or "DOUB" in name {
         Some(family("float", "SqlFloat", "Float", None))
     } else {
         None

@@ -1,5 +1,59 @@
 import strings.String
 
+//# The `Debug` interface: a value as a developer reads it, what `dbg`,
+//# `io.inspect` and an assertion's `values:` row write. Every value has a
+//# `Debug` form; `Display` (`std/display`) is the user-facing one.
+//#
+//# ## How built-in values render
+//#
+//# | Type | Display | Debug |
+//# |---|---|---|
+//# | `Int`, `Float`, `Bool` | numeric / variant form: `42`, `3.14`, `True` / `False` | identical |
+//# | `Unit` | no Display impl; rendering one is a compile error | `Unit` |
+//# | `String` | raw text, no quotes | its literal, `String.to_literal`: `"..."` with `\n`, `\r`, `\t`, `\\`, `\"` and `\${` escaped and `\u{...}` for any other character that is not printable |
+//# | `Infallible` | uninhabited; can never be called | none |
+//#
+//# Numeric and Bool primitives have no user-vs-developer distinction. String
+//# is the one primitive where the split matters. Display gives the bare text,
+//# so `"hello ${name}"` doesn't double-quote. Debug gives the round-trippable
+//# literal, so `io.inspect("a\"b")` reveals the escape; `String.to_literal`
+//# gives the rules for that literal.
+//#
+//# Containers recurse through the same interface as the caller: a container's
+//# Display uses Display on its elements, and its Debug uses Debug. Brackets,
+//# braces, parentheses and separators are byte-identical between the two;
+//# only the per-element function differs.
+//#
+//# | Type | Display | Debug |
+//# |---|---|---|
+//# | `List<T>` | `[Display(v1), Display(v2), ...]`, `[]` for empty | `[Debug(...), ...]` |
+//# | `Vector<T>` | `#[Display(v1), ...]`, `#[]` for empty | `#[Debug(...), ...]` |
+//# | `Set<T>` | `%[Display(v1), ...]`, `%[]` for empty | `%[Debug(...), ...]` |
+//# | `Map<K, V>` | `%{Display(k) => Display(v), ...}`, `%{}` for empty | `%{Debug(...) => Debug(...), ...}` |
+//# | `Maybe<T>` | `Some(Display(v))`, `None` | `Some(Debug(v))`, `None` |
+//# | `Result<T, E>` | `Ok(Display(v))`, `Err(Display(e))` | `Ok(Debug(v))`, `Err(Debug(e))` |
+//# | `Range<T>` | `Debug(start)..Debug(end)`, `Debug(start)..=Debug(end)`, `Debug(start)..` for unbounded integer ranges | identical |
+//# | Tuple `#(...)` | `#(Display(a), Display(b), ...)` | `#(Debug(a), Debug(b), ...)` |
+//# | Anon struct `#{f: V, ...}` | `#{f: Display(v), ...}` | `#{f: Debug(v), ...}` |
+//#
+//# Tuples and anonymous structs are syntactic intrinsics with no named type
+//# to attach an impl to; they get language-level rendering, as their literal
+//# syntax is privileged. Every other built-in type gets a Nomi-side impl in
+//# the standard library.
+//#
+//# Container impls require their elements to implement the corresponding
+//# interface: `${[some_fn]}` is an error because functions have no `Display`
+//# impl. Each container impl states the constraint as a bound
+//# (`impl Display for List<T> where T: Display`), which its body needs to
+//# render an element, so `List<Foo>` is Display exactly when `Foo` is; a
+//# missing element impl is reported as the element's
+//# (``no impl of `Display` for `Foo` ``).
+//#
+//# For `Maybe` and `Result`, the variant constructor is always rendered
+//# (`Some(...)`, `None`, `Ok(...)`, `Err(...)`), never unwrapped. Display
+//# keeps the variant: the user-facing form of `Maybe.None` is `"None"`, not
+//# the empty string.
+
 /// Protocol for producing a structural, developer-facing `String`
 /// representation of a value.
 ///

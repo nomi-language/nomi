@@ -38,7 +38,10 @@ func TestBrowserBuild_FilesStayInMemory(t *testing.T) {
 		t.Fatalf("go env GOROOT: %v", err)
 	}
 	wasmDir := filepath.Join(strings.TrimSpace(string(root)), "lib", "wasm")
-	cmd := exec.Command("go", "test", "-count=1", "-v", "-run", "TestBrowser_", "github.com/nomi-language/nomi/internal/stdio")
+	// -exec runs the binary as go_js_wasm_exec does, which is a bash script
+	// Windows cannot start: without it go runs the .wasm file itself there.
+	execNode := "-exec=node --stack-size=8192 '" + filepath.Join(wasmDir, "wasm_exec_node.js") + "'"
+	cmd := exec.Command("go", "test", "-count=1", "-v", execNode, "-run", "TestBrowser_", "github.com/nomi-language/nomi/internal/stdio")
 	// go_js_wasm_exec hands Node's environment to the test binary, so the
 	// command gets only what go and Node need, not the caller's whole one.
 	var goVars []string

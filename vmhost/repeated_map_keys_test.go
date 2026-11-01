@@ -6,8 +6,8 @@ import (
 
 // Two entries of a map literal whose keys are equal only at run time both
 // build, and the later one wins: the map holds the key once, at the first
-// entry's position, with the later entry's value (spec §19, Map, Repeated
-// keys). A set literal holds such an element once, and a map pattern's two
+// entry's position, with the later entry's value (spec §3, *Repeated
+// keys*). A set literal holds such an element once, and a map pattern's two
 // entries both match the one value. The compiler rejects the repetition only
 // when the keys are the same constant.
 func TestRun_RepeatedRuntimeMapKeysLastWins(t *testing.T) {

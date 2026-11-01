@@ -6,4 +6,8 @@
 //
 // go_versions_test.go: every tracked go.mod declares the same `go` line as the
 // root go.mod.
+//
+// spec_citations_test.go: every spec citation in docs/*.md and in Go and Nomi
+// comments (`spec §7`, `§7 *Calls*`) names a chapter of docs/spec.md, and the
+// heading or bold lead-in it gives is in that chapter.
 package docscheck

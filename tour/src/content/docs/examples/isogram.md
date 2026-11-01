@@ -31,7 +31,7 @@ pub fn is_isogram(phrase: String) -> Bool {
 import isogram.is_isogram
 
 test "isograms" {
-    cases = [
+    [
         #("empty string", "", True),
         #("isogram with only lower case characters", "isogram", True),
         #("word with one duplicated character", "eleven", False),
@@ -51,12 +51,15 @@ test "isograms" {
         #("same first and last characters", "angola", False),
         #("word with duplicated character and with two hyphens", "up-to-date", False),
     ]
-
-    subtests cases, #(description, phrase, expected), description {
+    |> subtests #(description, phrase, expected), description {
         assert is_isogram(phrase) == expected
     }
 }
 ```
+<!-- expect
+ok isograms (14 cases)
+test result: ok. 14 passed, 0 failed
+-->
 
 ## How it's written
 

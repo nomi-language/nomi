@@ -372,7 +372,7 @@ func TestIRTestBody_RetainedCasesAgree(t *testing.T) {
 			t.Errorf("%s has no record in corpus.expect", f.Rel)
 			continue
 		}
-		stdout, _ := expectation.SplitTranscript(strings.ReplaceAll(golden.Transcript, "<root>", corpusGoldenRoot(t)))
+		stdout, _ := expectation.SplitTranscript(expectation.ExpandMarker(golden.Transcript, "<root>", corpusGoldenRoot(t), filepath.Separator))
 		want := irTestReportBlocks(stdout)
 		for name, got := range irTestReportBlocks(out.String()) {
 			compared++

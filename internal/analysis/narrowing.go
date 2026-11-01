@@ -2,7 +2,7 @@ package analysis
 
 import "github.com/nomi-language/nomi/internal/ast"
 
-// Type narrowing (spec §8 *Type Narrowing*): inside a `case` arm, or the
+// Type narrowing (spec §10 *Type Narrowing*): inside a `case` arm, or the
 // first branch of an `if Pattern = value`, whose pattern matches an `embeds`
 // variant, a plain name matched there holds the embedded type. In
 //
@@ -56,7 +56,7 @@ func (c *checker) narrowingFor(scrutinee ast.Node, scrutineeTy Type, pattern ast
 
 // narrowsTo reports whether an `embeds` variant whose type is embedded
 // narrows a name matched against it. Only an embedded struct or distinct type
-// does (spec §8 *Type Narrowing*). Bool's `embeds True` and `embeds False`
+// does (spec §10 *Type Narrowing*). Bool's `embeds True` and `embeds False`
 // name host singletons: narrowing there would make `x` in a `True -> assert
 // x` arm a `True`, which is not a Bool, so it would not fit `assert` or any
 // other place a Bool is expected.

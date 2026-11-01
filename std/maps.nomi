@@ -23,8 +23,27 @@ import {
 //# `a + b` merges two maps, the right-hand map winning on a shared key.
 //# For lazy pipelines, use `Iter`; materialize back with
 //# `Iter.to_map`.
+//#
+//# Maps iterate in insertion order, and every transformation keeps it. A
+//# map element is a `#(K, V)` pair, so every generic `Iter` op
+//# (`Iter.reduce`, `Iter.each`, `Iter.find`, `Iter.filter`, ...) takes a
+//# single tuple parameter, and filtering or generically mapping a map is
+//# `Iter.filter(m, p) |> Iter.to_map()`. `Map.map_values` and `Map.map_keys`
+//# stay on `Map` because a generic map or filter cannot keep the other half
+//# of a pair, or could collide keys.
 
 /// Immutable hash map from `K` to `V`. `a + b` is `Map.merge(a, b)`.
+//! ages = %{"ann" => 31, "bo" => 12, "cy" => 19}
+//!
+//! // Iter.filter gives an Iter<#(K, V)>; Iter.to_map materializes it.
+//! adults =
+//!     ages
+//!     |> Iter.filter(fn #(_, age) -> age > 18)
+//!     |> Iter.to_map()
+//!
+//! assert adults == %{"ann" => 31, "cy" => 19}
+//! assert Map.keys(adults) == ["ann", "cy"]
+//
 pub host type Map<K, V>
 
 impl Map<K, V> {

@@ -351,9 +351,11 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node) *fileTyping {
 	}
 
 	// Register imported types so local type annotations can reference them.
+	// A type another file re-exports (`pub import other.{Helper}`) is an
+	// import of an import, so the chain is followed to the declaration.
 	for _, sym := range fa.ModuleScope.Symbols {
 		real := sym
-		if real.Resolved != nil {
+		for real.Resolved != nil && real.Resolved != real {
 			real = real.Resolved
 		}
 		if real.Type != nil && (real.Kind == SymbolStruct || real.Kind == SymbolEnum || real.Kind == SymbolType || real.Kind == SymbolTypeAlias || real.Kind == SymbolInterface) {
@@ -1315,10 +1317,10 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 						errs = append(errs, te)
 					}
 				} else if iface, ok := resolved.(*InterfaceType); ok {
-					// `embeds` is for struct or distinct types only (spec §8):
+					// `embeds` is for struct or distinct types only (spec §4 *Enums (Algebraic Data Types)*):
 					// it makes the embedded type a subtype of the enum, which
 					// has no meaning for an interface (that would be open
-					// polymorphism, which spec §8 *Embedded Types* does not
+					// polymorphism, which spec §4 *Embedded Types* does not
 					// allow). Without this check the line silently no-ops — declaration parses
 					// but no constructor is created and no widening occurs.
 					errs = append(errs, TypeError{
@@ -1328,7 +1330,7 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 							"; for an interface-typed payload use a single-payload variant: `Name " + iface.Name + "`",
 					})
 				} else if inner, ok := resolved.(*EnumType); ok {
-					// Enums do not embed enums (spec §8 *Embedded Types*):
+					// Enums do not embed enums (spec §4 *Embedded Types*):
 					// every variant name traces to one definition. A
 					// typealias naming an enum is that enum. A distinct
 					// over an enum is a distinct type and embeds. The
@@ -1856,7 +1858,7 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 	}
 
 	// Count every defaulted param, not just trailing ones — defaults can
-	// appear anywhere in the list (spec §5 Default Arguments). Required
+	// appear anywhere in the list (spec §7 *Default Arguments*). Required
 	// non-trailing slots are still enforced per-slot at the call site.
 	defaultCount := 0
 	for _, p := range n.Params {

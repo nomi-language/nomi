@@ -55,14 +55,14 @@ fn search(
         |> Iter.filter(fn #(_index, line) -> matches(line, pattern, flags))
         |> Iter.to_list()
 
-    if Set.contains(flags, .FileNames) {
+    if .FileNames in flags {
         Ok(if Iter.is_empty(found) { [] } else { [file] })
     } else {
         found
         |> Iter.map(fn #(index, line) -> {
             file_part = if named { "${file}:" } else { "" }
 
-            number_part = if Set.contains(flags, .LineNumbers) {
+            number_part = if .LineNumbers in flags {
                 "${index + 1}:"
             } else {
                 ""
@@ -76,17 +76,17 @@ fn search(
 }
 
 fn matches(line: String, pattern: String, flags: Set<Flag>) -> Bool {
-    #(line, pattern) = if Set.contains(flags, .IgnoreCase) {
+    #(line, pattern) = if .IgnoreCase in flags {
         #(String.fold_case(line), String.fold_case(pattern))
     } else {
         #(line, pattern)
     }
 
-    found = if Set.contains(flags, .WholeLine) {
+    found = if .WholeLine in flags {
         line == pattern
     } else {
-        String.contains(line, pattern)
+        pattern in line
     }
 
-    found != Set.contains(flags, .Invert)
+    found != (.Invert in flags)
 }

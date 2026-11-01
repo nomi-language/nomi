@@ -32,7 +32,7 @@ fn factors_from(n: Int, divisor: Int) -> List<Int> {
 import prime_factors
 
 test "factors" {
-    cases = [
+    [
         #("no factors", 1, []),
         #("prime number", 2, [2]),
         #("another prime number", 3, [3]),
@@ -46,12 +46,15 @@ test "factors" {
         #("product of primes", 901255, [5, 17, 23, 461]),
         #("factors include a large prime", 93819012551, [11, 9539, 894119]),
     ]
-
-    subtests cases, #(description, value, expected), description {
+    |> subtests #(description, value, expected), description {
         assert prime_factors.factors(value) == expected
     }
 }
 ```
+<!-- expect
+ok factors (12 cases)
+test result: ok. 12 passed, 0 failed
+-->
 
 ## How it's written
 

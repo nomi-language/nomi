@@ -289,7 +289,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		fields := make([]FieldDef, 0, len(n.Fields))
 		seen := make(map[string]bool, len(n.Fields))
 		for _, f := range n.Fields {
-			// Spec §4 again, and the TYPE half of the same gap the literal
+			// Spec §2 *Naming Conventions* again, and the TYPE half of the same gap the literal
 			// path had: a parameter or binding annotated
 			// `#{is_ok: Int, ok_PRED: Int}` reaches the IR builder without ever
 			// involving an anon struct LITERAL, so checking only the literal

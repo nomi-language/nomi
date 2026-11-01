@@ -9,7 +9,7 @@ import (
 // An impl of a program's own interface for a std generic container:
 // `impl Show for List<T> where T: Display`, `impl Zero for Maybe<T>`,
 // `impl Keyed for Map<String, V>`. The orphan rule admits it because the
-// interface is the module's own (§13), and the checker answers a call
+// interface is the module's own (§12), and the checker answers a call
 // through it at each instance.
 //
 // A std container has no template in this program to mint its instances,
@@ -116,7 +116,7 @@ func (g *gen) stdRecvTemplateOf(ib *ast.ImplBlock) (*stdRecvTemplate, bool) {
 
 // programIface reports whether ib implements an interface a file of the
 // program declares. Only such an impl may name a std container as its
-// receiver: the orphan rule refuses a std interface's (§13), and the
+// receiver: the orphan rule refuses a std interface's (§12), and the
 // builder's std dispatch never reads one.
 func (g *gen) programIface(ib *ast.ImplBlock) bool {
 	if ib.Interface == nil {

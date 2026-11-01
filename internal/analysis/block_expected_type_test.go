@@ -3,7 +3,7 @@ package analysis
 import "testing"
 
 // The type a block's position expects reaches its tail and no statement
-// before it. A binding there must be locally determined (§2), as it must be
+// before it. A binding there must be locally determined (§5 *Locally-determined bindings and turbofish*), as it must be
 // in a function body: `b = .Circle(2)` names no enum on its own line, so it
 // is rejected inside a `once`'s, a binding's or an argument's block that
 // expects a Shape, as it is in `fn f() -> Shape { b = .Circle(2); b }`.

@@ -8,6 +8,7 @@ import (
 	"path"
 	"reflect"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -219,7 +220,12 @@ func (g *Generator) decls() []byte {
 	if g.prefix == "" {
 		spec = "spec_"
 	}
-	fmt.Fprintf(&out, "var (\n\t_ = %s.New\n\t_ = %s.Errorf\n)\n\n", g.imports["errors"], g.imports["fmt"])
+	fmt.Fprintf(&out, "var (\n\t_ = %s.New\n\t_ = %s.Errorf\n", g.imports["errors"], g.imports["fmt"])
+	if len(g.entries) == 0 {
+		// Only adapters name rt; a file binding Go types alone has none.
+		fmt.Fprintf(&out, "\t_ = %s.TupleDesc\n", g.imports["github.com/nomi-language/nomi/rt"])
+	}
+	out.WriteString(")\n\n")
 
 	for _, d := range g.descs {
 		if d.spec != "" {
@@ -247,7 +253,7 @@ func (g *Generator) decls() []byte {
 	out.WriteString("\t}\n}\n\n")
 
 	fmt.Fprintf(&out, "// %s resolves every descriptor through env and answers the adapters by\n// binding name.\nfunc %s(env *hostadapt.Env) (map[string]hostadapt.Func, error) {\n\tb := &%s{env: env}\n", g.ident("Bind"), g.ident("Bind"), bound)
-	if len(g.descs) > 0 {
+	if slices.ContainsFunc(g.descs, func(d descField) bool { return d.spec != "" }) {
 		out.WriteString("\tvar err error\n")
 	}
 	for _, d := range g.descs {
