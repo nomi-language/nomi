@@ -21,7 +21,7 @@ fn first_even(xs: List<Int>) -> Maybe<Int> {
 }
 
 fn settle(start: Int) -> Int {
-    Iter.loop(fn n = start -> {
+    Iter.loop(start, fn n -> {
         if n % 5 == 0 { break }
         n + 1
     })
@@ -29,26 +29,26 @@ fn settle(start: Int) -> Int {
 
 fn main() {
     // A guard.
-    a = Iter.loop(fn n = 0 -> {
+    a = Iter.loop(0, fn n -> {
         if n * n > 20 { break }
         n + 1
     })
     io.inspect(a)
     // An else binding: the pattern fails once five elements are dropped.
-    b = Iter.loop(fn t = #Tally{label: "t", count: 0} -> {
+    b = Iter.loop(Tally{label: "t", count: 0}, fn t -> {
         Some(_) = first_even(Iter.drop([1, 3, 2, 5, 4], t.count) |> Iter.to_list()) else { break }
         #{..t, count: t.count + 1}
     })
     io.inspect(b)
     // A case arm, bare and in a block.
-    c = Iter.loop(fn n = 10 -> {
+    c = Iter.loop(10, fn n -> {
         case n % 7 {
             0 -> break
             _ -> n + 1
         }
     })
     io.inspect(c)
-    d = Iter.loop(fn n = 1 -> {
+    d = Iter.loop(1, fn n -> {
         case n {
             8 -> {
                 io.print("stop at ${n}")
@@ -59,7 +59,7 @@ fn main() {
     })
     io.inspect(d)
     // A guard nested in an arm's block, and a value 'if' tail.
-    e = Iter.loop(fn t = #Tally{label: "e", count: 0} -> {
+    e = Iter.loop(Tally{label: "e", count: 0}, fn t -> {
         case t.count % 2 {
             0 -> {
                 if t.count >= 4 { break }
@@ -69,17 +69,17 @@ fn main() {
         }
     })
     io.inspect(e)
-    f = Iter.loop(fn n = 3 -> if n > 40 { break } else { n * 3 })
+    f = Iter.loop(3, fn n -> if n > 40 { break } else { n * 3 })
     io.inspect(f)
     // The state, not a binding that shadows the parameter.
-    g = Iter.loop(fn n = 0 -> {
+    g = Iter.loop(0, fn n -> {
         n = n + 100
         if n > 102 { break }
         n - 99
     })
     io.inspect(g)
     // A loop inside a lambda, and one that is a named function's result.
-    climb = fn start: Int -> Iter.loop(fn n = start -> {
+    climb = fn start: Int -> Iter.loop(start, fn n -> {
         if n >= 10 { break }
         n + 3
     })
@@ -87,7 +87,7 @@ fn main() {
     io.inspect(climb(20))
     io.inspect(settle(7))
     // A discarded loop.
-    _ = Iter.loop(fn n = 0 -> {
+    _ = Iter.loop(0, fn n -> {
         io.print("discarded ${n}")
         if n == 2 { break }
         n + 1
@@ -104,11 +104,11 @@ fn main() {
     io.inspect(u)
 }
 `, `5
-#Tally{label: "t", count: 5}
+Tally{label: "t", count: 5}
 14
 stop at 8
 8
-#Tally{label: "e", count: 4}
+Tally{label: "e", count: 4}
 81
 3
 10
@@ -141,7 +141,7 @@ fn parse_amount(s: String) -> Result<Int, String> {
 }
 
 fn open(inputs: List<String>) -> Account {
-    #(_, account) = Iter.loop(fn state = #(inputs, #Account{}) -> {
+    #(_, account) = Iter.loop(#(inputs, Account{}), fn state -> {
         #(rest, account) = state
         Some(input) = List.head(rest) else { break }
         case parse_amount(input) {
@@ -160,9 +160,9 @@ fn main() {
     io.inspect(open(["abc", "def"]))
 }
 `, `not a number: abc
-#Account{name: "x!", balance: 12}
+Account{name: "x!", balance: 12}
 not a number: abc
 not a number: def
-#Account{name: "x!!", balance: 0}
+Account{name: "x!!", balance: 0}
 `)
 }

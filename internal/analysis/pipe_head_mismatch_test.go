@@ -101,9 +101,9 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 			"`Int.to_string` takes an Int as its first argument, but the pipe passes a Float",
 			"Int.to_string", "1.5"},
 		{"a value with no Display into a String stage gets no Display help",
-			"  _ = #Plain{x: 1} |> String.trim()\n",
+			"  _ = Plain{x: 1} |> String.trim()\n",
 			"`String.trim` takes a String as its first argument, but the pipe passes a Plain",
-			"String.trim", "#Plain{x: 1}"},
+			"String.trim", "Plain{x: 1}"},
 		{"the slot a then stage's `&1` names",
 			"  c = Celsius(1d)\n  _ = c |> Celsius.to_fahrenheit() |> then &label(4, &1)\n",
 			"`label` takes a String as its second argument, but the pipe passes a Fahrenheit\n" +

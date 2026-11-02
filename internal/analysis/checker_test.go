@@ -466,7 +466,7 @@ func TestCheckBinding_AnnotationTypeNamesAreReferenced(t *testing.T) {
 struct Widget { id: Int }
 
 fn main() {
-  w: Widget = #Widget{id: 1}
+  w: Widget = Widget{id: 1}
 }
 `
 	fa, errs := checkSource(src)
@@ -2089,7 +2089,7 @@ func TestCheckPatternMapNilExpectedTy(t *testing.T) {
 func TestCheckStructDestructureValid(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
 fn main() {
-  p = #Point { x: 1, y: 2 }
+  p = Point{ x: 1, y: 2 }
   #{x, y} = p
 }`
 	fa, errs := checkSource(src)
@@ -2129,7 +2129,7 @@ func TestCheckStructDestructureNotStruct(t *testing.T) {
 func TestCheckStructDestructureUnknownField(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
 fn main() {
-  p = #Point { x: 1, y: 2 }
+  p = Point{ x: 1, y: 2 }
   #{z} = p
 }`
 	_, errs := checkSource(src)
@@ -2293,7 +2293,7 @@ func TestCheckDistinctDestructureNotDistinct(t *testing.T) {
 func TestCheck_TupleDistinct_LiteralAttach_OK(t *testing.T) {
 	src := `type Pair #(Int, String)
 fn main() {
-  p = #Pair(1, "x")
+  p = Pair(1, "x")
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -2311,7 +2311,7 @@ fn main() {
 func TestCheck_TupleDistinct_LiteralAttach_TypeMismatch(t *testing.T) {
 	src := `type Pair #(Int, String)
 fn main() {
-  p = #Pair("x", 1)
+  p = Pair("x", 1)
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "element 1 of Pair: expected Int, got String")
@@ -2329,10 +2329,10 @@ fn main() {
 func TestCheck_TupleDistinct_LiteralAttach_TooManyArgs(t *testing.T) {
 	src := `type Pair #(Int, String)
 fn main() {
-  p = #Pair(1, "x", 99)
+  p = Pair(1, "x", 99)
 }`
 	_, errs := checkSource(src)
-	expectError(t, errs, "Pair wraps #(Int, String), a tuple of 2 elements; `#Pair(...)` has 3")
+	expectError(t, errs, "Pair wraps #(Int, String), a tuple of 2 elements; got 3")
 }
 
 // Pair(#(1, 2)) — the user passed exactly one tuple argument (call-form),
@@ -2365,9 +2365,9 @@ fn main() {
 func TestCheck_TupleDistinct_FlatDestructure_OK(t *testing.T) {
 	src := `type Pair #(Int, String)
 fn demo() -> Int {
-  p = #Pair(1, "x")
+  p = Pair(1, "x")
   case p {
-    #Pair(a, b) -> a
+    Pair(a, b) -> a
   }
 }`
 	_, errs := checkSource(src)
@@ -2382,9 +2382,9 @@ fn demo() -> Int {
 func TestCheck_TupleDistinct_FlatDestructure_WrongArity(t *testing.T) {
 	src := `type Pair #(Int, String)
 fn main() {
-  p = #Pair(1, "x")
+  p = Pair(1, "x")
   case p {
-    #Pair(a, b, c) -> 0
+    Pair(a, b, c) -> 0
   }
 }`
 	_, errs := checkSource(src)
@@ -2399,7 +2399,7 @@ fn main() {
 func TestCheck_TupleDistinct_NestedDestructure_StillOK(t *testing.T) {
 	src := `type Pair #(Int, String)
 fn demo() -> Int {
-  p = #Pair(1, "x")
+  p = Pair(1, "x")
   case p {
     Pair(#(a, b)) -> a
   }
@@ -2537,7 +2537,7 @@ fn main() {
 func TestCheck_NominalStruct_LiteralAttach_StillOK(t *testing.T) {
 	src := `struct Foo { a: Int; b: String }
 fn main() {
-  f = #Foo{a: 1, b: "x"}
+  f = Foo{a: 1, b: "x"}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -3094,7 +3094,7 @@ func TestCheckNestedFuncIsResolvable(t *testing.T) {
 func TestCheckNestedStructUsedInNestedFnSignature(t *testing.T) {
 	src := `fn demo() -> Int {
   struct Point { x: Int; y: Int }
-  fn make() -> Point { #Point { x: 1, y: 2 } }
+  fn make() -> Point { Point{ x: 1, y: 2 } }
   p = make()
   p.x + p.y
 }`
@@ -3159,7 +3159,7 @@ func TestCheckExternFnInterfaceBoundEnforced(t *testing.T) {
 host fn dump<T>(value: T) where T: Printable
 struct NoImpl { x: Int }
 fn main() {
-  dump(#NoImpl{x: 1})
+  dump(NoImpl{x: 1})
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Printable")
@@ -3175,7 +3175,7 @@ fn echo<T>(value: T) -> T where T: Printable {
   value
 }
 fn demo() -> Label {
-  echo(#Label{text: "ok"})
+  echo(Label{text: "ok"})
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -3188,7 +3188,7 @@ fn echo<T>(value: T) -> T where T: Printable {
   value
 }
 fn demo() -> NoImpl {
- echo(#NoImpl{x: 1})
+ echo(NoImpl{x: 1})
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "where T")
@@ -3199,7 +3199,7 @@ func TestCheckExternFnWhereBoundEnforced(t *testing.T) {
 host fn dump<T>(value: T) where T: Printable
 struct NoImpl { x: Int }
 fn main() {
- dump(#NoImpl{x: 1})
+ dump(NoImpl{x: 1})
 }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "where T")
@@ -3219,7 +3219,7 @@ func TestCheckBindingTypeFromNestedStructLit(t *testing.T) {
 	// pick up the struct's type so hover/inlay-hints work.
 	src := `fn demo() -> Int {
   struct Defaulted { v: Int = 99 }
-  d = #Defaulted{}
+  d = Defaulted{}
   d.v
 }`
 	fa, errs := checkSource(src)
@@ -3404,7 +3404,7 @@ impl TwoOps for Box {
 
 func TestVisibility_PublicFnReturnsPrivateType(t *testing.T) {
 	src := `struct Secret { value: String }
-pub fn leak() -> Secret { #Secret{value: "x"} }`
+pub fn leak() -> Secret { Secret{value: "x"} }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
@@ -3480,7 +3480,7 @@ pub typealias S Secret`
 
 func TestVisibility_AllPublicIsOK(t *testing.T) {
 	src := `pub struct Public { value: String }
-pub fn make() -> Public { #Public{value: "x"} }`
+pub fn make() -> Public { Public{value: "x"} }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3488,7 +3488,7 @@ pub fn make() -> Public { #Public{value: "x"} }`
 func TestVisibility_PrivateExposingPrivateIsOK(t *testing.T) {
 	// A private function can freely use private types — no leak risk.
 	src := `struct Secret { value: String }
-fn make() -> Secret { #Secret{value: "x"} }`
+fn make() -> Secret { Secret{value: "x"} }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3508,7 +3508,7 @@ func TestVisibility_PrimitivesAreAlwaysPublic(t *testing.T) {
 
 func TestVisibility_InlinePubFnReturnsPrivateType(t *testing.T) {
 	src := `struct Secret { value: String }
-pub fn leak() -> Secret { #Secret{value: "x"} }`
+pub fn leak() -> Secret { Secret{value: "x"} }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
@@ -3560,21 +3560,21 @@ func TestVisibility_PrivateMain_Allowed(t *testing.T) {
 // public function returning a private type.
 func TestVisibility_PubOnceWithPrivateType(t *testing.T) {
 	src := `struct Secret { value: String }
-pub once x: Secret = #Secret{value: "x"}`
+pub once x: Secret = Secret{value: "x"}`
 	_, errs := checkSource(src)
 	expectError(t, errs, "private type")
 }
 
 func TestVisibility_PrivateOnceWithPrivateType_Allowed(t *testing.T) {
 	src := `struct Secret { value: String }
-once x: Secret = #Secret{value: "x"}`
+once x: Secret = Secret{value: "x"}`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
 
 func TestVisibility_PubOnceWithPublicType_Allowed(t *testing.T) {
 	src := `pub struct Public { value: String }
-pub once x: Public = #Public{value: "x"}`
+pub once x: Public = Public{value: "x"}`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3619,7 +3619,7 @@ func TestInterfaceBound_ParseSyntax(t *testing.T) {
 
 func TestInterfaceBound_CallSiteSatisfied(t *testing.T) {
 	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable { x }
-fn demo() -> User { identity(#User{name: "Alice"}) }`
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3627,7 +3627,7 @@ fn demo() -> User { identity(#User{name: "Alice"}) }`
 func TestInterfaceBound_CallSiteNotImpl(t *testing.T) {
 	// Anon doesn't impl Showable — should reject.
 	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable { x }
-fn demo() -> Anon { identity(#Anon{}) }`
+fn demo() -> Anon { identity(Anon{}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "does not implement")
 }
@@ -3660,7 +3660,7 @@ func TestInterfaceBound_MultiBound_ParseSyntax(t *testing.T) {
 func TestInterfaceBound_MultiBound_AllSatisfied(t *testing.T) {
 	// User impl both Showable and Tagged — call should typecheck.
 	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
-fn demo() -> User { identity(#User{name: "Alice"}) }`
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3669,7 +3669,7 @@ func TestInterfaceBound_MultiBound_OneMissing(t *testing.T) {
 	// ShowOnly impl Showable but not Tagged — should reject and the
 	// error should point at the missing interface.
 	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
-fn demo() -> ShowOnly { identity(#ShowOnly{name: "x"}) }`
+fn demo() -> ShowOnly { identity(ShowOnly{name: "x"}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Tagged")
 }
@@ -3677,7 +3677,7 @@ fn demo() -> ShowOnly { identity(#ShowOnly{name: "x"}) }`
 func TestInterfaceBound_MultiBound_NoneSatisfied(t *testing.T) {
 	// Anon impl neither — should reject.
 	src := interfaceBoundSetup + `fn identity<T>(x: T) -> T where T: Showable and Tagged { x }
-fn demo() -> Anon { identity(#Anon{}) }`
+fn demo() -> Anon { identity(Anon{}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "does not implement")
 }
@@ -3688,7 +3688,7 @@ fn demo() -> Anon { identity(#Anon{}) }`
 func TestInterfaceBound_Alias_AllSatisfied(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
 fn identity<T>(x: T) -> T where T: ShowAndTag { x }
-fn demo() -> User { identity(#User{name: "Alice"}) }`
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3698,7 +3698,7 @@ func TestInterfaceBound_Alias_OneMissing(t *testing.T) {
 	// fail with the missing interface named (not the alias name).
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
 fn identity<T>(x: T) -> T where T: ShowAndTag { x }
-fn demo() -> ShowOnly { identity(#ShowOnly{name: "x"}) }`
+fn demo() -> ShowOnly { identity(ShowOnly{name: "x"}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Tagged")
 }
@@ -3708,7 +3708,7 @@ func TestInterfaceBound_Alias_OfAlias(t *testing.T) {
 	src := interfaceBoundSetup + `typealias S Showable
 typealias ST S and Tagged
 fn identity<T>(x: T) -> T where T: ST { x }
-fn demo() -> User { identity(#User{name: "Alice"}) }`
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3719,7 +3719,7 @@ func TestInterfaceBound_Alias_NestedBoundAlias(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
 typealias Outer ShowAndTag
 fn identity<T>(x: T) -> T where T: Outer { x }
-fn demo() -> User { identity(#User{name: "Alice"}) }`
+fn demo() -> User { identity(User{name: "Alice"}) }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -3730,7 +3730,7 @@ func TestInterfaceBound_Alias_NestedBoundAlias_Missing(t *testing.T) {
 	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
 typealias Outer ShowAndTag
 fn identity<T>(x: T) -> T where T: Outer { x }
-fn demo() -> ShowOnly { identity(#ShowOnly{name: "x"}) }`
+fn demo() -> ShowOnly { identity(ShowOnly{name: "x"}) }`
 	_, errs := checkSource(src)
 	expectError(t, errs, "Tagged")
 }
@@ -4257,7 +4257,7 @@ pub fn lookup() -> List<Secret> { [] }`
 	expectError(t, errs, "private type")
 }
 
-// `#Shape.Rectangle{width, height}` inside a case arm must destructure
+// `Shape.Rectangle{width, height}` inside a case arm must destructure
 // the embedded Rectangle struct's fields. The pattern checker has to
 // read `vd.DataType.(*StructType).Fields` for embed variants, not the
 // (empty) `vd.Fields` slice.
@@ -4266,7 +4266,7 @@ func TestCheckPattern_EmbedVariantStructDestructure(t *testing.T) {
 enum Shape { embeds Rectangle; Point }
 fn area(s: Shape) -> Float {
   case s {
-    #Shape.Rectangle{width, height} -> width * height
+    Shape.Rectangle{width, height} -> width * height
     Shape.Point -> 0.0
   }
 }`
@@ -4299,7 +4299,7 @@ func TestMultiPositionalVariant_DeclarationParsesAsTuple(t *testing.T) {
 
 // Variant tuple-payload literal-attach construction: `Shape.Rect(3.0, 5.0)`
 // is now accepted as a flat-form constructor for the tuple payload, parallel
-// to the tuple-distinct literal-attach `#Pair(1, "x")`. The call-form
+// to the tuple-distinct literal-attach `Pair(1, "x")`. The call-form
 // `Shape.Rect(#(3.0, 5.0))` continues to work (see
 // TestTuplePayloadVariant_ExplicitFormWorks).
 func TestVariantTuplePayload_FlatConstruction_OK(t *testing.T) {
@@ -4320,7 +4320,7 @@ fn make() -> Shape { Shape.Rect(3.0, 5.0) }`
 
 // Variant tuple-payload literal-attach pattern: `Shape.Rect(w, h)` is now
 // accepted as a flat-form destructure for the tuple payload, parallel to
-// `#Pair(a, b)` for tuple-distinct types. The explicit form
+// `Pair(a, b)` for tuple-distinct types. The explicit form
 // `Shape.Rect(#(w, h))` continues to work.
 func TestVariantTuplePayload_FlatPattern_OK(t *testing.T) {
 	src := `enum Shape { Rect #(Float, Float); Empty }
@@ -4506,10 +4506,10 @@ fn main() {
 }
 
 func TestDotVariant_StructLitInAnnotatedBinding_OK(t *testing.T) {
-	// s: Shape = #.Rect{w: 4.0, h: 3.0}
+	// s: Shape = .Rect{w: 4.0, h: 3.0}
 	src := `enum Shape { Rect{w: Float, h: Float}; Origin }
 fn main() {
-  s: Shape = #.Rect{w: 4.0, h: 3.0}
+  s: Shape = .Rect{w: 4.0, h: 3.0}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -4574,11 +4574,11 @@ fn main() {
 }
 
 func TestDotVariant_StructFieldValue_OK(t *testing.T) {
-	// #Box{color: .Red}
+	// Box{color: .Red}
 	src := `enum Color { Red; Green; Blue }
 struct Box { color: Color }
 fn main() {
-  b: Box = #Box{color: .Red}
+  b: Box = Box{color: .Red}
 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
@@ -4637,7 +4637,7 @@ func TestDotVariant_StructPatternInPattern_OK(t *testing.T) {
 	src := `enum Shape { Rect{w: Float, h: Float}; Origin }
 fn area(s: Shape) -> Float {
   case s {
-    #.Rect{w, h} -> w * h
+    .Rect{w, h} -> w * h
     .Origin -> 0.0
   }
 }`
@@ -4901,14 +4901,14 @@ fn demo() -> Int {
 }
 
 // A QUALIFIED STRUCT-VARIANT LITERAL IS TYPE-CHECKED AT ALL. Before this, the
-// `#Enum.Variant{...}` branch of checkStructLit walked each field value with a
+// `Enum.Variant{...}` branch of checkStructLit walked each field value with a
 // bare checkNode and returned the enum's declared type, so it validated
 // NOTHING: not the field names, not the field types, and not the enum's type
 // arguments.
 //
 // THE NON-GENERIC ROWS ARE THE ONES THAT SIZE THE DEFECT, and they are in this
-// table deliberately. `#Shape.Wrap{inner: "x"}` where `inner: Int` produced no
-// diagnostic at the base twin AND RAN, printing `#Wrap{inner: "x"}` — a String
+// table deliberately. `Shape.Wrap{inner: "x"}` where `inner: Int` produced no
+// diagnostic at the base twin AND RAN, printing `Wrap{inner: "x"}` — a String
 // living in a field declared Int. So this was never a generics bug or a hover
 // cosmetic; generic inference is one of three things the branch omitted.
 //
@@ -4927,7 +4927,7 @@ func TestCheck_QualifiedStructVariantLit_ValidatesFields(t *testing.T) {
 			name: "non-generic: a field value of the wrong type — ACCEPTED AND RAN at the twin",
 			src: `enum Shape { Wrap { inner: Int } }
 fn main() {
-  s = #Shape.Wrap{inner: "x"}
+  s = Shape.Wrap{inner: "x"}
   take(s)
 }
 fn take(_x: Shape) {}`,
@@ -4937,7 +4937,7 @@ fn take(_x: Shape) {}`,
 			name: "non-generic: a field name that does not exist",
 			src: `enum Shape { Wrap { inner: Int } }
 fn main() {
-  s = #Shape.Wrap{bogus: 3}
+  s = Shape.Wrap{bogus: 3}
   take(s)
 }
 fn take(_x: Shape) {}`,
@@ -4947,7 +4947,7 @@ fn take(_x: Shape) {}`,
 			name: "non-generic: a correct literal stays clean",
 			src: `enum Shape { Wrap { inner: Int } }
 fn main() {
-  s = #Shape.Wrap{inner: 3}
+  s = Shape.Wrap{inner: 3}
   take(s)
 }
 fn take(_x: Shape) {}`,
@@ -4957,7 +4957,7 @@ fn take(_x: Shape) {}`,
 			name: "generic: the inferred argument reaches a parameter that disagrees",
 			src: `enum Shape<T> { Wrap { inner: T } }
 fn main() {
-  s = #Shape.Wrap{inner: 3}
+  s = Shape.Wrap{inner: 3}
   take(s)
 }
 fn take(_x: Shape<String>) {}`,
@@ -4967,7 +4967,7 @@ fn take(_x: Shape<String>) {}`,
 			name: "generic: the inferred argument reaches a parameter that agrees",
 			src: `enum Shape<T> { Wrap { inner: T } }
 fn main() {
-  s = #Shape.Wrap{inner: 3}
+  s = Shape.Wrap{inner: 3}
   take(s)
 }
 fn take(_x: Shape<Int>) {}`,
@@ -4977,7 +4977,7 @@ fn take(_x: Shape<Int>) {}`,
 			name: "generic, NESTED argument: Shape<List<Int>>",
 			src: `enum Shape<T> { Wrap { inner: T } }
 fn main() {
-  s = #Shape.Wrap{inner: [1, 2]}
+  s = Shape.Wrap{inner: [1, 2]}
   take(s)
 }
 fn take(_x: Shape<List<String>>) {}`,
@@ -4987,7 +4987,7 @@ fn take(_x: Shape<List<String>>) {}`,
 			name: "generic, NESTED argument, agreeing",
 			src: `enum Shape<T> { Wrap { inner: T } }
 fn main() {
-  s = #Shape.Wrap{inner: [1, 2]}
+  s = Shape.Wrap{inner: [1, 2]}
   take(s)
 }
 fn take(_x: Shape<List<Int>>) {}`,
@@ -4997,7 +4997,7 @@ fn take(_x: Shape<List<Int>>) {}`,
 			name: "MULTI-PARAMETER: both arguments are solved, the second disagrees",
 			src: `enum Two<A, B> { Both { left: A, right: B } }
 fn main() {
-  t = #Two.Both{left: 1, right: "s"}
+  t = Two.Both{left: 1, right: "s"}
   take(t)
 }
 fn take(_x: Two<Int, Int>) {}`,
@@ -5007,7 +5007,7 @@ fn take(_x: Two<Int, Int>) {}`,
 			name: "MULTI-PARAMETER, agreeing",
 			src: `enum Two<A, B> { Both { left: A, right: B } }
 fn main() {
-  t = #Two.Both{left: 1, right: "s"}
+  t = Two.Both{left: 1, right: "s"}
   take(t)
 }
 fn take(_x: Two<Int, String>) {}`,
@@ -5017,7 +5017,7 @@ fn take(_x: Two<Int, String>) {}`,
 			name: "the type parameter is NESTED IN THE FIELD TYPE — inner: List<T> solves T from the element",
 			src: `enum Holder<T> { Of { items: List<T> } }
 fn main() {
-  h = #Holder.Of{items: ["a"]}
+  h = Holder.Of{items: ["a"]}
   take(h)
 }
 fn take(_x: Holder<Int>) {}`,
@@ -5027,7 +5027,7 @@ fn take(_x: Holder<Int>) {}`,
 			name: "CONTROL — the struct path's INFERENCE reported this already",
 			src: `struct Box<T> { value: T }
 fn main() {
-  b = #Box{value: 1}
+  b = Box{value: 1}
   take(b)
 }
 fn take(_x: Box<String>) {}`,
@@ -5036,8 +5036,8 @@ fn take(_x: Box<String>) {}`,
 		// THIS ROW PINNED AN OPEN HOLE AND THE HOLE IS CLOSED. It was written
 		// first as a control expecting `bogus`, and it FAILED, because the
 		// STRUCT literal-attach path did not validate field names either.
-		// Measured at the twin, `#Box{bogus: 1}`, `#Point{bogus: 1}` and
-		// `#Box{}` all checked clean, and `#Point{x: "s"}` and `#Holder{p: 3}`
+		// Measured at the twin, `Box{bogus: 1}`, `Point{bogus: 1}` and
+		// `Box{}` all checked clean, and `Point{x: "s"}` and `Holder{p: 3}`
 		// did too. StructLitValidation routed that path through
 		// `checkStructLitAgainstStruct` — the validator the CALL form
 		// `Box(#{bogus: 1})` already used, pinned by
@@ -5050,7 +5050,7 @@ fn take(_x: Box<String>) {}`,
 			name: "the struct path reports an unknown field — asymmetry closed",
 			src: `struct Box<T> { value: T }
 fn main() {
-  b = #Box{bogus: 1}
+  b = Box{bogus: 1}
   take(b)
 }
 fn take(_x: Box<Int>) {}`,
@@ -5074,7 +5074,7 @@ fn take(_x: Box<Int>) {}`,
 
 // AN EXPLICIT ANNOTATION'S TYPE ARGUMENT REACHES THE LITERAL'S FIELDS. This is
 // the other direction of the same omission and it fails differently, which is
-// why it is its own test: with `s: Shape<String> = #Shape.Wrap{inner: 3}` the
+// why it is its own test: with `s: Shape<String> = Shape.Wrap{inner: 3}` the
 // twin reported `type mismatch: expected Shape<String>, got Shape` — an error,
 // but by accident, from comparing the annotation against the BARE enum. The
 // field itself was never checked, so the message named neither `inner` nor
@@ -5082,7 +5082,7 @@ fn take(_x: Box<Int>) {}`,
 func TestCheck_QualifiedStructVariantLit_AnnotationReachesTheFields(t *testing.T) {
 	src := `enum Shape<T> { Wrap { inner: T } }
 fn main() {
-  s: Shape<String> = #Shape.Wrap{inner: 3}
+  s: Shape<String> = Shape.Wrap{inner: 3}
   take(s)
 }
 fn take(_x: Shape<String>) {}`
@@ -5100,9 +5100,9 @@ fn take(_x: Shape<String>) {}`
 func TestCheck_QualifiedStructVariantLit_PatternBindingIsInstantiated(t *testing.T) {
 	src := `enum Shape<T> { Wrap { inner: T } }
 fn main() {
-  s = #Shape.Wrap{inner: 3}
+  s = Shape.Wrap{inner: 3}
   case s {
-    #Shape.Wrap{inner} -> takes_string(inner)
+    Shape.Wrap{inner} -> takes_string(inner)
   }
 }
 fn takes_string(_x: String) {}`
@@ -5118,14 +5118,14 @@ fn takes_string(_x: String) {}`
 // from checkStructVariantLit left ./analysis and ./lsp green; the rows below
 // are what now separate the two.
 func TestCheck_QualifiedStructVariantLit_SeedRequiresTheSameEnum(t *testing.T) {
-	// `Maybe<Int>` is expected and `#Shape.Wrap{inner: "s"}` is supplied. The
+	// `Maybe<Int>` is expected and `Shape.Wrap{inner: "s"}` is supplied. The
 	// mis-seeding mutant binds Shape's `T` to Int from Maybe's argument list
 	// and then faults `inner` for being a String; the guard makes Shape infer
 	// `T = String` on its own, so the only fault is the enum mismatch.
 	src := `enum Shape<T> { Wrap { inner: T } }
 enum Maybe2<T> { Just { v: T } }
 fn main() {
-  s: Maybe2<Int> = #Shape.Wrap{inner: "s"}
+  s: Maybe2<Int> = Shape.Wrap{inner: "s"}
   take(s)
 }
 fn take(_x: Maybe2<Int>) {}`
@@ -5199,11 +5199,11 @@ func TestCheckFileIsNotAValueEvenWhenEmpty(t *testing.T) {
 // not fit the annotation is the binding's mismatch.
 func TestCheckGenericStructLitFieldTakesAnnotation(t *testing.T) {
 	const decl = "struct Box<T> {\n  v: T\n}\n\n"
-	_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = #Box{v: fn x -> x + 1}\n  g: Box<(Int) -> Int> = Box(#{v: fn x -> x * 2})\n  _ = f\n  _ = g\n}\n")
+	_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = Box{v: fn x -> x + 1}\n  g: Box<(Int) -> Int> = Box(#{v: fn x -> x * 2})\n  _ = f\n  _ = g\n}\n")
 	expectNoErrors(t, errs)
 	for _, tc := range []struct{ value, want string }{
-		{`#Box{v: "s"}`, "type mismatch: expected Box<(Int) -> Int>, got Box<String>"},
-		{`#Box{v: fn _x: String -> 1}`, "type mismatch: expected Box<(Int) -> Int>, got Box<(String) -> Int>"},
+		{`Box{v: "s"}`, "type mismatch: expected Box<(Int) -> Int>, got Box<String>"},
+		{`Box{v: fn _x: String -> 1}`, "type mismatch: expected Box<(Int) -> Int>, got Box<(String) -> Int>"},
 	} {
 		_, errs := checkSource(decl + "fn main() {\n  f: Box<(Int) -> Int> = " + tc.value + "\n  _ = f\n}\n")
 		expectError(t, errs, tc.want)

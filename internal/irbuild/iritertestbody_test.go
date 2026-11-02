@@ -25,7 +25,7 @@ test "a count in a subject" {
 }
 
 test "a pipeline bound before the assertion" {
-  total = [1, 2, 3, 4] |> Iter.filter(fn x -> x % 2 == 0) |> Iter.reduce(fn a = 0, x -> a + x)
+  total = [1, 2, 3, 4] |> Iter.filter(fn x -> x % 2 == 0) |> Iter.reduce(0, fn a, x -> a + x)
   assert total == 6
 }
 

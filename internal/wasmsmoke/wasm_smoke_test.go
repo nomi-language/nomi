@@ -68,7 +68,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-  Ok(#Config{context: Context.root(),
+  Ok(Config{context: Context.root(),
       work: Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     })
 }

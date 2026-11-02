@@ -11,7 +11,7 @@ import (
 const evaluateSource = `import std/io
 
 fn answer() -> Int {
-    Iter.reduce(1..=4, fn acc = 0, n -> acc + n)
+    Iter.reduce(1..=4, 0, fn acc, n -> acc + n)
 }
 
 fn spin(n: Int) -> Int {
@@ -62,8 +62,11 @@ func TestEvaluate_AnswersAPureFunctionsValue(t *testing.T) {
 }
 
 func TestEvaluate_StopsAtItsStepLimit(t *testing.T) {
+	// Time the evaluation alone: the first load in a process also analyzes
+	// the stdlib, which takes seconds under -race.
+	p := evaluateProgram(t)
 	start := time.Now()
-	_, err := evaluateProgram(t).Evaluate(context.Background(), "forever", EvalLimits{Steps: 100_000})
+	_, err := p.Evaluate(context.Background(), "forever", EvalLimits{Steps: 100_000})
 	if !errors.Is(err, ErrEvalLimit) {
 		t.Fatalf("a function that never returns answered %v, want ErrEvalLimit", err)
 	}

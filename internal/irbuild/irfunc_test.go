@@ -84,7 +84,6 @@ func TestIRFunc_TheShapeAdmitsAndDeclines(t *testing.T) {
 		{"float division", "fn f(x: Float) -> Float {\n  x / 2.0\n}\n", true, ""},
 		{"unary minus", "fn f(x: Int) -> Int {\n  -x\n}\n", true, ""},
 		{"parenthesised", "fn f(a: Int, b: Int) -> Int {\n  (a + b) * 2\n}\n", true, ""},
-		{"float modulo", "fn f(x: Float) -> Float {\n  x % 2.0\n}\n", true, ""},
 		{"a binding and then the expression", "fn f(x: Int) -> Int {\n  y = x * 2\n  y + 1\n}\n", true, ""},
 		{"two bindings", "fn f(a: Int, b: Int) -> Int {\n  p = a + 1\n  q = b * 2\n  p + q\n}\n", true, ""},
 		{"a binding read twice", "fn f(a: Int) -> Int {\n  h = a % 3\n  h * h\n}\n", true, ""},

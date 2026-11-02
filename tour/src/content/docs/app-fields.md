@@ -23,7 +23,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{port: 8080, context: Context.root()})
+    Ok(App{port: 8080, context: Context.root()})
 }
 
 fn main() {
@@ -71,7 +71,7 @@ struct Server {
 }
 
 fn boot() -> Result<Server, String> {
-    Ok(#Server{port: 8080, execution: Context.root()})
+    Ok(Server{port: 8080, execution: Context.root()})
 }
 
 fn bounded_work() {
@@ -103,28 +103,9 @@ field, build an updated copy of it:
 `with App.database = #{..App.database, host: "localhost"}`.
 
 ```nomi-run
-import std/io
-
-interface Logger {
-    fn log(logger: self, msg: String) -> Unit
-}
-
-type Stdout
-
-impl Logger for Stdout {
-    fn log(_logger: Stdout, msg: String) -> Unit {
-        io.print("[log] ${msg}")
-    }
-}
-
-struct PrefixedLogger {
-    tag: String
-}
-
-impl Logger for PrefixedLogger {
-    fn log(logger: PrefixedLogger, msg: String) -> Unit {
-        io.print("[${logger.tag}] ${msg}")
-    }
+import {
+    std/log.{self, Logger}
+    std/log_testing
 }
 
 struct App {
@@ -132,28 +113,46 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{logger: Stdout})
+    Ok(App{logger: Logger.text(min: .Warn)})
 }
 
 fn main() {
     greet("World")
-    audit_greet("Alice")
-    greet("Bob")
 }
 
 fn audit_greet(name: String) {
-    with App.logger = #PrefixedLogger{tag: "audit"}
+    with App.logger = Logger.with_fields(App.logger, [log.bool("audit", True)])
     greet(name)
 }
 
 fn greet(name: String) {
-    Logger.log(App.logger, "hello, ${name}")
+    log.info(App.logger, "hello", [log.string("name", name)])
+}
+
+group "greetings" {
+    boot boot()
+
+    test "only the audited greeting carries the audit field" {
+        got = log_testing.run(fn logger -> {
+            with App.logger = logger
+            greet("World")
+            audit_greet("Alice")
+            greet("Bob")
+        })
+
+        fields = Iter.map(got.records, .fields) |> Iter.to_list()
+
+        assert fields == [
+            [log.string("name", "World")],
+            [log.bool("audit", True), log.string("name", "Alice")],
+            [log.string("name", "Bob")],
+        ]
+    }
 }
 ```
 <!-- expect
-[log] hello, World
-[audit] hello, Alice
-[log] hello, Bob
+ok greetings / only the audited greeting carries the audit field
+test result: ok. 1 passed, 0 failed
 -->
 
 When the block ends, the field gets its old value back. This happens however
@@ -162,6 +161,11 @@ function you call can't change the fields you see.
 
 To replace a field for only part of a function, move that part into a
 function of its own, as `audit_greet` does here.
+
+The app's [`std/log`](/reference/log/) `Logger` writes warnings and errors.
+The test replaces it with a `log_testing` recorder, which keeps every record
+as a value, so it can check that only Alice's greeting carries the `audit`
+field.
 
 A closure reads app fields when it is called, not when it is made. So a
 closure returned from a function after a `with` line doesn't keep the
@@ -175,7 +179,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{greeting: "hello"})
+    Ok(App{greeting: "hello"})
 }
 
 fn greet() -> String {
@@ -318,7 +322,7 @@ fn boot(startup: Startup) -> Result<App, String> {
     io.print("opening the log")
     defer io.print("closing the log")
     database = setting(startup, "TOUR_DATABASE_PATH")?
-    Ok(#App{database})
+    Ok(App{database})
 }
 
 fn main() {
@@ -352,7 +356,7 @@ struct Config {
 }
 
 fn configure(deployment: String) -> Config {
-    base = #Config{deployment}
+    base = Config{deployment}
 
     case deployment {
         "prod" ->
@@ -432,7 +436,7 @@ struct Config {
 }
 
 fn boot(startup: Startup) -> Result<Config, String> {
-    Ok(#Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")})
+    Ok(Config{env: Map.get(startup.env, "APP_ENV") |> Maybe.with_default("dev")})
 }
 
 fn main() {
@@ -440,7 +444,7 @@ fn main() {
 }
 
 group "app-backed behavior" {
-    boot boot(#Startup{env: %{"APP_ENV" => "test"}})
+    boot boot(Startup{env: %{"APP_ENV" => "test"}})
 
     test "reads the booted field" {
         assert Config.env == "test"
@@ -475,8 +479,8 @@ struct Config {
     verbose: Bool
 }
 
-fn boot(startup: Startup = #Startup{}) -> Result<Config, String> {
-    Ok(#Config{verbose: "-v" in startup.args})
+fn boot(startup: Startup = Startup{}) -> Result<Config, String> {
+    Ok(Config{verbose: "-v" in startup.args})
 }
 
 fn main() {
@@ -492,7 +496,7 @@ group "quiet by default" {
 }
 
 group "verbose" {
-    boot boot(#Startup{args: ["-v"]})
+    boot boot(Startup{args: ["-v"]})
 
     test "reads -v" {
         assert Config.verbose
@@ -541,7 +545,7 @@ group "welcome email" {
 
 Here `test_support.startup()` builds the inputs this group needs. If
 `server.nomi` declares
-`pub fn boot(startup: Startup = #Startup{}) -> Result<App, String>`, a group
+`pub fn boot(startup: Startup = Startup{}) -> Result<App, String>`, a group
 that needs no input writes `boot server.boot()`.
 
 ### A boot that fails
@@ -554,7 +558,7 @@ the test ends.
 
 ```nomi
 group "without a database path" {
-    boot server.boot(#Startup{})
+    boot server.boot(Startup{})
 
     test "never gets this far" {
         assert server.is_ready()
@@ -568,7 +572,7 @@ If `server.boot` returns `Err("DATABASE_PATH is not set")` for an empty
 ```text
 FAIL server_test.nomi :: without a database path / never gets this far
   line 2: test returned early
-    boot server.boot(#Startup{})
+    boot server.boot(Startup{})
     returned:
       Err("DATABASE_PATH is not set")
 ```

@@ -36,7 +36,7 @@ func TestDeriveSourceReportsAParseFailure(t *testing.T) {
 		},
 		{
 			name:        "a rejected declaration is an error even though recovery still sees the binding",
-			src:         "gopkg \"e/f\" as ffi\n\npub opaque type Box<T> Int\n\nimpl Box<T> {\n  fn peek(b: Box<T>) -> Int go ffi.Peek\n}\n",
+			src:         "gopkg \"e/f\" as ffi\n\npub opaque type Box<T>\n\nimpl Box<T> {\n  fn peek(b: Box<T>) -> Int go ffi.Peek\n}\n",
 			wantErr:     true,
 			wantPairing: 1,
 		},

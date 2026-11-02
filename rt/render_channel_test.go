@@ -15,7 +15,7 @@ func TestDebugText_RendersAChannelAndItsHalves(t *testing.T) {
 	ch := NewStructDesc(ChannelTypeName, []FieldSpec{
 		{Name: "sender", Type: SlotRef}, {Name: "receiver", Type: SlotRef},
 	}).Make(testHalf{}, testHalf{})
-	const want = "#Channel{sender: <channel>, receiver: <channel>}"
+	const want = "Channel{sender: <channel>, receiver: <channel>}"
 	cases := []struct {
 		name string
 		v    any

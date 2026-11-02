@@ -91,23 +91,20 @@ fn main() {
 	expectNoStdlibErrors(t, errs)
 }
 
-// Only a call of a function by name fills its defaults. Named as a value, it
-// is called with every argument, through a binding, a chain of bindings, a
-// pipe, parentheses, a parameter, a field or a generic function. The checker
-// used to carry the defaults on the value's type, so `g("1")` after
-// `g = parse` was admitted and the IR builder then declined the call.
+// A function's defaults belong to its name and the local names that copy it,
+// as a lambda's belong to the name it is bound to. A value reached any other
+// way is called with every argument: through an annotated binding,
+// parentheses, a parameter, a field, a list element, a `once` or a generic
+// function.
 func TestFuncValueDefaults_ACallThroughTheValuePassesEveryArgument(t *testing.T) {
-	const held = "expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name" +
-		"\nhelp: call `parse` directly, or bind a lambda that leaves the rest to its defaults: `g = fn s -> parse(s)`"
 	for _, tc := range []struct{ body, want string }{
-		{"g = parse\n  _ = g(\"1\")", held},
-		{"g: (String, Bool) -> Maybe<Int> = parse\n  _ = g(\"1\")", held},
-		{"f = parse\n  g = f\n  _ = g(\"1\")", held},
-		{"g = parse\n  _ = \"1\" |> g()", "expected 2 arguments, got 1 (counting the piped value): `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name"},
+		{"g: (String, Bool) -> Maybe<Int> = parse\n  _ = g(\"1\")", "expected 2 arguments, got 1"},
+		{"fs = [parse]\n  _ = Iter.map(fs, fn f -> f(\"1\")) |> Iter.to_list()", "expected 2 arguments, got 1"},
+		{"_ = held(\"1\")", "expected 2 arguments, got 1"},
 		{"_ = (parse)(\"1\")", "expected 2 arguments, got 1"},
 		{"_ = \"1\" |> (parse)()", "expected 2 arguments, got 1 (counting the piped value)"},
 		{"_ = pass(parse)(\"1\")", "expected 2 arguments, got 1"},
-		{"b = #Holder{f: parse}\n  _ = b.f(\"1\")", "expected 2 arguments, got 1"},
+		{"b = Holder{f: parse}\n  _ = b.f(\"1\")", "expected 2 arguments, got 1"},
 		{"_ = through(parse)", "expected 2 arguments, got 1 (counting the piped value)"},
 		// A function value's parameters have no names.
 		{"g = parse\n  _ = g(s: \"1\", strict: True)", "no parameter named 's'"},
@@ -122,6 +119,8 @@ struct Holder {
   f: (String, Bool) -> Maybe<Int>
 }
 
+once held = parse
+
 fn through(f: (String, Bool) -> Maybe<Int>) -> Maybe<Int> {
   "1" |> f()
 }
@@ -135,8 +134,10 @@ fn main() {
 	}
 }
 
-// A direct call fills the defaults, and so does a call of a lambda or a
-// partial application through its value: their defaults belong to the value.
+// A direct call fills the defaults, and so does a call through a local name
+// that copies a function, a lambda or a partial application: `g = parse` and
+// `h = fn x = 1 -> x` both name a function, and their copies keep its
+// defaults, owner functions and nested functions included.
 func TestFuncValueDefaults_ADirectCallALambdaAndAPartialKeepTheirDefaults(t *testing.T) {
 	_, errs := checkSourceWithStdlib(funcValueDefaultsDecls + `
 fn main() {
@@ -145,7 +146,24 @@ fn main() {
   h = fn x = 1 -> x
   k = &parse(&1)
   g = parse
-  _ = #(a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True))
+  g2 = g
+  p = Parsing.parse
+  fn local(n: Int, m: Int = 5) -> Int {
+    n * m
+  }
+  l = local
+  c = fn s: String -> g(s)
+  _ = #(a, b, h(), h(2), k("1"), k(s: "1"), g("1", True), "1" |> g(True), g("1"), "1" |> g(), g2("1"), p("1"), l(3), c("1"))
+}
+
+struct Parsing {
+  n: Int
+}
+
+impl Parsing {
+  fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
+    if strict { None } else { String.to_int(s) }
+  }
 }
 `)
 	expectNoStdlibErrors(t, errs)

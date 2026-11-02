@@ -11,15 +11,15 @@ func TestIRRecord_OverAFunctionMapFieldRuns(t *testing.T) {
 struct Point { x: Int }
 struct Outer { p: List<Point>
  hooks: Map<String, (Int) -> Int> = %{} }
-fn main() { record = #{outer: #Outer{p: [#Point{x: 1}]}} io.inspect(record) }
-`, "#{outer: #Outer{p: [#Point{x: 1}], hooks: %{}}}\n")
+fn main() { record = #{outer: Outer{p: [Point{x: 1}]}} io.inspect(record) }
+`, "#{outer: Outer{p: [Point{x: 1}], hooks: %{}}}\n")
 	verifyLambdaProgram(t, `import std/io
 struct Point { x: Int }
 struct Outer { ps: List<Point>
  n: Int
  hooks: Map<String, (Int) -> Int> = %{} }
-fn main() { o = #Outer{ps: [#Point{x: 1}], n: 1} updated = #{..o, n: 2} record = #{o: o} io.inspect(#{..record, o: #{.., n: 3}}) io.inspect(updated) }
-`, "#{o: #Outer{ps: [#Point{x: 1}], n: 3, hooks: %{}}}\n#Outer{ps: [#Point{x: 1}], n: 2, hooks: %{}}\n")
+fn main() { o = Outer{ps: [Point{x: 1}], n: 1} updated = #{..o, n: 2} record = #{o: o} io.inspect(#{..record, o: #{.., n: 3}}) io.inspect(updated) }
+`, "#{o: Outer{ps: [Point{x: 1}], n: 3, hooks: %{}}}\nOuter{ps: [Point{x: 1}], n: 2, hooks: %{}}\n")
 }
 
 func TestIRRecord_CompletePrograms(t *testing.T) {

@@ -38,7 +38,7 @@ const plantedBadFieldDefault = `struct Cfg {
 }
 
 fn main() {
-  _ = #Cfg{}.port
+  _ = Cfg{}.port
 }
 `
 
@@ -249,7 +249,7 @@ func TestFieldDefault_RejectsAtTheDeclaration(t *testing.T) {
 			src: `struct Cfg {
   port: Int = "not an int"
 }
-fn main() { _ = #Cfg{}.port }
+fn main() { _ = Cfg{}.port }
 `,
 			want: "field 'port' of Cfg: expected Int, got String",
 		},
@@ -263,9 +263,9 @@ struct NoClock {
   t: Int
 }
 struct Cfg {
-  clock: Clock = #NoClock{t: 7}
+  clock: Clock = NoClock{t: 7}
 }
-fn main() { _ = #Cfg{} }
+fn main() { _ = Cfg{} }
 `,
 			want: "field 'clock' of Cfg: expected Clock, got NoClock",
 		},
@@ -278,7 +278,7 @@ fn main() { _ = #Cfg{} }
 struct Cfg {
   clock: Clock = 5
 }
-fn main() { _ = #Cfg{} }
+fn main() { _ = Cfg{} }
 `,
 			want: "field 'clock' of Cfg: expected Clock, got Int",
 		},
@@ -304,7 +304,7 @@ fn main() { _ = Status.Gone }
   struct Local {
     v: Int = "bad"
   }
-  #Local{}.v
+  Local{}.v
 }
 fn main() { _ = f() }
 `,
@@ -323,7 +323,7 @@ fn main() { _ = f() }
 struct Owner.Options {
   flag: Int = "bad"
 }
-fn main() { _ = #Owner{n: 1} }
+fn main() { _ = Owner{n: 1} }
 `,
 			want: "field 'flag' of Owner.Options: expected Int, got String",
 		},
@@ -393,7 +393,7 @@ pub struct Cfg {
   context: Context = Context.root()
   port: Int = 3000
 }
-fn main() { _ = #Cfg{}.port }
+fn main() { _ = Cfg{}.port }
 `,
 		},
 		{
@@ -407,7 +407,7 @@ pub struct MyApp<T> {
   context: Context = Context.root()
   config: T
 }
-fn main() { _ = #MyApp{config: 42}.config }
+fn main() { _ = MyApp{config: 42}.config }
 `,
 		},
 		{
@@ -426,9 +426,9 @@ impl Clock for FakeClock {
   fn at(c: FakeClock) -> Int { c.t }
 }
 struct Cfg {
-  clock: Clock = #FakeClock{t: 1}
+  clock: Clock = FakeClock{t: 1}
 }
-fn main() { _ = Clock.at(#Cfg{}.clock) }
+fn main() { _ = Clock.at(Cfg{}.clock) }
 `,
 		},
 		{
@@ -444,7 +444,7 @@ fn main() { _ = Clock.at(#Cfg{}.clock) }
 struct Cfg {
   restart: Restart = .Temporary
 }
-fn main() { _ = #Cfg{} }
+fn main() { _ = Cfg{} }
 `,
 		},
 		{
@@ -454,7 +454,7 @@ fn main() { _ = #Cfg{} }
 			src: `struct Cfg {
   tasks: Map<Int, String> = %{}
 }
-fn main() { _ = #Cfg{} }
+fn main() { _ = Cfg{} }
 `,
 		},
 		{
@@ -465,7 +465,7 @@ fn main() { _ = #Cfg{} }
   label: String = "unnamed"
   inner: T
 }
-fn main() { _ = #Box{inner: 7}.label }
+fn main() { _ = Box{inner: 7}.label }
 `,
 		},
 		{
@@ -478,7 +478,7 @@ fn main() { _ = #Box{inner: 7}.label }
   items: List<T> = []
   inner: T
 }
-fn main() { _ = #Box{inner: 7}.items }
+fn main() { _ = Box{inner: 7}.items }
 `,
 		},
 		{
@@ -552,12 +552,12 @@ impl Clock for RealClock {
 }
 
 pub struct Cfg {
-  clock: Clock = #RealClock{base: 42}
-  spare: Clock = #FakeClock{t: 1}
+  clock: Clock = RealClock{base: 42}
+  spare: Clock = FakeClock{t: 1}
 }
 
 fn main() {
-  _ = Clock.at(#Cfg{}.clock)
+  _ = Clock.at(Cfg{}.clock)
 }
 `
 	lib := std.Load()
@@ -614,12 +614,21 @@ fn main() {
 // top-level struct `Game` and two on the record variant `Shape.Box`, which a
 // derived FromJson fills when the JSON object lacks the key.
 //
-// `std` reads 22: std/assertions 5, std/compiler 2, std/fs_testing 7
+// `std` reads 201: std/assertions 5, std/compiler 2, std/fs_testing 7
 // (`Sandbox`'s files, directories, links and failures, empty by default, so
-// `#Sandbox{}` is an empty file system), std/json 2, std/process 2,
-// std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
-// `#Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
-// `Backoff.Exponential` record variant).
+// `Sandbox{}` is an empty file system), std/json 2, std/process 7 (the two
+// of its exit fields and `Command`'s args, env, clear_env, dir and stdin, so
+// `Command{program: "ls"}` runs it with no arguments), std/process_testing
+// 9 (`Answer`'s and `Call`'s optional fields), std/startup 2 (`Startup` declares `env` and `args` with empty defaults, so
+// `Startup{}` is an empty Startup) and std/supervisors 2 (the fields of the
+// `Backoff.Exponential` record variant), std/url 11 (`Url`'s parts and
+// `Userinfo.password`), std/http 118 (`Request`, `Response`, `Transport`,
+// `ClientOptions`, `Server`, `CrossOrigin`, `Cookie`, `ReverseProxy`,
+// `Http2Options`, `Tracer` and the other phase 6 options, on top-level
+// structs, plus the `FormPart.File` and `Redirects.Follow` record variants),
+// std/net 11 (`KeepAlive`, `DialOptions` and `ListenOptions`) and std/tls 25
+// (`ClientConfig` and `ServerConfig`, with their `verify`, `key_log` and
+// `certificate_for` hooks).
 //
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
 // the other site. `app-fields.md`'s "basic shape" block declared
@@ -633,13 +642,17 @@ fn main() {
 // (its Clues) and tree-building 1. Each is counted twice, once in its
 // `tests/exercism` file and once in the Examples page generated from it.
 //
+// The "Coming from" guides add three, each on a top-level struct
+// (from-kotlin's `balance`, from-swift's `shots`, from-typescript's `qty`),
+// and the committed cheat-sheet page one (`y`).
+//
 // `app-fields.md`'s "Settings per environment" block adds
 // three, on the top-level struct `Config` (deployment, database_url,
 // max_connections), its development defaults.
 var fieldDefaultDenominator = map[string]int{
-	"std":             22,
+	"std":             201,
 	"tests":           62,
-	"tour (nomi-run)": 22,
+	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,
 }
 
@@ -829,7 +842,7 @@ pub struct Cfg {
 }
 
 pub fn make() -> Cfg {
-  #Cfg{}
+  Cfg{}
 }
 `
 	const badModuleSrc = `
@@ -839,7 +852,7 @@ pub struct Cfg {
 }
 
 pub fn make() -> Cfg {
-  #Cfg{}
+  Cfg{}
 }
 `
 	const importerSrc = `import cfg

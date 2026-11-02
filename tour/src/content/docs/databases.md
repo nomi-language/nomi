@@ -232,7 +232,7 @@ fn balance_line(row: Row) -> Result<String, Error> {
 ```
 <!-- expect
 dbg line 33: transfer(db, "ada", "bob", 30) = Ok(Unit)
-dbg line 34: transfer(db, "ada", "bob", 30) = Err(#Constraint{kind: Check, name: "accounts_balance_check", table: Some("accounts"), column: Some("balance")})
+dbg line 34: transfer(db, "ada", "bob", 30) = Err(Constraint{kind: Check, name: "accounts_balance_check", table: Some("accounts"), column: Some("balance")})
 ada: 20
 bob: 30
 -->
@@ -469,7 +469,7 @@ group "the shop" {
     test "a user reads back as its row", db {
         id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
 
-        assert Some(#User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
+        assert Some(User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
         assert read_id == id
         assert email == "ada@example.com"
         assert name == Some("Ada")
@@ -480,7 +480,7 @@ group "the shop" {
         _ = queries.insert_user(db, "ada@example.com", None)?
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
-            #sql.Error.Constraint{
+            sql.Error.Constraint{
                 kind: ConstraintKind.Unique,
                 name: "users_email_key",
                 table: Some("users"),
@@ -559,7 +559,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
         [runtime.bind(email)],
     )
 
-    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(User{
             id: runtime.int("user_by_email", row, 0)?,
             email: runtime.text("user_by_email", row, 1)?,
             name: runtime.text_null("user_by_email", row, 2)?,
@@ -693,7 +693,7 @@ impl sqlkit.SqlText for OrderStatus
 
 /// The migrations of the database `main`, in the order they apply.
 pub once migrations: List<sqlkit.Migration> = [
-    #sqlkit.Migration{
+    sqlkit.Migration{
         path: "db/migrations/20261019120000_users_and_orders.sql",
         sql: "CREATE TABLE users (\n    id          INTEGER PRIMARY KEY,\n    email       TEXT NOT NULL UNIQUE,\n    name        TEXT,\n    created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE orders (\n    id          INTEGER PRIMARY KEY,\n    user_id     INTEGER NOT NULL REFERENCES users (id),\n    status      TEXT NOT NULL DEFAULT 'pending'\n                CHECK (status IN ('pending', 'paid', 'shipped', 'cancelled')),\n    -- SQLite keeps a DECIMAL as a 64-bit float, exact to 15 digits.\n    total       DECIMAL(12, 2) NOT NULL,\n    placed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP\n);\n",
     },

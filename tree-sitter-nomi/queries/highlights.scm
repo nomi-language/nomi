@@ -462,9 +462,9 @@
 (typed_list
   (type_identifier) @type)
 
-; The type name a literal or pattern writes after its shape's symbol
-; (`#Point{..}`, `#geo.Point{..}`, `#Shape.Circle{..}`, `%Kvs{..}`,
-; `#Path[..]`, `#Pair(..)`): a module name, then types. A `.Circle` head is
+; The type name a literal or pattern writes before its brace or after its
+; shape's symbol (`Point{..}`, `geo.Point{..}`, `Shape.Circle{..}`,
+; `%Kvs{..}`, `#Path[..]`): a module name, then types. A `.Circle` head is
 ; a dot_variant, a constructor.
 (_
   type: (identifier) @module)
@@ -677,7 +677,7 @@
 ; Delimiters. The delimiters of data shape are @type, the colour of a struct
 ; name: a literal that builds a value (a struct's, map's or struct update's
 ; braces, a list's, vector's or set's brackets, a tuple's parentheses, each
-; with the `#` or `%` that starts it: `#{`, `#Point{`, `%{`, `%Kvs{`, `#[`,
+; with the `#` or `%` that starts it: `#{`, `Point{`, `%{`, `%Kvs{`, `#[`,
 ; `%[`, `#(`), a constructor call's parentheses, and every pattern's
 ; delimiters (tuple, list, vector, set, struct, map and variant-payload
 ; patterns, wherever they appear). Every other delimiter is program structure and is
@@ -687,16 +687,16 @@
 ; literal and call nodes below, so it takes @type with no rule of its own.
 (anon_struct ["#{" "}"] @type)
 (struct_update ["#{" "}"] @type)
-(struct_construction ["#" "{" "}"] @type)
+(struct_construction ["{" "}"] @type)
 (map_construction ["%{" "%" "{" "}"] @type)
 (list ["[" "]"] @type)
 (vector ["#[" "#" "[" "]"] @type)
 (set ["%[" "%" "[" "]"] @type)
-(tuple_expression ["#(" "#" "(" ")"] @type)
-(struct_pattern ["#{" "#" "{" "}"] @type)
+(tuple_expression ["#(" ")"] @type)
+(struct_pattern ["#{" "{" "}"] @type)
 (map_pattern ["%{" "%" "{" "}"] @type)
-(destructuring_binding ["#(" "#{" "%{" "#" "%" "(" ")" "{" "}"] @type)
-(tuple_pattern ["#(" "#" "(" ")"] @type)
+(destructuring_binding ["#(" "#{" "%{" "%" ")" "{" "}"] @type)
+(tuple_pattern ["#(" ")"] @type)
 (list_pattern ["[" "]"] @type)
 (vector_pattern ["#[" "#" "[" "]"] @type)
 (set_pattern ["%[" "%" "[" "]"] @type)

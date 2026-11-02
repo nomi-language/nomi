@@ -32,7 +32,7 @@ pub struct Family {
 derive Equatable for Family
 
 fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) -> Family {
-    #Family{reader, bound, nomi, module}
+    Family{reader, bound, nomi, module}
 }
 
 /// The family of a declared type, or `None` when it names none (an

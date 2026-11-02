@@ -80,7 +80,7 @@ fn g() {
 }
 
 fn h() {
-    r = Iter.loop(fn i = 0 -> {
+    r = Iter.loop(0, fn i -> {
         if i >= 4 {
             break i
         }

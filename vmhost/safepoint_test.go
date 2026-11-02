@@ -86,13 +86,13 @@ func assertCancelledMidWork(t *testing.T, src string) {
 func TestSafePoint_ACancelledLoopStops(t *testing.T) {
 	assertCancelledMidWork(t, safePointTask(`fn spin(limit: Int) -> Int {
     Iter.loop(
+        0,
         fn i -> {
             if i >= limit {
                 break i
             }
             i + 1
         },
-        from: 0,
     )
 }`, "spin(30_000_000)"))
 }
@@ -113,7 +113,7 @@ fn spin(n: Int, acc: Int) -> Int {
 }
 
 func TestSafePoint_ACancelledReduceOverARangeStops(t *testing.T) {
-	assertCancelledMidWork(t, safePointTask("", "Iter.reduce(0..30_000_000, fn acc = 0, x -> acc + x % 7)"))
+	assertCancelledMidWork(t, safePointTask("", "Iter.reduce(0..30_000_000, 0, fn acc, x -> acc + x % 7)"))
 }
 
 func TestSafePoint_ACancelledIterationDrivenInGoStops(t *testing.T) {
@@ -136,7 +136,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(#App{context: Context.root()})
+    Ok(App{context: Context.root()})
 }
 
 fn note(text: String) {
@@ -147,13 +147,13 @@ fn main() {
     defer note("cleanup ran")
     with App.context = Context.with_timeout(App.context, Duration.milliseconds(5))
     n = Iter.loop(
+        0,
         fn i -> {
             if i >= 30_000_000 {
                 break i
             }
             i + 1
         },
-        from: 0,
     )
     io.print("finished ${n}")
 }
@@ -183,7 +183,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(#App{context: Context.root()})
+    Ok(App{context: Context.root()})
 }
 
 fn note(text: String) {
@@ -194,13 +194,13 @@ fn bounded() -> Int {
     defer note("cleanup ran")
     with App.context = Context.with_timeout(App.context, Duration.milliseconds(5))
     n = Iter.loop(
+        0,
         fn i -> {
             if i >= 30_000_000 {
                 break i
             }
             i + 1
         },
-        from: 0,
     )
     io.print("finished")
     n

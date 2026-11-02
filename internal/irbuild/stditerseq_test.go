@@ -8,7 +8,7 @@ import (
 )
 
 // TestStdIterSeqLiteralsAreBuilderIntrinsics holds std/iter to the rule its
-// Seq comment states: a function whose body builds a `#Seq{...}` must be one the
+// Seq comment states: a function whose body builds a `Seq{...}` must be one the
 // builder lowers itself (iterCall: irIterOwnArity, `from`, `repeat`,
 // `iterate`). The builder never instantiates `impl Iter for Seq`'s
 // `each_while` for a program: generic std functions are instantiated per
@@ -18,7 +18,7 @@ import (
 //
 // The gap is std-internal (no program can name Seq), so it is pinned here
 // rather than in vmhost's knownLoweringGaps. Reproducer: in std/iter, `pub fn
-// f<T>(items: Iter<T>) -> Iter<List<T>> { #Seq{run: fn yield: (List<T>) -> Bool ->
+// f<T>(items: Iter<T>) -> Iter<List<T>> { Seq{run: fn yield: (List<T>) -> Bool ->
 // yield(to_list(items))} }`, walked by a program with `Iter.to_list`.
 func TestStdIterSeqLiteralsAreBuilderIntrinsics(t *testing.T) {
 	src, ok := std.ReadFile("iter")
@@ -31,7 +31,7 @@ func TestStdIterSeqLiteralsAreBuilderIntrinsics(t *testing.T) {
 		builds := false
 		for _, line := range strings.Split(chunk, "\n") {
 			line = strings.TrimSpace(line)
-			if !strings.HasPrefix(line, "//") && strings.Contains(line, "#Seq{") {
+			if !strings.HasPrefix(line, "//") && strings.Contains(line, "Seq{") {
 				builds = true
 			}
 		}

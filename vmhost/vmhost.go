@@ -124,7 +124,7 @@ type HostTable = vm.HostTable
 type MainError = vm.MainError
 
 // Exit is the error Run answers when `main` (or the entry boot) returns
-// `Err(#Exit{code, message})` with std/process's Exit: the run should end
+// `Err(Exit{code, message})` with std/process's Exit: the run should end
 // with status Code, printing Message and a newline to stderr when it is not
 // empty (WriteFailure does). Code 0 is a successful end.
 type Exit = vm.Exit

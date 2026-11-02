@@ -30,6 +30,6 @@ impl Add<Int, Int> for Num {
 
 impl Add<Num, Num> for Num {
     fn add(lhs: Num, rhs: Num) -> Num {
-        #Num{n: lhs.n + rhs.n}
+        Num{n: lhs.n + rhs.n}
     }
 }

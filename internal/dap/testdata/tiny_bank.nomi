@@ -6,7 +6,7 @@ struct Account {
 
 impl Account {
     fn deposit(a: Account, n: Int) -> Account {
-        #Account{balance: a.balance + n}
+        Account{balance: a.balance + n}
     }
 }
 
@@ -15,10 +15,10 @@ fn ident<T>(x: T) -> T {
 }
 
 fn transact(start: Account, amounts: List<Int>) -> Account {
-    amounts |> Iter.reduce(fn acc = start, n -> Account.deposit(acc, n))
+    amounts |> Iter.reduce(start, fn acc, n -> Account.deposit(acc, n))
 }
 
 fn main() {
-    a = transact(#Account{balance: 0}, [5, 20, 30])
+    a = transact(Account{balance: 0}, [5, 20, 30])
     io.print("${ident(a.balance)} ${ident("done")}")
 }

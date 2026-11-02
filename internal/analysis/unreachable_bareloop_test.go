@@ -24,7 +24,7 @@ fn aliased() {
 }
 
 fn guarded() {
-  loop(fn n = 0 -> {
+  loop(0, fn n -> {
     if n > 3 { break }
     n + 1
   })

@@ -34,7 +34,7 @@ derive Equatable for Error
 impl Reactor {
     /// A reactor with no cells.
     pub fn new() -> Reactor {
-        #Reactor{values: %{}, inputs: %[], computed: [], callbacks: %{}}
+        Reactor{values: %{}, inputs: %[], computed: [], callbacks: %{}}
     }
 
     /// `reactor` with an input cell `name` holding `value`.
@@ -62,7 +62,7 @@ impl Reactor {
             return Err(.UnknownCell(unknown))
         }
 
-        cell = #Computed{name, inputs, compute}
+        cell = Computed{name, inputs, compute}
 
         Ok(#{
             ..reactor,
@@ -90,7 +90,7 @@ impl Reactor {
 
         set = Map.put(reactor.values, name, value)
 
-        values = Iter.reduce(reactor.computed, fn values = set, cell -> {
+        values = Iter.reduce(reactor.computed, set, fn values, cell -> {
             Map.put(values, cell.name, value_of(cell, values))
         })
 

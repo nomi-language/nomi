@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -187,7 +188,7 @@ func irRetainedLeafKind(k kind) bool {
 // the caller falls back to `blockInto`, and `gen.call` reaches the same owner
 // and reports there. So every check here is a decline and none is a reject.
 //
-// THE TUPLE-FLAT ARM IS NOT REPRODUCED. `#Coord(3, 4)` writes a tuple inner
+// THE TUPLE-FLAT ARM IS NOT REPRODUCED. `Coord(3, 4)` writes a tuple inner
 // flat, which is the other legal arity; a tuple inner is not a scalar so
 // `irWrappingDistinct` has already declined the declaration.
 func (bl *irScalarBuilder) distinctMake(t *ast.Call, ti *ast.TypeIdent) (ir.Temp, kind, bool, bool) {
@@ -195,7 +196,34 @@ func (bl *irScalarBuilder) distinctMake(t *ast.Call, ti *ast.TypeIdent) (ir.Temp
 	if !found {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	var at ast.Node = t
+	if bl.pipedFrom != nil && bl.g.checkedExprType(t) == nil {
+		// `5 |> Wrap()`: the call is pipe.go's splice, which the checker
+		// never saw; the pipe's own type is the construction's.
+		at = bl.pipedFrom
+	}
+	if d = bl.g.distinctInstanceAt(d, ti.Name, at); d == nil {
+		return ir.NoTemp, kindInvalid, false, false
+	}
 	return bl.distinctMakeOf(t, d)
+}
+
+// distinctInstanceAt is the distinct a construction at n builds: d itself,
+// or for the declaration of a generic distinct (`Tagged`, this file's or a
+// mirror of another's), the instance the checker solved for n
+// (`Tagged<Int>`, generictype.go and foreigngeneric.go).
+func (g *gen) distinctInstanceAt(d *typeDef, name string, n ast.Node) *typeDef {
+	if d.genericOf != nil {
+		return d
+	}
+	if dt, ok := analysis.ResolveTypeVar(g.checkedExprType(n)).(*analysis.DistinctType); !ok || len(dt.TypeArgs) == 0 {
+		return d
+	}
+	k := g.checkedKind(n)
+	if k.tag != tagNamed || k.def == nil || k.def.genericOf == nil || !k.def.isDistinct {
+		return nil
+	}
+	return k.def
 }
 
 // selfDistinct is the distinct type an interface default is being lowered
@@ -234,17 +262,24 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 	return m.Dst(), out, pure, true
 }
 
-// compositeDistinctMake lowers `Coord(#(3, 4))` over a tuple inner, and
-// `Headers(%{...})` over a map inner: the inner value, built at the declared
-// inner type, wrapped by MakeDistinct. The named literals `#Coord(3, 4)`,
-// `%Headers{...}` and `#Path[...]` reach it through attachedVariant as the
-// call of the constructor on the anonymous literal.
+// compositeDistinctMake lowers `Coord(#(3, 4))` and `Coord(3, 4)` over a
+// tuple inner, and `Headers(%{...})` over a map inner: the inner value,
+// built at the declared inner type, wrapped by MakeDistinct. The named
+// literals `%Headers{...}` and `#Path[...]` reach it through attachedVariant
+// as the call of the constructor on the anonymous literal.
 func (bl *irScalarBuilder) compositeDistinctMake(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if len(t.Args) != 1 {
+	var inner ast.Node
+	switch {
+	case len(t.Args) == 1:
+		inner = t.Args[0]
+	case len(t.Args) >= 2 && d.inner.tag == tagTuple:
+		// `Pair(1, "x")`: the elements of the tuple the distinct wraps.
+		inner = &ast.TupleLit{Items: t.Args, Line: t.Line, Col: t.Col}
+	default:
 		return no()
 	}
-	src, k, _, ok := bl.lowerWant(t.Args[0], d.inner)
+	src, k, _, ok := bl.lowerWant(inner, d.inner)
 	if !ok || k != d.inner {
 		return no()
 	}
@@ -337,7 +372,7 @@ func (g *gen) irTypeSymName(d *typeDef) string {
 	}
 	if spec := d.genStructOf; spec != nil {
 		// A std generic struct instance (`Generator<Int>`) is its
-		// declaration: it renders as `#Generator{...}`, and d.nomi
+		// declaration: it renders as `Generator{...}`, and d.nomi
 		// spells the arguments only to key the instance.
 		return irModuleQualifier(spec.origin) + "." + spec.nomi
 	}

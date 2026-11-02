@@ -66,10 +66,10 @@ enum B {
 }
 
 fn main() -> A {
-  #At{x: 1}
+  At{x: 1}
 }
 `,
-			want: "'At' is a variant of both 'A' and 'B', so use '#A.At{...}' or '#B.At{...}'",
+			want: "'At' is a variant of both 'A' and 'B', so use 'A.At{...}' or 'B.At{...}'",
 		},
 		{
 			name: "one owner",

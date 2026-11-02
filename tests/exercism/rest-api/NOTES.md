@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/rest-api.
 
 ## Choices
 
-- Every request and answer is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the answers), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `#User{name: request.user}`.
+- Every request and answer is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the answers), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `User{name: request.user}`.
 - `RestApi` is a value, an opaque struct of the users by name. `RestApi.new(database)` reads the database; `RestApi.get(api, url, payload)` answers the text; `RestApi.post(api, url, payload)` answers the text and the tracker after the request, since nothing changes in place.
 - Each failure is an `Error` variant: JSON that is not of the expected shape (holding std/json's `Json.Error`), an unknown URL, an unknown user, and a user added twice. The canonical data has no failing case.
 - A loan is kept as one number per pair: what the borrower owes the lender, less what the lender already owed the borrower, plus the new amount. `with_net` writes that number into one side of each user's maps, or neither when it is zero, and works the balance out again from the maps, so the canonical "lender owes borrower" cases need no case analysis.

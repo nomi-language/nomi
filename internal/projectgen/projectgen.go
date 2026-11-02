@@ -447,12 +447,12 @@ derive ToJson for Money
 impl Money {
     /// Euros, from cents.
     pub fn of(cents: Int) -> Money {
-        #Money{cents}
+        Money{cents}
     }
 
     /// The sum of two amounts, in the first one's currency.
     pub fn add(a: Money, b: Money) -> Money {
-        #Money{cents: a.cents + b.cents, currency: a.currency}
+        Money{cents: a.cents + b.cents, currency: a.currency}
     }
 
     /// Whether the amount is zero.
@@ -509,7 +509,7 @@ pub struct Page<T> {
 
 /// The whole of items as one page.
 pub fn page<T>(items: List<T>) -> Page<T> {
-    #Page{items, total: Iter.count(items)}
+    Page{items, total: Iter.count(items)}
 }
 
 /// The first item, or fallback when there is none.
@@ -538,7 +538,7 @@ pub fn clamp(n: Int, lo: Int, hi: Int) -> Int {
 
 /// The sum of xs.
 pub fn total(xs: List<Int>) -> Int {
-    Iter.reduce(xs, fn acc = 0, x -> acc + x)
+    Iter.reduce(xs, 0, fn acc, x -> acc + x)
 }
 
 /// The level n falls in.
@@ -552,7 +552,7 @@ pub fn level_of(n: Int) -> Level {
 
 /// The sum of amounts.
 pub fn sum_money(amounts: List<Money>) -> Money {
-    Iter.reduce(amounts, fn acc = Money.of(0), m -> Money.add(acc, m))
+    Iter.reduce(amounts, Money.of(0), fn acc, m -> Money.add(acc, m))
 }
 
 /// A place on a page, held as a record.
@@ -562,7 +562,7 @@ pub struct Spot {
 
 /// The spot at n.
 pub fn spot(n: Int) -> Spot {
-    #Spot{at: #{x: n, y: n + 1}}
+    Spot{at: #{x: n, y: n + 1}}
 }
 
 /// Where a spot is.
@@ -572,7 +572,7 @@ pub fn place(s: Spot) -> #{x: Int, y: Int} {
 
 /// The sum of any numbers.
 pub fn sum_all(xs: Iter<Int>) -> Int {
-    Iter.reduce(xs, fn acc = 0, x -> acc + x)
+    Iter.reduce(xs, 0, fn acc, x -> acc + x)
 }
 
 /// What a change to the util hub changes.
@@ -723,7 +723,7 @@ pub struct Pair%[1]d<A, B> {
 
 /// The pair the other way round.
 pub fn swap%[1]d<A, B>(pair: Pair%[1]d<A, B>) -> Pair%[1]d<B, A> {
-    #Pair%[1]d{left: pair.right, right: pair.left}
+    Pair%[1]d{left: pair.right, right: pair.left}
 }
 
 /// The item at k, if there is one.
@@ -767,7 +767,7 @@ impl Rank%[3]d for Rec%[1]d {
 	w(`impl Rec%[1]d {
     /// A record numbered n.
     pub fn new(n: Int) -> Rec%[1]d {
-        #Rec%[1]d{id: Id(n), name: "r${n}", amount: Money.of(n * 10), tags: ["a", "bb"]}
+        Rec%[1]d{id: Id(n), name: "r${n}", amount: Money.of(n * 10), tags: ["a", "bb"]}
     }
 
     /// The record's score: its cents and the length of its tags.
@@ -775,7 +775,7 @@ impl Rank%[3]d for Rec%[1]d {
         r.tags
         |> Iter.map(String.length)
         |> Iter.filter(fn n -> n > 0)
-        |> Iter.reduce(fn acc = r.amount.cents, n -> acc + n)
+        |> Iter.reduce(r.amount.cents, fn acc, n -> acc + n)
     }
 }
 
@@ -828,9 +828,9 @@ derive Equatable for Node%[1]d
 
 /// A link of unit %[2]d over nodes of this unit, read back.
 pub fn linked%[1]d(n: Int) -> Int {
-    leaf = #Node%[1]d{rec: Rec%[1]d.new(n), parent: None}
-    link = #%[3]s.Link%[2]d{label: "l${n}", nodes: [leaf, leaf]}
-    top = #Node%[1]d{rec: Rec%[1]d.new(n + 1), parent: Some(link)}
+    leaf = Node%[1]d{rec: Rec%[1]d.new(n), parent: None}
+    link = %[3]s.Link%[2]d{label: "l${n}", nodes: [leaf, leaf]}
+    top = Node%[1]d{rec: Rec%[1]d.new(n + 1), parent: Some(link)}
     same = top == leaf
     case top.parent {
         Some(l) -> if same { 0 } else { Iter.count(l.nodes) + String.length(l.label) }
@@ -883,7 +883,7 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
     1..=m
     |> Iter.map(fn x -> x * %[2]d)
     |> Iter.filter(fn x -> x %% 2 == 0)
-    |> Iter.reduce(fn acc = start, x -> acc + x)`, i, c, prev)
+    |> Iter.reduce(start, fn acc, x -> acc + x)`, i, c, prev)
 	case 2:
 		body = fmt.Sprintf(`    r = Rec%[1]d.new(n)
     s = Rec%[1]d.score(r)
@@ -919,24 +919,24 @@ func renderFn(u *unit, k int, r *rand.Rand) string {
 			body = fmt.Sprintf(`    words = ["unit", "%[1]d", "${n}"]
     words
     |> Iter.map(String.length)
-    |> Iter.reduce(fn acc = %[2]s, x -> acc + x)`, i, prev)
+    |> Iter.reduce(%[2]s, fn acc, x -> acc + x)`, i, prev)
 		}
 	case 7:
-		body = fmt.Sprintf(`    summary = #Summary%[1]d{name: "s${n}", count: n}
+		body = fmt.Sprintf(`    summary = Summary%[1]d{name: "s${n}", count: n}
     shown = Display.to_string(summary)
     String.length(shown) + summary.count + %[2]s`, i, prev)
 	case 8:
 		body = fmt.Sprintf(`    a = Score%[1]d(n)
     b = Score%[1]d(n + %[2]d)
-    entry = #Entry%[1]d{kind: kind%[1]d(n), score: a, label: "x"}
-    same = entry == #Entry%[1]d{kind: kind%[1]d(n), score: b, label: "x"}
+    entry = Entry%[1]d{kind: kind%[1]d(n), score: a, label: "x"}
+    same = entry == Entry%[1]d{kind: kind%[1]d(n), score: b, label: "x"}
     case Comparable.compare(a, b) {
         .Less -> 1 + %[3]s
         .Equal -> if same { 0 } else { 3 }
         .Greater -> 2
     }`, i, c, prev)
 	default:
-		body = fmt.Sprintf(`    pair = swap%[1]d(#Pair%[1]d{left: n, right: "p%[2]d"})
+		body = fmt.Sprintf(`    pair = swap%[1]d(Pair%[1]d{left: n, right: "p%[2]d"})
     String.length(pair.left) + pair.right + %[3]s`, i, c, prev)
 	}
 	if k == 0 {
@@ -1013,9 +1013,9 @@ group "unit %[2]d" {
     }
 
     test "records compare by value" {
-        entry = #Entry%[2]d{kind: Kind%[2]d.Sized(3), score: Score%[2]d(3), label: "e"}
-        assert entry == #Entry%[2]d{kind: .Sized(3), score: Score%[2]d(3), label: "e"}
-        refute entry == #Entry%[2]d{kind: .Plain, score: Score%[2]d(3), label: "e"}
+        entry = Entry%[2]d{kind: Kind%[2]d.Sized(3), score: Score%[2]d(3), label: "e"}
+        assert entry == Entry%[2]d{kind: .Sized(3), score: Score%[2]d(3), label: "e"}
+        refute entry == Entry%[2]d{kind: .Plain, score: Score%[2]d(3), label: "e"}
         assert Hashable.hash(entry) == Hashable.hash(entry)
     }
 
@@ -1023,7 +1023,7 @@ group "unit %[2]d" {
         assert Rec%[2]d.new(2) == Rec%[2]d.new(2)
         refute Rec%[2]d.new(2) == Rec%[2]d.new(3)
         assert Hashable.hash(Rec%[2]d.new(2)) == Hashable.hash(Rec%[2]d.new(2))
-        assert Display.to_string(Rec%[2]d.new(2)) == "#Rec%[2]d{id: #2, name: r2, amount: 20 EUR, tags: [a, bb]}"
+        assert Display.to_string(Rec%[2]d.new(2)) == "Rec%[2]d{id: #2, name: r2, amount: 20 EUR, tags: [a, bb]}"
     }
 
     test "kinds" {

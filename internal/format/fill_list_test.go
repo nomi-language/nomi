@@ -58,8 +58,8 @@ func TestFormat_NumberListFills(t *testing.T) {
 		},
 		{
 			"struct literal field",
-			"fn main() {\n    p = #P{xs: [" + sevens + "], y: 1}\n}\n",
-			"fn main() {\n    p = #P{\n        xs: [\n" + sevensAt[12] + "        ],\n        y: 1,\n    }\n}\n",
+			"fn main() {\n    p = P{xs: [" + sevens + "], y: 1}\n}\n",
+			"fn main() {\n    p = P{\n        xs: [\n" + sevensAt[12] + "        ],\n        y: 1,\n    }\n}\n",
 		},
 		{
 			"pipe head",
@@ -183,7 +183,7 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 		{"interpolated string", "[" + sevens + ", \"a${x}\"]", "[\n" + onePerLine + "        \"a${x}\",\n    ]"},
 		{"nested list", "[" + sevens + ", [1]]", "[\n" + onePerLine + "        [1],\n    ]"},
 		{"tuple", "[" + sevens + ", #(1, 2)]", "[\n" + onePerLine + "        #(1, 2),\n    ]"},
-		{"struct", "[" + sevens + ", #P{x: 1}]", "[\n" + onePerLine + "        #P{x: 1},\n    ]"},
+		{"struct", "[" + sevens + ", P{x: 1}]", "[\n" + onePerLine + "        P{x: 1},\n    ]"},
 		{"lambda", "[" + sevens + ", fn x -> x]", "[\n" + onePerLine + "        fn x -> x,\n    ]"},
 		{"negated name", "[" + sevens + ", -x]", "[\n" + onePerLine + "        -x,\n    ]"},
 		{

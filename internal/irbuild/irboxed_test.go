@@ -129,11 +129,11 @@ impl Show for List<T> where T: Show {
 }
 
 fn plain() -> List<Show> {
-    [#P{x: 1}, Coin.Penny, 3]
+    [P{x: 1}, Coin.Penny, 3]
 }
 
 fn boxed() -> List<Show> {
-    s: Shape = #Circle{r: 1}
+    s: Shape = Circle{r: 1}
     [[1], s, [[2]]]
 }
 
@@ -214,22 +214,22 @@ impl Display for Shape {
 }
 
 fn plain() -> List<Display> {
-    [#P{x: 1}, Coin.Penny, 3, "s"]
+    [P{x: 1}, Coin.Penny, 3, "s"]
 }
 
 fn plain_debug() -> List<Debug> {
-    [#P{x: 1}, Coin.Penny, 3]
+    [P{x: 1}, Coin.Penny, 3]
 }
 
 fn boxed() -> List<Display> {
-    s: Shape = #Circle{r: 1}
+    s: Shape = Circle{r: 1}
     ints: List<Int> = []
     strings: List<String> = []
     [ints, strings, s, %{"a" => 1}]
 }
 
 fn boxed_debug() -> List<Debug> {
-    s: Shape = #Circle{r: 1}
+    s: Shape = Circle{r: 1}
     [[1], Some(2), s]
 }
 
@@ -289,13 +289,13 @@ impl Display for Circle {
 impl Display for Shape {
   fn to_string(s: Shape) -> String {
     case s {
-      #.Circle{r} -> "shape ${r}"
+      .Circle{r} -> "shape ${r}"
       .Dot -> "dot"
     }
   }
 }
 fn shape(r: Int) -> Shape {
-  #Circle{r}
+  Circle{r}
 }
 fn show(d: Display) -> String {
   "${d}"
@@ -343,8 +343,8 @@ fn plain(a: P, b: P) -> Bool {
 }
 
 fn main() {
-    _ = held(#P{x: 1}, #P{x: 1})
-    _ = plain(#P{x: 1}, #P{x: 1})
+    _ = held(P{x: 1}, P{x: 1})
+    _ = plain(P{x: 1}, P{x: 1})
 }
 `
 	res := lowerIROnly(t, src)
@@ -400,7 +400,7 @@ fn held(a: Show, b: Show) -> Bool {
 }
 
 fn main() {
-    a: Show = #P{x: 1}
+    a: Show = P{x: 1}
     _ = held(a, a)
     _ = same(a, a)
     _ = bucket(a)
@@ -456,13 +456,13 @@ enum Shape {
 impl Display for Shape {
   fn to_string(s: Shape) -> String {
     case s {
-      #.Circle{r} -> "shape ${r}"
+      .Circle{r} -> "shape ${r}"
       .Dot -> "dot"
     }
   }
 }
 fn shape(r: Int) -> Shape {
-  #Circle{r}
+  Circle{r}
 }
 fn show(d: Display) -> String {
   "${d}"
@@ -499,13 +499,13 @@ enum Shape {
 impl Display for Shape {
   fn to_string(s: Shape) -> String {
     case s {
-      #.Circle{r} -> "shape ${r}"
+      .Circle{r} -> "shape ${r}"
       .Dot -> "dot"
     }
   }
 }
 fn one() -> Shape {
-  #Circle{r: 1}
+  Circle{r: 1}
 }
 fn show(xs: Iter<Display>) -> String {
   xs |> Iter.map(Display.to_string) |> String.join(",")
@@ -561,14 +561,14 @@ impl Says for Shape {
 impl Debug for Shape {
     fn inspect(s: Shape) -> String {
         case s {
-            #.Circle{r} -> "a shape of radius ${r}"
+            .Circle{r} -> "a shape of radius ${r}"
             .Dot -> "a dot"
         }
     }
 }
 
 fn shape(r: Int) -> Shape {
-    #Circle{r}
+    Circle{r}
 }
 
 fn main() {
@@ -576,7 +576,7 @@ fn main() {
     io.print(Debug.inspect(s))
     d: Says = Shape.Dot
     io.print(Debug.inspect(d))
-    c: Says = #Circle{r: 2}
+    c: Says = Circle{r: 2}
     io.print(Debug.inspect(c))
     io.print(Debug.inspect([s, d, c]))
     g: Debug = shape(6)

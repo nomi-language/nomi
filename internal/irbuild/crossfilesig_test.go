@@ -12,7 +12,7 @@ const crossFileShapes = `pub struct Box {
 }
 
 pub fn make(x: Int) -> Box {
-  #Box{at: #{x, y: x * 2}}
+  Box{at: #{x, y: x * 2}}
 }
 
 pub fn width(b: Box) -> Int {
@@ -36,7 +36,7 @@ pub fn evens(n: Int) -> Iter<Int> {
 }
 
 pub fn sum_of(xs: Iter<Int>) -> Int {
-  Iter.reduce(xs, fn acc = 0, x -> acc + x)
+  Iter.reduce(xs, 0, fn acc, x -> acc + x)
 }
 `
 
@@ -51,7 +51,7 @@ test "a struct with a record field from another file" {
   b = shapes.make(3)
   assert shapes.width(b) == 4
   assert b.at.y == 6
-  assert shapes.width(#Box{at: #{x: 1, y: 0}, size: 5}) == 6
+  assert shapes.width(Box{at: #{x: 1, y: 0}, size: 5}) == 6
 }
 
 test "records in another file's signatures" {

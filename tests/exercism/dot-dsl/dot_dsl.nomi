@@ -64,7 +64,7 @@ pub fn parse(text: String) -> Result<Graph, Error> {
 
     empty: Graph = #{nodes: %{}, edges: %{}, attrs: %{}}
 
-    Ok(Iter.reduce(statements, add, from: empty))
+    Ok(Iter.reduce(statements, empty, add))
 }
 
 fn is_comment(line: String) -> Bool {
@@ -82,7 +82,7 @@ fn statement(line: String) -> Result<Statement, Error> {
             #(subject, %{})
 
         [subject, list] -> {
-            Some(inner) = String.strip_suffix(String.trim(list), "]") else {
+            Some(inner) = list |> String.trim() |> String.strip_suffix("]") else {
                 return Err(.InvalidAttribute)
             }
 
@@ -100,11 +100,11 @@ fn statement(line: String) -> Result<Statement, Error> {
         [name] -> {
             if not is_alphanumeric(name) { return Err(.NodeNameNotAlphanumeric) }
 
-            Ok(#Statement.Node{name, attributes})
+            Ok(.Node{name, attributes})
         }
 
         words ->
-            Ok(#Statement.Edges{names: edge_names(words)?, attributes})
+            Ok(.Edges{names: edge_names(words)?, attributes})
     }
 }
 
@@ -164,18 +164,18 @@ fn add(graph: Graph, statement: Statement) -> Graph {
         .GraphAttributes(attributes) ->
             #{..graph, attrs: Map.merge(graph.attrs, attributes)}
 
-        #Statement.Node{name, attributes} ->
+        .Node{name, attributes} ->
             #{..graph, nodes: with_attributes(graph.nodes, name, attributes)}
 
-        #Statement.Edges{names, attributes} -> {
-            nodes = Iter.reduce(names, fn nodes = graph.nodes, name -> {
+        .Edges{names, attributes} -> {
+            nodes = Iter.reduce(names, graph.nodes, fn nodes, name -> {
                 with_attributes(nodes, name, %{})
             })
 
             edges =
                 names
                 |> Iter.windows(2)
-                |> Iter.reduce(fn edges = graph.edges, pair -> {
+                |> Iter.reduce(graph.edges, fn edges, pair -> {
                     [a, b] = Iter.sort(pair) else { unreachable "a window of two holds two names" }
 
                     with_attributes(edges, #(a, b), attributes)

@@ -89,7 +89,7 @@ func TestLambdaBodyDiagnostic_ReportedOnce(t *testing.T) {
 			_, errs := checkSourceWithStdlib(decls + tc.src)
 			want := "undefined variable 'nope'"
 			if tc.name == "stray discard" {
-				want = "`_` is a discard name, not a value\nhelp: a capture's parameter is written `&1`, as in `Iter.map(xs, &(&1 * 2))`"
+				want = "`_` is a discard name, not a value\nhelp: a capture's parameter is written `&1`, as in `Iter.map(xs, &(&1 * 2))`\nhelp: as a hole, it stands for a value of type `Int`"
 			}
 			if len(errs) != 1 || diagText(errs[0]) != want {
 				t.Fatalf("errors = %v, want exactly one %q", errs, want)

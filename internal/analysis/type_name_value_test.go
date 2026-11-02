@@ -67,7 +67,7 @@ func TestTypeName_AsAValueIsRejected(t *testing.T) {
 		want string
 	}{
 		{`x = Int`, "`Int` is a type, not a value"},
-		{`x = Point`, "`Point` is a type, not a value\nhelp: build a value with `#Point{...}`"},
+		{`x = Point`, "`Point` is a type, not a value\nhelp: build a value with `Point{...}`"},
 		{`x = Dir`, "`Dir` is a type, not a value\nhelp: a value of `Dir` is one of its variants, as in `Dir.North`"},
 		{`x = Named`, "`Named` is an interface, not a value"},
 		// A `host type` carries no inner type, as a zero-sized type does,
@@ -164,7 +164,7 @@ func TestTypeName_DistinctDestructuringIsAccepted(t *testing.T) {
 func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 	for _, stmt := range []string{
 		`x = Point(#{x: 1})`,
-		`x = #Point{x: 1}`,
+		`x = Point{x: 1}`,
 		`x = Id(4)`,
 		`x = 4 |> Id()`,
 		`x = Expired`,
@@ -202,7 +202,7 @@ func TestTypeName_ConstructionAndValuesAreAccepted(t *testing.T) {
 }
 
 // A positional variant over a tuple and a tuple-distinct are functions of
-// the one tuple they take: the flat call `#Pair(1, "x")` is a call form, not a
+// the one tuple they take: the flat call `Pair(1, "x")` is a call form, not a
 // second parameter list.
 func TestConstructorValue_TupleTakesTheTuple(t *testing.T) {
 	decls := "type Pair #(Int, String)\n\nenum Shape {\n  Seg #(Int, Int)\n}\n\n"

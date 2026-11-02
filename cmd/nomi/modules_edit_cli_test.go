@@ -75,14 +75,15 @@ func mustRead(t *testing.T, path string) string {
 	return string(data)
 }
 
-// `nomi new` writes nomi.toml, go.mod and a main.nomi that runs, in a new
+// `nomi new` writes nomi.toml, go.mod, a main.nomi that runs and an
+// AGENTS.md that links the cheat sheet, in a new
 // directory named for the path, and refuses one that has a go.mod or a
 // nomi.toml, naming `nomi init`.
 func TestModules_NewStartsAProject(t *testing.T) {
 	c := newModuleCLI(t)
 	work := t.TempDir()
 	out := c.must(work, "new", "github.com/you/hello-world/v2")
-	want := "wrote hello_world/nomi.toml, hello_world/go.mod and hello_world/main.nomi\nnext: cd hello_world && nomi run main.nomi"
+	want := "wrote hello_world/nomi.toml, hello_world/go.mod, hello_world/main.nomi and hello_world/AGENTS.md\nnext: cd hello_world && nomi run main.nomi"
 	if out != want {
 		t.Fatalf("nomi new printed\n%s\nwant\n%s", out, want)
 	}
@@ -92,6 +93,12 @@ func TestModules_NewStartsAProject(t *testing.T) {
 	}
 	if got, want := mustRead(t, filepath.Join(dir, "go.mod")), "module github.com/you/hello-world/v2\n\ngo "+gotoolchain.GoLine()+"\n"; got != want {
 		t.Errorf("go.mod is\n%s\nwant\n%s", got, want)
+	}
+	agents := mustRead(t, filepath.Join(dir, "AGENTS.md"))
+	for _, want := range []string{"# hello_world\n", "https://nomi-lang.org/cheatsheet.md", "`nomi test`", "`nomi fmt -w .`"} {
+		if !strings.Contains(agents, want) {
+			t.Errorf("AGENTS.md has no %q:\n%s", want, agents)
+		}
 	}
 	if out := c.must(dir, "run", "main.nomi"); out != "hello" {
 		t.Errorf("the new project's main printed %q", out)
@@ -110,7 +117,7 @@ func TestModules_NewStartsAProject(t *testing.T) {
 	app := filepath.Join(work, "app")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "fn main() {\n}\n")
 	out = c.must(app, "new", "example.com/app", ".")
-	if out != "wrote nomi.toml and go.mod\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
+	if out != "wrote nomi.toml, go.mod and AGENTS.md\nkept main.nomi, which was already there\nnext: nomi run main.nomi" {
 		t.Errorf("nomi new . printed\n%s", out)
 	}
 

@@ -56,9 +56,11 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 		// analyzer records its reference at the prefix's own position.
 		ti := &ast.TypeIdent{Name: tn.Name, Line: tn.Line, Col: tn.Col}
 		call.Func = ti
-		if d, found := bl.g.namedType(tn.Name); found && irCompositeDistinct(d) {
+		if d, found := bl.g.namedType(tn.Name); found {
 			// `%Kvs{"a" => 1}`: the distinct's constructor over the literal.
-			return bl.compositeDistinctMake(call, d)
+			if d = bl.g.distinctInstanceAt(d, tn.Name, at); d != nil && irCompositeDistinct(d) {
+				return bl.compositeDistinctMake(call, d)
+			}
 		}
 		return bl.importedVariantCall(call, ti)
 	default:

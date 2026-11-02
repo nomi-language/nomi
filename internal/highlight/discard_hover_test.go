@@ -39,8 +39,8 @@ fn main() {
     .Penny -> 1
     _ -> 2
   }
-  n = Iter.reduce(["a"], fn total = 0, _ -> total + 1)
-  r = Iter.reduce([1, 2], fn #(_, acc) = #(0, []), x -> #(x, [x, ..acc]))
+  n = Iter.reduce(["a"], 0, fn total, _ -> total + 1)
+  r = Iter.reduce([1, 2], #(0, []), fn #(_, acc), x -> #(x, [x, ..acc]))
   d = case {
     c > 1 -> 1
     _ -> 2

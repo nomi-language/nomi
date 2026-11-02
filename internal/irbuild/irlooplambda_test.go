@@ -31,7 +31,7 @@ fn feed(items: List<String>) -> Receiver<String> {
 fn main() {
     // A lambda bound to a name. Its code after the loop runs.
     count = fn input: Receiver<String> -> {
-        n = Iter.loop(fn total = 0 -> {
+        n = Iter.loop(0, fn total -> {
             t = case Receiver.receive(input) {
                 Some(t) -> t
                 None -> break total
@@ -55,7 +55,7 @@ fn main() {
     lens = Iter.map(["a", "skip", "bcd"], fn w -> {
         if w == "skip" { continue }
         input = feed([w, "x", w])
-        m = Iter.loop(fn acc = 0 -> {
+        m = Iter.loop(0, fn acc -> {
             case Receiver.receive(input) {
                 Some("x") -> continue
                 Some(t) -> acc + String.length(t)
@@ -66,13 +66,13 @@ fn main() {
     }) |> Iter.to_list()
     io.inspect(lens)
     // A loop as the whole Iter.map callback.
-    io.inspect(Iter.map([1, 2, 3], fn k -> Iter.loop(fn n = 0 -> {
+    io.inspect(Iter.map([1, 2, 3], fn k -> Iter.loop(0, fn n -> {
         if n >= k { break n * 10 }
         n + 1
     })) |> Iter.to_list())
     // An Iter.each callback.
     Iter.each([3, 5], fn k -> {
-        s = Iter.loop(fn n = 0 -> {
+        s = Iter.loop(0, fn n -> {
             if n == 1 { return 4 }
             if n >= k { break n }
             n + 1
@@ -81,10 +81,10 @@ fn main() {
     })
     // A loop in a loop's callback, in a lambda: the inner exits are the
     // inner loop's, and the outer 'return' after it is the outer loop's.
-    nested = fn rows: Int -> Iter.loop(fn outer = #(0, 0) -> {
+    nested = fn rows: Int -> Iter.loop(#(0, 0), fn outer -> {
         #(i, sum) = outer
         if i >= rows { break outer }
-        inner = Iter.loop(fn j = 0 -> {
+        inner = Iter.loop(0, fn j -> {
             if j == 1 { return 5 }
             if j > i + 5 { break j }
             j + 1
@@ -96,14 +96,14 @@ fn main() {
     // A lambda that captures outer bindings the loop reads.
     base = 7
     step = 2
-    f = fn -> Iter.loop(fn n = base -> {
+    f = fn -> Iter.loop(base, fn n -> {
         if n > 12 { break n + step }
         n + step
     })
     io.print(f())
     // A concurrent block's task lambda, and a loop in the block itself.
     got = concurrent {
-        task = Task.spawn(fn -> Iter.loop(fn n = 1 -> {
+        task = Task.spawn(fn -> Iter.loop(1, fn n -> {
             if n > 50 { break n }
             n * 3
         }))
@@ -111,7 +111,7 @@ fn main() {
     }
     io.print(got)
     direct = concurrent {
-        Iter.loop(fn n = 1 -> {
+        Iter.loop(1, fn n -> {
             if n > 10 { break n }
             n * 2
         })
@@ -130,7 +130,7 @@ func TestIRLoopInLambda_TestBody(t *testing.T) {
 
 test "a loop in a lambda in a test" {
     f = fn k: Int -> {
-        n = Iter.loop(fn i = 0 -> {
+        n = Iter.loop(0, fn i -> {
             if i == 2 { return 10 }
             if i > k { break i }
             i + 1

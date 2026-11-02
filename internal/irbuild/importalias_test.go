@@ -23,13 +23,13 @@ struct Holder {
 }
 fn describe(p: Problem) -> String {
   case p {
-    #.Bad{error} -> "bad: ${error}"
-    #.Local{error} -> "local: ${error}"
+    .Bad{error} -> "bad: ${error}"
+    .Local{error} -> "local: ${error}"
   }
 }
 fn code(e: CurrencyError) -> String {
   case e {
-    #CurrencyError.NotIso{code} -> "not iso ${code}"
+    CurrencyError.NotIso{code} -> "not iso ${code}"
     _ -> "other"
   }
 }
@@ -37,13 +37,13 @@ fn main() {
   case Currency.parse("BTC") {
     Ok(_) -> io.print("parsed")
     Err(e) -> {
-      io.print(describe(#.Bad{error: e}))
-      h = #Holder{error: e}
+      io.print(describe(.Bad{error: e}))
+      h = Holder{error: e}
       io.print(code(h.error))
     }
   }
-  io.print(describe(#.Local{error: .Mine}))
-  io.print(code(#CurrencyError.NotIso{code: "XYZ"}))
+  io.print(describe(.Local{error: .Mine}))
+  io.print(code(CurrencyError.NotIso{code: "XYZ"}))
 }
 `, "bad: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2`\n"+
 		"not iso BTC\nlocal: Mine\nnot iso XYZ\n")
@@ -69,8 +69,8 @@ enum Wrap {
 }
 fn show(w: Wrap) -> String {
   case w {
-    #.Timed{span} -> "timed ${span}"
-    #.Bagged{bag} -> "bagged ${Bag.size(bag)}"
+    .Timed{span} -> "timed ${span}"
+    .Bagged{bag} -> "bagged ${Bag.size(bag)}"
   }
 }
 fn flip(o: Order) -> Order {
@@ -80,10 +80,10 @@ fn flip(o: Order) -> Order {
   }
 }
 fn main() {
-  h = #Holder{span: Span.seconds(2), bag: %[1, 2], order: .Less}
+  h = Holder{span: Span.seconds(2), bag: %[1, 2], order: .Less}
   io.print("${h.span} ${Bag.size(h.bag)} ${flip(h.order)}")
-  io.print(show(#.Timed{span: Span.seconds(3)}))
-  io.print(show(#.Bagged{bag: %[1, 2, 3]}))
+  io.print(show(.Timed{span: Span.seconds(3)}))
+  io.print(show(.Bagged{bag: %[1, 2, 3]}))
 }
 `, "2s 2 Greater\ntimed 3s\nbagged 3\n")
 }
@@ -106,19 +106,19 @@ struct Holder {
 }
 fn describe(p: Problem) -> String {
   case p {
-    #.At{spot} -> "at ${spot.x},${spot.y}"
-    #.Toned{tone} -> case tone {
+    .At{spot} -> "at ${spot.x},${spot.y}"
+    .Toned{tone} -> case tone {
       .Light -> "light"
-      #.Dark{depth} -> "dark ${depth}"
+      .Dark{depth} -> "dark ${depth}"
     }
-    #.Boxed{held} -> "boxed ${held.item}"
+    .Boxed{held} -> "boxed ${held.item}"
   }
 }
 fn main() {
-  io.print(describe(#.At{spot: #P{x: 1, y: 2}}))
-  io.print(describe(#.Toned{tone: #Tone.Dark{depth: 3}}))
-  io.print(describe(#.Boxed{held: #Crate{item: 4}}))
-  h = #Holder{point: #P{x: 5, y: 6}, crate: #Crate{item: "s"}}
+  io.print(describe(.At{spot: P{x: 1, y: 2}}))
+  io.print(describe(.Toned{tone: Tone.Dark{depth: 3}}))
+  io.print(describe(.Boxed{held: Crate{item: 4}}))
+  h = Holder{point: P{x: 5, y: 6}, crate: Crate{item: "s"}}
   io.print("${h.point.x} ${h.crate.item}")
 }
 `, "at 1,2\ndark 3\nboxed 4\n5 s\n", map[string]string{

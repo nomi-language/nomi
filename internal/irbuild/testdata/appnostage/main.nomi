@@ -5,7 +5,7 @@ import {
 }
 
 fn boot() -> Result<Settings, String> {
-    Ok(#Settings{context: Context.root(), tag: "booted"})
+    Ok(Settings{context: Context.root(), tag: "booted"})
 }
 
 fn main() {

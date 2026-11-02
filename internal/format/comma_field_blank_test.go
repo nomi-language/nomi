@@ -15,8 +15,8 @@ func TestFormat_CommaSeparatedFieldsTakeNoBlankLine(t *testing.T) {
 			"fn greet(p: #{\n    name: String,\n    // why\n    age: Int,\n}) -> String {\n    p.name\n}\n",
 		},
 		{
-			"fn main() {\n    p = #Point{\n        x: 3,\n\n        // why\n        y: 4,\n    }\n}\n",
-			"fn main() {\n    p = #Point{\n        x: 3,\n        // why\n        y: 4,\n    }\n}\n",
+			"fn main() {\n    p = Point{\n        x: 3,\n\n        // why\n        y: 4,\n    }\n}\n",
+			"fn main() {\n    p = Point{\n        x: 3,\n        // why\n        y: 4,\n    }\n}\n",
 		},
 	} {
 		formatsKeepingMeaning(t, c.src, c.want)

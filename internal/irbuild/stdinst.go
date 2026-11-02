@@ -940,6 +940,26 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.T
 		v, k, mobile, ok := bl.runOnFiles(t, "fs_host.run_on")
 		return v, k, mobile, ok, true
 	}
+	if g.stdModule == "process_host" && name == "run_on" {
+		v, k, mobile, ok := bl.runOnFiles(t, "process_host.run_on")
+		return v, k, mobile, ok, true
+	}
+	if g.stdModule == "http_host" && name == "run_on" {
+		v, k, mobile, ok := bl.runOnFiles(t, "http_host.run_on")
+		return v, k, mobile, ok, true
+	}
+	if g.stdModule == "http_host" && name == "request_on" {
+		v, k, mobile, ok := bl.requestOn(t, "http_host.request_on")
+		return v, k, mobile, ok, true
+	}
+	if g.stdModule == "http_host" && name == "answer_on" {
+		v, k, mobile, ok := bl.answerOn(t, "http_host.answer_on")
+		return v, k, mobile, ok, true
+	}
+	if g.stdModule == "http_host" && name == "recorded_on" {
+		v, k, mobile, ok := bl.recordedOn(t, "http_host.recorded_on")
+		return v, k, mobile, ok, true
+	}
 	if g.stdModule == "io" && name == "run_replayed" {
 		v, k, mobile, ok := bl.runCaptured(t, "io.run_replayed", kindString, kindString, kindString, kindInt)
 		return v, k, mobile, ok, true

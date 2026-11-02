@@ -69,7 +69,7 @@ test "testing for eggs allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Eggs) == expected
+        assert allergies.is_allergic_to(score, .Eggs) == expected
     }
 }
 
@@ -82,7 +82,7 @@ test "testing for peanuts allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Peanuts) == expected
+        assert allergies.is_allergic_to(score, .Peanuts) == expected
     }
 }
 
@@ -95,7 +95,7 @@ test "testing for shellfish allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Shellfish) == expected
+        assert allergies.is_allergic_to(score, .Shellfish) == expected
     }
 }
 
@@ -108,7 +108,7 @@ test "testing for strawberries allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Strawberries) == expected
+        assert allergies.is_allergic_to(score, .Strawberries) == expected
     }
 }
 
@@ -121,7 +121,7 @@ test "testing for tomatoes allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Tomatoes) == expected
+        assert allergies.is_allergic_to(score, .Tomatoes) == expected
     }
 }
 
@@ -134,7 +134,7 @@ test "testing for chocolate allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Chocolate) == expected
+        assert allergies.is_allergic_to(score, .Chocolate) == expected
     }
 }
 
@@ -147,7 +147,7 @@ test "testing for pollen allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Pollen) == expected
+        assert allergies.is_allergic_to(score, .Pollen) == expected
     }
 }
 
@@ -160,7 +160,7 @@ test "testing for cats allergy" {
         #("allergic to everything", 255, True),
     ]
     |> subtests #(description, score, expected), description {
-        assert allergies.is_allergic_to(score, Allergen.Cats) == expected
+        assert allergies.is_allergic_to(score, .Cats) == expected
     }
 }
 

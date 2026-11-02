@@ -27,7 +27,7 @@
 -> locations {"locationReference":5}
 <- response locations {"column":5,"endColumn":8,"endLine":6,"line":6,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":6}
-<- response locations {"column":18,"endColumn":19,"endLine":8,"line":8,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
+<- response locations {"column":21,"endColumn":22,"endLine":8,"line":8,"source":{"name":"bindings.nomi","path":"$TESTDATA/bindings.nomi"}}
 -> locations {"locationReference":999}
 <- response locations failed "no location 999"
 -> setBreakpoints {"breakpoints":[],"source":{"path":"$TESTDATA/bindings.nomi"}}

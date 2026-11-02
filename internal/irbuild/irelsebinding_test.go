@@ -197,6 +197,7 @@ fn arms(r: Result<#(Int, Int), String>) -> Int {
 
 fn looped(rows: List<List<Int>>) -> Int {
     #(_, sum) = Iter.loop(
+        #(rows, 0),
         fn #(left, total) -> {
             [row, ..rest] = left else {
                 break #(left, total)
@@ -208,7 +209,6 @@ fn looped(rows: List<List<Int>>) -> Int {
 
             return #(rest, total + a + b)
         },
-        from: #(rows, 0),
     )
 
     sum

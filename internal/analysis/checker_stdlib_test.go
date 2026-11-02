@@ -15,7 +15,7 @@ import (
 // inference variable that body unifications can solve.
 func TestCheckTupleStateDestructureNoAnnotation(t *testing.T) {
 	src := `fn f(xs: List<Int>) -> #(Int, List<Int>) {
-  Iter.reduce(xs, fn state = #(0, []), item -> {
+  Iter.reduce(xs, #(0, []), fn state, item -> {
     #(count, acc) = state
     if count >= 2 { break #(count, acc) } else { #(count + 1, [item, ..acc]) }
   })
@@ -198,18 +198,18 @@ func findBindingSymbol(t *testing.T, fa *analysis.FileAnalysis, name string) *an
 // once unification has a real placeholder to bind.
 func TestCheckMapAccumulatorNoAnnotation(t *testing.T) {
 	src := `fn f(pairs: List<#(String, Int)>) -> Map<String, Int> {
-  Iter.reduce(pairs, fn acc = %{}, #(k, v) -> Map.put(acc, k, v))
+  Iter.reduce(pairs, %{}, fn acc, #(k, v) -> Map.put(acc, k, v))
 }`
 	_, errs := checkSourceWithStdlib(src)
 	expectNoStdlibErrors(t, errs)
 }
 
 // `break value` inside an iter-callback must match the callback's declared
-// return type. For `Iter.loop(fn n = 5 -> …)` the state type is inferred as `Int`
+// return type. For `Iter.loop(5, fn n -> …)` the state type is inferred as `Int`
 // from the default; `break "hello"` should therefore be a type error.
 func TestCheckBreakValueMustMatchCallbackReturn(t *testing.T) {
 	src := `fn main() {
-  Iter.loop(fn n = 5 -> {
+  Iter.loop(5, fn n -> {
     if n == 0 { break "hello" }
     n - 1
   })
@@ -267,13 +267,13 @@ fn main() {
 }
 
 // `loop` should return the state type S inferred from the callback's
-// default value — `countdown = Iter.loop(fn n = 5 -> ...)` should give
+// default value — `countdown = Iter.loop(5, fn n -> ...)` should give
 // `countdown: Int`. Without a declared signature on loop, `countdown`
 // would have a nil type and hover would show just the name.
 func TestCheckIterLoopReturnTypeFromDefault(t *testing.T) {
 	src := `
 fn main() {
-  countdown = Iter.loop(fn n = 5 -> {
+  countdown = Iter.loop(5, fn n -> {
     if n == 0 { break n }
     n - 1
   })
@@ -437,7 +437,7 @@ func expectStdlibError(t *testing.T, errs []analysis.TypeError, substr string) {
 func TestCheckIterLoopInference(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn f() -> Int {
-    Iter.loop(fn n = 5 -> {
+    Iter.loop(5, fn n -> {
         if n == 0 { break n }
         n - 1
     })
@@ -473,7 +473,7 @@ fn f() -> List<Int> {
 func TestCheckIterReduceWithDefault(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn f() -> Int {
-    Iter.reduce([1, 2, 3], fn total = 0, item -> {
+    Iter.reduce([1, 2, 3], 0, fn total, item -> {
         total + item
     })
 }
@@ -506,7 +506,7 @@ fn f() -> Unit {
 func TestCheckIterLoopBindingType(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn f() -> Int {
-    countdown = Iter.loop(fn n = 5 -> {
+    countdown = Iter.loop(5, fn n -> {
         if n == 0 { break n }
         n - 1
     })
@@ -524,7 +524,7 @@ fn f() -> Int {
     result = [1, 2, 3]
         |> Iter.filter(fn x -> x > 1)
         |> Iter.map(fn x -> x * 10)
-        |> Iter.reduce(fn acc = 0, x -> acc + x)
+        |> Iter.reduce(0, fn acc, x -> acc + x)
     result
 }
 `)
@@ -623,7 +623,7 @@ struct ProbeIter {
 }
 
 fn broken() -> ProbeIter {
-    #ProbeIter{source: 42}
+    ProbeIter{source: 42}
 }
 `)
 	if len(errs) == 0 {
@@ -653,7 +653,7 @@ struct ProbeIter {
 }
 
 fn good() -> ProbeIter {
-    #ProbeIter{source: [1, 2, 3]}
+    ProbeIter{source: [1, 2, 3]}
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -668,7 +668,7 @@ struct ProbeIter {
 
 fn nested() -> ProbeIter {
     inner = Iter.map([1, 2, 3], fn x -> x * 2)
-    #ProbeIter{source: inner}
+    ProbeIter{source: inner}
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -884,7 +884,7 @@ import std/maps
 struct Callbacks { empty: Int }
 
 fn f() -> Int {
-    maps = #Callbacks { empty: 99 }
+    maps = Callbacks{ empty: 99 }
     maps.empty
 }
 `)
@@ -1067,7 +1067,7 @@ impl Iter for Counter {
             True
         } else {
             if yield(c.n) {
-                each_while(#Counter{n: c.n - 1}, yield)
+                each_while(Counter{n: c.n - 1}, yield)
             } else {
                 False
             }
@@ -1076,7 +1076,7 @@ impl Iter for Counter {
 }
 
 fn f() -> List<Int> {
-    Iter.to_list(#Counter{n: 5})
+    Iter.to_list(Counter{n: 5})
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1095,7 +1095,7 @@ impl Iter for Boxed<T> {
             True
         } else {
             if yield(b.val) {
-                each_while(#Boxed{val: b.val, rest: b.rest - 1}, yield)
+                each_while(Boxed{val: b.val, rest: b.rest - 1}, yield)
             } else {
                 False
             }
@@ -1104,7 +1104,7 @@ impl Iter for Boxed<T> {
 }
 
 fn f() -> List<String> {
-    Iter.to_list(#Boxed{val: "x", rest: 3})
+    Iter.to_list(Boxed{val: "x", rest: 3})
 }
 `)
 	expectNoStdlibErrors(t, errs)
@@ -1124,7 +1124,7 @@ impl Iter for Counter {
             True
         } else {
             if yield(c.n) {
-                each_while(#Counter{n: c.n - 1}, yield)
+                each_while(Counter{n: c.n - 1}, yield)
             } else {
                 False
             }
@@ -1133,7 +1133,7 @@ impl Iter for Counter {
 }
 
 fn f() -> List<String> {
-    Iter.to_list(#Counter{n: 5})
+    Iter.to_list(Counter{n: 5})
 }
 `)
 	if len(errs) == 0 {
@@ -1391,7 +1391,7 @@ func TestCheckImplMethodDoesNotCollideWithImportedFunction(t *testing.T) {
 struct A { n: Int }
 
 fn main() {
-  a = #A{n: 1}
+  a = A{n: 1}
   inspect(a)
 }
 `
@@ -1445,7 +1445,7 @@ fn main() {
   result = 42
   inspect(result)
 
-  #Guest{name: "Bob"}
+  Guest{name: "Bob"}
   |> Greeting.greet()
   |> inspect()
 }

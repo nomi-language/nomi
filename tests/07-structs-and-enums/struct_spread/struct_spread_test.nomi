@@ -26,7 +26,7 @@
 //
 // Everything else at a field position is a VALUE: a `#{...}` literal without
 // `..` (a whole new value of the field's type), a nominal literal
-// (`#Inner{a: 9, b: 8}`), a binding, a call, and a NESTED SPREAD
+// (`Inner{a: 9, b: 8}`), a binding, a call, and a NESTED SPREAD
 // (`#{..user.address, city: "NYC"}`), which is already a complete value of the
 // field's type. The nested-spread spelling is legal and equivalent.
 //
@@ -86,7 +86,7 @@ struct Box<T> {
 }
 
 fn make_point(n: Int) -> Point {
-    #Point{x: n, y: 0}
+    Point{x: n, y: 0}
 }
 
 // --- the deep-patch declarations -------------------------------------------
@@ -116,15 +116,15 @@ struct Deep {
 
 // --- the four accepted shapes ----------------------------------------------
 test "a nominal head gives a nominal result" {
-    origin = #Point{x: 1, y: 2}
+    origin = Point{x: 1, y: 2}
     moved = #{..origin, x: 9}
 
     assert moved.x == 9
     assert moved.y == 2
     // NOMINAL IDENTITY, not merely the same field values: an anonymous result
     // would miss `Point`'s impls silently, so `Display` is the instrument.
-    assert Display.to_string(moved) == "#Point{x: 9, y: 2}"
-    assert moved == #Point{x: 9, y: 2}
+    assert Display.to_string(moved) == "Point{x: 9, y: 2}"
+    assert moved == Point{x: 9, y: 2}
 }
 
 test "an anonymous head gives an anonymous result" {
@@ -137,7 +137,7 @@ test "an anonymous head gives an anonymous result" {
 }
 
 test "an explicit field overrides the spread's value" {
-    origin = #Point{x: 1, y: 2}
+    origin = Point{x: 1, y: 2}
     moved = #{..origin, x: 42}
 
     assert origin.x == 1
@@ -154,7 +154,7 @@ test "an unknown field is rejected" {
           }
 
           fn main() {
-            origin = #Point{x: 1, y: 2}
+            origin = Point{x: 1, y: 2}
             dbg #{..origin, z: 3}
           }
         """
@@ -172,7 +172,7 @@ test "a field value of the wrong type is rejected" {
           }
 
           fn main() {
-            origin = #Point{x: 1, y: 2}
+            origin = Point{x: 1, y: 2}
             dbg #{..origin, x: "nine"}
           }
         """
@@ -190,7 +190,7 @@ test "a spread that is not the first element is rejected" {
           }
 
           fn main() {
-            origin = #Point{x: 1, y: 2}
+            origin = Point{x: 1, y: 2}
             dbg #{x: 9, ..origin}
           }
         """
@@ -208,8 +208,8 @@ test "two spreads are rejected" {
           }
 
           fn main() {
-            origin = #Point{x: 1, y: 2}
-            other = #Point{x: 3, y: 4}
+            origin = Point{x: 1, y: 2}
+            other = Point{x: 3, y: 4}
             dbg #{..origin, ..other}
           }
         """
@@ -220,8 +220,8 @@ test "two spreads are rejected" {
 
 // --- leniency ---------------------------------------------------------------
 test "an interface-typed field stays as lenient as in an ordinary literal" {
-    before = #Stage{who: #Loud{n: 1}, seats: 10}
-    after = #{..before, who: #Quiet{n: 2}}
+    before = Stage{who: Loud{n: 1}, seats: 10}
+    after = #{..before, who: Quiet{n: 2}}
 
     assert Speaker.say(before.who) == "LOUD1"
     assert Speaker.say(after.who) == "quiet2"
@@ -229,7 +229,7 @@ test "an interface-typed field stays as lenient as in an ordinary literal" {
 }
 
 test "a type-parameter field stays as lenient as in an ordinary literal" {
-    before: Box<Int> = #Box{item: 3, tag: "old"}
+    before: Box<Int> = Box{item: 3, tag: "old"}
     after = #{..before, item: 4}
 
     assert after.item == 4
@@ -250,7 +250,7 @@ test "the spread head is an arbitrary expression" {
 // asserting each separately. Two implementations that drifted the same way
 // would pass a pair of separate assertions.
 test "a `..` literal at a struct field updates it, and equals Struct.update" {
-    ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
 
     spread = #{..ada, address: #{.., city: "NYC"}}
     patch = Struct.update(ada, #{address: #{.., city: "NYC"}})
@@ -263,25 +263,25 @@ test "a `..` literal at a struct field updates it, and equals Struct.update" {
     // NOMINAL IDENTITY all the way down. An anonymous inner result would
     // compare equal on fields and miss every `Address` impl, so `Display` is
     // the instrument here for the same reason it is at the top level: it
-    // renders `#Address{...}` for the nominal type and `{...}` for a record.
+    // renders `Address{...}` for the nominal type and `{...}` for a record.
     // `Display` does not quote a String, which is why `Ada` is bare.
     assert Display.to_string(spread)
-        == "#Person{name: Ada, address: #Address{street: 1 Main, city: NYC}}"
+        == "Person{name: Ada, address: Address{street: 1 Main, city: NYC}}"
 }
 
 test "a nominal literal at a struct field replaces it, and equals Struct.update" {
-    ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
 
-    spread = #{..ada, address: #Address{street: "2 Oak", city: "NYC"}}
-    patch = Struct.update(ada, #{address: #Address{street: "2 Oak", city: "NYC"}})
+    spread = #{..ada, address: Address{street: "2 Oak", city: "NYC"}}
+    patch = Struct.update(ada, #{address: Address{street: "2 Oak", city: "NYC"}})
 
     assert spread.address.street == "2 Oak"
     assert spread == patch
 }
 
 test "a nested spread is a value, and its own head is the base" {
-    ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
-    bob = #Person{name: "Bob", address: #Address{street: "9 Elm", city: "Reno"}}
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
+    bob = Person{name: "Bob", address: Address{street: "9 Elm", city: "Reno"}}
 
     // The SAME base. This is the shape the tour and this file both reached for
     // first, and it is the one case where discarding the nested head is
@@ -302,8 +302,8 @@ test "a nested spread is a value, and its own head is the base" {
 }
 
 test "the patch reaches three levels down" {
-    d = #Deep{
-        person: #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}},
+    d = Deep{
+        person: Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}},
         n: 7,
     }
 
@@ -324,7 +324,7 @@ test "the patch reaches three levels down" {
 }
 
 test "a deep patch and a shallow one in the same literal" {
-    ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
 
     spread = #{..ada, name: "Ada L", address: #{.., city: "NYC"}}
 
@@ -335,7 +335,7 @@ test "a deep patch and a shallow one in the same literal" {
 }
 
 test "an anonymous-typed field takes a `..` update or a whole brace" {
-    r = #Rec{rec: #{a: 1, b: 2}, k: 3}
+    r = Rec{rec: #{a: 1, b: 2}, k: 3}
 
     // A brace without `..` is a whole new value, so it writes every field;
     // with `..` it writes the fields it names over the current value.
@@ -352,8 +352,8 @@ test "an anonymous-typed field takes a `..` update or a whole brace" {
 }
 
 test "a field generic over a struct patches once the argument is solved" {
-    before: Box<Address> = #Box{
-        item: #Address{street: "1 Main", city: "Boston"},
+    before: Box<Address> = Box{
+        item: Address{street: "1 Main", city: "Boston"},
         tag: "old",
     }
 
@@ -366,7 +366,7 @@ test "a field generic over a struct patches once the argument is solved" {
 }
 
 test "the base is unchanged by a deep patch" {
-    ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
     _moved = #{..ada, address: #{.., city: "NYC"}}
 
     assert ada.address.city == "Boston"
@@ -391,7 +391,7 @@ test "an unknown nested field names the NESTED type" {
           }
 
           fn main() {
-            ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
+            ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
             dbg #{..ada, address: #{.., zip: "10001"}}
           }
         """
@@ -414,7 +414,7 @@ test "a wrong nested value type names the NESTED field" {
           }
 
           fn main() {
-            ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Boston"}}
+            ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}}
             dbg #{..ada, address: #{.., city: 10001}}
           }
         """
@@ -452,7 +452,7 @@ test "a brace at an interface-typed field is rejected" {
           }
 
           fn main() {
-            s = #Stage{who: #Loud{n: 1}, seats: 3}
+            s = Stage{who: Loud{n: 1}, seats: 3}
             dbg #{..s, who: #{n: 2}}
           }
         """
@@ -464,7 +464,7 @@ test "a brace at an interface-typed field is rejected" {
     )
 }
 
-// A BRACE WITHOUT `..` IS ALWAYS A WHOLE VALUE. `#Person{address: {city:
+// A BRACE WITHOUT `..` IS ALWAYS A WHOLE VALUE. `Person{address: {city:
 // "NYC"}}` has no base for `address.street` to come from, so the brace
 // builds an Address and reports Address's missing field, exactly as it does
 // under a spread (nested_update_test.nomi).
@@ -482,7 +482,7 @@ test "ordinary construction is not a patch" {
           }
 
           fn main() {
-            dbg #Person{name: "Ada", address: #{city: "NYC"}}
+            dbg Person{name: "Ada", address: #{city: "NYC"}}
           }
         """
     )
@@ -501,7 +501,7 @@ test "a spread with no fields is rejected" {
           }
 
           fn main() {
-            origin = #Point{x: 1, y: 2}
+            origin = Point{x: 1, y: 2}
             dbg #{..origin}
           }
         """

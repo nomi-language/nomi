@@ -28,7 +28,7 @@ fn main() {
   io.inspect(Iter.to_list(-2..=2))
   io.inspect(span(4, 6) |> Iter.map(fn n: Int -> n * n) |> Iter.to_list())
   io.inspect(1..=10 |> Iter.filter(fn n: Int -> n % 3 == 0) |> Iter.to_list())
-  io.print(1..=100 |> Iter.reduce(fn acc = 0, n: Int -> acc + n))
+  io.print(1..=100 |> Iter.reduce(0, fn acc, n: Int -> acc + n))
   io.inspect(Range.from(7) |> Iter.take(2) |> Iter.to_list())
   io.inspect(Iter.sort(3..=1))
 }

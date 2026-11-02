@@ -42,23 +42,23 @@ fn main() {
         })
         |> Iter.to_list()
     io.inspect(ys)
-    a = Iter.loop(fn acc: List<Int> = [1] -> {
+    a = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 { break [] }
         [1, ..acc]
     })
-    b = Iter.loop(fn acc: List<Int> = [1] -> {
+    b = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 { break acc }
         if Iter.count(acc) == 0 { return [] }
         [1, ..acc]
     })
-    c = Iter.loop(fn acc: List<Int> = [] -> {
+    c = Iter.loop([], fn acc: List<Int> -> {
         if Iter.count(acc) == 1 { break acc }
         if Iter.count(acc) > 3 { [] } else { [2, ..acc] }
     })
     io.inspect(#(a, b, c))
     io.print(#(1, []) == #(1, [2]))
     io.print(#(1, []) == #(1, []))
-    k: Captured<List<Int>> = #Captured{value: [], output: "", errors: "", transcript: ""}
+    k: Captured<List<Int>> = Captured{value: [], output: "", errors: "", transcript: ""}
     io.inspect(k.value)
 }
 `

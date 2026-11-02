@@ -56,11 +56,7 @@ fn divisor_pair(number: Int, d: Int) -> Int {
 }
 
 // FILE: perfect_numbers_test.nomi
-import {
-    perfect_numbers
-    perfect_numbers.Classification
-    perfect_numbers.Error
-}
+import perfect_numbers
 
 test "Perfect numbers" {
     [
@@ -69,7 +65,7 @@ test "Perfect numbers" {
         #("Large perfect number is classified correctly", 33550336),
     ]
     |> subtests #(description, number), description {
-        assert perfect_numbers.classify(number) == Ok(Classification.Perfect)
+        assert perfect_numbers.classify(number) == Ok(.Perfect)
     }
 }
 
@@ -81,7 +77,7 @@ test "Abundant numbers" {
         #("Perfect square abundant number is classified correctly", 196),
     ]
     |> subtests #(description, number), description {
-        assert perfect_numbers.classify(number) == Ok(Classification.Abundant)
+        assert perfect_numbers.classify(number) == Ok(.Abundant)
     }
 }
 
@@ -94,7 +90,7 @@ test "Deficient numbers" {
         #("Edge case (no factors other than itself) is classified correctly", 1),
     ]
     |> subtests #(description, number), description {
-        assert perfect_numbers.classify(number) == Ok(Classification.Deficient)
+        assert perfect_numbers.classify(number) == Ok(.Deficient)
     }
 }
 
@@ -104,7 +100,7 @@ test "Invalid inputs" {
         #("Negative integer is rejected (as it is not a positive integer)", -1),
     ]
     |> subtests #(description, number), description {
-        assert perfect_numbers.classify(number) == Err(Error.NotPositive)
+        assert perfect_numbers.classify(number) == Err(.NotPositive)
     }
 }
 ```

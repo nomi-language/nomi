@@ -139,7 +139,7 @@ pub type DisplayTag
 
 impl Literal for DisplayTag {
   fn from_fragments(fragments: List<Fragment<Display>>) -> String {
-    Iter.reduce(fragments, fn acc = "", _frag -> { acc })
+    Iter.reduce(fragments, "", fn acc, _frag -> { acc })
   }
 }
 
@@ -166,12 +166,12 @@ pub struct Box { contents: String }
 
 impl Literal for Box {
   fn from_fragments(fragments: List<Fragment<String>>) -> Box {
-    body = Iter.reduce(fragments, fn acc = "", frag ->
+    body = Iter.reduce(fragments, "", fn acc, frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + v
       })
-    #Box{contents: body}
+    Box{contents: body}
   }
 }
 
@@ -285,7 +285,7 @@ pub type Sql
 impl Literal for Sql {
   fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
     _read = fragments
-    #Query{text: "mine"}
+    Query{text: "mine"}
   }
 }
 `

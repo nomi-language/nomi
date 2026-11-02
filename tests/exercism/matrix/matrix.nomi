@@ -21,7 +21,7 @@ impl Matrix {
             |> Iter.map(parse_row)
             |> Result.collect()?
 
-        Ok(#Matrix{rows: Iter.to_vector(rows)})
+        Ok(Matrix{rows: Iter.to_vector(rows)})
     }
 
     /// The numbers of row `index`, counted from 1, or `None` past the last.

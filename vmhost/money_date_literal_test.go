@@ -22,7 +22,7 @@ func TestMoneyAndDateLiterals_AreTheirValues(t *testing.T) {
 		"    io.print(Currency.minor_digits(bitcoin))\n" +
 		"    io.print(Date.format_fields(Date`2026-10-20`, Locale`pl`, DateFields`yMMMMd`))\n" +
 		"    io.print(Date.to_string_with(Date`2026-10-20`, DatePattern`yyyyMMdd`))\n" +
-		"    io.print(Money`1299.50 USD` == #Money{amount: 1299.50d, currency: Currency`USD`})\n" +
+		"    io.print(Money`1299.50 USD` == Money{amount: 1299.50d, currency: Currency`USD`})\n" +
 		"    io.print(Money`-5.00 USD`)\n" +
 		"    io.print(Money`12.5 EUR`)\n" +
 		"    io.print(Money`1200 PTS:0`)\n" +
@@ -39,7 +39,7 @@ func TestMoneyAndDateLiterals_AreTheirValues(t *testing.T) {
 	}
 	want := "Currency`EUR`\n8\n20 października 2026\n20261020\n" +
 		"True\n-5.00 USD\n12.5 EUR\n1200 PTS:0\n" +
-		"Err(a Money literal does not interpolate: build the value from its fields, as #Money{amount: amount, currency: Currency`EUR`})\n"
+		"Err(a Money literal does not interpolate: build the value from its fields, as Money{amount: amount, currency: Currency`EUR`})\n"
 	if out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
 	}

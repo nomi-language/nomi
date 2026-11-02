@@ -431,7 +431,7 @@ func startsField(content string, start int) bool {
 }
 
 // lineClosers closes, innermost first, the brackets the cursor's line opens
-// before the cursor and does not close: `#Person{address: #{‸` gets `}}` and
+// before the cursor and does not close: `Person{address: #{‸` gets `}}` and
 // `[{‸` gets `}]`, what an auto-pair plugin would have typed. It is the last
 // suffix tried, for a client typing with no such plugin. A string's
 // brackets do not count.

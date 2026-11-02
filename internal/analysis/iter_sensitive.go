@@ -25,13 +25,14 @@ import (
 // than maintained by hand.
 var iterCallbackSlots = map[string]map[int]bool{
 	// `loop` is an Iter type function that threads state rather than a
-	// collection input.
-	"Iter.loop": {0: true},
+	// collection input: `Iter.loop(start, f)`, or `Iter.loop(f)` for a
+	// stateless loop (callbackSlots).
+	"Iter.loop": {1: true},
 
 	// Terminals: Iter owner functions that consume an iterator to a value.
 	// The callback-bearing ones are listed here.
-	"Iter.reduce":     {1: true},
-	"Iter.map_reduce": {1: true},
+	"Iter.reduce":     {2: true},
+	"Iter.map_reduce": {2: true},
 	"Iter.each":       {1: true},
 	"Iter.find":       {1: true},
 	"Iter.any":        {1: true},
@@ -41,7 +42,7 @@ var iterCallbackSlots = map[string]map[int]bool{
 	// collection-specific methods.
 	"Iter.iterate":    {1: true},
 	"Iter.map":        {1: true},
-	"Iter.scan":       {1: true},
+	"Iter.scan":       {2: true},
 	"Iter.filter":     {1: true},
 	"Iter.take_while": {1: true},
 	"Iter.drop_while": {1: true},
@@ -116,6 +117,19 @@ func (s *iterSensitivity) slotsForCall(call *ast.Call) map[int]bool {
 		}
 	}
 	return nil
+}
+
+// callbackSlots is slotsForCall for a call whose piped value is pipeLHS, or
+// nil: a stateless `Iter.loop(fn -> ...)`, with no starting state, has its
+// callback in slot 0.
+func (s *iterSensitivity) callbackSlots(call *ast.Call, pipeLHS ast.Node) map[int]bool {
+	slots := s.slotsForCall(call)
+	if slots != nil && s.isIterOwnerCall(call, "loop") {
+		if _, from := loopCallArgs(call, pipeLHS); from == nil {
+			return map[int]bool{0: true}
+		}
+	}
+	return slots
 }
 
 func (s *iterSensitivity) slotsForStdlibCallbackSymbol(sym *Symbol) map[int]bool {
@@ -445,8 +459,8 @@ func iterCallbackArity(iteration string) int {
 // callback and that its signature fits: the iteration in that holds the use
 // when fd fits its callback, else `Iter.map` for a one-parameter function and
 // `Iter.reduce` for a two-parameter one whose accumulator is its result, or
-// "" when none fits. A fold and `Iter.loop` take their starting value by
-// name.
+// "" when none fits. A fold and `Iter.loop` take their starting value
+// before the callback.
 func callbackShape(fd *ast.FuncDef, name, in string) string {
 	fits := func(iteration string) bool {
 		if len(fd.Params) != iterCallbackArity(iteration) {
@@ -469,9 +483,9 @@ func callbackShape(fd *ast.FuncDef, name, in string) string {
 	write := func(iteration string) string {
 		switch {
 		case iteration == "Iter.loop":
-			return fmt.Sprintf("Iter.loop(%s, from: <start>)", name)
+			return fmt.Sprintf("Iter.loop(<start>, %s)", name)
 		case iterCallbackArity(iteration) == 2:
-			return fmt.Sprintf("%s(xs, %s, from: <start>)", iteration, name)
+			return fmt.Sprintf("%s(xs, <start>, %s)", iteration, name)
 		case iteration == "Iter.iterate":
 			return fmt.Sprintf("Iter.iterate(seed, %s)", name)
 		case strings.HasPrefix(iteration, "Map."):
@@ -530,7 +544,7 @@ func (s *iterSensitivity) validate(nodes []ast.Node) {
 //
 // An iter-sensitive function may stand in one place: as an iteration
 // function's callback argument (`Iter.map(xs, keep)`, `Iter.find(xs, f:
-// keep)`, `xs |> Iter.map(keep)`, `Iter.reduce(xs, keep, from: 0)`). Nomi
+// keep)`, `xs |> Iter.map(keep)`, `Iter.reduce(xs, 0, keep)`). Nomi
 // has no non-local control flow, and its `break` and `continue` leave only
 // the function they are written in, as a signal to the iteration function
 // that called it. A call anywhere, the whole body of a callback lambda or
@@ -542,15 +556,14 @@ func (s *iterSensitivity) checkUses(nodes []ast.Node) map[*ast.FuncDef]bool {
 	in := ""
 	var walk func(n ast.Node)
 	walkCall := func(call *ast.Call, pipeLHS ast.Node) {
-		s.checkReduceSeed(call, pipeLHS)
-		s.checkLoopSeed(call, pipeLHS)
+		s.checkStatelessLoop(call, pipeLHS)
 		if fd := s.sensitiveFunc(call.Func); fd != nil {
 			used[fd] = true
 			s.errors = append(s.errors, s.iterSensitiveUseError(call.Func, calleeText(call.Func), fd, true, in))
 		} else if _, named := call.Func.(*ast.Ident); !named {
 			walk(call.Func)
 		}
-		slots := s.slotsForCall(call)
+		slots := s.callbackSlots(call, pipeLHS)
 		iteration := ""
 		if slots != nil {
 			iteration = s.iterationName(call)
@@ -626,7 +639,7 @@ func (s *iterSensitivity) checkUses(nodes []ast.Node) map[*ast.FuncDef]bool {
 // callback slots are slots (counting a piped source in args), is the
 // callback: the one named for the callback parameter (`f`, `pred`, `step`),
 // or the positional that fills a callback slot. Positionals fill slots in
-// order around the named ones, so in `Iter.reduce(xs, from: 0, keep)` the
+// order around the named ones, so in `Iter.reduce(xs, 0, keep)` the
 // callback is `keep`, and in `Iter.map(source: xs, keep)` it is too.
 func isCallbackArg(slots map[int]bool, args []ast.Node, i int) bool {
 	if na, ok := args[i].(*ast.NamedArg); ok {
@@ -651,7 +664,7 @@ func isCallbackArg(slots map[int]bool, args []ast.Node, i int) bool {
 // parameter before it.
 var (
 	callbackParamNames = map[string]bool{"f": true, "pred": true, "step": true}
-	sourceParamNames   = map[string]bool{"source": true, "seed": true, "m": true}
+	sourceParamNames   = map[string]bool{"source": true, "seed": true, "m": true, seedParam: true}
 )
 
 // reportNoCallSites emits an error for an iter-sensitive function of this
@@ -724,7 +737,7 @@ func (s *iterSensitivity) reportStrayBreaks(nodes []ast.Node) {
 	var walk func(n ast.Node, in place)
 	walkCall := func(call *ast.Call, pipeLHS ast.Node, in place) {
 		walk(call.Func, in)
-		slots := s.slotsForCall(call)
+		slots := s.callbackSlots(call, pipeLHS)
 		args := call.Args
 		if pipeLHS != nil {
 			args = append([]ast.Node{pipeLHS}, call.Args...)
@@ -829,14 +842,16 @@ func signalPos(n ast.Node) (int, int) {
 	return line, col
 }
 
-// seededCallArgs splits a seeded iteration call (`Iter.reduce`, `scan`,
-// `map_reduce` with withSource, `Iter.loop` without) into what the seed rule
-// reads: the callback (the last positional after the source, or `f:`), the
-// `from:` argument's value, and a starting value written positionally
-// (`Iter.reduce(xs, 0, add)`), each nil when absent. pipeLHS is the piped
-// source, or nil.
-func seededCallArgs(call *ast.Call, pipeLHS ast.Node, withSource bool) (cb, from, positionalSeed ast.Node) {
+// loopCallArgs splits an `Iter.loop` call into its callback and its
+// starting state as the call's slots route them: the callback is `f:` or the
+// last positional argument, and the starting state `from:` or the first
+// positional argument before it. A stateless loop, `Iter.loop(fn -> ...)`,
+// has its callback alone. pipeLHS is the piped value, or nil.
+func loopCallArgs(call *ast.Call, pipeLHS ast.Node) (cb, from ast.Node) {
 	var positional []ast.Node
+	if pipeLHS != nil {
+		positional = append(positional, pipeLHS)
+	}
 	for _, arg := range call.Args {
 		if na, ok := arg.(*ast.NamedArg); ok {
 			switch na.Name {
@@ -849,132 +864,28 @@ func seededCallArgs(call *ast.Call, pipeLHS ast.Node, withSource bool) (cb, from
 		}
 		positional = append(positional, arg)
 	}
-	if withSource && pipeLHS == nil && len(positional) > 0 {
-		positional = positional[1:]
+	if cb == nil && len(positional) > 0 {
+		cb, positional = positional[len(positional)-1], positional[:len(positional)-1]
 	}
-	if len(positional) > 0 && cb == nil {
-		cb = positional[len(positional)-1]
-		positional = positional[:len(positional)-1]
+	if from == nil && len(positional) > 0 {
+		from = positional[0]
 	}
-	if len(positional) > 0 {
-		positionalSeed = positional[0]
-	}
-	return cb, from, positionalSeed
+	return cb, from
 }
 
-// checkReduceSeed reports an `Iter.reduce`, `Iter.scan` or `Iter.map_reduce`
-// whose starting value is not given exactly once. It is given by name,
-// `from: 0`, with any callback (a named function, a capture, a lambda), or
-// as the callback lambda's first-parameter default (`fn acc = 0, x -> acc +
-// x`). Neither is an error, since there is no first-element fallback and an
-// empty source would have no answer; both is an error, since the call would
-// have two. A callback slot left open (`Iter.reduce(xs, &1)`) is rejected
-// too. It runs in this pass because the pass already visits every call.
-func (s *iterSensitivity) checkReduceSeed(call *ast.Call, pipeLHS ast.Node) {
-	name := ""
-	for _, seeded := range seededIterFuncs {
-		if s.isIterOwnerCall(call, seeded) {
-			name = seeded
-			break
-		}
-	}
-	if name == "" {
-		return
-	}
-	cb, from, positionalSeed := seededCallArgs(call, pipeLHS, true)
-	if positionalSeed != nil {
-		e := errAt(positionalSeed, fmt.Sprintf("`Iter.%s` takes its starting value by name", name))
-		e.Hints = []string{fmt.Sprintf("write it as `from:` after the callback: `Iter.%s(xs, f, from: <start>)`", name)}
-		s.errors = append(s.errors, e)
-		return
-	}
-	if cb == nil {
-		return
-	}
-	if _, open := cb.(*ast.Placeholder); open {
-		s.errors = append(s.errors, reduceSeedError(name, cb, fmt.Sprintf("pass the callback here: `Iter.%s(xs, f, from: <start>)`", name)))
-		return
-	}
-	lam, isLambda := cb.(*ast.Lambda)
-	defaulted := isLambda && len(lam.Params) > 0 && lam.Params[0].Default != nil
-	switch {
-	case from != nil && defaulted:
-		e := errAt(from, fmt.Sprintf("`Iter.%s` has two starting values: `from:` and the default of the callback's first parameter", name))
-		e.Hints = []string{fmt.Sprintf("keep one: remove `from:`, or remove the default from `%s`", paramText(lam.Params[0]))}
-		s.errors = append(s.errors, e)
-	case from == nil && !defaulted:
-		s.errors = append(s.errors, reduceSeedError(name, cb, reduceSeedHints(name, cb)...))
-	}
-}
-
-// paramText is a lambda parameter's name, or "the first parameter" for a
-// pattern one.
-func paramText(p ast.Param) string {
-	if p.Destructure != nil || p.Name == "" {
-		return "the first parameter"
-	}
-	return p.Name
-}
-
-// checkLoopSeed reports an `Iter.loop` whose starting state is not given
-// exactly once. A loop with state starts from `from` (`Iter.loop(step, from:
-// 0)`, any callback) or from the callback lambda's parameter default (`fn n
-// = 0 -> ...`); a stateless loop is a lambda with no parameter (`fn -> ...`)
-// and takes neither. A callback with state and no starting state would have
-// no first state to call the callback with, and one with both would have
-// two.
-func (s *iterSensitivity) checkLoopSeed(call *ast.Call, pipeLHS ast.Node) {
+// checkStatelessLoop reports a stateless `Iter.loop` (`fn -> ...`, whose
+// state is Unit) given a starting state.
+func (s *iterSensitivity) checkStatelessLoop(call *ast.Call, pipeLHS ast.Node) {
 	if !s.isIterOwnerCall(call, "loop") {
 		return
 	}
-	cb, from, positionalSeed := seededCallArgs(call, pipeLHS, false)
-	if pipeLHS != nil && cb == nil {
-		cb = pipeLHS
-	}
-	if positionalSeed != nil {
-		e := errAt(positionalSeed, "`Iter.loop` takes its starting state by name")
-		e.Hints = []string{"write it as `from:` after the callback: `Iter.loop(step, from: <start>)`"}
-		s.errors = append(s.errors, e)
-		return
-	}
-	if cb == nil {
-		return
-	}
-	if _, open := cb.(*ast.Placeholder); open {
-		return
-	}
-	lam, isLambda := cb.(*ast.Lambda)
-	stateless := isLambda && len(lam.Params) == 0
-	defaulted := isLambda && len(lam.Params) > 0 && lam.Params[0].Default != nil
-	switch {
-	case from != nil && stateless:
+	cb, from := loopCallArgs(call, pipeLHS)
+	if lam, ok := cb.(*ast.Lambda); ok && len(lam.Params) == 0 && from != nil {
 		e := errAt(from, "a stateless `Iter.loop` takes no starting state")
-		e.Hints = []string{"remove `from:`, or give the callback a parameter for the state: `fn state -> ...`"}
-		s.errors = append(s.errors, e)
-	case from != nil && defaulted:
-		e := errAt(from, "`Iter.loop` has two starting states: `from:` and the default of the callback's parameter")
-		e.Hints = []string{fmt.Sprintf("keep one: remove `from:`, or remove the default from `%s`", paramText(lam.Params[0]))}
-		s.errors = append(s.errors, e)
-	case from == nil && !stateless && !defaulted:
-		e := errAt(cb, loopSeedMessage)
-		switch n := cb.(type) {
-		case *ast.Lambda:
-			name := "state"
-			if n.Params[0].Destructure == nil && n.Params[0].Name != "" {
-				name = n.Params[0].Name
-			}
-			e.Hints = []string{fmt.Sprintf("give it with `from:`, `Iter.loop(fn %s -> ..., from: <start>)`, or as the parameter's default, `fn %s = <start> -> ...`; or take no parameter for a loop with no state: `fn -> ...`", name, name)}
-		case *ast.Ident, *ast.FieldAccess:
-			e.Hints = []string{fmt.Sprintf("give it with `from:`: `Iter.loop(%s, from: <start>)`", calleeText(n))}
-		default:
-			e.Hints = []string{"give it with `from:`: `Iter.loop(step, from: <start>)`, or pass a lambda whose state has a default: `fn state = <start> -> ...`"}
-		}
+		e.Hints = []string{"remove the starting state, or give the callback a parameter for the state: `Iter.loop(<start>, fn state -> ...)`"}
 		s.errors = append(s.errors, e)
 	}
 }
-
-// loopSeedMessage is the error every unseeded `Iter.loop` reports.
-const loopSeedMessage = "`Iter.loop` needs a starting state"
 
 // isIterOwnerCall reports whether call calls std's `Iter.<name>`, however it
 // is spelled: owner-qualified, through an owner alias, or bare inside std's
@@ -987,25 +898,19 @@ func (s *iterSensitivity) isIterOwnerCall(call *ast.Call, name string) bool {
 	return sym != nil && sym.OwningType == "Iter" && sym.Name == name
 }
 
-// seededIterFuncs are the `Iter` owner functions that fold with a starting
-// value: `from`, or the callback lambda's first-parameter default.
+// seededIterFuncs are the `Iter` owner functions that fold from a starting
+// value, their `from` parameter, with a two-parameter callback.
 var seededIterFuncs = []string{"reduce", "scan", "map_reduce"}
 
-// seedParam is the parameter a seeded iteration function (seededIterFuncs and
-// `Iter.loop`) takes its starting value in, when the callback lambda does not
-// carry it.
+// seedParam is the parameter `Iter.loop` takes its starting state in.
 const seedParam = "from"
 
-// routeAroundSeed moves a positional argument the slot routing put in a
-// seeded iteration call's `from` slot to the callback slot, the last, when no
-// other positional argument fills that: the starting value is given by name
-// or by the callback lambda's default, so `Iter.reduce(xs, Int.add, from: 0)`
-// passes `Int.add` as the callback, as a bare name routes there
-// (routesAsTrailingFunc). A starting value written positionally keeps its
-// slot, and checkReduceSeed asks for it by name. slots is the routing of
+// routeAroundSeed moves the one positional argument of a stateless
+// `Iter.loop(fn -> ...)`, which the slot routing put in the `from` slot, to
+// the callback slot, the last (statelessLoopSlot). slots is the routing of
 // args, -1 for a named argument.
 func (c *checker) routeAroundSeed(call *ast.Call, args []ast.Node, slots []int, nParams int) {
-	seed := c.optionalSeedSlot(call)
+	seed := c.statelessLoopSlot(call)
 	last := nParams - 1
 	if seed < 0 || seed == last {
 		return
@@ -1030,29 +935,16 @@ func (c *checker) routeAroundSeed(call *ast.Call, args []ast.Node, slots []int, 
 	}
 }
 
-// seedingIterFunc is the name of the std `Iter` function call calls when it
-// takes a starting value (`reduce`, `scan`, `map_reduce` or `loop`), or "".
-func (fa *FileAnalysis) seedingIterFunc(call *ast.Call) string {
-	if fa == nil || call == nil {
-		return ""
+// statelessLoopSlot is the index of `Iter.loop`'s `from` parameter when call
+// is a stateless loop, `Iter.loop(fn -> ...)`, or -1 for any other call. A
+// stateless loop's state is Unit, so it leaves `from` out: the arity checks
+// count the parameter as optional for it alone.
+func (c *checker) statelessLoopSlot(call *ast.Call) int {
+	if c.fa == nil || call == nil || !(&iterSensitivity{fa: c.fa}).isIterOwnerCall(call, "loop") {
+		return -1
 	}
-	s := &iterSensitivity{fa: fa}
-	for _, name := range append([]string{"loop"}, seededIterFuncs...) {
-		if s.isIterOwnerCall(call, name) {
-			return name
-		}
-	}
-	return ""
-}
-
-// optionalSeedSlot is the index of a seeded iteration call's `from`
-// parameter, or -1 for any other call. The parameter has no default, yet a
-// call may leave it out: the callback lambda's first-parameter default is
-// then the starting value. Which of the two gives it, and that exactly one
-// does, is checkReduceSeed's and checkLoopSeed's to report, so the arity
-// checks count `from` as optional.
-func (c *checker) optionalSeedSlot(call *ast.Call) int {
-	if c.fa.seedingIterFunc(call) == "" {
+	cb, from := loopCallArgs(call, nil)
+	if lam, ok := cb.(*ast.Lambda); !ok || len(lam.Params) != 0 || from != nil {
 		return -1
 	}
 	for i, name := range c.callDefParams(call.Func) {
@@ -1061,45 +953,6 @@ func (c *checker) optionalSeedSlot(call *ast.Call) int {
 		}
 	}
 	return -1
-}
-
-// reduceSeedError is the error an unseeded call to the seeded `Iter`
-// function name reports: "`Iter.reduce` needs a starting value".
-func reduceSeedError(name string, at ast.Node, hints ...string) TypeError {
-	e := errAt(at, fmt.Sprintf("`Iter.%s` needs a starting value", name))
-	e.Hints = hints
-	return e
-}
-
-// reduceSeedHints shows the two spellings of cb's starting value: `from:`,
-// and for a lambda its accumulator's default. A function named `min` or `max`
-// also points at `Iter.min` / `Iter.max`.
-func reduceSeedHints(fn string, cb ast.Node) []string {
-	switch n := cb.(type) {
-	case *ast.Lambda:
-		acc, item := "acc", "x"
-		if len(n.Params) == 2 && n.Params[0].Destructure == nil && n.Params[1].Destructure == nil {
-			acc, item = n.Params[0].Name, n.Params[1].Name
-		}
-		return []string{fmt.Sprintf("give it with `from:`, `Iter.%s(xs, fn %s, %s -> ..., from: <start>)`, or as the accumulator's default, `fn %s = <start>, %s -> ...`", fn, acc, item, acc, item)}
-	case *ast.Ident, *ast.FieldAccess:
-		callee := calleeText(n)
-		if callee == "?" || strings.HasPrefix(callee, "?.") {
-			break
-		}
-		hints := []string{fmt.Sprintf("give it with `from:`: `Iter.%s(xs, %s, from: <start>)`", fn, callee)}
-		if fn != "reduce" {
-			return hints
-		}
-		switch callee[strings.LastIndexByte(callee, '.')+1:] {
-		case "min":
-			hints = append(hints, "for the least element, `Iter.min(xs)` answers a `Maybe`, with `None` for an empty source")
-		case "max":
-			hints = append(hints, "for the greatest element, `Iter.max(xs)` answers a `Maybe`, with `None` for an empty source")
-		}
-		return hints
-	}
-	return []string{fmt.Sprintf("give it with `from:`: `Iter.%s(xs, f, from: <start>)`, or pass a lambda whose accumulator has a default: `fn acc = <start>, x -> ...`", fn)}
 }
 
 // unwrapNamedArg is the value a call argument passes: a named argument's

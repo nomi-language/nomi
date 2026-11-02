@@ -359,7 +359,8 @@ func (a *Arith) Rhs() Temp { return a.rhs }
 //   - Int `/` and `%` fault on a zero divisor only.
 //   - Float `+ - * /` and unary `-` never fault. IEEE has an answer for every
 //     input including a zero divisor, and `rt.DivFloat` is Go's own `/`.
-//   - Float `%` is UNDEFINED: `rt.ModFloat` always traps.
+//   - Float `%` is undefined: the checker rejects it, and `rt.ModFloat`
+//     always traps.
 //   - Decimal `+ - *` and unary `-` are exact and never fail. `/` and `%` are
 //     undefined: the checker rejects both, `rt.ModDecimal` always traps, and
 //     the VM refuses a Decimal `/`.

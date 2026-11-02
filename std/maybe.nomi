@@ -143,7 +143,7 @@ impl Maybe<T> {
     //! assert stopped == Maybe.None
     //
     pub fn collect<T>(maybes: Iter<Maybe<T>>) -> Maybe<List<T>> {
-        reversed = Iter.reduce(maybes, fn acc: Maybe<List<T>> = Maybe.Some([]), item -> {
+        reversed = Iter.reduce(maybes, Maybe.Some([]), fn acc: Maybe<List<T>>, item -> {
             case item {
                 Some(v) -> Maybe.map(acc, fn vs -> [v, ..vs])
                 None -> break Maybe.None
@@ -175,7 +175,7 @@ impl Maybe<T> {
     //! assert halves == [2, 4]
     //
     pub fn values<T>(maybes: Iter<Maybe<T>>) -> List<T> {
-        reversed = Iter.reduce(maybes, fn acc: List<T> = [], item -> {
+        reversed = Iter.reduce(maybes, [], fn acc: List<T>, item -> {
             case item {
                 Some(v) -> [v, ..acc]
                 None -> acc

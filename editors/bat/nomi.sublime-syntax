@@ -204,7 +204,7 @@ contexts:
     - match: '\b{{type_ident}}\b'
       scope: storage.type.nomi
     # A capture's parameter, `&1`, and the capture's `&`, written against
-    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`, `&!f(&1)`.
+    # the function's body: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}`, `&!f(&1)`.
     - match: '&[1-9][0-9]*'
       scope: variable.parameter.nomi
     - match: '&(?=[(\[#%.!A-Za-z])'
@@ -217,9 +217,10 @@ contexts:
       scope: variable.other.nomi
 
   punctuation:
-    # `#` starts a struct, tuple or vector literal: `#{`, `#(`, `#[`, or
-    # with the type name right after it, `#Point{`, `#.Circle{`,
-    # `#geo.Point{`.
+    # `#` starts an anonymous struct, a tuple or a vector literal: `#{`,
+    # `#(`, `#[`, or a named vector with its type right after it,
+    # `#Path[`, `#.Items[`. A named struct or tuple has no `#`:
+    # `Point{x: 1}`, `Pair(1, "x")`.
     - match: '#(?=[\{(\[.A-Z]|{{ident}}\.[A-Z])'
       scope: punctuation.section.nomi
     - match: '[,.:;]'

@@ -134,7 +134,7 @@ func TestFindMissingImports_PreludeTypeNoSuggestion(t *testing.T) {
 // A locally-declared type that happens to share a stdlib name must not be
 // flagged (definition positions are excluded; uses of it resolve locally).
 func TestFindMissingImports_LocalTypeDefinitionNoSuggestion(t *testing.T) {
-	got := buildMissing(t, "struct Set {\n  n: Int\n}\n\nfn main() {\n  #Set{n: 1}\n}\n")
+	got := buildMissing(t, "struct Set {\n  n: Int\n}\n\nfn main() {\n  Set{n: 1}\n}\n")
 	if len(got) != 0 {
 		t.Errorf("want none for a locally-defined Set, got %+v", got)
 	}

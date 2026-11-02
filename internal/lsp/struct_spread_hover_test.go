@@ -22,7 +22,7 @@ func TestHover_StructSpread(t *testing.T) {
 }
 
 fn shift() -> Point {
-  origin = #Point{x: 1, y: 2}
+  origin = Point{x: 1, y: 2}
   MARK
 }
 `

@@ -11,14 +11,27 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 53
-declared-cases 632
+records 64
+declared-cases 755
 failing 0
+C actors
+E 0
+N 1
+H 569c1b583fa74513313d659110f084036edcd7d5f25b45569545ca0e5bcc125d
+T ok CallError.to_string (impl Display for CallError)
 C assertions
 E 0
 N 1
 H 121e0600dcb9ee476b886cbace4c2f30df52d35352abdfc4def760477e2b27e8
 T ok AssertionFailure.format
+C base64
+E 0
+N 4
+H 7dfb337b4b6cf525575a7d1403d5def7e43961fe0acd678e4243b1575bf3a207
+T ok base64.encode
+T ok base64.decode
+T ok base64.encode_url
+T ok base64.decode_url
 C bits
 E 0
 N 7
@@ -126,13 +139,19 @@ T ok type TimePattern
 T ok type DateTimePattern
 C channels
 E 0
-N 5
-H 4884d50602c3800236a9e8210df0e465f19e65a3cabd3e40ea1e92d9252c8752
+N 11
+H feac8cd1a47cf8a00eae3338e6021565c4faac1a0b4a49872cc3ef2656b734cf
 T ok Channel.buffered
 T ok Channel.unbuffered
+T ok Channel.select
 T ok Sender.send
 T ok Sender.close
+T ok Sender.close_on_drain
 T ok Receiver.receive
+T ok Receiver.receive_within
+T ok Arm.receive
+T ok Arm.send
+T ok Arm.after
 C code_points
 E 0
 N 12
@@ -340,10 +359,78 @@ T ok fs_testing.text
 T ok fs_testing.conformance
 C hash
 E 0
-N 2
-H a2a2bef4df14d37da9f78c1b176adef53cdd1a1d09f5e5e754e978a3cfb0198c
+N 9
+H 37fa0bd6e7b71f1bb63bd3ba124ca8dc4471579da955dfc12e724fdfcc4bc179
 T ok hash.sha256
 T ok hash.sha256_hex
+T ok hash.sha512
+T ok hash.sha512_hex
+T ok hash.hmac_sha256
+T ok hash.hmac_sha256 #2
+T ok hash.hmac_sha512
+T ok hash.hmac_sha512 #2
+T ok hash.equal_in_constant_time
+C hex
+E 0
+N 2
+H 28e33cf39d24ca75107c3747b15aff1c5a0b49742f2edc42c4ca3049804b2500
+T ok hex.encode
+T ok hex.decode
+C http
+E 0
+N 43
+H d2b1112ea56eaa9be83bb3dd560fbb49ea0d56c9e091ed7734b46989c94726ae
+T ok Method.text
+T ok Method.parse
+T ok Status.from_code
+T ok Status.text
+T ok Status.line
+T ok Status.is_success
+T ok Headers.canonical_key
+T ok Headers.get
+T ok Headers.set
+T ok Headers.write_to
+T ok Body.read_all
+T ok FormPart.encode
+T ok FormPart.file_disposition
+T ok Protocol.at_least
+T ok Protocol.parse
+T ok Request.form
+T ok Request.form_file
+T ok Request.cookies
+T ok Request.basic_auth
+T ok Request.read
+T ok Request.dump
+T ok Response.write_to
+T ok Response.set_cookie
+T ok Response.error
+T ok Response.redirect
+T ok Response.content
+T ok Protocols.to_string (impl Display for Protocols)
+T ok type Route
+T ok Route.parse
+T ok struct Router
+T ok Router.new
+T ok http.strip_prefix
+T ok http.allow_query_semicolons
+T ok http.timeout
+T ok CrossOrigin.check
+T ok http.detect_content_type
+T ok http.format_time
+T ok Cookie.parse_header
+T ok Cookie.parse_set_cookie
+T ok CookieJar.cookies
+T ok ConnState.to_string (impl Display for ConnState)
+T ok http.chunked_reader
+T ok http.multipart_parts
+C http_testing
+E 0
+N 4
+H cd4f005b45dce2871da76751f6107eb4194f45ceba16e7da222c0c7baa5f67e8
+T ok http_testing.run
+T ok http_testing.request
+T ok http_testing.chunks
+T ok http_testing.with_server
 C instant
 E 0
 N 9
@@ -437,8 +524,8 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 57
-H ceb1c61fc00f308a9c7587e5c0380b7967e03ee8c12a91ab68e29e1a5148c9f4
+N 59
+H e85a39dd4407189c82dff0790e0bcfdf3eb40d6d7a0b062344097ed79ac26e0b
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
@@ -495,7 +582,9 @@ T ok Iter.max
 T ok Iter.min_by
 T ok Iter.max_by
 T ok Iter.sum
+T ok Iter.sum_by
 T ok Iter.product
+T ok Iter.product_by
 C json
 E 0
 N 5
@@ -544,6 +633,23 @@ H c6f2113efec00b65698dc88633bbe444211b9005ce9d85df8738b9a186ac8639
 T ok interface Localize
 T ok enum NumberParseError
 T ok NumberParseError.to_string (impl Display for NumberParseError)
+C log
+E 0
+N 8
+H 72f1fd6acf8c78c51d0d87bdd15c32c66ad5e38e2d9bd3b036bd90c2fbee24e0
+T ok Level.rank
+T ok Level.at_least
+T ok Level.to_string (impl Display for Level)
+T ok log.string
+T ok log.any
+T ok Logger.text
+T ok Logger.json
+T ok Logger.enabled
+C log_testing
+E 0
+N 1
+H b07491426ce7385c46289528f48c62cffac746919216f5009fc06f46304aa9d5
+T ok log_testing.run
 C maps
 E 0
 N 16
@@ -605,6 +711,16 @@ T ok Money.empty_sum (impl Summable for Money)
 T ok Money.from_fragments (impl Literal for Money)
 T ok Money.to_string (impl Display for Money)
 T ok Error.to_string (impl Display for Error)
+C net
+E 0
+N 6
+H b635913679337a15a7c6dc637fad342ecc9605f4dfa7e9538ae6f471d6c23bd5
+T ok Error.to_string (impl Display for Error)
+T ok net.pipe
+T ok net.split_host_port
+T ok net.join_host_port
+T ok net.lookup_host
+T ok net.lookup_port
 C path
 E 0
 N 10
@@ -630,9 +746,22 @@ T ok PluralCategory.cardinals
 T ok PluralCategory.ordinals
 C process
 E 0
-N 1
-H a978df8c7f4582ae68e0d4c156cd5fa980bf7f781206b5e9ba1cb1c18391deb4
+N 8
+H dc612ebcb153c35b5cf28e3aabad8f94e687015c07ec18f3b0bcf4a16309fca2
 T ok struct Exit
+T ok struct Command
+T ok Status.is_success
+T ok Status.code
+T ok Status.to_string (impl Display for Status)
+T ok process.output
+T ok process.run
+T ok process.with_spawned
+C process_testing
+E 0
+N 2
+H a9a94983bb3702700f459d7d9b73de67037a553f100382e56c9311aed28ee2b9
+T ok struct Answer
+T ok process_testing.run
 C productable
 E 0
 N 1
@@ -640,9 +769,10 @@ H 160ca3a8a6588c1e688c9dfee1c5e35f497aa4ac7e136b369308cf3c6b427846
 T ok interface Productable
 C random
 E 0
-N 11
-H 5f6289392fc42527a3fe517966c7ef21ac3a0a8ee03036758fbacee6f54688bd
+N 12
+H f5cd607ec906af53f51cb8d28240018c77db5e4025e55471b535737428f1c8e8
 T ok Seed.from_int
+T ok random.secure_bytes
 T ok Generator.step
 T ok Generator.int
 T ok Generator.float
@@ -817,6 +947,15 @@ E 0
 N 1
 H d32ee0ffb81943e76ef7703be67e41e793ba900ec933672de8b19741ddfeb05f
 T ok timer.sleep
+C tls
+E 0
+N 5
+H ef26942a2c7dea3ac4df7170edc49a9f864eee07ab2b073e2f07866812a3ff9d
+T ok Version.to_string (impl Display for Version)
+T ok Curve.to_string (impl Display for Curve)
+T ok CipherSuite.secure
+T ok CipherSuite.name_of
+T ok Error.to_string (impl Display for Error)
 C toml
 E 0
 N 1
@@ -827,6 +966,34 @@ E 0
 N 1
 H d844d8776c7fd46ddf735722ffe49dd805be4b36bcd8cc2ffdf6f6fb8ed07ef4
 T ok type Unit
+C url
+E 0
+N 24
+H 82b336c64bf8d3994ced6db8930c605e8318c6a851e6380cb2d9351401a3d57c
+T ok url.escape_query
+T ok url.unescape_query
+T ok url.escape_path_segment
+T ok url.unescape_path_segment
+T ok Url.parse
+T ok Url.parse_request_uri
+T ok Url.is_absolute
+T ok Url.hostname
+T ok Url.port
+T ok Url.escaped_path
+T ok Url.escaped_fragment
+T ok Url.request_uri
+T ok Url.redacted
+T ok Url.query_values
+T ok Url.with_query
+T ok Url.resolve
+T ok Url.resolve_text
+T ok Url.join_path
+T ok Url.to_string (impl Display for Url)
+T ok Url.from_fragments (impl Literal for Url)
+T ok Query.parse
+T ok Query.get
+T ok Query.set
+T ok Query.encode
 C uuid
 E 0
 N 9

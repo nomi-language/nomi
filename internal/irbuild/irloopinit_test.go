@@ -20,7 +20,7 @@ import (
 func TestIRLoopInInitializer_OnceSpecProgram(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
-once total = Iter.loop(fn i = 0 -> {
+once total = Iter.loop(0, fn i -> {
     if i > 3 { break i * 10 }
     i + 1
 })
@@ -47,7 +47,7 @@ once total = {
         _ = Sender.send(ch.sender, n)
     })
     Sender.close(ch.sender)
-    Iter.loop(fn acc = 0 -> {
+    Iter.loop(0, fn acc -> {
         n = case Receiver.receive(ch.receiver) {
             Some(n) -> n
             None -> break acc
@@ -61,7 +61,7 @@ once total = {
     })
 }
 
-once scale = fn k: Int -> Iter.loop(fn n = 1 -> {
+once scale = fn k: Int -> Iter.loop(1, fn n -> {
     if n == 2 { return 5 }
     if n >= k { break n }
     n * 2
@@ -101,7 +101,7 @@ fn boot() -> Result<App, String> {
         _ = Sender.send(ch.sender, n)
     })
     Sender.close(ch.sender)
-    total = Iter.loop(fn acc = 0 -> {
+    total = Iter.loop(0, fn acc -> {
         n = case Receiver.receive(ch.receiver) {
             Some(n) -> n
             None -> break acc
@@ -111,12 +111,12 @@ fn boot() -> Result<App, String> {
         if n == 9 { break acc * 2 }
         acc + n
     })
-    steps = fn k: Int -> Iter.loop(fn n = 0 -> {
+    steps = fn k: Int -> Iter.loop(0, fn n -> {
         if n == 3 { return 4 }
         if n >= k { break n }
         n + 3
     })
-    Ok(#App{context: Context.root(), total: total, stepped: steps(10)})
+    Ok(App{context: Context.root(), total: total, stepped: steps(10)})
 }
 
 fn main() {
@@ -124,16 +124,16 @@ fn main() {
     io.inspect(App.stepped)
     io.inspect(lib.pick())
     io.inspect(lib.pick(3))
-    io.inspect(#lib.Cfg{}.n)
+    io.inspect(lib.Cfg{}.n)
 }
 `, "214\n10\n32\n24\n12\n", map[string]string{"lib.nomi": `pub struct Cfg {
-    n: Int = Iter.loop(fn i = 0 -> {
+    n: Int = Iter.loop(0, fn i -> {
         if i >= 4 { break i * 3 }
         i + 1
     })
 }
 
-pub fn pick(a: Int = 1, k: Int = Iter.loop(fn i = a -> {
+pub fn pick(a: Int = 1, k: Int = Iter.loop(a, fn i -> {
     if i > 20 { break i }
     i * 2
 })) -> Int {
@@ -147,14 +147,14 @@ func TestIRLoopInInitializer_SameFileDefaults(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 struct Cfg {
-    n: Int = Iter.loop(fn i = 0 -> {
+    n: Int = Iter.loop(0, fn i -> {
         if i == 1 { return 3 }
         if i >= 4 { break i }
         i + 1
     })
 }
 
-fn pick(k: Int = Iter.loop(fn i = 1 -> {
+fn pick(k: Int = Iter.loop(1, fn i -> {
     if i > 20 { break i }
     i * 2
 })) -> Int {
@@ -162,7 +162,7 @@ fn pick(k: Int = Iter.loop(fn i = 1 -> {
 }
 
 fn main() {
-    io.inspect(#Cfg{}.n)
+    io.inspect(Cfg{}.n)
     io.inspect(pick())
 }
 `, "4\n32\n")
@@ -180,12 +180,12 @@ pub struct App {
 }
 
 pub fn boot() -> Result<App, String> {
-    base = Iter.loop(fn i = 0 -> {
+    base = Iter.loop(0, fn i -> {
         if i == 1 { return 6 }
         if i > 5 { break i * 10 }
         i + 1
     })
-    Ok(#App{context: Context.root(), base: base})
+    Ok(App{context: Context.root(), base: base})
 }
 
 fn main() {}
@@ -198,13 +198,13 @@ struct Fix {
 group "loops in boot and setup" {
     boot boot()
     setup {
-        n = Iter.loop(fn i = 0 -> {
+        n = Iter.loop(0, fn i -> {
             if i == 2 { return 7 }
             if i > 10 { break i }
             i + 1
         })
         io.print("setup ${n}")
-        #Fix{n: n, f: fn k: Int -> Iter.loop(fn m = 0 -> {
+        Fix{n: n, f: fn k: Int -> Iter.loop(0, fn m -> {
             if m == 4 { return 6 }
             if m >= k { break m }
             m + 4

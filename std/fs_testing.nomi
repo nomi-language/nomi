@@ -19,7 +19,7 @@
 //# }
 //#
 //# test "sorts the lines into the output file" {
-//#     ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
+//#     ran = fs_testing.run(Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
 //#         sort_lines.sort_file("in.txt", "out.txt")
 //#     })
 //#
@@ -71,13 +71,13 @@ pub struct Sandbox {
 /// An operation on a path that fails with `error` instead of happening,
 /// every time, or only the `nth` matching time when `nth` is `Some(n)`. An
 /// atomic write whose `Write` fails leaves the old file in the sandbox.
-//! full = #Failure{path: "out.txt", operation: Operation.Write, error: #Error.NoSpace{path: "out.txt"}}
+//! full = Failure{path: "out.txt", operation: Operation.Write, error: Error.NoSpace{path: "out.txt"}}
 //!
-//! ran = run(#Sandbox{files: %{"out.txt" => "old"}, failures: [full]}, fn -> {
+//! ran = run(Sandbox{files: %{"out.txt" => "old"}, failures: [full]}, fn -> {
 //!     fs.write_text("out.txt", "new", mode: WriteMode.ReplaceAtomically)
 //! })
 //!
-//! assert ran.value == Err(#Error.NoSpace{path: "out.txt"})
+//! assert ran.value == Err(Error.NoSpace{path: "out.txt"})
 //! assert text(ran, "/work/out.txt") == Some("old")
 //
 pub struct Failure {
@@ -141,7 +141,7 @@ pub struct Ran<T> {
 /// Runs `body` with an in-memory file system built from `sandbox`, and
 /// answers what it returned with the files afterwards. Nothing touches the
 /// disk. If `body` traps, the trap propagates.
-//! ran = run(#Sandbox{files: %{"in.txt" => "b\na\n"}}, fn -> {
+//! ran = run(Sandbox{files: %{"in.txt" => "b\na\n"}}, fn -> {
 //!     names = Result.collect(fs.lines("in.txt"))?
 //!     fs.write_text("out.txt", String.join(Iter.sort(names), ","))
 //! })
@@ -173,7 +173,7 @@ pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T> {
 
     value = fs_host.run_in(fake, body)
 
-    #Ran{
+    Ran{
         value,
         files: fs_host.sandbox_files(fake),
         log: fs_host.sandbox_log(fake),
@@ -196,7 +196,7 @@ fn operation_code(operation: Operation) -> Int {
 
 /// The text of the file at the absolute path `at` when `run` returned, or
 /// `None` when it is missing or not UTF-8.
-//! ran = run(#Sandbox{}, fn -> fs.write_text("a.txt", "hi"))
+//! ran = run(Sandbox{}, fn -> fs.write_text("a.txt", "hi"))
 //! assert text(ran, "/work/a.txt") == Some("hi")
 //! assert text(ran, "a.txt") == None
 //
@@ -228,7 +228,7 @@ pub struct ConformanceFailure {
 /// std's own tests run it twice, against the disk inside
 /// `fs.with_temp_dir` and against a sandbox inside `run`, so a rule both
 /// pass is one the sandbox models as the disk behaves.
-//! assert run(#Sandbox{}, fn -> conformance("/work")).value == []
+//! assert run(Sandbox{}, fn -> conformance("/work")).value == []
 //!
 //! on_disk = fs.with_temp_dir(fn dir -> Ok(conformance(dir)))
 //! assert on_disk == Ok([])
@@ -240,11 +240,11 @@ pub fn conformance(root: String) -> List<ConformanceFailure> {
 
         case fs.create_dir(dir) {
             Err(e) ->
-                [#ConformanceFailure{rule, reason: "cannot make its directory: ${e}"}]
+                [ConformanceFailure{rule, reason: "cannot make its directory: ${e}"}]
 
             Ok(_) ->
                 case check(dir) {
-                    Some(reason) -> [#ConformanceFailure{rule, reason}]
+                    Some(reason) -> [ConformanceFailure{rule, reason}]
                     None -> []
                 }
         }
@@ -347,7 +347,7 @@ fn rule_new(dir: String) -> Maybe<String> {
         check(
             "new on an existing file",
             fs.write_text(p, "2", mode: WriteMode.New),
-            Err(#Error.AlreadyExists{path: p}),
+            Err(Error.AlreadyExists{path: p}),
         ),
         check("read", fs.read_text(p), Ok("1")),
     ])
@@ -397,12 +397,12 @@ fn rule_missing_parent(dir: String) -> Maybe<String> {
         check(
             "write into a missing directory",
             fs.write_text(path.join(missing, "x.txt"), "x"),
-            Err(#Error.NotFound{path: missing}),
+            Err(Error.NotFound{path: missing}),
         ),
         check(
             "create into a missing directory",
             Result.map(fs.create(path.join(missing, "y.txt")), fn _ -> Unit),
-            Err(#Error.NotFound{path: missing}),
+            Err(Error.NotFound{path: missing}),
         ),
     ])
 }
@@ -413,9 +413,9 @@ fn rule_sorted(dir: String) -> Maybe<String> {
         check("write a", fs.write_text(path.join(dir, "a.txt"), ""), Ok(Unit)),
         check("make b", fs.create_dir(path.join(dir, "b")), Ok(Unit)),
         check("listing", fs.list(dir), Ok([
-                #Entry{path: path.join(dir, "a.txt"), name: "a.txt", kind: Kind.File},
-                #Entry{path: path.join(dir, "b"), name: "b", kind: Kind.Directory},
-                #Entry{path: path.join(dir, "c.txt"), name: "c.txt", kind: Kind.File},
+                Entry{path: path.join(dir, "a.txt"), name: "a.txt", kind: Kind.File},
+                Entry{path: path.join(dir, "b"), name: "b", kind: Kind.Directory},
+                Entry{path: path.join(dir, "c.txt"), name: "c.txt", kind: Kind.File},
             ])),
     ])
 }
@@ -425,22 +425,22 @@ fn rule_list_file(dir: String) -> Maybe<String> {
 
     first([
         check("write", fs.write_text(p, ""), Ok(Unit)),
-        check("list a file", fs.list(p), Err(#Error.NotADirectory{path: p})),
+        check("list a file", fs.list(p), Err(Error.NotADirectory{path: p})),
         check(
             "list a missing directory",
             fs.list(path.join(dir, "none")),
-            Err(#Error.NotFound{path: path.join(dir, "none")}),
+            Err(Error.NotFound{path: path.join(dir, "none")}),
         ),
     ])
 }
 
 fn rule_read_dir(dir: String) -> Maybe<String> {
     first([
-        check("read_text of a directory", fs.read_text(dir), Err(#Error.IsADirectory{path: dir})),
+        check("read_text of a directory", fs.read_text(dir), Err(Error.IsADirectory{path: dir})),
         check(
             "open of a directory",
             Result.map(fs.open(dir), fn _ -> Unit),
-            Err(#Error.IsADirectory{path: dir}),
+            Err(Error.IsADirectory{path: dir}),
         ),
     ])
 }
@@ -451,7 +451,7 @@ fn rule_remove_full(dir: String) -> Maybe<String> {
     first([
         check("make sub", fs.create_dir(sub), Ok(Unit)),
         check("write in sub", fs.write_text(path.join(sub, "x"), ""), Ok(Unit)),
-        check("remove sub", fs.remove(sub), Err(#Error.DirectoryNotEmpty{path: sub})),
+        check("remove sub", fs.remove(sub), Err(Error.DirectoryNotEmpty{path: sub})),
         check("remove its file", fs.remove(path.join(sub, "x")), Ok(Unit)),
         check("remove the empty sub", fs.remove(sub), Ok(Unit)),
     ])
@@ -459,7 +459,7 @@ fn rule_remove_full(dir: String) -> Maybe<String> {
 
 fn rule_remove_missing(dir: String) -> Maybe<String> {
     p = path.join(dir, "none")
-    check("remove", fs.remove(p), Err(#Error.NotFound{path: p}))
+    check("remove", fs.remove(p), Err(Error.NotFound{path: p}))
 }
 
 fn rule_remove_all_missing(dir: String) -> Maybe<String> {
@@ -492,7 +492,7 @@ fn rule_rename(dir: String) -> Maybe<String> {
 
 fn rule_rename_missing(dir: String) -> Maybe<String> {
     p = path.join(dir, "none")
-    check("rename", fs.rename(p, path.join(dir, "x")), Err(#Error.NotFound{path: p}))
+    check("rename", fs.rename(p, path.join(dir, "x")), Err(Error.NotFound{path: p}))
 }
 
 fn rule_copy(dir: String) -> Maybe<String> {
@@ -515,11 +515,11 @@ fn rule_create_dir(dir: String) -> Maybe<String> {
         check(
             "without parents",
             fs.create_dir(deep),
-            Err(#Error.NotFound{path: path.join(dir, "x")}),
+            Err(Error.NotFound{path: path.join(dir, "x")}),
         ),
         check("with parents", fs.create_dir(deep, parents: True), Ok(Unit)),
         check("with parents again", fs.create_dir(deep, parents: True), Ok(Unit)),
-        check("again without parents", fs.create_dir(deep), Err(#Error.AlreadyExists{path: deep})),
+        check("again without parents", fs.create_dir(deep), Err(Error.AlreadyExists{path: deep})),
     ])
 }
 
@@ -538,7 +538,7 @@ fn rule_lines(dir: String) -> Maybe<String> {
             "a missing file",
             fs.lines(path.join(dir, "none"))
             |> Result.collect(),
-            Err(#Error.NotFound{path: path.join(dir, "none")}),
+            Err(Error.NotFound{path: path.join(dir, "none")}),
         ),
     ])
 }
@@ -564,12 +564,12 @@ fn rule_invalid_text(dir: String) -> Maybe<String> {
 
     first([
         check("write", fs.write(p, bytes_of([104, 105, 10, 255])), Ok(Unit)),
-        check("read_text", fs.read_text(p), Err(#Error.InvalidText{path: p, offset: 3})),
+        check("read_text", fs.read_text(p), Err(Error.InvalidText{path: p, offset: 3})),
         check(
             "lines",
             fs.lines(p)
             |> Iter.to_list(),
-            [Ok("hi"), Err(#Error.InvalidText{path: p, offset: 0})],
+            [Ok("hi"), Err(Error.InvalidText{path: p, offset: 0})],
         ),
     ])
 }
@@ -627,7 +627,7 @@ fn rule_metadata(dir: String) -> Maybe<String> {
         check(
             "a missing file",
             shape(path.join(dir, "none")),
-            Err(#Error.NotFound{path: path.join(dir, "none")}),
+            Err(Error.NotFound{path: path.join(dir, "none")}),
         ),
     ])
 }
@@ -673,7 +673,7 @@ fn rule_walk_missing(dir: String) -> Maybe<String> {
         "walk",
         fs.walk(none)
         |> Iter.to_list(),
-        [Err(#Error.NotFound{path: none})],
+        [Err(Error.NotFound{path: none})],
     )
 }
 
@@ -712,7 +712,7 @@ fn rule_symlink(dir: String) -> Maybe<String> {
         check(
             "link it again",
             fs.create_symlink(link, target: "t.txt"),
-            Err(#Error.AlreadyExists{path: link}),
+            Err(Error.AlreadyExists{path: link}),
         ),
         check("read through it", fs.read_text(link), Ok("four")),
         check("metadata follows it", kind(fs.metadata(link)), Ok(Kind.File)),
@@ -743,11 +743,11 @@ fn rule_dangling(dir: String) -> Maybe<String> {
             Result.map(fs.link_metadata(link), fn m -> m.kind),
             Ok(Kind.Symlink),
         ),
-        check("read", fs.read_text(link), Err(#Error.NotFound{path: link})),
+        check("read", fs.read_text(link), Err(Error.NotFound{path: link})),
         check(
             "into a missing directory",
             fs.create_symlink(path.join(dir, "no/l"), target: "x"),
-            Err(#Error.NotFound{path: path.join(dir, "no")}),
+            Err(Error.NotFound{path: path.join(dir, "no")}),
         ),
     ])
 }
@@ -797,12 +797,12 @@ fn rule_read_link_file(dir: String) -> Maybe<String> {
         check(
             "read_link",
             fs.read_link(p),
-            Err(#Error.Other{operation: "readlink", path: p, code: "EINVAL"}),
+            Err(Error.Other{operation: "readlink", path: p, code: "EINVAL"}),
         ),
         check(
             "read_link of nothing",
             fs.read_link(path.join(dir, "none")),
-            Err(#Error.NotFound{path: path.join(dir, "none")}),
+            Err(Error.NotFound{path: path.join(dir, "none")}),
         ),
     ])
 }
@@ -812,7 +812,7 @@ fn rule_link_loop(dir: String) -> Maybe<String> {
 
     code = fn -> {
         case fs.read_text(a) {
-            Err(#Error.Other{operation: _, path: _, code}) -> code
+            Err(Error.Other{operation: _, path: _, code}) -> code
             other -> "${Debug.inspect(other)}"
         }
     }
@@ -837,12 +837,12 @@ fn rule_set_mode(dir: String) -> Maybe<String> {
         check(
             "a mode out of range",
             fs.set_mode(p, 0o1000),
-            Err(#Error.Other{operation: "chmod", path: p, code: "EINVAL"}),
+            Err(Error.Other{operation: "chmod", path: p, code: "EINVAL"}),
         ),
         check(
             "a missing file",
             fs.set_mode(path.join(dir, "none"), 0o600),
-            Err(#Error.NotFound{path: path.join(dir, "none")}),
+            Err(Error.NotFound{path: path.join(dir, "none")}),
         ),
     ])
 }
@@ -894,9 +894,9 @@ fn rule_file_read_only(dir: String) -> Maybe<String> {
                 check(
                     "write",
                     File.write(f, String.to_bytes("x")),
-                    Err(#Error.PermissionDenied{path: p}),
+                    Err(Error.PermissionDenied{path: p}),
                 ),
-                check("truncate", File.truncate(f, 0), Err(#Error.PermissionDenied{path: p})),
+                check("truncate", File.truncate(f, 0), Err(Error.PermissionDenied{path: p})),
                 check("close", File.close(f), Ok(Unit)),
                 check("the file", fs.read_text(p), Ok("abc")),
             ])
@@ -909,18 +909,18 @@ fn rule_file_missing(dir: String) -> Maybe<String> {
     opened = fn r: Result<File, Error> -> Result.map(r, fn f -> File.close(f))
 
     first([
-        check("read a missing file", opened(fs.open_file(p)), Err(#Error.NotFound{path: p})),
+        check("read a missing file", opened(fs.open_file(p)), Err(Error.NotFound{path: p})),
         check(
             "read and write a missing file",
             opened(fs.open_file(p, access: Access.ReadWrite)),
-            Err(#Error.NotFound{path: p}),
+            Err(Error.NotFound{path: p}),
         ),
         check(
             "create into a missing directory",
             opened(fs.open_file(path.join(missing, "x"), access: Access.Create)),
-            Err(#Error.NotFound{path: missing}),
+            Err(Error.NotFound{path: missing}),
         ),
-        check("open a directory", opened(fs.open_file(dir)), Err(#Error.IsADirectory{path: dir})),
+        check("open a directory", opened(fs.open_file(dir)), Err(Error.IsADirectory{path: dir})),
         check("create", opened(fs.open_file(p, access: Access.Create)), Ok(Ok(Unit))),
         check("the new file", fs.read_text(p), Ok("")),
     ])
@@ -964,7 +964,7 @@ fn rule_within_escape(dir: String) -> Maybe<String> {
 
     escaped = fn p: String -> {
         Err(
-            #Error.InvalidPath{
+            Error.InvalidPath{
                 path: p,
                 reason: "the path leads outside the directory fs.within confines calls to",
             }
@@ -1009,12 +1009,12 @@ fn rule_within_escape(dir: String) -> Maybe<String> {
         check(
             "a temporary directory inside",
             fs.within(site, fn -> fs.with_temp_dir(fn d -> Ok(d))),
-            Err(#Error.Unsupported{operation: "fs.with_temp_dir", target: "fs.within"}),
+            Err(Error.Unsupported{operation: "fs.with_temp_dir", target: "fs.within"}),
         ),
     ])
 }
 
 fn rule_within_missing(dir: String) -> Maybe<String> {
     none = path.join(dir, "none")
-    check("within", fs.within(none, fn -> Ok(Unit)), Err(#Error.NotFound{path: none}))
+    check("within", fs.within(none, fn -> Ok(Unit)), Err(Error.NotFound{path: none}))
 }

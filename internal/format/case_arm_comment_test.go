@@ -10,7 +10,7 @@ func TestFormat_CaseArmTrailingCommentDoesNotBreakItsBody(t *testing.T) {
 	src := "fn total(t: Tree) -> Int {\n" +
 		"    case t {\n" +
 		"        Tree.Leaf(n) -> n\n" +
-		"        Tree.Branch(gs) -> gs |> Iter.map(grove_total) |> Iter.reduce(fn acc = 0, x -> acc + x) // t10\n" +
+		"        Tree.Branch(gs) -> gs |> Iter.map(grove_total) |> Iter.reduce(0, fn acc, x -> acc + x) // t10\n" +
 		"    }\n" +
 		"}\n"
 	formatsKeepingMeaning(t, src, src)

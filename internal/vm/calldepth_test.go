@@ -125,7 +125,7 @@ func TestCallDepth_RecursionThroughACallbackFaults(t *testing.T) {
 	_, err := runDepth(t, `import std/io
 
 fn walk(n: Int) -> Int {
-  [n] |> Iter.map(fn x -> walk(x + 1) + 1) |> Iter.reduce(fn acc = 0, x -> acc + x)
+  [n] |> Iter.map(fn x -> walk(x + 1) + 1) |> Iter.reduce(0, fn acc, x -> acc + x)
 }
 
 fn main() {

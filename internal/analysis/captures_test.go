@@ -95,12 +95,12 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"a call reusing its parameter", "fn f() -> (Int) -> Int { &add(&1, &1) }\n", "(Int) -> Int"},
 		{"a call with a deeper parameter", "fn f() -> (Int) -> Maybe<Int> { &Some(&1 + 1) }\n", "(Int) -> Maybe<Int>"},
 		{"a call of a type parameter's function", "import std/json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson {\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\n}\n", "(Json) -> Result<T, Json.ShapeError>"},
-		{"named struct", "fn f() -> (Int) -> Point { &#Point{x: &1, y: 0} }\n", "(Int) -> Point"},
-		{"named struct, two parameters", "fn f() -> (Int, Int) -> Point { &#Point{y: &1, x: &2} }\n", "(Int, Int) -> Point"},
+		{"named struct", "fn f() -> (Int) -> Point { &Point{x: &1, y: 0} }\n", "(Int) -> Point"},
+		{"named struct, two parameters", "fn f() -> (Int, Int) -> Point { &Point{y: &1, x: &2} }\n", "(Int, Int) -> Point"},
 		{"anonymous struct where a Point is expected", "fn f() -> (Int) -> Point { &#{x: &1, y: 0} }\n", "(Int) -> Point"},
-		{"generic struct", "fn f() -> (String) -> Box<String> { &#Box{v: &1} }\n", "(String) -> Box<String>"},
-		{"struct-shaped variant", "fn f() -> (Float) -> Shape { &#Shape.Circle{radius: &1} }\n", "(Float) -> Shape"},
-		{"dot struct-shaped variant", "fn f() -> (Float) -> Shape { &#.Circle{radius: &1} }\n", "(Float) -> Shape"},
+		{"generic struct", "fn f() -> (String) -> Box<String> { &Box{v: &1} }\n", "(String) -> Box<String>"},
+		{"struct-shaped variant", "fn f() -> (Float) -> Shape { &Shape.Circle{radius: &1} }\n", "(Float) -> Shape"},
+		{"dot struct-shaped variant", "fn f() -> (Float) -> Shape { &.Circle{radius: &1} }\n", "(Float) -> Shape"},
 		{"tuple", "fn f() -> (Int) -> #(Int, Int) { &#(&1, 0) }\n", "(Int) -> #(Int, Int)"},
 		{"list", "fn f() -> (Int) -> List<Int> { &[&1, 0] }\n", "(Int) -> List<Int>"},
 		{"vector", "fn f() -> (Int) -> Vector<Int> { &#[&1] }\n", "(Int) -> Vector<Int>"},
@@ -108,7 +108,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"map", "fn f() -> (String) -> Map<String, Int> { &%{&1 => 0} }\n", "(String) -> Map<String, Int>"},
 		{"a generic callback", "fn f() -> List<Int> { [1, 2] |> Iter.map(&(&1 * 2)) |> Iter.to_list() }\n", "(Int) -> Int"},
 		{"an annotated binding", "fn f() -> Bool {\n    big: (Int) -> Bool = &(&1 > 2)\n    big(3)\n}\n", "(Int) -> Bool"},
-		{"a struct field of function type", "fn f() -> Rule { #Rule{keep: &(&1 > 2)} }\n", "(Int) -> Bool"},
+		{"a struct field of function type", "fn f() -> Rule { Rule{keep: &(&1 > 2)} }\n", "(Int) -> Bool"},
 		{"the argument of Some", "fn f() -> Maybe<(Int) -> Int> { Some(&(&1 + 1)) }\n", "(Int) -> Int"},
 		{"an ignored parameter", "fn f() -> Int { apply2(&(&2 * 10)) }\n", "(Int, Int) -> Int"},
 		{"a partial ignoring a parameter", "fn f() -> Int { apply2(&add(&1, 100)) }\n", "(Int, Int) -> Int"},
@@ -147,7 +147,7 @@ func TestCapture_APartialNeedsNoExpectedType(t *testing.T) {
 // A struct literal whose `&N`s are its whole fields takes their names, by
 // which a call of the function bound to a name passes them.
 func TestCapture_AStructIsCalledByItsFields(t *testing.T) {
-	_, errs := checkSourceWithStdlib(captureDecls + "fn f() -> Point {\n    mk: (Int) -> Point = &#Point{x: &1, y: 0}\n    mk(x: 3)\n}\n")
+	_, errs := checkSourceWithStdlib(captureDecls + "fn f() -> Point {\n    mk: (Int) -> Point = &Point{x: &1, y: 0}\n    mk(x: 3)\n}\n")
 	expectNoStdlibErrors(t, errs)
 	_, errs = checkSourceWithStdlib(captureDecls + "fn f() -> Bool {\n    big: (Int) -> Bool = &(&1 > 2)\n    big(lhs: 3)\n}\n")
 	wantOnlyError(t, errs, "no parameter named 'lhs'")
@@ -173,8 +173,8 @@ func TestCapture_Rejections(t *testing.T) {
 	for _, tc := range []struct{ name, body, want string }{
 		{"no expected type", "fn f() -> Bool {\n    big = &(&1 > 2)\n    big(3)\n}\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`\nhelp: annotate the binding with the function's type, as in `f: (Int) -> Bool = &(&1 > 2)`, or write a lambda with an annotated parameter, as in `fn x: Int -> x > 2`; a later use of the function does not give it one"},
-		{"no expected type, a struct", "fn f() -> Point {\n    mk = &#Point{x: &1, y: 0}\n    mk(1)\n}\n",
-			"cannot infer type for `&1` in `&#Point{x: &1, y: 0}`\nhelp: annotate the binding with the function's type, as in `f: (Int) -> Point = &#Point{x: &1, y: 0}`, or write a lambda with an annotated parameter, as in `fn x: Int -> #Point{x, y: 0}`; a later use of the function does not give it one"},
+		{"no expected type, a struct", "fn f() -> Point {\n    mk = &Point{x: &1, y: 0}\n    mk(1)\n}\n",
+			"cannot infer type for `&1` in `&Point{x: &1, y: 0}`\nhelp: annotate the binding with the function's type, as in `f: (Int) -> Point = &Point{x: &1, y: 0}`, or write a lambda with an annotated parameter, as in `fn x: Int -> Point{x, y: 0}`; a later use of the function does not give it one"},
 		{"no expected type, a reused call", "fn f() -> Int {\n    twice = &add(&1, &1)\n    twice(2)\n}\n",
 			"cannot infer type for `&1` in `&add(&1, &1)`"},
 		{"no expected type, a reordered call", "fn f() -> Int {\n    flip = &divide(&2, &1)\n    flip(2, 10)\n}\n",
@@ -195,10 +195,10 @@ func TestCapture_Rejections(t *testing.T) {
 			"captures do not nest; write the inner one as `fn x -> ...`\nhelp: each `&N` belongs to the one capture around it; inside `&add(&1, &Int.max(&1, 0))`, write `&Int.max(&1, 0)` as a lambda"},
 		{"a capture is no pipe stage", "fn f() -> Int { 10 |> &add(&1, 1) }\n",
 			"a capture is not a pipe stage: write `then &add(&1, 1)`\nhelp: `then` applies a capture or a lambda to the piped value"},
-		{"a parameter of the wrong type", "fn f() -> (String) -> Point { &#Point{x: &1, y: 0} }\n",
+		{"a parameter of the wrong type", "fn f() -> (String) -> Point { &Point{x: &1, y: 0} }\n",
 			"field 'x' of Point: expected Int, got String"},
 		{"a reduction's callback", "fn f() -> Int { [1, 2] |> Iter.reduce(&(&1 + &2)) }\n",
-			"`Iter.reduce` needs a starting value\nhelp: give it with `from:`: `Iter.reduce(xs, f, from: <start>)`, or pass a lambda whose accumulator has a default: `fn acc = <start>, x -> ...`"},
+			"missing argument for parameter 'from'"},
 		{"no expected type, an operator function of several impls", "fn f() -> Int {\n    inv = &Int.divide(12, &1)\n    inv(4)\n}\n",
 			"cannot infer type for `&1` in `&Int.divide(12, &1)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int) -> Int = &Int.divide(12, &1)`, or write a lambda with an annotated parameter, as in `fn x: Int -> Int.divide(12, x)`"},
 		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int {\n    div = &Int.divide(&1, &2)\n    div(12, 4)\n}\n",
@@ -238,7 +238,7 @@ func TestCapture_AParameterOutsideACapture(t *testing.T) {
 		{"a named argument", "fn f() -> (Int) -> Int { add(a: 1, b: &1) }\n", "write `&add(a: 1, b: &1)`"},
 		{"an operator", "fn f() -> List<Int> { [1] |> Iter.map(&1 * 2 + 1) |> Iter.to_list() }\n", "write `&(&1 * 2 + 1)`"},
 		{"an operator in a call's argument", "fn f() -> Maybe<Int> { Some(&1 + 1) }\n", "write `&(&1 + 1)`"},
-		{"a struct literal", "fn f() -> (Int) -> Point { #Point{x: &1, y: 0} }\n", "write `&#Point{x: &1, y: 0}`"},
+		{"a struct literal", "fn f() -> (Int) -> Point { Point{x: &1, y: 0} }\n", "write `&Point{x: &1, y: 0}`"},
 		{"a tuple", "fn f() -> (Int) -> #(Int, Int) { #(&1, 0) }\n", "write `&#(&1, 0)`"},
 		{"a list", "fn f() -> (Int) -> List<Int> { [&1, 0] }\n", "write `&[&1, 0]`"},
 		{"parentheses", "fn f() -> (Int) -> Int { (&1) + 1 }\n", "write `&((&1) + 1)`"},

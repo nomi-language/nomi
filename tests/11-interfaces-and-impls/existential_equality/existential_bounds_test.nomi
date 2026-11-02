@@ -23,9 +23,9 @@ fn hashes_alike<T>(a: T, b: T) -> Bool where T: Hashable {
 }
 
 test "List.contains and Iter.contains find a value by its own equality" {
-    xs: List<Show> = [#Point{x: 1, y: 2}, #Name{text: "Ada"}, 3, [4]]
-    spot: Show = #Spot{x: 1, y: 2}
-    ada: Show = #Name{text: "ADA"}
+    xs: List<Show> = [Point{x: 1, y: 2}, Name{text: "Ada"}, 3, [4]]
+    spot: Show = Spot{x: 1, y: 2}
+    ada: Show = Name{text: "ADA"}
     four: Show = [4]
     refute List.contains(xs, spot)
     assert List.contains(xs, ada)
@@ -35,13 +35,13 @@ test "List.contains and Iter.contains find a value by its own equality" {
 }
 
 test "a generic function bounded by Equatable takes interface values" {
-    xs: List<Show> = [#Name{text: "Ada"}, 1]
-    ada: Show = #Name{text: "ada"}
-    point: Show = #Point{x: 1, y: 2}
-    spot: Show = #Spot{x: 1, y: 2}
+    xs: List<Show> = [Name{text: "Ada"}, 1]
+    ada: Show = Name{text: "ada"}
+    point: Show = Point{x: 1, y: 2}
+    spot: Show = Spot{x: 1, y: 2}
     assert has(xs, ada)
     refute has(xs, point)
-    assert same(ada, #Name{text: "ADA"})
+    assert same(ada, Name{text: "ADA"})
     refute same(point, spot)
     assert Equatable.equal(ada, ada)
     refute Equatable.equal(point, spot)
@@ -49,29 +49,29 @@ test "a generic function bounded by Equatable takes interface values" {
 
 test "a generic function bounded by Hashable takes interface values" {
     xs: List<Show> = [
-        #Name{text: "Ada"},
-        #Name{text: "ADA"},
+        Name{text: "Ada"},
+        Name{text: "ADA"},
         1,
-        #Point{x: 1, y: 2},
-        #Spot{x: 1, y: 2},
+        Point{x: 1, y: 2},
+        Spot{x: 1, y: 2},
     ]
 
     assert kinds(xs) == 4
-    ada: Show = #Name{text: "Ada"}
-    assert hashes_alike(ada, #Name{text: "aDa"})
-    assert Hashable.hash(ada) == Hashable.hash(#Name{text: "ADA"})
+    ada: Show = Name{text: "Ada"}
+    assert hashes_alike(ada, Name{text: "aDa"})
+    assert Hashable.hash(ada) == Hashable.hash(Name{text: "ADA"})
 }
 
 test "Iter.chunk_by keys by interface values" {
-    xs: List<Show> = [#Name{text: "Ada"}, #Name{text: "ada"}, 1, 1, #Point{x: 0, y: 0}]
+    xs: List<Show> = [Name{text: "Ada"}, Name{text: "ada"}, 1, 1, Point{x: 0, y: 0}]
     assert xs |> Iter.chunk_by(&(&1)) |> Iter.count() == 3
 }
 
 test "a derived Equatable and Hashable compare an interface-typed field by its value" {
-    a = #Labeled{label: #Name{text: "Ada"}, count: 1}
-    b = #Labeled{label: #Name{text: "ADA"}, count: 1}
-    c = #Labeled{label: #Point{x: 1, y: 2}, count: 1}
-    d = #Labeled{label: #Spot{x: 1, y: 2}, count: 1}
+    a = Labeled{label: Name{text: "Ada"}, count: 1}
+    b = Labeled{label: Name{text: "ADA"}, count: 1}
+    c = Labeled{label: Point{x: 1, y: 2}, count: 1}
+    d = Labeled{label: Spot{x: 1, y: 2}, count: 1}
     assert a == b
     assert c != d
     assert Equatable.equal(a, b)

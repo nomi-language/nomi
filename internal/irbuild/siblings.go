@@ -121,9 +121,36 @@ type fileFunc struct {
 	// monomorphic signature exists to call; a call site builds an instance
 	// in the declaring file instead (siblinggeneric.go).
 	generic bool
+	// private marks a non-`pub` declaration: callable across files only from
+	// its file's partner test (`shapes_test.nomi` for `shapes.nomi`, spec §14
+	// *Visibility*). Every other caller refuses it as a private sibling file
+	// function, so a builder that resolves names across the program never
+	// lowers a call the language rejects.
+	private bool
 }
 
 func (f *fileFunc) lowerable() bool { return f.why == "" }
+
+// siblingPrivate reports whether g's file may not call unit to's function f
+// because f is private to its file and g's file is not that file's partner
+// test. It notes the refusal when it answers true.
+func (g *gen) siblingPrivate(to int, f *fileFunc) bool {
+	if f == nil || !f.private || g.partnerTestOf(to) {
+		return false
+	}
+	irDeclineNote("private sibling file function")
+	return true
+}
+
+// partnerTestOf reports whether g's file is unit to's partner test: its
+// module key is to's with `_test` after it, so the two share a directory.
+func (g *gen) partnerTestOf(to int) bool {
+	x := g.files
+	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) || to < 0 || to >= len(x.units) {
+		return false
+	}
+	return x.units[g.fileUnit].key == x.units[to].key+"_test"
+}
 
 // fileUnit is one user file, under the Go package name its kind text uses.
 type fileUnit struct {
@@ -343,10 +370,10 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 			f.defaults = true
 		}
 	}
-	if !fd.Public && !inStd {
-		f.why = "private sibling file function"
-		return f
-	}
+	// A private function lowers in its own file, and the only other file
+	// that may call it is that file's partner test, which the call site asks
+	// (gen.siblingPrivate).
+	f.private = !fd.Public && !inStd
 	if len(fd.TypeParams) > 0 || len(fd.WhereClauses) > 0 {
 		// No monomorphic signature exists to type or call. A call site
 		// instantiates the declaration in its own file's gen at the call's
@@ -389,7 +416,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 // the ONE implementation of "which parameters resolve", so a second walk here
 // that refused a shape funcDecl lowers would refuse a call the declaring file
 // compiles, for instance a destructuring parameter whose pattern head NAMES a
-// type and is its own annotation (`pub fn shift(#Point{x, y}) -> Int`).
+// type and is its own annotation (`pub fn shift(Point{x, y}) -> Int`).
 //
 // A signature this builder cannot type is ECHOED, not reported. Every user file
 // in the import graph is lowered, so that file's own funcDecl already names the

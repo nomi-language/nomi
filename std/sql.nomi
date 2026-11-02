@@ -139,7 +139,7 @@ impl Literal for Sql {
     fn from_fragments(fragments: List<Fragment<ToSql>>) -> Statement {
         // A literal leaves out empty text, so two slots side by side, or one
         // at either end, have no `Static` between them.
-        #(parts, text, params) = Iter.reduce(fragments, fn acc = #([], "", []), fragment -> {
+        #(parts, text, params) = Iter.reduce(fragments, #([], "", []), fn acc, fragment -> {
             #(parts, text, params) = acc
 
             case fragment {
@@ -148,7 +148,7 @@ impl Literal for Sql {
             }
         })
 
-        #Statement{parts: parts + [text], params}
+        Statement{parts: parts + [text], params}
     }
 }
 
@@ -169,7 +169,7 @@ impl Add<Statement, Statement> for Statement {
         last = lhs.parts |> Iter.last() |> Maybe.with_default("")
         first = rhs.parts |> Iter.first() |> Maybe.with_default("")
         after = rhs.parts |> Iter.drop(1) |> Iter.to_list()
-        #Statement{parts: before + [last + first] + after, params: lhs.params + rhs.params}
+        Statement{parts: before + [last + first] + after, params: lhs.params + rhs.params}
     }
 }
 
@@ -190,7 +190,7 @@ impl Statement {
     pub fn join(statements: Iter<Statement>, separator: Statement) -> Statement {
         statements
         |> Iter.with_index()
-        |> Iter.reduce(fn joined = Sql"", #(index, statement) -> {
+        |> Iter.reduce(Sql"", fn joined, #(index, statement) -> {
             if index == 0 {
                 joined + statement
             } else {
@@ -631,7 +631,7 @@ impl Row {
     /// The row that `query` read, with each column's name and value in
     /// order.
     pub fn new(query: String, cells: List<#(String, Value)>) -> Row {
-        #Row{
+        Row{
             query,
             columns: cells |> Iter.map(fn #(name, _) -> name) |> Iter.to_list(),
             values: cells |> Iter.map(fn #(_, value) -> value) |> Iter.to_list(),
@@ -657,14 +657,14 @@ impl Row {
     /// `Err(.MissingColumn)` when there is none.
     //! row = Row.new("SELECT 1 AS n", [#("n", Value.Int(1))])
     //! assert Row.value(row, "n") == Ok(Value.Int(1))
-    //! assert Row.value(row, "m") == Err(#Error.MissingColumn{query: "SELECT 1 AS n", column: "m"})
+    //! assert Row.value(row, "m") == Err(Error.MissingColumn{query: "SELECT 1 AS n", column: "m"})
     //
     pub fn value(row: Row, column: String) -> Result<Value, Error> {
         found = Iter.zip(row.columns, row.values) |> Iter.find(fn #(name, _) -> name == column)
 
         case found {
             Some(#(_, value)) -> Ok(value)
-            None -> Err(#Error.MissingColumn{query: row.query, column})
+            None -> Err(Error.MissingColumn{query: row.query, column})
         }
     }
 
@@ -674,7 +674,7 @@ impl Row {
     //! assert Row.value_position(row, 0) == Ok(Value.Int(1))
     //!
     //! assert Row.value_position(row, 1)
-    //!     == Err(#Error.ColumnPosition{query: "SELECT 1 AS n", position: 1, count: 1})
+    //!     == Err(Error.ColumnPosition{query: "SELECT 1 AS n", position: 1, count: 1})
     //
     pub fn value_position(row: Row, position: Int) -> Result<Value, Error> {
         case Iter.get(row.values, position) {
@@ -683,7 +683,7 @@ impl Row {
 
             None ->
                 Err(
-                    #Error.ColumnPosition{
+                    Error.ColumnPosition{
                         query: row.query,
                         position,
                         count: Iter.count(row.columns),
@@ -703,9 +703,9 @@ impl Row {
     //! assert n == 1
     //!
     //! assert Row.get<String>(row, "n")
-    //!     == Err(#Error.Decode{query: "SELECT n, t", column: "n", expected: "String", found: "Int"})
+    //!     == Err(Error.Decode{query: "SELECT n, t", column: "n", expected: "String", found: "Int"})
     //!
-    //! assert Row.get<String>(row, "t") == Err(#Error.UnexpectedNull{query: "SELECT n, t", column: "t"})
+    //! assert Row.get<String>(row, "t") == Err(Error.UnexpectedNull{query: "SELECT n, t", column: "t"})
     //! assert Row.get<Maybe<String>>(row, "t") == Ok(None)
     //
     pub fn get<T>(row: Row, column: String) -> Result<T, Error> where T: FromSql {
@@ -731,8 +731,8 @@ impl Row {
 // answered expected.
 fn decode_error(row: Row, column: String, value: Value, expected: String) -> Error {
     case value {
-        .Null -> #Error.UnexpectedNull{query: row.query, column}
-        _ -> #Error.Decode{query: row.query, column, expected, found: Value.kind(value)}
+        .Null -> Error.UnexpectedNull{query: row.query, column}
+        _ -> Error.Decode{query: row.query, column, expected, found: Value.kind(value)}
     }
 }
 
@@ -830,10 +830,10 @@ pub enum Error {
 derive Equatable for Error
 
 impl Display for Error {
-    //! e = #Error.Constraint{kind: .Unique, name: "users_email_key", table: Some("users"), column: None}
+    //! e = Error.Constraint{kind: .Unique, name: "users_email_key", table: Some("users"), column: None}
     //! assert "${e}" == "unique constraint `users_email_key` on table `users` failed"
     //!
-    //! both = #Error.Constraint{
+    //! both = Error.Constraint{
     //!     kind: .Unique,
     //!     name: "users_email_key",
     //!     table: Some("users"),
@@ -844,31 +844,31 @@ impl Display for Error {
     //
     fn to_string(e: Error) -> String {
         case e {
-            #Error.Connection{message} ->
+            Error.Connection{message} ->
                 "cannot reach the database: ${message}"
 
-            #Error.Constraint{kind, name, table, column} ->
+            Error.Constraint{kind, name, table, column} ->
                 "${kind} constraint `${name}`${place(table, column)} failed"
 
-            #Error.Serialization{message} ->
+            Error.Serialization{message} ->
                 "the transaction conflicted with another and was rolled back: ${message}"
 
-            #Error.Database{code, message} ->
+            Error.Database{code, message} ->
                 "database error ${code}: ${message}"
 
-            #Error.RowCount{query, expected, found} ->
+            Error.RowCount{query, expected, found} ->
                 "expected ${expected} rows, found ${found}, from `${query}`"
 
-            #Error.UnexpectedNull{query, column} ->
+            Error.UnexpectedNull{query, column} ->
                 "column `${column}` is NULL, from `${query}`"
 
-            #Error.Decode{query, column, expected, found} ->
+            Error.Decode{query, column, expected, found} ->
                 "column `${column}` holds a ${found} value, not a ${expected}, from `${query}`"
 
-            #Error.MissingColumn{query, column} ->
+            Error.MissingColumn{query, column} ->
                 "no column named `${column}` in the row from `${query}`"
 
-            #Error.ColumnPosition{query, position, count} ->
+            Error.ColumnPosition{query, position, count} ->
                 "no column at position ${position} in a row of ${count} columns from `${query}`"
 
             Error.Finished ->

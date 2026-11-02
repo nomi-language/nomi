@@ -79,7 +79,7 @@ fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int> {
 /// The first of `candidates` with a pair of factors from `min` to `max`.
 fn first_product(candidates: Iter<Int>, min: Int, max: Int) -> Maybe<Product> {
     candidates
-    |> Iter.map(fn value -> #Product{value, factors: factors(value, min, max)})
+    |> Iter.map(fn value -> Product{value, factors: factors(value, min, max)})
     |> Iter.find(fn product -> product.factors != [])
 }
 
@@ -112,7 +112,7 @@ fn mirror(half: Int, length: Int) -> Int {
     rest
     |> Iter.iterate(&(&1 / 10))
     |> Iter.take_while(&(&1 > 0))
-    |> Iter.reduce(fn palindrome = half, r -> palindrome * 10 + r % 10)
+    |> Iter.reduce(half, fn palindrome, r -> palindrome * 10 + r % 10)
 }
 
 fn digit_count(n: Int) -> Int {
@@ -128,25 +128,25 @@ test "smallest" {
             "find the smallest palindrome from single digit factors",
             1,
             9,
-            Ok(Some(#Product{value: 1, factors: [#(1, 1)]})),
+            Ok(Some(Product{value: 1, factors: [#(1, 1)]})),
         ),
         #(
             "find the smallest palindrome from double digit factors",
             10,
             99,
-            Ok(Some(#Product{value: 121, factors: [#(11, 11)]})),
+            Ok(Some(Product{value: 121, factors: [#(11, 11)]})),
         ),
         #(
             "find the smallest palindrome from triple digit factors",
             100,
             999,
-            Ok(Some(#Product{value: 10201, factors: [#(101, 101)]})),
+            Ok(Some(Product{value: 10201, factors: [#(101, 101)]})),
         ),
         #(
             "find the smallest palindrome from four digit factors",
             1000,
             9999,
-            Ok(Some(#Product{value: 1002001, factors: [#(1001, 1001)]})),
+            Ok(Some(Product{value: 1002001, factors: [#(1001, 1001)]})),
         ),
         #("empty result for smallest if no palindrome in the range", 1002, 1003, Ok(None)),
         #("error result for smallest if min is more than max", 10000, 1, Err(Error.MinAboveMax)),
@@ -154,7 +154,7 @@ test "smallest" {
             "smallest product does not use the smallest factor",
             3215,
             4000,
-            Ok(Some(#Product{value: 10988901, factors: [#(3297, 3333)]})),
+            Ok(Some(Product{value: 10988901, factors: [#(3297, 3333)]})),
         ),
     ]
     |> subtests #(description, min, max, expected), description {
@@ -168,25 +168,25 @@ test "largest" {
             "find the largest palindrome from single digit factors",
             1,
             9,
-            Ok(Some(#Product{value: 9, factors: [#(1, 9), #(3, 3)]})),
+            Ok(Some(Product{value: 9, factors: [#(1, 9), #(3, 3)]})),
         ),
         #(
             "find the largest palindrome from double digit factors",
             10,
             99,
-            Ok(Some(#Product{value: 9009, factors: [#(91, 99)]})),
+            Ok(Some(Product{value: 9009, factors: [#(91, 99)]})),
         ),
         #(
             "find the largest palindrome from triple digit factors",
             100,
             999,
-            Ok(Some(#Product{value: 906609, factors: [#(913, 993)]})),
+            Ok(Some(Product{value: 906609, factors: [#(913, 993)]})),
         ),
         #(
             "find the largest palindrome from four digit factors",
             1000,
             9999,
-            Ok(Some(#Product{value: 99000099, factors: [#(9901, 9999)]})),
+            Ok(Some(Product{value: 99000099, factors: [#(9901, 9999)]})),
         ),
         #("empty result for largest if no palindrome in the range", 15, 15, Ok(None)),
         #("error result for largest if min is more than max", 2, 1, Err(Error.MinAboveMax)),

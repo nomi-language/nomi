@@ -13,15 +13,15 @@ struct Hidden {
 pub struct Shown {
     x: Int
 }
-pub once hidden = [#Hidden{x: 1}]
-pub once shown = #Shown{x: 1}
-once private_hidden = #Hidden{x: 2}
+pub once hidden = [Hidden{x: 1}]
+pub once shown = Shown{x: 1}
+once private_hidden = Hidden{x: 2}
 pub once boxes = {
     struct Box {
         inner: Int
     }
 
-    [#Box{inner: 1}]
+    [Box{inner: 1}]
 }
 `)
 	expectErrorCount(t, errs, "public once binding exposes private type Hidden", 1)

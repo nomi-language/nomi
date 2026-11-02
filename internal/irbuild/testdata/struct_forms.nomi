@@ -51,7 +51,7 @@ fn main() {
     #{x: y, y: x} = p
     io.print("swapped x=${x} y=${y}")
 
-    u = #User{name: "Ada", age: 36}
+    u = User{name: "Ada", age: 36}
     #{age, name} = u
     io.print("${name}/${age}")
 

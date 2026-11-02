@@ -76,7 +76,7 @@ import (
 // `nomi` is what the derived inspector emits (`rt.InspectStruct(def.nomi, …)`)
 // and what `qualifiedNomiName` module-qualifies for `rt.TypeID`:
 //
-//	b = #Box{item: #Inner{value: 7}}   ->   Debug.inspect(b) == "#Box{item: #Inner{value: 7}}"
+//	b = Box{item: Inner{value: 7}}   ->   Debug.inspect(b) == "Box{item: Inner{value: 7}}"
 //
 // No type arguments. So an instance's `nomi` is "Box" and NOT "Box<Inner>",
 // which is the opposite of genStructNames' choice for the std family — and the
@@ -155,6 +155,11 @@ func (tpl *genericTemplate) enumDecl() *ast.EnumDef {
 	return ed
 }
 
+func (tpl *genericTemplate) distinctDecl() *ast.TypeDef {
+	td, _ := tpl.decl.(*ast.TypeDef)
+	return td
+}
+
 // collectGenericTemplates registers every user generic struct AND enum
 // declaration.
 //
@@ -176,6 +181,8 @@ func (g *gen) collectGenericTemplates(nodes []ast.Node) {
 		case *ast.StructDef:
 			name, tps = decl.Name, decl.TypeParams
 		case *ast.EnumDef:
+			name, tps = decl.Name, decl.TypeParams
+		case *ast.TypeDef:
 			name, tps = decl.Name, decl.TypeParams
 		default:
 			continue
@@ -242,6 +249,9 @@ func (g *gen) templateWall(tpl *genericTemplate) (string, string) {
 	case *ast.EnumDef:
 		decorators, items = decl.Decorators, decl.Items
 		keyword = "enum"
+	case *ast.TypeDef:
+		decorators, items = decl.Decorators, decl.Items
+		keyword = "type"
 	}
 	for _, dec := range decorators {
 		if dec.Name == "derive" {
@@ -318,7 +328,7 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 	}
 	d := &typeDef{ // The BARE declaration name, because this is what the derived inspector
 		// renders and what qualifiedNomiName module-qualifies. See the header.
-		nomi: tpl.nomi, decl: tpl.decl, line: tpl.decl.LineNum(), isEnum: tpl.enumDecl() != nil, genericOf: tpl, genericArgs: args, lowerable: true}
+		nomi: tpl.nomi, decl: tpl.decl, line: tpl.decl.LineNum(), isEnum: tpl.enumDecl() != nil, isDistinct: tpl.distinctDecl() != nil, genericOf: tpl, genericArgs: args, lowerable: true}
 	if g.genericInsts == nil {
 		g.genericInsts = map[string][]*typeDef{}
 	}
@@ -331,6 +341,8 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 		g.resolveStructFields(d, decl, nil)
 	case *ast.EnumDef:
 		g.resolveEnumVariants(d, decl, nil)
+	case *ast.TypeDef:
+		g.resolveDistinctInner(d, decl, nil)
 	}
 	g.popGenericSubst()
 
@@ -659,7 +671,7 @@ func (g *gen) checkedStructTypeArgs(t *ast.StructLit, tpl *genericTemplate) ([]k
 }
 
 // checkedVariantTypeArgs is checkedStructTypeArgs for a struct-shaped
-// variant of a generic enum template (`#shapes.Holder.Of{value: 5}`).
+// variant of a generic enum template (`shapes.Holder.Of{value: 5}`).
 func (g *gen) checkedVariantTypeArgs(t *ast.StructLit, tpl *genericTemplate, variant string) ([]kind, bool) {
 	ed := tpl.enumDecl()
 	if g.fa == nil || ed == nil {
@@ -689,7 +701,7 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 		}
 		labels := g.srcFA().References
 		if analysis.IsPunnedField(f) {
-			// `#Span{start, stop}`: References at a punned label holds the
+			// `Span{start, stop}`: References at a punned label holds the
 			// variable, and the field's instantiated type is kept apart.
 			labels = g.srcFA().PunnedFieldLabels
 		}
@@ -699,7 +711,7 @@ func (g *gen) checkedFieldTypeArgs(t *ast.StructLit, tpl *genericTemplate, decla
 		}
 		ty := sym.Type
 		if irUnsolvedType(ty) {
-			// `#Gbox{v: []}` where nothing fixes the list's element: an
+			// `Gbox{v: []}` where nothing fixes the list's element: an
 			// unsolved type argument no value has is filled as a generic
 			// call's is (spec, "Determined type arguments").
 			ty = irFillHolesByPosition(ty, false)
@@ -796,7 +808,7 @@ func (g *gen) unifyTypeParams(ann ast.TypeExpr, actual kind, params map[string]b
 
 // solveFromLiteralType solves each of tpl's parameters no field fixed from
 // the type the checker gave the literal t. A parameter nothing determines
-// (`#Either.L{a: 1}`'s B: spec, "Determined type arguments") has no value
+// (`Either.L{a: 1}`'s B: spec, "Determined type arguments") has no value
 // in the literal, and its hole is filled by its position
 // (irFillHolesByPosition), as a generic call's is.
 func (g *gen) solveFromLiteralType(t *ast.StructLit, tpl *genericTemplate, solved map[string]kind) {

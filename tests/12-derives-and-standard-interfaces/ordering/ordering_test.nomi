@@ -23,16 +23,16 @@ test "ordering operators dispatch built-in Comparable impls" {
 }
 
 test "ordering operators and sort work with derived Comparable structs" {
-    ps = [#OrderedPoint{x: 2, y: 1}, #OrderedPoint{x: 1, y: 9}, #OrderedPoint{x: 1, y: 2}]
+    ps = [OrderedPoint{x: 2, y: 1}, OrderedPoint{x: 1, y: 9}, OrderedPoint{x: 1, y: 2}]
     sorted = Iter.sort(ps)
 
-    assert #OrderedPoint{x: 1, y: 2} < #OrderedPoint{x: 3, y: 4}
-    refute #OrderedPoint{x: 1, y: 2} > #OrderedPoint{x: 3, y: 4}
-    assert #OrderedPoint{x: 1, y: 2} <= #OrderedPoint{x: 1, y: 2}
-    refute #OrderedPoint{x: 1, y: 9} >= #OrderedPoint{x: 2, y: 0}
+    assert OrderedPoint{x: 1, y: 2} < OrderedPoint{x: 3, y: 4}
+    refute OrderedPoint{x: 1, y: 2} > OrderedPoint{x: 3, y: 4}
+    assert OrderedPoint{x: 1, y: 2} <= OrderedPoint{x: 1, y: 2}
+    refute OrderedPoint{x: 1, y: 9} >= OrderedPoint{x: 2, y: 0}
 
     assert Debug.inspect(sorted)
-        == "[#OrderedPoint{x: 1, y: 2}, #OrderedPoint{x: 1, y: 9}, #OrderedPoint{x: 2, y: 1}]"
+        == "[OrderedPoint{x: 1, y: 2}, OrderedPoint{x: 1, y: 9}, OrderedPoint{x: 2, y: 1}]"
 }
 
 test "Float equality hashing and ordering handle signed zero and NaN" {
@@ -51,8 +51,8 @@ test "ordering operators require Comparable for named structs" {
           }
 
           fn main() {
-            a = #Point{x: 1, y: 2}
-            b = #Point{x: 3, y: 4}
+            a = Point{x: 1, y: 2}
+            b = Point{x: 3, y: 4}
             _ = a < b
           }
         """
@@ -74,7 +74,7 @@ test "ordering operators order tuples by element and reject anonymous structs" {
           }
 
           fn main() {
-            a = #(1, #Point{x: 2})
+            a = #(1, Point{x: 2})
             _ = a < a
           }
         """

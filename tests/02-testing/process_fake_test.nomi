@@ -1,0 +1,154 @@
+// std/process inside process_testing.run: every start is answered by the
+// fake and recorded, nothing is started, tasks started inside reach the
+// same fake, a nested run takes over for its own call, and a program no
+// answer names fails to start as a missing one does.
+import {
+    std/io.{self, Reader, Writer}
+    std/process.{self, Child, Command, Status, Stdin}
+    std/process_testing.{self, Answer, Call}
+    std/tasks.Task
+}
+
+fn current_branch() -> Result<String, io.Error> {
+    out = process.output(Command{program: "git", args: ["branch", "--show-current"]})?
+
+    case Bytes.to_string(out.stdout) {
+        Ok(text) -> Ok(String.trim(text))
+        Err(_) -> Ok("")
+    }
+}
+
+test "the fake answers the command and records it" {
+    ran = process_testing.run([Answer{program: "git", stdout: "main\n"}], fn -> current_branch())
+
+    assert ran.value == Ok("main")
+
+    assert ran.calls == [
+        Call{program: "git", args: ["branch", "--show-current"]},
+    ]
+}
+
+test "an answer for other arguments does not match" {
+    answers = [
+        Answer{program: "git", args: Some(["status"]), stdout: "clean\n"},
+    ]
+
+    ran = process_testing.run(answers, fn -> current_branch())
+
+    assert ran.value == Err(io.Error.NotFound{path: "git"})
+
+    assert ran.calls == [
+        Call{program: "git", args: ["branch", "--show-current"]},
+    ]
+}
+
+test "a non-zero exit is a status, not an error" {
+    answers = [
+        Answer{program: "make", code: 2, stderr: "no rule\n"},
+    ]
+
+    ran = process_testing.run(answers, fn -> {
+        process.output(Command{program: "make", args: ["all"]})
+    })
+
+    assert ran.value == Ok(process.Output{
+            status: Status.Exited{code: 2},
+            stdout: String.to_bytes(""),
+            stderr: String.to_bytes("no rule\n"),
+        })
+}
+
+test "an answer with an error fails the start" {
+    answers = [
+        Answer{program: "deploy", error: Some(io.Error.PermissionDenied{path: "deploy"})},
+    ]
+
+    ran = process_testing.run(answers, fn -> process.run(Command{program: "deploy"}))
+
+    assert ran.value == Err(io.Error.PermissionDenied{path: "deploy"})
+    assert ran.calls == [Call{program: "deploy"}]
+}
+
+test "the call records the directory, the environment and the input" {
+    command = Command{
+        program: "wc",
+        args: ["-l"],
+        env: %{"LC_ALL" => "C"},
+        dir: Some("logs"),
+        stdin: Stdin.Bytes(String.to_bytes("a\nb\n")),
+    }
+
+    ran = process_testing.run([Answer{program: "wc", stdout: "2\n"}], fn -> {
+        process.output(command)
+    })
+
+    assert Result.map(ran.value, fn o -> o.stdout) == Ok(String.to_bytes("2\n"))
+
+    assert ran.calls == [
+        Call{
+            program: "wc",
+            args: ["-l"],
+            dir: Some("logs"),
+            env: %{"LC_ALL" => "C"},
+            input: String.to_bytes("a\nb\n"),
+        },
+    ]
+}
+
+test "a reader as input is read to its end" {
+    command = Command{program: "cat", stdin: Stdin.From(Reader.from_text("from a reader"))}
+    ran = process_testing.run([Answer{program: "cat"}], fn -> process.run(command))
+
+    assert ran.value == Ok(Status.Exited{code: 0})
+    assert ran.calls == [Call{program: "cat", input: String.to_bytes("from a reader")}]
+}
+
+test "run writes the answer's output to the program's own" {
+    ran = process_testing.run([Answer{program: "echo", stdout: "hi\n", stderr: "warn\n"}], fn -> {
+        io.capture("", fn -> process.run(Command{program: "echo"}))
+    })
+
+    assert ran.value.value == Ok(Status.Exited{code: 0})
+    assert ran.value.output == "hi\n"
+    assert ran.value.errors == "warn\n"
+}
+
+test "with_spawned streams the answer and records what the body wrote" {
+    ran = process_testing.run([Answer{program: "sort", stdout: "a\nb\n"}], fn -> {
+        process.with_spawned(Command{program: "sort"}, fn child -> {
+            _ = Writer.write_text(Child.stdin(child), "b\n")
+            _ = Writer.write_text(Child.stdin(child), "a\n")
+            #(Child.wait(child), Reader.read_all_text(Child.stdout(child)), Child.wait(child))
+        })
+    })
+
+    assert ran.value == Ok(#(Ok(Status.Exited{code: 0}), Ok("a\nb\n"), Ok(Status.Exited{code: 0})))
+
+    assert ran.calls == [Call{program: "sort", input: String.to_bytes("b\na\n")}]
+}
+
+test "tasks started inside the run reach its fake" {
+    ran = process_testing.run([Answer{program: "git", stdout: "main\n"}], fn -> {
+        concurrent {
+            a = Task.spawn(fn -> current_branch())
+            b = Task.spawn(fn -> current_branch())
+            #(Task.await(a), Task.await(b))
+        }
+    })
+
+    assert ran.value == #(Ok("main"), Ok("main"))
+    assert Iter.count(ran.calls) == 2
+}
+
+test "a nested run takes over for its own call" {
+    ran = process_testing.run([Answer{program: "git", stdout: "outer\n"}], fn -> {
+        inner = process_testing.run([Answer{program: "git", stdout: "inner\n"}], fn -> {
+            current_branch()
+        })
+
+        #(inner.value, current_branch())
+    })
+
+    assert ran.value == #(Ok("inner"), Ok("outer"))
+    assert Iter.count(ran.calls) == 1
+}

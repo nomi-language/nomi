@@ -76,7 +76,7 @@ func dynamicTypeName(v any) string {
 
 // --- dynamic.Error construction -----------------------------------------
 
-// dynamicErr builds the `Err(#Error{…})` these operations return.
+// dynamicErr builds the `Err(Error{…})` these operations return.
 //
 // `path` is nil for a terminal extractor and one segment for a navigator, which
 // is std/dynamic.nomi's documented single-segment policy: each navigator's error

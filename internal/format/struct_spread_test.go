@@ -19,7 +19,7 @@ func TestFormat_StructSpreadInline(t *testing.T) {
 }
 
 fn main() {
-    p = #Point{x: 1, y: 2}
+    p = Point{x: 1, y: 2}
     a = #{..p, x: 9}
     b = #{..p}
     c = #{..p, x: 1, y: 2}
@@ -31,7 +31,7 @@ fn main() {
 
 func TestFormat_StructSpreadStacked(t *testing.T) {
 	roundTrip(t, `fn main() {
-    p = #Point{x: 1, y: 2}
+    p = Point{x: 1, y: 2}
 
     c = #{
         ..p,

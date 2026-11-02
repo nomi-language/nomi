@@ -114,7 +114,7 @@ test "iter mapping filtering flat mapping and reducing work over lists" {
 
     total =
         [1, 2, 3, 4]
-        |> Iter.reduce(fn acc = 0, x -> acc + x)
+        |> Iter.reduce(0, fn acc, x -> acc + x)
 
     assert total == 10
 }
@@ -218,7 +218,7 @@ test "iter pipelines can combine lazy adapters and terminals" {
 }
 
 test "iter loop supports explicit state and break values" {
-    countdown = Iter.loop(fn n = 5 -> {
+    countdown = Iter.loop(5, fn n -> {
         if n == 0 {
             break n
         } else {
@@ -311,5 +311,5 @@ test "a range pushes a long run without exhausting the stack" {
 
     assert 1..=200_000
     |> Iter.map(fn x -> x)
-    |> Iter.reduce(fn acc = 0, x -> acc + x) == 20_000_100_000
+    |> Iter.reduce(0, fn acc, x -> acc + x) == 20_000_100_000
 }

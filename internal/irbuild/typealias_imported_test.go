@@ -10,7 +10,7 @@ import "testing"
 // `Board` imported by name has the target `Set<Cell>`, and `Cell` is bound in
 // shapes.nomi's scope and not in main.nomi's, so expanding the target's
 // spelling in the using file refused it. Both now take the target the checker
-// resolved in the declaring file. `#shapes.Pt{...}` names `shapes.Point`
+// resolved in the declaring file. `shapes.Pt{...}` names `shapes.Point`
 // through the qualified alias (qualifiedAliasTarget).
 func TestTypeAlias_ImportedAndQualifiedAliasesRun(t *testing.T) {
 	if testing.Short() {

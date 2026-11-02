@@ -9,7 +9,7 @@
 //   - `original` is printed AFTER the update. The base must be unchanged; a
 //     Nomi struct is a value.
 //   - `(built)` appears ONCE. The head is evaluated exactly once. Emitting
-//     `#T{x: v, y: base.y, …}` instead would call `build()` per surviving
+//     `T{x: v, y: base.y, …}` instead would call `build()` per surviving
 //     field.
 //   - `copy` carries the head's TYPE, not merely its field values. `Display`
 //     is the instrument: an anonymous result would render `{x: …, y: …}`.
@@ -58,11 +58,11 @@ struct Box<T> {
 
 fn build() -> Point {
     io.print("  (built)")
-    #Point{x: 1, y: 2}
+    Point{x: 1, y: 2}
 }
 
 fn main() {
-    origin = #Point{x: 1, y: 2}
+    origin = Point{x: 1, y: 2}
 
     moved = #{..origin, x: 9}
     io.print("nominal ${Display.to_string(moved)}")
@@ -76,11 +76,11 @@ fn main() {
     shifted = #{..record, y: 7}
     io.print("record ${Int.to_string(shifted.x)}/${Int.to_string(shifted.y)}")
 
-    stage = #Stage{who: #Loud{n: 1}, seats: 10}
-    quieter = #{..stage, who: #Quiet{n: 2}}
+    stage = Stage{who: Loud{n: 1}, seats: 10}
+    quieter = #{..stage, who: Quiet{n: 2}}
     io.print("iface ${Speaker.say(quieter.who)}/${Int.to_string(quieter.seats)}")
 
-    boxed: Box<Int> = #Box{item: 3, tag: "old"}
+    boxed: Box<Int> = Box{item: 3, tag: "old"}
     rebox = #{..boxed, item: 4}
     io.print("generic ${Int.to_string(rebox.item)}/${rebox.tag}")
 

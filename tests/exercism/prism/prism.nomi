@@ -23,7 +23,7 @@ once tolerance = 0.001
 
 /// The ids of the prisms the beam from `start` hits, in order, until it
 /// leaves the array.
-//! prisms = [#Prism{id: 1, x: 10.0, y: 0.0, angle: 0.0}]
+//! prisms = [Prism{id: 1, x: 10.0, y: 0.0, angle: 0.0}]
 //! assert find_sequence(#{x: 0.0, y: 0.0, angle: 0.0}, prisms) == [1]
 //
 pub fn find_sequence(start: Laser, prisms: List<Prism>) -> List<Int> {
@@ -38,7 +38,7 @@ fn trace(beam: Laser, from: Maybe<Int>, prisms: List<Prism>, hits: List<Int>) ->
             Iter.reverse(hits)
 
         Some(prism) -> {
-            turned = #Laser{x: prism.x, y: prism.y, angle: beam.angle + prism.angle}
+            turned = Laser{x: prism.x, y: prism.y, angle: beam.angle + prism.angle}
             trace(turned, Some(prism.id), prisms, [prism.id, ..hits])
         }
     }

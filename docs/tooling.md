@@ -20,7 +20,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi run <module>/<entry>` | Run a project's entry point ([Project mode](#project-mode-nomi-run-moduleentry)). |
 | `nomi run --web <file>` | Serve a browser build on localhost and rebuild it on a change ([A program in the browser](#a-program-in-the-browser)). |
 | `nomi test [path]` | Run tests ([Running tests](#running-tests)). |
-| `nomi check <path>` | Check a program without running it ([Checking](#checking-nomi-check)). |
+| `nomi check <path>` | Check a program without running it, as text or JSON ([Checking](#checking-nomi-check)). |
 | `nomi fmt [-w\|-l\|-d] <paths>` | Format source ([Formatting](#formatting)). |
 | `nomi` | The REPL ([The REPL](#the-repl)). |
 | `nomi build <file>` | Write an executable ([Executables](#executables)), a browser folder with `--web` ([A program in the browser](#a-program-in-the-browser)), or a `.nomic` file with `--no-vm` ([Compiled programs and `nomi-vm`](#compiled-programs-and-nomi-vm)). |
@@ -30,6 +30,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi tool <module> <name>` | Run a module's tool ([Tools](#tools-nomi-tool)). |
 | `nomi messages accept <locale> <message>` | Mark a translation current ([`[i18n]`](#i18n)). |
 | `nomi dap` | The debugger editors start ([Debugging](#debugging)). |
+| `nomi mcp` | The compiler as tools for a coding agent ([Coding agents](#coding-agents-nomi-mcp)). |
 | `nomi version` | Print the version. |
 
 ### Checking: `nomi check`
@@ -48,9 +49,43 @@ is checked on its own. A failed check of a directory prints `FAIL <file>` for ea
 holds errors, a file the program imports or a message catalog, with
 its errors below it, and an error two programs share once.
 
+A file that does not parse reports every syntax error it holds in one
+run: the first of each declaration, and the first of each statement inside
+a body. A statement after a damaged one is read on its own, so one mistake
+gives one error. Type errors are reported once the file parses.
+
 `--format short` prints each error as one `path:line:col: message` line
 instead of with its source lines (`--format full`, the default), as
 `NOMI_DIAGNOSTICS=short` does for every command.
+
+`--format json` writes JSON Lines on stdout for a tool or an agent to read,
+as `nomi test --format json` does: a record per error, a record per file
+checked, and a summary last.
+
+```json
+{"type":"diagnostic","file":"/abs/main.nomi","line":5,"col":12,"end_line":5,"end_col":15,"start_byte":54,"end_byte":57,"severity":"error","message":"List<Int> has no field 'len'","hints":["Nomi has no method calls: write `Iter.count(xs)`"],"fix":{"title":"Call `Iter.count`","edits":[{"line":5,"col":9,"end_line":5,"end_col":9,"start_byte":51,"end_byte":51,"text":"Iter.count("},{"line":5,"col":11,"end_line":5,"end_col":16,"start_byte":53,"end_byte":58,"text":""}]}}
+{"type":"file","file":"/abs/main.nomi","status":"failed"}
+{"type":"summary","files":1,"failed":1,"diagnostics":1}
+```
+
+- `file` is absolute, or `std/<module>.nomi` for an error in the standard
+  library. Lines and columns are 1-based, a column counts bytes, and an end
+  is one past the last byte; `start_byte` and `end_byte` are the same
+  points as 0-based byte offsets into the file. A span that is a point has
+  no end.
+- `severity` is `error`: every diagnostic stops the program. `code` names
+  a diagnostic's class when it has one (`unused-import`).
+- `hints` are the `help:` lines, and `related` the other places the error
+  names, each with its own `file`, span and `message`.
+- `fix`, when present, is the rewrite the error knows: its `edits` replace
+  each span's text with `text` (an empty span inserts), applied together.
+  Source written as another language writes it (`let x = 1`, `xs.len()`,
+  `match`, `Point{x: 1}`, `nil`) carries one; the editor offers the same
+  edits as a quick fix.
+- A `"type":"file"` record's `status` is `ok` or `failed`; a file checked
+  through an importer that loads it names it as `through`.
+
+The exit status is the same as in text mode.
 
 ### Tools: `nomi tool`
 
@@ -110,7 +145,7 @@ A compiled program (`.nomic`) has no source to watch and is refused.
 `nomi <file> [args]` is `nomi run <file> [args]`. Together with a shebang line
 (spec §2 *Shebang line*) it lets a file run as a command:
 
-```sh
+```console
 $ cat hi.nomi
 #!/usr/bin/env nomi
 import std/io
@@ -143,7 +178,7 @@ one of the module's tools under `tools/`.
 **Extensionless scripts.** A file without the `.nomi` extension is a program
 when it starts with `#!`, so a command can be named like any other:
 
-```sh
+```console
 $ head -1 ~/bin/greet
 #!/usr/bin/env nomi
 $ greet world        # runs as nomi /home/me/bin/greet world
@@ -178,8 +213,10 @@ The REPL compiles each input as a new program that sees the declarations and top
 named for the path's last element when left out). It writes a `nomi.toml` whose `name` is that element without a `/vN` suffix, written
 as an identifier (`hello-world` is `hello_world`), with `entry_points =
 ["main"]`, a `go.mod` with the `module` line and the `go` line of the Go
-release `nomi` pins, and a `main.nomi` that prints hello, unless one is
-there. It refuses a directory with a `go.mod` or a `nomi.toml`, naming
+release `nomi` pins, a `main.nomi` that prints hello, and an
+`AGENTS.md` for coding agents that names the commands and links the
+[cheat sheet](https://nomi-lang.org/cheatsheet.md), keeping a `main.nomi`
+or `AGENTS.md` already there. It refuses a directory with a `go.mod` or a `nomi.toml`, naming
 `nomi init`. It prints what it wrote and the next command.
 
 `nomi init [module path]` makes the current directory a module. It writes
@@ -789,7 +826,7 @@ That Go is the `go` on `PATH`, or, with none, the Go release `nomi` was built wi
 A WebAssembly target, `js/wasm` or `wasip1/wasm`, writes `<name>.wasm` by default. Nothing may follow a module's last section, so the program goes inside the module:
 
 - A `wasip1/wasm` module carries it as one more active data segment, which the WebAssembly engine writes into a 4 MiB area of the `nomi-vm`'s own memory when it instantiates the module. The module reads its program from there, so it needs no file access: `wasmtime run hello.wasm` runs it, and so does a browser's WASI shim with no file system.
-- The area is uninitialized memory, so it adds nothing to the file. It raises the module's declared initial memory by 4 MiB, to 9.8 MiB for the reactor. `nomi build` refuses a program whose compiled form is larger than the area, naming the limit.
+- The area is uninitialized memory, so it adds nothing to the file. It raises the module's declared initial memory by 4 MiB, to 11.4 MiB for the reactor without the network and 14.9 MiB for the one with it. `nomi build` refuses a program whose compiled form is larger than the area, naming the limit.
 - A `js/wasm` module carries it in a custom section named `nomi.image`, which every runtime skips. A module cannot read its own sections, so it looks where its host can supply them. It uses `globalThis.nomiImage` when a loader has set it to the section's bytes (`new Uint8Array(WebAssembly.Module.customSections(module, "nomi.image")[0])`), and otherwise reads the file argv[0] names through the host's `fs`.
 - Go's own loader runs a `js/wasm` module under Node unchanged: `node "$(go env GOROOT)/lib/wasm/wasm_exec_node.js" hello.wasm`. That loader hands the module Node's whole environment as `startup.env`, and Go's js/wasm runtime refuses to start when the arguments and environment together pass 8 KB ("total length of command line and environment variables exceeds limit"). In a large environment, run it with only what the program reads, as `env -i PATH="$PATH" node ...`. `nomi.js` passes only the `env` its caller gives.
 
@@ -803,11 +840,11 @@ The `js/wasm` build keeps the browser build's limits: its file system is in memo
 
 ### Capability classes
 
-A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std/fs's. Every target has `files` today: a `js/wasm` module's are in memory.
+A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std/fs's, `processes` for std/process's, `network` for std/http's requests and `listen` for its server. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends requests through the browser's `fetch` but cannot start programs or serve; a `wasip1/wasm` module has none of the three.
 
 `nomi build` walks what `main`, the boot and the exported functions can reach, and refuses a program that reaches a call of a class its target lacks. It writes nothing and lists each call in the program's own code that reaches the class, at that call: the std function it calls (`fs.read_text`), the host function that one reaches (`fs_host.read_text`), and the functions the call is reached through. A hint follows, to build for another target or pass `--allow-unsupported <class>`.
 
-The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call answers `Err(#io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked.
+The walk counts a call in a branch the program never takes, so `--allow-unsupported <class>` (repeatable) builds anyway. Such a call answers `Err(io.Error.Unsupported{operation, target})` when it runs; it never traps. `--no-vm` names no target and is not checked.
 
 A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is Go's answer (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std/fs's calls do.
 
@@ -834,9 +871,9 @@ A `.nomic` file is a header followed by the program's image:
 | 18 + `n` | 8 | `L`, the image's length, a little-endian u64 |
 | 26 + `n` | `L` | The image, the same bytes `nomi build` appends to `nomi-vm` |
 
-`nomi build-vm [--target <goos>/<goarch>] [--compiler] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module.
+`nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]` writes a copy of the `nomi-vm` that `nomi build` appends programs to, with no program: `nomi-vm` by default, with `.exe` or `.wasm` as the target needs. `--no-network` writes the smaller `nomi-vm` that `nomi build` uses for a program that never uses std/http, std/net or std/tls: it runs any other program, and refuses one that reaches the network before running it. It comes from where `nomi build` gets one, so a release needs no Go toolchain for it. For `js/wasm` it also writes the matching `wasm_exec.js` beside it. For `wasip1/wasm` it writes the command module.
 
-`nomi build-vm --reactor [--compiler] [-o <out>]` writes `nomi-vm-reactor` with no program instead (`nomi-vm-reactor.wasm` by default), which takes its program through `nomi_load` ([Calling exported functions](#calling-exported-functions)). It writes `nomi-wasi.js` and `nomi-wasi.d.ts` beside it, the JavaScript host that runs it in a browser or Node, creating the folder they go in if it does not exist. The reactor exists only for `wasip1/wasm`, so that is its target, and `--target` with any other value is a usage error.
+`nomi build-vm --reactor [--compiler] [--no-network] [-o <out>]` writes `nomi-vm-reactor` with no program instead (`nomi-vm-reactor.wasm` by default), which takes its program through `nomi_load` ([Calling exported functions](#calling-exported-functions)). It writes `nomi-wasi.js` and `nomi-wasi.d.ts` beside it, the JavaScript host that runs it in a browser or Node, creating the folder they go in if it does not exist. The reactor exists only for `wasip1/wasm`, so that is its target, and `--target` with any other value is a usage error.
 
 `nomi build-vm` takes no program file, and neither form takes `nomi build`'s `--no-vm`, `--web` or `--static`: a program with an `export fn` built with `nomi build --target wasip1/wasm` is already a reactor with that program inside it. `--compiler` writes the `nomi-vm` or reactor that links `std/compiler`'s hosts, which a compiled program importing `std/compiler` needs, and which needs Go to build.
 
@@ -1221,12 +1258,60 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
   - put `|> Iter.take(todo)` before a terminal stage over an infinite iterator;
   - write missing functions, fields and `case` arms, each filled with `todo`, so the result checks.
 - Debugger: `nomi dap`; see [Debugging](#debugging).
+- Coding agents: `nomi mcp`; see [Coding agents](#coding-agents-nomi-mcp).
 
 Each editor's setup is in its README:
 [VS Code](../editors/vscode/README.md),
 [Neovim](../editors/nvim/README.md) and
 [Helix](../editors/helix/README.md). The Zed extension is
 [`editors/zed`](../editors/zed/extension.toml).
+
+### Coding agents: `nomi mcp`
+
+`nomi mcp` serves the Model Context Protocol on stdin and stdout, so a
+coding agent asks the compiler what an editor asks it. To add it to Claude
+Code:
+
+```sh
+claude mcp add nomi -- nomi mcp
+```
+
+Other clients take the same command in their MCP settings, as a `stdio`
+server whose command is `nomi` and whose argument is `mcp`. The server
+starts in the client's working directory, and a relative path in a tool's
+arguments is read from there.
+
+| Tool | Arguments | Answers |
+|---|---|---|
+| `check` | `path` | `nomi check --format json`'s records, as lists: `diagnostics` (each with its span, `hints` and any `fix`), `files` and `summary`, plus `ok`. |
+| `type_at` | `file`, `line`, `col` | The hover text the language server shows there: a type, a signature, a doc comment. |
+| `definition` | `file`, `line`, `col` | The `locations` the name there is declared at. |
+| `references` | `file`, `line`, `col` | Every use of the name there, its declaration included. |
+| `search_std` | `query`, `limit` | The standard library's public functions that match, each as a program calls it (`String.split`), with its signature and first doc paragraph. |
+| `run_tests` | `path`, `line` | `nomi test --format json`'s records: `tests` and `summary`, plus `ok`. |
+| `format` | `source` or `file` | The formatted text and whether it changed. It never writes the file. |
+| `explain` | `code` | What a diagnostic's `code` means and how to fix it; with no code, the codes. |
+
+A position is a 1-based line and a 1-based byte column, as `check` reports
+them, and a location is a `file` with a span in the same form. A tool that
+fails answers its error as text with `isError` set, for the agent to read.
+
+A `search_std` query with `->` is a signature, such as `String, String ->
+List<String>`. Its parameters match in any order, a parameter with a
+default may be left out, and a single capital letter stands for any type:
+`List<T> -> Maybe<T>` finds `List.head`, and so does `List<Int> ->
+Maybe<Int>`. A query type also matches an interface it implements, so
+`List<T> -> Int` finds `Iter.count`, whose parameter is an `Iter<T>`, and
+`List<String> -> String` finds `String.join`; a result matches the
+interface a query asks for. Exact matches come first, then generic ones,
+then ones through an impl. Any other query matches names and the text of
+doc comments.
+
+`check` and `run_tests` run `nomi check` and `nomi test` as child processes
+of the same `nomi`, and download the modules a project needs as those
+commands do. The other tools answer in process: the language server's
+analysis for positions, which reads each file from the disk when a tool
+names it, and the formatter.
 
 ### Debugging
 

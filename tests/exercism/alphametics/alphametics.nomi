@@ -42,7 +42,7 @@ fn places(word: String, sign: Int) -> List<#(String, Int, Bool)> {
 }
 
 fn letter(name: String, uses: List<#(String, Int, Bool)>) -> Letter {
-    #Letter{
+    Letter{
         name,
         weight: uses |> Iter.map(fn #(_name, value, _leading) -> value) |> Iter.sum(),
         leading: Iter.any(uses, fn #(_name, _value, leading) -> leading),

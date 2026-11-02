@@ -419,29 +419,38 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		}
 	}
 	m.hosts = map[string]hostFn{
-		"Result.map_err":       resultMapErrHost,
-		"Maybe.to_result":      maybeToResultHost,
-		"concurrent":           concurrentHost,
-		"Task.spawn":           taskSpawnHost,
-		"Task.await":           taskHost("Task.await"),
-		"Task.cancel":          taskHost("Task.cancel"),
-		"Task.outcome":         taskHost("Task.outcome"),
-		"Task.spawn_all":       taskSpawnAllHost,
-		"Task.await_all":       taskAwaitAllHost,
-		"Supervisor.spawn":     supervisorSpawnHost,
-		"Supervisor.spawn_all": supervisorSpawnAllHost,
-		"Maybe.with_default":   withDefaultHost("Some"),
-		"Result.with_default":  withDefaultHost("Ok"),
-		"Channel.buffered":     channelHost("Channel.buffered"),
-		"Channel.unbuffered":   channelHost("Channel.unbuffered"),
-		"Sender.send":          channelHost("Sender.send"),
-		"Sender.close":         channelHost("Sender.close"),
-		"Receiver.receive":     channelHost("Receiver.receive"),
-		"List.head":            listHost("List.head"),
-		"List.tail":            listHost("List.tail"),
-		"List.concat":          listHost("List.concat"),
-		"List.contains":        listContainsHost,
-		"List.remove_at":       listRemoveAtHost,
+		"Result.map_err":        resultMapErrHost,
+		"Maybe.to_result":       maybeToResultHost,
+		"concurrent":            concurrentHost,
+		"Task.spawn":            taskSpawnHost,
+		"Task.await":            taskHost("Task.await"),
+		"Task.cancel":           taskHost("Task.cancel"),
+		"Task.outcome":          taskHost("Task.outcome"),
+		"Task.spawn_all":        taskSpawnAllHost,
+		"Task.await_all":        taskAwaitAllHost,
+		"Supervisor.spawn":      supervisorSpawnHost,
+		"Supervisor.spawn_all":  supervisorSpawnAllHost,
+		"Maybe.with_default":    withDefaultHost("Some"),
+		"Result.with_default":   withDefaultHost("Ok"),
+		"Channel.buffered":      channelHost("Channel.buffered"),
+		"Channel.unbuffered":    channelHost("Channel.unbuffered"),
+		"Sender.send":           channelHost("Sender.send"),
+		"Sender.close":          channelHost("Sender.close"),
+		"Sender.close_on_drain": channelHost("Sender.close_on_drain"),
+		"Receiver.receive":      channelHost("Receiver.receive"),
+		"List.head":             listHost("List.head"),
+		"List.tail":             listHost("List.tail"),
+		"List.concat":           listHost("List.concat"),
+		"List.contains":         listContainsHost,
+		"List.remove_at":        listRemoveAtHost,
+
+		// Waiting on several channel operations at once (channelselect).
+		"Channel.select":          channelSelectHost,
+		"Arm.receive":             channelHost("Arm.receive"),
+		"Arm.send":                channelHost("Arm.send"),
+		"Arm.after":               channelHost("Arm.after"),
+		"Receiver.receive_within": channelHost("Receiver.receive_within"),
+
 		// A call the builder lowered as unreachable: a bound dispatch on a type
 		// argument it filled itself (irbuild's holeBoundCall). It faults with
 		// the builder's text if control ever arrives.
@@ -509,6 +518,13 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		// `fs_testing.run`: std/fs calls go to the sandbox on the calling
 		// frame. See sandbox.go.
 		sandboxKey: sandboxHost,
+		// `process_testing.run`: std/process calls go to the fake on the
+		// calling frame. See sandbox.go.
+		processFakeKey:     processFakeHost,
+		networkFakeKey:     networkFakeHost,
+		networkAnswerKey:   networkAnswerHost,
+		networkRecordedKey: networkRecordedHost,
+		networkRequestKey:  networkRequestHost,
 		// `dbg` is `rt.DbgText(w, line, expr, rendered)`: rt's layout and
 		// colour rule, called rather than transcribed. See dbg.go in this
 		// package for the two facts that are this consumer's own: which
@@ -861,7 +877,7 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	case *ir.Proj:
 		// A destructuring parameter's names are projections off the one
 		// parameter holding the whole value, so a function like
-		// `fn sum_point(#Point{x, y}) -> Int { x + y }` reaches here twice.
+		// `fn sum_point(Point{x, y}) -> Int { x + y }` reaches here twice.
 		//
 		// Declared and anonymous fields, tuple components, variant payloads
 		// and distinct inners share the projection consumer.

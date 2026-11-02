@@ -689,3 +689,83 @@ func recoverTrap(f func()) (err *Error) {
 	f()
 	return nil
 }
+
+// A drain hook runs when the drain starts, before any supervisor's grace
+// period, so what takes new work stops before the wait for work already
+// taken. One registered after the drain began runs at once, and an
+// unregistered one never runs.
+func TestOnDrain_RunsBeforeTheGracePeriod(t *testing.T) {
+	ResetSupervisors()
+	fr, cleanup := supervisorFixture(t)
+	defer cleanup()
+	sup := newTestSupervisor(fr, 1, Duration(3*time.Second))
+	release := make(chan struct{})
+	SupervisorSpawn(fr, sup, func(*Frame) Unit { <-release; return Unit{} })
+
+	hooked := make(chan struct{})
+	OnDrain(func() { close(hooked); close(release) })
+	unregistered := false
+	OnDrain(func() { unregistered = true })()
+
+	start := time.Now()
+	DrainSupervisors()
+	select {
+	case <-hooked:
+	default:
+		t.Fatal("the drain hook did not run")
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("the drain took %v: the hook ran after the grace period, not before it", elapsed)
+	}
+	if unregistered {
+		t.Fatal("an unregistered hook ran")
+	}
+	late := false
+	OnDrain(func() { late = true })
+	if !late {
+		t.Fatal("a hook registered after the drain began did not run at once")
+	}
+}
+
+// A channel closed on drain ends a supervised reader parked on it when the
+// drain starts, so the drain does not wait out the grace period for it; the
+// owner's close after that is no double close, and a close before the drain
+// unregisters the hook, so the drain does not close it again.
+func TestSenderCloseOnDrain_EndsAParkedReaderAtTheDrain(t *testing.T) {
+	ResetSupervisors()
+	fr, cleanup := supervisorFixture(t)
+	defer cleanup()
+	sup := newTestSupervisor(fr, 2, Duration(3*time.Second))
+
+	drained := ChannelBuffered[Int](1)
+	SenderCloseOnDrain(drained.Sender)
+	ended := make(chan struct{})
+	SupervisorSpawn(fr, sup, func(f *Frame) Unit {
+		for ReceiverReceive(f, drained.Receiver).Tag == TagSome {
+		}
+		close(ended)
+		return Unit{}
+	})
+
+	closedFirst := ChannelBuffered[Int](1)
+	SenderCloseOnDrain(closedFirst.Sender)
+	SenderClose(closedFirst.Sender)
+
+	start := time.Now()
+	DrainSupervisors()
+	select {
+	case <-ended:
+	default:
+		t.Fatal("the reader parked on the channel did not end at the drain")
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("the drain took %v: it waited for the parked reader", elapsed)
+	}
+	SenderClose(drained.Sender) // the owner's close after the drain's
+
+	late := ChannelBuffered[Int](1)
+	SenderCloseOnDrain(late.Sender) // registered after the drain: closes at once
+	if ReceiverReceive(fr, late.Receiver).Tag == TagSome {
+		t.Fatal("a channel registered after the drain began is still open")
+	}
+}

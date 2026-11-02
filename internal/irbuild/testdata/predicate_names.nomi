@@ -92,9 +92,9 @@ fn main() {
     io.print("zero after = ${is_zero_after(5)}")
     io.print("even = ${is_even(10)}")
     io.print("odd = ${is_odd(10)}")
-    io.print("open = ${Gate.is_open(#Door{latched: False})}")
-    io.print("shut = ${Door.is_shut(#Door{latched: True})}")
-    io.print("describe = ${describe(#Door{latched: False})}")
+    io.print("open = ${Gate.is_open(Door{latched: False})}")
+    io.print("shut = ${Door.is_shut(Door{latched: True})}")
+    io.print("describe = ${describe(Door{latched: False})}")
     io.print("once = ${is_ready}")
-    io.print("beat = ${is_tock(#Tick{}, 7)}")
+    io.print("beat = ${is_tock(Tick{}, 7)}")
 }

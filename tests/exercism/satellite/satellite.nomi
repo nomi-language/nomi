@@ -51,7 +51,7 @@ fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable {
             right_preorder = Iter.drop(rest, size) |> Iter.to_list()
             right_inorder = Iter.drop(inorder, size + 1) |> Iter.to_list()
 
-            #.Node{
+            .Node{
                 left: build(left_preorder, left_inorder),
                 value: root,
                 right: build(right_preorder, right_inorder),

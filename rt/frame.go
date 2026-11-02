@@ -124,7 +124,15 @@ type Frame struct {
 	// replaced it (`fs_testing.run`, `fs.within`: an rt.FileSystem), or nil
 	// for the machine's own. Dynamic
 	// context like capture, and carried the same way. See files.go.
-	files   any
+	files any
+	// processes is the fake std/process reaches from this lineage when
+	// `process_testing.run` installed one (an rt.ProcessFake), or nil for
+	// the operating system's. Dynamic context like files, and carried the
+	// same way. See processes.go.
+	processes any
+	// network is the fake std/http reaches from this lineage when
+	// http_testing.run installed one (network.go), else nil.
+	network any
 	startup *Startup
 	// debug is a debugger's record of the thread this lineage runs on, or
 	// nil (internal/vm's debug.go). Every child frame on the same goroutine

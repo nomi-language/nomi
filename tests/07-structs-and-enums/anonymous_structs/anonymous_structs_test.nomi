@@ -55,7 +55,7 @@ test "anonymous struct parameter mismatches report diagnostics" {
             _missing = greet(#{name: "Bob"})
             _extra = greet(#{name: "Bob", age: 42, x: 0})
             _wrong = greet(#{name: "Bob", age: "42"})
-            _nominal = greet(#Person{name: "Bob", age: 42})
+            _nominal = greet(Person{name: "Bob", age: 42})
           }
         """
     )

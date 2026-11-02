@@ -30,7 +30,7 @@ derive ToJson for State
 derive FromJson for State
 
 export fn new_game(word: String) -> Game {
-    #Game{word, guesses: [], state: State.Playing}
+    Game{word, guesses: [], state: State.Playing}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
@@ -143,6 +143,7 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 		`win: {"word":"pipeline","guesses":["i","e"],"state":"Won"}`,
 		`divide by zero rejects: line 32: division by zero`,
 		`divide after the failure: 3`,
+		`an Int past 2^53: bigint 9007199254740993`,
 		`an unknown function rejects: no exported function ` + "`nope`" + `; the exported functions are divide, guess, new_game, win`,
 		`closed: nomi-wasi: the program is closed, so it cannot go on calling ` + "`divide`",
 		`counter a: "Hello, Ada!"`,
@@ -200,6 +201,8 @@ say("guess", show(state));
 say("win", show(await game.call("win", state)));
 say("divide by zero rejects", await rejection(game.call("divide", 1, 0)));
 say("divide after the failure", show(await game.call("divide", 9, 3)));
+const big = await game.call("divide", 18014398509481986n, 2);
+say("an Int past 2^53", typeof big + " " + big);
 say("an unknown function rejects", await rejection(game.call("nope")));
 game.close();
 say("closed", await rejection(game.call("divide", 9, 3)));

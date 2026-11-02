@@ -5,7 +5,8 @@ description: Write tests with assertions, check what a program prints, share set
 
 A test is ordinary Nomi code. A `test` declaration gives a name and a block to
 run. You can put tests next to the code they check, or in a file whose name
-ends in `_test.nomi`.
+ends in `_test.nomi`. `shapes_test.nomi` beside `shapes.nomi` can use that
+file's private declarations, so nothing needs `pub` just to be tested.
 
 `nomi test` runs them. Anything a test prints, `dbg` included, appears under
 its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time
@@ -80,10 +81,10 @@ This is a good way to check for a particular enum variant, such as one kind of
 error:
 
 ```nomi-run
-import std/calendar.{Date, Error}
+import std/calendar.Date
 
 test "assert can match an error variant" {
-    assert Err(Error.InvalidFormat(_)) = Date.parse("not-a-date")
+    assert Err(.InvalidFormat(_)) = Date.parse("not-a-date")
 }
 ```
 <!-- expect

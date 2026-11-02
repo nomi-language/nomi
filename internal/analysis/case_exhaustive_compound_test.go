@@ -58,7 +58,7 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 			"non-exhaustive case on #(Maybe<Int>, Int): missing #(None, _)",
 		},
 		"tuple of enum and Bool": {
-			"fn f(s: Shape, b: Bool) -> Int {\n  case #(s, b) {\n    #(.Circle(_), True) -> 1\n    #(#.Rect{w, h}, _) -> 2\n    #(.Empty, _) -> 3\n  }\n}",
+			"fn f(s: Shape, b: Bool) -> Int {\n  case #(s, b) {\n    #(.Circle(_), True) -> 1\n    #(.Rect{w, h}, _) -> 2\n    #(.Empty, _) -> 3\n  }\n}",
 			"non-exhaustive case on #(Shape, Bool): missing #(Circle(_), False)",
 		},
 		"list missing longer lists": {
@@ -79,7 +79,7 @@ func TestCaseExhaustive_CompoundScrutineesRejected(t *testing.T) {
 		},
 		"struct with an enum field": {
 			"fn f(s: Slot) -> Int {\n  case s {\n    #{name, value: Some(v)} -> v\n  }\n}",
-			"non-exhaustive case on Slot: missing #Slot{value: None, ..}",
+			"non-exhaustive case on Slot: missing Slot{value: None, ..}",
 		},
 		"distinct over an enum": {
 			"fn f(w: Wrapped) -> Int {\n  case w {\n    Wrapped(Some(v)) -> v\n  }\n}",

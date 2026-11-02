@@ -5,13 +5,13 @@ import "testing"
 func TestIRReduceContext_EarlyBareVariant(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn reduce(xs: List<Int>) -> Maybe<Int> {
- Iter.reduce(xs, fn _acc: Maybe<Int> = None, x: Int -> {
+ Iter.reduce(xs, None, fn _acc: Maybe<Int>, x: Int -> {
   if x == 0 { return None }
   Some(x)
  })
 }
 fn reverse(xs: List<Int>) -> Maybe<Int> {
- Iter.reduce(xs, fn _acc: Maybe<Int> = None, x: Int -> {
+ Iter.reduce(xs, None, fn _acc: Maybe<Int>, x: Int -> {
   if x != 0 { return Some(x) }
   None
  })

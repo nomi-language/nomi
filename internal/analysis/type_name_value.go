@@ -127,7 +127,7 @@ func typeNameValueHint(name, what string, ty Type) string {
 		if t.Opaque {
 			return "build a value with a function its module exports"
 		}
-		return fmt.Sprintf("build a value with `#%s{...}`", name)
+		return fmt.Sprintf("build a value with `%s{...}`", name)
 	case *EnumType:
 		if len(t.Variants) > 0 {
 			return fmt.Sprintf("a value of `%s` is one of its variants, as in `%s.%s`", name, name, t.Variants[0].Name)
@@ -140,7 +140,7 @@ func typeNameValueHint(name, what string, ty Type) string {
 // `Iter.map(ints, Id)` for `type Id Int`, as its constructor: a function of
 // the one value it wraps, `(Int) -> Id`. A tuple-distinct's constructor takes
 // the tuple, `(#(Int, String)) -> Pair`, as a positional variant over a tuple
-// does: the flat `#Pair(1, "x")` is a call form, not a second parameter list.
+// does: the flat `Pair(1, "x")` is a call form, not a second parameter list.
 // The instantiated type is recorded on the reference (attachCallType), which
 // is what the IR builder reads to build the function. A zero-sized type is
 // its own value and is not a constructor; an opaque one's constructor is
@@ -162,11 +162,14 @@ func (c *checker) distinctCtorValue(n ast.Node) (Type, bool) {
 		return nil, false
 	}
 	dt, isDistinct := sym.Type.(*DistinctType)
-	if !isDistinct || dt.Inner == nil || len(dt.TypeParams) > 0 {
+	if !isDistinct || dt.Inner == nil {
 		return nil, false
 	}
 	c.checkOpaqueConstructor(n, dt)
-	ft := &FuncType{Params: []Type{dt.Inner}, Return: dt}
+	// A generic distinct's constructor (`Wrap` for `type Wrap<T> T`) is
+	// the function of a fresh instance, which the use solves.
+	dt = c.freshDistinct(dt)
+	ft := &FuncType{Params: []Type{distinctInnerOf(dt)}, Return: dt}
 	c.attachCallType(n, ft)
 	return ft, true
 }
@@ -206,7 +209,7 @@ func (c *checker) checkTypeNameCall(ref typeNameRef, resolved Type, args []ast.N
 // destructuring, `Balance(n) = balance`. An opaque distinct outside its file
 // cannot be destructured either, so the help names its accessors instead.
 func (c *checker) distinctUnwrapHint(dt *DistinctType, arg ast.Node) string {
-	if dt.Opaque && (c.fa == nil || c.fa.FilePath != dt.OwningSourceFile) {
+	if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
 		return fmt.Sprintf("the value inside %s is private to the file that declares it; use a function its module exports", dt.Name)
 	}
 	value := "value"

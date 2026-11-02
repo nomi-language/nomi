@@ -121,9 +121,8 @@ digits = #[1, 2]
 // <~~~~~~~~~- punctuation.section.nomi
 tags = %["a"]
 // <~~~~~~~- punctuation.section.nomi
-origin = #Point{x: 0}
-// <~~~~~~~~~- punctuation.section.nomi
-// <~~~~~~~~~~----- entity.name.type.nomi
+origin = Point{x: 0}
+// <~~~~~~~~~----- entity.name.type.nomi
 kvs = %Kvs{"a" => 1}
 // <~~~~~~- punctuation.section.nomi
 // <~~~~~~~--- entity.name.type.nomi

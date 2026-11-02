@@ -34,7 +34,7 @@ struct App {
 }
 
 fn boot(startup: Startup) -> Result<App, String> {
-    Ok(#App{args: startup.args})
+    Ok(App{args: startup.args})
 }
 
 /// One generated file: its path from the module root and its text.
@@ -213,7 +213,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
     applied =
         migrations
-        |> Iter.map(fn m -> #describe.Migration{path: m.path, text: m.text})
+        |> Iter.map(fn m -> describe.Migration{path: m.path, text: m.text})
         |> Iter.to_list()
 
     found = describe.describe(applied, statements)
@@ -253,17 +253,13 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
     digest = inputs.digest(migrations + query_inputs)
 
-    #(made, _) = Iter.reduce(
-        files,
-        fn acc, file -> {
-            #(made, rest) = acc
-            count = Iter.count(file.queries)
-            mine = rest |> Iter.take(count) |> Iter.to_list()
-            left = rest |> Iter.drop(count) |> Iter.to_list()
-            #([#(file, codegen.queries_file(schema, file, mine, digest)), ..made], left)
-        },
-        from: #([], described),
-    )
+    #(made, _) = Iter.reduce(files, #([], described), fn acc, file -> {
+        #(made, rest) = acc
+        count = Iter.count(file.queries)
+        mine = rest |> Iter.take(count) |> Iter.to_list()
+        left = rest |> Iter.drop(count) |> Iter.to_list()
+        #([#(file, codegen.queries_file(schema, file, mine, digest)), ..made], left)
+    })
 
     made = Iter.reverse(made)
 
@@ -283,7 +279,7 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
         made
         |> Iter.flat_map(fn #(file, r) -> {
             case r {
-                Ok(text) -> [#Generated{path: databases.out_file(db, stem(file.path)), text}]
+                Ok(text) -> [Generated{path: databases.out_file(db, stem(file.path)), text}]
                 Err(_) -> []
             }
         })
@@ -293,11 +289,11 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
     Ok(
         [
-            #Generated{
+            Generated{
                 path: databases.out_file(db, db.schema),
                 text: codegen.schema_file(schema, pairs, digest),
             },
-            #Generated{
+            Generated{
                 path: databases.out_file(db, db.schema + "_test"),
                 text: codegen.test_file(db, digest),
             },
@@ -329,7 +325,7 @@ fn file_problems(db: Database, files: List<Input>) -> List<Problem> {
 
         if not sqltext.is_name(name) {
             [
-                #Problem{
+                Problem{
                     file: f.path,
                     line: 0,
                     col: 0,
@@ -339,7 +335,7 @@ fn file_problems(db: Database, files: List<Input>) -> List<Problem> {
             ]
         } else if name == db.schema or name == db.schema + "_test" {
             [
-                #Problem{
+                Problem{
                     file: f.path,
                     line: 0,
                     col: 0,
@@ -409,7 +405,7 @@ fn table(t: describe.Table, migrations: List<Input>) -> Table {
         |> Iter.map(fn c -> {
             column_text = text_of(migrations, c.migration)
 
-            #TableColumn{
+            TableColumn{
                 name: c.name,
                 type_name: c.declared,
                 nullable: not c.not_null
@@ -423,7 +419,7 @@ fn table(t: describe.Table, migrations: List<Input>) -> Table {
         })
         |> Iter.to_list()
 
-    #Table{name: t.name, migration: t.migration, line: table_line, columns}
+    Table{name: t.name, migration: t.migration, line: table_line, columns}
 }
 
 fn text_of(migrations: List<Input>, path: String) -> String {
@@ -519,7 +515,7 @@ fn read_values(words: Vector<Token>, i: Int, acc: List<String>) -> Maybe<List<St
 
 /// A query's result columns as SQLite describes them, or its error.
 fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, QueryError> {
-    if s.error != "" { return Err(#QueryError{message: s.error, offset: s.offset}) }
+    if s.error != "" { return Err(QueryError{message: s.error, offset: s.offset}) }
 
     // The tables an outer join may leave out: SQLite's plan marks each
     // `LEFT-JOIN`; a RIGHT or FULL join may leave out any of them.
@@ -556,7 +552,7 @@ fn columns(tokens: List<Token>, s: describe.Statement) -> Result<List<Column>, Q
                 None
             }
 
-            #Column{
+            Column{
                 name: c.name,
                 type_name: Maybe.with_default(cast, c.declared),
                 table: c.table,

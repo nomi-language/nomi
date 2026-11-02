@@ -176,7 +176,7 @@ impl Display for Boom {
   }
 }
 fn r() -> Result<Int, Boom> {
-  Err(#Boom{why: "boom"})
+  Err(Boom{why: "boom"})
 }
 fn f() -> Result<Int, Display> {
   v = r()?
@@ -339,7 +339,7 @@ func TestTryBoundary_BreakOnlyLambdaBodyHasTheBreakValuesResult(t *testing.T) {
   Ok(n)
 }
 fn demo() -> Int {
-  Iter.loop(fn acc = 0 -> {
+  Iter.loop(0, fn acc -> {
     v = parse(acc)?
     break v
   })
@@ -355,7 +355,7 @@ func TestTryBoundary_BreakOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) {
   Ok(n)
 }
 fn demo() -> Result<Int, String> {
-  Iter.loop(fn acc: Result<Int, String> = Ok(0) -> {
+  Iter.loop(Ok(0), fn acc: Result<Int, String> -> {
     v = parse(Result.with_default(acc, 0))?
     break Ok(v)
   })
@@ -389,7 +389,7 @@ func TestTryBoundary_ContinueOnlyLambdaBodyWithAResultHoldsTheTry(t *testing.T) 
   Ok(n)
 }
 fn demo() -> Result<Int, String> {
-  Iter.loop(fn acc: Result<Int, String> = Ok(0) -> {
+  Iter.loop(Ok(0), fn acc: Result<Int, String> -> {
     _ = parse(Result.with_default(acc, 0))?
     continue
   })

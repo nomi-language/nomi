@@ -84,7 +84,7 @@ fn main() {
     io.inspect(f("h"))
     io.inspect(apply(greet, "i"))
     io.inspect(apply(f: lib.shout, s: "j"))
-    io.inspect((#Greeter{run: greet}).run("k"))
+    io.inspect((Greeter{run: greet}).run("k"))
     fs: List<(String) -> String> = [greet, shout]
     io.inspect(fs |> Iter.map(fn g -> g("l")) |> Iter.to_list())
     io.inspect(pick(True)("m"))

@@ -26,14 +26,14 @@ enum Op {
 /// The words every program starts with, each the steps it runs. A program's
 /// own definitions are added to these, and may replace them.
 once builtins: Map<String, List<Op>> = %{
-    "+" => [Op.Add],
-    "-" => [Op.Subtract],
-    "*" => [Op.Multiply],
-    "/" => [Op.Divide],
-    "dup" => [Op.Dup],
-    "drop" => [Op.Drop],
-    "swap" => [Op.Swap],
-    "over" => [Op.Over],
+    "+" => [.Add],
+    "-" => [.Subtract],
+    "*" => [.Multiply],
+    "/" => [.Divide],
+    "dup" => [.Dup],
+    "drop" => [.Drop],
+    "swap" => [.Swap],
+    "over" => [.Over],
 }
 
 /// The stack, bottom first, after running each line of `instructions` in
@@ -89,7 +89,7 @@ fn run(
 fn resolve(words: Map<String, List<Op>>, word: String) -> Result<List<Op>, Error> {
     if Some(n) = String.to_int(word) { return Ok([.Push(n)]) }
 
-    Map.get(words, word) |> Maybe.to_result(Error.UndefinedOperation)
+    Map.get(words, word) |> Maybe.to_result(.UndefinedOperation)
 }
 
 fn execute(stack: List<Int>, ops: List<Op>) -> Result<List<Int>, Error> {

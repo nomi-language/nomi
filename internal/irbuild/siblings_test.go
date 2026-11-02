@@ -85,11 +85,9 @@ func TestSiblingFile_PrivateDeclarationIsNotCallable(t *testing.T) {
 		t.Fatal("a private sibling declaration must be FOUND, so a call site refuses " +
 			"under the reason it was refused for rather than under 'no such function'")
 	}
-	if priv.lowerable() {
-		t.Fatal("a non-pub sibling declaration is file-private and must not be callable across files")
-	}
-	if priv.why != "private sibling file function" {
-		t.Fatalf("refusal name is the tally key and must be stable; got %q", priv.why)
+	if !priv.private {
+		t.Fatal("a non-pub sibling declaration is file-private and must not be callable across files, " +
+			"except from its partner test file")
 	}
 }
 

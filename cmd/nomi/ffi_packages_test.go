@@ -106,7 +106,7 @@ fn count_if(cells: List<Cell>, keep: (String) -> Bool) -> Int go adapter.CountIf
 fn main() {
   cell = make_cell("a", 3)
   io.print("${cell}")
-  user = greet(#User{name: "Ada", address: #Address{city: "Oslo"}, cells: [cell], best: None})
+  user = greet(User{name: "Ada", address: Address{city: "Oslo"}, cells: [cell], best: None})
   io.print("${user.name} ${user.address.city} ${user.cells}")
   case user.best {
     Some(best) -> io.print("best ${best}")
@@ -123,9 +123,9 @@ fn main() {
 	if err != nil {
 		t.Fatalf("nomi run: %v\n%s", err, out)
 	}
-	const want = "#Cell{text: a, n: 3}\n" +
-		"hi Ada Oslo [#Cell{text: a, n: 3}, #Cell{text: Oslo, n: 7}]\n" +
-		"best #Cell{text: a, n: 3}\n" +
+	const want = "Cell{text: a, n: 3}\n" +
+		"hi Ada Oslo [Cell{text: a, n: 3}, Cell{text: Oslo, n: 7}]\n" +
+		"best Cell{text: a, n: 3}\n" +
 		"1\n"
 	if out != want {
 		t.Fatalf("nomi run printed\n%s\nwant\n%s", out, want)

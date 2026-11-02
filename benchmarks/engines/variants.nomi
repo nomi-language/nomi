@@ -32,6 +32,6 @@ fn pick(i: Int) -> Shape {
 }
 
 fn main() {
-    total = Iter.reduce(0..=299999, fn acc = 0, i -> acc + area(pick(i)))
+    total = Iter.reduce(0..=299999, 0, fn acc, i -> acc + area(pick(i)))
     io.print(total)
 }

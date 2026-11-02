@@ -347,12 +347,12 @@ func TestDiagnostics_ProgramErrorsNameTheirFile(t *testing.T) {
 }
 
 fn main() {
-    io.inspect(#Box{n: 1})
-    io.inspect(#Thing{n: 1})
+    io.inspect(Box{n: 1})
+    io.inspect(Thing{n: 1})
 }
 
 test "boxes" {
-    assert #Box{n: 1} == #Box{n: 1}
+    assert Box{n: 1} == Box{n: 1}
 }
 `)
 	mustWrite(t, filepath.Join(dir, "child.nomi"), `import other.Thing
@@ -452,7 +452,7 @@ func TestDiagnostics_AnOrphanImplInAnotherModuleNamesItsFile(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "app", "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "app", "go.mod"), "module app\n\ngo 1.27.0\n\nrequire fx v0.0.0\n\nreplace fx => ../fx\n")
-	mustWrite(t, filepath.Join(dir, "app", "main.nomi"), "import {\n    std/io\n    fx/rate.Rate\n}\n\nfn main() {\n    io.inspect(#Rate{per_unit: 4})\n}\n")
+	mustWrite(t, filepath.Join(dir, "app", "main.nomi"), "import {\n    std/io\n    fx/rate.Rate\n}\n\nfn main() {\n    io.inspect(Rate{per_unit: 4})\n}\n")
 	mustWrite(t, filepath.Join(dir, "fx", "nomi.toml"), "[module]\nname = \"fx\"\n")
 	mustWrite(t, filepath.Join(dir, "fx", "go.mod"), "module fx\n\ngo 1.27.0\n")
 	mustWrite(t, filepath.Join(dir, "fx", "rate.nomi"), "pub struct Rate {\n    per_unit: Int\n}\n\nimpl Display for Bool {\n    fn to_string(_b: Bool) -> String {\n        \"b\"\n    }\n}\n")

@@ -26,8 +26,10 @@ const toolingSidebar = existsSync(toolingSidebarFile) ? JSON.parse(readFileSync(
 const referenceItems = [
 	{ label: 'Standard Library', link: '/reference/' },
 	...[
+		'actors',
 		'add',
 		'assertions',
+		'base64',
 		'bits',
 		'bitwise',
 		'bool',
@@ -54,6 +56,9 @@ const referenceItems = [
 		'fs_testing',
 		'hash',
 		'hashable',
+		'hex',
+		'http',
+		'http_testing',
 		'instant',
 		'int',
 		'io',
@@ -63,15 +68,19 @@ const referenceItems = [
 		'literals',
 		'locale',
 		'localize',
+		'log',
+		'log_testing',
 		'maps',
 		'matcher',
 		'maybe',
 		'message',
 		'money',
 		'multiply',
+		'net',
 		'path',
 		'plural',
 		'process',
+		'process_testing',
 		'productable',
 		'random',
 		'ranges',
@@ -91,9 +100,11 @@ const referenceItems = [
 		'tasks',
 		'testing',
 		'timer',
+		'tls',
 		'toml',
 		'type',
 		'unit',
+		'url',
 		'uuid',
 		'variants',
 		'vectors',
@@ -169,6 +180,7 @@ export default defineConfig({
 					collapsed: false,
 					items: [
 						{ label: 'Introduction', link: '/' },
+						{ label: 'Cheat Sheet', link: '/cheat-sheet/' },
 						{ label: 'Bindings & Expressions', link: '/bindings-and-expressions/' },
 						{ label: 'Functions & Lambdas', link: '/functions-and-lambdas/' },
 						{ label: 'Pipes', link: '/pipes/' },
@@ -190,6 +202,23 @@ export default defineConfig({
 						{ label: 'Building & Shipping', link: '/building-and-shipping/' },
 					],
 				},
+				// Short pages for someone who already writes another language.
+				// Each item is the language alone, since the group says
+				// "Coming from…"; the page titles keep the whole phrase.
+				{
+					label: 'Coming from…',
+					collapsed: false,
+					items: [
+						{ label: 'Rust', link: '/from-rust/' },
+						{ label: 'Go', link: '/from-go/' },
+						{ label: 'Elixir', link: '/from-elixir/' },
+						{ label: 'TypeScript', link: '/from-typescript/' },
+						{ label: 'Python', link: '/from-python/' },
+						{ label: 'Kotlin', link: '/from-kotlin/' },
+						{ label: 'Swift', link: '/from-swift/' },
+						{ label: 'Ruby', link: '/from-ruby/' },
+					],
+				},
 				// Programs a reader writes with a library: each chapter shows a
 				// task and links the reference for the rest.
 				{
@@ -202,6 +231,7 @@ export default defineConfig({
 						{ label: 'Translating Text', link: '/translating-text/' },
 						{ label: 'Files', link: '/files/' },
 						{ label: 'JSON & Dynamic', link: '/json-and-dynamic/' },
+						{ label: 'HTTP', link: '/http/' },
 						{ label: 'Background Work', link: '/background-work/' },
 						{ label: 'Databases', link: '/databases/' },
 					],

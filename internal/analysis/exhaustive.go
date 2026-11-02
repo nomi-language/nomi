@@ -265,9 +265,9 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 				ctor.subTypes = []Type{payload}
 				ctor.render = func(s []string) string {
 					if s[0] == "_" {
-						return "#" + name + "{..}"
+						return name + "{..}"
 					}
-					return "#" + name + strings.TrimPrefix(s[0], "#")
+					return name + strings.TrimPrefix(s[0], "#")
 				}
 			default:
 				ctor.subTypes = []Type{payload}
@@ -326,7 +326,7 @@ func (c *checker) patternCtors(t Type, column []ast.Node) []patCtor {
 				subs[def] = tt.TypeArgs[i]
 			}
 		}
-		return []patCtor{structCtor("#"+tt.Name, tt.Fields, subs)}
+		return []patCtor{structCtor(tt.Name, tt.Fields, subs)}
 	case *AnonStructType:
 		return []patCtor{structCtor("#", tt.Fields, nil)}
 	case *ListType:
@@ -552,13 +552,6 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 			stripped.TypeName = nil
 			inner = &stripped
 		case *ast.SetPattern:
-			stripped := *v
-			stripped.TypeName = nil
-			inner = &stripped
-		case *ast.TuplePattern:
-			if v.TypeName == nil || !distinctTypeNameMatches(v.TypeName.TypeString(), tt.Name) {
-				return nil, false
-			}
 			stripped := *v
 			stripped.TypeName = nil
 			inner = &stripped

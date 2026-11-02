@@ -17,12 +17,12 @@ impl LinkedList<T> {
     /// The list that pushing `values` one after another onto an empty list
     /// builds, so the last of them is at the head.
     pub fn from(values: List<T>) -> LinkedList<T> {
-        Iter.reduce(values, LinkedList.push, from: LinkedList.Empty)
+        Iter.reduce(values, LinkedList.Empty, LinkedList.push)
     }
 
     /// `list` with `value` at its head.
     pub fn push(list: LinkedList<T>, value: T) -> LinkedList<T> {
-        #.Node{value, next: list}
+        .Node{value, next: list}
     }
 
     /// The value at the head of `list` and the list after it, or
@@ -30,7 +30,7 @@ impl LinkedList<T> {
     pub fn pop(list: LinkedList<T>) -> Result<#(T, LinkedList<T>), Error> {
         case list {
             .Empty -> Err(.EmptyList)
-            #.Node{value, next} -> Ok(#(value, next))
+            .Node{value, next} -> Ok(#(value, next))
         }
     }
 
@@ -38,13 +38,13 @@ impl LinkedList<T> {
     pub fn peek(list: LinkedList<T>) -> Result<T, Error> {
         case list {
             .Empty -> Err(.EmptyList)
-            #.Node{value} -> Ok(value)
+            .Node{value} -> Ok(value)
         }
     }
 
     /// `list` with its values in the opposite order.
     pub fn reverse(list: LinkedList<T>) -> LinkedList<T> {
-        Iter.reduce(list, LinkedList.push, from: LinkedList.Empty)
+        Iter.reduce(list, LinkedList.Empty, LinkedList.push)
     }
 }
 
@@ -54,7 +54,7 @@ impl Iter<T> for LinkedList<T> {
     fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
         case list {
             .Empty -> True
-            #.Node{value, next} -> yield(value) and each_while(next, yield)
+            .Node{value, next} -> yield(value) and each_while(next, yield)
         }
     }
 }

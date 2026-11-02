@@ -108,3 +108,87 @@ fn main() {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}
 }
+
+// A local name that copies a declared function keeps its defaults, as one
+// bound to a lambda does: a module function, a copy of a copy, a pipe, an
+// owner function, a nested function and a copy a closure captured. The call
+// goes through the function's shorter value, which calls it by name.
+func TestIRLambdaDefault_ALocalCopyOfAFunctionKeepsItsDefaults(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+fn parse(s: String, strict: Bool = False) -> Maybe<Int> {
+  if strict { None } else { String.to_int(s) }
+}
+
+struct Parsing {
+  n: Int
+}
+
+impl Parsing {
+  fn add(a: Int, b: Int = 100) -> Int {
+    a + b
+  }
+}
+
+fn main() {
+  g = parse
+  g2 = g
+  io.print(Debug.inspect(g("12")))
+  io.print(Debug.inspect(g2("13")))
+  io.print(Debug.inspect("14" |> g()))
+  io.print(Debug.inspect(g("1", True)))
+  p = Parsing.add
+  io.print(Debug.inspect(p(1)))
+  fn local(n: Int, m: Int = 5) -> Int {
+    n * m
+  }
+  l = local
+  io.print(Debug.inspect(l(3)))
+  k = fn s: String -> g(s)
+  io.print(Debug.inspect(k("7")))
+}
+`, "Some(12)\nSome(13)\nSome(14)\nNone\n101\n15\nSome(7)\n")
+}
+
+// A lambda with defaulted parameters past the ones a shorter expected
+// function type has is that shorter function, whose call fills the rest from
+// their defaults (spec §7 *Default Arguments*): as an argument, an annotated
+// binding, a field, a list element, a return and an `if` or `case` arm. A
+// default may read an earlier parameter.
+func TestIRLambdaDefault_ALambdaTakesAShorterExpectedType(t *testing.T) {
+	verifyLambdaProgram(t, `import std/io
+
+struct Op {
+  run: (Int) -> Int
+}
+
+fn make() -> (Int) -> Int {
+  fn x, y = 2 -> x * y
+}
+
+fn pick(b: Bool) -> (Int) -> Int {
+  if b { fn x, y = 3 -> x + y } else { fn x -> x }
+}
+
+fn choose(n: Int) -> (Int) -> Int {
+  case n {
+    0 -> fn x, y = 4 -> x - y
+    _ -> fn x -> x
+  }
+}
+
+fn main() {
+  io.print(Debug.inspect(Iter.map([1, 2], fn x, y = 10 -> x + y) |> Iter.to_list()))
+  f: (Int) -> Int = fn x, y = 3 -> x - y
+  io.print(Debug.inspect(f(10)))
+  op = Op{run: fn x, y = 1 -> x + y}
+  io.print(Debug.inspect(op.run(5)))
+  fs: List<(Int) -> Int> = [fn x, y = 7 -> x + y]
+  io.print(Debug.inspect(Iter.map(fs, fn g -> g(1)) |> Iter.to_list()))
+  io.print(Debug.inspect(make()(5)))
+  io.print(Debug.inspect(pick(True)(5)))
+  io.print(Debug.inspect(choose(0)(5)))
+  io.print(Debug.inspect(Iter.map([1, 2], fn x, y = x * 10 -> x + y) |> Iter.to_list()))
+}
+`, "[11, 12]\n7\n6\n[8]\n10\n8\n1\n[11, 22]\n")
+}

@@ -29,12 +29,12 @@ pub fn transpose(lines: List<String>) -> List<String> {
 /// from it to the end. The widths never grow down the lines, so the lines
 /// that reach a column are always the first ones.
 fn padded(lines: List<String>) -> List<String> {
-    #(rows, _width) =
+    #(_width, rows) =
         lines
         |> Iter.reverse()
-        |> Iter.map_reduce(fn width = 0, line -> {
+        |> Iter.map_reduce(0, fn width, line -> {
             width = Int.max(width, String.length(line))
-            #(String.pad_end(line, width), width)
+            #(width, String.pad_end(line, width))
         })
 
     Iter.reverse(rows)

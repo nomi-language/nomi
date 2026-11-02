@@ -217,7 +217,7 @@ func (fa *FileAnalysis) AlwaysExits(stmt ast.Node) bool { return fa.alwaysExits(
 // `Iter.loop(...)` whose callback cannot end it: a lambda or a capture whose
 // body holds no `break` of its own, or any other function value, a named
 // function among them, that is not an iter-sensitive function whose own
-// scope breaks (`Iter.loop(step, from: 0)`). A `break` inside a
+// scope breaks (`Iter.loop(0, step)`). A `break` inside a
 // lambda or a nested `fn` in the body belongs to that callback, not to this
 // loop. In the callback `return v` and `continue` go
 // round again, so nothing reaches the loop's exit: a trap, the task's
@@ -235,10 +235,7 @@ func (fa *FileAnalysis) LoopNeverBreaks(n ast.Node) bool {
 	if !isCall || call == nil || !fa.isIterLoopCallee(call.Func) {
 		return false
 	}
-	cb, _, positionalSeed := seededCallArgs(call, nil, false)
-	if positionalSeed != nil {
-		return false
-	}
+	cb, _ := loopCallArgs(call, nil)
 	if lam, ok := cb.(*ast.Lambda); cb == nil || (ok && (lam == nil || lam.Body == nil)) {
 		return false
 	}

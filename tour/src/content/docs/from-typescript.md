@@ -1,0 +1,103 @@
+---
+title: Coming from TypeScript
+description: What carries over from TypeScript to Nomi, what differs, and the same program written in both.
+---
+
+Much of TypeScript carries over: static types with inference for locals,
+generics, unions that a `case` narrows, lambdas, and `${...}` interpolation.
+What differs most: values never change, nothing is `null` or `undefined`, a
+function that can fail returns a `Result` instead of throwing, and functions
+are called through their owner rather than as methods on a value.
+
+The [cheat sheet](/cheat-sheet/) lists the rules in one place.
+
+## What differs
+
+| TypeScript | Nomi |
+|---|---|
+| `const x = 1`, `let x = 1` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
+| `xs.length`, `s.trim()`, `xs.map(f)` | `Iter.count(xs)`, `String.trim(s)`, `Iter.map(xs, f)`: there are no method calls. |
+| `x?: T`, `T \| undefined`, `null` | `Maybe<T>`: `Some(v)` or `None` |
+| `throw new Error(..)`, `try { .. }` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
+| `{ name: "Ada" }` | `User{name: "Ada"}` for a declared struct, `#{name: "Ada"}` for an anonymous one |
+| `{ ...user, age: 41 }` | `#{..user, age: 41}` |
+| `{ kind: "circle"; r: number } \| ..` | `enum Shape { Circle {radius: Float} .. }` |
+| `switch (s.kind) { case "circle": .. }` | `case s { .Circle{radius} -> .. }`, which must cover every variant |
+| `[a, b]` as a pair, `Record<string, number>` | `#(a, b)`, `Map<String, Int>` written `%{"a" => 1}` |
+| `xs.filter(f).map(g)` | `xs \|> Iter.filter(f) \|> Iter.map(g) \|> Iter.to_list()` |
+| `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent { .. }` |
+| `===` | `==`, which compares values structurally |
+| `export function` | `pub fn` |
+| `describe` / `it` | `test "name" { assert .. }` beside the code |
+
+`number` splits in two: `Int` is exact at any size and `Float` is a 64-bit
+float, and neither converts to the other on its own.
+
+## The same program
+
+```typescript
+type Item = { name: string; price: number; qty?: number };
+
+function total(items: Item[]): number {
+  return items.reduce((sum, item) => sum + item.price * (item.qty ?? 1), 0);
+}
+
+function cheapest(items: Item[]): string | undefined {
+  return [...items].sort((a, b) => a.price - b.price)[0]?.name;
+}
+
+function parseQty(text: string): number {
+  const qty = Number.parseInt(text.trim(), 10);
+  if (Number.isNaN(qty)) throw new Error(`not a number: ${text}`);
+  if (qty < 1) throw new Error(`bad quantity: ${qty}`);
+  return qty;
+}
+```
+
+```nomi-run
+// FILE: cart.nomi
+struct Item {
+    name: String
+    price: Int
+    qty: Int = 1
+}
+
+fn total(items: List<Item>) -> Int {
+    Iter.reduce(items, 0, fn sum, item -> sum + item.price * item.qty)
+}
+
+fn cheapest(items: List<Item>) -> Maybe<String> {
+    items |> Iter.min_by(.price) |> Maybe.map(.name)
+}
+
+fn parse_qty(text: String) -> Result<Int, String> {
+    qty = String.trim(text) |> String.to_int() |> Maybe.to_result("not a number: ${text}")?
+
+    if qty < 1 {
+        Err("bad quantity: ${qty}")
+    } else {
+        Ok(qty)
+    }
+}
+
+// FILE: cart_test.nomi
+import cart.{Item, cheapest, parse_qty, total}
+
+test "the same program" {
+    items = [Item{name: "pen", price: 3, qty: 2}, Item{name: "pad", price: 5}]
+
+    assert total(items) == 11
+    assert cheapest(items) == Some("pen")
+    assert cheapest([]) == None
+    assert parse_qty(" 4 ") == Ok(4)
+    assert parse_qty("0") == Err("bad quantity: 0")
+}
+```
+<!-- expect
+ok the same program
+test result: ok. 1 passed, 0 failed
+-->
+
+A field default, `qty: Int = 1`, takes the place of an optional property
+and `??`. `cheapest` answers `None` for an empty list instead of
+`undefined`, and the caller's `case` or `?` has to handle it.

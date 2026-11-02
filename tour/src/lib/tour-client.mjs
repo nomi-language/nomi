@@ -2456,9 +2456,11 @@ function hideTooltip() {
 // everything else goes through marked's
 // default. DOMPurify.sanitize is the last hop before innerHTML insertion
 // so a stray <script> in any future user-authored doc comment can't
-// reach the DOM.
+// reach the DOM. A hover links the site absolutely (an editor has no other
+// way to reach it); here the link is made relative, so it opens the page
+// on the site the tour is served from, a local dev server included.
 function renderHoverMarkdown(md, marked, DOMPurify) {
-  return DOMPurify.sanitize(marked.parse(md));
+  return DOMPurify.sanitize(marked.parse(md.replaceAll("](https://nomi-lang.org/", "](/")));
 }
 
 // highlightStatic renders a plain ```nomi block as a highlighted,

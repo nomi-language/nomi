@@ -43,7 +43,7 @@ import (
 //     `Struct.update` on an ERASED receiver needs the dictionary.
 //
 // That keeps (2) small: `Struct.update` at a CONCRETE receiver
-// (`Struct.update(#Point{x: 1, y: 2}, #{x: 9})`) lowers with no `*ifaceDef`,
+// (`Struct.update(Point{x: 1, y: 2}, #{x: 9})`) lowers with no `*ifaceDef`,
 // because it resolves through the stdlib FUNCTION index, and
 // `fn echo<T>(v: T) -> T where T: Struct` lowers too. What this file adds is the
 // existential kind, `fn one(s: Struct) -> Int`.

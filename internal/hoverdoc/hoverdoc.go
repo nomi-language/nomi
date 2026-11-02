@@ -285,10 +285,15 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		// the full path. Implicit-stdlib references (e.g. `io.inspect`
 		// without an explicit import) have Node=nil; render as `module name`
 		// instead of bare name.
+		path := ""
 		if imp, ok := sym.Node.(*ast.ImportStmt); ok {
-			sig = "import " + renderImportPath(imp)
+			path = renderImportPath(imp)
+			sig = "import " + path
 		} else {
 			sig = "module " + sym.Name
+		}
+		if name, ok := stdModuleName(sym, path); ok {
+			doc = stdModuleDoc(name)
 		}
 	default:
 		// Type parameters (Kind=SymbolType, no AST node) — render as
@@ -1031,7 +1036,7 @@ func renderTypeExprSubstitutingSelf(te ast.TypeExpr, receiver string) string {
 }
 
 // ParamDisplayName renders a parameter's surface name for a signature: the
-// destructuring pattern (`Dur(x)`, `#Point{x, y}`) when the param destructures,
+// destructuring pattern (`Dur(x)`, `Point{x, y}`) when the param destructures,
 // otherwise the plain name. Destructure params carry a synthetic `__destr_*`
 // Name (a binding slot) that must never reach hover.
 func ParamDisplayName(p ast.Param) string {
@@ -1076,9 +1081,10 @@ func renderParamPattern(n ast.Node) string {
 		return s
 	case *ast.StructPattern:
 		var b strings.Builder
-		b.WriteString("#")
 		if p.TypeName != nil {
 			b.WriteString(p.TypeName.TypeString())
+		} else {
+			b.WriteString("#")
 		}
 		b.WriteString("{")
 		for i, f := range p.Fields {
@@ -1105,11 +1111,7 @@ func renderParamPattern(n ast.Node) string {
 			// Caller (EnumPattern) supplies the surrounding parens.
 			return strings.Join(parts, ", ")
 		}
-		head := "#"
-		if p.TypeName != nil {
-			head += p.TypeName.TypeString()
-		}
-		return head + "(" + strings.Join(parts, ", ") + ")"
+		return "#(" + strings.Join(parts, ", ") + ")"
 	default:
 		return ""
 	}

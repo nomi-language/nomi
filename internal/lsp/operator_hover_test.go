@@ -71,13 +71,13 @@ func TestHover_Operators(t *testing.T) {
 			[]string{"Date + Days -> Date", "`impl Add<Days, Date> for Date` in `std/calendar`."}, []string{"Months"}},
 		{"Date + Months", "fn later(day: Date) -> Date {\n  day ▮+ Months(1)\n}\n",
 			[]string{"Date + Months -> Date", "`impl Add<Months, Date> for Date` in `std/calendar`."}, []string{"Days"}},
-		{"a user Equatable", "fn main() {\n  io.inspect(#Tag{name: \"a\"} ▮== #Tag{name: \"A\"})\n}\n",
+		{"a user Equatable", "fn main() {\n  io.inspect(Tag{name: \"a\"} ▮== Tag{name: \"A\"})\n}\n",
 			[]string{"Tag == Tag -> Bool", "Uses `impl Equatable for Tag` in this file."}, nil},
-		{"structural equality", "fn main() {\n  io.inspect(#Point{x: 1} ▮!= #Point{x: 2})\n}\n",
+		{"structural equality", "fn main() {\n  io.inspect(Point{x: 1} ▮!= Point{x: 2})\n}\n",
 			[]string{"Point != Point -> Bool", "Structural: compares field by field."}, nil},
 		{"Float ==", "fn main() {\n  io.inspect(1.0 ▮== 1.0)\n}\n",
 			[]string{"`nan == nan` is `True`"}, nil},
-		{"a derived Comparable", "fn main() {\n  io.inspect(#Version{major: 1, minor: 2} ▮< #Version{major: 1, minor: 3})\n}\n",
+		{"a derived Comparable", "fn main() {\n  io.inspect(Version{major: 1, minor: 2} ▮< Version{major: 1, minor: 3})\n}\n",
 			[]string{"Version < Version -> Bool", "Derived: `derive Comparable for Version`, which compares field by field in declaration order."}, nil},
 		{"a std Comparable", "fn main() {\n  io.inspect(\"a\" ▮<= \"b\")\n}\n",
 			[]string{"String <= String -> Bool", "`impl Comparable for String` in `std/strings`."}, nil},
@@ -131,7 +131,7 @@ func operatorProject(t *testing.T) string {
 
 impl Add<Money, Money> for Money {
   fn add(a: Money, b: Money) -> Money {
-    #Money{cents: a.cents + b.cents}
+    Money{cents: a.cents + b.cents}
   }
 }
 `,
@@ -139,7 +139,7 @@ impl Add<Money, Money> for Money {
 import money.Money
 
 fn main() {
-  io.inspect(#Money{cents: 1} + #Money{cents: 2})
+  io.inspect(Money{cents: 1} + Money{cents: 2})
 }
 `,
 	}
@@ -218,7 +218,7 @@ func TestDefinition_Operators(t *testing.T) {
 		{"Int +", "fn main() {\n  io.inspect(1 ▮+ 2)\n}\n", "int", stdLine("int.nomi", "impl Add<Int, Int> for Int")},
 		{"Int <", "fn main() {\n  io.inspect(1 ▮< 2)\n}\n", "int", stdLine("int.nomi", "impl Comparable for Int")},
 		{"Int %", "fn main() {\n  io.inspect(7 ▮% 2)\n}\n", "", 0},
-		{"a derived Comparable", "fn main() {\n  io.inspect(#Version{major: 1, minor: 2} ▮< #Version{major: 1, minor: 3})\n}\n", "", 0},
+		{"a derived Comparable", "fn main() {\n  io.inspect(Version{major: 1, minor: 2} ▮< Version{major: 1, minor: 3})\n}\n", "", 0},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

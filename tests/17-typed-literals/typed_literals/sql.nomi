@@ -18,8 +18,8 @@ pub type SQL
 
 impl Literal for SQL {
     fn from_fragments(fragments: List<Fragment<Display>>) -> Query {
-        #Query{
-            sql: Iter.reduce(fragments, fn acc = "", frag -> {
+        Query{
+            sql: Iter.reduce(fragments, "", fn acc, frag -> {
                 case frag {
                     .Static(s) -> acc + s
                     .Dynamic(_) -> acc + "?"

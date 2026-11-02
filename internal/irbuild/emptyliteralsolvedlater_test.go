@@ -25,10 +25,10 @@ fn make() -> Set<Int> {
 
 fn main() {
     io.inspect(make())
-    io.inspect(#Hold{v: #(1, %[]).1})
+    io.inspect(Hold{v: #(1, %[]).1})
     r = #{f: %[], g: 0}
-    io.inspect(#Hold{v: r.f})
+    io.inspect(Hold{v: r.f})
 }
 `
-	irRunSource(t, src, "%[]\n#Hold{v: %[]}\n#Hold{v: %[]}\n")
+	irRunSource(t, src, "%[]\nHold{v: %[]}\nHold{v: %[]}\n")
 }

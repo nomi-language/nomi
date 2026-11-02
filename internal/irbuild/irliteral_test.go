@@ -13,21 +13,21 @@ struct Box {
 
 impl Literal for Box {
   fn from_fragments(fragments: List<Fragment<String>>) -> Box {
-    body = Iter.reduce(fragments, fn acc = "", frag ->
+    body = Iter.reduce(fragments, "", fn acc, frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + v
       }
     )
-    #Box{contents: body}
+    Box{contents: body}
   }
 }
 
 fn main() {
   dbg Box"hello"
-  dbg #Box{contents: "world"}
+  dbg Box{contents: "world"}
 }
-`, "dbg line 22: Box\"hello\" = #Box{contents: \"hello\"}\ndbg line 23: #Box{contents: \"world\"} = #Box{contents: \"world\"}\n")
+`, "dbg line 22: Box\"hello\" = Box{contents: \"hello\"}\ndbg line 23: Box{contents: \"world\"} = Box{contents: \"world\"}\n")
 }
 
 func TestIRTypedLiteral_TourDistinctHandler(t *testing.T) {
@@ -40,7 +40,7 @@ type Sql String
 
 impl Literal for Sql {
   fn from_fragments(fragments: List<Fragment<String>>) -> Sql {
-    body = Iter.reduce(fragments, fn acc = "", frag ->
+    body = Iter.reduce(fragments, "", fn acc, frag ->
       case frag {
         .Static(s) -> acc + s
         .Dynamic(v) -> acc + "'" + v + "'"
@@ -71,10 +71,10 @@ struct Sum {
 
 impl Literal for Sum {
   fn from_fragments(fragments: List<Fragment<Int>>) -> Sum {
-    Iter.reduce(fragments, fn acc = #Sum{total: 0, text: ""}, frag ->
+    Iter.reduce(fragments, Sum{total: 0, text: ""}, fn acc, frag ->
       case frag {
-        .Static(s) -> #Sum{total: acc.total, text: acc.text + s}
-        .Dynamic(n) -> #Sum{total: acc.total + n, text: acc.text + "#"}
+        .Static(s) -> Sum{total: acc.total, text: acc.text + s}
+        .Dynamic(n) -> Sum{total: acc.total + n, text: acc.text + "#"}
       }
     )
   }
@@ -90,5 +90,5 @@ fn main() {
   dbg Sum"${mark(4)}"
   dbg Sum"plain"
 }
-`, "1\n2\n3\ndbg line 28: Sum\"a ${mark(1)} b ${mark(2)} c ${mark(3)}\" = #Sum{total: 6, text: \"a # b # c #\"}\n4\ndbg line 29: Sum\"${mark(4)}\" = #Sum{total: 4, text: \"#\"}\ndbg line 30: Sum\"plain\" = #Sum{total: 0, text: \"plain\"}\n")
+`, "1\n2\n3\ndbg line 28: Sum\"a ${mark(1)} b ${mark(2)} c ${mark(3)}\" = Sum{total: 6, text: \"a # b # c #\"}\n4\ndbg line 29: Sum\"${mark(4)}\" = Sum{total: 4, text: \"#\"}\ndbg line 30: Sum\"plain\" = Sum{total: 0, text: \"plain\"}\n")
 }

@@ -63,7 +63,7 @@ pub struct Schema {
 }
 
 fn problem_at(query: Query, line: Int, col: Int, message: String, hints: List<String>) -> Problem {
-    #Problem{file: query.file, line, col, message, hints}
+    Problem{file: query.file, line, col, message, hints}
 }
 
 fn at_token(query: Query, token: Token, message: String, hints: List<String>) -> Problem {
@@ -90,21 +90,17 @@ pub fn header(sources: String, digest: String) -> String {
 
 // text as `//` comment lines of at most 76 characters of text each.
 fn wrap(text: String) -> String {
-    #(lines, last) = Iter.reduce(
-        String.split(text, " "),
-        fn acc, word -> {
-            #(lines, line) = acc
+    #(lines, last) = Iter.reduce(String.split(text, " "), #([], ""), fn acc, word -> {
+        #(lines, line) = acc
 
-            if line == "" {
-                #(lines, word)
-            } else if String.length(line) + 1 + String.length(word) > 76 {
-                #([line, ..lines], word)
-            } else {
-                #(lines, "${line} ${word}")
-            }
-        },
-        from: #([], ""),
-    )
+        if line == "" {
+            #(lines, word)
+        } else if String.length(line) + 1 + String.length(word) > 76 {
+            #([line, ..lines], word)
+        } else {
+            #(lines, "${line} ${word}")
+        }
+    })
 
     [last, ..lines] |> Iter.reverse() |> Iter.map(fn line -> "// ${line}\n") |> String.join()
 }
@@ -175,14 +171,10 @@ pub fn import_block(imports: Map<String, Set<String>>) -> String {
 }
 
 fn imports_of(entries: List<#(String, String)>) -> Map<String, Set<String>> {
-    Iter.reduce(
-        entries,
-        fn acc: Map<String, Set<String>>, #(path, name) -> {
-            names = Map.get(acc, path) |> Maybe.with_default(%[])
-            Map.put(acc, path, Set.insert(names, name))
-        },
-        from: %{},
-    )
+    Iter.reduce(entries, %{}, fn acc: Map<String, Set<String>>, #(path, name) -> {
+        names = Map.get(acc, path) |> Maybe.with_default(%[])
+        Map.put(acc, path, Set.insert(names, name))
+    })
 }
 
 /// The module path and the names an import entry as written imports:
@@ -230,7 +222,7 @@ pub fn schema(db: Database, tables: List<Table>, module: String) -> Result<Schem
     section = "[sqlkit.database.${db.name}.tables]"
 
     toml = fn message: String, hints: List<String> -> {
-        #Problem{file: "nomi.toml", line: 0, col: 0, message, hints}
+        Problem{file: "nomi.toml", line: 0, col: 0, message, hints}
     }
 
     misnamed =
@@ -296,7 +288,7 @@ pub fn schema(db: Database, tables: List<Table>, module: String) -> Result<Schem
     problems = misnamed + unknown + clashes
 
     if Iter.is_empty(problems) {
-        Ok(#Schema{db, tables, rows: Iter.to_map(names), module})
+        Ok(Schema{db, tables, rows: Iter.to_map(names), module})
     } else {
         Err(problems)
     }
@@ -377,7 +369,7 @@ pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: Strin
 }
 
 fn migration_source(path: String, text: String) -> String {
-    "    #sqlkit.Migration{\n        path: ${quote(path)},\n        sql: ${quote(text)},\n    },\n"
+    "    sqlkit.Migration{\n        path: ${quote(path)},\n        sql: ${quote(text)},\n    },\n"
 }
 
 fn table_source(s: Schema, table: Table) -> String {
@@ -451,7 +443,7 @@ pub fn queries_file(
         })
         |> Iter.to_list()
 
-    resolver = #Resolver{
+    resolver = Resolver{
         explicit: explicit
         |> Iter.map(fn #(_, n) -> String.split(n, " as ") |> Iter.last() |> Maybe.with_default(n))
         |> Iter.map(String.trim)
@@ -686,7 +678,7 @@ fn function(
         |> Iter.to_list()
 
     text = function_source(q, final_shape, row, sqltext.parts(tokens), markers, fields)
-    Ok(#Made{text, imports: found_imports + field_imports + shape_imports})
+    Ok(Made{text, imports: found_imports + field_imports + shape_imports})
 }
 
 /// Every `@name` names a parameter, every parameter is used, and no
@@ -880,55 +872,56 @@ fn fields_of(
     overrides = sqltext.overrides(tokens)
     one_item_per_column = Vector.length(items) == Iter.count(columns)
 
-    #(fields, imports, problems, _) = Iter.reduce(
-        Iter.with_index(columns),
-        fn acc, #(position, column) -> {
-            #(fields, imports, problems, seen) = acc
+    #(fields, imports, problems, _) = Iter.reduce(Iter.with_index(columns), #(
+        [],
+        [],
+        [],
+        [],
+    ), fn acc, #(position, column) -> {
+        #(fields, imports, problems, seen) = acc
 
-            at = fn message: String, hints: List<String> -> {
-                item = if one_item_per_column {
-                    Vector.get(items, position)
-                } else {
-                    None
-                }
-
-                case item |> Maybe.flat_map(Iter.first) {
-                    Some(t) -> at_token(q, t, message, hints)
-                    None -> at_annotation(q, 1, message, hints)
-                }
+        at = fn message: String, hints: List<String> -> {
+            item = if one_item_per_column {
+                Vector.get(items, position)
+            } else {
+                None
             }
 
-            override = Iter.find(overrides, fn o -> o.column == column.name)
-
-            if not sqltext.is_name(column.name) {
-                problem = at(
-                    "the column `${column.name}` has no name a field can take",
-                    ["name it with `AS`: `${column.name} AS \"total\"`"],
-                )
-
-                return #(fields, imports, [problem, ..problems], seen)
+            case item |> Maybe.flat_map(Iter.first) {
+                Some(t) -> at_token(q, t, message, hints)
+                None -> at_annotation(q, 1, message, hints)
             }
+        }
 
-            if Iter.contains(seen, column.name) {
-                problem = at(
-                    "`${q.name}` has two columns named `${column.name}`",
-                    ["rename one with `AS`"],
-                )
+        override = Iter.find(overrides, fn o -> o.column == column.name)
 
-                return #(fields, imports, [problem, ..problems], seen)
-            }
-
-            #(field, needs, problem) = field_of(s, r, q, column, position, override, anonymous, at)
-
-            #(
-                [field, ..fields],
-                needs + imports,
-                sqltext.listed(problem) + problems,
-                [column.name, ..seen],
+        if not sqltext.is_name(column.name) {
+            problem = at(
+                "the column `${column.name}` has no name a field can take",
+                ["name it with `AS`: `${column.name} AS \"total\"`"],
             )
-        },
-        from: #([], [], [], []),
-    )
+
+            return #(fields, imports, [problem, ..problems], seen)
+        }
+
+        if Iter.contains(seen, column.name) {
+            problem = at(
+                "`${q.name}` has two columns named `${column.name}`",
+                ["rename one with `AS`"],
+            )
+
+            return #(fields, imports, [problem, ..problems], seen)
+        }
+
+        #(field, needs, problem) = field_of(s, r, q, column, position, override, anonymous, at)
+
+        #(
+            [field, ..fields],
+            needs + imports,
+            sqltext.listed(problem) + problems,
+            [column.name, ..seen],
+        )
+    })
 
     #(Iter.reverse(fields), imports, Iter.reverse(problems))
 }
@@ -969,7 +962,7 @@ fn field_of(
         #(None, None, None) -> None
     }
 
-    field = #Field{name: column.name, position, reader, args, type_text, nullable}
+    field = Field{name: column.name, position, reader, args, type_text, nullable}
 
     // Only an anonymous row names a column's type in the generated code.
     if not anonymous { return #(field, [], None) }
@@ -1116,7 +1109,7 @@ fn function_source(
 
                 None -> {
                     open = case row {
-                        Some(t) -> "#${t}{"
+                        Some(t) -> "${t}{"
                         None -> "#{"
                     }
 

@@ -14,10 +14,10 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{
+    Ok(App{
         console: Terminal,
         clock: SystemClock,
-        store: #SqliteStore{path: "tasks.db"},
+        store: SqliteStore{path: "tasks.db"},
     })
 }
 
@@ -25,7 +25,7 @@ fn main() -> Result<Unit, String> {
     tasks = Store.load(App.store)?
     Console.write_line(App.console, "tasks. type 'help' for commands.")
 
-    _ = Iter.loop(fn tasks = tasks -> {
+    _ = Iter.loop(tasks, fn tasks -> {
         // The end of the input quits too.
         command =
             Console.read_line(App.console)

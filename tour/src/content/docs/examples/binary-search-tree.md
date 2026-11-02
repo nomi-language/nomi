@@ -26,7 +26,7 @@ impl Tree<T> {
     /// The tree that inserting `values` one after another into an empty
     /// tree builds.
     pub fn from(values: List<T>) -> Tree<T> where T: Comparable {
-        Iter.reduce(values, fn tree = Tree.Leaf, value -> Tree.insert(tree, value))
+        Iter.reduce(values, Tree.Leaf, Tree.insert)
     }
 
     /// `tree` with `value` added: to the left of a node at least as large,
@@ -34,13 +34,13 @@ impl Tree<T> {
     pub fn insert(tree: Tree<T>, value: T) -> Tree<T> where T: Comparable {
         case tree {
             .Leaf ->
-                #.Node{left: .Leaf, value, right: .Leaf}
+                .Node{left: .Leaf, value, right: .Leaf}
 
-            #.Node{left, value: here, right} when value <= here ->
-                #.Node{left: Tree.insert(left, value), value: here, right}
+            .Node{left, value: here, right} when value <= here ->
+                .Node{left: Tree.insert(left, value), value: here, right}
 
-            #.Node{left, value: here, right} ->
-                #.Node{left, value: here, right: Tree.insert(right, value)}
+            .Node{left, value: here, right} ->
+                .Node{left, value: here, right: Tree.insert(right, value)}
         }
     }
 
@@ -48,7 +48,7 @@ impl Tree<T> {
     pub fn sorted(tree: Tree<T>) -> List<T> {
         case tree {
             .Leaf -> []
-            #.Node{left, value, right} -> [..Tree.sorted(left), value, ..Tree.sorted(right)]
+            .Node{left, value, right} -> [..Tree.sorted(left), value, ..Tree.sorted(right)]
         }
     }
 }
@@ -58,12 +58,12 @@ import binary_search_tree.Tree
 
 test "data is inserted" {
     [
-        #("data is retained", [4], #Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
+        #("data is retained", [4], Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
         #(
             "smaller number at left node",
             [4, 2],
-            #.Node{
-                left: #.Node{left: .Leaf, value: 2, right: .Leaf},
+            .Node{
+                left: .Node{left: .Leaf, value: 2, right: .Leaf},
                 value: 4,
                 right: .Leaf,
             },
@@ -71,8 +71,8 @@ test "data is inserted" {
         #(
             "same number at left node",
             [4, 4],
-            #.Node{
-                left: #.Node{left: .Leaf, value: 4, right: .Leaf},
+            .Node{
+                left: .Node{left: .Leaf, value: 4, right: .Leaf},
                 value: 4,
                 right: .Leaf,
             },
@@ -80,23 +80,23 @@ test "data is inserted" {
         #(
             "greater number at right node",
             [4, 5],
-            #.Node{
+            .Node{
                 left: .Leaf,
                 value: 4,
-                right: #.Node{left: .Leaf, value: 5, right: .Leaf},
+                right: .Node{left: .Leaf, value: 5, right: .Leaf},
             },
         ),
-        #("can create complex tree", [4, 2, 6, 1, 3, 5, 7], #.Node{
-            left: #.Node{
-                left: #.Node{left: .Leaf, value: 1, right: .Leaf},
+        #("can create complex tree", [4, 2, 6, 1, 3, 5, 7], .Node{
+            left: .Node{
+                left: .Node{left: .Leaf, value: 1, right: .Leaf},
                 value: 2,
-                right: #.Node{left: .Leaf, value: 3, right: .Leaf},
+                right: .Node{left: .Leaf, value: 3, right: .Leaf},
             },
             value: 4,
-            right: #.Node{
-                left: #.Node{left: .Leaf, value: 5, right: .Leaf},
+            right: .Node{
+                left: .Node{left: .Leaf, value: 5, right: .Leaf},
                 value: 6,
-                right: #.Node{left: .Leaf, value: 7, right: .Leaf},
+                right: .Node{left: .Leaf, value: 7, right: .Leaf},
             },
         }),
     ]
@@ -130,7 +130,7 @@ test result: ok. 10 passed, 0 failed
 - `insert` is a `case` with a guard: an empty tree becomes a node, a value at most the node's goes left (`when value <= here`), and anything else goes right. That puts an equal value on the left, as the canonical "same number at left node" case asks.
 - `from` builds a tree by `Iter.reduce` over the values from an empty tree, and `sorted` reads it in order, left subtree, value, right subtree.
 - The functions are generic over any `T: Comparable`. The canonical data writes the values as strings (`"4"`), to stay out of each language's number types; the tests use `Int`s, which is what the strings stand for.
-- `derive Equatable for Tree<T>` lets the shape cases compare the built tree with the expected one, written as nested `#.Node{...}` literals.
+- `derive Equatable for Tree<T>` lets the shape cases compare the built tree with the expected one, written as nested `.Node{...}` literals.
 - The functions are in `impl Tree<T>`, called `Tree.from(values)` and `Tree.sorted(tree)` after `import binary_search_tree.Tree`. Each names the block's `T`, so a call takes it from its tree or its values, and `where T: Comparable` narrows the two that compare.
 - An empty tree is `.Leaf` wherever a `Tree<T>` is expected: in `insert`'s new node and in every expected tree of the tests. `from` starts its `Iter.reduce` from `Tree.Leaf`, qualified, since nothing there says what type the starting value has.
-- The two canonical properties are two `subtests` tables. The shape table names the enum once, in its first row's `#Tree.Node{...}`; the bare `#.Node{...}` and `.Leaf` in the later rows and inside each node take `Tree<Int>` from it.
+- The two canonical properties are two `subtests` tables. The shape table names the enum once, in its first row's `Tree.Node{...}`; the bare `.Node{...}` and `.Leaf` in the later rows and inside each node take `Tree<Int>` from it.

@@ -198,6 +198,8 @@ var hostPackages = [...]struct{ path, local string }{
 	{compilerHostPath, "stdcompiler"},
 	{compilerRunHostPath, "stdcompilerrun"},
 	{ioHostPath, "stdio"},
+	{processHostPath, "stdprocess"},
+	{httpHostPath, "stdhttp"},
 	{stringsHostPath, "stdstrings"},
 	{regexHostPath, "stdregex"},
 	{randomHostPath, "stdrandom"},
@@ -260,6 +262,14 @@ const compilerHostsPath = "github.com/nomi-language/nomi/internal/compilerhosts"
 // Outside rt because rt is linked by every runner, and real filesystem effect
 // must not be entrenched in it. See nomi/stdio's package comment.
 const ioHostPath = "github.com/nomi-language/nomi/internal/stdio"
+
+// processHostPath is std/process_host's implementation: starting programs,
+// for the reason ioHostPath is outside rt.
+const processHostPath = "github.com/nomi-language/nomi/internal/stdprocess"
+
+// httpHostPath is std/http_host's implementation: Go's HTTP client, for the
+// reason ioHostPath is outside rt.
+const httpHostPath = "github.com/nomi-language/nomi/internal/stdhttp"
 
 // stringsHostPath is std/strings' host implementation for the operations that
 // need a dependency rt does not carry.
@@ -1366,6 +1376,16 @@ func (x *stdlibIndex) underlay(earlier *stdlibIndex) {
 			}
 		}
 	}
+	// An earlier module's top-level functions, so a later module's body may
+	// call `hex.encode(digest)`. Keys carry the module, so none collides
+	// with this module's own.
+	if x.byFile != nil {
+		for key, f := range earlier.byFile {
+			if _, mine := x.byFile[key]; !mine {
+				x.byFile[key] = f
+			}
+		}
+	}
 	for module, pkg := range earlier.modulePkg {
 		if _, mine := x.modulePkg[module]; !mine {
 			x.modulePkg[module] = pkg
@@ -2012,7 +2032,7 @@ func stdParamKind(p ast.Param, anchors stdAnchors) (kind, string) {
 	}
 	// A destructuring parameter's kind is the head's type, and the head is
 	// resolved through the same anchored table an annotation is: nothing else
-	// is admitted, so `#Point{x, y}` in a hypothetical std module refuses rather
+	// is admitted, so `Point{x, y}` in a hypothetical std module refuses rather
 	// than resolving against a declaration this pass cannot see.
 	//
 	// Opaques only, and deliberately not every stdAnchors family: a MONOMORPHIC

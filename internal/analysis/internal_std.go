@@ -29,6 +29,9 @@ var internalStdModules = map[string]string{
 	"fs_host":        "fs",
 	"message_format": "message",
 	"money_format":   "money",
+	"process_host":   "process",
+	"http_host":      "http",
+	"url_host":       "url",
 }
 
 // InternalStdModule reports whether the std module name (`money_format`) is

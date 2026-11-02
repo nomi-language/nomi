@@ -16,7 +16,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{v: Unit, n: 1})
+    Ok(App{v: Unit, n: 1})
 }
 
 fn show() -> String {

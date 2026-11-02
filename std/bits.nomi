@@ -81,13 +81,13 @@ impl Display for Error {
             Error.Empty ->
                 "a bit pattern needs at least one bit: `0`, `1`, `x` or a field letter"
 
-            #Error.Character{index, found} ->
+            Error.Character{index, found} ->
                 "`${found}` at index ${index} is not a bit: a bit pattern is written in `0`, `1`, `x`, one lowercase field letter and `_`"
 
-            #Error.SecondField{index, field, found} ->
+            Error.SecondField{index, field, found} ->
                 "`${found}` at index ${index} names a second field: this pattern's field is `${field}`, and a pattern has one"
 
-            #Error.SplitField{index, field} ->
+            Error.SplitField{index, field} ->
                 "`${field}` at index ${index} splits field `${field}`: write its bits together"
         }
     }
@@ -101,14 +101,14 @@ impl Bits {
     /// one letter written together. `_` groups bits and is not one.
     //! assert Bits.width(Bits.parse("10xx_xxxx")?) == 8
     //! assert Bits.parse("") == Err(Error.Empty)
-    //! assert Bits.parse("10x2") == Err(#Error.Character{index: 3, found: "2"})
-    //! assert Bits.parse("aabb") == Err(#Error.SecondField{index: 2, field: "a", found: "b"})
-    //! assert Bits.parse("a0a") == Err(#Error.SplitField{index: 2, field: "a"})
-    //! assert Bits.parse("aa0a") == Err(#Error.SplitField{index: 3, field: "a"})
+    //! assert Bits.parse("10x2") == Err(Error.Character{index: 3, found: "2"})
+    //! assert Bits.parse("aabb") == Err(Error.SecondField{index: 2, field: "a", found: "b"})
+    //! assert Bits.parse("a0a") == Err(Error.SplitField{index: 2, field: "a"})
+    //! assert Bits.parse("aa0a") == Err(Error.SplitField{index: 3, field: "a"})
     //! assert Bits.width(Bits.parse("aa_aa")?) == 4
     //
     pub fn parse(text: String) -> Result<Bits, Error> {
-        start = #Scan{
+        start = Scan{
             index: 0,
             width: 0,
             mask: 0,
@@ -119,7 +119,7 @@ impl Bits {
             failure: None,
         }
 
-        scan = Iter.reduce(String.to_codepoints(text), fn acc = start, cp -> read_bit(acc, cp))
+        scan = Iter.reduce(String.to_codepoints(text), start, fn acc, cp -> read_bit(acc, cp))
 
         case scan.failure {
             Some(e) ->
@@ -130,7 +130,7 @@ impl Bits {
 
             None ->
                 Ok(
-                    #Bits{
+                    Bits{
                         text,
                         width: scan.width,
                         mask: scan.mask,
@@ -204,7 +204,7 @@ impl Literal for Bits {
     /// text. A raw literal is checked when the program is checked, so a
     /// malformed one is a compile error at the literal.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Bits, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -265,7 +265,7 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan {
             shifted
 
         _ when not Codepoint.is_lower(cp) or Codepoint.to_int(cp) > 127 ->
-            #{..s, failure: Some(#Error.Character{index: s.index, found})}
+            #{..s, failure: Some(Error.Character{index: s.index, found})}
 
         _ ->
             case s.field {
@@ -273,10 +273,10 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan {
                     #{..shifted, field: Some(found), field_mask: 1, closed: False}
 
                 Some(field) when field != found ->
-                    #{..s, failure: Some(#Error.SecondField{index: s.index, field, found})}
+                    #{..s, failure: Some(Error.SecondField{index: s.index, field, found})}
 
                 Some(field) when s.closed ->
-                    #{..s, failure: Some(#Error.SplitField{index: s.index, field})}
+                    #{..s, failure: Some(Error.SplitField{index: s.index, field})}
 
                 Some(_) ->
                     #{..shifted, field_mask: shifted.field_mask ||| 1, closed: False}

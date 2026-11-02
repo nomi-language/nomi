@@ -53,7 +53,7 @@ func TestHover_GenericCallsShowTheirInstantiation(t *testing.T) {
 		},
 		{
 			"seeded reduce inside map",
-			"fn f() -> List<Int> {\n  ▮sums = [[1, 2], [3]]\n    |> Iter.map(fn xs -> { xs |> Iter.reduce(fn a = 0, b -> a + b) })\n    |> Iter.to_list()\n  sums\n}\n",
+			"fn f() -> List<Int> {\n  ▮sums = [[1, 2], [3]]\n    |> Iter.map(fn xs -> { xs |> Iter.reduce(0, fn a, b -> a + b) })\n    |> Iter.to_list()\n  sums\n}\n",
 			"```nomi\nsums: List<Int>\n```",
 		},
 		{

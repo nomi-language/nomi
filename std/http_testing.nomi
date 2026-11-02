@@ -1,0 +1,235 @@
+//# Answers std/http's requests with a function instead of the network, and
+//# records them. `http_testing.run(answer, body)` runs `body`; every request
+//# std/http sends in it, and in the tasks it starts, is answered by
+//# `answer`, and the result holds body's value and the requests, in order.
+//#
+//# ```nomi
+//# ran = http_testing.run(fn _ -> Ok(Response{body: Body.Text("ann")}), fn -> user_name("7"))
+//#
+//# assert ran.value == Ok("ann")
+//# ```
+//#
+//# `answer` can be a program's own handler, so a client and a server are
+//# tested together with no network.
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    channels.{Channel, Receiver, Sender}
+    http
+    http.{
+        Body,
+        Client,
+        ClientOptions,
+        Error,
+        Listener,
+        Method,
+        Protocols,
+        Request,
+        Response,
+        Server,
+        Transport
+    }
+    http_host
+    io
+    io.Writer
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Ok}
+    strings.String
+    tasks.Task
+    tls.{Certificate, CertificateInfo, ClientConfig, Roots, ServerConfig}
+    unit.Unit
+    url.Url
+}
+
+/// What `run` answers: `body`'s value, and each request the fake answered,
+/// in order.
+pub struct Ran<T> {
+    value: T
+    requests: List<Request>
+}
+
+/// Runs `body` with `answer` answering every std/http request in it.
+//! import std/http.{Body, Status}
+//! import std/http_testing
+//!
+//! ran = http_testing.run(fn request -> {
+//!     Ok(Response{status: Status.created, body: Body.Text("${request.url}")})
+//! }, fn -> {
+//!     http.get(Url`https://example.com/a`)
+//! })
+//!
+//! response = ran.value!
+//! assert response.status == Status.created
+//! assert Response.text(response) == Ok("https://example.com/a")
+//! assert Iter.count(ran.requests) == 1
+//
+pub fn run<T>(answer: (Request) -> Result<Response, Error>, body: () -> T) -> Ran<T> {
+    http_host.with_fake(answer, fn -> {
+        value = body()
+        requests: List<Request> = http_host.answered_requests()
+        Ran{value, requests}
+    })
+}
+
+/// A request for `target`, a URL or a path, as a test builds one: a path is
+/// on `http://example.com`.
+//! import std/http_testing
+//!
+//! r = http_testing.request(Method.Post, "/users?x=1")
+//! assert "${r.url}" == "http://example.com/users?x=1"
+//
+pub fn request(method: Method, target: String) -> Request {
+    url = Url.resolve_text(Url`http://example.com/`, target)!
+    Request{method, url, remote_address: "192.0.2.1:1234"}
+}
+
+/// What a `Body.Produce` response sends, one element per flush: the
+/// writes between two `Writer.flush` calls, then what is left at the end.
+/// A test of a streamed response checks it flushes where it means to (Go's
+/// `ResponseRecorder.Flushed`). Any other body is one chunk.
+//! import std/http.{Body, Response}
+//! import std/http_testing
+//! import std/io.Writer
+//!
+//! streamed = Response{
+//!     body: Body.Produce(fn w -> {
+//!         _ = Writer.write_text(w, "a")
+//!         _ = Writer.flush(w)
+//!         Writer.write_text(w, "b")
+//!     }),
+//! }
+//!
+//! assert http_testing.chunks(streamed) == [String.to_bytes("a"), String.to_bytes("b")]
+//
+pub fn chunks(response: Response) -> List<Bytes> {
+    case response.body {
+        .Produce(produce) -> {
+            sink: Channel<Bytes> = Channel.buffered(1)
+
+            concurrent {
+                writing = Task.spawn(fn -> {
+                    w = Writer.from_fn(close: fn -> {
+                        Sender.close(sink.sender)
+                        Ok(Unit)
+                    }, fn chunk -> {
+                        Sender.send(sink.sender, chunk) |> Result.map_err(fn _ -> io.Error.Closed)
+                    })
+
+                    _ = produce(w)
+                    Writer.close(w)
+                })
+
+                collected = gather(sink.receiver, [])
+                _ = Task.await(writing)
+                collected
+            }
+        }
+
+        other ->
+            [Body.read_all(other) |> Result.with_default(String.to_bytes(""))]
+    }
+}
+
+fn gather(receiver: Receiver<Bytes>, taken: List<Bytes>) -> List<Bytes> {
+    case Receiver.receive(receiver) {
+        Some(chunk) when Bytes.length(chunk) > 0 -> gather(receiver, [..taken, chunk])
+        Some(_) -> gather(receiver, taken)
+        None -> taken
+    }
+}
+
+/// A server `with_server` runs for its body: where it listens, a client
+/// that trusts it, and the certificate it serves TLS with.
+pub struct TestServer {
+    /// `http://127.0.0.1:<port>`, or `https://` when it serves TLS.
+    url: Url
+    /// A client that trusts the server's certificate.
+    client: Client
+    certificate: Maybe<CertificateInfo>
+    listener: Listener
+}
+
+impl TestServer {
+    /// Closes every connection the server holds, idle or busy, so the next
+    /// request opens a new one. Go's `Server.CloseClientConnections`.
+    pub fn close_client_connections(server: TestServer) -> Unit {
+        Listener.close_connections(server.listener)
+    }
+}
+
+/// Runs `body` while a real server answers on 127.0.0.1 with `handler`,
+/// then shuts it down: Go's `httptest.NewServer`. With `tls`, it serves
+/// HTTPS with a certificate made for it, which `TestServer.client` trusts
+/// (`NewTLSServer`). `server` configures it (`NewUnstartedServer`); its
+/// address is replaced.
+//! import std/http.{Body, Client, Response}
+//! import std/http_testing
+//!
+//! said = http_testing.with_server(fn _ -> Response{body: Body.Text("hi")}, fn server -> {
+//!     response = Client.get(server.client, server.url)!
+//!     Response.text(response)!
+//! })
+//!
+//! assert said == "hi"
+//
+pub fn with_server<T>(
+    handler: (Request) -> Response,
+    tls: Bool = False,
+    http2: Bool = False,
+    server: Server = Server{},
+    body: (TestServer) -> T,
+) -> T {
+    #(config, client, info) = if tls {
+        made = http_host.test_certificate()
+
+        #(cert, key) = case made {
+            [c, k] -> #(c, k)
+            _ -> #("", "")
+        }
+
+        certificate = Certificate.from_pem(cert, key)!
+
+        #(
+            Some(ServerConfig{certificates: [certificate]}),
+            Client.new(ClientOptions{
+                tls: Some(ClientConfig{roots: Roots.Pem(cert)}),
+                transport: #{..Transport.default, force_http2: http2},
+            }),
+            Some(Certificate.info(certificate)),
+        )
+    } else if http2 {
+        #(
+            None,
+            Client.new(ClientOptions{
+                transport: #{
+                    ..Transport.default,
+                    protocols: Some(Protocols{http1: False, http2: False, unencrypted_http2: True}),
+                },
+            }),
+            None,
+        )
+    } else {
+        #(None, Client.new(), None)
+    }
+
+    protocols = case server.protocols {
+        Some(chosen) -> Some(chosen)
+        None when http2 -> Some(Protocols{http1: True, http2: True, unencrypted_http2: True})
+        None -> Some(Protocols{http1: True, http2: False})
+    }
+
+    listener = http.listen(#{..server, address: "127.0.0.1:0", tls: config, protocols})!
+    scheme = if tls { "https" } else { "http" }
+    url = Url.parse("${scheme}://${Listener.address(listener)}")!
+
+    concurrent {
+        serving = Task.spawn(fn -> http.serve_here(listener, handler))
+        result = body(TestServer{url, client, certificate: info, listener})
+        Listener.shutdown(listener)
+        Task.await(serving)
+        result
+    }
+}

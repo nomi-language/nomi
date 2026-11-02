@@ -86,9 +86,9 @@ typealias Later Earlier
 typealias Earlier Int
 
 fn main() {
-    _n = #Node{next: None, kids: []}
+    _n = Node{next: None, kids: []}
     _t = Tree.Branch(Tree.Leaf, Tree.Leaf)
-    w = #W{b: None}
+    w = W{b: None}
     _b = B(w)
     _c = C(Some(w))
     _f = Forest([])

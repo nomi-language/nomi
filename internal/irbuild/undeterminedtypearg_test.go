@@ -156,7 +156,7 @@ impl Iter for Countdown {
         if c.from == 0 {
             True
         } else if yield(c.from) {
-            each_while(#Countdown{from: c.from - 1}, yield)
+            each_while(Countdown{from: c.from - 1}, yield)
         } else {
             False
         }
@@ -170,9 +170,9 @@ fn main() {
     io.inspect(Iter.zip([1], %{}) |> Iter.count())
     io.inspect(Iter.zip([1], %{1 => 2}) |> Iter.to_list())
     io.inspect(Iter.zip([1, 2], 5..9) |> Iter.to_list())
-    io.inspect(Iter.zip(["a", "b"], #Countdown{from: 3}) |> Iter.to_list())
+    io.inspect(Iter.zip(["a", "b"], Countdown{from: 3}) |> Iter.to_list())
     io.inspect(Iter.concat([#(1, 2)], %{3 => 4}) |> Iter.to_list())
-    io.inspect(Iter.concat([9], #Countdown{from: 2}) |> Iter.to_list())
+    io.inspect(Iter.concat([9], Countdown{from: 2}) |> Iter.to_list())
 }
 `
 	const want = "None\n" +

@@ -22,7 +22,7 @@ struct Money {
 
 impl Add<Money, Money> for Money {
   fn add(a: Money, b: Money) -> Money {
-    #Money{cents: a.cents + b.cents}
+    Money{cents: a.cents + b.cents}
   }
 }
 
@@ -56,10 +56,10 @@ fn sizes(n: Int, d: Decimal, f: Float) -> #(Int, Decimal, Float) {
 }
 
 fn main() {
-  m = #Money{cents: 1} + #Money{cents: 2}
-  newer = #Version{major: 1, minor: 2} < #Version{major: 1, minor: 3}
-  same = #Tag{name: "a"} == #Tag{name: "A"}
-  origin = #Point{x: 0} != #Point{x: 1}
+  m = Money{cents: 1} + Money{cents: 2}
+  newer = Version{major: 1, minor: 2} < Version{major: 1, minor: 3}
+  same = Tag{name: "a"} == Tag{name: "A"}
+  origin = Point{x: 0} != Point{x: 1}
   ok = 1 < 2 and not newer or same
   big = [1, 5] |> Iter.filter(&(&1 > 2)) |> Iter.map(fn n -> n * 2) |> Iter.to_list()
   io.inspect(#(m, ok, origin, big, 0..3, 1..=3, later, sizes))
@@ -86,7 +86,7 @@ fn main() {
 		{"unary - on Int", "  #(n / 3", "-n", 1, "```nomi\n-Int -> Int\n```\n\nNegation, exact at any size."},
 		{"Decimal *", "  #(n / 3", "*", 1, "```nomi\nDecimal * Decimal -> Decimal\n```\n\nExact: never rounds.\n\n`impl Multiply<Decimal, Decimal> for Decimal` in `std/decimal`."},
 		{"Float *", "  #(n / 3", "*", 2, "```nomi\nFloat * Float -> Float\n```\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},
-		{"a user Add", "  m = #Money", "+", 1, "```nomi\nMoney + Money -> Money\n```\n\n`impl Add<Money, Money> for Money` in this file."},
+		{"a user Add", "  m = Money", "+", 1, "```nomi\nMoney + Money -> Money\n```\n\n`impl Add<Money, Money> for Money` in this file."},
 		{"Date + Days", "  #(day + Days", "+", 1, "```nomi\nDate + Days -> Date\n```\n\n`impl Add<Days, Date> for Date` in `std/calendar`."},
 		{"Date + Months", "  #(day + Days", "+", 2, "```nomi\nDate + Months -> Date\n```\n\n`impl Add<Months, Date> for Date` in `std/calendar`."},
 		{"a derived Comparable", "  newer =", "<", 1, "```nomi\nVersion < Version -> Bool\n```\n\nDerived: `derive Comparable for Version`, which compares field by field in declaration order."},

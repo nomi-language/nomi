@@ -1,0 +1,35 @@
+//# Hexadecimal (RFC 4648's base16): each byte as two digits, the form
+//# digests, keys and binary identifiers are usually written in.
+//# `hex.encode` writes lowercase digits, and `hex.decode` reads either case:
+//#
+//# ```nomi
+//# key = hex.decode("00ff10")?
+//# ```
+//#
+//# Both are pure, so a typed literal's handler may call them.
+
+import {
+    bytes.Bytes
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// `data` as two lowercase hexadecimal digits per byte.
+//! import std/hex
+//!
+//! // RFC 4648, section 10, in lowercase.
+//! assert hex.encode(String.to_bytes("")) == ""
+//! assert hex.encode(String.to_bytes("f")) == "66"
+//! assert hex.encode(String.to_bytes("foobar")) == "666f6f626172"
+//
+pub host fn encode(data: Bytes) -> String
+
+/// The bytes `text` spells as pairs of hexadecimal digits, upper or lower
+/// case.
+//! import std/hex
+//!
+//! assert hex.decode("666F6F626172") == Ok(String.to_bytes("foobar"))
+//! assert hex.decode("666f6") == Err("hex text has an odd number of digits (5)")
+//! assert hex.decode("66g6") == Err("invalid hex digit 'g' at byte 2")
+//
+pub host fn decode(text: String) -> Result<Bytes, String>

@@ -397,7 +397,7 @@ func RecordOperand(trace *[]AssertionValueContext, expr, value string, suppressR
 // The two are different renderings of the same value. A `values:` row is
 // RowText, a purely structural rendering with no Nomi dispatch in it at all. A
 // user's `impl Display for Point` changes `${p}` and does not change the row,
-// which stays `#Point{x: 1, y: 2}`; a user's `impl Debug for Point` does not
+// which stays `Point{x: 1, y: 2}`; a user's `impl Debug for Point` does not
 // change it either.
 //
 // The consequence for a composite is that the structure is shared with Format*
@@ -420,10 +420,10 @@ func InspectUnit(Unit) string { return "Unit" }
 // A constant, not derived from the type's name. The failing assertion
 //
 //	ch = Channel.buffered<Int>(1)
-//	h = #Holder{s: ch.sender}
+//	h = Holder{s: ch.sender}
 //	assert tag(h) == 2
 //
-// reports `h = #Holder{s: <channel>}`. It is not the host-type bare name: `Sender` and
+// reports `h = Holder{s: <channel>}`. It is not the host-type bare name: `Sender` and
 // `Receiver` are `pub host type` declarations and the auto-Debug for those is
 // a bare name, which would give `Sender`. And it does not
 // distinguish the two halves — a `Receiver<T>` reads `<channel>` as well —
@@ -433,6 +433,9 @@ func InspectUnit(Unit) string { return "Unit" }
 // channel's contents are not merely expensive to read, reading them consumes
 // them, so rendering an operand would change the program's behaviour.
 func ChannelInspectText() string { return "<channel>" }
+
+// ArmInspectText is how a `Channel.select` arm reads in a `values:` row.
+func ArmInspectText() string { return "<arm>" }
 
 // TaskInspectText is how a `Task<T>` reads in a `values:` row, and it is the
 // only spelling of it: the VM's task values answer it as their OpaqueText.
@@ -465,11 +468,11 @@ func FunctionInspectText() string { return "<function>" }
 func InspectSeq[T any](Seq[T]) string { return IterInspectText() }
 
 // InspectStruct is how a struct-shaped value reads in a `values:` row, as
-// the literal that builds it: `#Point{x: 1, y: 2}`, and `#Empty{}` for one
+// the literal that builds it: `Point{x: 1, y: 2}`, and `Empty{}` for one
 // with no fields; an anonymous record (typeName "") is `#{x: 1}`. typeName
 // is the declared name with any module qualifier already removed — nothing
 // user-facing shows the qualifier (ShortTypeName). A struct-shaped enum
-// variant is the same shape under the variant's name: `#Rect{height: "z", width: 1}`.
+// variant is the same shape under the variant's name: `Rect{height: "z", width: 1}`.
 //
 // fields are `name: value` pairs already rendered by the caller. They are
 // ordered by field name, which is the order `Debug.inspect` renders an
@@ -483,7 +486,17 @@ func InspectStruct(typeName string, fields []string) string {
 	sort.SliceStable(fields, func(i, j int) bool {
 		return inspectFieldName(fields[i]) < inspectFieldName(fields[j])
 	})
-	return "#" + typeName + "{" + strings.Join(fields, ", ") + "}"
+	return StructOpen(typeName) + strings.Join(fields, ", ") + "}"
+}
+
+// StructOpen is how a struct value's rendering opens: `#{` for an anonymous
+// struct, and the name alone for a named one, `Point{`, as the literal
+// that builds it is written.
+func StructOpen(typeName string) string {
+	if typeName == "" {
+		return "#{"
+	}
+	return typeName + "{"
 }
 
 // inspectFieldName is the name half of a rendered `name: value` pair. A field

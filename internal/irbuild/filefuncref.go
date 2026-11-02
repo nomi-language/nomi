@@ -211,6 +211,9 @@ func checkedRefFuncType(fa *analysis.FileAnalysis, ref ast.Node) *analysis.FuncT
 func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, host bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g
+	if g.siblingPrivate(to, f) {
+		return no()
+	}
 	var params []kind
 	var result kind
 	var sym *ir.Symbol

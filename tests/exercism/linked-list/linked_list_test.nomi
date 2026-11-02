@@ -20,35 +20,35 @@ derive Equatable for Step
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
 fn replay(steps: List<Step>) -> List<Step> {
-    #(happened, _list) =
+    #(_list, happened) =
         steps
-        |> Iter.map_reduce(fn list = LinkedList.new(), step -> {
+        |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
             case step {
                 .Push(value) ->
-                    #(Step.Push(value), LinkedList.push(list, value))
+                    #(LinkedList.push(list, value), Step.Push(value))
 
                 .Unshift(value) ->
-                    #(Step.Unshift(value), LinkedList.unshift(list, value))
+                    #(LinkedList.unshift(list, value), .Unshift(value))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
-                        Some(#(value, rest)) -> #(Step.Pop(value), rest)
-                        None -> #(Step.PopFails, list)
+                        Some(#(value, rest)) -> #(rest, .Pop(value))
+                        None -> #(list, .PopFails)
                     }
                 }
 
                 .Shift(_) or .ShiftFails -> {
                     case LinkedList.shift(list) {
-                        Some(#(value, rest)) -> #(Step.Shift(value), rest)
-                        None -> #(Step.ShiftFails, list)
+                        Some(#(value, rest)) -> #(rest, .Shift(value))
+                        None -> #(list, .ShiftFails)
                     }
                 }
 
                 .Count(_) ->
-                    #(Step.Count(Iter.count(list)), list)
+                    #(list, .Count(Iter.count(list)))
 
                 .Delete(value) ->
-                    #(Step.Delete(value), LinkedList.delete(list, value))
+                    #(LinkedList.delete(list, value), .Delete(value))
             }
         })
 

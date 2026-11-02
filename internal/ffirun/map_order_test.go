@@ -81,7 +81,7 @@ fn main() {
 	}
 	round := strings.Join([]string{
 		"%{" + strings.Join(many, ", ") + "}",
-		`%{#Pt{x: 0, y: 9} => 0, #Pt{x: 1, y: 1} => 1, #Pt{x: 1, y: 2} => 2, #Pt{x: 2, y: 0} => 4, #Pt{x: 2, y: 1} => 3}`,
+		`%{Pt{x: 0, y: 9} => 0, Pt{x: 1, y: 1} => 1, Pt{x: 1, y: 2} => 2, Pt{x: 2, y: 0} => 4, Pt{x: 2, y: 1} => 3}`,
 		`%{False => "f", True => "t"}`,
 	}, "\n")
 	want := strings.Repeat(round+"\n", 5)

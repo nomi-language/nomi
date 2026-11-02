@@ -85,7 +85,7 @@ fn main() {
     ]
 
     io.print(
-        Iter.reduce(parts, fn acc = "", frag -> {
+        Iter.reduce(parts, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + "[" + v + "]"

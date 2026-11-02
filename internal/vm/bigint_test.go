@@ -64,9 +64,9 @@ fn main() {
   io.print(sum_to(100, 0))
   io.print(through(3, past, 1))
   io.print(through(4, past, 1))
-  account = #Account{id: 1, balance: past * 4}
+  account = Account{id: 1, balance: past * 4}
   io.print(account.balance - past)
-  io.print(account == #Account{id: 1, balance: 36_893_488_147_419_103_232})
+  io.print(account == Account{id: 1, balance: 36_893_488_147_419_103_232})
   io.print(Amount.Exact(past) == Amount.Exact(top + 1))
   io.print(Cents(past) == Cents(top + 1))
   io.print([past, 1, -past])

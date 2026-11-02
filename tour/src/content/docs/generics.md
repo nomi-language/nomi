@@ -33,8 +33,8 @@ different types.
 
 ## Generic types
 
-Structs, enums and interfaces can have type parameters. A distinct type,
-such as `type Score Int`, can't, and neither can a type alias.
+Structs, enums, interfaces and distinct types (`type Tagged<T> #(String, T)`)
+can have type parameters. A type alias can't.
 
 ```nomi-run
 struct Box<T> {
@@ -42,7 +42,7 @@ struct Box<T> {
 }
 
 fn main() {
-    box = #Box{value: 42}
+    box = Box{value: 42}
     dbg box.value
 }
 

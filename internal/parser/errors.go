@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"sort"
 )
 
 // ParseError represents a single parse error with position information.
@@ -43,14 +44,34 @@ func (p *Parser) errorOnLine(line int, format string, args ...any) error {
 	return errorAt(line, col, format, args...)
 }
 
-// Fix is an edit that repairs a ParseError, for an editor to offer. Each
-// field is one kind of edit; at most one is set.
+// Fix is an edit that repairs a ParseError or a type error, for an editor
+// to offer and for `nomi check --format json` to report. Each field is one
+// kind of edit; at most one is set.
 type Fix struct {
 	// Wrap puts braces around a body that runs on below its first line.
 	Wrap *BodyWrap
 	// Markers are comment markers (`///` or `//!`) that become `//`, each
 	// at the position of its first slash.
 	Markers []Pos
+	// Edits replace text: applied together, they turn the source into
+	// what the diagnostic says Nomi writes. Title says what they do
+	// ("Write `case`").
+	Edits []Edit
+	Title string
+}
+
+// Edit replaces the text from Start up to End (1-based lines, byte
+// columns; End one past the last byte replaced) with Text. Start == End
+// inserts.
+type Edit struct {
+	Start, End Pos
+	Text       string
+}
+
+// Replace is a Fix titled title of the one edit putting text in place of
+// the bytes from (line, col) up to (endLine, endCol).
+func Replace(title string, line, col, endLine, endCol int, text string) *Fix {
+	return &Fix{Title: title, Edits: []Edit{{Start: Pos{line, col}, End: Pos{endLine, endCol}, Text: text}}}
 }
 
 // Pos is a 1-based line and byte column.
@@ -98,4 +119,28 @@ func (p *Parser) firstError(err error) error {
 		return err
 	}
 	return first
+}
+
+// ApplyEdits is src with edits applied. The edits must not overlap; they
+// apply as one change, each at its position in src.
+func ApplyEdits(src string, edits []Edit) string {
+	lineStarts := []int{0}
+	for i := 0; i < len(src); i++ {
+		if src[i] == '\n' {
+			lineStarts = append(lineStarts, i+1)
+		}
+	}
+	offset := func(p Pos) int {
+		if p.Line < 1 || p.Line > len(lineStarts) {
+			return len(src)
+		}
+		return min(lineStarts[p.Line-1]+p.Col-1, len(src))
+	}
+	sorted := append([]Edit(nil), edits...)
+	sort.SliceStable(sorted, func(i, j int) bool { return offset(sorted[i].Start) > offset(sorted[j].Start) })
+	for _, e := range sorted {
+		start, end := offset(e.Start), offset(e.End)
+		src = src[:start] + e.Text + src[end:]
+	}
+	return src
 }

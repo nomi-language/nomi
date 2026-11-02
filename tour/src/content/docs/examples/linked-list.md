@@ -28,7 +28,7 @@ pub opaque struct LinkedList<T> {
 impl LinkedList<T> {
     /// A list with no values.
     pub fn new() -> LinkedList<T> {
-        #LinkedList{front: [], back: []}
+        LinkedList{front: [], back: []}
     }
 
     /// `list` with `value` after its last value.
@@ -50,7 +50,7 @@ impl LinkedList<T> {
 
             [] -> {
                 case Iter.reverse(list.front) {
-                    [last, ..back] -> Some(#(last, #LinkedList{front: [], back}))
+                    [last, ..back] -> Some(#(last, LinkedList{front: [], back}))
                     [] -> None
                 }
             }
@@ -66,7 +66,7 @@ impl LinkedList<T> {
 
             [] -> {
                 case Iter.reverse(list.back) {
-                    [first, ..front] -> Some(#(first, #LinkedList{front, back: []}))
+                    [first, ..front] -> Some(#(first, LinkedList{front, back: []}))
                     [] -> None
                 }
             }
@@ -76,14 +76,15 @@ impl LinkedList<T> {
     /// `list` without the first value equal to `value`; the same values when
     /// there is none.
     pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable {
-        #LinkedList{front: list |> Iter.to_list() |> List.remove(value), back: []}
+        LinkedList{front: list |> Iter.to_list() |> List.remove(value), back: []}
     }
 }
 
 impl Iter<T> for LinkedList<T> {
     /// Walks the list from its first value to its last.
     fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
-        Iter.each_while(list.front, yield) and Iter.each_while(Iter.reverse(list.back), yield)
+        Iter.each_while(list.front, yield)
+            and (list.back |> Iter.reverse() |> Iter.each_while(yield))
     }
 }
 
@@ -110,35 +111,35 @@ derive Equatable for Step
 /// steps as they happened. A list that does what every step says answers the
 /// steps it was given.
 fn replay(steps: List<Step>) -> List<Step> {
-    #(happened, _list) =
+    #(_list, happened) =
         steps
-        |> Iter.map_reduce(fn list = LinkedList.new(), step -> {
+        |> Iter.map_reduce(LinkedList.new(), fn list, step -> {
             case step {
                 .Push(value) ->
-                    #(Step.Push(value), LinkedList.push(list, value))
+                    #(LinkedList.push(list, value), Step.Push(value))
 
                 .Unshift(value) ->
-                    #(Step.Unshift(value), LinkedList.unshift(list, value))
+                    #(LinkedList.unshift(list, value), .Unshift(value))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
-                        Some(#(value, rest)) -> #(Step.Pop(value), rest)
-                        None -> #(Step.PopFails, list)
+                        Some(#(value, rest)) -> #(rest, .Pop(value))
+                        None -> #(list, .PopFails)
                     }
                 }
 
                 .Shift(_) or .ShiftFails -> {
                     case LinkedList.shift(list) {
-                        Some(#(value, rest)) -> #(Step.Shift(value), rest)
-                        None -> #(Step.ShiftFails, list)
+                        Some(#(value, rest)) -> #(rest, .Shift(value))
+                        None -> #(list, .ShiftFails)
                     }
                 }
 
                 .Count(_) ->
-                    #(Step.Count(Iter.count(list)), list)
+                    #(list, .Count(Iter.count(list)))
 
                 .Delete(value) ->
-                    #(Step.Delete(value), LinkedList.delete(list, value))
+                    #(LinkedList.delete(list, value), .Delete(value))
             }
         })
 

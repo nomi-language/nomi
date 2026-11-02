@@ -30,7 +30,7 @@ fn main() -> Result<Unit, io.Error> {
 // each call in the program's own code that reaches it, at the call, the
 // std function it calls and the crossing that function makes, the
 // functions that reach the call, and how to build anyway. No real target
-// lacks a class, so the test builds for one that lacks `files`.
+// lacks `files`, so the test builds for one that does.
 func TestCheckTarget_NamesTheProgramsOwnCallSites(t *testing.T) {
 	defer vmhost.LackingTargetForTest("nomitest", "nofiles", vmhost.ClassFiles)()
 	path := filepath.Join(t.TempDir(), "notes.nomi")
@@ -115,5 +115,106 @@ fn main() {
 	}
 	if !crossings["fs_host.make_temp_dir"] || !crossings["fs_host.remove_all"] {
 		t.Errorf("the crossings are %v, want make_temp_dir and remove_all", crossings)
+	}
+}
+
+// A WebAssembly module cannot start a process: a build for js/wasm or
+// wasip1 refuses a program that reaches std/process, and builds one with
+// --allow-unsupported processes. A native target builds it.
+func TestCheckTarget_WebAssemblyRefusesProcesses(t *testing.T) {
+	src := `import {
+    std/io
+    std/process.{self, Command}
+}
+
+fn main() -> Result<Unit, io.Error> {
+    _ = process.run(Command{program: "make"})?
+    Ok(Unit)
+}
+`
+	path := filepath.Join(t.TempDir(), "build.nomi")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := vmhost.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refused := p.CheckTarget("nomi build --target linux/amd64", "linux", "amd64", false, nil); refused != nil {
+		t.Fatalf("linux/amd64 can start processes, and the build is refused:\n%s", refused.Error())
+	}
+	for _, target := range [][2]string{{"js", "wasm"}, {"wasip1", "wasm"}} {
+		command := "nomi build --target " + target[0] + "/" + target[1]
+		if p.CheckTarget(command, target[0], target[1], false, []string{vmhost.ClassProcesses}) != nil {
+			t.Errorf("%s: --allow-unsupported processes still refuses", command)
+		}
+		refused := p.CheckTarget(command, target[0], target[1], false, nil)
+		if refused == nil {
+			t.Fatalf("%s builds a program that starts a process", command)
+		}
+		var report strings.Builder
+		refused.Write(&report)
+		want := command + ": this program starts programs, which a " + target[0] + "/" + target[1] + " module cannot do:\n" +
+			"  build.nomi:7:20: `process.run` calls `process_host.start` (reached from fn main)\n" +
+			"hint: build for your platform without --target, or pass --allow-unsupported processes\n" +
+			"      to build anyway; the calls then answer Err(.Unsupported{...})\n"
+		if report.String() != want {
+			t.Errorf("report:\n%s\nwant:\n%s", report.String(), want)
+		}
+	}
+}
+
+// A WebAssembly module cannot serve: a build for js/wasm or wasip1 refuses
+// a program that listens, while a js/wasm build of a program that only sends
+// requests is allowed, since the browser's fetch answers them.
+func TestCheckTarget_WebAssemblyRefusesAServerAndKeepsTheClient(t *testing.T) {
+	load := func(src string) *vmhost.Program {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "build.nomi")
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		p, err := vmhost.Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	server := load(`import std/http
+
+fn main() -> Result<Unit, http.Error> {
+    listener = http.listen()?
+    dbg listener.server.address
+    Ok(Unit)
+}
+`)
+	client := load(`import {
+    std/http
+    std/url.Url
+}
+
+fn main() -> Result<Unit, http.Error> {
+    _ = http.get(Url.parse("https://example.com")!)?
+    Ok(Unit)
+}
+`)
+	if refused := client.CheckTarget("nomi build --target js/wasm", "js", "wasm", false, nil); refused != nil {
+		t.Fatalf("js/wasm refuses a program that only sends requests:\n%s", refused.Error())
+	}
+	for _, target := range [][2]string{{"js", "wasm"}, {"wasip1", "wasm"}} {
+		command := "nomi build --target " + target[0] + "/" + target[1]
+		refused := server.CheckTarget(command, target[0], target[1], false, nil)
+		if refused == nil {
+			t.Fatalf("%s builds a program that listens", command)
+		}
+		var report strings.Builder
+		refused.Write(&report)
+		if !strings.Contains(report.String(), "this program serves network requests") ||
+			!strings.Contains(report.String(), "`http.listen` calls `http_host.listen`") {
+			t.Errorf("%s: report:\n%s", command, report.String())
+		}
+	}
+	if refused := server.CheckTarget("nomi build --target linux/amd64", "linux", "amd64", false, nil); refused != nil {
+		t.Fatalf("linux/amd64 can serve, and the build is refused:\n%s", refused.Error())
 	}
 }

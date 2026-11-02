@@ -12,7 +12,7 @@ amount is a `Decimal`, so it is exact. The currency is a
 `` Money`19.99 USD` `` is an amount of US dollars: the amount, one space and
 the currency's ISO 4217 code. Interpolating a `Money` writes the same text.
 Both fields are public, so when the amount comes from a variable, build the
-value from its fields with `#Money{...}`:
+value from its fields with `Money{...}`:
 
 ```nomi-run
 import {
@@ -29,7 +29,7 @@ fn main() {
 
     cents = 1999
     amount = cents |> Int.to_decimal() |> Decimal.divide(100d, 2, .HalfEven)
-    dbg #Money{amount, currency: Currency`USD`} == price
+    dbg Money{amount, currency: Currency`USD`} == price
 }
 
 ```
@@ -37,7 +37,7 @@ fn main() {
 19.99 USD
 dbg line 10: price.amount = 19.99d
 dbg line 11: price.currency = Currency`USD`
-dbg line 15: #Money{amount, currency: Currency`USD`} == price = True
+dbg line 15: Money{amount, currency: Currency`USD`} == price = True
 -->
 
 The compiler checks a `Money` literal, so a missing currency, an unknown
@@ -341,13 +341,13 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 9: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(#Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 10: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(#Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 11: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(#WrongCurrency{expected: Currency`USD`, found: "€"})
+dbg line 9: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
+dbg line 10: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
+dbg line 11: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
 -->
 
 A price in another currency is an error, and so is one with more digits
-than the currency has: `$12.505` is `Err(#TooManyFractionDigits{max: 2})`.
+than the currency has: `$12.505` is `Err(TooManyFractionDigits{max: 2})`.
 [Locales & Formatting](/locales-and-formatting/#reading-what-people-type) covers how each
 locale writes numbers, and the rest of what strict and lenient reading
 accept.

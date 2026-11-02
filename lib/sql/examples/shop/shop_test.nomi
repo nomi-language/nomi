@@ -22,10 +22,10 @@ group "the shop" {
         id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
 
         Some(user) = queries.user_by_email(db, "ada@example.com")? else {
-            None -> return Err(#sql.Error.Database{code: "", message: "no user"})
+            None -> return Err(sql.Error.Database{code: "", message: "no user"})
         }
 
-        assert #User{id: read_id, email, name} = user
+        assert User{id: read_id, email, name} = user
         assert read_id == id
         assert email == "ada@example.com"
         assert name == Some("Ada")
@@ -36,7 +36,7 @@ group "the shop" {
         _ = queries.insert_user(db, "ada@example.com", None)?
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
-            #sql.Error.Constraint{
+            sql.Error.Constraint{
                 kind: ConstraintKind.Unique,
                 name: "users_email_key",
                 table: Some("users"),
@@ -49,14 +49,14 @@ group "the shop" {
         user = queries.insert_user(db, "ada@example.com", None)?
         id = shop.place_paid_order(db, user, 12.50d)?
         order = queries.order(db, id)?
-        assert #Order{status, total, shipped_on} = order
+        assert Order{status, total, shipped_on} = order
         assert status == OrderStatus.Paid
         // `==` on Decimal ignores the scale; the text shows it.
         assert "${total}" == "12.50"
         assert shipped_on == None
 
         assert queries.order(db, id + 1)
-            == Err(#sql.Error.RowCount{query: "order", expected: "exactly one", found: 0})
+            == Err(sql.Error.RowCount{query: "order", expected: "exactly one", found: 0})
     }
 
     test "a failed sign-up leaves nothing behind", db {
@@ -106,13 +106,13 @@ group "the shop" {
         assert revenue |> Iter.map(fn r -> "${r.revenue}") |> Iter.to_list() == ["12.50", "1.00"]
 
         assert revenue == [
-            #shop.CustomerRevenue{
+            shop.CustomerRevenue{
                 user_id: ada,
                 email: "ada@example.com",
                 order_count: 2,
                 revenue: 12.50d,
             },
-            #shop.CustomerRevenue{
+            shop.CustomerRevenue{
                 user_id: grace,
                 email: "grace@example.com",
                 order_count: 1,
@@ -131,7 +131,7 @@ group "the shop" {
         // 2^53 + 1 cents does not fit a 64-bit float, which is how SQLite
         // keeps a DECIMAL: the driver refuses it rather than round it.
         refused = case queries.insert_order(db, user, 90_071_992_547_409.93d) {
-            Err(#sql.Error.Database{code, message: _}) -> code
+            Err(sql.Error.Database{code, message: _}) -> code
             _ -> "not refused"
         }
 
@@ -153,8 +153,8 @@ group "the shop" {
     test "a status update answers the rows it changed", db {
         user = queries.insert_user(db, "ada@example.com", None)?
         id = queries.insert_order(db, user, 1d)?
-        assert queries.set_status(db, id, .Shipped) == Ok(#sqlkit.Changed{rows: 1})
-        assert queries.set_status(db, id + 1, .Shipped) == Ok(#sqlkit.Changed{rows: 0})
+        assert queries.set_status(db, id, .Shipped) == Ok(sqlkit.Changed{rows: 1})
+        assert queries.set_status(db, id + 1, .Shipped) == Ok(sqlkit.Changed{rows: 0})
     }
 
     test "revenue since an hour ago counts an order placed now", db {

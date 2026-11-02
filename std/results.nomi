@@ -167,7 +167,7 @@ impl Result<T, E> {
     //! assert stopped == Result.Err(3)
     //
     pub fn collect<T, E>(results: Iter<Result<T, E>>) -> Result<List<T>, E> {
-        reversed = Iter.reduce(results, fn acc: Result<List<T>, E> = Result.Ok([]), item -> {
+        reversed = Iter.reduce(results, Result.Ok([]), fn acc: Result<List<T>, E>, item -> {
             case item {
                 Ok(v) -> Result.map(acc, fn vs -> [v, ..vs])
                 Err(e) -> break Result.Err(e)
@@ -199,7 +199,7 @@ impl Result<T, E> {
     //! assert split == #([1, 3], [-2, -4])
     //
     pub fn partition<T, E>(results: Iter<Result<T, E>>) -> #(List<T>, List<E>) {
-        state = Iter.reduce(results, fn state: #(List<T>, List<E>) = #([], []), item -> {
+        state = Iter.reduce(results, #([], []), fn state: #(List<T>, List<E>), item -> {
             #(oks, errs) = state
 
             case item {

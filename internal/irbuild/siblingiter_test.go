@@ -21,13 +21,13 @@ import chains.Chain
 import stacks.Stack
 
 fn main() {
-    chain = #Chain.Link{value: 1, next: #Chain.Link{value: 2, next: Chain.End}}
+    chain = Chain.Link{value: 1, next: Chain.Link{value: 2, next: Chain.End}}
     io.inspect(Iter.count(chain))
     io.inspect(Iter.known_count(chain))
     io.inspect(Iter.to_list(chain))
     io.inspect(chain |> Iter.map(fn x -> x * 10) |> Iter.to_list())
-    io.inspect(Iter.reduce(chain, fn acc, x -> acc + x, from: 0))
-    stack: Stack<String> = #Stack.Push{top: "a", rest: #Stack.Push{top: "b", rest: Stack.Bottom}}
+    io.inspect(Iter.reduce(chain, 0, fn acc, x -> acc + x))
+    stack: Stack<String> = Stack.Push{top: "a", rest: Stack.Push{top: "b", rest: Stack.Bottom}}
     io.inspect(Iter.count(stack))
     io.inspect(stack |> Iter.map(String.uppercase) |> Iter.to_list())
 }
@@ -41,7 +41,7 @@ impl Iter<Int> for Chain {
     fn each_while(chain: Chain, yield: (Int) -> Bool) -> Bool {
         case chain {
             .End -> True
-            #.Link{value, next} -> yield(value) and each_while(next, yield)
+            .Link{value, next} -> yield(value) and each_while(next, yield)
         }
     }
 
@@ -59,7 +59,7 @@ impl Iter<T> for Stack<T> {
     fn each_while(stack: Stack<T>, yield: (T) -> Bool) -> Bool {
         case stack {
             .Bottom -> True
-            #.Push{top, rest} -> yield(top) and each_while(rest, yield)
+            .Push{top, rest} -> yield(top) and each_while(rest, yield)
         }
     }
 }

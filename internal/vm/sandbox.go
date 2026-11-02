@@ -11,6 +11,40 @@ import (
 // and `fs.within` call through `fs_host.run_in`.
 const sandboxKey = "fs_host.run_on"
 
+// processFakeKey is std/process_host's private `run_on`, which
+// `process_testing.run` calls through `process_host.run_in`.
+const processFakeKey = "process_host.run_on"
+
+// processFakeHost is `run_on(fake, body, finish)`: call body on a frame
+// whose std/process calls the fake answers (rt.EnterProcesses), and in the
+// tasks it starts, then hand body's value to finish on the caller's frame,
+// as sandboxHost does with a file system.
+func processFakeHost(m *Machine, _ ir.Pos, args []any) (any, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("vm: %s: expected three operands, got %d", processFakeKey, len(args))
+	}
+	fake, ok := args[0].(rt.ProcessFake)
+	if !ok {
+		return nil, fmt.Errorf("vm: %s: the fake is %T, not a ProcessFake", processFakeKey, args[0])
+	}
+	body, ok := args[1].(*functionValue)
+	if !ok || body.arity != 0 {
+		return nil, fmt.Errorf("vm: %s: body must be a zero-parameter function", processFakeKey)
+	}
+	finish, ok := args[2].(*functionValue)
+	if !ok || finish.arity != 1 {
+		return nil, fmt.Errorf("vm: %s: finish must take one parameter", processFakeKey)
+	}
+	if m.hostFrame == nil {
+		return nil, fmt.Errorf("vm: %s: called with no frame", processFakeKey)
+	}
+	v, err := m.apply(body, nil, rt.EnterProcesses(m.hostFrame, fake))
+	if err != nil {
+		return m.settled(nil, err)
+	}
+	return m.settled(m.apply(finish, []any{v}, m.hostFrame))
+}
+
 // sandboxHost is `run_on(files, body, finish)`: call body on a frame whose
 // file system is files (rt.EnterFiles), a sandbox or a directory `fs.within`
 // confines it to, so every std/fs call in it, and in the tasks it starts,

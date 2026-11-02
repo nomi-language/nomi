@@ -173,7 +173,7 @@ func SeqTakeWhileCtl[T any](src Seq[T], f func(fr *Frame, item T) (bool, Ctl)) S
 // Two registers would be one too many here, so the callback answers a bare
 // `keepGoing`. That is not a simplification of the four-state encoding but a
 // consequence of what `each` IS: std defines it as
-// `case reduce(source, fn _acc = 0, item -> f(item)) { _ -> Unit }`
+// `case reduce(source, 0, fn _acc, item -> f(item)) { _ -> Unit }`
 // (std/iter.nomi:235-239), so the accumulator is built and then discarded, and
 // every signal reduces to "does the fold continue". `continue`, `return` and a
 // tail all continue; `break` stops. The Unit answer is std's own `case … { _ ->

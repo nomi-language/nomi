@@ -37,8 +37,8 @@ var deriveFieldDefaults = []struct {
 	{"pipe and lambda", "v: List<Int> = [1, 2] |> Iter.map(fn x -> x * 10) |> Iter.to_list()", "[10, 20]"},
 	{"range", "v: List<Int> = 1..=3 |> Iter.to_list()", "[1, 2, 3]"},
 	{"call", "v: Map<String, Int> = Map.put(%{}, \"a\", 1)", "%{\"a\" => 1}"},
-	{"struct literal", "v: Inner = #Inner{a: 1}", "#Inner{a: 1}"},
-	{"struct update", "v: Inner = #{..#Inner{a: 1}, a: 2}", "#Inner{a: 2}"},
+	{"struct literal", "v: Inner = Inner{a: 1}", "Inner{a: 1}"},
+	{"struct update", "v: Inner = #{..Inner{a: 1}, a: 2}", "Inner{a: 2}"},
 	{"dot variant", "v: Color = .Red", "Red"},
 }
 
@@ -83,7 +83,7 @@ derive FromJson for E
 fn main() {
     io.print(Debug.inspect(S.from_json(Json.Obj(%{}))))
     io.print(Debug.inspect(E.from_json(%Json.Obj{"Rec" => Json.Obj(%{})})))
-    s = #S{}
+    s = S{}
     io.print(Debug.inspect(S.from_json(ToJson.to_json(s)) == Ok(s)))
 }
 `
@@ -114,7 +114,7 @@ func TestDerivedJsonFillsEveryKindOfFieldDefault(t *testing.T) {
 			if err := p.Run(context.Background(), &out, nil, false); err != nil {
 				t.Fatalf("run: %v\noutput so far:\n%s", err, out.String())
 			}
-			want := "Ok(#S{v: " + tc.want + "})\nOk(#Rec{v: " + tc.want + "})\nTrue\n"
+			want := "Ok(S{v: " + tc.want + "})\nOk(Rec{v: " + tc.want + "})\nTrue\n"
 			if got := out.String(); got != want {
 				t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 			}

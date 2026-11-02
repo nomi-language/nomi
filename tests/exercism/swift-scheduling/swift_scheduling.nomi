@@ -68,7 +68,7 @@ fn parse(text: String) -> Result<Description, Error> {
         "NOW" -> Ok(.Now)
         "ASAP" -> Ok(.Asap)
         "EOW" -> Ok(.EndOfWeek)
-        _ -> numbered(text) |> Maybe.to_result(Error.UnknownDescription(text))
+        _ -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
     }
 }
 

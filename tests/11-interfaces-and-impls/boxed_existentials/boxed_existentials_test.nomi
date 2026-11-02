@@ -20,7 +20,7 @@ fn give(flag: Bool) -> Show {
 }
 
 fn circle_shape(r: Int) -> Shape {
-    #Circle{r}
+    Circle{r}
 }
 
 test "each container held as the interface dispatches to its instance's impl" {
@@ -47,7 +47,7 @@ test "a parameter, a result, a list element, a field and a payload" {
     ]
 
     assert (xs |> Iter.map(&Show.show(&1)) |> String.join(",")) == "[i1],['s'],[[i2]],i7"
-    h = #Holder{s: [8, 9]}
+    h = Holder{s: [8, 9]}
     assert Show.show(h.s) == "[i8 i9]"
     m: Maybe<Show> = Some(#["v"])
 
@@ -66,7 +66,7 @@ test "a generic interface's instance held by a container" {
 }
 
 test "an embeds enum's struct variant beside its own variant and the struct" {
-    xs: List<Show> = [circle_shape(1), Shape.Dot, #Circle{r: 2}]
+    xs: List<Show> = [circle_shape(1), Shape.Dot, Circle{r: 2}]
 
     assert (xs
     |> Iter.map(&Show.show(&1))

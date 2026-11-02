@@ -34,7 +34,7 @@ impl Matrix {
             |> Iter.map(parse_row)
             |> Result.collect()?
 
-        Ok(#Matrix{rows: Iter.to_vector(rows)})
+        Ok(Matrix{rows: Iter.to_vector(rows)})
     }
 
     /// The numbers of row `index`, counted from 1, or `None` past the last.
@@ -64,7 +64,7 @@ fn parse_row(line: String) -> Result<Vector<Int>, Error> {
 }
 
 // FILE: matrix_test.nomi
-import matrix.{Error, Matrix}
+import matrix.Matrix
 
 test "rows" {
     [
@@ -112,7 +112,7 @@ test "columns" {
 // Not canonical: the canonical matrices are all well formed and every index
 // is in range.
 test "a word that is not a number is an error" {
-    assert Matrix.parse("1 2\n3 four") == Err(Error.NotANumber("four"))
+    assert Matrix.parse("1 2\n3 four") == Err(.NotANumber("four"))
 }
 
 test "an index past the last row or column is None" {

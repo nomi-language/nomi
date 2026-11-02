@@ -41,7 +41,7 @@ fn main() {
     io.inspect(do_thing(5, option_a: "x", &Int.max(&1, 70)))
     io.inspect(do_thing(5, &(Int.max(&1, 70) + 1)))
     io.inspect(5 |> do_thing(&Int.max(&1, 70)))
-    io.inspect(make(5, &#Point{x: &1, y: 0}))
+    io.inspect(make(5, &Point{x: &1, y: 0}))
 }
 `
 	irRunSource(t, src, `["a", "bb", "ccc"]
@@ -53,7 +53,7 @@ fn main() {
 71
 78
 77
-#Point{x: 5, y: 0}
+Point{x: 5, y: 0}
 `)
 }
 

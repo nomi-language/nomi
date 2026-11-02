@@ -15,7 +15,7 @@ pub opaque struct LinkedList<T> {
 impl LinkedList<T> {
     /// A list with no values.
     pub fn new() -> LinkedList<T> {
-        #LinkedList{front: [], back: []}
+        LinkedList{front: [], back: []}
     }
 
     /// `list` with `value` after its last value.
@@ -37,7 +37,7 @@ impl LinkedList<T> {
 
             [] -> {
                 case Iter.reverse(list.front) {
-                    [last, ..back] -> Some(#(last, #LinkedList{front: [], back}))
+                    [last, ..back] -> Some(#(last, LinkedList{front: [], back}))
                     [] -> None
                 }
             }
@@ -53,7 +53,7 @@ impl LinkedList<T> {
 
             [] -> {
                 case Iter.reverse(list.back) {
-                    [first, ..front] -> Some(#(first, #LinkedList{front, back: []}))
+                    [first, ..front] -> Some(#(first, LinkedList{front, back: []}))
                     [] -> None
                 }
             }
@@ -63,13 +63,14 @@ impl LinkedList<T> {
     /// `list` without the first value equal to `value`; the same values when
     /// there is none.
     pub fn delete(list: LinkedList<T>, value: T) -> LinkedList<T> where T: Equatable {
-        #LinkedList{front: list |> Iter.to_list() |> List.remove(value), back: []}
+        LinkedList{front: list |> Iter.to_list() |> List.remove(value), back: []}
     }
 }
 
 impl Iter<T> for LinkedList<T> {
     /// Walks the list from its first value to its last.
     fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool {
-        Iter.each_while(list.front, yield) and Iter.each_while(Iter.reverse(list.back), yield)
+        Iter.each_while(list.front, yield)
+            and (list.back |> Iter.reverse() |> Iter.each_while(yield))
     }
 }

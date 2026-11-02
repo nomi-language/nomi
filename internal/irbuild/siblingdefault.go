@@ -131,28 +131,6 @@ func (site *implMemberSite) accessorDefaults() bool {
 		it.decl != nil && it.decl.Public
 }
 
-// siblingAccessorArgs fills the slots a short call to site, a sibling file's
-// inherent impl function, omits, with a call to the accessor its file builds
-// for each (irImplSlotDefaults): the default may name that file's private
-// functions and types, which this file cannot lower. args holds the written
-// operands, in order from the first slot.
-func (bl *irScalarBuilder) siblingAccessorArgs(t *ast.Call, args irQualArgs, site *implMemberSite, params []kind, owning *gen) (irQualArgs, bool) {
-	if !site.accessorDefaults() || len(args.temps) > len(params) {
-		return args, false
-	}
-	temps := make([]ir.Temp, len(params))
-	mobile := make([]bool, len(params))
-	copy(temps, args.temps)
-	copy(mobile, args.mobile)
-	for i := len(args.temps); i < len(temps); i++ {
-		temps[i] = ir.NoTemp
-	}
-	if !bl.siblingImplFill(t, site, owning, params, temps, mobile) {
-		return args, false
-	}
-	return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
-}
-
 // siblingImplFill is siblingFill against site, a sibling file's inherent impl
 // function whose accessors its file builds.
 func (bl *irScalarBuilder) siblingImplFill(at ast.Node, site *implMemberSite, owning *gen, params []kind, temps []ir.Temp, mobile []bool) bool {

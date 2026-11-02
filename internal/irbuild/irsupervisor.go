@@ -41,10 +41,21 @@ func irSupervisorKind(k kind) bool {
 // irStreamKind reports std/io's Reader, Writer or File, an rt.Reader,
 // rt.Writer or rt.File value only host calls look inside (rt/streams.go,
 // rt/filehandle.go), or std/fs_host's FileSystem, the rt.FileSystem
-// `fs_testing.run` and `fs.within` build (rt/files.go).
+// `fs_testing.run` and `fs.within` build (rt/files.go), or std/process_host's
+// Child and Fake, the rt.ChildProcess and rt.ProcessFake std/process and
+// std/process_testing hold (rt/processes.go), or std/http_host's Client and
+// Exchange, the rt.HTTPClient and rt.HTTPExchange std/http holds
+// (rt/network.go).
 func irStreamKind(k kind) bool {
 	return k == stdHostOriginKind("std/io", "Reader") || k == stdHostOriginKind("std/io", "Writer") ||
-		k == stdHostOriginKind("std/io", "File") || k == stdHostOriginKind("std/fs_host", "FileSystem")
+		k == stdHostOriginKind("std/io", "File") || k == stdHostOriginKind("std/fs_host", "FileSystem") ||
+		k == stdHostOriginKind("std/process_host", "Child") || k == stdHostOriginKind("std/process_host", "Fake") ||
+		k == stdHostOriginKind("std/http_host", "Client") || k == stdHostOriginKind("std/http_host", "Exchange") ||
+		k == stdHostOriginKind("std/http_host", "Listener") || k == stdHostOriginKind("std/http_host", "Incoming") ||
+		k == stdHostOriginKind("std/http_host", "Certificate") || k == stdHostOriginKind("std/http_host", "TlsConfig") ||
+		k == stdHostOriginKind("std/http_host", "Conn") || k == stdHostOriginKind("std/http_host", "TcpListener") ||
+		k == stdHostOriginKind("std/http_host", "Mux") || k == stdHostOriginKind("std/http_host", "Jar") ||
+		k == stdHostOriginKind("std/http_host", "Handle")
 }
 
 // supervisorSpawn lowers `Supervisor.spawn(sup, body)`: a supervisor, a
@@ -344,8 +355,15 @@ func (bl *irScalarBuilder) stdShortCallShape(t *ast.Call, owner, method, module 
 }
 
 // stdShortCandidates is the std functions `Owner.method` names: every
-// module's for a bare owner, and module's own for a qualified one.
+// module's for a bare owner, and module's own for a qualified one. With no
+// owner, `module.method` names the std file's top-level function.
 func (g *gen) stdShortCandidates(owner, method, module string) []*stdFunc {
+	if owner == "" {
+		if f := g.std.byFile[module+"."+method]; f != nil {
+			return []*stdFunc{f}
+		}
+		return nil
+	}
 	fs := g.std.byType[owner+"."+method]
 	if module == "" {
 		return fs

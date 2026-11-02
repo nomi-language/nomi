@@ -25,7 +25,7 @@ pub struct Stats {
 impl Stats {
     /// `stats` after one more operation that carried `bytes` bytes.
     fn add(stats: Stats, bytes: Int) -> Stats {
-        #Stats{bytes: stats.bytes + bytes, operations: stats.operations + 1}
+        Stats{bytes: stats.bytes + bytes, operations: stats.operations + 1}
     }
 }
 
@@ -40,7 +40,7 @@ pub struct MeteredReader {
 impl MeteredReader {
     /// A meter over `reader` that has counted nothing.
     pub fn new(reader: Reader) -> MeteredReader {
-        #MeteredReader{reader}
+        MeteredReader{reader}
     }
 
     /// The next bytes of the stream, at most `max`, or `None` at its end,
@@ -68,7 +68,7 @@ pub struct MeteredWriter {
 impl MeteredWriter {
     /// A meter over `writer` that has counted nothing.
     pub fn new(writer: Writer) -> MeteredWriter {
-        #MeteredWriter{writer}
+        MeteredWriter{writer}
     }
 
     /// Writes `data` and answers the meter after the write. An error is the
@@ -106,8 +106,8 @@ test "a new meter has counted nothing" {
     reader = Reader.from_text("hello") |> MeteredReader.new()
     writer = MeteredWriter.new(io.stdout)
 
-    assert reader.stats == #Stats{bytes: 0, operations: 0}
-    assert writer.stats == #Stats{bytes: 0, operations: 0}
+    assert reader.stats == Stats{bytes: 0, operations: 0}
+    assert writer.stats == Stats{bytes: 0, operations: 0}
 }
 
 test "reads count their bytes and themselves" {
@@ -115,7 +115,7 @@ test "reads count their bytes and themselves" {
     #(data, meter) = read_to_end(meter, 4)?
 
     assert data == String.to_bytes("hello world")
-    assert meter.stats == #Stats{bytes: 11, operations: 4}
+    assert meter.stats == Stats{bytes: 11, operations: 4}
 }
 
 test "one read takes what fits, and the next finds the end" {
@@ -123,7 +123,7 @@ test "one read takes what fits, and the next finds the end" {
     #(data, meter) = read_to_end(meter, 1024)?
 
     assert data == String.to_bytes("hello world")
-    assert meter.stats == #Stats{bytes: 11, operations: 2}
+    assert meter.stats == Stats{bytes: 11, operations: 2}
 }
 
 test "reading an empty stream is one operation and no bytes" {
@@ -131,7 +131,7 @@ test "reading an empty stream is one operation and no bytes" {
     #(data, meter) = MeteredReader.read(meter)?
 
     assert data == None
-    assert meter.stats == #Stats{bytes: 0, operations: 1}
+    assert meter.stats == Stats{bytes: 0, operations: 1}
 }
 
 test "a read error passes through" {
@@ -150,7 +150,7 @@ test "writes count their bytes and themselves" {
     })
 
     assert run.output == "hello, world"
-    assert run.value == Ok(#Stats{bytes: 12, operations: 3})
+    assert run.value == Ok(Stats{bytes: 12, operations: 3})
 }
 
 test "earlier meters keep their own counts" {
@@ -158,9 +158,9 @@ test "earlier meters keep their own counts" {
     #(_, second) = MeteredReader.read(first, 2)?
     #(_, third) = MeteredReader.read(second, 2)?
 
-    assert first.stats == #Stats{bytes: 0, operations: 0}
-    assert second.stats == #Stats{bytes: 2, operations: 1}
-    assert third.stats == #Stats{bytes: 4, operations: 2}
+    assert first.stats == Stats{bytes: 0, operations: 0}
+    assert second.stats == Stats{bytes: 2, operations: 1}
+    assert third.stats == Stats{bytes: 4, operations: 2}
 }
 ```
 <!-- expect

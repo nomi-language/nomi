@@ -12,8 +12,8 @@ struct Outer {
   p: List<Point>
   hooks: Map<String, (Int) -> Int> = %{}
 }
-fn main() { s = %[1, 2] io.inspect(#Outer{p: [#Point{x: Set.size(s)}]}) }
-`, "#Outer{p: [#Point{x: 2}], hooks: %{}}\n")
+fn main() { s = %[1, 2] io.inspect(Outer{p: [Point{x: Set.size(s)}]}) }
+`, "Outer{p: [Point{x: 2}], hooks: %{}}\n")
 }
 
 // A declared distinct is a set element: hashed and compared as `==` is.

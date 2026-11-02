@@ -40,7 +40,7 @@ fn count() -> Int {
 }
 `, "`Int`, discarded", false},
 		{"a struct field", coin + `fn main() {
-  #Point{x: ▮_, y} = #Point{x: 1, y: 2}
+  Point{x: ▮_, y} = Point{x: 1, y: 2}
   io.inspect(y)
 }
 `, "`Int`, discarded", false},
@@ -106,7 +106,7 @@ fn count() -> Int {
 }
 `, "`Float`, discarded: matches any `Float`", false},
 		{"a lambda parameter", coin + `fn main() {
-  n = Iter.reduce(["a", "b"], fn total = 0, ▮_ -> total + 1)
+  n = Iter.reduce(["a", "b"], 0, fn total, ▮_ -> total + 1)
   io.inspect(n)
 }
 `, "`String`, discarded", false},
@@ -124,7 +124,7 @@ fn main() {
 }
 `, "`String`, discarded", false},
 		{"a reduce seed pattern", coin + `fn main() {
-  r = Iter.reduce([1, 2], fn #(▮_, acc) = #(0, []), x -> #(x, [x, ..acc]))
+  r = Iter.reduce([1, 2], #(0, []), fn #(▮_, acc), x -> #(x, [x, ..acc]))
   io.inspect(r)
 }
 `, "`Int`, discarded", false},

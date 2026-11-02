@@ -35,7 +35,7 @@ pub opaque struct Factory {
 impl Factory {
     /// A factory that draws names from `seed`.
     pub fn new(seed: Seed) -> Factory {
-        #Factory{seed, given: %[]}
+        Factory{seed, given: %[]}
     }
 
     /// A new robot with a name no robot of this factory has had, or
@@ -48,7 +48,7 @@ impl Factory {
         if name in factory.given {
             Factory.build(#{..factory, seed})
         } else {
-            Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))
+            Ok(#(Robot{name}, Factory{seed, given: Set.insert(factory.given, name)}))
         }
     }
 

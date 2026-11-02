@@ -39,7 +39,7 @@ import (
 // struct whose declaration is not alphabetical, so a positional copy of the
 // record's fields into the struct's is wrong. It is not silently wrong when the
 // field types differ (Go rejects it) and it IS silently wrong when they do not,
-// which is why testdata/struct_forms.nomi builds a `#Rev {z: Int, a: String}`
+// which is why testdata/struct_forms.nomi builds a `Rev{z: Int, a: String}`
 // from `#{a: "s", z: 1}`: the two orders are reversed and the types cross.
 //
 // Going through the literal path means no order is computed here at all.
@@ -63,7 +63,7 @@ func anonArgAsLiteral(arg ast.Node) (*ast.StructLit, bool) {
 	switch a := arg.(type) {
 	case *ast.StructLit:
 		if a.TypeName != nil {
-			// `Foo(#Bar{...})` — a NOMINAL literal in the argument. A type
+			// `Foo(Bar{...})` — a NOMINAL literal in the argument. A type
 			// error, and declined here rather than mis-read as a field set.
 			return nil, false
 		}

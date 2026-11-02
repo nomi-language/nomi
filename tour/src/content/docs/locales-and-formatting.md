@@ -206,8 +206,8 @@ import {
 fn main() {
     [-1, 3, -3]
     |> Iter.each(fn n -> {
-        en = TimeUnit.format_relative(n, Locale`en-US`, TimeUnit.Day)
-        pl = TimeUnit.format_relative(n, Locale`pl`, TimeUnit.Day)
+        en = TimeUnit.format_relative(n, Locale`en-US`, .Day)
+        pl = TimeUnit.format_relative(n, Locale`pl`, .Day)
         io.print("${n}: ${en} | ${pl}")
     })
 
@@ -307,9 +307,9 @@ fn main() {
 dbg line 7: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
 dbg line 8: Int.parse_in("1.200", Locale`de`) = Ok(1200)
 dbg line 9: Int.parse_in("1200", Locale`de`) = Ok(1200)
-dbg line 10: Int.parse_in("1.200", Locale`en-US`) = Err(#Unexpected{at: 1, text: "."})
+dbg line 10: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
 dbg line 11: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
-dbg line 12: Int.parse_in(" 3 ", Locale`en-US`) = Err(#Unexpected{at: 0, text: " "})
+dbg line 12: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
 dbg line 13: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
 not a quantity: unexpected `.` at 1
 -->
@@ -385,7 +385,7 @@ fn main() {
 ```
 <!-- expect
 dbg line 4: Locale.parse("EN-us") = Ok(Locale`en-US`)
-dbg line 5: Locale.parse("pt_BR") = Err(#Underscore{suggestion: "pt-BR"})
+dbg line 5: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
 dbg line 6: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
 dbg line 7: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
 -->
@@ -470,13 +470,13 @@ struct Request {
 once shop = [Locale`en`, Locale`de`, Locale`pl`]
 
 fn boot() -> Result<App, String> {
-    Ok(#App{locale: Locale`en`})
+    Ok(App{locale: Locale`en`})
 }
 
 fn main() {
     [
-        #Request{path: "/cart", accept: [Locale`de-AT`, Locale`en`]},
-        #Request{path: "/cart", accept: [Locale`ja`]},
+        Request{path: "/cart", accept: [Locale`de-AT`, Locale`en`]},
+        Request{path: "/cart", accept: [Locale`ja`]},
     ]
     |> Iter.each(handle)
 }
@@ -616,7 +616,7 @@ impl Localize for Weight {
 }
 
 fn main() {
-    parcel = #Weight{grams: 1250}
+    parcel = Weight{grams: 1250}
 
     io.print("order-1042,${parcel}")
     io.print("en-US: ships at ${Localize.localize(parcel, Locale`en-US`)}")

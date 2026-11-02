@@ -5,7 +5,7 @@ import "testing"
 // OPACITY, for the spread spelling.
 //
 // The opaque-struct update rules guard every patch route to an opaque
-// struct's fields, and the spread form `#Counter{..c, value: 9}` is one of
+// struct's fields, and the spread form `Counter{..c, value: 9}` is one of
 // them. Naming a private field is the exposure wherever the name appears, so
 // the spread form is guarded with the same wording, and this file sits beside
 // opaque_struct_update_test.go, sharing its module fixtures.

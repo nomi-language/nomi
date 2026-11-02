@@ -1,4 +1,4 @@
-import tournament.{self, Error}
+import tournament
 
 test "just the header if no input" {
     assert tournament.tally([]) == Ok(["Team                           | MP |  W |  D |  L |  P"])
@@ -174,7 +174,7 @@ test "ensure points sorted numerically" {
 test "a row that is not a match is an error" {
     row = "Allegoric Alaskans;Blithering Badgers;tie"
 
-    assert tournament.tally([row]) == Err(Error.InvalidRow(row))
+    assert tournament.tally([row]) == Err(.InvalidRow(row))
 
     assert tournament.tally(["Allegoric Alaskans;win"])
         == Err(.InvalidRow("Allegoric Alaskans;win"))

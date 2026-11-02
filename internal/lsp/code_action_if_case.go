@@ -402,21 +402,44 @@ func (r *refactorRequest) caseToIf(c *ast.Case) ast.Node {
 			if _, wild := b.Pattern.(*ast.WildcardPattern); wild {
 				return nil
 			}
-			rest = &ast.If{Cond: b.Pattern, Then: branchBlock(b), Else: rest, Line: b.Line, Col: b.Col}
+			rest = &ast.If{Cond: inHead(b.Pattern), Then: branchBlock(b), Else: rest, Line: b.Line, Col: b.Col}
 		}
 		return withPos(rest, c)
 	case r.literalArms(c):
 		for i := n - 2; i >= 0; i-- {
 			b := &c.Branches[i]
-			cond := &ast.Binary{Left: c.Value, Op: "==", Right: b.Pattern, Line: b.Line, Col: b.Col}
+			cond := inHead(&ast.Binary{Left: c.Value, Op: "==", Right: b.Pattern, Line: b.Line, Col: b.Col})
 			rest = &ast.If{Cond: cond, Then: branchBlock(b), Else: rest, Line: b.Line, Col: b.Col}
 		}
 		return withPos(rest, c)
 	case n == 2 && refutableHead(c.Branches[0].Pattern):
 		b := &c.Branches[0]
-		return &ast.If{CondPattern: b.Pattern, Cond: c.Value, Then: branchBlock(b), Else: rest, Line: c.Line, Col: c.Col}
+		return &ast.If{CondPattern: b.Pattern, Cond: inHead(c.Value), Then: branchBlock(b), Else: rest, Line: c.Line, Col: c.Col}
 	}
 	return nil
+}
+
+// inHead is the expression n as it stands at the top of an `if` or `case`
+// head, where `Name {` opens the body: a named struct literal at the top of
+// n goes in parentheses (`p == (P{x: 1})`), and the rest of n is n's own.
+func inHead(n ast.Node) ast.Node {
+	switch v := n.(type) {
+	case *ast.StructLit:
+		if v.TypeName != nil {
+			return &ast.GroupedExpr{Expr: v, Line: v.Line, Col: v.Col}
+		}
+	case *ast.Binary:
+		if v.Op != "|>" {
+			cp := *v
+			cp.Left, cp.Right = inHead(v.Left), inHead(v.Right)
+			return &cp
+		}
+	case *ast.Unary:
+		cp := *v
+		cp.Right = inHead(v.Right)
+		return &cp
+	}
+	return n
 }
 
 func withPos(n ast.Node, c *ast.Case) ast.Node {

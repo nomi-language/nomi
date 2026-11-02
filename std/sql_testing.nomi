@@ -87,18 +87,18 @@ impl Fake {
     ) -> Fake {
         state: Channel<State> = Channel.buffered(1)
 
-        first = #State{
+        first = State{
             log: [],
             statements: [],
             levels: [
-                #Level{id: 0, effects: []},
+                Level{id: 0, effects: []},
             ],
             next_id: 1,
             closed: False,
         }
 
         _ = Sender.send(state.sender, first)
-        #Fake{state, id: 0, dialect, answer}
+        Fake{state, id: 0, dialect, answer}
     }
 
     /// Everything sent, in order: each statement as `Statement`'s `Display`
@@ -185,7 +185,7 @@ impl Conn for Fake {
                     "SAVEPOINT ${savepoint(open)}"
                 }
 
-                level = #Level{id: state.next_id, effects: []}
+                level = Level{id: state.next_id, effects: []}
 
                 put(conn, #{
                     ..state,
@@ -219,7 +219,7 @@ impl Conn for Fake {
                 inner = Iter.drop(state.levels, index - 1) |> Iter.to_list()
                 parent = Iter.first(inner) |> Maybe.map(.id) |> Maybe.with_default(0)
 
-                merged = #Level{
+                merged = Level{
                     id: parent,
                     effects: inner |> Iter.flat_map(.effects) |> Iter.to_list(),
                 }
@@ -304,7 +304,7 @@ fn answer_nothing(_: Statement, _: List<Statement>) -> Result<List<Row>, sql.Err
 fn take(fake: Fake) -> State {
     case Receiver.receive(fake.state.receiver) {
         Some(state) -> state
-        None -> #State{log: [], statements: [], levels: [], next_id: 0, closed: False}
+        None -> State{log: [], statements: [], levels: [], next_id: 0, closed: False}
     }
 }
 
@@ -378,7 +378,7 @@ fn with_effect(levels: List<Level>, statement: Statement) -> List<Level> {
 
 /// A conformance rule a driver broke: the rule's name and what happened.
 /// Its `Display` is `rule: message`.
-//! failure = #Failure{rule: "ping", message: "timed out"}
+//! failure = Failure{rule: "ping", message: "timed out"}
 //! assert "${failure}" == "ping: timed out"
 //
 pub struct Failure {
@@ -443,7 +443,7 @@ pub fn conformance<C>(open: () -> Result<C, sql.Error>) -> List<Failure> where C
     |> Iter.flat_map(fn #(rule, check) -> {
         case check_with(open, check) {
             Ok(_) -> []
-            Err(message) -> [#Failure{rule, message}]
+            Err(message) -> [Failure{rule, message}]
         }
     })
     |> Iter.to_list()
@@ -569,7 +569,7 @@ fn violation(
     table: String,
     column: Maybe<String>,
 ) -> sql.Error {
-    #sql.Error.Constraint{kind, name, table: Some(table), column}
+    sql.Error.Constraint{kind, name, table: Some(table), column}
 }
 
 // The constraint of the suite's parents table that statement, an insert
@@ -798,7 +798,7 @@ fn expect_constraint(
     name: String,
 ) -> Result<Unit, String> {
     case Conn.exec(conn, statement) {
-        Err(#sql.Error.Constraint{
+        Err(sql.Error.Constraint{
             kind: found,
             name: found_name,
             table: _,
@@ -897,7 +897,7 @@ fn checks() -> List<#(String, (Conn) -> Result<Unit, String>)> {
                 step(Conn.each_row(conn, read_all(), stop), "each_row")?
                 Sender.close(calls.sender)
 
-                count = Iter.loop(fn count = 0 -> {
+                count = Iter.loop(0, fn count -> {
                     case Receiver.receive(calls.receiver) {
                         Some(_) -> count + 1
                         None -> break count

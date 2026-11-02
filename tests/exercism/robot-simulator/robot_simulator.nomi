@@ -65,7 +65,7 @@ fn step(robot: Robot, letter: String) -> Result<Robot, Error> {
     }
 }
 
-fn advance(#Position{x, y}, direction: Direction) -> Position {
+fn advance(Position{x, y}, direction: Direction) -> Position {
     case direction {
         .North -> #{x, y: y + 1}
         .East -> #{x: x + 1, y}

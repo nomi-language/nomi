@@ -254,18 +254,18 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 		}
 	}
 	if method == "map_reduce" {
-		// `(A, T) -> #(U, A)`, answering `#(List<U>, A)`.
+		// `(A, T) -> #(A, U)`, answering `#(A, List<U>)`.
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 2 || funcParams(fk)[1] != elem {
 			return no()
 		}
 		accK = funcParams(fk)[0]
 		r := funcResult(fk)
-		if r.tag != tagTuple || r.comp == nil || len(r.comp.parts) != 2 || r.comp.parts[1] != accK ||
-			!irCallableValueKind(accK) || !(irCallableValueKind(r.comp.parts[0]) || r.comp.parts[0] == kindUnit) {
+		if r.tag != tagTuple || r.comp == nil || len(r.comp.parts) != 2 || r.comp.parts[0] != accK ||
+			!irCallableValueKind(accK) || !(irCallableValueKind(r.comp.parts[1]) || r.comp.parts[1] == kindUnit) {
 			return no()
 		}
-		result = bl.g.tupleKind([]kind{listKindIn(bl.g, r.comp.parts[0]), accK})
+		result = bl.g.tupleKind([]kind{accK, listKindIn(bl.g, r.comp.parts[1])})
 		if !irRetainedTupleKind(result) || bl.ctlSeed == ir.NoTemp {
 			return no()
 		}
@@ -471,11 +471,12 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string)
 	return appendOp(t, ir.IterToList, ir.IterOverSeq, result, src), result, false, true
 }
 
-// irSeededArgs splits a seeded iteration call's arguments, as the checker's
-// seed rule reads them: the source (for `reduce`, `scan` and `map_reduce`,
-// withSource; `Iter.loop` has none), the callback (positional, or `f:`) and
-// the `from:` value, nil when the callback lambda's default gives the
-// start. It answers false for any other shape, which the checker rejects.
+// irSeededArgs splits a seeded iteration call's arguments as the checker
+// routes them: the source (for `reduce`, `scan` and `map_reduce`,
+// withSource; `Iter.loop` has none), then the starting value (`from`,
+// positional or named) and the callback (the last positional argument, or
+// `f:`). A stateless `Iter.loop(fn -> ...)` has no starting value, and from
+// is nil. It answers false for any other shape, which the checker rejects.
 func irSeededArgs(t *ast.Call, withSource bool) (src, cb, from ast.Node, ok bool) {
 	var positional []ast.Node
 	for _, a := range t.Args {
@@ -499,8 +500,11 @@ func irSeededArgs(t *ast.Call, withSource bool) (src, cb, from ast.Node, ok bool
 		}
 		src, positional = positional[0], positional[1:]
 	}
-	if cb == nil && len(positional) == 1 {
-		cb, positional = positional[0], nil
+	if cb == nil && len(positional) > 0 {
+		cb, positional = positional[len(positional)-1], positional[:len(positional)-1]
+	}
+	if from == nil && len(positional) > 0 {
+		from, positional = positional[0], positional[1:]
 	}
 	if cb == nil || len(positional) != 0 {
 		return nil, nil, nil, false
@@ -508,50 +512,36 @@ func irSeededArgs(t *ast.Call, withSource bool) (src, cb, from ast.Node, ok bool
 	return src, cb, from, true
 }
 
-// lambdaSeed is the starting value a seeded iteration's callback lambda
-// carries as its first parameter's default, or nil.
-func lambdaSeed(cb ast.Node) ast.Node {
-	lam, ok := cb.(*ast.Lambda)
-	if !ok || len(lam.Params) == 0 {
-		return nil
-	}
-	return lam.Params[0].Default
-}
-
 // iterReduceCall lowers a seeded `Iter.` call, method `reduce`, `scan` or
-// `map_reduce`. Its starting value is `from:` or the callback lambda's
-// first-parameter default, exactly one (the checker's seed rule), and its
-// callback is any function value: a lambda, a capture, a named function. A
-// reduce's signalling lambda is lowered in the reduce form `(acc, bool)`; a
-// scan's or a map_reduce's in the adapter form, since each emits per element
-// and its `continue` emits nothing. An iter-sensitive named function, and a
-// capture whose own body signals, signal in the adapter form, whose skip and
-// stop a reduction reads as keeping its accumulator.
+// `map_reduce`. Its starting value is its `from` argument, and its callback
+// is any function value: a lambda, a capture, a named function. A reduce's
+// signalling lambda is lowered in the reduce form `(acc, bool)`; a scan's or
+// a map_reduce's in the adapter form, since each emits per element and its
+// `continue` emits nothing. An iter-sensitive named function, and a capture
+// whose own body signals, signal in the adapter form, whose skip and stop a
+// reduction reads as keeping its accumulator.
 //
-// The operands are lowered in Nomi's order: the source, the callback, then
-// a `from:` seed at the callback's accumulator kind. A lambda's default seed
-// is lowered before the callback, whose construction has no effect.
+// The operands are lowered in Nomi's order: the source, the starting value,
+// then the callback. A lambda callback's starting value is lowered at the
+// kind its first parameter takes; any other callback is lowered first, which
+// has no effect (a function's name or a capture), so the starting value
+// takes the kind of the callback's first parameter.
 func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	srcNode, cbNode, from, ok := irSeededArgs(t, true)
-	if !ok {
+	if !ok || from == nil {
 		return no()
 	}
 	lam, isLambda := cbNode.(*ast.Lambda)
-	seed := lambdaSeed(cbNode)
-	if (seed == nil) == (from == nil) {
-		// The checker requires exactly one starting value.
-		return no()
-	}
 	if isLambda {
 		if len(lam.Params) != 2 {
 			return no()
 		}
-		if bl.reduceSeeds == nil {
-			bl.reduceSeeds = map[*ast.Lambda]bool{}
+		if bl.foldCallbacks == nil {
+			bl.foldCallbacks = map[*ast.Lambda]bool{}
 		}
-		bl.reduceSeeds[lam] = method != "map_reduce"
-		defer delete(bl.reduceSeeds, lam)
+		bl.foldCallbacks[lam] = method != "map_reduce"
+		defer delete(bl.foldCallbacks, lam)
 		if bl.g.callbackCarriesSignal(lam) {
 			if method == "reduce" {
 				defer bl.markCtl(lam, irCtlReduce)()
@@ -584,11 +574,11 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 		return v, ok
 	}
 	seedTemp := ir.NoTemp
-	if seed != nil {
+	if isLambda {
 		// The accumulator's kind as the callback's first parameter takes
-		// it, so a pattern seed (`fn #(n, xs) = #(0, []), x ->`) is lowered
-		// whole at the kind its `continue` answers.
-		if seedTemp, ok = lowerSeed(seed, bl.g.lambdaParamKind(lam.Params[0])); !ok {
+		// it, so a pattern parameter (`fn #(n, xs), x ->`) takes its starting
+		// value whole at the kind its `continue` answers.
+		if seedTemp, ok = lowerSeed(from, bl.g.lambdaParamKind(lam.Params[0])); !ok {
 			return no()
 		}
 	}
@@ -596,7 +586,7 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 	if !ok {
 		return no()
 	}
-	if from != nil {
+	if !isLambda {
 		if ck.tag != tagFunc || len(funcParams(ck)) != 2 {
 			return no()
 		}

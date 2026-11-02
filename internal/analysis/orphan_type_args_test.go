@@ -121,9 +121,9 @@ fn scale<T>(x: T, r: Rate) -> T where T: Multiply<Rate, T> {
 }
 
 fn main() {
-    r = #Rate{per_unit: 4d}
-    _a: Decimal = 2.5d * r + #Rate{per_unit: 1d}
-    _b: Decimal = 2.5d * #Shares{count: 3}
+    r = Rate{per_unit: 4d}
+    _a: Decimal = 2.5d * r + Rate{per_unit: 1d}
+    _b: Decimal = 2.5d * Shares{count: 3}
     _c: Decimal = 2.5d * 2.5d
     _d: Decimal = Decimal.multiply(1d, r)
     _e: Decimal = scale(1d, r)
@@ -149,7 +149,7 @@ impl Contains<Tag> for String {
 }
 
 fn main() {
-    _ok = String.contains("a", #Tag{name: "a"})
+    _ok = String.contains("a", Tag{name: "a"})
 }
 `)))
 }
@@ -170,7 +170,7 @@ func TestLocalTypeArgument_Rejections(t *testing.T) {
 
 impl Multiply<Decimal, Rate> for Decimal {
     fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {
-        #Rate{per_unit: lhs * rhs}
+        Rate{per_unit: lhs * rhs}
     }
 }
 
@@ -305,7 +305,7 @@ fn main() {
 
 impl Add<Rate, Rate> for Decimal {
     fn add(lhs: Decimal, rhs: Rate) -> Rate {
-        #Rate{per_unit: lhs + rhs.per_unit}
+        Rate{per_unit: lhs + rhs.per_unit}
     }
 }
 
@@ -356,7 +356,7 @@ func TestLocalTypeArgument_AnOrphanInALibrary(t *testing.T) {
 	files := library(appModule(`import fx/rate.Rate
 
 fn main() {
-    _r = #Rate{per_unit: 1d}
+    _r = Rate{per_unit: 1d}
 }
 `, "fx"), "fx", "rate", `pub struct Rate {
     per_unit: Decimal
@@ -364,7 +364,7 @@ fn main() {
 
 impl Multiply<Decimal, Rate> for Decimal {
     fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {
-        #Rate{per_unit: lhs * rhs}
+        Rate{per_unit: lhs * rhs}
     }
 }
 `)

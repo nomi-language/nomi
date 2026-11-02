@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // A TYPE-qualified call whose callee lives in a SIBLING FILE's impl block:
@@ -121,6 +122,11 @@ type implMemberSite struct {
 	// withheld for a call to instantiate (implDef.withheldMember): item is
 	// nil, and the declaring gen builds the instance a call asks for.
 	withheld *implDef
+	// instAccessors, for an instance of a withheld member, asks the
+	// declaring gen for the instance's default accessors
+	// (methodInstAccessors) and answers the instance's callee symbol, or
+	// nil.
+	instAccessors func() *ir.Symbol
 }
 
 // resolveImplMembers indexes every impl function in the program by the type it

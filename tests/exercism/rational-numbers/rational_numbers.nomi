@@ -15,7 +15,7 @@ impl Rational {
     /// reduction divides by it.
     pub fn new(numerator: Int, denominator: Int) -> Rational {
         common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        #Rational{numerator: numerator / common, denominator: denominator / common}
+        Rational{numerator: numerator / common, denominator: denominator / common}
     }
 
     pub fn numerator(r: Rational) -> Int {
@@ -27,7 +27,7 @@ impl Rational {
     }
 
     pub fn abs(r: Rational) -> Rational {
-        #Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
+        Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
     }
 
     /// `r` to the power `exponent`. A negative exponent raises the

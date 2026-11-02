@@ -33,9 +33,9 @@ fn bump_twice(c: Counter) -> Counter {
 
 pub fn run(start: Int) -> Int {
   c = counter_new(start)
-  held = #Held{counter: bump_twice(c)}
+  held = Held{counter: bump_twice(c)}
   all = [c, held.counter]
-  Iter.reduce(all, fn acc = 0, x -> acc * 100 + counter_value(x))
+  Iter.reduce(all, 0, fn acc, x -> acc * 100 + counter_value(x))
 }
 `
 

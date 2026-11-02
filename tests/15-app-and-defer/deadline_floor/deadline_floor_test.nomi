@@ -35,7 +35,7 @@ fn escape_program(attempt: String) -> String {
           }
 
           fn boot() -> Result<Config, String> {
-            Ok(#Config{context: Context.root(), spare: #{context: Context.root()}})
+            Ok(Config{context: Context.root(), spare: #{context: Context.root()}})
           }
 
           fn inner() {
@@ -80,7 +80,7 @@ test "a nested deadline still tightens" {
         }
 
         fn boot() -> Result<Empty, String> {
-          Ok(#Empty{context: Context.root()})
+          Ok(Empty{context: Context.root()})
         }
 
         fn inner() {

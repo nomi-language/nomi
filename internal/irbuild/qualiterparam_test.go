@@ -17,17 +17,17 @@ struct Box {
 
 impl Box {
     fn total(boxes: Iter<Box>) -> Int {
-        Iter.reduce(boxes, fn acc = 0, b -> acc + b.n)
+        Iter.reduce(boxes, 0, fn acc, b -> acc + b.n)
     }
 }
 
 fn main() {
-    boxes = [#Box{n: 1}, #Box{n: 2}]
+    boxes = [Box{n: 1}, Box{n: 2}]
     io.inspect(Box.total(boxes))
-    io.inspect(Box.total([#Box{n: 4}]))
+    io.inspect(Box.total([Box{n: 4}]))
     io.inspect(Box.total([]))
-    io.inspect(Box.total(#[#Box{n: 5}]))
-    io.inspect([3, 4] |> Iter.map(fn n -> #Box{n}) |> Box.total())
+    io.inspect(Box.total(#[Box{n: 5}]))
+    io.inspect([3, 4] |> Iter.map(fn n -> Box{n}) |> Box.total())
 }
 `
 	irRunSource(t, src, "3\n4\n0\n5\n7\n")
@@ -43,7 +43,7 @@ func TestIRQualifiedCallIterParameter_CrossFile(t *testing.T) {
 
 impl Box {
     pub fn total(boxes: Iter<Box>) -> Int {
-        Iter.reduce(boxes, fn acc = 0, b -> acc + b.n)
+        Iter.reduce(boxes, 0, fn acc, b -> acc + b.n)
     }
 
     pub fn count_of<T>(items: Iter<T>) -> Int {
@@ -54,10 +54,10 @@ impl Box {
 		"main_test.nomi": `import boxes.Box
 
 test "a list into another file's Iter parameter" {
-    boxes = [#Box{n: 1}, #Box{n: 2}]
+    boxes = [Box{n: 1}, Box{n: 2}]
     assert Box.total(boxes) == 3
-    assert Box.total(%[#Box{n: 4}]) == 4
-    assert [5] |> Iter.map(fn n -> #Box{n}) |> Box.total() == 5
+    assert Box.total(%[Box{n: 4}]) == 4
+    assert [5] |> Iter.map(fn n -> Box{n}) |> Box.total() == 5
 }
 
 test "a list into another file's generic Iter parameter" {

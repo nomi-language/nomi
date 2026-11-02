@@ -1,0 +1,80 @@
+//# Base64 (RFC 4648): bytes written as text in a 64-letter alphabet, for
+//# carrying binary data where only text fits (JSON fields, HTTP headers,
+//# data URLs). `base64.encode` uses the standard alphabet (`+` and `/`);
+//# `base64.encode_url` the URL and file name safe one (`-` and `_`). Both
+//# pad with `=` to a multiple of four characters; `padded: False` leaves it
+//# off, as tokens such as JWTs do:
+//#
+//# ```nomi
+//# token = base64.encode_url(signature, padded: False)
+//# ```
+//#
+//# Each decoder reads its alphabet with or without `=` padding and returns
+//# an `Err` naming the first byte it cannot read. Every function here is
+//# pure, so a typed literal's handler may call them.
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// `data` in base64's standard alphabet, padded with `=` to a multiple of
+/// four characters, or with no padding when `padded` is `False`.
+//! import std/base64
+//!
+//! // RFC 4648, section 10.
+//! assert base64.encode(String.to_bytes("")) == ""
+//! assert base64.encode(String.to_bytes("f")) == "Zg=="
+//! assert base64.encode(String.to_bytes("fo")) == "Zm8="
+//! assert base64.encode(String.to_bytes("foo")) == "Zm9v"
+//! assert base64.encode(String.to_bytes("foob")) == "Zm9vYg=="
+//! assert base64.encode(String.to_bytes("fooba")) == "Zm9vYmE="
+//! assert base64.encode(String.to_bytes("foobar")) == "Zm9vYmFy"
+//!
+//! assert base64.encode(String.to_bytes("f"), padded: False) == "Zg"
+//! assert base64.encode(String.to_bytes("foo"), padded: False) == "Zm9v"
+//
+pub fn encode(data: Bytes, padded: Bool = True) -> String {
+    standard(data, padded)
+}
+
+host fn standard(data: Bytes, padded: Bool) -> String
+
+/// The bytes `text` holds in base64's standard alphabet, with or without
+/// `=` padding.
+//! import std/base64
+//!
+//! assert base64.decode("Zm9vYmE=") == Ok(String.to_bytes("fooba"))
+//! assert base64.decode("Zm9vYmE") == Ok(String.to_bytes("fooba"))
+//! assert base64.decode("Zm9v!mE=") == Err("invalid base64 at byte 4")
+//
+pub host fn decode(text: String) -> Result<Bytes, String>
+
+/// `data` in base64's URL and file name safe alphabet, `-` and `_` in place
+/// of `+` and `/`, padded with `=`, or with no padding when `padded` is
+/// `False`, the form JWTs and many other tokens use.
+//! import std/base64
+//!
+//! data = Bytes.from_list([251, 255, 191])
+//! assert base64.encode(data) == "+/+/"
+//! assert base64.encode_url(data) == "-_-_"
+//! assert base64.encode_url(String.to_bytes("f")) == "Zg=="
+//! assert base64.encode_url(Bytes.from_list([251, 255, 191, 102]), padded: False) == "-_-_Zg"
+//
+pub fn encode_url(data: Bytes, padded: Bool = True) -> String {
+    url_safe(data, padded)
+}
+
+host fn url_safe(data: Bytes, padded: Bool) -> String
+
+/// The bytes `text` holds in base64's URL-safe alphabet, with or without
+/// `=` padding.
+//! import std/base64
+//!
+//! assert base64.decode_url("-_-_") == Ok(Bytes.from_list([251, 255, 191]))
+//! assert base64.decode_url("Zg") == Ok(String.to_bytes("f"))
+//! assert base64.decode_url("+/+/") == Err("invalid base64 at byte 0")
+//
+pub host fn decode_url(text: String) -> Result<Bytes, String>

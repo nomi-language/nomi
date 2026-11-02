@@ -106,7 +106,7 @@ func validateDeriveOptions(ifaceName string, options ast.Node, line, col int) (d
 	}
 	lit, ok := options.(*ast.StructLit)
 	if !ok || lit.TypeName == nil {
-		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must be `#%s.Options{...}`", ifaceName, ifaceName)}}
+		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must be `%s.Options{...}`", ifaceName, ifaceName)}}
 	}
 	want := ifaceName + ".Options"
 	if lit.TypeName.TypeString() != want {
@@ -1749,7 +1749,7 @@ func (s *uniquifyState) node(n ast.Node) {
 		// bodies (empty struct, bare enum variant, zero-sized distinct).
 		e.Line, e.Col = s.bump()
 	case *ast.StringInterp:
-		// Debug synthesizer emits these for `"#TypeName{... ${dbg(...)}
+		// Debug synthesizer emits these for `"TypeName{... ${dbg(...)}
 		// ...}"` style bodies. Parts is a slice of StringText (value)
 		// and StringExpr (value) — the StringExpr's inner Expr is a
 		// regular Node and needs walking; StringText is a pure
@@ -1877,9 +1877,7 @@ func typeDeclName(n ast.Node) (string, bool) {
 }
 
 // typeDeclTypeParams returns the (possibly empty) TypeParams of a type-decl
-// node. Distinct types (TypeDef) cannot carry generic parameters today
-// (parser rejects `type Foo<T> ...`), so they always return nil. Returns
-// nil for nodes that aren't a recognised type-decl kind.
+// node. Returns nil for nodes that aren't a recognised type-decl kind.
 func typeDeclTypeParams(n ast.Node) []ast.TypeParam {
 	switch v := n.(type) {
 	case *ast.StructDef:
@@ -1887,7 +1885,7 @@ func typeDeclTypeParams(n ast.Node) []ast.TypeParam {
 	case *ast.EnumDef:
 		return v.TypeParams
 	case *ast.TypeDef:
-		return nil
+		return v.TypeParams
 	case *ast.ExternType:
 		return v.TypeParams
 	}
@@ -1971,7 +1969,7 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 		case *ast.EnumDef:
 			typeName, decorators, typeParams = d.Name, d.Decorators, d.TypeParams
 		case *ast.TypeDef:
-			typeName, decorators = d.Name, d.Decorators
+			typeName, decorators, typeParams = d.Name, d.Decorators, d.TypeParams
 		case *ast.ExternType:
 			// `@derive` on an host type is vacuously satisfied: the
 			// declaration has no components (fields / variant payloads /
@@ -2600,7 +2598,7 @@ func mixHashChain(parts []ast.Node, line, col int) ast.Node {
 // Collision note: the `*31 + h` mix is fragile for small-int patterns
 // the way Java's String#hashCode is — e.g. for primitive Int hashes
 // (`Hashable.hash(Int)` returns the value itself), `Hashable.hash(
-// #Point{x: 0, y: 31}) == Hashable.hash(#Point{x: 1, y: 0}) == 31`.
+// Point{x: 0, y: 31}) == Hashable.hash(Point{x: 1, y: 0}) == 31`.
 // Acceptable for v1's structural-hash contract (collisions reduce hash
 // quality but don't violate the equals/hash agreement); upgrade to a
 // proper FNV-1a / SipHash mix if a real workload demands it.
@@ -3036,7 +3034,7 @@ func synthesizeDeriveDisplay(typeNode ast.Node, site synthSite) []ast.Node {
 // each nested value):
 //
 //   - Struct: `TypeName{f1: <iface(value.f1)>, f2: ...}`. Empty struct →
-//     bare static `"#TypeName{}"`.
+//     bare static `"TypeName{}"`.
 //   - Enum: `case value { ... }` with one branch per variant. Variant names
 //     are emitted bare (not `EnumName.Variant`), matching how stringification
 //     works in most languages (Java enum.toString, Rust Debug for enums).
@@ -3045,7 +3043,7 @@ func synthesizeDeriveDisplay(typeNode ast.Node, site synthSite) []ast.Node {
 //   - positional arity ≥2: `"VariantName(<iface(p0)>, <iface(p1)>, ...)"`
 //     (no extra parens around the tuple — the runtime represents the
 //     payload as a tuple, but the output mirrors the construction form).
-//   - struct payload:      `"#VariantName{f: <iface>, ...}"`
+//   - struct payload:      `"VariantName{f: <iface>, ...}"`
 //   - embedded:            `"<iface(inner)>"` — bare delegation; an
 //     embedded variant transparently behaves as the embedded type at
 //     the value level, so its output is the embedded value's output
@@ -3115,10 +3113,10 @@ func stringifyBody(iface string, typeNode ast.Node, wrapping map[string]bool, li
 
 // stringifyStructExpr builds the struct body's interpolation expression. Each
 // field renders as `<name>: ${<iface>.to_string(value.<name>)}`. Empty struct
-// → static `"#TypeName{}"` literal.
+// → static `"TypeName{}"` literal.
 func stringifyStructExpr(iface, typeName string, fields []ast.StructField, line, col int) ast.Node {
 	if len(fields) == 0 {
-		return staticString("#"+typeName+"{}", line, col)
+		return staticString(typeName+"{}", line, col)
 	}
 	exprs := make([]fieldDbg, len(fields))
 	for i, f := range fields {
@@ -3226,8 +3224,8 @@ func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.N
 		for i := range ft.Params {
 			exprs[i] = fieldAccess(identExpr("inner", line, col), strconv.Itoa(i), line, col)
 		}
-		// `#Pair(1, "x")`: the literal that builds it.
-		stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, "#"+t.Name, exprs, line, col), line, col))
+		// `Pair(1, "x")`: the call that builds it.
+		stmts = append(stmts, exprStmt(stringifyTupleLikeBody(iface, t.Name, exprs, line, col), line, col))
 		return stmts
 	}
 	// Single inner value → `TypeName(<iface inner>)`.
@@ -3245,17 +3243,17 @@ type fieldDbg struct {
 
 // stringifyStructLikeBody emits the interpolation for a record-shaped value:
 //
-//	"#TypeName{f1: ${<iface>.to_string(<expr1>)}, f2: ${<iface>.to_string(<expr2>)}, ...}"
+//	"TypeName{f1: ${<iface>.to_string(<expr1>)}, f2: ${<iface>.to_string(<expr2>)}, ...}"
 //
-// 0 fields collapses to the static `"#TypeName{}"` (no interpolation slots).
+// 0 fields collapses to the static `"TypeName{}"` (no interpolation slots).
 // Reused for top-level structs and enum struct-payload variants.
 func stringifyStructLikeBody(iface, typeName string, fields []fieldDbg, line, col int) ast.Node {
 	if len(fields) == 0 {
-		return staticString("#"+typeName+"{}", line, col)
+		return staticString(typeName+"{}", line, col)
 	}
 	parts := make([]ast.StringPart, 0, 2*len(fields)+2)
-	// Leading "#TypeName{f1: "
-	parts = append(parts, ast.StringText{Value: "#" + typeName + "{" + fields[0].name + ": "})
+	// Leading "TypeName{f1: "
+	parts = append(parts, ast.StringText{Value: typeName + "{" + fields[0].name + ": "})
 	parts = append(parts, ast.StringExpr{Expr: stringifyToStringCall(iface, fields[0].expr, line, col)})
 	for i := 1; i < len(fields); i++ {
 		parts = append(parts, ast.StringText{Value: ", " + fields[i].name + ": "})

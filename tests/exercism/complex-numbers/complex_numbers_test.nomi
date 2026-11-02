@@ -189,7 +189,7 @@ test "Complex exponential function" {
         ),
     ]
     |> subtests #(description, z, expected), description {
-        assert Complex.equal_within(Complex.exp(z), expected, tolerance)
+        assert z |> Complex.exp() |> Complex.equal_within(expected, tolerance)
     }
 }
 

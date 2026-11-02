@@ -65,7 +65,7 @@ func TestIRDecline_ADeclinedOperandAbandonsItsExpression(t *testing.T) {
 fn pick(n: Int) -> Maybe<Int> {
     Some(
         {
-            m = Iter.loop(fn s: Maybe<Int> = None -> {
+            m = Iter.loop(None, fn s: Maybe<Int> -> {
                 case s {
                     Some(_) -> break s
                     None -> Some(planted_decline(n))

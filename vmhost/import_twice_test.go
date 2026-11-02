@@ -13,7 +13,7 @@ import (
 func TestImports_TwoImportsCannotBindOneName(t *testing.T) {
 	thing := "pub struct Thing {\n    n: Int\n}\n"
 	files := map[string]string{"a": thing, "b": thing}
-	main := "import a.{Thing}\nimport b.{Thing}\n\nfn main() {\n    dbg #Thing{n: 1}\n}\n"
+	main := "import a.{Thing}\nimport b.{Thing}\n\nfn main() {\n    dbg Thing{n: 1}\n}\n"
 	_, err := vmhost.LoadSource("main", main, vmhost.WithVirtualFiles(files))
 	for _, want := range []string{
 		"'Thing' is already imported on line 1 from another file; two imports cannot bind one name",

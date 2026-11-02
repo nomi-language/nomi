@@ -14,7 +14,7 @@ import (
 // re-export is an import of an import.
 func TestReExport_ATypeReExportedByAnotherFileNamesTheType(t *testing.T) {
 	files := map[string]string{
-		"other":  "pub struct Helper {\n    n: Int\n}\n\npub fn make(n: Int) -> Helper {\n    #Helper{n}\n}\n",
+		"other":  "pub struct Helper {\n    n: Int\n}\n\npub fn make(n: Int) -> Helper {\n    Helper{n}\n}\n",
 		"facade": "pub import other.{Helper, make}\n",
 	}
 	main := "import std/io\nimport facade.{Helper, make}\n\nfn double(h: Helper) -> Int {\n    h.n * 2\n}\n\nfn main() {\n    h: Helper = make(4)\n    io.print(\"${double(h)}\")\n}\n"

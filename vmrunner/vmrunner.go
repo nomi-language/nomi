@@ -199,6 +199,10 @@ func run(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		fmt.Fprintf(stderr, "nomi: the compiled program cannot be read: %v\n", err)
 		return 1
 	}
+	if err := networkRefusal(im); err != nil {
+		fmt.Fprintf(stderr, "nomi: %v\n", err)
+		return 1
+	}
 	entry := im.EntryModule()
 	var hosts []HostTable
 	if cfg.compiler != nil {
@@ -378,7 +382,7 @@ func WriteBlocked(w io.Writer, label string, reasons []string) {
 func WriteFailure(w io.Writer, err error) {
 	var exit *vm.Exit
 	if errors.As(err, &exit) {
-		// `Err(#Exit{...})` from main: its message alone, and nothing when
+		// `Err(Exit{...})` from main: its message alone, and nothing when
 		// it is empty.
 		if exit.Message != "" {
 			fmt.Fprintln(w, exit.Message)

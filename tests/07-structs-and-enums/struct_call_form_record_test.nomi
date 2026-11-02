@@ -25,7 +25,7 @@
 //     from the declaration. Omitting a field with no default is an error
 //     naming that field, exactly as the literal form reports it.
 //   - NOMINAL IDENTITY. The result must be indistinguishable from the same
-//     value built with `#Config{...}`, or it misses every impl silently:
+//     value built with `Config{...}`, or it misses every impl silently:
 //     `==` degrades to a structural comparison that answers False on the
 //     mismatched name, and `Display` renders the anonymous form.
 struct Config {
@@ -42,11 +42,11 @@ fn defaults() -> #{retries: Int, host: String} {
 
 test "the struct call form accepts a record value" {
     built = Config(defaults())
-    attached = #Config{host: "localhost", port: 8080, retries: 3}
+    attached = Config{host: "localhost", port: 8080, retries: 3}
 
     assert built.host == "localhost"
     assert built.port == 8080
     assert built.retries == 3
     assert built == attached
-    assert Display.to_string(built) == "#Config{host: localhost, port: 8080, retries: 3}"
+    assert Display.to_string(built) == "Config{host: localhost, port: 8080, retries: 3}"
 }

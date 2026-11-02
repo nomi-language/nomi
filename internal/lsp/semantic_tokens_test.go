@@ -91,7 +91,7 @@ fn ready_label() -> String {
 impl Label {
   //! assert Label.wrap("x").text == "[x]"
   fn wrap(text: String) -> Label {
-    #Label{text: "[${text}]"}
+    Label{text: "[${text}]"}
   }
 }
 `
@@ -118,7 +118,7 @@ impl Label {
 		{14, 14, "Label", true, 1},
 		{15, 6, "wrap", false, 0},
 		{15, 11, "text", false, 6},
-		{16, 22, "text", false, 6},
+		{16, 21, "text", false, 6},
 	}
 	for _, w := range want {
 		var got *decodedSemanticToken

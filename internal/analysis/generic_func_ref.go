@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -151,12 +150,6 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	if !ok {
 		return ty
 	}
-	if seeded := c.namesSeededIterFunc(node); seeded != "" {
-		// Its callback arrives later, so nothing here can give it a starting
-		// value (checkReduceSeed).
-		c.report(reduceSeedError(seeded, node, fmt.Sprintf("call it with its starting value instead: `Iter.%s(xs, f, from: <start>)`", seeded)))
-		return nil
-	}
 	line, col := nodeLineCol(node)
 	want, isFunc := resolveTypeVar(expected).(*FuncType)
 	if !isFunc {
@@ -207,24 +200,6 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	inst := &FuncType{Params: params, Return: Substitute(ft.Return, subs), DefaultCount: ft.DefaultCount}
 	c.attachCallType(node, inst)
 	return inst
-}
-
-// namesSeededIterFunc answers the name of the seeded `Iter` function
-// (seededIterFuncs) node names as a value, or "". A program cannot declare
-// its own `Iter`.
-func (c *checker) namesSeededIterFunc(node ast.Node) string {
-	fa, ok := node.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || !slices.Contains(seededIterFuncs, fa.Field.Name) {
-		return ""
-	}
-	sym := c.fa.References[Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym == nil || sym.OwningType != "Iter" {
-		return ""
-	}
-	return fa.Field.Name
 }
 
 // noteFuncRefCapture records, for the mismatch the enclosing check reports

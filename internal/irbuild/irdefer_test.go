@@ -55,10 +55,10 @@ fn close(conn: Conn) -> Unit {
 
 fn main() {
   {
-    first = #Conn{name: "first"}
+    first = Conn{name: "first"}
     defer close(first)
 
-    second = #Conn{name: "second"}
+    second = Conn{name: "second"}
     defer close(second)
 
     io.print("body")
@@ -292,7 +292,7 @@ fn leave(n: Int) -> Unit {
 
 fn main() {
   defer note("main")
-  total = Iter.loop(fn n = 0 -> {
+  total = Iter.loop(0, fn n -> {
     defer leave(n)
     defer note("second")
     if n == 1 {
@@ -303,7 +303,7 @@ fn main() {
     n + 1
   })
   io.print("total ${total}")
-  _ = Iter.loop(fn n = 0 -> {
+  _ = Iter.loop(0, fn n -> {
     defer leave(n)
     {
       defer note("block")
@@ -333,7 +333,7 @@ fn note(label: String) -> Unit {
 }
 
 fn main() {
-  a = Iter.loop(fn n = 0 -> {
+  a = Iter.loop(0, fn n -> {
     defer note("iteration")
     if n == 3 {
       defer note("guard")
@@ -352,7 +352,7 @@ fn main() {
   })
   io.print(a)
   m: Maybe<Int> = None
-  b = Iter.loop(fn n = 0 -> {
+  b = Iter.loop(0, fn n -> {
     defer note("iteration b")
     Some(x) = m else {
       defer note("else")
@@ -381,7 +381,7 @@ fn main() {
     10 / d
   }
   io.print(divide(2))
-  _ = Iter.loop(fn n = 1 -> {
+  _ = Iter.loop(1, fn n -> {
     defer note("iteration")
     io.print(divide(n))
     n - 1
@@ -437,7 +437,7 @@ test "nested case arms" {
 }
 
 test "a loop callback's arm" {
-  n = Iter.loop(fn n = 0 -> {
+  n = Iter.loop(0, fn n -> {
     case n {
       2 -> {
         defer io.print("break arm ends")

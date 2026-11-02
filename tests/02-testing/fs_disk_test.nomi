@@ -35,7 +35,7 @@ test "each write mode" {
         Ok(
             #(
                 fs.read_text(p)?,
-                refused == Err(#io.Error.AlreadyExists{path: p}),
+                refused == Err(io.Error.AlreadyExists{path: p}),
                 fs.read_text(path.join(dir, "atomic.txt"))?,
             )
         )
@@ -100,10 +100,10 @@ test "errors name the path the program passed" {
         fs.write_text(path.join(dir, "kept.txt"), "")?
 
         Ok([
-            fs.read_text(missing) == Err(#io.Error.NotFound{path: missing}),
-            fs.write_text(missing, "x") == Err(#io.Error.NotFound{path: path.join(dir, "none")}),
-            fs.remove(dir) == Err(#io.Error.DirectoryNotEmpty{path: dir}),
-            fs.read_text(dir) == Err(#io.Error.IsADirectory{path: dir}),
+            fs.read_text(missing) == Err(io.Error.NotFound{path: missing}),
+            fs.write_text(missing, "x") == Err(io.Error.NotFound{path: path.join(dir, "none")}),
+            fs.remove(dir) == Err(io.Error.DirectoryNotEmpty{path: dir}),
+            fs.read_text(dir) == Err(io.Error.IsADirectory{path: dir}),
         ])
     })
 

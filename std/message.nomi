@@ -290,7 +290,7 @@ impl Equatable for Argument {
             #(Argument.Variant(x), Argument.Variant(y)) ->
                 x == y
 
-            #(#Argument.Localized{shown: x, name: m, localize: _}, #Argument.Localized{
+            #(Argument.Localized{shown: x, name: m, localize: _}, Argument.Localized{
                 shown: y,
                 name: n,
                 localize: _,
@@ -309,7 +309,7 @@ impl Equatable for Argument {
             #(Argument.Clock(x), Argument.Clock(y)) ->
                 x == y
 
-            #(#Argument.Moment{key: x, shown: _, localize: _}, #Argument.Moment{
+            #(Argument.Moment{key: x, shown: _, localize: _}, Argument.Moment{
                 key: y,
                 shown: _,
                 localize: _,
@@ -428,8 +428,8 @@ impl Catalog {
     /// ```
     pub fn load(text: String, locale: Locale) -> #(Catalog, List<Rejected>) {
         case message_format.load(text, locale) {
-            [entries, ..rest] -> #(#Catalog{locale, entries}, rejections(rest, locale))
-            [] -> #(#Catalog{locale, entries: ""}, [])
+            [entries, ..rest] -> #(Catalog{locale, entries}, rejections(rest, locale))
+            [] -> #(Catalog{locale, entries: ""}, [])
         }
     }
 
@@ -445,7 +445,7 @@ fn catalog_entries(catalog: Catalog) -> String {
 
 fn rejections(answer: List<String>, locale: Locale) -> List<Rejected> {
     case answer {
-        [key, reason, ..rest] -> [#Rejected{key, locale, reason}, ..rejections(rest, locale)]
+        [key, reason, ..rest] -> [Rejected{key, locale, reason}, ..rejections(rest, locale)]
         _ -> []
     }
 }
@@ -457,13 +457,13 @@ fn argument_kind(argument: Argument) -> Int {
         Argument.Exact(_) -> 2
         Argument.Text(_) -> 3
         Argument.Variant(_) -> 4
-        #Argument.Localized{shown: _, name, localize: _} -> if name == "" { 5 } else { 4 }
+        Argument.Localized{shown: _, name, localize: _} -> if name == "" { 5 } else { 4 }
         Argument.Named(_) -> 6
         Argument.Items(_) -> 7
         Argument.Day(_) -> 8
         Argument.Amount(_) -> 9
         Argument.Clock(_) -> 10
-        #Argument.Moment{key: _, shown: _, localize: _} -> 11
+        Argument.Moment{key: _, shown: _, localize: _} -> 11
         Argument.Nested(_) -> 5
     }
 }
@@ -483,10 +483,10 @@ fn argument_key(argument: Argument) -> String {
     case argument {
         Argument.Text(s) -> s
         Argument.Variant(name) -> name
-        #Argument.Localized{shown: _, name, localize: _} -> name
+        Argument.Localized{shown: _, name, localize: _} -> name
         Argument.Day(date) -> Display.to_string(date)
         Argument.Clock(t) -> Display.to_string(t)
-        #Argument.Moment{key, shown: _, localize: _} -> key
+        Argument.Moment{key, shown: _, localize: _} -> key
         Argument.Amount(m) -> currency_key(m.currency)
         _ -> ""
     }
@@ -508,12 +508,12 @@ fn argument_text(argument: Argument, locale: Locale, catalogs: List<Catalog>) ->
         Argument.Exact(d) -> Localize.localize(d, locale)
         Argument.Text(s) -> s
         Argument.Variant(name) -> name
-        #Argument.Localized{shown: _, name: _, localize} -> localize(locale)
+        Argument.Localized{shown: _, name: _, localize} -> localize(locale)
         Argument.Named(noun) -> noun.table
         Argument.Items(items) -> String.join_list(items, locale)
         Argument.Day(date) -> Localize.localize(date, locale)
         Argument.Clock(t) -> Localize.localize(t, locale)
-        #Argument.Moment{key: _, shown: _, localize} -> localize(locale)
+        Argument.Moment{key: _, shown: _, localize} -> localize(locale)
         Argument.Amount(m) -> Localize.localize(m, locale)
         Argument.Nested(inner) -> Message.format(inner, locale, catalogs: catalogs)
     }
@@ -542,12 +542,12 @@ fn argument_shown(argument: Argument) -> String {
         Argument.Exact(d) -> Debug.inspect(d)
         Argument.Text(s) -> Debug.inspect(s)
         Argument.Variant(name) -> name
-        #Argument.Localized{shown, name: _, localize: _} -> shown
+        Argument.Localized{shown, name: _, localize: _} -> shown
         Argument.Named(noun) -> Debug.inspect(noun)
         Argument.Items(items) -> Debug.inspect(items)
         Argument.Day(date) -> Debug.inspect(date)
         Argument.Clock(t) -> Debug.inspect(t)
-        #Argument.Moment{key: _, shown, localize: _} -> shown
+        Argument.Moment{key: _, shown, localize: _} -> shown
         Argument.Amount(m) -> Debug.inspect(m)
         Argument.Nested(inner) -> Debug.inspect(inner)
     }
@@ -561,7 +561,7 @@ fn argument_shown(argument: Argument) -> String {
 // function.
 /// A message `name` whose compiled texts are `table`, with its arguments.
 fn compiled(name: String, table: String, arguments: List<Argument>) -> Message {
-    #Message{name, table, arguments}
+    Message{name, table, arguments}
 }
 
 /// An `Int` argument. Two arguments are equal when they hold equal values
@@ -598,7 +598,7 @@ fn variant(name: String) -> Argument {
 /// An enum argument, by its variant's name, that a placeholder with no
 /// function also formats, with its `Localize`.
 fn localized_variant<T>(name: String, value: T) -> Argument where T: Localize {
-    #Argument.Localized{
+    Argument.Localized{
         shown: Debug.inspect(value),
         name,
         localize: fn locale -> T.localize(value, locale),
@@ -608,7 +608,7 @@ fn localized_variant<T>(name: String, value: T) -> Argument where T: Localize {
 /// The noun `name` whose forms and genders are `table`: the value a `noun`
 /// declaration names.
 fn compiled_noun(name: String, table: String) -> Noun {
-    #Noun{name, table}
+    Noun{name, table}
 }
 
 /// A `Noun` argument, which `:nomi:noun` writes and `:nomi:gender` selects
@@ -640,7 +640,7 @@ fn time(value: Time) -> Argument {
 /// `:datetime` write, by its ISO 8601 text, and a placeholder with no
 /// function writes with its `Localize`.
 fn moment<T>(value: T) -> Argument where T: Display and Localize {
-    #Argument.Moment{
+    Argument.Moment{
         key: Display.to_string(value),
         shown: Debug.inspect(value),
         localize: fn locale -> T.localize(value, locale),
@@ -662,7 +662,7 @@ fn nested(value: Message) -> Argument {
 /// An argument of any other type, which a placeholder formats with its
 /// `Localize`.
 fn localized<T>(value: T) -> Argument where T: Localize {
-    #Argument.Localized{
+    Argument.Localized{
         shown: Debug.inspect(value),
         name: "",
         localize: fn locale -> T.localize(value, locale),

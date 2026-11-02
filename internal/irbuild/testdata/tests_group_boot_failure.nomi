@@ -7,12 +7,12 @@ struct App {
     name: String
 }
 
-fn boot(startup: Startup = #Startup{}) -> Result<App, String> {
+fn boot(startup: Startup = Startup{}) -> Result<App, String> {
     defer io.print("first cleanup")
     defer io.print("second cleanup")
 
     case List.head(startup.args) {
-        Some(name) -> Ok(#App{name})
+        Some(name) -> Ok(App{name})
         None -> Err("no name was passed")
     }
 }
@@ -29,7 +29,7 @@ group "a boot that fails" {
 }
 
 group "a boot that works" {
-    boot boot(#Startup{args: ["ann"]})
+    boot boot(Startup{args: ["ann"]})
 
     test "reads the app" {
         assert App.name == "ann"

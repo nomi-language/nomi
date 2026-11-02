@@ -41,6 +41,19 @@ var rtHeld = map[string]string{
 	"io.Writer":              TypeKey(ReflectType(reflect.TypeFor[rt.Writer]())),
 	"io.File":                TypeKey(ReflectType(reflect.TypeFor[rt.File]())),
 	"fs_host.FileSystem":     TypeKey(ReflectType(reflect.TypeFor[rt.FileSystem]())),
+	"process_host.Child":     TypeKey(ReflectType(reflect.TypeFor[rt.ChildProcess]())),
+	"http_host.Client":       TypeKey(ReflectType(reflect.TypeFor[rt.HTTPClient]())),
+	"http_host.Exchange":     TypeKey(ReflectType(reflect.TypeFor[rt.HTTPExchange]())),
+	"http_host.Listener":     TypeKey(ReflectType(reflect.TypeFor[rt.HTTPListener]())),
+	"http_host.Incoming":     TypeKey(ReflectType(reflect.TypeFor[rt.HTTPIncoming]())),
+	"http_host.Certificate":  TypeKey(ReflectType(reflect.TypeFor[rt.TLSCertificate]())),
+	"http_host.TlsConfig":    TypeKey(ReflectType(reflect.TypeFor[rt.TLSConfig]())),
+	"http_host.Conn":         TypeKey(ReflectType(reflect.TypeFor[rt.NetConn]())),
+	"http_host.TcpListener":  TypeKey(ReflectType(reflect.TypeFor[rt.NetListener]())),
+	"http_host.Mux":          TypeKey(ReflectType(reflect.TypeFor[rt.HTTPMux]())),
+	"http_host.Jar":          TypeKey(ReflectType(reflect.TypeFor[rt.HTTPJar]())),
+	"process_host.Fake":      TypeKey(ReflectType(reflect.TypeFor[rt.ProcessFake]())),
+	"http_host.Handle":       TypeKey(ReflectType(reflect.TypeFor[rt.HTTPHandle]())),
 }
 
 // rtGenericBase is the generic type an rt instantiation instantiates, or "".

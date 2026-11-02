@@ -27,7 +27,7 @@ fn block(line: String) -> Block {
     if Some(text) = String.strip_prefix(line, "* ") { return .Item(text) }
 
     case String.captures(line, Regex`^(#{1,6}) (.*)$`) {
-        Some(#(marks, text)) -> #.Heading{level: String.length(marks), text}
+        Some(#(marks, text)) -> .Heading{level: String.length(marks), text}
         _ -> .Paragraph(line)
     }
 }
@@ -45,7 +45,7 @@ fn render_run(run: List<Block>) -> String {
 
 fn render(block: Block) -> String {
     case block {
-        #.Heading{level, text} -> "<h${level}>${emphasize(text)}</h${level}>"
+        .Heading{level, text} -> "<h${level}>${emphasize(text)}</h${level}>"
         .Item(text) -> "<li>${emphasize(text)}</li>"
         .Paragraph(text) -> "<p>${emphasize(text)}</p>"
     }

@@ -180,20 +180,6 @@ func (bl *irScalarBuilder) distinctSubBinding(p *ast.EnumPattern, payload ir.Tem
 	bl.patternBinding(at, name, inner, k.def.inner)
 }
 
-// irPattern reads a pattern as the builder lowers it: a tuple pattern that
-// names a distinct type over a tuple, `#Pair(a, b)`, is the distinct pattern
-// over the tuple, `Pair(#(a, b))`. Any other pattern is returned unchanged.
-// Only the pattern itself is read again; its sub-patterns keep their nodes.
-func irPattern(pattern ast.Node) ast.Node {
-	tp, ok := pattern.(*ast.TuplePattern)
-	if !ok || tp.TypeName == nil {
-		return pattern
-	}
-	inner := *tp
-	inner.TypeName = nil
-	return &ast.EnumPattern{Variant: tp.TypeName, Payload: &inner, Line: tp.Line, Col: tp.Col}
-}
-
 // irAttachedVariantPattern reads a literal-attach pattern over an enum
 // (`%.Obj{"k" => v}`, `.Arr[a, b]`) as the variant pattern it means,
 // `.Obj(%{"k" => v})`: a typed map or list pattern's prefix is the variant's
@@ -203,7 +189,7 @@ func irPattern(pattern ast.Node) ast.Node {
 func irAttachedVariantPattern(pattern ast.Node) ast.Node {
 	switch p := pattern.(type) {
 	case *ast.TuplePattern:
-		return irPattern(p)
+		return p
 	case *ast.VectorPattern:
 		if p.TypeName == nil {
 			return pattern
@@ -577,7 +563,6 @@ func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir
 // a payload's own struct pattern does (irNominalCaseKind: a retained struct,
 // an anonymous record, a distinct over a value) or a struct-shaped variant.
 func irFieldSubPattern(p ast.Node, k kind) bool {
-	p = irPattern(p)
 	switch p.(type) {
 	case nil, *ast.IdentPattern, *ast.WildcardPattern:
 		return true
@@ -593,7 +578,7 @@ func irFieldSubPattern(p ast.Node, k kind) bool {
 		return k == codepointKind()
 	case *ast.EnumPattern:
 		// `retryable: True`, `kind: .Some(n)`: a variant test on the field,
-		// which patternValueTest builds; `Id(n)` or `#Pair(a, _)` over a
+		// which patternValueTest builds; `Id(n)` or `Pair(a, _)` over a
 		// distinct unwraps it.
 		return k == kindBool || (k.tag == tagNamed && (irRetainedEnumKind(k.def) || irDistinctOverValue(k.def)))
 	case *ast.StructPattern:

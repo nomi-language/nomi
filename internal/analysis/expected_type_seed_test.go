@@ -28,7 +28,7 @@ func TestExpectedTypeSeed_StructField(t *testing.T) {
   exits: Map<Direction, Place>
 }
 fn demo() -> Room {
-  #Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])}
+  Room{exits: Iter.to_map([#(.North, .Cave), #(.East, .Hall)])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -134,7 +134,7 @@ func TestExpectedTypeSeed_EmptyList_StructField(t *testing.T) {
   words: Map<String, List<Int>>
 }
 fn demo() -> Index {
-  #Index{words: Iter.to_map([])}
+  Index{words: Iter.to_map([])}
 }`
 	expectNoErrorsT(t, checkWithStdlib(src))
 }
@@ -290,4 +290,30 @@ fn demo() -> Int {
   _ = f
   1
 }`), "argument 1: expected (Int) -> Int, got (Int) -> String")
+}
+
+// A dot-leading struct variant inside a constructor's argument takes the
+// enum from the call's expected type, as the call form `.Tagged(1)` does:
+// `Ok(.Square{side})` in a function returning `Result<Shape, String>`.
+func TestExpectedTypeSeed_DotStructVariantInAConstructor(t *testing.T) {
+	src := `pub enum Shape {
+  Circle {radius: Int}
+  Square {side: Int}
+}
+pub enum Holder {
+  Holds(Shape)
+}
+fn ok(side: Int) -> Result<Shape, String> {
+  Ok(.Square{side})
+}
+fn err() -> Result<Int, Shape> {
+  Err(.Circle{radius: 1})
+}
+fn some() -> Maybe<Shape> {
+  Some(.Square{side: 1})
+}
+fn held() -> Holder {
+  .Holds(.Circle{radius: 2})
+}`
+	expectNoErrorsT(t, checkWithStdlib(src))
 }

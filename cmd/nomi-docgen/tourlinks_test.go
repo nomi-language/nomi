@@ -78,6 +78,9 @@ func TestTourLinksResolve(t *testing.T) {
 			}
 			return nil
 		}
+		if tourGenerated[rel] {
+			return nil
+		}
 		if !strings.HasSuffix(rel, ".md") {
 			return nil
 		}

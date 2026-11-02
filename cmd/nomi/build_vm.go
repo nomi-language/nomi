@@ -16,10 +16,12 @@ import (
 // the .nomic file it is handed (vmrunner/imagefile.go). It is the runner
 // `nomi build` would append a program to, found, built or downloaded as that
 // does (ffirun.Runner). `--reactor` writes the wasip1 reactor with nothing
-// embedded instead, which takes a .nomic through nomi_load.
+// embedded instead, which takes a .nomic through nomi_load. `--no-network`
+// picks the variant built without the network (ffirun.Variant.NoNetwork),
+// a third smaller, whose network crossings answer an error.
 
-const buildVMUsage = "usage: nomi build-vm [--target <goos>/<goarch>] [--compiler] [-o <out>]\n" +
-	"       nomi build-vm --reactor [--compiler] [-o <out>]"
+const buildVMUsage = "usage: nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]\n" +
+	"       nomi build-vm --reactor [--compiler] [--no-network] [-o <out>]"
 
 // wasiLoaderJS and wasiLoaderDTS are nomi-wasi.js and its types, which
 // `--reactor` writes beside the reactor: the JavaScript that
@@ -40,6 +42,8 @@ type buildVMArgs struct {
 	// reactor writes the wasip1 reactor, which loads a .nomic through
 	// nomi_load, in place of the command runner.
 	reactor bool
+	// noNetwork picks the runner built without the network.
+	noNetwork bool
 }
 
 func parseBuildVMArgs(args []string) (buildVMArgs, error) {
@@ -76,6 +80,8 @@ func parseBuildVMArgs(args []string) (buildVMArgs, error) {
 			v.compiler = true
 		case arg == "--reactor":
 			v.reactor = true
+		case arg == "--no-network":
+			v.noNetwork = true
 		case isFlag(arg):
 			return v, unknownFlag("nomi build-vm", arg, buildVMUsage)
 		default:
@@ -127,7 +133,7 @@ func writeRunner(v buildVMArgs, stderr io.Writer) error {
 	if v.reactor {
 		cmd = "nomi build-vm --reactor"
 	}
-	runner, err := ffirun.Runner(v.target, ffirun.Variant{Compiler: v.compiler, Reactor: v.reactor}, stderr)
+	runner, err := ffirun.Runner(v.target, ffirun.Variant{Compiler: v.compiler, Reactor: v.reactor, NoNetwork: v.noNetwork}, stderr)
 	if err != nil {
 		return fmt.Errorf("%s: %w", cmd, err)
 	}

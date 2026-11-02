@@ -80,7 +80,7 @@ func TestFindDefinition_AttachedAssertTypeQualifiedImplFunctionResolves(t *testi
 }
 
 impl Display for Box {
-  //! assert Box.▮to_string(#Box{n: 3}) == "box:3"
+  //! assert Box.▮to_string(Box{n: 3}) == "box:3"
   fn to_string(b: Box) -> String {
     "box:" + Int.to_string(b.n)
   }
@@ -599,7 +599,7 @@ impl Speech for Dog {
 }
 
 fn main() {
-  rex = #Dog{name: "Rex"}
+  rex = Dog{name: "Rex"}
   io.inspect(Dog.speak(rex))
 }
 `
@@ -656,7 +656,7 @@ pub struct Point {
 }
 
 fn main() {
-  io.inspect(Point.get_twice(#Point{x: 5}))
+  io.inspect(Point.get_twice(Point{x: 5}))
 }
 `
 	uri := "file:///test.nomi"
@@ -1019,7 +1019,7 @@ func TestFindDefinition_InterfaceQualifiedCallResolvesToUserImpl(t *testing.T) {
 		"}\n" +
 		"\n" +
 		"fn main() {\n" +
-		"  greeter = #Greeter{name: \"Alice\"}\n" +
+		"  greeter = Greeter{name: \"Alice\"}\n" +
 		"  io.print(Display.to_string(greeter))\n" +
 		"}\n"
 	uri := "file:///test.nomi"

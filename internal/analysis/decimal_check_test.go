@@ -88,12 +88,12 @@ func TestDecimalDivisorOfAUserTypeUsesItsImpl(t *testing.T) {
 
 impl Divide<Decimal, Money> for Money {
   fn divide(lhs: Money, rhs: Decimal) -> Money {
-    #Money{amount: Decimal.divide_exact(lhs.amount, rhs) |> Maybe.with_default(0d)}
+    Money{amount: Decimal.divide_exact(lhs.amount, rhs) |> Maybe.with_default(0d)}
   }
 }
 
 fn f() -> Money {
-  #Money{amount: 10d} / 4d
+  Money{amount: 10d} / 4d
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -165,5 +165,41 @@ func TestDecimalModuloRejected(t *testing.T) {
 		}
 		t.Fatalf("expected a 'modulo is not defined on Decimal' error, got %d errors:\n  %s",
 			len(errs), strings.Join(msgs, "\n  "))
+	}
+}
+
+// Float has no `%` (spec §8 *Integer division and remainder*), so a Float %
+// Float is a compile error, at the operator, rather than a program that
+// traps on every run.
+func TestFloatModuloRejected(t *testing.T) {
+	src := `fn f(a: Float, b: Float) -> Float {
+  a % b
+}
+`
+	_, errs := checkSourceWithStdlib(src)
+	want := "modulo is not defined on Float; `%` takes two Int operands"
+	for _, e := range errs {
+		if e.Message == want {
+			if e.Line != 2 || e.Col != 5 {
+				t.Fatalf("error at %d:%d, want 2:5", e.Line, e.Col)
+			}
+			return
+		}
+	}
+	msgs := make([]string, len(errs))
+	for i, e := range errs {
+		msgs[i] = e.Error()
+	}
+	t.Fatalf("expected %q, got %d errors:\n  %s", want, len(errs), strings.Join(msgs, "\n  "))
+}
+
+// Int % Int stays accepted.
+func TestIntModuloAccepted(t *testing.T) {
+	src := `fn f(a: Int, b: Int) -> Int {
+  a % b
+}
+`
+	if _, errs := checkSourceWithStdlib(src); len(errs) != 0 {
+		t.Fatalf("Int %% Int rejected: %v", errs)
 	}
 }

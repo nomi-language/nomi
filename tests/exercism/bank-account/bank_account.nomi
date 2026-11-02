@@ -45,27 +45,27 @@ pub opaque type Account Sender<Request>
 impl Account {
     /// Opens the account with a balance of 0.
     pub fn open(account: Account) -> Result<Unit, Error> {
-        ask(account, fn reply -> #Request.Open{reply})
+        ask(account, fn reply -> .Open{reply})
     }
 
     /// Closes the account. A closed account can be opened again, empty.
     pub fn close(account: Account) -> Result<Unit, Error> {
-        ask(account, fn reply -> #Request.Close{reply})
+        ask(account, fn reply -> .Close{reply})
     }
 
     /// Adds `amount` to the balance.
     pub fn deposit(account: Account, amount: Int) -> Result<Unit, Error> {
-        ask(account, fn reply -> #Request.Deposit{amount, reply})
+        ask(account, fn reply -> .Deposit{amount, reply})
     }
 
     /// Takes `amount` from the balance, which must hold it.
     pub fn withdraw(account: Account, amount: Int) -> Result<Unit, Error> {
-        ask(account, fn reply -> #Request.Withdraw{amount, reply})
+        ask(account, fn reply -> .Withdraw{amount, reply})
     }
 
     /// The balance of an open account.
     pub fn balance(account: Account) -> Result<Int, Error> {
-        ask(account, fn reply -> #Request.Balance{reply})
+        ask(account, fn reply -> .Balance{reply})
     }
 }
 
@@ -104,7 +104,7 @@ fn ask<T>(account: Account, request: (Channel<T>) -> Request) -> T {
 /// The teller: answers requests one at a time until the inbox closes. The
 /// balance is the loop's state, `None` while the account is not open.
 fn serve(inbox: Receiver<Request>) -> Unit {
-    _final = Iter.loop(fn balance = None -> {
+    _final = Iter.loop(None, fn balance -> {
         case Receiver.receive(inbox) {
             Some(request) -> handle(balance, request)
             None -> break balance
@@ -117,20 +117,20 @@ fn serve(inbox: Receiver<Request>) -> Unit {
 /// Answers `request` against `balance` and answers the balance after it.
 fn handle(balance: Maybe<Int>, request: Request) -> Maybe<Int> {
     case request {
-        #Request.Open{reply} ->
+        .Open{reply} ->
             answer(reply, balance, opened(balance))
 
-        #Request.Close{reply} ->
+        .Close{reply} ->
             answer(reply, balance, closed(balance))
 
-        #Request.Deposit{amount, reply} ->
+        .Deposit{amount, reply} ->
             answer(reply, balance, deposited(balance, amount))
 
-        #Request.Withdraw{amount, reply} ->
+        .Withdraw{amount, reply} ->
             answer(reply, balance, withdrawn(balance, amount))
 
-        #Request.Balance{reply} -> {
-            _ = Sender.send(reply.sender, Maybe.to_result(balance, Error.AccountNotOpen))
+        .Balance{reply} -> {
+            _ = Sender.send(reply.sender, Maybe.to_result(balance, .AccountNotOpen))
             balance
         }
     }

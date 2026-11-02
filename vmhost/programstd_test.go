@@ -126,7 +126,7 @@ func TestProgramStd_ASharedModulesEditorImportsAListedModule(t *testing.T) {
 	for _, c := range []struct{ module, body, want string }{
 		{"io", "import std/path\nprint(path.join(\"data\", \"log.txt\"))\nassert path.join(\"a/\", \"/b\") == \"a/b\"\n", "data/log.txt\n"},
 		{"io", "import std/fs\nimport std/fs_testing.{self, Sandbox}\n" +
-			"ran = fs_testing.run(#Sandbox{files: %{\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
+			"ran = fs_testing.run(Sandbox{files: %{\"a.txt\" => \"x\"}}, fn -> fs.read_text(\"a.txt\"))\n" +
 			"assert ran.value == Result.Ok(\"x\")\n" +
 			"print(fs_testing.text(ran, \"/work/a.txt\"))\n", "Some(x)\n"},
 		{"strings", "import std/io\nimport std/uuid.Uuid\nio.print(Uuid.nil())\nassert Uuid.version(Uuid.nil()) == 0\n", "00000000-0000-0000-0000-000000000000\n"},
@@ -189,7 +189,7 @@ struct Memory {
 impl Conn for Memory {
     fn query(conn: Memory, sql: String) -> Result<List<List<Value>>, conn.Error> {
         if sql == "refuse" {
-            Err(#conn.Error.Refused{reason: "closed"})
+            Err(conn.Error.Refused{reason: "closed"})
         } else {
             Ok(conn.rows)
         }
@@ -207,15 +207,15 @@ struct Celsius {
 impl FromValue for Celsius {
     fn from_value(value: Value, column: Int) -> Result<Celsius, conn.Error> {
         case value {
-            Value.Number(n) -> Ok(#Celsius{degrees: n})
-            _ -> Err(#conn.Error.Refused{reason: "column ${column} is not a temperature"})
+            Value.Number(n) -> Ok(Celsius{degrees: n})
+            _ -> Err(conn.Error.Refused{reason: "column ${column} is not a temperature"})
         }
     }
 }
 
 fn main() {
-    memory = #Memory{label: "memory", rows: [[Value.Number(1)], [Value.Number(2)]]}
-    pool = #Pool{conn: memory, log: &("conn " + &1)}
+    memory = Memory{label: "memory", rows: [[Value.Number(1)], [Value.Number(2)]]}
+    pool = Pool{conn: memory, log: &("conn " + &1)}
     io.print(Pool.describe(pool))
     ints: Result<List<Int>, conn.Error> = Pool.column(pool, "select")
     io.print(Debug.inspect(ints))
@@ -225,10 +225,10 @@ fn main() {
     io.print(Debug.inspect(texts))
     refused: Result<List<Int>, conn.Error> = Pool.column(pool, "refuse")
     io.print(Debug.inspect(refused))
-    conns: List<Conn> = [memory, #Closed{name: "closed"}]
-    io.print(Debug.inspect(#Pool{conn: #Closed{name: "shut"}, log: &(&1)}))
+    conns: List<Conn> = [memory, Closed{name: "closed"}]
+    io.print(Debug.inspect(Pool{conn: Closed{name: "shut"}, log: &(&1)}))
     io.print(Debug.inspect(pool))
-    shut: Result<List<Int>, conn.Error> = Pool.column(#Pool{conn: #Closed{name: "shut"}, log: &(&1)}, "select")
+    shut: Result<List<Int>, conn.Error> = Pool.column(Pool{conn: Closed{name: "shut"}, log: &(&1)}, "select")
     io.print(Debug.inspect(shut))
     io.print(conn.names(conns))
     io.print(conn.names(conns, " | "))
@@ -249,12 +249,12 @@ fn main() {
 	}
 	want := "conn memory\n" +
 		"Ok([1, 2])\n" +
-		"Ok([#Celsius{degrees: 1}, #Celsius{degrees: 2}])\n" +
-		"Err(#Decode{column: 0, found: Number})\n" +
-		"Err(#Refused{reason: \"closed\"})\n" +
-		"#Pool{conn: #Closed{name: \"shut\"}, log: <function>}\n" +
-		"#Pool{conn: #Memory{label: \"memory\", rows: [[Number(1)], [Number(2)]]}, log: <function>}\n" +
-		"Err(#Refused{reason: \"shut is closed to select\"})\n" +
+		"Ok([Celsius{degrees: 1}, Celsius{degrees: 2}])\n" +
+		"Err(Decode{column: 0, found: Number})\n" +
+		"Err(Refused{reason: \"closed\"})\n" +
+		"Pool{conn: Closed{name: \"shut\"}, log: <function>}\n" +
+		"Pool{conn: Memory{label: \"memory\", rows: [[Number(1)], [Number(2)]]}, log: <function>}\n" +
+		"Err(Refused{reason: \"shut is closed to select\"})\n" +
 		"memory, closed\n" +
 		"memory | closed\n" +
 		"1, 2, 3\n" +

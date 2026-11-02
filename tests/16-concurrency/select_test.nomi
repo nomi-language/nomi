@@ -1,0 +1,225 @@
+import {
+    std/channels.{Arm, Channel, ChannelClosed, Receiver, Sender, TimedOut}
+    std/compiler
+    std/duration.Duration
+    std/instant.Instant
+    std/tasks.{Outcome, Task}
+    std/testing.Clock
+    std/timer
+}
+
+fn send_later(sender: Sender<Int>, wait: Duration, value: Int) -> Unit {
+    timer.sleep(wait)
+    _ = Sender.send(sender, value)
+}
+
+fn seconds_since(start: Instant) -> Int {
+    Instant.to_seconds(Instant.now()) - Instant.to_seconds(start)
+}
+
+test "the first listed ready arm wins" {
+    a = Channel.buffered<Int>(1)
+    b = Channel.buffered<Int>(1)
+    _ = Sender.send(a.sender, 1)
+    _ = Sender.send(b.sender, 2)
+
+    first = Channel.select([
+        Arm.receive(b.receiver, fn _ -> "b"),
+        Arm.receive(a.receiver, fn _ -> "a"),
+    ])
+
+    assert first == "b"
+    // `a` kept its value: the losing arm took nothing.
+    assert Receiver.receive(a.receiver) == Some(1)
+}
+
+test "arms over channels of different element types share one result" {
+    numbers = Channel.buffered<Int>(1)
+    words = Channel.buffered<String>(1)
+    _ = Sender.send(words.sender, "hi")
+
+    got = Channel.select([
+        Arm.receive(numbers.receiver, fn n -> "number ${Maybe.with_default(n, 0)}"),
+        Arm.receive(words.receiver, fn w -> "word ${Maybe.with_default(w, "")}"),
+    ])
+
+    assert got == "word hi"
+}
+
+test "a closed channel is ready with None, a send on one with ChannelClosed" {
+    ch = Channel.buffered<Int>(1)
+    Sender.close(ch.sender)
+
+    assert Channel.select([Arm.receive(ch.receiver, fn got -> got)]) == None
+    assert Channel.select([Arm.send(ch.sender, 1, fn sent -> sent)]) == Err(ChannelClosed)
+}
+
+test "a send arm waits for room in the buffer" {
+    ch = Channel.buffered<Int>(1)
+
+    first = Channel.select([
+        Arm.send(ch.sender, 1, fn _ -> "sent"),
+        Arm.after(Duration.seconds(0), fn -> "full"),
+    ])
+
+    second = Channel.select([
+        Arm.send(ch.sender, 2, fn _ -> "sent"),
+        Arm.after(Duration.seconds(0), fn -> "full"),
+    ])
+
+    assert first == "sent"
+    assert second == "full"
+    assert Receiver.receive(ch.receiver) == Some(1)
+}
+
+test "a zero timer listed last makes a select that never waits" {
+    ch = Channel.buffered<Int>(1)
+
+    empty = Channel.select([
+        Arm.receive(ch.receiver, fn _ -> "value"),
+        Arm.after(Duration.seconds(0), fn -> "empty"),
+    ])
+
+    _ = Sender.send(ch.sender, 3)
+
+    ready = Channel.select([
+        Arm.receive(ch.receiver, fn _ -> "value"),
+        Arm.after(Duration.seconds(0), fn -> "empty"),
+    ])
+
+    assert empty == "empty"
+    assert ready == "value"
+}
+
+test "receive_within tells a value, a closed channel and a timeout apart" {
+    ch = Channel.buffered<Int>(1)
+    assert Receiver.receive_within(ch.receiver, Duration.seconds(0)) == Err(TimedOut)
+
+    _ = Sender.send(ch.sender, 5)
+    assert Receiver.receive_within(ch.receiver, Duration.seconds(0)) == Ok(Some(5))
+
+    Sender.close(ch.sender)
+    assert Receiver.receive_within(ch.receiver, Duration.seconds(0)) == Ok(None)
+}
+
+test "a select with no arms is a fault" {
+    case compiler.run(
+        """
+        import std/channels.{Arm, Channel}
+
+        fn main() {
+          arms: List<Arm<Int>> = []
+          _ = Channel.select(arms)
+        }
+        """
+    ) {
+        Ok(_) -> assert False
+        Err(message) -> assert "needs at least one arm" in message
+    }
+}
+
+// Timers count on the clock in force, so these waits are exact and instant.
+group "timers on the virtual clock" {
+    clock Clock.Virtual
+
+    test "a timer fires when nothing else is ready" {
+        ch = Channel.buffered<Int>(1)
+        start = Instant.now()
+
+        got = Channel.select([
+            Arm.receive(ch.receiver, fn _ -> "value"),
+            Arm.after(Duration.seconds(5), fn -> "timed out"),
+        ])
+
+        assert got == "timed out"
+        assert seconds_since(start) == 5
+    }
+
+    test "a value that arrives first beats the timer" {
+        ch = Channel.buffered<Int>(1)
+        start = Instant.now()
+
+        got = concurrent {
+            sender = Task.spawn(fn -> send_later(ch.sender, Duration.seconds(1), 9))
+
+            received = Channel.select([
+                Arm.receive(ch.receiver, fn n -> n),
+                Arm.after(Duration.seconds(5), fn -> None),
+            ])
+
+            Task.await(sender)
+            received
+        }
+
+        assert got == Some(9)
+        assert seconds_since(start) == 1
+    }
+
+    test "the shorter of two timers fires" {
+        start = Instant.now()
+
+        got = Channel.select([
+            Arm.after(Duration.seconds(3), fn -> "three"),
+            Arm.after(Duration.seconds(2), fn -> "two"),
+        ])
+
+        assert got == "two"
+        assert seconds_since(start) == 2
+    }
+
+    test "receive_within waits out its duration" {
+        ch = Channel.buffered<Int>(1)
+        start = Instant.now()
+
+        assert Receiver.receive_within(ch.receiver, Duration.seconds(4)) == Err(TimedOut)
+        assert seconds_since(start) == 4
+    }
+
+    test "a task waiting in a select is cancelled with its block" {
+        ch = Channel.buffered<Int>(1)
+        start = Instant.now()
+
+        outcome = concurrent {
+            waiter = Task.spawn(fn -> Channel.select([Arm.receive(ch.receiver, fn n -> n)]))
+            timer.sleep(Duration.seconds(1))
+            Task.cancel(waiter)
+            Task.outcome(waiter)
+        }
+
+        assert outcome == Outcome.Cancelled
+        assert seconds_since(start) == 1
+    }
+}
+
+// A loop serving two busy channels rotates its arms, so the first listed
+// arm's bias does not starve the other.
+fn fill(sender: Sender<Int>, values: List<Int>) -> Unit {
+    Iter.each(values, fn v -> {
+        _ = Sender.send(sender, v)
+    })
+}
+
+fn take_rotating(a: Receiver<Int>, b: Receiver<Int>, round: Int) -> Int {
+    first = Arm.receive(a, fn n -> Maybe.with_default(n, 0))
+    second = Arm.receive(b, fn n -> Maybe.with_default(n, 0))
+
+    if round % 2 == 0 {
+        Channel.select([first, second])
+    } else {
+        Channel.select([second, first])
+    }
+}
+
+test "rotating the arms serves both channels" {
+    a = Channel.buffered<Int>(4)
+    b = Channel.buffered<Int>(4)
+    fill(a.sender, [1, 2])
+    fill(b.sender, [10, 20])
+
+    got =
+        [0, 1, 2, 3]
+        |> Iter.map(fn round -> take_rotating(a.receiver, b.receiver, round))
+        |> Iter.to_list()
+
+    assert got == [1, 10, 2, 20]
+}

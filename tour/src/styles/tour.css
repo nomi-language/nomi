@@ -215,6 +215,38 @@ pre.nomi-tour {
   content: "JSON";
   background: #7a5c00;
 }
+.nomi-chip-rust::before {
+  content: "Rust";
+  background: #b7410e;
+}
+.nomi-chip-elixir::before {
+  content: "Elixir";
+  background: #4b275f;
+}
+.nomi-chip-ts::before {
+  content: "TS";
+  background: #3178c6;
+}
+.nomi-chip-python::before {
+  content: "Python";
+  background: #3776ab;
+}
+.nomi-chip-kotlin::before {
+  content: "Kotlin";
+  background: #7f52ff;
+}
+.nomi-chip-swift::before {
+  content: "Swift";
+  background: #c63c27;
+}
+.nomi-chip-ruby::before {
+  content: "Ruby";
+  background: #cc342d;
+}
+.nomi-chip-sh::before {
+  content: "Shell";
+  background: #4d5560;
+}
 /* ```console blocks: terminal transcripts and compiler output. */
 .nomi-console .con-prompt,
 .nomi-console .con-gutter,

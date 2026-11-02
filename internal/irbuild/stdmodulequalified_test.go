@@ -35,7 +35,7 @@ func TestStdModuleQualified_TypesResolveByDeclaration(t *testing.T) {
 
 // A literal whose prefix names a std type through its module builds as the
 // same literal under the bare name does: a struct literal of a dotted
-// struct (`#json.Json.ShapeError{...}`), and a map or list literal attached
+// struct (`json.Json.ShapeError{...}`), and a map or list literal attached
 // to an enum's variant (`%json.Json.Obj{...}`, `json.Json.Arr[...]`).
 func TestStdModuleQualified_LiteralPrefixes(t *testing.T) {
 	verifyLambdaProgram(t, `import {
@@ -43,7 +43,7 @@ func TestStdModuleQualified_LiteralPrefixes(t *testing.T) {
   std/json
 }
 fn main() {
-  e = #json.Json.ShapeError{path: ["a"], expected: "Int", got: "missing"}
+  e = json.Json.ShapeError{path: ["a"], expected: "Int", got: "missing"}
   io.print(e.expected)
   j = %json.Json.Obj{"n" => json.Json.Int(1), "l" => json.Json.Arr[json.Json.Null]}
   io.print(json.Json.encode(j))
@@ -72,8 +72,8 @@ fn show<T>(x: T) -> String where T: Display {
 }
 fn main() {
   io.print(display.Display.to_string(3))
-  io.print(display.Display.to_string(#Point{x: 4}))
-  d: Display = #Point{x: 5}
+  io.print(display.Display.to_string(Point{x: 4}))
+  d: Display = Point{x: 5}
   io.print(display.Display.to_string(d))
   io.print(show(6))
   [1, 2] |> Iter.map(display.Display.to_string) |> String.join(",") |> io.print()
@@ -114,8 +114,8 @@ impl calendar.DateParts for DateParts {
 impl json.FromJson for DateParts {
   fn from_json(json: Json) -> Result<DateParts, Json.ShapeError> {
     case json {
-      Json.Int(n) -> Result.Ok(#DateParts{x: n})
-      _ -> Result.Ok(#DateParts{x: 0})
+      Json.Int(n) -> Result.Ok(DateParts{x: n})
+      _ -> Result.Ok(DateParts{x: 0})
     }
   }
 }
@@ -131,17 +131,17 @@ fn years<T>(x: T) -> Int where T: calendar.DateParts {
 fn main() {
   d = Date`+"`2024-03-05`"+`
   io.print(Int.to_string(calendar.DateParts.year(d)))
-  io.print(Int.to_string(calendar.DateParts.year(#DateParts{x: 7})))
-  io.print(Int.to_string(calendar.DateParts.year(#stamp.Stamp{y: 1999})))
+  io.print(Int.to_string(calendar.DateParts.year(DateParts{x: 7})))
+  io.print(Int.to_string(calendar.DateParts.year(stamp.Stamp{y: 1999})))
   io.print(Int.to_string(years(d)))
-  io.print(Int.to_string(years(#DateParts{x: 8})))
-  [#DateParts{x: 5}] |> Iter.map(calendar.DateParts.year) |> Iter.map(Int.to_string) |> String.join(",") |> io.print()
+  io.print(Int.to_string(years(DateParts{x: 8})))
+  [DateParts{x: 5}] |> Iter.map(calendar.DateParts.year) |> Iter.map(Int.to_string) |> String.join(",") |> io.print()
   [d] |> Iter.map(calendar.DateParts.year) |> Iter.map(Int.to_string) |> String.join(",") |> io.print()
-  io.print(json.Json.encode(json.ToJson.to_json(#stamp.Stamp{y: 3})))
+  io.print(json.Json.encode(json.ToJson.to_json(stamp.Stamp{y: 3})))
   io.print(json.Json.encode(json.ToJson.to_json(4)))
   r: Result<DateParts, Json.ShapeError> = json.FromJson.from_json(Json.Int(9))
-  io.print(Int.to_string(Result.with_default(r, #DateParts{x: 0}).x))
-  io.print(Int.to_string(#ToJson{x: 6}.x + #FromJson{x: 4}.x))
+  io.print(Int.to_string(Result.with_default(r, DateParts{x: 0}).x))
+  io.print(Int.to_string(ToJson{x: 6}.x + FromJson{x: 4}.x))
 }`, "2024\n7\n1999\n2024\n8\n5\n2024\n{\"y\":3}\n4\n9\n10\n", map[string]string{
 		"stamp.nomi": `import {
   std/calendar

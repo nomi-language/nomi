@@ -139,6 +139,9 @@ type stdGenHostSpec struct {
 var stdGenHostSpecs = []stdGenHostSpec{
 	{origin: "std/channels", nomi: "Sender", rtType: "rt.Sender", params: []string{"T"}},
 	{origin: "std/channels", nomi: "Receiver", rtType: "rt.Receiver", params: []string{"T"}},
+	// `Arm<R>` is one case of `Channel.select` with its handler; R is the
+	// handler's result, the select's own.
+	{origin: "std/channels", nomi: "Arm", rtType: "rt.Arm", params: []string{"R"}},
 	{origin: "std/vectors", nomi: "Vector", rtType: "rt.Vector", params: []string{"T"}},
 	// `Task<T>` is the fourth row and the second that is not a channel half.
 	// A `pub host type Task<T>` with no bound, so it satisfies the same
@@ -576,6 +579,7 @@ func genHostSpecFor(origin, nomi string) *stdGenHostSpec {
 var (
 	senderSpec   = genHostSpecFor("std/channels", "Sender")
 	receiverSpec = genHostSpecFor("std/channels", "Receiver")
+	armSpec      = genHostSpecFor("std/channels", "Arm")
 )
 
 // --- a stdlib nil-inner MARKER ----------------------------------------------
@@ -612,6 +616,7 @@ type stdMarkerSpec struct {
 // than a widened tolerance in a check built for scalars.
 var stdMarkerSpecs = []stdMarkerSpec{
 	{origin: "std/channels", nomi: "ChannelClosed", form: formDistinct, goType: reflect.TypeFor[rt.ChannelClosed]()},
+	{origin: "std/channels", nomi: "TimedOut", form: formDistinct, goType: reflect.TypeFor[rt.TimedOut]()},
 }
 
 // stdMarkerDefs is the process-wide *typeDef per spec, keyed by spec index.

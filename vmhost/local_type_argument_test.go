@@ -31,8 +31,8 @@ fn has<C>(c: C, r: Rate) -> Bool where C: Contains<Rate> {
 
 fn main() {
     d = 2.5d
-    r = #Rate{per_unit: 4d}
-    s = #Shares{count: 3}
+    r = Rate{per_unit: 4d}
+    s = Shares{count: 3}
     io.print(Decimal.to_string(d * r))
     io.print(Decimal.to_string(d + r))
     io.print(Decimal.to_string(d * s))

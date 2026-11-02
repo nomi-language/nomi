@@ -66,8 +66,8 @@ fn render_away(r: Result<Away, Json.ShapeError>) -> String {
 }
 
 fn main() {
-    local = #Local{label: "here"}
-    local_copy = #Local{label: "here"}
+    local = Local{label: "here"}
+    local_copy = Local{label: "here"}
     away = models.away("there")
     away_copy = models.away("there")
 

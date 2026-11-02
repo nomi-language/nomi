@@ -27,14 +27,14 @@ fn pick() -> Result<Generator<String>, random.Error> {
 
 fn main() {
     case read_id("6ba7b810") {
-        Err(#uuid.Error.Length{length}) -> io.print("length ${length}")
+        Err(uuid.Error.Length{length}) -> io.print("length ${length}")
         _ -> io.print("other")
     }
     case pick() {
         Err(random.Error.ZeroWeightTotal) -> io.print("zero total")
         _ -> io.print("other")
     }
-    io.print(read_id("6ba7b810") == Err(#uuid.Error.Length{length: 8}))
+    io.print(read_id("6ba7b810") == Err(uuid.Error.Length{length: 8}))
 }
 `
 	p, err := LoadSource("main", src)

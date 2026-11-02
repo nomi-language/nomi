@@ -149,12 +149,13 @@ func TestReleaseScriptNamesGoPackagesThatExist(t *testing.T) {
 		}
 	}
 
-	// A release carries `nomi`, `nomi-lsp` and `nomi-vm`. Pinning the
-	// count, not just "more than zero", is what catches the list being emptied
-	// or a row being dropped — either would leave the loop above passing while
-	// shipping less than a release is.
-	if checked != 3 {
-		t.Fatalf("found %d binary row(s) in release.sh's binaries=(...), want 3 (nomi, nomi-lsp, nomi-vm)", checked)
+	// A release carries `nomi`, `nomi-lsp`, `nomi-vm` and `nomi-vm-nonet`,
+	// the runner without the network that `nomi build` picks for a program
+	// that never reaches it. Pinning the count, not just "more than zero", is
+	// what catches the list being emptied or a row being dropped — either
+	// would leave the loop above passing while shipping less than a release is.
+	if checked != 4 {
+		t.Fatalf("found %d binary row(s) in release.sh's binaries=(...), want 4 (nomi, nomi-lsp, nomi-vm, nomi-vm-nonet)", checked)
 	}
 }
 

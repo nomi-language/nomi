@@ -17,7 +17,7 @@ pub enum Error {
 impl Buffer<T> {
     /// An empty buffer that holds at most `capacity` items.
     pub fn new(capacity: Int) -> Buffer<T> {
-        #Buffer{capacity, items: []}
+        Buffer{capacity, items: []}
     }
 
     /// `buffer` with `item` after its newest, or `Full` when it holds

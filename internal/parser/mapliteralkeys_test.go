@@ -69,7 +69,7 @@ func TestMapLiteral_ListKey(t *testing.T) {
 }
 
 func TestMapLiteral_StructKey(t *testing.T) {
-	expr := parseExpr(t, `%{#Point{x: 1, y: 2} => "v"}`)
+	expr := parseExpr(t, `%{Point{x: 1, y: 2} => "v"}`)
 	ml, ok := expr.(*ast.MapLit)
 	if !ok {
 		t.Fatalf("expected *ast.MapLit, got %T", expr)

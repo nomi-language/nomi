@@ -111,7 +111,7 @@ func TestFormat_NegativeNumericPatternPreservation(t *testing.T) {
 	// Negation in a struct-field pattern is a separate parser path
 	// (the MINUS is consumed before the literal token); make sure the
 	// stored lexeme keeps the sign so the formatter can round-trip it.
-	src := "case p { #Point{x: -1_000, y: -3.5} -> 1, _ -> 0 }\n"
+	src := "case p { Point{x: -1_000, y: -3.5} -> 1, _ -> 0 }\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatal(err)
@@ -387,7 +387,7 @@ func TestFormat_Is(t *testing.T) {
 		{"(x is .A) == b\n", "(x is .A) == b\n"},
 		{"(a < b) is True\n", "(a < b) is True\n"},
 		{"xs |> List.head() is Some(1)\n", "xs |> List.head() is Some(1)\n"},
-		{"x is #P{kind: .A, n: _}\n", "x is #P{kind: .A, n: _}\n"},
+		{"x is P{kind: .A, n: _}\n", "x is P{kind: .A, n: _}\n"},
 		{"x is [_, ..]\n", "x is [_, ..]\n"},
 		{"x is -1\n", "x is -1\n"},
 		{"y = &(&1 is .Item(_))\n", "y = &(&1 is .Item(_))\n"},
@@ -883,8 +883,8 @@ func TestFormat_LambdaTail_ExprBody_BreaksIntoBlock(t *testing.T) {
 	// A single-expression tail lambda whose body does not fit on the
 	// parameters' line: the body moves below them in braces and the call
 	// closes `})`. The if-expr body stays inline on its own indented line.
-	src := "Iterator.reduce(list_of_every_item_seen_so_far, fn acc = [], item -> if f(item) { [item, ..acc] } else { acc })\n"
-	want := "Iterator.reduce(list_of_every_item_seen_so_far, fn acc = [], item -> {\n    if f(item) { [item, ..acc] } else { acc }\n})\n"
+	src := "Iterator.reduce(list_of_every_item_seen_so_far, [], fn acc, item -> if f(item) { [item, ..acc] } else { acc })\n"
+	want := "Iterator.reduce(list_of_every_item_seen_so_far, [], fn acc, item -> {\n    if f(item) { [item, ..acc] } else { acc }\n})\n"
 	got := formatTwice(t, src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -913,8 +913,8 @@ func TestFormat_LambdaTail_ExprBody_FitsInline(t *testing.T) {
 func TestFormat_LambdaTail_CaseBody_BreaksIntoBlock(t *testing.T) {
 	// A case body is inherently multi-line, so it goes below the
 	// parameters in braces and the call closes `})`.
-	src := "Iter.reduce(frags, fn acc = 0, frag -> case frag {\n0 -> acc\n1 -> acc + 1\n})\n"
-	want := "Iter.reduce(frags, fn acc = 0, frag -> {\n    case frag {\n        0 -> acc\n        1 -> acc + 1\n    }\n})\n"
+	src := "Iter.reduce(frags, 0, fn acc, frag -> case frag {\n0 -> acc\n1 -> acc + 1\n})\n"
+	want := "Iter.reduce(frags, 0, fn acc, frag -> {\n    case frag {\n        0 -> acc\n        1 -> acc + 1\n    }\n})\n"
 	got := formatTwice(t, src)
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -990,7 +990,7 @@ func TestFormat_Case_VariantWithTuplePattern(t *testing.T) {
 func TestFormat_Case_StructPattern(t *testing.T) {
 	// Struct patterns with field punning
 	src := `x = case user {
-    #User{name, age} -> name
+    User{name, age} -> name
     _ -> "unknown"
 }
 `
@@ -1017,13 +1017,13 @@ func TestFormat_Case_LongArmWraps(t *testing.T) {
 	// two levels in (one for the case body, one for the arm body continuation).
 	// The input below is 106 cols flat — comfortably over the default budget.
 	src := `x = case user {
-    #Member{level} when level > 5 -> build_very_very_long_senior_report_name_xyz(user, config, extra_options)
+    Member{level} when level > 5 -> build_very_very_long_senior_report_name_xyz(user, config, extra_options)
     _ -> default()
 }
 `
 	got, _ := Format(src)
 	// Expect: the long arm wraps body to the next line two levels in
-	wantSubstr := "#Member{level} when level > 5 ->\n        build_very_very_long_senior_report_name_xyz"
+	wantSubstr := "Member{level} when level > 5 ->\n        build_very_very_long_senior_report_name_xyz"
 	if !strings.Contains(got, wantSubstr) {
 		t.Errorf("expected long arm body wrap, got:\n%s", got)
 	}
@@ -1068,7 +1068,7 @@ func TestFormat_Case_NoScrutinee(t *testing.T) {
 }
 
 func TestFormat_StructLit_Short_Flat(t *testing.T) {
-	src := `u = #User{name: "Alice", age: 30}` + "\n"
+	src := `u = User{name: "Alice", age: 30}` + "\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1076,8 +1076,8 @@ func TestFormat_StructLit_Short_Flat(t *testing.T) {
 }
 
 func TestFormat_StructLit_Punning(t *testing.T) {
-	// #User{name, age} — field punning preserved
-	src := "u = #User{name, age}\n"
+	// User{name, age} — field punning preserved
+	src := "u = User{name, age}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1086,9 +1086,9 @@ func TestFormat_StructLit_Punning(t *testing.T) {
 
 func TestFormat_StructLit_Long_Breaks(t *testing.T) {
 	// Long struct breaks to one-field-per-line with trailing comma
-	long := `u = #User{name: "Alice", age: 30, tags: ["new", "unverified"], metadata: "lots_of_stuff_here_to_exceed_budget"}` + "\n"
+	long := `u = User{name: "Alice", age: 30, tags: ["new", "unverified"], metadata: "lots_of_stuff_here_to_exceed_budget"}` + "\n"
 	got, _ := Format(long)
-	if !strings.Contains(got, "#User{\n    name") {
+	if !strings.Contains(got, "User{\n    name") {
 		t.Errorf("expected broken form, got:\n%s", got)
 	}
 	if !strings.Contains(got, ",\n}\n") {
@@ -1108,7 +1108,7 @@ func TestFormat_AnonStructLit(t *testing.T) {
 // user wrote across multiple source lines stays multi-line, even when it
 // would fit flat. Mirrors the enum preserve-user-multi-line rule.
 func TestFormat_StructLit_PreservesUserMultiLine(t *testing.T) {
-	src := `x = #User{
+	src := `x = User{
     name: "Alice",
     age: 30,
 }
@@ -1174,7 +1174,7 @@ func TestFormat_EnumDef_StructVariantPayload_PreservesUserMultiLine(t *testing.T
 // a single source line keep their flat layout. Regression guard against
 // the user-multi-line rule being too aggressive.
 func TestFormat_StructLit_FlatStaysFlat_Regression(t *testing.T) {
-	src := "x = #User{name: \"Alice\", age: 30}\n"
+	src := "x = User{name: \"Alice\", age: 30}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -1720,10 +1720,10 @@ fn parse_test() -> Unit {
 }
 
 func TestFormat_AttachedAssertionBreaksControlFlowLambdaBody(t *testing.T) {
-	src := `//! assert loop(fn n = 0 -> if n >= 3 { break n } else { n + 1 }) == 3
+	src := `//! assert loop(0, fn n -> if n >= 3 { break n } else { n + 1 }) == 3
 pub host fn loop(f: (S) -> S) -> S
 `
-	want := `//! assert loop(fn n = 0 -> {
+	want := `//! assert loop(0, fn n -> {
 //!     if n >= 3 {
 //!         break n
 //!     } else {
@@ -1862,7 +1862,7 @@ func TestFormat_TestBootLine(t *testing.T) {
 	src := `group "env" {
   clock Clock.Virtual
   boot   server.boot( startup() )
-  setup #Fixture{port: 3000}
+  setup Fixture{port: 3000}
   test "reads active app", #{port} {
     assert Config.port == port
   }
@@ -1872,7 +1872,7 @@ func TestFormat_TestBootLine(t *testing.T) {
     clock Clock.Virtual
 
     boot server.boot(startup())
-    setup #Fixture{port: 3000}
+    setup Fixture{port: 3000}
 
     test "reads active app", #{port} {
         assert Config.port == port
@@ -1889,7 +1889,7 @@ func TestFormat_TestGroupLinesKeepComments(t *testing.T) {
     // why this boot
     boot server.boot(startup()) // trailing
     // about setup
-    setup #Fixture{a: 1} // after setup
+    setup Fixture{a: 1} // after setup
 
     test "t", #{a} {
         assert a == 1
@@ -1945,7 +1945,7 @@ func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
     }
 
     // about setup
-    setup #Fixture{a: 1} // after setup
+    setup Fixture{a: 1} // after setup
 
     // why this boot
     // and its startup
@@ -1963,7 +1963,7 @@ func TestFormat_TestGroupLinesReorderedKeepComments(t *testing.T) {
     // and its startup
     boot server.boot(startup()) // trailing
     // about setup
-    setup #Fixture{a: 1} // after setup
+    setup Fixture{a: 1} // after setup
 
     test "t", #{a} {
         assert a == 1
@@ -2051,7 +2051,7 @@ func TestFormat_TestSetupBlankLineDoesNotKeepBraces(t *testing.T) {
 func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
 	src := `group "fixture" {
     setup {
-        #User{
+        User{
             name: "Ada",
             role: "admin",
         }
@@ -2063,7 +2063,7 @@ func TestFormat_TestSetupStructLiteralExpression(t *testing.T) {
 }
 `
 	want := `group "fixture" {
-    setup #User{
+    setup User{
         name: "Ada",
         role: "admin",
     }
@@ -3509,7 +3509,7 @@ func TestFormat_TripleStringCallArg_Interp(t *testing.T) {
 
 func TestFormat_TripleStringSingleArgWrapperInStructField(t *testing.T) {
 	src := "fn main() {\n" +
-		"    p = #Project{\n" +
+		"    p = Project{\n" +
 		"        manifest: Some(\n" +
 		"            \"\"\"\n" +
 		"                [module]\n" +
@@ -3519,7 +3519,7 @@ func TestFormat_TripleStringSingleArgWrapperInStructField(t *testing.T) {
 		"    }\n" +
 		"}\n"
 	want := "fn main() {\n" +
-		"    p = #Project{\n" +
+		"    p = Project{\n" +
 		"        manifest: Some(\n" +
 		"            \"\"\"\n" +
 		"            [module]\n" +
@@ -3616,7 +3616,7 @@ func TestFormat_Continue(t *testing.T) {
 func TestFormat_Range_StructLit(t *testing.T) {
 	// Range struct literal round-trip (still buildable manually; the
 	// preferred form is the literal `0..10`).
-	src := "x = #Range{start: 0, end: Some(10), inclusive: False}\n"
+	src := "x = Range{start: 0, end: Some(10), inclusive: False}\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -4884,7 +4884,7 @@ func TestFormat_CompoundDepth_Wrapped_DoesntBumpDepth(t *testing.T) {
 `
 	got, _ := Format(src)
 	if got != src {
-		t.Errorf("Some(#Obj{...}) wrapper bumped depth and broke unexpectedly.\ngot:\n%s\nwant:\n%s", got, src)
+		t.Errorf("Some(Obj{...}) wrapper bumped depth and broke unexpectedly.\ngot:\n%s\nwant:\n%s", got, src)
 	}
 }
 
@@ -5205,7 +5205,7 @@ func TestFormat_AnonStructType_TrailingComment_Preserved(t *testing.T) {
 // literals in expression position. Pre-fix: separator loop's skipNewlines
 // silently dropped the COMMENT.
 func TestFormat_StructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n    p = #Point{\n        x: 3,\n        y: 4,\n        // trailing comment\n    }\n\n    p\n}\n"
+	src := "fn main() {\n    p = Point{\n        x: 3,\n        y: 4,\n        // trailing comment\n    }\n\n    p\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)
@@ -5416,7 +5416,7 @@ func TestFormat_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
 // New StructFieldVal.LeadingComments slot. A leading comment on any
 // field forces the broken (multi-line) form.
 func TestFormat_StructLit_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn main() {\n    p = #Point{\n        x: 3,\n        // a comment between two literal fields\n        y: 4,\n    }\n\n    p\n}\n"
+	src := "fn main() {\n    p = Point{\n        x: 3,\n        // a comment between two literal fields\n        y: 4,\n    }\n\n    p\n}\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)

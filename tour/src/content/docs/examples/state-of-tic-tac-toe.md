@@ -87,7 +87,7 @@ fn has_won(cells: Vector<Codepoint>, mark: Codepoint) -> Bool {
 }
 
 // FILE: state_of_tic_tac_toe_test.nomi
-import state_of_tic_tac_toe.{self, State}
+import state_of_tic_tac_toe
 
 test "won games" {
     [
@@ -111,7 +111,7 @@ test "won games" {
         #("Finished game where X won via two diagonal victories", ["XOX", "OXO", "XOX"]),
     ]
     |> subtests #(description, board), description {
-        assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Win)
+        assert state_of_tic_tac_toe.gamestate(board) == Ok(.Win)
     }
 }
 
@@ -121,7 +121,7 @@ test "drawn games" {
         #("Another draw", ["XXO", "OXX", "XOO"]),
     ]
     |> subtests #(description, board), description {
-        assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Draw)
+        assert state_of_tic_tac_toe.gamestate(board) == Ok(.Draw)
     }
 }
 
@@ -132,7 +132,7 @@ test "ongoing games" {
         #("Ongoing game: five moves in", ["X  ", " XO", "OX "]),
     ]
     |> subtests #(description, board), description {
-        assert state_of_tic_tac_toe.gamestate(board) == Ok(State.Ongoing)
+        assert state_of_tic_tac_toe.gamestate(board) == Ok(.Ongoing)
     }
 }
 

@@ -27,7 +27,7 @@ func TestCheck_MapSpread_Accepts(t *testing.T) {
 		"list values":          "  m = %{\"a\" => [1]}\n  _a: Map<String, List<Int>> = %{..m, \"b\" => []}\n",
 		"an empty base":        "  _a: Map<String, Int> = %{..%{}, \"a\" => 1}\n",
 		"an unannotated empty": "  e = %{..%{}, \"a\" => 1}\n  _a: Map<String, Int> = e\n",
-		"nested in a struct":   "  c = #Cfg{name: \"x\", prefs: %{\"theme\" => \"light\"}}\n  _a: Cfg = #{..c, prefs: %{..c.prefs, \"theme\" => \"dark\"}}\n",
+		"nested in a struct":   "  c = Cfg{name: \"x\", prefs: %{\"theme\" => \"light\"}}\n  _a: Cfg = #{..c, prefs: %{..c.prefs, \"theme\" => \"dark\"}}\n",
 		"nested in a value":    "  m = %{\"o\" => %{\"k\" => 1}}\n  i = %{\"k\" => 2}\n  _a: Map<String, Map<String, Int>> = %{..m, \"o\" => %{..i, \"j\" => 3}}\n",
 	}
 	for name, body := range cases {
@@ -71,7 +71,7 @@ func TestCheck_MapSpread_Refuses(t *testing.T) {
 			"map spread key type mismatch: expected String, got Int", "", 10, 15},
 		"a wrong value": {"  m = %{\"a\" => 1}\n  _a = %{..m, \"b\" => \"s\"}\n",
 			"map spread value type mismatch: expected Int, got String", "", 10, 22},
-		"a struct base": {"  p = #P{x: 1}\n  _a = %{..p, \"b\" => 2}\n",
+		"a struct base": {"  p = P{x: 1}\n  _a = %{..p, \"b\" => 2}\n",
 			"map spread `..` requires a map, got P", "", 10, 10},
 		"struct fields over a map": {"  m = %{\"a\" => 1}\n  _a = #{..m, b: 2}\n",
 			"struct spread `..` requires a struct, got Map<String, Int>", "a map update is written `%{..base, key => value}`", 10, 10},

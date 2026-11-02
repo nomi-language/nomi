@@ -22,7 +22,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{port: 8080, context: Context.root()})
+  Ok(App{port: 8080, context: Context.root()})
 }
 
 fn main() {
@@ -57,7 +57,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{logger: Stdout, context: Context.root()})
+  Ok(App{logger: Stdout, context: Context.root()})
 }
 
 fn main() {
@@ -67,7 +67,7 @@ fn main() {
 }
 
 fn audit_greet(name: String) {
-  with App.logger = #PrefixedLogger{tag: "audit"}
+  with App.logger = PrefixedLogger{tag: "audit"}
   greet(name)
 }
 
@@ -87,7 +87,7 @@ struct App {
 fn base() -> Int { 8000 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{name: "api", port: base() + 80, context: Context.root()})
+  Ok(App{name: "api", port: base() + 80, context: Context.root()})
 }
 
 fn address() -> String { "${App.name}:${App.port}" }
@@ -110,7 +110,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{config: #Config{host: "localhost", port: 5432}, context: Context.root()})
+  Ok(App{config: Config{host: "localhost", port: 5432}, context: Context.root()})
 }
 
 fn main() {
@@ -127,7 +127,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{level: 1, label: "base", context: Context.root()})
+  Ok(App{level: 1, label: "base", context: Context.root()})
 }
 
 fn show() -> String { "${App.label}@${App.level}" }
@@ -173,7 +173,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{shape: #Square{side: 3}, context: Context.root()})
+  Ok(App{shape: Square{side: 3}, context: Context.root()})
 }
 
 fn report(label: String) -> Unit {
@@ -182,7 +182,7 @@ fn report(label: String) -> Unit {
 }
 
 fn wide() -> Unit {
-  with App.shape = #Rect{w: 2, h: 5}
+  with App.shape = Rect{w: 2, h: 5}
   report("rect")
 }
 
@@ -211,7 +211,7 @@ struct Ports {
 }
 
 fn boot() -> Result<Ports, String> {
-  Ok(#Ports{port: 8080, execution: Context.root()})
+  Ok(Ports{port: 8080, execution: Context.root()})
 }
 
 fn note(s: String) -> Unit {
@@ -279,7 +279,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{named: #Plain{label: "p"}, context: Context.root()})
+  Ok(App{named: Plain{label: "p"}, context: Context.root()})
 }
 
 fn show() -> String { Named.name(App.named) }
@@ -304,7 +304,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{label: "base", context: Context.root()})
+  Ok(App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -366,13 +366,13 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{label: "base", context: Context.root()})
+  Ok(App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
 
 fn counted() -> Int {
-  Iter.loop(fn n = 0 -> {
+  Iter.loop(0, fn n -> {
     io.print("start ${label()}")
     with App.label = "iter ${n}"
     io.print(label())
@@ -414,7 +414,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-  Ok(#App{label: "base", context: Context.root()})
+  Ok(App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -424,7 +424,7 @@ fn pick(n: Int) -> Maybe<String> {
 }
 
 fn walk() -> Int {
-  Iter.loop(fn n = 0 -> {
+  Iter.loop(0, fn n -> {
     Some(v) = pick(n) else {
       with App.label = "fallback ${n}"
       io.print(label())
@@ -460,7 +460,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-  Ok(#App{label: "base", context: Context.root()})
+  Ok(App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }
@@ -531,7 +531,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{label: "base", context: Context.root()})
+  Ok(App{label: "base", context: Context.root()})
 }
 
 fn label() -> String { App.label }

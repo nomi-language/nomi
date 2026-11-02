@@ -46,5 +46,5 @@ fn main() {
 
     io.print("debug = ${Debug.inspect(p)}")
     io.print("record debug = ${Debug.inspect(r)}")
-    io.print("nested debug = ${Debug.inspect(#(#Pt{x: 1}, fn x: Int -> x))}")
+    io.print("nested debug = ${Debug.inspect(#(Pt{x: 1}, fn x: Int -> x))}")
 }

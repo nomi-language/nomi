@@ -47,7 +47,7 @@ test "the operators are the Int functions" {
     assert Int.bitwise_not(12) == ~~~12
     assert Int.shift_left(3, 4) == 3 <<< 4
     assert Int.shift_right(48, 4) == 48 >>> 4
-    assert Iter.reduce([1, 4, 16], Int.bitwise_or, from: 0) == 21
+    assert Iter.reduce([1, 4, 16], 0, Int.bitwise_or) == 21
 }
 
 test "shifts and &&& bind like *, ||| and ^^^ like +" {

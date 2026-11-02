@@ -25,8 +25,8 @@ var declineReproducers = []struct{ name, src string }{
 		src: `type Pair #(Int, String)
 
 test "assert a tuple pattern holding a tuple distinct" {
-    t = #(#Pair(1, "a"), 2)
-    assert #(#Pair(x, _), 2) = t
+    t = #(Pair(1, "a"), 2)
+    assert #(Pair(x, _), 2) = t
     assert x == 1
 }
 `,
@@ -38,12 +38,12 @@ test "assert a tuple pattern holding a tuple distinct" {
 type Pair #(Int, String)
 
 fn f(t: #(Pair, Int)) -> Int {
-    #(#Pair(x, _), 2) = t else { return 0 }
+    #(Pair(x, _), 2) = t else { return 0 }
     x
 }
 
 fn main() {
-    io.inspect(f(#(#Pair(1, "a"), 2)))
+    io.inspect(f(#(Pair(1, "a"), 2)))
 }
 `,
 	},
@@ -54,12 +54,12 @@ fn main() {
 type Pair #(Int, String)
 
 fn f(t: #(Pair, Int)) -> Int {
-    #(#Pair(x, _), y) = t
+    #(Pair(x, _), y) = t
     x + y
 }
 
 fn main() {
-    io.inspect(f(#(#Pair(1, "a"), 2)))
+    io.inspect(f(#(Pair(1, "a"), 2)))
 }
 `,
 	},
@@ -159,7 +159,7 @@ fn total(xs: Iter<Int>) -> Int {
 }
 
 fn main() {
-    io.inspect(total(#Pair{a: 1, b: 2}))
+    io.inspect(total(Pair{a: 1, b: 2}))
 }
 `,
 	},
@@ -168,7 +168,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    xs = Iter.loop(fn acc: List<Int> = [1] -> {
+    xs = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 { break acc }
         break []
     })
@@ -182,7 +182,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    f = Iter.loop(fn g = fn x: Int -> x -> {
+    f = Iter.loop(fn x: Int -> x, fn g -> {
         if g(0) > 3 { break g }
         fn x: Int -> g(x) + 1
     })
@@ -196,7 +196,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    xs = Iter.loop(fn acc: List<Int> = [1] -> {
+    xs = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 { break [] }
         [1, ..acc]
     })
@@ -210,7 +210,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    xs = Iter.loop(fn acc: List<Int> = [1] -> {
+    xs = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 { break acc }
         if Iter.count(acc) == 0 { return [] }
         [1, ..acc]
@@ -225,7 +225,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    xs = Iter.loop(fn acc: List<Int> = [1] -> {
+    xs = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 {
             break []
         } else {
@@ -244,7 +244,7 @@ fn main() {
 fn main() {
     m: Maybe<Int> = Some(3)
 
-    n = Iter.loop(fn n = 0 -> {
+    n = Iter.loop(0, fn n -> {
         if n > 3 { break n }
         if Some(v) = m { n + v } else { n + 1 }
     })
@@ -258,7 +258,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    xs = Iter.loop(fn acc: List<Int> = [1] -> {
+    xs = Iter.loop([1], fn acc: List<Int> -> {
         if Iter.count(acc) > 2 { break acc }
         []
     })
@@ -298,7 +298,7 @@ impl Iter for Pair {
 
 fn main() {
     io.inspect(
-        #Pair{a: 1, b: 2}
+        Pair{a: 1, b: 2}
         |> Iter.map(fn x -> x + 1)
         |> Iter.to_list()
     )
@@ -400,9 +400,9 @@ enum Shape {
 type P #(Iter<Shape>, Int)
 
 fn main() {
-    c = #Circle{r: 1}
+    c = Circle{r: 1}
     q = P(#([c], 2))
-    #P(it, n) = q
+    P(it, n) = q
     io.print(Int.to_string(Iter.count(it) + n))
 }
 `,
@@ -414,8 +414,8 @@ fn main() {
 type Pair #(Int, String)
 
 fn f(m: Maybe<#(Pair, Int)>) -> Int {
-    Some(#(#Pair(x, _), y)) = m else {
-        #(#Pair(0, ""), 0)
+    Some(#(Pair(x, _), y)) = m else {
+        #(Pair(0, ""), 0)
     }
     x + y
 }
@@ -442,13 +442,13 @@ enum E {
 
 fn f(e: E) -> Int {
     case e {
-        #.Circle{p: #Pair(a, _)} -> a
+        .Circle{p: Pair(a, _)} -> a
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(#Circle{p: #Pair(1, "a")}))
+    io.inspect(f(Circle{p: Pair(1, "a")}))
 }
 `,
 	},
@@ -482,11 +482,11 @@ enum Shape {
 }
 
 struct H {
-    it: Iter<Shape> = [#Circle{r: 1}]
+    it: Iter<Shape> = [Circle{r: 1}]
 }
 
 fn main() {
-    h = #H{}
+    h = H{}
     io.print(Int.to_string(Iter.count(h.it)))
 }
 `,
@@ -512,7 +512,7 @@ pub fn evens() -> Iter<Int> {
 }
 
 pub fn sum_of(xs: Iter<Int>) -> Int {
-    Iter.reduce(xs, fn acc = 0, x -> acc + x)
+    Iter.reduce(xs, 0, fn acc, x -> acc + x)
 }
 
 pub fn px(p: #{x: Int, y: Int}) -> Int {
@@ -539,7 +539,7 @@ fn show<T>(x: T) -> String where T: Display {
 }
 
 fn main() {
-    io.print(show(#lib.Dog{name: "d"}))
+    io.print(show(lib.Dog{name: "d"}))
 }
 // FILE: lib.nomi
 pub struct Dog {
@@ -557,7 +557,7 @@ enum Either2<A, B> {
 }
 
 fn main() {
-    io.inspect(#Either2.L{a: 1})
+    io.inspect(Either2.L{a: 1})
 }
 `,
 	},
@@ -643,7 +643,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    r = Iter.loop(fn xs = [1, 2, 3] -> {
+    r = Iter.loop([1, 2, 3], fn xs -> {
         case xs {
             [] -> break [0]
             [_] -> []
@@ -667,7 +667,7 @@ fn find(n: Int) -> Maybe<Int> {
 }
 
 fn main() {
-    r = loop(fn n = 0 -> {
+    r = loop(0, fn n -> {
         Some(v) = find(n) else {
             if n > 5 { 10 } else { 20 }
         }
@@ -691,7 +691,7 @@ fn find(n: Int) -> Maybe<Maybe<Int>> {
 }
 
 fn main() {
-    r = loop(fn n = 0 -> {
+    r = loop(0, fn n -> {
         Some(Some(v)) = find(n) else {
             if n > 10 { break 1 } else { break 2 }
         }
@@ -707,7 +707,7 @@ fn main() {
 		src: `import std/io
 
 fn main() {
-    r = Iter.loop(fn xs = [1, 2, 3] -> {
+    r = Iter.loop([1, 2, 3], fn xs -> {
         case xs {
             [] ->
                 break [0]
@@ -791,7 +791,7 @@ impl Box<T> {
 }
 
 fn main() {
-    io.inspect(Box.pick(#Box{v: 1}, n: 2))
+    io.inspect(Box.pick(Box{v: 1}, n: 2))
 }
 `,
 	},
@@ -906,7 +906,7 @@ struct DateParts {
 fn main() {
     d = Date` + "`2024-03-05`" + `
     io.print(Int.to_string(calendar.DateParts.year(d)))
-    io.print(Int.to_string(#DateParts{x: 1}.x))
+    io.print(Int.to_string(DateParts{x: 1}.x))
 }
 `,
 	},
@@ -951,7 +951,7 @@ pub struct Box {
 }
 
 pub fn make() -> Box {
-    #Box{at: #{x: 1, y: 2}}
+    Box{at: #{x: 1, y: 2}}
 }
 
 pub fn width(b: Box) -> Int {
@@ -995,8 +995,8 @@ struct H {
 }
 
 fn main() {
-    c = #Circle{r: 1}
-    h = #H{it: [Shape.Dot], n: 1}
+    c = Circle{r: 1}
+    h = H{it: [Shape.Dot], n: 1}
     h2 = #{..h, it: [c]}
     io.inspect(Iter.count(h2.it))
 }
@@ -1021,8 +1021,8 @@ struct H {
 }
 
 fn main() {
-    c = #Circle{r: 1}
-    h = #H{it: [Shape.Dot], n: 1}
+    c = Circle{r: 1}
+    h = H{it: [Shape.Dot], n: 1}
     h2 = Struct.update(updates: #{it: [c]}, original: h)
     io.inspect(Iter.count(h2.it))
 }
@@ -1041,13 +1041,13 @@ enum E {
 
 fn f(e: E) -> Int {
     case e {
-        #.Rec{p: #Pair(a, _)} -> a
+        .Rec{p: Pair(a, _)} -> a
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(#E.Rec{p: #Pair(1, "a")}))
+    io.inspect(f(E.Rec{p: Pair(1, "a")}))
 }
 `,
 	},
@@ -1067,13 +1067,13 @@ typealias S Shape
 
 fn f(s: Shape) -> Int {
     case s {
-        #S.Rec{w} -> w
+        S.Rec{w} -> w
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(#Shape.Rec{w: 2, h: 3}))
+    io.inspect(f(Shape.Rec{w: 2, h: 3}))
 }
 `,
 	},
@@ -1097,7 +1097,7 @@ fn f(s: Shape) -> Int {
 }
 
 fn main() {
-    io.inspect(f(#Shape.Rec{w: 2, h: 3}))
+    io.inspect(f(Shape.Rec{w: 2, h: 3}))
 }
 `,
 	},
@@ -1114,7 +1114,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(#App{context: Context.root(), work: Supervisor.new(2)})
+    Ok(App{context: Context.root(), work: Supervisor.new(2)})
 }
 
 fn main() {
@@ -1135,7 +1135,7 @@ struct App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(#App{context: Context.root(), work: Supervisor.new(2)})
+    Ok(App{context: Context.root(), work: Supervisor.new(2)})
 }
 
 fn main() {
@@ -1257,13 +1257,13 @@ type Pair #(Int, String)
 
 fn f(t: #(Pair, Int)) -> Int {
     case t {
-        #(#Pair(1, _), 2) -> 1
+        #(Pair(1, _), 2) -> 1
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(#(#Pair(1, "a"), 2)))
+    io.inspect(f(#(Pair(1, "a"), 2)))
 }
 `,
 	},
@@ -1289,7 +1289,7 @@ fn pick(b: Bool) -> Bool {
 }
 
 fn main() {
-    p = #P{x: 1}
+    p = P{x: 1}
     q = Struct.update(if pick(True) { p } else { p }, #{x: 2})
     io.inspect(q.x)
     r = Struct.update(updates: #{x: 3}, original: if pick(False) { p } else { p })
@@ -1333,13 +1333,13 @@ enum E {
 
 fn f(e: E) -> Int {
     case e {
-        .Dist(#Pair(a, _) as _whole) -> a
+        .Dist(Pair(a, _) as _whole) -> a
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(E.Dist(#Pair(1, "a"))))
+    io.inspect(f(E.Dist(Pair(1, "a"))))
 }
 `,
 	},
@@ -1356,13 +1356,13 @@ enum E {
 
 fn f(e: E) -> Int {
     case e {
-        .TP(#(#Pair(a, _), _)) -> a
+        .TP(#(Pair(a, _), _)) -> a
         _ -> 0
     }
 }
 
 fn main() {
-    io.inspect(f(E.TP(#(#Pair(1, "a"), 2))))
+    io.inspect(f(E.TP(#(Pair(1, "a"), 2))))
 }
 `,
 	},
@@ -1383,8 +1383,8 @@ enum Shape {
 }
 
 fn main() {
-    c = #Circle{r: 1}
-    v: Vector<Captured<Shape>> = #[#Captured{value: c, output: "", errors: "", transcript: ""}]
+    c = Circle{r: 1}
+    v: Vector<Captured<Shape>> = #[Captured{value: c, output: "", errors: "", transcript: ""}]
     io.inspect(Vector.length(v))
 }
 `,
@@ -1406,8 +1406,8 @@ enum Shape {
 }
 
 fn main() {
-    a = #Captured{value: #Circle{r: 1}, output: "", errors: "", transcript: ""}
-    b = #Captured{value: Shape.Dot, output: "", errors: "", transcript: ""}
+    a = Captured{value: Circle{r: 1}, output: "", errors: "", transcript: ""}
+    b = Captured{value: Shape.Dot, output: "", errors: "", transcript: ""}
     v = #[a, b]
     io.inspect(Vector.length(v))
 }

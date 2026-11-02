@@ -107,12 +107,22 @@ func (u *unbuiltDecl) whenBuilt(f func()) {
 	u.onBuilt = append(u.onBuilt, f)
 }
 
-// distinctBuilt marks dt built and runs what waited on its inner type.
+// distinctBuilt marks dt built, completes every instance of a generic
+// distinct taken before it was built, and runs what waited on its inner
+// type.
 func distinctBuilt(dt *DistinctType) {
 	u := dt.unbuilt
 	dt.unbuilt = nil
 	if u == nil {
 		return
+	}
+	for _, inst := range u.instances {
+		if inst, ok := inst.(*DistinctType); ok {
+			inst.Inner = dt.Inner
+			inst.TypeParams = dt.TypeParams
+			inst.TypeParamDefs = dt.TypeParamDefs
+			inst.unbuilt = nil
+		}
 	}
 	for _, f := range u.onBuilt {
 		f()

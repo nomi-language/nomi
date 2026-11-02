@@ -133,11 +133,11 @@ fn told<T>(other: T) -> String where T: Scale and Display {
 }
 
 fn main() {
-    io.print(look(#Two { n: 1 }, #Two { n: 1 }))
-    io.print(told(#Two { n: 3 }))
+    io.print(look(Two{ n: 1 }, Two{ n: 1 }))
+    io.print(told(Two{ n: 3 }))
 }
 `})
-	if want := "#Two{n: 1} 2 2 True 1\ntwo 3 x6\n"; got != want {
+	if want := "Two{n: 1} 2 2 True 1\ntwo 3 x6\n"; got != want {
 		t.Fatalf("output %q, want %q", got, want)
 	}
 }
@@ -234,18 +234,18 @@ fn hashes_alike<T>(a: T, b: T) -> Bool where T: Hashable {
 }
 
 fn main() {
-    scales: List<Scale> = [#Two{n: 1}, #Word{text: "Ann"}, 1, [1, 2]]
-    pair: Scale = #Pair{n: 1}
-    word: Scale = #Word{text: "ANN"}
-    two: Scale = #Two{n: 1}
+    scales: List<Scale> = [Two{n: 1}, Word{text: "Ann"}, 1, [1, 2]]
+    pair: Scale = Pair{n: 1}
+    word: Scale = Word{text: "ANN"}
+    two: Scale = Two{n: 1}
     io.print("${List.contains(scales, pair)} ${List.contains(scales, word)} ${Iter.contains(scales, word)}")
     io.print("${has(scales, word)} ${same(pair, two)} ${Equatable.equal(word, word)}")
-    lower: Scale = #Word{text: "ann"}
+    lower: Scale = Word{text: "ann"}
     io.print("${kinds([pair, two, word, lower])} ${hashes_alike(word, lower)}")
     io.print("${scales |> Iter.chunk_by(fn s -> s) |> Iter.count()}")
-    m = %{#Keyed{scale: word, n: 1} => "found"}
-    io.print(Map.get(m, #Keyed{scale: lower, n: 1}))
-    io.print(Map.get(m, #Keyed{scale: two, n: 1}))
+    m = %{Keyed{scale: word, n: 1} => "found"}
+    io.print(Map.get(m, Keyed{scale: lower, n: 1}))
+    io.print(Map.get(m, Keyed{scale: two, n: 1}))
 }
 `})
 	if want := "False True True\nTrue False True\n3 True\n4\nSome(found)\nNone\n"; got != want {

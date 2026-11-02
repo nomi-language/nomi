@@ -212,7 +212,7 @@ pub struct App {
 }
 
 pub fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(#App{greeting: "hi", context: Context.root()})
+    Ok(App{greeting: "hi", context: Context.root()})
 }
 
 pub fn greet(name: String) -> String {
@@ -224,7 +224,7 @@ fn main() {
 }
 
 group "entry" {
-    boot boot(#Startup{})
+    boot boot(Startup{})
 
     test "in the entry" {
         assert greet("bo") == "hi bo"
@@ -235,7 +235,7 @@ group "entry" {
 import main
 
 group "greeting" {
-    boot main.boot(#Startup{})
+    boot main.boot(Startup{})
 
     test "booted from the entry" {
         assert main.greet("cy") == "hi cy"

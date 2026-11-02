@@ -82,7 +82,7 @@ fn main() {
     xs = [1, 2, 3]
     dbg xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list()
     dbg xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list()
-    dbg xs |> Iter.map(&#Point{x: &1, y: 0}) |> Iter.to_list()
+    dbg xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list()
     dbg xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list()
 }
 
@@ -90,14 +90,14 @@ fn main() {
 <!-- expect
 dbg line 8: xs |> Iter.filter(&(&1 > 1)) |> Iter.to_list() = [2, 3]
 dbg line 9: xs |> Iter.map(&(&1 * 2 + 1)) |> Iter.to_list() = [3, 5, 7]
-dbg line 10: xs |> Iter.map(&#Point{x: &1, y: 0}) |> Iter.to_list() = [#Point{x: 1, y: 0}, #Point{x: 2, y: 0}, #Point{x: 3, y: 0}]
+dbg line 10: xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list() = [Point{x: 1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}]
 dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
 -->
 
 A capture writes a small function in place: `&`, then the function's body.
 `&1` is its first parameter, `&2` its second. `&(&1 > 1)` is `fn x -> x >
-1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, and `&#Point{x: &1, y: 0}` is
-`fn x -> #Point{x: x, y: 0}`.
+1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, and `&Point{x: &1, y: 0}` is
+`fn x -> Point{x: x, y: 0}`.
 
 `Iter.filter` and `Iter.map` work on any collection, and `Iter.to_list`
 collects the result into a list. [Collections](/collections/) covers them.
@@ -226,9 +226,10 @@ its default: `["Ada", "Lin"] |> Iter.map(greet)` greets each name with
 - Positional arguments can't skip a default in the middle. For
   `fn middle(a: Int, b: Int = 10, c: Int)`, `middle(1, 2)` is a missing
   argument for `c`; write `middle(1, c: 2)`.
-- Defaults belong to a call by name. After `g = greet` with no type
-  expected, `g("World")` is an error, since `g` holds the function with
-  both parameters.
+- Defaults belong to the function's name and the local names that copy it:
+  after `g = greet`, `g("World")` fills the rest, as it does for a lambda
+  bound to a name. A function passed to another one, or kept in a list or
+  a field, is called with every argument.
 - `?` and `return` can't stand directly in a default. It has no function
   to return from.
 
@@ -290,7 +291,7 @@ fn subtract(Dur(a), Dur(b)) -> Dur {
     Dur(a - b)
 }
 
-fn sum_point(#Point{x, y}) -> Int {
+fn sum_point(Point{x, y}) -> Int {
     x + y
 }
 
@@ -301,14 +302,14 @@ fn add_pair(#(a, b): #(Int, Int)) -> Int {
 fn main() {
     Dur(diff) = subtract(Dur(10), Dur(3))
     dbg diff
-    dbg sum_point(#Point{x: 4, y: 5})
+    dbg sum_point(Point{x: 4, y: 5})
     dbg add_pair(#(20, 22))
 }
 
 ```
 <!-- expect
 dbg line 22: diff = 7
-dbg line 23: sum_point(#Point{x: 4, y: 5}) = 9
+dbg line 23: sum_point(Point{x: 4, y: 5}) = 9
 dbg line 24: add_pair(#(20, 22)) = 42
 -->
 
@@ -320,7 +321,7 @@ The pattern must match every possible value of its type. Patterns like that
 are called irrefutable. Tuples, structs, distinct types such as `Dur`, and
 enums with one variant all qualify.
 
-When the pattern names a type, as `Dur(a)` and `#Point{x, y}` do, you don't
+When the pattern names a type, as `Dur(a)` and `Point{x, y}` do, you don't
 write the type again. A tuple or an anonymous struct pattern names no type,
 so it needs one, as in `#(a, b): #(Int, Int)`.
 

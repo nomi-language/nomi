@@ -66,7 +66,8 @@
 //# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`,
 //# `transpose`, `permutations`, `combinations`, `sort`, `sort_by`,
 //# `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`,
-//# `min_by`, `max_by`, `sum`, `String.join`, `Maybe.values`,
+//# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`,
+//# `String.join`, `Maybe.values`,
 //# `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and
 //# `reduce`, `each` and `map_reduce` when their callback cannot `break`. The
 //# ones that may stop early do not: `first`, `find`, `any`, `all`,
@@ -98,8 +99,8 @@
 //#
 //# A named function that uses `break` or `continue` acts only on an
 //# iteration it is directly the callback of, so it is passed as the callback
-//# itself and never called: `Iter.map(xs, keep)`, or with the starting value
-//# by name for a fold, `Iter.reduce(xs, add_until_zero, from: 0)`. See
+//# itself and never called: `Iter.map(xs, keep)`, or after the starting
+//# value for a fold, `Iter.reduce(xs, 0, add_until_zero)`. See
 //# [helper functions that break or continue](/iteration-and-loops/#helper-functions-that-break-or-continue).
 //#
 //# ## The operations
@@ -136,40 +137,23 @@
 //#
 //# ## Starting values
 //#
-//# `Iter.reduce` starts from `from`, or from the default of its callback
-//# lambda's first parameter: `Iter.reduce(xs, Int.add, from: 0)` and
-//# `Iter.reduce(xs, fn sum = 0, x -> sum + x)` are the same fold, 0 for an
-//# empty `xs`. `from:` works with any callback: a named function, a capture,
-//# a lambda without a default. Exactly one of the two gives the starting
-//# value.
-//#
-//# - A call with neither is a compile error at the callback,
-//#   "`Iter.reduce` needs a starting value", whose help names both spellings
-//#   (`` give it with `from:`: `Iter.reduce(xs, add, from: <start>)` ``, and
-//#   for a lambda also its accumulator's default). This covers a function
-//#   value (`Iter.reduce(xs, Int.add)`, `xs |> Iter.reduce(add)`), a lambda
-//#   whose first parameter has no default (`fn a, b -> a + b`), a capture
-//#   (`&add(&1, &2)`), a callback slot left open (`&Iter.reduce(xs, &1)`)
-//#   and `Iter.reduce` named as a value.
-//# - A call with both is "`Iter.reduce` has two starting values: `from:` and
-//#   the default of the callback's first parameter", at `from:`, with the
-//#   help "keep one: remove `from:`, or remove the default from `acc`".
-//# - `from` is given by name: `Iter.reduce(xs, 0, add)` is "`Iter.reduce`
-//#   takes its starting value by name". The callback is the positional
-//#   argument after the source wherever `from:` is written, so
-//#   `Iter.reduce(xs, from: 0, add)` is the same call.
+//# `Iter.reduce` starts from its `from` parameter, written before the
+//# callback: `Iter.reduce(xs, 0, Int.add)` and
+//# `Iter.reduce(xs, 0, fn sum, x -> sum + x)` are the same fold, 0 for an
+//# empty `xs`; piped, `xs |> Iter.reduce(0, Int.add)`. A call without it is
+//# the ordinary missing-argument error.
 //#
 //# There is no first-element fallback, so a reduction never fails at run
 //# time for an empty source. For the least or greatest element, which has no
 //# answer for an empty source, use `Iter.min` and `Iter.max`: each answers a
 //# `Maybe`, `None` when the source is empty.
 //#
-//# `Iter.scan` and `Iter.map_reduce` take their starting value the same way,
-//# and the errors are the same with their own names ("`Iter.scan` needs a
-//# starting value"). `Iter.scan` is lazy and yields each state after the
-//# starting value, one per element; `Iter.map_reduce` is eager and answers
-//# the outputs in order with the final state, `#([], start)` for an empty
-//# source.
+//# `Iter.scan`, `Iter.map_reduce` and `Iter.try_reduce` take their
+//# starting value the same way, and so does `Iter.loop`, which has no
+//# source: `Iter.loop(0, step)`. `Iter.scan` is lazy and yields each state
+//# after the starting value, one per element; `Iter.map_reduce` is eager and
+//# answers the final state with the outputs in order, `#(start, [])` for an
+//# empty source.
 //#
 //# ## Element types
 //#
@@ -241,7 +225,7 @@ import {
 ///             True
 ///         } else {
 ///             if yield(c.from) {
-///                 each_while(#Countdown{from: c.from - 1}, yield)
+///                 each_while(Countdown{from: c.from - 1}, yield)
 ///             } else {
 ///                 False
 ///             }
@@ -278,11 +262,11 @@ pub interface Iter<T> {
 
 impl Iter<T> {
     /// Loops indefinitely, invoking `f` each iteration. The callback either
-    /// carries state or is stateless (`fn -> body`). The starting state is
-    /// `from`, or the default of the callback lambda's parameter
-    /// (`fn n = 0 ->`): exactly one of the two, so a named function is
-    /// passed with `from:` (`Iter.loop(step, from: 0)`). The callback's
-    /// return value becomes the next iteration's state. The state type, the
+    /// carries state or is stateless (`fn -> body`). A loop with state starts
+    /// from `from`, written before the callback: `Iter.loop(0, fn n -> ...)`
+    /// or `Iter.loop(0, step)`. A stateless loop takes the callback alone,
+    /// `Iter.loop(fn -> ...)`. The callback's return value becomes the next
+    /// iteration's state. The state type, the
     /// `break` value type, and the loop's result type are all one type `S`:
     /// for a stated callback `S` comes from the starting state, and a
     /// stateless callback has state `Unit`, so it breaks with `break` alone
@@ -292,7 +276,7 @@ impl Iter<T> {
     /// the current state. `continue` starts the next round with the state
     /// unchanged. Without an explicit break this loops forever.
     //
-    //! assert Iter.loop(fn n = 0 -> {
+    //! assert Iter.loop(0, fn n -> {
     //!     if n >= 3 {
     //!         break n
     //!     } else {
@@ -302,21 +286,18 @@ impl Iter<T> {
     //!
     //! assert Iter.loop(fn -> { break }) == Unit
     //!
-    //! assert Iter.loop(
-    //!     fn n -> {
-    //!         if n >= 3 {
-    //!             break n
-    //!         } else {
-    //!             n + 1
-    //!         }
-    //!     },
-    //!     from: 1,
-    //! ) == 3
+    //! assert Iter.loop(1, fn n -> {
+    //!     if n >= 3 {
+    //!         break n
+    //!     } else {
+    //!         n + 1
+    //!     }
+    //! }) == 3
     //
     pub host fn loop<S>(from: S, f: (S) -> S) -> S
 
     // ---------------------------------------------------------------------------
-    // Terminals. Owner functions over any `Iter<T>` — `Iter.reduce(xs, f)`,
+    // Terminals. Owner functions over any `Iter<T>` — `Iter.reduce(xs, 0, f)`,
     // `Iter.find(xs, p)`, `Iter.to_list(xs)`, … — live beside the protocol
     // functions `each_while` and `known_count`. Streaming terminals (`reduce`/
     // `find`/`each`/`any`/`all`/`is_empty`/…) produce a scalar without building a
@@ -330,70 +311,66 @@ impl Iter<T> {
     // ---------------------------------------------------------------------------
     /// Reduces a collection to a single value by folding.
     ///
-    /// The starting value is `from`, or the default of the callback lambda's
-    /// first parameter: `Iter.reduce(xs, Int.add, from: 0)` and
-    /// `Iter.reduce(xs, fn acc = 0, x -> acc + x)` are the same fold. Exactly
-    /// one of the two gives it; both, or neither, is a compile error. It is
+    /// The starting value is `from`, before the callback:
+    /// `Iter.reduce(xs, 0, Int.add)` and
+    /// `Iter.reduce(xs, 0, fn acc, x -> acc + x)` are the same fold. It is
     /// the answer for an empty source. For the least or greatest element use
     /// `Iter.min` or `Iter.max`.
     ///
     /// Supports `break` / `break value` / `continue` in the callback.
-    //! assert Iter.reduce([1, 2, 3], fn acc = 0, x -> acc + x) == 6
-    //! assert Iter.reduce([], fn acc = 0, x -> acc + x) == 0
-    //! assert Iter.reduce([1, 2, 3], Int.add, from: 10) == 16
-    //! assert Iter.reduce([1, 2, 3], from: 10, Int.add) == 16
+    //! assert Iter.reduce([1, 2, 3], 0, fn acc, x -> acc + x) == 6
+    //! assert Iter.reduce([], 0, fn acc, x -> acc + x) == 0
+    //! assert Iter.reduce([1, 2, 3], 10, Int.add) == 16
     //
     pub host fn reduce<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> U
 
     // `scan` and `map_reduce` are the folds that keep more than the final
-    // state. Both take their starting value as `reduce` does, from `from`
-    // or the callback lambda's first-parameter default.
+    // state. Both take their starting value as `reduce` does, in `from`.
     /// Lazy: runs a fold and yields each state after it. The starting value
-    /// is `from` or the default of the callback lambda's first parameter, as
-    /// in `Iter.reduce`, and is not itself yielded, so there is one state per
-    /// element and an empty source yields nothing.
+    /// is `from`, as in `Iter.reduce`, and is not itself yielded, so there is
+    /// one state per element and an empty source yields nothing.
     ///
     /// In the callback, `continue` skips the element: no state is yielded
     /// and the state stays as it was. `break value` yields `value` as the
     /// last state, then stops; a bare `break` stops without yielding.
     //
-    //! running = [3, 1, 4] |> Iter.scan(fn total = 0, x -> total + x) |> Iter.to_list()
+    //! running = [3, 1, 4] |> Iter.scan(0, fn total, x -> total + x) |> Iter.to_list()
     //! assert running == [3, 4, 8]
     //!
-    //! peaks = [2, 5, 3, 7] |> Iter.scan(fn peak = 0, x -> Int.max(peak, x)) |> Iter.to_list()
+    //! peaks = [2, 5, 3, 7] |> Iter.scan(0, fn peak, x -> Int.max(peak, x)) |> Iter.to_list()
     //! assert peaks == [2, 5, 5, 7]
     //
     pub host fn scan<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> Iter<U>
 
-    /// Maps each element with a state threaded through, and returns the
-    /// outputs in order with the final state. The callback takes the state
-    /// and an element and returns `#(output, next_state)`; the starting state
-    /// is `from` or the default of its first parameter, as in `Iter.reduce`.
-    /// An empty source answers no outputs and the starting state. Consumes the
+    /// Maps each element with a state threaded through, and returns the final
+    /// state with the outputs in order. The callback takes the state and an
+    /// element and returns `#(next_state, output)`, state first as in
+    /// `Iter.reduce`; the starting state is `from`, as in `Iter.reduce`. An
+    /// empty source answers the starting state and no outputs. Consumes the
     /// whole iterator.
     ///
     /// In the callback, `continue` skips the element: no output, and the
-    /// state stays as it was. `break #(output, state)` keeps that output and
-    /// state, then stops; a bare `break` stops with the outputs and state so
+    /// state stays as it was. `break #(state, output)` keeps that state and
+    /// output, then stops; a bare `break` stops with the state and outputs so
     /// far.
     //
     //! lines = ["a", "abc", "ab"]
     //!
-    //! #(rows, width) =
+    //! #(width, rows) =
     //!     lines
     //!     |> Iter.reverse()
-    //!     |> Iter.map_reduce(fn width = 0, line -> {
+    //!     |> Iter.map_reduce(0, fn width, line -> {
     //!         width = Int.max(width, String.length(line))
-    //!         #(String.pad_end(line, width), width)
+    //!         #(width, String.pad_end(line, width))
     //!     })
     //!
     //! assert rows == ["ab", "abc", "a  "]
     //! assert width == 3
     //!
     //! none: List<String> = []
-    //! assert Iter.map_reduce(none, fn n = 0, s -> #(s, n + 1)) == #([], 0)
+    //! assert Iter.map_reduce(none, 0, fn n, s -> #(n + 1, s)) == #(0, [])
     //
-    pub host fn map_reduce<T, U, A>(source: Iter<T>, from: A, f: (A, T) -> #(U, A)) -> #(List<U>, A)
+    pub host fn map_reduce<T, U, A>(source: Iter<T>, from: A, f: (A, T) -> #(A, U)) -> #(A, List<U>)
 
     /// Returns the first element matching the predicate, or None.
     //
@@ -401,7 +378,7 @@ impl Iter<T> {
     //! assert Iter.find([1, 2], &(&1 > 99)) == None
     //
     pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<T> {
-        reduce(source, fn _acc = None, item -> {
+        reduce(source, None, fn _acc, item -> {
             if f(item) {
                 break Some(item)
             } else {
@@ -425,7 +402,7 @@ impl Iter<T> {
     //! assert first_square_over_50 == Some(64)
     //
     pub fn find_map<T, U>(source: Iter<T>, f: (T) -> Maybe<U>) -> Maybe<U> {
-        reduce(source, fn _acc = None, item -> {
+        reduce(source, None, fn _acc, item -> {
             case f(item) {
                 Some(found) -> break Some(found)
                 None -> None
@@ -481,7 +458,7 @@ impl Iter<T> {
         from: U,
         f: (U, T) -> Result<U, E>,
     ) -> Result<U, E> {
-        reduce(source, fn state = Ok(from), item -> {
+        reduce(source, Ok(from), fn state, item -> {
             case state {
                 Ok(value) ->
                     case f(value, item) {
@@ -563,12 +540,12 @@ impl Iter<T> {
     }
 
     /// Calls f for each element. Returns Unit (discards the accumulator).
-    //! seen = Iter.reduce([1, 2, 3], fn acc = 0, n -> acc + n)
+    //! seen = Iter.reduce([1, 2, 3], 0, fn acc, n -> acc + n)
     //! assert seen == 6
     //! assert Iter.each([1, 2, 3], fn _n -> Unit) == Unit
     //
     pub fn each<T>(source: Iter<T>, f: (T) -> Unit) {
-        case reduce(source, fn _acc = Unit, item -> f(item)) {
+        case reduce(source, Unit, fn _acc, item -> f(item)) {
             _ -> Unit
         }
     }
@@ -580,7 +557,7 @@ impl Iter<T> {
     //! refute Iter.any([1, 2], &(&1 > 99))
     //
     pub fn any<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
-        reduce(source, fn _acc = False, item -> {
+        reduce(source, False, fn _acc, item -> {
             if f(item) {
                 break True
             } else {
@@ -599,7 +576,7 @@ impl Iter<T> {
     //! assert Iter.contains(Iter.from(0), 1_000)
     //
     pub fn contains<T>(source: Iter<T>, x: T) -> Bool where T: Equatable {
-        reduce(source, fn _acc = False, item -> {
+        reduce(source, False, fn _acc, item -> {
             if item == x {
                 break True
             } else {
@@ -615,7 +592,7 @@ impl Iter<T> {
     //! refute Iter.all([2, -4, 6], &(&1 > 0))
     //
     pub fn all<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
-        reduce(source, fn _acc = True, item -> {
+        reduce(source, True, fn _acc, item -> {
             if f(item) {
                 True
             } else {
@@ -630,7 +607,7 @@ impl Iter<T> {
     //! refute Iter.is_empty([1])
     //
     pub fn is_empty<T>(source: Iter<T>) -> Bool {
-        reduce(source, fn _acc = True, _item -> { break False })
+        reduce(source, True, fn _acc, _item -> { break False })
     }
 
     /// Returns the first element, or None if the iterator is empty. Terminal;
@@ -642,7 +619,7 @@ impl Iter<T> {
     //! assert Iter.first([]) == None
     //
     pub fn first<T>(source: Iter<T>) -> Maybe<T> {
-        reduce(source, fn _acc = None, item -> { break Some(item) })
+        reduce(source, None, fn _acc, item -> { break Some(item) })
     }
 
     /// Returns the last element, or None if the iterator is empty. Terminal;
@@ -652,7 +629,7 @@ impl Iter<T> {
     //! assert Iter.last([]) == None
     //
     pub fn last<T>(source: Iter<T>) -> Maybe<T> {
-        reduce(source, fn _acc = None, item -> Some(item))
+        reduce(source, None, fn _acc, item -> Some(item))
     }
 
     /// Returns the element at the given zero-based index, or None if the index is
@@ -666,7 +643,7 @@ impl Iter<T> {
         if index < 0 {
             None
         } else {
-            countdown = reduce(source, fn acc: #(Int, Maybe<T>) = #(index, None), item -> {
+            countdown = reduce(source, #(index, None), fn acc: #(Int, Maybe<T>), item -> {
                 #(remaining, _found) = acc
 
                 if remaining == 0 {
@@ -687,7 +664,7 @@ impl Iter<T> {
     //! assert Iter.partition([1, 2, 3, 4], &(&1 > 2)) == #([3, 4], [1, 2])
     //
     pub fn partition<T>(source: Iter<T>, f: (T) -> Bool) -> #(List<T>, List<T>) {
-        state = reduce(source, fn state = #([], []), item -> {
+        state = reduce(source, #([], []), fn state, item -> {
             #(ts, fs) = state
 
             if f(item) {
@@ -707,7 +684,7 @@ impl Iter<T> {
     //! assert Iter.group_by([1, 2, 3, 4], &(&1 % 2)) == %{1 => [1, 3], 0 => [2, 4]}
     //
     pub fn group_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Map<K, List<T>> {
-        bucketed = reduce(source, fn acc: Map<K, List<T>> = %{}, item -> {
+        bucketed = reduce(source, %{}, fn acc: Map<K, List<T>>, item -> {
             k = key_fn(item)
             current: List<T> = Maybe.with_default(Map.get(acc, k), [])
             Map.put(acc, k, [item, ..current])
@@ -729,7 +706,7 @@ impl Iter<T> {
     //! assert Iter.frequencies(empty) |> Map.size() == 0
     //
     pub fn frequencies<T>(source: Iter<T>) -> Map<T, Int> {
-        reduce(source, fn acc: Map<T, Int> = %{}, item -> {
+        reduce(source, %{}, fn acc: Map<T, Int>, item -> {
             Map.put(acc, item, Maybe.with_default(Map.get(acc, item), 0) + 1)
         })
     }
@@ -772,7 +749,7 @@ impl Iter<T> {
     //! assert 1..=3 |> Iter.to_set() == %[1, 2, 3]
     //
     pub fn to_set<T>(source: Iter<T>) -> Set<T> {
-        reduce(source, fn set = %[], item -> Set.insert(set, item))
+        reduce(source, %[], fn set, item -> Set.insert(set, item))
     }
 
     // ---------------------------------------------------------------------------
@@ -790,7 +767,7 @@ impl Iter<T> {
     //! assert ["a", "b", "c"] |> Iter.with_index() |> Iter.to_list() == [#(0, "a"), #(1, "b"), #(2, "c")]
     //
     pub fn with_index<T>(source: Iter<T>) -> Iter<#(Int, T)> {
-        #Seq{run: fn yield: (#(Int, T)) -> Bool -> with_index_each(source, yield)}
+        Seq{run: fn yield: (#(Int, T)) -> Bool -> with_index_each(source, yield)}
     }
 
     /// Lazy: yields at most the first `n` elements of `source`. Useful for bounding
@@ -804,7 +781,7 @@ impl Iter<T> {
     //! assert [1, 2] |> Iter.take(5) |> Iter.known_count() == Some(2)
     //
     pub fn take<T>(source: Iter<T>, n: Int) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> take_each(source, n, yield)}
+        Seq{run: fn yield: (T) -> Bool -> take_each(source, n, yield)}
     }
 
     /// Lazy: cycles through `source` endlessly. Empty source yields nothing.
@@ -822,7 +799,7 @@ impl Iter<T> {
     //! assert [1, 2] |> Iter.filter(&(&1 > 5)) |> Iter.cycle() |> Iter.to_list() == []
     //
     pub fn cycle<T>(source: Iter<T>) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> cycle_each(source, yield)}
+        Seq{run: fn yield: (T) -> Bool -> cycle_each(source, yield)}
     }
 
     /// Lazy: yields all elements of `a`, then all of `b`. Infinite when
@@ -835,7 +812,7 @@ impl Iter<T> {
         // The one adapter that needs no host help: "drive a, then drive b, unless
         // the consumer already said stop" is exactly what the protocol's Bool
         // return means, so it composes in Nomi.
-        #Seq{
+        Seq{
             run: fn yield: (T) -> Bool -> {
                 if Iter.each_while(a, yield) {
                     Iter.each_while(b, yield)
@@ -883,7 +860,7 @@ impl Iter<T> {
         // and like Go's it costs a coroutine plus a handoff per element. It is
         // paid on this path only, and only because it is the only way to keep
         // `zip` working when *either* side is infinite.
-        #Seq{run: fn yield: (#(T, U)) -> Bool -> zip_each(a, b, yield)}
+        Seq{run: fn yield: (#(T, U)) -> Bool -> zip_each(a, b, yield)}
     }
 
     /// Lazy: yields elements of `source` while `pred` returns true. In the callback,
@@ -897,7 +874,7 @@ impl Iter<T> {
     //! refute Iter.from(1) |> Iter.take_while(&(&1 < 4)) |> Iter.is_infinite()
     //
     pub fn take_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> take_while_each(source, pred, yield)}
+        Seq{run: fn yield: (T) -> Bool -> take_while_each(source, pred, yield)}
     }
 
     /// Lazy: applies `f` to each element of `source`. Infinite when `source`
@@ -906,7 +883,7 @@ impl Iter<T> {
     //! assert [1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.to_list() == [10, 20, 30]
     //
     pub fn map<T, U>(source: Iter<T>, f: (T) -> U) -> Iter<U> {
-        #Seq{run: fn yield: (U) -> Bool -> map_each(source, f, yield)}
+        Seq{run: fn yield: (U) -> Bool -> map_each(source, f, yield)}
     }
 
     /// Lazy: keeps only elements where `pred` returns true. In the callback,
@@ -923,7 +900,7 @@ impl Iter<T> {
     //! assert Iter.from(0) |> Iter.filter(&(&1 % 2 == 0)) |> Iter.is_infinite()
     //
     pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
+        Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
     }
 
     /// Lazy: drops the elements where `pred` returns true and keeps the rest,
@@ -943,7 +920,7 @@ impl Iter<T> {
     //! assert [1, 2, 3, 4] |> Iter.drop(2) |> Iter.to_list() == [3, 4]
     //
     pub fn drop<T>(source: Iter<T>, n: Int) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> drop_each(source, n, yield)}
+        Seq{run: fn yield: (T) -> Bool -> drop_each(source, n, yield)}
     }
 
     /// Lazy: drops the leading run of elements where `pred` is true.
@@ -951,7 +928,7 @@ impl Iter<T> {
     //! assert [1, 2, 3, 1] |> Iter.drop_while(&(&1 < 3)) |> Iter.to_list() == [3, 1]
     //
     pub fn drop_while<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> drop_while_each(source, pred, yield)}
+        Seq{run: fn yield: (T) -> Bool -> drop_while_each(source, pred, yield)}
     }
 
     /// Lazy: for each element of `source`, apply `f` and yield all its elements.
@@ -962,7 +939,7 @@ impl Iter<T> {
     //!     |> List.equal([1, 10, 2, 20, 3, 30])
     //
     pub fn flat_map<T, U>(source: Iter<T>, f: (T) -> Iter<U>) -> Iter<U> {
-        #Seq{run: fn yield: (U) -> Bool -> flat_map_each(source, f, yield)}
+        Seq{run: fn yield: (U) -> Bool -> flat_map_each(source, f, yield)}
     }
 
     /// Lazy: yields adjacent fixed-size chunks as Lists. The final chunk may be
@@ -971,7 +948,7 @@ impl Iter<T> {
     //! assert [1, 2, 3, 4, 5] |> Iter.chunks(2) |> Iter.to_list() == [[1, 2], [3, 4], [5]]
     //
     pub fn chunks<T>(source: Iter<T>, size: Int) -> Iter<List<T>> {
-        #Seq{run: fn yield: (List<T>) -> Bool -> chunks_each(source, size, yield)}
+        Seq{run: fn yield: (List<T>) -> Bool -> chunks_each(source, size, yield)}
     }
 
     /// Lazy: yields every run of `size` neighbouring elements as a List, one
@@ -998,7 +975,7 @@ impl Iter<T> {
             source |> Iter.take(0) |> Iter.map(fn item -> [item])
         } else {
             source
-            |> Iter.scan(fn window: List<T> = [], item -> slide(window, item, size))
+            |> Iter.scan([], fn window: List<T>, item -> slide(window, item, size))
             |> Iter.filter(fn window -> Iter.count(window) == size)
         }
     }
@@ -1014,7 +991,7 @@ impl Iter<T> {
     //!     |> List.equal([["ant", "ape"], ["bee"], ["bat", "cat"]])
     //
     pub fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Iter<List<T>> where K: Equatable {
-        #Seq{run: fn yield: (List<T>) -> Bool -> chunk_by_each(source, key_fn, yield)}
+        Seq{run: fn yield: (List<T>) -> Bool -> chunk_by_each(source, key_fn, yield)}
     }
 
     /// Lazy: every ordering of the elements of `items`, each as a List, in
@@ -1076,7 +1053,7 @@ impl Iter<T> {
     //! assert Iter.is_infinite(Iter.from(10))
     //
     pub fn from(start: Int) -> Iter<Int> {
-        #Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}
+        Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}
     }
 
     /// Infinite iterator yielding `x` forever.
@@ -1085,7 +1062,7 @@ impl Iter<T> {
     //! assert Iter.repeat("ha") |> Iter.map(&String.length(&1)) |> Iter.is_infinite()
     //
     pub fn repeat<T>(x: T) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> repeat_each(x, yield)}
+        Seq{run: fn yield: (T) -> Bool -> repeat_each(x, yield)}
     }
 
     /// Infinite iterator: seed, step(seed), step(step(seed)), ...
@@ -1116,7 +1093,7 @@ impl Iter<T> {
     //!     |> List.equal([0, 1, 2, 3, 4, 5, 6])
     //
     pub fn iterate<T>(seed: T, step: (T) -> T) -> Iter<T> {
-        #Seq{run: fn yield: (T) -> Bool -> iterate_each(seed, step, yield)}
+        Seq{run: fn yield: (T) -> Bool -> iterate_each(seed, step, yield)}
     }
 
     /// Consumes the iterator and materializes its #(K, V) pair elements into a Map.
@@ -1151,7 +1128,7 @@ impl Iter<T> {
     //
     pub fn transpose<T>(rows: Iter<Iter<T>>) -> List<List<T>> {
         rows
-        |> reduce(fn lists = [], row -> [to_list(row), ..lists])
+        |> reduce([], fn lists, row -> [to_list(row), ..lists])
         |> reverse()
         |> transpose_columns([])
     }
@@ -1167,7 +1144,7 @@ impl Iter<T> {
     //! assert Iter.reverse([1, 2, 3]) == [3, 2, 1]
     //
     pub fn reverse<T>(source: Iter<T>) -> List<T> {
-        reduce(source, fn acc = [], item -> [item, ..acc])
+        reduce(source, [], fn acc, item -> [item, ..acc])
     }
 
     /// Returns the number of elements in `source`, consuming it. The single
@@ -1187,7 +1164,7 @@ impl Iter<T> {
     pub fn count<T>(source: Iter<T>) -> Int {
         case Iter.known_count(source) {
             Some(n) -> n
-            None -> reduce(source, fn acc = 0, _item -> acc + 1)
+            None -> reduce(source, 0, fn acc, _item -> acc + 1)
         }
     }
 
@@ -1199,7 +1176,7 @@ impl Iter<T> {
     //! assert Iter.min([]) == None
     //
     pub fn min<T>(source: Iter<T>) -> Maybe<T> where T: Comparable {
-        reduce(source, fn least: Maybe<T> = None, item -> {
+        reduce(source, None, fn least: Maybe<T>, item -> {
             case least {
                 Some(m) -> if item < m { Some(item) } else { least }
                 None -> Some(item)
@@ -1215,7 +1192,7 @@ impl Iter<T> {
     //! assert Iter.max([]) == None
     //
     pub fn max<T>(source: Iter<T>) -> Maybe<T> where T: Comparable {
-        reduce(source, fn greatest: Maybe<T> = None, item -> {
+        reduce(source, None, fn greatest: Maybe<T>, item -> {
             case greatest {
                 Some(m) -> if item > m { Some(item) } else { greatest }
                 None -> Some(item)
@@ -1231,7 +1208,7 @@ impl Iter<T> {
     //! assert Iter.min_by([#(1, "a"), #(0, "b"), #(0, "c")], fn #(n, _) -> n) == Some(#(0, "b"))
     //
     pub fn min_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable {
-        best = reduce(source, fn acc: Maybe<#(T, K)> = None, item -> {
+        best = reduce(source, None, fn acc: Maybe<#(T, K)>, item -> {
             k = key(item)
 
             case acc {
@@ -1251,7 +1228,7 @@ impl Iter<T> {
     //! assert Iter.max_by([#(1, "a"), #(0, "b"), #(1, "c")], fn #(n, _) -> n) == Some(#(1, "a"))
     //
     pub fn max_by<T, K>(source: Iter<T>, key: (T) -> K) -> Maybe<T> where K: Comparable {
-        best = reduce(source, fn acc: Maybe<#(T, K)> = None, item -> {
+        best = reduce(source, None, fn acc: Maybe<#(T, K)>, item -> {
             k = key(item)
 
             case acc {
@@ -1268,7 +1245,7 @@ impl Iter<T> {
     /// "" for String, `[]` for List.
     ///
     /// `Iter.sum(xs)` is exactly
-    /// `Iter.reduce(xs, fn total = T.empty_sum(), x -> total + x)`, so it rounds
+    /// `Iter.reduce(xs, T.empty_sum(), fn total, x -> total + x)`, so it rounds
     /// Floats as that fold does. Summing Maps follows Map's `+`: a later map
     /// wins on a shared key. Consumes the whole iterator, so it traps on an
     /// infinite source.
@@ -1282,7 +1259,25 @@ impl Iter<T> {
     //! assert Iter.sum(none) == 0
     //
     pub fn sum<T>(source: Iter<T>) -> T where T: Add<T, T> and Summable {
-        reduce(source, fn total = T.empty_sum(), x -> total + x)
+        reduce(source, T.empty_sum(), fn total, x -> total + x)
+    }
+
+    /// Adds `key` of each element with `+`, left to right, starting from
+    /// `N.empty_sum()`: `Iter.sum_by(orders, .total)` is the sum of the
+    /// orders' totals. An empty source sums to `N.empty_sum()`.
+    ///
+    /// `Iter.sum_by(xs, key)` is exactly `Iter.map(xs, key) |> Iter.sum()`.
+    /// Consumes the whole iterator, so it traps on an infinite source.
+    //
+    //! orders = [#{id: 1, total: 5}, #{id: 2, total: 7}]
+    //! assert Iter.sum_by(orders, .total) == 12
+    //! assert Iter.sum_by(["ab", "c"], String.length) == 3
+    //! assert Iter.sum_by([1.5, 2.5], &(&1 * 2.0)) == 8.0
+    //! none: List<Int> = []
+    //! assert Iter.sum_by(none, &(&1 * 2)) == 0
+    //
+    pub fn sum_by<T, N>(source: Iter<T>, key: (T) -> N) -> N where N: Add<N, N> and Summable {
+        reduce(source, N.empty_sum(), fn total, x -> total + key(x))
     }
 
     /// Multiplies the elements with `*`, left to right, starting from
@@ -1290,7 +1285,7 @@ impl Iter<T> {
     /// `T.empty_product()`: 1 for Int, 1.0 for Float, 1d for Decimal.
     ///
     /// `Iter.product(xs)` is exactly
-    /// `Iter.reduce(xs, fn product = T.empty_product(), x -> product * x)`,
+    /// `Iter.reduce(xs, T.empty_product(), fn product, x -> product * x)`,
     /// so it rounds Floats as that fold does. It does not stop at a zero.
     /// Consumes the whole iterator, so it traps on an infinite source.
     //
@@ -1302,7 +1297,28 @@ impl Iter<T> {
     //! assert Iter.product(none) == 1
     //
     pub fn product<T>(source: Iter<T>) -> T where T: Multiply<T, T> and Productable {
-        reduce(source, fn product = T.empty_product(), x -> product * x)
+        reduce(source, T.empty_product(), fn product, x -> product * x)
+    }
+
+    /// Multiplies `key` of each element with `*`, left to right, starting
+    /// from `N.empty_product()`. An empty source's product is
+    /// `N.empty_product()`.
+    ///
+    /// `Iter.product_by(xs, key)` is exactly
+    /// `Iter.map(xs, key) |> Iter.product()`. Consumes the whole iterator,
+    /// so it traps on an infinite source.
+    //
+    //! sides = [#{w: 2, h: 3}, #{w: 4, h: 1}]
+    //! assert Iter.product_by(sides, .w) == 8
+    //! assert Iter.product_by(1..=3, &(&1 + 1)) == 24
+    //! none: List<Int> = []
+    //! assert Iter.product_by(none, &(&1 * 2)) == 1
+    //
+    pub fn product_by<T, N>(
+        source: Iter<T>,
+        key: (T) -> N,
+    ) -> N where N: Multiply<N, N> and Productable {
+        reduce(source, N.empty_product(), fn product, x -> product * key(x))
     }
 }
 

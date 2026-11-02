@@ -336,7 +336,7 @@ func (f *fillRequest) fillFields(t *fillTarget) (string, string, bool) {
 	})
 	if n == nil {
 		// A named literal's diagnostic may stand at its name, after the `#`
-		// (`#.Rect{`, `#geo.Point{`).
+		// (`.Rect{`, `geo.Point{`).
 		n = f.find(t, func(n ast.Node) (int, int, bool) {
 			lit, ok := n.(*ast.StructLit)
 			if !ok {

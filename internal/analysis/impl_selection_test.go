@@ -90,7 +90,7 @@ func expectRejected(t *testing.T, errs []analysis.TypeError, want ...string) {
 func TestImplSelection_EveryCallFormChoosesByTheArgument(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
 fn main() {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     direct: Bool = Box.holds(b, 1)
     qualified: Bool = Holds.holds(b, "a")
     variant: Bool = Box.holds(b, Color.Red)
@@ -144,7 +144,7 @@ func TestImplSelection_AnUndeterminedArgumentIsAnError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			errs := buildProjectExpectingErrors(t, holdsBox+`
 fn main() {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     _x = `+call+`
 }
 `, nil)
@@ -156,7 +156,7 @@ fn main() {
 func TestImplSelection_NoImplTakesTheArgument(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
 fn main() {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     _x = Box.holds(b, 1.5)
 }
 `, nil)
@@ -166,7 +166,7 @@ fn main() {
 func TestImplSelection_ABoundTheCallLeavesOpenIsAnError(t *testing.T) {
 	errs := buildProjectExpectingErrors(t, holdsBox+`
 fn main() {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     _x = via(b, .Red)
 }
 `, nil)
@@ -204,7 +204,7 @@ fn made<C, T>(c: C) -> T where C: Make<T> {
 	t.Run("annotated", func(t *testing.T) {
 		errs := buildProjectExpectingErrors(t, factory+`
 fn main() {
-    f = #Factory{n: 7}
+    f = Factory{n: 7}
     i: Int = Factory.make(f)
     s: String = Make.make(f)
     j: Int = made(f)
@@ -216,7 +216,7 @@ fn main() {
 	t.Run("unannotated", func(t *testing.T) {
 		errs := buildProjectExpectingErrors(t, factory+`
 fn main() {
-    _x = Factory.make(#Factory{n: 7})
+    _x = Factory.make(Factory{n: 7})
 }
 `, nil)
 		expectRejected(t, errs, "`Make.make` for `Factory` has impls at `Int` and `String`; only the result's type tells them apart, and nothing here expects one: annotate the result")
@@ -437,8 +437,8 @@ impl Fits<Square> for Hole {
 }
 
 fn main() {
-    h = #Hole{size: 4}
-    _ok = Hole.fits(h, #Circle{r: 2}) and not Fits.fits(h, #Square{side: 5})
+    h = Hole{size: 4}
+    _ok = Hole.fits(h, Circle{r: 2}) and not Fits.fits(h, Square{side: 5})
 }
 `, map[string]string{"shapes": `
 pub struct Circle {
@@ -482,7 +482,7 @@ fn text(h: Gets<String>) -> String {
 }
 
 fn main() {
-    b = #Bag{s: "a", n: 1}
+    b = Bag{s: "a", n: 1}
     numbers: List<Gets<Int>> = [b]
     _ok = text(b) == "a" and Iter.count(numbers) == 1
 }

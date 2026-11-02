@@ -56,7 +56,7 @@ pub opaque struct Stopwatch {
 impl Stopwatch {
     /// A stopwatch in the ready state, with no time and no laps.
     pub fn new() -> Stopwatch {
-        #Stopwatch{state: .Ready, current: no_time, laps: []}
+        Stopwatch{state: .Ready, current: no_time, laps: []}
     }
 
     /// Starts timing from the ready state, or resumes it from the stopped one.
@@ -150,17 +150,17 @@ derive Equatable for Step
 /// they happened. A run that does what every step says answers the steps it
 /// was given.
 fn replay(steps: List<Step>) -> List<Step> {
-    #(happened, _watch) =
+    #(_watch, happened) =
         steps
-        |> Iter.map_reduce(fn watch = Stopwatch.new(), step -> {
+        |> Iter.map_reduce(Stopwatch.new(), fn watch, step -> {
             case step {
                 .Start or .Stop or .Lap or .Reset -> command(watch, step)
                 .Refused(tried, _message) -> command(watch, tried)
-                .Advance(by) -> #(step, Stopwatch.advance(watch, by))
-                .IsIn(_) -> #(Step.IsIn(Stopwatch.state(watch)), watch)
-                .CurrentLap(_) -> #(Step.CurrentLap(Stopwatch.current_lap(watch)), watch)
-                .Total(_) -> #(Step.Total(Stopwatch.total(watch)), watch)
-                .PreviousLaps(_) -> #(Step.PreviousLaps(Stopwatch.previous_laps(watch)), watch)
+                .Advance(by) -> #(Stopwatch.advance(watch, by), step)
+                .IsIn(_) -> #(watch, .IsIn(Stopwatch.state(watch)))
+                .CurrentLap(_) -> #(watch, .CurrentLap(Stopwatch.current_lap(watch)))
+                .Total(_) -> #(watch, .Total(Stopwatch.total(watch)))
+                .PreviousLaps(_) -> #(watch, .PreviousLaps(Stopwatch.previous_laps(watch)))
             }
         })
 
@@ -169,7 +169,7 @@ fn replay(steps: List<Step>) -> List<Step> {
 
 /// Runs the command `step` names, answering the step and the stopwatch
 /// after it, or the refusal and the stopwatch unchanged.
-fn command(watch: Stopwatch, step: Step) -> #(Step, Stopwatch) {
+fn command(watch: Stopwatch, step: Step) -> #(Stopwatch, Step) {
     result = case step {
         .Start -> Stopwatch.start(watch)
         .Stop -> Stopwatch.stop(watch)
@@ -179,8 +179,8 @@ fn command(watch: Stopwatch, step: Step) -> #(Step, Stopwatch) {
     }
 
     case result {
-        Ok(next) -> #(step, next)
-        Err(error) -> #(Step.Refused(step, "${error}"), watch)
+        Ok(next) -> #(next, step)
+        Err(error) -> #(watch, .Refused(step, "${error}"))
     }
 }
 

@@ -35,6 +35,17 @@ const SHIKI_LANGS = {
   sql: { lang: "sql", chip: "sql" },
   json: { lang: "json", chip: "json" },
   csv: { lang: "csv", chip: "csv" },
+  rust: { lang: "rust", chip: "rust" },
+  elixir: { lang: "elixir", chip: "elixir" },
+  typescript: { lang: "typescript", chip: "ts" },
+  ts: { lang: "typescript", chip: "ts" },
+  python: { lang: "python", chip: "python" },
+  kotlin: { lang: "kotlin", chip: "kotlin" },
+  swift: { lang: "swift", chip: "swift" },
+  ruby: { lang: "ruby", chip: "ruby" },
+  sh: { lang: "shellscript", chip: "sh" },
+  bash: { lang: "shellscript", chip: "sh" },
+  shell: { lang: "shellscript", chip: "sh" },
 };
 
 async function highlight(code, { lang, chip }) {
@@ -265,6 +276,15 @@ export default function rehypeShiki() {
           } else if (hasClass(code, "language-console")) {
             node.children[i] = consoleBlock(textContent(code).replace(/\n+$/, ""));
             continue;
+          } else if (
+            hasClass(code, "language-nomi-run") &&
+            String(code.data?.meta || "").split(/\s+/).includes("compile-only")
+          ) {
+            // ```nomi-run compile-only: the doctest compiles it, and the
+            // page shows it as a plain ```nomi block, highlighted with no
+            // editor, run or output, since the browser cannot run it.
+            code.properties = { ...(code.properties || {}), className: ["language-nomi"] };
+            setCodeLabel(child, "Nomi");
           } else if (
             hasClass(code, "language-nomi") ||
             hasClass(code, "language-nomi-run") ||

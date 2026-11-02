@@ -83,14 +83,14 @@ func TestSeqMapReduceCells(t *testing.T) {
 		outs []int64
 		acc  int64
 	}
-	pair := func(outs *List[int64], acc int64) result { return result{int64sOf(fr, outs), acc} }
+	pair := func(acc int64, outs *List[int64]) result { return result{int64sOf(fr, outs), acc} }
 	plain := SeqMapReduceCells[int64, int64, int64, List[int64]](fr, ListSeq(int64List(1, 2, 3)), 10,
-		func(_ *Frame, acc, x int64) (int64, int64) { return acc * x, acc + x }, pair)
+		func(_ *Frame, acc, x int64) (int64, int64) { return acc + x, acc * x }, pair)
 	if !equalInt64s(plain.outs, []int64{10, 22, 39}) || plain.acc != 16 {
 		t.Errorf("map_reduce: %v, want {[10 22 39] 16}", plain)
 	}
 	empty := SeqMapReduceCells[int64, int64, int64, List[int64]](fr, ListSeq(int64List()), 5,
-		func(_ *Frame, acc, x int64) (int64, int64) { return x, acc + 1 }, pair)
+		func(_ *Frame, acc, x int64) (int64, int64) { return acc + 1, x }, pair)
 	if len(empty.outs) != 0 || empty.acc != 5 {
 		t.Errorf("an empty source: %v, want {[] 5}", empty)
 	}
@@ -101,9 +101,9 @@ func TestSeqMapReduceCells(t *testing.T) {
 				case 2:
 					return 0, 0, CtlSkip
 				case stopAt:
-					return x * 10, acc + 1000, stop
+					return acc + 1000, x * 10, stop
 				}
-				return x, acc + x, CtlEmit
+				return acc + x, x, CtlEmit
 			}, pair)
 	}
 	if got := ctl(4, CtlEmitStop); !equalInt64s(got.outs, []int64{1, 3, 40}) || got.acc != 1004 {

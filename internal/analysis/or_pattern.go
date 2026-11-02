@@ -217,7 +217,11 @@ func patternText(n ast.Node) string {
 		return s
 	case *ast.StructPattern:
 		var b strings.Builder
-		b.WriteString(shapeHeadText("#", p.TypeName))
+		if p.TypeName != nil {
+			b.WriteString(p.TypeName.TypeString())
+		} else {
+			b.WriteString("#")
+		}
 		b.WriteString("{")
 		for i, f := range p.Fields {
 			if i > 0 {
@@ -235,7 +239,7 @@ func patternText(n ast.Node) string {
 		b.WriteString("}")
 		return b.String()
 	case *ast.TuplePattern:
-		return shapeHeadText("#", p.TypeName) + "(" + patternListText(p.Patterns) + ")"
+		return "#(" + patternListText(p.Patterns) + ")"
 	case *ast.VectorPattern:
 		parts := make([]string, 0, len(p.Heads)+len(p.Tails)+1)
 		for _, h := range p.Heads {

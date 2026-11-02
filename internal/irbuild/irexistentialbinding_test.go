@@ -45,7 +45,7 @@ fn show(x: Display) -> String {
 }
 
 fn main() {
-    h = #Holder{ds: [1, "a"]}
+    h = Holder{ds: [1, "a"]}
     io.print(all(h.ds))
     io.print(all([True, 2.5, "b"]))
     xs = concurrent {

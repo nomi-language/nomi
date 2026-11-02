@@ -53,8 +53,8 @@
 # $NOMI_RELEASE_DIST when it is set (a local dry run into a scratch directory):
 #
 #	dist/nomi_<version>_<os>_<arch>.tar.gz   (.zip on windows)
-#	dist/nomi_<version>_js_wasm.tar.gz       (nomi-vm, wasm_exec.js)
-#	dist/nomi_<version>_wasip1_wasm.tar.gz   (nomi-vm, nomi-vm-reactor)
+#	dist/nomi_<version>_js_wasm.tar.gz       (nomi-vm, nomi-vm-nonet, wasm_exec.js)
+#	dist/nomi_<version>_wasip1_wasm.tar.gz   (nomi-vm, nomi-vm-nonet, nomi-vm-reactor, nomi-vm-reactor-nonet)
 #	dist/nomi_<version>_checksums.txt
 #
 # `nomi build --target` downloads another platform's archive from the release
@@ -98,6 +98,7 @@ vm_targets=(
 # The wasip1 reactor, built -buildmode=c-shared so the module exports
 # `_initialize` and the nomi_call ABI instead of `_start`.
 wasip1_reactor="nomi-vm-reactor:./cmd/nomi-vm-reactor"
+wasip1_reactor_nonet="nomi-vm-reactor-nonet:./cmd/nomi-vm-reactor"
 
 # The three commands. `nomi-wasm` and `nomi-docgen` are deliberately absent:
 # nomi-wasm is a browser artifact built by scripts/build-tour-wasm.sh for the
@@ -107,6 +108,7 @@ binaries=(
 	"nomi:./cmd/nomi"
 	"nomi-lsp:./cmd/nomi-lsp"
 	"nomi-vm:./cmd/nomi-vm"
+	"nomi-vm-nonet:./cmd/nomi-vm"
 )
 
 sha256() {
@@ -156,10 +158,10 @@ for target in "${all_targets[@]}"; do
 
 	specs=("${binaries[@]}")
 	if [ "$goarch" = "wasm" ]; then
-		specs=("nomi-vm:./cmd/nomi-vm")
+		specs=("nomi-vm:./cmd/nomi-vm" "nomi-vm-nonet:./cmd/nomi-vm")
 	fi
 	if [ "$goos" = "wasip1" ]; then
-		specs+=("$wasip1_reactor")
+		specs+=("$wasip1_reactor" "$wasip1_reactor_nonet")
 	fi
 	for spec in "${specs[@]}"; do
 		name="${spec%%:*}"
@@ -169,12 +171,14 @@ for target in "${all_targets[@]}"; do
 			ldflags="$ldflags -X github.com/nomi-language/nomi/internal/ffirun.ReleaseVersion=$version"
 		fi
 		buildmode="default"
-		if [ "$name" = "nomi-vm-reactor" ]; then
-			buildmode="c-shared"
-		fi
+		case "$name" in nomi-vm-reactor*) buildmode="c-shared" ;; esac
+		# A -nonet runner is built without the network (nomi_nonet): nomi
+		# build appends a program that reaches no network crossing to it.
+		tags=""
+		case "$name" in *-nonet) tags="nomi_nonet" ;; esac
 		echo "building $name for $goos/$goarch"
 		CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-			go build -C "$module_dir" -trimpath -buildmode="$buildmode" -ldflags "$ldflags" \
+			go build -C "$module_dir" -trimpath -buildmode="$buildmode" -tags "$tags" -ldflags "$ldflags" \
 			-o "$stage/$name$ext" "$pkg"
 
 		out="$stage/$name$ext"

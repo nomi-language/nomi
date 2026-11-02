@@ -94,5 +94,5 @@ fn main() {
 
     io.print("mapped = ${Iter.to_list(Iter.map(s, &(&1 * 10)))}")
     io.print("to_set = ${Iter.to_list(Iter.to_set(Iter.map(s, &(&1 % 2))))}")
-    io.print("reduced = ${Iter.reduce(s, fn acc = 0, x -> acc + x)}")
+    io.print("reduced = ${Iter.reduce(s, 0, fn acc, x -> acc + x)}")
 }

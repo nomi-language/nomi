@@ -13,7 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/affine-cipher.
 - `encode` checks the key with `_ = inverse(key.a)?` before it starts, since it does not need the inverse.
 - `translate` takes the step as a function, `fn i -> key.a * i + key.b` or `fn y -> a_inverse * (y - key.b)`, so encoding and decoding share it. `Int.modulo` brings a negative result back into `0..26`, where `%` would leave it negative.
 - Letters go to numbers through a map, a `once` that pipes `Iter.zip(alphabet, 0..letter_count)` into `Iter.to_map()`, written stacked to start from the pairs, and back with `Vector.get(...)!`, which cannot miss because the index is reduced mod 26.
-- Each table names `Key` in its first row only (`#Key{a: 5, b: 7}`); the rows after it write `#{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.
+- Each table names `Key` in its first row only (`Key{a: 5, b: 7}`); the rows after it write `#{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.
 
 ## Friction
 

@@ -28,7 +28,7 @@ fn describe(pair: #(Int, Int), limit: Int) -> String {
   if total > limit {
     io.print("over")
   }
-  steps = Iter.loop(fn i = 0 ->
+  steps = Iter.loop(0, fn i ->
     if i == limit {
       break i
     } else {
@@ -142,7 +142,7 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 		"total 5:3-8", "total 6:3-8",
 		"n 9:5-6", "doubled 10:7-14",
 		"label 7:3-8",
-		"i 17:24-25",
+		"i 17:27-28",
 		"steps 17:3-8",
 		"scaled 24:3-9",
 		// The lambda's parameter, and its capture of the second `total`.
@@ -158,7 +158,7 @@ func TestDebugInfo_AVariableIsDeclaredAtItsName(t *testing.T) {
 }
 
 fn main() {
-  #{x, y: why} = #P{x: 1, y: 2}
+  #{x, y: why} = P{x: 1, y: 2}
   m = case Some(x) {
     Some(n) as whole -> #(n, whole)
     None -> #(0, None)
@@ -242,12 +242,12 @@ enum Tree<T> {
 }
 
 fn main() {
-  bs = [#Box{item: #Box{item: "s"}}]
-  tr: Tree<Int> = #Tree.Node{value: 1}
+  bs = [Box{item: Box{item: "s"}}]
+  tr: Tree<Int> = Tree.Node{value: 1}
   g = fn b: Box<Int> -> b.item
   o: Maybe<Box<Int>> = None
-  m: Map<String, Box<Int>> = %{"a" => #Box{item: 2}}
-  pair = #(#Box{item: 1}, [#Box{item: 2.5}])
+  m: Map<String, Box<Int>> = %{"a" => Box{item: 2}}
+  pair = #(Box{item: 1}, [Box{item: 2.5}])
   _ = #(bs, tr, g, o, m, pair)
 }
 `

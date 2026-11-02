@@ -49,7 +49,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	refutable := true
 	// `assert P as name = v`: P is tested, and name binds v on its success
 	// edge.
-	pattern := irPattern(ast.WithoutAs(t.Pattern))
+	pattern := ast.WithoutAs(t.Pattern)
 	tupleBinds := irRetainedTupleKind(sk) && tupleCaseIrrefutable(pattern, sk)
 	switch pattern.(type) {
 	case *ast.WildcardPattern, *ast.IdentPattern:
@@ -61,7 +61,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 			break
 		}
 		if irNominalCaseKind(sk) && irNominalIrrefutable(pattern) {
-			// `#Point{x, y}`, `#{name, age}` and `UserId(id)` only bind: the
+			// `Point{x, y}`, `#{name, age}` and `UserId(id)` only bind: the
 			// subject's type is the pattern's, so nothing can fail.
 			refutable = false
 			matched = bl.f.NewBlock(bl.g.irNodePos(pattern), "pattern matched")
@@ -136,7 +136,7 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	bl.bindAsNames(t.Pattern, subj, sk)
 	if refutable && !irBlockTargeted(bl.f, failed.ID()) {
 		// The tests built no failure edge: every nested sub-pattern only
-		// binds (`#Holder{r: #{a, b}}`, a record inside a struct). The
+		// binds (`Holder{r: #{a, b}}`, a record inside a struct). The
 		// mismatch block is unreachable, so it reads nothing.
 		failed.SetTerm(ir.NewReturnUnit(pos))
 		refutable = false

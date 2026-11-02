@@ -12,7 +12,7 @@ import (
 //
 // A lambda's `fn` and the `->` after its parameters show its function type
 // with the parameters' names (`fn monster: Monster -> List<String>`), a
-// seeded parameter's default, and where the parameter types came from: the
+// parameter's default, and where the parameter types came from: the
 // parameter of the call it is passed to, the piped value of a `then` or
 // `tap` stage, the expected type, or the annotation. A declaration's `fn`
 // shows what its name shows.
@@ -93,14 +93,15 @@ func (s *shapeSearch) captureSource(n *ast.Capture) string {
 	return ""
 }
 
-// renderCaptureParam is the hover of the `&N` h of the capture n.
+// renderCaptureParam is the hover of the `&N` h of the capture n: its
+// type, as a parameter's hover shows, and the capture it belongs to.
 func (s *shapeSearch) renderCaptureParam(n *ast.Capture, h *ast.PlaceholderParam) string {
 	sig, params, ok := s.captureSignature(n)
 	if !ok || h.N < 1 || h.N > len(params) {
 		return ""
 	}
-	return fence(sig) + "\n\n" +
-		"`&" + strconv.Itoa(h.N) + "` is the capture's " + ordinalWord(h.N) + " parameter, of type `" + params[h.N-1] + "`."
+	return fence(params[h.N-1]) + "\n\n" +
+		"`&" + strconv.Itoa(h.N) + "` is the " + ordinalWord(h.N) + " parameter of the capture `" + sig + "`."
 }
 
 // ordinalWord spells n as an ordinal: first, second, ..., 12th.
@@ -156,7 +157,7 @@ func (s *shapeSearch) funcKeyword(fd *ast.FuncDef) {
 // argument. A lambda or capture written as the last positional argument
 // fills the last parameter when no named argument does and the positionals
 // leave it empty, as the checker routes a trailing callback past an empty
-// slot (`Iter.reduce(xs, fn acc = 0, x -> ...)` fills `f`, past `from`).
+// slot (`Iter.reduce(xs, 0, fn acc, x -> ...)` fills `f`, past `from`).
 func (s *shapeSearch) noteLambdaArgs(call *ast.Call) {
 	piped := s.pipedCalls[call]
 	names := paramNamesOf(s.calleeSymbol(call.Func))

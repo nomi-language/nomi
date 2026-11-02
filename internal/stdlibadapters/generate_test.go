@@ -9,22 +9,26 @@ import (
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 )
 
-// TestGeneratedFileIsCurrent regenerates adapters_gen.go from the binding
-// table and the std facades and requires the checked-in file to match. A row
-// added to internal/stdlibbindings, or a `host fn` signature changed in std,
-// fails here until `go generate ./internal/stdlibadapters` is rerun.
+// TestGeneratedFileIsCurrent regenerates the adapter files from the
+// binding table and the std facades and requires the checked-in files to
+// match: adapters_gen.go, and the network adapters split from it,
+// adapters_net_gen.go and adapters_nonet_gen.go. A row added to
+// internal/stdlibbindings, or a `host fn` signature changed in std, fails
+// here until `go generate ./internal/stdlibadapters` is rerun.
 func TestGeneratedFileIsCurrent(t *testing.T) {
-	want, err := stdtable.Generate()
+	want, err := stdtable.GenerateFiles()
 	if err != nil {
 		t.Fatalf("generation fails: %v", err)
 	}
-	got, err := os.ReadFile("adapters_gen.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatalf("adapters_gen.go is stale (%d bytes checked in, %d generated); run "+
-			"`go generate ./internal/stdlibadapters` from the repository root", len(got), len(want))
+	for name, src := range want {
+		got, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, src) {
+			t.Errorf("%s is stale (%d bytes checked in, %d generated); run "+
+				"`go generate ./internal/stdlibadapters` from the repository root", name, len(got), len(src))
+		}
 	}
 }
 

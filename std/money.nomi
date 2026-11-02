@@ -10,9 +10,9 @@
 //# Money.format(total, Locale`pl`) // "12,50 €"
 //# ```
 //#
-//# ``Money`12.50 EUR` `` is `#Money{amount: 12.50d, currency: Currency`EUR`}`:
+//# ``Money`12.50 EUR` `` is `Money{amount: 12.50d, currency: Currency`EUR`}`:
 //# the amount, one space and the currency, as `Display` writes it, checked
-//# when the program is checked. Build `#Money{...}` from the fields when the
+//# when the program is checked. Build `Money{...}` from the fields when the
 //# amount or the currency is a value the program computes.
 //#
 //# The amount keeps every digit it has: adding, subtracting and multiplying
@@ -53,7 +53,7 @@ import {
 /// locale.
 //! price = Money`12.50 EUR`
 //! assert Display.to_string(price) == "12.50 EUR"
-//! assert price == #Money{amount: 12.50d, currency: Currency`EUR`}
+//! assert price == Money{amount: 12.50d, currency: Currency`EUR`}
 //! assert price == Money`12.5 EUR`
 //
 pub struct Money {
@@ -83,26 +83,26 @@ derive Equatable for Error
 
 impl Display for Error {
     /// What is wrong, as a compile error at a ``Money`…` `` literal shows it.
-    //! assert Display.to_string(#Error.NoCurrency{amount: "12.50"})
+    //! assert Display.to_string(Error.NoCurrency{amount: "12.50"})
     //!     == "`12.50` has no currency: write the amount, one space and the currency, as Money`12.50 EUR`"
     //
     fn to_string(e: Error) -> String {
         case e {
-            #Error.Malformed{text} ->
+            Error.Malformed{text} ->
                 "`${text}` is not an amount and a currency: write the amount, one space and the currency, as Money`12.50 EUR`"
 
-            #Error.Amount{text} ->
+            Error.Amount{text} ->
                 "`${text}` is not an amount: write digits with an optional sign and decimal point, as Money`-12.50 EUR`"
 
-            #Error.NoCurrency{amount} ->
+            Error.NoCurrency{amount} ->
                 "`${amount}` has no currency: write the amount, one space and the currency, as Money`${amount} EUR`"
 
-            #Error.NotACurrency{amount, error} ->
+            Error.NotACurrency{amount, error} ->
                 case error {
-                    #currency.Error.IsoCode{code} ->
+                    currency.Error.IsoCode{code} ->
                         "`${code}` is an ISO 4217 currency, whose minor digits CLDR gives: write Money`${amount} ${code}`"
 
-                    #currency.Error.NotIso{code} ->
+                    currency.Error.NotIso{code} ->
                         "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Money`${amount} ${code}:2`"
 
                     other ->
@@ -110,7 +110,7 @@ impl Display for Error {
                 }
 
             Error.Interpolated ->
-                "a Money literal does not interpolate: build the value from its fields, as #Money{amount: amount, currency: Currency`EUR`}"
+                "a Money literal does not interpolate: build the value from its fields, as Money{amount: amount, currency: Currency`EUR`}"
         }
     }
 }
@@ -197,7 +197,7 @@ impl Money {
     //
     pub fn round(money: Money, mode: RoundingMode = RoundingMode.HalfEven) -> Money {
         digits = Currency.minor_digits(money.currency)
-        #Money{amount: Decimal.round(money.amount, digits, mode), currency: money.currency}
+        Money{amount: Decimal.round(money.amount, digits, mode), currency: money.currency}
     }
 
     /// The amount times a Decimal `factor`, rounded to its currency's minor
@@ -228,7 +228,7 @@ impl Money {
         factor: Decimal,
         mode: RoundingMode = RoundingMode.HalfEven,
     ) -> Money {
-        Money.round(#Money{amount: price.amount * factor, currency: price.currency}, mode)
+        Money.round(Money{amount: price.amount * factor, currency: price.currency}, mode)
     }
 
     /// The amount without its sign, in the same currency, every digit kept.
@@ -236,7 +236,7 @@ impl Money {
     //! assert Money.abs(Money`3 PLN`) == Money`3 PLN`
     //
     pub fn abs(money: Money) -> Money {
-        #Money{amount: Decimal.abs(money.amount), currency: money.currency}
+        Money{amount: Decimal.abs(money.amount), currency: money.currency}
     }
 
     /// The amount with its sign flipped, in the same currency: a refund of
@@ -244,7 +244,7 @@ impl Money {
     //! assert Money.negate(Money`12.50 EUR`) == Money`-12.50 EUR`
     //
     pub fn negate(money: Money) -> Money {
-        #Money{amount: Decimal.negate(money.amount), currency: money.currency}
+        Money{amount: Decimal.negate(money.amount), currency: money.currency}
     }
 
     /// The sign of the amount as -1, 0, or +1, as `Decimal.sign` gives it:
@@ -299,10 +299,10 @@ impl Money {
     //! assert Money.parse_in("12,50", Locale`pl`, eur, lenient: True) == Ok(Money`12.50 EUR`)
     //!
     //! assert Money.parse_in("12,50 zł", Locale`pl`, eur)
-    //!     == Err(#NumberParseError.WrongCurrency{expected: eur, found: "zł"})
+    //!     == Err(NumberParseError.WrongCurrency{expected: eur, found: "zł"})
     //!
     //! assert Money.parse_in("€12.505", Locale`en`, eur)
-    //!     == Err(#NumberParseError.TooManyFractionDigits{max: 2})
+    //!     == Err(NumberParseError.TooManyFractionDigits{max: 2})
     //
     pub fn parse_in(
         text: String,
@@ -311,7 +311,7 @@ impl Money {
         lenient: Bool = False,
     ) -> Result<Money, NumberParseError> {
         amount = money_format.parse(text, locale, currency, lenient)?
-        Ok(#Money{amount, currency})
+        Ok(Money{amount, currency})
     }
 
     /// Whether the amount is the sum of no amounts, `Money.empty_sum()`.
@@ -334,7 +334,7 @@ impl Add<Money, Money> for Money {
             lhs
         } else {
             money_format.require_same("Money.add", lhs.currency, rhs.currency)
-            #Money{amount: lhs.amount + rhs.amount, currency: lhs.currency}
+            Money{amount: lhs.amount + rhs.amount, currency: lhs.currency}
         }
     }
 }
@@ -349,7 +349,7 @@ impl Subtract<Money, Money> for Money {
             lhs
         } else {
             money_format.require_same("Money.subtract", lhs.currency, rhs.currency)
-            #Money{amount: lhs.amount - rhs.amount, currency: rhs.currency}
+            Money{amount: lhs.amount - rhs.amount, currency: rhs.currency}
         }
     }
 }
@@ -359,7 +359,7 @@ impl Multiply<Int, Money> for Money {
     //! assert Money`12.50 EUR` * 3 == Money`37.50 EUR`
     //
     fn multiply(money: Money, rhs: Int) -> Money {
-        #Money{amount: money.amount * Int.to_decimal(rhs), currency: money.currency}
+        Money{amount: money.amount * Int.to_decimal(rhs), currency: money.currency}
     }
 }
 
@@ -376,7 +376,7 @@ impl Summable for Money {
     //! assert Iter.sum(empty) == Money`0 XXX`
     //
     fn empty_sum() -> Money {
-        #Money{amount: Int.to_decimal(0), currency: Currency`XXX`}
+        Money{amount: Int.to_decimal(0), currency: Currency`XXX`}
     }
 }
 
@@ -388,7 +388,7 @@ impl Localize for Money {
 }
 
 impl Literal for Money {
-    /// ``Money`12.50 EUR` `` is `#Money{amount: 12.50d, currency:
+    /// ``Money`12.50 EUR` `` is `Money{amount: 12.50d, currency:
     /// Currency`EUR`}`: the amount, one space and the currency, as `Display`
     /// writes them. The amount keeps every digit written, as a `Decimal`
     /// literal does (``Money`12.5 EUR` `` has one), and the currency is
@@ -402,12 +402,12 @@ impl Literal for Money {
     /// an optional sign, digits, `_` separators and an optional fraction.
     /// The literal does not interpolate: a double-quoted `Money"${amount}
     /// USD"` is `Err(Interpolated)`, whose message says to build
-    /// `#Money{...}` from the fields.
-    //! assert Money`1299.50 USD` == #Money{amount: 1299.50d, currency: Currency`USD`}
+    /// `Money{...}` from the fields.
+    //! assert Money`1299.50 USD` == Money{amount: 1299.50d, currency: Currency`USD`}
     //! assert Money`-5.00 USD`.amount == -5.00d
     //! assert Money`1200 PTS:0`.currency == Currency`PTS:0`
     //! assert Decimal.scale(Money`12.5 EUR`.amount) == 1
-    //! assert Money"12.50" == Err(#Error.NoCurrency{amount: "12.50"})
+    //! assert Money"12.50" == Err(Error.NoCurrency{amount: "12.50"})
     //
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Money, Error> {
         interpolated = Iter.any(fragments, fn frag -> {
@@ -419,7 +419,7 @@ impl Literal for Money {
 
         if interpolated { return Err(Error.Interpolated) }
 
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -429,24 +429,24 @@ impl Literal for Money {
         case String.split(body, " ") {
             [text] ->
                 case String.to_decimal(text) {
-                    Some(_) -> Err(#Error.NoCurrency{amount: text})
-                    None -> Err(#Error.Malformed{text})
+                    Some(_) -> Err(Error.NoCurrency{amount: text})
+                    None -> Err(Error.Malformed{text})
                 }
 
             [amount_text, code] when amount_text != "" and code != "" -> {
                 amount = case String.to_decimal(amount_text) {
                     Some(d) -> d
-                    None -> return Err(#Error.Amount{text: amount_text})
+                    None -> return Err(Error.Amount{text: amount_text})
                 }
 
                 case Currency.parse(code) {
-                    Ok(currency) -> Ok(#Money{amount, currency})
-                    Err(error) -> Err(#Error.NotACurrency{amount: amount_text, error})
+                    Ok(currency) -> Ok(Money{amount, currency})
+                    Err(error) -> Err(Error.NotACurrency{amount: amount_text, error})
                 }
             }
 
             _ ->
-                Err(#Error.Malformed{text: body})
+                Err(Error.Malformed{text: body})
         }
     }
 }

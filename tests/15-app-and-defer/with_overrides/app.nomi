@@ -15,7 +15,7 @@ pub struct App {
 }
 
 pub fn boot() -> Result<App, String> {
-    Ok(#App{context: Context.root(), level: .Info, label: "base", n: 1})
+    Ok(App{context: Context.root(), level: .Info, label: "base", n: 1})
 }
 
 fn main() {

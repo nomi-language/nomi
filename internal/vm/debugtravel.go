@@ -486,6 +486,12 @@ var liveCrossings = map[string]bool{
 	// too, and its file operations are answered from the recording.
 	sandboxKey: true, "fs_host.new_sandbox": true, "fs_host.sandbox_fail": true,
 	"fs_host.sandbox_files": true, "fs_host.sandbox_log": true, "fs_host.sandbox_open": true,
+	// `process_testing.run`'s body runs again, and the starts inside it
+	// are answered from the recording, as every start is.
+	processFakeKey: true,
+	// So does `http_testing.run`: its fake is a Nomi function the replay
+	// calls again.
+	networkFakeKey: true, networkAnswerKey: true, networkRecordedKey: true,
 	// A reader over data the program holds reads nothing outside it.
 	"io.Reader.from_bytes": true, "io.Reader.from_text": true,
 	// Nor does a writer into memory (Writer.collect's).

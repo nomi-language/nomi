@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/std"
@@ -39,6 +41,9 @@ type Diagnostic struct {
 	// backtick typed literal that fails its compile-time check. Empty for
 	// the rest.
 	Code string
+	// Fix, when set, is the edit that repairs the error (parser.Fix): text
+	// edits an agent or an editor applies as they are.
+	Fix *parser.Fix
 }
 
 // Related is a location a diagnostic refers to: the declaration a
@@ -135,7 +140,7 @@ func typeDiagnostics(path, src string, errs []analysis.TypeError) Diagnostics {
 	for i, e := range errs {
 		d := Diagnostic{
 			Path: path, Line: e.Line, Col: e.Col, EndLine: e.EndLine, EndCol: e.EndCol,
-			Message: e.Message, Hints: e.Hints,
+			Message: e.Message, Hints: e.Hints, Code: e.Code, Fix: e.Fix,
 		}
 		for _, r := range e.Related {
 			rp := r.File
@@ -169,25 +174,35 @@ func NewDiagnostic(path, src string, line, col int, message string) Diagnostic {
 func parseDiagnostics(path, src string, errs []parser.ParseError) Diagnostics {
 	tes := make([]analysis.TypeError, len(errs))
 	for i, e := range errs {
-		tes[i] = analysis.TypeError{Line: e.Line, Col: e.Col, Message: e.Message, Hints: e.Hints}
+		tes[i] = analysis.TypeError{Line: e.Line, Col: e.Col, Message: e.Message, Hints: e.Hints, Fix: e.Fix}
 	}
 	return typeDiagnostics(path, src, tes)
 }
 
-// stdSyntaxDiagnostics are the syntax errors lib's embedded modules recorded
-// (std.StdLib.SyntaxErrors), each at "std/<module>.nomi", or nil when it
-// recorded none.
-func stdSyntaxDiagnostics(lib *std.StdLib) Diagnostics {
-	if lib == nil || len(lib.SyntaxErrors) == 0 {
+// stdDefectDiagnostics are the syntax errors lib's embedded modules recorded
+// (std.StdLib.SyntaxErrors), each at "std/<module>.nomi", or, when they
+// parse, their check errors (std.StdLib.Errors), or nil when the stdlib
+// parses and checks. What the checker says about a file recovery read only
+// part of follows from the syntax error, so those come alone.
+func stdDefectDiagnostics(lib *std.StdLib) Diagnostics {
+	if lib == nil {
 		return nil
 	}
 	var ds Diagnostics
+	hint := "this file is the standard library built into this nomi, which does not parse; fix it and rebuild nomi"
 	for _, name := range lib.SyntaxErrorModules() {
 		path := "std/" + name + ".nomi"
 		ds = append(ds, parseDiagnostics(path, fileSource(path), lib.SyntaxErrors[name])...)
 	}
+	if ds == nil {
+		hint = "this file is the standard library built into this nomi, which does not check; fix it and rebuild nomi"
+		for _, name := range lib.ErrorModules() {
+			path := "std/" + name + ".nomi"
+			ds = append(ds, typeDiagnostics(path, fileSource(path), lib.Errors[name])...)
+		}
+	}
 	for i := range ds {
-		ds[i].Hints = append(ds[i].Hints, "this file is the standard library built into this nomi, which does not parse; fix it and rebuild nomi")
+		ds[i].Hints = append(ds[i].Hints, hint)
 	}
 	return ds
 }
@@ -225,11 +240,30 @@ func fileSource(path string) string {
 }
 
 // located gives err the file at path, whose text is src, when it is a
-// positioned parse error; any other error is answered as it is.
+// positioned parse error, with every other syntax error the file holds
+// (parser.ParseAll), so one run reports them all; any other error is
+// answered as it is.
 func located(path, src string, err error) error {
 	var pe parser.ParseError
 	if errors.As(err, &pe) {
-		return parseDiagnostics(path, src, []parser.ParseError{pe})
+		return parseDiagnostics(path, src, allSyntaxErrors(src, pe))
 	}
 	return err
+}
+
+// allSyntaxErrors are the syntax errors of src, in source order, first
+// among them the error first a strict parse stopped at.
+func allSyntaxErrors(src string, first parser.ParseError) []parser.ParseError {
+	_, all := parser.ParseAll(lexer.Lex(src))
+	out := []parser.ParseError{first}
+	for _, e := range all {
+		if e.Line == first.Line {
+			continue
+		}
+		out = append(out, e)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Line < out[j].Line || out[i].Line == out[j].Line && out[i].Col < out[j].Col
+	})
+	return out
 }

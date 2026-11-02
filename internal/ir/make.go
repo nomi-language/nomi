@@ -39,7 +39,7 @@ import "strconv"
 // be: fields are keyed by the bare declared name, and the module qualification
 // lives on the type name one level up.
 //
-// AN ENUM LITERAL IS THE CASE THAT PROVES IT. `#Shape.Rect{w: 4.0}` could be
+// AN ENUM LITERAL IS THE CASE THAT PROVES IT. `Shape.Rect{w: 4.0}` could be
 // laid out as a tagged struct — one integer tag field plus one slot per
 // payload, with zero-sized payloads given no slot at all and same-typed
 // payloads of different variants SHARING one — or as a record carrying a

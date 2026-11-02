@@ -44,7 +44,7 @@ fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
             variations(rest, [])?
     }
 
-    Ok(#(#Tree{properties, children}, rest))
+    Ok(#(Tree{properties, children}, rest))
 }
 
 /// The parenthesized trees after a node, up to and including the `)` that

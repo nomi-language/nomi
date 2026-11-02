@@ -46,7 +46,7 @@ struct Countdown {
 
 impl Iter for Countdown {
   fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
-    if c.from <= 0 { True } else { if yield(c.from) { each_while(#Countdown{from: c.from - 1}, yield) } else { False } }
+    if c.from <= 0 { True } else { if yield(c.from) { each_while(Countdown{from: c.from - 1}, yield) } else { False } }
   }
 }
 
@@ -61,12 +61,12 @@ fn main() {
   io.inspect("hé" |> Iter.to_vector())
   io.inspect(1..=3 |> Iter.to_vector())
   io.inspect(String.to_bytes("ab") |> Iter.to_vector() |> Vector.length())
-  io.inspect(#Countdown{from: 2} |> Iter.to_vector())
+  io.inspect(Countdown{from: 2} |> Iter.to_vector())
   io.inspect(Iter.from(1) |> Iter.filter(fn x -> x % 2 == 0) |> Iter.map(fn x -> x * 10) |> Iter.take(2) |> Iter.to_vector())
   empty: List<Int> = []
   io.inspect(Iter.to_vector(empty))
   io.inspect(collect(1..3))
-  io.inspect(collect(#Countdown{from: 1}))
+  io.inspect(collect(Countdown{from: 1}))
   io.inspect(collect(["p", "q"]))
 }
 `
@@ -87,7 +87,7 @@ struct Countdown {
 
 impl Iter for Countdown {
   fn each_while(c: Countdown, yield: (Int) -> Bool) -> Bool {
-    if c.from <= 0 { True } else { if yield(c.from) { each_while(#Countdown{from: c.from - 1}, yield) } else { False } }
+    if c.from <= 0 { True } else { if yield(c.from) { each_while(Countdown{from: c.from - 1}, yield) } else { False } }
   }
 }
 
@@ -102,7 +102,7 @@ fn main() {
   io.print("héllo" |> String.join("."))
   io.print("héllo" |> Iter.map(String.uppercase) |> String.join())
   io.print(1..=3 |> Iter.map(Int.to_string) |> String.join("-"))
-  io.print(#Countdown{from: 3} |> Iter.map(Int.to_string) |> String.join(","))
+  io.print(Countdown{from: 3} |> Iter.map(Int.to_string) |> String.join(","))
   io.print(Iter.from(1) |> Iter.filter(fn x -> x % 2 == 0) |> Iter.map(Int.to_string) |> Iter.take(3) |> String.join(" "))
   io.print(%{"k" => 1} |> Iter.map(fn #(k, v) -> k + "=" + Int.to_string(v)) |> String.join("&"))
   io.print(joined(["p", "q"]))
@@ -158,7 +158,7 @@ fn main() {
 }
 
 const irLoopShapesSource = `test "a state tuple advances through an if tail" {
-  #(_, steps) = Iter.loop(fn state = #(27, 0) -> {
+  #(_, steps) = Iter.loop(#(27, 0), fn state -> {
     #(n, count) = state
     if n == 1 { break state }
     if n % 2 == 0 {
@@ -172,11 +172,11 @@ const irLoopShapesSource = `test "a state tuple advances through an if tail" {
 }
 
 test "return is the next state and an if-else tail guards" {
-  a = Iter.loop(fn n = 1 -> {
+  a = Iter.loop(1, fn n -> {
     if n % 3 == 0 { break n }
     return n + 1
   })
-  b = Iter.loop(fn n = 5 -> if n == 0 { break n } else { n - 1 })
+  b = Iter.loop(5, fn n -> if n == 0 { break n } else { n - 1 })
 
   assert a == 3
   assert b == 0

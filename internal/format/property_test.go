@@ -130,7 +130,7 @@ fn probe(box: Box, n: Int, label: String) -> Box {
 		{"one field anonymous punned", "  Struct.update(box, #{n: n})\n"},
 		{"two fields anonymous punned", "  Struct.update(box, #{n: n, label: label})\n"},
 		// A type name disambiguates at any arity, including one.
-		{"one field nominal punned", "  #Box{n: n, label: label}\n"},
+		{"one field nominal punned", "  Box{n: n, label: label}\n"},
 		// Not a pun, so never at risk; present so a fix that keyed on arity
 		// alone rather than on punning would show up here.
 		{"one field anonymous not punned", "  Struct.update(box, #{n: 1})\n"},

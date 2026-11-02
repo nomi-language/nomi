@@ -85,25 +85,25 @@ derive Equatable for Error
 impl Display for Error {
     /// What is wrong, as a compile error at a ``Currency`…` `` literal shows
     /// it.
-    //! assert Display.to_string(#Error.IsoCode{code: "EUR"})
+    //! assert Display.to_string(Error.IsoCode{code: "EUR"})
     //!     == "`EUR` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`EUR`"
     //!
     //! assert Display.to_string(
-    //!     #Error.NotIso{code: "BTC"}
+    //!     Error.NotIso{code: "BTC"}
     //! ) == "`BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2`"
     //
     fn to_string(e: Error) -> String {
         case e {
-            #Error.Malformed{text} ->
+            Error.Malformed{text} ->
                 "`${text}` is not a currency code: a code is 1 to 12 of A-Z and 0-9, starting with a letter"
 
-            #Error.IsoCode{code} ->
+            Error.IsoCode{code} ->
                 "`${code}` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`${code}`"
 
-            #Error.NotIso{code} ->
+            Error.NotIso{code} ->
                 "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`${code}:2`"
 
-            #Error.Digits{digits} ->
+            Error.Digits{digits} ->
                 "a currency has 0 to 18 minor digits, not ${digits}"
         }
     }
@@ -115,9 +115,9 @@ impl Currency {
     //! assert Currency.parse("EUR") == Ok(Currency`EUR`)
     //! assert Currency.parse("JPY") |> Result.map(&Currency.minor_digits(&1)) == Ok(0)
     //! assert Currency.parse("PTS:0") == Currency.custom("PTS", 0)
-    //! assert Currency.parse("eur") == Err(#Error.Malformed{text: "eur"})
-    //! assert Currency.parse("EUR:2") == Err(#Error.IsoCode{code: "EUR"})
-    //! assert Currency.parse("BTC") == Err(#Error.NotIso{code: "BTC"})
+    //! assert Currency.parse("eur") == Err(Error.Malformed{text: "eur"})
+    //! assert Currency.parse("EUR:2") == Err(Error.IsoCode{code: "EUR"})
+    //! assert Currency.parse("BTC") == Err(Error.NotIso{code: "BTC"})
     //
     pub fn parse(text: String) -> Result<Currency, Error> {
         code = currency_code_of(text)
@@ -128,7 +128,7 @@ impl Currency {
             digits = currency_digits_of(text)
 
             if digits < 0 {
-                Err(#Error.Malformed{text})
+                Err(Error.Malformed{text})
             } else {
                 Currency.custom(code, digits)
             }
@@ -140,8 +140,8 @@ impl Currency {
     fn iso(code: String) -> Result<Currency, Error> {
         case currency_check(code, -1) {
             0 -> Ok(Currency(code))
-            1 -> Err(#Error.Malformed{text: code})
-            _ -> Err(#Error.NotIso{code})
+            1 -> Err(Error.Malformed{text: code})
+            _ -> Err(Error.NotIso{code})
         }
     }
 
@@ -151,18 +151,18 @@ impl Currency {
     /// `BTC` is allowed; if CLDR ever lists it as ISO, this answers
     /// `Err(.IsoCode)` and its literal stops compiling.
     //! assert Currency.custom("BTC", 8) |> Result.map(&Currency.minor_digits(&1)) == Ok(8)
-    //! assert Currency.custom("EUR", 2) == Err(#Error.IsoCode{code: "EUR"})
-    //! assert Currency.custom("POINTS", 19) == Err(#Error.Digits{digits: 19})
-    //! assert Currency.custom("1UP", 0) == Err(#Error.Malformed{text: "1UP"})
+    //! assert Currency.custom("EUR", 2) == Err(Error.IsoCode{code: "EUR"})
+    //! assert Currency.custom("POINTS", 19) == Err(Error.Digits{digits: 19})
+    //! assert Currency.custom("1UP", 0) == Err(Error.Malformed{text: "1UP"})
     //
     pub fn custom(code: String, minor_digits: Int) -> Result<Currency, Error> {
-        if minor_digits < 0 { return Err(#Error.Digits{digits: minor_digits}) }
+        if minor_digits < 0 { return Err(Error.Digits{digits: minor_digits}) }
 
         case currency_check(code, minor_digits) {
             0 -> Ok(Currency("${code}:${minor_digits}"))
-            1 -> Err(#Error.Malformed{text: code})
-            2 -> Err(#Error.IsoCode{code})
-            _ -> Err(#Error.Digits{digits: minor_digits})
+            1 -> Err(Error.Malformed{text: code})
+            2 -> Err(Error.IsoCode{code})
+            _ -> Err(Error.Digits{digits: minor_digits})
         }
     }
 
@@ -206,7 +206,7 @@ impl Literal for Currency {
     /// The literal checks a custom currency by `Currency.custom`'s rules, and
     /// in a module, against the custom currencies its `nomi.toml` lists.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Currency, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v

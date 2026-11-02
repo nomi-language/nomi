@@ -16,10 +16,10 @@ test "unicode extensions are kept" {
 
 test "invalid tags are typed errors" {
     assert Locale.parse("") == Err(locale.Error.Empty)
-    assert Locale.parse("pt_BR") == Err(#locale.Error.Underscore{suggestion: "pt-BR"})
-    assert Locale.parse("en--US") == Err(#locale.Error.Malformed{text: "en--US"})
-    assert Locale.parse("C") == Err(#locale.Error.Malformed{text: "C"})
-    assert Locale.parse("xx") == Err(#locale.Error.UnknownSubtag{subtag: "xx"})
+    assert Locale.parse("pt_BR") == Err(locale.Error.Underscore{suggestion: "pt-BR"})
+    assert Locale.parse("en--US") == Err(locale.Error.Malformed{text: "en--US"})
+    assert Locale.parse("C") == Err(locale.Error.Malformed{text: "C"})
+    assert Locale.parse("xx") == Err(locale.Error.UnknownSubtag{subtag: "xx"})
 }
 
 test "the parts of a locale" {

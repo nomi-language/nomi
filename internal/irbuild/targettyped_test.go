@@ -5,7 +5,7 @@ import "testing"
 // A brace literal with no type name at a position expecting a nominal struct
 // builds that struct (analysis.FileAnalysis.TargetStructs), and the builder
 // lowers it exactly as the named literal: the same nominal value, the same
-// Debug and Display, equal to a value built by `#Address{...}`.
+// Debug and Display, equal to a value built by `Address{...}`.
 
 func TestTargetTyped_EveryPositionBuildsTheNominalStruct(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
@@ -37,7 +37,7 @@ fn pick(n: Int) -> Address {
 fn main() {
   a: Address = #{street: "1 Main", city: "Bath"}
   io.inspect(a)
-  io.inspect(#Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}})
+  io.inspect(Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}})
   p: Person = #{name: "Bo", address: a}
   io.inspect(p)
   people: List<Person> = [#{name: "Cy", address: #{street: "4 List", city: "Hull"}}]
@@ -52,17 +52,17 @@ fn main() {
   some: Maybe<Address> = Some(#{street: "7 Some", city: "Ripon"})
   io.inspect(some)
 }
-`, `#Address{street: "1 Main", city: "Bath", zip: "00000"}
-#Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath", zip: "00000"}}
-#Person{name: "Bo", address: #Address{street: "1 Main", city: "Bath", zip: "00000"}}
-[#Person{name: "Cy", address: #Address{street: "4 List", city: "Hull", zip: "00000"}}]
-#Address{street: "3 Ret", city: "York", zip: "00000"}
-#Address{street: "2 Once", city: "Leeds", zip: "00000"}
+`, `Address{street: "1 Main", city: "Bath", zip: "00000"}
+Person{name: "Ada", address: Address{street: "1 Main", city: "Bath", zip: "00000"}}
+Person{name: "Bo", address: Address{street: "1 Main", city: "Bath", zip: "00000"}}
+[Person{name: "Cy", address: Address{street: "4 List", city: "Hull", zip: "00000"}}]
+Address{street: "3 Ret", city: "York", zip: "00000"}
+Address{street: "2 Once", city: "Leeds", zip: "00000"}
 Ely
-#Address{street: "a", city: "Zero", zip: "00000"}
-#Address{street: "b", city: "Many", zip: "00000"}
-%{"x" => #Address{street: "6 Map", city: "Wells", zip: "00000"}}
-Some(#Address{street: "7 Some", city: "Ripon", zip: "00000"})
+Address{street: "a", city: "Zero", zip: "00000"}
+Address{street: "b", city: "Many", zip: "00000"}
+%{"x" => Address{street: "6 Map", city: "Wells", zip: "00000"}}
+Some(Address{street: "7 Some", city: "Ripon", zip: "00000"})
 `)
 }
 
@@ -78,14 +78,14 @@ derive Display for Point
 
 fn main() {
   a: Point = #{x: 1, y: 2}
-  b = #Point{x: 1, y: 2}
+  b = Point{x: 1, y: 2}
   io.print(a == b)
   io.print(a)
   io.print(b)
-  points: Set<Point> = %[#{x: 1, y: 2}, #Point{x: 1, y: 2}]
+  points: Set<Point> = %[#{x: 1, y: 2}, Point{x: 1, y: 2}]
   io.print(Set.size(points))
 }
-`, "True\n#Point{x: 1, y: 2}\n#Point{x: 1, y: 2}\n1\n")
+`, "True\nPoint{x: 1, y: 2}\nPoint{x: 1, y: 2}\n1\n")
 }
 
 func TestTargetTyped_GenericStruct(t *testing.T) {
@@ -109,7 +109,7 @@ fn main() {
   p: Box<Pair> = #{item: #{a: 1, b: 2}}
   io.inspect(p)
 }
-`, "#Box{item: 3}\ns\n#Box{item: #Pair{a: 1, b: 2}}\n")
+`, "Box{item: 3}\ns\nBox{item: Pair{a: 1, b: 2}}\n")
 }
 
 // Under a spread a `..` literal at a struct-typed field updates the base's
@@ -131,10 +131,10 @@ fn main() {
   ada: Person = #{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
   moved = #{..ada, address: #{.., city: "NYC"}}
   io.inspect(moved)
-  rebuilt = #Person{name: "Bo", address: #{street: "2 Main", city: "York"}}
+  rebuilt = Person{name: "Bo", address: #{street: "2 Main", city: "York"}}
   io.inspect(rebuilt)
 }
-`, `#Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
-#Person{name: "Bo", address: #Address{street: "2 Main", city: "York"}}
+`, `Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
+Person{name: "Bo", address: Address{street: "2 Main", city: "York"}}
 `)
 }

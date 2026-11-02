@@ -59,3 +59,33 @@ func TestFieldRead_TheCheckerWallsOffThreeBackstops(t *testing.T) {
 		})
 	}
 }
+
+// A field read off a value `!` unwraps or `?` passes through runs: the
+// unwrapped value is lowered once and its field projected, as a call's result
+// is.
+func TestFieldRead_OffAnUnwrapOrATry(t *testing.T) {
+	irRunSource(t, `import std/io
+
+struct P {
+    x: Int
+}
+
+fn get(n: Int) -> Maybe<P> {
+    Some(P{x: n})
+}
+
+fn found(n: Int) -> Result<Int, String> {
+    Ok(n + 1)
+}
+
+fn twice(n: Int) -> Maybe<Int> {
+    Some(get(n)?.x * 2)
+}
+
+fn main() {
+    io.print(Int.to_string(get(3)!.x))
+    io.print(Int.to_string(twice(4)!))
+    io.print(Int.to_string(found(1)!))
+}
+`, "3\n8\n2\n")
+}

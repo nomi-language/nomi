@@ -156,7 +156,7 @@ impl Literal for Regex<C> {
     fn from_fragments(
         fragments: List<Fragment<String>>,
     ) -> Result<Regex<List<Maybe<String>>>, String> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v

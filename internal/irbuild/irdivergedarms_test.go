@@ -39,7 +39,7 @@ fn parse(s: String) -> Result<Int, String> {
 }
 
 fn break_or_continue(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case Receiver.receive(input) {
             None -> break n
             _ -> continue
@@ -48,7 +48,7 @@ fn break_or_continue(input: Receiver<String>) -> Int {
 }
 
 fn break_or_next() -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case n > 2 {
             True -> break n
             False -> return n + 1
@@ -57,7 +57,7 @@ fn break_or_next() -> Int {
 }
 
 fn bare_arms(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case Receiver.receive(input) {
             Some("skip") -> continue
             Some(t) -> return n + String.length(t)
@@ -67,7 +67,7 @@ fn bare_arms(input: Receiver<String>) -> Int {
 }
 
 fn block_arms(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case Receiver.receive(input) {
             Some("skip") -> {
                 io.print("skip")
@@ -86,7 +86,7 @@ fn block_arms(input: Receiver<String>) -> Int {
 }
 
 fn deposit(account: Account, input: Receiver<String>) -> Account {
-    Iter.loop(fn acc = account -> {
+    Iter.loop(account, fn acc -> {
         text = case Receiver.receive(input) {
             Some(t) -> t
             None -> break acc
@@ -105,7 +105,7 @@ fn deposit(account: Account, input: Receiver<String>) -> Account {
 }
 
 fn bare_break(input: Receiver<String>) {
-    _ = Iter.loop(fn n = 0 -> {
+    _ = Iter.loop(0, fn n -> {
         case Receiver.receive(input) {
             Some("stop") -> break
             _ -> return n + 1
@@ -115,7 +115,7 @@ fn bare_break(input: Receiver<String>) {
 }
 
 fn if_else(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         t = case Receiver.receive(input) {
             Some(t) -> t
             None -> break n
@@ -130,13 +130,13 @@ fn if_else(input: Receiver<String>) -> Int {
 }
 
 fn if_else_bare(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         if Receiver.receive(input) == None { break n } else { continue }
     })
 }
 
 fn nested(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case Receiver.receive(input) {
             Some(t) -> {
                 case t == "skip" {
@@ -150,7 +150,7 @@ fn nested(input: Receiver<String>) -> Int {
 }
 
 fn nested_in_if(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         t = Receiver.receive(input)
         if t == None {
             break n
@@ -164,7 +164,7 @@ fn nested_in_if(input: Receiver<String>) -> Int {
 }
 
 fn binding(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         y = case Receiver.receive(input) {
             Some("skip") -> continue
             Some(t) -> return n + String.length(t)
@@ -176,7 +176,7 @@ fn binding(input: Receiver<String>) -> Int {
 }
 
 fn binding_if(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         t = Receiver.receive(input)
         y = if t == None { break n } else { return n + 1 }
         io.print("never")
@@ -201,8 +201,8 @@ fn main() {
 }
 `, "0\n3\n5\n"+
 		"got ab\nskip\ngot cde\ndone\n5\n"+
-		"not a number: x\nnot a number: y\ndeposit 40\n#Account{owner: \"ann\", balance: 40}\n"+
-		"not a number: x\n#Account{owner: \"bob\", balance: 1}\n"+
+		"not a number: x\nnot a number: y\ndeposit 40\nAccount{owner: \"ann\", balance: 40}\n"+
+		"not a number: x\nAccount{owner: \"bob\", balance: 1}\n"+
 		"stopped\n"+
 		"skip\n5\n0\n5\n2\n5\n3\n")
 }
@@ -290,14 +290,14 @@ fn main() {
     Iter.each(xs, fn x -> {
         if x < 3 { continue } else { break }
     })
-    h = Iter.reduce(xs, fn acc = 0, x -> {
+    h = Iter.reduce(xs, 0, fn acc, x -> {
         case x {
             1 -> continue
             _ -> break acc + 100
         }
     })
     io.inspect(h)
-    i = Iter.reduce(xs, fn acc = 0, x -> if x < 3 { return acc + x } else { break acc })
+    i = Iter.reduce(xs, 0, fn acc, x -> if x < 3 { return acc + x } else { break acc })
     io.inspect(i)
 }
 `, "[99]\nskip 2\n[50, 400]\n[4]\nsmall 1\nbig 2\n[0]\n[7]\none\nstop\n[]\n[2]\neach 1\n100\n3\n")
@@ -320,7 +320,7 @@ fn feed(items: List<String>) -> Receiver<String> {
 
 fn main() {
     f = fn start: Int -> {
-        r = Iter.loop(fn n = start -> {
+        r = Iter.loop(start, fn n -> {
             case n > 2 {
                 True -> break n
                 False -> return n + 1
@@ -330,14 +330,14 @@ fn main() {
     }
     io.inspect(f(0))
     g = Iter.map([1, 2], fn x -> {
-        Iter.loop(fn n = x -> {
+        Iter.loop(x, fn n -> {
             if n > 3 { break n } else { return n + 1 }
         })
     }) |> Iter.to_list()
     io.inspect(g)
     totals = Iter.map([["a", "1", "b"], ["c"]], fn items -> {
         input = feed(items)
-        Iter.loop(fn n = 0 -> {
+        Iter.loop(0, fn n -> {
             case Receiver.receive(input) {
                 Some(t) -> {
                     case String.to_int(t) {
@@ -436,9 +436,9 @@ fn plus(x: Int) -> Int {
 }
 
 fn field(x: Int) -> Point {
-    #Point{x: noisy(3), y: case x {
-        0 -> return #Point{x: 0, y: 0}
-        _ -> return #Point{x: 1, y: 1}
+    Point{x: noisy(3), y: case x {
+        0 -> return Point{x: 0, y: 0}
+        _ -> return Point{x: 1, y: 1}
     }}
 }
 
@@ -522,7 +522,7 @@ fn in_arm(x: Int, y: Int) -> Int {
 }
 
 fn loop_state(limit: Int) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         calls(case n >= limit {
             True -> break n
             False -> return n + 1
@@ -578,7 +578,7 @@ fn main() {
 `, "10\n"+
 		"noisy 1\n21\n"+
 		"noisy 2\n40\n"+
-		"noisy 3\n#Point{x: 0, y: 0}\n"+
+		"noisy 3\nPoint{x: 0, y: 0}\n"+
 		"noisy 4\n[1]\n"+
 		"50\n80\n"+
 		"noisy 5\n90\n"+

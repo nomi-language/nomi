@@ -58,7 +58,7 @@ A pattern assertion binds an identifier, a wildcard or a struct pattern
 test "t" {
     assert n = compute()
     assert Err(_) = parse("x")
-    assert #Point{x, y} = #Point{x: 3, y: 4}
+    assert Point{x, y} = Point{x: 3, y: 4}
 }
 
 --------------------------------------------------------------------------------
@@ -175,7 +175,7 @@ A struct pattern names the whole value with as
 
 fn f(s: Shape) -> Int {
     case s {
-        #.Rect{w, h} as r when w == h -> 1
+        .Rect{w, h} as r when w == h -> 1
         other -> 2
     }
 }

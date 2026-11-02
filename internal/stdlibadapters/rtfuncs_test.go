@@ -312,6 +312,27 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 	t := p.t
 	texts := []string{"", "a", "héllo", "  padded\t\n", "🙂x", "ÅNGSTRÖM", "ǅ", " 42 ", "42", "-9223372036854775808",
 		"9223372036854775808", "12a", "+7", "e\u0301", "0x10", "٣"}
+	strList := func(xs ...string) any {
+		items := make([]any, len(xs))
+		for k, x := range xs {
+			items[k] = hStr(x)
+		}
+		return rtList(items...)
+	}
+	urlTexts := []string{"https://ann:pw@example.com:8080/a%20b?q=1#top", "/rel/x?y", "mailto:ann@example.com", "http://[::1]:80/a%2Fb", "file:///etc", "https://example.com/?"}
+	var urlParse []hostCase
+	var urlParts []any
+	for _, text := range urlTexts {
+		urlParse = append(urlParse, hostCase{args: []any{hStr(text), false}}, hostCase{args: []any{hStr(text), true}})
+		parts := rt.URLParse(text, false)
+		var items []string
+		for l := parts.Ok; l != nil; l = l.Tail {
+			items = append(items, l.Head)
+		}
+		urlParts = append(urlParts, strList(items...))
+	}
+	urlParse = append(urlParse, hostCase{args: []any{hStr("http://[::1]:namedport"), false}}, hostCase{args: []any{hStr("%zz"), false}})
+	queries := []any{hStr(""), hStr("a=1&b=2&a=3"), hStr("q=tea+cake&x"), hStr("a=1;b=2"), hStr("a=%zz&b=2")}
 	strs := make([]any, len(texts))
 	for k, x := range texts {
 		strs[k] = hStr(x)
@@ -341,8 +362,9 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		hFloat(-0.4), hFloat(1e21), hFloat(1e-7), hFloat(0.1 + 0.2), hFloat(math.Inf(1)), hFloat(math.Inf(-1)),
 		hFloat(math.NaN()), hFloat(9.3e18), hFloat(-9.3e18), hFloat(9.2e18), hFloat(-9.223372036854775808e18)}
 	blobs := []any{hBytes(""), hBytes("\x00"), hBytes("ab"), hBytes("\xff\xfe"), hBytes("héllo")}
-	var at, slice, bslice, holds []hostCase
+	var at, slice, bslice, holds, padded []hostCase
 	for _, b := range blobs {
+		padded = append(padded, hostCase{args: args(b, true)}, hostCase{args: args(b, false)})
 		for _, x := range []byte{0, 0x61, 0xfe, 0xff} {
 			holds = append(holds, hostCase{args: args(b, hByte(x))})
 		}
@@ -404,7 +426,38 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"bytes.bytes_compare":                 pairs(blobs...),
 		"bytes.Bytes.contains":                holds,
 		"hash.sha256":                         unary(blobs...),
-		"hash.sha256_hex":                     unary(blobs...),
+		"hash.sha512":                         unary(blobs...),
+		"hash.hmac_sha256":                    pairs(blobs...),
+		"hash.hmac_sha512":                    pairs(blobs...),
+		"hash.equal_in_constant_time":         pairs(blobs...),
+		"base64.standard":                     padded,
+		"base64.url_safe":                     padded,
+		"base64.decode":                       unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zm9v!mE="), hStr("Zg="), hStr("Zm9v\nYmFy")),
+		"base64.decode_url":                   unary(hStr(""), hStr("Zm9vYmE="), hStr("Zm9vYmE"), hStr("+/+/"), hStr("-_-_"), hStr("Zg")),
+		"hex.encode":                          unary(blobs...),
+		"hex.decode":                          unary(hStr(""), hStr("666F6f"), hStr("666f6"), hStr("66g6"), hStr("zz"), hStr("6é")),
+		"url_host.escape_query":               unary(strs...),
+		"url_host.escape_path_segment":        unary(strs...),
+		"url_host.unescape_query":             unary(hStr("tea+%26+cake"), hStr("caf%C3%A9"), hStr("100%"), hStr("%FF"), hStr("%zz"), hStr("a%2Fb")),
+		"url_host.unescape_path_segment":      unary(hStr("tea%20&%20cake"), hStr("a+b"), hStr("100%"), hStr("%FF"), hStr("%zz")),
+		"url_host.parse_parts":                urlParse,
+		"url_host.format_parts":               unary(urlParts...),
+		"url_host.redacted_parts":             unary(urlParts...),
+		"url_host.escaped_path_parts":         unary(urlParts...),
+		"url_host.escaped_fragment_parts":     unary(urlParts...),
+		"url_host.request_uri_parts":          unary(urlParts...),
+		"url_host.hostname_parts":             unary(urlParts...),
+		"url_host.port_parts":                 unary(urlParts...),
+		"url_host.resolve_parts":              pairs(urlParts...),
+		"url_host.join_path_parts":            []hostCase{{args: []any{urlParts[0], strList("x", "a/b", "..")}}, {args: []any{urlParts[1], strList()}}},
+		"url_host.escape_fragment":            unary(strs...),
+		"url_host.query_pairs":                unary(queries...),
+		"url_host.query_error":                unary(queries...),
+		"http_host.canonical_key":             unary(hStr("content-type"), hStr("X-REQUEST-ID"), hStr("bad key"), hStr("")),
+		"http_host.check_pattern":             unary(hStr("GET /users/{id}"), hStr("/a/{x}/{x}"), hStr("/f/{rest...}/x"), hStr("GET users"), hStr("")),
+		"http_host.status_text":               unary(hInt(200), hInt(404), hInt(418), hInt(599), hInt(0)),
+		"http_host.file_content_disposition":  pairs(hStr("doc"), hStr("a \"b\".txt")),
+		"url_host.query_encode":               unary(strList(), strList("b", "x y", "a", "1", "b", "&"), strList("odd")),
 		"int.Int.to_string":                   unary(ints...),
 		"int.Int.to_float":                    unary(ints...),
 		"int.Int.bit_count":                   unary(ints...),
@@ -588,6 +641,58 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	}
 	for k := range contextCheckedRows {
 		elsewhere[k] = true
+	}
+	// std/http_host's client crossings answer a network; internal/stdhttp's
+	// TestClient_* run each against a local server through a Nomi program.
+	for _, k := range []string{"new_client", "default_client", "close_idle", "send", "status", "protocol",
+		"headers", "trailers", "body_bytes", "body_reader", "close_body", "content_length",
+		"transfer_encoding", "closes", "uncompressed", "final_url"} {
+		elsewhere["http_host."+k] = true
+	}
+	// Its server crossings answer requests a client sends; TestServer_* run
+	// each through a Nomi program serving on 127.0.0.1.
+	for _, k := range []string{"listen", "address", "next", "shutdown", "in_method", "in_url", "in_host",
+		"in_remote", "in_target", "in_protocol", "in_headers", "in_trailers", "in_content_length",
+		"in_transfer_encoding", "in_close", "in_body", "respond", "produce", "finish", "answered_already",
+		"detect_content_type", "new_mux", "route", "answer_content", "answer_redirect", "format_time",
+		"parse_time", "limit_body", "cookie_text", "cookie_valid", "parse_cookie", "parse_set_cookie",
+		"new_jar", "jar_cookies", "jar_set", "with_jar"} {
+		elsewhere["http_host."+k] = true
+	}
+	// Its multipart crossings cross lists of Bytes, which this table's
+	// operands do not build; std/http's attached tests and TestClient_Multipart*
+	// run each through Nomi programs.
+	for _, k := range []string{"parse_multipart", "encode_multipart"} {
+		elsewhere["http_host."+k] = true
+	}
+	// Its TLS and TCP crossings for std/tls and std/net open sockets and run
+	// handshakes; TestTLS_HTTPSAndTCPEndToEnd runs each through a Nomi
+	// program on 127.0.0.1 with a certificate made for the test.
+	for _, k := range []string{"listen_tls", "with_tls", "certificate_from_pem", "certificate_load", "certificate_info",
+		"tls_config", "tls_with_certificate", "cipher_suites", "cipher_suite_name", "dial_with", "tls_dial", "tls_client",
+		"tls_server", "conn_reader", "conn_writer", "conn_close", "conn_close_write", "conn_local", "conn_remote",
+		"conn_deadline", "tls_state_parts", "tls_verify_hostname",
+		"net_listen_with", "tls_listen", "net_listener_address", "net_accept", "net_listener_close",
+		"net_listener_deadline", "conn_close_read", "conn_no_delay", "conn_linger", "conn_keep_alive",
+		"conn_multipath", "pipe", "split_host_port", "join_host_port", "lookup", "test_certificate"} {
+		elsewhere["http_host."+k] = true
+	}
+	// The hooks Go calls into a program, the TLS state a request or
+	// response carries, upgrades and the tracer need a server, a handshake
+	// or a request in flight; TestHooks_RunOnTheWaitingTask runs each
+	// through a Nomi program on 127.0.0.1.
+	for _, k := range []string{"hello_parts", "hello_supports", "tls_wrap_listener", "in_local", "in_tls",
+		"extend_read_deadline", "upgrade", "exchange_tls", "new_tracer", "tracer_events"} {
+		elsewhere["http_host."+k] = true
+	}
+	// The wire crossings read and write a program's Reader and Writer and
+	// hold Go messages and multipart readers in handles;
+	// TestWire_RoundTrips and std/http's attached tests run each through
+	// Nomi programs.
+	for _, k := range []string{"wire_read_request", "wire_read_response", "wire_parts", "wire_body", "wire_request",
+		"wire_response", "chunked_reader", "chunked_writer", "multipart_reader", "next_part", "part_headers",
+		"part_reader", "part_form_name", "part_file_name", "multipart_write", "close_connections"} {
+		elsewhere["http_host."+k] = true
 	}
 	var missing []string
 	for _, b := range stdlibbindings.RtFuncs() {

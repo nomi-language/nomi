@@ -161,7 +161,7 @@ const (
 	VariantBare VariantForm = iota + 1
 	// VariantPositional carries one positional payload: `Circle(5)`.
 	VariantPositional
-	// VariantFields carries named payload fields: `#Rect{w: 1, h: 2}`.
+	// VariantFields carries named payload fields: `Rect{w: 1, h: 2}`.
 	VariantFields
 	// VariantEmbedded is an `embeds` variant: its one payload is the value.
 	VariantEmbedded

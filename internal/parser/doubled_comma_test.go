@@ -10,8 +10,8 @@ import (
 func TestDoubledComma_IsRejected(t *testing.T) {
 	const msg = "unexpected `,`: there is nothing between these commas"
 	for _, tc := range []struct{ name, src, at string }{
-		{"struct literal", "q = #Point{x: 1,, y: 2}\n", "line 1, col 17"},
-		{"variant struct literal", "q = #.Circle{radius: 1.0,, x: 2}\n", "line 1, col 26"},
+		{"struct literal", "q = Point{x: 1,, y: 2}\n", "line 1, col 16"},
+		{"variant struct literal", "q = .Circle{radius: 1.0,, x: 2}\n", "line 1, col 25"},
 		{"anonymous struct literal", "q = #{x: 1,, y: 2}\n", "line 1, col 12"},
 		{"anonymous struct literal, trailing", "q = #{x: 1,,}\n", "line 1, col 12"},
 		{"struct literal across lines", "q = #{\n    x: 1,\n    ,\n    y: 2,\n}\n", "line 3, col 5"},
@@ -29,7 +29,7 @@ func TestDoubledComma_IsRejected(t *testing.T) {
 		{"named list", "q = Ids[1,, 2]\n", "line 1, col 11"},
 		{"vector", "q = #[1,, 2]\n", "line 1, col 9"},
 		{"tuple", "q = #(1,, 2)\n", "line 1, col 9"},
-		{"named tuple", "q = #Pair(1,, 2)\n", "line 1, col 13"},
+		{"named tuple", "q = Pair(1,, 2)\n", "line 1, col 12"},
 		{"call arguments", "q = f(1,, 2)\n", "line 1, col 9"},
 		{"call arguments across lines", "q = f(1,\n,\n 2)\n", "line 2, col 1"},
 		{"named call arguments", "q = f(a: 1,, b: 2)\n", "line 1, col 12"},
@@ -38,8 +38,8 @@ func TestDoubledComma_IsRejected(t *testing.T) {
 		{"host fn parameters", "host fn f(a: Int,, b: Int) -> Int\n", "line 1, col 18"},
 		{"interface function parameters", "interface I {\n    fn f(a: self,, b: Int) -> Int\n}\n", "line 2, col 18"},
 		{"lambda parameters", "q = fn a,, b -> a\n", "line 1, col 10"},
-		{"struct pattern", "x = case p {\n    #Point{x,, y} -> 0\n}\n", "line 2, col 14"},
-		{"struct pattern with values", "x = case p {\n    #Point{x: 1,, y: 2} -> 0\n}\n", "line 2, col 17"},
+		{"struct pattern", "x = case p {\n    Point{x,, y} -> 0\n}\n", "line 2, col 13"},
+		{"struct pattern with values", "x = case p {\n    Point{x: 1,, y: 2} -> 0\n}\n", "line 2, col 16"},
 		{"anonymous struct pattern", "x = case p {\n    #{x,, y} -> 0\n}\n", "line 2, col 9"},
 		{"struct destructure", "#{a,, b} = p\n", "line 1, col 5"},
 		{"tuple pattern", "x = case p {\n    #(a,, b) -> 0\n}\n", "line 2, col 9"},
@@ -74,7 +74,7 @@ func TestDoubledComma_IsRejected(t *testing.T) {
 // patterns, import lists).
 func TestDoubledComma_SingleAndTrailingCommasParse(t *testing.T) {
 	for _, src := range []string{
-		"q = #Point{x: 1, y: 2,}\n",
+		"q = Point{x: 1, y: 2,}\n",
 		"q = #{x: 1, y: 2,}\n",
 		"q = #{\n    x: 1,\n    y: 2,\n}\n",
 		"q = #{x: 1, // c\n    y: 2}\n",
@@ -92,7 +92,7 @@ func TestDoubledComma_SingleAndTrailingCommasParse(t *testing.T) {
 		"q = f(\n    a: 1,\n    b: 2,\n)\n",
 		"fn f(a: Int, b: Int,) -> Int { a }\n",
 		"q = fn a, b -> a\n",
-		"x = case p {\n    #Point{x, y,} -> 0\n}\n",
+		"x = case p {\n    Point{x, y,} -> 0\n}\n",
 		"#{a, b,} = p\n",
 		"x = case p {\n    [a, b,] -> 0\n}\n",
 		"x = case p {\n    %{\"a\" => a, \"b\" => b,} -> 0\n}\n",

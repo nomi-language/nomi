@@ -1,0 +1,57 @@
+import {
+    std/base64
+    std/compiler
+    std/hash
+    std/hex
+    std/random
+    std/url
+}
+
+test "a signed token round-trips through base64 and checks in constant time" {
+    key = random.secure_bytes(32)
+    payload = String.to_bytes("{\"user\":42}")
+
+    signature = hash.hmac_sha256(key, payload)
+
+    token = "${base64.encode_url(payload, padded: False)}.${base64.encode_url(
+        signature,
+        padded: False,
+    )}"
+
+    assert [body, sent] = String.split(token, ".")
+    received = base64.decode_url(body)!
+    assert hash.equal_in_constant_time(base64.decode_url(sent)!, hash.hmac_sha256(key, received))
+
+    assert Bytes.to_string(received) == Ok("{\"user\":42}")
+}
+
+test "hex and base64 read what they write" {
+    data = Bytes.from_list([0, 1, 127, 128, 254, 255])
+    assert hex.decode(hex.encode(data)) == Ok(data)
+    assert base64.decode(base64.encode(data)) == Ok(data)
+    assert base64.decode(base64.encode(data, padded: False)) == Ok(data)
+    assert base64.decode_url(base64.encode_url(data)) == Ok(data)
+}
+
+test "a query and a path segment escape what their place needs" {
+    term = "fish & chips/100%"
+    assert url.escape_query(term) == "fish+%26+chips%2F100%25"
+    assert url.unescape_query(url.escape_query(term)) == Ok(term)
+    assert url.escape_path_segment(term) == "fish%20&%20chips%2F100%25"
+    assert url.unescape_path_segment(url.escape_path_segment(term)) == Ok(term)
+}
+
+test "secure bytes of a negative count trap at the program's call" {
+    result =
+        """
+            import std/random
+
+            fn main() {
+              _ = random.secure_bytes(-1)
+            }
+            """
+        |> compiler.run()
+
+    assert Err(message) = result
+    assert String.contains(message, "random.secure_bytes: negative count -1")
+}

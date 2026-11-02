@@ -163,7 +163,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 		return nil, nil
 	}
 	if trigger == "}" {
-		// An auto-pair plugin typed the `}` of `#Point{}` right after the
+		// An auto-pair plugin typed the `}` of `Point{}` right after the
 		// user's `{`, and a client that reports only the last character
 		// typed (blink.cmp) sends that instead: answer it as the `{`.
 		trigger = "{"
@@ -227,7 +227,7 @@ func triggerCharacter(params *protocol.CompletionParams) string {
 // and the `{` of a block cost nothing: `>` only completes the `|>` of a pipe
 // or the return type after a signature's `)` (`fn f() ->`), and `{`
 // only a struct literal's fields, whose `{` follows its `#` and type name
-// (`#Point{`, `#{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
+// (`Point{`, `#{`; braceMayOpenLiteral), a quote or backtick only a typed literal's body (`Date"`),
 // and `:` only an annotation, whose `:` follows the annotated name.
 func triggerMayOpen(trigger, content string, off int) bool {
 	switch trigger {
@@ -251,7 +251,7 @@ func triggerMayOpen(trigger, content string, off int) bool {
 		// opens nothing.
 		return off >= 1 && content[off-1] == ','
 	case "}":
-		// Only the `}` an auto-pair plugin closes `#Point{` or `#{` with, the
+		// Only the `}` an auto-pair plugin closes `Point{` or `#{` with, the
 		// cursor between the braces; a `}` closing a block opens nothing.
 
 		return off >= 2 && off < len(content) && content[off-1] == '{' && content[off] == '}' && braceMayOpenLiteral(content, off-1)
@@ -269,16 +269,23 @@ func triggerMayOpen(trigger, content string, off int) bool {
 }
 
 // braceMayOpenLiteral reports, from the text alone, whether the `{` at brace
-// can open a struct literal: right after the `#` that starts one (`#{`), or
-// after the type or variant name written right after that `#`
-// (`#Point{`, `#geo.Point{`, `#.Circle{`). Any other `{` opens a block or a
-// map, so it costs nothing.
+// can open a struct literal: right after the `#` of an anonymous one (`#{`),
+// or against a type or variant name (`Point{`, `geo.Point{`, `.Circle{`).
+// Any other `{` opens a block or a map, so it costs nothing.
 func braceMayOpenLiteral(content string, brace int) bool {
+	if brace >= 1 && content[brace-1] == '#' {
+		return true
+	}
 	i := brace
 	for i > 0 && (isWordByte(content[i-1]) || content[i-1] == '.') {
 		i--
 	}
-	return i >= 1 && content[i-1] == '#'
+	name := content[i:brace]
+	if i >= 1 && (content[i-1] == '#' || content[i-1] == '%') {
+		return false
+	}
+	last := name[strings.LastIndexByte(name, '.')+1:]
+	return last != "" && last[0] >= 'A' && last[0] <= 'Z'
 }
 
 // endsLambdaHeader reports whether the `->` at arrow ends a lambda's

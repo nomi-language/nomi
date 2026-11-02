@@ -20,17 +20,17 @@ const orPatternSource = `enum Shape {
 
 fn radius(s: Shape) -> Float {
   case s {
-    #.Circle{r} or #.Square{r} -> r
+    .Circle{r} or .Square{r} -> r
     .Point -> 0.0
   }
 }
 `
 
-var orSites = []analysis.Pos{{Line: 9, Col: 14}, {Line: 9, Col: 29}}
+var orSites = []analysis.Pos{{Line: 9, Col: 13}, {Line: 9, Col: 27}}
 
 func TestOrPattern_HoverOnEitherSiteAndTheUse(t *testing.T) {
 	file := checkedFile(orPatternSource)
-	for _, pos := range append(append([]analysis.Pos{}, orSites...), analysis.Pos{Line: 9, Col: 35}) {
+	for _, pos := range append(append([]analysis.Pos{}, orSites...), analysis.Pos{Line: 9, Col: 33}) {
 		sym := file.SymbolAt(pos)
 		if sym == nil {
 			t.Fatalf("no symbol at %v", pos)
@@ -45,7 +45,7 @@ func TestOrPattern_DefinitionIsEverySite(t *testing.T) {
 	uri := "file:///or_pattern_definition.nomi"
 	s := NewServer()
 	s.docs.Open(uri, orPatternSource)
-	for _, at := range []protocol.Position{{Line: 8, Character: 34}, {Line: 8, Character: 28}} {
+	for _, at := range []protocol.Position{{Line: 8, Character: 32}, {Line: 8, Character: 26}} {
 		result, err := s.textDocumentDefinition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri}, Position: at}})
 		if err != nil {
@@ -66,7 +66,7 @@ func TestOrPattern_DefinitionIsEverySite(t *testing.T) {
 func TestOrPattern_RenameEditsEverySiteAndTheUse(t *testing.T) {
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(orPatternSource))
 	fa := buildFile(nodes)
-	sym := fa.SymbolAt(analysis.Pos{Line: 9, Col: 35})
+	sym := fa.SymbolAt(analysis.Pos{Line: 9, Col: 33})
 	if sym == nil {
 		t.Fatal("no symbol at the use of r")
 	}
@@ -85,7 +85,7 @@ func TestOrPattern_RenameEditsEverySiteAndTheUse(t *testing.T) {
 		}
 		cols[e.Range.Start.Character] = true
 	}
-	for _, c := range []uint32{13, 28, 34} {
+	for _, c := range []uint32{12, 26, 32} {
 		if !cols[c] {
 			t.Errorf("no edit at 9:%d: %+v", c+1, edits)
 		}

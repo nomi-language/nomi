@@ -15,13 +15,13 @@ func TestDeriveInterfaceOnly_RunsWithoutJsonInScope(t *testing.T) {
 		"False\n" +
 		"True\n" +
 		"Less\n" +
-		"#Point{x: 1, y: 2}\n" +
+		"Point{x: 1, y: 2}\n" +
 		"{\"x\":1,\"y\":2}\n" +
 		"[\"Dot\",{\"Circle\":2},{\"Pair\":[3,4]},{\"Box\":{\"w\":5,\"h\":6}}]\n" +
-		"Ok(#Point{x: 7, y: 8})\n" +
-		"Ok(#Tagged{name: \"n\", count: 3})\n" +
-		"Err(#Json.ShapeError{path: [\"name\"], expected: \"String\", got: \"missing\"})\n" +
-		"Err(#Json.ShapeError{path: [], expected: \"object\", got: \"int\"})\n" +
+		"Ok(Point{x: 7, y: 8})\n" +
+		"Ok(Tagged{name: \"n\", count: 3})\n" +
+		"Err(Json.ShapeError{path: [\"name\"], expected: \"String\", got: \"missing\"})\n" +
+		"Err(Json.ShapeError{path: [], expected: \"object\", got: \"int\"})\n" +
 		"Ok(Meters(4))\n" +
 		"9\n"
 	got := vmReference(fixture("derive_interface_only/main.nomi"))
@@ -49,9 +49,9 @@ struct Point {
 derive ToJson for Point
 derive FromJson for Point
 fn main() {
-  io.print(json.Json.encode(ToJson.to_json(#Point{x: 1, y: 2})))
+  io.print(json.Json.encode(ToJson.to_json(Point{x: 1, y: 2})))
   io.print(Debug.inspect(json.Json.decode_as<Point>("{\"x\": 3, \"y\": 4}")))
   io.print(Debug.inspect(json.Json.decode_as<Point>("{\"x\": 3}")))
-  io.print(#Json{text: "mine"}.text)
-}`, "{\"x\":1,\"y\":2}\nOk(#Point{x: 3, y: 4})\nErr(Shape(#Json.ShapeError{path: [\"y\"], expected: \"Int\", got: \"missing\"}))\nmine\n")
+  io.print(Json{text: "mine"}.text)
+}`, "{\"x\":1,\"y\":2}\nOk(Point{x: 3, y: 4})\nErr(Shape(Json.ShapeError{path: [\"y\"], expected: \"Int\", got: \"missing\"}))\nmine\n")
 }

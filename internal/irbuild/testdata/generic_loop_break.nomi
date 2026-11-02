@@ -12,7 +12,7 @@ import {
 /// T) -> T { x }` does not exercise. The state, seeded with `x` and never read,
 /// gives the loop the type T its `break` answers.
 fn first<T>(x: T) -> T {
-    loop(fn _seed = x -> { break x })
+    loop(x, fn _seed -> { break x })
 }
 
 /// The same shape with the type parameter threaded as the loop's own STATE, so
@@ -20,7 +20,7 @@ fn first<T>(x: T) -> T {
 /// over. std's `loop` is `fn loop<S>(f: (S) -> S) -> S`, and iterLoop depends on
 /// exactly that: the loop's answer and its state are one local.
 fn echo_state<T>(x: T) -> T {
-    loop(fn state = x -> { break state })
+    loop(x, fn state -> { break state })
 }
 
 fn main() {

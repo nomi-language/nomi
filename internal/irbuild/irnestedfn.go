@@ -73,7 +73,7 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 	}
 	if fd.ReturnTypeExpr != nil {
 		if want := bl.g.typeOf(fd.ReturnTypeExpr); want != kindUnit && irCallableValueKind(want) {
-			// `fn f() -> Shape { #Spot{n: 3} }`, `fn f() -> Display { 5 }`,
+			// `fn f() -> Shape { Spot{n: 3} }`, `fn f() -> Display { 5 }`,
 			// `fn f() -> Set<Int> { %[] }`: the body and each `return`
 			// answer the declared type, widened to it as a module
 			// function's result is (lambdaFunction's declaredFnLambda).

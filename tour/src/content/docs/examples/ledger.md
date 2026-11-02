@@ -46,8 +46,8 @@ impl Style {
     /// accountant does, in parentheses.
     fn sign(style: Style) -> CurrencySign {
         case style {
-            .American -> CurrencySign.Accounting
-            .Dutch -> CurrencySign.Standard
+            .American -> .Accounting
+            .Dutch -> .Standard
         }
     }
 
@@ -76,7 +76,7 @@ pub fn format_entries(currency: Currency, style: Style, entries: List<Entry>) ->
 fn format_entry(currency: Currency, style: Style, entry: Entry) -> String {
     locale = Style.locale(style)
     date = Date.format_fields(entry.date, locale, DateFields`yMMdd`)
-    change = #Money{amount: Int.to_decimal(entry.cents) * 0.01d, currency}
+    change = Money{amount: Int.to_decimal(entry.cents) * 0.01d, currency}
     row(date, truncate(entry.description), format_change(change, style))
 }
 
@@ -124,7 +124,7 @@ test "ledger" {
         #(
             "empty ledger",
             Currency`USD`,
-            Style.American,
+            .American,
             [],
             [
                 "Date       | Description               | Change       ",

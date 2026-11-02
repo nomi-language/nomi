@@ -1,12 +1,14 @@
 ---
 title: "Input & Output"
-description: "Print to standard output and standard error, read input, read the arguments and environment, and exit with a status."
+description: "Print to standard output and standard error, read input, read the arguments and environment, exit with a status, and run other programs."
 ---
 
-A program talks to the terminal through [`std/io`](/reference/io/): it
-prints to standard output, reports problems on standard error, and reads
-lines from standard input. When it ends, its exit status tells the shell
-whether it worked. Files are the Libraries chapter [Files](/files/).
+A program talks to the world outside it through [`std/io`](/reference/io/)
+and [`std/process`](/reference/process/). It prints to standard output,
+reports problems on standard error, reads standard input, reads its
+arguments and environment, and runs other programs. When it ends, its exit
+status tells the shell whether it worked. Reading and writing files is the
+[Files](/files/) chapter.
 
 ## Printing
 
@@ -44,11 +46,11 @@ failures go to standard error instead, so they still reach the person at
 the terminal. `io.eprint` and `io.ewrite` are `io.print` and `io.write` for
 standard error.
 
-`io.stdout`, `io.stderr` and `io.stdin` are the three streams as
-values (constants, so no parentheses), for a function that takes where to
-write. `Writer.print` and
-`Writer.write` return a `Result`, because a stream can fail, for example
-when the program reading it has stopped:
+A function that leaves the choice of stream to its caller takes a
+`Writer`. `io.stdout`, `io.stderr` and `io.stdin` are the three standard
+streams as values. `Writer.print` and `Writer.write` return a `Result`,
+because a stream can fail, for example when the program reading it has
+stopped:
 
 ```nomi-run
 import std/io.{self, Error, Writer}
@@ -73,9 +75,8 @@ In a terminal both lines appear, but `nomi run report.nomi > /dev/null`
 shows only the second. This page shows both streams in one box.
 
 A test checks what such a function writes with `Writer.collect(fn w ->
-report(w, 3))`, which hands it a writer into memory and returns the bytes.
-[`Writer.from_fn`](/reference/io/#type-writer) hands each write to a function
-of yours instead.
+report(w, 3))`, which hands it a writer into memory and returns what it
+wrote.
 
 ## Reading input
 
@@ -124,7 +125,7 @@ struct App {
 }
 
 fn boot(startup: Startup) -> Result<App, String> {
-    Ok(#App{args: startup.args})
+    Ok(App{args: startup.args})
 }
 
 fn main() {
@@ -157,7 +158,7 @@ import {
 
 fn main() -> Result<Unit, Exit> {
     io.eprint("checking the arguments")
-    Err(#Exit{code: 2, message: "usage: count <file>"})
+    Err(Exit{code: 2, message: "usage: count <file>"})
 }
 ```
 <!-- expect
@@ -175,5 +176,69 @@ runs.
 There is no function that exits on the spot. Returning an `Exit`, through
 `?` from deep in the program if needed, ends the program as returning from
 `main` does: deferred calls run and supervised tasks finish first.
+
+## Running other programs
+
+A program runs another, such as `git` or a formatter, with a
+[`Command`](/reference/process/): the program's name and its arguments. No
+shell reads them, so `"a b"` reaches the program as one argument and `*` is
+not expanded. `process.output` runs the command to its end and answers an
+`Output`: its `status`, and the bytes it wrote to `stdout` and `stderr`.
+
+A program that runs and fails is not an error. Its exit code is in the
+status, and `Status.is_success` says whether it was 0. An `Err` means the
+program could not be started at all, such as `NotFound` when nothing on the
+`PATH` has its name:
+
+```nomi-run
+import {
+    std/io
+    std/process.{self, Command, Status}
+    std/process_testing.{self, Answer}
+}
+
+/// The current git branch, or `None` when git fails, as it does outside a
+/// repository.
+fn current_branch() -> Result<Maybe<String>, io.Error> {
+    command = Command{program: "git", args: ["branch", "--show-current"]}
+    out = process.output(command)?
+
+    if Status.is_success(out.status) {
+        Ok(Some(String.trim(Bytes.to_string(out.stdout)!)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn main() {
+    in_repo = process_testing.run([Answer{program: "git", stdout: "main\n"}], current_branch)
+    dbg in_repo.value
+
+    outside = process_testing.run(
+        [Answer{program: "git", code: 128, stderr: "fatal: not a git repository\n"}],
+        current_branch,
+    )
+
+    dbg outside.value
+}
+```
+<!-- expect
+dbg line 22: in_repo.value = Ok(Some("main"))
+dbg line 29: outside.value = Ok(None)
+-->
+
+The page cannot start programs, so `main` runs `current_branch` under
+[`process_testing`](/reference/process_testing/), which answers each command
+from a list of `Answer`s instead of starting it, as a test does. For the
+same reason, `nomi build` refuses to build a program that starts others for
+WebAssembly.
+
+Two other functions run a command. `process.run` lets the program write
+straight to your program's own output and answers only its status, as a
+build step would. `process.with_spawned(command, fn child -> ...)` runs a
+body while the program runs, writing to its input and reading its output as
+it goes. When the body ends, a program still running is killed.
+
+[HTTP](/http/) covers sending requests and serving them.
 
 [Concurrency](/concurrency/) is next. It runs several tasks at once.

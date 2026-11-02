@@ -109,7 +109,7 @@ fn produce(out: Sender<Int>, n: Int) -> Unit {
 }
 
 fn consume(inbox: Receiver<Int>) -> Int {
-    Iter.loop(fn sum = 0 -> {
+    Iter.loop(0, fn sum -> {
         case Receiver.receive(inbox) {
             Some(v) -> sum + v
             None -> break sum
@@ -165,6 +165,46 @@ That makes deadlock easy: a task that sends and then receives on the same
 channel waits forever. Use `buffered` by default. Use `unbuffered` when you
 want the sender to wait for the hand-off.
 
+### Waiting on more than one channel
+
+[`Channel.select`](/reference/channels/#channelselect) waits on several
+channels, or a timer, and runs the handler of whichever arm finishes first.
+Each arm's handler turns its own outcome into the one result:
+
+```nomi-run
+import {
+    std/channels.{Arm, Channel, Sender}
+    std/duration.Duration
+    std/tasks.Task
+}
+
+fn main() {
+    replies = Channel.buffered<String>(1)
+    failures = Channel.buffered<Int>(1)
+
+    answer = concurrent {
+        worker = Task.spawn(fn -> Sender.send(failures.sender, 503))
+        _ = Task.await(worker)
+
+        Channel.select([
+            Arm.receive(replies.receiver, fn reply -> Maybe.with_default(reply, "closed")),
+            Arm.receive(failures.receiver, fn code -> "failed: ${Maybe.with_default(code, 0)}"),
+            Arm.after(Duration.seconds(1), fn -> "timed out"),
+        ])
+    }
+
+    dbg answer
+}
+```
+<!-- expect
+dbg line 22: answer = "failed: 503"
+-->
+
+When several arms are ready at once, the first one listed wins. For one
+channel and a timeout,
+[`Receiver.receive_within`](/reference/channels/#receiverreceive_within)
+answers `Ok(Some(v))`, `Ok(None)` when closed, or `Err(TimedOut)`.
+
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
@@ -176,8 +216,10 @@ want the sender to wait for the hand-off.
   `Channel.unbuffered()`.
 - A channel belongs to no block. It can be made in one block and used in a
   later one.
-- A `send` or `receive` that is waiting when its task is cancelled stops
-  like any other wait.
+- A `send`, `receive` or `select` that is waiting when its task is
+  cancelled stops like any other wait.
+- Timers in `select` run on the clock in force, so under
+  `clock Clock.Virtual` a test of a timeout takes no real time.
 
 Spec: [Channels](/spec/concurrency/#channels).
 
@@ -322,7 +364,7 @@ on the mat
 a dog
 ```
 <!-- expect
-dbg line 23: counts = [Ok(2), Ok(6), Err(#NotFound{path: "missing.txt"})]
+dbg line 23: counts = [Ok(2), Ok(6), Err(NotFound{path: "missing.txt"})]
 -->
 
 At most eight run at a time, however many inputs you pass. With ten
@@ -513,7 +555,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-    Ok(#Config{context: Context.root()})
+    Ok(Config{context: Context.root()})
 }
 
 fn slow() -> Int {

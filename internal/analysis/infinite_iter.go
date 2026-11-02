@@ -46,6 +46,8 @@ type iterDrain struct {
 var (
 	iterSourceArg   = iterArg{0, "source"}
 	iterCallbackArg = &iterArg{1, "f"}
+	// foldCallbackArg is a fold's callback, after its starting value.
+	foldCallbackArg = &iterArg{2, "f"}
 )
 
 // infiniteIterTerminals is every std function the VM refuses to run on an
@@ -75,9 +77,11 @@ var infiniteIterTerminals = map[string]iterDrain{
 	"Iter.max_by":          {source: iterSourceArg},
 	"Iter.sum":             {source: iterSourceArg},
 	"Iter.product":         {source: iterSourceArg},
-	"Iter.reduce":          {source: iterSourceArg, callback: iterCallbackArg},
+	"Iter.sum_by":          {source: iterSourceArg},
+	"Iter.product_by":      {source: iterSourceArg},
+	"Iter.reduce":          {source: iterSourceArg, callback: foldCallbackArg},
 	"Iter.each":            {source: iterSourceArg, callback: iterCallbackArg},
-	"Iter.map_reduce":      {source: iterSourceArg, callback: iterCallbackArg},
+	"Iter.map_reduce":      {source: iterSourceArg, callback: foldCallbackArg},
 	"String.join":          {source: iterArg{0, "parts"}},
 	"Maybe.values":         {source: iterArg{0, "maybes"}},
 	"Result.partition":     {source: iterArg{0, "results"}},
@@ -123,7 +127,7 @@ var infiniteIterAdapters = map[string]iterAdapterRule{
 	"Iter.drop_while":  {iterKeeps, &iterArg{1, "pred"}},
 	"Iter.with_index":  {iterKeeps, nil},
 	"Iter.intersperse": {iterKeeps, nil},
-	"Iter.scan":        {iterKeeps, iterCallbackArg},
+	"Iter.scan":        {iterKeeps, foldCallbackArg},
 	"Iter.chunk_by":    {iterKeeps, &iterArg{1, "key_fn"}},
 	"Iter.flat_map":    {iterKeeps, iterCallbackArg},
 	"Iter.chunks":      {iterChunks, nil},

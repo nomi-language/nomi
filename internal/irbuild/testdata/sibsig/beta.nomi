@@ -18,7 +18,7 @@ pub struct Point {
 }
 
 pub fn at(lat: Float, lon: Float) -> Point {
-    #Point{lat, lon}
+    Point{lat, lon}
 }
 
 /// A sibling type inside a TUPLE, which is the third structural shape the

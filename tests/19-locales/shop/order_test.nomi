@@ -67,7 +67,7 @@ test "a list is joined as the locale joins one, and the verb agrees with its len
 }
 
 test "a total is written as the reader's locale writes an amount in its currency" {
-    total = #Money{amount: 12.5d, currency: Currency`EUR`}
+    total = Money{amount: 12.5d, currency: Currency`EUR`}
     assert order.order_total(total) |> Message.format(Locale`en`) == "Total: €12.50"
     assert order.order_total(total) |> Message.format(Locale`pl`) == "Razem: 12,50\u{a0}€"
     assert order.order_total(total) |> Message.format(Locale`de`) == "Gesamt: 12,50\u{a0}€"
@@ -75,12 +75,12 @@ test "a total is written as the reader's locale writes an amount in its currency
     assert order.order_total(total) |> Message.format(Locale`ja`) == "合計: €12.50"
 
     // The yen has no minor digits, and Japanese writes its own sign.
-    yen = #Money{amount: 1500d, currency: Currency`JPY`}
+    yen = Money{amount: 1500d, currency: Currency`JPY`}
     assert order.order_total(yen) |> Message.format(Locale`ja`) == "合計: ￥1,500"
     assert order.order_total(yen) |> Message.format(Locale`en`) == "Total: ¥1,500"
 
     // A total of three books, summed in their currency.
-    price = #Money{amount: 4.20d, currency: Currency`EUR`}
+    price = Money{amount: 4.20d, currency: Currency`EUR`}
     cart = [price, price, price]
     assert order.order_total(Iter.sum(cart)) |> Message.format(Locale`pl`) == "Razem: 12,60\u{a0}€"
 }

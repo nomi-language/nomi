@@ -349,12 +349,15 @@ func programRefusesReservedName(snap *analysis.DocSnapshot) bool {
 }
 
 // stdSyntaxDiagnostic is an error on every document's first line when the
-// std this server embeds does not parse (std.StdLib.SyntaxError): every
-// document is checked against that std, and what the analysis says about
-// one follows from the part of the std file recovery skipped. The message
-// names each syntax error's file, line and column.
+// std this server embeds does not parse (std.StdLib.SyntaxError) or, when it
+// parses, does not check (std.StdLib.CheckError): every document is checked
+// against that std, and what the analysis says about one follows from it.
+// The message names each error's file, line and column.
 func stdSyntaxDiagnostic(lib *std.StdLib) (protocol.Diagnostic, bool) {
 	err := lib.SyntaxError()
+	if err == nil {
+		err = lib.CheckError()
+	}
 	if err == nil {
 		return protocol.Diagnostic{}, false
 	}

@@ -55,7 +55,7 @@ pub fn label(bands: List<Color>) -> Maybe<Resistance> {
 /// `ohms` in the largest unit that keeps the value whole.
 fn in_largest_unit(ohms: Int) -> Resistance {
     [Magnitude.Kiloohms, .Megaohms, .Gigaohms]
-    |> Iter.reduce(fn resistance = #Resistance{value: ohms, unit: .Ohms}, unit -> {
+    |> Iter.reduce(Resistance{value: ohms, unit: .Ohms}, fn resistance, unit -> {
         if resistance.value != 0 and resistance.value % 1000 == 0 {
             #{value: resistance.value / 1000, unit}
         } else {
@@ -99,13 +99,13 @@ test "label" {
         #("Ignore extra colors", [.Blue, .Green, .Yellow, .Orange], 650, .Kiloohms),
     ]
     |> subtests #(description, bands, value, unit), description {
-        assert resistor_color_trio.label(bands) == Some(#Resistance{value, unit})
+        assert resistor_color_trio.label(bands) == Some(Resistance{value, unit})
     }
 }
 
 // Not a canonical case: the exercise always gives at least three bands.
 test "fewer than three bands have no label" {
-    assert resistor_color_trio.label([Color.Orange, .Orange]) == None
+    assert resistor_color_trio.label([.Orange, .Orange]) == None
 }
 ```
 <!-- expect

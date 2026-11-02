@@ -1,0 +1,15 @@
+// A file named after another with `_test` reads that file's private
+// declarations: Kind, Shape, area and the opaque Area's representation.
+import shapes.{self, Area, Kind, Shape, area}
+
+test "the partner test file reads private declarations" {
+    Area(round) = area(Shape{kind: .Round, size: 2})
+    assert round == 12
+    assert area(Shape{kind: Kind.Square, size: 3}) == Area(9)
+    assert shapes.describe(2) == "square of area 4"
+}
+
+test "a file-qualified private function is reachable too" {
+    Area(a) = shapes.area(Shape{kind: .Square, size: 1})
+    assert a == 1
+}

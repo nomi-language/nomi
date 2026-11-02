@@ -111,7 +111,6 @@ func TestUnexpectedTokensAreShownAsWritten(t *testing.T) {
 		{"fn f() -> Int {\n    x = )\n}", "unexpected `)`"},
 		{"fn f(n: Int) -> Int {\n    case n {\n        => 1\n    }\n}", "unexpected `=>` in case pattern"},
 		{"struct S {\n    ,\n}", "expected field name in struct `S` body, got `,`"},
-		{"fn f() {\n    p = Point{}\n}", "unexpected `{` right after the end of a statement"},
 		{"fn f() -> Int {\n    x = \"a${)}\"\n    1\n}", "unexpected `)`"},
 	}
 	for _, tc := range cases {

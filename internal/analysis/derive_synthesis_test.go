@@ -422,9 +422,6 @@ derive Equatable for Pair`
 	if !ok {
 		t.Fatalf("expected outer Both payload as *ast.TuplePattern, got %T", outerEnumPat.Payload)
 	}
-	if outerTup.TypeName != nil {
-		t.Errorf("outer Both payload TuplePattern names a type; want the anonymous tuple pattern")
-	}
 	if len(outerTup.Patterns) != 2 {
 		t.Errorf("outer Both payload arity: expected 2 bindings, got %d", len(outerTup.Patterns))
 	}
@@ -444,9 +441,6 @@ derive Equatable for Pair`
 	innerTup, ok := innerEnumPat.Payload.(*ast.TuplePattern)
 	if !ok {
 		t.Fatalf("inner Both payload: expected *ast.TuplePattern, got %T", innerEnumPat.Payload)
-	}
-	if innerTup.TypeName != nil {
-		t.Errorf("inner Both payload TuplePattern names a type; want the anonymous tuple pattern")
 	}
 	if len(innerTup.Patterns) != 2 {
 		t.Errorf("inner Both payload arity: expected 2 bindings, got %d", len(innerTup.Patterns))
@@ -706,9 +700,6 @@ derive Hashable for Pair`
 	tup, ok := bothPat.Payload.(*ast.TuplePattern)
 	if !ok {
 		t.Fatalf("Both payload: expected *ast.TuplePattern, got %T", bothPat.Payload)
-	}
-	if tup.TypeName != nil {
-		t.Errorf("Both payload TuplePattern names a type; want the anonymous tuple pattern")
 	}
 	if len(tup.Patterns) != 2 {
 		t.Errorf("Both payload arity: expected 2 bindings, got %d", len(tup.Patterns))
@@ -1061,9 +1052,6 @@ derive Comparable for Pair`
 	if !ok {
 		t.Fatalf("Both payload: expected *ast.TuplePattern, got %T", bothPat.Payload)
 	}
-	if tup.TypeName != nil {
-		t.Errorf("Both payload TuplePattern names a type; want the anonymous tuple pattern")
-	}
 	if len(tup.Patterns) != 2 {
 		t.Errorf("Both payload arity: expected 2 bindings, got %d", len(tup.Patterns))
 	}
@@ -1127,9 +1115,9 @@ derive Debug for Point`
 		t.Fatalf("expected StringInterp body, got %T", es.Expr)
 	}
 	// Static fragments must include the type-and-first-field opener
-	// `#Point{x: ` and the closing `}`. The intermediate `, y: ` is the
+	// `Point{x: ` and the closing `}`. The intermediate `, y: ` is the
 	// separator between the two fields.
-	for _, want := range []string{"#Point{x: ", ", y: ", "}"} {
+	for _, want := range []string{"Point{x: ", ", y: ", "}"} {
 		if !debugStringPartsContain(si.Parts, want) {
 			t.Errorf("StringInterp parts missing static fragment %q; parts: %v", want, si.Parts)
 		}
@@ -1161,7 +1149,7 @@ derive Debug for Point`
 }
 
 // TestDeriveDebugOnEmptyStructIsBareName pins the 0-field special case:
-// the body is a static StringLit `"#TypeName{}"` with no interpolation
+// the body is a static StringLit `"TypeName{}"` with no interpolation
 // slots, since there are no fields to render.
 func TestDeriveDebugOnEmptyStructIsBareName(t *testing.T) {
 	src := `struct Empty {}
@@ -1182,8 +1170,8 @@ derive Debug for Empty`
 	if !ok {
 		t.Fatalf("expected body == StringLit, got %T %v", es.Expr, es.Expr)
 	}
-	if sl.Value != "#Empty{}" {
-		t.Errorf("expected StringLit.Value == \"#Empty{}\", got %q", sl.Value)
+	if sl.Value != "Empty{}" {
+		t.Errorf("expected StringLit.Value == \"Empty{}\", got %q", sl.Value)
 	}
 }
 
@@ -1385,9 +1373,6 @@ derive Debug for Pair`
 	if !ok {
 		t.Fatalf("Both payload: expected *ast.TuplePattern, got %T", bothPat.Payload)
 	}
-	if tup.TypeName != nil {
-		t.Errorf("Both payload TuplePattern names a type; want the anonymous tuple pattern")
-	}
 	if len(tup.Patterns) != 2 {
 		t.Errorf("Both payload arity: expected 2 bindings, got %d", len(tup.Patterns))
 	}
@@ -1501,7 +1486,7 @@ func synthFnBy(t *testing.T, src, fnName, ifaceName, typeName string) *ast.FuncD
 // TestDeriveOnGenericStructAddsInterfaceBound pins the implicit bound: `@derive Equatable
 // struct Box<T> { value: T }` synthesizes `fn equal(a: Box<T>, b: Box<T>):
 // Bool` whose TypeParams carry an implicit `T: Equatable` bound. Without
-// this bound, calling `Equatable.equal(#Box{value: #NoEqType{}}, ...)`
+// this bound, calling `Equatable.equal(Box{value: NoEqType{}}, ...)`
 // would fall through to a runtime "no impl found" error instead of a
 // compile-time type-check failure (spec §12 *Derive*).
 func TestDeriveOnGenericStructAddsInterfaceBound(t *testing.T) {

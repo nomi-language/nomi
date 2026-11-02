@@ -39,7 +39,7 @@ pub fn winner(board: List<String>) -> Maybe<Player> {
         |> Iter.map(fn line -> line |> String.trim() |> String.split(" ") |> Iter.to_list())
         |> Iter.to_list()
 
-    Iter.find([Player.X, Player.O], &connects(rows, &1))
+    Iter.find([.X, .O], &connects(rows, &1))
 }
 
 /// Whether `player`'s stones join their two sides of the board.

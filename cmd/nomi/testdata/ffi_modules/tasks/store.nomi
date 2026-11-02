@@ -27,7 +27,7 @@ impl Store for SqliteStore {
 
         rows = query_all(conn, Sql"SELECT id, title, created, status FROM tasks")?
 
-        Iter.reduce(rows, fn tasks = Ok(%{}), row -> {
+        Iter.reduce(rows, Ok(%{}), fn tasks, row -> {
             tasks = tasks?
             task = parse_row(row)?
             Ok(Map.put(tasks, task.id, task))
@@ -92,7 +92,7 @@ fn parse_row(row: List<String>) -> Result<Task, String> {
     malformed = "malformed task row: ${row}"
 
     case row {
-        [id, title, created, status] -> Ok(#Task{
+        [id, title, created, status] -> Ok(Task{
             id: id |> String.to_int() |> Maybe.to_result(malformed)?,
             title,
             created: created

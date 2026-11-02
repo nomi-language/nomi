@@ -28,7 +28,7 @@ impl Rational {
     /// reduction divides by it.
     pub fn new(numerator: Int, denominator: Int) -> Rational {
         common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        #Rational{numerator: numerator / common, denominator: denominator / common}
+        Rational{numerator: numerator / common, denominator: denominator / common}
     }
 
     pub fn numerator(r: Rational) -> Int {
@@ -40,7 +40,7 @@ impl Rational {
     }
 
     pub fn abs(r: Rational) -> Rational {
-        #Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
+        Rational{numerator: Int.abs(r.numerator), denominator: r.denominator}
     }
 
     /// `r` to the power `exponent`. A negative exponent raises the
@@ -226,7 +226,7 @@ test "a real number to a rational power" {
         #("Raise a real number to a zero rational number", 2.0, #(0, 1), 1.0),
     ]
     |> subtests #(description, x, r, expected), description {
-        assert Float.equal_within(Rational.raise(x, rational(r)), expected, 1e-12)
+        assert x |> Rational.raise(rational(r)) |> Float.equal_within(expected, 1e-12)
     }
 }
 

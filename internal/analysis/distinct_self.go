@@ -257,7 +257,7 @@ func (c *checker) opaqueHere(recvTy Type) (*DistinctType, bool) {
 	if !ok || !dt.Opaque {
 		return nil, false
 	}
-	if c.fa != nil && c.fa.FilePath == dt.OwningSourceFile {
+	if c.fa != nil && c.fa.inside(dt.OwningSourceFile) {
 		return nil, false
 	}
 	return dt, true

@@ -225,8 +225,8 @@ impl Duration {
     /// length does not fit a `Duration` (`.OutOfRange`).
     //! assert Duration.parse_clock("00:01:28") == Ok(Duration.seconds(88))
     //! assert Duration.parse_clock("-1:00:00.5") == Ok(Duration.milliseconds(-3_600_500))
-    //! assert Duration.parse_clock("00:61:00") == Err(#NumberParseError.Unexpected{at: 3, text: "61"})
-    //! assert Duration.parse_clock("1:02") == Err(#NumberParseError.Unexpected{at: 4, text: ""})
+    //! assert Duration.parse_clock("00:61:00") == Err(NumberParseError.Unexpected{at: 3, text: "61"})
+    //! assert Duration.parse_clock("1:02") == Err(NumberParseError.Unexpected{at: 4, text: ""})
     //! assert Duration.parse_clock("") == Err(NumberParseError.Empty)
     //!
     //! d = Duration.seconds(5_000) + Duration.milliseconds(25)
@@ -266,9 +266,9 @@ impl Duration {
     //! assert Duration.parse("1m28s") == Ok(Duration.seconds(88))
     //! assert Duration.parse("-1h30m15s250ms") == Ok(Duration.milliseconds(-5_415_250))
     //! assert Duration.parse("0s") == Ok(Duration.seconds(0))
-    //! assert Duration.parse("90m") == Err(#NumberParseError.Unexpected{at: 0, text: "90"})
-    //! assert Duration.parse("5s1m") == Err(#NumberParseError.Unexpected{at: 3, text: "m"})
-    //! assert Duration.parse("5") == Err(#NumberParseError.Unexpected{at: 1, text: ""})
+    //! assert Duration.parse("90m") == Err(NumberParseError.Unexpected{at: 0, text: "90"})
+    //! assert Duration.parse("5s1m") == Err(NumberParseError.Unexpected{at: 3, text: "m"})
+    //! assert Duration.parse("5") == Err(NumberParseError.Unexpected{at: 1, text: ""})
     //! assert Duration.parse("") == Err(NumberParseError.Empty)
     //!
     //! least = Duration.nanoseconds(-9_223_372_036_854_775_808)
@@ -307,7 +307,7 @@ impl Literal for Duration {
     //! assert Duration"2h" == Ok(Duration.hours(2))
     //
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Duration, NumberParseError> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -440,15 +440,15 @@ fn parts(
     name = String.slice(text, digits, unit_end)
 
     Some(#(rank, size, below)) = unit(name) else {
-        return Err(#NumberParseError.Unexpected{at: digits, text: name})
+        return Err(NumberParseError.Unexpected{at: digits, text: name})
     }
 
-    if rank <= after { return Err(#NumberParseError.Unexpected{at: digits, text: name}) }
+    if rank <= after { return Err(NumberParseError.Unexpected{at: digits, text: name}) }
 
     Some(count) = number(text, at, digits - at) else { return Err(NumberParseError.OutOfRange) }
 
     if below > 0 and count >= below {
-        return Err(#NumberParseError.Unexpected{at, text: String.slice(text, at, digits)})
+        return Err(NumberParseError.Unexpected{at, text: String.slice(text, at, digits)})
     }
 
     if rank == 0 {
@@ -495,7 +495,7 @@ fn number(text: String, at: Int, count: Int) -> Maybe<Int> {
 
 // `parse_clock`'s error at `at`: the mark there, or the end of the text.
 fn unexpected(text: String, at: Int) -> NumberParseError {
-    #NumberParseError.Unexpected{at, text: String.slice(text, at, at + 1)}
+    NumberParseError.Unexpected{at, text: String.slice(text, at, at + 1)}
 }
 
 fn mark(text: String, at: Int, expected: String) -> Result<Unit, NumberParseError> {
@@ -524,7 +524,7 @@ fn sixty(text: String, at: Int) -> Result<Int, NumberParseError> {
                 Ok(value)
             } else {
                 text = String.slice(text, at, at + 2)
-                Err(#NumberParseError.Unexpected{at, text})
+                Err(NumberParseError.Unexpected{at, text})
             }
         }
     }
@@ -549,7 +549,7 @@ fn fraction(text: String, at: Int) -> Result<Int, NumberParseError> {
                     Err(unexpected(text, end))
 
                 count > 9 ->
-                    Err(#NumberParseError.TooManyFractionDigits{max: 9})
+                    Err(NumberParseError.TooManyFractionDigits{max: 9})
 
                 _ -> {
                     digits = String.drop(text, at + 1) |> String.pad_end(9, "0")

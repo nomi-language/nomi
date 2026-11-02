@@ -92,7 +92,7 @@ func TestRename_SelectiveImport(t *testing.T) {
 	mainFile := filepath.Join(dir, "main.nomi")
 
 	modelsSrc := "pub struct User { name: String }"
-	mainSrc := "import models.{User}\nfn main() { #User{name: \"Alice\"} }"
+	mainSrc := "import models.{User}\nfn main() { User{name: \"Alice\"} }"
 	os.WriteFile(modelsFile, []byte(modelsSrc), 0644)
 	os.WriteFile(mainFile, []byte(mainSrc), 0644)
 

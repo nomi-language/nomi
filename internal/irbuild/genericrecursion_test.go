@@ -71,7 +71,7 @@ enum Tree<T> {
 fn depth<T>(t: Tree<T>) -> Int {
   case t {
     Tree.Leaf(_) -> 1
-    Tree.Node(kids) -> 1 + (kids |> Iter.map(fn k -> depth(k)) |> Iter.reduce(fn best = 0, d -> if d > best { d } else { best }))
+    Tree.Node(kids) -> 1 + (kids |> Iter.map(fn k -> depth(k)) |> Iter.reduce(0, fn best, d -> if d > best { d } else { best }))
   }
 }
 fn main() {
@@ -86,13 +86,13 @@ impl Stack<T> {
   fn size(s: Stack<T>) -> Int {
     case s.items {
       [] -> 0
-      [_, ..rest] -> 1 + Stack.size(#Stack{items: rest})
+      [_, ..rest] -> 1 + Stack.size(Stack{items: rest})
     }
   }
 }
 fn main() {
-  io.print(Stack.size(#Stack{items: [1, 2, 3]}))
-  io.print(Stack.size(#Stack{items: 1..=10000 |> Iter.to_list()}))
+  io.print(Stack.size(Stack{items: [1, 2, 3]}))
+  io.print(Stack.size(Stack{items: 1..=10000 |> Iter.to_list()}))
 }`, "3\n10000\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
@@ -135,7 +135,7 @@ fn leaves<T>(b: Box<T>) -> Int {
   }
 }
 fn wrap<T>(t: Box<T>, n: Int) -> Box<T> {
-  1..=n |> Iter.reduce(fn acc = t, _ -> Box.Two(#(acc, acc)))
+  1..=n |> Iter.reduce(t, fn acc, _ -> Box.Two(#(acc, acc)))
 }
 fn main() {
   io.print(leaves(wrap(Box.One(1), 3)))
@@ -143,10 +143,10 @@ fn main() {
 }`, "8\n16\n"},
 		{"a list and a bare parameter", `import std/io
 fn grow<T>(t: List<T>, n: Int) -> List<T> {
-  1..=n |> Iter.reduce(fn acc = t, _ -> List.concat(acc, t))
+  1..=n |> Iter.reduce(t, fn acc, _ -> List.concat(acc, t))
 }
 fn keep<T>(t: T, n: Int) -> T {
-  1..=n |> Iter.reduce(fn acc = t, _ -> acc)
+  1..=n |> Iter.reduce(t, fn acc, _ -> acc)
 }
 fn main() {
   io.inspect(grow([1, 2], 2))

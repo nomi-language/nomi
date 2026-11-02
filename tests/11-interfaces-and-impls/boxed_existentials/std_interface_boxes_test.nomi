@@ -6,7 +6,7 @@
 import protocols.{Circle, Shape}
 
 fn circle_shape(r: Int) -> Shape {
-    #Circle{r}
+    Circle{r}
 }
 
 fn shown(d: Display) -> String {
@@ -39,7 +39,7 @@ test "a container held as Display renders and compares by its value" {
 
 test "an embeds enum's value held as Display renders through the enum's impl" {
     shape: Display = circle_shape(1)
-    circle: Display = #Circle{r: 1}
+    circle: Display = Circle{r: 1}
     assert "${shape}" == "shape circle 1"
     assert shown(circle_shape(2)) == "shape circle 2"
     assert "${circle}" == "circle 1"

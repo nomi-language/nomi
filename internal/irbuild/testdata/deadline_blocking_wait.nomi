@@ -55,7 +55,7 @@ struct Run {
 }
 
 fn boot() -> Result<Run, String> {
-    Ok(#Run{context: Context.root()})
+    Ok(Run{context: Context.root()})
 }
 
 // An hour, so a wait that is not bounded cannot finish inside any timeout.

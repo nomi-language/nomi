@@ -72,14 +72,14 @@ fn in_label_order(tree: Tree) -> Tree {
     #{..tree, children: tree.children |> Iter.map(in_label_order) |> Iter.sort_by(.label)}
 }
 
-once singleton = #Tree{label: "x"}
+once singleton = Tree{label: "x"}
 
-once parent_and_siblings = #Tree{
+once parent_and_siblings = Tree{
     label: "parent",
     children: [#{label: "a"}, #{label: "x"}, #{label: "b"}, #{label: "c"}],
 }
 
-once parent_with_kids = #Tree{
+once parent_with_kids = Tree{
     label: "parent",
     children: [
         #{
@@ -91,7 +91,7 @@ once parent_with_kids = #Tree{
     ],
 }
 
-once cousins = #Tree{
+once cousins = Tree{
     label: "grandparent",
     children: [
         #{
@@ -251,7 +251,7 @@ test "Given two nodes, find the path between them" {
     [
         #(
             "Can find path to parent",
-            #Tree{
+            Tree{
                 label: "parent",
                 children: [#{label: "x"}, #{label: "sibling"}],
             },

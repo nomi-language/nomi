@@ -5,7 +5,7 @@ A capture of a call, of a parenthesized expression and of a literal
 fn f() {
   a = &Int.max(&1, 0)
   b = &(&1 > 2)
-  c = &#Point{x: &1, y: 0}
+  c = &Point{x: &1, y: 0}
   d = &#(&1, 0)
   e = &[&1]
 }

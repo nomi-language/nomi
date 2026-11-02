@@ -62,10 +62,11 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 		if _, dotted := bl.g.dottedTypeQualifier(t.Object); dotted && !appObject {
 			return no()
 		}
-	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block, *ast.TaggedString:
-		// `#Holder{shape: c}.shape`, `(f(x)).name`, `Box"x".contents`: a
-		// field of a value the expression builds, lowered once below and
-		// projected.
+	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block, *ast.TaggedString,
+		*ast.Unwrap, *ast.TryOp:
+		// `Holder{shape: c}.shape`, `(f(x)).name`, `Box"x".contents`,
+		// `find(id)!.name`, `parse(s)?.path`: a field of a value the
+		// expression builds, lowered once below and projected.
 	default:
 		// The whole of the bare-variant, dotted-qualifier and
 		// sibling-`once` exclusion. See the file header.

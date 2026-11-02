@@ -9,7 +9,7 @@ func TestIRSignal_TourBreakAndContinue(t *testing.T) {
   // break in reduce — stop accumulating once total would exceed 60.
   partial_sum =
     [10, 20, 30, 40, 50]
-    |> Iter.reduce(fn acc = 0, x -> {
+    |> Iter.reduce(0, fn acc, x -> {
       if acc + x > 60 { break }
       acc + x
     })
@@ -37,12 +37,12 @@ fn seed() -> Int {
   100
 }
 fn main() {
-  capped = [5, 10, 15, 20] |> Iter.reduce(fn acc = seed(), x -> {
+  capped = [5, 10, 15, 20] |> Iter.reduce(seed(), fn acc, x -> {
     if x == 15 { break acc * 2 }
     acc + x
   })
   io.print(capped)
-  positives = [3, -1, 4, -5, 2] |> Iter.reduce(fn acc = 0, x -> {
+  positives = [3, -1, 4, -5, 2] |> Iter.reduce(0, fn acc, x -> {
     if x < 0 { continue }
     acc + x
   })
@@ -73,21 +73,21 @@ fn main() {
 func TestIRSignal_CaseArmSignalLeavesTheCallback(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
-  total = [1, 2, 3] |> Iter.reduce(fn acc = 0, x -> {
+  total = [1, 2, 3] |> Iter.reduce(0, fn acc, x -> {
     case x {
       2 -> break
       _ -> acc + x
     }
   })
   io.print(total)
-  kept = Iter.reduce([1, 2, 3], fn acc = 0, n -> {
+  kept = Iter.reduce([1, 2, 3], 0, fn acc, n -> {
     case n {
       2 -> break acc + 10
       _ -> acc + n
     }
   })
   io.print(kept)
-  skip = Iter.reduce([1, 2, 3], fn acc = 0, n -> {
+  skip = Iter.reduce([1, 2, 3], 0, fn acc, n -> {
     case n {
       2 -> continue
       _ -> acc + n

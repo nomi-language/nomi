@@ -21,7 +21,7 @@ fn named() -> Mode {
 
 impl Box {
     pub fn new(mode: Mode = named(), f: (Int) -> Int = same) -> Box {
-        #Box{mode, f}
+        Box{mode, f}
     }
 }
 

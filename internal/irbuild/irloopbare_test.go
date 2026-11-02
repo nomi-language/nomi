@@ -13,14 +13,14 @@ func TestIRLoopEndless_BareAndAliasedLoop(t *testing.T) {
 }
 
 fn spin() -> Int {
-    forever(fn n = 0 -> {
+    forever(0, fn n -> {
         io.print("spin ${n}")
         n + 1
     })
 }
 
 fn main() {
-    x = loop(fn n = 0 -> {
+    x = loop(0, fn n -> {
         if n == 2 { return 10 }
         if n == 11 { io.print(1 / (n - 11)) }
         io.print("bound ${n}")

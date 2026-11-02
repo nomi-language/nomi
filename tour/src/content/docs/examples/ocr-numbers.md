@@ -117,7 +117,7 @@ test "convert" {
                 "   |",
                 "    ",
             ],
-            Err(Error.ColumnsNotMultipleOfThree),
+            Err(.ColumnsNotMultipleOfThree),
         ),
         #(
             "Recognizes 110101100",

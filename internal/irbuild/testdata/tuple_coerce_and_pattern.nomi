@@ -47,7 +47,7 @@ fn main() {
 
     // Position 3: an `Iter.reduce` SEED, which is where this was found. The
     // accumulator is (Int, List<Int>) and the seed is written (0, []).
-    taken = Iter.reduce([10, 20, 30, 40], fn state = #(0, []), x -> {
+    taken = Iter.reduce([10, 20, 30, 40], #(0, []), fn state, x -> {
         #(count, acc) = state
 
         if count >= 2 {
@@ -76,7 +76,7 @@ fn main() {
     // pattern introduces.
     counts =
         [#("a", 1), #("b", 2), #("a", 3)]
-        |> Iter.reduce(fn acc = %{}, #(k, v) -> {
+        |> Iter.reduce(%{}, fn acc, #(k, v) -> {
             case Map.get(acc, k) {
                 Some(prev) -> Map.put(acc, k, prev + v)
                 None -> Map.put(acc, k, v)
@@ -90,7 +90,7 @@ fn main() {
     // A nested pattern, which only works if the assembly recurses.
     sums =
         [#(1, #(2, 3)), #(4, #(5, 6))]
-        |> Iter.reduce(fn acc = 0, #(a, #(b, c)) -> acc + a + b + c)
+        |> Iter.reduce(0, fn acc, #(a, #(b, c)) -> acc + a + b + c)
 
     io.print("pattern: nested ${sums}")
 }

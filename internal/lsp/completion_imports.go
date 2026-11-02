@@ -118,7 +118,7 @@ func (r *completionRequest) filePublicNames(segs []string) []candidate {
 	}
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(string(data)))
 	var out []candidate
-	for _, d := range publicDecls(nodes) {
+	for _, d := range publicDecls(nodes, r.reads(false, path)) {
 		out = append(out, candidate{label: d.name, kind: d.kind, locality: 2})
 	}
 	return out
@@ -129,11 +129,13 @@ type publicDecl struct {
 	kind protocol.CompletionItemKind
 }
 
-// publicDecls lists a file's public top-level declarations by name.
-func publicDecls(nodes []ast.Node) []publicDecl {
+// publicDecls lists a file's public top-level declarations by name, and its
+// private ones too when private is set: the requesting document is the
+// file's partner test (analysis.IsPartnerTestPath).
+func publicDecls(nodes []ast.Node, private bool) []publicDecl {
 	var out []publicDecl
 	add := func(public bool, name string, kind protocol.CompletionItemKind) {
-		if public && name != "" {
+		if (public || private) && name != "" {
 			out = append(out, publicDecl{name, kind})
 		}
 	}

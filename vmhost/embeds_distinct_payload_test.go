@@ -80,7 +80,7 @@ fn else_leaves(s: Shape) -> String {
 
 fn else_fallback(s: Shape) -> String {
   Shape.Wrapped(#{r}) = s else {
-    #Circle{r: 0}
+    Circle{r: 0}
   }
   "fallback ${r}"
 }
@@ -151,14 +151,14 @@ fn pair_fallback(s: Shape) -> String {
 
 fn again_fallback(s: Shape) -> String {
   Shape.Again(Wrapped(#{r})) = s else {
-    Wrapped(#Circle{r: 0})
+    Wrapped(Circle{r: 0})
   }
   "again fallback ${r}"
 }
 
 fn main() {
-  w = Shape.Wrapped(#Circle{r: 2})
-  io.print(tail_case(Shape.Wrapped(#Circle{r: 1})))
+  w = Shape.Wrapped(Circle{r: 2})
+  io.print(tail_case(Shape.Wrapped(Circle{r: 1})))
   io.print(tail_case(w))
   io.print(tail_case(Shape.Dot))
   io.print(tail_if(w))
@@ -182,11 +182,11 @@ fn main() {
   io.print(map(Shape.Kvs(%{"j" => 3})))
   io.print(distinct(Shape.Twice(Meters(8))))
   io.print(distinct(Shape.Dot))
-  io.print(again(Shape.Again(Wrapped(#Circle{r: 6}))))
+  io.print(again(Shape.Again(Wrapped(Circle{r: 6}))))
   io.print(again(Shape.Dot))
   io.print(pair_fallback(Shape.Pair(#(3, 4))))
   io.print(pair_fallback(Shape.Dot))
-  io.print(again_fallback(Shape.Again(Wrapped(#Circle{r: 7}))))
+  io.print(again_fallback(Shape.Again(Wrapped(Circle{r: 7}))))
   io.print(again_fallback(Shape.Dot))
 }
 `)
@@ -245,7 +245,7 @@ enum Shape {
 }
 
 test "assert matched" {
-  assert Shape.Wrapped(#{r}) = Shape.Wrapped(#Circle{r: 2})
+  assert Shape.Wrapped(#{r}) = Shape.Wrapped(Circle{r: 2})
   io.print("assert ${r}")
 }
 
@@ -254,7 +254,7 @@ test "assert missed" {
 }
 
 test "case" {
-  w = Shape.Wrapped(#Circle{r: 7})
+  w = Shape.Wrapped(Circle{r: 7})
   a = case w {
     Shape.Wrapped(#{r}) -> "wrapped ${r}"
     _ -> "dot"
@@ -339,7 +339,7 @@ fn result(m: Result<Shape, String>) -> String {
 
 fn plain(m: Maybe<Plain>) -> String {
   case m {
-    Some(#Plain.Circle{r}) -> "plain ${r}"
+    Some(Plain.Circle{r}) -> "plain ${r}"
     Some(_) -> "plain spot"
     None -> "plain none"
   }
@@ -362,21 +362,21 @@ fn tuple(t: #(Shape, Int)) -> String {
 fn main() {
   io.print(maybe(None))
   io.print(maybe(Some(Shape.Dot)))
-  io.print(maybe(Some(Wrapped(#Circle{r: 1}))))
-  io.print(maybe(Some(Shape.Wrapped(#Circle{r: 2}))))
+  io.print(maybe(Some(Wrapped(Circle{r: 1}))))
+  io.print(maybe(Some(Shape.Wrapped(Circle{r: 2}))))
   io.print(result(Ok(Shape.Dot)))
   io.print(result(Err("x")))
-  io.print(result(Ok(Wrapped(#Circle{r: 3}))))
+  io.print(result(Ok(Wrapped(Circle{r: 3}))))
   io.print(plain(None))
   io.print(plain(Some(Plain.Spot)))
-  io.print(plain(Some(#Circle{r: 4})))
+  io.print(plain(Some(Circle{r: 4})))
   io.print(list([Shape.Dot]))
-  io.print(list([Wrapped(#Circle{r: 5}), Shape.Dot]))
+  io.print(list([Wrapped(Circle{r: 5}), Shape.Dot]))
   io.print(tuple(#(Shape.Dot, 1)))
-  io.print(tuple(#(Wrapped(#Circle{r: 6}), 1)))
-  h = #Holder{shape: Some(Shape.Dot)}
+  io.print(tuple(#(Wrapped(Circle{r: 6}), 1)))
+  h = Holder{shape: Some(Shape.Dot)}
   io.print(maybe(h.shape))
-  shapes: List<Shape> = [Wrapped(#Circle{r: 8}), Shape.Dot]
+  shapes: List<Shape> = [Wrapped(Circle{r: 8}), Shape.Dot]
   io.print(maybe(List.head(shapes)))
   m: Map<String, Shape> = %{"a" => Shape.Dot}
   io.print(maybe(Map.get(m, "a")))
@@ -384,9 +384,9 @@ fn main() {
   nested: Maybe<Maybe<Shape>> = Some(Some(Shape.Dot))
   io.inspect(nested)
   io.inspect(Some(Shape.Dot) == Some(Shape.Dot))
-  one: Maybe<Shape> = Some(Wrapped(#Circle{r: 1}))
+  one: Maybe<Shape> = Some(Wrapped(Circle{r: 1}))
   io.inspect(one == Some(Shape.Dot))
-  io.inspect(one == Some(Shape.Wrapped(#Circle{r: 1})))
+  io.inspect(one == Some(Shape.Wrapped(Circle{r: 1})))
 }
 `)
 	want := strings.Join([]string{

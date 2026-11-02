@@ -99,7 +99,7 @@ func TestIs_Errors(t *testing.T) {
 		{"y = x is .A(_) or .B(_)\n", "a pattern cannot be its right operand"},
 		{"y = x is Some(_) or _\n", "a pattern cannot be its right operand"},
 		{"y = a and x is .A or .B\n", "a pattern cannot be its right operand"},
-		{"y = x is .A or #.B{r: 1}\n", "a pattern cannot be its right operand"},
+		{"y = x is .A or .B{r: 1}\n", "a pattern cannot be its right operand"},
 		{"y = a == b is True\n", "`is` does not chain with a comparison"},
 		{"y = a < b is True\n", "`is` does not chain with a comparison"},
 		{"y = x is .A == b\n", "`is` does not chain with `==`"},

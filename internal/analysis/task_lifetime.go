@@ -76,9 +76,20 @@ func (tl *taskLifetime) checkBlock(cb *ast.ConcurrentBlock) {
 	// name; absence means the binding is never awaited.
 	taskBindings := tl.collectTaskBindings(cb.Body)
 	if len(taskBindings) > 0 {
-		referenced := tl.collectReferencedNames(cb.Body)
+		// `_ = t` discards the handle, which skips its wait, so it is not
+		// an await: it is the error, at the discard, and the reference it
+		// holds does not count as one.
+		discards := tl.collectHandleDiscards(cb.Body, taskBindings)
+		for _, d := range discards {
+			tl.errors = append(tl.errors, TypeError{
+				Line:    d.Line,
+				Col:     d.Col,
+				Message: fmt.Sprintf("`_ = %[1]s` discards the Task without waiting for it; await it instead: `_ = Task.await(%[1]s)`", discardedName(d)),
+			})
+		}
+		referenced := tl.collectReferencedNames(cb.Body, discards)
 		for _, tb := range taskBindings {
-			if referenced[tb.refKey] {
+			if referenced[tb.refKey] || discarded(discards, tb.refKey) {
 				continue
 			}
 			tl.errors = append(tl.errors, TypeError{
@@ -168,11 +179,17 @@ func (tl *taskLifetime) collectTaskBindings(block *ast.Block) []taskBinding {
 // matches on names only, so the conservative direction (accept any name
 // match) is correct for the dominant "forgot to await my fetch" case the
 // rule catches.
-func (tl *taskLifetime) collectReferencedNames(block *ast.Block) map[string]bool {
+func (tl *taskLifetime) collectReferencedNames(block *ast.Block, discards []*ast.Binding) map[string]bool {
 	refs := make(map[string]bool)
 	var visit func(n ast.Node) bool
 	visit = func(n ast.Node) bool {
 		switch node := n.(type) {
+		case *ast.Binding:
+			for _, d := range discards {
+				if node == d {
+					return false
+				}
+			}
 		case *ast.Ident:
 			refs[node.Name] = true
 		case *ast.FuncDef:
@@ -187,6 +204,69 @@ func (tl *taskLifetime) collectReferencedNames(block *ast.Block) map[string]bool
 		ast.Inspect(stmt, visit)
 	}
 	return refs
+}
+
+// collectHandleDiscards answers the `_ = t` bindings in block whose value is
+// one of its Task bindings, by name: a discard of the handle, which skips its
+// wait. A nested ConcurrentBlock, Lambda or FuncDef is not entered, as
+// collectTaskBindings does not enter them.
+func (tl *taskLifetime) collectHandleDiscards(block *ast.Block, tasks []taskBinding) []*ast.Binding {
+	var out []*ast.Binding
+	for _, stmt := range block.Stmts {
+		ast.Inspect(stmt, func(n ast.Node) bool {
+			switch node := n.(type) {
+			case *ast.ConcurrentBlock, *ast.Lambda, *ast.FuncDef:
+				return false
+			case *ast.Binding:
+				id, ok := discardedIdent(node)
+				if !ok {
+					return true
+				}
+				for _, tb := range tasks {
+					if tb.refKey == id.Name {
+						out = append(out, node)
+						break
+					}
+				}
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// discardedIdent answers the name b discards when b is `_ = name`, through
+// any parentheses.
+func discardedIdent(b *ast.Binding) (*ast.Ident, bool) {
+	if b.Name != "_" {
+		return nil, false
+	}
+	v := b.Value
+	for {
+		g, ok := v.(*ast.GroupedExpr)
+		if !ok {
+			break
+		}
+		v = g.Expr
+	}
+	id, ok := v.(*ast.Ident)
+	return id, ok
+}
+
+// discardedName is the Task name a handle discard discards.
+func discardedName(d *ast.Binding) string {
+	id, _ := discardedIdent(d)
+	return id.Name
+}
+
+// discarded reports whether one of discards discards the Task named name.
+func discarded(discards []*ast.Binding, name string) bool {
+	for _, d := range discards {
+		if id, _ := discardedIdent(d); id != nil && id.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // isSpawnCall reports whether `n` is a Call to `Task.spawn` or

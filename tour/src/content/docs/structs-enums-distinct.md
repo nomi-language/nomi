@@ -27,19 +27,19 @@ struct User {
 }
 
 fn main() {
-    alice = #User{name: "Alice", age: 30}
+    alice = User{name: "Alice", age: 30}
     dbg alice.name
     dbg alice.age
 
     // The default lets the caller omit `age`.
-    bob = #User{name: "Bob"}
+    bob = User{name: "Bob"}
     dbg bob.age
 
-    // Field-name punning: `#User{name, age}` is shorthand for
-    // `#User{name: name, age: age}` when bindings of those names are in scope.
+    // Field-name punning: `User{name, age}` is shorthand for
+    // `User{name: name, age: age}` when bindings of those names are in scope.
     name = "Carol"
     age = 28
-    carol = #User{name, age}
+    carol = User{name, age}
     dbg carol
 }
 
@@ -48,10 +48,10 @@ fn main() {
 dbg line 8: alice.name = "Alice"
 dbg line 9: alice.age = 30
 dbg line 13: bob.age = 0
-dbg line 20: carol = #User{name: "Carol", age: 28}
+dbg line 20: carol = User{name: "Carol", age: 28}
 -->
 
-You build a struct with `#TypeName{field: value, ...}` and read a field with
+You build a struct with `TypeName{field: value, ...}` and read a field with
 `.field`. A field can have a default value, like `age: Int = 0`. Then you can
 leave that field out when you build the struct.
 
@@ -59,7 +59,7 @@ You can often leave out the type name too, and write just `#{...}`: when the
 code around the literal already says which struct it needs, the literal
 builds that struct. That happens with a type annotation, a parameter, a field, a
 return type, or an earlier element of the same list or map
-(`[#Address{...}, #{...}]`):
+(`[Address{...}, #{...}]`):
 
 ```nomi-run
 struct Address {
@@ -80,12 +80,13 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 14: ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath"}}
+dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 -->
 
 When nothing says which struct is needed, a `#{...}` literal is an anonymous
-struct. A plain `{` always opens a block, and a name followed by `{`, such as
-`User{name: "Ada"}`, is an error: every struct literal starts with `#`.
+struct. A plain `{` always opens a block. In the head of an `if` or `case`, a
+named literal goes in parentheses, `case (User{name: "Ada"}) { ... }`, since
+there the `{` after a name opens the body.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -93,7 +94,7 @@ struct. A plain `{` always opens a block, and a name followed by `{`, such as
 - A field that may be absent has type `Maybe<T>`. A default only spares
   the caller from writing a value: `nickname: Maybe<String> = None` is both.
 - A default runs once for each construction that leaves its field out.
-- Each field is named once: `#User{name: "Al", name: "Bo"}` is an error.
+- Each field is named once: `User{name: "Al", name: "Bo"}` is an error.
 - A struct also has a call form taking an anonymous struct:
   `User(#{name: "Ada"})`, which a pipe can feed.
 - `#{...}` stays anonymous where an interface or a type parameter is
@@ -139,7 +140,7 @@ struct User {
 }
 
 fn main() {
-    alice = #User{name: "Alice", age: 30}
+    alice = User{name: "Alice", age: 30}
     older = #{..alice, age: 31}
     dbg older
 
@@ -153,14 +154,14 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 9: older = #User{name: "Alice", age: 31}
+dbg line 9: older = User{name: "Alice", age: 31}
 dbg line 12: #{..point, x: 9} = #{x: 9, y: 20}
-dbg line 16: #{..alice, age} = #User{name: "Alice", age: 32}
+dbg line 16: #{..alice, age} = User{name: "Alice", age: 32}
 -->
 
 The result has the same type as `base`. Update a `User` and you get a `User`;
 update an anonymous struct and you get an anonymous struct. So you do not write
-the type name: `#User{..alice, age: 31}` is an error.
+the type name: `User{..alice, age: 31}` is an error.
 
 To change a field inside a nested struct, there are two ways:
 
@@ -176,15 +177,15 @@ struct Person {
 }
 
 fn main() {
-    ada = #Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
+    ada = Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
     dbg #{..ada, address: #{..ada.address, city: "NYC"}}
     dbg #{..ada, address: #{.., city: "NYC"}}
 }
 
 ```
 <!-- expect
-dbg line 13: #{..ada, address: #{..ada.address, city: "NYC"}} = #Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
-dbg line 14: #{..ada, address: #{.., city: "NYC"}} = #Person{name: "Ada", address: #Address{street: "1 Main", city: "NYC"}}
+dbg line 13: #{..ada, address: #{..ada.address, city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
+dbg line 14: #{..ada, address: #{.., city: "NYC"}} = Person{name: "Ada", address: Address{street: "1 Main", city: "NYC"}}
 -->
 
 The first line spreads `ada.address` by name. The second writes a `..` with
@@ -242,7 +243,7 @@ struct User {
 }
 
 fn main() {
-    [#User{name: "Alan", age: 41}, #User{name: "Ada", age: 36}]
+    [User{name: "Alan", age: 41}, User{name: "Ada", age: 36}]
     |> Iter.sort_by(.age)
     |> Iter.map(.name)
     |> Iter.to_list()
@@ -251,7 +252,7 @@ fn main() {
 ```
 <!-- expect
 dbg line 11:
-  [#User{name: "Alan", age: 41}, #User{name: "Ada", age: 36}]
+  [User{name: "Alan", age: 41}, User{name: "Ada", age: 36}]
   |> Iter.sort_by(.age)
   |> Iter.map(.name)
   |> Iter.to_list()
@@ -331,8 +332,8 @@ type Path Vector<Int>
 type Scores Map<String, Int>
 
 fn main() {
-    p = #Pair(1, "one")
-    #Pair(n, word) = p
+    p = Pair(1, "one")
+    Pair(n, word) = p
     dbg p
     dbg n
     dbg word
@@ -343,19 +344,18 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 8: p = #Pair(1, "one")
+dbg line 8: p = Pair(1, "one")
 dbg line 9: n = 1
 dbg line 10: word = "one"
 dbg line 12: #Path[3, 1, 4] = Path(#[3, 1, 4])
 dbg line 13: %Scores{"ada" => 3} = Scores(%{"ada" => 3})
 -->
 
-`#Pair(1, "one")` builds a `Pair` from its two values, and the pattern
-`#Pair(n, word)` takes it apart again. The call form takes the one value a
-distinct type wraps, so for a `Pair` that is the whole tuple,
-`Pair(#(1, "one"))`; `Pair(1, "one")` is an error whose hint names
-`#Pair(...)`. A `Path` or `Scores` prints in its call form, the type's name
-around the collection it wraps.
+`Pair(1, "one")` builds a `Pair` from its two values, and the pattern
+`Pair(n, word)` takes it apart again. With one argument, `Pair` takes the
+whole tuple instead, `Pair(#(1, "one"))`, as any distinct type takes the one
+value it wraps. A `Path` or `Scores` prints in its call form, the type's
+name around the collection it wraps.
 
 A type that belongs under another can take a dotted name:
 `type Civil.Days Int` declares `Civil.Days`, written in full wherever it is
@@ -446,7 +446,7 @@ fn main() {
     c = Shape.Circle(3.0)
     dbg c
 
-    r = #Shape.Rectangle{width: 4.0, height: 5.0}
+    r = Shape.Rectangle{width: 4.0, height: 5.0}
     dbg r
 }
 
@@ -454,7 +454,7 @@ fn main() {
 <!-- expect
 dbg line 14: Direction.North = North
 dbg line 17: c = Circle(3.0)
-dbg line 20: r = #Rectangle{width: 4.0, height: 5.0}
+dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 -->
 
 An enum value is exactly one of a fixed set of variants. A variant can hold
@@ -495,8 +495,8 @@ dbg line 22: describe(.West) = "left"
 
 `Direction.North` always works. When the compiler already knows the code needs
 a `Direction`, you can write just `.North`. For a variant with fields, the `#`
-goes in front of the dot: `#.Rectangle{width: 4.0, height: 5.0}`, as in
-`#Shape.Rectangle{...}`.
+goes in front of the dot: `.Rectangle{width: 4.0, height: 5.0}`, as in
+`Shape.Rectangle{...}`.
 
 That works in the arms of a `case` on a `Direction`, as above. `case` is
 covered in [Pattern Matching](/pattern-matching/). It also works for an
@@ -546,7 +546,7 @@ impl User {
 }
 
 fn main() {
-    alice = #User{first: "Ada", last: "Lovelace"}
+    alice = User{first: "Ada", last: "Lovelace"}
     dbg User.full_name(alice)
 
     renamed = User.rename(alice, "Augusta")
@@ -589,15 +589,15 @@ enum Event {
 }
 
 fn main() {
-    // Each event is built as its own type, with no `#Event.Click{...}` wrapping.
-    // Structs use `#Name{...}`; the bare type is just its name.
-    events: List<Event> = [#Click{x: 10, y: 20}, #KeyDown{key: "Enter"}, FocusLost]
+    // Each event is built as its own type, with no `Event.Click{...}` wrapping.
+    // Structs use `Name{...}`; the bare type is just its name.
+    events: List<Event> = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
     dbg events
 }
 
 ```
 <!-- expect
-dbg line 22: events = [#Click{x: 10, y: 20}, #KeyDown{key: "Enter"}, FocusLost]
+dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 -->
 
 `embeds Click` makes the existing type `Click` a variant of `Event`. You do not
@@ -608,11 +608,11 @@ A `Click` value can go anywhere an `Event` is expected, with no wrapping: a
 list element, an argument or a return value. It does not work the other way.
 An `Event` might hold a different variant, so to pass it to a function that
 takes a `Click`, match it first. A `case` takes an embedded variant apart like
-any other: `case e { #.Click{x, y} -> ... }`. See
+any other: `case e { .Click{x, y} -> ... }`. See
 [Pattern Matching](/pattern-matching/).
 
 Matching also narrows. In an arm whose pattern matches one embedded variant,
-the matched name has that variant's type, so `#.Click{} -> handle_click(e)`
+the matched name has that variant's type, so `.Click{} -> handle_click(e)`
 passes `e` to a function that takes a `Click`.
 
 <div class="tour-details">

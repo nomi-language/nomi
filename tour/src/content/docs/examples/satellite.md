@@ -64,7 +64,7 @@ fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable {
             right_preorder = Iter.drop(rest, size) |> Iter.to_list()
             right_inorder = Iter.drop(inorder, size + 1) |> Iter.to_list()
 
-            #.Node{
+            .Node{
                 left: build(left_preorder, left_inorder),
                 value: root,
                 right: build(right_preorder, right_inorder),
@@ -78,7 +78,7 @@ import satellite.{self, Error, Tree}
 
 /// A node with no subtrees.
 fn leaf(value: String) -> Tree<String> {
-    #.Node{left: .Leaf, value, right: .Leaf}
+    .Node{left: .Leaf, value, right: .Leaf}
 }
 
 test "rebuilds the tree" {
@@ -89,19 +89,19 @@ test "rebuilds the tree" {
             "Tree with many items",
             ["a", "i", "x", "f", "r"],
             ["i", "a", "f", "x", "r"],
-            #.Node{
+            .Node{
                 left: leaf("i"),
                 value: "a",
-                right: #.Node{left: leaf("f"), value: "x", right: leaf("r")},
+                right: .Node{left: leaf("f"), value: "x", right: leaf("r")},
             },
         ),
         #(
             "A degenerate binary tree",
             ["a", "b", "c", "d"],
             ["d", "c", "b", "a"],
-            #.Node{
-                left: #.Node{
-                    left: #.Node{left: leaf("d"), value: "c", right: .Leaf},
+            .Node{
+                left: .Node{
+                    left: .Node{left: leaf("d"), value: "c", right: .Leaf},
                     value: "b",
                     right: .Leaf,
                 },
@@ -113,13 +113,13 @@ test "rebuilds the tree" {
             "Another degenerate binary tree",
             ["a", "b", "c", "d"],
             ["a", "b", "c", "d"],
-            #.Node{
+            .Node{
                 left: .Leaf,
                 value: "a",
-                right: #.Node{
+                right: .Node{
                     left: .Leaf,
                     value: "b",
-                    right: #.Node{left: .Leaf, value: "c", right: leaf("d")},
+                    right: .Node{left: .Leaf, value: "c", right: leaf("d")},
                 },
             },
         ),
@@ -127,17 +127,17 @@ test "rebuilds the tree" {
             "Tree with many more items",
             ["a", "b", "d", "g", "h", "c", "e", "f", "i"],
             ["g", "d", "h", "b", "a", "e", "c", "i", "f"],
-            #.Node{
-                left: #.Node{
-                    left: #.Node{left: leaf("g"), value: "d", right: leaf("h")},
+            .Node{
+                left: .Node{
+                    left: .Node{left: leaf("g"), value: "d", right: leaf("h")},
                     value: "b",
                     right: .Leaf,
                 },
                 value: "a",
-                right: #.Node{
+                right: .Node{
                     left: leaf("e"),
                     value: "c",
-                    right: #.Node{left: leaf("i"), value: "f", right: .Leaf},
+                    right: .Node{left: leaf("i"), value: "f", right: .Leaf},
                 },
             },
         ),

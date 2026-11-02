@@ -9,11 +9,11 @@ package rt
 // carrying a lambda-parameter default:
 //
 //	pub fn any<T>(source: Iter<T>, f: (T) -> Bool) -> Bool {
-//	  reduce(source, fn _acc = False, item -> if f(item) { break True } else { False })
+//	  reduce(source, False, fn _acc, item -> if f(item) { break True } else { False })
 //	}
 //
 // Read as a fold, that needs two mechanisms a Go func value has nowhere to
-// carry: the seed (the lambda parameter's default) and `break` (a control
+// carry: the seed (the call's `from`) and `break` (a control
 // signal, not a value a Nomi function can observe).
 //
 // Reading them as seeded folds is wrong, and the reason is worth stating precisely because it
@@ -134,7 +134,7 @@ func SeqFind[T any](fr *Frame, src Seq[T], pred func(fr *Frame, item T) bool) Ma
 // SeqEach is `pub fn each<T>(source: Iter<T>, f: (T) -> Unit)`.
 //
 // Generic in the callback's result and not fixed to Unit, which is std's own
-// shape: `each`'s body is `case reduce(source, fn _acc = 0, item -> f(item)) { _ ->
+// shape: `each`'s body is `case reduce(source, 0, fn _acc, item -> f(item)) { _ ->
 // Unit }`, so whatever the callback answers is accumulated and then discarded.
 // Fixing U to Unit here would refuse a callback std accepts.
 func SeqEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U) Unit {
@@ -147,7 +147,7 @@ func SeqEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U) Unit 
 
 // SeqCount is `Iter.count`: the source's `known_count` when its view carries
 // one that answers Some (a user source's written override among them), and
-// otherwise the fold arm `reduce(source, fn acc = 0, _item -> acc + 1)`, as std
+// otherwise the fold arm `reduce(source, 0, fn acc, _item -> acc + 1)`, as std
 // chooses between them (std/iter.nomi's `count`). A List is answered in O(1)
 // from its cached length by ListCount, which internal/irbuild chooses from the
 // source's static kind.

@@ -32,8 +32,8 @@ once numerals = [
 /// `number` in Roman numerals. Each numeral, largest first, is written as
 /// many times as it fits into what is left.
 pub fn roman(number: Int) -> String {
-    #(parts, _left) = Iter.map_reduce(numerals, fn left = number, #(value, symbol) -> {
-        #(String.repeat(symbol, left / value), left % value)
+    #(_left, parts) = Iter.map_reduce(numerals, number, fn left, #(value, symbol) -> {
+        #(left % value, String.repeat(symbol, left / value))
     })
 
     String.join(parts)

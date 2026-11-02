@@ -57,7 +57,7 @@ fn greet(p: #{
 
 test "comments are accepted around declarations and expressions" {
     // Nominal struct literal comments attach to the next field or end of body.
-    p = #Point{
+    p = Point{
         x: 3,
         // Inter-field comment in a nominal struct literal.
         y: 4,

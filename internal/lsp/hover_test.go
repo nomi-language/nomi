@@ -133,7 +133,7 @@ func TestHover_AttachedAssertTypeQualifiedImplFunction(t *testing.T) {
 }
 
 impl Display for Box {
-  //! assert Box.▮to_string(#Box{n: 3}) == "box:3"
+  //! assert Box.▮to_string(Box{n: 3}) == "box:3"
   fn to_string(b: Box) -> String {
     "box:" + Int.to_string(b.n)
   }
@@ -207,20 +207,20 @@ func TestHover_FuncNoReturnAnnotationUsesInferredType(t *testing.T) {
 }
 
 // A function with irrefutable destructuring params must render the source
-// patterns (`Dur(x)`, `#Point{x, y}`, `#(a, b)`) in hover — not the internal
+// patterns (`Dur(x)`, `Point{x, y}`, `#(a, b)`) in hover — not the internal
 // `__destr_<line>_<col>` placeholder used as a binding slot.
 func TestHover_FuncDestructureParams(t *testing.T) {
 	src := "type Dur Int\n" +
 		"struct Point {\n\tx: Int\n\ty: Int\n}\n" +
 		"enum Wrapper {\n\tOnly Int\n}\n" +
 		"fn subtract(Dur(x), Dur(y)) -> Dur { Dur(x - y) }\n" +
-		"fn sum_point(#Point{x, y}) -> Int { x + y }\n" +
+		"fn sum_point(Point{x, y}) -> Int { x + y }\n" +
 		"fn scale_point(#{x, y}: Point) -> Int { x * y }\n" +
 		"fn add_pair(#(a, b): #(Int, Int)) -> Int { a + b }\n" +
 		"fn unwrap(Wrapper.Only(n)) -> Int { n }"
 	wants := map[string]string{
 		"subtract":    "```nomi\nfn subtract(Dur(x), Dur(y)) -> Dur\n```",
-		"sum_point":   "```nomi\nfn sum_point(#Point{x, y}) -> Int\n```",
+		"sum_point":   "```nomi\nfn sum_point(Point{x, y}) -> Int\n```",
 		"scale_point": "```nomi\nfn scale_point(#{x, y}: Point) -> Int\n```",
 		"add_pair":    "```nomi\nfn add_pair(#(a, b): #(Int, Int)) -> Int\n```",
 		"unwrap":      "```nomi\nfn unwrap(Wrapper.Only(n)) -> Int\n```",
@@ -747,7 +747,7 @@ func TestHover_Binding(t *testing.T) {
 
 func TestHover_BindingWithStructType(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
-fn main() { p = #Point{x: 1, y: 2} }`
+fn main() { p = Point{x: 1, y: 2} }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	file := buildFile(nodes)
@@ -776,7 +776,7 @@ func TestHover_BindingWithGenericStructTypeInstantiatesFields(t *testing.T) {
 }
 
 fn main() {
-  box = #Box{value: 42}
+  box = Box{value: 42}
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -807,7 +807,7 @@ func TestHover_TestGroupSetupBindingInNestedTest(t *testing.T) {
 
 group "config" {
   setup {
-    #{cfg: #Config{env: "test"}}
+    #{cfg: Config{env: "test"}}
   }
 
   test "uses cfg", #{cfg} {
@@ -1362,7 +1362,7 @@ fn main() {
   result = 42
   ▮inspect(result)
 
-  #Guest{name: "Bob"}
+  Guest{name: "Bob"}
   |> Greeting.greet()
   |> inspect()
 }
@@ -2003,7 +2003,7 @@ struct AppEnv {
 }
 
 fn boot() -> Result<AppEnv, String> {
-  Ok(#AppEnv{context: Context.root(), logger: Stdout})
+  Ok(AppEnv{context: Context.root(), logger: Stdout})
 }
 
 fn greet(name: String) {
@@ -2048,7 +2048,7 @@ pub struct RunResult {
 }
 
 pub fn run() -> Result<RunResult, String> {
-  Ok(#RunResult{output: "hi"})
+  Ok(RunResult{output: "hi"})
 }
 `
 	input, pos := hoverMarkerPosition(t, `import {
@@ -2566,7 +2566,7 @@ struct Point {
 }
 
 test "pattern assert" {
-  ▮assert #Point{x, y} = #Point{x: 3, y: 4}
+  ▮assert Point{x, y} = Point{x: 3, y: 4}
 }
 `)
 	file := checkedFile(input)
@@ -2789,7 +2789,7 @@ impl Measure for Shape {
   fn area(s: Shape) -> Float {
     case s {
       .Circle(r) -> 3.14 * r * r
-      #.Rectangle{width, height} -> width * height
+      .Rectangle{width, height} -> width * height
     }
   }
 }
@@ -2870,7 +2870,7 @@ func TestHover_InterfaceSelfPlaceholder(t *testing.T) {
 // `inner: Box<T>`.
 //
 // THE NON-GENERIC CASES ARE THE DISCRIMINATOR and they are in the same table.
-// `#Point{x: 1}` and the `tag: String` field sitting beside a `value: T` need
+// `Point{x: 1}` and the `tag: String` field sitting beside a `value: T` need
 // no substitution, so a table that only held generic fields could not tell a
 // substitution bug from a wholesale failure to type struct-literal labels at
 // all.
@@ -2888,7 +2888,7 @@ func TestHover_StructLitFieldLabelCarriesTheInstantiatedType(t *testing.T) {
 }
 
 fn main() {
-  b = #Box{▮value: 1}
+  b = Box{▮value: 1}
   b
 }`,
 			wantHover: "```nomi\nvalue: Int\n```",
@@ -2902,7 +2902,7 @@ fn main() {
 }
 
 fn main() {
-  p = #Pair{▮left: 1, right: "x"}
+  p = Pair{▮left: 1, right: "x"}
   p
 }`,
 			wantHover: "```nomi\nleft: Int\n```",
@@ -2916,7 +2916,7 @@ fn main() {
 }
 
 fn main() {
-  p = #Pair{left: 1, ▮right: "x"}
+  p = Pair{left: 1, ▮right: "x"}
   p
 }`,
 			wantHover: "```nomi\nright: String\n```",
@@ -2933,7 +2933,7 @@ struct Outer<T> {
 }
 
 fn main() {
-  o = #Outer{▮inner: #Box{value: 1}}
+  o = Outer{▮inner: Box{value: 1}}
   o
 }`,
 			wantHover: "```nomi\ninner: Box<Int>\n```",
@@ -2947,7 +2947,7 @@ fn main() {
 }
 
 fn main() {
-  w = #Wrap{value: "s", ▮tag: "t"}
+  w = Wrap{value: "s", ▮tag: "t"}
   w
 }`,
 			wantHover: "```nomi\ntag: String\n```",
@@ -2960,7 +2960,7 @@ fn main() {
 }
 
 fn main() {
-  p = #Point{▮x: 1}
+  p = Point{▮x: 1}
   p
 }`,
 			wantHover: "```nomi\nx: Int\n```",
@@ -3002,7 +3002,7 @@ fn main() {
 // defensive. Writing `declSym.Type = instantiated` in place instead of copying
 // leaves `./lsp` and `./analysis` green — the root-key slice measured that and
 // recorded the mutant as uncaught — but measured here it makes the SECOND
-// literal's instantiation win at both sites: `#Box{value: 1}` hovers
+// literal's instantiation win at both sites: `Box{value: 1}` hovers
 // `value: String`. At the base twin both hover `value: _`.
 //
 // The jumps are asserted too, and they are expected to COINCIDE: two sites,
@@ -3013,8 +3013,8 @@ func TestHover_StructLitFieldLabelIsPerSiteNotPerDeclaration(t *testing.T) {
 }
 
 fn main() {
-  a = #Box{value: 1}
-  b = #Box{value: "s"}
+  a = Box{value: 1}
+  b = Box{value: "s"}
   a
   b
 }`
@@ -3054,7 +3054,7 @@ fn main() {
 //
 // Without the substitution the enum row would read:
 //
-//	s = #Shape.Wrap{inner: 3}   ->  s: Shape       and  inner: _
+//	s = Shape.Wrap{inner: 3}   ->  s: Shape       and  inner: _
 //
 // The struct row is in the table because it goes through the same path for a
 // plain struct, so a table of enum rows alone could not tell a substitution
@@ -3078,7 +3078,7 @@ func TestHover_EnumStructVariantLitIsInstantiated(t *testing.T) {
 }
 
 fn main() {
-  s = #Shape.Wrap{inner: 3}
+  s = Shape.Wrap{inner: 3}
   s
 }`,
 			wantBind:  "```nomi\ns: Shape<Int>\n```",
@@ -3092,7 +3092,7 @@ fn main() {
 }
 
 fn main() {
-  s = #Shape.Wrap{inner: [1, 2]}
+  s = Shape.Wrap{inner: [1, 2]}
   s
 }`,
 			wantBind:  "```nomi\ns: Shape<List<Int>>\n```",
@@ -3106,7 +3106,7 @@ fn main() {
 }
 
 fn main() {
-  t = #Two.Both{left: 1, right: "s"}
+  t = Two.Both{left: 1, right: "s"}
   t
 }`,
 			wantBind:  "```nomi\nt: Two<Int, String>\n```",
@@ -3120,7 +3120,7 @@ fn main() {
 }
 
 fn main() {
-  h = #Holder.Of{items: ["a"]}
+  h = Holder.Of{items: ["a"]}
   h
 }`,
 			wantBind:  "```nomi\nh: Holder<String>\n```",
@@ -3134,7 +3134,7 @@ fn main() {
 }
 
 fn main() {
-  s = #Shape.Wrap{inner: 3}
+  s = Shape.Wrap{inner: 3}
   s
 }`,
 			wantBind:  "```nomi\ns: Shape\n```",
@@ -3148,7 +3148,7 @@ fn main() {
 }
 
 fn main() {
-  b = #Box{value: 1}
+  b = Box{value: 1}
   b
 }`,
 			// A STRUCT's hover appends the struct body; an enum's does not.

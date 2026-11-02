@@ -37,5 +37,5 @@ fn main() {
     io.inspect(score(2))
 }
 `
-	irRunSource(t, src, "Some(Red)\nSome(Blue)\nOk(#Score{color: Blue, n: 2})\n")
+	irRunSource(t, src, "Some(Red)\nSome(Blue)\nOk(Score{color: Blue, n: 2})\n")
 }

@@ -196,7 +196,7 @@ fn main() {
 
     sum_classified =
         [5, -10, 50, 200, 30]
-        |> Iter.reduce(fn acc = 0, x -> acc + classify(x))
+        |> Iter.reduce(0, fn acc, x -> acc + classify(x))
 
     io.print("nested fn early returns: ${sum_classified}")
 

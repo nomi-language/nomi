@@ -28,10 +28,10 @@ fn show<T>(x: T) -> String where T: Display {
 	}{
 		{"a function value", `"${inc}"`, "no impl of `Display` for `(Int) -> Int`; a function value has no `Display`"},
 		{"a function in a tuple", `"${#(1, inc)}"`, "no impl of `Display` for `(Int) -> Int`; a function value has no `Display`"},
-		{"a struct without Display in a tuple", `"${#(1, #Q{a: 1})}"`, "no impl of `Display` for `Q`"},
-		{"a struct without Display in a record", `"${#{q: #Q{a: 1}}}"`, "no impl of `Display` for `Q`"},
-		{"a struct without Display in a list", `"${[#Q{a: 1}]}"`, "no impl of `Display` for `Q`"},
-		{"a tuple with a struct without Display at a bound", `show(#(1, #Q{a: 1}))`,
+		{"a struct without Display in a tuple", `"${#(1, Q{a: 1})}"`, "no impl of `Display` for `Q`"},
+		{"a struct without Display in a record", `"${#{q: Q{a: 1}}}"`, "no impl of `Display` for `Q`"},
+		{"a struct without Display in a list", `"${[Q{a: 1}]}"`, "no impl of `Display` for `Q`"},
+		{"a tuple with a struct without Display at a bound", `show(#(1, Q{a: 1}))`,
 			"#(Int, Q) does not implement Display (required by `where T: Display`)\n" +
 				"help: `#(Int, Q)` is Display when each part is, and `Q` is not: add `derive Display` to `Q`"},
 		{"a tuple with a function at a bound", `show(#(1, inc))`,

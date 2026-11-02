@@ -12,7 +12,7 @@ import (
 // the function they are written in, and `break` and `continue` hand a signal
 // to the iteration function that called it. So such a function may only be
 // passed as an iteration callback itself (`Iter.map(xs, keep)`,
-// `Iter.reduce(xs, keep, from: 0)`); any call of it is an error
+// `Iter.reduce(xs, 0, keep)`); any call of it is an error
 // (iter_sensitive.go).
 
 // IterSignals is which of `break` and `continue` a function's own scope

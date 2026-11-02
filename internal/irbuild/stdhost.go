@@ -284,7 +284,7 @@ var stdHostSpecs = []stdHostSpec{
 	//
 	// A LEAF whose payload rt owns, which is what `rtOpaque` says: `rt.Supervisor`
 	// is a one-field struct over an unexported `*supervisor`, so the VALUE is
-	// copyable — it sits in a `#Config{}` literal and in a struct field with no
+	// copyable — it sits in a `Config{}` literal and in a struct field with no
 	// position spelling a pointer — while nothing a program lowers can
 	// reach inside it. `Task[T]`'s and `Sender[T]`'s arrangement.
 	//
@@ -332,6 +332,24 @@ var stdHostSpecs = []stdHostSpec{
 	// `Reader` is: rt's struct over the backend internal/stdio builds, which
 	// rt carries and does not name.
 	{origin: "std/fs_host", nomi: "FileSystem", goType: reflect.TypeFor[rt.FileSystem]()},
+	// `Child` and `Fake`, std/process_host's started program and the fake
+	// `process_testing.run` installs, for the reason `FileSystem` is: rt's
+	// structs over what internal/stdprocess builds (rt/processes.go).
+	{origin: "std/process_host", nomi: "Child", goType: reflect.TypeFor[rt.ChildProcess]()},
+	// `Client` and `Exchange`, std/http_host's client and a response it
+	// answered: rt's structs over what internal/stdhttp builds (rt/network.go).
+	{origin: "std/http_host", nomi: "Client", goType: reflect.TypeFor[rt.HTTPClient]()},
+	{origin: "std/http_host", nomi: "Exchange", goType: reflect.TypeFor[rt.HTTPExchange]()},
+	{origin: "std/http_host", nomi: "Listener", goType: reflect.TypeFor[rt.HTTPListener]()},
+	{origin: "std/http_host", nomi: "Incoming", goType: reflect.TypeFor[rt.HTTPIncoming]()},
+	{origin: "std/http_host", nomi: "Certificate", goType: reflect.TypeFor[rt.TLSCertificate]()},
+	{origin: "std/http_host", nomi: "TlsConfig", goType: reflect.TypeFor[rt.TLSConfig]()},
+	{origin: "std/http_host", nomi: "Conn", goType: reflect.TypeFor[rt.NetConn]()},
+	{origin: "std/http_host", nomi: "TcpListener", goType: reflect.TypeFor[rt.NetListener]()},
+	{origin: "std/http_host", nomi: "Mux", goType: reflect.TypeFor[rt.HTTPMux]()},
+	{origin: "std/http_host", nomi: "Jar", goType: reflect.TypeFor[rt.HTTPJar]()},
+	{origin: "std/http_host", nomi: "Handle", goType: reflect.TypeFor[rt.HTTPHandle]()},
+	{origin: "std/process_host", nomi: "Fake", goType: reflect.TypeFor[rt.ProcessFake]()},
 }
 
 // stdHostDefs is the process-wide *typeDef per spec, keyed by spec index.

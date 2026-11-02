@@ -77,9 +77,9 @@ func TestPatternBindingElse_BlockStartingWithAPatternShape(t *testing.T) {
 // without else; the checker decides whether the pattern can fail.
 func TestPatternBindingElse_GeneralPatterns(t *testing.T) {
 	for src, pattern := range map[string]string{
-		"Ok(#(w, h)) = parse(text) else { #(80, 24) }":      "*ast.EnumPattern",
-		"[first, ..rest] = xs else { return 0 }":            "*ast.ListPattern",
-		"#.Valid{addr, score} = check(x) else { return 0 }": "*ast.StructPattern",
+		"Ok(#(w, h)) = parse(text) else { #(80, 24) }":     "*ast.EnumPattern",
+		"[first, ..rest] = xs else { return 0 }":           "*ast.ListPattern",
+		".Valid{addr, score} = check(x) else { return 0 }": "*ast.StructPattern",
 		"Ok(Some(n)) = r":                     "*ast.EnumPattern",
 		"#(Some(a), b) = p else { return 0 }": "*ast.TuplePattern",
 		"%{\"k\" => v} = m else { return 0 }": "*ast.MapPattern",
@@ -129,7 +129,7 @@ func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 		"io.print(x)":  "*ast.ExprStmt",
 		"[1, 2] |> f":  "*ast.ExprStmt",
 		"{ x }":        "*ast.ExprStmt",
-		"#Foo{a: 1}":   "*ast.ExprStmt",
+		"Foo{a: 1}":    "*ast.ExprStmt",
 		"a == b":       "*ast.ExprStmt",
 		"\"s\" |> f()": "*ast.ExprStmt",
 	} {

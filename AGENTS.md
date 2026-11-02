@@ -12,6 +12,7 @@ The canonical references:
 |---|---|
 | [`docs/spec.md`](docs/spec.md) | The spec: what the language does. A feature there without a `Status: not yet implemented` callout works. |
 | [`docs/style.md`](docs/style.md) | How to write Nomi well (idiom, not semantics). |
+| [`docs/cheatsheet.md`](docs/cheatsheet.md) | The rules most often written wrong, with checked examples: the short form for a reader or a model. |
 | [`docs/tooling.md`](docs/tooling.md) | The `nomi` command and its flags, `nomi.toml`, modules and dependencies, the test runner, `nomi fmt`'s layout, builds, Go bindings, environment variables, editors and the debugger. |
 | [`docs/implementation-notes.md`](docs/implementation-notes.md) | How the implementation is built, subsystem by subsystem, and the test harnesses that hold it. Read the section for the area you work in. |
 | [`docs/feature-status.md`](docs/feature-status.md) | What is not built yet: aspirational spec sections, gaps in shipped features, tooling capabilities, known defects. |
@@ -38,7 +39,7 @@ The repository root is the compiler's Go module,
 | `vmhost/` | The public embedding API. |
 | `vmrunner/` | What `nomi-vm` and a built executable run. Generated FFI runners import it. |
 | `hostadapt/` | Support package that generated FFI wrappers import. |
-| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
+| `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
 | `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`. The compiler's module neither contains nor requires them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
@@ -97,7 +98,12 @@ the same in the background. Details:
   [stdlib](docs/implementation-notes.md#stdlib),
   [std and lib](docs/implementation-notes.md#std-and-lib),
   [host functions](docs/implementation-notes.md#host-functions),
-  [files](docs/implementation-notes.md#files).
+  [files](docs/implementation-notes.md#files),
+  [processes](docs/implementation-notes.md#processes),
+  [HTTP, TLS and TCP](docs/implementation-notes.md#http) (`std/http`,
+  `std/tls` and `std/net` over `internal/stdhttp`),
+  [logging and actors](docs/implementation-notes.md#logging-and-actors)
+  (`std/log`, `std/log_testing` and `std/actors`, written in Nomi alone).
 - **Locale data and collation.** CLDR data from `internal/cldrgen` in
   `internal/cldrfull`, cut per program to its listed locales;
   `internal/collation` is a UCA collator over it. Details:
@@ -112,7 +118,11 @@ the same in the background. Details:
   [modules](docs/implementation-notes.md#modules).
 - **`nomi build` and the REPL.** `nomi build` appends a pruned IR image to
   `nomi-vm` or the wasip1 reactor, or writes a browser folder or a `.nomic`.
-  The REPL links each input into one live VM. Details:
+  Each runner has a variant built with the `nomi_nonet` tag
+  (`nomi-vm-nonet`), with no net/http, crypto/tls or net, which a program
+  that reaches no network crossing is appended to; `go generate
+  ./internal/stdlibadapters` writes the split. The REPL links each input
+  into one live VM. Details:
   [`nomi build`](docs/implementation-notes.md#nomi-build),
   [REPL](docs/implementation-notes.md#repl).
 
@@ -292,76 +302,15 @@ expect block and its tour.expect key.
 
 ## Language conventions
 
-The spec is canonical; these are the rules most often gotten wrong.
-
-- **No `let`.** Bindings are `name = expr`, with optional `: T`. A binding may
-  shadow an earlier one in the same scope.
-- **Literals start with their shape's symbol.** `#` for a vector, struct or
-  tuple (`#[1, 2]`, `#Point{x: 1}`, `#{x: 1}`, `#(a, b)`), `%` for a map or
-  set (`%{"k" => v}`, `%[1, 2]`); a type built on a shape writes its name
-  after the symbol (`#.Circle{radius: 1.0}`, `#Pair(1, "x")`, `%Kvs{"a" => 1}`).
-  Lists keep `[1, 2]` and `Ids[1, 2]`. Patterns use the same forms
-  (`#[first, ..rest]`, `%["admin", ..rest]`). A name followed by `{` never
-  starts a literal, and types are unchanged (`Vector<T>`, `#(Int, Int)`).
-- **Type bodies are newline-separated items.** Struct fields are bare
-  `name: Type` lines with no commas and no `field` keyword. An interface
-  declares functions only; a value every implementor must supply is a
-  function requirement (`fn name(value: self) -> String`, called
-  `HasName.name(x)` or `T.name(x)`). Enum variants are bare, one per line,
-  no `|`.
-  Behavior lives in `impl Type { ... }` and `impl Iface for Type { ... }`
-  blocks and `derive Iface for Type` declarations, all top-level.
-- **Calls are qualified; there is no `x.method()`.** Interface-impl functions
-  are called type-qualified (`Int.to_string(n)`), interface-qualified
-  (`Display.to_string(x)`), or through a bounded type parameter
-  (`T.to_string(x)`). Bare dispatch (`to_string(n)`) and file-qualified
-  dispatch (`int.to_string(n)`) are errors. File qualification reaches
-  file-level functions (`io.print(x)`) and nothing declared in an `impl`
-  block; owner qualification reaches inherent functions (`String.trim(s)`,
-  `Map.get(m, k)`). `duration.seconds(1)` is the checker's "file 'duration'
-  has no member 'seconds'" error, whose hint names the owner. `x.field` is only
-  field access.
-- **Iteration.** `Iter` is a push protocol (`each_while`, `known_count`,
-  `is_infinite`), and every generic algorithm is an owner function: `Iter.map`,
-  `Iter.filter`,
-  `Iter.reduce`, `Iter.count`. Lazy adapters fuse; materialize explicitly with
-  `Iter.to_list()`, `to_set`, `to_map` or `to_vector`, and join an
-  `Iter<String>` with `String.join`. There is no `List.map`.
-  Container-specific operations stay on the type (`Map.get`, `Set.union`,
-  `List.head`).
-- **Pipe nested calls.** A call whose result feeds another call becomes a `|>`
-  chain. See the style guide for the details.
-- **Visibility.** Top-level declarations are file-private unless `pub`. A
-  `.nomi` file is the import and visibility unit; a Nomi module is the
-  directory tree rooted at `nomi.toml` (plus `go.mod` when distributed) and is
-  the orphan-rule unit.
-- **Naming.** Types PascalCase; functions, bindings and parameters snake_case.
-  A predicate is `is_<state>` or `has_<thing>`
-  (`is_empty`, `has_key`) or a bare verb (`contains`, `starts_with`).
-- **Values are immutable; closures capture values at creation.** `return` and
-  a postfix `?` inside a lambda exit the lambda.
-- **Errors.** `expr?` propagates an `Err` or `None` out of the enclosing
-  function, lambda or test (`text |> parse()?` in a pipe stage, `|> then? fn
-  v -> ...` for a `then` lambda's result); `expr!` traps on one.
-- **Scoped application fields.** `fn boot(startup: Startup) -> Result<App, E>`,
-  in an entry file, returns the app struct in `Ok` (never bare), which has at
-  most one `Context` field (boot builds it with `Context.root()`); an `Err`
-  stops the program before `main` as main returning `Err` does, and fails a
-  group's test before its body. Its fields are read as `App.field`.
-  The statement `with App.field = value` replaces one field from that line to
-  the end of its block, as a `defer` there would run; several fields are
-  several lines, and there is no block form. A boot's `Ok` type must be the type
-  every field read reachable from its `main` or test names.
-- **Test groups.** A `group` holds at most one `clock`, `boot` and
-  `setup`, in that order, then its tests, and groups do not nest.
-  `boot server.boot(startup)` calls an entry's boot. `setup` returns any value,
-  and a test binds it with an irrefutable pattern (`test "x", db { ... }`).
-  Each test runs clock, boot, setup, then body, fresh.
-- **`once name = expr`** is the only file-level value binding: lazy, cached,
-  forced once even under concurrency.
-- **Concurrency.** `concurrent { }` scopes tasks (`Task.spawn`,
-  `Task.await` from `std/tasks`); `std/channels` splits a channel into
-  `Sender` and `Receiver`; `Supervisor.new` runs only during `boot`.
+The rules most often gotten wrong are in
+[`docs/cheatsheet.md`](docs/cheatsheet.md), each with an example the doctests
+run. Read it before writing Nomi; the spec is canonical where the two differ.
+The site publishes it as the cheat sheet page, whose examples a reader can
+run, and `cheatsheet.md`, and `llms-full.txt` holds it beside the spec, the
+style guide and the stdlib's API (`nomi-docgen -llms`). The page is committed,
+since tour.expect records its blocks: after editing `docs/cheatsheet.md`, run
+`go run ./cmd/nomi-docgen -llms . tour` (`TestCheatSheetPageIsCurrent` fails
+until you do).
 
 ## Compiler conventions
 
@@ -502,6 +451,9 @@ the doctest:
   N`.
 - **`no-run`**: output that reads the clock. It must compile and is not run
   by the doctest; the page runs it when it scrolls into view.
+- **`compile-only`**: a block a browser cannot run, such as one that listens
+  on a port. It must compile and is never run; the page shows it as a plain
+  highlighted block with no editor or output.
 - **`manual`**: an expensive run (a tool runs first, or it computes a lot).
   The page runs it only on Run, with a 60-second budget instead of 6, and
   labels its expect block, which it needs, as recorded output until then. It
@@ -595,6 +547,11 @@ rt code linked into wasm.
   implemented**` callout, and each such callout is listed in
   feature-status.md's "Aspirational language features".
 - New authoring conventions go in `style.md`.
+- A change to the language or `std/` updates the cheat sheet
+  (`docs/cheatsheet.md`) and the guides for other languages
+  (`tour/src/content/docs/from-rust.md`, `from-go.md`, `from-elixir.md`) in
+  the same change, when it touches a rule or an example there. Their examples
+  are ```` ```nomi-run ```` blocks that `TestTourDoctests` runs.
 - A change to how a subsystem is built, or to a test harness, updates its
   section of `docs/implementation-notes.md` in the same change.
 - A change that affects users (the language, `std/`, the CLI, the editor

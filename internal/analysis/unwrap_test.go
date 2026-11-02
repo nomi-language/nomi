@@ -39,7 +39,7 @@ fn small(n: Int) -> Bool {
 func TestUnwrap_IsThePayloadsType(t *testing.T) {
 	src := unwrapDecls + `
 fn main() {
-    u = #User{name: "a", nickname: Some("b")}
+    u = User{name: "a", nickname: Some("b")}
     maybe = found(2)
     a = half(4)!
     b = found(1)!

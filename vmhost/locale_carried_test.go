@@ -105,7 +105,7 @@ func TestNotCarriedLocale_FormatsAsTheSource(t *testing.T) {
 fn main() {
     fr = Result.with_default(Locale.parse("fr"), Locale` + "`en`" + `)
     io.print(Date.format(Date` + "`2026-10-20`" + `, fr, style: .Long))
-    io.print(Money.format(#Money{amount: 12.5d, currency: Currency` + "`EUR`" + `}, fr))
+    io.print(Money.format(Money{amount: 12.5d, currency: Currency` + "`EUR`" + `}, fr))
     io.print(String.join_list(["a", "b", "c"], fr))
     io.print(Date.format(Date` + "`2026-10-20`" + `, Locale` + "`de-CH`" + `, style: .Long))
     io.print(Locale.negotiate([fr], Locale.available(), Locale` + "`de`" + `))

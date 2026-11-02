@@ -66,12 +66,12 @@ fn main() {
   io.inspect(Maybe.map(Some(1), fn n: Int ▮-> n + 1))
 }
 `, "```nomi\nfn n: Int -> Int\n```\n\nFills `Maybe.map`'s `f: (T) -> U`; parameter types from the annotation."},
-		{"a seeded parameter", `import std/io
+		{"a fold's callback", `import std/io
 
 fn main() {
-  io.inspect(Iter.reduce([1, 2], ▮fn total = 0, x -> total + x))
+  io.inspect(Iter.reduce([1, 2], 0, ▮fn total, x -> total + x))
 }
-`, "```nomi\nfn total: Int = 0, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types."},
+`, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types."},
 		{"zero parameters", `import std/io
 
 fn main() {

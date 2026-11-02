@@ -40,7 +40,7 @@ fn via<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
 }
 
 fn main() {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     io.print(Bool.to_string(Box.holds(b, 1)))
     io.print(Bool.to_string(Holds.holds(b, "b")))
     io.print(Bool.to_string(b |> Box.holds("a")))
@@ -107,7 +107,7 @@ impl Add<Days, Days> for Day {
 }
 
 fn main() {
-    f = #Factory{n: 3}
+    f = Factory{n: 3}
     i: Int = Factory.make(f)
     s: String = Make.make(f)
     j: Int = made(f)
@@ -171,11 +171,11 @@ fn number(h: Gets<Int>) -> Int {
 }
 
 fn main() {
-    b = #Bag{s: "bag", n: 3}
+    b = Bag{s: "bag", n: 3}
     io.print(text(b))
-    io.print(text(#Cup{s: "c"}))
+    io.print(text(Cup{s: "c"}))
     io.print(Int.to_string(number(b)))
-    texts: List<Gets<String>> = [b, #Cup{s: "d"}]
+    texts: List<Gets<String>> = [b, Cup{s: "d"}]
     io.print(Iter.map(texts, fn h -> Gets.got(h)) |> String.join(", "))
     nums: List<Gets<Int>> = [b, b]
     io.print(Int.to_string(Iter.map(nums, fn h -> Gets.got(h)) |> Iter.sum()))
@@ -202,13 +202,13 @@ struct Num {
 
 impl Parse<Int> for Num {
     fn parse(x: Int) -> Num {
-        #Num{n: x}
+        Num{n: x}
     }
 }
 
 impl Parse<String> for Num {
     fn parse(x: String) -> Num {
-        #Num{n: String.length(x)}
+        Num{n: String.length(x)}
     }
 }
 

@@ -1,0 +1,164 @@
+//# State one task owns, changed by the messages it receives: the tour's
+//# counter server as a helper. `Actor.start(supervisor, state, handle)`
+//# starts a task under the supervisor that folds each message into its
+//# state with `handle`, one message at a time, so nothing else touches the
+//# state and no locks are needed. Its inbox holds 64 messages unless the
+//# call gives another size (`inbox: 256`).
+//#
+//# `Actor.cast` sends a message and returns at once. `Actor.call` sends a
+//# message that carries a `Reply`, which the handler answers with
+//# `Reply.send`, and waits for the answer up to a timeout, five seconds
+//# unless the call gives another (`timeout: Duration.seconds(1)`). A message type
+//# is an enum, and a variant that expects an answer holds the `Reply` for
+//# it, so each kind of call has its own answer type:
+//#
+//# ```nomi
+//# enum Counter {
+//#     Add Int
+//#     Get {reply: Reply<Int>}
+//# }
+//#
+//# counter = Actor.start(App.workers, 0, fn count, message -> {
+//#     case message {
+//#         .Add(n) ->
+//#             count + n
+//#
+//#         .Get{reply} -> {
+//#             Reply.send(reply, count)
+//#             count
+//#         }
+//#     }
+//# })
+//#
+//# _ = Actor.cast(counter, .Add(2))
+//#
+//# n = Actor.call(counter, fn reply -> .Get{reply})?
+//# ```
+//#
+//# Messages are handled in the order they are sent. A handler that traps
+//# stops the task, and the supervisor's restart rule decides whether it
+//# starts again, from the initial state. `Actor.stop` closes the inbox: the
+//# task handles what is already queued and ends. Start an actor you stop
+//# under a `Restart.Transient` supervisor, which restarts it after a
+//# failure and lets a stop end it; `Restart.Permanent` would start it again
+//# on its closed inbox.
+
+import {
+    channels.{Channel, Receiver, Sender}
+    display.Display
+    duration.Duration
+    equatable.Equatable
+    iter.Iter
+    maybe.Maybe.{None, Some}
+    results.Result.{self, Err, Ok}
+    strings.String
+    supervisors.Supervisor
+    unit.Unit
+}
+
+/// A running actor that takes messages of type `M`.
+pub opaque struct Actor<M> {
+    inbox: Channel<M>
+}
+
+/// The way back to a caller waiting in `Actor.call`: the handler answers
+/// it with `Reply.send`.
+pub opaque struct Reply<R> {
+    sender: Sender<R>
+}
+
+/// Why a call or cast got no answer.
+pub enum CallError {
+    /// The answer did not come within the call's timeout.
+    TimedOut
+    /// The actor has stopped, so the message was not delivered.
+    Stopped
+}
+
+derive Equatable for CallError
+
+impl Display for CallError {
+    //! assert "${CallError.TimedOut}" == "the actor did not answer in time"
+    //
+    fn to_string(error: CallError) -> String {
+        case error {
+            .TimedOut -> "the actor did not answer in time"
+            .Stopped -> "the actor has stopped"
+        }
+    }
+}
+
+impl Actor<M> {
+    /// Starts a task under `supervisor` that holds `state` and folds each
+    /// message into it with `handle`, whose result is the next state. The
+    /// inbox holds `inbox` messages, 64 unless the call says otherwise; a
+    /// cast or call waits while it is full. Called during `boot`, where a
+    /// program builds its supervisors.
+    pub fn start<S>(
+        supervisor: Supervisor,
+        state: S,
+        inbox: Int = 64,
+        handle: (S, M) -> S,
+    ) -> Actor<M> {
+        inbox = Channel.buffered<M>(inbox)
+        // The actor ends when the program starts shutting down, so the
+        // drain need not wait out its grace period for an idle actor.
+        Sender.close_on_drain(inbox.sender)
+        _ = Supervisor.spawn(supervisor, fn -> serve(inbox.receiver, state, handle))
+        Actor{inbox}
+    }
+
+    /// Sends `message` and returns once it is queued; `Err(Stopped)` when
+    /// the actor has stopped.
+    pub fn cast(actor: Actor<M>, message: M) -> Result<Unit, CallError> {
+        Sender.send(actor.inbox.sender, message) |> Result.map_err(fn _ -> CallError.Stopped)
+    }
+
+    /// Sends the message `message` builds around a fresh `Reply`, and waits
+    /// up to `timeout`, five seconds unless the call says otherwise, for the
+    /// handler's `Reply.send`: `Err(TimedOut)` when no answer comes in time,
+    /// `Err(Stopped)` when the actor has stopped.
+    pub fn call<R>(
+        actor: Actor<M>,
+        timeout: Duration = Duration.seconds(5),
+        message: (Reply<R>) -> M,
+    ) -> Result<R, CallError> {
+        answer = Channel.buffered<R>(1)
+        sent = Sender.send(actor.inbox.sender, message(Reply{sender: answer.sender}))
+
+        case sent {
+            Err(_) ->
+                Err(CallError.Stopped)
+
+            Ok(_) ->
+                case Receiver.receive_within(answer.receiver, timeout) {
+                    Ok(Some(value)) -> Ok(value)
+                    Ok(None) -> Err(CallError.Stopped)
+                    Err(_) -> Err(CallError.TimedOut)
+                }
+        }
+    }
+
+    /// Closes the actor's inbox. The task handles the messages already
+    /// queued and ends; a later cast or call answers `Err(Stopped)`.
+    pub fn stop(actor: Actor<M>) -> Unit {
+        Sender.close(actor.inbox.sender)
+    }
+}
+
+impl Reply<R> {
+    /// Answers the caller waiting on `reply`. An answer to a caller that
+    /// has stopped waiting is dropped.
+    pub fn send(reply: Reply<R>, value: R) -> Unit {
+        _ = Sender.send(reply.sender, value)
+    }
+}
+
+fn serve<S, M>(inbox: Receiver<M>, state: S, handle: (S, M) -> S) -> Unit {
+    _final = Iter.loop(state, fn current -> {
+        case Receiver.receive(inbox) {
+            Some(message) -> handle(current, message)
+            None -> break current
+        }
+    })
+}

@@ -60,7 +60,7 @@ pub fn decode(phrase: String, key: Key) -> Result<String, Error> {
 fn inverse(a: Int) -> Result<Int, Error> {
     0..letter_count
     |> Iter.find(fn x -> Int.modulo(a * x, letter_count) == 1)
-    |> Maybe.to_result(Error.NotCoprime)
+    |> Maybe.to_result(.NotCoprime)
 }
 
 /// Each letter and digit of `text`, a letter moved to the letter `step`
@@ -90,7 +90,7 @@ import {
 group "encode" {
     test "encodes" {
         [
-            #("encode yes", "yes", #Key{a: 5, b: 7}, "xbt"),
+            #("encode yes", "yes", Key{a: 5, b: 7}, "xbt"),
             #("encode no", "no", #{a: 15, b: 18}, "fu"),
             #("encode OMG", "OMG", #{a: 21, b: 3}, "lvz"),
             #("encode O M G", "O M G", #{a: 25, b: 47}, "hjp"),
@@ -117,7 +117,7 @@ group "encode" {
 group "decode" {
     test "decodes" {
         [
-            #("decode exercism", "tytgn fjr", #Key{a: 3, b: 7}, "exercism"),
+            #("decode exercism", "tytgn fjr", Key{a: 3, b: 7}, "exercism"),
             #(
                 "decode a sentence",
                 "qdwju nqcro muwhn odqun oppmd aunwd o",
@@ -169,4 +169,4 @@ test result: ok. 16 passed, 0 failed
 - `encode` checks the key with `_ = inverse(key.a)?` before it starts, since it does not need the inverse.
 - `translate` takes the step as a function, `fn i -> key.a * i + key.b` or `fn y -> a_inverse * (y - key.b)`, so encoding and decoding share it. `Int.modulo` brings a negative result back into `0..26`, where `%` would leave it negative.
 - Letters go to numbers through a map, a `once` that pipes `Iter.zip(alphabet, 0..letter_count)` into `Iter.to_map()`, written stacked to start from the pairs, and back with `Vector.get(...)!`, which cannot miss because the index is reduced mod 26.
-- Each table names `Key` in its first row only (`#Key{a: 5, b: 7}`); the rows after it write `#{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.
+- Each table names `Key` in its first row only (`Key{a: 5, b: 7}`); the rows after it write `#{a: 15, b: 18}`, which the first row makes a `Key`, so the table needs no annotation.

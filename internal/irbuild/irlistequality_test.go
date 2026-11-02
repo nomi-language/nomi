@@ -24,7 +24,7 @@ func TestIRListEquality_FindLinksThroughProcess(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn find(list: List<Int>, target: Int) -> Maybe<Int> {
  if list == [] { None } else {
-  Iter.reduce(list, fn acc = None, x ->
+  Iter.reduce(list, None, fn acc, x ->
    case acc {
     Some(v) -> Some(v)
     None -> if x == target { Some(x) } else { None }

@@ -62,7 +62,7 @@ test "every Value reads back as the Value it was written as" {
     rows = Conn.query(db, Sql"SELECT * FROM v")?
 
     Some(row) = Iter.first(rows) else {
-        None -> return Err(#sql.Error.Database{code: "", message: "no row"})
+        None -> return Err(sql.Error.Database{code: "", message: "no row"})
     }
 
     assert Row.values(row) == [
@@ -118,7 +118,7 @@ fn amounts(db: Conn) -> Result<List<String>, sql.Error> {
 // The message of a SQLITE_MISMATCH error, or what the result was instead.
 fn mismatch<T>(result: Result<T, sql.Error>) -> String {
     case result {
-        Err(#sql.Error.Database{code: "SQLITE_MISMATCH", message}) -> message
+        Err(sql.Error.Database{code: "SQLITE_MISMATCH", message}) -> message
         Err(e) -> "another error: ${e}"
         Ok(_) -> "Ok"
     }
@@ -247,7 +247,7 @@ test "a UNIQUE column's violation has Postgres's name for it, and names the tabl
     e = constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES ('a@example.com')"))
 
     assert e == Some(
-        #sql.Error.Constraint{
+        sql.Error.Constraint{
             kind: ConstraintKind.Unique,
             name: "users_email_key",
             table: Some("users"),
@@ -265,7 +265,7 @@ test "a unique index's violation names the index" {
     )
 
     assert e == Some(
-        #sql.Error.Constraint{
+        sql.Error.Constraint{
             kind: ConstraintKind.Unique,
             name: "users_handle_key",
             table: Some("users"),
@@ -280,7 +280,7 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors" {
     nothing: Maybe<String> = None
 
     assert constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES (${nothing})")) == Some(
-        #sql.Error.Constraint{
+        sql.Error.Constraint{
             kind: ConstraintKind.NotNull,
             name: "users_email_not_null",
             table: Some("users"),
@@ -291,7 +291,7 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors" {
     assert constraint(
         Conn.exec(db, Sql"INSERT INTO users (email, age) VALUES ('c@example.com', 0)")
     ) == Some(
-        #sql.Error.Constraint{
+        sql.Error.Constraint{
             kind: ConstraintKind.Check,
             name: "age_positive",
             table: Some("users"),
@@ -300,7 +300,7 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors" {
     )
 
     assert constraint(Conn.exec(db, Sql"INSERT INTO orders (user_id) VALUES (99)")) == Some(
-        #sql.Error.Constraint{
+        sql.Error.Constraint{
             kind: ConstraintKind.ForeignKey,
             name: "orders_user_id_fkey",
             table: Some("orders"),
@@ -311,7 +311,7 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors" {
     assert constraint(
         Conn.exec(db, Sql"INSERT INTO users (id, email) VALUES (1, 'd@example.com')")
     ) == Some(
-        #sql.Error.Constraint{
+        sql.Error.Constraint{
             kind: ConstraintKind.Unique,
             name: "users_pkey",
             table: Some("users"),
@@ -325,7 +325,7 @@ test "SQL the engine rejects is a Database error with its message" {
     defer sql.close_quietly(db)
 
     assert Conn.query(db, Sql"SELECT nope FROM nowhere")
-        == Err(#sql.Error.Database{code: "SQLITE_ERROR", message: "no such table: nowhere"})
+        == Err(sql.Error.Database{code: "SQLITE_ERROR", message: "no such table: nowhere"})
 }
 
 test "exec answers the rows a statement changed" {
@@ -394,7 +394,7 @@ test "an Instant is written as SQLite writes a timestamp, and either form reads 
 
 test "a path that cannot be opened is a Connection error" {
     opened = case sqlite.open("/nonexistent/dir/x.db") {
-        Err(#sql.Error.Connection{message: _}) -> "Connection"
+        Err(sql.Error.Connection{message: _}) -> "Connection"
         Err(e) -> "${e}"
         Ok(_) -> "Ok"
     }

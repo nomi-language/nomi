@@ -48,7 +48,7 @@ pub opaque struct Factory {
 impl Factory {
     /// A factory that draws names from `seed`.
     pub fn new(seed: Seed) -> Factory {
-        #Factory{seed, given: %[]}
+        Factory{seed, given: %[]}
     }
 
     /// A new robot with a name no robot of this factory has had, or
@@ -61,7 +61,7 @@ impl Factory {
         if name in factory.given {
             Factory.build(#{..factory, seed})
         } else {
-            Ok(#(#Robot{name}, #Factory{seed, given: Set.insert(factory.given, name)}))
+            Ok(#(Robot{name}, Factory{seed, given: Set.insert(factory.given, name)}))
         }
     }
 
@@ -106,11 +106,11 @@ fn is_well_formed(name: String) -> Bool {
 
 /// The names of `count` robots from `factory`, in the order it built them.
 fn names(factory: Factory, count: Int) -> List<String> {
-    #(names, _factory) =
+    #(_factory, names) =
         1..=count
-        |> Iter.map_reduce(fn factory = factory, _n -> {
+        |> Iter.map_reduce(factory, fn factory, _n -> {
             #(robot, next) = Factory.build(factory)!
-            #(Robot.name(robot), next)
+            #(next, Robot.name(robot))
         })
 
     names

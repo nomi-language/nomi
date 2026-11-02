@@ -510,7 +510,7 @@ impl Date {
     //! assert Date.weekday(Date`1969-12-29`) == Weekday.Monday
     //
     pub fn weekday(d: Date) -> Weekday {
-        days = Date.days_between(#Date{year: 1970, month: 1, day: 5}, d)
+        days = Date.days_between(Date{year: 1970, month: 1, day: 5}, d)
 
         case (days % 7 + 7) % 7 {
             0 -> Weekday.Monday
@@ -662,7 +662,7 @@ derive Comparable for Date
 
 impl Literal for Date {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -793,7 +793,7 @@ impl Time {
         } else if nanosecond < 0 or nanosecond > 999_999_999 {
             Err(Error.InvalidValue("nanosecond out of range: " + Int.to_string(nanosecond)))
         } else {
-            Ok(#Time{hour, minute, second, nanosecond})
+            Ok(Time{hour, minute, second, nanosecond})
         }
     }
 
@@ -909,7 +909,7 @@ derive Comparable for Time
 
 impl Literal for Time {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Time, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -1055,7 +1055,7 @@ impl NaiveDateTime {
     //! assert NaiveDateTime.of(Date`2026-05-04`, Time`14:30:00`) == NaiveDateTime`2026-05-04T14:30:00`
     //
     pub fn of(d: Date, t: Time) -> NaiveDateTime {
-        #NaiveDateTime{
+        NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
             day: Date.day(d),
@@ -1070,7 +1070,7 @@ impl NaiveDateTime {
     //! assert NaiveDateTime.at_midnight(Date`2026-05-04`) == NaiveDateTime`2026-05-04T00:00:00`
     //
     pub fn at_midnight(d: Date) -> NaiveDateTime {
-        #NaiveDateTime{
+        NaiveDateTime{
             year: Date.year(d),
             month: Date.month(d),
             day: Date.day(d),
@@ -1166,7 +1166,7 @@ derive Comparable for NaiveDateTime
 
 impl Literal for NaiveDateTime {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<NaiveDateTime, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -1453,7 +1453,7 @@ impl OffsetDateTime {
 
 impl Literal for OffsetDateTime {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<OffsetDateTime, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -1514,7 +1514,7 @@ impl Anchored for OffsetDateTime {
 impl Add<Duration, OffsetDateTime> for OffsetDateTime {
     /// Add an exact `Duration`.
     fn add(lhs: OffsetDateTime, rhs: Duration) -> OffsetDateTime {
-        #OffsetDateTime{
+        OffsetDateTime{
             instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
             offset_seconds: lhs.offset_seconds,
         }
@@ -1963,7 +1963,7 @@ impl DateTime {
 
 impl Literal for DateTime {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateTime, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -2022,7 +2022,7 @@ impl Anchored for DateTime {
 impl Add<Duration, DateTime> for DateTime {
     /// Add an exact `Duration`.
     fn add(lhs: DateTime, rhs: Duration) -> DateTime {
-        #DateTime{
+        DateTime{
             instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
             zone: lhs.zone,
         }
@@ -2355,7 +2355,7 @@ impl DateFields {
 
 impl Literal for DateFields {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateFields, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -2398,7 +2398,7 @@ impl TimeFields {
 
 impl Literal for TimeFields {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<TimeFields, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -2439,7 +2439,7 @@ impl DateTimeFields {
 
 impl Literal for DateTimeFields {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateTimeFields, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -2485,7 +2485,7 @@ impl DatePattern {
 
 impl Literal for DatePattern {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<DatePattern, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -2528,7 +2528,7 @@ impl TimePattern {
 
 impl Literal for TimePattern {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<TimePattern, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -2570,7 +2570,7 @@ impl DateTimePattern {
 
 impl Literal for DateTimePattern {
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<DateTimePattern, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v

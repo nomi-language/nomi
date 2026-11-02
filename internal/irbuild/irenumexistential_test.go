@@ -84,7 +84,7 @@ fn main() {
         None -> io.print("none")
     }
     io.print(Show.show(made()))
-    h = #Holder{s: Note.Coin(Coin.Penny)}
+    h = Holder{s: Note.Coin(Coin.Penny)}
     io.print(Show.show(h.s))
 }
 `

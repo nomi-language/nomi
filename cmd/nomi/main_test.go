@@ -457,7 +457,7 @@ func TestRunFile_FFIStructProjectionRoundTrip(t *testing.T) {
 	// even when the struct crossed the boundary with no Nomi type
 	// identity, so only equality against a Nomi-built value and a
 	// dispatched `Display` actually exercise it.
-	want := []string{"Ada", "37", "London", "Oxford", "True", "True", "#Address{city: London}"}
+	want := []string{"Ada", "37", "London", "Oxford", "True", "True", "Address{city: London}"}
 	if len(lines) != len(want) {
 		t.Fatalf("expected %d output lines, got %d:\n%s", len(want), len(lines), out)
 	}
@@ -732,7 +732,7 @@ pub fn read() -> String {
 }
 
 pub fn boot() -> Result<Settings, String> {
-    Ok(#Settings{context: Context.root(), tag: "root"})
+    Ok(Settings{context: Context.root(), tag: "root"})
 }
 
 fn main() {
@@ -1202,7 +1202,7 @@ test "nomi test defaults NOMI_ENV" {
           None -> "missing"
         }
 
-      Ok(#Env{context: Context.root(), name})
+      Ok(Env{context: Context.root(), name})
     }
 
     fn main() {
@@ -2144,14 +2144,14 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 	})
 
 	t.Run("edited body", func(t *testing.T) {
-		const body = "Ok(#Time{hour, minute, second, nanosecond})"
-		replaceInFile(t, calendar, body, "Ok(#Time{hour, minute: minute + 1, second, nanosecond})")
-		defer replaceInFile(t, calendar, "Ok(#Time{hour, minute: minute + 1, second, nanosecond})", body)
+		const body = "Ok(Time{hour, minute, second, nanosecond})"
+		replaceInFile(t, calendar, body, "Ok(Time{hour, minute: minute + 1, second, nanosecond})")
+		defer replaceInFile(t, calendar, "Ok(Time{hour, minute: minute + 1, second, nanosecond})", body)
 		out, err := runNomiWithStd(t, cacheRoot, stdPath, "test", calendar, "--line", line)
 		if err == nil {
 			t.Fatalf("a prompt calling an edited body passed, so the embedded body ran:\n%s", out)
 		}
-		if !strings.Contains(out, "= #Time{hour: 8, minute: 31, nanosecond: 0, second: 0}") ||
+		if !strings.Contains(out, "= Time{hour: 8, minute: 31, nanosecond: 0, second: 0}") ||
 			!strings.Contains(out, "0 passed, 1 failed") {
 			t.Fatalf("the prompt did not fail on the edited body's answer:\n%s", out)
 		}
@@ -2440,7 +2440,7 @@ fn close(conn: Conn) -> Unit {
 
 group "setup cleanup" {
   setup {
-    conn = #Conn{label: "db"}
+    conn = Conn{label: "db"}
     defer close(conn)
     #{conn: conn}
   }
@@ -2969,7 +2969,7 @@ pub fn open_store(path: String) -> Result<Store, String> {
       sqlite.close(conn)
       Err("create table: ${e}")
     }
-    Ok(_) -> Ok(#Store{conn})
+    Ok(_) -> Ok(Store{conn})
   }
 }
 
@@ -3541,12 +3541,12 @@ fn main() {
   // can never match and silently answers False. Nested struct fields
   // are checked too — stamping only the top level moves the same bug
   // one level down.
-  io.print(profile == #Profile{
+  io.print(profile == Profile{
     name: "Ada",
     age: 36,
-    address: #Address{city: "London"},
+    address: Address{city: "London"},
   })
-  io.print(profile.address == #Address{city: "London"})
+  io.print(profile.address == Address{city: "London"})
   io.print(Display.to_string(profile.address))
 }
 `)

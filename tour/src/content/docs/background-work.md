@@ -42,7 +42,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-    Ok(#Config{
+    Ok(Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
         notify: Supervisor.new(max_running: 50, shutdown_timeout: Duration.milliseconds(200)),
@@ -141,7 +141,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-    Ok(#Config{
+    Ok(Config{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4),
         written: Channel.buffered<Int>(8),
@@ -313,7 +313,7 @@ rule when a failed task should run again:
 
 ```nomi
 fn boot() -> Result<Config, String> {
-    Ok(#Config{
+    Ok(Config{
         context: Context.root(),
         // A long-lived worker: retry patiently through a long outage,
         // and if it still can't run, take the process down so we get
@@ -321,7 +321,7 @@ fn boot() -> Result<Config, String> {
         workers: Supervisor.new(
             max_running: 8,
             restart: Restart.Transient,
-            backoff: #Backoff.Exponential{
+            backoff: Backoff.Exponential{
                 max_restarts: 60,
                 max_elapsed: Duration.hours(1),
             },
@@ -442,112 +442,81 @@ Nomi has no variable you can change. Values are immutable, and app fields
 can't change once `boot` returns. Sometimes several callers need to share
 something that changes: a rate limiter's tokens, a connection pool's free
 list, an in-memory cache. Give that state to one task, and talk to the task
-over channels.
+with messages. [`std/actors`](/reference/actors/) does this:
 
 ```nomi-run
 import {
-    std/channels.{Channel, Receiver, Sender}
+    std/actors.{Actor, CallError, Reply}
     std/io
     std/supervisors.{Restart, Supervisor}
     std/testing.Clock
 }
 
-pub enum Request {
-    Increment Int
-    Get {reply: Channel<Int>}
+enum Counter {
+    Add Int
+    Get {reply: Reply<Int>}
 }
 
-pub struct Counter {
-    inbox: Channel<Request>
-}
+fn handle(count: Int, message: Counter) -> Int {
+    case message {
+        .Add(n) ->
+            count + n
 
-fn start() -> Counter {
-    inbox = Channel.buffered<Request>(16)
-
-    _ =
-        Supervisor.new(max_running: 1, restart: Restart.Permanent)
-        |> Supervisor.spawn(fn -> serve(inbox))
-
-    #Counter{inbox}
-}
-
-fn serve(inbox: Channel<Request>) -> Unit {
-    _final = Iter.loop(fn count = 0 -> {
-        case Receiver.receive(inbox.receiver) {
-            Some(.Increment(n)) ->
-                count + n
-
-            Some(#.Get{reply}) -> {
-                _ = Sender.send(reply.sender, count)
-                count
-            }
-
-            None ->
-                break count
+        .Get{reply} -> {
+            Reply.send(reply, count)
+            count
         }
-    })
-
-    Unit
-}
-
-fn increment(counter: Counter, n: Int) -> Unit {
-    _ = Sender.send(counter.inbox.sender, .Increment(n))
-}
-
-fn get(counter: Counter) -> Int {
-    reply = Channel.buffered<Int>(1)
-    _ = Sender.send(counter.inbox.sender, #.Get{reply})
-    Receiver.receive(reply.receiver)!
+    }
 }
 
 struct Config {
     context: Context
-
-    counter: Counter
+    counter: Actor<Counter>
 }
 
 fn boot() -> Result<Config, String> {
-    Ok(#Config{context: Context.root(), counter: start()})
+    workers = Supervisor.new(max_running: 1, restart: Restart.Transient)
+    Ok(Config{context: Context.root(), counter: Actor.start(workers, 0, handle)})
+}
+
+fn get() -> Result<Int, CallError> {
+    Actor.call(Config.counter, fn reply -> .Get{reply})
 }
 
 fn main() {
-    increment(Config.counter, 2)
-    io.print("count: ${get(Config.counter)}")
+    _ = Actor.cast(Config.counter, .Add(2))
+    io.print("count: ${get()}")
 }
 
-group "a counter server" {
+group "a counter actor" {
     // Waits take no real time under a virtual clock.
     clock Clock.Virtual
 
     boot boot()
 
     test "messages accumulate into state a caller can read back" {
-        increment(Config.counter, 5)
-        increment(Config.counter, 7)
-        assert get(Config.counter) == 12
+        _ = Actor.cast(Config.counter, .Add(5))
+        _ = Actor.cast(Config.counter, .Add(7))
+        assert get() == Ok(12)
     }
 }
 ```
 <!-- expect
-count: 2
-ok a counter server / messages accumulate into state a caller can read back
+count: Ok(2)
+ok a counter actor / messages accumulate into state a caller can read back
 test result: ok. 1 passed, 0 failed
 -->
 
-The state is `count`, the loop's running total. Nothing outside the task can
-reach it. One task reads the inbox, so it handles requests one at a time,
-and no locks are needed.
+The state is `count`, which `handle` folds each message into. Nothing
+outside the actor's task can reach it. One task reads the inbox, so it
+handles messages one at a time, in the order they were sent, and no locks
+are needed.
 
-`start()` builds the supervisor during `boot`, so the counter has its own
-`Restart.Permanent` rule. Callers use `increment` and `get`. They never see
-the channel or the supervisor.
-
-`increment` returns as soon as its message is queued. It doesn't wait for an
-answer. `get` sends a request that carries a new reply channel, then waits
-for the answer on it. Each `get` has its own reply channel, so two callers
-can't get each other's answers. The inbox delivers messages in the order
-they were sent, and one task handles them, so `get` sees every `increment`
-sent before it.
+`Actor.cast` returns as soon as its message is queued. `Actor.call` builds
+its message around a new `Reply`, which the handler answers with
+`Reply.send`, and waits for the answer up to a timeout, five seconds unless
+the call gives another (`timeout: Duration.seconds(1)`). Each call has its own `Reply`, so two callers can't get each
+other's answers, and a call that gets none answers `Err(CallError.TimedOut)`.
 
 Each read costs two channel operations and a switch between tasks. If the
 state is mostly read, ask whether it needs to live in the program and change

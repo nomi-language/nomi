@@ -112,7 +112,7 @@ fn card(text: String) -> Maybe<Card> {
         digits -> pip_rank(digits)
     }
 
-    Some(#Card{rank: rank?, suit})
+    Some(Card{rank: rank?, suit})
 }
 
 /// The rank of a numbered card, 2 to 10.

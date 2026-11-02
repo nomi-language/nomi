@@ -3,9 +3,10 @@
 //# `Generator.step` to get back the value paired with the next seed.
 //# Same seed in -> same value out, so every draw is reproducible and testable.
 //# There is no stateful global generator and no mutation: randomness is an
-//# explicit value, threaded by hand or composed with combinators. The only
-//# impurity is `Seed.from_os`, which reads OS entropy for a fresh
-//# starting seed.
+//# explicit value, threaded by hand or composed with combinators. The two
+//# impure calls read the operating system's entropy: `Seed.from_os`, for a
+//# fresh starting seed, and `random.secure_bytes`, for keys, tokens and
+//# salts, which a seeded generator must never make.
 //#
 //# ```nomi
 //# seed = Seed.from_int(42)
@@ -26,6 +27,7 @@
 
 import {
     bool.Bool.{self, False, True}
+    bytes.Bytes
     display.Display
     equatable.Equatable
     float.Float
@@ -51,9 +53,9 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            #Error.InvalidWeight{weight} -> "invalid random weight: ${weight}"
+            Error.InvalidWeight{weight} -> "invalid random weight: ${weight}"
             Error.ZeroWeightTotal -> "random weights must include at least one positive weight"
-            #Error.OsEntropy{reason} -> "OS entropy unavailable: ${reason}"
+            Error.OsEntropy{reason} -> "OS entropy unavailable: ${reason}"
         }
     }
 }
@@ -82,7 +84,7 @@ impl Seed {
     pub fn from_os() -> Result<Seed, Error> {
         case os_state() {
             Ok(state) -> Ok(Seed(state))
-            Err(reason) -> Err(#Error.OsEntropy{reason})
+            Err(reason) -> Err(Error.OsEntropy{reason})
         }
     }
 }
@@ -97,6 +99,18 @@ host fn between_state(state: Int, from: Int, to: Int) -> #(Int, Int)
 host fn unit_float_state(state: Int) -> #(Float, Int)
 
 host fn os_state() -> Result<Int, String>
+
+/// `count` bytes from the operating system's cryptographically secure
+/// random source, for keys, tokens, salts and nonces. Unlike a `Generator`
+/// it takes no seed and never repeats, so a test cannot predict its bytes.
+/// A negative `count` is a runtime error.
+//! import std/random
+//!
+//! key = random.secure_bytes(32)
+//! assert Bytes.length(key) == 32
+//! assert Bytes.length(random.secure_bytes(0)) == 0
+//
+pub host fn secure_bytes(count: Int) -> Bytes
 
 /// Traps unless `from <= to`, naming both bounds.
 host fn require_int_range(from: Int, to: Int) -> Unit
@@ -191,7 +205,7 @@ impl Generator<T> {
     //! assert value == "fixed"
     //
     pub fn constant<T>(value: T) -> Generator<T> {
-        #Generator{run: fn seed -> #(value, seed)}
+        Generator{run: fn seed -> #(value, seed)}
     }
 
     /// Uniform choice among `first` and `rest` -- non-empty by construction.
@@ -235,7 +249,7 @@ impl Generator<T> {
     //! assert value == 42
     //
     pub fn map<T, U>(gen: Generator<T>, f: (T) -> U) -> Generator<U> {
-        #Generator{
+        Generator{
             run: fn seed -> {
                 #(value, seed) = Generator.step(gen, seed)
                 #(f(value), seed)
@@ -260,7 +274,7 @@ impl Generator<T> {
     //! assert value == 30
     //
     pub fn flat_map<T, U>(gen: Generator<T>, f: (T) -> Generator<U>) -> Generator<U> {
-        #Generator{
+        Generator{
             run: fn seed -> {
                 #(value, seed) = Generator.step(gen, seed)
                 Generator.step(f(value), seed)
@@ -283,12 +297,12 @@ impl Generator<T> {
     //! assert values == ["ha", "ha", "ha"]
     //
     pub fn list<T>(gen: Generator<T>, length: Int) -> Generator<List<T>> {
-        #Generator{run: &draw_list(gen, length, &1, [])}
+        Generator{run: &draw_list(gen, length, &1, [])}
     }
 }
 
 fn unsafe_int(from: Int, to: Int) -> Generator<Int> {
-    #Generator{
+    Generator{
         run: fn seed -> {
             between(seed, from, to)
         },
@@ -296,7 +310,7 @@ fn unsafe_int(from: Int, to: Int) -> Generator<Int> {
 }
 
 fn unsafe_float(from: Float, to: Float) -> Generator<Float> {
-    #Generator{
+    Generator{
         run: fn seed -> {
             #(f, seed) = unit_float(seed)
             span = to - from
@@ -341,7 +355,7 @@ fn total_weight<T>(items: List<#(Float, T)>, acc: Float) -> Result<Float, Error>
     case items {
         [] ->
             if Float.is_finite(acc) == False {
-                Err(#Error.InvalidWeight{weight: acc})
+                Err(Error.InvalidWeight{weight: acc})
             } else if acc > 0.0 {
                 Ok(acc)
             } else {
@@ -350,9 +364,9 @@ fn total_weight<T>(items: List<#(Float, T)>, acc: Float) -> Result<Float, Error>
 
         [#(w, _), ..tail] ->
             if Float.is_finite(w) == False {
-                Err(#Error.InvalidWeight{weight: w})
+                Err(Error.InvalidWeight{weight: w})
             } else if w < 0.0 {
-                Err(#Error.InvalidWeight{weight: w})
+                Err(Error.InvalidWeight{weight: w})
             } else {
                 total_weight(tail, acc + w)
             }

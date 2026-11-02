@@ -22,8 +22,8 @@ func TestUseCapture_RewritesAOneStepLambda(t *testing.T) {
 	}{
 		{"comparison", "", "big = Iter.filter([1, 60], ‸fn s -> s > 50) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], &(&1 > 50)) |> Iter.to_list()"},
 		{"call", "", "letters = %[\"a\"]\nhit = Iter.filter([\"a\", \"b\"], fn l -> ‸Set.contains(letters, l)) |> Iter.to_list()\ndbg hit", "hit = Iter.filter([\"a\", \"b\"], &Set.contains(letters, &1)) |> Iter.to_list()"},
-		{"struct", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> #Point{x: x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#Point{x: &1, y: 0}) |> Iter.to_list()"},
-		{"punned field", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> #Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#Point{x: &1, y: 0}) |> Iter.to_list()"},
+		{"struct", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x: x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
+		{"punned field", pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &Point{x: &1, y: 0}) |> Iter.to_list()"},
 		{"tuple", "", "ps = Iter.map([1, 2], ‸fn x -> #(x, 0)) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], &#(&1, 0)) |> Iter.to_list()"},
 		{"negation", "", "ns = Iter.map([1, 2], ‸fn x -> -x) |> Iter.to_list()\ndbg ns", "ns = Iter.map([1, 2], &(-&1)) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = ‸fn a, b -> a + b\ndbg add(1, 2)", "add: (Int, Int) -> Int = &(&1 + &2)"},
@@ -49,8 +49,8 @@ func TestUseCapture_KeepsALambdaTheRuleKeeps(t *testing.T) {
 		{"two steps", "", "xs = Iter.map([1], ‸fn x -> x * 2 + 1) |> Iter.to_list()\ndbg xs", nil},
 		{"two uses", "", "xs = Iter.map([1], ‸fn n -> n * n) |> Iter.to_list()\ndbg xs", nil},
 		{"pattern", "", "xs = Iter.map([#(1, 2)], ‸fn #(_, v) -> v) |> Iter.to_list()\ndbg xs", nil},
-		{"field read", pointDecl, "xs = Iter.filter([#Point{x: 1, y: 2}], ‸fn p -> p.x > 0) |> Iter.to_list()\ndbg xs", nil},
-		{"seed", "", "total = Iter.reduce([1, 2], ‸fn acc = 0, x -> acc + x)\ndbg total", nil},
+		{"field read", pointDecl, "xs = Iter.filter([Point{x: 1, y: 2}], ‸fn p -> p.x > 0) |> Iter.to_list()\ndbg xs", nil},
+		{"seed", "", "total = Iter.reduce([1, 2], ‸0, fn acc, x -> acc + x)\ndbg total", nil},
 		{"no expected type", "", "f = ‸fn x: Int -> x > 2\ndbg f(3)", nil},
 		{"out of order", "", "sub: (Int, Int) -> Int = ‸fn a, b -> b - a\ndbg sub(1, 2)", nil},
 		{"nested use", "", "xs = Iter.map([1], ‸fn x -> Int.max(x + 1, 0)) |> Iter.to_list()\ndbg xs", nil},
@@ -73,7 +73,7 @@ func TestWriteAsLambda_RewritesACapture(t *testing.T) {
 		{"operator", "", "big = Iter.filter([1, 60], &(&1 ‸> 50)) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], fn x -> x > 50) |> Iter.to_list()"},
 		{"partial call", "fn scale(value: Int, by: Int) -> Int {\n    value * by\n}\n\n", "xs = Iter.map([1, 2], ‸&scale(&1, 10)) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1, 2], fn value -> scale(value, 10)) |> Iter.to_list()"},
 		{"named slot", "fn scale(value: Int, by: Int) -> Int {\n    value * by\n}\n\n", "xs = Iter.map([1, 2], ‸&scale(10, by: &1)) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1, 2], fn by -> scale(10, by: by)) |> Iter.to_list()"},
-		{"struct", pointDecl, "ps = Iter.map([1, 2], &#Point{x: ‸&1, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], fn x -> #Point{x, y: 0}) |> Iter.to_list()"},
+		{"struct", pointDecl, "ps = Iter.map([1, 2], &Point{x: ‸&1, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], fn x -> Point{x, y: 0}) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = &(&1 ‸+ &2)\ndbg add(1, 2)", "add: (Int, Int) -> Int = fn x, y -> x + y"},
 		{"a name in scope", "", "x = 50\nbig = Iter.filter([1, 60], &(&1 ‸> x)) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], fn x2 -> x2 > x) |> Iter.to_list()"},
 		{"a then stage", "fn divide(x: Int, y: Int) -> Int {\n    x / y\n}\n\n", "dbg 10 |> then ‸&divide(100, &1)", "|> then fn y -> divide(100, y)"},
@@ -103,7 +103,7 @@ func TestWriteAsLambda_RefusesWhatIsNoFunctionOfItsPosition(t *testing.T) {
 func TestCaptureRoundTrip_KeepsTheProgram(t *testing.T) {
 	for _, c := range []struct{ decls, body, lambda string }{
 		{"", "big = Iter.filter([1, 60], ‸fn x -> x > 50) |> Iter.to_list()\ndbg big", "fn x -> x > 50"},
-		{pointDecl, "ps = Iter.map([1, 2], ‸fn x -> #Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "fn x -> #Point{x, y: 0}"},
+		{pointDecl, "ps = Iter.map([1, 2], ‸fn x -> Point{x, y: 0}) |> Iter.to_list()\ndbg ps", "fn x -> Point{x, y: 0}"},
 		{"fn scale(value: Int, by: Int) -> Int {\n    value * by\n}\n\n", "xs = Iter.map([1, 2], ‸fn value -> scale(value, 10)) |> Iter.to_list()\ndbg xs", "fn value -> scale(value, 10)"},
 		{"", "add: (Int, Int) -> Int = ‸fn x, y -> x + y\ndbg add(1, 2)", "fn x, y -> x + y"},
 	} {

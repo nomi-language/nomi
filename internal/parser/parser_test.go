@@ -791,7 +791,7 @@ func TestIfPatternCondition(t *testing.T) {
 }
 
 func TestIfTypeIdentCondition(t *testing.T) {
-	// Regression: if True { ... } was parsed as struct literal #True{...}
+	// Regression: if True { ... } was parsed as struct literal True{...}
 	expr := parseExpr(t, "if True { 42 }")
 	ifNode, ok := expr.(*ast.If)
 	if !ok {
@@ -3069,7 +3069,7 @@ func TestCaseAnonStructPatternBinding(t *testing.T) {
 
 // `_` in a struct-pattern field position is a wildcard — accepts any
 // value for that field without binding. Both anon (`#{a: _}`) and
-// variant-qualified (`#Foo.Bar{a: _}`) struct patterns accept it.
+// variant-qualified (`Foo.Bar{a: _}`) struct patterns accept it.
 func TestCaseStructPatternWildcardField(t *testing.T) {
 	expr := parseExpr(t, `case point {
   #{x: 1, y: _} -> "x=1"
@@ -3140,7 +3140,7 @@ func TestCaseStructPatternNegativeInt(t *testing.T) {
 
 func TestCaseNamedStructPatternFloat(t *testing.T) {
 	expr := parseExpr(t, `case p {
-	#Point{score: 3.14} -> "pi"
+	Point{score: 3.14} -> "pi"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3162,7 +3162,7 @@ func TestCaseNamedStructPatternFloat(t *testing.T) {
 
 func TestCaseNamedStructPatternNegativeInt(t *testing.T) {
 	expr := parseExpr(t, `case p {
-	#Point{x: -1} -> "negative"
+	Point{x: -1} -> "negative"
 	_ -> "other"
 }`)
 	ce, ok := expr.(*ast.Case)
@@ -3288,9 +3288,9 @@ func TestParser_MapLit_TypePrefixed(t *testing.T) {
 	}
 }
 
-// Regression: #TypeName{field: value, ...} still parses as a struct literal.
+// Regression: TypeName{field: value, ...} still parses as a struct literal.
 func TestParser_StructLit_TypePrefixed_StillWorks(t *testing.T) {
-	expr := parseExpr(t, `#Foo{a: 1, b: "x"}`)
+	expr := parseExpr(t, `Foo{a: 1, b: "x"}`)
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected StructLit, got %T", expr)
@@ -3324,14 +3324,14 @@ func TestParser_LiteralAttach_ModuleQualifiedHead(t *testing.T) {
 	}{
 		{
 			name:       "two segments — module plus struct",
-			src:        `#shapes.Circle{r: 1}`,
+			src:        `shapes.Circle{r: 1}`,
 			wantModule: "shapes",
 			wantMember: "Circle",
 			wantFields: 1,
 		},
 		{
 			name:       "three segments — module plus enum, then the variant",
-			src:        `#shapes.Shape.Ring{r: 1, k: 2}`,
+			src:        `shapes.Shape.Ring{r: 1, k: 2}`,
 			wantModule: "shapes.Shape",
 			wantMember: "Ring",
 			wantFields: 2,
@@ -3342,7 +3342,7 @@ func TestParser_LiteralAttach_ModuleQualifiedHead(t *testing.T) {
 			// exports it. The owner is everything but the last segment
 			// either way, so the scan needs no arity rule.
 			name:       "four segments — a module plus a dotted enum name",
-			src:        `#telemetry.Probe.Reading.Blip{at: 9}`,
+			src:        `telemetry.Probe.Reading.Blip{at: 9}`,
 			wantModule: "telemetry.Probe.Reading",
 			wantMember: "Blip",
 			wantFields: 1,
@@ -3863,7 +3863,7 @@ func TestParser_EnumDef_EmbedsVariant(t *testing.T) {
 }
 
 // TestParser_EnumDef_StructPayloadVariant verifies the struct-payload
-// variant form (`#Rectangle{w: Float, h: Float}`) parses inside an enum body.
+// variant form (`Rectangle{w: Float, h: Float}`) parses inside an enum body.
 func TestParser_EnumDef_StructPayloadVariant(t *testing.T) {
 	src := "enum Shape {\n  Rectangle{w: Float, h: Float}\n  Point\n}"
 	nodes := parse(t, src)
@@ -5953,7 +5953,7 @@ func TestParseTestsBootExpression(t *testing.T) {
 	nodes, err := Parse(lexer.Lex(`group "env" {
   clock Clock.Virtual
   boot server.boot(startup())
-  setup #Config{name: "Ada"}
+  setup Config{name: "Ada"}
 
   test "reads active app" {
     assert AppEnv.label == "test"
@@ -5992,7 +5992,7 @@ func TestParseGroupRejects(t *testing.T) {
 			"write a sibling group instead",
 		},
 		"fn boot": {
-			"group \"g\" {\n  fn boot(startup: Startup) -> Result<App, String> { Ok(#App{}) }\n  test \"t\" { assert true }\n}\n",
+			"group \"g\" {\n  fn boot(startup: Startup) -> Result<App, String> { Ok(App{}) }\n  test \"t\" { assert true }\n}\n",
 			"a `group` does not define `fn boot`",
 		},
 		"duplicate clock": {
@@ -6060,7 +6060,7 @@ func TestParseGroupLinesInAnyOrder(t *testing.T) {
 
 func TestParseTestsSetupExpression(t *testing.T) {
 	nodes, err := Parse(lexer.Lex(`group "fixture" {
-  setup #Config{name: "Ada"}
+  setup Config{name: "Ada"}
 
   test "reads setup", #{name} {
     assert name == "Ada"
@@ -6273,7 +6273,7 @@ func TestParseDotVariant_Call(t *testing.T) {
 }
 
 func TestParseDotVariant_StructLit(t *testing.T) {
-	expr := parseExpr(t, "#.Rect{w: 4.0, h: 3.0}")
+	expr := parseExpr(t, ".Rect{w: 4.0, h: 3.0}")
 	sl, ok := expr.(*ast.StructLit)
 	if !ok {
 		t.Fatalf("expected *ast.StructLit, got %T", expr)
@@ -6372,8 +6372,8 @@ func TestParseDotVariant_CallInPattern(t *testing.T) {
 }
 
 func TestParseDotVariant_StructPatternInPattern(t *testing.T) {
-	// case x { #.Rect{w, h} -> w * h }
-	src := `case x { #.Rect{w, h} -> w * h }`
+	// case x { .Rect{w, h} -> w * h }
+	src := `case x { .Rect{w, h} -> w * h }`
 	expr := parseExpr(t, src)
 	cs, ok := expr.(*ast.Case)
 	if !ok {
@@ -6748,7 +6748,7 @@ func TestParseDeriveWhereClause(t *testing.T) {
 }
 
 func TestParseDeriveOptions(t *testing.T) {
-	nodes := parse(t, `derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}`)
+	nodes := parse(t, `derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}`)
 	conf, ok := nodes[0].(*ast.ImplConformance)
 	if !ok {
 		t.Fatalf("expected ImplConformance, got %T", nodes[0])
@@ -6769,7 +6769,7 @@ func TestParseDeriveOptions(t *testing.T) {
 }
 
 func TestParseDeriveOptionsBeforeWhereClause(t *testing.T) {
-	nodes := parse(t, `derive ToJson for Box<T> with #ToJson.Options{rename_all: Json.Case.Camel} where T: ToJson`)
+	nodes := parse(t, `derive ToJson for Box<T> with ToJson.Options{rename_all: Json.Case.Camel} where T: ToJson`)
 	conf, ok := nodes[0].(*ast.ImplConformance)
 	if !ok {
 		t.Fatalf("expected ImplConformance, got %T", nodes[0])

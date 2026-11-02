@@ -11,7 +11,7 @@ test "parse" {
                 graph {
                 }
                 """,
-            #Graph{nodes: %{}, edges: %{}, attrs: %{}},
+            Graph{nodes: %{}, edges: %{}, attrs: %{}},
         ),
         #(
             "graph with one node",

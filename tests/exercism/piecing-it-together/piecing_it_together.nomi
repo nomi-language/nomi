@@ -79,7 +79,7 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
         .Greater -> .Landscape
     }
 
-    #Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
+    Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
 }
 
 /// Whether `jigsaw` agrees with every part `clues` knows.

@@ -62,14 +62,14 @@ derive Equatable for Circle
 derive Equatable for Shape
 
 fn main() {
-    c = #Circle{r: 1}
+    c = Circle{r: 1}
     s: Shape = Shape.Dot
-    io.print(Maybe.equal(Some(#Inner{a: 1}), None))
-    io.print(Maybe.equal(Some(#Inner{a: 1}), Some(#Inner{a: 1})))
+    io.print(Maybe.equal(Some(Inner{a: 1}), None))
+    io.print(Maybe.equal(Some(Inner{a: 1}), Some(Inner{a: 1})))
     io.print(Maybe.equal(Some(c), Some(s)))
-    io.print(Maybe.equal(Some(c), Some(#Shape.Circle{r: 1})))
-    r: Result<Inner, String> = Ok(#Inner{a: 2})
-    io.print(Result.equal(r, Ok(#Inner{a: 2})))
+    io.print(Maybe.equal(Some(c), Some(Shape.Circle{r: 1})))
+    r: Result<Inner, String> = Ok(Inner{a: 2})
+    io.print(Result.equal(r, Ok(Inner{a: 2})))
 }
 `
 	irRunSource(t, src, "False\nTrue\nFalse\nTrue\nTrue\n")

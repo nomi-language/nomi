@@ -15,7 +15,7 @@ const pointDecls = `struct Point {
 
 impl Point {
     pub fn origin() -> Point {
-        #Point{x: 0, y: 0}
+        Point{x: 0, y: 0}
     }
 }
 
@@ -187,7 +187,7 @@ impl App {
 }
 
 fn boot(_startup: Startup) -> Result<App, String> {
-    Ok(#App{port: 3, context: Context.root()})
+    Ok(App{port: 3, context: Context.root()})
 }
 `
 

@@ -54,6 +54,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -92,6 +93,8 @@ type buildIdentity struct {
 	Modified bool
 	// GOOS and GOARCH are the platform it was built for.
 	GOOS, GOARCH string
+	// NoNetwork is set when it was built with the nomi_nonet tag.
+	NoNetwork bool
 }
 
 func identityOf(info *debug.BuildInfo) buildIdentity {
@@ -110,6 +113,8 @@ func identityOf(info *debug.BuildInfo) buildIdentity {
 			id.GOOS = s.Value
 		case "GOARCH":
 			id.GOARCH = s.Value
+		case "-tags":
+			id.NoNetwork = slices.Contains(strings.Split(s.Value, ","), "nomi_nonet")
 		}
 	}
 	return id
@@ -162,6 +167,10 @@ func checkRunner(self, runner buildIdentity, bin string, target Target, v Varian
 	if runner.Path != v.mainPath() {
 		return &errRunnerMismatch{fmt.Sprintf("%s is not a %s (its main package is %q, want %q)",
 			bin, v.binaryName(), runner.Path, v.mainPath())}
+	}
+	if runner.NoNetwork != v.NoNetwork {
+		return &errRunnerMismatch{fmt.Sprintf("%s is not a %s (it was built %s the nomi_nonet tag)",
+			bin, v.binaryName(), map[bool]string{true: "with", false: "without"}[runner.NoNetwork])}
 	}
 	if runner.GOOS != target.GOOS || runner.GOARCH != target.GOARCH {
 		return &errRunnerMismatch{fmt.Sprintf("%s is built for %s/%s, not %s",

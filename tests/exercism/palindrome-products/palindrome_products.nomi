@@ -66,7 +66,7 @@ fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int> {
 /// The first of `candidates` with a pair of factors from `min` to `max`.
 fn first_product(candidates: Iter<Int>, min: Int, max: Int) -> Maybe<Product> {
     candidates
-    |> Iter.map(fn value -> #Product{value, factors: factors(value, min, max)})
+    |> Iter.map(fn value -> Product{value, factors: factors(value, min, max)})
     |> Iter.find(fn product -> product.factors != [])
 }
 
@@ -99,7 +99,7 @@ fn mirror(half: Int, length: Int) -> Int {
     rest
     |> Iter.iterate(&(&1 / 10))
     |> Iter.take_while(&(&1 > 0))
-    |> Iter.reduce(fn palindrome = half, r -> palindrome * 10 + r % 10)
+    |> Iter.reduce(half, fn palindrome, r -> palindrome * 10 + r % 10)
 }
 
 fn digit_count(n: Int) -> Int {

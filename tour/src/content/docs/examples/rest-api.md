@@ -83,7 +83,7 @@ impl RestApi {
         database: Users = Json.decode_as(database) |> Result.map_err(Error.InvalidJson)?
 
         Ok(
-            #RestApi{
+            RestApi{
                 users: database.users |> Iter.map(fn user -> #(user.name, user)) |> Iter.to_map(),
             }
         )
@@ -105,7 +105,7 @@ impl RestApi {
         }
 
         users = names |> Iter.map(&find(api, &1)) |> Result.collect()?
-        Ok(Json.encode_as(#Users{users: Iter.sort_by(users, .name)}))
+        Ok(Json.encode_as(Users{users: Iter.sort_by(users, .name)}))
     }
 
     /// Answers a `POST` of `payload` to `url`, and the tracker after it.
@@ -118,8 +118,8 @@ impl RestApi {
 
                 if request.user in api.users { return Err(.UserExists(request.user)) }
 
-                user = #User{name: request.user}
-                Ok(#(Json.encode_as(user), #RestApi{users: Map.put(api.users, user.name, user)}))
+                user = User{name: request.user}
+                Ok(#(Json.encode_as(user), RestApi{users: Map.put(api.users, user.name, user)}))
             }
 
             "/iou" -> {
@@ -133,8 +133,8 @@ impl RestApi {
                 users =
                     api.users |> Map.put(lender.name, lender) |> Map.put(borrower.name, borrower)
 
-                answer = #Users{users: Iter.sort_by([lender, borrower], .name)}
-                Ok(#(Json.encode_as(answer), #RestApi{users}))
+                answer = Users{users: Iter.sort_by([lender, borrower], .name)}
+                Ok(#(Json.encode_as(answer), RestApi{users}))
             }
 
             _ ->
@@ -144,7 +144,7 @@ impl RestApi {
 }
 
 fn find(api: RestApi, name: String) -> Result<User, Error> {
-    Map.get(api.users, name) |> Maybe.to_result(Error.UnknownUser(name))
+    Map.get(api.users, name) |> Maybe.to_result(.UnknownUser(name))
 }
 
 /// What `other` owes `user`, less what `user` owes `other`.
@@ -274,7 +274,7 @@ test result: ok. 9 passed, 0 failed
 
 ## How it's written
 
-- Every request and answer is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the answers), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `#User{name: request.user}`.
+- Every request and answer is JSON text read and written with std/json. The shapes are structs with `derive ToJson` and `derive FromJson`: `User`, `Users` (the `{"users": [...]}` of the database and of the answers), and the three payloads, `UserNames`, `NewUser` and `Iou`, which stay private. `User`'s `owes`, `owed_by` and `balance` have defaults, so a new user is `User{name: request.user}`.
 - `RestApi` is a value, an opaque struct of the users by name. `RestApi.new(database)` reads the database; `RestApi.get(api, url, payload)` answers the text; `RestApi.post(api, url, payload)` answers the text and the tracker after the request, since nothing changes in place.
 - Each failure is an `Error` variant: JSON that is not of the expected shape (holding std/json's `Json.Error`), an unknown URL, an unknown user, and a user added twice. The canonical data has no failing case.
 - A loan is kept as one number per pair: what the borrower owes the lender, less what the lender already owed the borrower, plus the new amount. `with_net` writes that number into one side of each user's maps, or neither when it is zero, and works the balance out again from the maps, so the canonical "lender owes borrower" cases need no case analysis.

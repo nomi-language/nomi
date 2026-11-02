@@ -150,11 +150,11 @@ type irScalarBuilder struct {
 	// than lowering them a second time.
 	stdInstPreCall *ast.Call
 	stdInstPreArgs irQualArgs
-	// Seeds of `Iter.reduce`, `Iter.scan` and `Iter.map_reduce` belong to
-	// these exact callback nodes, not ordinary defaults. The value says
+	// foldCallbacks are the callback lambdas of the `Iter.reduce`,
+	// `Iter.scan` and `Iter.map_reduce` calls being lowered. The value says
 	// whether the callback answers its accumulator, as a reduce's and a
 	// scan's do; a map_reduce's answers a pair.
-	reduceSeeds map[*ast.Lambda]bool
+	foldCallbacks map[*ast.Lambda]bool
 	// current is what each bare `..` of the update literals being lowered
 	// stands for (ircurrentvalue.go).
 	current map[*ast.CurrentValue]irCurrent
@@ -225,7 +225,7 @@ type irScalarBuilder struct {
 	boot bool
 	// vmOnly marks a std arity wrapper's body, which only the VM reads. It
 	// admits a std enum field's Go-stated default as its constant, as every
-	// body the test read-back does not spell does (`#Backoff.Exponential{}`
+	// body the test read-back does not spell does (`Backoff.Exponential{}`
 	// in a program).
 	vmOnly bool
 	// body is the named function's own block, the one scope whose app-field
@@ -532,12 +532,6 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		return bl.listSpreadLit(t)
 	case *ast.TupleLit:
-		if t.TypeName != nil {
-			// `#Pair(1, "x")`: the distinct type over the tuple.
-			anon := *t
-			anon.TypeName = nil
-			return bl.attachedVariant(t, t.TypeName, &anon)
-		}
 		return bl.tupleMake(t)
 
 	case *ast.StructLit:
@@ -958,6 +952,16 @@ func (bl *irScalarBuilder) stdShortOwner(fa *ast.FieldAccess) (owner, module str
 	case *ast.FieldAccess:
 		owner, module, ok := bl.qualDottedOwner(q)
 		return owner, module, ok && module != ""
+	case *ast.Ident:
+		// `base64.encode(data)`: a std file's top-level function, which has
+		// no owner type (stdShortCandidates), named from a program or from
+		// one of the module's own test bodies (qualFilePlan's two routes).
+		if std, isStd := stdFileQualifier(bl.g.fa, q); isStd {
+			return "", std, true
+		}
+		if std, isStd := bl.stdOwnFileQualifier(q.Name); isStd {
+			return "", std, true
+		}
 	}
 	return "", "", false
 }
@@ -969,6 +973,7 @@ var stdIntrinsicTypes = []struct{ origin, nomi string }{
 	{"std/channels", "Channel"},
 	{"std/channels", "Sender"},
 	{"std/channels", "Receiver"},
+	{"std/channels", "Arm"},
 	{"std/supervisors", "Supervisor"},
 	// Only `Reader.from_chunks` and `Reader.from_text_chunks` are
 	// intrinsics; every other Reader call takes the ordinary route.
@@ -1028,7 +1033,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return bl.namedIntrinsicCall(t, fa)
 	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && fa.Field != nil {
-		if owner := bl.stdIntrinsicOwner(fa); owner == "Channel" || owner == "Sender" || owner == "Receiver" {
+		if owner := bl.stdIntrinsicOwner(fa); owner == "Channel" || owner == "Sender" || owner == "Receiver" || owner == "Arm" {
 			// Channel calls take the checker's solved signature, including a
 			// constructor's explicit type argument. Inside a grouped case's
 			// assertion subject its rows are recorded after it, as for any
@@ -1377,7 +1382,7 @@ func (g *gen) irMonoTemplate(sig *fnSig) *monoTemplate {
 }
 
 // structCallForm builds the struct call form `Foo(#{a: 1})` as the brace
-// literal `#Foo{a: 1}`: the argument's fields in written order, then the
+// literal `Foo{a: 1}`: the argument's fields in written order, then the
 // omitted fields' defaults. A record VALUE argument is read field by field
 // (structFromRecord). A generic struct's call form is built at the instance
 // its fields solve, as its brace literal is.
@@ -3124,7 +3129,7 @@ func (bl *irScalarBuilder) bindingExpression(b *ast.Binding) (ir.Temp, kind, boo
 		return v, k, ok
 	}
 	want := bl.g.typeOf(b.TypeAnnotation)
-	// A local interface's existential (`widened: Clock = #FakeClock{...}`)
+	// A local interface's existential (`widened: Clock = FakeClock{...}`)
 	// holds the concrete value, as an interface-typed field does.
 	existential := irExistentialKind(want)
 	if !irCallableValueKind(want) && want != kindUnit && !existential {

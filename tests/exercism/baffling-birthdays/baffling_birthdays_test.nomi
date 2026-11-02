@@ -76,7 +76,7 @@ group "random birthdates" {
     }
 
     test "years are not leap years", birthdates {
-        refute birthdates |> Iter.any(fn date -> Date.is_leap_year(Date.year(date)))
+        refute birthdates |> Iter.any(fn date -> date |> Date.year() |> Date.is_leap_year())
     }
 
     test "months are random", birthdates {

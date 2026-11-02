@@ -16,7 +16,7 @@ fn sort_file(input: String, output: String) -> Result<Int, io.Error> {
 }
 
 test "sorts the lines into the output file" {
-    ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
+    ran = fs_testing.run(Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
         sort_file("in.txt", "out.txt")
     })
 
@@ -27,30 +27,30 @@ test "sorts the lines into the output file" {
 }
 
 test "a missing input is NotFound" {
-    ran = fs_testing.run(#Sandbox{}, fn -> sort_file("in.txt", "out.txt"))
+    ran = fs_testing.run(Sandbox{}, fn -> sort_file("in.txt", "out.txt"))
 
-    assert ran.value == Err(#io.Error.NotFound{path: "in.txt"})
+    assert ran.value == Err(io.Error.NotFound{path: "in.txt"})
     assert ran.files == %{}
 }
 
 test "a full disk leaves the old output in place" {
-    sandbox = #Sandbox{
+    sandbox = Sandbox{
         files: %{"in.txt" => "b\na\n", "out.txt" => "old\n"},
         failures: [
-            #Failure{path: "out.txt", operation: .Write, error: #io.Error.NoSpace{path: "out.txt"}},
+            Failure{path: "out.txt", operation: .Write, error: io.Error.NoSpace{path: "out.txt"}},
         ],
     }
 
     ran = fs_testing.run(sandbox, fn -> sort_file("in.txt", "out.txt"))
 
-    assert ran.value == Err(#io.Error.NoSpace{path: "out.txt"})
+    assert ran.value == Err(io.Error.NoSpace{path: "out.txt"})
     assert fs_testing.text(ran, "/work/out.txt") == Some("old\n")
 }
 
 test "a failure can name only the nth operation" {
-    sandbox = #Sandbox{
+    sandbox = Sandbox{
         failures: [
-            #Failure{
+            Failure{
                 path: "log.txt",
                 operation: .Create,
                 error: io.Error.TooManyOpen,
@@ -72,7 +72,7 @@ test "a failure can name only the nth operation" {
 }
 
 test "tasks started inside the run reach its sandbox" {
-    ran = fs_testing.run(#Sandbox{}, fn -> {
+    ran = fs_testing.run(Sandbox{}, fn -> {
         concurrent {
             a = Task.spawn(fn -> fs.write_text("a.txt", "from a"))
             b = Task.spawn(fn -> fs.write_text("b.txt", "from b"))
@@ -90,8 +90,8 @@ test "tasks started inside the run reach its sandbox" {
 
 test "two tasks in two sandboxes do not see each other's files" {
     both = concurrent {
-        a = Task.spawn(fn -> fs_testing.run(#Sandbox{}, fn -> fs.write_text("x.txt", "a")))
-        b = Task.spawn(fn -> fs_testing.run(#Sandbox{}, fn -> fs.write_text("x.txt", "b")))
+        a = Task.spawn(fn -> fs_testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "a")))
+        b = Task.spawn(fn -> fs_testing.run(Sandbox{}, fn -> fs.write_text("x.txt", "b")))
 
         #(
             fs_testing.text(Task.await(a), "/work/x.txt"),
@@ -103,8 +103,8 @@ test "two tasks in two sandboxes do not see each other's files" {
 }
 
 test "a nested run takes over for its own call" {
-    outer = fs_testing.run(#Sandbox{files: %{"who.txt" => "outer"}}, fn -> {
-        inner = fs_testing.run(#Sandbox{files: %{"who.txt" => "inner"}}, fn -> {
+    outer = fs_testing.run(Sandbox{files: %{"who.txt" => "outer"}}, fn -> {
+        inner = fs_testing.run(Sandbox{files: %{"who.txt" => "inner"}}, fn -> {
             fs.read_text("who.txt")
         })
 
@@ -115,13 +115,13 @@ test "a nested run takes over for its own call" {
 }
 
 test "a reader left open shows in open" {
-    ran = fs_testing.run(#Sandbox{files: %{"a.txt" => "x"}}, fn -> fs.open("a.txt"))
+    ran = fs_testing.run(Sandbox{files: %{"a.txt" => "x"}}, fn -> fs.open("a.txt"))
 
     assert ran.open == ["/work/a.txt"]
 }
 
 test "with_writer streams a copy with a header" {
-    ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "body\n"}}, fn -> {
+    ran = fs_testing.run(Sandbox{files: %{"in.txt" => "body\n"}}, fn -> {
         fs.with_reader("in.txt", fn r -> {
             fs.with_writer(
                 "out.txt",
@@ -140,7 +140,7 @@ test "with_writer streams a copy with a header" {
 }
 
 test "directories list sorted, and remove and rename act on them" {
-    ran = fs_testing.run(#Sandbox{
+    ran = fs_testing.run(Sandbox{
         files: %{"d/b.txt" => "b", "d/a.txt" => "a"},
         dirs: ["d/e"],
     }, fn -> {
@@ -152,17 +152,17 @@ test "directories list sorted, and remove and rename act on them" {
 
     assert ran.value == #(
         Ok([
-            #Entry{path: "d/a.txt", name: "a.txt", kind: Kind.File},
-            #Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
-            #Entry{path: "d/e", name: "e", kind: Kind.Directory},
+            Entry{path: "d/a.txt", name: "a.txt", kind: Kind.File},
+            Entry{path: "d/b.txt", name: "b.txt", kind: Kind.File},
+            Entry{path: "d/e", name: "e", kind: Kind.Directory},
         ]),
-        Ok([#Entry{path: "d/e", name: "e", kind: Kind.Directory}]),
-        Ok([#Entry{path: "d/e/a.txt", name: "a.txt", kind: Kind.File}]),
+        Ok([Entry{path: "d/e", name: "e", kind: Kind.Directory}]),
+        Ok([Entry{path: "d/e/a.txt", name: "a.txt", kind: Kind.File}]),
     )
 }
 
 test "the sandbox's rules are the disk's" {
-    assert fs_testing.run(#Sandbox{}, fn -> fs_testing.conformance("/work")).value == []
+    assert fs_testing.run(Sandbox{}, fn -> fs_testing.conformance("/work")).value == []
 }
 
 test "WriteMode is a value" {
@@ -176,7 +176,7 @@ test "an injected failure's operation is a value" {
 test "walk and glob find the files under a directory" {
     files = %{"src/main.nomi" => "", "src/lib/a.nomi" => "", "src/lib/notes.txt" => ""}
 
-    ran = fs_testing.run(#Sandbox{files, links: %{"src/back" => ".."}}, fn -> {
+    ran = fs_testing.run(Sandbox{files, links: %{"src/back" => ".."}}, fn -> {
         walked =
             fs.walk("src")
             |> Iter.map(fn e -> Result.map(e, fn e -> e.path))
@@ -193,7 +193,7 @@ test "walk and glob find the files under a directory" {
 }
 
 test "a task inside within is confined too" {
-    ran = fs_testing.run(#Sandbox{files: %{"site/a.txt" => "a", "secret.txt" => "s"}}, fn -> {
+    ran = fs_testing.run(Sandbox{files: %{"site/a.txt" => "a", "secret.txt" => "s"}}, fn -> {
         fs.within("site", fn -> {
             concurrent {
                 t = Task.spawn(fn -> #(fs.read_text("a.txt"), fs.read_text("../secret.txt")))
@@ -214,7 +214,7 @@ test "a task inside within is confined too" {
 }
 
 test "a File handle left open is in ran.open" {
-    ran = fs_testing.run(#Sandbox{files: %{"db" => ""}}, fn -> {
+    ran = fs_testing.run(Sandbox{files: %{"db" => ""}}, fn -> {
         fs.open_file("db", access: .ReadWrite)
     })
 

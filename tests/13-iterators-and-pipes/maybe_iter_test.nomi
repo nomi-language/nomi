@@ -20,7 +20,7 @@ test "a Some pushes its value and a None pushes nothing" {
 
     assert Iter.to_list(Some(3)) == [3]
     assert Iter.to_list(none) == []
-    assert Iter.to_list(Some(#Part{name: "bolt"})) == [#Part{name: "bolt"}]
+    assert Iter.to_list(Some(Part{name: "bolt"})) == [Part{name: "bolt"}]
     assert Iter.map(Some(2), fn n -> n * 10) |> Iter.to_list() == [20]
 }
 

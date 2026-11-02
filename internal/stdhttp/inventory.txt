@@ -1,0 +1,926 @@
+# Every exported identifier of Go's HTTP packages, and what Nomi does with
+# it (docs/design/http.md, "The coverage rule"). TestGoInventoryIsComplete
+# holds this file to the Go the test runs under.
+#
+# "@ <package>" starts a package's rows. A row is
+#   <name or group> | covered | phase <n> | <the Nomi name, then notes>
+#   <name or group> | mapped  | phase <n> | <how Nomi does the same job>
+#   <name or group> | skipped | <why Nomi does not offer it>
+# A name is "Name" or "Type.Name"; one "*" makes a group, which matches
+# only names with as many dots. An exact row wins over a group, a longer
+# group over a shorter one. A covered row of a phase that has landed
+# (LandedPhase) names, in its first backticks, a declaration std holds.
+
+@ net/http
+AllowQuerySemicolons | covered | phase 4 | `http.allow_query_semicolons(handler)`, which wraps a handler
+CanonicalHeaderKey | covered | phase 2 | `Headers.canonical_key(name)`
+Client | mapped | phase 2 | `Client`, an opaque handle (it owns the connection pool) made by `Client.new(#ClientOptions{...})`
+Client.Transport | covered | phase 2 | `ClientOptions.transport: Transport` (options), or `ClientOptions.round_trip` to replace the transport
+Client.CheckRedirect | covered | phase 2 | `ClientOptions.redirects: Redirects` (`.Follow{max}`, `.Never`, and `.Decide`, a callback, from phase 4)
+Client.Jar | covered | phase 3 | `ClientOptions.cookies: Maybe<CookieJar>`
+Client.Timeout | covered | phase 2 | `ClientOptions.timeout: Maybe<Duration>`
+Client.Get | covered | phase 2 | `Client.get(client, url)`
+Client.Do | covered | phase 2 | `Client.fetch(client, request)` (whole body) and `Client.with_response(client, request, body)` (streaming)
+Client.Post | covered | phase 2 | `Client.post(client, url, body)`
+Client.PostForm | covered | phase 2 | `Client.post_form(client, url, query)`
+Client.Head | covered | phase 2 | `Client.head(client, url)`
+Client.CloseIdleConnections | covered | phase 2 | `Client.close_idle(client)`
+ClientConn | skipped | One connection driven by hand, below the pool. Programs use `Client`; revisit when a program needs it.
+ClientConn.* | skipped | Part of `ClientConn`, skipped above.
+CloseNotifier | skipped | Deprecated in Go; the request's context replaces it.
+CloseNotifier.CloseNotify | skipped | Deprecated in Go.
+ConnState | covered | phase 5 | `ConnState` enum: `New`, `Active`, `Idle`, `Hijacked`, `Closed`; a server reports each with `Server.on_connection_state`
+ConnState.String | covered | phase 5 | `Display for ConnState`
+Cookie | covered | phase 3 | `Cookie` struct
+Cookie.Name | covered | phase 3 | `Cookie.name: String`
+Cookie.Value | covered | phase 3 | `Cookie.value: String`
+Cookie.Quoted | covered | phase 3 | `Cookie.quoted: Bool`
+Cookie.Path | covered | phase 3 | `Cookie.path: Maybe<String>`
+Cookie.Domain | covered | phase 3 | `Cookie.domain: Maybe<String>`
+Cookie.Expires | covered | phase 3 | `Cookie.expires: Maybe<Instant>`
+Cookie.RawExpires | covered | phase 3 | `Cookie.raw_expires: Maybe<String>` (set by parsing only)
+Cookie.MaxAge | covered | phase 3 | `Cookie.max_age: MaxAge` (`.Unset`, `.DeleteNow`, `.Seconds(Int)`), in place of Go's 0 and negative codes
+Cookie.Secure | covered | phase 3 | `Cookie.secure: Bool`
+Cookie.HttpOnly | covered | phase 3 | `Cookie.http_only: Bool`
+Cookie.SameSite | covered | phase 3 | `Cookie.same_site: SameSite`
+Cookie.Partitioned | covered | phase 3 | `Cookie.partitioned: Bool`
+Cookie.Raw | covered | phase 3 | `Cookie.raw: Maybe<String>` (set by parsing only)
+Cookie.Unparsed | covered | phase 3 | `Cookie.unparsed: List<String>` (set by parsing only)
+Cookie.String | covered | phase 3 | `Display for Cookie`: the `Set-Cookie` value
+Cookie.Valid | covered | phase 3 | `Cookie.validate(cookie) -> Result<Unit, Error>`
+CookieJar | mapped | phase 3 | `CookieJar`, an opaque handle from `CookieJar.new`; a program does not implement it
+CookieJar.Cookies | covered | phase 3 | `CookieJar.cookies(jar, url) -> List<Cookie>`
+CookieJar.SetCookies | covered | phase 3 | `CookieJar.set_cookies(jar, url, cookies)`
+CrossOriginProtection | covered | phase 4 | `CrossOrigin` options struct, made into middleware by `http.cross_origin_protection`
+CrossOriginProtection.AddTrustedOrigin | covered | phase 4 | `CrossOrigin.trusted_origins: List<String>`
+CrossOriginProtection.AddInsecureBypassPattern | covered | phase 4 | `CrossOrigin.bypass_patterns: List<Route>`
+CrossOriginProtection.SetDenyHandler | covered | phase 4 | `CrossOrigin.deny: Maybe<(Request) -> Response>`
+CrossOriginProtection.Check | covered | phase 4 | `CrossOrigin.check(options, request) -> Result<Unit, Error>`
+CrossOriginProtection.Handler | covered | phase 4 | `http.cross_origin_protection(options)`, which answers a function that wraps a handler
+DefaultClient | covered | phase 2 | `http.default_client()`, the ambient client, one pool for the process as Go's is, `http.fetch` uses; `http_testing.run` replaces it
+DefaultServeMux | skipped | A global, mutable router. Nomi has no mutable globals; build a `Router` value.
+DefaultTransport | covered | phase 2 | `Transport.default`, the default transport options
+DetectContentType | covered | phase 3 | `http.detect_content_type(data: Bytes) -> String`
+Dir | mapped | phase 3 | A root directory passed to `http.file_server(root)`; files come through std/fs's backend
+Dir.Open | mapped | phase 3 | std/fs's backend opens the file, so a sandbox or `fs.within` applies
+ErrAbortHandler | mapped | phase 3 | A handler that traps answers a 500 (or, past its headers, an ended response); there is no panic value to choose
+ErrBodyNotAllowed | covered | phase 2 | `Error.BodyNotAllowed` (a body on a `HEAD`, 204 or 304 response)
+ErrBodyReadAfterClose | mapped | phase 2 | The `io.Error` a closed `Reader` answers
+ErrContentLength | covered | phase 2 | `Error.ContentLength`
+ErrHandlerTimeout | covered | phase 2 | `Error.HandlerTimeout`
+ErrHeaderTooLong | skipped | Deprecated in Go and no longer returned.
+ErrHijacked | mapped | phase 6 | An upgraded response has no body, so the type rules the mistake out
+ErrLineTooLong | covered | phase 2 | `Error.Protocol{reason}`
+ErrMissingBoundary | covered | phase 4 | `Error.Form{reason}`
+ErrMissingContentLength | covered | phase 2 | `Error.Protocol{reason}`
+ErrMissingFile | covered | phase 4 | `Error.MissingFile{field}`
+ErrNoCookie | mapped | phase 2 | `Request.cookie` answers `None`
+ErrNoLocation | mapped | phase 2 | `Response.location` answers `Ok(None)`
+ErrNotMultipart | covered | phase 4 | `Error.Form{reason}`
+ErrNotSupported | mapped | phase 3 | Flushing and upgrading are part of the `Response` value, so nothing can be unsupported at run time
+ErrSchemeMismatch | covered | phase 2 | `Error.Protocol{reason}` (an HTTP answer to an HTTPS request)
+ErrServerClosed | mapped | phase 3 | `http.serve` returns `Unit` once its task is stopped and the listener shut down
+ErrShortBody | covered | phase 3 | `Error.Protocol{reason}`
+ErrSkipAltProtocol | skipped | Part of `Transport.RegisterProtocol`, skipped.
+ErrUnexpectedTrailer | covered | phase 2 | `Error.Protocol{reason}`
+ErrUseLastResponse | covered | phase 4 | `Redirect.Stop` from a `Redirects.Decide` callback
+ErrWriteAfterFlush | skipped | Deprecated in Go and no longer returned.
+Error | covered | phase 3 | `Response.error(status, message) -> Response` (plain text with `nosniff`, as Go writes it)
+FS | mapped | phase 3 | std/fs's backend is the file system, so no adapter is needed
+File | mapped | phase 3 | std/fs's backend; a program does not implement it
+File.Readdir | mapped | phase 3 | std/fs's backend lists the directory
+File.Stat | mapped | phase 3 | std/fs's backend reads the metadata
+FileServer | covered | phase 3 | `http.file_server(root: String) -> Handler`
+FileServerFS | covered | phase 3 | `http.file_server(root)` (one function, since std/fs's backend is the file system)
+FileSystem | mapped | phase 3 | std/fs's backend; a program does not implement it
+FileSystem.Open | mapped | phase 3 | std/fs's backend opens the file
+Flusher | mapped | phase 3 | `Writer.flush` inside a `Body.Produce` producer
+Flusher.Flush | covered | phase 3 | `Writer.flush(w)`
+Get | covered | phase 2 | `http.get(url) -> Result<Response, Error>`
+HTTP2Config | covered | phase 6 | `Http2Options` struct
+HTTP2Config.MaxConcurrentStreams | covered | phase 6 | `Http2Options.max_concurrent_streams: Maybe<Int>`
+HTTP2Config.StrictMaxConcurrentRequests | covered | phase 6 | `Http2Options.strict_max_concurrent_requests: Bool`
+HTTP2Config.MaxDecoderHeaderTableSize | covered | phase 6 | `Http2Options.max_decoder_header_table_size: Maybe<Int>`
+HTTP2Config.MaxEncoderHeaderTableSize | covered | phase 6 | `Http2Options.max_encoder_header_table_size: Maybe<Int>`
+HTTP2Config.MaxReadFrameSize | covered | phase 6 | `Http2Options.max_read_frame_size: Maybe<Int>`
+HTTP2Config.MaxReceiveBufferPerConnection | covered | phase 6 | `Http2Options.max_receive_buffer_per_connection: Maybe<Int>`
+HTTP2Config.MaxReceiveBufferPerStream | covered | phase 6 | `Http2Options.max_receive_buffer_per_stream: Maybe<Int>`
+HTTP2Config.SendPingTimeout | covered | phase 6 | `Http2Options.send_ping_timeout: Maybe<Duration>`
+HTTP2Config.PingTimeout | covered | phase 6 | `Http2Options.ping_timeout: Maybe<Duration>`
+HTTP2Config.WriteByteTimeout | covered | phase 6 | `Http2Options.write_byte_timeout: Maybe<Duration>`
+HTTP2Config.PermitProhibitedCipherSuites | covered | phase 6 | `Http2Options.permit_prohibited_cipher_suites: Bool`
+HTTP2Config.CountError | covered | phase 6 | `Http2Options.on_error_count: Maybe<(String) -> Unit>`
+Handle | skipped | Registers on the global `DefaultServeMux`, skipped.
+HandleFunc | skipped | Registers on the global `DefaultServeMux`, skipped.
+Handler | mapped | phase 3 | A function `(Request) -> Response`: Nomi has no type aliases, so std/http writes the function type where Go writes Handler
+Handler.ServeHTTP | mapped | phase 3 | Calling the function
+HandlerFunc | mapped | phase 3 | Any function of that type is a handler
+HandlerFunc.ServeHTTP | mapped | phase 3 | Calling the function
+Head | covered | phase 2 | `http.head(url)`
+Header | covered | phase 2 | `Headers`, an immutable, ordered, case-insensitive multi-map (`Headers[#("Accept", "text/html")]`)
+Header.Add | covered | phase 2 | `Headers.add(headers, name, value) -> Headers`
+Header.Set | covered | phase 2 | `Headers.set(headers, name, value) -> Headers`
+Header.Get | covered | phase 2 | `Headers.get(headers, name) -> Maybe<String>`
+Header.Values | covered | phase 2 | `Headers.values(headers, name) -> List<String>`
+Header.Del | covered | phase 2 | `Headers.remove(headers, name) -> Headers`
+Header.Write | covered | phase 5 | `Headers.write_to(headers, w)`
+Header.Clone | mapped | phase 2 | Values are immutable; nothing to copy
+Header.WriteSubset | covered | phase 5 | `Headers.write_to(headers, w, except: names)`
+Hijacker | mapped | phase 6 | `Response.upgrade(status, headers, on_connection)`: the server answers, then hands `on_connection` the connection as a `Connection` with its `Reader` and `Writer`
+Hijacker.Hijack | mapped | phase 6 | The `on_connection` function of `Response.upgrade`
+ListenAndServe | covered | phase 3 | `http.listen(server)`, then `http.serve(listener, handler, supervisor)`; binding first lets boot report an address in use
+ListenAndServeTLS | covered | phase 5 | `http.listen` with `Server.tls: Some(...)`, then `http.serve`
+LocalAddrContextKey | covered | phase 6 | `Request.local_address: String`
+MaxBytesError | covered | phase 3 | `Error.BodyTooLarge{limit}`
+MaxBytesError.Limit | covered | phase 3 | `Error.BodyTooLarge`'s `limit: Int`
+MaxBytesError.Error | covered | phase 3 | `Display for Error`
+MaxBytesHandler | covered | phase 3 | `http.limit_body(max: Int) -> Middleware`
+MaxBytesReader | covered | phase 3 | `Request.limit_body(request, max) -> Request`
+NewCrossOriginProtection | covered | phase 4 | `http.cross_origin_protection(#CrossOrigin{...})`
+NewFileTransport | skipped | Serves `file://` URLs through the client. std/fs reads files directly.
+NewFileTransportFS | skipped | Same as `NewFileTransport`.
+NewRequest | mapped | phase 2 | A `#Request{...}` literal; `Url"..."` checks the URL
+NewRequestWithContext | mapped | phase 2 | A `#Request{...}` literal; the call runs under the context in force
+NewResponseController | mapped | phase 3 | Its operations are fields of `Response` or functions on `Request`, below
+NewServeMux | covered | phase 3 | `Router.new(routes) -> Result<Router, Error>`; each pattern is a `Route`, checked when it is written (``Route`GET /users/{id}` `` at compile time, `Route.parse` at run time), and a conflicting pair is `Error.Pattern{pattern, reason}`, where Go panics
+NoBody | covered | phase 3 | `Body.Empty`
+NotFound | covered | phase 3 | `Response.not_found() -> Response`
+NotFoundHandler | covered | phase 3 | `http.not_found: Handler`
+ParseCookie | covered | phase 3 | `Cookie.parse_header(text) -> Result<List<Cookie>, Error>`
+ParseHTTPVersion | covered | phase 5 | `Protocol.parse(text) -> Maybe<Protocol>`
+ParseSetCookie | covered | phase 3 | `Cookie.parse_set_cookie(text) -> Result<Cookie, Error>`
+ParseTime | covered | phase 3 | `http.parse_time(text) -> Result<Instant, Error>`
+Post | covered | phase 2 | `http.post(url, body)`
+PostForm | covered | phase 2 | `http.post_form(url, query)`
+ProtocolError | covered | phase 2 | `Error.Protocol{reason}`
+ProtocolError.ErrorString | covered | phase 2 | `Error.Protocol`'s `reason: String`
+ProtocolError.Error | covered | phase 2 | `Display for Error`
+ProtocolError.Is | mapped | phase 2 | Match the variant
+Protocols | covered | phase 6 | `Protocols` struct: `http1: Bool = True`, `http2: Bool = True`, `unencrypted_http2: Bool = False`
+Protocols.HTTP1 | covered | phase 6 | `Protocols.http1`
+Protocols.SetHTTP1 | covered | phase 6 | `#Protocols{..., http1: False}`
+Protocols.HTTP2 | covered | phase 6 | `Protocols.http2`
+Protocols.SetHTTP2 | covered | phase 6 | `#Protocols{..., http2: False}`
+Protocols.UnencryptedHTTP2 | covered | phase 6 | `Protocols.unencrypted_http2`
+Protocols.SetUnencryptedHTTP2 | covered | phase 6 | `#Protocols{..., unencrypted_http2: True}`
+Protocols.String | covered | phase 6 | `Display for Protocols`
+ProxyFromEnvironment | covered | phase 2 | `Proxy.FromEnvironment`, the default of `Transport.proxy`
+ProxyURL | covered | phase 2 | `Proxy.Fixed(url)`
+PushOptions | skipped | HTTP/2 server push; browsers have removed it.
+PushOptions.* | skipped | HTTP/2 server push; browsers have removed it.
+Pusher | skipped | HTTP/2 server push; browsers have removed it.
+Pusher.Push | skipped | HTTP/2 server push; browsers have removed it.
+ReadRequest | covered | phase 6 | `Request.read(r: Reader) -> Result<Request, Error>`
+ReadResponse | covered | phase 6 | `Response.read(r: Reader, request) -> Result<Response, Error>`
+Redirect | covered | phase 3 | `Response.redirect(request, to: String, status) -> Response`
+RedirectHandler | covered | phase 3 | `http.redirect_to(to: String, status) -> Handler`
+Request | covered | phase 2 | `Request` struct
+Request.Method | covered | phase 2 | `Request.method: Method`
+Request.URL | covered | phase 2 | `Request.url: Url`
+Request.Proto | covered | phase 2 | `Request.protocol: Protocol` (Display gives `HTTP/1.1`)
+Request.ProtoMajor | covered | phase 2 | `Protocol.major: Int`
+Request.ProtoMinor | covered | phase 2 | `Protocol.minor: Int`
+Request.Header | covered | phase 2 | `Request.headers: Headers`
+Request.Body | covered | phase 2 | `Request.body: Body` (a server's request body is `Body.Stream(reader)`)
+Request.GetBody | mapped | phase 2 | A body is a value. Every variant but `Stream` and `Produce` can be sent again on a redirect; those two stop the redirect, as Go does without `GetBody`
+Request.ContentLength | covered | phase 2 | `Request.content_length: Maybe<Int>`
+Request.TransferEncoding | covered | phase 2 | `Request.transfer_encoding: List<String>`
+Request.Close | covered | phase 2 | `Request.close: Bool`
+Request.Host | covered | phase 2 | `Request.host: Maybe<String>`
+Request.Form | covered | phase 4 | `Request.form(request) -> Result<Query, Error>`
+Request.PostForm | covered | phase 4 | `Request.post_form(request) -> Result<Query, Error>`
+Request.MultipartForm | covered | phase 4 | `Request.multipart_form(request, max_memory) -> Result<MultipartForm, Error>`
+Request.Trailer | covered | phase 2 | `Request.trailers: Headers` (client); `Request.read_trailers(request) -> Headers` after the body (server)
+Request.RemoteAddr | covered | phase 2 | `Request.remote_address: String`
+Request.RequestURI | covered | phase 2 | `Request.request_uri: String`
+Request.TLS | covered | phase 6 | `Request.tls: Maybe<tls.ConnectionState>`
+Request.Cancel | skipped | Deprecated in Go; the context replaces it.
+Request.Response | mapped | phase 2 | `Redirects.Decide` receives the responses of the redirect chain
+Request.Pattern | covered | phase 2 | `Request.pattern: Maybe<String>`
+Request.Context | covered | phase 2 | `Request.context: Context` (the server's per-request context)
+Request.WithContext | mapped | phase 2 | The call runs under the context in force (`with App.context = ...`, `Context.with_timeout`)
+Request.Clone | mapped | phase 2 | Values are immutable; nothing to copy
+Request.ProtoAtLeast | covered | phase 2 | `Protocol.at_least(protocol, major, minor) -> Bool`
+Request.UserAgent | covered | phase 2 | `Request.user_agent(request) -> Maybe<String>`
+Request.Cookies | covered | phase 3 | `Request.cookies(request) -> List<Cookie>`
+Request.CookiesNamed | covered | phase 3 | `Request.cookies_named(request, name) -> List<Cookie>`
+Request.Cookie | covered | phase 3 | `Request.cookie(request, name) -> Maybe<Cookie>`
+Request.AddCookie | covered | phase 3 | `Request.add_cookie(request, cookie) -> Request`
+Request.Referer | covered | phase 2 | `Request.referer(request) -> Maybe<String>`
+Request.MultipartReader | covered | phase 6 | `Request.with_parts(request, body: (Iter<Result<Part, Error>>) -> T) -> Result<T, Error>`
+Request.Write | covered | phase 6 | `Request.write_to(request, w) -> Result<Unit, Error>`
+Request.WriteProxy | covered | phase 6 | `Request.write_to(request, w, proxy: True)`
+Request.BasicAuth | covered | phase 2 | `Request.basic_auth(request) -> Maybe<#(String, String)>`
+Request.SetBasicAuth | covered | phase 2 | `Request.with_basic_auth(request, user, password) -> Request`
+Request.ParseForm | mapped | phase 4 | `Request.form` parses on demand
+Request.ParseMultipartForm | mapped | phase 4 | `Request.multipart_form` parses on demand
+Request.FormValue | covered | phase 4 | `Request.form_value(request, key) -> Maybe<String>`
+Request.PostFormValue | covered | phase 4 | `Request.post_form_value(request, key) -> Maybe<String>`
+Request.FormFile | covered | phase 4 | `Request.form_file(request, field) -> Result<FormFile, Error>`
+Request.PathValue | covered | phase 2 | `Request.path_value(request, name) -> Maybe<String>`
+Request.SetPathValue | covered | phase 2 | `Request.with_path_value(request, name, value) -> Request`
+Response | covered | phase 2 | `Response` struct
+Response.Status | covered | phase 2 | `Status.line(status) -> String` (`"404 Not Found"`)
+Response.StatusCode | covered | phase 2 | `Response.status: Status`
+Response.Proto | covered | phase 2 | `Response.protocol: Protocol`
+Response.ProtoMajor | covered | phase 2 | `Protocol.major`
+Response.ProtoMinor | covered | phase 2 | `Protocol.minor`
+Response.Header | covered | phase 2 | `Response.headers: Headers`
+Response.Body | covered | phase 2 | `Response.body: Body`
+Response.ContentLength | covered | phase 2 | `Response.content_length: Maybe<Int>`
+Response.TransferEncoding | covered | phase 2 | `Response.transfer_encoding: List<String>`
+Response.Close | covered | phase 2 | `Response.close: Bool`
+Response.Uncompressed | covered | phase 2 | `Response.uncompressed: Bool`
+Response.Trailer | covered | phase 2 | `Response.trailers: Headers` (a producer's trailers come from `Body.Produce`'s result)
+Response.Request | mapped | phase 2 | `Response.url: Maybe<Url>`, the URL after redirects; the request is the caller's own value
+Response.TLS | covered | phase 6 | `Response.tls: Maybe<tls.ConnectionState>`
+Response.Cookies | covered | phase 3 | `Response.cookies(response) -> List<Cookie>`
+Response.Location | covered | phase 2 | `Response.location(response) -> Result<Maybe<Url>, Error>`
+Response.ProtoAtLeast | covered | phase 2 | `Protocol.at_least`
+Response.Write | covered | phase 6 | `Response.write_to(response, w) -> Result<Unit, Error>`
+ResponseController | mapped | phase 3 | Its operations are fields of `Response` or functions on `Request`
+ResponseController.Flush | covered | phase 3 | `Writer.flush(w)` inside a producer
+ResponseController.Hijack | mapped | phase 6 | `Response.upgrade`
+ResponseController.SetReadDeadline | covered | phase 6 | `Request.extend_read_deadline(request, by: Duration)`
+ResponseController.SetWriteDeadline | covered | phase 6 | `Response.write_timeout: Maybe<Duration>`
+ResponseController.EnableFullDuplex | covered | phase 6 | `Response.full_duplex: Bool`
+ResponseWriter | mapped | phase 3 | The handler returns a `Response`; `Body.Produce` writes a body as it goes
+ResponseWriter.Header | covered | phase 3 | `Response.headers`
+ResponseWriter.Write | mapped | phase 3 | `Response.body`, or writes inside `Body.Produce`
+ResponseWriter.WriteHeader | covered | phase 3 | `Response.status`; a 1xx goes in `Response.informational: List<#(Status, Headers)>`
+RoundTripper | covered | phase 2 | `ClientOptions.round_trip: Maybe<(Request) -> Result<Response, Error>>`, a function that answers every request
+RoundTripper.RoundTrip | covered | phase 2 | `ClientOptions.round_trip: Maybe<RoundTrip>`
+SameSite | covered | phase 3 | `SameSite` enum: `Default`, `Lax`, `Strict`, `None`
+Serve | covered | phase 3 | `http.serve(listener, handler, supervisor)` over a `Listener` from `http.listen`
+ServeContent | covered | phase 3 | `Response.content(request, name, modified: Maybe<Instant>, content: Content) -> Response` (ranges, `If-*`, `ETag`)
+ServeFile | covered | phase 3 | `http.serve_file(request, path) -> Response`
+ServeFileFS | covered | phase 3 | `http.serve_file(request, path)` (std/fs's backend)
+ServeMux | covered | phase 3 | `Router`
+ServeMux.Handler | covered | phase 3 | `Router.find(router, request) -> Maybe<#(Handler, String)>`
+ServeMux.ServeHTTP | covered | phase 3 | `Router.handler(router) -> Handler`
+ServeMux.Handle | covered | phase 3 | `Router.new`, whose `#(route, handler)` rows are Go's Handle calls
+ServeMux.HandleFunc | covered | phase 3 | `Router.new`, whose `#(route, handler)` rows are Go's HandleFunc calls
+ServeTLS | covered | phase 5 | `http.listen` with `Server.tls: Some(...)`
+Server | covered | phase 3 | `Server` options struct
+Server.Addr | covered | phase 3 | `Server.address: String = ":http"`
+Server.Handler | covered | phase 3 | `http.serve`'s `handler` argument
+Server.DisableGeneralOptionsHandler | covered | phase 6 | `Server.answer_options_star: Bool = True`
+Server.TLSConfig | covered | phase 5 | `Server.tls: Maybe<tls.ServerConfig>`
+Server.ReadTimeout | covered | phase 3 | `Server.read_timeout: Maybe<Duration>`
+Server.ReadHeaderTimeout | covered | phase 3 | `Server.read_header_timeout: Maybe<Duration>`
+Server.WriteTimeout | covered | phase 3 | `Server.write_timeout: Maybe<Duration>`
+Server.IdleTimeout | covered | phase 3 | `Server.idle_timeout: Maybe<Duration>`
+Server.MaxHeaderBytes | covered | phase 3 | `Server.max_header_bytes: Int = 1_048_576`
+Server.MaxHeaderValueCount | covered | phase 6 | `Server.max_header_value_count: Maybe<Int>`
+Server.TLSNextProto | skipped | Hands an ALPN protocol's connections to Go code. Go's built-in HTTP/2 covers what it was for.
+Server.ConnState | covered | phase 6 | `Server.on_connection_state: Maybe<(String, ConnState) -> Unit>`
+Server.ErrorLog | covered | phase 6 | `Server.on_error: Maybe<(String) -> Unit>`; standard error when `None`
+Server.BaseContext | mapped | phase 3 | Each request's context derives from the serving task's context
+Server.ConnContext | skipped | Per-connection context values. A handler sees the request's context; revisit with a use.
+Server.HTTP2 | covered | phase 6 | `Server.http2: Http2Options`
+Server.Protocols | covered | phase 6 | `Server.protocols: Protocols`
+Server.DisableClientPriority | covered | phase 6 | `Server.client_priority: Bool = True`
+Server.Close | mapped | phase 3 | `Listener.shutdown` closes the connections still open once its `shutdown_timeout` passes
+Server.Shutdown | covered | phase 3 | `Listener.shutdown(listener)`: stop accepting, wait for requests in flight up to `Server.shutdown_timeout`, then close what is left; `http.serve` calls it when its task is stopped
+Server.RegisterOnShutdown | covered | phase 6 | `Server.on_shutdown: Maybe<() -> Unit>`
+Server.ListenAndServe | covered | phase 3 | `http.serve`
+Server.Serve | covered | phase 3 | `http.serve(listener, handler, supervisor)`
+Server.ServeTLS | covered | phase 5 | `http.listen` with `Server.tls`
+Server.SetKeepAlivesEnabled | covered | phase 3 | `Server.keep_alives: Bool = True`
+Server.ListenAndServeTLS | covered | phase 5 | `http.listen` with `Server.tls`, then `http.serve`
+ServerContextKey | skipped | Lets a handler reach its `*Server`; a handler has nothing to do with it in Nomi.
+SetCookie | covered | phase 3 | `Response.set_cookie(response, cookie) -> Response`
+StatusText | covered | phase 2 | `Status.text(status) -> String`
+StripPrefix | covered | phase 3 | `http.strip_prefix(prefix) -> Middleware`
+TimeoutHandler | covered | phase 4 | `http.timeout(after, message)`, which answers a function that wraps a handler
+Transport | covered | phase 2 | `Transport` options struct, inside `ClientOptions`
+Transport.Proxy | covered | phase 2 | `Transport.proxy: Proxy` (`.FromEnvironment`, `.None`, `.Fixed(Url)`, `.Choose(fn)`)
+Transport.OnProxyConnectResponse | covered | phase 6 | `Transport.on_proxy_connect: Maybe<(Url, Response) -> Result<Unit, Error>>`
+Transport.DialContext | mapped | phase 2 | `Transport.dial: DialOptions` (std/net's timeout and keep-alive); a custom dial function is not offered
+Transport.Dial | skipped | Deprecated in Go.
+Transport.DialTLSContext | skipped | A custom TLS dial function. `Transport.tls` configures TLS; revisit with a use.
+Transport.DialTLS | skipped | Deprecated in Go.
+Transport.TLSClientConfig | covered | phase 5 | `ClientOptions.tls: Maybe<tls.ClientConfig>`
+Transport.TLSHandshakeTimeout | covered | phase 2 | `Transport.tls_handshake_timeout: Duration = Duration.seconds(10)`
+Transport.DisableKeepAlives | covered | phase 2 | `Transport.keep_alives: Bool = True`
+Transport.DisableCompression | covered | phase 2 | `Transport.compression: Bool = True`
+Transport.MaxIdleConns | covered | phase 2 | `Transport.max_idle: Int = 100`
+Transport.MaxIdleConnsPerHost | covered | phase 2 | `Transport.max_idle_per_host: Int = 2`
+Transport.MaxConnsPerHost | covered | phase 2 | `Transport.max_per_host: Maybe<Int>`
+Transport.IdleConnTimeout | covered | phase 2 | `Transport.idle_timeout: Maybe<Duration>`
+Transport.ResponseHeaderTimeout | covered | phase 2 | `Transport.response_header_timeout: Maybe<Duration>`
+Transport.ExpectContinueTimeout | covered | phase 2 | `Transport.expect_continue_timeout: Duration = Duration.seconds(1)`
+Transport.TLSNextProto | skipped | Same as `Server.TLSNextProto`.
+Transport.ProxyConnectHeader | covered | phase 6 | `Transport.proxy_connect_headers: Headers`
+Transport.GetProxyConnectHeader | skipped | Per-proxy computed headers. The fixed `proxy_connect_headers` covers the common case; revisit with a use.
+Transport.MaxResponseHeaderBytes | covered | phase 2 | `Transport.max_response_header_bytes: Maybe<Int>`
+Transport.WriteBufferSize | covered | phase 2 | `Transport.write_buffer_size: Maybe<Int>`
+Transport.ReadBufferSize | covered | phase 2 | `Transport.read_buffer_size: Maybe<Int>`
+Transport.ForceAttemptHTTP2 | covered | phase 2 | `Transport.force_http2: Bool`
+Transport.HTTP2 | covered | phase 6 | `Transport.http2: Http2Options`
+Transport.Protocols | covered | phase 6 | `Transport.protocols: Protocols`
+Transport.NewClientConn | skipped | Part of `ClientConn`, skipped.
+Transport.RoundTrip | mapped | phase 2 | `Client.fetch`
+Transport.Clone | mapped | phase 2 | Values are immutable; nothing to copy
+Transport.RegisterProtocol | skipped | Plugs Go code in for another URL scheme. A Nomi program has no Go `RoundTripper` to register.
+Transport.CloseIdleConnections | covered | phase 2 | `Client.close_idle(client)`
+Transport.CancelRequest | skipped | Deprecated in Go.
+DefaultMaxHeaderBytes | covered | phase 3 | The default of `Server.max_header_bytes`
+DefaultMaxHeaderValueCount | covered | phase 6 | The default of `Server.max_header_value_count`
+DefaultMaxIdleConnsPerHost | covered | phase 2 | The default of `Transport.max_idle_per_host`
+Method* | covered | phase 2 | `Method` enum: `Get`, `Head`, `Post`, `Put`, `Patch`, `Delete`, `Connect`, `Options`, `Trace`, `Other(String)`
+SameSite*Mode | covered | phase 3 | `SameSite`'s variants
+State* | covered | phase 5 | `ConnState`'s variants
+Status* | covered | phase 2 | `Status`, a distinct `Int`, with one constant per code in its impl (`Status.not_found`, `Status.ok`, ...)
+TimeFormat | covered | phase 3 | `http.format_time(at: Instant) -> String`
+TrailerPrefix | mapped | phase 3 | Trailers are `Response.trailers`; the prefix spelling is not needed
+
+@ net/url
+Error | covered | phase 1 | std/url's `UrlError{url, reason}`; in the client, `http.Error.InvalidUrl`
+Error.Op | mapped | phase 1 | The `http.Error` variant names the step
+Error.URL | covered | phase 1 | `UrlError.url: String`
+Error.Err | covered | phase 1 | `UrlError.reason: String`
+Error.Unwrap | mapped | phase 1 | Match the variant
+Error.Error | covered | phase 1 | `Display for UrlError`
+Error.Timeout | covered | phase 2 | `Error.is_timeout(error) -> Bool` (std/http)
+Error.Temporary | skipped | Deprecated in Go.
+EscapeError | covered | phase 1 | `UrlError` with its reason
+EscapeError.Error | covered | phase 1 | `Display for UrlError`
+InvalidHostError | covered | phase 1 | `UrlError` with its reason
+InvalidHostError.Error | covered | phase 1 | `Display for UrlError`
+JoinPath | covered | phase 1 | `Url.parse(base)?` then `Url.join_path(url, segments)`
+Parse | covered | phase 1 | `Url.parse(text) -> Result<Url, UrlError>`; ``Url`...` `` checks a literal at compile time
+ParseQuery | covered | phase 1 | `Query.parse(text) -> Result<Query, UrlError>`
+ParseRequestURI | covered | phase 1 | `Url.parse_request_uri(text) -> Result<Url, UrlError>`
+PathEscape | covered | phase 1 | `url.escape_path_segment` (exists)
+PathUnescape | covered | phase 1 | `url.unescape_path_segment` (exists)
+QueryEscape | covered | phase 1 | `url.escape_query` (exists)
+QueryUnescape | covered | phase 1 | `url.unescape_query` (exists)
+URL | covered | phase 1 | `Url` struct
+URL.Scheme | covered | phase 1 | `Url.scheme: String`
+URL.Opaque | covered | phase 1 | `Url.opaque_part: Maybe<String>` (`opaque` is a keyword)
+URL.User | covered | phase 1 | `Url.user: Maybe<Userinfo>`
+URL.Host | covered | phase 1 | `Url.host: String`
+URL.Path | covered | phase 1 | `Url.path: String` (decoded)
+URL.Fragment | covered | phase 1 | `Url.fragment: Maybe<String>` (decoded)
+URL.RawQuery | covered | phase 1 | `Url.query: Maybe<String>` (encoded, without `?`)
+URL.RawPath | covered | phase 1 | `Url.raw_path: Maybe<String>`, set only when the escaped path is not the default encoding of `path`
+URL.RawFragment | covered | phase 1 | `Url.raw_fragment: Maybe<String>`, as `raw_path`
+URL.ForceQuery | mapped | phase 1 | `query: Some("")` keeps a lone `?`
+URL.OmitHost | covered | phase 1 | `Url.omit_host: Bool`
+URL.EscapedPath | covered | phase 1 | `Url.escaped_path(url) -> String`
+URL.EscapedFragment | covered | phase 1 | `Url.escaped_fragment(url) -> String`
+URL.String | covered | phase 1 | `Display for Url`
+URL.Redacted | covered | phase 1 | `Url.redacted(url) -> String`
+URL.IsAbs | covered | phase 1 | `Url.is_absolute(url) -> Bool`
+URL.Parse | covered | phase 1 | `Url.resolve_text(base, reference: String) -> Result<Url, UrlError>`
+URL.ResolveReference | covered | phase 1 | `Url.resolve(base, reference: Url) -> Url`
+URL.Query | covered | phase 1 | `Url.query_values(url) -> Query`
+URL.RequestURI | covered | phase 1 | `Url.request_uri(url) -> String`
+URL.Hostname | covered | phase 1 | `Url.hostname(url) -> String`
+URL.Port | covered | phase 1 | `Url.port(url) -> Maybe<String>`
+URL.MarshalBinary | mapped | phase 1 | `Display for Url`, `ToJson for Url`
+URL.AppendBinary | mapped | phase 1 | `Display for Url`
+URL.UnmarshalBinary | mapped | phase 1 | `Url.parse`, `FromJson for Url`
+URL.JoinPath | covered | phase 1 | `Url.join_path(url, segments: List<String>) -> Url`
+URL.Clone | mapped | phase 1 | Values are immutable; nothing to copy
+User | covered | phase 1 | `#Userinfo{name: "ann"}`
+UserPassword | covered | phase 1 | `#Userinfo{name: "ann", password: Some("pw")}`
+Userinfo | covered | phase 1 | `Userinfo` struct
+Userinfo.Username | covered | phase 1 | `Userinfo.name: String`
+Userinfo.Password | covered | phase 1 | `Userinfo.password: Maybe<String>`
+Userinfo.String | covered | phase 1 | `Display for Userinfo`
+Values | covered | phase 1 | `Query`, an immutable, ordered multi-map (`Query[#("q", "nomi")]`)
+Values.Get | covered | phase 1 | `Query.get(query, key) -> Maybe<String>`
+Values.Set | covered | phase 1 | `Query.set(query, key, value) -> Query`
+Values.Add | covered | phase 1 | `Query.add(query, key, value) -> Query`
+Values.Del | covered | phase 1 | `Query.remove(query, key) -> Query`
+Values.Has | covered | phase 1 | `Query.has(query, key) -> Bool`
+Values.Clone | mapped | phase 1 | Values are immutable; nothing to copy
+Values.Encode | covered | phase 1 | `Query.encode(query) -> String` (sorted by key, as Go does)
+
+@ net/http/httptest
+DefaultRemoteAddr | covered | phase 6 | `http_testing.request`'s `remote_address`, `"192.0.2.1:1234"`
+NewRecorder | mapped | phase 3 | A handler returns a `Response`; a test reads it directly
+NewRequest | covered | phase 3 | `http_testing.request(method, target: String) -> Request`
+NewRequestWithContext | covered | phase 3 | `http_testing.request`; the context in force applies
+NewServer | covered | phase 5 | `http_testing.with_server(handler, fn server -> ...)`
+NewTLSServer | covered | phase 5 | `http_testing.with_server(handler, tls: True, body)`
+NewTestServer | covered | phase 5 | `http_testing.with_server`
+NewUnstartedServer | mapped | phase 5 | `http_testing.with_server(handler, body, server: #Server{...})` configures it before it starts
+ResponseRecorder | mapped | phase 3 | The `Response` value itself
+ResponseRecorder.Code | mapped | phase 3 | `Response.status`
+ResponseRecorder.HeaderMap | mapped | phase 3 | `Response.headers`
+ResponseRecorder.Body | mapped | phase 3 | `Body.read_all(response.body) -> Result<Bytes, Error>` runs a producer into memory
+ResponseRecorder.Flushed | mapped | phase 6 | A test of flushing reads the producer's writes with `http_testing.chunks(response)`
+ResponseRecorder.Header | mapped | phase 3 | `Response.headers`
+ResponseRecorder.Write | mapped | phase 3 | Not needed: nothing writes into a recorder
+ResponseRecorder.WriteString | mapped | phase 3 | Not needed
+ResponseRecorder.WriteHeader | mapped | phase 3 | Not needed
+ResponseRecorder.Flush | mapped | phase 3 | Not needed
+ResponseRecorder.Result | mapped | phase 3 | The `Response` value itself
+Server | covered | phase 5 | `TestServer` struct given to `with_server`'s body
+Server.URL | covered | phase 5 | `TestServer.url: Url`
+Server.Listener | mapped | phase 5 | Managed by `with_server`
+Server.EnableHTTP2 | covered | phase 6 | `http_testing.with_server(..., http2: True)`: HTTP/2 over TLS, or h2c without it
+Server.TLS | covered | phase 5 | `http_testing.with_server(..., tls: True)`
+Server.Config | covered | phase 5 | `http_testing.with_server(..., server: #Server{...})`
+Server.Start | mapped | phase 5 | `with_server` starts it before the body
+Server.StartTLS | mapped | phase 5 | `with_server(..., tls: True)`
+Server.Close | mapped | phase 5 | `with_server` closes it after the body
+Server.CloseClientConnections | covered | phase 6 | `TestServer.close_client_connections(server)`
+Server.Certificate | covered | phase 5 | `TestServer.certificate: Maybe<tls.CertificateInfo>`
+Server.Client | covered | phase 5 | `TestServer.client: Client`, which trusts the server's certificate
+
+@ net/http/httputil
+BufferPool | skipped | Buffer reuse is the runtime's concern.
+BufferPool.* | skipped | Buffer reuse is the runtime's concern.
+ClientConn | skipped | Deprecated in Go.
+ClientConn.* | skipped | Deprecated in Go.
+ServerConn | skipped | Deprecated in Go.
+ServerConn.* | skipped | Deprecated in Go.
+NewClientConn | skipped | Deprecated in Go.
+NewProxyClientConn | skipped | Deprecated in Go.
+NewServerConn | skipped | Deprecated in Go.
+ErrClosed | skipped | Part of the deprecated `ClientConn` API.
+ErrPersistEOF | skipped | Part of the deprecated `ClientConn` API.
+ErrPipeline | skipped | Part of the deprecated `ClientConn` API.
+ErrLineTooLong | covered | phase 4 | `Error.Protocol{reason}`
+DumpRequest | covered | phase 6 | `Request.dump(request, body: Bool) -> Result<String, Error>`
+DumpRequestOut | covered | phase 6 | `Request.dump_outgoing(request, body: Bool) -> Result<String, Error>`
+DumpResponse | covered | phase 6 | `Response.dump(response, body: Bool) -> Result<String, Error>`
+NewChunkedReader | covered | phase 6 | `http.chunked_reader(r: Reader) -> Reader`
+NewChunkedWriter | covered | phase 6 | `http.chunked_writer(w: Writer) -> Writer`
+NewSingleHostReverseProxy | covered | phase 5 | `ReverseProxy.to(target)`, given to `http.reverse_proxy`
+ProxyRequest | covered | phase 5 | `ProxyRequest` struct
+ProxyRequest.In | covered | phase 5 | `ProxyRequest.incoming: Request`
+ProxyRequest.Out | covered | phase 5 | `ProxyRequest.outgoing: Request`
+ProxyRequest.SetURL | covered | phase 5 | `ProxyRequest.set_url(p, target: Url) -> ProxyRequest`
+ProxyRequest.SetXForwarded | covered | phase 5 | `ProxyRequest.set_x_forwarded(p) -> ProxyRequest`
+ReverseProxy | covered | phase 5 | `ReverseProxy` options struct; `http.reverse_proxy(options)` answers the handler
+ReverseProxy.Rewrite | covered | phase 5 | `ReverseProxy.rewrite: (ProxyRequest) -> ProxyRequest`
+ReverseProxy.Transport | covered | phase 5 | `ReverseProxy.client: Client = default_client()`
+ReverseProxy.FlushInterval | covered | phase 6 | `ReverseProxy.flush_interval: Maybe<Duration>`
+ReverseProxy.ErrorLog | covered | phase 6 | `ReverseProxy.on_error_log: Maybe<(String) -> Unit>`
+ReverseProxy.BufferPool | skipped | Buffer reuse is the runtime's concern.
+ReverseProxy.ModifyResponse | covered | phase 5 | `ReverseProxy.modify_response: Maybe<(Response) -> Result<Response, Error>>`
+ReverseProxy.ErrorHandler | covered | phase 5 | `ReverseProxy.on_error: Maybe<(Request, Error) -> Response>`
+ReverseProxy.Director | skipped | Go keeps it for compatibility; `Rewrite` replaces it.
+ReverseProxy.ServeHTTP | covered | phase 5 | `http.reverse_proxy`, which answers the handler
+
+@ net/http/cookiejar
+Jar | covered | phase 3 | `CookieJar` (std/http)
+Jar.Cookies | covered | phase 3 | `CookieJar.cookies(jar, url)`
+Jar.SetCookies | covered | phase 3 | `CookieJar.set_cookies(jar, url, cookies)`
+New | covered | phase 3 | `CookieJar.new(public_suffix: Maybe<(String) -> String> = None) -> CookieJar`
+Options | mapped | phase 3 | `CookieJar.new`'s parameter
+Options.PublicSuffixList | covered | phase 3 | `CookieJar.new`'s `public_suffix`
+PublicSuffixList | mapped | phase 3 | A function from a domain to its public suffix
+PublicSuffixList.PublicSuffix | mapped | phase 3 | Calling that function
+PublicSuffixList.String | skipped | Names the list for debugging; a function needs no name.
+
+@ net/http/httptrace
+ClientTrace | mapped | phase 6 | `Tracer` records Go's trace events as data (`Request.trace`, `Tracer.events`), in place of its callbacks
+ClientTrace.GetConn | covered | phase 6 | `TraceEvent.GetConnection{address}`
+ClientTrace.GotConn | covered | phase 6 | `TraceEvent.GotConnection{reused, was_idle, idle_time}`
+ClientTrace.PutIdleConn | covered | phase 6 | `TraceEvent.PutIdleConnection{error}`
+ClientTrace.GotFirstResponseByte | covered | phase 6 | `TraceEvent.FirstResponseByte`
+ClientTrace.Got100Continue | covered | phase 6 | `TraceEvent.Continue`
+ClientTrace.Got1xxResponse | covered | phase 6 | `TraceEvent.Informational{status, headers}`
+ClientTrace.DNSStart | covered | phase 6 | `TraceEvent.DnsStart{host}`
+ClientTrace.DNSDone | covered | phase 6 | `TraceEvent.DnsDone{addresses, error, coalesced}`
+ClientTrace.ConnectStart | covered | phase 6 | `TraceEvent.ConnectStart{network, address}`
+ClientTrace.ConnectDone | covered | phase 6 | `TraceEvent.ConnectDone{network, address, error}`
+ClientTrace.TLSHandshakeStart | covered | phase 6 | `TraceEvent.TlsStart`
+ClientTrace.TLSHandshakeDone | covered | phase 6 | `TraceEvent.TlsDone{state, error}`
+ClientTrace.WroteHeaderField | covered | phase 6 | `TraceEvent.WroteHeader{name, values}`
+ClientTrace.WroteHeaders | covered | phase 6 | `TraceEvent.WroteHeaders`
+ClientTrace.Wait100Continue | covered | phase 6 | `TraceEvent.WaitContinue`
+ClientTrace.WroteRequest | covered | phase 6 | `TraceEvent.WroteRequest{error}`
+ContextClientTrace | mapped | phase 6 | A request names its `Tracer` (`Request.trace`); nothing is fetched from a context
+WithClientTrace | covered | phase 6 | `Request.trace: Maybe<Tracer>`
+DNSDoneInfo | covered | phase 6 | `TraceEvent.DnsDone`'s fields
+DNSDoneInfo.Addrs | covered | phase 6 | `TraceEvent.DnsDone{addresses}`
+DNSDoneInfo.Err | covered | phase 6 | `TraceEvent.DnsDone{error}`
+DNSDoneInfo.Coalesced | covered | phase 6 | `TraceEvent.DnsDone{coalesced}`
+DNSStartInfo | covered | phase 6 | `TraceEvent.DnsStart`'s fields
+DNSStartInfo.Host | covered | phase 6 | `TraceEvent.DnsStart{host}`
+GotConnInfo | covered | phase 6 | `TraceEvent.GotConnection`'s fields
+GotConnInfo.Conn | skipped | The raw connection; the event carries its addresses.
+GotConnInfo.Reused | covered | phase 6 | `TraceEvent.GotConnection{reused}`
+GotConnInfo.WasIdle | covered | phase 6 | `TraceEvent.GotConnection{was_idle}`
+GotConnInfo.IdleTime | covered | phase 6 | `TraceEvent.GotConnection{idle_time}`
+WroteRequestInfo | covered | phase 6 | `TraceEvent.WroteRequest`'s fields
+WroteRequestInfo.Err | covered | phase 6 | `TraceEvent.WroteRequest{error}`
+
+@ mime/multipart
+ErrMessageTooLarge | covered | phase 4 | `http.Error.BodyTooLarge{limit}`
+File | mapped | phase 4 | `FormFile.open(file) -> Reader`, over the file content the form holds
+FileContentDisposition | covered | phase 4 | `FormPart.file_disposition(field, filename)`
+FileHeader | covered | phase 4 | `FormFile` struct
+FileHeader.Filename | covered | phase 4 | `FormFile.filename: String`
+FileHeader.Header | covered | phase 4 | `FormFile.headers: Headers`
+FileHeader.Size | covered | phase 4 | `FormFile.size: Int`
+FileHeader.Open | covered | phase 4 | `FormFile.open(file) -> Reader`
+Form | covered | phase 4 | `MultipartForm` struct
+Form.Value | covered | phase 4 | `MultipartForm.values: Query`
+Form.File | covered | phase 4 | `MultipartForm.files: Map<String, List<FormFile>>`
+Form.RemoveAll | mapped | phase 4 | A form is read into memory (`Request.multipart_form`), so nothing is left to remove
+NewReader | covered | phase 6 | `http.multipart_parts(r: Reader, boundary) -> Iter<Result<Part, Error>>`
+NewWriter | covered | phase 4 | `Body.Multipart(parts)` for a request; `http.write_multipart(w, boundary, parts)` streams one to a Writer (phase 6)
+Part | covered | phase 6 | `Part` struct
+Part.Header | covered | phase 6 | `Part.headers: Headers`
+Part.FormName | covered | phase 6 | `Part.form_name(part) -> Maybe<String>`
+Part.FileName | covered | phase 6 | `Part.file_name(part) -> Maybe<String>`
+Part.Read | covered | phase 6 | `Part.body: Reader`
+Part.Close | mapped | phase 6 | The next part closes the one before
+Reader | mapped | phase 6 | The iterator `http.multipart_parts` answers
+Reader.ReadForm | covered | phase 6 | `http.read_multipart_form(r, boundary, max_memory) -> Result<MultipartForm, Error>`
+Reader.NextPart | mapped | phase 6 | The next element of `http.multipart_parts`
+Reader.NextRawPart | covered | phase 6 | `http.multipart_raw_parts(r, boundary)` (no quoted-printable decoding)
+Writer | mapped | phase 4 | `Body.Multipart(parts)` and `FormPart.encode(parts)`
+Writer.Boundary | mapped | phase 4 | `FormPart.encode` answers the `Content-Type`, which names the boundary: a digest of the parts
+Writer.SetBoundary | mapped | phase 4 | The boundary is a digest of the parts (`FormPart.encode`), so a body and its `Content-Type` always agree
+Writer.FormDataContentType | mapped | phase 4 | `Body.Multipart` sets the `Content-Type`
+Writer.CreatePart | covered | phase 4 | `FormPart.Raw{headers, content: Bytes}`
+Writer.CreateFormFile | covered | phase 4 | `FormPart.File{field, filename, content_type, content: Bytes}`
+Writer.CreateFormField | covered | phase 4 | `FormPart.Field{name, value}`
+Writer.WriteField | covered | phase 4 | `FormPart.Field{name, value}`
+Writer.Close | mapped | phase 6 | `http.write_multipart` writes the closing boundary
+
+@ crypto/tls
+AlertError | covered | phase 5 | `tls.Error.Alert{code: Int, reason}`
+AlertError.Error | covered | phase 5 | `Display for tls.Error`
+Certificate | covered | phase 5 | `Certificate`, an opaque handle (it holds a private key)
+Certificate.Certificate | mapped | phase 5 | Inside the handle; `Certificate.info` reads it
+Certificate.PrivateKey | mapped | phase 5 | Inside the handle; never read back
+Certificate.SupportedSignatureAlgorithms | skipped | Chosen by Go from the key.
+Certificate.OCSPStaple | skipped | OCSP stapling; revisit with a use.
+Certificate.SignedCertificateTimestamps | skipped | Certificate transparency data; revisit with a use.
+Certificate.Leaf | covered | phase 5 | `Certificate.info(c) -> CertificateInfo` (subject, issuer, DNS names, validity)
+CertificateRequestInfo | skipped | Input to `GetClientCertificate`, skipped.
+CertificateRequestInfo.* | skipped | Input to `GetClientCertificate`, skipped.
+CertificateVerificationError | covered | phase 5 | `tls.Error.Verification{reason}`
+CertificateVerificationError.UnverifiedCertificates | covered | phase 5 | `tls.Error.Verification`'s `certificates: List<CertificateInfo>`
+CertificateVerificationError.Err | covered | phase 5 | `tls.Error.Verification`'s `reason`
+CertificateVerificationError.Error | covered | phase 5 | `Display for tls.Error`
+CertificateVerificationError.Unwrap | mapped | phase 5 | Match the variant
+CipherSuite | covered | phase 5 | `CipherSuite` struct: `id`, `name`, `versions`, `insecure`
+CipherSuite.* | covered | phase 5 | `CipherSuite`'s fields
+CipherSuiteName | covered | phase 5 | `CipherSuite.name_of(id: Int) -> String`
+CipherSuites | covered | phase 5 | `CipherSuite.secure() -> List<CipherSuite>`
+InsecureCipherSuites | covered | phase 5 | `CipherSuite.insecure() -> List<CipherSuite>`
+Client | covered | phase 5 | `tls.client(conn: Connection, config: ClientConfig) -> Result<Connection, Error>` (STARTTLS)
+Server | covered | phase 5 | `tls.server(conn: Connection, config: ServerConfig) -> Result<Connection, Error>`
+ClientAuthType | covered | phase 5 | `ClientAuth` enum: `NoCertificate`, `Request`, `RequireAny`, `VerifyIfGiven`, `Require`
+ClientAuthType.String | covered | phase 5 | `Display for ClientAuth`
+ClientHelloInfo | covered | phase 6 | `ClientHello` struct passed to `ServerConfig.certificate_for`
+ClientHelloInfo.ServerName | covered | phase 6 | `ClientHello.server_name: String`
+ClientHelloInfo.SupportedProtos | covered | phase 6 | `ClientHello.protocols: List<String>`
+ClientHelloInfo.SupportedVersions | covered | phase 6 | `ClientHello.versions: List<Version>`
+ClientHelloInfo.CipherSuites | covered | phase 6 | `ClientHello.cipher_suites: List<Int>`
+ClientHelloInfo.SupportedCurves | skipped | Read by Go when it picks a curve.
+ClientHelloInfo.SupportedPoints | skipped | Read by Go when it picks a curve.
+ClientHelloInfo.SignatureSchemes | skipped | Read by Go when it picks a scheme.
+ClientHelloInfo.Extensions | skipped | Raw extension codes; revisit with a use.
+ClientHelloInfo.Conn | skipped | The raw connection.
+ClientHelloInfo.HelloRetryRequest | skipped | Handshake detail.
+ClientHelloInfo.Context | mapped | phase 5 | The serving task's context
+ClientHelloInfo.SupportsCertificate | covered | phase 6 | `ClientHello.supports(hello, certificate) -> Bool`
+ClientSessionCache | mapped | phase 5 | `ClientConfig.session_cache: Int` (an LRU of that size; 0 for none)
+ClientSessionCache.* | mapped | phase 5 | Go's LRU cache answers them
+ClientSessionState | skipped | Session resumption internals.
+ClientSessionState.ResumptionState | skipped | Session resumption internals.
+Config | mapped | phase 5 | Split into `ClientConfig` and `ServerConfig`, since most fields apply to one side
+Config.Rand | skipped | Randomness stays the system's.
+Config.Time | skipped | Certificate checks use the real time; revisit if `Clock.Virtual` tests need it.
+Config.Certificates | covered | phase 5 | `ServerConfig.certificates`, `ClientConfig.certificates: List<Certificate>`
+Config.NameToCertificate | skipped | Deprecated in Go.
+Config.GetCertificate | covered | phase 6 | `ServerConfig.certificate_for: Maybe<(ClientHello) -> Maybe<Certificate>>`
+Config.GetClientCertificate | skipped | Picks a client certificate per request; `ClientConfig.certificates` covers the common case.
+Config.GetConfigForClient | skipped | Swaps the whole config per handshake; revisit with a use.
+Config.VerifyPeerCertificate | skipped | Raw-certificate callback; `verify` sees the parsed chain.
+Config.VerifyConnection | covered | phase 6 | `ClientConfig.verify` and `ServerConfig.verify: Maybe<(ConnectionState) -> Result<Unit, String>>`
+Config.RootCAs | covered | phase 5 | `ClientConfig.roots: Roots` (`.System`, `.Pem(String)`, `.Files(List<String>)`)
+Config.NextProtos | covered | phase 5 | `ClientConfig.next_protocols` and `ServerConfig.next_protocols`: `List<String>`
+Config.ServerName | covered | phase 5 | `ClientConfig.server_name: Maybe<String>`
+Config.ClientAuth | covered | phase 5 | `ServerConfig.client_auth: ClientAuth`
+Config.ClientCAs | covered | phase 5 | `ServerConfig.client_roots: Roots`
+Config.InsecureSkipVerify | covered | phase 5 | `ClientConfig.insecure_skip_verify: Bool`
+Config.CipherSuites | covered | phase 5 | `ClientConfig.cipher_suites` and `ServerConfig.cipher_suites`: `Maybe<List<Int>>`
+Config.PreferServerCipherSuites | skipped | Deprecated in Go and ignored.
+Config.SessionTicketsDisabled | covered | phase 5 | `ClientConfig.session_tickets` and `ServerConfig.session_tickets`: `Bool = True`
+Config.SessionTicketKey | skipped | Ticket key management; Go rotates keys itself.
+Config.ClientSessionCache | covered | phase 5 | `ClientConfig.session_cache: Int`
+Config.UnwrapSession | skipped | Ticket key management.
+Config.WrapSession | skipped | Ticket key management.
+Config.MinVersion | covered | phase 5 | `ClientConfig.min_version` and `ServerConfig.min_version`: `Version = Version.Tls12`
+Config.MaxVersion | covered | phase 5 | `ClientConfig.max_version` and `ServerConfig.max_version`: `Maybe<Version>`
+Config.CurvePreferences | covered | phase 5 | `ClientConfig.curves` and `ServerConfig.curves`: `Maybe<List<Curve>>`
+Config.DynamicRecordSizingDisabled | skipped | A performance knob; revisit with a measurement.
+Config.Renegotiation | covered | phase 5 | `ClientConfig.renegotiation: Renegotiation`
+Config.KeyLogWriter | covered | phase 6 | `ClientConfig.key_log` and `ServerConfig.key_log: Maybe<Writer>` (for Wireshark)
+Config.EncryptedClientHelloConfigList | skipped | Encrypted Client Hello; revisit when browsers settle on it.
+Config.EncryptedClientHelloRejectionVerify | skipped | Encrypted Client Hello.
+Config.GetEncryptedClientHelloKeys | skipped | Encrypted Client Hello.
+Config.EncryptedClientHelloKeys | skipped | Encrypted Client Hello.
+Config.Clone | mapped | phase 5 | Values are immutable; nothing to copy
+Config.SetSessionTicketKeys | skipped | Ticket key management.
+Config.BuildNameToCertificate | skipped | Deprecated in Go.
+Config.EncryptTicket | skipped | Ticket key management.
+Config.DecryptTicket | skipped | Ticket key management.
+Conn | mapped | phase 5 | A `Connection` (std/net) that `tls.dial`, `tls.client` and `tls.server` answer
+Conn.LocalAddr | covered | phase 5 | `Connection.local_address`
+Conn.RemoteAddr | covered | phase 5 | `Connection.remote_address`
+Conn.SetDeadline | covered | phase 5 | `Connection.set_deadline`
+Conn.SetReadDeadline | covered | phase 5 | `Connection.set_read_deadline`
+Conn.SetWriteDeadline | covered | phase 5 | `Connection.set_write_deadline`
+Conn.NetConn | skipped | The connection under the TLS layer; writing to it breaks the session.
+Conn.Write | covered | phase 5 | `Connection.writer(conn) -> Writer`
+Conn.Read | covered | phase 5 | `Connection.reader(conn) -> Reader`
+Conn.Close | covered | phase 5 | `Connection.close(conn)`
+Conn.CloseWrite | covered | phase 5 | `Connection.close_write(conn)`
+Conn.Handshake | mapped | phase 5 | `tls.dial`, `tls.client` and `tls.server` finish the handshake before they answer
+Conn.HandshakeContext | mapped | phase 5 | The handshake runs under the context in force
+Conn.ConnectionState | covered | phase 5 | `tls.state(conn) -> Maybe<ConnectionState>`
+Conn.OCSPResponse | skipped | OCSP; revisit with a use.
+Conn.VerifyHostname | covered | phase 5 | `tls.verify_hostname(conn, host) -> Result<Unit, Error>`
+ConnectionState | covered | phase 5 | `ConnectionState` struct
+ConnectionState.Version | covered | phase 5 | `ConnectionState.version: Version`
+ConnectionState.HandshakeComplete | covered | phase 5 | `ConnectionState.handshake_complete: Bool`
+ConnectionState.DidResume | covered | phase 5 | `ConnectionState.resumed: Bool`
+ConnectionState.CipherSuite | covered | phase 5 | `ConnectionState.cipher_suite: CipherSuite`
+ConnectionState.CurveID | covered | phase 5 | `ConnectionState.curve: Maybe<Curve>`
+ConnectionState.NegotiatedProtocol | covered | phase 5 | `ConnectionState.protocol: Maybe<String>`
+ConnectionState.NegotiatedProtocolIsMutual | skipped | Deprecated in Go; always true.
+ConnectionState.ServerName | covered | phase 5 | `ConnectionState.server_name: String`
+ConnectionState.PeerCertificates | covered | phase 5 | `ConnectionState.peer_certificates: List<CertificateInfo>`
+ConnectionState.VerifiedChains | covered | phase 5 | `ConnectionState.verified_chains: List<List<CertificateInfo>>`
+ConnectionState.SignedCertificateTimestamps | skipped | Certificate transparency data; revisit with a use.
+ConnectionState.OCSPResponse | skipped | OCSP; revisit with a use.
+ConnectionState.TLSUnique | skipped | Channel binding for TLS 1.2 only.
+ConnectionState.ECHAccepted | skipped | Encrypted Client Hello.
+ConnectionState.HelloRetryRequest | skipped | Handshake detail.
+ConnectionState.LocalCertificate | covered | phase 6 | `ConnectionState.local_certificate: Maybe<CertificateInfo>`
+ConnectionState.ExportKeyingMaterial | skipped | Key export for protocols built on TLS; revisit with a use.
+CurveID | covered | phase 5 | `Curve` enum
+CurveID.String | covered | phase 5 | `Display for Curve`
+Curve* | covered | phase 5 | `Curve`'s variants: `X25519`, `P256`, `P384`, `P521`
+X25519 | covered | phase 5 | `Curve.X25519`
+X25519MLKEM768 | covered | phase 5 | `Curve.X25519MlKem768`
+SecP256r1MLKEM768 | covered | phase 5 | `Curve.P256MlKem768`
+SecP384r1MLKEM1024 | covered | phase 5 | `Curve.P384MlKem1024`
+MLKEM1024 | covered | phase 5 | `Curve.MlKem1024`
+Dial | covered | phase 5 | `tls.dial(address, config: ClientConfig) -> Result<Connection, Error>`
+DialWithDialer | covered | phase 5 | `tls.dial(address, config, dial: DialOptions)`
+Dialer | mapped | phase 5 | `tls.dial`'s arguments
+Dialer.* | mapped | phase 5 | `tls.dial`'s `dial` and `config` arguments
+ECHRejectionError | skipped | Encrypted Client Hello.
+ECHRejectionError.* | skipped | Encrypted Client Hello.
+EncryptedClientHelloKey | skipped | Encrypted Client Hello.
+EncryptedClientHelloKey.* | skipped | Encrypted Client Hello.
+Listen | covered | phase 5 | `tls.listen(address, config: ServerConfig) -> Result<Listener, Error>`
+NewListener | covered | phase 6 | `tls.wrap_listener(listener, config) -> Listener`
+LoadX509KeyPair | covered | phase 5 | `Certificate.load(cert_path, key_path) -> Result<Certificate, Error>`
+X509KeyPair | covered | phase 5 | `Certificate.from_pem(cert: String, key: String) -> Result<Certificate, Error>`
+NewLRUClientSessionCache | covered | phase 5 | `ClientConfig.session_cache: Int`
+NewResumptionState | skipped | Session resumption internals.
+ParseSessionState | skipped | Session resumption internals.
+SessionState | skipped | Session resumption internals.
+SessionState.* | skipped | Session resumption internals.
+QUIC* | skipped | QUIC transport internals, for building HTTP/3. Not part of std.
+QUIC*.* | skipped | QUIC transport internals.
+RecordHeaderError | covered | phase 5 | `tls.Error.NotTls{reason}` (the peer did not speak TLS)
+RecordHeaderError.* | covered | phase 5 | `tls.Error.NotTls`'s `reason`
+RenegotiationSupport | covered | phase 5 | `Renegotiation` enum: `Never`, `OnceAsClient`, `FreelyAsClient`
+Renegotiate* | covered | phase 5 | `Renegotiation`'s variants
+NoClientCert | covered | phase 5 | `ClientAuth.NoCertificate`
+RequestClientCert | covered | phase 5 | `ClientAuth.Request`
+RequireAnyClientCert | covered | phase 5 | `ClientAuth.RequireAny`
+VerifyClientCertIfGiven | covered | phase 5 | `ClientAuth.VerifyIfGiven`
+RequireAndVerifyClientCert | covered | phase 5 | `ClientAuth.Require`
+SignatureScheme | skipped | Chosen by Go from the certificates.
+SignatureScheme.String | skipped | Chosen by Go.
+ECDSAWith* | skipped | Signature schemes are chosen by Go.
+PKCS1With* | skipped | Signature schemes are chosen by Go.
+PSSWith* | skipped | Signature schemes are chosen by Go.
+Ed25519 | skipped | Signature schemes are chosen by Go.
+MLDSA* | skipped | Signature schemes are chosen by Go.
+TLS_FALLBACK_SCSV | skipped | A protocol signal, not a cipher suite.
+TLS_* | covered | phase 5 | `CipherSuite.id` values, listed by `CipherSuite.secure()` and `CipherSuite.insecure()`
+VersionSSL30 | skipped | Deprecated and refused by Go.
+VersionTLS* | covered | phase 5 | `Version` enum: `Tls10`, `Tls11`, `Tls12`, `Tls13`
+VersionName | covered | phase 5 | `Display for Version`
+
+@ net
+Addr | mapped | phase 5 | Addresses are `"host:port"` strings
+Addr.* | mapped | phase 5 | Addresses are strings
+AddrError | covered | phase 5 | `net.Error.InvalidAddress{address, reason}`
+AddrError.* | covered | phase 5 | `net.Error.InvalidAddress`'s `address` and `reason`, and `Display for net.Error`
+Buffers | skipped | Vectored writes; a `Writer` takes one `Bytes` at a time.
+Buffers.* | skipped | Vectored writes.
+CIDRMask | skipped | IP arithmetic; later, as `std/netip` over Go's `net/netip`.
+Conn | covered | phase 5 | `Connection`, an opaque handle with a `Reader` and a `Writer`
+Conn.Close | covered | phase 5 | `Connection.close(conn)`
+Conn.LocalAddr | covered | phase 5 | `Connection.local_address(conn) -> String`
+Conn.Read | covered | phase 5 | `Connection.reader(conn) -> Reader`
+Conn.RemoteAddr | covered | phase 5 | `Connection.remote_address(conn) -> String`
+Conn.SetDeadline | covered | phase 5 | `Connection.set_deadline(conn, at: Maybe<Instant>)`
+Conn.SetReadDeadline | covered | phase 5 | `Connection.set_read_deadline(conn, at)`
+Conn.SetWriteDeadline | covered | phase 5 | `Connection.set_write_deadline(conn, at)`
+Conn.Write | covered | phase 5 | `Connection.writer(conn) -> Writer`
+DNSConfigError | covered | phase 5 | `net.Error.Dns{host, reason, not_found: False}`
+DNSConfigError.* | covered | phase 5 | `net.Error.Dns`'s fields
+DNSError | covered | phase 5 | `net.Error.Dns{host, reason, not_found}`
+DNSError.UnwrapErr | mapped | phase 5 | Match the variant
+DNSError.Err | covered | phase 5 | `net.Error.Dns`'s `reason`
+DNSError.Name | covered | phase 5 | `net.Error.Dns`'s `host`
+DNSError.Server | covered | phase 5 | `net.Error.Dns`'s `server: Maybe<String>`
+DNSError.IsTimeout | mapped | phase 5 | `net.Error.Timeout`
+DNSError.IsTemporary | skipped | Deprecated meaning in Go.
+DNSError.IsNotFound | covered | phase 5 | `net.Error.Dns`'s `not_found: Bool`
+DNSError.Unwrap | mapped | phase 5 | Match the variant
+DNSError.Error | covered | phase 5 | `Display for net.Error`
+DNSError.Timeout | mapped | phase 5 | `net.Error.Timeout`
+DNSError.Temporary | skipped | Deprecated meaning in Go.
+DefaultResolver | mapped | phase 5 | `net.lookup_*` use the system resolver
+Dial | covered | phase 5 | `net.dial(address, options: DialOptions = #DialOptions{}) -> Result<Connection, Error>` (TCP)
+DialTimeout | covered | phase 5 | `net.dial(address, #DialOptions{timeout: Some(d)})`
+DialTCP | covered | phase 5 | `net.dial`
+DialIP | skipped | Raw IP sockets; not TCP.
+DialUDP | skipped | UDP; later, its own roadmap item.
+DialUnix | skipped | Unix sockets; later, its own roadmap item.
+Dialer | covered | phase 5 | `DialOptions` struct
+Dialer.Timeout | covered | phase 5 | `DialOptions.timeout: Maybe<Duration>`
+Dialer.Deadline | mapped | phase 5 | The context's deadline
+Dialer.LocalAddr | covered | phase 5 | `DialOptions.local_address: Maybe<String>`
+Dialer.DualStack | skipped | Deprecated in Go; always on.
+Dialer.FallbackDelay | covered | phase 5 | `DialOptions.fallback_delay: Maybe<Duration>`
+Dialer.KeepAlive | covered | phase 5 | `DialOptions.keep_alive: KeepAlive`
+Dialer.KeepAliveConfig | covered | phase 5 | `DialOptions.keep_alive: KeepAlive`
+Dialer.Resolver | skipped | A custom resolver; the system resolver is used.
+Dialer.Cancel | skipped | Deprecated in Go; the context replaces it.
+Dialer.Control | skipped | Raw socket options before connect; no file descriptors in Nomi.
+Dialer.ControlContext | skipped | Same as `Control`.
+Dialer.MultipathTCP | covered | phase 5 | `DialOptions.multipath: Bool`
+Dialer.SetMultipathTCP | covered | phase 5 | `DialOptions.multipath`
+Dialer.Dial | covered | phase 5 | `net.dial`
+Dialer.DialContext | covered | phase 5 | `net.dial` (under the context in force)
+Dialer.DialTCP | covered | phase 5 | `net.dial`
+Dialer.DialUDP | skipped | UDP; later.
+Dialer.DialIP | skipped | Raw IP sockets; not TCP.
+Dialer.DialUnix | skipped | Unix sockets; later.
+ErrClosed | covered | phase 5 | `net.Error.Closed`
+ErrWriteToConnected | skipped | UDP; later.
+Error | mapped | phase 5 | `net.Error` enum
+Error.Temporary | skipped | Deprecated meaning in Go.
+Error.Timeout | covered | phase 5 | `net.Error.Timeout`
+FileConn | skipped | Wraps an OS file descriptor; none in Nomi.
+FileListener | skipped | Wraps an OS file descriptor.
+FilePacketConn | skipped | Wraps an OS file descriptor.
+Flags | skipped | Network interfaces; later.
+Flags.String | skipped | Network interfaces; later.
+Flag* | skipped | Network interfaces; later.
+HardwareAddr | skipped | Network interfaces; later.
+HardwareAddr.String | skipped | Network interfaces; later.
+IP | skipped | IP arithmetic; later, as `std/netip`.
+IP.* | skipped | IP arithmetic; later.
+IPAddr | skipped | Raw IP sockets; not TCP.
+IPAddr.* | skipped | Raw IP sockets.
+IPConn | skipped | Raw IP sockets.
+IPConn.* | skipped | Raw IP sockets.
+IPMask | skipped | IP arithmetic; later.
+IPMask.* | skipped | IP arithmetic; later.
+IPNet | skipped | IP arithmetic; later.
+IPNet.* | skipped | IP arithmetic; later.
+IPv4 | skipped | IP arithmetic; later.
+IPv4Mask | skipped | IP arithmetic; later.
+IPv4* | skipped | IP constants; later, with `std/netip`.
+IPv6* | skipped | IP constants; later, with `std/netip`.
+Interface | skipped | Network interfaces; later.
+Interface.* | skipped | Network interfaces; later.
+InterfaceAddrs | skipped | Network interfaces; later.
+InterfaceByIndex | skipped | Network interfaces; later.
+InterfaceByName | skipped | Network interfaces; later.
+Interfaces | skipped | Network interfaces; later.
+InvalidAddrError | covered | phase 5 | `net.Error.InvalidAddress`
+InvalidAddrError.* | covered | phase 5 | `net.Error.InvalidAddress`'s `address` and `reason`, and `Display for net.Error`
+JoinHostPort | covered | phase 5 | `net.join_host_port(host, port) -> String`
+KeepAliveConfig | covered | phase 5 | `KeepAlive` struct
+KeepAliveConfig.Enable | covered | phase 5 | `KeepAlive.enabled: Bool = True`
+KeepAliveConfig.Idle | covered | phase 5 | `KeepAlive.idle: Maybe<Duration>`
+KeepAliveConfig.Interval | covered | phase 5 | `KeepAlive.interval: Maybe<Duration>`
+KeepAliveConfig.Count | covered | phase 5 | `KeepAlive.count: Maybe<Int>`
+Listen | covered | phase 5 | `net.listen(address, options: ListenOptions = #ListenOptions{}) -> Result<Listener, Error>` (TCP)
+ListenConfig | covered | phase 5 | `ListenOptions` struct
+ListenConfig.Control | skipped | Raw socket options; no file descriptors in Nomi.
+ListenConfig.KeepAlive | covered | phase 5 | `ListenOptions.keep_alive: KeepAlive`
+ListenConfig.KeepAliveConfig | covered | phase 5 | `ListenOptions.keep_alive`
+ListenConfig.MultipathTCP | covered | phase 5 | `ListenOptions.multipath: Bool`
+ListenConfig.SetMultipathTCP | covered | phase 5 | `ListenOptions.multipath`
+ListenConfig.Listen | covered | phase 5 | `net.listen`
+ListenConfig.ListenPacket | skipped | UDP; later.
+ListenIP | skipped | Raw IP sockets.
+ListenMulticastUDP | skipped | UDP; later.
+ListenPacket | skipped | UDP; later.
+ListenTCP | covered | phase 5 | `net.listen`
+ListenUDP | skipped | UDP; later.
+ListenUnix | skipped | Unix sockets; later.
+ListenUnixgram | skipped | Unix sockets; later.
+Listener | covered | phase 5 | `Listener`, an opaque handle
+Listener.Accept | covered | phase 5 | `Listener.accept(listener) -> Result<Connection, Error>`
+Listener.Addr | covered | phase 5 | `Listener.address(listener) -> String`
+Listener.Close | covered | phase 5 | `Listener.close(listener)`
+LookupAddr | covered | phase 5 | `net.lookup_address(ip) -> Result<List<String>, Error>`
+LookupCNAME | covered | phase 5 | `net.lookup_cname(host) -> Result<String, Error>`
+LookupHost | covered | phase 5 | `net.lookup_host(host) -> Result<List<String>, Error>`
+LookupIP | covered | phase 5 | `net.lookup_ip(host) -> Result<List<String>, Error>`
+LookupMX | covered | phase 5 | `net.lookup_mx(domain) -> Result<List<Mx>, Error>`
+LookupNS | covered | phase 5 | `net.lookup_ns(domain) -> Result<List<String>, Error>`
+LookupPort | covered | phase 5 | `net.lookup_port(service) -> Result<Int, Error>`
+LookupSRV | covered | phase 5 | `net.lookup_srv(service, protocol, domain) -> Result<#(String, List<Srv>), Error>`
+LookupTXT | covered | phase 5 | `net.lookup_txt(domain) -> Result<List<String>, Error>`
+MX | covered | phase 5 | `Mx` struct
+MX.Host | covered | phase 5 | `Mx.host: String`
+MX.Pref | covered | phase 5 | `Mx.preference: Int`
+NS | mapped | phase 5 | A `String` host
+NS.Host | mapped | phase 5 | The `String` itself
+OpError | covered | phase 5 | `net.Error` variants: `Refused`, `Unreachable`, `Reset`, `AddressInUse`, `Timeout`, `Closed`, `Other{op, address, reason}`
+OpError.Op | covered | phase 5 | `net.Error.Other`'s `op`
+OpError.Net | mapped | phase 5 | Always TCP in std/net
+OpError.Source | mapped | phase 5 | `Connection.local_address`
+OpError.Addr | covered | phase 5 | `net.Error.Other`'s `address` (and the other variants')
+OpError.Err | covered | phase 5 | `net.Error.Other`'s `reason`
+OpError.Unwrap | mapped | phase 5 | Match the variant
+OpError.Error | covered | phase 5 | `Display for net.Error`
+OpError.Timeout | covered | phase 5 | `net.Error.Timeout`
+OpError.Temporary | skipped | Deprecated meaning in Go.
+PacketConn | skipped | UDP; later.
+PacketConn.* | skipped | UDP; later.
+ParseCIDR | skipped | IP arithmetic; later.
+ParseError | covered | phase 5 | `net.Error.InvalidAddress`
+ParseError.* | covered | phase 5 | `net.Error.InvalidAddress`'s `address` and `reason`, and `Display for net.Error`
+ParseIP | skipped | IP arithmetic; later.
+ParseMAC | skipped | Network interfaces; later.
+Pipe | covered | phase 5 | `net.pipe() -> #(Connection, Connection)`, two ends in memory, for tests
+ResolveIPAddr | skipped | Raw IP sockets.
+ResolveTCPAddr | covered | phase 5 | `net.lookup_host` and `net.split_host_port`
+ResolveUDPAddr | skipped | UDP; later.
+ResolveUnixAddr | skipped | Unix sockets; later.
+Resolver | mapped | phase 5 | The system resolver behind `net.lookup_*`
+Resolver.PreferGo | skipped | Resolver choice; Go's default is used.
+Resolver.StrictErrors | skipped | Resolver tuning; Go's default is used.
+Resolver.Dial | skipped | A custom resolver connection.
+Resolver.LookupHost | covered | phase 5 | `net.lookup_host`
+Resolver.LookupIPAddr | covered | phase 5 | `net.lookup_ip`
+Resolver.LookupIP | covered | phase 5 | `net.lookup_ip`
+Resolver.LookupNetIP | covered | phase 5 | `net.lookup_ip`
+Resolver.LookupPort | covered | phase 5 | `net.lookup_port`
+Resolver.LookupCNAME | covered | phase 5 | `net.lookup_cname`
+Resolver.LookupSRV | covered | phase 5 | `net.lookup_srv`
+Resolver.LookupMX | covered | phase 5 | `net.lookup_mx`
+Resolver.LookupNS | covered | phase 5 | `net.lookup_ns`
+Resolver.LookupTXT | covered | phase 5 | `net.lookup_txt`
+Resolver.LookupAddr | covered | phase 5 | `net.lookup_address`
+SRV | covered | phase 5 | `Srv` struct
+SRV.Target | covered | phase 5 | `Srv.target: String`
+SRV.Port | covered | phase 5 | `Srv.port: Int`
+SRV.Priority | covered | phase 5 | `Srv.priority: Int`
+SRV.Weight | covered | phase 5 | `Srv.weight: Int`
+SplitHostPort | covered | phase 5 | `net.split_host_port(address) -> Result<#(String, String), Error>`
+TCPAddr | mapped | phase 5 | A `"host:port"` string
+TCPAddr.* | mapped | phase 5 | A `"host:port"` string; `net.split_host_port` takes it apart
+TCPAddrFromAddrPort | skipped | Takes a `netip.AddrPort`; later, with `std/netip`.
+TCPConn | covered | phase 5 | `Connection`
+TCPConn.SyscallConn | skipped | Raw file descriptor; none in Nomi.
+TCPConn.ReadFrom | mapped | phase 5 | `Reader.copy_to(r, Connection.writer(conn))`
+TCPConn.WriteTo | mapped | phase 5 | `Reader.copy_to(Connection.reader(conn), w)`
+TCPConn.CloseRead | covered | phase 5 | `Connection.close_read(conn)`
+TCPConn.CloseWrite | covered | phase 5 | `Connection.close_write(conn)`
+TCPConn.SetLinger | covered | phase 5 | `Connection.set_linger(conn, Maybe<Duration>)`
+TCPConn.SetKeepAlive | covered | phase 5 | `Connection.set_keep_alive(conn, KeepAlive)`
+TCPConn.SetKeepAlivePeriod | covered | phase 5 | `Connection.set_keep_alive(conn, #KeepAlive{interval: Some(d)})`
+TCPConn.SetNoDelay | covered | phase 5 | `Connection.set_no_delay(conn, Bool)`
+TCPConn.MultipathTCP | covered | phase 5 | `Connection.is_multipath(conn) -> Bool`
+TCPConn.SetKeepAliveConfig | covered | phase 5 | `Connection.set_keep_alive(conn, KeepAlive)`
+TCPListener | covered | phase 5 | `Listener`
+TCPListener.SyscallConn | skipped | Raw file descriptor.
+TCPListener.AcceptTCP | covered | phase 5 | `Listener.accept`
+TCPListener.Accept | covered | phase 5 | `Listener.accept`
+TCPListener.Close | covered | phase 5 | `Listener.close`
+TCPListener.Addr | covered | phase 5 | `Listener.address`
+TCPListener.SetDeadline | covered | phase 5 | `Listener.set_deadline(listener, at: Maybe<Instant>)`
+TCPListener.File | skipped | Raw file descriptor.
+UDPAddr | skipped | UDP; later.
+UDPAddr.* | skipped | UDP; later.
+UDPAddrFromAddrPort | skipped | UDP; later.
+UDPConn | skipped | UDP; later.
+UDPConn.* | skipped | UDP; later.
+UnixAddr | skipped | Unix sockets; later.
+UnixAddr.* | skipped | Unix sockets; later.
+UnixConn | skipped | Unix sockets; later.
+UnixConn.* | skipped | Unix sockets; later.
+UnixListener | skipped | Unix sockets; later.
+UnixListener.* | skipped | Unix sockets; later.
+UnknownNetworkError | mapped | phase 5 | std/net is TCP only, so the network is never unknown
+UnknownNetworkError.* | mapped | phase 5 | Same.

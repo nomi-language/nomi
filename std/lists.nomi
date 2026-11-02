@@ -59,9 +59,9 @@ import {
 //#
 //# Iter.permutations(xs) / Iter.combinations(xs, k) // → Iter<List<T>>, by source position
 //#
-//# Iter.reduce(xs, f, from: start) / Iter.each(xs, f) / Iter.find(xs, p)
+//# Iter.reduce(xs, start, f) / Iter.each(xs, f) / Iter.find(xs, p)
 //#
-//# Iter.scan(xs, f, from: start) / Iter.map_reduce(xs, fn acc = start, x -> #(out, next))
+//# Iter.scan(xs, start, f) / Iter.map_reduce(xs, start, fn acc, x -> #(next, out))
 //#
 //# Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
 //#
@@ -286,7 +286,7 @@ impl Hashable for List<T> where T: Hashable {
     // FNV-style fold; agrees with `==` (equal lists hash equally) and requires the
     // element type to be Hashable. Wrapping arithmetic — hashes are modular.
     fn hash(list: List<T>) -> Int {
-        Iter.reduce(list, fn acc = 17, x -> {
+        Iter.reduce(list, 17, fn acc, x -> {
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
         })
     }

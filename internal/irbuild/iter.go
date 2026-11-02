@@ -324,7 +324,7 @@ func seqElem(k kind) kind { return k.comp.parts[0] }
 //
 //	struct Box { v: Int }
 //	impl Iter for Box { fn each_while(b: Box, yield: (Int) -> Bool) -> Bool { yield(b.v) } }
-//	countdown = Iter.loop(fn n = 5 -> if n == 0 { break n } else { n - 1 })
+//	countdown = Iter.loop(5, fn n -> if n == 0 { break n } else { n - 1 })
 //
 // foreignIfaceCall speculatively lowers the arguments to learn the receiver's
 // kind; the callback's `break` finds no boundary because iterLoop never ran;
@@ -357,7 +357,7 @@ func (g *gen) iterOwns(owner string) bool {
 
 // --- the seed ----------------------------------------------------------------
 //
-// `Iter.reduce(xs, fn acc = 100, x -> acc + x)` folds from 100. The 100 is written
+// `Iter.reduce(xs, 100, fn acc, x -> acc + x)` folds from 100. The 100 is written
 // as the callback's first-parameter DEFAULT and it is not an ordinary default:
 // nothing is applied on an arity mismatch. The CALLEE reads it, evaluated off
 // the lambda's own closure, so it is a value flowing from the caller's syntax
@@ -371,7 +371,7 @@ func (g *gen) iterOwns(owner string) bool {
 // Three properties of the seed, each pinned by a fixture:
 //
 //  1. The seed is evaluated in the lambda's CLOSURE, not in its parameter
-//     scope. `x = 5; Iter.reduce([1,2,3], fn acc = x, x -> acc + x)` is 11, so the
+//     scope. `x = 5; Iter.reduce([1, 2, 3], x, fn acc, x -> acc + x)` is 11, so the
 //     `x` in the seed is the OUTER one. Emitting the seed in the enclosing Go
 //     scope — which is what lowering it before the func literal's call does —
 //     is that rule, and emitting it inside the literal would silently answer 6.

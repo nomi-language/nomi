@@ -23,8 +23,8 @@ test "a new meter has counted nothing" {
     reader = Reader.from_text("hello") |> MeteredReader.new()
     writer = MeteredWriter.new(io.stdout)
 
-    assert reader.stats == #Stats{bytes: 0, operations: 0}
-    assert writer.stats == #Stats{bytes: 0, operations: 0}
+    assert reader.stats == Stats{bytes: 0, operations: 0}
+    assert writer.stats == Stats{bytes: 0, operations: 0}
 }
 
 test "reads count their bytes and themselves" {
@@ -32,7 +32,7 @@ test "reads count their bytes and themselves" {
     #(data, meter) = read_to_end(meter, 4)?
 
     assert data == String.to_bytes("hello world")
-    assert meter.stats == #Stats{bytes: 11, operations: 4}
+    assert meter.stats == Stats{bytes: 11, operations: 4}
 }
 
 test "one read takes what fits, and the next finds the end" {
@@ -40,7 +40,7 @@ test "one read takes what fits, and the next finds the end" {
     #(data, meter) = read_to_end(meter, 1024)?
 
     assert data == String.to_bytes("hello world")
-    assert meter.stats == #Stats{bytes: 11, operations: 2}
+    assert meter.stats == Stats{bytes: 11, operations: 2}
 }
 
 test "reading an empty stream is one operation and no bytes" {
@@ -48,7 +48,7 @@ test "reading an empty stream is one operation and no bytes" {
     #(data, meter) = MeteredReader.read(meter)?
 
     assert data == None
-    assert meter.stats == #Stats{bytes: 0, operations: 1}
+    assert meter.stats == Stats{bytes: 0, operations: 1}
 }
 
 test "a read error passes through" {
@@ -67,7 +67,7 @@ test "writes count their bytes and themselves" {
     })
 
     assert run.output == "hello, world"
-    assert run.value == Ok(#Stats{bytes: 12, operations: 3})
+    assert run.value == Ok(Stats{bytes: 12, operations: 3})
 }
 
 test "earlier meters keep their own counts" {
@@ -75,7 +75,7 @@ test "earlier meters keep their own counts" {
     #(_, second) = MeteredReader.read(first, 2)?
     #(_, third) = MeteredReader.read(second, 2)?
 
-    assert first.stats == #Stats{bytes: 0, operations: 0}
-    assert second.stats == #Stats{bytes: 2, operations: 1}
-    assert third.stats == #Stats{bytes: 4, operations: 2}
+    assert first.stats == Stats{bytes: 0, operations: 0}
+    assert second.stats == Stats{bytes: 2, operations: 1}
+    assert third.stats == Stats{bytes: 4, operations: 2}
 }

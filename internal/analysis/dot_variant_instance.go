@@ -6,7 +6,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // under value at the instance a generic construction solved.
 //
 // A value checked against a slot of a generic declaration is checked before
-// the construction has solved its parameters: `.Leaf` in `#Tree.Node{left:
+// the construction has solved its parameters: `.Leaf` in `Tree.Node{left:
 // .Leaf, value: 4}` is checked against `left: Tree<T>`, and `pair(.Leaf, 4)`
 // against `t: Tree<T>`. The dot takes the enum its position expects, so its
 // recorded type is `Tree<T>` with the declaration's own T, and the IR builder

@@ -258,7 +258,7 @@ func TestTypeLint_AnyAgreesWithAnyType(t *testing.T) {
 
 // TestTypeLint_AConcreteTypeWidensToAnExistential: a concrete value stored
 // where an interface is stated is the existential, as a function returning
-// `Speech` from a `#Dog{...}` or an `Int` tail does. A struct stays in its
+// `Speech` from a `Dog{...}` or an `Int` tail does. A struct stays in its
 // register; a scalar or a scalar distinct moves across banks, which boxes it
 // as its own type, so the existential keeps its identity. Another
 // interface's existential is not a concrete value and is refused, and so is

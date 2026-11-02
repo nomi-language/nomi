@@ -76,8 +76,8 @@ func TestParseStructSpreadRejectsBadPositions(t *testing.T) {
 		"after a field":    {"#{a: 1, ..p}", "struct spread `..` must be the first element"},
 		"after a pun":      {"#{a, ..p}", "struct spread `..` must be the first element"},
 		"two spreads":      {"#{..a, ..b}", "struct spread `..` must be the first element"},
-		"named form":       {"#Cfg{..p, a: 1}", "struct spread `..` has no named form"},
-		"named form alone": {"#Cfg{..p}", "struct spread `..` has no named form"},
+		"named form":       {"Cfg{..p, a: 1}", "struct spread `..` has no named form"},
+		"named form alone": {"Cfg{..p}", "struct spread `..` has no named form"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

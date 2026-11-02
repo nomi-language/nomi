@@ -38,7 +38,7 @@ fn outer() -> Int {
 }
 
 fn main() {
-    first = Iter.loop(fn n = 0 -> {
+    first = Iter.loop(0, fn n -> {
         if n >= 3 {
             break n
         } else {
@@ -48,7 +48,7 @@ fn main() {
 
     io.print("break value: ${first}")
 
-    via_return = Iter.loop(fn n = 1 -> {
+    via_return = Iter.loop(1, fn n -> {
         if n % 3 != 0 { return n + 1 }
         break n
     })
@@ -63,7 +63,7 @@ fn main() {
         break
     })
 
-    seeded = Iter.loop(fn n = outer() -> {
+    seeded = Iter.loop(outer(), fn n -> {
         if n >= 9 {
             break n
         } else {
@@ -73,7 +73,7 @@ fn main() {
 
     io.print("seed from closure scope: ${seeded}")
 
-    pair = Iter.loop(fn state = #(0, 1) -> {
+    pair = Iter.loop(#(0, 1), fn state -> {
         #(a, b) = state
         if b > 50 { break #(a, b) }
         #(b, a + b)
@@ -81,7 +81,7 @@ fn main() {
 
     io.print("fib pair: ${pair}")
 
-    captured = Iter.loop(fn n = 0 -> {
+    captured = Iter.loop(0, fn n -> {
         peek = fn -> n * 10
         if n == 4 { break peek() }
         n + 1
@@ -91,7 +91,7 @@ fn main() {
 
     count = 0
 
-    shadowed = Iter.loop(fn n = 0 -> {
+    shadowed = Iter.loop(0, fn n -> {
         count = count + 1
         io.print("count ${count}")
         if n == 2 { break count }

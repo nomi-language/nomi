@@ -92,7 +92,7 @@ A struct pattern with punned fields in an if condition
 ================================================================================
 
 fn f(p: Point) -> Int {
-    if #Point{x, y} = p {
+    if Point{x, y} = p {
         x + y
     } else if #{x: 0, y} = p {
         y

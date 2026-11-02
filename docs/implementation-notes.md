@@ -10,7 +10,7 @@ does, and where something lives, is for grep and the code's own comments.
 
 ## Contents
 
-**How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [Files](#files), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
+**How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [Files](#files), [Logging and actors](#logging-and-actors), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
 
 **Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [Captures](#captures).
 
@@ -485,6 +485,78 @@ replace the backend for their body, and tasks inherit it as they inherit
 tests run it against both. A test that touches the disk does it inside
 `fs.with_temp_dir` or a Go `t.TempDir()`.
 
+## HTTP
+
+`std/url` and `std/http` are lowered with each program (`programStdModules`), so their structs stand in public signatures; their Go crossings are the internal modules `std/url_host` (rt/url.go, pure) and `std/http_host` (internal/stdhttp). A `Url` crosses as a list of its 14 parts. A request crosses as its parts too: method, URL text, headers as alternating names and values, the body as bytes or a `Reader`; `http_host.send` answers an `Exchange` handle (rt.HTTPExchange) whose accessors read the response, or an `http.Error` variant's name and fields. A `Client` holds a `Client` handle (rt.HTTPClient) over Go's `http.Client`, which owns the pool; `http.default_client()` is one Go client for the process. `send` carries the `network` class, which wasip1 lacks. On js/wasm the transport keeps Go's `fetch` path by setting no dial function (`transport_js.go`).
+
+`http_testing.run` is three crossings the VM answers (internal/vm/network.go): `run_on` installs the answer function on the frame (rt.EnterNetwork), `answer_on` calls it for a request and records the request, and `recorded_on` hands back the requests. The builder lowers them as it lowers `run_on` for files (`answerOn`, `recordedOn` in ircapture.go).
+
+A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handler on a goroutine per request; that handler hands the request to the program over a channel (`http_host.next`) and waits until the program has answered (`http_host.finish`), so no Nomi code runs on Go's goroutines. `http.serve` loops on `next` in the calling task and spawns each request on the supervisor it was given. The request task runs its handler through `http_host.request_on`, a VM crossing (`networkRequestHost`, lowered by `requestOn` in ircapture.go): the handler gets the request's context, the active context with the server's `request_timeout` as a deadline, on a frame whose app `Context` field reads it and which stops when the client goes away (`rt.EnterRequest`, which ends the frame's Go context when the request's does). Every write to the `ResponseWriter` holds the request's lock, and once Go's handler has returned a write fails rather than touch it. A request answered with nothing written gets a 500 from the deferred `finish`; a request whose task a supervisor restarts finds it answered and returns. `Body.Produce` writes through an rt `Writer` whose sink flushes to the client on each write it passes on. `http_host.listen` carries the `listen` class, which js/wasm and wasip1 lack.
+
+`Router` builds Go's `ServeMux` over its patterns (`http_host.new_mux`), each with a handler that only records which pattern matched and its wildcards' values; `http_host.route` runs the mux on a recorder and answers the match, or what the mux wrote itself (a redirect, a 405, a 404). So pattern syntax, precedence, conflicts and path cleaning are Go's own. `Response.redirect` and `Response.content` run Go's `Redirect` and `ServeContent` on a recorder the same way; `http.serve_file` reads through std/fs and hands the bytes to `ServeContent`. Cookies cross as lists of their fields, and a `CookieJar` is Go's cookiejar as a handle (rt.HTTPJar).
+
+A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The timeout, cross-origin and query-semicolon middleware are Nomi functions that wrap a handler.
+
+`std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` answers requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send.
+
+Go calls a program's hooks on goroutines of its own, where no Nomi code may run. A broker (internal/stdhttp/broker.go) carries each call to the Nomi task waiting in the crossing whose work set it off, which runs it on its own frame: a server's broker is served by `http_host.next`, a client's by `send`, which runs Go's `Do` on a goroutine and serves the broker until it answers, and a TLS configuration's by whichever of these uses it (the listener or client adopts it) or by the handshake itself (`tls_dial`, `tls_client`, `tls_server`, and the accept of a TLS listener, which runs the handshake there instead of on the first read). A hook that waits for an answer (`certificate_for`, `verify`, `on_proxy_connect`) blocks Go's goroutine until the task has run it; one that only reports (connection states, the error log, `on_shutdown`, HTTP/2's error counter, the key log) is queued, and `next` runs what is left before it answers that the server has shut down. A hook that traps traps the waiting task. A TLS state crosses as lists of parts (`stateParts`), the same for a connection, a request, a response and a trace event. `Response.upgrade` takes the connection with Go's `ResponseController.Hijack`, writes the status line and headers itself, and hands the handler a `Connection` that reads what Go's server had already buffered first. `Request.read` and `Response.read` run Go's `ReadRequest` and `ReadResponse` under a `bufio.Reader` over a reader that answers one byte per read, so no byte of the next message is taken. The reverse proxy sends once with the client's handle, following no redirect, and answers a `Body.Produce` that copies the upstream body, flushing per `flush_interval`. `http_host.Handle` (rt.HTTPHandle) holds the Go values a std struct wraps that have no handle type of their own: a ClientHello, a tracer, a read message, a multipart reader and its parts.
+
+`internal/stdhttp/inventory.txt` lists every exported identifier of Go's HTTP packages with what Nomi does with it and the phase that lands it; `TestGoInventoryIsComplete` holds the file to the Go the tests run under and every covered row of a landed phase (`stdhttp.LandedPhase`) to a declaration std has.
+
+## Logging and actors
+
+`std/log`, `std/log_testing` and `std/actors` are written in Nomi alone,
+with no `host fn`, and are lowered with each program (`programStdModules`).
+A `Logger` is an opaque struct over a private `Sink`: text, JSON, discard,
+and the recorder's, which writes each record as one JSON array (time in
+nanoseconds, level, message, then `[key, kind, value]` per field) that
+`log_testing.run` decodes back into `Record`s. An array keeps the fields'
+order, which a decoded JSON object does not. Each record is one
+`Writer.write_text`, and a failed write is dropped. `std/log` names a level
+`Debug`, and a std file has no prelude, so it imports `debug.Debug` for the
+synthesized `impl Debug` headers; the unused-import check counts such a
+header as a use of an imported interface.
+
+An actor is a task under the caller's supervisor that loops over
+`Receiver.receive` on its inbox (64 messages unless `Actor.start` is given
+another size), folding each message into its state, and ends when the
+inbox is closed. `Actor.call` sends a message built around a one-slot reply
+channel and waits with `Receiver.receive_within`, five seconds unless the
+call gives a timeout. Both defaults sit before the trailing function, so a
+call that leaves them out is filled as any call into another file is: the
+callback goes to the last slot, and std/actors' accessor for the instance
+fills the default (`slottedOperands`, `methodInstAccessors`).
+
+## Processes
+
+`std/process` and `std/process_testing` are lowered with each program.
+Their crossings go through the internal module `std/process_host`
+(`processes` class) to `internal/stdprocess`, whose one `start` takes the
+program, its arguments, environment and directory, and a mode for each
+stream: null, the running program's own, captured in memory, or piped.
+`process.output` captures stdout and stderr, `process.run` sends them to
+the program's own output (through `io.capture` when one is in force), and
+`process.with_spawned` pipes all three, as `os.Pipe` files the child holds
+directly, so its readers outlive the wait. `Child.wait` closes the piped
+input and waits once; `with_spawned` defers `process_host.kill`, which
+kills and reaps a child still running, so a body that returns, traps or is
+cancelled leaves no process behind. A child is started under its frame's
+context, so a cancelled task or a passed deadline kills it, and the wait
+then unwinds as the cancellation does. A relative `dir` resolves against
+the program's working directory, which `nomi test` puts at the module root
+without changing the process's.
+
+`process_testing.run` installs a recording fake on the frame
+(`rt.EnterProcesses`, `process_host.run_on`, a VM intrinsic beside
+`fs_host.run_on`), which tasks inherit as they inherit the file system.
+`start` asks the frame first: under the fake it records the call and
+answers from the first matching `Answer`, never the operating system.
+`internal/stdprocess`'s tests run one program against the test binary as a
+helper and against the fake, and require the same transcript.
+
+A js/wasm or wasip1 build lacks the class (`vmhost.TargetLacks`); built
+anyway, `start` answers `Unsupported`.
+
 ## Locale data
 
 `std/locale`, `std/plural` and the locale-aware formatting and parsing read
@@ -688,6 +760,33 @@ checksum database, never the network.
 linked IR image appended. It is not native code; it skips the front end at
 startup. `--target goos/goarch` cross-compiles.
 
+**Runner variants.** Every runner comes in two builds. The untagged one
+links every std module's Go side; the one built with the `nomi_nonet` tag
+(`nomi-vm-nonet`, `nomi-vm-reactor-nonet`) answers the network crossings
+with an error instead, so it links no net/http, crypto/tls, crypto/x509
+or net. Importing net/http keeps its whole client transport alive through
+`DefaultTransport`, so leaving the package out is the only way to drop it:
+the js/wasm and wasip1 runners go from 23.5 to 14.6 MB stripped, darwin's
+from 12.6 to 7.9 MB. `go generate ./internal/stdlibadapters` writes the
+split: `adapters_gen.go` holds every adapter that does not call
+internal/stdhttp and `NetworkNames`, `adapters_net_gen.go` the ones that
+do (built without the tag), and `adapters_nonet_gen.go` an error stub for
+each (built with it), so `Bind` names the same crossings in both
+(internal/hostgen/stdtable/netsplit.go). `nomi build` appends a program to
+the smaller runner when it reaches none of `NetworkNames`
+(`vmhost.Program.UsesNetwork`, over the crossings the pruned image keeps),
+and `ffirun.Variant.NoNetwork` names, caches and finds it; a prebuilt
+runner's `-tags` must match its name. A runner without the network handed
+an image that reaches one refuses it before running anything
+(`vmrunner/network.go`). A Go-FFI project's runner follows the same rule:
+its wrapper, which builds the image, prints whether the program reaches a
+network crossing (`ffirun.BuiltImage.NoNetwork`), and `ffirun.ProjectRunner`
+builds the project's runner with `nomi_nonet` when it does not. The tag
+drops only std's network adapters; the project's own Go is linked as
+written.
+`TestNoNetworkVMImportsNoNetworkCode` (cmd/nomi-vm) holds the packages out
+of the tagged build on every target.
+
 **Pruning.** The image holds only the functions the VM's own reachability
 walk reaches from `main`, the boot and each `export fn`. It is the walk the
 VM itself uses, so a call it did not foresee fails naming the callee, never
@@ -826,8 +925,8 @@ list and the anonymous struct sits flat at the inner indent.
 
 Fits are tail-aware: every group's flat-or-broken decision counts the rest
 of the line that follows it. The rest of the line ends at the first place it
-may break, and at the `{` of a construct kept multi-line, so `#A{a} + #B{`
-measures the same whether `#B{...}` was broken for width or kept broken from
+may break, and at the `{` of a construct kept multi-line, so `A{a} + B{`
+measures the same whether `B{...}` was broken for width or kept broken from
 the source. Trailing comments are invisible to fits.
 
 A type keeps a multi-line shape when its fields span lines, as a `fn` body
@@ -836,7 +935,7 @@ brace, pressing enter and saving does not collapse the layout just made. Literal
 instead ([below](#formatter-a-line-break-after-a-literals-opening-bracket)),
 where deleting the one line break after the bracket joins the literal again.
 
-The kept shape is local, so a call can hug it (`f(#Point{`). The exception
+The kept shape is local, so a call can hug it (`f(Point{`). The exception
 is a surrounding argument or parameter list already written one element per
 line, its first element below its opening bracket: it stays that way when it
 holds an element that breaks whatever the width. Without that, a list

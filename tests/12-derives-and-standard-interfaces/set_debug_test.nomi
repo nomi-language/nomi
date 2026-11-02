@@ -18,9 +18,9 @@ test "a Set of enum values inspects each member through its Debug" {
 }
 
 test "a Set of structs inspects each member through its Debug" {
-    points = %[#Point{x: 1}, #Point{x: 2}]
+    points = %[Point{x: 1}, Point{x: 2}]
 
-    assert Debug.inspect(points) == "%[#Point{x: 1}, #Point{x: 2}]"
+    assert Debug.inspect(points) == "%[Point{x: 1}, Point{x: 2}]"
 }
 
 test "a Set of declared members nested in other values inspects" {
@@ -28,6 +28,6 @@ test "a Set of declared members nested in other values inspects" {
 
     assert Debug.inspect([colors]) == "[%[Blue]]"
     assert Debug.inspect(Some(colors)) == "Some(%[Blue])"
-    assert Debug.inspect(#Palette{colors}) == "#Palette{colors: %[Blue]}"
+    assert Debug.inspect(Palette{colors}) == "Palette{colors: %[Blue]}"
     assert Debug.inspect(%[Some(Color.Red)]) == "%[Some(Red)]"
 }

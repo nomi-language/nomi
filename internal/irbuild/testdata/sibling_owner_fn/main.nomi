@@ -7,7 +7,7 @@ import {
 
 fn main() {
     io.print("seven ${Crate.seven()}")
-    io.print("size ${Crate.size(#Crate{items: [1, 2]})}")
+    io.print("size ${Crate.size(Crate{items: [1, 2]})}")
     io.inspect(Crate.of("a"))
     io.inspect(Crate.first(Crate.of(4)))
     io.print(Crate.pad("p"))
@@ -22,7 +22,7 @@ fn main() {
         |> Iter.to_list()
     )
 
-    io.print("count ${Crate.count(#Crate{items: [1, 2, 3]})}")
+    io.print("count ${Crate.count(Crate{items: [1, 2, 3]})}")
     io.print("unit ${Shape.unit()}")
     io.inspect(Shape.twice("x"))
     io.print("qualified ${boxes.Box.seven()} ${boxes.Box.of(True) |> boxes.Box.size()}")

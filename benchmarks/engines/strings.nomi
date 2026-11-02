@@ -15,7 +15,7 @@ fn grow(acc: String, n: Int) -> String {
 }
 
 fn main() {
-    total = Iter.reduce(1..=100000, fn t = 0, n -> t + String.length(grow("ab", n)))
-    last = Iter.reduce(1..=100000, fn acc = "", n -> grow(acc, n))
+    total = Iter.reduce(1..=100000, 0, fn t, n -> t + String.length(grow("ab", n)))
+    last = Iter.reduce(1..=100000, "", fn acc, n -> grow(acc, n))
     io.print(total + String.length(last))
 }

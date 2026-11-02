@@ -42,7 +42,7 @@ impl Rows<T> {
         statement: Statement,
         decode: (Row) -> Result<T, sql.Error>,
     ) -> Rows<T> {
-        #Rows{conn, query, statement, decode}
+        Rows{conn, query, statement, decode}
     }
 
     /// Run the query and fold its rows into `initial` with `f`, in order,
@@ -84,7 +84,7 @@ impl Rows<T> {
 
         case Receiver.receive(state.receiver) {
             Some(result) -> result
-            None -> Err(#sql.Error.Database{code: "", message: "Rows.fold lost its state"})
+            None -> Err(sql.Error.Database{code: "", message: "Rows.fold lost its state"})
         }
     }
 
@@ -152,7 +152,7 @@ pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Erro
     case changed {
         Some(m) ->
             return Err(
-                #sql.Error.Database{
+                sql.Error.Database{
                     code: "sqlkit",
                     message: "the migration `${m.path}` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one",
                 }
@@ -177,7 +177,7 @@ fn apply_each(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error
 
         [first, ..rest] -> {
             sql.transaction(conn, fn tx -> {
-                _ = Conn.exec(tx, #Statement{parts: [first.sql], params: []})?
+                _ = Conn.exec(tx, Statement{parts: [first.sql], params: []})?
                 version = version_of(first)
                 sum = checksum.of(first.sql)
 

@@ -30,14 +30,12 @@ func didYouMean(name string, candidates []string) string {
 
 // undefinedVariableError is the error for a value name bound nowhere in
 // scope. `true` and `false` are ordinary unbound names in Nomi; the Bool
-// literals are the variants `True` and `False`, which the hint names.
+// literals are the variants `True` and `False`, which the hint names and
+// the fix writes (undefinedVariableConfusion, as for `nil`).
 func undefinedVariableError(n *ast.Ident, candidates []string) TypeError {
 	e := errAt(n, "undefined variable '"+n.Name+"'")
-	switch n.Name {
-	case "true":
-		return e.WithHint("the Bool literal is 'True'")
-	case "false":
-		return e.WithHint("the Bool literal is 'False'")
+	if ce, ok := undefinedVariableConfusion(e, n); ok {
+		return ce
 	}
 	return e.WithHint(didYouMean(n.Name, candidates))
 }

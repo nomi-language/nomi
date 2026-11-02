@@ -34,7 +34,7 @@ const orphanMain = `import {
 }
 
 fn main() {
-    io.inspect(#Box{n: 1})
+    io.inspect(Box{n: 1})
 }
 `
 
@@ -139,7 +139,7 @@ func TestOrphanImplInAnotherModuleIsPublishedOnItsFile(t *testing.T) {
 	files := map[string]string{
 		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"app/go.mod":    "module app\n\ngo 1.27.0\n\nrequire fx v0.0.0\n\nreplace fx => ../fx\n",
-		"app/main.nomi": "import {\n    std/io\n    fx/rate.Rate\n}\n\nfn main() {\n    io.inspect(#Rate{per_unit: 4})\n}\n",
+		"app/main.nomi": "import {\n    std/io\n    fx/rate.Rate\n}\n\nfn main() {\n    io.inspect(Rate{per_unit: 4})\n}\n",
 		"fx/nomi.toml":  "[module]\nname = \"fx\"\n",
 		"fx/go.mod":     "module fx\n\ngo 1.27.0\n",
 		"fx/rate.nomi":  strings.Replace(orphanChild, "Box {\n    n: Int", "Rate {\n    per_unit: Int", 1),

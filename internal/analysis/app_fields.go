@@ -562,7 +562,7 @@ func (w *appReadWalker) inspect(aw *appWalk, owner *FileAnalysis, node ast.Node)
 		if invocation, ok := n.(*ast.Call); ok {
 			w.invoke(aw, owner, invocation.Func, map[*Symbol]bool{})
 			if callee := w.resolve(owner, invocation.Func); callee != nil && callee.Kind == SymbolEnumVariant {
-				// A variant constructor (a boot's `Ok(#App{...})`) stores
+				// A variant constructor (a boot's `Ok(App{...})`) stores
 				// its payload and runs nothing it holds.
 				return
 			}

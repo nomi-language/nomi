@@ -3,6 +3,7 @@ package analysis
 import (
 	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/parser"
 	"strings"
 )
 
@@ -32,6 +33,10 @@ type TypeError struct {
 	// in an imported file demands is reported with the entry's. Empty means
 	// the file it is reported with.
 	File string
+	// Fix, when set, is the edit that turns the source into what the
+	// error says Nomi writes (parser.Fix's Edits), for an editor's quick
+	// fix and `nomi check --format json`.
+	Fix *parser.Fix
 }
 
 func (e TypeError) Error() string {
@@ -71,7 +76,7 @@ func ResolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 //     the block's own (type_builder.go). Supplying them explicitly is allowed and
 //     already arity-checked there. Sites across std/, tests/ and the tour
 //     are this shape.
-//   - A struct LITERAL's type name and a pattern's head. `#Box{inner: 1}` takes
+//   - A struct LITERAL's type name and a pattern's head. `Box{inner: 1}` takes
 //     its argument from the field values, and there is no turbofish on a struct
 //     literal — `Box<Int>{…}` parses as a comparison — so there is no spelling
 //     that would satisfy a rule here. Many sites in the same trees are this shape.
@@ -195,13 +200,15 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 					inst.unbuilt = bt.unbuilt.recordInstance(inst)
 					return inst, nil
 				case *DistinctType:
-					// Generic opaque externs (`host type Task<T>`,
-					// `host type Channel<T>`): instantiate the shell with
-					// the resolved TypeArgs so unification at call sites
-					// reaches the inner T. The TypeParamDefs pointer is
-					// shared with the registry shell, so substitution in
-					// checkGenericCall solves the right TypeParam_.
-					return &DistinctType{
+					// A generic distinct (`type Tagged<T> #(String, T)`) or
+					// generic opaque extern (`host type Task<T>`):
+					// instantiate the shell with the resolved TypeArgs so
+					// unification at call sites reaches the inner T. The
+					// TypeParamDefs pointer is shared with the registry
+					// shell, so substitution in checkGenericCall solves the
+					// right TypeParam_. An instance taken before the
+					// declaration is built is completed by distinctBuilt.
+					inst := &DistinctType{
 						Origin:           bt.Origin,
 						Name:             bt.Name,
 						Inner:            bt.Inner,
@@ -210,7 +217,9 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 						TypeParams:       bt.TypeParams,
 						TypeParamDefs:    bt.TypeParamDefs,
 						TypeArgs:         args,
-					}, nil
+					}
+					inst.unbuilt = bt.unbuilt.recordInstance(inst)
+					return inst, nil
 				default:
 					return t, nil
 				}

@@ -20,7 +20,7 @@ pub fn number(text: String) -> Maybe<Int> {
 
 /// The number `text` writes, or an `Err` saying what was there instead.
 pub fn parse(text: String) -> Result<Int, Error> {
-    Maybe.to_result(number(text), #Error.NotANumber{text})
+    Maybe.to_result(number(text), .NotANumber{text})
 }
 
 /// The number `text` writes. The caller promises it writes one, and a

@@ -165,7 +165,12 @@ function it holds.
 In a binding position, `_` and a name that starts with a single `_`
 (`_unused`) are discard names. A discard name matches any value and binds
 nothing; `_name` only labels the value for the reader. Read as a value, `_`
-is the error `` `_` is a discard name, not a value ``. A name that starts
+is the error `` `_` is a discard name, not a value ``. That error makes `_`
+a typed hole: where the place it stands in expects a type, its help names
+the type and the values in scope that have it, nearest binding first, as
+in `` as a hole, it stands for a value of type `String` `` and
+`` in scope with that type: `label`, `fallback` ``. A program with a hole
+does not run. A name that starts
 with two underscores (`__x`) is not a discard name; it is an ordinary
 binding.
 
@@ -498,16 +503,20 @@ escape, and a literal with no closing quote on its line.
 
 Taught in [Collections](/collections/).
 
-Every literal of a built-in shape except a list starts with that shape's
-symbol: `#` for the indexed and product shapes (vector, struct, tuple) and
-`%` for the hashed ones (map, set). A type built on a shape writes its name
-right after the symbol. The shape comes from the first token and the token
-after the name, never from what the name declares.
+A named struct is built by its name, with the `{` against it: `Point{x: 1}`,
+as a variant (`Some(1)`) or a distinct type (`UserId(5)`) is built by its
+name. A named tuple, a distinct type over a tuple, is built by its name
+with the elements as arguments: `Pair(1, "x")`. Every other literal of a built-in shape except a list starts with that
+shape's symbol: `#` for the indexed and product shapes (an anonymous struct,
+a tuple, a vector) and `%` for the hashed ones (map, set). A type built on
+one of those shapes writes its name right after the symbol. The shape comes
+from the tokens, never from what the name declares: a name with a `{` on its
+line opens a struct literal, `%Name{` a map literal.
 
 | Shape | Unnamed | Named | Pattern |
 |---|---|---|---|
-| struct | `#{x: 1}` | `#Point{x: 1}`, `#geo.Point{x: 1}`, `#Shape.Circle{radius: 1.0}`, `#.Circle{radius: 1.0}` | `#{x, y}`, `#Point{x, y}`, `#.Circle{radius}` |
-| tuple | `#(a, b)` | `#Pair(1, "x")` | `#(a, b)`, `#Pair(a, b)` |
+| struct | `#{x: 1}` | `Point{x: 1}`, `geo.Point{x: 1}`, `Shape.Circle{radius: 1.0}`, `.Circle{radius: 1.0}` | `#{x, y}`, `Point{x, y}`, `.Circle{radius}` |
+| tuple | `#(a, b)` | `Pair(1, "x")` | `#(a, b)`, `Pair(a, b)` |
 | vector | `#[1, 2]`, `#[]` | `#Path[1, 2]`, `#.Items[1, 2]` | `#[first, ..rest]`, `#[.., last]`, `#Path[a, ..]` |
 | list | `[1, 2]`, `[]` | `Ids[1, 2]`, `.Items[1, 2]` | `[first, ..rest]`, `[a, b]` |
 | map | `%{"k" => v}`, `%{}` | `%Kvs{"k" => 1}`, `%Json.Obj{"k" => v}`, `%.Obj{"k" => v}` | `%{"k" => v}`, `%Kvs{"k" => v}` |
@@ -518,14 +527,22 @@ after the name, never from what the name declares.
   it is a type mismatch. A name that names no type is an error.
 - The std collections have only the unnamed forms. `Vector[1]` and `Set[1]`
   are list literals naming a type that is not a list type, and so errors.
-- `%{` and `%Name{` always open a map literal, and `#{` and `#Name{` a struct
-  literal, so `%Kvs{}` is always the empty map and `#Point{}` always a
+- `%{` and `%Name{` always open a map literal, and `#{` and `Name{` a struct
+  literal, so `%Kvs{}` is always the empty map and `Point{}` always a
   struct built from its field defaults. Where an operand begins, `%{`, `%[`
   and `%Name` start a literal, with no space after the `%`; after an operand,
   `%` is the remainder operator.
-- A plain `{` only opens a block, and a name followed by `{` never starts a
-  literal: `Point{x: 1}`, `.Circle{radius: 1.0}` and `Map{"a" => 1}` are
-  parse errors at the `{`.
+- A plain `{` only opens a block. A name followed by a `{` on its line opens
+  a struct literal or pattern, except at the top of a condition head: the
+  expression after `if` (and the `is` pattern in it) or `case`, up to the `{`
+  of the body. There `Name {` is the name and the body, and a literal is
+  written in parentheses: `case (Point{x: 1}) { ... }`, `if p == (Point{x:
+  1}) { ... }`. A literal written bare there, its `}` followed by the body's
+  `{` on the same line, is
+  `` a struct literal in an `if` or `case` head is written in parentheses ``,
+  whose fix adds them. Inside brackets in a head (`if f(Point{x: 1}) {`) and
+  in the pattern of `if P = e` the name opens the literal as anywhere else.
+  `Map{"a" => 1}` is a parse error that names the map literal `%{...}`.
 - A payload variant and a distinct type over a scalar are calls, not
   literals: `Some(1)`, `.Circle(2.0)`, `UserId(5)`.
 - Map keys are expressions: `%{key => 1}` reads the binding `key`, and a
@@ -967,7 +984,7 @@ struct User {
 }
 
 fn main() {
-    user = #User{name: "Ada", age: 36}
+    user = User{name: "Ada", age: 36}
     dbg user.role // "member"
 }
 ```
@@ -1002,16 +1019,16 @@ of a default, which only spares the caller from writing a value:
 
 #### Construction
 
-A struct literal names each field: `#User{name: "Ada", age: 36}`. A field
-whose value is a binding of the same name may be punned: `#User{name, age}`
-is `#User{name: name, age: age}`, and punned and named fields mix. A struct
+A struct literal names each field: `User{name: "Ada", age: 36}`. A field
+whose value is a binding of the same name may be punned: `User{name, age}`
+is `User{name: name, age: age}`, and punned and named fields mix. A struct
 has no positional construction. The name must be a struct's (or a
-struct-shaped variant's, `#Shape.Rect{...}`): `#Context{}` is `` `Context` is
+struct-shaped variant's, `Shape.Rect{...}`): `Context{}` is `` `Context` is
 a host type, not a struct, so a struct literal cannot build it ``, and an
 enum, a distinct type or an interface is the same error.
 
 A struct literal names each field at most once:
-`#User{name: "Al", name: "Bo"}` is
+`User{name: "Al", name: "Bo"}` is
 `` field 'name' is given twice in this User literal ``, at the second. The
 same holds for an anonymous literal (`this struct literal`), a struct-shaped
 variant (`this Rect literal`), the fields after a spread and a
@@ -1030,8 +1047,8 @@ struct Box<T> {
 
 fn main() {
     b = Box(#{v: 1}) // a Box<Int>
-    dbg b == #Box{v: 1, label: "box"} // True
-    dbg #{v: 2} |> Box() // #Box{v: 2, label: "box"}
+    dbg b == Box{v: 1, label: "box"} // True
+    dbg #{v: 2} |> Box() // Box{v: 2, label: "box"}
 }
 ```
 
@@ -1068,14 +1085,14 @@ fn home() -> Address {
 }
 
 fn main() {
-    ada = #Person{name: "Ada", address: #{street: "3 Main", city: "York"}}
+    ada = Person{name: "Ada", address: #{street: "3 Main", city: "York"}}
     dbg home().zip // "00000"
     dbg ada.address.city // "York"
 }
 ```
 
 The literal follows the ordinary construction rules and builds exactly what
-`#Address{...}` builds. Errors name the struct:
+`Address{...}` builds. Errors name the struct:
 `missing field 'street' of Address`, `field 'city' of Address: expected String, got Int`,
 `Address has no field 'zip'`. An opaque struct is built this way only in its
 defining file.
@@ -1102,9 +1119,9 @@ struct Point {
 }
 
 fn main() {
-    p = #Point{x: 1, y: 2}
-    dbg #{..p, x: 9} // #Point{x: 9, y: 2}
-    dbg Struct.update(p, #{y: 0}) // #Point{x: 1, y: 0}
+    p = Point{x: 1, y: 2}
+    dbg #{..p, x: 9} // Point{x: 9, y: 2}
+    dbg Struct.update(p, #{y: 0}) // Point{x: 1, y: 0}
 }
 ```
 
@@ -1114,7 +1131,7 @@ field:
 - `#{..p}` is `` a struct spread with no fields is its base value; write `p` ``.
 - Two spreads, or a spread after a field, is
   `` struct spread `..` must be the first element ``.
-- A named form, `#Point{..p, x: 1}`, is
+- A named form, `Point{..p, x: 1}`, is
   `` struct spread `..` has no named form; write `#{..base, field: value}` — the spread head carries the type ``.
 
 The result has the base's type: a nominal struct gives that struct, an
@@ -1148,9 +1165,9 @@ struct Person {
 }
 
 fn main() {
-    ada = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath"}}
+    ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
     moved = #{..ada, address: #{.., city: "York"}}
-    dbg moved.address // #Address{street: "1 Main", city: "York"}
+    dbg moved.address // Address{street: "1 Main", city: "York"}
 }
 ```
 
@@ -1282,10 +1299,10 @@ enum Shape {
 
 fn main() {
     a = Shape.Circle(1.0)
-    b = #Shape.Rectangle{height: 3.0}
+    b = Shape.Rectangle{height: 3.0}
     c = Shape.Rectangle(#{width: 1.0, height: 1.0})
     d: Shape = .Point
-    dbg [a, b, c, d] // [Circle(1.0), #Rectangle{width: 2.0, height: 3.0}, #Rectangle{width: 1.0, height: 1.0}, Point]
+    dbg [a, b, c, d] // [Circle(1.0), Rectangle{width: 2.0, height: 3.0}, Rectangle{width: 1.0, height: 1.0}, Point]
 }
 ```
 
@@ -1294,7 +1311,7 @@ A single-payload variant over a tuple also has a flat call:
 (`2 |> Shape.Segment(3)`), and a generic variant's type arguments are
 solved from them. A struct variant has no positional form:
 `Shape.Rectangle(4.0, 5.0)` is
-`` Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with #Shape.Rectangle{...} or Shape.Rectangle(#{...}) ``.
+`` Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with Shape.Rectangle{...} or Shape.Rectangle(#{...}) ``.
 A struct variant's paren pattern matches the anonymous struct of its fields,
 so `.Rectangle(r)` binds that record.
 
@@ -1303,7 +1320,7 @@ A list-, map-, vector- or set-payload variant written as a literal
 arguments from its elements, as an empty one takes them from the expected
 type. A variant lifted into bare scope by an owner selector infers them as
 the qualified spelling does: after `import shapes.Holder.{Items, Of}`,
-`#Of{value: 1}` and `Items[1, 2]` are each a `Holder<Int>`.
+`Of{value: 1}` and `Items[1, 2]` are each a `Holder<Int>`.
 
 A variant's name never takes the place of another name in its file. Since a
 same-file variant is never referenced bare, a variant may share its name
@@ -1315,7 +1332,7 @@ bare spelling means that other name. The variant stays reachable as
 
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#dot-leading-shorthand).
 
-A `.Variant` expression, in any spelling (`.V`, `.V(x)`, `#.V{...}`,
+A `.Variant` expression, in any spelling (`.V`, `.V(x)`, `.V{...}`,
 `.V[...]`, `#.V[...]`, `%.V{...}`), resolves to variant `V` of enum `E` when
 the expected type at its position is `E`. The expected type is the one the
 checker's outside-in walk finds, from the position up to the enclosing
@@ -1350,7 +1367,7 @@ left to right, and each element after the first is checked against the type
 the earlier ones give, when that type holds an enum or a named struct. A
 map's keys and values are two positions. So `[Color.Red, .Green]` is a
 `List<Color>`, `%{Nucleotide.A => 0, .C => 0}` a `Map<Nucleotide, Int>`, and
-`[#Point{x: 0, y: 0}, #{x: 1, y: 2}]` a `List<Point>`. The earlier element's
+`[Point{x: 0, y: 0}, #{x: 1, y: 2}]` a `List<Point>`. The earlier element's
 whole type is what a later one is checked against, so the rule reaches into
 nested literals: `[Some(Color.Red), Some(.Green)]` resolves. An element whose
 type is still open sets nothing and blocks nothing. A tuple's items are separate
@@ -1362,7 +1379,7 @@ diverging arm (`todo`, `return`) gives nothing.
 
 | Site | Resolves? |
 |---|---|
-| `#Box{color: .Red}`, `paint(.Red)` | yes: the field or parameter type |
+| `Box{color: .Red}`, `paint(.Red)` | yes: the field or parameter type |
 | `Iter.sort(xs, .Descending)` | yes: the parameter type; the file need not import it |
 | `palette: List<Color> = [.Red, .Green]` | yes: the annotation |
 | `palette = [Color.Red, .Green]` | yes: the earlier element |
@@ -1430,13 +1447,13 @@ fn area(c: Circle) -> Float {
 
 fn total(s: Shape) -> Float {
     case s {
-        #.Circle{} -> area(s) // s is a Circle in this arm
+        .Circle{} -> area(s) // s is a Circle in this arm
         _ -> 0.0
     }
 }
 
 fn main() {
-    c = #Circle{radius: 1.0}
+    c = Circle{radius: 1.0}
     shapes: List<Shape> = [c, Shape.Point]
     dbg Iter.map(shapes, total) |> Iter.to_list() // [3.0, 0.0]
 }
@@ -1467,7 +1484,7 @@ accepted.
 **Construction through a variant.** `Enum.V` followed by a construction
 takes the forms `V`'s own shape takes and widens the result into the enum:
 
-- A struct, inline or embedded: `#Shape.Circle{radius: 2.0}` and
+- A struct, inline or embedded: `Shape.Circle{radius: 2.0}` and
   `Shape.Circle(#{radius: 2.0})`, prefix or piped, with defaults filling
   omitted fields.
 - An embedded distinct that wraps a value: the distinct's call form,
@@ -1491,7 +1508,7 @@ impls hand an embedded variant to the embedded type's impl.
 
 **Payload shape.** Matching an embedded variant binds:
 
-- for an embedded struct, the struct (`#Shape.Circle{radius}`
+- for an embedded struct, the struct (`Shape.Circle{radius}`
   destructures its fields);
 - for an embedded distinct that wraps a value, the wrapped value
   (`Identifier.UserId(name)` binds the `String`);
@@ -1531,6 +1548,13 @@ type, its representation included. What follows the name decides its kind:
 A `type` declaration has no body. `type Wrap (Int)` is `type Wrap Int`,
 since parentheses only group.
 
+A distinct type may take type parameters after its name, which its inner
+type names: `type Tagged<T> #(String, T)`, `type Ids<T> List<T>`. Its call
+form solves them from the value it wraps, as a generic struct's literal
+does: `Tagged(#("n", 1))` is a `Tagged<Int>`. A zero-sized type takes none:
+`type Marker<T>` is
+``zero-sized `type Marker` takes no type parameters: it has no value for them to describe``.
+
 The wrapped type is the representation, so it cannot contain the type
 itself, directly or through other distinct types: `type L List<L>` is
 `type 'L' is defined in terms of itself`. A recursive type is a struct or an
@@ -1562,9 +1586,10 @@ fn main() {
 The call form takes the one value the type wraps, prefix or piped, checked
 against the wrapped type: `Id("42")` is
 `Id wraps Int, so Id(...) takes an Int; got String`. A distinct over a tuple
-takes its tuple: `Pair(#(1, "x"))`. Its flat call `Pair(1, "x")` is
-`Pair takes one argument, its tuple #(Int, String); got 2`, whose help names
-the literal `#Pair(1, "x")`, and `1 |> Pair("x")` is
+takes its tuple, `Pair(#(1, "x"))`, or the tuple's elements,
+`Pair(1, "x")`. Any other number of arguments is
+`Pair wraps #(Int, String), a tuple of 2 elements; got 3`, and
+`1 |> Pair("x")` is
 `Pair takes the piped value as its only argument, got 1 more`.
 
 A distinct's value is read by destructuring, in any pattern: a binding
@@ -1603,20 +1628,22 @@ A type name is not a conversion, a function or a value:
 A distinct type whose underlying type has a shape literal (tuple, list,
 vector, set, map) has two construction forms: the named literal, from the
 elements, and the call form, from a value of the underlying type. A struct
-has the same two.
+has the same two. A tuple's named literal is a call with the tuple's
+elements as its arguments, so it has no symbol, as a struct's literal has
+none.
 
 | Declaration | Named literal | Call form |
 |---|---|---|
 | `type Id Int` | none | `Id(42)` |
-| `type Pair #(Int, String)` | `#Pair(1, "x")` | `Pair(#(1, "x"))` |
+| `type Pair #(Int, String)` | `Pair(1, "x")` | `Pair(#(1, "x"))` |
 | `type Ids List<Int>` | `Ids[1, 2]` | `Ids(xs)` |
 | `type Path Vector<Int>` | `#Path[1, 2]` | `Path(v)` |
 | `type Tags Set<String>` | `%Tags["a", "b"]` | `Tags(s)` |
 | `type Kvs Map<String, Int>` | `%Kvs{"a" => 1}` | `Kvs(m)` |
-| `struct User` | `#User{name: "Ada"}` | `User(#{name: "Ada"})` |
+| `struct User` | `User{name: "Ada"}` | `User(#{name: "Ada"})` |
 | `type Expired` | `Expired` | `Expired` |
 
-The named literal checks each element: `#Pair("x", 1)` is
+The named literal checks each element: `Pair("x", 1)` is
 `element 1 of Pair: expected Int, got String`, and `Pair(1)` is
 `Pair wraps #(Int, String), got Int`. Patterns mirror construction (§10).
 
@@ -1634,7 +1661,7 @@ functions. These are rejected:
 
 | Outside the defining file | |
 |---|---|
-| `PositiveInt(5)`, `#Date{...}`, `Status.Active` (construction) | rejected |
+| `PositiveInt(5)`, `Date{...}`, `Status.Active` (construction) | rejected |
 | `PositiveInt(n) = p`, a `case` on its variants (destructuring) | rejected |
 | `d.year` (field access) | rejected |
 | `Struct.update(d, #{year: 1})`, `#{..d, year: 1}` (a patch naming a field) | rejected |
@@ -1740,7 +1767,7 @@ fn grow<T>(x: T, n: Int) -> Int {
     if n == 0 {
         0
     } else {
-        grow(#Box{inner: x}, n - 1) // T = Box<T>: an error
+        grow(Box{inner: x}, n - 1) // T = Box<T>: an error
     }
 }
 ```
@@ -1801,7 +1828,17 @@ A value of type `S` may stand where type `T` is expected when:
 
 There is no other implicit conversion (*No Implicit Conversion*).
 
-<!-- OPEN: the checker accepts `y: Maybe<Display> = x` with `x: Maybe<Int>`, and `y: List<Display> = x` with `x: List<Int>`, which the rule here (type arguments compare exactly, except an Iter's element inside a function type) rejects; the IR builder then declines both bodies ("its body is not supported yet"). It also accepts `f: (Iter<Int>) -> Int = count` with `fn count(xs: Iter<Display>) -> Int`, which the rule allows, and the builder declines that too. Decide whether an interface conversion reaches type arguments, then make the checker and the builder agree with the rule. -->
+An interface conversion does not reach a generic type's or a collection's
+type argument: a `Maybe<Int>` is not a `Maybe<Display>`, nor a `List<Int>`
+a `List<Display>`, so `y: Maybe<Display> = x` with `x: Maybe<Int>` is
+`type mismatch: expected Maybe<Display>, got Maybe<Int>`. A value built
+where the container is expected converts each element as it is built:
+`y: Maybe<Display> = Some(1)` and `ys: List<Display> = [1, 2]`. `Iter` is
+the exception, since an `Iter` only hands its elements out: a `List<Int>`
+passes where an `Iter<Display>` is expected, and a `List<List<Int>>` where
+a `List<Iter<Int>>` is. A tuple's elements and a record's fields convert
+as the value does: `#(1, p)` is a `#(Int, Named)` when `p`'s type
+implements `Named`.
 
 A function of type `(P1) -> R1` fits where `(P2) -> R2` is expected when
 each `P2` fits its `P1` and `R1` fits `R2`: parameters are contravariant and
@@ -1995,7 +2032,7 @@ struct User {
 }
 
 fn main() {
-    dbg #User{name: "Ada", age: 36} == #User{name: "Ada", age: 36} // True
+    dbg User{name: "Ada", age: 36} == User{name: "Ada", age: 36} // True
     dbg [1, 2] == [1, 2] // True
     dbg Some(1) == None // False
 }
@@ -2058,7 +2095,7 @@ structural order would depend on field order, so a reordering refactor would
 change it silently. On a struct with no `Comparable`:
 
 ```nomi
-#Point{x: 1, y: 2} < #Point{x: 3, y: 4}
+Point{x: 1, y: 2} < Point{x: 3, y: 4}
 // error: no impl of `Comparable` for `Point` (required via ordering operator `<`)
 // help: add `derive Comparable` to `Point` or write an `impl Comparable for Point` block
 ```
@@ -2127,7 +2164,7 @@ parameters in every body (`boot` and interface defaults included). An
 unread one is an error: `fn f(#(word, count): ...)` that reads only `count`
 is `parameter 'word' is never read`. A value kept on purpose is bound to a
 discard name (§2 *Discard names*). A struct pattern leaves out a field it
-does not need (`#.Suspended{reason}`). An impl function that must keep a
+does not need (`.Suspended{reason}`). An impl function that must keep a
 parameter's name may discard it in its body with `_ = name`. A bodyless
 declaration has nothing to check.
 
@@ -2177,7 +2214,7 @@ struct Money {
 }
 
 impl Money {
-    pub once zero = #Money{cents: 0}
+    pub once zero = Money{cents: 0}
 }
 
 fn main() {
@@ -2317,8 +2354,9 @@ A default is not part of the function's body, so a `?`, `return`, `break`,
 `` `?` cannot be used in the default of parameter 'x': a default has no function to return from ``.
 A lambda's defaults follow the same rule.
 
-Defaults belong to a call of the function by name. A function used as a
-value has its full parameter list, with one exception: where its position
+Defaults fill a call of the function by name, and a call through a local
+name that copies it (below). A function used as a value has its full
+parameter list, with one exception: where its position
 expects a function type with fewer parameters, and each parameter past those
 has a default, the value is the function of its first parameters, and a call
 of it fills the rest from their defaults. That holds at an argument, an
@@ -2340,13 +2378,16 @@ fn main() {
 }
 ```
 
-Bound with nothing expected, the value is the full function, and a call
-through it passes every argument. After `g = parse`, `g("12")` is
-``expected 2 arguments, got 1: `g` holds the function `parse` as a value, and defaults apply only to a call of `parse` by name``.
-A lambda's own defaults and a partial capture's open defaults stay with the
-local name it is bound to and that name's copies (`h = fn x = 1 -> x` is
-called `h()`). A value passed on, taken out of a container or reached other
-than by a local name has none, and a call through it that leaves an
+A `fn` declaration and a lambda bound to a name are two ways to name a
+function, and one rule covers both. A function's defaults, a lambda's own
+and a partial capture's open defaults stay with the name and the local
+names that copy it: after `g = parse`, `g("12")` fills `strict`, and so
+does a copy of a copy, a pipe through it and a closure that captured it,
+as `h()` does after `h = fn x = 1 -> x`. That holds for a module function,
+an owner's (`p = Parser.parse`) and a nested `fn`. A copy has no parameter
+names: `g(s: "12")` is `no parameter named 's'`. A value passed on, taken
+out of a container, bound with a type annotation or reached other than by a
+local name has none, and a call through it that leaves an
 argument out is `expected 2 arguments, got 1`, whose help is
 `a function type's parameters have no defaults; pass every argument`. A
 `once` that holds a lambda or a partial
@@ -2366,7 +2407,7 @@ struct Point {
     y: Int
 }
 
-fn sum(#Point{x, y}) -> Int {
+fn sum(Point{x, y}) -> Int {
     x + y
 }
 
@@ -2375,14 +2416,14 @@ fn add_pair(#(a, b): #(Int, Int)) -> Int {
 }
 
 fn main() {
-    dbg sum(#Point{x: 1, y: 2}) // 3
+    dbg sum(Point{x: 1, y: 2}) // 3
     dbg add_pair(#(3, 4)) // 7
 }
 ```
 
 A pattern whose head names a type gives the parameter that type, and needs
 no annotation, though one is allowed: a distinct `Duration(x)`, a named tuple
-`#Pair(a, b)`, a named struct `#Point{x, y}`, a single-variant enum's
+`Pair(a, b)`, a named struct `Point{x, y}`, a single-variant enum's
 `E.V(x)`. A pattern with no
 type head needs one: a tuple, an anonymous struct pattern (`#{x, y}: Point`),
 a dot-leading variant (`.V(x): E`), and a generic distinct without type
@@ -2491,7 +2532,7 @@ There is no implicit parameter.
 fn main() {
     double = fn x: Int -> x * 2
     dbg double(4) // 8
-    dbg Iter.reduce([1, 2, 3], fn total = 0, x -> total + x) // 6
+    dbg Iter.reduce([1, 2, 3], 0, fn total, x -> total + x) // 6
     dbg Iter.map([#("a", 1)], fn #(_, n) -> n) |> Iter.to_list() // [1]
     dbg (fn -> 7)() // 7
 }
@@ -2508,10 +2549,9 @@ body, indented deeper than the line the lambda starts on, is
 
 A block body's result type comes from its last expression and its `return`
 values, which must agree; a bare `return` gives `Unit`. A lambda parameter's
-default gives its type and its first value; `Iter.loop` and `Iter.reduce`
-read their starting state from it (§13). A lambda parameter without an
-annotation or a default takes its type from the expected function type (§5
-*Lambda parameter types*).
+default gives its type. A lambda parameter without an annotation or a
+default takes its type from the expected function type (§5 *Lambda
+parameter types*).
 
 ### Captures
 
@@ -2523,7 +2563,7 @@ body, which is one of:
 
 - a call: `&Int.max(&1, 0)`, `&Some(&1 + 1)`, `&f(&2, &1)`;
 - a parenthesized expression: `&(&1 > 2)`, `&(&1 * 2 + 1)`, `&(not &1)`;
-- a literal or construction: `&#Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1, 0]`.
+- a literal or construction: `&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1, 0]`.
 
 ```nomi
 fn main() {
@@ -2540,7 +2580,7 @@ the function of the sum is `&(f(&1) + 1)`. Anything else after `&` is
 `&x`, `&f(&1).x` (write `&(f(&1).x)`), `&Int.max` (the function itself is
 `Int.max`). `&not f(&1)` is the error that asks for parentheses, and `& (x)`
 with a space is
-``a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}` ``.
+``a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}` ``.
 
 `&N` is parameter N of the capture around it. `&` and a decimal number from
 1 with no leading zero is one token; `&0` is
@@ -2605,7 +2645,7 @@ whose help names the impls.
 
 Any other capture's parameters have no names and no defaults, except a
 struct literal whose `&N`s are its whole fields, each once, which takes the
-fields' names: after `mk: (Int) -> Point = &#Point{x: &1, y: 0}`, `mk(x: 3)`
+fields' names: after `mk: (Int) -> Point = &Point{x: &1, y: 0}`, `mk(x: 3)`
 works, while `big(lhs: 3)` after `big: (Int) -> Bool = &(&1 > 2)` is
 `no parameter named 'lhs'`.
 
@@ -2615,8 +2655,8 @@ A capture is a function value: nothing in its body runs when it is made,
 and a call evaluates the whole body, as the equivalent lambda does.
 `&(&1 > limit())` calls `limit` on every call. A partial capture's written
 arguments run in its call's order. A capture routes to a trailing callback as
-a lambda does, and it is not a reduction's starting value:
-`Iter.reduce(xs, &(&1 + &2))` is `` `Iter.reduce` needs a starting value ``.
+a lambda does, and it carries no starting value: `Iter.reduce(xs, &(&1 + &2))`
+is `expected 3 arguments, got 2`.
 In `&(&1 > 2) and ready`, nothing expects a function of the capture; the
 function of the whole condition is `&(&1 > 2 and ready)`.
 
@@ -2690,7 +2730,8 @@ fn main() {
   `(#(Int, Int)) -> Shape`. Its flat call is a call form of the one tuple,
   and a partial capture leaves one element open
   (`&Shape.Segment(&1, 0)` is an `(Int) -> Shape`). A distinct over a tuple
-  has the same function and no flat call.
+  is the same: `Pair` is a `(#(Int, String)) -> Pair`, and `Pair(1, "x")`
+  builds one from the elements.
 - A bare variant is a value, not a function: `Shape.Point` is a `Shape`.
 - A struct and a struct-shaped variant are not function values:
   `f = Shape.Rectangle` is
@@ -2717,7 +2758,7 @@ struct User {
 }
 
 fn main() {
-    users = [#User{name: "Ada", age: 36}, #User{name: "Alan", age: 41}]
+    users = [User{name: "Ada", age: 36}, User{name: "Alan", age: 41}]
     dbg users |> Iter.map(.name) |> Iter.to_list() // ["Ada", "Alan"]
     age: (User) -> Int = .age
     dbg Iter.map(users, age) |> Iter.to_list() // [36, 41]
@@ -2808,7 +2849,7 @@ result with nothing done after it. Tail position reaches:
 It does not reach:
 
 - into a lambda, which has its own tail position: in
-  `Iter.reduce(xs, fn acc = 0, x -> f(x))`, the call to `f` is the lambda's
+  `Iter.reduce(xs, 0, fn acc, x -> f(x))`, the call to `f` is the lambda's
   tail, not the outer function's;
 - a default expression, which runs before the body;
 - the operand of `?`, whose result is matched before it returns.
@@ -2897,7 +2938,7 @@ derive ToJson for Game
 derive FromJson for Game
 
 export fn new_game(word: String) -> Game {
-    #Game{word, guesses: []}
+    Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
@@ -2943,7 +2984,8 @@ Values cross as `ToJson` writes them and `FromJson` reads them:
 
 | Nomi | JSON | JavaScript |
 |---|---|---|
-| `Int`, `Float` | number | `number` |
+| `Int` | number, its exact digits at any size | `number`, or a `BigInt` past `Number.MAX_SAFE_INTEGER` |
+| `Float` | number | `number` |
 | `String`, `Bool` | string, boolean | `string`, `boolean` |
 | `List<T>`, `Vector<T>`, `Set<T>` | array | array |
 | `Map<String, V>` | object | object |
@@ -2953,9 +2995,10 @@ Values cross as `ToJson` writes them and `FromJson` reads them:
 | `Unit` (a result only) | nothing | `undefined` |
 
 A `Float` parameter reads a whole number too, since JavaScript writes `2.0`
-as `2`. An `Int` result outside ±2⁵³
-fails the call rather than rounding:
-``the result of `f` holds the Int 9007199254740993, outside ±2^53: a JSON number cannot hold it exactly``.
+as `2`. An `Int` crosses exactly in both directions: the loaders read an
+integer past `Number.MAX_SAFE_INTEGER` from its own digits as a `BigInt`, and
+write a `BigInt` argument as its digits, so `9007199254740993` arrives as
+`9007199254740993n` rather than rounded to `9007199254740992`.
 
 ## 8. Expressions
 
@@ -3029,12 +3072,9 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
 `+`, `-`, `*`, `/` and `%`, and prefix `-`.
 
 - `Int`, `Float` and `Decimal` have `+`, `-`, `*` and prefix `-` over two
-  operands of one type. `Int` and `Float` have `/`. `Int` alone has `%`.
-  <!-- OPEN: Float `%`. `fn f(a: Float, b: Float) -> Float { a % b }` passes
-  `nomi check`, and `f(5.0, 2.0)` traps at run time with `line 2: modulo not
-  supported on floats`; the checker's message for a Byte operand says `%
-  operands must be Int or Float`. Decide whether Float has `%` (and make it
-  work) or the checker refuses it. -->
+  operands of one type. `Int` and `Float` have `/`. `Int` alone has `%`:
+  `a % b` on two Floats is ``modulo is not defined on Float; `%` takes two
+  Int operands``, at the `%`.
 
 - The numeric types never mix. `1 + 2.0`, `1 + 1.50d`, `1 < 2.0` and `1 ==
   1.0` are compile errors (`binary + type mismatch: Int vs Float`, `equality
@@ -3251,7 +3291,7 @@ impl BitwiseOr<Flags, Flags> for Flags {
 ```
 
 `Int.bitwise_and(a, b)` and the other five are the `Int` impls' functions, for
-passing as values (`Iter.reduce(flags, Int.bitwise_or, from: 0)`).
+passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
 
 ### Comparison and equality
 
@@ -3359,7 +3399,7 @@ fn main() {
 - **An `or` pattern goes in parentheses:** `kind is (.Circle or .Square)`. A
   bare `or` after the pattern is the Boolean `or`, so `x is .A or y > 0` is `(x
   is .A) or (y > 0)`. When the right side can only be a pattern (`_`, a
-  `.Variant`, `#.B{...}` or `%.B{...}`), it is the parse error `` this `or`
+  `.Variant`, `.B{...}` or `%.B{...}`), it is the parse error `` this `or`
   joins two Bool values, and a pattern cannot be its right operand: `is` takes
   one pattern ``. When the right side is read as a Bool and is not one, the
   `'or' operands must be Bool` error's help names the parenthesized form.
@@ -3918,7 +3958,7 @@ callback (§13 *Named Functions as Callbacks*).
 
 ```nomi
 fn main() {
-    total = Iter.loop(fn n = 0 -> {
+    total = Iter.loop(0, fn n -> {
         case n {
             3 -> break n
             _ -> n + 1
@@ -3999,8 +4039,8 @@ match a `Float` (write `3.0`).
 ### Variant patterns
 
 A variant pattern names the variant in the dot-leading form (`.Circle`,
-`#.Circle{r}`, `.Some(x)`) or qualified by its enum (`Shape.Circle`,
-`#Shape.Circle{r}`). Its payload pattern is written as the variant is built
+`.Circle{r}`, `.Some(x)`) or qualified by its enum (`Shape.Circle`,
+`Shape.Circle{r}`). Its payload pattern is written as the variant is built
 (§4 *Enums (Algebraic Data Types)*).
 
 ```nomi
@@ -4012,14 +4052,14 @@ enum Shape {
 
 fn area(shape: Shape) -> Float {
     case shape {
-        #.Circle{r} -> 3.14 * r * r
-        #.Rect{w, h} -> w * h
+        .Circle{r} -> 3.14 * r * r
+        .Rect{w, h} -> w * h
         .Point -> 0.0
     }
 }
 
 fn main() {
-    dbg area(#Shape.Rect{w: 2.0, h: 3.0}) // 6.0
+    dbg area(Shape.Rect{w: 2.0, h: 3.0}) // 6.0
 }
 ```
 
@@ -4028,13 +4068,13 @@ fn main() {
 - A qualifier must name the scrutinee's enum, or a module-qualified or imported
   spelling of it. An unknown name is an error (`C6lor.Blue` is `unknown type
   "C6lor"`), and so is another enum, even one with a variant of that name.
-- A bare variant name (`Circle`, `#Circle{r}`, `Items[x, y]`, `%Named{"k" =>
+- A bare variant name (`Circle`, `Circle{r}`, `Items[x, y]`, `%Named{"k" =>
   v}`) is accepted only for a prelude variant (`Ok`, `Err`, `Some`, `None`,
   `True`, `False`) or one an owner selector imports (`import
   shape.Shape.{Circle}`). Otherwise it is the error `bare variant 'Blue' in
   pattern position; use '.Blue' (or 'Color.Blue')`.
 - A variant that carries data is matched with its payload written:
-  `Some(_)`, `Err(_)`, `#.Rect{}`. A bare `Err` is the error `variant Err
+  `Some(_)`, `Err(_)`, `.Rect{}`. A bare `Err` is the error `variant Err
   carries data; pattern needs an explicit payload (e.g. Err(_) or Err(name))`.
   A payload of a type with one value is still data: `Ping(Unit)` is matched as
   `.Ping(_)`. Only an `embeds` of a zero-sized type (`embeds Expired`) is
@@ -4042,7 +4082,7 @@ fn main() {
 
 ### Struct Destructuring
 
-`#Type{field: pattern, ...}` matches a struct. `#{field: pattern, ...}`
+`Type{field: pattern, ...}` matches a struct. `#{field: pattern, ...}`
 matches a struct or an anonymous struct.
 
 ```nomi
@@ -4053,14 +4093,14 @@ struct User {
 
 fn describe(user: User) -> String {
     case user {
-        #User{name: "Alice"} -> "found Alice"
-        #User{name, age} when age > 18 -> "adult: ${name}"
+        User{name: "Alice"} -> "found Alice"
+        User{name, age} when age > 18 -> "adult: ${name}"
         #{age: years} -> "minor of ${years}"
     }
 }
 
 fn main() {
-    dbg describe(#User{name: "Bo", age: 9}) // "minor of 9"
+    dbg describe(User{name: "Bo", age: 9}) // "minor of 9"
 }
 ```
 
@@ -4068,12 +4108,12 @@ fn main() {
 - `field` alone binds the field to a name of the same name, and `field:
   pattern` matches it against the pattern.
 - A written type name must name the value's struct, directly or through a
-  `typealias`. A typed pattern does not match an anonymous struct: `#User{name}
+  `typealias`. A typed pattern does not match an anonymous struct: `User{name}
   = #{name: "Ada"}` is the error `struct pattern names User, but the value is
   the anonymous struct #{name: String}`.
-- A pattern names each field once: `#User{age: 1, age: a}` is `field 'age' is
+- A pattern names each field once: `User{age: 1, age: a}` is `field 'age' is
   given twice in this User pattern`, and an anonymous one says `this struct
-  pattern`. A punned repeat (`#User{age, age}`) also binds `age` twice: ``
+  pattern`. A punned repeat (`User{age, age}`) also binds `age` twice: ``
   `age` is bound twice in one pattern; give each binding its own name ``.
 
 ### Tuple patterns
@@ -4085,7 +4125,7 @@ pattern.
 
 A distinct type's value is matched in the form it is built: `Id(n)` for a
 distinct over a scalar, and for one over a tuple, map, vector or set either the
-named literal pattern (`#Pair(a, b)`, `%Kvs{...}`, `#Path[...]`, `%Tags[...]`)
+named literal pattern (`Pair(a, b)`, `%Kvs{...}`, `#Path[...]`, `%Tags[...]`)
 or the call form (`Pair(#(a, b))`, `Kvs(%{...})`).
 
 ```nomi
@@ -4093,7 +4133,7 @@ type Pair #(Int, String)
 
 fn show(p: Pair) -> String {
     case p {
-        #Pair(a, b) -> "${a}, ${b}"
+        Pair(a, b) -> "${a}, ${b}"
     }
 }
 
@@ -4103,14 +4143,14 @@ fn first(p: Pair) -> Int {
 }
 
 fn main() {
-    dbg show(#Pair(1, "hello")) // "1, hello"
-    dbg first(#Pair(1, "hello")) // 1
+    dbg show(Pair(1, "hello")) // "1, hello"
+    dbg first(Pair(1, "hello")) // 1
 }
 ```
 
 The call form takes one value. For a tuple distinct, `Pair(a)` binds the whole
-tuple to `a`, and the flat `Pair(a, b)` is the error ``Pair takes one value,
-its tuple #(Int, String); a pattern takes it apart with `#Pair(...)` ``.
+tuple to `a`, and `Pair(a, b)`, one pattern per element, takes the tuple apart
+with it.
 
 ### List Destructuring
 
@@ -4308,7 +4348,7 @@ pattern's names are in scope in the condition.
 
 - A guard is a `Bool`: `n when n + 1 -> ...` is the error `` `when` guard must
   be Bool, got Int ``.
-- In a guard, `or` is the Boolean operator: `#.Circle{r} when r < 1.0 or r >
+- In a guard, `or` is the Boolean operator: `.Circle{r} when r < 1.0 or r >
   9.0`.
 - An arm with a guard never counts toward exhaustiveness.
 
@@ -4327,14 +4367,14 @@ enum Shape {
 
 fn describe(shape: Shape) -> String {
     case shape {
-        #.Circle{r} or #.Square{side: r} when r > 10.0 -> "big, ${r} across"
-        #.Circle{r} or #.Square{side: r} -> "${r} across"
+        .Circle{r} or .Square{side: r} when r > 10.0 -> "big, ${r} across"
+        .Circle{r} or .Square{side: r} -> "${r} across"
         .Point -> "a point"
     }
 }
 
 fn main() {
-    dbg describe(#Shape.Square{side: 2.0}) // "2.0 across"
+    dbg describe(Shape.Square{side: 2.0}) // "2.0 across"
 }
 ```
 
@@ -4389,7 +4429,7 @@ fn main() {
 
 - **Scope.** `as` binds looser than every other pattern construct, `or`
   included. It names everything to its left in its position: `Ok(x) as r` binds
-  the whole `Result`, `Ok(#T{kind: .A} as t)` the payload, and `"/u/" + id as
+  the whole `Result`, `Ok(T{kind: .A} as t)` the payload, and `"/u/" + id as
   path` the whole string. `A or B as x` names the value whichever alternative
   matched. To name one alternative, parenthesize it: `.A(n) as a or .B(n)` is
   the parse error ``` an `as` names the whole `or` pattern, so it goes after
@@ -4469,13 +4509,13 @@ fn area(c: Circle) -> Float {
 
 fn describe(value: Shape) -> Float {
     case value {
-        #.Circle{radius: _} -> area(value) // value is a Circle here
+        .Circle{radius: _} -> area(value) // value is a Circle here
         .Point -> 0.0
     }
 }
 
 fn main() {
-    dbg describe(#Circle{radius: 1.0}) // 3.14
+    dbg describe(Circle{radius: 1.0}) // 3.14
 }
 ```
 
@@ -4485,8 +4525,8 @@ fn main() {
   value, lambdas created there included. A name the arm rebinds is a new
   binding.
 - **Where.** A `case` arm, and the first branch of `if Pattern = name`, whose
-  pattern matches one `embeds` variant: `#.Circle{radius}`,
-  `#Shape.Circle{radius: r}`, and `.Id(n)` for an embedded distinct `Id`. An
+  pattern matches one `embeds` variant: `.Circle{radius}`,
+  `Shape.Circle{radius: r}`, and `.Id(n)` for an embedded distinct `Id`. An
   `as` around the pattern narrows the name as it would without the `as`; the
   `as` name keeps the type of its position.
 - An `or` pattern, a struct-shaped or positional variant that is not an
@@ -4540,7 +4580,7 @@ fn main() {
   "reason"` or `todo`; a branch every path of which leaves) or produces a
   fallback. A path that traps binds none of the names.
 - **A fallback** is allowed only when the pattern names one variant with a
-  payload, `Variant(inner)` or `#.Variant{fields}`, whose inner pattern always
+  payload, `Variant(inner)` or `.Variant{fields}`, whose inner pattern always
   matches. The fallback has the payload's type (for a struct-shaped variant,
   the anonymous struct of its fields), and the inner pattern binds from it as
   it would from a match: `Ok(#(w, h)) = r else { #(80, 24) }` binds `w` to 80.
@@ -5100,7 +5140,7 @@ fn tag_of<T>(x: T) -> Int where T: Tagged {
 }
 
 fn main() {
-    dbg tag_of(#Event{tag: 7, name: "start"}) // 7
+    dbg tag_of(Event{tag: 7, name: "start"}) // 7
 }
 ```
 
@@ -5133,7 +5173,7 @@ impl Formatted for User {
 }
 
 fn main() {
-    user = #User{name: "Alice"}
+    user = User{name: "Alice"}
     dbg User.format(user, "pretty") // "User: Alice (pretty)"
     dbg Formatted.format(user, "brief") // "User: Alice (brief)"
 }
@@ -5170,7 +5210,7 @@ take options after `with` and constraints after `where`, `with` first:
 ```nomi
 derive Display for Box<T> where T: Display
 
-derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
 ```
 
 ### Matching an impl to its interface
@@ -5237,7 +5277,7 @@ impl Performer for Dog {
 }
 
 fn main() {
-    rex = #Dog{name: "Rex"}
+    rex = Dog{name: "Rex"}
     dbg Speaker.speak(rex) // "Rex: woof"
     dbg Performer.speak(rex) // "Rex takes a bow"
 }
@@ -5291,7 +5331,7 @@ type parameter is in scope in the whole header and the `where` clause.
 
 ```nomi
 fn step_by<T, S>(r: Range<T>, by: S) -> Iter<T> where T: Comparable and Steppable<S> {
-    #StepByRange{range: r, by}
+    StepByRange{range: r, by}
 }
 
 opaque struct StepByRange<T, S> where T: Comparable {
@@ -5395,7 +5435,7 @@ fn held_by<C, T>(c: C, x: T) -> Bool where C: Holds<T> {
 }
 
 fn main() {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     dbg Box.holds(b, 1) // True: Holds<Int>
     dbg Holds.holds(b, "b") // False: Holds<String>
     dbg held_by(b, "a") // True: the bound at String
@@ -5487,7 +5527,7 @@ impl Multiply<Rate, Decimal> for Decimal {
 }
 
 fn main() {
-    rate = #Rate{per_unit: 4.25d}
+    rate = Rate{per_unit: 4.25d}
     dbg 12.5d * rate // 53.125d
     dbg 2d * 3d // 6d: std's impl
 }
@@ -5559,7 +5599,7 @@ a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
   Through the implementing type or a bounded type parameter every such call is
   accepted.
 - A generic function that instantiates itself at an ever-growing type (`fn
-  grow<T>(x: T)` calling `grow(#Box{inner: x})`) is a compile error at that call
+  grow<T>(x: T)` calling `grow(Box{inner: x})`) is a compile error at that call
   (§4 *Generics*).
 
 ### Display and Debug
@@ -5601,7 +5641,7 @@ Debug`, then `derive Debug`, then the synthesized impl.
 | `host type` | an impl | the bare type name, `T` |
 | interface value | the held value's | the held value's |
 | function or builtin value | none | `<function>` |
-| `Task`, `Sender`, `Receiver` | none | `<task>`, `<channel>` |
+| `Task`, `Sender`, `Receiver`, `Arm` | none | `<task>`, `<channel>`, `<arm>` |
 | `Context` | none | `<context>` |
 | lazy `Iter` (an adapter or constructor result, before materializing) | none | `<iter>` |
 
@@ -5667,8 +5707,8 @@ derive Equatable for Point
 derive Hashable for Point
 
 fn main() {
-    dbg #Point{x: 1, y: 2} == #Point{x: 1, y: 2} // True
-    dbg Hashable.hash(#Point{x: 1, y: 2}) // 33
+    dbg Point{x: 1, y: 2} == Point{x: 1, y: 2} // True
+    dbg Hashable.hash(Point{x: 1, y: 2}) // 33
 }
 ```
 
@@ -5707,24 +5747,24 @@ fn main() {
 | `Equatable` | Field by field with `==`, stopping at the first difference. Enum values are equal when the variants match and then the payloads. |
 | `Hashable` | `Hashable.hash(f0) * 31 + Hashable.hash(f1)`, folded left over the fields with wrapping arithmetic. An enum mixes its variant's declaration index ahead of the payload. |
 | `Comparable` | Lexicographic in field declaration order. An earlier-declared variant is less than a later one, and ties compare the payloads. |
-| `Debug` | The literal shape: `#Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
-| `Display` | `Debug`'s shape with nested strings unquoted: `#C{name: bob}` where `Debug` gives `#C{name: "bob"}`. |
-| `ToJson` | Fields as object keys; a distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `#ToJson.Options{rename_all: ...}` sets the key case. |
-| `FromJson` | The inverse of derived `ToJson`. A missing `Maybe<T>` field is `None` and a missing defaulted field takes its default. A mismatch names the variant and field. `#FromJson.Options{rename_all: ...}` sets the key case. |
+| `Debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
+| `Display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
+| `ToJson` | Fields as object keys; a distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
+| `FromJson` | The inverse of derived `ToJson`. A missing `Maybe<T>` field is `None` and a missing defaulted field takes its default. A mismatch names the variant and field. `FromJson.Options{rename_all: ...}` sets the key case. |
 | `Variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
 
-- The `Hashable` mix collides easily: `Hashable.hash(#Point{x: 0, y: 31}) ==
-  Hashable.hash(#Point{x: 1, y: 0}) == 31`. It is meant for in-process
+- The `Hashable` mix collides easily: `Hashable.hash(Point{x: 0, y: 31}) ==
+  Hashable.hash(Point{x: 1, y: 0}) == 31`. It is meant for in-process
   bucketing.
 - `derive Display` and `derive Debug` give the same output for a type with no
   `String` inside it. Each variant shape renders as follows (`D` is the derived
-  interface applied to the part): a struct as `#T{f1: D(v1), ...}` (`#T{}`
+  interface applied to the part): a struct as `T{f1: D(v1), ...}` (`T{}`
   when empty); a bare variant as its name; a positional variant as `V(D(p0),
   ...)`, with one part per element of a payload declared as a tuple
   (`Node(Leaf(1), Leaf(2))`) and one part otherwise (`Some(#(1, 2))`); a
-  struct-payload variant as `#V{f: D(v), ...}`; an `embeds` variant as the
+  struct-payload variant as `V{f: D(v), ...}`; an `embeds` variant as the
   embedded value's rendering; a distinct primitive as `T(D(inner))`; a distinct
-  tuple as `#T(D(a), D(b))`; a distinct map, vector or set in the call form
+  tuple as `T(D(a), D(b))`; a distinct map, vector or set in the call form
   (`Kvs(%{"a" => 1})`, `Path(#[1, 2])`, `Tags(%["a"])`); a zero-sized distinct
   as its name.
 - `Variants` on anything else is an error at the derive that names the reason:
@@ -5917,7 +5957,7 @@ impl Iter for Countdown {
         if collection.remaining <= 0 {
             True
         } else if yield(collection.remaining) {
-            each_while(#Countdown{remaining: collection.remaining - 1}, yield)
+            each_while(Countdown{remaining: collection.remaining - 1}, yield)
         } else {
             False
         }
@@ -5925,8 +5965,8 @@ impl Iter for Countdown {
 }
 
 fn main() {
-    dbg #Countdown{remaining: 3} |> Iter.map(&(&1 * 10)) |> Iter.to_list() // [30, 20, 10]
-    dbg #Countdown{remaining: 3} |> Iter.sum() // 6
+    dbg Countdown{remaining: 3} |> Iter.map(&(&1 * 10)) |> Iter.to_list() // [30, 20, 10]
+    dbg Countdown{remaining: 3} |> Iter.sum() // 6
 }
 ```
 
@@ -5934,12 +5974,12 @@ fn main() {
 
 Taught in [Iteration and Loops](/iteration-and-loops/#loops-with-iterloop).
 
-`Iter.loop(step)` calls `step` with a state and takes its result as the next
-state, until a `break`. `import std/iter.Iter.{loop}` allows the bare `loop`.
+`Iter.loop(start, step)` calls `step` with a state, `start` first, and takes
+its result as the next state, until a `break`. `import std/iter.Iter.{loop}` allows the bare `loop`.
 
 ```nomi
 fn main() {
-    countdown = Iter.loop(fn n = 5 -> {
+    countdown = Iter.loop(5, fn n -> {
         if n == 0 { break n }
         n - 1
     })
@@ -5951,22 +5991,20 @@ fn main() {
 - **The callback's type is `(S) -> S`.** Its result is the next state.
   `continue` goes round again with the state unchanged, and takes no value
   (§9 *`break` and `continue`*).
-- **The starting state** is the lambda parameter's default (`fn n = 5 -> ...`)
-  or `from:` (`Iter.loop(step, from: 5)`), exactly one of them, as for
-  `Iter.reduce`. It fixes `S`. Neither is ``` `Iter.loop` needs a starting
-  state ```. Both is ``` `Iter.loop` has two starting states: `from:` and the
-  default of the callback's parameter ```, at `from:`. A positional one
-  (`Iter.loop(step, 5)`) is ``` `Iter.loop` takes its starting state by name
-  ```.
+- **The starting state** is `from`, written before the callback:
+  `Iter.loop(5, fn n -> ...)`, `Iter.loop(5, step)`. It fixes `S`. A loop
+  with state and no starting state is ``missing argument for parameter
+  'from'``.
 - **`break value`** ends the loop with `value`, which has type `S`: `break
-  "hello"` in `Iter.loop(fn n = 5 -> ...)` is `break value type mismatch:
+  "hello"` in `Iter.loop(5, fn n -> ...)` is `break value type mismatch:
   expected Int, got String`.
 - **Bare `break`** ends the loop with the state this round started with. A
   binding in the body that shadows the parameter does not change it.
 - **A stateless callback** (`fn -> ...`) has state `Unit`. Its body's result is
   `Unit`, every `break` in it is bare or `break Unit`, and the loop answers
-  `Unit`. `from:` beside it
-  is ``a stateless `Iter.loop` takes no starting state``.
+  `Unit`. The call takes the callback alone, `Iter.loop(fn -> ...)`. A
+  starting state beside it is ``a stateless `Iter.loop` takes no starting
+  state``.
 - `return` in the callback exits the callback.
 - **A loop that never breaks.** A callback with no `break` of its own (a
   `break` inside a nested lambda or `fn` belongs to that callback) never
@@ -6014,7 +6052,7 @@ it.
 | `drop_while` | the drop decision: `break False` emits this element and ends | drops it | ends with nothing more |
 | `flat_map` | this element's expansion, emitted | no output | stops |
 | `scan` | the new state, yielded | yields nothing, keeps the state | ends without yielding |
-| `map_reduce` | `#(output, next_state)`, kept | no output, keeps the state | the outputs and state so far |
+| `map_reduce` | `#(next_state, output)`, kept | no output, keeps the state | the state and outputs so far |
 | `Map.map_values`, `Map.map_keys` | the entry's new value or key | leaves the entry out | the entries made so far |
 | `Iter.loop` | the loop's value | the same state again | the state this round started with |
 
@@ -6048,15 +6086,15 @@ fn sum_valid(total: Int, value: Int) -> Int {
 }
 
 fn main() {
-    dbg Iter.reduce([1, -2, 3], sum_valid, from: 0) // 4
+    dbg Iter.reduce([1, -2, 3], 0, sum_valid) // 4
 }
 ```
 
 Using `break` or `continue` makes a function *iter-sensitive*. It is then used
 in one way only: passed as an iteration callback itself, positional, by name or
 piped (`Iter.map(xs, keep)`, `Iter.find(xs, f: is_big)`, `xs |> Iter.map(keep)`).
-A fold or loop takes its starting value by name: `Iter.reduce(values,
-sum_valid, from: 0)`.
+A fold or loop takes its starting value before the callback:
+`Iter.reduce(values, 0, sum_valid)`.
 
 - Any call of it is an error at the call, since its signal would cross the
   caller: as the whole body of a callback lambda (`fn x -> keep(x)`) or capture
@@ -6065,12 +6103,12 @@ sum_valid, from: 0)`.
   callback. So is naming it as a value (`f = keep`, `[keep]`).
 - The error suggests passing the function, in a call its parameters fit: the
   iteration whose callback holds the call, otherwise `Iter.map` for one
-  parameter, or `Iter.reduce` with `from:` for two whose first parameter's type
+  parameter, or `Iter.reduce` after a starting value for two whose first parameter's type
   is its result's:
 
   ```text
   `keep` uses `continue`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.map(xs, keep)`
-  `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, add_until_zero, from: <start>)`
+  `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, <start>, add_until_zero)`
   ```
 
   Inside a callback the help is ``to decide in this callback instead, return a
@@ -6242,7 +6280,7 @@ These are not re-imports:
 
 Taught in [Modules & Imports](/modules-and-imports/#visibility).
 
-A top-level declaration is private to its file unless it carries `pub`. Other files reach a `pub` declaration through the file's qualifier (`io.print(...)`, `#io.Error.NotFound{...}`) or by importing it by name. Inside the declaring file, its declarations are bare.
+A top-level declaration is private to its file unless it carries `pub`. Other files reach a `pub` declaration through the file's qualifier (`io.print(...)`, `io.Error.NotFound{...}`) or by importing it by name. Inside the declaring file, its declarations are bare.
 
 ```nomi
 pub struct Config {
@@ -6265,7 +6303,27 @@ fn validate(c: Config) -> Bool {
 - **A file qualifier is not a value.** `io` alone, as a statement, a binding's value or an argument, is the error `` `io` is a file, not a value ``.
 - **File API is top-level functions.** A file's `pub fn` and `pub host fn` are reached through its qualifier (`users.find(...)`). A function or `once` declared in an `impl` block is reached through its owner (`Duration.seconds(1)`, `Display.to_string(n)`). A file-qualified spelling of one, `duration.seconds(1)`, is the error `file 'duration' has no member 'seconds'`, whose hint names the owner.
 - **Private names are invisible to other files.** No other file can name a private declaration in any position: a call, a type annotation or type argument, a struct literal or pattern, a variant, an interface bound or `impl` header. A qualified spelling is the error `file 'other' has no member 'Hidden'`, and an import is `'Hidden' is private and cannot be imported`.
-- **A private type may still be a type argument.** A file may pass its own private type to another file's public generic (`other.ident(#Point{x: 1})`). Only the declaring file names the type.
+- **A file's partner test reads its private declarations.** A file named as another file in the same directory with `_test` before `.nomi` (`shapes_test.nomi` for `shapes.nomi`) is that file's partner test, whether or not it declares tests. It may import and name every top-level declaration of its partner as if it were `pub`, and is inside the partner's `opaque` types, so it can construct, destructure and read them. It still imports what it uses, and it publishes none of it: a file importing from `shapes_test` reaches only `shapes_test`'s own `pub` declarations. Any other file, a `_test` file named after no sibling included, gets the errors above. A test of a private function goes in the partner test file, and the function stays private.
+
+```nomi
+// shapes.nomi
+struct Shape {
+    size: Int
+}
+
+fn area(shape: Shape) -> Int {
+    shape.size * shape.size
+}
+
+// shapes_test.nomi
+import shapes.{Shape, area}
+
+test "area" {
+    assert area(Shape{size: 3}) == 9
+}
+```
+
+- **A private type may still be a type argument.** A file may pass its own private type to another file's public generic (`other.ident(Point{x: 1})`). Only the declaring file names the type.
 - **Impl functions follow the interface.** If the interface is `pub`, other files can call an impl's functions; if it is private, they cannot. There is no per-function `pub` in an `impl Iface for Type` block.
 - **No renames at the declaration.** A declaration is published under its own name. An imported item is re-exported under its local name.
 - **`opaque`.** `pub opaque struct`, `pub opaque enum` and `pub opaque type Name Inner` publish the type's name and keep its construction, destructuring and field access private (§4 *Opaque distinct types*). `opaque` on anything else is an error: `'pub opaque' must be followed by 'struct', 'enum', or 'type'`, and on a zero-sized type `` cannot declare 'Marker' as opaque — zero-sized distinct types have no representation to hide ``.
@@ -6292,7 +6350,7 @@ struct Secret {
 }
 
 pub fn leak() -> Secret {
-    #Secret{value: "x"}
+    Secret{value: "x"}
 } // error: function return exposes private type Secret
 ```
 
@@ -6364,11 +6422,11 @@ To choose the status, `main` returns std/process's `Exit` in its `Err`. `Exit` i
 import std/process.Exit
 
 fn run() -> Result<Unit, Exit> {
-    Err(#Exit{code: 2, message: "usage: count <file>"})
+    Err(Exit{code: 2, message: "usage: count <file>"})
 } // as `main`: prints `usage: count <file>` and exits 2
 ```
 
-Only std's `Exit` does this. A program's own type named `Exit` is an ordinary error and prints after `error: `. No function exits on the spot: an `Exit` returned through `?` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(#Exit{code: 2, message: "usage"})`.
+Only std's `Exit` does this. A program's own type named `Exit` is an ordinary error and prints after `error: `. No function exits on the spot: an `Exit` returned through `?` ends the program from anywhere `main` calls. A test checks an exit as a value: `assert main() == Err(Exit{code: 2, message: "usage"})`.
 
 A boot that returns `Err` ends the program the same way, before `main` runs (*Cleanup and boot failure* below). For a boot declared `-> Result<App, Exit>`, supervised tasks drain and boot's deferred calls run before the program exits with the code, so the message prints after them.
 
@@ -6391,7 +6449,7 @@ pub struct Startup {
 }
 ```
 
-Startup is not ambient. Boot passes what helpers need as ordinary arguments, and a test builds one as an ordinary struct (`#Startup{args: ["-v"]}`). The runtime calls a boot that takes no parameter with no arguments, and passes the process's `Startup` to one that takes it. The parameter may have a default, `startup: Startup = #Startup{}`; the runtime always passes the real one, so the default serves only a `group`'s `boot` line that passes none (§17 *Groups*).
+Startup is not ambient. Boot passes what helpers need as ordinary arguments, and a test builds one as an ordinary struct (`Startup{args: ["-v"]}`). The runtime calls a boot that takes no parameter with no arguments, and passes the process's `Startup` to one that takes it. The parameter may have a default, `startup: Startup = Startup{}`; the runtime always passes the real one, so the default serves only a `group`'s `boot` line that passes none (§17 *Groups*).
 
 ```nomi
 import std/io
@@ -6401,7 +6459,7 @@ struct App {
 }
 
 fn boot(startup: Startup) -> Result<App, String> {
-    Ok(#App{name: List.head(startup.args) |> Maybe.with_default("world")})
+    Ok(App{name: List.head(startup.args) |> Maybe.with_default("world")})
 }
 
 fn main() {
@@ -6429,7 +6487,7 @@ The only call of an entry boot is a `group`'s `boot` line (§17 *Groups*). A tes
 
 Taught in [App Fields, Defer & Context](/app-fields/#with-replaces-a-field-for-the-rest-of-the-block).
 
-`with App.field = expr` is a statement that replaces one field from that line to the end of the enclosing block: the extent a `defer` on the same line would have. Every function called in that extent reads the replacement. However the block exits (its end, `return`, `?`, a failure), the previous value comes back. The value must have the field's type, and a `.Variant` value resolves against it. A struct literal needs no parentheses: `with App.store = #FakeStore{}`.
+`with App.field = expr` is a statement that replaces one field from that line to the end of the enclosing block: the extent a `defer` on the same line would have. Every function called in that extent reads the replacement. However the block exits (its end, `return`, `?`, a failure), the previous value comes back. The value must have the field's type, and a `.Variant` value resolves against it. A struct literal needs no parentheses: `with App.store = FakeStore{}`.
 
 Several fields take several lines. Each value is evaluated when its line runs, so a later line reads what an earlier one replaced:
 
@@ -6460,7 +6518,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{greeting: "hello"})
+    Ok(App{greeting: "hello"})
 }
 
 fn greet() -> String {
@@ -6511,7 +6569,7 @@ struct App {
 fn boot(startup: Startup) -> Result<App, String> {
     defer io.print("boot cleanup")
     name = List.head(startup.args) |> Maybe.to_result("pass a name")?
-    Ok(#App{name})
+    Ok(App{name})
 }
 ```
 
@@ -6554,7 +6612,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{context: Context.root()})
+    Ok(App{context: Context.root()})
 }
 
 fn main() {
@@ -6612,10 +6670,8 @@ A task body is a lambda, and an assertion in a lambda is an error (§17 *Asserti
 
 The compiler enforces three rules, which together rule out leaked tasks.
 
-1. **`Task.spawn` runs only inside the dynamic extent of a `concurrent` block.** A function that calls `Task.spawn` may itself be called from inside a block. A spawn that can run outside every block is the error `spawn outside concurrent block`.
-   <!-- OPEN: the spec says a spawn in a helper is fine when the chain bottoms out inside a block, including `Task.spawn(fn -> helper())` where `helper` spawns. The checker accepts that, but the run traps `Task.spawn: no enclosing concurrent block`: a task's body is not itself a task scope at run time. -->
-2. **Every `Task<T>` is awaited.** A task whose handle is never passed to `Task.await` is the error `Task bound to 't' is never awaited`. Discarding the result of an await, `_ = Task.await(t)`, counts. Discarding the handle, `_ = t`, does not, because it skips the wait.
-   <!-- OPEN: `_ = t` on a Task handle is accepted today (no error), against the rule above. -->
+1. **`Task.spawn` runs only inside the dynamic extent of a `concurrent` block.** A function that calls `Task.spawn` may itself be called from inside a block. A spawn that can run outside every block is the error `spawn outside concurrent block`. A task's body runs in its block's extent, so a spawn inside it, directly or through a helper at any depth (`Task.spawn(fn -> helper())` where `helper` spawns), joins that block: the block waits for the task, its failure and cancellation are those of a task spawned in the block's own body, and cancelling the task that spawned it does not cancel it. A `concurrent` block inside a task body is a block of its own.
+2. **Every `Task<T>` is awaited.** A task whose handle is never passed to `Task.await` is the error `Task bound to 't' is never awaited`. Discarding the result of an await, `_ = Task.await(t)`, counts. Discarding the handle, `_ = t`, does not, because it skips the wait: it is the error ``` `_ = t` discards the Task without waiting for it; await it instead: `_ = Task.await(t)` ```.
 3. **A `Task<T>` does not leave its block.** It cannot be returned from the block, sent on a channel, or stored where it outlives the block: `Task<T> cannot escape its enclosing concurrent block`.
 
 ### Errors and cancellation
@@ -6673,7 +6729,7 @@ Taught in [Concurrency](/concurrency/#channels).
 A channel is a typed FIFO queue between tasks, held as two halves. `std/channels` declares `Channel<T>`, a struct of a `Sender<T>` (`ch.sender`) and a `Receiver<T>` (`ch.receiver`). A function that takes one half can use only that direction; nothing at run time keeps the halves apart.
 
 - `Sender.send` returns an `Err` once the channel is closed, and `Receiver.receive` returns `None` once it is closed and drained. Only a `Sender` closes it. [std/channels](/reference/channels/) has the functions.
-- A `send` or `receive` blocked when its context is cancelled unwinds like any cancelled wait.
+- A `send`, `receive` or `select` blocked when its context is cancelled unwinds like any cancelled wait.
 - A channel belongs to no block. It may be made in one block, returned, and used in a later one, and its memory is reclaimed when nothing refers to it.
 
 ```nomi
@@ -6691,7 +6747,7 @@ fn produce(out: Sender<Int>, n: Int) -> Unit {
 }
 
 fn consume(inbox: Receiver<Int>) -> Int {
-    Iter.loop(fn sum: Int = 0 -> {
+    Iter.loop(0, fn sum: Int -> {
         case Receiver.receive(inbox) {
             Some(v) -> sum + v
             None -> break sum
@@ -6716,7 +6772,37 @@ fn main() -> Unit {
 }
 ```
 
-Waiting on several sources through one channel is in [std/channels](/reference/channels/#multiplexing).
+#### Waiting on several channels
+
+`Channel.select(arms)` waits until one of a list of arms can finish, runs that arm's handler and answers its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
+
+```nomi
+import {
+    std/channels.{Arm, Channel}
+    std/duration.Duration
+}
+
+fn main() {
+    inbox = Channel.buffered<String>(1)
+
+    reply = Channel.select([
+        Arm.receive(inbox.receiver, fn message -> Maybe.with_default(message, "closed")),
+        Arm.after(Duration.seconds(0), fn -> "nothing yet"),
+    ])
+
+    dbg reply // "nothing yet"
+}
+```
+
+- **The first listed ready arm wins.** When several arms can finish as the `select` starts, the first one in the list finishes and the others take and send nothing, so a run repeats exactly. An arm that is always ready therefore starves the arms listed after it; a loop that serves several channels fairly rotates its arms. While the `select` waits, the first arm to become ready wins.
+- **Closed channels are ready.** A receive arm on a closed and drained channel finishes at once with `None`, and a send arm on a closed channel with `Err(ChannelClosed)`. So a `select` whose channels are all closed runs its first listed channel arm.
+- **Timers count on the clock in force** from the start of the `select`: under `clock Clock.Virtual` a timer fires as soon as every task is waiting, with no real wait. A timer of zero or less is ready at once, so `Arm.after` of zero listed last makes a `select` that never waits.
+- **An empty list of arms** is the fault `Channel.select: needs at least one arm`.
+- **A waiting `select` is cancellable**: when its context is cancelled it unwinds like any cancelled wait, and no handler runs.
+
+`Receiver.receive_within(receiver, wait)` is the one-channel case: `Ok(Some(value))`, `Ok(None)` when the channel is closed and drained, or `Err(TimedOut)` when `wait` runs out first. A value already waiting is received even when `wait` is zero.
+
+Fan-in from producers that share one message type needs no `select`: they send on one channel of a tagged enum, as [std/channels](/reference/channels/#multiplexing) shows. `select` is for timeouts, sends that must not block, and channels of different types or owners.
 
 ### Supervision
 
@@ -6738,7 +6824,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{
+    Ok(App{
         context: Context.root(),
         audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
     })
@@ -6840,7 +6926,7 @@ import {
 }
 
 group "configured sender" {
-    boot server.boot(#Startup{env: %{"SENDER" => "ada"}})
+    boot server.boot(Startup{env: %{"SENDER" => "ada"}})
 
     test "reads the booted sender" {
         assert App.sender == "ada"
@@ -6921,7 +7007,6 @@ assert "Ada Lovelace"
 
 **`testing.check`.** `testing.check(expr)`, from `std/testing`, takes the subjects `assert` takes and returns `Result<Subject, AssertionFailure>` instead of leaving: `Ok` of the assertion's value, or `Err` of its failure.
 
-<!-- OPEN: `setup testing.check(1 == 2)` in a group whose test is `assert True` passes (`ok main_test.nomi :: g / x`, exit 0), against this rule for a `setup`; a failed `assert` in a setup does fail the test. -->
 **A final `Err(AssertionFailure)` fails the test.** A test body or a `setup` whose final value is `Err(AssertionFailure)` fails with that failure's report. The rule reaches through a final `if`, `case` or block to the arm that ran, and applies to `return value`. A body whose final statement is itself an assertion is judged by the assertion. The body still needs an assertion of its own (*Tests* above).
 
 ```nomi
@@ -6978,7 +7063,7 @@ The rules:
 - `subtests` is a statement whose value is `Unit`, and it fails as an assertion does. In a function that returns `Result<_, AssertionFailure>`, a failure returns `Err(failure)`, whose `keyword` is `"subtests"`, whose `reason` is the count line (`2 of 3 subtests failed`), and whose `subtests` field lists each failed row as a `SubtestFailure` with its `row` and its `failure`. Where an assertion cannot stand, neither can `subtests`: in a function with another result (`` `subtests` can return AssertionFailure, but the enclosing function returns Int ``), in a lambda, in a `once` initializer (`` `subtests` cannot be used in the initializer of `once v`: a `once` has no function to return from ``) or in a default. It cannot be written in a `setup` (`` `subtests` cannot be used in a `setup`: a setup builds the value each test binds ``) or inside another `subtests` body (`` `subtests` cannot be written inside another `subtests` body: each row of the outer statement is one case ``).
 - `subtests` is a keyword only where a statement starts with it, an expression starts on its line, and a comma follows that expression, or after `|>`. Anywhere else it is an ordinary name: `subtests = rows` and a function named `subtests` work.
 
-**Row names.** `subtests rows, pattern, name { body }` names each row. `name` is an expression of type `String`, written after the pattern and a comma, and evaluated once per row after the pattern binds and before the body runs, in the scope of the pattern's bindings. A binding only the name reads counts as used. The name ends where the body's `{` begins, and a struct literal, which starts with `#`, may stand in it (`#Point{x, y} |> Point.describe()`). A `_` or `_`-prefixed name in the pattern discards a column either way.
+**Row names.** `subtests rows, pattern, name { body }` names each row. `name` is an expression of type `String`, written after the pattern and a comma, and evaluated once per row after the pattern binds and before the body runs, in the scope of the pattern's bindings. A binding only the name reads counts as used. The name ends where the body's `{` begins, and a struct literal, which starts with `#`, may stand in it (`Point{x, y} |> Point.describe()`). A `_` or `_`-prefixed name in the pattern discards a column either way.
 
 - A name of another type is `` the name of a `subtests` row must be a String, got Int ``.
 - The name is evaluated on its own, so `return`, `break`, `continue`, `?` and an assertion directly in it are errors, such as `` `?` cannot be used in the name of a `subtests` row: the name is evaluated on its own, before the row runs ``.
@@ -7059,14 +7144,14 @@ pub struct Box {
 
 impl Literal for Box {
     fn from_fragments(fragments: List<Fragment<String>>) -> Box {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
             }
         })
 
-        #Box{contents: body}
+        Box{contents: body}
     }
 }
 

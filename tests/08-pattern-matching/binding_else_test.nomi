@@ -78,14 +78,14 @@ fn port(text: String) -> Result<Int, String> {
 
 fn check(n: Int) -> Check {
     if n > 0 {
-        #Check.Valid{addr: "a${n}", score: n}
+        Check.Valid{addr: "a${n}", score: n}
     } else {
         Check.Invalid("negative")
     }
 }
 
 fn describe(n: Int) -> String {
-    #.Valid{addr, score} = check(n) else {
+    .Valid{addr, score} = check(n) else {
         .Invalid(_) -> #{addr: "unknown", score: 0}
     }
 
@@ -108,7 +108,7 @@ fn sizes(lines: List<String>) -> List<#(Int, Int)> {
 }
 
 fn print_sizes(lines: List<String>) -> Int {
-    Iter.reduce(lines, fn count = 0, line -> {
+    Iter.reduce(lines, 0, fn count, line -> {
         Ok(_) = parse_size(line) else { continue }
         count + 1
     })

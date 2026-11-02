@@ -37,7 +37,7 @@ struct Box<T> {
 
 impl Zero for Box<T> where T: Zero {
     fn zero(n: Int) -> Box<T> {
-        #Box{v: T.zero(n)}
+        Box{v: T.zero(n)}
     }
 }
 
@@ -62,12 +62,12 @@ fn main() {
     io.inspect(deep)
 }
 `
-	irRunSource(t, src, `#Box{v: 1}
-#Box{v: #Box{v: "s2"}}
-#Box{v: #Box{v: 3}}
-[#Box{v: #Box{v: 4}}, #Box{v: #Box{v: 5}}]
-[#Box{v: #Box{v: "s6"}}]
-[#Box{v: "s7"}, #Box{v: "s8"}]
-[#Box{v: #Box{v: 9}}]
+	irRunSource(t, src, `Box{v: 1}
+Box{v: Box{v: "s2"}}
+Box{v: Box{v: 3}}
+[Box{v: Box{v: 4}}, Box{v: Box{v: 5}}]
+[Box{v: Box{v: "s6"}}]
+[Box{v: "s7"}, Box{v: "s8"}]
+[Box{v: Box{v: 9}}]
 `)
 }

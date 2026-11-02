@@ -126,8 +126,5 @@ func TestOldShapeSpellingsAreCheckerErrors(t *testing.T) {
 	}
 	check(`    _ = Vector[1, 2]`, "Vector is not a list-distinct type")
 	check(`    _ = Set[1, 2]`, "Set is not a list-distinct type")
-	check(`    _ = Pair(1, "a")`, "Pair takes one argument, its tuple #(Int, String); got 2")
-	check(`    _ = case p {
-        Pair(n, s) -> n
-    }`, "Pair takes one value, its tuple #(Int, String); a pattern takes it apart with `#Pair(...)`")
+	check(`    _ = Pair(1, "a", 2)`, "Pair wraps #(Int, String), a tuple of 2 elements; got 3")
 }

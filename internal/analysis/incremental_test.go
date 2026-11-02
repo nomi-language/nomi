@@ -292,7 +292,7 @@ var orderEdits = []editStep{
 	restore("signature and import back", "settings"),
 	restore("caller and import back", "main"),
 	appendText("declaration added", "shapes", "\npub fn perimeter(circle: Circle) -> Int {\n    circle.radius * 6\n}\n"),
-	replace("body only, uses a declaration from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(#Circle{radius: 1})}"`),
+	replace("body only, uses a declaration from another file", "report", `"area: ${Shape.area(shape)}"`, `"area: ${Shape.area(shape)} ${shapes.perimeter(Circle{radius: 1})}"`),
 	replace("import added", "report", "    settings.Settings\n", "    settings.Settings\n    shapes\n"),
 	restore("declaration's use and import removed", "report"),
 	restore("declaration removed", "shapes"),
@@ -487,7 +487,7 @@ pub struct Item {
 }
 
 pub fn make(name: String, weight: Int) -> Item {
-    #Item{name: name, weight: util.clamp(weight)}
+    Item{name: name, weight: util.clamp(weight)}
 }
 
 pub fn heavy(item: Item) -> Bool {
@@ -572,7 +572,7 @@ pub struct Tint {
 }
 
 pub fn describe() -> String {
-    Shade.shade(#Tint{level: 2})
+    Shade.shade(Tint{level: 2})
 }
 `,
 	}}
@@ -589,7 +589,7 @@ func rateProject() incrementalProject {
 }
 
 fn main() {
-    r = #Rate{per_unit: 4d}
+    r = Rate{per_unit: 4d}
     io.print(Decimal.to_string(2.5d * r))
     io.print(Bool.to_string(String.contains("x4", r)))
 }
@@ -620,7 +620,7 @@ var rateEdits = []editStep{
 	replace("impl body only", "rate", "lhs * rhs.per_unit", "rhs.per_unit * lhs"),
 	replace("impl header moves the local type to a result", "rate",
 		"impl Multiply<Rate, Decimal> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Rate) -> Decimal {\n        rhs.per_unit * lhs",
-		"impl Multiply<Decimal, Rate> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {\n        #Rate{per_unit: lhs * rhs}"),
+		"impl Multiply<Decimal, Rate> for Decimal {\n    fn multiply(lhs: Decimal, rhs: Decimal) -> Rate {\n        Rate{per_unit: lhs * rhs}"),
 	restore("impl header back", "rate"),
 	replace("impl removed", "rate",
 		"impl Contains<Rate> for String {\n    fn contains(c: String, x: Rate) -> Bool {\n        String.contains(c, Decimal.to_string(x.per_unit))\n    }\n}\n", ""),
@@ -646,7 +646,7 @@ var dispatchEdits = []editStep{
 // appTypeBoot is the entry boot of the corpus project app_field_permission,
 // which makes `Settings`, declared in a file the entry imports, the
 // application type that project's other files read fields of.
-const appTypeBoot = "pub fn boot() -> Result<Settings, String> {\n    Ok(#Settings{context: Context.root(), tag: \"the-real-root\"})\n}\n"
+const appTypeBoot = "pub fn boot() -> Result<Settings, String> {\n    Ok(Settings{context: Context.root(), tag: \"the-real-root\"})\n}\n"
 
 // appTypeEdits remove the entry's boot and put it back. The files that read
 // `Settings.tag` do not import the entry, and what their bodies say turns on
@@ -675,7 +675,7 @@ func signalProject() incrementalProject {
 fn main() {
     io.inspect(Iter.map([1, -2, 3], lib.keep) |> Iter.to_list())
     io.inspect(Iter.map([1, 2], fn x -> lib.score(x) * 2) |> Iter.to_list())
-    Iter.loop(lib.step, from: 0)
+    Iter.loop(0, lib.step)
     io.print(label.text())
 }
 `,
@@ -979,7 +979,7 @@ func TestCheckProgramPrintsWhatTheFrontEndPrints(t *testing.T) {
 	// A derive in an imported file over a field with no impl: the entry's
 	// coherence finds it, and both print it in the file with the derive.
 	deriveElsewhere := incrementalProject{name: "derive in an imported file", entry: "main", texts: map[string]string{
-		"main":  "import {\n    std/io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(#Holder{n: 1, o: #Opaque{f: fn x -> x}})\n}\n",
+		"main":  "import {\n    std/io\n    child.Holder\n}\n\nfn main() {\n    io.inspect(Holder{n: 1, o: Opaque{f: fn x -> x}})\n}\n",
 		"child": "pub struct Opaque {\n    f: (Int) -> Int\n}\n\npub struct Holder {\n    n: Int\n    o: Opaque\n}\n\nderive Equatable for Holder\n",
 	}}
 	for _, p := range append([]incrementalProject{order, withTypeError, deriveElsewhere}, corpus...) {

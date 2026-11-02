@@ -36,7 +36,7 @@ struct Pair<T> {
 }
 
 fn both<T>(n: Int, f: (Int) -> T) -> Pair<T> {
-    #Pair{a: f(n), b: f(n + 1)}
+    Pair{a: f(n), b: f(n + 1)}
 }
 
 impl Decode for Pair<T> where T: Decode {
@@ -62,7 +62,7 @@ impl Show for Pair<T> where T: Show {
 }
 
 fn main() {
-    io.print(Show.show(#Pair{a: 1, b: 2}))
+    io.print(Show.show(Pair{a: 1, b: 2}))
     p: Pair<String> = Decode.decode(3)
     io.inspect(p)
     q: Pair<Int> = Decode.decode(3)
@@ -70,7 +70,7 @@ fn main() {
 }
 `
 	irRunSource(t, src, `i1+i2
-#Pair{a: "#3", b: "#4"}
-#Pair{a: 3, b: 4}
+Pair{a: "#3", b: "#4"}
+Pair{a: 3, b: 4}
 `)
 }

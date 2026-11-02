@@ -51,7 +51,7 @@ func TestFormat_StatementPatternDropsParenthesesItsParseDoesNotNeed(t *testing.T
 		{"fn main() {\n    (#(a, A(b))) = t\n}\n", "fn main() {\n    #(a, A(b)) = t\n}\n"},
 		{"fn main() {\n    (A(a, b)) = t\n}\n", "fn main() {\n    A(a, b) = t\n}\n"},
 		{"fn main() {\n    (.Some(a)) = t\n}\n", "fn main() {\n    .Some(a) = t\n}\n"},
-		{"fn main() {\n    (#P{x}) = t\n}\n", "fn main() {\n    #P{x} = t\n}\n"},
+		{"fn main() {\n    (P{x}) = t\n}\n", "fn main() {\n    P{x} = t\n}\n"},
 		{"fn main() {\n    (#{x: _}) = t\n}\n", "fn main() {\n    #{x: _} = t\n}\n"},
 		{"fn main() {\n    (%{\"k\" => A(a)}) = t\n}\n", "fn main() {\n    %{\"k\" => A(a)} = t\n}\n"},
 		{"fn main() {\n    (%{\"k\" => v}) = m\n}\n", "fn main() {\n    %{\"k\" => v} = m\n}\n"},

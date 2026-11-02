@@ -30,6 +30,11 @@ const (
 	// from run to run (it reads the clock), so a doctest checks it and does
 	// not run it.
 	InfoNoRun = "no-run"
+	// InfoCompileOnly marks a block that must compile but cannot run where
+	// the tour runs it: it listens on a port, or does something else a
+	// browser cannot. A doctest checks that it compiles and never runs it,
+	// and the page shows it as highlighted code with no editor or output.
+	InfoCompileOnly = "compile-only"
 	// InfoManual marks a block whose run is expensive (a tool runs before
 	// it, or it computes a lot), so the tour runs it only when the reader
 	// presses its Run button: on page load its output panel shows the
@@ -59,7 +64,7 @@ type Tool struct {
 }
 
 // infoWords are the words a ```nomi-run fence may carry.
-var infoWords = []string{InfoError, InfoNoRun, InfoManual}
+var infoWords = []string{InfoError, InfoNoRun, InfoCompileOnly, InfoManual}
 
 // InfoWords answers the words a ```nomi-run fence may carry after its
 // language, for a message naming them.
@@ -79,9 +84,15 @@ func (b Block) HasInfo(word string) bool {
 }
 
 // Runs reports whether a doctest runs the block and compares its run's
-// output: it carries neither InfoError nor InfoNoRun.
+// output: it carries none of InfoError, InfoNoRun and InfoCompileOnly.
 func (b Block) Runs() bool {
-	return !b.HasInfo(InfoError) && !b.HasInfo(InfoNoRun)
+	return !b.HasInfo(InfoError) && !b.HasInfo(InfoNoRun) && !b.HasInfo(InfoCompileOnly)
+}
+
+// CompilesOnly reports whether a doctest only compiles the block: it
+// carries InfoNoRun or InfoCompileOnly.
+func (b Block) CompilesOnly() bool {
+	return b.HasInfo(InfoNoRun) || b.HasInfo(InfoCompileOnly)
 }
 
 // UnknownInfo answers the block's info words that are not InfoWords, so a

@@ -14,7 +14,7 @@ pub type Tally
 
 impl Literal for Tally {
     fn from_fragments(fragments: List<Fragment<Int>>) -> Int {
-        Iter.reduce(fragments, fn acc = 0, frag -> {
+        Iter.reduce(fragments, 0, fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + String.length(s)
                 .Dynamic(n) -> acc + n

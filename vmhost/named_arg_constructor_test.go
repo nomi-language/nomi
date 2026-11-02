@@ -38,7 +38,7 @@ fn say(n: Int) -> Int {
 
 fn mk() -> P {
     io.print("mk")
-    #P{x: 1, y: 1}
+    P{x: 1, y: 1}
 }
 
 fn show<T>(x: T) -> String where T: Display {
@@ -53,7 +53,7 @@ fn main() {
     e = Shape.Id(6)
     f = &Some(&1)
     g: Maybe<Int> = 7 |> Some()
-    h = #Two(8, "x")
+    h = Two(8, "x")
     io.print(Debug.inspect(#(a, b, c, d, e, f(9), g, h)))
     p = Struct.update(updates: #{x: say(10)}, original: mk())
     io.print("${p.x} ${p.y}")
@@ -65,7 +65,7 @@ fn main() {
     io.print(show(14))
 }
 `)
-	want := `#(Some(1), Ok(2), Sq(3), Pair(4, 5), Id(6), Some(9), Some(7), #Two(8, "x"))
+	want := `#(Some(1), Ok(2), Sq(3), Pair(4, 5), Id(6), Some(9), Some(7), Two(8, "x"))
 say 10
 mk
 10 1

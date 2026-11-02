@@ -13,7 +13,7 @@ import (
 // (`type Expired`) has no call form: it is its own value, written bare.
 //
 // Tuple-distincts keep checkTupleDistinctArgs, which also takes the flat
-// `#Pair(1, "x")` form. A call with a `&1` placeholder is partial application
+// `Pair(1, "x")` form. A call with a `&1` placeholder is partial application
 // and keeps the ordinary path.
 
 // distinctCtorLabel is how a diagnostic spells the constructor: the callee as
@@ -39,6 +39,7 @@ func distinctCtorLabel(callee ast.Node, dt *DistinctType) string {
 // checkDistinctCtorCall checks `D(args)` for a distinct D called by its type
 // name. Tuple-distincts are routed by the caller.
 func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
+	dt = c.freshDistinct(dt)
 	label := distinctCtorLabel(n.Func, dt)
 	line, col := nodeLineCol(n.Func)
 	if line == 0 {
@@ -57,14 +58,40 @@ func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
 			articleFor(formatTypeForError(dt.Inner)), formatTypeForError(dt.Inner), len(n.Args)))
 		return dt
 	}
-	argTy := c.checkNodeExpecting(n.Args[0], dt.Inner)
+	argTy := c.checkNodeExpecting(n.Args[0], distinctInnerOf(dt))
 	c.checkDistinctInner(n.Args[0], argTy, label, dt)
 	return dt
+}
+
+// freshDistinct is a generic distinct's declaration instantiated with a fresh
+// type variable per type parameter, which the constructor's argument (and
+// the type the construction is expected to have) then solve: `Tagged(#("n",
+// 1))` is a `Tagged<Int>`. A non-generic or already instantiated one is
+// itself.
+func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
+	if len(dt.TypeParamDefs) == 0 || len(dt.TypeArgs) == len(dt.TypeParamDefs) {
+		return dt
+	}
+	args := make([]Type, len(dt.TypeParamDefs))
+	for i := range args {
+		args[i] = c.freshTypeVar()
+	}
+	return &DistinctType{
+		Origin:           dt.Origin,
+		Name:             dt.Name,
+		Inner:            dt.Inner,
+		Opaque:           dt.Opaque,
+		OwningSourceFile: dt.OwningSourceFile,
+		TypeParams:       dt.TypeParams,
+		TypeParamDefs:    dt.TypeParamDefs,
+		TypeArgs:         args,
+	}
 }
 
 // checkPipedDistinctCtor checks `value |> D()`: the piped value is the
 // construction's one argument.
 func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy Type, dt *DistinctType) Type {
+	dt = c.freshDistinct(dt)
 	label := distinctCtorLabel(call.Func, dt)
 	line, col := nodeLineCol(call.Func)
 	if line == 0 {
@@ -96,19 +123,20 @@ func (c *checker) checkDistinctInner(at ast.Node, argTy Type, ctor string, dt *D
 		return
 	}
 	line, col := startOf(at)
-	if ContainsTypeParam(dt.Inner) {
-		if err := c.unify(dt.Inner, argTy, map[*TypeParam_]Type{}); err != nil {
+	inner := distinctInnerOf(dt)
+	if ContainsTypeParam(inner) || containsTypeVar(inner) {
+		if err := c.unify(inner, argTy, map[*TypeParam_]Type{}); err != nil {
 			c.addError(line, col, distinctArgMessage(ctor, dt, argTy))
 		}
 		return
 	}
-	if !c.argMatchesParam(argTy, dt.Inner, c.recPos(line, col), RecordingKindCallSite) {
+	if !c.argMatchesParam(argTy, inner, c.recPos(line, col), RecordingKindCallSite) {
 		c.addError(line, col, distinctArgMessage(ctor, dt, argTy))
 	}
 }
 
 func distinctArgMessage(ctor string, dt *DistinctType, argTy Type) string {
-	inner := formatTypeForError(dt.Inner)
+	inner := formatTypeForError(distinctInnerOf(dt))
 	if ctor == dt.Name {
 		return fmt.Sprintf("%s wraps %s, so %s(...) takes %s %s; got %s",
 			dt.Name, inner, ctor, articleFor(inner), inner, formatTypeForError(argTy))

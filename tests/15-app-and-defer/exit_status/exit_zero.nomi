@@ -7,5 +7,5 @@ import {
 
 fn main() -> Result<Unit, Exit> {
     io.print("nothing to do")
-    Err(#Exit{code: 0, message: "done early"})
+    Err(Exit{code: 0, message: "done early"})
 }

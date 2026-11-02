@@ -92,16 +92,16 @@ test "a row reads every std type, and Maybe of each" {
     assert Row.get<Maybe<Decimal>>(row, "gone") == Ok(None)
 
     assert Row.get<Decimal>(row, "gone")
-        == Err(#sql.Error.UnexpectedNull{query: "SELECT *", column: "gone"})
+        == Err(sql.Error.UnexpectedNull{query: "SELECT *", column: "gone"})
 }
 
 test "a statement is a value: equal when its parts and parameters are" {
     assert Sql"SELECT ${1}" == Sql"SELECT ${1}"
     assert Sql"SELECT ${1}" != Sql"SELECT ${2}"
-    assert Sql"SELECT ${1}" == #Statement{parts: ["SELECT ", ""], params: [Value.Int(1)]}
+    assert Sql"SELECT ${1}" == Statement{parts: ["SELECT ", ""], params: [Value.Int(1)]}
 
     assert Debug.inspect(Sql"SELECT ${1}")
-        == "#Statement{parts: [\"SELECT \", \"\"], params: [Int(1)]}"
+        == "Statement{parts: [\"SELECT \", \"\"], params: [Int(1)]}"
 }
 
 // to_sql then from_sql answers the value it started with.
@@ -193,14 +193,14 @@ test "a row reads by position, from 0" {
 test "a missing column and a position past the end are typed errors" {
     row = user_row()
     query = "SELECT id, name, nickname FROM users"
-    assert Row.get<Int>(row, "age") == Err(#sql.Error.MissingColumn{query, column: "age"})
-    assert Row.value(row, "Name") == Err(#sql.Error.MissingColumn{query, column: "Name"})
+    assert Row.get<Int>(row, "age") == Err(sql.Error.MissingColumn{query, column: "age"})
+    assert Row.value(row, "Name") == Err(sql.Error.MissingColumn{query, column: "Name"})
 
     assert Row.get_position<Int>(row, 3)
-        == Err(#sql.Error.ColumnPosition{query, position: 3, count: 3})
+        == Err(sql.Error.ColumnPosition{query, position: 3, count: 3})
 
     assert Row.value_position(row, -1)
-        == Err(#sql.Error.ColumnPosition{query, position: -1, count: 3})
+        == Err(sql.Error.ColumnPosition{query, position: -1, count: 3})
 }
 
 test "a value of the wrong type is a Decode error naming the column and both types" {
@@ -208,10 +208,10 @@ test "a value of the wrong type is a Decode error naming the column and both typ
     query = "SELECT id, name, nickname FROM users"
 
     assert Row.get<Int>(row, "name")
-        == Err(#sql.Error.Decode{query, column: "name", expected: "Int", found: "Text"})
+        == Err(sql.Error.Decode{query, column: "name", expected: "Int", found: "Text"})
 
     assert Row.get_position<Bool>(row, 0)
-        == Err(#sql.Error.Decode{query, column: "id", expected: "Bool", found: "Int"})
+        == Err(sql.Error.Decode{query, column: "id", expected: "Bool", found: "Int"})
 }
 
 test "NULL read as a type that cannot hold it is UnexpectedNull" {
@@ -219,80 +219,80 @@ test "NULL read as a type that cannot hold it is UnexpectedNull" {
     query = "SELECT id, name, nickname FROM users"
 
     assert Row.get<String>(row, "nickname")
-        == Err(#sql.Error.UnexpectedNull{query, column: "nickname"})
+        == Err(sql.Error.UnexpectedNull{query, column: "nickname"})
 
     assert Row.get_position<String>(row, 2)
-        == Err(#sql.Error.UnexpectedNull{query, column: "nickname"})
+        == Err(sql.Error.UnexpectedNull{query, column: "nickname"})
 }
 
 test "a constraint error keeps the constraint's name" {
-    e = #sql.Error.Constraint{
+    e = sql.Error.Constraint{
         kind: ConstraintKind.Unique,
         name: "users_email_key",
         table: Some("users"),
         column: Some("email"),
     }
 
-    assert #sql.Error.Constraint{name} = e
+    assert sql.Error.Constraint{name} = e
     assert name == "users_email_key"
     assert "${e}" == "unique constraint `users_email_key` on `users.email` failed"
 
     assert Debug.inspect(
         e
-    ) == "#Constraint{kind: Unique, name: \"users_email_key\", table: Some(\"users\"), column: Some(\"email\")}"
+    ) == "Constraint{kind: Unique, name: \"users_email_key\", table: Some(\"users\"), column: Some(\"email\")}"
 }
 
 test "every error displays as a sentence" {
     query = "SELECT 1"
-    assert "${#sql.Error.Connection{message: "refused"}}" == "cannot reach the database: refused"
+    assert "${sql.Error.Connection{message: "refused"}}" == "cannot reach the database: refused"
 
-    assert "${#sql.Error.Constraint{
+    assert "${sql.Error.Constraint{
         kind: .ForeignKey,
         name: "orders_user_id_fkey",
         table: None,
         column: None,
     }}" == "foreign key constraint `orders_user_id_fkey` failed"
 
-    assert "${#sql.Error.Constraint{
+    assert "${sql.Error.Constraint{
         kind: .NotNull,
         name: "c",
         table: None,
         column: Some("email"),
     }}" == "not-null constraint `c` on column `email` failed"
 
-    assert "${#sql.Error.Serialization{
+    assert "${sql.Error.Serialization{
         message: "conflict",
     }}" == "the transaction conflicted with another and was rolled back: conflict"
 
-    assert "${#sql.Error.Database{
+    assert "${sql.Error.Database{
         code: "42P01",
         message: "no such table",
     }}" == "database error 42P01: no such table"
 
-    assert "${#sql.Error.RowCount{
+    assert "${sql.Error.RowCount{
         query,
         expected: "one",
         found: 2,
     }}" == "expected one rows, found 2, from `SELECT 1`"
 
-    assert "${#sql.Error.UnexpectedNull{
+    assert "${sql.Error.UnexpectedNull{
         query,
         column: "n",
     }}" == "column `n` is NULL, from `SELECT 1`"
 
-    assert "${#sql.Error.Decode{
+    assert "${sql.Error.Decode{
         query,
         column: "n",
         expected: "Int",
         found: "Text",
     }}" == "column `n` holds a Text value, not a Int, from `SELECT 1`"
 
-    assert "${#sql.Error.MissingColumn{
+    assert "${sql.Error.MissingColumn{
         query,
         column: "n",
     }}" == "no column named `n` in the row from `SELECT 1`"
 
-    assert "${#sql.Error.ColumnPosition{
+    assert "${sql.Error.ColumnPosition{
         query,
         position: 4,
         count: 1,

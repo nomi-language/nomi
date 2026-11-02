@@ -34,7 +34,7 @@ impl Display for Missing {
 }
 
 fn main() -> Result<Unit, Missing> {
-  Err(#Missing{path: "app.toml", line: 3})
+  Err(Missing{path: "app.toml", line: 3})
 }
 `, "", "error: app.toml is missing (line 3)\n", 1},
 	{"an error type without Display prints its Debug text", `struct Missing {
@@ -43,9 +43,9 @@ fn main() -> Result<Unit, Missing> {
 }
 
 fn main() -> Result<Unit, Missing> {
-  Err(#Missing{path: "app.toml", line: 3})
+  Err(Missing{path: "app.toml", line: 3})
 }
-`, "", "error: #Missing{path: \"app.toml\", line: 3}\n", 1},
+`, "", "error: Missing{path: \"app.toml\", line: 3}\n", 1},
 	{"a try in main leaves with the error", `fn port(text: String) -> Result<Int, String> {
   if text == "" {
     Err("no port given")
@@ -165,7 +165,7 @@ fn boot() -> Result<App, String> {
   defer io.print("first registered, last run")
   defer io.print("last registered, first run")
   p = port("")?
-  Ok(#App{port: p})
+  Ok(App{port: p})
 }
 
 fn main() {
@@ -187,7 +187,7 @@ impl Display for Missing {
 }
 
 fn boot() -> Result<App, Missing> {
-  Err(#Missing{key: "PORT"})
+  Err(Missing{key: "PORT"})
 }
 
 fn main() {
@@ -203,13 +203,13 @@ struct Missing {
 }
 
 fn boot() -> Result<App, Missing> {
-  Err(#Missing{key: "PORT"})
+  Err(Missing{key: "PORT"})
 }
 
 fn main() {
   _ = App.port
 }
-`, "", "error: #Missing{key: \"PORT\"}\n"},
+`, "", "error: Missing{key: \"PORT\"}\n"},
 }
 
 // TestBootErrFailsEveryWayAProgramRuns: `nomi run`, a built executable, and

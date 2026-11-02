@@ -87,7 +87,7 @@ impl Map<K, V> {
     //! assert Map.merge_with(%{"x" => [1]}, %{"x" => [2]}, fn a, b -> a + b) == %{"x" => [1, 2]}
     //
     pub fn merge_with<K, V>(a: Map<K, V>, b: Map<K, V>, combine: (V, V) -> V) -> Map<K, V> {
-        Iter.reduce(b, from: a, fn merged, #(key, value) -> {
+        Iter.reduce(b, a, fn merged, #(key, value) -> {
             case Map.get(a, key) {
                 Some(mine) -> Map.put(merged, key, combine(mine, value))
                 None -> Map.put(merged, key, value)
@@ -98,18 +98,11 @@ impl Map<K, V> {
     /// Changes the value under `key` to `f` of it. When `key` is missing,
     /// `f` is applied to `default`, and the key is added at the end. So
     /// `default` is the value a missing key is taken to have, and counting
-    /// is `Map.update(counts, word, 0, &(&1 + 1))`. Elixir's `Map.update`
+    /// one more is `Map.update(counts, word, 0, &(&1 + 1))`; counting every
+    /// value of an iteration is `Iter.frequencies`. Elixir's `Map.update`
     /// differs: it stores a missing key's default unchanged.
     //! assert Map.update(%{"a" => 1}, "a", 0, &(&1 + 1)) == %{"a" => 2}
     //! assert Map.update(%{"a" => 1}, "b", 0, &(&1 + 1)) == %{"a" => 1, "b" => 1}
-    //!
-    //! tally =
-    //!     ["x", "y", "x"]
-    //!     |> Iter.reduce(fn counts: Map<String, Int> = %{}, word -> {
-    //!         Map.update(counts, word, 0, &(&1 + 1))
-    //!     })
-    //!
-    //! assert tally == %{"x" => 2, "y" => 1}
     //
     pub fn update<K, V>(m: Map<K, V>, key: K, default: V, f: (V) -> V) -> Map<K, V> {
         before = Map.get(m, key) |> Maybe.with_default(default)
@@ -231,7 +224,7 @@ impl Hashable for Map<K, V> where K: Hashable, V: Hashable {
     // it agrees with `==` (which ignores insertion order). Requires Hashable keys
     // and values.
     fn hash(m: Map<K, V>) -> Int {
-        Iter.reduce(m, fn acc = 0, #(k, v) -> {
+        Iter.reduce(m, 0, fn acc, #(k, v) -> {
             Int.wrapping_add(
                 acc,
                 Int.wrapping_add(Int.wrapping_mul(Hashable.hash(k), 31), Hashable.hash(v)),

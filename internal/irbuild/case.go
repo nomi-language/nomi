@@ -88,7 +88,7 @@ func (g *gen) hold(e expr) expr {
 // a member name out of a TypeString.
 //
 // A bare head named through an aliased import (`import shapes.Holder.{Of as
-// O}`, then `#O{value}`) is the variant the alias names: the member is the
+// O}`, then `O{value}`) is the variant the alias names: the member is the
 // declaration's own name, read from the analyzer's reference as
 // variantRefAt reads it for construction.
 func (g *gen) patternHead(te ast.TypeExpr) (owner, member string, ok bool) {

@@ -254,3 +254,55 @@ func (g *gen) distinctCtorRef(ref ast.Node) bool {
 	_, isDistinct := sym.Type.(*analysis.DistinctType)
 	return sym.Kind == analysis.SymbolType && isDistinct
 }
+
+// copiedFuncRef answers the declared function a local name copies, directly
+// or through other copies (`g = parse`, `g2 = g`, `g = Parser.parse`): the
+// name node the first binding of the chain holds, and its spelling. A copy
+// keeps the function's defaults (analysis.calleeCopiesADeclaration), so a
+// call through it that leaves some out calls the function's shorter value,
+// which callFuncValueOf builds as a call by name. nil for any other callee.
+func (g *gen) copiedFuncRef(callee ast.Node) (ast.Node, string) {
+	if g.fa == nil {
+		return nil, ""
+	}
+	fa := g.srcFA()
+	for depth := 0; depth < 8; depth++ {
+		id, ok := callee.(*ast.Ident)
+		if !ok {
+			return nil, ""
+		}
+		sym := fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]
+		if sym == nil || sym.Kind != analysis.SymbolBinding {
+			return nil, ""
+		}
+		b, ok := sym.Node.(*ast.Binding)
+		if !ok || b.Value == nil {
+			return nil, ""
+		}
+		value := b.Value
+		line, col := calleeRefPos(value)
+		ref := fa.References[analysis.Pos{Line: line, Col: col}]
+		for ref != nil && ref.Resolved != nil {
+			ref = ref.Resolved
+		}
+		if ref != nil {
+			switch ref.Node.(type) {
+			case *ast.FuncDef, *ast.ExternFunc, *ast.InterfaceMethod:
+				switch v := value.(type) {
+				case *ast.Ident:
+					return v, v.Name
+				case *ast.FieldAccess:
+					if name, ok := ownerSpelling(v); ok {
+						return v, name
+					}
+					if v.Field != nil {
+						return v, v.Field.Name
+					}
+				}
+				return nil, ""
+			}
+		}
+		callee = value
+	}
+	return nil, ""
+}

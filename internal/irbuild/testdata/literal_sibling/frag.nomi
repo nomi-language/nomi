@@ -36,5 +36,5 @@ pub fn show_int(f: Fragment<Int>) -> String {
 }
 
 pub fn join(fs: List<Fragment<String>>) -> String {
-    Iter.reduce(fs, fn acc = "", f -> acc + "|" + show_string(f))
+    Iter.reduce(fs, "", fn acc, f -> acc + "|" + show_string(f))
 }

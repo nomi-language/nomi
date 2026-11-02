@@ -91,7 +91,7 @@ fn second<H>(h: H) -> String where H: Holds<String> {
 }
 
 fn main() {
-    io.print("${first(#Box{n: 2})} ${second(#Bag{s: "x"})}")
+    io.print("${first(Box{n: 2})} ${second(Bag{s: "x"})}")
 }
 `,
 	}, "2 x\n")
@@ -136,8 +136,8 @@ impl Greets for Shown<T> {
 }
 
 fn main() {
-    io.print(Greets.name(#Wrap{item: 1.5}))
-    io.print(Greets.name(#Shown{item: 7}))
+    io.print(Greets.name(Wrap{item: 1.5}))
+    io.print(Greets.name(Shown{item: 7}))
 }
 `,
 	}, "wrap 1\nshown 7\n")
@@ -174,8 +174,8 @@ struct Shown<T> where T: Display {
 }
 
 fn main() {
-    io.print(Greets.name(#Wrap{item: 1.5}))
-    io.print(Greets.name(#Shown{item: 7}))
+    io.print(Greets.name(Wrap{item: 1.5}))
+    io.print(Greets.name(Shown{item: 7}))
 }
 `)
 	if want := "wrap 1\nshown 7\n"; got != want {

@@ -145,10 +145,10 @@ func TestExprTypes_NestedGenericsSharingAParameterName(t *testing.T) {
   sums = [[1, 2], [3]]
     |> Iter.map(fn xs -> {
       xs
-      |> Iter.reduce(fn a = 0, b -> a + b)
+      |> Iter.reduce(0, fn a, b -> a + b)
     })
     |> Iter.to_list()
-  total = Iter.reduce([1, 2, 3], fn a = 0, b -> a + b)
+  total = Iter.reduce([1, 2, 3], 0, fn a, b -> a + b)
   Iter.count(sums) + total
 }`
 	fa, errs := checkSourceWithStdlib(src)
@@ -212,7 +212,7 @@ func TestExprTypes_GenericCallsInsideGenericFunctions(t *testing.T) {
   xs |> Iter.filter(fn _x -> True) |> Iter.to_list()
 }
 fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T> {
-  Iter.reduce(it, fn _acc: Maybe<T> = None, x -> { break Some(x) })
+  Iter.reduce(it, None, fn _acc: Maybe<T>, x -> { break Some(x) })
 }
 fn demo() -> Int {
   Iter.count(keep([1])) + Maybe.with_default(first([2]), 0)

@@ -125,7 +125,7 @@ fn card(text: String) -> Maybe<Card> {
         digits -> pip_rank(digits)
     }
 
-    Some(#Card{rank: rank?, suit})
+    Some(Card{rank: rank?, suit})
 }
 
 /// The rank of a numbered card, 2 to 10.
@@ -136,7 +136,7 @@ fn pip_rank(digits: String) -> Maybe<Int> {
 }
 
 // FILE: poker_test.nomi
-import poker.{self, Error}
+import poker
 
 test "best hands" {
     [
@@ -309,9 +309,9 @@ test "best hands" {
 
 // Not a canonical case: the canonical hands are all well formed.
 test "a hand with a card that is not a card is refused" {
-    assert poker.best_hands(["4S 5S 7H 8D 1C"]) == Err(Error.InvalidHand("4S 5S 7H 8D 1C"))
-    assert poker.best_hands(["4S 5S 7H 8D JX"]) == Err(Error.InvalidHand("4S 5S 7H 8D JX"))
-    assert poker.best_hands(["4S 5S 7H 8D"]) == Err(Error.InvalidHand("4S 5S 7H 8D"))
+    assert poker.best_hands(["4S 5S 7H 8D 1C"]) == Err(.InvalidHand("4S 5S 7H 8D 1C"))
+    assert poker.best_hands(["4S 5S 7H 8D JX"]) == Err(.InvalidHand("4S 5S 7H 8D JX"))
+    assert poker.best_hands(["4S 5S 7H 8D"]) == Err(.InvalidHand("4S 5S 7H 8D"))
 }
 ```
 <!-- expect

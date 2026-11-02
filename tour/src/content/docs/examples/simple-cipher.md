@@ -31,7 +31,7 @@ pub opaque struct Cipher {
 impl Cipher {
     /// The cipher with `key`, a non-empty string of lowercase letters.
     pub fn new(key: String) -> Cipher {
-        #Cipher{key}
+        Cipher{key}
     }
 
     /// A cipher with a random key of 100 lowercase letters drawn from
@@ -43,7 +43,7 @@ impl Cipher {
             |> Generator.list(random_key_length)
             |> Generator.step(seed)
 
-        #(#Cipher{key: String.from_codepoints(letters)}, next)
+        #(Cipher{key: String.from_codepoints(letters)}, next)
     }
 
     /// The cipher's key.

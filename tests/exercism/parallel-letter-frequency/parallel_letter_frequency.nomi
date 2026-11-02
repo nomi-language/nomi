@@ -17,7 +17,7 @@ pub fn frequency(texts: List<String>) -> Map<String, Int> {
         |> Task.await_all()
     }
 
-    Iter.reduce(counts, &Map.merge_with(&1, &2, Int.add), from: %{})
+    Iter.reduce(counts, %{}, &Map.merge_with(&1, &2, Int.add))
 }
 
 /// How often each letter appears in `text`, ignoring case.

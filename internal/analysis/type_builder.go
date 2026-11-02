@@ -1468,7 +1468,7 @@ func findVariant(et *EnumType, name string) *VariantDef {
 }
 
 func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeError {
-	var errs []TypeError
+	tp, errs := buildSemanticTypeParamsWithWhere(fa, reg, n.TypeParams, nil, fmt.Sprintf("type '%s'", n.Name))
 	// Position-based lookup handles nested decls (not in module scope).
 	sym := fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
 	if sym == nil {
@@ -1477,19 +1477,21 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 
 	dt, ok := reg.Lookup(n.Name).(*DistinctType)
 	if !ok {
-		return nil
+		return errs
 	}
 	// An enum built earlier that embeds dt waits for its inner type, which
 	// is final when this returns, error or not (unbuilt_decl.go).
 	defer distinctBuilt(dt)
+	dt.TypeParams = typeParamNames(n.TypeParams)
+	dt.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
 
 	if n.InnerTypeExpr != nil {
-		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, nil, fa.References)
+		resolved, err := ResolveDeclaredType(n.InnerTypeExpr, reg, tp, fa.References)
 		if err != nil {
 			if te, ok := err.(TypeError); ok {
-				return []TypeError{te}
+				return append(errs, te)
 			}
-			return nil
+			return errs
 		}
 		if path := distinctCycle(dt, resolved); path != nil {
 			// The inner type is left unset, so the type stays a finite

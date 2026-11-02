@@ -371,7 +371,7 @@ impl Float {
     /// infinity and NaN symbols read as infinity and NaN; digits that
     /// overflow to infinity are `OutOfRange`.
     //! assert Float.parse_in("1.234,5", Locale`de`) == Ok(1234.5)
-    //! assert Float.parse_in("1.234,5", Locale`en`) == Err(#NumberParseError.Unexpected{at: 5, text: ","})
+    //! assert Float.parse_in("1.234,5", Locale`en`) == Err(NumberParseError.Unexpected{at: 5, text: ","})
     //! assert Float.parse_in("∞", Locale`en`) == Ok(Float.positive_infinity())
     //! assert Float.parse_in("-∞", Locale`en`) == Ok(Float.negative_infinity())
     //! assert Float.parse_in("1" + String.repeat("0", 400), Locale`en`) == Err(NumberParseError.OutOfRange)
@@ -392,7 +392,7 @@ impl Float {
     //! assert Float.parse_percent_in("%50", Locale`tr`) == Ok(0.5)
     //!
     //! assert Float.parse_percent_in("12.5", Locale`en`)
-    //!     == Err(#NumberParseError.Unexpected{at: 4, text: ""})
+    //!     == Err(NumberParseError.Unexpected{at: 4, text: ""})
     //
     pub fn parse_percent_in(
         text: String,

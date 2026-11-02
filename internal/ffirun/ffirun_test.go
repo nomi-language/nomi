@@ -654,7 +654,7 @@ fn main() {
     r.name != "b"
   })
   io.print("seen ${seen}")
-  bumped = bump(#RawRow{name: "z", count: 1})
+  bumped = bump(RawRow{name: "z", count: 1})
   io.print("${bumped.name} ${bumped.count}")
 }
 `)

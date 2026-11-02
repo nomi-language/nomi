@@ -48,11 +48,11 @@ test "Debug writes the literal as written" {
 test "parse reads text at run time" {
     assert Bits.parse("10x") == Ok(Bits`10x`)
     assert Bits.parse("_") == Err(bits.Error.Empty)
-    assert Bits.parse("1 0") == Err(#bits.Error.Character{index: 1, found: " "})
-    assert Bits.parse("1X") == Err(#bits.Error.Character{index: 1, found: "X"})
-    assert Bits.parse("ab") == Err(#bits.Error.SecondField{index: 1, field: "a", found: "b"})
+    assert Bits.parse("1 0") == Err(bits.Error.Character{index: 1, found: " "})
+    assert Bits.parse("1X") == Err(bits.Error.Character{index: 1, found: "X"})
+    assert Bits.parse("ab") == Err(bits.Error.SecondField{index: 1, field: "a", found: "b"})
     assert Bits.field(Bits.parse("a_a")?, 3) == Some(3)
-    assert Bits.parse("aa1a") == Err(#bits.Error.SplitField{index: 3, field: "a"})
+    assert Bits.parse("aa1a") == Err(bits.Error.SplitField{index: 3, field: "a"})
 }
 
 test "an error says what is wrong with the text" {

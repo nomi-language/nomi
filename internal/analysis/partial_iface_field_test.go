@@ -31,8 +31,8 @@ pub struct Cfg {
 }
 
 fn patch() -> Cfg {
-  base = #Cfg{clock: #FakeClock{t: 1}, port: 80}
-  Struct.update(base, #{clock: #FakeClock{t: 4242}})
+  base = Cfg{clock: FakeClock{t: 1}, port: 80}
+  Struct.update(base, #{clock: FakeClock{t: 4242}})
 }
 `
 
@@ -49,8 +49,8 @@ func TestPartialIfaceField_UpdateAdmitsImplementer(t *testing.T) {
 // two paths — it is measuring a program that is broken for some other reason.
 func TestPartialIfaceField_LiteralControlStillAccepted(t *testing.T) {
 	src := strings.Replace(ifaceFieldSrc,
-		"Struct.update(base, #{clock: #FakeClock{t: 4242}})",
-		"#Cfg{clock: #FakeClock{t: 4242}, port: base.port}", 1)
+		"Struct.update(base, #{clock: FakeClock{t: 4242}})",
+		"Cfg{clock: FakeClock{t: 4242}, port: base.port}", 1)
 	_, errs := checkSourceWithStdlib(src)
 	if len(errs) != 0 {
 		t.Fatalf("the struct-literal control must be clean; got:\n  %s", pifMsgs(errs))
@@ -63,8 +63,8 @@ func TestPartialIfaceField_LiteralControlStillAccepted(t *testing.T) {
 // test and delete the check entirely.
 func TestPartialIfaceField_UpdateRejectsNonImplementer(t *testing.T) {
 	src := strings.Replace(ifaceFieldSrc,
-		"Struct.update(base, #{clock: #FakeClock{t: 4242}})",
-		"Struct.update(base, #{clock: #NoClock{t: 4242}})", 1)
+		"Struct.update(base, #{clock: FakeClock{t: 4242}})",
+		"Struct.update(base, #{clock: NoClock{t: 4242}})", 1)
 	src = strings.Replace(src, "pub struct Cfg {",
 		"pub struct NoClock {\n  t: Int\n}\n\npub struct Cfg {", 1)
 	_, errs := checkSourceWithStdlib(src)
@@ -99,8 +99,8 @@ pub struct Outer {
 }
 
 fn patch() -> Outer {
-  base = #Outer{inner: #Inner{clock: #FakeClock{t: 1}, tag: "a"}, port: 80}
-  Struct.update(base, #{inner: #{.., clock: #FakeClock{t: 4242}}})
+  base = Outer{inner: Inner{clock: FakeClock{t: 1}, tag: "a"}, port: 80}
+  Struct.update(base, #{inner: #{.., clock: FakeClock{t: 4242}}})
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -140,8 +140,8 @@ pub struct Outer {
 }
 
 fn patch() -> Outer {
-  base = #Outer{inner: #Inner{clock: #FakeClock{t: 1}, tag: "a"}, port: 80}
-  Struct.update(base, #{inner: #{.., clock: #NoClock{t: 4242}}})
+  base = Outer{inner: Inner{clock: FakeClock{t: 1}, tag: "a"}, port: 80}
+  Struct.update(base, #{inner: #{.., clock: NoClock{t: 4242}}})
 }
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -189,8 +189,8 @@ pub struct Cfg {
 }
 
 fn patch() -> Cfg {
-  base = #Cfg{clock: #FakeClock{t: 1}, port: 80}
-  Struct.update(base, #{clock: #RealClock{base: 42}})
+  base = Cfg{clock: FakeClock{t: 1}, port: 80}
+  Struct.update(base, #{clock: RealClock{base: 42}})
 }
 `
 	fa, errs := checkSourceWithStdlib(src)

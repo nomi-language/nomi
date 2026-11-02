@@ -253,14 +253,14 @@ dbg line 7: ny == tokyo = True
 The `Disambiguation` argument says which moment to pick:
 
 ```nomi-run
-import std/calendar.{DateTime, Disambiguation, Error, NaiveDateTime}
+import std/calendar.{DateTime, Error, NaiveDateTime}
 
 fn main() -> Result<Unit, Error> {
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
     naive = NaiveDateTime`2026-11-01T01:30:00`
 
-    earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
-    later = DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)?
+    earlier = DateTime.in_zone(naive, "America/New_York", .Earlier)?
+    later = DateTime.in_zone(naive, "America/New_York", .Later)?
 
     // Same wall reading, different offsets, different instants.
     dbg earlier

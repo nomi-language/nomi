@@ -139,7 +139,7 @@ impl Dynamic {
             Ok(inner) ->
                 case sub(inner) {
                     Ok(v) -> Ok(v)
-                    Err(e) -> Err(#Error{
+                    Err(e) -> Err(Error{
                         path: [PathSegment.Field(name), ..e.path],
                         expected: e.expected,
                         got: e.got,
@@ -159,7 +159,7 @@ impl Dynamic {
             Ok(inner) ->
                 case sub(inner) {
                     Ok(v) -> Ok(v)
-                    Err(e) -> Err(#Error{
+                    Err(e) -> Err(Error{
                         path: [PathSegment.Index(i), ..e.path],
                         expected: e.expected,
                         got: e.got,
@@ -212,7 +212,7 @@ impl Display for Error {
                 "<root>"
 
             _ ->
-                Iter.reduce(e.path, fn acc = "", seg -> {
+                Iter.reduce(e.path, "", fn acc, seg -> {
                     case seg {
                         .Field(name) -> if acc == "" { name } else { acc + "." + name }
                         .Index(i) -> acc + "[" + Int.to_string(i) + "]"

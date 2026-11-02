@@ -664,7 +664,7 @@ func TestRunInputClassifies(t *testing.T) {
 		})
 	}
 	// The generator writes no loop but divergingBlock's
-	// `Iter.loop(fn di = ... ->`, which counts to a limit of at most 3, the
+	// `Iter.loop(..., fn di ->`, which counts to a limit of at most 3, the
 	// blocks it fences as bounded (boundedBlock), and no recursion but
 	// recursiveCall's helpers, which walk one of the program's short lists
 	// or a range of at most two numbers. A generated program with neither
@@ -674,7 +674,11 @@ func TestRunInputClassifies(t *testing.T) {
 		if recursiveHelperCalled(g.src) {
 			continue
 		}
-		if mayLoop(strings.ReplaceAll(withoutBoundedBlocks(g.src), "Iter.loop(fn di = ", "bounded(fn di = ")) {
+		src := withoutBoundedBlocks(g.src)
+		for _, start := range []string{"0", "dn"} {
+			src = strings.ReplaceAll(src, "Iter.loop("+start+", fn di ->", "bounded("+start+", fn di ->")
+		}
+		if mayLoop(src) {
 			t.Fatalf("%s: mayLoop says it may loop; the generator writes neither recursion nor loops other than divergingBlock's:\n%s", g.name, g.src)
 		}
 	}

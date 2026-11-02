@@ -408,8 +408,8 @@ const newUsage = "usage: nomi new <module path> [dir]"
 
 // runNew is `nomi new <module path> [dir]`: start a Nomi module in dir
 // (default: a new directory named for the path's last element) with a
-// nomi.toml, a go.mod and a main.nomi that prints hello, keeping a
-// main.nomi already there. It refuses a directory that holds a nomi.toml
+// nomi.toml, a go.mod, a main.nomi that prints hello and an AGENTS.md for
+// coding agents, keeping any of the last two already there. It refuses a directory that holds a nomi.toml
 // or a go.mod, which `nomi init` finishes making a project.
 func runNew(args []string) error {
 	var pos []string
@@ -443,6 +443,7 @@ func runNew(args []string) error {
 		{"nomi.toml", manifestText(name, []string{"main"})},
 		{"go.mod", goModText(path)},
 		{"main.nomi", "import std/io\n\nfn main() {\n    io.print(\"hello\")\n}\n"},
+		{"AGENTS.md", agentsText(name)},
 	}
 	var wrote, kept []string
 	for _, f := range files {
@@ -468,6 +469,28 @@ func runNew(args []string) error {
 	}
 	fmt.Printf("next: %s\n", run)
 	return nil
+}
+
+// agentsText is the AGENTS.md nomi new writes for a coding agent. It names
+// the commands and links the cheat sheet, docs/cheatsheet.md as the site
+// publishes it, rather than holding a copy of its rules.
+func agentsText(name string) string {
+	return "# " + name + "\n\n" +
+		"This is a Nomi project. Nomi is a statically typed language where every value is immutable. " +
+		"It looks like Rust, Go and Elixir in places, and code written from their habits does not compile: " +
+		"there is no `let`, no `x.method()`, and most literals start with `#` or `%`.\n\n" +
+		"Read the cheat sheet before writing Nomi: https://nomi-lang.org/cheatsheet.md. " +
+		"The whole language and standard library are in one file at https://nomi-lang.org/llms-full.txt.\n\n" +
+		"## Commands\n\n" +
+		"- `nomi run main.nomi` runs the program.\n" +
+		"- `nomi test` runs every `test` block under this directory.\n" +
+		"- `nomi check main.nomi` reports errors without running. `--format json` writes them as JSON Lines, with fixes to apply.\n" +
+		"- `nomi fmt -w .` formats every file. The formatter owns layout.\n" +
+		"- `nomi add <module>` adds a dependency. Do not edit `go.mod` by hand.\n\n" +
+		"## Layout\n\n" +
+		"- `nomi.toml` names the module and lists its entry points, the files with a `fn main`.\n" +
+		"- `main.nomi` is the program's entry point.\n" +
+		"- Tests sit beside the code they test, in `test \"name\" { ... }` blocks.\n"
 }
 
 // moduleName is the Nomi module name nomi new gives module path: its last

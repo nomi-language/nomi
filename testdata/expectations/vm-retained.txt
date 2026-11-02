@@ -58,6 +58,7 @@
 02-testing/io_capture_test.nomi:main failure	ran
 02-testing/io_capture_test.nomi:read_words	ran
 02-testing/io_capture_test.nomi:write_n	ran
+02-testing/process_fake_test.nomi:current_branch	ran
 02-testing/setup_semantics_test.nomi:parent_fixture	ran
 02-testing/setup_try_test.nomi:find	ran
 02-testing/setup_try_test.nomi:parse	ran
@@ -745,6 +746,24 @@
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:grown	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:self_pairs	ran
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi:twice	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Debug.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Debug.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Display.to_string	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Handler.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Ids.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Tagged.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Tagged.tag	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Tagged.tag	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.equal	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.equal	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.hash	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.hash	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.inspect	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:Wrap.to_string	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:first	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:value	ran
+10-generics-and-type-wrappers/generic_distinct_test.nomi:value	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.ends	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.first	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Span.first	ran
@@ -1422,6 +1441,11 @@
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:Shape.inspect	ran
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:holder_int	ran
 14-modules-and-packaging/module_qualified_literals/shapes.nomi:ring_radius	ran
+14-modules-and-packaging/partner_test_file/shapes.nomi:Area.inspect	ran
+14-modules-and-packaging/partner_test_file/shapes.nomi:Kind.inspect	ran
+14-modules-and-packaging/partner_test_file/shapes.nomi:Shape.inspect	ran
+14-modules-and-packaging/partner_test_file/shapes.nomi:area	ran
+14-modules-and-packaging/partner_test_file/shapes.nomi:describe	ran
 14-modules-and-packaging/re_export_facade/leaf.nomi:Box.inspect	ran
 14-modules-and-packaging/re_export_facade/leaf.nomi:add	ran
 14-modules-and-packaging/re_export_facade/leaf.nomi:double	ran
@@ -1560,6 +1584,11 @@
 15-app-and-defer/import_vs_app/import_app.nomi:main	ran
 15-app-and-defer/import_vs_app/wallclock.nomi:FakeClock.inspect	ran
 15-app-and-defer/import_vs_app/wallclock.nomi:FakeClock.now	ran
+15-app-and-defer/logging/orders_app.nomi:App.inspect	ran
+15-app-and-defer/logging/orders_app.nomi:boot	ran
+15-app-and-defer/logging/orders_app.nomi:boot failure	ran
+15-app-and-defer/logging/orders_app.nomi:main	ran
+15-app-and-defer/logging/orders_app.nomi:place_order	ran
 15-app-and-defer/with_overrides/app.nomi:App.inspect	ran
 15-app-and-defer/with_overrides/app.nomi:Level.inspect	ran
 15-app-and-defer/with_overrides/app.nomi:boot	ran
@@ -1570,6 +1599,13 @@
 15-app-and-defer/with_overrides/with_overrides_test.nomi:labelled	ran
 15-app-and-defer/with_overrides/with_overrides_test.nomi:labeller	ran
 15-app-and-defer/with_overrides/with_overrides_test.nomi:sequential	ran
+16-concurrency/actor/counter_actor.nomi:App.inspect	ran
+16-concurrency/actor/counter_actor.nomi:Counter.inspect	ran
+16-concurrency/actor/counter_actor.nomi:boot	ran
+16-concurrency/actor/counter_actor.nomi:boot failure	ran
+16-concurrency/actor/counter_actor.nomi:get	ran
+16-concurrency/actor/counter_actor.nomi:handle	ran
+16-concurrency/actor/counter_actor.nomi:main	ran
 16-concurrency/concurrent_diagnostics/test_helpers.nomi:has_diagnostic	ran
 16-concurrency/concurrent_diagnostics/test_helpers.nomi:hover_signature	ran
 16-concurrency/concurrent_runtime_test.nomi:consume	ran
@@ -1588,6 +1624,10 @@
 16-concurrency/message_loop/counter_app.nomi:main	ran
 16-concurrency/message_loop/counter_app.nomi:serve	ran
 16-concurrency/message_loop/counter_app.nomi:start	ran
+16-concurrency/select_test.nomi:fill	ran
+16-concurrency/select_test.nomi:seconds_since	ran
+16-concurrency/select_test.nomi:send_later	ran
+16-concurrency/select_test.nomi:take_rotating	ran
 16-concurrency/supervisors/app.nomi:Config.inspect	ran
 16-concurrency/supervisors/app.nomi:boot	ran
 16-concurrency/supervisors/app.nomi:boot failure	ran
@@ -1953,7 +1993,7 @@
 19-locales/locale_test.nomi:literal Locale`zh-TW` at 51:29 failure	ran
 19-locales/locale_test.nomi:literal Locale`zh-TW` at 51:48 failure	ran
 19-locales/message_functions_test.nomi:arrives	ran
-19-locales/message_functions_test.nomi:literal Currency`EUR` at 33:45 failure	ran
+19-locales/message_functions_test.nomi:literal Currency`EUR` at 33:44 failure	ran
 19-locales/message_functions_test.nomi:literal DateTime`2026-10-20T14:05:00+02:00[Europe/Warsaw]` at 45:14 failure	ran
 19-locales/message_functions_test.nomi:literal Date`2026-10-20` at 34:11 failure	ran
 19-locales/message_functions_test.nomi:literal Locale`de` at 42:23 failure	ran
@@ -1968,59 +2008,59 @@
 19-locales/message_functions_test.nomi:paid	ran
 19-locales/message_functions_test.nomi:plain	ran
 19-locales/message_functions_test.nomi:weekday_and_day	ran
-19-locales/money_test.nomi:literal Currency`BHD` at 20:56 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 164:63 failure	ran
+19-locales/money_test.nomi:literal Currency`BHD` at 20:55 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 164:62 failure	ran
 19-locales/money_test.nomi:literal Currency`BTC:8` at 166:19 failure	ran
-19-locales/money_test.nomi:literal Currency`BTC:8` at 255:11 failure	ran
+19-locales/money_test.nomi:literal Currency`BTC:8` at 254:11 failure	ran
 19-locales/money_test.nomi:literal Currency`BTC:8` at 46:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 10:45 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 10:44 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 126:11 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 214:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 241:11 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 24:59 failure	ran
-19-locales/money_test.nomi:literal Currency`EUR` at 262:55 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 240:11 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 24:58 failure	ran
+19-locales/money_test.nomi:literal Currency`EUR` at 261:54 failure	ran
 19-locales/money_test.nomi:literal Currency`EUR` at 72:11 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 159:58 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 159:57 failure	ran
 19-locales/money_test.nomi:literal Currency`JPY` at 161:19 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 18:57 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 236:52 failure	ran
-19-locales/money_test.nomi:literal Currency`JPY` at 41:54 failure	ran
-19-locales/money_test.nomi:literal Currency`PLN` at 38:40 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 18:56 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 235:52 failure	ran
+19-locales/money_test.nomi:literal Currency`JPY` at 41:53 failure	ran
+19-locales/money_test.nomi:literal Currency`PLN` at 38:39 failure	ran
 19-locales/money_test.nomi:literal Currency`PTS:0` at 57:14 failure	ran
-19-locales/money_test.nomi:literal Currency`USD` at 25:55 failure	ran
-19-locales/money_test.nomi:literal Currency`USD` at 31:40 failure	ran
+19-locales/money_test.nomi:literal Currency`USD` at 25:54 failure	ran
+19-locales/money_test.nomi:literal Currency`USD` at 31:39 failure	ran
 19-locales/money_test.nomi:literal Locale`de-CH` at 16:30 failure	ran
 19-locales/money_test.nomi:literal Locale`de` at 12:30 failure	ran
-19-locales/money_test.nomi:literal Locale`de` at 58:66 failure	ran
+19-locales/money_test.nomi:literal Locale`de` at 58:65 failure	ran
 19-locales/money_test.nomi:literal Locale`en-CA` at 32:30 failure	ran
 19-locales/money_test.nomi:literal Locale`en-CA` at 33:30 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 11:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 20:72 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 20:71 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 217:42 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 220:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 223:38 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 227:36 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 233:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 236:40 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 249:43 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 24:75 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 257:38 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 25:71 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 219:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 222:38 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 226:36 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 232:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 235:40 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 248:43 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 24:74 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 256:38 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 25:70 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 26:35 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 34:30 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 35:30 failure	ran
-19-locales/money_test.nomi:literal Locale`en` at 41:70 failure	ran
+19-locales/money_test.nomi:literal Locale`en` at 41:69 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 53:31 failure	ran
 19-locales/money_test.nomi:literal Locale`en` at 55:31 failure	ran
 19-locales/money_test.nomi:literal Locale`fr` at 14:30 failure	ran
 19-locales/money_test.nomi:literal Locale`ja` at 15:30 failure	ran
-19-locales/money_test.nomi:literal Locale`ja` at 18:73 failure	ran
+19-locales/money_test.nomi:literal Locale`ja` at 18:72 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 13:30 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 215:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 230:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 243:36 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 246:40 failure	ran
-19-locales/money_test.nomi:literal Locale`pl` at 252:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 229:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 242:36 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 245:40 failure	ran
+19-locales/money_test.nomi:literal Locale`pl` at 251:40 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 39:30 failure	ran
 19-locales/money_test.nomi:literal Locale`pl` at 54:31 failure	ran
 19-locales/money_test.nomi:literal Money`-10.05 EUR` at 182:30 failure	ran
@@ -2172,7 +2212,7 @@
 19-locales/shop/locale_load_test.nomi:literal Locale`fr` at 13:24 failure	ran
 19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 11:24 failure	ran
 19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 14:49 failure	ran
-19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 26:46 failure	ran
+19-locales/shop/locale_load_test.nomi:literal Locale`pl` at 26:45 failure	ran
 19-locales/shop/locale_load_test.nomi:literal Locale`pt` at 19:17 failure	ran
 19-locales/shop/order.nomi:has_shipped	ran
 19-locales/shop/order.nomi:in_cart	ran
@@ -2180,9 +2220,9 @@
 19-locales/shop/order.nomi:ships_on	ran
 19-locales/shop/order.nomi:sold_out	ran
 19-locales/shop/order.nomi:watching	ran
-19-locales/shop/order_test.nomi:literal Currency`EUR` at 70:45 failure	ran
-19-locales/shop/order_test.nomi:literal Currency`EUR` at 83:45 failure	ran
-19-locales/shop/order_test.nomi:literal Currency`JPY` at 78:43 failure	ran
+19-locales/shop/order_test.nomi:literal Currency`EUR` at 70:44 failure	ran
+19-locales/shop/order_test.nomi:literal Currency`EUR` at 83:44 failure	ran
+19-locales/shop/order_test.nomi:literal Currency`JPY` at 78:42 failure	ran
 19-locales/shop/order_test.nomi:literal Date`2026-10-20` at 90:15 failure	ran
 19-locales/shop/order_test.nomi:literal Date`2026-10-21` at 91:17 failure	ran
 19-locales/shop/order_test.nomi:literal Date`2026-10-25` at 92:14 failure	ran
@@ -3369,6 +3409,18 @@ exercism/zipper/zipper_test.nomi:apply	ran
 exercism/zipper/zipper_test.nomi:follow	ran
 exercism/zipper/zipper_test.nomi:initial_tree	ran
 exercism/zipper/zipper_test.nomi:leaf	ran
+std/actors.nomi:Actor.call	ran
+std/actors.nomi:Actor.call default 2	ran
+std/actors.nomi:Actor.cast	ran
+std/actors.nomi:Actor.inspect	ran
+std/actors.nomi:Actor.start	ran
+std/actors.nomi:Actor.stop	ran
+std/actors.nomi:CallError.equal	ran
+std/actors.nomi:CallError.inspect	ran
+std/actors.nomi:CallError.to_string	ran
+std/actors.nomi:Reply.inspect	ran
+std/actors.nomi:Reply.send	ran
+std/actors.nomi:serve	ran
 std/bits.nomi:Bits.equal	ran
 std/bits.nomi:Bits.field	ran
 std/bits.nomi:Bits.from_fragments	ran
@@ -3567,6 +3619,63 @@ std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:under	ran
+std/log.nomi:Field.equal	ran
+std/log.nomi:Field.inspect	ran
+std/log.nomi:Level.at_least	ran
+std/log.nomi:Level.equal	ran
+std/log.nomi:Level.inspect	ran
+std/log.nomi:Level.rank	ran
+std/log.nomi:Level.to_string	ran
+std/log.nomi:Logger.discard	ran
+std/log.nomi:Logger.enabled	ran
+std/log.nomi:Logger.inspect	ran
+std/log.nomi:Logger.json	ran
+std/log.nomi:Logger.json default 1	ran
+std/log.nomi:Logger.json default 2	ran
+std/log.nomi:Logger.min	ran
+std/log.nomi:Logger.records	ran
+std/log.nomi:Logger.text	ran
+std/log.nomi:Logger.text default 1	ran
+std/log.nomi:Logger.text default 2	ran
+std/log.nomi:Logger.with_fields	ran
+std/log.nomi:Logger.with_min	ran
+std/log.nomi:Sink.inspect	ran
+std/log.nomi:Value.equal	ran
+std/log.nomi:Value.inspect	ran
+std/log.nomi:any	ran
+std/log.nomi:bool	ran
+std/log.nomi:debug	ran
+std/log.nomi:debug default 3	ran
+std/log.nomi:emit	ran
+std/log.nomi:error	ran
+std/log.nomi:error default 3	ran
+std/log.nomi:float	ran
+std/log.nomi:info	ran
+std/log.nomi:info default 3	ran
+std/log.nomi:int	ran
+std/log.nomi:json_line	ran
+std/log.nomi:json_value	ran
+std/log.nomi:log	ran
+std/log.nomi:log default 4	ran
+std/log.nomi:quoted	ran
+std/log.nomi:record_line	ran
+std/log.nomi:string	ran
+std/log.nomi:text_line	ran
+std/log.nomi:text_value	ran
+std/log.nomi:timestamp	ran
+std/log.nomi:value_kind	ran
+std/log.nomi:warn	ran
+std/log.nomi:warn default 3	ran
+std/log.nomi:write	ran
+std/log_testing.nomi:Logged.inspect	ran
+std/log_testing.nomi:Record.equal	ran
+std/log_testing.nomi:Record.inspect	ran
+std/log_testing.nomi:field	ran
+std/log_testing.nomi:level_named	ran
+std/log_testing.nomi:messages	ran
+std/log_testing.nomi:record	ran
+std/log_testing.nomi:run	ran
+std/log_testing.nomi:run default 1	ran
 std/message.nomi:Argument.equal	ran
 std/message.nomi:Argument.inspect	ran
 std/message.nomi:Catalog.inspect	ran
@@ -3638,7 +3747,7 @@ std/money.nomi:Money.sign	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
 std/money.nomi:literal Currency`XXX` at 319:27 failure	ran
-std/money.nomi:literal Currency`XXX` at 379:53 failure	ran
+std/money.nomi:literal Currency`XXX` at 379:52 failure	ran
 std/path.nomi:base	ran
 std/path.nomi:clean	ran
 std/path.nomi:climb	ran
@@ -3658,9 +3767,57 @@ std/path.nomi:relative	ran
 std/path.nomi:set_items	ran
 std/path.nomi:stem	ran
 std/path.nomi:step	ran
+std/process.nomi:Child.inspect	ran
+std/process.nomi:Child.stderr	ran
+std/process.nomi:Child.stdin	ran
+std/process.nomi:Child.stdout	ran
+std/process.nomi:Child.wait	ran
+std/process.nomi:Command.args default	ran
+std/process.nomi:Command.clear_env default	ran
+std/process.nomi:Command.dir default	ran
+std/process.nomi:Command.env default	ran
+std/process.nomi:Command.inspect	ran
+std/process.nomi:Command.stdin default	ran
 std/process.nomi:Exit.code default	ran
 std/process.nomi:Exit.inspect	ran
 std/process.nomi:Exit.message default	ran
+std/process.nomi:Output.equal	ran
+std/process.nomi:Output.inspect	ran
+std/process.nomi:Status.code	ran
+std/process.nomi:Status.equal	ran
+std/process.nomi:Status.inspect	ran
+std/process.nomi:Status.is_success	ran
+std/process.nomi:Status.to_string	ran
+std/process.nomi:Stdin.inspect	ran
+std/process.nomi:output	ran
+std/process.nomi:run	ran
+std/process.nomi:start	ran
+std/process.nomi:stdin_of	ran
+std/process.nomi:with_spawned	ran
+std/process_testing.nomi:Answer.args default	ran
+std/process_testing.nomi:Answer.code default	ran
+std/process_testing.nomi:Answer.error default	ran
+std/process_testing.nomi:Answer.inspect	ran
+std/process_testing.nomi:Answer.stderr default	ran
+std/process_testing.nomi:Answer.stdout default	ran
+std/process_testing.nomi:Call.args default	ran
+std/process_testing.nomi:Call.dir default	ran
+std/process_testing.nomi:Call.env default	ran
+std/process_testing.nomi:Call.equal	ran
+std/process_testing.nomi:Call.input default	ran
+std/process_testing.nomi:Call.inspect	ran
+std/process_testing.nomi:Ran.inspect	ran
+std/process_testing.nomi:Ran.inspect	ran
+std/process_testing.nomi:Ran.inspect	ran
+std/process_testing.nomi:Ran.inspect	ran
+std/process_testing.nomi:Ran.inspect	ran
+std/process_testing.nomi:Ran.inspect	ran
+std/process_testing.nomi:run	ran
+std/process_testing.nomi:run	ran
+std/process_testing.nomi:run	ran
+std/process_testing.nomi:run	ran
+std/process_testing.nomi:run	ran
+std/process_testing.nomi:run	ran
 std/reverse.nomi:Reverse.compare	ran
 std/reverse.nomi:Reverse.inspect	ran
 std/reverse.nomi:Reverse.of	ran
@@ -3844,6 +4001,56 @@ std/sql_testing.nomi:times_in_order	ran
 std/sql_testing.nomi:times_table	ran
 std/sql_testing.nomi:violation	ran
 std/sql_testing.nomi:with_effect	ran
+std/url.nomi:Place.inspect	ran
+std/url.nomi:Query.add	ran
+std/url.nomi:Query.encode	ran
+std/url.nomi:Query.equal	ran
+std/url.nomi:Query.get	ran
+std/url.nomi:Query.has	ran
+std/url.nomi:Query.hash	ran
+std/url.nomi:Query.inspect	ran
+std/url.nomi:Query.parse	ran
+std/url.nomi:Query.remove	ran
+std/url.nomi:Query.set	ran
+std/url.nomi:Query.to_string	ran
+std/url.nomi:Query.values	ran
+std/url.nomi:Url.equal	ran
+std/url.nomi:Url.escaped_fragment	ran
+std/url.nomi:Url.escaped_path	ran
+std/url.nomi:Url.from_fragments	ran
+std/url.nomi:Url.hash	ran
+std/url.nomi:Url.hostname	ran
+std/url.nomi:Url.inspect	ran
+std/url.nomi:Url.is_absolute	ran
+std/url.nomi:Url.join_path	ran
+std/url.nomi:Url.parse	ran
+std/url.nomi:Url.parse_request_uri	ran
+std/url.nomi:Url.port	ran
+std/url.nomi:Url.query_values	ran
+std/url.nomi:Url.redacted	ran
+std/url.nomi:Url.request_uri	ran
+std/url.nomi:Url.resolve	ran
+std/url.nomi:Url.resolve_text	ran
+std/url.nomi:Url.to_string	ran
+std/url.nomi:Url.with_query	ran
+std/url.nomi:UrlError.equal	ran
+std/url.nomi:UrlError.inspect	ran
+std/url.nomi:UrlError.to_string	ran
+std/url.nomi:Userinfo.equal	ran
+std/url.nomi:Userinfo.hash	ran
+std/url.nomi:Userinfo.inspect	ran
+std/url.nomi:Userinfo.to_string	ran
+std/url.nomi:escape_path_segment	ran
+std/url.nomi:escape_query	ran
+std/url.nomi:flag	ran
+std/url.nomi:from_parts	ran
+std/url.nomi:maybe_text	ran
+std/url.nomi:pairs_of	ran
+std/url.nomi:place_after	ran
+std/url.nomi:query_from_text	ran
+std/url.nomi:to_parts	ran
+std/url.nomi:unescape_path_segment	ran
+std/url.nomi:unescape_query	ran
 std/uuid.nomi:Error.equal	ran
 std/uuid.nomi:Error.inspect	ran
 std/uuid.nomi:Error.to_string	ran

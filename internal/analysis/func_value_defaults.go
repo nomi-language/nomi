@@ -13,13 +13,12 @@ import (
 // Bool) -> Maybe<Int>`, and where a `(String) -> Maybe<Int>` is expected it is
 // that function, whose call fills `strict` (spec §7, *Default Arguments*:
 // "Defaults fill a function value only where a shorter type is expected";
-// defaultFilledFuncValue). Bound or passed with nothing expected, it keeps
-// every parameter, and a call through the value passes every argument:
-// after `g = parse`, `g("1")` is an error. A capture or lambda that calls it states which arguments the
-// defaults fill. A lambda's own defaults and a partial's open defaults belong
-// to the name the value is bound to and its copies: a call through any other
-// value with no declaration behind it passes every argument (checkCall,
-// calleeIsNamelessValue, calleeCopiesADeclaration).
+// defaultFilledFuncValue). Its defaults, a lambda's own and a partial's open
+// ones belong to the name and its local copies: after `g = parse`, `g("1")`
+// fills `strict`, as `h()` does after `h = fn x = 1 -> x`. A call through any
+// other value with no declaration behind it (a parameter, a field, a list
+// element, a `once`) passes every argument (checkCall, calleeIsNamelessValue,
+// calleeCopiesADeclaration).
 
 // defaultFilledFuncValue is the type of node, a named function checked as a
 // value of type ty where expected is expected: when expected is a function
@@ -131,92 +130,6 @@ func (c *checker) namedFuncParams(node ast.Node) ([]ast.Param, bool) {
 		return def.Params, true
 	}
 	return nil, false
-}
-
-// funcValueType is the type of node, a name checked in value position. A
-// named function's type carries its defaults so that a call of it by name may
-// omit them; named as a value it is the function with its full parameter
-// list, so a call through that value (`g = parse`, then `g("ab")`) passes
-// every argument. The callee of a direct call keeps them.
-func (c *checker) funcValueType(node ast.Node, ty Type) Type {
-	ft, ok := ty.(*FuncType)
-	if !ok || ft.DefaultCount == 0 || node == c.calleeNode || node == c.qualifierNode {
-		return ty
-	}
-	if _, named := c.namedFuncParams(node); !named {
-		return ty
-	}
-	whole := *ft
-	whole.DefaultCount = 0
-	return &whole
-}
-
-// heldFuncDefaults finds the named function a call's callee holds as a value,
-// when that function has defaults: `g` in `g("ab")` after `g = parse`,
-// through a chain of bindings (`h = g`). It answers the callee's and the
-// function's spelling and the function's parameters, or ok false.
-func (c *checker) heldFuncDefaults(callee ast.Node) (holder, name string, params []ast.Param, ok bool) {
-	holder = funcValueName(ungroupExpr(callee))
-	if holder == "" {
-		return "", "", nil, false
-	}
-	node := ungroupExpr(callee)
-	for depth := 0; depth < maxPartialChain; depth++ {
-		sym, found := c.callFuncSym(node)
-		if !found || sym.Kind == SymbolParam {
-			return "", "", nil, false
-		}
-		b, isBinding := sym.Node.(*ast.Binding)
-		if !isBinding || b.Value == nil {
-			return "", "", nil, false
-		}
-		node = ungroupExpr(b.Value)
-		ps, named := c.namedFuncParams(node)
-		if !named {
-			continue
-		}
-		name = funcValueName(node)
-		for _, p := range ps {
-			if p.Default != nil && name != "" {
-				return holder, name, ps, true
-			}
-		}
-		return "", "", nil, false
-	}
-	return "", "", nil, false
-}
-
-// tooFewThroughFuncValue reports a call given too few arguments through a
-// value that holds a named function with defaults, saying that the defaults
-// apply only to a call of the function by name and naming the lambda to bind
-// instead. It reports nothing and answers false for any other call.
-func (c *checker) tooFewThroughFuncValue(call *ast.Call, want, got int, piped bool) bool {
-	if got >= want {
-		return false
-	}
-	holder, name, params, ok := c.heldFuncDefaults(call.Func)
-	if !ok {
-		return false
-	}
-	counting := ""
-	if piped {
-		counting = " (counting the piped value)"
-	}
-	args := make([]string, got)
-	for i := range args {
-		if i < len(params) && params[i].Destructure == nil && params[i].Name != "" && params[i].Name != "_" {
-			args[i] = params[i].Name
-		} else {
-			args[i] = string(rune('a' + i))
-		}
-	}
-	list := strings.Join(args, ", ")
-	c.report(errAt(call, fmt.Sprintf(
-		"expected %d arguments, got %d%s: `%s` holds the function `%s` as a value, and defaults apply only to a call of `%s` by name",
-		want, got, counting, holder, name, name)).WithHint(fmt.Sprintf(
-		"call `%s` directly, or bind a lambda that leaves the rest to its defaults: `%s = fn %s -> %s(%s)`",
-		name, holder, list, name, list)))
-	return true
 }
 
 // funcValueName spells a function named as a value (`parse`,

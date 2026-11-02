@@ -4,7 +4,7 @@ import std/io
 // STRUCT pattern over a NAMED struct, and a TUPLE pattern.
 //
 // testdata/fn_destructure.nomi and fn_destructure_variant.nomi cover the shapes
-// that already lowered: a distinct `Meters(m)`, a typed `#Point{x, y}`, and a
+// that already lowered: a distinct `Meters(m)`, a typed `Point{x, y}`, and a
 // single-variant enum in both its tuple and brace spellings. The two here
 // reached lambda.go's refusals instead:
 //
@@ -60,7 +60,7 @@ type Dur Int
 
 // The typed-struct spelling. Lowers already; here so the pair is visible and so
 // a "fix" that moved it onto a different answer is caught.
-fn typed(#Point{x, y}) -> Int {
+fn typed(Point{x, y}) -> Int {
     x * 100 + y
 }
 
@@ -134,23 +134,23 @@ fn between(k: Int, #{y, x}: Point, #(a, b): #(Int, Int)) -> Int {
 }
 
 fn main() {
-    io.print("typed = ${typed(#Point{x: 4, y: 7})}")
-    io.print("anon = ${anon(#Point{x: 4, y: 7})}")
-    io.print("only_x = ${only_x(#Point{x: 9, y: 2})}")
-    io.print("renamed = ${renamed(#Point{x: 3, y: 8})}")
-    io.print("dropped = ${dropped(#Point{x: 6, y: 1})}")
+    io.print("typed = ${typed(Point{x: 4, y: 7})}")
+    io.print("anon = ${anon(Point{x: 4, y: 7})}")
+    io.print("only_x = ${only_x(Point{x: 9, y: 2})}")
+    io.print("renamed = ${renamed(Point{x: 3, y: 8})}")
+    io.print("dropped = ${dropped(Point{x: 6, y: 1})}")
     io.print("record = ${record(#{x: 5, y: 2})}")
     io.print("pair = ${pair(#(20, 3))}")
     io.print("triple = ${triple(#(4, "mid", 9))}")
-    io.print("nested_struct = ${nested_struct(#Frame{at: #Point{x: 1, y: 2}, scale: 3})}")
-    io.print("nested_tuple = ${nested_tuple(#Boxed{pair: #(30, 4), tag: "t"})}")
-    io.print("tuple_of_struct = ${tuple_of_struct(#(#Point{x: 2, y: 5}, 11))}")
+    io.print("nested_struct = ${nested_struct(Frame{at: Point{x: 1, y: 2}, scale: 3})}")
+    io.print("nested_tuple = ${nested_tuple(Boxed{pair: #(30, 4), tag: "t"})}")
+    io.print("tuple_of_struct = ${tuple_of_struct(#(Point{x: 2, y: 5}, 11))}")
     io.print("tuple_of_tuple = ${tuple_of_tuple(#(#(30, 4), 2))}")
     io.print("tuple_of_dur = ${tuple_of_dur(#(Dur(40), 6))}")
-    io.print("between = ${between(2, #Point{x: 3, y: 4}, #(10, 1))}")
+    io.print("between = ${between(2, Point{x: 3, y: 4}, #(10, 1))}")
 
     // The LAMBDA entry point into the same destructure(), for both new shapes.
-    points = [#Point{x: 1, y: 2}, #Point{x: 3, y: 4}]
+    points = [Point{x: 1, y: 2}, Point{x: 3, y: 4}]
 
     codes =
         points
@@ -175,6 +175,6 @@ fn main() {
     // This row compares the answer. `#(a + x, b)` is non-commutative in its
     // slots, so a seed read into
     // the wrong element answers `#(0, 3)` instead of `#(3, 0)`.
-    seeded = Iter.reduce([1, 2], fn #(a, b): #(Int, Int) = #(0, 0), x -> #(a + x, b))
+    seeded = Iter.reduce([1, 2], #(0, 0), fn #(a, b): #(Int, Int), x -> #(a + x, b))
     io.print("seeded = ${seeded}")
 }

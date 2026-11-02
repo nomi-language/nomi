@@ -18,7 +18,7 @@ const genericOperatorBox = `struct Box<T> {
 
 impl Add<T, Box<T>> for Box<T> {
     fn add(b: Box<T>, rhs: T) -> Box<T> {
-        #Box{items: b.items + [rhs]}
+        Box{items: b.items + [rhs]}
     }
 }
 `
@@ -66,7 +66,7 @@ fn main() {
 `},
 		{"user generic type", genericOperatorBox + `
 fn main() {
-    b: Box<String> = #Box{items: ["a"]} + "b"
+    b: Box<String> = Box{items: ["a"]} + "b"
     _ = b
 }
 `},
@@ -76,7 +76,7 @@ fn grow<T>(b: Box<T>, x: T) -> Box<T> {
 }
 
 fn main() {
-    _ = grow(#Box{items: [1]}, 2)
+    _ = grow(Box{items: [1]}, 2)
 }
 `},
 	}
@@ -121,7 +121,7 @@ func TestGenericOperatorImpl_RightOperandMismatch(t *testing.T) {
 `, "argument 2: expected Set<Int>, got Int"},
 		{"user generic type", genericOperatorBox + `
 fn main() {
-    _ = #Box{items: [1]} + "x"
+    _ = Box{items: [1]} + "x"
 }
 `, "binary + right operand mismatch: Add expects Int, got String"},
 	}

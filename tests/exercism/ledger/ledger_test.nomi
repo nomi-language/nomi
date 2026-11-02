@@ -9,7 +9,7 @@ test "ledger" {
         #(
             "empty ledger",
             Currency`USD`,
-            Style.American,
+            .American,
             [],
             [
                 "Date       | Description               | Change       ",

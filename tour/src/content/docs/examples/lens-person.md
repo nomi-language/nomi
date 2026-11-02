@@ -77,7 +77,7 @@ import {
     lens_person.{self, Person}
 }
 
-once jane = #Person{
+once jane = Person{
     name: #{fore_name: "Jane Joanna", sur_name: "Doe"},
     born: #{
         at: #{

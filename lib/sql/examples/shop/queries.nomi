@@ -17,7 +17,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
         [runtime.bind(email)],
     )
 
-    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(User{
             id: runtime.int("user_by_email", row, 0)?,
             email: runtime.text("user_by_email", row, 1)?,
             name: runtime.text_null("user_by_email", row, 2)?,
@@ -66,7 +66,7 @@ pub fn order(conn: sql.Conn, id: Int) -> Result<Order, sql.Error> {
         [runtime.bind(id)],
     )
 
-    runtime.one(conn, "order", statement, fn row -> Ok(#Order{
+    runtime.one(conn, "order", statement, fn row -> Ok(Order{
             id: runtime.int("order", row, 0)?,
             user_id: runtime.int("order", row, 1)?,
             status: runtime.text("order", row, 2)?,
@@ -135,7 +135,7 @@ pub fn revenue_since(conn: sql.Conn, since: Instant) -> Result<List<CustomerReve
         [runtime.bind(since)],
     )
 
-    runtime.list(conn, "revenue_since", statement, fn row -> Ok(#CustomerRevenue{
+    runtime.list(conn, "revenue_since", statement, fn row -> Ok(CustomerRevenue{
             user_id: runtime.int("revenue_since", row, 0)?,
             email: runtime.text("revenue_since", row, 1)?,
             order_count: runtime.value("revenue_since", row, 2)?,
@@ -150,7 +150,7 @@ pub fn all_orders(conn: sql.Conn) -> sqlkit.Rows<Order> {
         [],
     )
 
-    runtime.rows(conn, "all_orders", statement, fn row -> Ok(#Order{
+    runtime.rows(conn, "all_orders", statement, fn row -> Ok(Order{
             id: runtime.int("all_orders", row, 0)?,
             user_id: runtime.int("all_orders", row, 1)?,
             status: runtime.text("all_orders", row, 2)?,

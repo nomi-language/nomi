@@ -5,7 +5,7 @@ fn total(pair: #(Int, Int), limit: Int) -> Int {
     sum = a + b
     sum = sum * 2
 
-    Iter.loop(fn i = 0 -> {
+    Iter.loop(0, fn i -> {
         if i >= limit {
             break sum + i
         } else {

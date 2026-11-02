@@ -2,12 +2,12 @@ import binary_search_tree.Tree
 
 test "data is inserted" {
     [
-        #("data is retained", [4], #Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
+        #("data is retained", [4], Tree.Node{left: .Leaf, value: 4, right: .Leaf}),
         #(
             "smaller number at left node",
             [4, 2],
-            #.Node{
-                left: #.Node{left: .Leaf, value: 2, right: .Leaf},
+            .Node{
+                left: .Node{left: .Leaf, value: 2, right: .Leaf},
                 value: 4,
                 right: .Leaf,
             },
@@ -15,8 +15,8 @@ test "data is inserted" {
         #(
             "same number at left node",
             [4, 4],
-            #.Node{
-                left: #.Node{left: .Leaf, value: 4, right: .Leaf},
+            .Node{
+                left: .Node{left: .Leaf, value: 4, right: .Leaf},
                 value: 4,
                 right: .Leaf,
             },
@@ -24,23 +24,23 @@ test "data is inserted" {
         #(
             "greater number at right node",
             [4, 5],
-            #.Node{
+            .Node{
                 left: .Leaf,
                 value: 4,
-                right: #.Node{left: .Leaf, value: 5, right: .Leaf},
+                right: .Node{left: .Leaf, value: 5, right: .Leaf},
             },
         ),
-        #("can create complex tree", [4, 2, 6, 1, 3, 5, 7], #.Node{
-            left: #.Node{
-                left: #.Node{left: .Leaf, value: 1, right: .Leaf},
+        #("can create complex tree", [4, 2, 6, 1, 3, 5, 7], .Node{
+            left: .Node{
+                left: .Node{left: .Leaf, value: 1, right: .Leaf},
                 value: 2,
-                right: #.Node{left: .Leaf, value: 3, right: .Leaf},
+                right: .Node{left: .Leaf, value: 3, right: .Leaf},
             },
             value: 4,
-            right: #.Node{
-                left: #.Node{left: .Leaf, value: 5, right: .Leaf},
+            right: .Node{
+                left: .Node{left: .Leaf, value: 5, right: .Leaf},
                 value: 6,
-                right: #.Node{left: .Leaf, value: 7, right: .Leaf},
+                right: .Node{left: .Leaf, value: 7, right: .Leaf},
             },
         }),
     ]

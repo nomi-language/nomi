@@ -76,7 +76,7 @@ const (
 	IT
 	UNDERSCORE
 	PLACEHOLDER // &1, &2, ...: a parameter of the capture around it
-	CAPTURE     // `&` before a capture's body: `&f(&1)`, `&(&1 > 2)`, `&#Point{x: &1}`
+	CAPTURE     // `&` before a capture's body: `&f(&1)`, `&(&1 > 2)`, `&Point{x: &1}`
 	INTERFACE   // Interface
 	IMPL        // impl
 	AS          // as

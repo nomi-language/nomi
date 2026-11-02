@@ -180,6 +180,6 @@ test "malformed trees" {
         #("a child tree with no closing parenthesis", "(;A[B](;B[C])"),
     ]
     |> subtests #(description, encoded), description {
-        assert sgf_parsing.parse(encoded) == Err(Error.Malformed)
+        assert sgf_parsing.parse(encoded) == Err(.Malformed)
     }
 }

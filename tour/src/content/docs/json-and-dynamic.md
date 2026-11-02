@@ -22,11 +22,11 @@ struct User {
     age: Int
 }
 
-derive ToJson for User with #ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for User with #FromJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for User with FromJson.Options{rename_all: Json.Case.Camel}
 
 fn main() -> Result<Unit, Json.Error> {
-    text = Json.encode_as(#User{first_name: "Ada", age: 36})
+    text = Json.encode_as(User{first_name: "Ada", age: 36})
     dbg text
 
     user: User = Json.decode_as(text)?
@@ -38,7 +38,7 @@ fn main() -> Result<Unit, Json.Error> {
 ```
 <!-- expect
 dbg line 13: text = "{\"firstName\":\"Ada\",\"age\":36}"
-dbg line 16: user = #User{first_name: "Ada", age: 36}
+dbg line 16: user = User{first_name: "Ada", age: 36}
 -->
 
 `Json.encode_as` turns a value into JSON text, and `Json.decode_as` reads it
@@ -124,7 +124,7 @@ struct User {
 fn user(d: Dynamic) -> Result<User, dynamic.Error> {
     name = Dynamic.at_field(d, "name", Dynamic.as_string)?
     age = Dynamic.at_field(d, "age", Dynamic.as_int)?
-    Ok(#User{name, age})
+    Ok(User{name, age})
 }
 
 // Print each user, or why it could not be read.
@@ -165,5 +165,20 @@ So the second entry's error says where it is, `[1].age`, and what was wrong.
 Use `Dynamic` where data comes in from outside. Inside your program, give
 data real types.
 
-[Background Work](/background-work/) is next. It keeps work running after
-the call that started it.
+## Bytes in text
+
+JSON, URLs and HTTP headers carry text, so bytes travel in them encoded.
+[`std/base64`](/reference/base64/) and [`std/hex`](/reference/hex/) write
+bytes as text and read them back, a decode returning a `Result`.
+[`std/url`](/reference/url/) percent-encodes text for a query or a path, and
+[`std/hash`](/reference/hash/) signs data with an HMAC:
+
+```nomi
+signature = hash.hmac_sha256(key, body) |> base64.encode_url(padded: False)
+
+link = "/search?q=${url.escape_query(term)}"
+```
+
+Make a key with `random.secure_bytes(32)`, never with a seeded `Generator`.
+
+[HTTP](/http/) is next. It sends requests and serves them.

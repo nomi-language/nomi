@@ -48,8 +48,8 @@ impl Speech for Cat {
 }
 
 fn main() {
-    io.print(Dog.speak(#Dog{name: "Rex"}))
-    io.print(Cat.speak(#Cat{name: "Whiskers"}))
+    io.print(Dog.speak(Dog{name: "Rex"}))
+    io.print(Cat.speak(Cat{name: "Whiskers"}))
 }
 
 ```
@@ -92,7 +92,7 @@ impl Speech for Dog {
 }
 
 fn main() {
-    rex = #Dog{name: "Rex"}
+    rex = Dog{name: "Rex"}
 
     // Through the type.
     io.print(Dog.speak(rex))
@@ -186,7 +186,7 @@ impl Formatted for User {
 }
 
 fn main() {
-    alice = #User{name: "Alice"}
+    alice = User{name: "Alice"}
     io.print(Formatted.label(alice))
     io.print(Formatted.shout(alice))
     io.print(Formatted.brief(alice))
@@ -308,14 +308,14 @@ enum Status {
 type Email String
 
 fn main() {
-    dbg #Point{x: 3, y: 4}
+    dbg Point{x: 3, y: 4}
     dbg Status.Pending(7)
     dbg Email("a@b.com")
 }
 
 ```
 <!-- expect
-dbg line 14: #Point{x: 3, y: 4} = #Point{x: 3, y: 4}
+dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 dbg line 15: Status.Pending(7) = Pending(7)
 dbg line 16: Email("a@b.com") = Email("a@b.com")
 -->
@@ -364,7 +364,7 @@ impl Display for User {
 }
 
 fn main() {
-    io.print(#User{name: "Alice", age: 30})
+    io.print(User{name: "Alice", age: 30})
 }
 
 ```
@@ -563,16 +563,16 @@ struct Point {
 }
 
 fn main() {
-    dbg #Point{x: 1, y: 2} == #Point{x: 1, y: 2}
-    dbg #Point{x: 1, y: 2} == #Point{x: 1, y: 3}
-    dbg %{#Point{x: 1, y: 2} => "home"}
+    dbg Point{x: 1, y: 2} == Point{x: 1, y: 2}
+    dbg Point{x: 1, y: 2} == Point{x: 1, y: 3}
+    dbg %{Point{x: 1, y: 2} => "home"}
 }
 
 ```
 <!-- expect
-dbg line 7: #Point{x: 1, y: 2} == #Point{x: 1, y: 2} = True
-dbg line 8: #Point{x: 1, y: 2} == #Point{x: 1, y: 3} = False
-dbg line 9: %{#Point{x: 1, y: 2} => "home"} = %{#Point{x: 1, y: 2} => "home"}
+dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
+dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
+dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
 -->
 
 You still sometimes need `derive Equatable` or `derive Hashable`, for one of
@@ -580,7 +580,7 @@ two reasons.
 
 The first is generic bounds. A function with `where T: Equatable` accepts only
 types that implement `Equatable`; built-in `==` doesn't count. `List.contains`
-is one, so `List.contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})` is the
+is one, so `List.contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})` is the
 error `` Point does not implement Equatable (required by `where T: Equatable`) ``
 until you add `derive Equatable for Point`.
 
@@ -605,14 +605,14 @@ struct Version {
 derive Comparable for Version
 
 fn main() {
-    dbg #Version{major: 1, minor: 9} < #Version{major: 1, minor: 10}
-    dbg #Version{major: 2, minor: 0} < #Version{major: 1, minor: 10}
+    dbg Version{major: 1, minor: 9} < Version{major: 1, minor: 10}
+    dbg Version{major: 2, minor: 0} < Version{major: 1, minor: 10}
 }
 
 ```
 <!-- expect
-dbg line 9: #Version{major: 1, minor: 9} < #Version{major: 1, minor: 10} = True
-dbg line 10: #Version{major: 2, minor: 0} < #Version{major: 1, minor: 10} = False
+dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
+dbg line 10: Version{major: 2, minor: 0} < Version{major: 1, minor: 10} = False
 -->
 
 On an enum, `derive Comparable` ranks the variants in the order they are
@@ -631,7 +631,7 @@ struct User {
 }
 
 fn main() {
-    users = [#User{name: "Cara", age: 35}, #User{name: "Ann", age: 41}]
+    users = [User{name: "Cara", age: 35}, User{name: "Ann", age: 41}]
     sorted = users |> Iter.sort_by(.name)
 
     dbg sorted
@@ -639,7 +639,7 @@ fn main() {
 
 ```
 <!-- expect
-dbg line 10: sorted = [#User{name: "Ann", age: 41}, #User{name: "Cara", age: 35}]
+dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 -->
 
 A tuple key sorts by several fields, and

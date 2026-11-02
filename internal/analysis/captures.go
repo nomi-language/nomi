@@ -9,7 +9,7 @@ import (
 )
 
 // A capture is a function written as `&` and its body (ast.Capture, spec
-// §7, *Captures*): `&(&1 > 2)`, `&Int.max(&1, 0)`, `&#Point{x: &1, y: 0}`.
+// §7, *Captures*): `&(&1 > 2)`, `&Int.max(&1, 0)`, `&Point{x: &1, y: 0}`.
 // Each `&N` in the body is its parameter N.
 //
 // The function type its position expects fixes its arity and its
@@ -297,7 +297,7 @@ func (c *checker) strayPlaceholders() map[*ast.PlaceholderParam]*strayPlaceholde
 // the pipe fills at its first argument (`|> then &divide(100, &1)`). An
 // operator, range, field read or parentheses around p are part of the body
 // (`&(&1 * 2 + 1)`), and so is a literal p is a field or element of
-// (`&#Point{x: &1, y: 0}`).
+// (`&Point{x: &1, y: 0}`).
 func strayHelp(p *ast.PlaceholderParam, parents []ast.Node) *strayPlaceholder {
 	var cur ast.Node = p
 climb:
@@ -389,7 +389,7 @@ func (c *checker) checkDiscardRead(n *ast.Ident) Type {
 			hint = "number the capture's parameters `&1`, `&2`, ... in the order they are written: `" + written + "`"
 		}
 	}
-	c.report(errAt(n, "`_` is a discard name, not a value").WithHint(hint))
+	c.report(c.holeHints(errAt(n, "`_` is a discard name, not a value").WithHint(hint), n))
 	return nil
 }
 
@@ -451,7 +451,7 @@ func ownsArg(call *ast.Call, n ast.Node) bool {
 // captureParams is the parameter list of the function n makes, by which a
 // call of it bound to a name may name its arguments: a struct literal whose
 // `&N`s are its whole fields, each once, takes the fields' names (`mk(x:
-// 3)` after `mk: (Int) -> Point = &#Point{x: &1, y: 0}`). Any other
+// 3)` after `mk: (Int) -> Point = &Point{x: &1, y: 0}`). Any other
 // capture that is no partial has no names to be called by. A field's
 // default is the literal's, which fills a field the literal leaves out, so
 // no parameter has one: a call passes every argument.
@@ -473,7 +473,7 @@ func captureParams(n *ast.Capture) []ast.Param {
 		}
 	}
 	if seen != len(holes) {
-		// An `&N` deeper in a field (`&#Point{x: &1 + 1, y: &2}`), or one
+		// An `&N` deeper in a field (`&Point{x: &1 + 1, y: &2}`), or one
 		// standing twice, has no name, so neither has any.
 		return nil
 	}

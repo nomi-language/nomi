@@ -12,7 +12,7 @@ pub struct Stats {
 impl Stats {
     /// `stats` after one more operation that carried `bytes` bytes.
     fn add(stats: Stats, bytes: Int) -> Stats {
-        #Stats{bytes: stats.bytes + bytes, operations: stats.operations + 1}
+        Stats{bytes: stats.bytes + bytes, operations: stats.operations + 1}
     }
 }
 
@@ -27,7 +27,7 @@ pub struct MeteredReader {
 impl MeteredReader {
     /// A meter over `reader` that has counted nothing.
     pub fn new(reader: Reader) -> MeteredReader {
-        #MeteredReader{reader}
+        MeteredReader{reader}
     }
 
     /// The next bytes of the stream, at most `max`, or `None` at its end,
@@ -55,7 +55,7 @@ pub struct MeteredWriter {
 impl MeteredWriter {
     /// A meter over `writer` that has counted nothing.
     pub fn new(writer: Writer) -> MeteredWriter {
-        #MeteredWriter{writer}
+        MeteredWriter{writer}
     }
 
     /// Writes `data` and answers the meter after the write. An error is the

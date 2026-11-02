@@ -495,7 +495,7 @@ Typed binding with a module-qualified annotation
 
 fn main() {
     ch: channels.Channel<String> = channels.Channel.buffered<String>(1)
-    b: shapes.Shape = #.Ring{r: 7}
+    b: shapes.Shape = .Ring{r: 7}
 }
 
 --------------------------------------------------------------------------------

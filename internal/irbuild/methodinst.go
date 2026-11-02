@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // An impl function with its OWN type parameters, instantiated per call.
@@ -29,6 +30,12 @@ type methodInst struct {
 	it    *implItem
 	frame map[string]kind
 	built bool
+	// accessorName is set when another file's call omits a defaulted
+	// parameter of this instance whose default it cannot lower itself
+	// (methodInstAccessors): the instance's default accessors are then
+	// built under its frame, named as a call site names them.
+	accessorName   string
+	accessorsBuilt bool
 }
 
 // withheldMember is the declaration of an impl function block d withheld
@@ -255,13 +262,60 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, here [
 func (g *gen) flushMethodInsts() {
 	for i := 0; i < len(g.methodInstQueue); i++ {
 		mi := g.methodInstQueue[i]
-		if mi.built {
+		if !mi.built {
+			mi.built = true
+			g.pushIfaceSubst(mi.frame)
+			g.implFunc(mi.d, mi.it)
+			g.popIfaceSubst()
+		}
+		if mi.accessorName != "" && !mi.accessorsBuilt {
+			mi.accessorsBuilt = true
+			g.pushIfaceSubst(mi.frame)
+			g.methodInstSlotDefaults(mi)
+			g.popIfaceSubst()
+		}
+	}
+}
+
+// methodInstAccessors asks g, the gen that declares the instance it, for an
+// accessor per defaulted parameter of it (irFileSlotRetain), so a call in
+// another file can fill a default that names what only this file can lower
+// (siblingFill). name is the callee name the call site gives the instance.
+// It answers the instance's callee symbol, or nil when it is no instance of
+// a declared member. A request after the instance was built queues it again,
+// so the next flush builds the accessors.
+func (g *gen) methodInstAccessors(it *implItem, name string) *ir.Symbol {
+	if it == nil || it.decl == nil || it.inherited {
+		return nil
+	}
+	for _, mi := range g.methodInsts {
+		if mi.it != it {
 			continue
 		}
-		mi.built = true
-		g.pushIfaceSubst(mi.frame)
-		g.implFunc(mi.d, mi.it)
-		g.popIfaceSubst()
+		if mi.accessorName == "" {
+			mi.accessorName = name
+			if mi.built {
+				g.methodInstQueue = append(g.methodInstQueue, mi)
+			}
+		}
+		return g.irCalleeSym(it, name)
+	}
+	return nil
+}
+
+// methodInstSlotDefaults builds mi's default accessors, under its frame.
+func (g *gen) methodInstSlotDefaults(mi *methodInst) {
+	it := mi.it
+	fd := it.decl
+	if g.irMod == nil || fd == nil || len(it.params) != len(fd.Params) || !it.lowerable {
+		return
+	}
+	callee := g.irCalleeSym(it, mi.accessorName)
+	sig := &fnSig{params: it.params, result: it.result, decl: fd, lowerable: true}
+	for slot, p := range fd.Params {
+		if p.Default != nil {
+			g.irFileSlotRetain(fd, sig, callee, mi.accessorName, slot)
+		}
 	}
 }
 

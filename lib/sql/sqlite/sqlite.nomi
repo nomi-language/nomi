@@ -132,8 +132,8 @@ pub opaque struct SqliteConn {
 /// A path that cannot be opened is `Err(.Connection)`.
 pub fn open(path: String) -> Result<Conn, sql.Error> {
     case open_raw(path) {
-        Ok(handle) -> Ok(#SqliteConn{handle, depth: 0, token: 0})
-        Err(message) -> Err(#sql.Error.Connection{message})
+        Ok(handle) -> Ok(SqliteConn{handle, depth: 0, token: 0})
+        Err(message) -> Err(sql.Error.Connection{message})
     }
 }
 
@@ -183,7 +183,7 @@ impl Conn for SqliteConn {
     fn begin(conn: SqliteConn) -> Result<Conn, sql.Error> {
         level = begin_raw(conn.handle, conn.depth, conn.token)
         failed(level.failure)?
-        Ok(#SqliteConn{handle: conn.handle, depth: level.depth, token: level.token})
+        Ok(SqliteConn{handle: conn.handle, depth: level.depth, token: level.token})
     }
 
     fn commit(tx: SqliteConn) -> Result<Unit, sql.Error> {
@@ -212,11 +212,11 @@ impl Conn for SqliteConn {
 fn failed(failure: Failure) -> Result<Unit, sql.Error> {
     case failure.kind {
         0 -> Ok(Unit)
-        1 -> Err(#sql.Error.Connection{message: failure.message})
+        1 -> Err(sql.Error.Connection{message: failure.message})
         2 -> Err(constraint_error(failure))
         4 -> Err(sql.Error.Finished)
         5 -> Err(sql.Error.Closed)
-        _ -> Err(#sql.Error.Database{code: failure.code, message: failure.message})
+        _ -> Err(sql.Error.Database{code: failure.code, message: failure.message})
     }
 }
 
@@ -228,7 +228,7 @@ fn constraint_error(failure: Failure) -> sql.Error {
         _ -> ConstraintKind.Check
     }
 
-    #sql.Error.Constraint{
+    sql.Error.Constraint{
         kind,
         name: failure.name,
         table: present(failure.table),
@@ -250,7 +250,7 @@ fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
     |> Iter.map(fn #(position, value) -> {
         case value {
             .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
-                Err(#sql.Error.Database{
+                Err(sql.Error.Database{
                     code: "SQLITE_MISMATCH",
                     message: "parameter ?${position + 1} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
                 })
@@ -263,7 +263,7 @@ fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
 }
 
 fn cell(kind: Int) -> Cell {
-    #Cell{kind, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
+    Cell{kind, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
 }
 
 fn text_cell(text: String) -> Cell {

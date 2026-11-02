@@ -42,7 +42,7 @@ fn skip(x: Int) -> Int {
 
 fn emit(s: Int, x: Int) -> #(Int, Int) {
     if x < 0 { continue }
-    #(x, s + x)
+    #(s + x, x)
 }
 
 fn big(x: Int) -> Bool {
@@ -67,7 +67,7 @@ struct Acc {
 
 fn add_acc(acc: Acc, x: Int) -> Acc {
     if x < 0 { continue }
-    #Acc{total: acc.total + x, items: acc.items + [x]}
+    Acc{total: acc.total + x, items: acc.items + [x]}
 }
 
 fn apply(f: (Int) -> Int, x: Int) -> Int {
@@ -100,15 +100,15 @@ fn main() {
     _ = Iter.filter([1, 2], big) |> Iter.to_list()
     _ = Iter.find([1, 2], f: big)
     _ = Iter.iterate(1, step) |> Iter.take(2) |> Iter.to_list()
-    _ = Iter.reduce([1, 2], keep, from: 0)
-    _ = [1, 2] |> Iter.reduce(keep, from: 0)
+    _ = Iter.reduce([1, 2], 0, keep)
+    _ = [1, 2] |> Iter.reduce(0, keep)
     _ = Iter.reduce([1, 2], f: keep, from: 0)
-    _ = Iter.reduce([1, 2], from: 0, keep)
-    _ = Iter.scan([1, 2], keep, from: 0) |> Iter.to_list()
-    _ = Iter.map_reduce([1, 2], emit, from: 0)
-    _ = Iter.loop(step, from: 0)
-    _ = Iter.reduce([1, 2], add, from: #(0, []))
-    _ = Iter.reduce([1, 2], add_acc, from: #Acc{total: 0, items: []})
+    _ = Iter.reduce([1, 2], 0, keep)
+    _ = Iter.scan([1, 2], 0, keep) |> Iter.to_list()
+    _ = Iter.map_reduce([1, 2], 0, emit)
+    _ = Iter.loop(0, step)
+    _ = Iter.reduce([1, 2], #(0, []), add)
+    _ = Iter.reduce([1, 2], Acc{total: 0, items: []}, add_acc)
     _ = Map.map_values(%{"a" => 1}, skip)
 }
 `
@@ -126,7 +126,7 @@ fn main() {
 // call outside every callback. A value is an error too.
 func TestIterSensitiveCall_RejectsEveryCall(t *testing.T) {
 	const both, cont = "`break` and `continue`", "`continue`"
-	const mapSkip, reduceKeep = "Iter.map(xs, skip)", "Iter.reduce(xs, keep, from: <start>)"
+	const mapSkip, reduceKeep = "Iter.map(xs, skip)", "Iter.reduce(xs, <start>, keep)"
 	for _, c := range []struct {
 		name, body, callee, words, shape string
 		inCallback                       bool
@@ -135,15 +135,15 @@ func TestIterSensitiveCall_RejectsEveryCall(t *testing.T) {
 		{"the whole body of a capture", "_ = Iter.map([1], &skip(&1)) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"the whole body of a find lambda", "_ = Iter.find([1], f: fn x -> big(x))", "big", cont, "Iter.find(xs, big)", true},
 		{"the whole body of an iterate lambda", "_ = Iter.iterate(1, fn n -> step(n)) |> Iter.take(2) |> Iter.to_list()", "step", "`break`", "Iter.iterate(seed, step)", true},
-		{"the whole body of a reduce lambda", "_ = Iter.reduce([1], fn acc = 0, x -> keep(acc, x))", "keep", cont, reduceKeep, true},
-		{"the whole body of a scan lambda", "_ = Iter.scan([1], fn acc = 0, x -> keep(acc, x)) |> Iter.to_list()", "keep", cont, "Iter.scan(xs, keep, from: <start>)", true},
-		{"the whole body of a map_reduce lambda", "_ = Iter.map_reduce([1], fn s = 0, x -> emit(s, x))", "emit", cont, "Iter.map_reduce(xs, emit, from: <start>)", true},
-		{"the whole body of a loop lambda", "_ = Iter.loop(fn n = 0 -> step(n))", "step", "`break`", "Iter.loop(step, from: <start>)", true},
-		{"a pattern parameter rebuilt", "_ = Iter.reduce([1], fn #(n, xs) = #(0, []), x -> add(#(n, xs), x))", "add", cont, "Iter.reduce(xs, add, from: <start>)", true},
-		{"a binding then the call", "_ = Iter.reduce([1], fn acc = 0, x -> {\n        y = x * 10\n        keep(acc, y)\n    })", "keep", cont, reduceKeep, true},
-		{"an if arm", "_ = Iter.reduce([1], fn acc = 0, x -> if x > 1 { keep(acc, x) } else { acc })", "keep", cont, reduceKeep, true},
+		{"the whole body of a reduce lambda", "_ = Iter.reduce([1], 0, fn acc, x -> keep(acc, x))", "keep", cont, reduceKeep, true},
+		{"the whole body of a scan lambda", "_ = Iter.scan([1], 0, fn acc, x -> keep(acc, x)) |> Iter.to_list()", "keep", cont, "Iter.scan(xs, <start>, keep)", true},
+		{"the whole body of a map_reduce lambda", "_ = Iter.map_reduce([1], 0, fn s, x -> emit(s, x))", "emit", cont, "Iter.map_reduce(xs, <start>, emit)", true},
+		{"the whole body of a loop lambda", "_ = Iter.loop(0, fn n -> step(n))", "step", "`break`", "Iter.loop(<start>, step)", true},
+		{"a pattern parameter rebuilt", "_ = Iter.reduce([1], #(0, []), fn #(n, xs), x -> add(#(n, xs), x))", "add", cont, "Iter.reduce(xs, <start>, add)", true},
+		{"a binding then the call", "_ = Iter.reduce([1], 0, fn acc, x -> {\n        y = x * 10\n        keep(acc, y)\n    })", "keep", cont, reduceKeep, true},
+		{"an if arm", "_ = Iter.reduce([1], 0, fn acc, x -> if x > 1 { keep(acc, x) } else { acc })", "keep", cont, reduceKeep, true},
 		{"a case arm", "_ = Iter.map([1], fn x -> case x {\n        1 -> skip(x)\n        _ -> 0\n    }) |> Iter.to_list()", "skip", both, mapSkip, true},
-		{"a computed argument", "_ = Iter.reduce([1], fn acc = 0, x -> keep(acc, x * 2))", "keep", cont, reduceKeep, true},
+		{"a computed argument", "_ = Iter.reduce([1], 0, fn acc, x -> keep(acc, x * 2))", "keep", cont, reduceKeep, true},
 		{"an argument of another call", "_ = Iter.map([1], fn x -> apply(fn y -> y, skip(x))) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"an operand", "_ = Iter.map([1], fn x -> skip(x) + 1) |> Iter.to_list()", "skip", both, mapSkip, true},
 		{"a lambda passed to another function", "_ = Iter.map([1], fn x -> apply(fn y -> skip(y), x)) |> Iter.to_list()", "skip", both, mapSkip, true},
@@ -180,14 +180,14 @@ func TestIterSensitiveCall_RejectsEveryCall(t *testing.T) {
 func TestIterSensitiveCall_SuggestsAShapeThatFits(t *testing.T) {
 	for _, c := range []struct{ body, callee, words, shape string }{
 		// A one-parameter helper in a fold's callback cannot be the fold's.
-		{"_ = Iter.reduce([1], fn t = 0, x -> t + skip(x))", "skip", "`break` and `continue`", "Iter.map(xs, skip)"},
+		{"_ = Iter.reduce([1], 0, fn t, x -> t + skip(x))", "skip", "`break` and `continue`", "Iter.map(xs, skip)"},
 		// An Int-answering helper in a filter cannot be its predicate.
 		{"_ = Iter.filter([1], fn x -> skip(x) > 0) |> Iter.to_list()", "skip", "`break` and `continue`", "Iter.map(xs, skip)"},
 		{"_ = Iter.filter([1], fn x -> big(x)) |> Iter.to_list()", "big", "`continue`", "Iter.filter(xs, big)"},
 		// A two-parameter helper in a map's callback is a fold's.
-		{"_ = Iter.map([1], fn x -> keep(0, x)) |> Iter.to_list()", "keep", "`continue`", "Iter.reduce(xs, keep, from: <start>)"},
+		{"_ = Iter.map([1], fn x -> keep(0, x)) |> Iter.to_list()", "keep", "`continue`", "Iter.reduce(xs, <start>, keep)"},
 		// A loop's step answers its state.
-		{"_ = Iter.loop(fn n = 0 -> { if n > 3 { break n }\n        step(n) })", "step", "`break`", "Iter.loop(step, from: <start>)"},
+		{"_ = Iter.loop(0, fn n -> { if n > 3 { break n }\n        step(n) })", "step", "`break`", "Iter.loop(<start>, step)"},
 		// Three parameters fit no callback.
 		{"_ = Iter.map([1], fn x -> three(x, 1, 2)) |> Iter.to_list()", "three", "`continue`", ""},
 	} {
@@ -281,18 +281,18 @@ fn main() {
 // fold's: the lambda is the callback wherever the named argument stands.
 func TestIterSensitiveCall_AdmitsASignalInACallbackBeforeFrom(t *testing.T) {
 	src := `fn main() {
-    _ = Iter.reduce([1, 2], fn acc, x -> {
+    _ = Iter.reduce([1, 2], 0, fn acc, x -> {
         if x > 1 { continue }
         acc + x
-    }, from: 0)
-    _ = Iter.reduce([1, 2], from: 0, fn acc, x -> {
+    })
+    _ = Iter.reduce([1, 2], 0, fn acc, x -> {
         if x > 1 { break acc }
         acc + x
     })
-    _ = Iter.loop(fn n -> {
+    _ = Iter.loop(0, fn n -> {
         if n > 1 { break n }
         n + 1
-    }, from: 0)
+    })
 }
 `
 	if got := iterSensitivityErrors(src); len(got) != 0 {

@@ -10,9 +10,9 @@ import "testing"
 func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"last call argument": {
-			"fn f(line: Int) -> String {\n    text = Iter.reduce(divisors(), fn acc = \"\", #(divisor, word) -> if line % divisor == 0 { acc + word } else { acc })\n    text\n}\n",
+			"fn f(line: Int) -> String {\n    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) -> if line % divisor == 0 { acc + word } else { acc })\n    text\n}\n",
 			"fn f(line: Int) -> String {\n" +
-				"    text = Iter.reduce(divisors(), fn acc = \"\", #(divisor, word) -> {\n" +
+				"    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) -> {\n" +
 				"        if line % divisor == 0 { acc + word } else { acc }\n" +
 				"    })\n" +
 				"\n" +
@@ -21,13 +21,13 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 		},
 		"the old bare layout": {
 			"fn f(line: Int) -> String {\n" +
-				"    text = Iter.reduce(divisors(), fn acc = \"\", #(divisor, word) ->\n" +
+				"    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) ->\n" +
 				"        if line % divisor == 0 { acc + word } else { acc }\n" +
 				"    )\n" +
 				"    text\n" +
 				"}\n",
 			"fn f(line: Int) -> String {\n" +
-				"    text = Iter.reduce(divisors(), fn acc = \"\", #(divisor, word) -> {\n" +
+				"    text = Iter.reduce(divisors(), \"\", fn acc, #(divisor, word) -> {\n" +
 				"        if line % divisor == 0 { acc + word } else { acc }\n" +
 				"    })\n" +
 				"\n" +
@@ -97,9 +97,9 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 				"}\n",
 		},
 		"struct field": {
-			"fn f() -> Seq {\n    #Seq{run: fn yield: (Int) -> Bool -> if Iter.each_while(first_source, yield) { Iter.each_while(b, yield) } else { False }}\n}\n",
+			"fn f() -> Seq {\n    Seq{run: fn yield: (Int) -> Bool -> if Iter.each_while(first_source, yield) { Iter.each_while(b, yield) } else { False }}\n}\n",
 			"fn f() -> Seq {\n" +
-				"    #Seq{\n" +
+				"    Seq{\n" +
 				"        run: fn yield: (Int) -> Bool -> {\n" +
 				"            if Iter.each_while(first_source, yield) {\n" +
 				"                Iter.each_while(b, yield)\n" +
@@ -121,11 +121,11 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 				"}\n",
 		},
 		"nested lambdas": {
-			"fn f(xs: List<List<Int>>) -> List<Int> {\n    xs |> Iter.map(fn ys -> Iter.reduce(ys, fn a_long_accumulator_name = 0, y -> a_long_accumulator_name + y * y + a_long_accumulator_name + 1000000)) |> Iter.to_list()\n}\n",
+			"fn f(xs: List<List<Int>>) -> List<Int> {\n    xs |> Iter.map(fn ys -> Iter.reduce(ys, 0, fn a_long_accumulator_name, y -> a_long_accumulator_name + y * y + a_long_accumulator_name + 1000000)) |> Iter.to_list()\n}\n",
 			"fn f(xs: List<List<Int>>) -> List<Int> {\n" +
 				"    xs\n" +
 				"    |> Iter.map(fn ys -> {\n" +
-				"        Iter.reduce(ys, fn a_long_accumulator_name = 0, y -> {\n" +
+				"        Iter.reduce(ys, 0, fn a_long_accumulator_name, y -> {\n" +
 				"            a_long_accumulator_name + y * y + a_long_accumulator_name + 1000000\n" +
 				"        })\n" +
 				"    })\n" +
@@ -133,9 +133,9 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 				"}\n",
 		},
 		"a case body": {
-			"fn f(frags: List<Int>) -> Int {\n    Iter.reduce(frags, fn acc = 0, frag -> case frag {\n0 -> acc\n_ -> acc + 1\n})\n}\n",
+			"fn f(frags: List<Int>) -> Int {\n    Iter.reduce(frags, 0, fn acc, frag -> case frag {\n0 -> acc\n_ -> acc + 1\n})\n}\n",
 			"fn f(frags: List<Int>) -> Int {\n" +
-				"    Iter.reduce(frags, fn acc = 0, frag -> {\n" +
+				"    Iter.reduce(frags, 0, fn acc, frag -> {\n" +
 				"        case frag {\n" +
 				"            0 -> acc\n" +
 				"            _ -> acc + 1\n" +
@@ -144,9 +144,9 @@ func TestFormat_LambdaBodyBelowParametersIsBraced(t *testing.T) {
 				"}\n",
 		},
 		"an if that breaks the loop": {
-			"fn f() -> Int {\n    Iter.loop(fn n = 0 -> if n >= 3 { break n } else { n + 1 })\n}\n",
+			"fn f() -> Int {\n    Iter.loop(0, fn n -> if n >= 3 { break n } else { n + 1 })\n}\n",
 			"fn f() -> Int {\n" +
-				"    Iter.loop(fn n = 0 -> {\n" +
+				"    Iter.loop(0, fn n -> {\n" +
 				"        if n >= 3 {\n" +
 				"            break n\n" +
 				"        } else {\n" +
@@ -195,7 +195,7 @@ func TestFormat_LambdaBodyThatFitsStaysBare(t *testing.T) {
 	for _, src := range []string{
 		"fn f() {\n    g = fn x -> x + 1\n}\n",
 		"fn f(xs: List<Int>) -> List<Int> {\n    xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n}\n",
-		"fn f(xs: List<Int>) -> Int {\n    Iter.reduce(xs, fn acc = 0, x -> if x > 0 { acc + x } else { acc })\n}\n",
+		"fn f(xs: List<Int>) -> Int {\n    Iter.reduce(xs, 0, fn acc, x -> if x > 0 { acc + x } else { acc })\n}\n",
 		"fn f() {\n    k = run(fn x -> x + 1, 3, step: fn x -> x * 2)\n}\n",
 		"fn f(xs: List<Int>) -> Int {\n    xs\n    |> then fn v -> Iter.count(v)\n}\n",
 		"fn f() {\n    xs = [fn x -> x + 1, fn x -> x * 2]\n}\n",

@@ -44,7 +44,7 @@ derive Equatable for Database
 //!     |> Result.with_default(Json.Null)
 //!
 //! assert databases.read(c) == [
-//!     #Database{
+//!     Database{
 //!         name: "main",
 //!         migrations: "db/migrations",
 //!         queries: "sql",
@@ -71,7 +71,7 @@ pub fn read(config: Json) -> List<Database> {
         table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
         d = defaults(name)
 
-        #Database{
+        Database{
             name,
             migrations: text(table, "migrations") |> Maybe.with_default(d.migrations),
             queries: text(table, "queries") |> Maybe.with_default(d.queries),
@@ -87,7 +87,7 @@ pub fn read(config: Json) -> List<Database> {
 //! assert databases.defaults("main").queries == "db/queries"
 //
 pub fn defaults(name: String) -> Database {
-    #Database{
+    Database{
         name,
         migrations: "db/migrations",
         queries: "db/queries",

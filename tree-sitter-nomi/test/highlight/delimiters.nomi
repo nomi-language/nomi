@@ -58,10 +58,10 @@ impl Named for Point {
 fn struct_literal() -> Point {
     //           ^ punctuation.bracket
     //                       ^ punctuation.bracket
-    #Point{x: 1, y: 2}
+    Point{x: 1, y: 2}
     // <- type
-    //    ^ type
-    //               ^ type
+    //   ^ type
+    //              ^ type
 }
 
 fn interpolation() -> String {
@@ -72,15 +72,15 @@ fn interpolation() -> String {
 }
 
 fn variant_literal() -> Shape {
-    #Shape.Rect{w: 2, h: 3}
-    //         ^ type
-    //                    ^ type
+    Shape.Rect{w: 2, h: 3}
+    //        ^ type
+    //                   ^ type
 }
 
 fn dot_variant_literal() -> Shape {
-    #.Rect{w: 2, h: 3}
-    //    ^ type
-    //               ^ type
+    .Rect{w: 2, h: 3}
+    //   ^ type
+    //              ^ type
 }
 
 fn record() -> #{a: Int, b: Int} {
@@ -185,14 +185,12 @@ fn named_literals() -> #(Path, Tags, Int) {
     //     ^ type
     //          ^ type
     //              ^ type
-    pair = #Pair(1, 2)
-    //     ^ type
-    //          ^ type
-    //               ^ type
-    #Pair(a, b) = pair
-    // <- type
-    //   ^ type
-    //        ^ type
+    pair = Pair(1, 2)
+    //         ^ type
+    //              ^ type
+    Pair(a, b) = pair
+    //  ^ type
+    //       ^ type
     #(path, tags, a + b)
 }
 
@@ -257,7 +255,7 @@ fn blocks(xs: List<Int>, n: Int) -> Int {
             x + n
         })
         // <- punctuation.bracket
-        |> Iter.reduce(fn a = 0, b -> a + b)
+        |> Iter.reduce(0, fn a, b -> a + b)
 
     case total {
         //     ^ punctuation.bracket
@@ -271,25 +269,25 @@ fn blocks(xs: List<Int>, n: Int) -> Int {
     }
 }
 
-fn tuple_param(#(a, b): #(Int, Int), #Point{x, y}) -> Int {
+fn tuple_param(#(a, b): #(Int, Int), Point{x, y}) -> Int {
     //          ^ type
     //               ^ type
     //                   ^ punctuation.bracket
-    //                                     ^ type
-    //                                          ^ type
+    //                                    ^ type
+    //                                         ^ type
     a + b + x + y
 }
 
 fn tuple_lambda(pairs: List<#(Int, Int)>) -> Int {
-    pairs |> Iter.map(fn #(a, _b) -> a) |> Iter.reduce(fn s = 0, n -> s + n)
+    pairs |> Iter.map(fn #(a, _b) -> a) |> Iter.reduce(0, fn s, n -> s + n)
     //                    ^ type
     //                          ^ type
 }
 
 fn struct_lambda(points: List<Point>) -> Int {
-    points |> Iter.map(fn #Point{x, y: _y} -> x) |> Iter.reduce(fn s = 0, n -> s + n)
-    //                          ^ type
-    //                                   ^ type
+    points |> Iter.map(fn Point{x, y: _y} -> x) |> Iter.reduce(0, fn s, n -> s + n)
+    //                         ^ type
+    //                                  ^ type
 }
 
 fn bindings(pair: #(Int, Int), user: User, m: Map<String, Int>) -> Int {
@@ -334,11 +332,11 @@ fn else_bindings(found: Maybe<#(Int, List<Int>)>, r: Result<#{a: Int}, String>) 
 
 fn case_arms(r: Result<#(Int, Point), String>, v: List<Int>, m: Map<String, Int>) -> Int {
     from_r = case r {
-        Ok(#(0, #Point{x, y})) -> x + y
+        Ok(#(0, Point{x, y})) -> x + y
         //  ^ type
-        //            ^ type
+        //           ^ type
+        //                ^ type
         //                 ^ type
-        //                  ^ type
         Ok(#(n, _)) -> n
         //  ^ type
         //       ^ type
@@ -591,7 +589,7 @@ fn unwrap_balance(Balance(v)) -> Int {
 }
 
 fn balance_lambda(xs: List<Balance>) -> Int {
-    xs |> Iter.map(fn Balance(v) -> v) |> Iter.reduce(fn s = 0, n -> s + n)
+    xs |> Iter.map(fn Balance(v) -> v) |> Iter.reduce(0, fn s, n -> s + n)
     //            ^ punctuation.bracket
     //                       ^ type
     //                         ^ type

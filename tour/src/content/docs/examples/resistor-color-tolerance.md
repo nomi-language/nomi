@@ -113,7 +113,7 @@ fn in_largest_unit(ohms: Int) -> #(Decimal, Magnitude) {
     #(size, unit) =
         units
         |> Iter.find(fn #(size, _unit) -> ohms >= size)
-        |> Maybe.with_default(#(1, Magnitude.Ohms))
+        |> Maybe.with_default(#(1, .Ohms))
 
     Some(value) = Decimal.divide_exact(Int.to_decimal(ohms), Int.to_decimal(size)) else {
         unreachable "a whole number divided by a power of ten is exact"

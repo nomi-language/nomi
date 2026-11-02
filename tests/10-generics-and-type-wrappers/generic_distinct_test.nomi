@@ -1,0 +1,66 @@
+// A distinct type may take type parameters, which its inner type names.
+type Tagged<T> #(String, T)
+
+type Ids<T> List<T>
+
+type Kvs<V> Map<String, V>
+
+type Handler<T> (T) -> T
+
+type Wrap<T> T
+
+derive Equatable for Wrap
+derive Hashable for Wrap
+
+impl Tagged<T> {
+    fn tag(Tagged(#(t, _)): Tagged<T>) -> String {
+        t
+    }
+}
+
+impl Display for Wrap<T> where T: Display {
+    fn to_string(value: Wrap<T>) -> String {
+        Wrap(inner) = value
+        "<${inner}>"
+    }
+}
+
+fn value<T>(Tagged(#(_, v)): Tagged<T>) -> T {
+    v
+}
+
+fn first<D>(xs: List<D>) -> D where D: Distinct<Int> {
+    List.head(xs)!
+}
+
+test "a generic distinct takes its type argument from what it wraps" {
+    a = Tagged(#("n", 1))
+    b: Tagged<String> = Tagged("s", "x")
+
+    assert Tagged.tag(a) == "n"
+    assert value(a) + 1 == 2
+    assert value(b) == "x"
+    assert Debug.inspect(a) == "Tagged(\"n\", 1)"
+}
+
+test "a generic distinct over a list, a map and a function" {
+    Ids(xs) = Ids[1, 2, 3]
+    kv = %Kvs{"a" => True}
+    double = Handler(fn x -> x * 2)
+
+    assert xs == [1, 2, 3]
+    assert Debug.inspect(kv) == "Kvs(%{\"a\" => True})"
+    assert double(21) == 42
+}
+
+test "a generic distinct derives, implements and is a function value" {
+    w = 5 |> Wrap()
+
+    assert w == Wrap(5)
+    assert w != Wrap(6)
+    assert "${w}" == "<5>"
+    assert Map.get(%{Wrap("k") => 1}, Wrap("k")) == Some(1)
+    assert Iter.map([1, 2], Wrap) |> Iter.to_list() == [Wrap(1), Wrap(2)]
+    assert Iter.map([Wrap("a")], fn Wrap(x) -> x) |> Iter.to_list() == ["a"]
+    assert first([Wrap(4)]) == Wrap(4)
+}

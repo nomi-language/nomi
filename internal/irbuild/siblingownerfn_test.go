@@ -19,7 +19,7 @@ func TestSiblingOwnerFn_CallsReachTheDeclaringFile(t *testing.T) {
 	}
 	want := "seven 7\n" +
 		"size 2\n" +
-		"#Box{items: [\"a\"]}\n" +
+		"Box{items: [\"a\"]}\n" +
 		"Some(4)\n" +
 		"p  |\n" +
 		"p |\n" +

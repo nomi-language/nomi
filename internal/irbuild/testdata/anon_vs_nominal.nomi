@@ -31,7 +31,7 @@ fn no_record(_p: #{x: Int, y: Int}) -> Bool {
 }
 
 test "a record and a same-shaped nominal struct stay apart" {
-    nom = #Point{x: 1, y: 2}
+    nom = Point{x: 1, y: 2}
     rec = #{x: 1, y: 2}
     io.print(Int.to_string(nominal_sum(nom)))
     io.print(Int.to_string(record_sum(rec)))

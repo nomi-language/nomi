@@ -27,7 +27,7 @@ struct Stmt {
 fn sum(tree: Tree) -> Int {
     case tree {
         Tree.Leaf(n) -> n
-        Tree.Node(kids) -> kids |> Iter.map(&sum(&1)) |> Iter.reduce(fn total = 0, n -> total + n)
+        Tree.Node(kids) -> kids |> Iter.map(&sum(&1)) |> Iter.reduce(0, fn total, n -> total + n)
     }
 }
 
@@ -39,12 +39,12 @@ fn depth(tree: Tree) -> Int {
         Tree.Node(kids) ->
             1 + (kids
             |> Iter.map(&depth(&1))
-            |> Iter.reduce(fn deepest = 0, d -> Int.max(deepest, d)))
+            |> Iter.reduce(0, fn deepest, d -> Int.max(deepest, d)))
     }
 }
 
 fn total(dir: Dir) -> Int {
-    dir.kids |> Iter.map(&total(&1)) |> Iter.reduce(fn sum = dir.size, n -> sum + n)
+    dir.kids |> Iter.map(&total(&1)) |> Iter.reduce(dir.size, fn sum, n -> sum + n)
 }
 
 fn eval(expr: Expr) -> Int {
@@ -53,7 +53,7 @@ fn eval(expr: Expr) -> Int {
             n
 
         Expr.Block(stmts) ->
-            stmts |> Iter.map(fn stmt -> eval(stmt.body)) |> Iter.reduce(fn sum = 0, n -> sum + n)
+            stmts |> Iter.map(fn stmt -> eval(stmt.body)) |> Iter.reduce(0, fn sum, n -> sum + n)
     }
 }
 
@@ -85,14 +85,14 @@ test "a Vector tree grows by pushing a kid" {
 }
 
 test "a struct holds itself through a Vector" {
-    leaf = #Dir{name: "a", size: 2, kids: #[]}
+    leaf = Dir{name: "a", size: 2, kids: #[]}
 
-    root = #Dir{
+    root = Dir{
         name: "root",
         size: 1,
         kids: #[
             leaf,
-            #Dir{
+            Dir{
                 name: "b",
                 size: 3,
                 kids: #[
@@ -110,14 +110,14 @@ test "a struct holds itself through a Vector" {
 
 test "an enum and a struct hold each other through Vectors" {
     program = Expr.Block(#[
-        #Stmt{
+        Stmt{
             label: "a",
             body: Expr.Num(1),
         },
-        #Stmt{
+        Stmt{
             label: "b",
             body: Expr.Block(#[
-                #Stmt{
+                Stmt{
                     label: "c",
                     body: Expr.Num(4),
                 },

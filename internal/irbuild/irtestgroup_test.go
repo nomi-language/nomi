@@ -103,7 +103,7 @@ pub struct App {
 
 pub fn boot(startup: Startup) -> Result<App, String> {
   io.print("boot ${startup.args}")
-  Ok(#App{context: Context.root(), label: "booted"})
+  Ok(App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}
@@ -113,7 +113,7 @@ fn show(suffix: String) -> String {
 }
 
 group "group" {
-  boot boot(#Startup{args: ["group"]})
+  boot boot(Startup{args: ["group"]})
   setup #{n: 1, word: "one"}
 
   test "reads the app and the setup value", #{n, word} {
@@ -161,7 +161,7 @@ const irTestGroupFailingSource = `pub struct App {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), label: "booted"})
+  Ok(App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}
@@ -203,7 +203,7 @@ pub struct App {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), work: Supervisor.new(max_running: 2)})
+  Ok(App{context: Context.root(), work: Supervisor.new(max_running: 2)})
 }
 
 fn main() {}
@@ -261,7 +261,7 @@ fn zero() -> Int {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), n: 10 / zero()})
+  Ok(App{context: Context.root(), n: 10 / zero()})
 }
 
 fn main() {}
@@ -293,7 +293,7 @@ func TestIRTestGroup_ASetupWithReachesTheBody(t *testing.T) {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), label: "booted"})
+  Ok(App{context: Context.root(), label: "booted"})
 }
 
 fn main() {}
@@ -484,6 +484,64 @@ group "bare return in a Unit setup" {
 	for _, never := range []string{"late", "never"} {
 		if strings.Contains(run.vm.stdout, never+"\n") {
 			t.Errorf("the setup ran past its return and printed %q:\n%s", never, run.vm.stdout)
+		}
+	}
+}
+
+// A setup whose final value is `Err(AssertionFailure)` fails each test of its
+// group with that failure's report, as a test body's final value does (spec
+// §17, *A final `Err(AssertionFailure)` fails the test*): an expression
+// setup, a block setup's tail and a `return`. An `Ok` is the setup's value,
+// which the test binds.
+func TestIRTestGroup_ASetupsFailedCheckFailsTheTest(t *testing.T) {
+	const src = `import std/testing
+
+fn main() {}
+
+group "expression" {
+  setup testing.check(1 == 2)
+
+  test "fails", _r {
+    assert True
+  }
+}
+
+group "block tail" {
+  setup {
+    n = 3
+    testing.check(n == 4)
+  }
+
+  test "fails too", _r {
+    assert True
+  }
+}
+
+group "return" {
+  setup {
+    return testing.check(5 == 6)
+  }
+
+  test "fails as well", _r {
+    assert True
+  }
+}
+
+group "ok" {
+  setup testing.check(5 > 1)
+
+  test "binds the Ok", r {
+    assert r == Ok(True)
+  }
+}
+`
+	run := irTestGroupVM(t, src, 4)
+	if run.vm.exit == 0 || !strings.Contains(run.vm.stdout, "1 passed, 3 failed") {
+		t.Fatalf("want the three failed setups to fail their tests and the Ok one to pass:\n%s", run.vm.stdout)
+	}
+	for _, want := range []string{"check 1 == 2", "check n == 4", "check 5 == 6"} {
+		if !strings.Contains(run.vm.stdout, want) {
+			t.Errorf("want the setup's failure %q in the report:\n%s", want, run.vm.stdout)
 		}
 	}
 }

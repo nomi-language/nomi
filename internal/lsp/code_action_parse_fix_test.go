@@ -149,7 +149,7 @@ pub fn f(r: Result<Int, String>) -> Int {
 
 pub fn f(xs: List<Int>) -> Int {
     xs
-    |> Iter.reduce(fn acc = 0, x ->
+    |> Iter.reduce(0, fn acc, x ->
         io.print("x")
         acc + x)
 }
@@ -158,7 +158,7 @@ pub fn f(xs: List<Int>) -> Int {
 
 pub fn f(xs: List<Int>) -> Int {
     xs
-    |> Iter.reduce(fn acc = 0, x -> {
+    |> Iter.reduce(0, fn acc, x -> {
         io.print("x")
         acc + x
     })
@@ -215,6 +215,16 @@ pub fn f(xs: List<Int>) {
     x
 }
 `,
+		},
+		{
+			"another language's binding", "Remove `let`",
+			"pub fn f() -> Int {\n    let x = 1\n    x\n}\n",
+			"pub fn f() -> Int {\n    x = 1\n    x\n}\n",
+		},
+		{
+			"a method call", "Call `Iter.count`",
+			"pub fn f(xs: List<Int>) -> Int {\n    xs.len()\n}\n",
+			"pub fn f(xs: List<Int>) -> Int {\n    Iter.count(xs)\n}\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

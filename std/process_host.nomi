@@ -1,0 +1,110 @@
+//# The Go-backed half of std/process and std/process_testing: each
+//# crossing that starts a program, reads and writes its streams and waits
+//# for it (internal/stdprocess). It is internal; a program imports
+//# std/process, which builds its values from these and gives them their
+//# documentation.
+
+import {
+    bool.Bool
+    bytes.Bytes
+    int.Int
+    io.{Error, Reader, Writer}
+    lists.List
+    maps.Map
+    results.Result
+    strings.String
+    unit.Unit
+}
+
+/// A program `start` started, or the fake's stand-in for one.
+pub host type Child
+
+/// The fake `process_testing.run` answers starts with.
+pub host type Fake
+
+/// Starts `program` with `args`, its environment extended by `env` (made
+/// of `env` alone when `clear_env`), in `dir` (the working directory when
+/// empty). `stdin` is the mode of its standard input (null 0, the
+/// program's 1, `input` 2, piped 3), and `stdout` and `stderr` the modes
+/// of its output and error (null 0, the program's 1, captured 2, piped 3).
+pub host fn start(
+    program: String,
+    args: List<String>,
+    env: Map<String, String>,
+    clear_env: Bool,
+    dir: String,
+    stdin: Int,
+    input: Reader,
+    stdout: Int,
+    stderr: Int,
+) -> Result<Child, Error>
+
+/// The writer to a piped standard input.
+pub host fn child_stdin(child: Child) -> Writer
+
+/// The reader over a piped standard output.
+pub host fn child_stdout(child: Child) -> Reader
+
+/// The reader over a piped standard error.
+pub host fn child_stderr(child: Child) -> Reader
+
+/// Closes a piped standard input and waits: `[0, code]` when the child
+/// exited, `[1, signal]` when a signal ended it.
+pub host fn wait(child: Child) -> Result<List<Int>, Error>
+
+/// What a finished child wrote to a captured standard output (1) or error
+/// (2).
+pub host fn captured(child: Child, stream: Int) -> Bytes
+
+/// Ends the child if it is still running, and reaps it.
+pub host fn kill(child: Child) -> Unit
+
+/// A fake with no answers.
+pub host fn new_fake() -> Fake
+
+/// A start of `program` with `args` (with any arguments when `any_args`)
+/// exits with `code` after writing `stdout` and `stderr`.
+pub host fn fake_answer(
+    fake: Fake,
+    program: String,
+    args: List<String>,
+    any_args: Bool,
+    code: Int,
+    stdout: Bytes,
+    stderr: Bytes,
+) -> Unit
+
+/// A start of `program` with `args` (any when `any_args`) fails with
+/// `error`.
+pub host fn fake_refuse(
+    fake: Fake,
+    program: String,
+    args: List<String>,
+    any_args: Bool,
+    error: Error,
+) -> Unit
+
+/// How many starts the fake answered.
+pub host fn fake_calls(fake: Fake) -> Int
+
+/// The program and then the arguments of the call at position `i`.
+pub host fn fake_command(fake: Fake, i: Int) -> List<String>
+
+/// The directory the call at position `i` asked for, or "".
+pub host fn fake_dir(fake: Fake, i: Int) -> String
+
+/// The environment the call at position `i` added.
+pub host fn fake_env(fake: Fake, i: Int) -> Map<String, String>
+
+/// What the call at position `i` was given on its standard input.
+pub host fn fake_input(fake: Fake, i: Int) -> Bytes
+
+/// Runs `body` with `fake` answering every std/process call in it, its
+/// tasks' included, and answers what it returned.
+pub fn run_in<T>(fake: Fake, body: () -> T) -> T {
+    run_on(fake, body, fn value -> value)
+}
+
+/// Calls `body` on a frame whose processes are `fake` and hands its value
+/// to `finish` on the caller's. Answered by the VM.
+host fn run_on<T>(fake: Fake, body: () -> T, finish: (T) -> T) -> T

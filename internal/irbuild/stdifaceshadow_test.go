@@ -42,8 +42,8 @@ impl calendar.DateParts for Q {
 }
 
 fn main() {
-    io.print(Int.to_string(calendar.DateParts.year(#Q{y: 7})))
-    io.print(Int.to_string(DateParts.year(#Q{y: 7})))
+    io.print(Int.to_string(calendar.DateParts.year(Q{y: 7})))
+    io.print(Int.to_string(DateParts.year(Q{y: 7})))
 }
 `, "7\n1007\n")
 }

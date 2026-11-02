@@ -50,7 +50,7 @@ fn twice(f: (Int) -> Int, n: Int) -> Int {
 
 fn main_like(p: Point) -> Int {
     q = #{..p, y: 2}
-    #Point{x, y} = q
+    Point{x, y} = q
     foo = Foo(#{a: x})
     shifted = twice(fn n -> n + y, foo.a)
     case shifted {
@@ -123,6 +123,35 @@ func TestUnresolvedExprs_APipedStructCallFormIsTyped(t *testing.T) {
 fn f() -> Int {
     foo = #{a: 1} |> Foo()
     foo.a
+}
+`)
+	if got := UnresolvedExprs(fa, nodes); len(got) > 0 {
+		t.Fatalf("want nothing reported, got %v", got)
+	}
+}
+
+// TestUnresolvedExprs_APipeIntoALocalFunctionValueIsTyped: a local bound to
+// a function value whose type a generic call solves late (`Opt.Empty` leaves
+// `pick`'s T open until the lambda fixes it, as `Err("no")` leaves
+// `Result.with_default`'s) holds an inference variable, and a pipe stage
+// calling it has the function's result type. The checker once read only a
+// bare function type there and recorded nothing.
+func TestUnresolvedExprs_APipeIntoALocalFunctionValueIsTyped(t *testing.T) {
+	fa, nodes := checkNodes(t, `enum Opt<T> {
+    Has T
+    Empty
+}
+
+fn pick<T>(o: Opt<T>, fallback: T) -> T {
+    case o {
+        .Has(v) -> v
+        .Empty -> fallback
+    }
+}
+
+fn f() -> Int {
+    bump = pick(Opt.Empty, fn x: Int -> x + 1)
+    1 |> bump()
 }
 `)
 	if got := UnresolvedExprs(fa, nodes); len(got) > 0 {

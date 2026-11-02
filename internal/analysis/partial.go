@@ -130,8 +130,8 @@ func (c *checker) partialPatchOK(arg, target Type, line, col int) bool {
 // the opaque type's name and the first field the patch names.
 //
 // Naming a private field is the exposure, wherever the name appears. Field
-// access (`c.value`), a pattern (`case c { #Counter{value} -> ... }`), a struct
-// literal (`#Counter{value: 0}`) and the call form (`Counter(#{value: 0})`) are
+// access (`c.value`), a pattern (`case c { Counter{value} -> ... }`), a struct
+// literal (`Counter{value: 0}`) and the call form (`Counter(#{value: 0})`) are
 // guarded elsewhere. An update patch (`Struct.update(c, #{value: -999})`) is the
 // fifth spelling, and this check guards it.
 //
@@ -148,7 +148,7 @@ func (c *checker) opaquePatchField(arg, target Type) (typeName, fieldName string
 	}
 	if st, ok := resolveTypeVar(target).(*StructType); ok {
 		st = canonicalStructForFieldAccess(c, st)
-		if st != nil && st.Opaque && (c.fa == nil || c.fa.FilePath != st.OwningSourceFile) {
+		if st != nil && st.Opaque && (c.fa == nil || !c.fa.inside(st.OwningSourceFile)) {
 			return st.Name, anon.Fields[0].Name, true
 		}
 	}

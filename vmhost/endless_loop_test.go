@@ -18,7 +18,7 @@ func TestEndlessLoopUsesTheStepBudget(t *testing.T) {
 
 fn main() {
     io.print("start")
-    _ = Iter.loop(fn n = 0 -> {
+    _ = Iter.loop(0, fn n -> {
         if n < 3 { io.print(n) }
         n + 1
     })
@@ -78,7 +78,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-    Ok(#Config{context: Context.root(), outbox: Channel.buffered<String>(8)})
+    Ok(Config{context: Context.root(), outbox: Channel.buffered<String>(8)})
 }
 
 fn drain_pending(outbox: Channel<String>) {

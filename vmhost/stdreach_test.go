@@ -14,12 +14,12 @@ import std/duration.{Duration}
 import std/supervisors.{Backoff}
 
 fn main() {
-  a: Backoff = #Backoff.Exponential{}
-  b: Backoff = #Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(1)}
+  a: Backoff = Backoff.Exponential{}
+  b: Backoff = Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(1)}
   io.inspect(a)
   io.print(Debug.inspect(b))
 }
-`, "#Exponential{max_restarts: 10, max_elapsed: 15m}\n#Exponential{max_restarts: 3, max_elapsed: 1m}\n"},
+`, "Exponential{max_restarts: 10, max_elapsed: 15m}\nExponential{max_restarts: 3, max_elapsed: 1m}\n"},
 		{"Range.from and Range.naturals as function values", `import std/io
 
 fn main() {
@@ -79,7 +79,7 @@ derive Hashable for E
 fn main() {
   io.print(Hashable.hash(#(1, 2)))
   io.print(Hashable.hash(#(1, 2, 3)))
-  io.print(Hashable.hash(#(#H{k: 2, note: "x"}, 3)))
+  io.print(Hashable.hash(#(H{k: 2, note: "x"}, 3)))
   io.print(Hashable.hash(E.Pair(#(1, 2))) == Hashable.hash(#(1, 2)))
 }
 `, "33\n1026\n62003\nTrue\n"},
@@ -114,9 +114,9 @@ impl Equatable for Tag {
 }
 
 fn main() {
-  io.print(#(#Tag{name: "x", note: "1"}, 1) == #(#Tag{name: "x", note: "2"}, 1))
-  io.print(Some(#Tag{name: "x", note: "1"}) == Some(#Tag{name: "x", note: "2"}))
-  io.print([#Tag{name: "x", note: "1"}] == [#Tag{name: "x", note: "2"}])
+  io.print(#(Tag{name: "x", note: "1"}, 1) == #(Tag{name: "x", note: "2"}, 1))
+  io.print(Some(Tag{name: "x", note: "1"}) == Some(Tag{name: "x", note: "2"}))
+  io.print([Tag{name: "x", note: "1"}] == [Tag{name: "x", note: "2"}])
 }
 `, "True\nTrue\nTrue\n"},
 		{"a hand-written Equatable with no Hashable keys by equal", `import std/io
@@ -133,9 +133,9 @@ impl Equatable for Loose {
 }
 
 fn main() {
-  s = %[#Loose{name: "x", note: "1"}, #Loose{name: "x", note: "2"}, #Loose{name: "y", note: "3"}]
+  s = %[Loose{name: "x", note: "1"}, Loose{name: "x", note: "2"}, Loose{name: "y", note: "3"}]
   io.print(Set.size(s))
-  io.print(Map.get(%{#Loose{name: "y", note: "a"} => 7}, #Loose{name: "y", note: "b"}))
+  io.print(Map.get(%{Loose{name: "y", note: "a"} => 7}, Loose{name: "y", note: "b"}))
 }
 `, "2\nSome(7)\n"},
 	}

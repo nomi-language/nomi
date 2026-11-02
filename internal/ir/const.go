@@ -36,7 +36,7 @@ import (
 type ConstKind uint8
 
 const (
-	// ConstUnit is `#rt.Unit{}`: the value of a statement.
+	// ConstUnit is `rt.Unit{}`: the value of a statement.
 	ConstUnit ConstKind = iota + 1
 	// ConstBool is a Bool literal.
 	ConstBool
@@ -107,7 +107,7 @@ type Const struct {
 	big *big.Int
 }
 
-// NewUnit is `#rt.Unit{}`.
+// NewUnit is `rt.Unit{}`.
 func NewUnit(pos Pos, dst Temp) *Const { return newConst(pos, dst, ConstUnit, "NewUnit") }
 
 // NewBool is a Bool literal.

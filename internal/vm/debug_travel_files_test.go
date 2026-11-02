@@ -64,7 +64,7 @@ const travelSandboxSrc = `import {
 }
 
 fn main() {
-    ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "a"}}, fn -> {
+    ran = fs_testing.run(Sandbox{files: %{"in.txt" => "a"}}, fn -> {
         _ = fs.write_text("in.txt", "b", mode: .Append)
         fs.read_text("in.txt")
     })

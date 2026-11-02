@@ -28,7 +28,7 @@ struct Holder {
 }
 
 fn boot() -> Result<App, String> {
-    Ok(#App{context: Context.root(), work: Supervisor.new(1)})
+    Ok(App{context: Context.root(), work: Supervisor.new(1)})
 }
 
 fn seven() -> Int {
@@ -51,7 +51,7 @@ fn main() {
         Task.await(a) + Task.await(b)
     }
     io.inspect(n)
-    h = #Holder{sup: App.work}
+    h = Holder{sup: App.work}
     _ = Task.await_all([Supervisor.spawn(h.sup, job)])
     _ = Task.await_all([Supervisor.spawn(if n > 0 { App.work } else { h.sup }, job)])
     xs = concurrent {

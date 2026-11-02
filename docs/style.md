@@ -57,7 +57,7 @@ pub struct RetryPolicy {
 }
 
 impl RetryPolicy {
-    pub once default = #RetryPolicy{
+    pub once default = RetryPolicy{
         attempts: 3,
         delay: Duration.seconds(1),
     }
@@ -181,9 +181,9 @@ inference*; tour: [Bindings & Expressions](/bindings-and-expressions/#how-far-ty
 once upto = 400
 once offsets = [#(-1, 0), #(1, 0), #(0, -1), #(0, 1)]
 
-total = Iter.reduce(1..=upto, fn sum = 0, n -> sum + n)
+total = Iter.reduce(1..=upto, 0, fn sum, n -> sum + n)
 
-lengths = Iter.reduce(words, fn acc = %{}, word -> Map.put(acc, word, String.length(word)))
+lengths = Iter.reduce(words, %{}, fn acc, word -> Map.put(acc, word, String.length(word)))
 ```
 
 Write the type when nothing else pins the value down, such as an empty
@@ -221,7 +221,7 @@ When a value is intentionally ignored, use a discard name (spec §2 *Discard
 names*): `_`, or `_name` when a label makes the ignored value clearer. The
 same holds inside a pattern: write
 `fn #(_word, count) -> count`, `Some(_) -> True` or `[first, ..]`, and leave a struct
-pattern's unneeded fields out (`#.Suspended{reason}`) rather than binding them.
+pattern's unneeded fields out (`.Suspended{reason}`) rather than binding them.
 
 ## Calls and functions
 
@@ -297,7 +297,7 @@ Iter.to_set([1, 2, 3])
 - A plain value or literal argument stays a direct call: `Int.to_string(n)`,
   `Iter.count(s)`. A lone call is never a pipe.
 - A composite literal also stays direct when there is only one operation and
-  the call is the whole expression: `Iter.reduce([1, 2, 3], fn acc = 0, n -> acc + n)`.
+  the call is the whole expression: `Iter.reduce([1, 2, 3], 0, fn acc, n -> acc + n)`.
 - A nested call that is not the first argument stays nested:
   `Map.put(m, k, compute(v))`, `Cipher.decode(cipher, Cipher.encode(cipher, plaintext))`.
   `compute(v)` is a value being stored, not the pipeline subject. Reach for
@@ -323,7 +323,7 @@ Iter.to_set([1, 2, 3])
   the pipeline first (`inner = xs |> Iter.map(Int.to_string) |> Iter.to_list()`),
   then build the expression from the binding.
 - Pipes work in place inside struct and enum literal fields
-  (`#Foo{v: x |> g() |> h()}`), so don't extract a binding just to pipe a field
+  (`Foo{v: x |> g() |> h()}`), so don't extract a binding just to pipe a field
   value.
 
 **End a fallible stage with `?`.** Write the `?` right after the stage whose
@@ -463,7 +463,7 @@ labelled = Result.map_err(result, ParseError)
 
 Keep the lambda when it does more than wrap: a computation inside the
 constructor (`fn n -> Id(n + 1)`), a struct-shaped variant, which has no function
-value (`fn w -> #Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
+value (`fn w -> Shape.Rect{w: w, h: w}`), or a positional variant over a tuple
 whose parts arrive as separate arguments.
 
 ### 12. `return` is for leaving early
@@ -502,7 +502,7 @@ struct Dog {
 
 impl Dog {
     fn rename(_d: Dog, new_name: String) -> Dog {
-        #Dog{name: new_name}
+        Dog{name: new_name}
     }
 }
 
@@ -574,8 +574,8 @@ struct Account {
     age: Int
 }
 
-derive ToJson for Account with #ToJson.Options{rename_all: Json.Case.Camel}
-derive FromJson for Account with #FromJson.Options{rename_all: Json.Case.Camel}
+derive ToJson for Account with ToJson.Options{rename_all: Json.Case.Camel}
+derive FromJson for Account with FromJson.Options{rename_all: Json.Case.Camel}
 ```
 
 Every type already has a `Debug` (spec §12 *Display and Debug*), so write
@@ -633,10 +633,10 @@ someone reorders the enum.
 its position expects (spec §4 *Target-typed construction*; tour:
 [Structs, Enums & Distinct Types](/structs-enums-distinct/#structs)), so where an
 annotation, a parameter, a field or a return type already names the struct,
-write `#{...}` rather than `#Point{...}`:
+write `#{...}` rather than `Point{...}`:
 
 ```nomi
-ada = #Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
+ada = Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
 
 fn origin() -> Point {
     #{x: 0, y: 0}
@@ -646,10 +646,43 @@ fn origin() -> Point {
 Write the type name anyway when a reader cannot see the expected type from
 the literal's own line: an argument to a function defined far away, an
 element deep inside a nested call, or a literal whose struct shares field
-names with another struct the reader might expect. `#Address{...}` at the
+names with another struct the reader might expect. `Address{...}` at the
 top of an expression also says what is being built before the fields do, so
-keep it on an unannotated binding (`home = #Address{...}`), where `#{...}`
+keep it on an unannotated binding (`home = Address{...}`), where `#{...}`
 would make an anonymous struct instead.
+
+The same holds for a variant. Where the expected type already names its enum
+(a return type, a parameter, a `case` subject, the list's first element, a
+constructor's payload), write `.Accounting`, not `CurrencySign.Accounting`,
+and drop the enum's import once nothing else names it:
+
+```nomi
+fn sign(style: Style) -> CurrencySign {
+    case style {
+        .American -> .Accounting
+        .Dutch -> .Standard
+    }
+}
+```
+
+A struct pattern works the same way. Where the value being matched already
+has the struct's type (a `case` subject, the right side of a binding, a
+typed parameter), write `#{...}`, not `Order{...}`:
+
+```nomi
+fn describe(order: Order) -> String {
+    case order {
+        #{status: .Paid, total} when total > 100 -> "big order"
+        #{status: .Paid} -> "paid"
+        #{status: .Refunded} -> "refunded"
+    }
+}
+```
+
+Keep the name where it chooses the type: arms that match different structs
+of an `embeds` enum or an interface value, or a parameter pattern with no
+annotation (`fn advance(Position{x, y}, ...)`), where the name is the
+parameter's type.
 
 ### 17. Use a tuple for a local pairing and a struct once it travels
 
@@ -800,8 +833,7 @@ value = value <<< 7 ||| low
 ```
 
 not `Int.bitwise_or(Int.shift_left(value, 7), Int.bitwise_and(byte, 0x7F))`.
-The functions are for passing as values (`Iter.reduce(flags, Int.bitwise_or,
-from: 0)`). The shifts and `&&&` bind like `*`, so a shift count that is a sum
+The functions are for passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`). The shifts and `&&&` bind like `*`, so a shift count that is a sum
 or product takes parentheses: `byte >>> (7 - i) &&& 1`.
 
 A `Byte` constant is an integer literal where a `Byte` is expected
@@ -849,8 +881,8 @@ fields and leave the whole unnamed:
 
 ```nomi
 case result {
-    Ok(#Transaction{kind: .Deposit} as t) -> record(t)
-    Ok(#Transaction{amount}) -> amount
+    Ok(Transaction{kind: .Deposit} as t) -> record(t)
+    Ok(Transaction{amount}) -> amount
     Err(msg) -> msg
 }
 ```
@@ -1105,7 +1137,7 @@ fn parse(text: String) -> Header {
 }
 ```
 
-A made-up `#Header{name: "", size: 0}` runs and returns a wrong answer that
+A made-up `Header{name: "", size: 0}` runs and returns a wrong answer that
 nothing flags; `todo` stops the program at the line that is missing, the editor
 lists it as a warning, and `nomi build` refuses to ship it. Give a reason when
 the next step is not obvious from the signature, and keep it to what is left to
@@ -1185,24 +1217,24 @@ fold that starts from the empty sum and adds each element is `Iter.sum`:
 total = prices |> Iter.map(.cents) |> Iter.sum()
 ```
 
-not `Iter.reduce(fn total = 0, n -> total + n)`, which spells out the starting
+not `Iter.reduce(0, fn total, n -> total + n)`, which spells out the starting
 value and the step the type's `Summable` and `Add` impls already name. A fold
 that multiplies from 1 is `Iter.product` for the same reason, and a fold that
 multiplies one value by itself is `Int.pow` or `Decimal.pow`:
-`Int.pow(10, zeros)`, not `Iter.reduce(1..=zeros, fn n = 1, _ -> n * 10)`.
+`Int.pow(10, zeros)`, not `Iter.reduce(1..=zeros, 1, fn n, _ -> n * 10)`.
 
 A fold whose every intermediate state is wanted is `Iter.scan`, and a map that
 threads a state from one element to the next is `Iter.map_reduce`:
 
 ```nomi
-balances = deposits |> Iter.scan(fn balance = opening, amount -> balance + amount)
+balances = deposits |> Iter.scan(opening, fn balance, amount -> balance + amount)
 
-#(rows, _width) =
+#(_width, rows) =
     lines
     |> Iter.reverse()
-    |> Iter.map_reduce(fn width = 0, line -> {
+    |> Iter.map_reduce(0, fn width, line -> {
         width = Int.max(width, String.length(line))
-        #(String.pad_end(line, width), width)
+        #(width, String.pad_end(line, width))
     })
 ```
 
@@ -1218,18 +1250,18 @@ accumulator, which visits every element and whose `?` leaves only the lambda.
 
 Keep `Iter.reduce` when only the final state is wanted and the fold does more
 than add (`total + n * weight`), starts from another value, or breaks early.
-Its starting value goes where its callback is written. A lambda carries it as
-its first parameter's default; a named function is passed itself, with the
-starting value as `from:`:
+Its starting value is the positional argument before the callback, unnamed:
+`Iter.reduce(orders, 0, fn total, o -> total + o.cents)`. A named function is
+passed itself, after the starting value:
 
 ```nomi
-total = Iter.reduce(orders, add_order, from: 0)
+total = Iter.reduce(orders, 0, add_order)
 ```
 
-not `Iter.reduce(orders, fn total = 0, o -> add_order(total, o))`, a lambda
-that only passes its parameters on. A capture is passed the same way, with
-`from:`: `Iter.reduce(counts, &Map.merge_with(&1, &2, Int.add), from: %{})`.
-`Iter.loop` takes a named step the same way, `Iter.loop(step, from: start)`.
+not `Iter.reduce(orders, 0, fn total, o -> add_order(total, o))`, a lambda
+that only passes its parameters on. A capture is passed the same way:
+`Iter.reduce(counts, %{}, &Map.merge_with(&1, &2, Int.add))`.
+`Iter.loop` takes a named step the same way, `Iter.loop(start, step)`.
 
 ### 34. Number elements with `Iter.with_index`, not a counter in the state
 
@@ -1279,7 +1311,7 @@ fn steps(number: Int) -> Int {
 
 // a state until a condition: loop
 fn first_power_above(limit: Int) -> Int {
-    Iter.loop(fn n = 1 -> {
+    Iter.loop(1, fn n -> {
         if n > limit { break n }
         n * 2
     })
@@ -1357,7 +1389,7 @@ pub struct Config {
 }
 
 pub fn boot() -> Result<Config, String> {
-    Ok(#Config{context: Context.root()})
+    Ok(Config{context: Context.root()})
 }
 ```
 
@@ -1372,7 +1404,7 @@ of its own. A boot that cannot fail says `Result<App, String>` and returns
 startup input declares no parameter, `fn boot() -> Result<App, E>`, and its
 groups write `boot server.boot()`. A boot that reads startup takes
 `startup: Startup`. When most of its tests need no input, default the
-parameter, `fn boot(startup: Startup = #Startup{}) -> Result<App, E>`, so those
+parameter, `fn boot(startup: Startup = Startup{}) -> Result<App, E>`, so those
 groups write `boot server.boot()` and only the groups that test the inputs
 build a Startup. The runtime still passes the real Startup to `main`'s boot, so
 the default changes nothing outside tests. Leave the parameter required when
@@ -1386,7 +1418,7 @@ reader sees the replaced fields before the code that runs under them:
 ```nomi
 fn import_quietly() {
     with Config.logger = Silent
-    with Config.store = #FakeStore{}
+    with Config.store = FakeStore{}
 
     run_import()
 }
@@ -1409,6 +1441,11 @@ test "result values can be asserted directly" {
     assert parse_id("nope") == Err("expected a numeric id")
 }
 ```
+
+Put the tests of `shapes.nomi` in `shapes_test.nomi` beside it. That file
+is its partner test and reads its private declarations (spec §14
+*Visibility*), so a private helper is tested as it is: don't make a
+declaration `pub` only so a test can reach it.
 
 Use unique full test names within a file. The enclosing `group` is part
 of the full name, so repeated leaf names are fine in different groups.
@@ -1664,7 +1701,7 @@ to empty:
 import server.Mailer
 
 pub fn startup() -> Startup {
-    #Startup{env: %{"SENDER" => "test@example.com"}}
+    Startup{env: %{"SENDER" => "test@example.com"}}
 }
 
 pub type FakeMailer
@@ -1820,7 +1857,7 @@ impl Set<T> {
     //! assert Set.insert(%[1, 2], 2) == %[1, 2]
     //
     pub fn insert<T>(s: Set<T>, elem: T) -> Set<T> {
-        #Set{items: Map.put(s.items, elem, True)}
+        Set{items: Map.put(s.items, elem, True)}
     }
 }
 ```
@@ -1829,7 +1866,7 @@ When an attached assertion's subject becomes multi-line, keep the assertion at
 the front and prompt each continuation line:
 
 ```nomi
-//! assert Iter.loop(fn n = 0 -> {
+//! assert Iter.loop(0, fn n -> {
 //!     if n >= 3 {
 //!         break n
 //!     } else {

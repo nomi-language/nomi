@@ -28,7 +28,7 @@ fn subtract(Dur(x), Dur(y)) -> Dur {
 Typed struct destructuring parameter
 ================================================================================
 
-fn sum_pt(#Point{x, y}) -> Int {
+fn sum_pt(Point{x, y}) -> Int {
   x
 }
 

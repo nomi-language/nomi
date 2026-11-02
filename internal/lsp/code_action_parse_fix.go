@@ -3,6 +3,7 @@ package lsp
 import (
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/parser"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -18,6 +19,8 @@ import (
 //     writes it.
 //   - "Use `//` comments" for a `///` or `//!` run inside a body, which
 //     turns each of its markers into `//`.
+//   - the text edits of a parse or type error written as another language
+//     writes it (parser.Fix.Edits): `let`, `match`, `xs.len()`, `nil`.
 func buildParseFixActions(content, uri string, errs []parser.ParseError, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction
@@ -58,6 +61,9 @@ func buildParseFixActions(content, uri string, errs []parser.ParseError, diags [
 				continue
 			}
 			title = "Use `//` comments"
+		case len(e.Fix.Edits) > 0:
+			title = e.Fix.Title
+			edits = fixTextEdits(lines, e.Fix.Edits)
 		default:
 			continue
 		}
@@ -76,6 +82,32 @@ func buildParseFixActions(content, uri string, errs []parser.ParseError, diags [
 		})
 	}
 	return actions
+}
+
+// fixTextEdits are edits as the protocol's text edits.
+func fixTextEdits(lines *lineIndex, edits []parser.Edit) []protocol.TextEdit {
+	out := make([]protocol.TextEdit, len(edits))
+	for i, e := range edits {
+		out[i] = protocol.TextEdit{
+			Range:   lines.utf16Range(posRange(e.Start.Line, e.Start.Col, e.End.Line, e.End.Col)),
+			NewText: e.Text,
+		}
+	}
+	return out
+}
+
+// typeErrorFixes are the errors of errs that carry a fix, as parse errors
+// at their start, so buildParseFixActions offers each fix the checker
+// knows: the rewrite of a method call, `nil`, a list literal where a
+// vector is expected.
+func typeErrorFixes(errs []analysis.TypeError) []parser.ParseError {
+	var out []parser.ParseError
+	for _, e := range errs {
+		if e.Fix != nil && e.File == "" {
+			out = append(out, parser.ParseError{Line: e.Line, Col: e.Col, Message: e.Message, Fix: e.Fix})
+		}
+	}
+	return out
 }
 
 // parseErrorAt is the parse error with a fix that diagnostic d reports: the

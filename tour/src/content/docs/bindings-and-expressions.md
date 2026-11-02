@@ -498,7 +498,7 @@ struct Money {
 }
 
 impl Money {
-    pub once zero = #Money{cents: 0}
+    pub once zero = Money{cents: 0}
 }
 ```
 

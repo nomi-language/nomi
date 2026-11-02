@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -90,16 +91,22 @@ func TestHashTupleType(t *testing.T) {
 	}
 }
 
-// A parenthesized list is an ordinary parse error: no message names tuples.
-func TestParenthesizedListIsAnOrdinaryError(t *testing.T) {
+// A parenthesized list is how other languages write a tuple, and the error
+// says Nomi's spelling, with the `#` to insert as its fix.
+func TestParenthesizedListNamesTheTupleForm(t *testing.T) {
 	for _, src := range []string{"x = (1, 2)", "(a, b) = pair", "fn f() -> (Int, String) { x }"} {
 		_, err := Parse(lexer.Lex(src))
 		if err == nil {
 			t.Errorf("Parse(%q): the parser accepts it", src)
 			continue
 		}
-		if strings.Contains(err.Error(), "tuple") || strings.Contains(err.Error(), "#(") {
-			t.Errorf("Parse(%q) error %q mentions tuples; it should be an ordinary error", src, err.Error())
+		var pe ParseError
+		if !errors.As(err, &pe) || !strings.Contains(pe.Error()+strings.Join(pe.Hints, " "), "#(") {
+			t.Errorf("Parse(%q) error %q names no `#(` form", src, err.Error())
+			continue
+		}
+		if pe.Fix == nil || len(pe.Fix.Edits) != 1 || pe.Fix.Edits[0].Text != "#" {
+			t.Errorf("Parse(%q) fix = %+v, want the `#` to insert", src, pe.Fix)
 		}
 	}
 }
@@ -149,7 +156,7 @@ func TestLambdaPositions(t *testing.T) {
 		"_ = [fn x -> x, fn y -> y]",
 		"_ = #(fn x -> x, 1)",
 		"_ = %{\"inc\" => fn x -> x + 1}",
-		"_ = #Box{f: fn x -> x}",
+		"_ = Box{f: fn x -> x}",
 		"_ = xs |> Iter.map(fn x -> x * 2)",
 		"_ = 1 |> then fn v -> v + 1",
 		"_ = 1 |> tap fn v -> io.print(v)",
@@ -279,7 +286,7 @@ func literalKinds(t *testing.T, src string) string {
 			case *ast.MapLit:
 				out = append(out, named("map", n.TypeName))
 			case *ast.TupleLit:
-				out = append(out, named("tuple", n.TypeName))
+				out = append(out, "tuple")
 			case *ast.MapPattern:
 				out = append(out, named("map-pattern", n.TypeName))
 			case *ast.VectorPattern:
@@ -287,7 +294,7 @@ func literalKinds(t *testing.T, src string) string {
 			case *ast.SetPattern:
 				out = append(out, named("set-pattern", n.TypeName))
 			case *ast.TuplePattern:
-				out = append(out, named("tuple-pattern", n.TypeName))
+				out = append(out, "tuple-pattern")
 			case *ast.StructLit:
 				switch {
 				case n.TypeName != nil:
@@ -354,15 +361,16 @@ func TestShapeSymbolLiterals(t *testing.T) {
 // A type built on a shape writes its name right after the shape's symbol,
 // and the token after the name says the shape.
 func TestNamedShapeLiterals(t *testing.T) {
-	wantKinds(t, "p = #Point{x: 1}", "struct Point")
-	wantKinds(t, "p = #Point{}", "struct Point")
-	wantKinds(t, "p = #Point{x}", "struct Point")
-	wantKinds(t, "p = #geo.Point{x: 1}", "struct geo.Point")
-	wantKinds(t, "c = #Shape.Circle{radius: 1.0}", "struct Shape.Circle")
-	wantKinds(t, "c = #geo.Shape.Circle{radius: 1.0}", "struct geo.Shape.Circle")
-	wantKinds(t, "c: Shape = #.Circle{radius: 1.0}", "struct .Circle")
-	wantKinds(t, "c = #Circle{radius: 1.0}", "struct Circle")
-	wantKinds(t, "p = #Pair(1, \"x\")", "tuple Pair")
+	wantKinds(t, "p = Point{x: 1}", "struct Point")
+	wantKinds(t, "p = Point{}", "struct Point")
+	wantKinds(t, "p = Point{x}", "struct Point")
+	wantKinds(t, "p = geo.Point{x: 1}", "struct geo.Point")
+	wantKinds(t, "c = Shape.Circle{radius: 1.0}", "struct Shape.Circle")
+	wantKinds(t, "c = geo.Shape.Circle{radius: 1.0}", "struct geo.Shape.Circle")
+	wantKinds(t, "c: Shape = .Circle{radius: 1.0}", "struct .Circle")
+	wantKinds(t, "c = Circle{radius: 1.0}", "struct Circle")
+	// A named tuple is built by a call, `Pair(1, "x")`, which is no literal.
+	wantKinds(t, "p = Pair(1, \"x\")", "")
 	wantKinds(t, "v = #Path[1, 2]", "vector Path")
 	wantKinds(t, "v: Bag = #.Items[1, 2]", "vector .Items")
 	wantKinds(t, "k = %Kvs{\"a\" => 4}", "map Kvs")
@@ -371,22 +379,23 @@ func TestNamedShapeLiterals(t *testing.T) {
 	wantKinds(t, "j = %Json.Obj{\"k\" => v}", "map Json.Obj")
 	wantKinds(t, "b = %shapes.Bag.Named{\"a\" => 4}", "map shapes.Bag.Named")
 	wantKinds(t, "t = %Tags[\"a\", \"b\"]", "set Tags")
-	wantKinds(t, "p = #Point{x: %{1 => 2}}", "struct Point map")
-	wantKinds(t, "p = #Point{f: fn x -> case x {\n    1 -> 2\n    _ -> 3\n}}", "struct Point block")
+	wantKinds(t, "p = Point{x: %{1 => 2}}", "struct Point map")
+	wantKinds(t, "p = Point{f: fn x -> case x {\n    1 -> 2\n    _ -> 3\n}}", "struct Point block")
 	wantParseError(t, "k = %Kvs{..m, \"a\" => 1}", "map spread `..` has no named form; write `%{..base, key => value}`")
-	wantParseError(t, "p = #Point{..q, x: 1}", "struct spread `..` has no named form; write `#{..base, field: value}`")
+	wantParseError(t, "p = Point{..q, x: 1}", "struct spread `..` has no named form; write `#{..base, field: value}`")
 	wantParseError(t, "v = #Path[..v, 1]", "vector spread `..` has no named form; write `#[..base, item]`")
 	wantParseError(t, "s = %Tags[..s, 1]", "set spread `..` has no named form; write `%[..base, item]`")
-	wantParseError(t, "p = #Point", "expected '{', '(' or '[' after `#Point`")
+	wantParseError(t, "p = #Point", "expected '[' after `#Point`")
 	wantParseError(t, "p = #", "expected '{', '(', '[' or a type name after '#'")
 }
 
-// A struct literal starts with `#`, so a `{` after an `if` condition, a
-// `case` subject or a `subtests` name always opens the body, and a struct
-// literal stands in each of them as anywhere else.
+// A `{` after an `if` condition, a `case` subject or a `subtests` name
+// always opens the body, so a named struct literal at the top of a head is
+// written in parentheses; a map literal starts with `%` and needs none.
 func TestStructLiteralsInConditions(t *testing.T) {
-	wantKinds(t, "x = if p == #Point{x: 1} { 1 } else { 2 }", "struct Point block block")
-	wantKinds(t, "x = case #Point{x: 1} {\n    #Point{x} -> x\n}", "struct Point struct-pattern Point")
+	wantKinds(t, "x = if p == (Point{x: 1}) { 1 } else { 2 }", "struct Point block block")
+	wantKinds(t, "x = case (Point{x: 1}) {\n    Point{x} -> x\n}", "struct Point struct-pattern Point")
+	wantKinds(t, "x = if s == .Paid { 1 } else { 2 }", "block block")
 	wantKinds(t, "x = if c == %{1 => 2} { 1 } else { 2 }", "map block block")
 	wantKinds(t, "x = if c { 1 } else { 2 }", "block block")
 	wantKinds(t, "x = if True { 1 } else { 2 }", "block block")
@@ -396,17 +405,17 @@ func TestShapeSymbolPatternsAndTypes(t *testing.T) {
 	wantKinds(t, "x = case p {\n    #{x, y} -> x\n    _ -> 0\n}", "struct-pattern")
 	wantKinds(t, "x = case p {\n    #{x: 0, y} -> y\n    _ -> 0\n}", "struct-pattern")
 	wantKinds(t, "#{x, y} = p", "struct-destructure")
-	wantKinds(t, "#Point{x, y} = p", "struct-pattern Point")
+	wantKinds(t, "Point{x, y} = p", "struct-pattern Point")
 	wantKinds(t, "fn f(#{x, y}: Point) -> Int { x }", "struct-pattern block")
-	wantKinds(t, "fn f(#Point{x, y}) -> Int { x }", "struct-pattern Point block")
+	wantKinds(t, "fn f(Point{x, y}) -> Int { x }", "struct-pattern Point block")
 	wantKinds(t, "fn f(p: #{x: Int, y: List<#{z: Int}>}) -> Int { p.x }", "struct-type struct-type block")
 	wantKinds(t, "x = case m {\n    %{\"k\" => v} -> v\n    _ -> 0\n}", "map-pattern")
 	wantKinds(t, "x = case m {\n    %Kvs{\"k\" => v} -> v\n    _ -> 0\n}", "map-pattern Kvs")
 	wantKinds(t, "x = case j {\n    %.Obj{\"k\" => v} -> v\n    _ -> 0\n}", "map-pattern .Obj")
-	wantKinds(t, "x = case p {\n    #Point{x} -> x\n    _ -> 0\n}", "struct-pattern Point")
-	wantKinds(t, "x = case s {\n    #.Circle{radius} -> radius\n    #Shape.Square{side} -> side\n}", "struct-pattern .Circle struct-pattern Shape.Square")
-	wantKinds(t, "x = case p {\n    #Pair(a, b) -> a\n}", "tuple-pattern Pair")
-	wantKinds(t, "#Pair(a, b) = p", "tuple-pattern Pair")
+	wantKinds(t, "x = case p {\n    Point{x} -> x\n    _ -> 0\n}", "struct-pattern Point")
+	wantKinds(t, "x = case s {\n    .Circle{radius} -> radius\n    Shape.Square{side} -> side\n}", "struct-pattern .Circle struct-pattern Shape.Square")
+	wantKinds(t, "x = case p {\n    Pair(a, b) -> a\n}", "variant-pattern Pair tuple-pattern")
+	wantKinds(t, "Pair(a, b) = p", "variant-pattern Pair tuple-pattern")
 	wantKinds(t, "x = case p {\n    Pair(#(a, b)) -> a\n}", "variant-pattern Pair tuple-pattern")
 }
 
@@ -516,22 +525,13 @@ func TestSetPatterns(t *testing.T) {
 	wantParseError(t, arms("%[..rest, 1]"), "set pattern `..` must be the last element")
 }
 
-// A name followed by `{` never starts a literal or a pattern, and the
-// spellings these replace are errors rather than meaning something else.
+// A map is written with `%`, and the spellings without it are errors
+// rather than meaning something else.
 func TestOldCollectionSpellingsFail(t *testing.T) {
 	for _, src := range []string{
-		"p = Point{x: 1}",
-		"p = Point{}",
-		"c: Shape = .Circle{radius: 1.0}",
-		"c = Shape.Circle{radius: 1.0}",
-		"k = Kvs{\"a\" => 1}",
 		"m = Map{\"a\" => 1}",
-		"m = Map{}",
 		"k = Kvs%{\"a\" => 1}",
-		"x = case p {\n    Point{x} -> x\n    _ -> 0\n}",
 		"x = case m {\n    Map{\"k\" => v} -> v\n    _ -> 0\n}",
-		"x = case s {\n    .Circle{radius} -> radius\n    _ -> 0\n}",
-		"Point{x, y} = p",
 	} {
 		if _, err := Parse(lexer.Lex(src)); err == nil {
 			t.Errorf("Parse(%q): the parser accepts it", src)

@@ -7,7 +7,7 @@ import (
 
 // STRUCT AND DISTINCT PATTERNS IN A `case`.
 //
-// A struct pattern (`#User{name: "Alice"}`, `#Point{x, y}`) reads each named
+// A struct pattern (`User{name: "Alice"}`, `Point{x, y}`) reads each named
 // field in the pattern's order and binds or tests it; a distinct pattern
 // (`Id(x)`) reads the wrapped value and matches its payload pattern. The
 // subject's type is the pattern's (the checker requires it), so there is no
@@ -29,7 +29,6 @@ func irNominalCaseKind(k kind) bool {
 // on success with the pattern's names bound and branching to next on
 // failure.
 func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
-	pattern = irPattern(pattern)
 	if p, isStruct := pattern.(*ast.StructPattern); isStruct && irRetainedRecordKind(k) {
 		if p.TypeName != nil || !bl.recordCaseFields(p, subj, k, next) {
 			return false
@@ -47,7 +46,7 @@ func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kin
 			return false
 		}
 		// A written type name names this struct, directly or through an
-		// alias (`#Human{age} = person`): the checker rejects any other
+		// alias (`Human{age} = person`): the checker rejects any other
 		// (structPatternNames), so the name selects nothing here.
 		for _, f := range p.Fields {
 			fd := k.def.field(f.Name)

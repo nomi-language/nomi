@@ -70,13 +70,13 @@ impl Holds for Bag {
 
 impl Combine<Int, Box> for Box {
     fn combine(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n + rhs}
+        Box{n: lhs.n + rhs}
     }
 }
 
 impl Add<Int, Box> for Box {
     fn add(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n + rhs}
+        Box{n: lhs.n + rhs}
     }
 }
 `,
@@ -94,9 +94,9 @@ fn second<H>(h: H) -> String where H: Holds<String> {
 }
 
 fn main() {
-    b = #Box{n: 2}
+    b = Box{n: 2}
     dbg first(b)
-    dbg second(#Bag{s: "x"}) + "y"
+    dbg second(Bag{s: "x"}) + "y"
     dbg Combine.combine(b, 3).n
     dbg (b + 4).n
 }

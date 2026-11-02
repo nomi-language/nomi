@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -173,7 +175,7 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 		return bl.siblingMethodPlan(t, args, owner, impl, method)
 	}
 	it := impl.items[method]
-	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != len(t.Args) {
+	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) < len(t.Args) {
 		return nil
 	}
 	params := make([]kind, len(it.params))
@@ -185,11 +187,46 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 		params[i] = ip
 	}
 	result, ok := g.importKind(it.result)
-	if !ok || !bl.qualSignature(t, args, params, result) {
+	if !ok {
+		return nil
+	}
+	var filled *irQualArgs
+	if len(t.Args) < len(params) {
+		// `Box.grow(b, fn x, n -> x + n)` omitting a parameter the
+		// declaring file defaults, before the trailing callback or after
+		// the written operands: each written operand at the slot a direct
+		// call gives it, the rest from their defaults, lowered with the
+		// declaring file's names.
+		if namedArgNode(t.Args) != nil {
+			return nil
+		}
+		fd := irImplSource(it)
+		temps, slots, _, ok := slottedOperands(t, args, params, fd.Params)
+		if !ok {
+			return nil
+		}
+		if !bl.siblingDefaultsAgree(&fileFunc{name: method, params0: fd.Params}, owner, slots) {
+			// A default naming what this file cannot: an instance's impl
+			// builds no accessors, so the call declines rather than lower
+			// it here.
+			return nil
+		}
+		if unit := slices.Index(g.reg.gens, owner); unit >= 0 && owner != g {
+			defer g.lowerNamesFrom(unit)()
+		}
+		if !bl.callDefaults(&fnSig{decl: fd, params: params}, temps) {
+			return nil
+		}
+		full := irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}
+		filled = &full
+		args = full
+		t = &ast.Call{Func: t.Func, Args: make([]ast.Node, len(temps)), Line: t.Line, Col: t.Col}
+	}
+	if !bl.qualSignature(t, args, params, result) {
 		return nil
 	}
 	name := impl.recv.nomi() + "." + it.name
-	return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name)}
+	return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name), args: filled}
 }
 
 // siblingMethodPlan resolves a call to a generic impl function another file
@@ -260,7 +297,9 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 			return nil
 		}
 		f := &fileFunc{name: method, params0: w.params, defaults: true}
-		full, ok := bl.siblingDefaultArgs(t, args, &implMemberSite{fn: f}, params, owner)
+		name := d.recv.nomi() + "." + it.name
+		site := &implMemberSite{fn: f, symName: name, instAccessors: func() *ir.Symbol { return owner.methodInstAccessors(it, name) }}
+		full, ok := bl.siblingDefaultArgs(t, args, site, params, owner)
 		if !ok {
 			return nil
 		}

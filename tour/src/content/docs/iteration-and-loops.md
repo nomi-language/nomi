@@ -22,7 +22,7 @@ numbers:
 ```nomi-run
 fn main() {
     // Countdown: break when n reaches 0.
-    countdown = Iter.loop(fn n = 5 -> {
+    countdown = Iter.loop(5, fn n -> {
         if n == 0 { break }
         n - 1
     })
@@ -30,7 +30,7 @@ fn main() {
     dbg countdown
 
     // Tuple state: the first Fibonacci pair whose second number is over 100.
-    #(a, b) = Iter.loop(fn #(x, y) = #(0, 1) -> {
+    #(a, b) = Iter.loop(#(0, 1), fn #(x, y) -> {
         if y > 100 { break #(x, y) }
         #(y, x + y)
     })
@@ -47,8 +47,8 @@ dbg line 17: b = 144
 -->
 
 `Iter.loop` calls the function you give it again and again. The function's
-parameter is the loop's state, and its default value is the starting state. In
-the countdown, `n` starts at 5.
+parameter is the loop's state, and the value before the function is the
+starting state. In the countdown, `n` starts at 5.
 
 Each round, the function returns the state for the next round. A bare `break`
 ends the loop with the current state as its result. `break value` ends it with
@@ -89,24 +89,22 @@ fn main() {
 gives a line, and runs the `else` block otherwise
 ([Binding with `else`](/pattern-matching/#binding-with-else)).
 
-You can also give the starting state as a named argument, `from:`. You need
-it when the loop's body is a named function, such as `step`. A function passed
-as a value leaves its parameter defaults behind, so a default can't give the
-start. `Iter.loop(step, from: 5)` calls `step` with 5 in the first round. Give
-the starting state one way or the other, not both.
+The loop's body can also be a named function: `Iter.loop(5, step)` calls
+`step` with 5 in the first round.
 
 ## Keeping every step with `Iter.scan`
 
 `Iter.reduce` gives back only the final total.
 [`Iter.scan`](/reference/iter/#iterscan) gives back the total after each
 element. Like `Iter.map`, it is lazy: it computes each total only when
-something asks for it. Its starting value is given the same way as a loop's:
+something asks for it. Its starting value comes before the function, as a
+loop's does:
 
 ```nomi-run
 fn main() {
     running =
         [3, 1, 4, 1, 5]
-        |> Iter.scan(fn total = 0, x -> total + x)
+        |> Iter.scan(0, fn total, x -> total + x)
         |> Iter.to_list()
 
     dbg running
@@ -120,8 +118,8 @@ dbg line 7: running = [3, 4, 8, 9, 14]
 The starting value itself is not in the output, so there is one total per
 element. When each element should produce its own result while a value is
 carried along, use [`Iter.map_reduce`](/reference/iter/#itermap_reduce). Its
-function returns `#(result, next_state)`, and the call gives back the list of
-results and the final state.
+function returns `#(next_state, result)`, the state first as it takes it, and
+the call gives back the final state and the list of results.
 
 ## `break` and `continue` in iter callbacks
 
@@ -134,7 +132,7 @@ fn main() {
     // break in reduce: stop adding once the total would pass 60.
     partial_sum =
         [10, 20, 30, 40, 50]
-        |> Iter.reduce(fn acc = 0, x -> {
+        |> Iter.reduce(0, fn acc, x -> {
             if acc + x > 60 { break }
             acc + x
         })
@@ -209,7 +207,8 @@ A named function can use `break` and `continue` too. They act on the
 iteration you pass the function to. Pass the function itself as the callback,
 as in `Iter.map(keep_small)`.
 
-A named fold takes its start as `from:`, as with `Iter.loop`:
+A named function passed to a fold comes after the starting value, as with
+`Iter.loop`:
 
 ```nomi-run
 fn keep_small(x: Int) -> Int {
@@ -232,7 +231,7 @@ fn main() {
 
     total =
         [1, 2, 0, 4]
-        |> Iter.reduce(add_until_zero, from: 0)
+        |> Iter.reduce(0, add_until_zero)
 
     dbg total
 }
@@ -261,14 +260,14 @@ fn add_until_zero(total: Int, x: Int) -> Int {
 fn main() {
     total =
         [1, 2, 0, 4]
-        |> Iter.reduce(fn total = 0, x -> add_until_zero(total, x))
+        |> Iter.reduce(0, fn total, x -> add_until_zero(total, x))
 
     dbg total
 }
 ```
 <!-- expect
-main.nomi:9:43: `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, add_until_zero, from: <start>)`
-main.nomi:9:43: help: to decide in this callback instead, return a `Maybe` or an enum from `add_until_zero` and write `break` here
+main.nomi:9:42: `add_until_zero` uses `break`, so it cannot be called: pass it as an iteration callback itself, as in `Iter.reduce(xs, <start>, add_until_zero)`
+main.nomi:9:42: help: to decide in this callback instead, return a `Maybe` or an enum from `add_until_zero` and write `break` here
 -->
 
 When you want a helper to decide and the callback to act, have the helper

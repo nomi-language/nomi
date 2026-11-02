@@ -90,12 +90,12 @@ impl Assertable for Same {
     if s.a == s.b {
       None
     } else {
-      Some(l: #AssertionDetails{
+      Some(l: AssertionDetails{
         reason: "values were not equal",
       })
     }
   }
-}`, "l: #AssertionDetails", variantNameHint},
+}`, "l: AssertionDetails", variantNameHint},
 		{"a distinct", `fn f() -> Id {
   Id(n: 5)
 }`, "n: 5", distinctNameHint},
@@ -107,7 +107,7 @@ impl Assertable for Same {
 }`, "n: 3", distinctNameHint},
 		{"a struct's call form", `fn f() -> Point {
   Point(p: #{x: 1})
-}`, "p: #{x: 1}", "a struct's call form takes one record with the fields in it; write Point(#{...}) or #Point{...}"},
+}`, "p: #{x: 1}", "a struct's call form takes one record with the fields in it; write Point(#{...}) or Point{...}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := namedCtorDecls + tc.src + "\nfn main() {\n}\n"
@@ -132,7 +132,7 @@ fn main() {
 `
 	_, errs := checkSourceWithStdlib(src)
 	line, col := lineColOf(t, src, "Rect(w")
-	want := "Shape.Rect is a struct-shaped variant and has no positional form; construct it with #Shape.Rect{...} or Shape.Rect(#{...})"
+	want := "Shape.Rect is a struct-shaped variant and has no positional form; construct it with Shape.Rect{...} or Shape.Rect(#{...})"
 	for _, e := range errs {
 		if e.Message == want && e.Line == line && e.Col == col {
 			return
@@ -176,7 +176,7 @@ func TestNamedArgToConstructor_PositionalStillChecks(t *testing.T) {
   f = &Some(&1)
   g: Maybe<Int> = 1 |> Some()
   h: Id = Id(5)
-  i: Two = #Two(1, "x")
+  i: Two = Two(1, "x")
   j: Shape = Shape.Id(3)
   k: Point = Point(#{x: 1})
   _ = #(a, b, c, d, e, f(1), g, h, i, j, k)
@@ -243,7 +243,7 @@ func TestNamedArgToInterfaceFunction_ChecksTheName(t *testing.T) {
   T.to_string(value: x)
 }
 fn main() {
-  p = #Point{x: 1}
+  p = Point{x: 1}
   a: Point = Struct.update(p, updates: #{x: 2})
   b: Point = Struct.update(updates: #{x: 3}, original: p)
   c: String = Display.to_string(value: 4)

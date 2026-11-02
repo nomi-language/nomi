@@ -90,7 +90,7 @@ impl Show for Circle {
 impl Show for Shape {
     fn show(s: Shape) -> String {
         case s {
-            #.Circle{r} -> "shape circle ${r}"
+            .Circle{r} -> "shape circle ${r}"
             .Dot -> "shape dot"
         }
     }
@@ -105,7 +105,7 @@ impl Display for Circle {
 impl Display for Shape {
     fn to_string(s: Shape) -> String {
         case s {
-            #.Circle{r} -> "shape circle ${r}"
+            .Circle{r} -> "shape circle ${r}"
             .Dot -> "shape dot"
         }
     }

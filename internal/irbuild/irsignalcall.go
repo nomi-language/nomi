@@ -11,7 +11,7 @@ import (
 // The checker admits an iter-sensitive function only as an iteration
 // callback itself. Every driver but `Iter.loop` calls it from rt and reads
 // its signal there; `Iter.loop` is inlined (iterLoop), so a named step,
-// `Iter.loop(step, from: 0)`, is called from the loop's body, and that call
+// `Iter.loop(0, step)`, is called from the loop's body, and that call
 // is the one call of an iter-sensitive function the builder lowers. The
 // callee's body is lowered in the adapter's signalling form (namedCtlForm),
 // so its answer is a value or a control outcome; the call writes it whole

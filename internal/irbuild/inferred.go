@@ -291,6 +291,11 @@ func (g *gen) project(t analysis.Type) kind {
 			return k
 		}
 		if len(ty.TypeArgs) > 0 {
+			// A user generic distinct the checker solved (`Tagged<Int>`),
+			// by the struct arm's rule.
+			if k, isUserGeneric := g.projectGenericInstance(ty.TypeParamDefs, ty.Origin, ty.Name, ty.TypeArgs); isUserGeneric {
+				return k
+			}
 			return kindInvalid
 		}
 		// A stdlib nil-inner MARKER — `ChannelClosed`. Beside the opaque arm
@@ -428,7 +433,7 @@ func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeD
 	if bd := g.blockLocalOfType(t); bd != nil {
 		// A type a block of this file declares, found by the checker's
 		// type for its declaration rather than by name, so a value of it
-		// that escapes its block (`w = { struct Loc {…}  #Loc{n: 1} }`) is
+		// that escapes its block (`w = { struct Loc {…}  Loc{n: 1} }`) is
 		// still that type where the name no longer resolves.
 		if !bd.lowerable || !shape(bd) {
 			return kindInvalid

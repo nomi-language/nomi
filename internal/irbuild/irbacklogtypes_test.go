@@ -152,7 +152,7 @@ test "a turbofish names the impl" {
 
 test "the struct call form over a record value" {
   c = Conf(conf_defaults())
-  assert c == #Conf{host: "h", port: 8080, retries: 3}
+  assert c == Conf{host: "h", port: 8080, retries: 3}
 }
 
 test "lists of a distinct compare structurally" {

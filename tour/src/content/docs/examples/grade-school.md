@@ -27,7 +27,7 @@ pub enum Error {
 impl School {
     /// A school with no students.
     pub fn new() -> School {
-        #School{grades: %{}}
+        School{grades: %{}}
     }
 
     /// `school` with `name` enrolled in `grade`, or `AlreadyEnrolled` when
@@ -36,7 +36,7 @@ impl School {
         if name in school.grades {
             Err(.AlreadyEnrolled)
         } else {
-            Ok(#School{grades: Map.put(school.grades, name, grade)})
+            Ok(School{grades: Map.put(school.grades, name, grade)})
         }
     }
 
@@ -60,14 +60,14 @@ impl School {
 // FILE: grade_school_test.nomi
 import grade_school.School
 
-/// Adds each `#(name, grade)` in turn, answering whether each was added and
-/// the school after all of them.
-fn enroll(students: List<#(String, Int)>) -> #(List<Bool>, School) {
+/// Adds each `#(name, grade)` in turn, answering the school after all of
+/// them and whether each was added.
+fn enroll(students: List<#(String, Int)>) -> #(School, List<Bool>) {
     students
-    |> Iter.map_reduce(fn school = School.new(), #(name, grade) -> {
+    |> Iter.map_reduce(School.new(), fn school, #(name, grade) -> {
         case School.add(school, name, grade) {
-            Ok(added) -> #(True, added)
-            Err(_) -> #(False, school)
+            Ok(added) -> #(added, True)
+            Err(_) -> #(school, False)
         }
     })
 }
@@ -93,7 +93,7 @@ test "adding students" {
         ),
     ]
     |> subtests #(description, students, expected), description {
-        #(added, _school) = enroll(students)
+        #(_school, added) = enroll(students)
         assert added == expected
     }
 }
@@ -147,7 +147,7 @@ test "the roster" {
         ),
     ]
     |> subtests #(description, students, expected), description {
-        #(_added, school) = enroll(students)
+        #(school, _added) = enroll(students)
         assert School.roster(school) == expected
     }
 }
@@ -187,7 +187,7 @@ test "one grade" {
         ),
     ]
     |> subtests #(description, students, grade, expected), description {
-        #(_added, school) = enroll(students)
+        #(school, _added) = enroll(students)
         assert School.grade(school, grade) == expected
     }
 }

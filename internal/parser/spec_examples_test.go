@@ -256,11 +256,11 @@ func TestSpecExamples_PinnedDivergencesStillFail(t *testing.T) {
 // parses clean as two statements — a binding of the bare name, then an
 // anonymous struct built and thrown away. At file scope there is no tail-value
 // position, so a discarded anonymous struct literal is never what the author
-// meant. Named literals are not flagged: `#User{a: 1}` alone is a legitimate
+// meant. Named literals are not flagged: `User{a: 1}` alone is a legitimate
 // "here is the expression" demonstration.
 //
 // The braces are caught in both shapes they can take. `#{status: 404}` parses
-// as an anonymous *ast.StructLit; `{}` — the detached form of `#Response{}`,
+// as an anonymous *ast.StructLit; `{}` — the detached form of `Response{}`,
 // a struct built entirely from field defaults — is ambiguous with a block and
 // the parser resolves it to an empty *ast.Block. A bare block at file scope is
 // no more meaningful than a discarded literal, so both are reported.

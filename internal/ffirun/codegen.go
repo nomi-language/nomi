@@ -64,6 +64,7 @@ const ffiTestResultMarker = "__NOMI_FFI_TEST_RESULT"
 const imageUsesCompilerMarker = "__NOMI_IMAGE_USES_COMPILER"
 const imageHasExportsMarker = "__NOMI_IMAGE_HAS_EXPORTS"
 const imageUsesFilesMarker = "__NOMI_IMAGE_USES_FILES"
+const imageNoNetworkMarker = "__NOMI_IMAGE_NO_NETWORK"
 const wrapperModeFlag = "--nomi-wrapper-mode"
 {{end}}
 {{if .Reactor}}
@@ -262,6 +263,9 @@ func buildImageVM(entryPath string, args []string) {
 	}
 	if p.HasExports() {
 		stdfmt.Println(imageHasExportsMarker)
+	}
+	if !p.UsesNetwork(web || reactor) {
+		stdfmt.Println(imageNoNetworkMarker)
 	}
 }
 

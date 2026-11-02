@@ -168,11 +168,11 @@ fn height(s: Shape) -> Int {
 }
 
 fn main() {
-  r = #Shape.Rect{height: 2}
+  r = Shape.Rect{height: 2}
   io.print(r.height)
   io.print(r.label)
-  io.print(height(#Shape.Circle2{radius: 1.0, height: 9}))
-  w = Shape.Wrap(#Circle{radius: 2.5})
+  io.print(height(Shape.Circle2{radius: 1.0, height: 9}))
+  w = Shape.Wrap(Circle{radius: 2.5})
   io.print(w.radius)
   io.print(height(w))
 }

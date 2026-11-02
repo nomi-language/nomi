@@ -11,9 +11,9 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// `#Pair(1, ‸` is a tuple literal named by a distinct type: its signature
-// is the tuple's elements, with the one being written active. The call
-// form `Pair(‸` takes the whole tuple and has no element signature.
+// `Pair(1, ‸` builds a distinct type over a tuple from the tuple's
+// elements: its signature is those elements, with the one being written
+// active.
 func TestSignatureHelp_NamedTupleLiteral(t *testing.T) {
 	help := func(src string) *protocol.SignatureHelp {
 		t.Helper()
@@ -33,18 +33,15 @@ func TestSignatureHelp_NamedTupleLiteral(t *testing.T) {
 		return res
 	}
 	decls := "type Pair #(Int, String)\n\nfn main() {\n    "
-	res := help(decls + "_p = #Pair(1, ‸)\n}\n")
+	res := help(decls + "_p = Pair(1, ‸)\n}\n")
 	if res == nil || len(res.Signatures) != 1 {
 		t.Fatalf("signature help = %#v, want one signature", res)
 	}
-	if got := res.Signatures[0].Label; got != "#Pair(Int, String)" {
-		t.Errorf("label = %q, want #Pair(Int, String)", got)
+	if got := res.Signatures[0].Label; got != "Pair(Int, String)" {
+		t.Errorf("label = %q, want Pair(Int, String)", got)
 	}
 	if res.ActiveParameter == nil || *res.ActiveParameter != 1 {
 		t.Errorf("active parameter = %v, want 1", res.ActiveParameter)
-	}
-	if res := help(decls + "_p = Pair(‸)\n}\n"); res != nil {
-		t.Errorf("call form signature = %#v, want none", res)
 	}
 }
 

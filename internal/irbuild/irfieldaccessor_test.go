@@ -35,8 +35,8 @@ fn values<T>(boxes: List<Box<T>>) -> List<T> {
 
 fn main() {
   users = [
-    #User{name: "Ann", age: 40, address: #Address{city: "Bath"}, greet: fn s -> "hi ${s}"},
-    #User{name: "Bob", age: 30, address: #Address{city: "York"}, greet: fn s -> "yo ${s}"},
+    User{name: "Ann", age: 40, address: Address{city: "Bath"}, greet: fn s -> "hi ${s}"},
+    User{name: "Bob", age: 30, address: Address{city: "York"}, greet: fn s -> "yo ${s}"},
   ]
   io.print(users |> Iter.map(.name) |> Iter.to_list())
   io.print(Iter.map(users, .age) |> Iter.to_list())
@@ -46,11 +46,11 @@ fn main() {
   io.print(Iter.map(users, age) |> Iter.to_list())
   name = name_of()
   io.print(Iter.map(users, name) |> Iter.to_list())
-  boxes = [#Box{value: #Address{city: "Rye"}}, #Box{value: #Address{city: "Ely"}}]
+  boxes = [Box{value: Address{city: "Rye"}}, Box{value: Address{city: "Ely"}}]
   io.print(boxes |> Iter.map(.value.city) |> Iter.to_list())
-  io.print(values([#Box{value: 1}, #Box{value: 2}]))
+  io.print(values([Box{value: 1}, Box{value: 2}]))
   greet: (User) -> (String) -> String = .greet
-  hello = greet(#User{name: "Cy", age: 1, address: #Address{city: "Ayr"}, greet: fn s -> "hey ${s}"})
+  hello = greet(User{name: "Cy", age: 1, address: Address{city: "Ayr"}, greet: fn s -> "hey ${s}"})
   io.print(hello("there"))
   io.print([#(1, "a"), #(2, "b")] |> Iter.map(.1) |> Iter.to_list())
   points = [#{x: 1, y: 2}, #{x: 3, y: 4}]

@@ -67,8 +67,7 @@ func (bl *irScalarBuilder) testScopeSave() (map[string]ir.Temp, map[string]kind,
 func (bl *irScalarBuilder) testSetupBody(body ast.Node) (ir.Temp, kind, bool) {
 	block, isBlock := body.(*ast.Block)
 	if !isBlock {
-		v, k, _, ok := bl.lower(body)
-		return v, k, ok
+		return bl.setupFinal(body)
 	}
 	if len(block.Stmts) == 0 {
 		return bl.testSetupUnit(block)
@@ -94,8 +93,20 @@ func (bl *irScalarBuilder) testSetupBody(body ast.Node) (ir.Temp, kind, bool) {
 	if line, _ := nodePos(tail); !emittableLine(line) {
 		return ir.NoTemp, kindInvalid, false
 	}
-	v, k, _, ok := bl.lower(tail.Expr)
-	return v, k, ok
+	return bl.setupFinal(tail.Expr)
+}
+
+// setupFinal lowers a setup's final expression, its value. A value of type
+// `Result<T, AssertionFailure>` that is an `Err` fails the case with that
+// failure's report, as a test body's final value does (spec §17, *A final
+// `Err(AssertionFailure)` fails the test*); an `Ok` is the setup's value.
+func (bl *irScalarBuilder) setupFinal(e ast.Node) (ir.Temp, kind, bool) {
+	v, k, _, ok := bl.lower(e)
+	if !ok {
+		return ir.NoTemp, kindInvalid, false
+	}
+	bl.testVerdict(e, v, k)
+	return v, k, true
 }
 
 // testSetupUnit is the Unit a setup ending in a statement answers.
@@ -264,6 +275,8 @@ func (bl *irScalarBuilder) setupValue(at, value ast.Node) bool {
 		if !ok {
 			return false
 		}
+		// As setupFinal: a final `Err(AssertionFailure)` fails the case.
+		bl.testVerdict(value, val, k)
 		switch {
 		case se.slot == ir.NoTemp:
 			bl.irStatementDrop(value, val, k)

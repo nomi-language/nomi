@@ -1,0 +1,32 @@
+// std/actors: a counter folded in one task, cast and call, a call that
+// times out, and a stopped actor.
+import {
+    std/actors.{Actor, CallError}
+    std/duration.Duration
+    std/testing.Clock
+    counter_actor.{self, App, get}
+}
+
+group "a counter actor" {
+    clock Clock.Virtual
+
+    boot counter_actor.boot()
+
+    test "casts accumulate into state a call reads back" {
+        _ = Actor.cast(App.counter, .Add(5))
+        _ = Actor.cast(App.counter, .Add(7))
+        assert get() == Ok(12)
+    }
+
+    test "a call nobody answers times out" {
+        got = Actor.call(App.counter, Duration.seconds(2), fn reply -> .Stall{reply})
+        assert got == Err(CallError.TimedOut)
+        assert get() == Ok(0)
+    }
+
+    test "a stopped actor answers Stopped" {
+        Actor.stop(App.counter)
+        assert Actor.cast(App.counter, .Add(1)) == Err(CallError.Stopped)
+        assert get() == Err(CallError.Stopped)
+    }
+}

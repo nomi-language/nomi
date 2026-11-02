@@ -81,6 +81,14 @@ const (
 	// embedded type enters its enum only from b, and a function type meets
 	// another strictly, as under unifySym.
 	unifyAssignCo
+	// unifyAssignArg is unifyAssign inside a generic type's or collection's
+	// type arguments (`Maybe<T>`, `List<T>`, `Map<K, V>`): as unifyAssignCo,
+	// except that an interface admits no concrete type, since an interface
+	// conversion does not reach a type argument (spec §5 *Assignability*):
+	// a Maybe<Int> is not a Maybe<Display>. An Iter's element is not this
+	// mode (iterElem), and neither are a tuple's elements nor a record's
+	// fields (field).
+	unifyAssignArg
 )
 
 // iterElem is the mode for std Iter's element type, met by another Iter's
@@ -90,20 +98,42 @@ const (
 // `Iter<Iter<T>>` is expected as a direct call's argument does
 // (irfuncwiden.go). Every other type argument is nested's.
 func (m unifyMode) iterElem(iface *InterfaceType) unifyMode {
-	if m == unifyAssignIn && isStdIterType(iface) {
-		return unifyAssignIn
+	if isStdIterType(iface) {
+		switch m {
+		case unifyAssignIn:
+			return unifyAssignIn
+		case unifyAssign, unifyAssignCo, unifyAssignArg:
+			// An Iter only hands its elements out, so its element fits
+			// as a value does at the top: a List<Int> is an
+			// Iter<Display> (spec §5 *Assignability*).
+			return unifyAssign
+		}
 	}
 	return m.nested()
 }
 
-// nested is the mode for the type arguments of a container or nominal type,
-// a tuple's elements and a record's fields.
+// nested is the mode for the type arguments of a container or nominal type.
 func (m unifyMode) nested() unifyMode {
+	switch m {
+	case unifyStrict, unifyAssignIn:
+		return unifyStrict
+	case unifyAssign, unifyAssignCo, unifyAssignArg:
+		return unifyAssignArg
+	}
+	return unifySym
+}
+
+// field is the mode for a tuple's elements and a record's fields: a value
+// built in place widens element by element, `#(1, Pt{x: 5})` returned as a
+// `#(Int, Named)`. Under a type argument they stay that argument's mode.
+func (m unifyMode) field() unifyMode {
 	switch m {
 	case unifyStrict, unifyAssignIn:
 		return unifyStrict
 	case unifyAssign, unifyAssignCo:
 		return unifyAssignCo
+	case unifyAssignArg:
+		return unifyAssignArg
 	}
 	return unifySym
 }
@@ -306,7 +336,13 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			}
 			return nil
 		}
-		if m == unifyStrict {
+		if m == unifyStrict || m == unifyAssignArg && !isStdIterType(ifaceA) {
+			// Under a container's type argument types compare exactly: a
+			// Maybe<Int> is not a Maybe<Display>, though an Int is a
+			// Display (spec §5 *Assignability*). An Iter's element is not
+			// this mode (iterElem), and an Iter at a type argument takes
+			// a collection, which the builder views as one: a
+			// List<List<Int>> is a List<Iter<Int>>.
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		return unifyInterfaceAgainstConcrete(m, ifaceA, b, subs, impls, implTypeArgs, rigid)
@@ -376,7 +412,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		for i := range at.Elems {
-			if err := unifyIn(m.nested(), at.Elems[i], bt.Elems[i], subs, impls, implTypeArgs, rigid); err != nil {
+			if err := unifyIn(m.field(), at.Elems[i], bt.Elems[i], subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -408,7 +444,7 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			if !ok {
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
-			if err := unifyIn(m.nested(), f.Type, bTy, subs, impls, implTypeArgs, rigid); err != nil {
+			if err := unifyIn(m.field(), f.Type, bTy, subs, impls, implTypeArgs, rigid); err != nil {
 				return err
 			}
 		}
@@ -1368,7 +1404,7 @@ func bindParam(m unifyMode, tp *TypeParam_, other Type, subs map[*TypeParam_]Typ
 // directed unification meets a value of that enum after binding the
 // parameter to one of its embedded types.
 func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
-	if m != unifyAssign && m != unifyAssignCo {
+	if m != unifyAssign && m != unifyAssignCo && m != unifyAssignArg {
 		return nil, false
 	}
 	et, ok := resolveTV(have).(*EnumType)

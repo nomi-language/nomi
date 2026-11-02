@@ -31,7 +31,7 @@ struct Money {
 
 impl Money {
   fn sum(a: Money, b: Money) -> Money {
-    #Money{cents: a.cents + b.cents}
+    Money{cents: a.cents + b.cents}
   }
 
   fn double(n: Int) -> Int {
@@ -52,9 +52,9 @@ fn is_even(n: Int) -> Bool {
 }
 
 test "a top-level fn as a reduction" {
-  assert Iter.reduce([1, 2, 3], fn acc = 0, n -> add(acc, n)) == 6
-  assert [1, 2, 3, 4] |> Iter.reduce(fn acc = 0, n -> add(acc, n)) == 10
-  assert Iter.reduce(["a", "ccc", "bb"], fn acc = "", s -> longer(acc, s)) == "ccc"
+  assert Iter.reduce([1, 2, 3], 0, fn acc, n -> add(acc, n)) == 6
+  assert [1, 2, 3, 4] |> Iter.reduce(0, fn acc, n -> add(acc, n)) == 10
+  assert Iter.reduce(["a", "ccc", "bb"], "", fn acc, s -> longer(acc, s)) == "ccc"
 }
 
 test "a top-level fn as an adapter" {
@@ -62,13 +62,13 @@ test "a top-level fn as an adapter" {
 }
 
 test "an imported fn" {
-  assert Iter.reduce([1, 2, 3], fn acc = 0, n -> plus(acc, n)) == 6
-  assert Iter.reduce([1, 2, 3], fn acc = 0, n -> util.plus(acc, n)) == 6
+  assert Iter.reduce([1, 2, 3], 0, fn acc, n -> plus(acc, n)) == 6
+  assert Iter.reduce([1, 2, 3], 0, fn acc, n -> util.plus(acc, n)) == 6
   assert Iter.filter([1, 2, 3, 4], util.is_small) |> Iter.to_list() == [1, 2]
 }
 
 test "an owner-qualified impl fn" {
-  assert Iter.reduce([#Money{cents: 1}, #Money{cents: 2}], fn acc = #Money{cents: 0}, m -> Money.sum(acc, m)).cents == 3
+  assert Iter.reduce([Money{cents: 1}, Money{cents: 2}], Money{cents: 0}, fn acc, m -> Money.sum(acc, m)).cents == 3
   assert Iter.map([1, 2], Money.double) |> Iter.to_list() == [2, 4]
 }
 `,
@@ -150,8 +150,8 @@ test "take_while stops with break False" {
 }
 
 test "reduce continues and breaks with the accumulator" {
-  assert Iter.reduce([1, -5, 2, 3, 20, 4], sum_small, from: 0) == 26
-  assert Iter.reduce([1, 2, 0, 4], stop_at_zero, from: 0) == 3
+  assert Iter.reduce([1, -5, 2, 3, 20, 4], 0, sum_small) == 26
+  assert Iter.reduce([1, 2, 0, 4], 0, stop_at_zero) == 3
 }
 
 test "each stops" {
@@ -192,8 +192,8 @@ test "map skips through parentheses" {
 }
 
 test "reduce stops through parentheses" {
-  assert [1, 2, 0, 4] |> Iter.reduce((stop_at_zero), from: 0) == 3
-  assert Iter.reduce([1, 2, 0, 4], (stop_at_zero), from: 0) == 3
+  assert [1, 2, 0, 4] |> Iter.reduce(0, (stop_at_zero)) == 3
+  assert Iter.reduce([1, 2, 0, 4], 0, (stop_at_zero)) == 3
 }
 `
 	irTestBodyVM(t, src, 2)
@@ -275,7 +275,7 @@ func TestNamedCallback_LocalOwnerSharingAStdNameWithDefaults(t *testing.T) {
 
 impl Date {
   fn new(year: Int, month: Int = 1, day: Int = 1) -> Date {
-    #Date{year, month, day}
+    Date{year, month, day}
   }
 
   fn is_same(a: Date, b: Date, strict: Bool = True) -> Bool {
@@ -299,7 +299,7 @@ test "a failing named call reports the written arguments" {
 }
 `
 	out := irTestBodyVM(t, src, 3)
-	if !strings.Contains(out, "Date.new(y, day: d)\n        = #Date{day: 4, month: 1, year: 2026}") {
+	if !strings.Contains(out, "Date.new(y, day: d)\n        = Date{day: 4, month: 1, year: 2026}") {
 		t.Errorf("the failing case does not report the named call's value:\n%s", out)
 	}
 }

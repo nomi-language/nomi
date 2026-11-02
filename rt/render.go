@@ -160,7 +160,7 @@ func displayRecordWith(r *Record, elem func(any) string) string {
 			return v.Name
 		case VariantPositional:
 			if p, ok := r.Field(0).(*Record); ok && p != nil && p.Desc.Kind == KindStruct && p.Desc.Short == ShortTypeName(v.Name) {
-				// A struct-shaped variant held as its record, `#Rect{w: 1}`,
+				// A struct-shaped variant held as its record, `Rect{w: 1}`,
 				// reads as the same variant held as its fields does.
 				return elem(p)
 			}
@@ -444,7 +444,7 @@ func debugRecord(r *Record, hook DebugHook) (string, error) {
 }
 
 // debugChannel is a `Channel<T>`'s Debug. std declares no impl Debug for it,
-// so it reads as any struct's universal Debug does, `#Channel{...}` with its
+// so it reads as any struct's universal Debug does, `Channel{...}` with its
 // fields in declaration order, which is its descriptor's layout order: the
 // sender, then the receiver, each a channel half (ChannelInspectText).
 func debugChannel(r *Record, hook DebugHook) (string, error) {
@@ -457,7 +457,7 @@ func debugChannel(r *Record, hook DebugHook) (string, error) {
 		}
 		parts[i] = l.Fields[i].Name + ": " + s
 	}
-	return "#" + r.Desc.Short + "{" + strings.Join(parts, ", ") + "}", nil
+	return StructOpen(r.Desc.Short) + strings.Join(parts, ", ") + "}", nil
 }
 
 func sortedDebugParts(r *Record, hook DebugHook) ([]string, error) {

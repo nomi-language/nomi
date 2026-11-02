@@ -62,11 +62,11 @@ test "a list and a vector hold elements equal to the value" {
 }
 
 test "a list compares a struct by its own equal" {
-    tags = [#Tag{name: "Urgent"}, #Tag{name: "home"}]
+    tags = [Tag{name: "Urgent"}, Tag{name: "home"}]
 
-    assert List.contains(tags, #Tag{name: "urgent"})
-    assert Vector.contains(Iter.to_vector(tags), #Tag{name: "HOME"})
-    refute List.contains(tags, #Tag{name: "work"})
+    assert List.contains(tags, Tag{name: "urgent"})
+    assert Vector.contains(Iter.to_vector(tags), Tag{name: "HOME"})
+    refute List.contains(tags, Tag{name: "work"})
 }
 
 test "Float membership is reflexive for NaN and joins the zeros" {

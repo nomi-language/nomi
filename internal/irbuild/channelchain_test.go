@@ -29,13 +29,13 @@ type Inbox Sender<Request>
 fn ask(inbox: Inbox, n: Int) -> Unit {
     Inbox(sender) = inbox
     reply = Channel.buffered<Result<Int, String>>(1)
-    _ = Sender.send(sender, #Request.Ask{n, reply})
+    _ = Sender.send(sender, Request.Ask{n, reply})
     Unit
 }
 
 fn answer(box: Box) -> Int {
     case Receiver.receive(box.inbox.receiver) {
-        Some(#Request.Ask{n, reply}) -> {
+        Some(Request.Ask{n, reply}) -> {
             _ = Sender.send(reply.sender, Ok(n * 2))
             n
         }
@@ -44,7 +44,7 @@ fn answer(box: Box) -> Int {
 }
 
 fn main() {
-    box = #Box{inbox: Channel.buffered<Request>(2)}
+    box = Box{inbox: Channel.buffered<Request>(2)}
     ask(Inbox(box.inbox.sender), 21)
     serve = fn b: Box -> answer(b)
     io.print(Int.to_string(serve(box)))

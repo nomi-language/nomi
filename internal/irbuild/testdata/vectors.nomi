@@ -91,7 +91,7 @@ fn set_or(v: Vector<Int>, i: Int, n: Int) -> Vector<Int> {
 }
 
 fn total(v: Vector<Int>) -> Int {
-    Iter.reduce(v, fn acc = 0, n -> acc + n)
+    Iter.reduce(v, 0, fn acc, n -> acc + n)
 }
 
 fn pair_of(a: String, b: String) -> Vector<String> {

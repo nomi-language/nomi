@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 639
-declared-cases 3703
+records 649
+declared-cases 3741
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -359,6 +359,22 @@ T ok <root>/tests/02-testing/io_capture_test.nomi :: an inner capture keeps its 
 T ok <root>/tests/02-testing/io_capture_test.nomi :: a stream read before a capture writes into the capture
 T test result: ok. 11 passed, 0 failed
 T
+C 02-testing/process_fake_test.nomi
+E 0
+N 10
+H 63cf44552856b24a260b5e1028f82056ad839f9f631e504fdbdd226d4f35d5b4
+T ok <root>/tests/02-testing/process_fake_test.nomi :: the fake answers the command and records it
+T ok <root>/tests/02-testing/process_fake_test.nomi :: an answer for other arguments does not match
+T ok <root>/tests/02-testing/process_fake_test.nomi :: a non-zero exit is a status, not an error
+T ok <root>/tests/02-testing/process_fake_test.nomi :: an answer with an error fails the start
+T ok <root>/tests/02-testing/process_fake_test.nomi :: the call records the directory, the environment and the input
+T ok <root>/tests/02-testing/process_fake_test.nomi :: a reader as input is read to its end
+T ok <root>/tests/02-testing/process_fake_test.nomi :: run writes the answer's output to the program's own
+T ok <root>/tests/02-testing/process_fake_test.nomi :: with_spawned streams the answer and records what the body wrote
+T ok <root>/tests/02-testing/process_fake_test.nomi :: tasks started inside the run reach its fake
+T ok <root>/tests/02-testing/process_fake_test.nomi :: a nested run takes over for its own call
+T test result: ok. 10 passed, 0 failed
+T
 C 02-testing/setup_semantics_test.nomi
 E 0
 N 3
@@ -614,6 +630,16 @@ N 0
 H 03f1d0876ce038445b175018fc9b0d6da38944b10f23c46fb6b13d56f8efb8a5
 T --- stderr ---
 T nomi run: <root>/tests/04-scalars-and-text/decimals/test_helpers.nomi declares no `fn main`, so there is no program to run
+T
+C 04-scalars-and-text/encodings_test.nomi
+E 0
+N 4
+H 6d8b44684ea1b032ab34291c5727c2642882ba99b13d72d2dd3d7da4bcc4c868
+T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: a signed token round-trips through base64 and checks in constant time
+T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: hex and base64 read what they write
+T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: a query and a path segment escape what their place needs
+T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: secure bytes of a negative count trap at the program's call
+T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/floats_test.nomi
 E 0
@@ -1664,6 +1690,15 @@ T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi 
 T ok <root>/tests/10-generics-and-type-wrappers/expansive_impl_member_test.nomi :: a bounded type parameter dispatches to an expansive interface impl
 T test result: ok. 6 passed, 0 failed
 T
+C 10-generics-and-type-wrappers/generic_distinct_test.nomi
+E 0
+N 3
+H cdb6a5eb9b03c21c83bd2d0f391b392b58196209f7de65a698b8b2b67ab40ff1
+T ok <root>/tests/10-generics-and-type-wrappers/generic_distinct_test.nomi :: a generic distinct takes its type argument from what it wraps
+T ok <root>/tests/10-generics-and-type-wrappers/generic_distinct_test.nomi :: a generic distinct over a list, a map and a function
+T ok <root>/tests/10-generics-and-type-wrappers/generic_distinct_test.nomi :: a generic distinct derives, implements and is a function value
+T test result: ok. 3 passed, 0 failed
+T
 C 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi
 E 0
 N 4
@@ -1858,7 +1893,7 @@ T
 C 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
 E 0
 N 12
-H e696b0fc4d6aa21e0ef2dc551385eb888f5f81ccbf1ccb7edfc4f5790685b770
+H 5993c9d2e0355212cf76ffe98188cf47ce1041e3f933c0976a54df4cfb91d270
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: two values of one struct type compare by its fields
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: values of two concrete types are unequal
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a hand-written Equatable decides
@@ -1871,7 +1906,7 @@ T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equal
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: a Map keyed by lists of interface values
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: Debug renders each concrete value through its own impl
 T   [Point(1, 2), 3, [4]]
-T   %[Point(1, 2), #Name{text: "Ada"}]
+T   %[Point(1, 2), Name{text: "Ada"}]
 T ok <root>/tests/11-interfaces-and-impls/existential_equality/existential_equality_test.nomi :: std's generic functions over interface values
 T test result: ok. 12 passed, 0 failed
 T
@@ -2218,12 +2253,12 @@ T
 C 12-derives-and-standard-interfaces/generic_debug/main.nomi
 E 0
 N 0
-H e80473e342733ff695703bfd0fea3f8d4e66fa6c2bc638810bf932a58dd22213
-T #Box{value: 42}
-T #Box{value: 42}
-T boxed: #Box{value: hi}
-T #Node{left: Leaf, value: 5, right: Leaf}
-T dbg line 22: box = #Box{value: 42}
+H b6560753a61b40cff408a159d5d32d140bf9986479ad1ce08e6387fd2b882e70
+T Box{value: 42}
+T Box{value: 42}
+T boxed: Box{value: hi}
+T Node{left: Leaf, value: 5, right: Leaf}
+T dbg line 22: box = Box{value: 42}
 T
 C 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
 E 0
@@ -2547,14 +2582,14 @@ T
 C 13-iterators-and-pipes/scan_map_reduce_test.nomi
 E 0
 N 8
-H cda942d9139f601fba1a5c8c4d149df50fc621f5af27b500e39cd9cde506f63c
+H c4ad1f5544ce992eb38d0501b7ace95a11f079e831f311dd673d22dfefd3f0fa
 T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan yields each state after the seed
 T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan over an empty source yields nothing
 T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan is lazy
 T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: a scan replays from its seed
 T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: scan supports break and continue
-T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce answers the outputs and the final state
-T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce over an empty source answers no outputs and the seed
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce answers the final state and the outputs
+T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce over an empty source answers the seed and no outputs
 T ok <root>/tests/13-iterators-and-pipes/scan_map_reduce_test.nomi :: map_reduce supports break and continue
 T test result: ok. 8 passed, 0 failed
 T
@@ -2675,13 +2710,13 @@ T
 C 14-modules-and-packaging/file_import_display/main.nomi
 E 0
 N 0
-H fb69668473d166417b0d37badc6435689749f0351c8af0e09205e1c55ba841d1
-T #Point{x: 0, y: 0}
+H 716e684e2017f6e12700d3db5a389840842433c62b72959cb2dcb8d93521009d
+T Point{x: 0, y: 0}
 T $12.50
 T Red
-T at #Point{x: 0, y: 0} for $12.50
+T at Point{x: 0, y: 0} for $12.50
 T [$12.50, $12.50]
-T #Point{x: 0, y: 0}
+T Point{x: 0, y: 0}
 T Red
 T
 C 14-modules-and-packaging/file_import_display/shapes.nomi
@@ -2721,6 +2756,21 @@ N 0
 H 33ec1bff8d3f7269ce7e6f18fa738171f17570162d885cf053e40571fe20d016
 T --- stderr ---
 T nomi run: <root>/tests/14-modules-and-packaging/module_qualified_literals/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/partner_test_file/shapes.nomi
+E 1
+N 0
+H 943e0947bf79bae950d176ddb54a2a493a31fff8b90a9763552925975f30a1b1
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/partner_test_file/shapes.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/partner_test_file/shapes_test.nomi
+E 0
+N 2
+H d747f0344aa06f6914daa6d01c4e4435663396cc43db65a480f88475d21518c8
+T ok <root>/tests/14-modules-and-packaging/partner_test_file/shapes_test.nomi :: the partner test file reads private declarations
+T ok <root>/tests/14-modules-and-packaging/partner_test_file/shapes_test.nomi :: a file-qualified private function is reachable too
+T test result: ok. 2 passed, 0 failed
 T
 C 14-modules-and-packaging/re_export_facade/facade.nomi
 E 1
@@ -3097,9 +3147,9 @@ T
 C 15-app-and-defer/exit_status/own_exit.nomi
 E 1
 N 0
-H 6476f963d94e04569461a2293c1eb13e4c14ae4fa16bfa2a63f2ae253893df33
+H eaf194a76f8f8e9c022bf8a52356b999ef4aab463eacc0561bcb5bbd2780bee5
 T --- stderr ---
-T error: #Exit{code: 9}
+T error: Exit{code: 9}
 T
 C 15-app-and-defer/exit_status/silent_exit.nomi
 E 7
@@ -3140,6 +3190,20 @@ H c8260ec373f772b0253dd11098a70eacd89dc486d26a848686a7c8d709e4175d
 T --- stderr ---
 T nomi run: <root>/tests/15-app-and-defer/import_vs_app/wallclock.nomi declares no `fn main`, so there is no program to run
 T
+C 15-app-and-defer/logging/logging_test.nomi
+E 0
+N 3
+H 5dc6caada4ce9874f7347129b1f3c201eda836a844ab83bda1bc9747ff47c745
+T ok <root>/tests/15-app-and-defer/logging/logging_test.nomi :: logging through an app field / a test records what the program logs
+T ok <root>/tests/15-app-and-defer/logging/logging_test.nomi :: logging through an app field / a minimum level drops the records below it
+T ok <root>/tests/15-app-and-defer/logging/logging_test.nomi :: logging through an app field / text and JSON lines, at the virtual clock's time
+T test result: ok. 3 passed, 0 failed
+T
+C 15-app-and-defer/logging/orders_app.nomi
+E 0
+N 0
+H e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+T
 C 15-app-and-defer/os_env_boot_only_test.nomi
 E 0
 N 2
@@ -3177,6 +3241,21 @@ T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: wi
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in a branch ends with the branch
 T ok <root>/tests/15-app-and-defer/with_overrides/with_overrides_test.nomi :: with / a with in an assertion subject's arm ends with the arm
 T test result: ok. 5 passed, 0 failed
+T
+C 16-concurrency/actor/actor_test.nomi
+E 0
+N 3
+H d6f5729e5abf99439ecc0ad7b37b00faa441e28549a53032b441c01eecaa6285
+T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / casts accumulate into state a call reads back
+T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / a call nobody answers times out
+T ok <root>/tests/16-concurrency/actor/actor_test.nomi :: a counter actor / a stopped actor answers Stopped
+T test result: ok. 3 passed, 0 failed
+T
+C 16-concurrency/actor/counter_actor.nomi
+E 0
+N 0
+H 0c2509cd2e409c34a39df0e469abbbd27c728dc267791bbd372ed7934b35bbf6
+T count: Ok(2)
 T
 C 16-concurrency/concurrent_diagnostics/concurrent_diagnostics_test.nomi
 E 0
@@ -3226,6 +3305,25 @@ T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a messag
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
 T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
+T
+C 16-concurrency/select_test.nomi
+E 0
+N 13
+H 2fb63220a510e7379831b85997882e9e52111eff9f8782a65338acec653c75d3
+T ok <root>/tests/16-concurrency/select_test.nomi :: the first listed ready arm wins
+T ok <root>/tests/16-concurrency/select_test.nomi :: arms over channels of different element types share one result
+T ok <root>/tests/16-concurrency/select_test.nomi :: a closed channel is ready with None, a send on one with ChannelClosed
+T ok <root>/tests/16-concurrency/select_test.nomi :: a send arm waits for room in the buffer
+T ok <root>/tests/16-concurrency/select_test.nomi :: a zero timer listed last makes a select that never waits
+T ok <root>/tests/16-concurrency/select_test.nomi :: receive_within tells a value, a closed channel and a timeout apart
+T ok <root>/tests/16-concurrency/select_test.nomi :: a select with no arms is a fault
+T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / a timer fires when nothing else is ready
+T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / a value that arrives first beats the timer
+T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / the shorter of two timers fires
+T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / receive_within waits out its duration
+T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / a task waiting in a select is cancelled with its block
+T ok <root>/tests/16-concurrency/select_test.nomi :: rotating the arms serves both channels
+T test result: ok. 13 passed, 0 failed
 T
 C 16-concurrency/supervisors/app.nomi
 E 0

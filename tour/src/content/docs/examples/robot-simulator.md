@@ -78,7 +78,7 @@ fn step(robot: Robot, letter: String) -> Result<Robot, Error> {
     }
 }
 
-fn advance(#Position{x, y}, direction: Direction) -> Position {
+fn advance(Position{x, y}, direction: Direction) -> Position {
     case direction {
         .North -> #{x, y: y + 1}
         .East -> #{x: x + 1, y}
@@ -92,13 +92,13 @@ import robot_simulator.Robot
 
 group "Create robot" {
     test "at origin facing north" {
-        robot = #Robot{position: #{x: 0, y: 0}, direction: .North}
+        robot = Robot{position: #{x: 0, y: 0}, direction: .North}
         assert robot.position == #{x: 0, y: 0}
         assert robot.direction == .North
     }
 
     test "at negative position facing south" {
-        robot = #Robot{position: #{x: -1, y: -1}, direction: .South}
+        robot = Robot{position: #{x: -1, y: -1}, direction: .South}
         assert robot.position == #{x: -1, y: -1}
         assert robot.direction == .South
     }

@@ -13,7 +13,7 @@ func TestContinueValue_IsRejectedWithTheWorkingForm(t *testing.T) {
 		"To carry a new value forward, make it the callback's result: write it as the last expression, without continue " +
 		"(in Iter.loop that result is the next state)"
 	for _, body := range []string{
-		`r = Iter.loop(fn p = #(0, 0) -> {
+		`r = Iter.loop(#(0, 0), fn p -> {
     #(i, s) = p
     if i >= 5 {
       break p
@@ -21,7 +21,7 @@ func TestContinueValue_IsRejectedWithTheWorkingForm(t *testing.T) {
     continue #(i + 1, s + i)
   })
   _ = r`,
-		`r = [1, 2] |> Iter.reduce(fn acc = 0, x -> {
+		`r = [1, 2] |> Iter.reduce(0, fn acc, x -> {
     if x > 1 {
       continue acc
     }
@@ -46,7 +46,7 @@ func TestContinueValue_IsRejectedWithTheWorkingForm(t *testing.T) {
 
 func TestContinueValue_BareContinueIsAccepted(t *testing.T) {
 	for _, body := range []string{
-		`r = Iter.loop(fn n = 0 -> {
+		`r = Iter.loop(0, fn n -> {
     if n < 3 { continue }
     break n
   })
@@ -56,7 +56,7 @@ func TestContinueValue_BareContinueIsAccepted(t *testing.T) {
     x
   }) |> Iter.to_list()
   _ = xs`,
-		`r = [1, 2] |> Iter.reduce(fn acc = 0, x -> {
+		`r = [1, 2] |> Iter.reduce(0, fn acc, x -> {
     case x {
       1 -> continue
       _ -> acc + x

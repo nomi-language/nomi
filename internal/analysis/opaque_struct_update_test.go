@@ -32,11 +32,11 @@ const counterModule = `pub opaque struct Counter {
 }
 
 pub fn new() -> Counter {
-  #Counter{value: 0, increments: 0}
+  Counter{value: 0, increments: 0}
 }
 
 pub fn bump(c: Counter) -> Counter {
-  #Counter{value: c.value + 1, increments: c.increments + 1}
+  Counter{value: c.value + 1, increments: c.increments + 1}
 }
 
 pub fn value(c: Counter) -> Int { c.value }
@@ -54,7 +54,7 @@ const openModule = `pub struct Open {
   b: Int
 }
 
-pub fn mk() -> Open { #Open{a: 1, b: 2} }
+pub fn mk() -> Open { Open{a: 1, b: 2} }
 `
 
 func opaquePatchFiles(main string) map[string]string {
@@ -154,7 +154,7 @@ fn wreck(c: Counter) -> Counter {
 // never reached under a module-only import: `ResolveTypeExpr` failed on the
 // bare name, `checkStructLit` returned nil with NO diagnostic, and execution
 // then resolved the bare name and built a real `Counter` — so
-// `#Counter{value: -999, increments: 1}` type-checked clean and ran, rendering
+// `Counter{value: -999, increments: 1}` type-checked clean and ran, rendering
 // as `<opaque Counter>`. Reporting the resolution failure is what makes the
 // guard reachable. The selective-import spelling (`import counter.{Counter}`)
 // was always refused; this is the spelling that was not.
@@ -162,7 +162,7 @@ func TestOpaqueUpdate_BareStructLiteralUnderAModuleImportIsRefused(t *testing.T)
 	_, errs := opaqueProject(t, opaquePatchFiles(`import counter
 
 fn wreck() -> Int {
-  counter.value(#Counter{value: -999, increments: 1})
+  counter.value(Counter{value: -999, increments: 1})
 }
 `))
 	// Under a module-only import the guard is `checkStructLit`'s existing
@@ -179,7 +179,7 @@ fn wreck() -> Int {
 	for i, e := range errs {
 		msgs[i] = e.Message
 	}
-	t.Fatalf("expected the bare `#Counter{...}` literal to be reported, got %d errors:\n  %s",
+	t.Fatalf("expected the bare `Counter{...}` literal to be reported, got %d errors:\n  %s",
 		len(errs), strings.Join(msgs, "\n  "))
 }
 

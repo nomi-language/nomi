@@ -42,7 +42,7 @@ func TestIs_Errors(t *testing.T) {
 }
 
 fn f(p: P) -> Bool {
-    p is #P{x}
+    p is P{x}
 }`, "an `is` test binds nothing, so its pattern cannot name `x`"},
 		"a pattern that always matches": {`fn f(k: Kind) -> Bool {
     k is _

@@ -11,7 +11,7 @@ import "strconv"
 // linear with explicit temporaries (ir.go, SHAPE), so a pattern lowers to a
 // STRAIGHT-LINE SEQUENCE and not to one node:
 //
-//	`#Shape.Circle{radius: 3.0}`
+//	`Shape.Circle{radius: 3.0}`
 //	    match variant t1 Shape.Circle     <- this class
 //	    t2 = payload t1 Shape.Circle[0]   <- proj
 //	    t3 = const 3.0                    <- const

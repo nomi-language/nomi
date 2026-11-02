@@ -9,7 +9,7 @@ import (
 	"github.com/nomi-language/nomi/vmhost"
 )
 
-// Each capture (`&(&1 > 2)`, `&(0..&1)`, `&(-&1)`, `&#Point{x: &1, y: 0}`,
+// Each capture (`&(&1 > 2)`, `&(0..&1)`, `&(-&1)`, `&Point{x: &1, y: 0}`,
 // `&#(&1, 0)`) runs as the lambda it stands for, in each place a function
 // value stands: a callback, a pipe stage's argument, an annotated binding,
 // a struct field and a generic call.
@@ -66,23 +66,23 @@ fn main() {
     io.inspect([2, 3] |> Iter.map(&(1..=&1)) |> Iter.map(Iter.count) |> Iter.to_list())
     io.inspect([1, -2] |> Iter.map(&(-&1)) |> Iter.to_list())
     io.inspect([True, False] |> Iter.filter(&(not &1)) |> Iter.count())
-    mk: (Int) -> Point = &#Point{x: &1, y: 0}
+    mk: (Int) -> Point = &Point{x: &1, y: 0}
     io.inspect(mk(5))
     io.inspect(mk(x: 6))
-    swap: (Int, Int) -> Point = &#Point{y: &1, x: &2}
+    swap: (Int, Int) -> Point = &Point{y: &1, x: &2}
     io.inspect(swap(1, 2))
     anon: (Int) -> Point = &#{x: &1, y: 7}
     io.inspect(anon(3))
-    box: (String) -> Box<String> = &#Box{v: &1}
+    box: (String) -> Box<String> = &Box{v: &1}
     io.inspect(box("b"))
-    io.inspect([1.5] |> Iter.map(&#Shape.Circle{radius: &1}) |> Iter.to_list())
-    circle: (Float) -> Shape = &#.Circle{radius: &1}
+    io.inspect([1.5] |> Iter.map(&Shape.Circle{radius: &1}) |> Iter.to_list())
+    circle: (Float) -> Shape = &.Circle{radius: &1}
     io.inspect(circle(2.5))
     io.inspect([1, 2] |> Iter.map(&#(&1, "n")) |> Iter.to_list())
     pair: (Int, String) -> #(Int, String) = &#(&1, &2)
     io.inspect(pair(1, "a"))
     io.inspect([1, 5] |> Iter.filter(&(&1 > 2)) |> Iter.to_list())
-    rule = #Rule{name: "big", keep: &(&1 > 10)}
+    rule = Rule{name: "big", keep: &(&1 > 10)}
     io.inspect(rule.keep(11))
     io.inspect(above([1, 5, 9], 4))
     io.inspect(apply([1, 2], &(&1 * 10)))
@@ -108,13 +108,13 @@ fn main() {
 [2, 3]
 [-1, 2]
 1
-#Point{x: 5, y: 0}
-#Point{x: 6, y: 0}
-#Point{x: 2, y: 1}
-#Point{x: 3, y: 7}
-#Box{v: "b"}
-[#Circle{radius: 1.5}]
-#Circle{radius: 2.5}
+Point{x: 5, y: 0}
+Point{x: 6, y: 0}
+Point{x: 2, y: 1}
+Point{x: 3, y: 7}
+Box{v: "b"}
+[Circle{radius: 1.5}]
+Circle{radius: 2.5}
 [#(1, "n"), #(2, "n")]
 #(1, "a")
 [5]
@@ -174,7 +174,7 @@ fn noisy(n: Int) -> Int {
 
 fn main() {
     big: (Int) -> Bool = &(&1 > noisy(2))
-    mk: (Int) -> Point = &#Point{y: noisy(4), x: &1}
+    mk: (Int) -> Point = &Point{y: noisy(4), x: &1}
     io.print("made")
     io.inspect(big(1))
     io.inspect(big(3))
@@ -182,7 +182,7 @@ fn main() {
     io.inspect(mk(2))
 }
 `)
-	want := "made\nnoisy 2\nFalse\nnoisy 2\nTrue\nnoisy 4\n#Point{x: 1, y: 4}\nnoisy 4\n#Point{x: 2, y: 4}\n"
+	want := "made\nnoisy 2\nFalse\nnoisy 2\nTrue\nnoisy 4\nPoint{x: 1, y: 4}\nnoisy 4\nPoint{x: 2, y: 4}\n"
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
 	}
@@ -226,12 +226,12 @@ fn main() {
     io.inspect(g(&Int.max(&1, 0)))
     t = #(&Int.max(&1, 0), 1)
     io.inspect(t.0(-3))
-    io.inspect(Iter.map(xs, &#Point{x: &1, y: 0}) |> Iter.to_list())
+    io.inspect(Iter.map(xs, &Point{x: &1, y: 0}) |> Iter.to_list())
     mul: (Int, Int) -> Int = &(&1 * &2)
     io.inspect(mul(3, 4))
     io.inspect((&f(2, &1))(4))
     io.inspect(10 |> then &divide(100, &1))
-    big = [#Order{total: 50}, #Order{total: 150}] |> Iter.filter(&(&1.total > 100)) |> Iter.count()
+    big = [Order{total: 50}, Order{total: 150}] |> Iter.filter(&(&1.total > 100)) |> Iter.count()
     io.inspect(big)
     io.inspect(xs |> Iter.map(&(-&1 + 1)) |> Iter.to_list())
     sq = xs |> Iter.map(&(f(&1, 1) - 1)) |> Iter.to_list()
@@ -248,7 +248,7 @@ fn main() {
 [1, 3, 4]
 0
 0
-[#Point{x: -1, y: 0}, #Point{x: 2, y: 0}, #Point{x: 3, y: 0}]
+[Point{x: -1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}]
 12
 24
 10
@@ -303,7 +303,7 @@ fn main() {
     io.inspect(g(&Int.max(&1, 0)))
     t = #(&Int.max(&1, 0), 1)
     io.inspect(t.0(-3))
-    io.inspect(Iter.map(xs, &#Point{x: &1, y: 0}) |> Iter.to_list())
+    io.inspect(Iter.map(xs, &Point{x: &1, y: 0}) |> Iter.to_list())
     mul: (Int, Int) -> Int = &(&1 * &2)
     io.inspect(mul(3, 4))
     sq: (Int) -> Int = &(&1 * &1)
@@ -318,7 +318,7 @@ fn main() {
     io.inspect(first_in_f(4, 5))
     io.inspect((&f(2, &1))(4))
     io.inspect(10 |> then &divide(100, &1))
-    big = [#Order{total: 50}, #Order{total: 150}] |> Iter.filter(&(&1.total > 100)) |> Iter.count()
+    big = [Order{total: 50}, Order{total: 150}] |> Iter.filter(&(&1.total > 100)) |> Iter.count()
     io.inspect(big)
     inc = &f(1, &1)
     io.inspect(inc(2))
@@ -326,7 +326,7 @@ fn main() {
     io.print(c("h", 1))
     io.print(c("h"))
     io.print(c(port: 80, host: "x"))
-    mk: (Int) -> Point = &#Point{x: &1, y: 0}
+    mk: (Int) -> Point = &Point{x: &1, y: 0}
     io.inspect(mk(x: 7))
 }
 `)
@@ -336,7 +336,7 @@ fn main() {
 [1, 3, 4]
 0
 0
-[#Point{x: -1, y: 0}, #Point{x: 2, y: 0}, #Point{x: 3, y: 0}]
+[Point{x: -1, y: 0}, Point{x: 2, y: 0}, Point{x: 3, y: 0}]
 12
 25
 21
@@ -350,7 +350,7 @@ fn main() {
 h:1/30
 h:8080/30
 x:80/30
-#Point{x: 7, y: 0}
+Point{x: 7, y: 0}
 `
 	if got != want {
 		t.Fatalf("output:\n%s\nwant:\n%s", got, want)
@@ -378,7 +378,7 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 		{"Result.map(ok(), &Int.multiply(&1, 3))", "Ok(6)"},
 		{"Result.map_err(err(), &Int.add(7, &1))", "Err(11)"},
 		{"Result.map_err(err(), &Int.subtract(&1, 1))", "Err(3)"},
-		{"Iter.reduce([1, 2, 3], &Int.subtract(&2, &1), from: 10)", "-8"},
+		{"Iter.reduce([1, 2, 3], 10, &Int.subtract(&2, &1))", "-8"},
 		{"(&Int.add(7, &1))(1)", "8"},
 		// Int has two Divide impls; the open operand's expected type picks
 		// `Divide<NonZeroInt, Int>`.

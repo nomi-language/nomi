@@ -1,0 +1,113 @@
+//# Records what a body logs, as values a test asserts on.
+//# `log_testing.run(fn logger -> body)` hands the body a `Logger` that
+//# writes nowhere, and answers the body's value with every record it
+//# logged through that logger, in order. A body that logs through an app
+//# field gives it the recorder with `with App.logger = logger`.
+
+import {
+    bytes.Bytes
+    debug.Debug
+    equatable.Equatable
+    instant.Instant
+    int.Int
+    io.Writer
+    iter.Iter
+    json.Json
+    lists.List
+    log.{Field, Level, Logger, Value}
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Ok}
+    strings.String
+}
+
+/// One record a logger wrote.
+pub struct Record {
+    at: Instant
+    level: Level
+    message: String
+    fields: List<Field>
+}
+
+derive Equatable for Record
+
+/// What `run` answers: the body's value and the records it logged.
+pub struct Logged<T> {
+    value: T
+    records: List<Record>
+}
+
+/// Runs `body` with a logger that records each record at `min` or above,
+/// `Debug` unless set, and answers its value and the records, in order.
+//! import std/log
+//!
+//! got = run(fn logger -> log.warn(logger, "slow", [log.int("ms", 900)]))
+//!
+//! assert Iter.count(got.records) == 1
+//! only = List.head(got.records)!
+//! assert only.level == log.Level.Warn
+//! assert only.message == "slow"
+//! assert only.fields == [log.int("ms", 900)]
+//
+pub fn run<T>(min: Level = Level.Debug, body: (Logger) -> T) -> Logged<T> {
+    #(value, out) = Writer.collect(fn w -> body(Logger.records(w, min)))
+    text = Bytes.to_string(out) |> Result.with_default("")
+
+    records =
+        String.lines(text)
+        |> Iter.filter(fn line -> line != "")
+        |> Iter.flat_map(fn line -> record(line))
+        |> Iter.to_list()
+
+    Logged{value, records}
+}
+
+/// The messages of `records`, for a test that checks only what was said.
+pub fn messages(records: List<Record>) -> List<String> {
+    records |> Iter.map(.message) |> Iter.to_list()
+}
+
+fn record(line: String) -> Maybe<Record> {
+    case Json.decode(line) {
+        Ok(.Arr([.Int(nanos), .String(level), .String(message), .Arr(fields)])) ->
+            Some(Record{
+                at: Instant.from_nanos(nanos),
+                level: level_named(level),
+                message,
+                fields: fields |> Iter.flat_map(fn f -> field(f)) |> Iter.to_list(),
+            })
+
+        _ ->
+            None
+    }
+}
+
+fn level_named(name: String) -> Level {
+    case name {
+        "DEBUG" -> Level.Debug
+        "WARN" -> Level.Warn
+        "ERROR" -> Level.Error
+        _ -> Level.Info
+    }
+}
+
+fn field(encoded: Json) -> Maybe<Field> {
+    case encoded {
+        .Arr([.String(key), .String("int"), .Int(n)]) ->
+            Some(Field{key, value: Value.Int(n)})
+
+        .Arr([.String(key), .String("float"), .Float(x)]) ->
+            Some(Field{key, value: Value.Float(x)})
+
+        .Arr([.String(key), .String("float"), .Int(n)]) ->
+            Some(Field{key, value: Value.Float(Int.to_float(n))})
+
+        .Arr([.String(key), .String("bool"), .Bool(b)]) ->
+            Some(Field{key, value: Value.Bool(b)})
+
+        .Arr([.String(key), .String(_), .String(s)]) ->
+            Some(Field{key, value: Value.Text(s)})
+
+        _ ->
+            None
+    }
+}

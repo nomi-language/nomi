@@ -20,11 +20,11 @@ func TestBacktickLiteral_PathIsPureAndFilesAreEffects(t *testing.T) {
 			"}\n\n" +
 			"fn main() {\n    _ = Where`x`\n}\n"
 	}
-	pure := handler("std/path", "        Ok(#Where{p: path.clean(\"a/./b/../c${n}\")})\n")
+	pure := handler("std/path", "        Ok(Where{p: path.clean(\"a/./b/../c${n}\")})\n")
 	if _, err := LoadSource("main", pure); err != nil {
 		t.Fatalf("a handler over std/path is refused: %v", err)
 	}
-	effect := handler("std/fs", "        case fs.read_text(\"x${n}\") {\n            Ok(text) -> Ok(#Where{p: text})\n            Err(e) -> Err(\"${e}\")\n        }\n")
+	effect := handler("std/fs", "        case fs.read_text(\"x${n}\") {\n            Ok(text) -> Ok(Where{p: text})\n            Err(e) -> Err(\"${e}\")\n        }\n")
 	ds := literalDiagnostics(t, effect)
 	if len(ds) != 1 || !strings.Contains(ds[0].Message, "its handler has effects") || !strings.Contains(ds[0].Message, "fs_host.read_text") {
 		t.Fatalf("a handler that reads a file: %v, want the effects error naming the crossing", ds)

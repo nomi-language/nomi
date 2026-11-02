@@ -20,7 +20,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{port: 8080})
+  Ok(App{port: 8080})
 }
 
 fn main() {
@@ -38,7 +38,7 @@ pub struct App {
 
 pub fn boot() -> Result<App, String> {
   io.print("boot")
-  Ok(#App{label: "zero"})
+  Ok(App{label: "zero"})
 }
 
 fn main() {}
@@ -79,12 +79,12 @@ pub struct App {
 }
 
 fn default_startup() -> Startup {
-  #Startup{args: ["default"]}
+  Startup{args: ["default"]}
 }
 
 pub fn boot(startup: Startup = default_startup()) -> Result<App, String> {
   io.print("boot ${startup.args}")
-  Ok(#App{first: Iter.first(startup.args) |> Maybe.with_default("none")})
+  Ok(App{first: Iter.first(startup.args) |> Maybe.with_default("none")})
 }
 
 fn main() {}
@@ -106,7 +106,7 @@ group "defaulted" {
 }
 
 group "given" {
-  boot server.boot(#Startup{args: ["given"]})
+  boot server.boot(Startup{args: ["given"]})
 
   test "reads the argument" {
     assert App.first == "given"

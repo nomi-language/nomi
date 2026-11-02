@@ -427,10 +427,11 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	for key, sibNodes := range siblingNodes {
 		modules[key] = sibNodes
 	}
-	// A syntax error in the embedded stdlib is a defect in this nomi, and
-	// every program is checked against that stdlib, so it is reported ahead
-	// of anything the program's own files say.
-	if ds := stdSyntaxDiagnostics(c.lib); ds != nil {
+	// A syntax or check error in the embedded stdlib is a defect in this
+	// nomi, and every program is checked against that stdlib and runs its
+	// bodies, so it is reported ahead of anything the program's own files
+	// say.
+	if ds := stdDefectDiagnostics(c.lib); ds != nil {
 		return fa, modules, ds
 	}
 	// A syntax error in an imported file is reported alone, as one in the
@@ -594,7 +595,7 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	if c.lib == nil {
 		return nil, nil
 	}
-	if ds := stdSyntaxDiagnostics(c.lib); ds != nil {
+	if ds := stdDefectDiagnostics(c.lib); ds != nil {
 		return nil, ds
 	}
 	fa := analysis.BuildFileWithStdlibAtPath(nodes, nil, c.lib.Modules, c.root, c.Loader(), moduleKey+".nomi")
@@ -802,8 +803,8 @@ func (c *Checker) CheckStdlibSource(moduleKey, src string, mode Mode) ([]ast.Nod
 // recovery could, and what it says about any module follows from that.
 func StdlibModuleErrors(module string) error {
 	name := strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi")
-	if ds := stdSyntaxDiagnostics(std.Shared()); ds != nil {
-		return ds
+	if len(std.Shared().SyntaxErrors) > 0 {
+		return stdDefectDiagnostics(std.Shared())
 	}
 	errs := std.Shared().Errors[name]
 	if len(errs) == 0 {

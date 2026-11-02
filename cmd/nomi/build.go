@@ -63,7 +63,7 @@ type buildArgs struct {
 }
 
 // capabilityClasses are the classes --allow-unsupported names.
-var capabilityClasses = []string{vmhost.ClassFiles}
+var capabilityClasses = []string{vmhost.ClassFiles, vmhost.ClassProcesses, vmhost.ClassNetwork, vmhost.ClassListen}
 
 func parseBuildArgs(args []string) (buildArgs, error) {
 	var b buildArgs
@@ -268,7 +268,10 @@ func build(b buildArgs, stderr io.Writer) error {
 		if b.noVM {
 			return writeImageFile(b.out, image, usesCompiler)
 		}
-		if runner, err = ffirun.Runner(b.target, ffirun.Variant{Compiler: usesCompiler, Reactor: reactor}, stderr); err != nil {
+		// A program that reaches no network crossing is appended to the
+		// runner without the network, a third smaller (ffirun.Variant).
+		variant := ffirun.Variant{Compiler: usesCompiler, Reactor: reactor, NoNetwork: !p.UsesNetwork(b.web || reactor)}
+		if runner, err = ffirun.Runner(b.target, variant, stderr); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	} else {
@@ -301,7 +304,7 @@ func build(b buildArgs, stderr io.Writer) error {
 			}
 			decls, localeFiles = built.Declarations, built.LocaleFiles
 		}
-		if runner, err = ffirun.ProjectRunner(res, b.target, ffirun.Variant{Compiler: built.UsesCompiler, Reactor: reactor}); err != nil {
+		if runner, err = ffirun.ProjectRunner(res, b.target, ffirun.Variant{Compiler: built.UsesCompiler, Reactor: reactor, NoNetwork: built.NoNetwork}); err != nil {
 			return fmt.Errorf("nomi build: %w", err)
 		}
 	}

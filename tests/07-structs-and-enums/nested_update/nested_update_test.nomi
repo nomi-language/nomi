@@ -45,7 +45,7 @@ struct Geo {
 derive Display for Geo
 
 struct Floor {
-    geo: Geo = #Geo{}
+    geo: Geo = Geo{}
     rooms: Int = 1
 }
 
@@ -68,9 +68,9 @@ struct Wrap {
 }
 
 fn ada() -> Person {
-    #Person{
+    Person{
         name: "Ada",
-        address: #Address{street: "1 Main", city: "Bath", zip: "BA1"},
+        address: Address{street: "1 Main", city: "Bath", zip: "BA1"},
         tags: ["math"],
         seen: %[1, 2],
         recent: #[7, 8],
@@ -91,7 +91,7 @@ fn at(diagnostics: List<Diagnostic>, line: Int, col: Int, message: String) -> Bo
 test "a `..` literal at a struct field changes only the fields it writes" {
     moved = #{..ada(), address: #{.., city: "NYC"}}
 
-    assert Display.to_string(moved.address) == "#Address{street: 1 Main, city: NYC, zip: BA1}"
+    assert Display.to_string(moved.address) == "Address{street: 1 Main, city: NYC, zip: BA1}"
     assert moved.name == "Ada"
 }
 
@@ -99,13 +99,13 @@ test "a brace without `..` replaces the field whole" {
     replaced = #{..ada(), address: #{street: "2 Elm", city: "NYC"}}
 
     // `zip` takes its default: the brace is a new Address, not an update.
-    assert Display.to_string(replaced.address) == "#Address{street: 2 Elm, city: NYC, zip: 00000}"
+    assert Display.to_string(replaced.address) == "Address{street: 2 Elm, city: NYC, zip: 00000}"
 }
 
 test "updates nest three deep" {
-    b = #Building{
+    b = Building{
         name: "HQ",
-        floor: #Floor{geo: #Geo{lat: 5, city: "Oslo"}, rooms: 9},
+        floor: Floor{geo: Geo{lat: 5, city: "Oslo"}, rooms: 9},
     }
 
     moved = #{
@@ -114,7 +114,7 @@ test "updates nest three deep" {
     }
 
     assert Display.to_string(moved)
-        == "#Building{name: HQ, floor: #Floor{geo: #Geo{lat: 5, city: Bergen}, rooms: 9}}"
+        == "Building{name: HQ, floor: Floor{geo: Geo{lat: 5, city: Bergen}, rooms: 9}}"
 }
 
 // --- collections at a field ---------------------------------------------
@@ -169,16 +169,16 @@ test "a missing key starts from an empty collection" {
 }
 
 test "a missing key builds a struct from the fields written and the defaults" {
-    geos = %{"oslo" => #Geo{lat: 60, city: "Oslo"}}
+    geos = %{"oslo" => Geo{lat: 60, city: "Oslo"}}
     moved = %{..geos, "oslo" => #{.., lat: 59}, "rome" => #{.., city: "Rome"}}
 
     assert Display.to_string(moved)
-        == "%{oslo => #Geo{lat: 59, city: Oslo}, rome => #Geo{lat: 0, city: Rome}}"
+        == "%{oslo => Geo{lat: 59, city: Oslo}, rome => Geo{lat: 0, city: Rome}}"
 }
 
 test "a whole missing chain is built" {
     sites = %{
-        "hq" => %{"f1" => #Floor{}},
+        "hq" => %{"f1" => Floor{}},
     }
 
     grown = %{
@@ -192,7 +192,7 @@ test "a whole missing chain is built" {
 
     assert Display.to_string(
         grown
-    ) == "%{hq => %{f1 => #Floor{geo: #Geo{lat: 0, city: ?}, rooms: 4}}, lab => %{f1 => #Floor{geo: #Geo{lat: 7, city: ?}, rooms: 1}}}"
+    ) == "%{hq => %{f1 => Floor{geo: Geo{lat: 0, city: ?}, rooms: 4}}, lab => %{f1 => Floor{geo: Geo{lat: 7, city: ?}, rooms: 1}}}"
 }
 
 test "a set spread names its base too" {
@@ -208,7 +208,7 @@ test "Struct.update takes `..` at its patch's fields, in a pipeline" {
         |> Struct.update(#{name: "Ada L", address: #{.., zip: "BA2"}, tags: ["cs", ..]})
 
     assert moved == #{..ada(), name: "Ada L", address: #{.., zip: "BA2"}, tags: ["cs", ..]}
-    assert Display.to_string(moved.address) == "#Address{street: 1 Main, city: Bath, zip: BA2}"
+    assert Display.to_string(moved.address) == "Address{street: 1 Main, city: Bath, zip: BA2}"
 }
 
 test "Struct.update with the patch named first" {
@@ -227,7 +227,7 @@ test "an update in an assertion subject" {
 }
 
 test "a failing assertion shows the updated value" {
-    w = #Wrap{p: #Pair{a: 1, b: 2}}
+    w = Wrap{p: Pair{a: 1, b: 2}}
     assert Err(failure) = testing.check(Struct.update(w, #{p: #{.., a: 5}}) == w)
 
     // The patch's row shows each `..` field as the value it became.
@@ -236,13 +236,13 @@ test "a failing assertion shows the updated value" {
           check Struct.update(w, #{p: #{.., a: 5}}) == w
           values:
             w
-              = #Wrap{p: #Pair{a: 1, b: 2}}
+              = Wrap{p: Pair{a: 1, b: 2}}
             #{p: #{.., a: 5}}
-              = #{p: #Pair{a: 5, b: 2}}
+              = #{p: Pair{a: 5, b: 2}}
             Struct.update(w, #{p: #{.., a: 5}})
-              = #Wrap{p: #Pair{a: 5, b: 2}}
+              = Wrap{p: Pair{a: 5, b: 2}}
             w
-              = #Wrap{p: #Pair{a: 1, b: 2}}
+              = Wrap{p: Pair{a: 1, b: 2}}
         """
 }
 
@@ -260,7 +260,7 @@ test "a brace without `..` at an update must be whole" {
         }
 
         fn main() {
-          p = #Person{address: #Address{street: "1 Main", city: "Bath"}}
+          p = Person{address: Address{street: "1 Main", city: "Bath"}}
           dbg #{..p, address: #{city: "NYC"}}
           dbg Struct.update(p, #{address: #{city: "NYC"}})
         }
@@ -313,7 +313,7 @@ test "a missing key needs a default for every field not written" {
         }
 
         fn main() {
-          m = %{"a" => #Address{street: "s", city: "c"}}
+          m = %{"a" => Address{street: "s", city: "c"}}
           _a = %{..m, "b" => #{.., city: "x"}}
         }
         """
@@ -339,7 +339,7 @@ test "a bare `..` cannot reach inside a Maybe" {
         }
 
         fn main() {
-          p = #Person{address: None}
+          p = Person{address: None}
           _a = #{..p, address: #{.., city: "x"}}
         }
         """
@@ -357,7 +357,7 @@ test "a `..` at a position of another kind is refused" {
         }
 
         fn main() {
-          p = #Person{tags: [], n: 1}
+          p = Person{tags: [], n: 1}
           _a = #{..p, tags: %[.., "x"]}
           _b = #{..p, n: [1, ..]}
           _c = #{..p, tags: #{..}}
@@ -379,7 +379,7 @@ test "a `..` at a position of another kind is refused" {
 }
 
 test "an opaque struct's fields stay closed through a nested `..`" {
-    diagnostics = compiler.check_project(#Project{
+    diagnostics = compiler.check_project(Project{
         entry_point: "main",
         files: %{
             "main" => """
@@ -391,7 +391,7 @@ test "an opaque struct's fields stay closed through a nested `..`" {
                 }
 
                 fn main() {
-                  b = #Box{inner: counter.new(), label: "x"}
+                  b = Box{inner: counter.new(), label: "x"}
                   _a = #{..b, inner: #{.., value: 9}}
                   _b = Struct.update(b, #{inner: #{.., value: 9}})
                   _c = #{..b, label: "y", inner: counter.new()}
@@ -403,7 +403,7 @@ test "an opaque struct's fields stay closed through a nested `..`" {
                 }
 
                 pub fn new() -> Counter {
-                  #Counter{value: 0}
+                  Counter{value: 0}
                 }
                 """,
         },
@@ -429,7 +429,7 @@ test "hover inside a `..` literal reads the field of the old value" {
         }
 
         fn main() {
-          p = #Person{address: #Address{street: "1 Main", city: "Bath"}}
+          p = Person{address: Address{street: "1 Main", city: "Bath"}}
           _a = #{..p, address: #{.., ciˇty: "NYC"}}
         }
         """

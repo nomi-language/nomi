@@ -186,7 +186,7 @@ type supervisor struct {
 // `Sender[T]`'s arrangement and is chosen for their two reasons: the field
 // stays unreachable from outside rt, and the value is copyable, so
 // `rt.Supervisor` is the Go type a `stdHostSpecs` row names without every
-// position — a struct field, a parameter, a `#Config{}` literal slot — having to
+// position — a struct field, a parameter, a `Config{}` literal slot — having to
 // spell a pointer.
 type Supervisor struct {
 	s *supervisor
@@ -209,6 +209,11 @@ type supervisorRegistry struct {
 	// drained guards against a second drain pass: the program drains after the
 	// entry function returns, and a signal handler may have started one.
 	drained bool
+
+	// drainHooks run when the drain starts, before any grace period
+	// (OnDrain). Keyed so a hook can unregister itself.
+	drainHooks map[int]func()
+	nextHook   int
 
 	// fatal is set when a supervisor with `on_give_up: GiveUp.Exit` gave up.
 	// The program has to fail, but the failure happens on a background
@@ -384,6 +389,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 	var booted *bootedApp
 	var capture *Capture
 	var files any
+	var processes, network any
 	taskContext := ContextWithoutDeadline(ActiveContext(fr))
 	if fr != nil {
 		forcing = fr.forcing
@@ -391,6 +397,8 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		booted = fr.booted
 		capture = fr.capture
 		files = fr.files
+		processes = fr.processes
+		network = fr.network
 
 	}
 
@@ -414,7 +422,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 		g.park.live.Add(1)
 		defer g.park.live.Add(-1)
 
-		g.runWithRestarts(t, body, taskCtx, forcing, taskFields, taskContext, booted, capture, files)
+		g.runWithRestarts(t, body, taskCtx, forcing, taskFields, taskContext, booted, capture, files, processes, network)
 	}()
 
 	return Task[Unit]{t: t}
@@ -434,7 +442,7 @@ func supervisorEnrol(fr *Frame, sup Supervisor, body func(*Frame) Unit) Task[Uni
 //
 // Every restart inherits the spawn site's fields and detached Context, so it
 // reads the same configuration as the first attempt.
-func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, fields map[string]any, scopedContext Context, booted *bootedApp, capture *Capture, files any) {
+func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, taskCtx context.Context, forcing *forcing, fields map[string]any, scopedContext Context, booted *bootedApp, capture *Capture, files, processes, network any) {
 	// attempt counts failures across the task's whole life and is what
 	// `max_restarts` refers to.
 	//
@@ -451,7 +459,7 @@ func (g *supervisor) runWithRestarts(t *task[Unit], body func(*Frame) Unit, task
 	stop := stopFlag(taskCtx)
 	for {
 		runStart := time.Now()
-		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, stop: stop, park: g.park, capture: capture, files: files}
+		taskFrame := &Frame{ctx: taskCtx, forcing: forcing, scopedFields: fields, scopedContext: &scopedContext, booted: booted, inTask: true, stop: stop, park: g.park, capture: capture, files: files, processes: processes, network: network}
 		outcome, failure := runSupervisedBody(body, taskFrame)
 		ranFor := Duration(time.Since(runStart))
 
@@ -798,7 +806,18 @@ func DrainSupervisors() {
 	groups := make([]*supervisor, len(reg.groups))
 	copy(groups, reg.groups)
 	cancelRoot := reg.cancelRoot
+	hooks := make([]func(), 0, len(reg.drainHooks))
+	for _, h := range reg.drainHooks {
+		hooks = append(hooks, h)
+	}
+	reg.drainHooks = nil
 	reg.mu.Unlock()
+
+	// What must stop taking new work stops now, so each grace period below
+	// is spent on work already accepted.
+	for _, h := range hooks {
+		h()
+	}
 
 	var wg sync.WaitGroup
 	for _, g := range groups {
@@ -813,6 +832,34 @@ func DrainSupervisors() {
 	// Release the root last. Its only remaining job was to parent the
 	// supervisor contexts, which are all cancelled by this point.
 	cancelRoot()
+}
+
+// OnDrain registers f to run when the program starts draining its
+// supervisors, before any supervisor's grace period. Something that takes
+// new work from outside, as a listening HTTP server does, stops taking it
+// there, so the grace period is spent finishing work already accepted, as
+// Go's Server.Shutdown spends its timeout. f must not block. When the drain
+// has already started, f runs at once. The returned func unregisters f.
+func OnDrain(f func()) (unregister func()) {
+	reg := supervisors()
+	reg.mu.Lock()
+	if reg.drained {
+		reg.mu.Unlock()
+		f()
+		return func() {}
+	}
+	if reg.drainHooks == nil {
+		reg.drainHooks = map[int]func(){}
+	}
+	id := reg.nextHook
+	reg.nextHook++
+	reg.drainHooks[id] = f
+	reg.mu.Unlock()
+	return func() {
+		reg.mu.Lock()
+		delete(reg.drainHooks, id)
+		reg.mu.Unlock()
+	}
 }
 
 // drainOnce gives one supervisor its grace period, then stops it.

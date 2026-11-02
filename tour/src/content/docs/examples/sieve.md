@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The primes up to and including `limit`, by the Sieve of Eratosthenes:
 /// each prime marks its multiples, and the numbers left unmarked are prime.
 pub fn primes(limit: Int) -> List<Int> {
-    composites = Iter.reduce(2..=limit, fn marked = %[], n -> {
+    composites = Iter.reduce(2..=limit, %[], fn marked, n -> {
         if n in marked {
             marked
         } else {

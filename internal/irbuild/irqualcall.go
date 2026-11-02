@@ -367,15 +367,9 @@ func (bl *irScalarBuilder) implDefaultArgs(t *ast.Call, args irQualArgs, it *imp
 	if fd == nil || len(fd.Params) != len(it.params) {
 		return args, false
 	}
-	for i, k := range args.kinds {
-		if k != it.params[i] || !irCallOperandKind(k) {
-			return args, false
-		}
-	}
-	temps := make([]ir.Temp, len(it.params))
-	copy(temps, args.temps)
-	for i := len(args.temps); i < len(temps); i++ {
-		temps[i] = ir.NoTemp
+	temps, _, _, ok := slottedOperands(t, args, it.params, fd.Params)
+	if !ok {
+		return args, false
 	}
 	if !bl.callDefaults(&fnSig{decl: fd, params: it.params}, temps) {
 		return args, false
@@ -805,6 +799,15 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	} else if ti.Name == "Maybe" && method == "to_result" {
 		plan = bl.preludeToResultPlan(t, args)
 	} else if (ti.Name == "Maybe" || ti.Name == "Result") && method == "with_default" {
+		if args.ok && len(args.kinds) == 2 && args.kinds[1] == kindUnit {
+			// `Result.with_default(r, Unit)` over a `Result<Unit, E>`: both
+			// outcomes are the one Unit value, so the call is Unit once its
+			// operands, lowered above, have run. The crossing below takes
+			// no Unit payload.
+			u := ir.NewUnit(bl.g.irNodePos(t), bl.f.NewTemp())
+			bl.b.Append(u)
+			return u.Dst(), kindUnit, true, true
+		}
 		plan = bl.preludeWithDefaultPlan(t, args, ti.Name)
 	} else if (ti.Name == "List" || ti.Name == "Vector") && method == "compare" {
 		return bl.containerCompareAny(t, args, ti.Name)
@@ -867,7 +870,7 @@ func (bl *irScalarBuilder) qualPreResolve(ti *ast.TypeIdent, obj *ast.Ident, isT
 		return
 	}
 	f := g.files.units[to].funcs[method]
-	if f == nil || !f.lowerable() {
+	if f == nil || !f.lowerable() || f.private && !g.partnerTestOf(to) {
 		return
 	}
 	for _, p := range f.params {
@@ -1379,22 +1382,28 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, site
 	if len(f.params0) != len(params) || owning.fa == nil || g.fa == nil {
 		return args, false
 	}
-	for i, k := range args.kinds {
-		if k != params[i] || !irCallOperandKind(k) {
-			return args, false
-		}
-	}
-	var slots []int
-	for i := len(args.temps); i < len(params); i++ {
-		slots = append(slots, i)
+	temps, slots, mobile, ok := slottedOperands(t, args, params, f.params0)
+	if !ok {
+		return args, false
 	}
 	if !bl.siblingDefaultsAgree(f, owning, slots) {
-		return bl.siblingAccessorArgs(t, args, site, params, owning)
-	}
-	temps := make([]ir.Temp, len(params))
-	copy(temps, args.temps)
-	for i := len(args.temps); i < len(temps); i++ {
-		temps[i] = ir.NoTemp
+		// A default naming what this file cannot (the declaring file's
+		// private function, a type it never imported, or a name meaning
+		// something else here): filled by the declaring file's accessor
+		// for each omitted slot, never lowered here.
+		switch {
+		case site.accessorDefaults():
+			ok = bl.siblingImplFill(t, site, owning, params, temps, mobile)
+		case site.instAccessors != nil:
+			callee := site.instAccessors()
+			ok = callee != nil && bl.siblingFill(t, owning, callee, &ast.FuncDef{Name: site.symName, Params: f.params0}, params, temps, mobile)
+		default:
+			ok = false
+		}
+		if !ok {
+			return args, false
+		}
+		return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
 	}
 	// The defaults are the declaring file's nodes, so what the checker
 	// recorded of them (a bare `None`'s type) is in its analysis: their
@@ -1406,6 +1415,47 @@ func (bl *irScalarBuilder) siblingDefaultArgs(t *ast.Call, args irQualArgs, site
 		return args, false
 	}
 	return irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}, true
+}
+
+// slottedOperands places a short call's written operands, already lowered
+// in written order (irQualLowerArgs), at the parameter slots a direct call
+// gives them (argSlotPlan): positionally, except that a trailing callback
+// goes to the last slot past defaulted parameters, as in
+// `Actor.call(actor, fn reply -> .Get{reply})` skipping `timeout`. A slot no
+// operand fills is ir.NoTemp, for callDefaults; omitted lists those slots.
+// ok is false when an operand's kind is not its slot's.
+func slottedOperands(t *ast.Call, args irQualArgs, params []kind, decl []ast.Param) (temps []ir.Temp, omitted []int, mobile []bool, ok bool) {
+	if !args.ok || len(args.temps) != len(t.Args) || len(decl) != len(params) {
+		return nil, nil, nil, false
+	}
+	names := make([]string, len(decl))
+	for i, p := range decl {
+		names[i] = p.Name
+	}
+	plan, planned := argSlotPlan(t.Args, params, names)
+	if !planned {
+		return nil, nil, nil, false
+	}
+	temps = make([]ir.Temp, len(params))
+	mobile = make([]bool, len(params))
+	for i := range temps {
+		temps[i] = ir.NoTemp
+	}
+	for i, slot := range plan.slots {
+		if slot < 0 || args.kinds[i] != params[slot] || !irCallOperandKind(args.kinds[i]) {
+			return nil, nil, nil, false
+		}
+		temps[slot] = args.temps[i]
+		if i < len(args.mobile) {
+			mobile[slot] = args.mobile[i]
+		}
+	}
+	for i, tmp := range temps {
+		if tmp == ir.NoTemp {
+			omitted = append(omitted, i)
+		}
+	}
+	return temps, omitted, mobile, true
 }
 
 // siblingDefaultsAgree reports whether each of slots of f, a sibling file's
@@ -1459,25 +1509,14 @@ func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, ownerID *a
 // stdFilePlan plans a call to std file std's top-level function method,
 // written `io.read_line()` or bare after `import std/io.read_line`.
 func (bl *irScalarBuilder) stdFilePlan(t *ast.Call, args irQualArgs, std, method string) *irQualPlan {
-	if bl.g.std != nil {
-		if f := bl.g.std.byFile[std+"."+method]; f != nil && f.why == "" && irFrameHost(f) && bl.qualSignature(t, args, f.params, f.result) {
-			return &irQualPlan{token: f, name: f.key, result: f.result, host: true}
-		}
-		if f := bl.g.std.byFile[std+"."+method]; f != nil && f.why == "" && irScalarHost(f) && bl.qualSignature(t, args, f.params, f.result) {
-			return &irQualPlan{token: f, name: f.key, result: f.result, host: true}
-		}
-		if f := bl.g.std.byFile[std+"."+method]; f != nil && f.why == "" {
-			if _, compiler := irCompilerHost(f); compiler {
-				return bl.stdFuncPlan(t, args, f)
-			}
-			if f.rtCall == "" {
-				// A Nomi body (`json.shape_error_root`): the std module's
-				// cached function, as derive synthesis calls it.
-				return bl.stdFuncPlan(t, args, f)
-			}
-		}
+	if bl.g.std == nil {
+		return nil
 	}
-	return nil
+	// A host function by whichever row answers it (an rt function, with or
+	// without the frame, a Go-backed adapter, a std/compiler crossing), or a
+	// Nomi body (`json.shape_error_root`): the std module's cached function,
+	// as derive synthesis calls it.
+	return bl.stdFuncPlan(t, args, bl.g.std.byFile[std+"."+method])
 }
 
 // irFrameHost admits an RtFuncs row that takes the caller's frame: the VM's
@@ -1509,6 +1548,9 @@ func (bl *irScalarBuilder) synthStdFilePlan(t *ast.Call, args irQualArgs, owner 
 func (bl *irScalarBuilder) qualSiblingPlan(t *ast.Call, args irQualArgs, to int, method string) *irQualPlan {
 	unit := bl.g.files.units[to]
 	f := unit.funcs[method]
+	if bl.g.siblingPrivate(to, f) {
+		return nil
+	}
 	if f != nil && f.generic {
 		params, result, sym, ok := bl.g.siblingGenericInstance(t, to, f)
 		if !ok || !bl.qualSignature(t, args, params, result) {
@@ -1567,7 +1609,7 @@ func (g *gen) siblingFuncPlan(to int, f *fileFunc, result kind) *irQualPlan {
 func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	f := site.fn
-	if f == nil || f.decl == nil {
+	if f == nil || f.decl == nil || bl.g.siblingPrivate(site.unit, f) {
 		return no()
 	}
 	var params []kind

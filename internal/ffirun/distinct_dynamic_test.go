@@ -172,9 +172,9 @@ fn main() {
   io.inspect(tenfold(Id(4)))
   io.inspect(pair(Id(4)))
   io.inspect(apply(Id(1), fn Id(k) -> Id(k * 2)))
-  io.inspect(bump(#Row{name: "a", n: Id(1)}))
-  io.inspect(bump_wrapped(Wrapped(#Plain{name: "w", n: 1})))
-  io.inspect(rows([Wrapped(#Plain{name: "n", n: 0})]))
+  io.inspect(bump(Row{name: "a", n: Id(1)}))
+  io.inspect(bump_wrapped(Wrapped(Plain{name: "w", n: 1})))
+  io.inspect(rows([Wrapped(Plain{name: "n", n: 0})]))
   io.inspect(inc_all(%{"a" => Id(1)}))
   io.inspect(inc_outer(Outer(Inner(5))))
   io.inspect(double(Timeout(Duration.seconds(1))))
@@ -196,9 +196,9 @@ fn main() {
 		`Ok(Id(40))`,
 		`#(Id(4), "p")`,
 		`Id(102)`,
-		`#Row{name: "a", n: Id(2)}`,
-		`Wrapped(#Plain{name: "w", n: 2})`,
-		`[Wrapped(#Plain{name: "n", n: 0}), Wrapped(#Plain{name: "go", n: 7})]`,
+		`Row{name: "a", n: Id(2)}`,
+		`Wrapped(Plain{name: "w", n: 2})`,
+		`[Wrapped(Plain{name: "n", n: 0}), Wrapped(Plain{name: "go", n: 7})]`,
 		`%{"a" => Id(1), "b" => Id(2)}`,
 		`Outer(Inner(6))`,
 		`Timeout(2s)`,
@@ -299,7 +299,7 @@ fn main() {
 		`True`,
 		`Ok(2.5)`,
 		`Ok("x")`,
-		`[Err(#Error{path: [], expected: "String", got: "Int"}), Ok("tail")]`,
+		`[Err(Error{path: [], expected: "String", got: "Int"}), Ok("tail")]`,
 		`Some(Ok(3))`,
 		`Ok(2.5)`,
 		`Ok(7)`,

@@ -3,5 +3,5 @@
 import std/process.Exit
 
 fn main() -> Result<Unit, Exit> {
-    Err(#Exit{code: 7})
+    Err(Exit{code: 7})
 }

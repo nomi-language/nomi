@@ -28,7 +28,7 @@ fn name(b: Byte) -> String {
 fn main() {
  b: Byte = 0x81
  bytes: List<Byte> = [0x81, 0x00, 10]
- header = #Header{tag: 7, length: 300}
+ header = Header{tag: 7, length: 300}
  io.inspect(b)
  io.inspect(bytes)
  io.inspect(header)
@@ -51,7 +51,7 @@ fn main() {
  })
  io.inspect(bytes |> Iter.map(fn x -> x &&& 0x80) |> Iter.to_list())
 }
-`, "129\n[129, 0, 10]\n#Header{tag: 7, length: 300}\n255\n\"del\"\n\"other\"\nTrue\nFalse\n1\n143\nTrue\nOk(\"hi\")\n\"some\"\n\"pair\"\n[128, 0, 0]\n")
+`, "129\n[129, 0, 10]\nHeader{tag: 7, length: 300}\n255\n\"del\"\n\"other\"\nTrue\nFalse\n1\n143\nTrue\nOk(\"hi\")\n\"some\"\n\"pair\"\n[128, 0, 0]\n")
 }
 
 // The literal is a Byte constant in the IR, not an Int the VM converts.

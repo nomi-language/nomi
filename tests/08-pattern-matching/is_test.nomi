@@ -24,9 +24,9 @@ enum State {
 test "is tests a variant and its payload" {
     shape = Shape.Point
     assert shape is .Point
-    refute shape is #.Circle{r: _}
-    assert #Shape.Circle{r: 1.0} is #.Circle{r: 1.0}
-    refute #Shape.Circle{r: 2.0} is #.Circle{r: 1.0}
+    refute shape is .Circle{r: _}
+    assert Shape.Circle{r: 1.0} is .Circle{r: 1.0}
+    refute Shape.Circle{r: 2.0} is .Circle{r: 1.0}
     assert Some(3) is Some(_)
     assert Some(3) is Some(3)
     refute Some(3) is Some(4)
@@ -36,8 +36,8 @@ test "is tests a variant and its payload" {
 }
 
 test "an or pattern goes in parentheses" {
-    assert Shape.Point is (#.Circle{r: _} or .Point)
-    refute #Shape.Square{side: 1.0} is (#.Circle{r: _} or .Point)
+    assert Shape.Point is (.Circle{r: _} or .Point)
+    refute Shape.Square{side: 1.0} is (.Circle{r: _} or .Point)
     assert 3 is (1 or 2 or 3)
     assert 'b' is ('a' or 'b')
 }
@@ -48,9 +48,9 @@ test "literals, string prefixes and nesting" {
     refute "/posts/7" is "/users/" + _id
     assert Ok(Some(2)) is Ok(Some(_))
     refute Ok(None) is Ok(Some(_))
-    order = #Order{id: 1, state: State.Shipped(4)}
-    assert order is #Order{state: .Shipped(_)}
-    refute order is #Order{state: .Open}
+    order = Order{id: 1, state: State.Shipped(4)}
+    assert order is Order{state: .Shipped(_)}
+    refute order is Order{state: .Open}
     assert #(1, "a") is #(_, "a")
 }
 
@@ -69,9 +69,9 @@ test "collection patterns" {
 
 test "is binds like ==" {
     shape = Shape.Point
-    assert not shape is #.Circle{r: _}
-    assert shape is .Point and not shape is #.Square{side: _}
-    assert shape is #.Circle{r: _} or shape is .Point
+    assert not shape is .Circle{r: _}
+    assert shape is .Point and not shape is .Square{side: _}
+    assert shape is .Circle{r: _} or shape is .Point
     assert [1, 2] |> List.head() is Some(1)
     assert not [] |> List.head() is Some(_)
     assert (shape is .Point) == True

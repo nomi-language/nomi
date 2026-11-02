@@ -11,17 +11,17 @@ struct Animal {
 /// The animals in the order she swallows them. Nothing is said about the fly:
 /// its verse goes straight to the closing line.
 once animals = [
-    #Animal{name: "fly"},
-    #Animal{
+    Animal{name: "fly"},
+    Animal{
         name: "spider",
         reaction: Some("It wriggled and jiggled and tickled inside her."),
         detail: " that wriggled and jiggled and tickled inside her",
     },
-    #Animal{name: "bird", reaction: Some("How absurd to swallow a bird!")},
-    #Animal{name: "cat", reaction: Some("Imagine that, to swallow a cat!")},
-    #Animal{name: "dog", reaction: Some("What a hog, to swallow a dog!")},
-    #Animal{name: "goat", reaction: Some("Just opened her throat and swallowed a goat!")},
-    #Animal{name: "cow", reaction: Some("I don't know how she swallowed a cow!")},
+    Animal{name: "bird", reaction: Some("How absurd to swallow a bird!")},
+    Animal{name: "cat", reaction: Some("Imagine that, to swallow a cat!")},
+    Animal{name: "dog", reaction: Some("What a hog, to swallow a dog!")},
+    Animal{name: "goat", reaction: Some("Just opened her throat and swallowed a goat!")},
+    Animal{name: "cow", reaction: Some("I don't know how she swallowed a cow!")},
 ]
 
 /// The last verse, after the cow: she swallows a horse and dies, so nothing

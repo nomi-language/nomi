@@ -61,7 +61,7 @@ fn find_nested(n: Int) -> Maybe<Maybe<Int>> {
 
 // An Iter.loop binding else whose statements branch before it leaves.
 fn loop_else_branches() -> Int {
-    loop(fn n = 0 -> {
+    loop(0, fn n -> {
         Some(v) = find(n) else {
             if n > 10 { io.print("big") }
             break n
@@ -73,7 +73,7 @@ fn loop_else_branches() -> Int {
 
 // An Iter.loop binding else whose fallback is an `if`.
 fn loop_else_fallback() -> Int {
-    loop(fn n = 0 -> {
+    loop(0, fn n -> {
         Some(v) = find(n) else { if n > 5 { 10 } else { 20 } }
 
         if v > 2 { break v }
@@ -83,7 +83,7 @@ fn loop_else_fallback() -> Int {
 
 // An Iter.loop binding else that ends in an `if` whose arms both break.
 fn loop_else_both_break() -> Int {
-    loop(fn n = 0 -> {
+    loop(0, fn n -> {
         Some(Some(v)) = find_nested(n) else { if n > 10 { break 1 } else { break 2 } }
 
         v + n + 1
@@ -135,7 +135,7 @@ fn case_subject(x: Int) -> Result<Bool, AssertionFailure> {
 }
 
 fn loop_subject(limit: Int) -> Result<Unit, AssertionFailure> {
-    assert loop(fn n = 0 -> {
+    assert loop(0, fn n -> {
         if n > limit { break n }
         n + 1
     }) == 4

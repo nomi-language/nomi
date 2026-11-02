@@ -141,7 +141,6 @@ func (bl *irScalarBuilder) patternValueTest(pat ast.Node, value ir.Temp, k kind,
 }
 
 func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k kind, arm, next *ir.Block) bool {
-	pat = irPattern(pat)
 	jump := func() bool {
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
 		bl.b = arm

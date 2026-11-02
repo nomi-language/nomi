@@ -1,12 +1,12 @@
 import std/iter.Iter.loop
 
 test "loop advances state through callback return values" {
-    result = loop(fn n = 1 -> {
+    result = loop(1, fn n -> {
         if n % 3 != 0 { return n + 1 }
         break n
     })
 
-    #(_, steps) = loop(fn state = #(27, 0) -> {
+    #(_, steps) = loop(#(27, 0), fn state -> {
         #(n, count) = state
         if n == 1 { break state }
 
@@ -26,12 +26,12 @@ test "bare loop break returns Unit" {
 }
 
 test "loop break value returns the break value" {
-    countdown = loop(fn n = 5 -> {
+    countdown = loop(5, fn n -> {
         if n == 0 { break n }
         n - 1
     })
 
-    fib = loop(fn state = #(0, 1) -> {
+    fib = loop(#(0, 1), fn state -> {
         #(a, b) = state
         if b > 100 { break #(a, b) }
         #(b, a + b)
@@ -42,7 +42,7 @@ test "loop break value returns the break value" {
 }
 
 test "a loop answers a break value computed from its state" {
-    answer = loop(fn n = 40 -> { break n + 2 })
+    answer = loop(40, fn n -> { break n + 2 })
 
     assert answer == 42
 }
@@ -53,5 +53,5 @@ test "a generic seed pins the loop state type" {
 }
 
 fn first<T>(x: T) -> T {
-    loop(fn v = x -> { break v })
+    loop(x, fn v -> { break v })
 }

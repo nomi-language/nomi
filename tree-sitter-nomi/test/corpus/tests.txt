@@ -7,7 +7,7 @@ group "math" {
   boot server.boot(startup())
 
   setup {
-    with App.mailer = #FakeMailer{}
+    with App.mailer = FakeMailer{}
     base = 2
     base
   }
@@ -94,8 +94,8 @@ Setup expression bound by a tuple pattern and a name
 ================================================================================
 
 group "env" {
-  boot boot(#Startup{env: %{}, args: []})
-  setup #(#Env{mode: "test"}, 2)
+  boot boot(Startup{env: %{}, args: []})
+  setup #(Env{mode: "test"}, 2)
 
   test "tuple", #(env, n) {
     assert n == 2
@@ -200,7 +200,7 @@ A boot outside a group stays an ordinary name
 ================================================================================
 
 pub fn boot(startup: Startup) -> App {
-  #App{context: Context.root()}
+  App{context: Context.root()}
 }
 
 fn restart() -> App {
@@ -439,11 +439,11 @@ Boot with no parameter or a defaulted Startup, called with no argument
 ================================================================================
 
 fn boot() -> App {
-  #App{}
+  App{}
 }
 
-fn boot(startup: Startup = #Startup{}) -> App {
-  #App{}
+fn boot(startup: Startup = Startup{}) -> App {
+  App{}
 }
 
 group "defaulted" {

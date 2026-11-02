@@ -16,9 +16,9 @@ import (
 // value into a field that does not hold one. Four mutations, each a plausible
 // std edit, and each must produce NO anchor:
 //
-//	the field RENAMED             `#NotFound {file: String}`
-//	the field RETYPED             `#NotFound {path: Int}`
-//	a SECOND field added          `#NotFound {path: String, code: Int}`
+//	the field RENAMED             `NotFound{file: String}`
+//	the field RETYPED             `NotFound{path: Int}`
+//	a SECOND field added          `NotFound{path: String, code: Int}`
 //	a DEFAULT added               `NotFound {path: String = ""}`
 //
 // Asserted at the spec level rather than through a program, because the thing
@@ -66,7 +66,7 @@ func TestIOErrorSlotsMatchRTFieldNames(t *testing.T) {
 	i := stdEnumSpecIndexForTest(t, "std/io", "Error")
 	d := stdEnumDefs()[i]
 	// The Nomi names are the ones std declares, absolutely and in order:
-	// these are what `#Error.NotFound{path}` binds, and a permuted pair is a
+	// these are what `Error.NotFound{path}` binds, and a permuted pair is a
 	// wrong answer rather than a compile error. A bare variant binds none.
 	want := map[string][]string{
 		"NotFound": {"path"}, "AlreadyExists": {"path"}, "PermissionDenied": {"path"},

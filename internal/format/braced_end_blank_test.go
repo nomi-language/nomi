@@ -15,8 +15,8 @@ func TestFormat_BracedEndTrivia_DropsBlankLines(t *testing.T) {
 			"fn main() {\n    x = #{\n        a: 0 / 0,\n        //\n    }\n}\n",
 		},
 		"named struct literal": {
-			"fn main() {\n    x = #P{a: 0\n\n    // c\n\n    // d\n    }\n}\n",
-			"fn main() {\n    x = #P{\n        a: 0,\n        // c\n        // d\n    }\n}\n",
+			"fn main() {\n    x = P{a: 0\n\n    // c\n\n    // d\n    }\n}\n",
+			"fn main() {\n    x = P{\n        a: 0,\n        // c\n        // d\n    }\n}\n",
 		},
 		"map literal": {
 			"fn main() {\n    m = %{1 => 2\n\n    // c\n    }\n}\n",

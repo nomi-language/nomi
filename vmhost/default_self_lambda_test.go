@@ -25,11 +25,11 @@ const defaultSelfLambdaIface = `interface Temperature {
     }
 
     fn joined(t: self) -> String {
-        [t, t, t] |> Iter.reduce(fn acc = "", c -> "${acc}${Temperature.unit(c)}")
+        [t, t, t] |> Iter.reduce("", fn acc, c -> "${acc}${Temperature.unit(c)}")
     }
 
     fn looped(t: self) -> String {
-        #(c, n) = Iter.loop(fn state = #(t, 0) -> {
+        #(c, n) = Iter.loop(#(t, 0), fn state -> {
             #(c, n) = state
             if n == 2 {
                 break state
@@ -57,11 +57,11 @@ const defaultSelfLambdaIface = `interface Temperature {
                 self(n) = c
                 n
             })
-            |> Iter.reduce(fn acc = 0d, n -> acc + n)
+            |> Iter.reduce(0d, fn acc, n -> acc + n)
     }
 
     fn sum(_t: self, ts: List<self>) -> Decimal where self: Distinct<Decimal> {
-        ts |> Iter.map(fn self(n) -> n) |> Iter.reduce(fn acc = 0d, n -> acc + n)
+        ts |> Iter.map(fn self(n) -> n) |> Iter.reduce(0d, fn acc, n -> acc + n)
     }
 
     fn doubled(_t: self, ts: List<self>) -> List<self> where self: Distinct<Decimal> {
@@ -213,9 +213,9 @@ impl Temperature for Kelvin {
 }
 
 fn main() {
-    io.print(Celsius.against(#Celsius{v: 1}, #Kelvin{v: 2}))
-    io.print(Kelvin.against(#Kelvin{v: 2}, #Celsius{v: 1}))
-    io.print(Temperature.against(#Celsius{v: 1}, #Celsius{v: 3}))
+    io.print(Celsius.against(Celsius{v: 1}, Kelvin{v: 2}))
+    io.print(Kelvin.against(Kelvin{v: 2}, Celsius{v: 1}))
+    io.print(Temperature.against(Celsius{v: 1}, Celsius{v: 3}))
 }
 `})
 	want := "C vs KK vs K\nK vs CC vs C\nC vs CC vs C\n"

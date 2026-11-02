@@ -35,7 +35,7 @@ impl Chooser for Pair<E> {
 }
 
 fn first<T, I>(it: I) -> Maybe<T> where I: Iter<T> {
-    Iter.reduce(it, fn _acc: Maybe<T> = None, x -> { break Some(x) })
+    Iter.reduce(it, None, fn _acc: Maybe<T>, x -> { break Some(x) })
 }
 
 // Calls the `Iter` protocol function itself through the same bound:
@@ -53,8 +53,8 @@ fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display {
 }
 
 test "generic interface type arguments infer from concrete implementing types" {
-    picked = Chooser.pick(#Pair{a: 10, b: 20})
-    best = Chooser.top(#Pair{a: #Priority{rank: 2}, b: #Priority{rank: 9}})
+    picked = Chooser.pick(Pair{a: 10, b: 20})
+    best = Chooser.top(Pair{a: Priority{rank: 2}, b: Priority{rank: 9}})
 
     assert picked == 10
     assert priority.rank(best) == 9

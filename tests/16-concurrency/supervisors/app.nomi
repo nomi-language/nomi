@@ -67,7 +67,7 @@ pub fn slow_work() -> Unit {
 pub fn drain_alerts() -> List<String> {
     Sender.close(Config.alerts.sender)
 
-    Iter.loop(fn seen = [] -> {
+    Iter.loop([], fn seen -> {
         case Receiver.receive(Config.alerts.receiver) {
             Some(message) -> [message, ..seen]
             None -> break seen
@@ -76,7 +76,7 @@ pub fn drain_alerts() -> List<String> {
 }
 
 pub fn boot() -> Result<Config, String> {
-    Ok(#Config{
+    Ok(Config{
         context: Context.root(),
         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 4),
         audit: Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 2),

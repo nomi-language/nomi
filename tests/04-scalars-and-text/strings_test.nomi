@@ -170,7 +170,7 @@ test "a typed regex passes through a generic function" {
     assert String.contains("a=1", Regex`(\w)=(\d)`)
     assert String.split("a1b2c", Regex`(\d)`) == ["a", "b", "c"]
 
-    rule = #Rule{name: "pair", re: Regex`(\w)=(\d)`}
+    rule = Rule{name: "pair", re: Regex`(\w)=(\d)`}
     assert String.captures("a=1", rule.re) == Some(#("a", "1"))
 
     numbers: List<Regex<String>> = [Regex`(\d+)`, Regex`#(\w+)`]

@@ -30,7 +30,7 @@ package irbuild
 // way, in that body's own function. Empty seeds the checker did not solve
 // are declined.
 //
-// A destructuring state (`fn #(n, acc): #(Int, Int) = #(5, 1) ->`) binds the
+// A destructuring state (`Iter.loop(#(5, 1), fn #(n, acc) -> ...)`) binds the
 // pattern's names at the head from the state, each iteration, as a pattern
 // binding with no `else` does. The checker admits only an irrefutable
 // pattern there, so the mismatch path is unreachable; it traps as that
@@ -141,7 +141,7 @@ func (bl *irScalarBuilder) loopJump(b *ir.Block, at ast.Node, lp *irLoopBuild, t
 	b.SetTerm(ir.NewJump(bl.g.irNodePos(at), target.ID()))
 }
 
-// iterLoop lowers `Iter.loop(fn p = seed -> body)` and answers its answer slot.
+// iterLoop lowers `Iter.loop(seed, fn p -> body)` and answers its answer slot.
 func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
 		irDeclineNote(why)
@@ -172,7 +172,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// not a variable of the program's.
 	synthetic := false
 	if c, isCapture := cb.(*ast.Capture); isCapture && c.PartialCall() == nil {
-		// `Iter.loop(&(if &1 > 3 { break } else { &1 + 1 }), from: 0)`: the
+		// `Iter.loop(0, &(if &1 > 3 { break } else { &1 + 1 }))`: the
 		// lambda the capture stands for, inlined as a lambda's body is, its
 		// `&1` read as the state.
 		line, col := nodePos(c)
@@ -194,7 +194,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	if !isLambda {
 		synthetic = true
-		// `Iter.loop(step, from: 0)`: the loop calls step with its state each
+		// `Iter.loop(0, step)`: the loop calls step with its state each
 		// round, as a lambda `fn state -> step(state)` would be inlined; an
 		// iter-sensitive step's signals are the loop's (signallingCall). A
 		// callback written in place (a capture, a field accessor) is made
@@ -243,19 +243,15 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		seed = u.Dst()
 	} else {
 		p = &lam.Params[0]
-		start := p.Default
-		if (start == nil) == (from == nil) {
-			// The checker requires exactly one starting state.
-			return no("an Iter.loop callback without one starting state")
-		}
-		if start == nil {
-			start = from
+		if from == nil {
+			// The checker requires a starting state.
+			return no("an Iter.loop callback with state and no starting state")
 		}
 		if p.Destructure == nil {
 			stateName = p.Name
 		}
 		var ok bool
-		if seed, sk, _, ok = bl.lower(start); !ok {
+		if seed, sk, _, ok = bl.lower(from); !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
@@ -265,31 +261,20 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// parameter and is coerced to it.
 		var ok bool
 		var solved kind
-		switch {
-		case from != nil:
-			// The state type the checker solved for the call's `from`.
-			solved = kindInvalid
-			if checked := bl.g.checkedCallSignature(t); checked != nil && len(checked.Params) == 2 {
-				solved = bl.g.projectFilledHoles(checked.Params[0])
-			}
-		case p.Destructure != nil:
-			solved = bl.g.irParamPatternKind(*p)
-		default:
-			_, solved = bl.g.inferredParamKind(*p)
+		// The state type the checker solved for the call's `from`.
+		solved = kindInvalid
+		if checked := bl.g.checkedCallSignature(t); checked != nil && len(checked.Params) == 2 {
+			solved = bl.g.projectFilledHoles(checked.Params[0])
 		}
 		// kindInvalid: lookup — asks whether the checker solved the seed's kind; a miss declines retention.
 		if solved == kindInvalid {
 			return no("an Iter.loop seed whose element type the checker did not solve")
 		}
-		start := p.Default
-		if start == nil {
-			start = from
-		}
-		if seed, sk, ok = bl.coerceEmpty(start, seed, sk, solved); !ok {
+		if seed, sk, ok = bl.coerceEmpty(from, seed, sk, solved); !ok {
 			return no("an Iter.loop seed outside the retained empty-container coercions")
 		}
 	}
-	// A Unit state (`fn u: Unit = Unit ->`) is a loop run for its effects.
+	// A Unit state (`Iter.loop(Unit, fn u -> ...)`) is a loop run for its effects.
 	if (!irCallableValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
 		return no("an Iter.loop state outside the retained value domain: " + sk.nomi())
 	}
@@ -321,7 +306,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.b.Append(ir.NewRefScope(bl.g.irNodePos(lam), lp.scope, bl.g.irTypes().Symbol(irScopeHandle{}, "$scope")))
 	}
 	if p != nil && p.Destructure != nil {
-		// `fn #(n, acc) = #(5, 1) ->`: the pattern's names, read off this
+		// `fn #(n, acc) ->`: the pattern's names, read off this
 		// iteration's state.
 		at := bl.g.irNodePos(p.Destructure)
 		held := ir.NewBind(at, bl.f.NewTemp(), state.Dst(), ir.NewSymbol("$state"))
@@ -336,7 +321,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		bl.b = cont
 	} else if p != nil && !ast.IsDiscardName(p.Name) {
-		// A discard name (`fn _u: Unit = Unit ->`) binds nothing in the body.
+		// A discard name (`fn _u ->`) binds nothing in the body.
 		sym := ir.NewSymbol(p.Name)
 		bl.sh.syms[p.Name] = sym
 		param := ir.NewBind(bl.g.irNodePos(lam), bl.f.NewTemp(), state.Dst(), sym)

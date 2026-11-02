@@ -99,7 +99,7 @@ func TestBuildCommand_WasmTargetsWriteValidModules(t *testing.T) {
 fn main() {
   counts =
     ["a", "b", "a", "c", "a"]
-    |> Iter.reduce(fn acc = %{}, k -> {
+    |> Iter.reduce(%{}, fn acc, k -> {
       case Map.get(acc, k) {
         Some(prev) -> Map.put(acc, k, prev + 1)
         None -> Map.put(acc, k, 1)
@@ -134,7 +134,7 @@ struct App {
 
 fn boot(startup: Startup) -> Result<App, String> {
   io.print(startup.args)
-  Ok(#App{context: Context.root()})
+  Ok(App{context: Context.root()})
 }
 
 fn main() {

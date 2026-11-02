@@ -31,12 +31,12 @@ fn home() -> Address {
 
 test "a brace literal builds the annotated struct" {
     address: Address = #{street: "1 Main", city: "Bath"}
-    assert address == #Address{street: "1 Main", city: "Bath"}
+    assert address == Address{street: "1 Main", city: "Bath"}
     assert address.zip == "00000"
 }
 
 test "a brace literal builds a struct field, an argument and a return value" {
-    ada = #Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
+    ada = Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
     assert ada.address.city == "Bath"
     assert city_of(#{street: "2 Arg", city: "Ely"}) == "Ely"
     assert home().city == "York"
@@ -52,13 +52,13 @@ test "a brace literal builds the element type of a typed list" {
 
 test "a brace literal builds a generic struct at its known argument" {
     boxed: Box<Int> = #{item: 3}
-    assert boxed == #Box{item: 3}
+    assert boxed == Box{item: 3}
 }
 
 test "a spread updates a struct-typed field written with `..`" {
     ada: Person = #{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
     moved = #{..ada, address: #{.., city: "NYC"}}
-    assert moved.address == #Address{street: "1 Main", city: "NYC"}
+    assert moved.address == Address{street: "1 Main", city: "NYC"}
 }
 
 test "a partial brace literal names the missing field of the struct" {

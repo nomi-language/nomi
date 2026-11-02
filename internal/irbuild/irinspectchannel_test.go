@@ -38,7 +38,7 @@ fn main() {
     io.print(Debug.inspect(c.sender))
     dbg c.receiver
     io.print(Debug.inspect(c))
-    io.inspect(#Config{counter: #Counter{inbox: c}})
+    io.inspect(Config{counter: Counter{inbox: c}})
     io.print(Debug.inspect([c]))
     io.print(Debug.inspect(#[c]))
     io.print(Debug.inspect(#(c, 1)))
@@ -48,7 +48,7 @@ fn main() {
     r: Result<Channel<Int>, String> = Ok(c)
     dbg r
     io.inspect(Slot.Full(c))
-    io.inspect([#Counter{inbox: c}])
+    io.inspect([Counter{inbox: c}])
     io.inspect([c.sender])
     concurrent {
         t = Task.spawn(fn -> 1)
@@ -57,11 +57,11 @@ fn main() {
     }
 }
 `
-	const ch = "#Channel{sender: <channel>, receiver: <channel>}"
+	const ch = "Channel{sender: <channel>, receiver: <channel>}"
 	irRunSource(t, src, "<channel>\n"+
 		"dbg line 21: c.receiver = <channel>\n"+
 		ch+"\n"+
-		"#Config{counter: #Counter{inbox: "+ch+"}}\n"+
+		"Config{counter: Counter{inbox: "+ch+"}}\n"+
 		"["+ch+"]\n"+
 		"#["+ch+"]\n"+
 		"#("+ch+", 1)\n"+
@@ -69,7 +69,7 @@ fn main() {
 		"Some("+ch+")\n"+
 		"dbg line 31: r = Ok("+ch+")\n"+
 		"Full("+ch+")\n"+
-		"[#Counter{inbox: "+ch+"}]\n"+
+		"[Counter{inbox: "+ch+"}]\n"+
 		"[<channel>]\n"+
 		"<task>\n")
 }

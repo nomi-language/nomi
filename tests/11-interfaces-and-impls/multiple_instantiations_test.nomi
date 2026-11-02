@@ -61,7 +61,7 @@ fn number(g: Gets<Int>) -> Int {
 }
 
 test "a call takes the impl its argument's type chooses" {
-    b = #Box{n: 1, s: "a"}
+    b = Box{n: 1, s: "a"}
     assert Box.holds(b, 1)
     assert Holds.holds(b, "a")
     refute b |> Box.holds("z")
@@ -74,16 +74,16 @@ test "a call takes the impl its argument's type chooses" {
 }
 
 test "a result-only type argument is chosen by the expected type" {
-    b = #Box{n: 7, s: "seven"}
+    b = Box{n: 7, s: "seven"}
     n: Int = Box.got(b)
     s: String = Gets.got(b)
     assert n == 7 and s == "seven"
 }
 
 test "a value held as an instantiation dispatches at its own arguments" {
-    b = #Box{n: 2, s: "two"}
+    b = Box{n: 2, s: "two"}
     assert text(b) == "two" and number(b) == 2
-    texts: List<Gets<String>> = [b, #Box{n: 3, s: "three"}]
+    texts: List<Gets<String>> = [b, Box{n: 3, s: "three"}]
     assert Iter.map(texts, &Gets.got(&1)) |> String.join(",") == "two,three"
 }
 
@@ -126,7 +126,7 @@ test "an argument that does not choose an impl is an error" {
         }
 
         fn main() {
-          _x = Box.holds(#Box{n: 1}, .Red)
+          _x = Box.holds(Box{n: 1}, .Red)
         }
         """
     )

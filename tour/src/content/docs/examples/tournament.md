@@ -83,7 +83,7 @@ pub fn tally(rows: List<String>) -> Result<List<String>, Error> {
         |> Iter.map(fn #(team, rows) -> {
             standing(team, Iter.map(rows, fn #(_team, outcome) -> outcome))
         })
-        |> Iter.sort_by(fn s -> #(Reverse.of(Standing.points(s)), s.team))
+        |> Iter.sort_by(fn s -> #(s |> Standing.points() |> Reverse.of(), s.team))
 
     table = Iter.map(standings, fn s -> {
         numbers = [Standing.played(s), s.won, s.drawn, s.lost, Standing.points(s)]
@@ -103,7 +103,7 @@ fn parse_row(row: String) -> Result<List<#(String, Outcome)>, Error> {
 }
 
 fn standing(team: String, outcomes: Iter<Outcome>) -> Standing {
-    #Standing{
+    Standing{
         team,
         won: count(outcomes, .Win),
         drawn: count(outcomes, .Draw),
@@ -125,7 +125,7 @@ fn line(team: String, cells: Iter<String>) -> String {
 }
 
 // FILE: tournament_test.nomi
-import tournament.{self, Error}
+import tournament
 
 test "just the header if no input" {
     assert tournament.tally([]) == Ok(["Team                           | MP |  W |  D |  L |  P"])
@@ -301,7 +301,7 @@ test "ensure points sorted numerically" {
 test "a row that is not a match is an error" {
     row = "Allegoric Alaskans;Blithering Badgers;tie"
 
-    assert tournament.tally([row]) == Err(Error.InvalidRow(row))
+    assert tournament.tally([row]) == Err(.InvalidRow(row))
 
     assert tournament.tally(["Allegoric Alaskans;win"])
         == Err(.InvalidRow("Allegoric Alaskans;win"))

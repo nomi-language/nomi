@@ -1,0 +1,619 @@
+//# The Go-backed half of std/http and std/http_testing: Go's net/http
+//# client over a request's parts (internal/stdhttp), and the fake
+//# `http_testing.run` installs. It is internal; a program imports std/http,
+//# which builds its values from these and gives them their documentation.
+
+import {
+    bool.Bool
+    bytes.Bytes
+    context.Context
+    int.Int
+    io.Reader
+    io.Writer
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    results.Result
+    strings.String
+    unit.Unit
+}
+
+/// A client: Go's `http.Client` with its connection pool.
+pub host type Client
+
+/// A response a client answered, its body read or open.
+pub host type Exchange
+
+/// One of the Go values std/http keeps for a program: a TLS ClientHello, a
+/// request tracer, a streaming multipart reader or writer.
+pub host type Handle
+
+/// A client made from options. A duration is in nanoseconds and a count of
+/// 0 is Go's default; `redirects` is -1 to follow none, else the most to
+/// follow; `proxy` is 0 for the environment's, 1 for none and 2 for
+/// `proxy_url`.
+pub host fn new_client(
+    timeout: Int,
+    redirects: Int,
+    proxy: Int,
+    proxy_url: String,
+    tls_handshake_timeout: Int,
+    keep_alives: Bool,
+    compression: Bool,
+    max_idle: Int,
+    max_idle_per_host: Int,
+    max_per_host: Int,
+    idle_timeout: Int,
+    response_header_timeout: Int,
+    expect_continue_timeout: Int,
+    max_response_header_bytes: Int,
+    write_buffer_size: Int,
+    read_buffer_size: Int,
+    force_http2: Bool,
+    protocols: List<Bool>,
+    has_protocols: Bool,
+    http2: List<Int>,
+    http2_flags: List<Bool>,
+    proxy_connect_headers: List<String>,
+    on_proxy_connect: (String, Int, List<String>) -> String,
+    has_on_proxy_connect: Bool,
+    on_count_error: (String) -> Unit,
+    has_on_count_error: Bool,
+) -> Client
+
+/// The client every program in the process shares, made with the default
+/// options once: Go's `DefaultClient` over its `DefaultTransport`.
+pub host fn default_client() -> Client
+
+/// Closes the client's idle connections.
+pub host fn close_idle(client: Client) -> Unit
+
+/// Sends one request. `headers` and `trailers` alternate name and value;
+/// `body_kind` is 0 for none, 1 for `data`, 2 for `input`; a negative
+/// `content_length` is unknown. With `stream` the body stays open; without
+/// it the body is read whole, refused past `max_body` bytes unless that is
+/// negative. An `Err` is an `http.Error` variant's name and its fields.
+pub host fn send(
+    client: Client,
+    method: String,
+    url: String,
+    headers: List<String>,
+    body_kind: Int,
+    data: Bytes,
+    input: Reader,
+    content_length: Int,
+    host: String,
+    close: Bool,
+    trailers: List<String>,
+    stream: Bool,
+    max_body: Int,
+    tracer: Handle,
+    traced: Bool,
+) -> Result<Exchange, List<String>>
+
+pub host fn status(exchange: Exchange) -> Int
+pub host fn protocol(exchange: Exchange) -> List<Int>
+pub host fn headers(exchange: Exchange) -> List<String>
+pub host fn trailers(exchange: Exchange) -> List<String>
+pub host fn body_bytes(exchange: Exchange) -> Bytes
+pub host fn body_reader(exchange: Exchange) -> Reader
+pub host fn close_body(exchange: Exchange) -> Unit
+pub host fn content_length(exchange: Exchange) -> Int
+pub host fn transfer_encoding(exchange: Exchange) -> List<String>
+pub host fn closes(exchange: Exchange) -> Bool
+pub host fn uncompressed(exchange: Exchange) -> Bool
+pub host fn final_url(exchange: Exchange) -> String
+
+/// Go's `CanonicalHeaderKey`.
+pub host fn canonical_key(name: String) -> String
+
+/// Go's `StatusText`: "" for a code it does not name.
+pub host fn status_text(code: Int) -> String
+
+/// A server listening for requests.
+pub host type Listener
+
+/// One request a server received, waiting for its response.
+pub host type Incoming
+
+/// Binds `address` and starts serving. `durations` are the read,
+/// read-header, write, idle and shutdown timeouts in nanoseconds, 0 for
+/// Go's default (none); `limits` the most header bytes and header values,
+/// 0 for Go's; `flags` keep-alives, answering `OPTIONS *`, and client
+/// priority; `protocols` HTTP/1, HTTP/2 and unencrypted HTTP/2, when
+/// `has_protocols`; `http2` and `http2_flags` an Http2Options' parts. Each
+/// hook runs on the task waiting in `next`. When the program starts
+/// draining its supervisors, the server shuts down as `shutdown` does. An
+/// `Err` is an `http.Error` variant's name and its fields.
+pub host fn listen(
+    address: String,
+    durations: List<Int>,
+    limits: List<Int>,
+    flags: List<Bool>,
+    protocols: List<Bool>,
+    has_protocols: Bool,
+    http2: List<Int>,
+    http2_flags: List<Bool>,
+    on_state: (String, Int) -> Unit,
+    has_on_state: Bool,
+    on_error: (String) -> Unit,
+    has_on_error: Bool,
+    on_shutdown: () -> Unit,
+    has_on_shutdown: Bool,
+    on_count_error: (String) -> Unit,
+    has_on_count_error: Bool,
+) -> Result<Listener, List<String>>
+
+/// The address the listener is bound to.
+pub host fn address(listener: Listener) -> String
+
+/// The next request, or `None` once the server has shut down or the task
+/// is stopped.
+pub host fn next(listener: Listener) -> Maybe<Incoming>
+
+/// Go's `Server.Shutdown`, waiting up to `timeout` nanoseconds.
+pub host fn shutdown(listener: Listener, timeout: Int) -> Unit
+
+pub host fn in_method(incoming: Incoming) -> String
+pub host fn in_url(incoming: Incoming) -> String
+pub host fn in_host(incoming: Incoming) -> String
+pub host fn in_remote(incoming: Incoming) -> String
+pub host fn in_target(incoming: Incoming) -> String
+pub host fn in_protocol(incoming: Incoming) -> List<Int>
+pub host fn in_headers(incoming: Incoming) -> List<String>
+pub host fn in_trailers(incoming: Incoming) -> List<String>
+pub host fn in_content_length(incoming: Incoming) -> Int
+pub host fn in_transfer_encoding(incoming: Incoming) -> List<String>
+pub host fn in_close(incoming: Incoming) -> Bool
+pub host fn in_body(incoming: Incoming) -> Reader
+
+/// The server address the request came in on.
+pub host fn in_local(incoming: Incoming) -> String
+
+/// The connection's TLS state, as `tls_state_parts` answers it.
+pub host fn in_tls(incoming: Incoming) -> Maybe<List<List<String>>>
+
+/// Go's `ResponseController.SetReadDeadline`, `by` nanoseconds from now,
+/// 0 for none.
+pub host fn extend_read_deadline(incoming: Incoming, by: Int) -> Result<Unit, String>
+
+/// Answers `status` and `headers`, then takes the connection from the
+/// server (Go's `Hijack`).
+pub host fn upgrade(
+    incoming: Incoming,
+    status: Int,
+    headers: List<String>,
+) -> Result<Conn, List<String>>
+
+/// Writes the whole response. `headers` and `trailers` alternate name and
+/// value; `body_kind` is 0 for none, 1 for `data`, 2 for `input`; a
+/// negative `content_length` is unknown.
+pub host fn respond(
+    incoming: Incoming,
+    status: Int,
+    headers: List<String>,
+    trailers: List<String>,
+    body_kind: Int,
+    data: Bytes,
+    input: Reader,
+    content_length: Int,
+    write_timeout: Int,
+    full_duplex: Bool,
+) -> Result<Unit, List<String>>
+
+/// Writes the status and headers, announcing the trailers named, and
+/// answers a writer over the body that sends what it passes on at once.
+pub host fn produce(
+    incoming: Incoming,
+    status: Int,
+    headers: List<String>,
+    trailer_names: List<String>,
+    write_timeout: Int,
+    full_duplex: Bool,
+) -> Writer
+
+/// The program has answered: sets the trailers, and answers a 500 when
+/// nothing was written.
+pub host fn finish(incoming: Incoming, trailers: List<String>) -> Unit
+
+/// Whether `finish` has run.
+pub host fn answered_already(incoming: Incoming) -> Bool
+
+/// Go's `ServeMux` over a router's patterns.
+pub host type Mux
+
+/// Why Go's `ServeMux` refuses `pattern`, or `""` when it takes it. It
+/// reads and changes nothing outside its own mux, so a typed literal may
+/// call it.
+pub host fn check_pattern(pattern: String) -> String
+
+/// A mux with `patterns` registered in order. An `Err` is `["Pattern",
+/// pattern, reason]` for a pattern Go refuses or one that conflicts.
+pub host fn new_mux(patterns: List<String>) -> Result<Mux, List<String>>
+
+/// Matches a request as the mux's `ServeHTTP` does: `["match", index,
+/// pattern, name, value, ...]`, or `["answer", status, body, name, value,
+/// ...]` for what the mux answers itself.
+pub host fn route(mux: Mux, method: String, host: String, target: String) -> List<String>
+
+/// Go's `ServeContent` for `data` named `name`, modified at `modified`
+/// nanoseconds (negative for unknown): `["answer", status, body, name,
+/// value, ...]`.
+pub host fn answer_content(
+    method: String,
+    target: String,
+    headers: List<String>,
+    name: String,
+    modified: Int,
+    data: Bytes,
+) -> List<String>
+
+/// Go's `Redirect` to `to`, as `answer_content` answers.
+pub host fn answer_redirect(
+    method: String,
+    target: String,
+    headers: List<String>,
+    to: String,
+    status: Int,
+) -> List<String>
+
+/// Go's `TimeFormat` of an instant in nanoseconds.
+pub host fn format_time(nanos: Int) -> String
+
+/// Go's `ParseTime`, in nanoseconds.
+pub host fn parse_time(text: String) -> Result<Int, String>
+
+/// A reader over `r` that fails past `max` bytes.
+pub host fn limit_body(r: Reader, max: Int) -> Reader
+
+/// A cookie jar: Go's net/http/cookiejar.
+pub host type Jar
+
+/// A cookie crosses as its fields as strings: name, value, quoted, path,
+/// domain, expires (nanoseconds, or ""), raw_expires, max_age ("" unset,
+/// "-1" delete now, else seconds), secure, http_only, same_site ("",
+/// "default", "lax", "strict", "none"), partitioned, raw, then each
+/// unparsed attribute.
+pub host fn cookie_text(cookie: List<String>) -> String
+
+pub host fn cookie_valid(cookie: List<String>) -> String
+pub host fn parse_cookie(text: String) -> Result<List<List<String>>, String>
+pub host fn parse_set_cookie(text: String) -> Result<List<String>, String>
+pub host fn new_jar() -> Jar
+pub host fn jar_cookies(jar: Jar, target: String) -> List<List<String>>
+pub host fn jar_set(jar: Jar, target: String, cookies: List<List<String>>) -> Unit
+pub host fn with_jar(client: Client, jar: Jar) -> Client
+
+/// Go's `DetectContentType`.
+pub host fn detect_content_type(data: Bytes) -> String
+
+/// Runs `body` as the handler of `incoming`, giving it the request's
+/// context: the context in force, with a deadline `timeout` nanoseconds
+/// away when `timeout` is not negative. The app's `Context` field reads it
+/// while `body` runs, and the task stops when the client goes away.
+pub fn run_request<T>(incoming: Incoming, timeout: Int, body: (Context) -> T) -> T {
+    request_on(incoming, timeout, body, fn v -> v)
+}
+
+host fn request_on<T, R>(
+    incoming: Incoming,
+    timeout: Int,
+    body: (Context) -> T,
+    finish: (T) -> R,
+) -> R
+
+/// Runs `body` with `answer` answering every request std/http sends in it,
+/// and in the tasks it starts.
+pub fn with_fake<Q, A, T>(answer: (Q) -> A, body: () -> T) -> T {
+    run_on(answer, body, fn v -> v)
+}
+
+/// What the installed fake answers `request`, recording it; `None` with no
+/// fake installed.
+pub fn answered<Q, A>(request: Q) -> Maybe<A> {
+    answer_on(request, fn a -> Some(a), fn -> None)
+}
+
+/// The requests the installed fake has answered, in order.
+pub fn answered_requests<Q>() -> List<Q> {
+    recorded_on(fn requests -> requests)
+}
+
+host fn run_on<Q, A, T, R>(answer: (Q) -> A, body: () -> T, finish: (T) -> R) -> R
+host fn answer_on<Q, A, R>(request: Q, found: (A) -> R, missing: () -> R) -> R
+host fn recorded_on<Q, R>(found: (List<Q>) -> R) -> R
+
+/// The parts of the multipart/form-data body `data` under `content_type`,
+/// flattened: a field is "v", its name and value; a file is "f", its
+/// field, file name, header count, each header's name and value, and its
+/// content. An `Err` is the reason.
+pub host fn parse_multipart(content_type: String, data: Bytes) -> Result<List<Bytes>, String>
+
+/// A multipart/form-data body of `parts` ("v", name, value; "f", field,
+/// file name, content type, content; "r", header count, names and values,
+/// content), as its `Content-Type` and its bytes.
+pub host fn encode_multipart(parts: List<Bytes>) -> List<Bytes>
+
+/// Go's `multipart.FileContentDisposition`.
+pub host fn file_content_disposition(field: String, filename: String) -> String
+
+/// A certificate chain and its private key, for std/tls.
+pub host type Certificate
+
+/// Go's TLS configuration, built from a std/tls config for one use.
+pub host type TlsConfig
+
+/// A network connection, TCP or TLS over TCP, for std/net.
+pub host type Conn
+
+/// A listening TCP socket, for std/net.
+pub host type TcpListener
+
+/// Go's `X509KeyPair`. An `Err` is a `tls.Error` variant's name and fields.
+pub host fn certificate_from_pem(cert: String, key: String) -> Result<Certificate, List<String>>
+
+/// Go's `LoadX509KeyPair`.
+pub host fn certificate_load(
+    cert_path: String,
+    key_path: String,
+) -> Result<Certificate, List<String>>
+
+/// The leaf's subject, issuer, serial, validity (Unix nanoseconds) and DNS
+/// names, in that order.
+pub host fn certificate_info(certificate: Certificate) -> List<String>
+
+/// Go's configuration for one side. Versions are 10 to 13, 0 for Go's
+/// default; `roots_kind` is 0 for the system's, 1 for `roots_pem`, 2 for
+/// `roots_files`; renegotiation is 0, 1 or 2, client_auth Go's in order.
+pub host fn tls_config(
+    server: Bool,
+    roots_kind: Int,
+    roots_pem: String,
+    roots_files: List<String>,
+    server_name: String,
+    insecure: Bool,
+    next_protocols: List<String>,
+    min_version: Int,
+    max_version: Int,
+    cipher_suites: List<Int>,
+    has_cipher_suites: Bool,
+    curves: List<String>,
+    has_curves: Bool,
+    session_tickets: Bool,
+    session_cache: Int,
+    renegotiation: Int,
+    client_auth: Int,
+    certificate_for: (Handle) -> Maybe<Certificate>,
+    has_certificate_for: Bool,
+    verify: (List<List<String>>) -> String,
+    has_verify: Bool,
+    key_log: Writer,
+    has_key_log: Bool,
+) -> Result<TlsConfig, List<String>>
+
+/// Adds a certificate the configuration presents.
+pub host fn tls_with_certificate(config: TlsConfig, certificate: Certificate) -> TlsConfig
+
+/// Go's `CipherSuites`, or `InsecureCipherSuites`: each suite's ID, name,
+/// whether it is insecure, then its versions.
+pub host fn cipher_suites(insecure: Bool) -> List<List<String>>
+
+/// Go's `CipherSuiteName`.
+pub host fn cipher_suite_name(id: Int) -> String
+
+/// A TCP connection to `address`, with std/net's DialOptions. A duration
+/// is in nanoseconds, 0 Go's default; `local` is "" for any. An `Err` is a
+/// `net.Error` variant's name and fields.
+pub host fn dial_with(
+    address: String,
+    timeout: Int,
+    local: String,
+    fallback_delay: Int,
+    keep_alive: Bool,
+    keep_alive_idle: Int,
+    keep_alive_interval: Int,
+    keep_alive_count: Int,
+    multipath: Bool,
+) -> Result<Conn, List<String>>
+
+/// `dial`, then a TLS client handshake.
+pub host fn tls_dial(
+    address: String,
+    timeout: Int,
+    keep_alive: Int,
+    local: String,
+    config: TlsConfig,
+) -> Result<Conn, List<String>>
+
+/// A TLS client over an open connection, its handshake done.
+pub host fn tls_client(conn: Conn, config: TlsConfig) -> Result<Conn, List<String>>
+
+/// A TLS server over an open connection, its handshake done.
+pub host fn tls_server(conn: Conn, config: TlsConfig) -> Result<Conn, List<String>>
+
+pub host fn conn_reader(conn: Conn) -> Reader
+pub host fn conn_writer(conn: Conn) -> Writer
+pub host fn conn_close(conn: Conn) -> Unit
+pub host fn conn_close_write(conn: Conn) -> Unit
+pub host fn conn_local(conn: Conn) -> String
+pub host fn conn_remote(conn: Conn) -> String
+
+/// `which` is 0 for both, 1 for reads, 2 for writes; `at` is Unix
+/// nanoseconds, 0 for none.
+pub host fn conn_deadline(conn: Conn, which: Int, at: Int) -> Unit
+
+/// A TLS connection's state: its version, handshake_complete, resumed,
+/// cipher suite, curve, protocol and server name; the local certificate's
+/// info; the peer's certificates, each info joined by newlines; then each
+/// verified chain the same way. `None` when it is not TLS.
+pub host fn tls_state_parts(conn: Conn) -> Maybe<List<List<String>>>
+
+/// A ClientHello's server name, its protocols, versions (10 to 13) and
+/// cipher suite IDs.
+pub host fn hello_parts(hello: Handle) -> List<List<String>>
+
+/// "" when the client can use `certificate`, else why not.
+pub host fn hello_supports(hello: Handle, certificate: Certificate) -> String
+
+/// The listener's connections as TLS servers with `config`.
+pub host fn tls_wrap_listener(listener: TcpListener, config: TlsConfig) -> TcpListener
+
+/// The response's TLS state, as `tls_state_parts` answers it.
+pub host fn exchange_tls(exchange: Exchange) -> Maybe<List<List<String>>>
+
+/// A recorder of what Go's httptrace reports.
+pub host fn new_tracer() -> Handle
+
+/// Each event's name and fields, then for a finished TLS handshake its
+/// state's parts.
+pub host fn tracer_events(tracer: Handle) -> List<List<List<String>>>
+
+/// "" when `host` matches the peer's certificate, else why not.
+pub host fn tls_verify_hostname(conn: Conn, host: String) -> String
+
+/// A TCP listener on `address`, with std/net's ListenOptions.
+pub host fn net_listen_with(
+    address: String,
+    keep_alive: Bool,
+    keep_alive_idle: Int,
+    keep_alive_interval: Int,
+    keep_alive_count: Int,
+    multipath: Bool,
+) -> Result<TcpListener, List<String>>
+
+/// An accept waiting past `at` (Unix nanoseconds, 0 for none) times out.
+pub host fn net_listener_deadline(listener: TcpListener, at: Int) -> Unit
+
+pub host fn conn_close_read(conn: Conn) -> Unit
+pub host fn conn_no_delay(conn: Conn, on: Bool) -> Unit
+
+/// Seconds, -1 for the system's default.
+pub host fn conn_linger(conn: Conn, seconds: Int) -> Unit
+
+pub host fn conn_keep_alive(conn: Conn, enabled: Bool, idle: Int, interval: Int, count: Int) -> Unit
+pub host fn conn_multipath(conn: Conn) -> Bool
+
+/// Two connected ends in memory: Go's `net.Pipe`.
+pub host fn pipe() -> List<Conn>
+
+/// `[host, port]`, or an `Err`'s parts.
+pub host fn split_host_port(address: String) -> Result<List<String>, List<String>>
+
+pub host fn join_host_port(host: String, port: String) -> String
+
+/// The system resolver's answer for `kind` (host, ip, address, cname, ns,
+/// txt, mx, port, srv) about `name`, flat: mx as host and preference
+/// pairs, srv as its cname then target, port, priority and weight; for
+/// srv, `name` is "service protocol domain".
+pub host fn lookup(kind: String, name: String) -> Result<List<String>, List<String>>
+
+/// A TCP listener whose connections are TLS servers.
+pub host fn tls_listen(address: String, config: TlsConfig) -> Result<TcpListener, List<String>>
+
+pub host fn net_listener_address(listener: TcpListener) -> String
+
+/// The next connection; `Err` `["Closed"]` once the listener is closed or
+/// the calling task is stopped.
+pub host fn net_accept(listener: TcpListener) -> Result<Conn, List<String>>
+
+pub host fn net_listener_close(listener: TcpListener) -> Unit
+
+/// `listen`, serving HTTPS with `config`.
+pub host fn listen_tls(
+    address: String,
+    durations: List<Int>,
+    limits: List<Int>,
+    flags: List<Bool>,
+    protocols: List<Bool>,
+    has_protocols: Bool,
+    http2: List<Int>,
+    http2_flags: List<Bool>,
+    on_state: (String, Int) -> Unit,
+    has_on_state: Bool,
+    on_error: (String) -> Unit,
+    has_on_error: Bool,
+    on_shutdown: () -> Unit,
+    has_on_shutdown: Bool,
+    on_count_error: (String) -> Unit,
+    has_on_count_error: Bool,
+    config: TlsConfig,
+) -> Result<Listener, List<String>>
+
+/// A client sharing `client`'s options that uses `config` for TLS.
+pub host fn with_tls(client: Client, config: TlsConfig) -> Client
+
+/// A self-signed certificate for 127.0.0.1, ::1 and localhost, and its
+/// key, as PEM text: what `http_testing.with_server` serves TLS with.
+pub host fn test_certificate() -> List<String>
+
+/// Go's `ReadRequest` over `r`, its body read whole. An `Err` is Go's
+/// reason.
+pub host fn wire_read_request(r: Reader) -> Result<Handle, String>
+
+/// Go's `ReadResponse` over `r` for a request of `method`, its body read
+/// whole.
+pub host fn wire_read_response(r: Reader, method: String) -> Result<Handle, String>
+
+/// A read message's method, target, protocol major and minor, host,
+/// content length, close and status; then its headers, trailers and
+/// transfer encoding.
+pub host fn wire_parts(message: Handle) -> List<List<String>>
+
+pub host fn wire_body(message: Handle) -> Bytes
+
+/// A request written to `w` (op 0), as a proxy writes it (1), or dumped as
+/// a server received it with its body (2) or without (3), or as a client
+/// sends it with (4) or without (5). A dump answers its text.
+pub host fn wire_request(
+    op: Int,
+    w: Writer,
+    method: String,
+    url: String,
+    headers: List<String>,
+    host: String,
+    content_length: Int,
+    transfer_encoding: List<String>,
+    close: Bool,
+    trailers: List<String>,
+    body: Bytes,
+) -> Result<String, String>
+
+/// A response to a request of `method` written to `w` (op 0) or dumped
+/// with its body (1) or without (2).
+pub host fn wire_response(
+    op: Int,
+    w: Writer,
+    status: Int,
+    major: Int,
+    minor: Int,
+    headers: List<String>,
+    content_length: Int,
+    transfer_encoding: List<String>,
+    close: Bool,
+    trailers: List<String>,
+    body: Bytes,
+    method: String,
+) -> Result<String, String>
+
+/// httputil's `NewChunkedReader` and `NewChunkedWriter`.
+pub host fn chunked_reader(r: Reader) -> Reader
+
+pub host fn chunked_writer(w: Writer) -> Writer
+
+/// Go's `multipart.Reader` over `r`; `raw` leaves parts undecoded.
+pub host fn multipart_reader(r: Reader, boundary: String, raw: Bool) -> Handle
+
+/// The next part, `None` after the last.
+pub host fn next_part(reader: Handle) -> Result<Maybe<Handle>, String>
+
+pub host fn part_headers(part: Handle) -> List<String>
+pub host fn part_reader(part: Handle) -> Reader
+pub host fn part_form_name(part: Handle) -> String
+pub host fn part_file_name(part: Handle) -> String
+
+/// Parts, as `encode_multipart` takes them, written to `w` as they go,
+/// then the closing boundary.
+pub host fn multipart_write(w: Writer, boundary: String, parts: List<Bytes>) -> Result<Unit, String>
+
+/// Closes every connection the server holds, as httptest's
+/// `CloseClientConnections` does.
+pub host fn close_connections(listener: Listener) -> Unit

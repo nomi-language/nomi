@@ -795,3 +795,34 @@ func (s *programShare) declaringModules(names map[string]bool, entryModuleName s
 	}
 	return idx
 }
+
+// StdImplBlockErrors answers, by module name, the stdlib's own two-block
+// errors: two `impl T { ... }` blocks for one type in one file, which a
+// program's build reports among its own files. A build over the stdlib's
+// base folds only the program's files, so it never sees two std blocks
+// together; std.Load adds these to the module's errors, which every
+// program's check reports.
+func StdImplBlockErrors(byName map[string]*FileAnalysis, nodes map[string][]ast.Node) map[string][]TypeError {
+	var blocks []InherentImplBlockRecord
+	nameOf := map[string]string{}
+	for name, fa := range byName {
+		key := "std/" + name
+		nameOf[key] = name
+		collectInherentImplBlocks(withoutRefusedSynthImpls(fa, nodes[name]), key, &blocks)
+	}
+	out := map[string][]TypeError{}
+	for _, e := range detectInherentImplBlockCollisions(blocks, func(key string) string {
+		if fa := byName[nameOf[key]]; fa != nil {
+			return fa.FilePath
+		}
+		return ""
+	}) {
+		for name, fa := range byName {
+			if fa.FilePath == e.File {
+				out[name] = append(out[name], e)
+				break
+			}
+		}
+	}
+	return out
+}

@@ -58,7 +58,7 @@ fn load_alphabet() -> String {
 }
 
 export fn new_game(word: String) -> Game {
-    #Game{word, guesses: []}
+    Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
@@ -67,14 +67,14 @@ export fn guess(game: Game, letter: String) -> Game {
 
 export fn outcome(game: Game) -> Outcome {
     left = 6 - Iter.count(game.guesses)
-    if left <= 0 { Outcome.Lost } else { #Outcome.Playing{left} }
+    if left <= 0 { Outcome.Lost } else { Outcome.Playing{left} }
 }
 
 export fn describe(o: Outcome) -> String {
     case o {
         Outcome.Won -> "won"
         Outcome.Lost -> "lost"
-        #Outcome.Playing{left} -> "${left} left"
+        Outcome.Playing{left} -> "${left} left"
     }
 }
 
@@ -95,7 +95,7 @@ export fn letters() -> Int {
 }
 
 export fn mean(xs: List<Float>) -> Float {
-    Iter.reduce(xs, fn sum = 0.0, x -> sum + x) / Int.to_float(Iter.count(xs))
+    Iter.reduce(xs, 0.0, fn sum, x -> sum + x) / Int.to_float(Iter.count(xs))
 }
 
 export fn unique(xs: Vector<String>) -> Set<String> {
@@ -176,7 +176,15 @@ func TestInstance_EachFailureIsAnErrorAndTheNextCallRuns(t *testing.T) {
 	callFails(t, in, "divide", `[1, "2"]`, "argument `b` of `divide(a: Int, b: Int) -> Int`: expected int, got string")
 	callFails(t, in, "guess", `[{"word": "x"}, "e"]`, "argument `game` of `guess(game: Game, letter: String) -> Game`: guesses: expected List<String>, got missing")
 	callFails(t, in, "describe", `["Drawn"]`, `argument `+"`o`"+` of `+"`describe(o: Outcome) -> String`"+`: expected Outcome, got "Drawn"`)
-	callFails(t, in, "huge", `[]`, "the result of `huge` holds the Int 9007199254740993, outside ±2^53: a JSON number cannot hold it exactly")
+	// An Int crosses as its exact digits at any size, in both directions:
+	// nomi.js and nomi-wasi.js read one past 2^53 as a BigInt from the
+	// number's own text, and write a BigInt argument as its digits.
+	if got := call(t, in, "huge", `[]`); got != "9007199254740993" {
+		t.Fatalf("huge answered %s", got)
+	}
+	if got := call(t, in, "divide", `[18014398509481986, 2]`); got != "9007199254740993" {
+		t.Fatalf("divide of an Int past 2^53 answered %s", got)
+	}
 	if got := call(t, in, "new_game", `["ok"]`); got != `{"word":"ok","guesses":[]}` {
 		t.Fatalf("new_game after the failures answered %s", got)
 	}

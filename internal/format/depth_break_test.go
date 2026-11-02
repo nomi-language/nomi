@@ -11,8 +11,8 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 			// The robot-simulator shape: a depth-2 element that fits stays
 			// on one line inside the broken list.
 			"depth 3 fits",
-			"fn main() {\n    rs = [#R{p: #P{x: 0, y: 0}, n: 1}]\n}\n",
-			"fn main() {\n    rs = [\n        #R{p: #P{x: 0, y: 0}, n: 1},\n    ]\n}\n",
+			"fn main() {\n    rs = [R{p: P{x: 0, y: 0}, n: 1}]\n}\n",
+			"fn main() {\n    rs = [\n        R{p: P{x: 0, y: 0}, n: 1},\n    ]\n}\n",
 		},
 		{
 			// The list-ops shape.
@@ -41,13 +41,13 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 		},
 		{
 			"struct holding a list of structs",
-			"fn main() {\n    b = #Bag{items: [#Point{x: 7}, #Point{x: 8}], label: \"solo\"}\n}\n",
-			"fn main() {\n    b = #Bag{\n        items: [#Point{x: 7}, #Point{x: 8}],\n        label: \"solo\",\n    }\n}\n",
+			"fn main() {\n    b = Bag{items: [Point{x: 7}, Point{x: 8}], label: \"solo\"}\n}\n",
+			"fn main() {\n    b = Bag{\n        items: [Point{x: 7}, Point{x: 8}],\n        label: \"solo\",\n    }\n}\n",
 		},
 		{
 			"element too wide breaks by width",
-			"fn main() {\n    rs = [#R{p: #P{x_rather_long_rather_long: 0, y_rather_long_rather_long: 0}, n_rather_long_rather_long_rather_long: 1}]\n}\n",
-			"fn main() {\n    rs = [\n        #R{\n            p: #P{x_rather_long_rather_long: 0, y_rather_long_rather_long: 0},\n            n_rather_long_rather_long_rather_long: 1,\n        },\n    ]\n}\n",
+			"fn main() {\n    rs = [R{p: P{x_rather_long_rather_long: 0, y_rather_long_rather_long: 0}, n_rather_long_rather_long_rather_long: 1}]\n}\n",
+			"fn main() {\n    rs = [\n        R{\n            p: P{x_rather_long_rather_long: 0, y_rather_long_rather_long: 0},\n            n_rather_long_rather_long_rather_long: 1,\n        },\n    ]\n}\n",
 		},
 		{
 			"pattern three deep",
@@ -73,10 +73,10 @@ func TestFormat_DepthBreakKeepsComments(t *testing.T) {
 // for its depth, as anywhere else.
 func TestFormat_DepthBreakLeafCallBreaksByWidth(t *testing.T) {
 	src := "fn f(e_rather_long_rather_long_rather_long_rather_long: Equals) -> Maybe<AssertionDetails> {\n" +
-		"    Some(#AssertionDetails{\n" +
+		"    Some(AssertionDetails{\n" +
 		"        reason: \"values were not equal\",\n" +
 		"        actual_rather_long_rather_long_rather_long: Some(Debug.inspect(e_rather_long_rather_long_rather_long_rather_long.actual)),\n" +
-		"        details: [#AssertionDetail{label: \"actual\", value: Debug.inspect(e_rather_long_rather_long_rather_long_rather_long.actual)}],\n" +
+		"        details: [AssertionDetail{label: \"actual\", value: Debug.inspect(e_rather_long_rather_long_rather_long_rather_long.actual)}],\n" +
 		"    })\n" +
 		"}\n"
 	got := formatTwice(t, src)

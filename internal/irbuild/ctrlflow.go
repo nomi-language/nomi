@@ -145,9 +145,8 @@ func irSignallingCallback(owner, method string) bool {
 	return false
 }
 
-// irSeededIterMethod reports whether `Iter.method` takes its seed from its
-// callback lambda's first-parameter default: `reduce`, `scan` and
-// `map_reduce`.
+// irSeededIterMethod reports whether `Iter.method` folds from a starting
+// value, its `from` argument: `reduce`, `scan` and `map_reduce`.
 func irSeededIterMethod(method string) bool {
 	return method == "reduce" || method == "scan" || method == "map_reduce"
 }

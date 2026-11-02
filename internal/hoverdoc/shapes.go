@@ -15,7 +15,7 @@ import (
 // (discards.go).
 //
 // An editor asks for the hover of the character under the cursor, which on
-// `#Point{`, `%[`, `#.Circle{` or the `]` that ends a long literal is
+// `Point{`, `%[`, `.Circle{` or the `]` that ends a long literal is
 // punctuation no symbol covers. SyntaxAt answers there: every position of a
 // literal's head (the symbol, the name and the opening bracket) and its
 // closing bracket, the `..` of a pattern's `..rest`, and the `.` and `(` of
@@ -102,7 +102,7 @@ func spanOf(n ast.Node) ast.Span {
 }
 
 // extentOf is a node's extent on one line: its span, or, for a type name
-// the parser records no span for (the name of `#Point{`, of `%Tags[`, of a
+// the parser records no span for (the name of `Point{`, of `%Tags[`, of a
 // pattern's `Some(`), the extent its position and spelling give.
 func extentOf(n ast.Node) ast.Span {
 	if sp := spanOf(n); !sp.IsZero() {
@@ -147,7 +147,7 @@ func (s *shapeSearch) visit(n ast.Node) {
 	case *ast.MapLit:
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
 	case *ast.TupleLit:
-		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.collectionLit(n, n.TypeName) })
+		s.shape(n, n.Line, n.Col, nil, false, func() string { return s.collectionLit(n, nil) })
 	case *ast.ListPattern:
 		s.shape(n, n.Line, n.Col, n.TypeName, true, func() string { return s.pattern(n) })
 		if rest, ok := n.TailSpread.(*ast.IdentPattern); ok {
@@ -169,7 +169,7 @@ func (s *shapeSearch) visit(n ast.Node) {
 		s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
 	case *ast.TuplePattern:
 		if !n.Flat {
-			s.shape(n, n.Line, n.Col, n.TypeName, false, func() string { return s.pattern(n) })
+			s.shape(n, n.Line, n.Col, nil, false, func() string { return s.pattern(n) })
 		}
 	case *ast.DotVariant:
 		s.dotVariant(n, n.Line, n.Col, n.Name)
@@ -263,7 +263,7 @@ func (s *shapeSearch) dotVariant(n ast.Node, line, col int, name string) {
 		}
 		return renderVariant(sym, true)
 	}
-	// Smaller than the node's size: the name inside a `#.Circle{` head
+	// Smaller than the node's size: the name inside a `.Circle{` head
 	// answers as the variant, which the head's own claim also does.
 	s.claim(line, col, 1+len(name), size-1, render)
 }

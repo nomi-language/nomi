@@ -21,7 +21,7 @@ fn double(n: Int) -> Int {
 
 fn main() {
   m = Maybe.map(Some(1), fn n -> [n])
-  total = Iter.reduce([1, 2], fn total = 0, x -> total + x)
+  total = Iter.reduce([1, 2], 0, fn total, x -> total + x)
   k = 3
   |> then fn v -> v + 1
   f = fn -> 42
@@ -43,7 +43,7 @@ fn main() {
 		{"a declaration's fn", analysis.Pos{Line: 4, Col: 1}, "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles n."},
 		{"a lambda argument's fn", analysis.Pos{Line: 9, Col: 26}, mapped},
 		{"its ->", analysis.Pos{Line: 9, Col: 31}, mapped},
-		{"a seeded parameter", analysis.Pos{Line: 10, Col: 31}, "```nomi\nfn total: Int = 0, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types."},
+		{"a fold's callback", analysis.Pos{Line: 10, Col: 34}, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types."},
 		{"a then stage's lambda", analysis.Pos{Line: 12, Col: 11}, "```nomi\nfn v: Int -> Int\n```\n\nThe `then` stage's lambda; its parameter is the piped value."},
 		{"zero parameters", analysis.Pos{Line: 13, Col: 7}, "```nomi\nfn -> Int\n```"},
 	}

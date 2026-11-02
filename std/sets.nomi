@@ -27,7 +27,7 @@ impl Set<T> {
     //! assert Set.insert(%[1, 2], 2) == %[1, 2]
     //
     pub fn insert<T>(s: Set<T>, elem: T) -> Set<T> {
-        #Set{items: Map.put(s.items, elem, True)}
+        Set{items: Map.put(s.items, elem, True)}
     }
 
     /// Returns a new set with `elem` removed (no-op if absent).
@@ -35,7 +35,7 @@ impl Set<T> {
     //! assert Set.remove(%[1, 2], 9) == %[1, 2]
     //
     pub fn remove<T>(s: Set<T>, elem: T) -> Set<T> {
-        #Set{items: Map.remove(s.items, elem)}
+        Set{items: Map.remove(s.items, elem)}
     }
 
     /// The number of elements. O(1) — the set's own count; the generic count is
@@ -50,7 +50,7 @@ impl Set<T> {
     //! assert Set.union(%[1, 2], %[2, 3]) == %[1, 2, 3]
     //
     pub fn union<T>(a: Set<T>, b: Set<T>) -> Set<T> {
-        #Set{items: Map.merge(a.items, b.items)}
+        Set{items: Map.merge(a.items, b.items)}
     }
 
     /// Elements in both sets.
@@ -135,7 +135,7 @@ impl Hashable for Set<T> where T: Hashable {
     // The hash of the backing `Map<T, Bool>`: each element is an entry whose
     // value is True (hash 31), combined with the same commutative `+`.
     fn hash(s: Set<T>) -> Int {
-        Iter.reduce(s, fn acc = 0, x -> {
+        Iter.reduce(s, 0, fn acc, x -> {
             Int.wrapping_add(acc, Int.wrapping_add(Int.wrapping_mul(Hashable.hash(x), 31), 31))
         })
     }

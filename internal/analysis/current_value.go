@@ -274,7 +274,7 @@ func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
 // argCheckOrder is the order a generic call's arguments are checked in: as
 // written, except that a positional function literal (a lambda, a capture,
 // a field accessor) written before a named argument is checked after the
-// named arguments, so `Iter.reduce(xs, fn acc, x -> acc + x, from: 0)` has
+// named arguments, so `Iter.reduce(xs, 0, fn acc, x -> acc + x)` has
 // solved the accumulator's type from `from` before the lambda's parameters
 // are typed; and a `Struct.update` literal patch comes last, so the
 // original, even when named after it, has solved `self` and the patch's

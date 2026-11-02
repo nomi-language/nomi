@@ -13,7 +13,7 @@ fn boot(startup: Startup) -> Result<Probe, String> {
         None -> "absent"
     }
 
-    Ok(#Probe{context: Context.root(), value: found})
+    Ok(Probe{context: Context.root(), value: found})
 }
 
 fn main() {

@@ -64,7 +64,7 @@ test "a Decimal sum keeps the widest scale" {
 
 test "Iter.sum over each kind of value" {
     assert Iter.sum([1, 2, 3, 4]) == 10
-    assert Iter.sum([0.1, 0.2, 0.3]) == Iter.reduce([0.1, 0.2, 0.3], fn total = 0.0, x -> total + x)
+    assert Iter.sum([0.1, 0.2, 0.3]) == Iter.reduce([0.1, 0.2, 0.3], 0.0, fn total, x -> total + x)
     assert Iter.sum([1.5d, 2.25d]) == 3.75d
 
     assert Iter.sum([Duration.seconds(1), Duration.milliseconds(250)])

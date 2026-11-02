@@ -78,8 +78,8 @@ func stdRowModule(row hostgen.FuncRow) (string, error) {
 
 // alsoImplements are the std modules an adapter package implements besides
 // its own: internal/stdio is std/io's, and std/fs_host's, the Go-backed half
-// of std/fs.
-var alsoImplements = map[string][]string{"io": {"fs_host"}}
+// of std/fs; internal/stdprocess is std/process_host's, std/process's.
+var alsoImplements = map[string][]string{"io": {"fs_host"}, "process": {"process_host"}, "http": {"http_host"}}
 
 const (
 	rtPackage     = "github.com/nomi-language/nomi/rt"

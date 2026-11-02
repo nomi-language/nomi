@@ -7,8 +7,8 @@ import (
 
 // A lambda's destructuring parameter beyond the two shapes irlambda.go
 // projects itself (a flat tuple of names, a wrapping distinct's `fn Dur(n) ->`):
-// `fn #Point{x, y} ->`, `fn #Box.Extent{wide, tall} ->`, `fn Wrapper.Only(n) ->`,
-// `fn #Segment{from: #Point{x, y: _}, to: _} ->` and `fn #(a, #(b, c)) ->`.
+// `fn Point{x, y} ->`, `fn Box.Extent{wide, tall} ->`, `fn Wrapper.Only(n) ->`,
+// `fn Segment{from: Point{x, y: _}, to: _} ->` and `fn #(a, #(b, c)) ->`.
 //
 // These build exactly as a named function's destructuring parameter does:
 // `g.destructure` resolves the irrefutable pattern against the parameter's
@@ -46,7 +46,7 @@ func (g *gen) irParamPatternKind(p ast.Param) kind {
 		return g.typeOf(p.TypeAnnotation)
 	}
 	var head ast.TypeExpr
-	switch pat := irPattern(ast.WithoutAs(p.Destructure)).(type) {
+	switch pat := ast.WithoutAs(p.Destructure).(type) {
 	case *ast.StructPattern:
 		head = pat.TypeName
 	case *ast.EnumPattern:
@@ -65,6 +65,14 @@ func (g *gen) irParamPatternKind(p ast.Param) kind {
 	name := owner
 	if name == "" {
 		name = member
+	}
+	if g.genericTemplates[name] != nil {
+		// A generic type's pattern (`fn Wrap(x) ->`, `fn Box{v} ->`)
+		// names no instance; the checker's type for the pattern does.
+		if k, found := g.inferredPatternKind(p.Destructure); found {
+			return k
+		}
+		return kindInvalid
 	}
 	if d, found := g.types[name]; found && d.lowerable {
 		return named(d)

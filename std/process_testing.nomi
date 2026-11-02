@@ -1,0 +1,168 @@
+//# Testing code that starts programs, without starting any. Inside
+//# `process_testing.run(answers, body)`, every std/process call `body`
+//# makes, and every call the tasks it starts make, is answered by the
+//# first `Answer` for its program and arguments, and recorded. `run`
+//# answers what `body` returned together with each call, in order, with
+//# the input the program was given. A program no answer names fails to
+//# start with `NotFound`, as a program missing from the `PATH` does. As
+//# with `fs_testing.run`, the answers last for the call and follow its
+//# tasks, and a nested `run` takes over for its own call.
+//#
+//# ```nomi
+//# import {
+//#     std/process_testing.{self, Answer, Call}
+//#     branch
+//# }
+//#
+//# test "reads the current branch" {
+//#     ran = process_testing.run([Answer{program: "git", stdout: "main\n"}], fn -> {
+//#         branch.current()
+//#     })
+//#
+//#     assert ran.value == Ok("main")
+//#
+//#     assert ran.calls == [
+//#         Call{program: "git", args: ["branch", "--show-current"]},
+//#     ]
+//# }
+//# ```
+
+import {
+    bytes.Bytes
+    equatable.Equatable
+    int.Int
+    io.Error
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    process_host
+    results.Result.{self, Err, Ok}
+    strings.String
+}
+
+/// How the fake answers a start of `program`: with the given output and
+/// exit code, or, when `error` is set, by failing to start with it.
+//! import std/process.{self, Command, Status}
+//!
+//! answers = [
+//!     Answer{program: "git", args: Some(["push"]), code: 1, stderr: "rejected\n"},
+//!     Answer{program: "git"},
+//!     Answer{program: "deploy", error: Some(Error.PermissionDenied{path: "deploy"})},
+//! ]
+//!
+//! ran = run(answers, fn -> {
+//!     #(
+//!         process.output(Command{program: "git", args: ["push"]}),
+//!         process.run(Command{program: "git", args: ["fetch"]}),
+//!         process.run(Command{program: "deploy"}),
+//!     )
+//! })
+//!
+//! #(pushed, fetched, deployed) = ran.value
+//! assert Result.map(pushed, fn o -> o.status) == Ok(Status.Exited{code: 1})
+//! assert fetched == Ok(Status.Exited{code: 0})
+//! assert deployed == Err(Error.PermissionDenied{path: "deploy"})
+//
+pub struct Answer {
+    /// The program it answers, as the command names it.
+    program: String
+    /// The arguments it answers; `None` answers any.
+    args: Maybe<List<String>> = None
+    /// The exit code.
+    code: Int = 0
+    /// What the program writes to its standard output.
+    stdout: String = ""
+    /// What it writes to its standard error.
+    stderr: String = ""
+    /// The error starting it fails with, in place of running.
+    error: Maybe<Error> = None
+}
+
+/// One start the fake answered, or refused.
+pub struct Call {
+    program: String
+    args: List<String> = []
+    /// The directory the command asked for.
+    dir: Maybe<String> = None
+    /// The variables the command added to the environment.
+    env: Map<String, String> = %{}
+    /// Everything the program was given on its standard input.
+    input: Bytes = Bytes.from_list([])
+}
+
+derive Equatable for Call
+
+/// What `run` answers.
+pub struct Ran<T> {
+    /// What `body` returned.
+    value: T
+    /// Each start, in order.
+    calls: List<Call>
+}
+
+/// Runs `body` with `answers` answering every std/process call it makes,
+/// and answers what it returned with each call. Nothing is started. If
+/// `body` traps, the trap propagates.
+//! import std/process.{self, Command, Stdin}
+//!
+//! ran = run([
+//!     Answer{program: "wc", args: Some(["-l"]), stdout: "2\n"},
+//! ], fn -> {
+//!     process.output(Command{program: "wc", args: ["-l"], stdin: Stdin.Text("a\nb\n")})
+//! })
+//!
+//! assert Result.map(ran.value, fn o -> o.stdout) == Ok(String.to_bytes("2\n"))
+//!
+//! assert ran.calls == [
+//!     Call{program: "wc", args: ["-l"], input: String.to_bytes("a\nb\n")},
+//! ]
+//
+pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T> {
+    fake = process_host.new_fake()
+
+    Iter.each(answers, fn a -> {
+        args = Maybe.with_default(a.args, [])
+        any_args = a.args == None
+
+        case a.error {
+            Some(error) ->
+                process_host.fake_refuse(fake, a.program, args, any_args, error)
+
+            None ->
+                process_host.fake_answer(
+                    fake,
+                    a.program,
+                    args,
+                    any_args,
+                    a.code,
+                    String.to_bytes(a.stdout),
+                    String.to_bytes(a.stderr),
+                )
+        }
+    })
+
+    value = process_host.run_in(fake, body)
+
+    calls =
+        0..process_host.fake_calls(fake)
+        |> Iter.map(fn i -> {
+            #(program, args) = case process_host.fake_command(fake, i) {
+                [first, ..rest] -> #(first, rest)
+                [] -> #("", [])
+            }
+
+            dir = process_host.fake_dir(fake, i)
+
+            Call{
+                program,
+                args,
+                dir: if dir == "" { None } else { Some(dir) },
+                env: process_host.fake_env(fake, i),
+                input: process_host.fake_input(fake, i),
+            }
+        })
+        |> Iter.to_list()
+
+    Ran{value, calls}
+}

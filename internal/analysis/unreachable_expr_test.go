@@ -41,7 +41,7 @@ fn uses(flag: Bool) -> Int {
     f = fn x: Int -> if x > 1 { unreachable "x is small" } else { x }
     g: (Int) -> String = fn _ -> unreachable "never called"
     m: Int = 3 |> unreachable "never piped"
-    h = #Header{name: "x", size: unreachable ` + "`raw reason`" + `}
+    h = Header{name: "x", size: unreachable ` + "`raw reason`" + `}
     _ = #(g, h, parse("x"), first([1]), index(1, [1]))
     if flag {
         unreachable "flag is False"

@@ -56,7 +56,7 @@ func TestInherentImplClash_InherentFnNamedAsAnImplFn(t *testing.T) {
 
 impl Multiply<Int, Box> for Box {
     fn multiply(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n * rhs}
+        Box{n: lhs.n * rhs}
     }
 }
 
@@ -90,7 +90,7 @@ impl Box {
 
 impl Multiply<Int, Box> for Box {
     fn multiply(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n * rhs}
+        Box{n: lhs.n * rhs}
     }
 }
 
@@ -120,7 +120,7 @@ impl Box {
 
 impl Multiply<Int, Box> for Box {
     fn multiply(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n * rhs}
+        Box{n: lhs.n * rhs}
     }
 }
 
@@ -172,7 +172,7 @@ func TestInherentImplClash_OtherNamesAndOtherTypesAreNoClash(t *testing.T) {
 
 impl Multiply<Int, Box> for Box {
     fn multiply(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n * rhs}
+        Box{n: lhs.n * rhs}
     }
 }
 `,
@@ -184,7 +184,7 @@ struct Box {
 
 impl Multiply<Int, Box> for Box {
     fn multiply(lhs: Box, rhs: Int) -> Box {
-        #Box{n: lhs.n * rhs}
+        Box{n: lhs.n * rhs}
     }
 }
 
@@ -195,8 +195,8 @@ impl Box {
 }
 
 fn main() {
-    a = Box.multiply_by(#Box{n: 1}, 1.5)
-    b = other.Box.multiply(#other.Box{n: 1}, 2)
+    a = Box.multiply_by(Box{n: 1}, 1.5)
+    b = other.Box.multiply(other.Box{n: 1}, 2)
     assert a.n == 1
     assert b.n == 2
 }

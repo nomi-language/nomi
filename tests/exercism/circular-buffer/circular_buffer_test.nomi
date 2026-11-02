@@ -17,27 +17,27 @@ derive Equatable for Step
 /// answers the steps as they happened. A run that does what every step says
 /// answers the steps it was given.
 fn replay(capacity: Int, steps: List<Step>) -> List<Step> {
-    #(happened, _buffer) =
+    #(_buffer, happened) =
         steps
-        |> Iter.map_reduce(fn buffer = Buffer.new(capacity), step -> {
+        |> Iter.map_reduce(Buffer.new(capacity), fn buffer, step -> {
             case step {
                 .Write(item) or .WriteFails(item) ->
                     case Buffer.write(buffer, item) {
-                        Ok(written) -> #(Step.Write(item), written)
-                        Err(_) -> #(Step.WriteFails(item), buffer)
+                        Ok(written) -> #(written, Step.Write(item))
+                        Err(_) -> #(buffer, .WriteFails(item))
                     }
 
                 .Read(_) or .ReadFails ->
                     case Buffer.read(buffer) {
-                        Ok(#(item, rest)) -> #(Step.Read(item), rest)
-                        Err(_) -> #(Step.ReadFails, buffer)
+                        Ok(#(item, rest)) -> #(rest, .Read(item))
+                        Err(_) -> #(buffer, .ReadFails)
                     }
 
                 .Clear ->
-                    #(Step.Clear, Buffer.clear(buffer))
+                    #(Buffer.clear(buffer), .Clear)
 
                 .Overwrite(item) ->
-                    #(Step.Overwrite(item), Buffer.overwrite(buffer, item))
+                    #(Buffer.overwrite(buffer, item), .Overwrite(item))
             }
         })
 

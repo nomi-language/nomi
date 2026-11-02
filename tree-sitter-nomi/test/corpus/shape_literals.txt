@@ -2,10 +2,10 @@
 Struct literals that name a module type, a variant and a dot variant
 ================================================================================
 
-once p = #geo.Point{x: 1}
-once c = #Shape.Circle{radius: 1.0}
-once d: Shape = #.Circle{radius: 1.0}
-once e = #geo.Shape.Circle{radius}
+once p = geo.Point{x: 1}
+once c = Shape.Circle{radius: 1.0}
+once d: Shape = .Circle{radius: 1.0}
+once e = geo.Shape.Circle{radius}
 
 --------------------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ once e = #geo.Shape.Circle{radius}
 Named tuple, vector and set literals
 ================================================================================
 
-once t = #Pair(1, "x")
+once t = Pair(1, "x")
 once v = #Path[1, 2]
 once w: Bag = #.Items[1]
 once s = %Tags["a", "b"]
@@ -54,7 +54,7 @@ once s = %Tags["a", "b"]
 (source_file
   (once_binding
     (identifier)
-    (tuple_expression
+    (call_expression
       (type_identifier)
       (integer)
       (string
@@ -297,12 +297,12 @@ Struct, map and tuple patterns that name their type
 
 fn f(s: Shape) -> Int {
     case s {
-        #.Circle{radius} -> radius
-        #Shape.Square{side: 0} -> 0
-        #geo.Point{x} -> x
+        .Circle{radius} -> radius
+        Shape.Square{side: 0} -> 0
+        geo.Point{x} -> x
         %Kvs{"k" => v} -> v
         %.Obj{"k" => v} -> v
-        #Pair(a, b) -> a
+        Pair(a, b) -> a
     }
 }
 
@@ -357,7 +357,7 @@ fn f(s: Shape) -> Int {
             (identifier))
           (identifier))
         (case_branch
-          (tuple_pattern
+          (enum_pattern
             (type_identifier)
             (identifier)
             (identifier))
@@ -367,9 +367,9 @@ fn f(s: Shape) -> Int {
 Bindings and parameters take the named patterns apart
 ================================================================================
 
-fn f(#Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
-    #Pair(n, m) = pair
-    #Point{x, y} = p
+fn f(Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
+    Pair(n, m) = pair
+    Point{x, y} = p
     #[first, ..rest] = v else { return 0 }
     %["a", ..others] = s else { return 0 }
     %Kvs{"k" => w} = kvs else { return 0 }
@@ -401,10 +401,11 @@ fn f(#Point{x, y}, #[a, ..], %{"k" => v}) -> Int {
           (identifier))))
     (type_identifier)
     (body
-      (destructuring_binding
-        (type_identifier)
-        (identifier)
-        (identifier)
+      (pattern_binding
+        (call_expression
+          (type_identifier)
+          (identifier)
+          (identifier))
         (identifier))
       (pattern_binding
         (struct_construction
@@ -513,9 +514,9 @@ A struct literal in an if condition and a case subject
 ================================================================================
 
 fn f(p: Point) -> Int {
-    x = if p == #Point{x: 1} { 1 } else { 2 }
-    case #Point{x: 1} {
-        #Point{x} -> x
+    x = if p == Point{x: 1} { 1 } else { 2 }
+    case Point{x: 1} {
+        Point{x} -> x
     }
 }
 
@@ -664,11 +665,9 @@ fn g() {
     (body
       (binding
         (identifier)
-        (ERROR
-          (type_identifier))
-        (body
-          (ERROR
-            (identifier))
+        (struct_construction
+          (type_identifier)
+          (identifier)
           (integer)))))
   (function_definition
     (identifier)
@@ -676,6 +675,5 @@ fn g() {
     (body
       (binding
         (identifier)
-        (ERROR
-          (type_identifier))
-        (body)))))
+        (struct_construction
+          (type_identifier))))))

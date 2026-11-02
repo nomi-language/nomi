@@ -16,8 +16,8 @@ once path: String = "${fs.temp_dir()}/nomi-io-files-fixture.txt"
 
 fn describe(e: io.Error) -> String {
     case e {
-        #io.Error.NotFound{path} -> "missing:${path}"
-        #io.Error.NotADirectory{path: _} -> "not a directory"
+        io.Error.NotFound{path} -> "missing:${path}"
+        io.Error.NotADirectory{path: _} -> "not a directory"
         _ -> "other"
     }
 }
@@ -67,11 +67,11 @@ test "a write whose parent is not a directory reports NotADirectory" {
 }
 
 test "io.Error values compare by variant and payload" {
-    assert #io.Error.NotFound{path: "a"} == #io.Error.NotFound{path: "a"}
-    refute #io.Error.NotFound{path: "a"} == #io.Error.NotFound{path: "b"}
-    refute #io.Error.NotFound{path: "a"} == #io.Error.IsADirectory{path: "a"}
+    assert io.Error.NotFound{path: "a"} == io.Error.NotFound{path: "a"}
+    refute io.Error.NotFound{path: "a"} == io.Error.NotFound{path: "b"}
+    refute io.Error.NotFound{path: "a"} == io.Error.IsADirectory{path: "a"}
 
-    assert #io.Error.Other{operation: "read", path: "a", code: "EIO"} == #io.Error.Other{
+    assert io.Error.Other{operation: "read", path: "a", code: "EIO"} == io.Error.Other{
         operation: "read",
         path: "a",
         code: "EIO",

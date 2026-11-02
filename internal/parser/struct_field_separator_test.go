@@ -13,14 +13,14 @@ import (
 func TestStructFields_NoCommaIsRejected(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"renamed pattern field", "x = case r {\n    #{err: a b} -> 0\n}\n", "line 2, col 14: expected `,` or `}` after the field `err`"},
-		{"punned pattern fields", "x = case p {\n    #Point{x y} -> 0\n}\n", "line 2, col 14: expected `,` or `}` after the field `x`"},
-		{"nested pattern field", "x = case p {\n    #Point{x: #(a, b) y} -> 0\n}\n", "line 2, col 23: expected `,` or `}` after the field `x`"},
-		{"pattern fields on two lines", "x = case p {\n    #Point{\n        x\n        y\n    } -> 0\n}\n", "line 4, col 9: expected `,` or `}` after the field `x`"},
+		{"punned pattern fields", "x = case p {\n    Point{x y} -> 0\n}\n", "line 2, col 13: expected `,` or `}` after the field `x`"},
+		{"nested pattern field", "x = case p {\n    Point{x: #(a, b) y} -> 0\n}\n", "line 2, col 22: expected `,` or `}` after the field `x`"},
+		{"pattern fields on two lines", "x = case p {\n    Point{\n        x\n        y\n    } -> 0\n}\n", "line 4, col 9: expected `,` or `}` after the field `x`"},
 		{"destructure", "#{a b} = p\n", "line 1, col 5: expected `,` or `}` after the field `a`"},
 		{"renamed destructure field", "#{x: c y} = p\n", "line 1, col 8: expected `,` or `}` after the field `x`"},
-		{"named literal", "q = #Point{x: 1 y: 2}\n", "line 1, col 17: expected `,` or `}` after the field `x`"},
-		{"punned named literal", "q = #Point{x y}\n", "line 1, col 14: expected `,` or `}` after the field `x`"},
-		{"named literal on two lines", "q = #Point{\n    x: 1\n    y: 2\n}\n", "line 3, col 5: expected `,` or `}` after the field `x`"},
+		{"named literal", "q = Point{x: 1 y: 2}\n", "line 1, col 16: expected `,` or `}` after the field `x`"},
+		{"punned named literal", "q = Point{x y}\n", "line 1, col 13: expected `,` or `}` after the field `x`"},
+		{"named literal on two lines", "q = Point{\n    x: 1\n    y: 2\n}\n", "line 3, col 5: expected `,` or `}` after the field `x`"},
 		{"anonymous literal", "q = #{x: 1 y: 2}\n", "line 1, col 12: expected `,` or `}` after the field `x`"},
 	} {
 		err := parseError(t, tc.src)
@@ -38,16 +38,16 @@ func TestStructFields_CommasAreAccepted(t *testing.T) {
 		name, src string
 		fields    int
 	}{
-		{"pattern", "x = case p {\n    #Point{x, y: b} -> 0\n}\n", 2},
-		{"pattern with a trailing comma", "x = case p {\n    #Point{x, y,} -> 0\n}\n", 2},
+		{"pattern", "x = case p {\n    Point{x, y: b} -> 0\n}\n", 2},
+		{"pattern with a trailing comma", "x = case p {\n    Point{x, y,} -> 0\n}\n", 2},
 		{"anonymous pattern", "x = case r {\n    #{err: a, b} -> 0\n}\n", 2},
-		{"pattern one field per line", "x = case p {\n    #Point{\n        x,\n        y,\n    } -> 0\n}\n", 2},
-		{"pattern with no comma before its brace", "x = case p {\n    #Point{\n        x,\n        y\n    } -> 0\n}\n", 2},
-		{"pattern with a comment between fields", "x = case p {\n    #Point{\n        x, // first\n        // then\n        y,\n    } -> 0\n}\n", 2},
+		{"pattern one field per line", "x = case p {\n    Point{\n        x,\n        y,\n    } -> 0\n}\n", 2},
+		{"pattern with no comma before its brace", "x = case p {\n    Point{\n        x,\n        y\n    } -> 0\n}\n", 2},
+		{"pattern with a comment between fields", "x = case p {\n    Point{\n        x, // first\n        // then\n        y,\n    } -> 0\n}\n", 2},
 		{"destructure", "#{a, b: c} = p\n", 2},
 		{"destructure one field per line", "#{\n    a,\n    b,\n} = p\n", 2},
-		{"named literal", "q = #Point{x: 1, y}\n", 2},
-		{"named literal one field per line", "q = #Point{\n    x: 1,\n    y: 2,\n}\n", 2},
+		{"named literal", "q = Point{x: 1, y}\n", 2},
+		{"named literal one field per line", "q = Point{\n    x: 1,\n    y: 2,\n}\n", 2},
 		{"anonymous literal with a trailing comma", "q = #{x: 1, y: 2,}\n", 2},
 		{"struct update", "q = #{..base, x: 9, y: 1}\n", 2},
 		{"struct update with a trailing comma", "q = #{..base, x: 9,}\n", 1},

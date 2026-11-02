@@ -478,7 +478,7 @@ func TestParse_AnonStructType_TrailingComment_Preserved(t *testing.T) {
 // comments via skipNewlines (silent data loss in fmt). Now captured on
 // StructLit.EndTrivia.
 func TestParse_StructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = #Point{\n    x: 3,\n    y: 4,\n    // trailing comment\n  }\n  p\n}\n"
+	src := "fn main() {\n  p = Point{\n    x: 3,\n    y: 4,\n    // trailing comment\n  }\n  p\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
@@ -833,7 +833,7 @@ func TestParse_AnonStructType_InterFieldComment_Preserved(t *testing.T) {
 // StructFieldVal.LeadingComments — previously rejected with "expected
 // field name in struct literal".
 func TestParse_StructLit_InterFieldComment_Preserved(t *testing.T) {
-	src := "fn main() {\n  p = #Point{\n    x: 3,\n    // a comment between two literal fields\n    y: 4,\n  }\n  p\n}\n"
+	src := "fn main() {\n  p = Point{\n    x: 3,\n    // a comment between two literal fields\n    y: 4,\n  }\n  p\n}\n"
 	nodes, err := Parse(lexer.Lex(src))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)

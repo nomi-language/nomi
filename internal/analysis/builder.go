@@ -322,7 +322,7 @@ const (
 	RecordingKindGenericBoundCheck
 	// RecordingKindInterfaceTypedParam marks a recording produced when
 	// a concrete value flows into an interface-typed parameter or
-	// interface-typed struct field (`#Effects { logger: #ProdLogger {} }`,
+	// interface-typed struct field (`Effects{ logger: ProdLogger{} }`,
 	// `Iter.to_list(xs)` where to_list takes `Iter<T>`). Pos is the
 	// argument or field-value expression.
 	RecordingKindInterfaceTypedParam
@@ -448,17 +448,18 @@ func (fa *FileAnalysis) lookupVisibleTypeMethod(typeName, methodName string, mod
 		return nil
 	}
 	for _, key := range fa.ImportedModules {
-		if sym := importedTypeMethod(module(key), typeName, methodName); sym != nil {
+		if sym := fa.importedTypeMethod(module(key), typeName, methodName); sym != nil {
 			return sym
 		}
 	}
 	return nil
 }
 
-// importedTypeMethod is the function an importer reaches as
-// `typeName.methodName` in the module file declares: a public one.
-func importedTypeMethod(file *FileAnalysis, typeName, methodName string) *Symbol {
-	if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && sym.Public {
+// importedTypeMethod is the function the importer fa reaches as
+// `typeName.methodName` in the module file declares: a public one, or any
+// one when fa is file's partner test.
+func (fa *FileAnalysis) importedTypeMethod(file *FileAnalysis, typeName, methodName string) *Symbol {
+	if sym := file.LookupTypeMethod(typeName, methodName); sym != nil && (sym.Public || fa.readsPrivateOf(sym)) {
 		return sym
 	}
 	return nil
@@ -482,7 +483,7 @@ func (fa *FileAnalysis) VisibleTypeMethods(typeName string) map[string]*Symbol {
 			continue
 		}
 		for name, sym := range file.TypeMethods[typeName] {
-			if _, present := out[name]; !present && sym != nil && sym.Public {
+			if _, present := out[name]; !present && sym != nil && (sym.Public || fa.readsPrivateOf(sym)) {
 				out[name] = sym
 			}
 		}
@@ -2232,7 +2233,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 			// Embed variants share their name with the underlying type
 			// they wrap (struct or distinct). Defining the variant in scope
 			// would shadow the type's bare-name entry, so bare uses like
-			// `#Circle{radius: 5.0}` or `UserId("alice")` would resolve to
+			// `Circle{radius: 5.0}` or `UserId("alice")` would resolve to
 			// the variant constructor instead of the type itself. Keep the
 			// variant reachable only through qualified access via
 			// `enumSym.Members[v.Name]`; bare patterns inside `case` are
@@ -2814,7 +2815,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 		// Embed variants share their name with the underlying type they
 		// wrap (struct or distinct). Defining the variant in scope would
 		// shadow the type's bare-name entry, so bare uses like
-		// `#Circle{radius: 5.0}` or `UserId("alice")` would resolve to the
+		// `Circle{radius: 5.0}` or `UserId("alice")` would resolve to the
 		// variant constructor instead of the type itself. Keep the variant
 		// reachable only through qualified access via
 		// `enumSym.Members[v.Name]`; bare patterns inside `case` are
@@ -3699,7 +3700,7 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 			}
 		}
 	case *ast.QualifiedType:
-		// e.g. #Error.HttpError{...} — resolve via the enum's Members.
+		// e.g. Error.HttpError{...} — resolve via the enum's Members.
 		if enumSym := scope.Lookup(tn.Module); enumSym != nil {
 			real := enumSym
 			if real.Resolved != nil {
@@ -3718,7 +3719,7 @@ func (b *builder) registerStructLitFieldRefs(n *ast.StructLit, scope *Scope) {
 	// Members of their own — the fields live on the embedded struct itself.
 	// Look up the embedded struct via Definitions (scope.Lookup would find
 	// the variant, since it shares the embedded type's name) so
-	// `#Drawable.Circle2{radius: …}` can hover the field name.
+	// `Drawable.Circle2{radius: …}` can hover the field name.
 	// Blocks may each declare a struct of that name; the first declared
 	// answers, so the choice never depends on map order.
 	if holder != nil && holder.Kind == SymbolEnumVariant && len(holder.Members) == 0 {
@@ -4027,7 +4028,7 @@ func (b *builder) defineImport(n *ast.ImportStmt, scope *Scope, nested bool) {
 				}
 			}
 			b.file.References[Pos{Line: seg.LineNum(), Col: b.nodeCol(seg)}] = ownerSym
-			if !ownerSym.Public {
+			if !ownerSym.Public && !b.file.readsPrivateOf(ownerSym) {
 				b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 					Line:    seg.LineNum(),
 					Col:     b.nodeCol(seg),
@@ -4329,7 +4330,7 @@ func (b *builder) defineDottedImportsForOwner(scope, modScope *Scope, sourceOwne
 	}
 	prefix := sourceOwner + "."
 	for name, member := range modScope.Symbols {
-		if !strings.HasPrefix(name, prefix) || !member.Public {
+		if !strings.HasPrefix(name, prefix) || (!member.Public && !b.file.readsPrivateOf(member)) {
 			continue
 		}
 		dotted := bindOwner + strings.TrimPrefix(name, sourceOwner)
@@ -4843,9 +4844,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.StructLit:
 		b.walkTypeExpr(n.TypeName, scope)
 		// Register the field name's source position as a Reference to the
-		// struct's field Symbol so hover on `x` in `#Point{x: 1}` shows the
+		// struct's field Symbol so hover on `x` in `Point{x: 1}` shows the
 		// field's declared type. Resolution: SimpleType points to the
-		// struct directly; QualifiedType (e.g. #Error.HttpError{...}) goes
+		// struct directly; QualifiedType (e.g. Error.HttpError{...}) goes
 		// through the variant in the enum's Members.
 		b.registerStructLitFieldRefs(n, scope)
 		// The struct-update spread's head is an ordinary expression, so
@@ -4897,10 +4898,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		}
 
 	case *ast.TupleLit:
-		// `#Pair(1, 2)` resolves the distinct type it names.
-		if n.TypeName != nil {
-			b.walkTypeExpr(n.TypeName, scope)
-		}
 		for _, item := range n.Items {
 			b.walkNode(item, scope)
 		}
@@ -5562,10 +5559,6 @@ func (b *builder) definePatternOwned(node ast.Node, scope *Scope, owner ast.Node
 		}
 
 	case *ast.TuplePattern:
-		// `#Pair(a, b)` resolves the distinct type it names.
-		if n.TypeName != nil {
-			b.walkTypeExpr(n.TypeName, scope)
-		}
 		for _, p := range n.Patterns {
 			b.definePatternOwned(p, scope, owner)
 		}

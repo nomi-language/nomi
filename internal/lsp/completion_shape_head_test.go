@@ -23,18 +23,18 @@ type Meters Float
 
 `
 
-// A name right after a literal's `#` offers the types built on the indexed
-// and product shapes, and after `%` those built on the hashed ones, however
-// the request comes.
+// A name right after a literal's `#` offers the types built on a tuple or a
+// vector (a struct is built by its name, with no `#`), and after `%` those
+// built on the hashed ones, however the request comes.
 func TestCompletion_ShapeHeadOffersTheTypesOfItsShapes(t *testing.T) {
 	tests := []struct {
 		name, src, trigger string
 		want, not          []string
 	}{
 		{"hash typed", "fn f() -> Int {\n    _p = #‸\n    0\n}\n", "#",
-			[]string{"Point", "Shape", "Pair", "Path"}, []string{"Tags", "Kvs", "Ids", "Meters", "f"}},
+			[]string{"Pair", "Path"}, []string{"Point", "Shape", "Tags", "Kvs", "Ids", "Meters", "f"}},
 		{"hash with a prefix", "fn f() -> Int {\n    _p = #P‸\n    0\n}\n", "",
-			[]string{"Point", "Pair", "Path"}, []string{"Tags", "Kvs"}},
+			[]string{"Pair", "Path"}, []string{"Point", "Tags", "Kvs"}},
 		{"percent typed", "fn f() -> Int {\n    _p = %‸\n    0\n}\n", "%",
 			[]string{"Tags", "Kvs"}, []string{"Point", "Shape", "Pair", "Path", "Ids", "Meters", "f"}},
 		{"percent as an argument", "fn g(t: Tags) -> Tags {\n    t\n}\n\nfn f() -> Tags {\n    g(%‸)\n}\n", "%",

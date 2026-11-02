@@ -77,14 +77,14 @@ fn port(text: String) -> Result<Int, String> {
 
 fn check(n: Int) -> Check {
     if n > 0 {
-        #Check.Valid{addr: "a${n}", score: n}
+        Check.Valid{addr: "a${n}", score: n}
     } else {
         Check.Invalid("neg")
     }
 }
 
 fn describe(n: Int) -> String {
-    #.Valid{addr, score} = check(n) else {
+    .Valid{addr, score} = check(n) else {
         .Invalid(_) -> #{addr: "unknown", score: 0}
     }
 
@@ -165,7 +165,7 @@ fn print_sizes(lines: List<String>) {
 }
 
 fn loop_sum(xs: List<Maybe<Int>>) -> Int {
-    Iter.loop(fn state = #(0, xs) -> {
+    Iter.loop(#(0, xs), fn state -> {
         #(acc, rest) = state
         [head, ..tail] = rest else { break #(acc, rest) }
         Some(n) = head else { return #(acc, tail) }
@@ -188,7 +188,7 @@ fn main() {
     io.print(port("y"))
     io.print(describe(3))
     io.print(describe(-1))
-    io.print(whole(#Check.Valid{addr: "x", score: 7}))
+    io.print(whole(Check.Valid{addr: "x", score: 7}))
     io.print(whole(Check.Invalid("bad")))
     io.print(first_or([4, 5]))
     io.print(first_or([]))

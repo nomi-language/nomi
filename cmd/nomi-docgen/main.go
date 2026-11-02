@@ -28,6 +28,12 @@
 // (tooling.go):
 //
 //	go run ./cmd/nomi-docgen -tooling docs/tooling.md tour/src/content/docs/tooling
+//
+// With -llms it writes the files for models (llms.go): the cheat sheet's
+// page from docs/cheatsheet.md, and llms.txt, llms-full.txt and
+// cheatsheet.md at the site root. All are generated, not committed.
+//
+//	go run ./cmd/nomi-docgen -llms . tour
 package main
 
 import (
@@ -88,8 +94,12 @@ func main() {
 		must(writeTooling(os.Args[2], os.Args[3]))
 		return
 	}
+	if len(os.Args) == 4 && os.Args[1] == "-llms" {
+		must(writeLLMs(os.Args[2], os.Args[3]))
+		return
+	}
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: nomi-docgen <reference-output-dir>\n       nomi-docgen -examples <exercism-dir> <examples-output-dir>\n       nomi-docgen -spec <spec.md> <spec-output-dir>\n       nomi-docgen -style <style.md> <writing-output-dir>\n       nomi-docgen -tooling <tooling.md> <tooling-output-dir>")
+		fmt.Fprintln(os.Stderr, "usage: nomi-docgen <reference-output-dir>\n       nomi-docgen -examples <exercism-dir> <examples-output-dir>\n       nomi-docgen -spec <spec.md> <spec-output-dir>\n       nomi-docgen -style <style.md> <writing-output-dir>\n       nomi-docgen -tooling <tooling.md> <tooling-output-dir>\n       nomi-docgen -llms <repository-root> <tour-dir>")
 		os.Exit(1)
 	}
 	outDir := os.Args[1]

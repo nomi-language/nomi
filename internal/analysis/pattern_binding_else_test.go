@@ -115,7 +115,7 @@ func TestPatternBindingElse_FallbackTypesTheInnerPattern(t *testing.T) {
 }
 
 fn describe(c: Check) -> String {
-    #.Valid{addr, score} = c else {
+    .Valid{addr, score} = c else {
         .Invalid(_) -> #{addr: "unknown", score: 0}
     }
     "${addr}:${score}"
@@ -172,11 +172,11 @@ func TestPatternBindingElse_Errors(t *testing.T) {
     n
 }`, "19:15: non-exhaustive `else` on Result: missing Err"},
 		"non-exhaustive struct-variant arms": {`fn f(c: Check) -> Int {
-    #.Valid{score} = c else {
+    .Valid{score} = c else {
         .Invalid("x") -> #{addr: "", score: 0}
     }
     score
-}`, "19:24: non-exhaustive `else` on Check: missing Invalid"},
+}`, "19:23: non-exhaustive `else` on Check: missing Invalid"},
 		"irrefutable pattern with else": {`fn f(p: #(Int, Int)) -> Int {
     #(x, y) = p else { return 0 }
     x + y
@@ -233,7 +233,7 @@ func TestPatternBindingElse_StructVariantPatternIsNotACatchAll(t *testing.T) {
 	errs := elseErrors(t, elseDecls+`
 fn f(c: Check) -> Int {
     case c {
-        #.Valid{score} -> score
+        .Valid{score} -> score
     }
 }
 `)

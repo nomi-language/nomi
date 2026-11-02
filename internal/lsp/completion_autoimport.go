@@ -102,7 +102,7 @@ func (r *completionRequest) autoImportCandidates(types, values bool) []candidate
 			continue
 		}
 		for name, sym := range src.scope.Symbols {
-			if !sym.Public || sym.Resolved != nil {
+			if !r.reads(sym.Public, sym.SourceFile) || sym.Resolved != nil {
 				continue
 			}
 			switch {
@@ -225,4 +225,12 @@ func (r *completionRequest) textNodes() []ast.Node {
 // renders imports, in UTF-16 columns.
 func (r *completionRequest) importEdit(m analysis.MissingImport) (protocol.TextEdit, bool) {
 	return addImportEdit(r.doc.Content, r.lines.starts, r.textNodes(), m)
+}
+
+// reads reports whether the requesting document may name a declaration of
+// the file at sourceFile: it is public, or the document is that file's
+// partner test, which reads its private declarations (spec §14
+// *Visibility*).
+func (r *completionRequest) reads(public bool, sourceFile string) bool {
+	return public || (r.fa != nil && analysis.IsPartnerTestPath(r.fa.FilePath, sourceFile))
 }

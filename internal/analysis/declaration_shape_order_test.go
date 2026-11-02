@@ -118,21 +118,21 @@ fn size(s: Shape) -> Int {
 }
 
 fn main() {
-    h = #Holder{w: #Wrap{item: 1}, t: Tree.Leaf("x"), m: Meters(3), c: #Circle{radius: 2}}
+    h = Holder{w: Wrap{item: 1}, t: Tree.Leaf("x"), m: Meters(3), c: Circle{radius: 2}}
     dbg h.w.item + h.w.count
     dbg case h.t {
         .Leaf(s) -> s
         .Empty -> ""
     }
     dbg h == h
-    p: Pair = #Wrap{item: 4}
+    p: Pair = Wrap{item: 4}
     dbg p.item + 1
-    dbg size(#Circle{radius: 2}) + size(Meters(5)) + size(Shape.Boxed(#Wrap{item: True}))
-    dbg Greets.greet(#Person{first: "a"})
-    dbg Person.loud(#Person{first: "a"})
-    dbg Greets.greet(#Wrap{item: 1.5})
-    dbg Greets.greet(#Shown{item: 7})
-    dbg tag_item(Tag(#Wrap{item: "t"}))
+    dbg size(Circle{radius: 2}) + size(Meters(5)) + size(Shape.Boxed(Wrap{item: True}))
+    dbg Greets.greet(Person{first: "a"})
+    dbg Person.loud(Person{first: "a"})
+    dbg Greets.greet(Wrap{item: 1.5})
+    dbg Greets.greet(Shown{item: 7})
+    dbg tag_item(Tag(Wrap{item: "t"}))
 }
 `,
 	})
@@ -167,8 +167,8 @@ struct Shown<T> where T: Display {
 }
 `
 	use := `fn main() {
-    dbg Greets.name(#Wrap{item: 1.5})
-    dbg Greets.name(#Shown{item: 7})
+    dbg Greets.name(Wrap{item: 1.5})
+    dbg Greets.name(Shown{item: 7})
 }
 `
 	for name, src := range map[string]string{

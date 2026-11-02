@@ -42,7 +42,7 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span> {
         |> Iter.flat_map(fn cell -> Iter.map(directions, &#(cell, &1)))
         |> Iter.find(fn #(cell, step) -> reads(letters, spelling, cell, step))?
 
-    Some(#Span{
+    Some(Span{
         start: #{column: column + 1, row: row + 1},
         end: #{column: column + 1 + across * last, row: row + 1 + down * last},
     })

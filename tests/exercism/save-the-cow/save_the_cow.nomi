@@ -39,7 +39,7 @@ pub opaque struct Game {
 impl Game {
     /// A new game whose secret is `word`, with no letters revealed.
     pub fn new(word: String) -> Game {
-        #Game{
+        Game{
             word: String.to_codepoints(word),
             revealed: %[],
             remaining_failures: allowed_failures,

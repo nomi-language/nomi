@@ -11,7 +11,7 @@ derive Equatable for CustomSet<T>
 impl CustomSet<T> {
     /// The set of `values`, each kept once.
     pub fn from(values: List<T>) -> CustomSet<T> where T: Comparable {
-        Iter.reduce(values, CustomSet.add, from: #CustomSet{items: []})
+        Iter.reduce(values, CustomSet{items: []}, CustomSet.add)
     }
 
     /// Whether `set` holds no values.
@@ -36,26 +36,26 @@ impl CustomSet<T> {
 
     /// `set` with `element` in it.
     pub fn add(set: CustomSet<T>, element: T) -> CustomSet<T> where T: Comparable {
-        #CustomSet{items: insert(set.items, element)}
+        CustomSet{items: insert(set.items, element)}
     }
 
     /// The values in both `set` and `other`.
     pub fn intersection(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        #CustomSet{
+        CustomSet{
             items: set.items |> Iter.filter(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 
     /// The values in `set` that are not in `other`.
     pub fn difference(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Equatable {
-        #CustomSet{
+        CustomSet{
             items: set.items |> Iter.reject(&CustomSet.contains(other, &1)) |> Iter.to_list(),
         }
     }
 
     /// The values in `set`, `other` or both.
     pub fn union(set: CustomSet<T>, other: CustomSet<T>) -> CustomSet<T> where T: Comparable {
-        Iter.reduce(other.items, CustomSet.add, from: set)
+        Iter.reduce(other.items, set, CustomSet.add)
     }
 }
 

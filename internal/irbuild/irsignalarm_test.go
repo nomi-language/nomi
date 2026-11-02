@@ -103,7 +103,7 @@ fn main() {
     j = Iter.iterate(1, fn n -> if n > 5 { break n * 100 } else { n + 2 }) |> Iter.to_list()
     io.inspect(j)
     // reduce.
-    k = Iter.reduce(xs, fn acc = 0, x -> {
+    k = Iter.reduce(xs, 0, fn acc, x -> {
         case x % 2 {
             0 -> {
                 io.print("odd only ${x}")
@@ -113,7 +113,7 @@ fn main() {
         }
     })
     io.inspect(k)
-    l = Iter.reduce(xs, fn acc = 0, x -> {
+    l = Iter.reduce(xs, 0, fn acc, x -> {
         step = case x {
             3 -> continue
             6 -> break
@@ -184,7 +184,7 @@ fn main() {
     io.inspect(Iter.take_while(xs, small) |> Iter.to_list())
     Iter.each(xs, show)
     io.inspect(Iter.iterate(1, triple) |> Iter.to_list())
-    io.inspect(Iter.reduce(xs, add_odd, from: 0))
+    io.inspect(Iter.reduce(xs, 0, add_odd))
 }
 `, "skip 3\n[10, 20, 40, 500]\n[2, 4]\n[1, 3]\nshow 1\nshow 3\n[1, 3, 9]\n400\n")
 }
@@ -213,7 +213,7 @@ fn feed(items: List<String>) -> Receiver<String> {
 }
 
 fn deposit(account: Account, input: Receiver<String>) -> Account {
-    Iter.loop(fn acc = account -> {
+    Iter.loop(account, fn acc -> {
         if acc.balance > 100 { break acc }
         text = case Receiver.receive(input) {
             Some(t) -> t
@@ -230,7 +230,7 @@ fn deposit(account: Account, input: Receiver<String>) -> Account {
 }
 
 fn bare_arm(input: Receiver<String>) -> Int {
-    Iter.loop(fn total = 0 -> {
+    Iter.loop(0, fn total -> {
         case Receiver.receive(input) {
             None -> break total
             Some("skip") -> continue
@@ -241,7 +241,7 @@ fn bare_arm(input: Receiver<String>) -> Int {
 }
 
 fn if_branch(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         t = case Receiver.receive(input) {
             Some(t) -> t
             None -> break n
@@ -251,7 +251,7 @@ fn if_branch(input: Receiver<String>) -> Int {
 }
 
 fn nested(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         t = Receiver.receive(input)
         if n < 100 {
             case t {
@@ -266,7 +266,7 @@ fn nested(input: Receiver<String>) -> Int {
 }
 
 fn bound(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         step = case Receiver.receive(input) {
             Some("x") -> continue
             Some("next") -> return n + 100
@@ -278,7 +278,7 @@ fn bound(input: Receiver<String>) -> Int {
 }
 
 fn arm_guard(input: Receiver<String>) -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case Receiver.receive(input) {
             Some(t) -> {
                 if t == "x" { continue }
@@ -291,7 +291,7 @@ fn arm_guard(input: Receiver<String>) -> Int {
 }
 
 fn early_state() -> Int {
-    n = Iter.loop(fn i = 0 -> {
+    n = Iter.loop(0, fn i -> {
         case i {
             0 -> return 5
             5 -> break i * 100
@@ -314,7 +314,7 @@ fn main() {
     io.inspect(arm_guard(feed(["a", "x", "big", "b"])))
     io.inspect(early_state())
 }
-`, "not a number: five\nnot a number: x\n#Account{owner: \"ann\", balance: 125}\n"+
+`, "not a number: five\nnot a number: x\nAccount{owner: \"ann\", balance: 125}\n"+
 		"5\n20\n2\n1001\n2\n103\n52\nafter the loop\n501\n")
 }
 
@@ -325,7 +325,7 @@ func TestIRSignalArm_IterLoopBranchingStatements(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 
 fn stmt_if() -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         if n % 2 == 0 { io.print("even ${n}") } else { io.print("odd ${n}") }
         if n > 2 { break n }
         n + 1
@@ -333,7 +333,7 @@ fn stmt_if() -> Int {
 }
 
 fn deep() -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         case n {
             0 -> {
                 y = case n + 1 {
@@ -356,7 +356,7 @@ fn calls(n: Int) -> Int {
 }
 
 fn operand() -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         if n > 3 { break n }
         calls(case n {
             1 -> return 3
@@ -374,7 +374,7 @@ fn main() {
 	verifyLambdaProgram(t, `import std/io
 
 fn f() -> Int {
-    Iter.loop(fn n = 0 -> {
+    Iter.loop(0, fn n -> {
         {
             if n == 1 { return n + 5 }
             io.print("at ${n}")

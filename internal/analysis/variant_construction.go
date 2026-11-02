@@ -11,9 +11,9 @@ import (
 // The rule: `Enum.V` followed by a construction syntax takes exactly the
 // construction syntaxes the variant's shape takes.
 //
-//   - A struct-shaped variant, declared inline (`#Rect {w: Float, h: Float}`) or
+//   - A struct-shaped variant, declared inline (`Rect{w: Float, h: Float}`) or
 //     embedded (`embeds Circle`), takes a struct's two forms: the brace form
-//     `#Shape.Rect{...}` (checkStructVariantLit) and the record call form
+//     `Shape.Rect{...}` (checkStructVariantLit) and the record call form
 //     `Shape.Rect(#{...})`, which this file checks. Omitted fields take their
 //     defaults in both. A struct has no positional call form, so neither does
 //     the variant.
@@ -228,13 +228,13 @@ func (c *checker) checkArgs(args []ast.Node) {
 
 // checkStructShapedVariantCall is the record call form `Enum.V(#{...})` of a
 // struct-shaped variant, inline or embedded. A literal argument is checked
-// exactly as `#Enum.V{...}` is; an argument whose type is an anonymous record is
+// exactly as `Enum.V{...}` is; an argument whose type is an anonymous record is
 // checked by its field types, as a struct's call form checks one.
 func (c *checker) checkStructShapedVariantCall(n *ast.Call, form variantCtor) Type {
 	if len(n.Args) != 1 || isNamedArg(n.Args[0]) {
 		c.checkArgs(n.Args)
 		c.addError(form.line, form.col, fmt.Sprintf(
-			"%s is a struct-shaped variant and has no positional form; construct it with #%s{...} or %s(#{...})",
+			"%s is a struct-shaped variant and has no positional form; construct it with %s{...} or %s(#{...})",
 			form.label, form.label, form.label))
 		return form.et
 	}
@@ -261,7 +261,7 @@ func (c *checker) checkVariantRecordArg(at ast.Node, argTy Type, form variantCto
 	line, col := startOf(at)
 	if st, ok := form.vd.Embedded.(*StructType); ok && sameNominal(resolveTypeVar(argTy), st) {
 		c.addError(line, col, alreadyBuiltMessage(form, st.Name,
-			"#"+form.label+"{...} or "+form.label+"(#{...})"))
+			form.label+"{...} or "+form.label+"(#{...})"))
 		return form.et
 	}
 	anon, ok := resolveTypeVar(argTy).(*AnonStructType)
@@ -394,7 +394,7 @@ func (c *checker) rejectStructVariantValue(node ast.Node, ty Type) Type {
 		return ty
 	}
 	c.addError(form.line, form.col, fmt.Sprintf(
-		"%s is a struct-shaped variant and is not a function value; build it with #%s{...} or %s(#{...}), inside a lambda where a function is needed",
+		"%s is a struct-shaped variant and is not a function value; build it with %s{...} or %s(#{...}), inside a lambda where a function is needed",
 		form.label, form.label, form.label))
 	// Untyped, so a later call of the rejected value does not add a second
 	// error about the arguments it was given.
@@ -452,7 +452,7 @@ func sameNominal(t, want Type) bool {
 const (
 	variantPayloadNameHint = "a variant's payload is positional and has no name; pass it by position"
 	distinctValueNameHint  = "a distinct type's constructor takes the value it wraps by position; pass it without a name"
-	structCallFormNameHint = "a struct's call form takes one record with the fields in it; write %s(#{...}) or #%s{...}"
+	structCallFormNameHint = "a struct's call form takes one record with the fields in it; write %s(#{...}) or %s{...}"
 )
 
 // reportNamedCtorArgs reports each named argument of a positional

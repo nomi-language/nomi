@@ -79,7 +79,7 @@ pub opaque struct Box<T> {
 
 impl Box<T> {
     pub fn new(item: T, f: (T) -> Int) -> Box<T> {
-        #Box{item, f}
+        Box{item, f}
     }
 
     pub fn get(b: Box<T>) -> T {

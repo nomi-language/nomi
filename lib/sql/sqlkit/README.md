@@ -95,7 +95,7 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
         [runtime.bind(email)],
     )
 
-    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(#User{
+    runtime.optional(conn, "user_by_email", statement, fn row -> Ok(User{
             id: runtime.int("user_by_email", row, 0)?,
             email: runtime.text("user_by_email", row, 1)?,
             name: runtime.text_null("user_by_email", row, 2)?,
@@ -142,7 +142,7 @@ id`).
 
 SQL that returns no rows (an `UPDATE` or `DELETE` without `RETURNING`)
 writes `-> Changed` for the number of rows it changed, or `-> Unit` to
-ignore it. `Changed` is sqlkit's struct `#Changed{rows: Int}`, not an `Int`,
+ignore it. `Changed` is sqlkit's struct `Changed{rows: Int}`, not an `Int`,
 so taking `RETURNING id` off an `INSERT ... -> Int` is an error rather than
 a function that answers 1 where it answered an id.
 
@@ -292,7 +292,7 @@ group "the shop" {
 
     test "a user reads back as its row", db {
         id = queries.insert_user(db, "ada@example.com", Some("Ada"))?
-        assert Some(#User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
+        assert Some(User{id: read_id, email, name}) = queries.user_by_email(db, "ada@example.com")?
         assert read_id == id
     }
 }
@@ -321,7 +321,7 @@ pub fn boot(startup: Startup) -> Result<App, Error> {
     db = sqlite.open(path)?
     defer sql.close_quietly(db)
     sqlkit.migrate(db, schema.migrations)?
-    Ok(#App{db, context: Context.root()})
+    Ok(App{db, context: Context.root()})
 }
 
 pub fn sign_up(email: String) -> Result<Int, Error> {
@@ -331,7 +331,7 @@ pub fn sign_up(email: String) -> Result<Int, Error> {
 
 When the file does not open or a migration fails, `boot` returns the `Err`
 and `main` does not run. The `defer` closes the database when the program
-ends. A test group that writes `boot main.boot(#Startup{})` gets a fresh
+ends. A test group that writes `boot main.boot(Startup{})` gets a fresh
 in-memory database and its own `App.db` for each test; a test that builds
 its own database replaces the field with `with App.db = db` in its `setup`.
 

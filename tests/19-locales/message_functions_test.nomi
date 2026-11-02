@@ -30,7 +30,7 @@ fn messages(source: String) -> List<String> {
 }
 
 test "the money and date functions write in the reader's locale" {
-    total = #Money{amount: 49.9d, currency: Currency`EUR`}
+    total = Money{amount: 49.9d, currency: Currency`EUR`}
     day = Date`2026-10-20`
 
     assert paid(total, day)

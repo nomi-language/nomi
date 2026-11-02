@@ -1,0 +1,762 @@
+//# TLS over Go's crypto/tls: the certificates a side presents, the roots
+//# it trusts, and the versions, cipher suites and protocols it allows. A
+//# `ClientConfig` or `ServerConfig` is a value, used by std/http
+//# (`ClientOptions.tls`, `Server.tls`) and std/net (`tls.dial`,
+//# `tls.listen`, `tls.client`, `tls.server`).
+//#
+//# ```nomi
+//# certificate = Certificate.load("cert.pem", "key.pem")?
+//#
+//# listener = http.listen(Server{
+//#     address: ":8443",
+//#     tls: Some(ServerConfig{certificates: [certificate]}),
+//# })?
+//# ```
+//#
+//# A config's defaults are Go's: the system's roots, TLS 1.2 at least, and
+//# Go's cipher suites and curves.
+
+import {
+    bool.Bool.{self, False, True}
+    display.Display
+    equatable.Equatable
+    http_host
+    instant.Instant
+    int.Int
+    io.{self, Writer}
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    net.{self, Connection}
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+}
+
+/// A TLS protocol version.
+pub enum Version {
+    Tls10
+    Tls11
+    Tls12
+    Tls13
+}
+
+derive Equatable for Version
+
+impl Version {
+    fn number(version: Version) -> Int {
+        case version {
+            .Tls10 -> 10
+            .Tls11 -> 11
+            .Tls12 -> 12
+            .Tls13 -> 13
+        }
+    }
+
+    fn of_number(n: Int) -> Maybe<Version> {
+        case n {
+            10 -> Some(Version.Tls10)
+            11 -> Some(Version.Tls11)
+            12 -> Some(Version.Tls12)
+            13 -> Some(Version.Tls13)
+            _ -> None
+        }
+    }
+}
+
+impl Display for Version {
+    //! assert "${Version.Tls13}" == "TLS 1.3"
+    //
+    fn to_string(version: Version) -> String {
+        case version {
+            .Tls10 -> "TLS 1.0"
+            .Tls11 -> "TLS 1.1"
+            .Tls12 -> "TLS 1.2"
+            .Tls13 -> "TLS 1.3"
+        }
+    }
+}
+
+/// A key exchange a side offers: an elliptic curve, or a hybrid with the
+/// post-quantum ML-KEM.
+pub enum Curve {
+    X25519
+    P256
+    P384
+    P521
+    X25519MlKem768
+    P256MlKem768
+    P384MlKem1024
+    MlKem1024
+}
+
+derive Equatable for Curve
+
+impl Curve {
+    fn name(curve: Curve) -> String {
+        case curve {
+            .X25519 -> "X25519"
+            .P256 -> "P256"
+            .P384 -> "P384"
+            .P521 -> "P521"
+            .X25519MlKem768 -> "X25519MlKem768"
+            .P256MlKem768 -> "P256MlKem768"
+            .P384MlKem1024 -> "P384MlKem1024"
+            .MlKem1024 -> "MlKem1024"
+        }
+    }
+
+    fn of_name(name: String) -> Maybe<Curve> {
+        [
+            Curve.X25519,
+            Curve.P256,
+            Curve.P384,
+            Curve.P521,
+            Curve.X25519MlKem768,
+            Curve.P256MlKem768,
+            Curve.P384MlKem1024,
+            Curve.MlKem1024,
+        ]
+        |> Iter.find(fn c -> Curve.name(c) == name)
+    }
+}
+
+impl Display for Curve {
+    //! assert "${Curve.X25519MlKem768}" == "X25519MlKem768"
+    //
+    fn to_string(curve: Curve) -> String {
+        Curve.name(curve)
+    }
+}
+
+/// Whether a server asks the client for a certificate, and checks it.
+pub enum ClientAuth {
+    /// Asks for none: Go's `NoClientCert`.
+    NoCertificate
+    /// Asks, and accepts any or none: `RequestClientCert`.
+    Request
+    /// Requires one, any one: `RequireAnyClientCert`.
+    RequireAny
+    /// Checks one against `client_roots` when given: `VerifyClientCertIfGiven`.
+    VerifyIfGiven
+    /// Requires one and checks it: `RequireAndVerifyClientCert`.
+    Require
+}
+
+derive Equatable for ClientAuth
+
+impl ClientAuth {
+    fn number(auth: ClientAuth) -> Int {
+        case auth {
+            .NoCertificate -> 0
+            .Request -> 1
+            .RequireAny -> 2
+            .VerifyIfGiven -> 3
+            .Require -> 4
+        }
+    }
+}
+
+impl Display for ClientAuth {
+    fn to_string(auth: ClientAuth) -> String {
+        case auth {
+            .NoCertificate -> "NoClientCert"
+            .Request -> "RequestClientCert"
+            .RequireAny -> "RequireAnyClientCert"
+            .VerifyIfGiven -> "VerifyClientCertIfGiven"
+            .Require -> "RequireAndVerifyClientCert"
+        }
+    }
+}
+
+/// Whether a client lets a server renegotiate.
+pub enum Renegotiation {
+    Never
+    OnceAsClient
+    FreelyAsClient
+}
+
+derive Equatable for Renegotiation
+
+/// The certificate authorities a side trusts.
+pub enum Roots {
+    /// The operating system's.
+    System
+    /// The PEM certificates in the text.
+    Pem String
+    /// The PEM certificates in the files.
+    Files List<String>
+}
+
+/// What a certificate says: who it names and who signed it, when it is
+/// valid, and the DNS names it covers.
+pub struct CertificateInfo {
+    subject: String
+    issuer: String
+    serial: String
+    not_before: Instant
+    not_after: Instant
+    dns_names: List<String>
+}
+
+derive Equatable for CertificateInfo
+
+impl CertificateInfo {
+    fn of_parts(parts: List<String>) -> CertificateInfo {
+        case parts {
+            [subject, issuer, serial, before, after, ..dns_names] ->
+                CertificateInfo{
+                    subject,
+                    issuer,
+                    serial,
+                    not_before: Instant.from_nanos(
+                        String.to_int(before)
+                        |> Maybe.with_default(0)
+                    ),
+                    not_after: Instant.from_nanos(
+                        String.to_int(after)
+                        |> Maybe.with_default(0)
+                    ),
+                    dns_names,
+                }
+
+            _ ->
+                CertificateInfo{
+                    subject: "",
+                    issuer: "",
+                    serial: "",
+                    not_before: Instant.from_nanos(0),
+                    not_after: Instant.from_nanos(0),
+                    dns_names: [],
+                }
+        }
+    }
+}
+
+/// A certificate chain and its private key, which a side presents. The key
+/// stays inside the value: nothing reads it back.
+pub struct Certificate {
+    handle: http_host.Certificate
+}
+
+impl Certificate {
+    /// A certificate from PEM text: the chain, then its key. Go's
+    /// `X509KeyPair`.
+    pub fn from_pem(cert: String, key: String) -> Result<Certificate, Error> {
+        handle = http_host.certificate_from_pem(cert, key) |> Result.map_err(Error.from_parts)?
+        Ok(Certificate{handle})
+    }
+
+    /// A certificate from PEM files. Go's `LoadX509KeyPair`.
+    pub fn load(cert_path: String, key_path: String) -> Result<Certificate, Error> {
+        handle =
+            http_host.certificate_load(cert_path, key_path) |> Result.map_err(Error.from_parts)?
+
+        Ok(Certificate{handle})
+    }
+
+    /// What the chain's first certificate says.
+    pub fn info(certificate: Certificate) -> CertificateInfo {
+        CertificateInfo.of_parts(http_host.certificate_info(certificate.handle))
+    }
+}
+
+/// A cipher suite Go's TLS implements.
+pub struct CipherSuite {
+    id: Int
+    name: String
+    versions: List<Version>
+    insecure: Bool
+}
+
+derive Equatable for CipherSuite
+
+impl CipherSuite {
+    /// The suites Go's TLS uses by default: Go's `CipherSuites`.
+    //! assert Iter.any(CipherSuite.secure(), fn s -> s.name == "TLS_AES_128_GCM_SHA256")
+    //
+    pub fn secure() -> List<CipherSuite> {
+        http_host.cipher_suites(False) |> Iter.map(CipherSuite.of_parts) |> Iter.to_list()
+    }
+
+    /// The suites Go implements but uses only when asked:
+    /// `InsecureCipherSuites`.
+    pub fn insecure() -> List<CipherSuite> {
+        http_host.cipher_suites(True) |> Iter.map(CipherSuite.of_parts) |> Iter.to_list()
+    }
+
+    /// A suite's standard name, or its ID in hex when Go does not know it.
+    //! assert CipherSuite.name_of(0x1301) == "TLS_AES_128_GCM_SHA256"
+    //
+    pub fn name_of(id: Int) -> String {
+        http_host.cipher_suite_name(id)
+    }
+
+    fn of_parts(parts: List<String>) -> CipherSuite {
+        case parts {
+            [id, name, insecure, ..versions] ->
+                CipherSuite{
+                    id: String.to_int(id) |> Maybe.with_default(0),
+                    name,
+                    insecure: insecure == "true",
+                    versions: versions
+                    |> Iter.flat_map(fn v -> {
+                        String.to_int(v) |> Maybe.flat_map(Version.of_number)
+                    })
+                    |> Iter.to_list(),
+                }
+
+            _ ->
+                CipherSuite{id: 0, name: "", insecure: False, versions: []}
+        }
+    }
+}
+
+/// How a client checks a server and what it offers.
+pub struct ClientConfig {
+    /// The authorities whose certificates it trusts.
+    roots: Roots = Roots.System
+    /// Certificates it presents when a server asks for one.
+    certificates: List<Certificate> = []
+    /// The name it checks the server's certificate against, and sends;
+    /// `None` takes it from the address dialed.
+    server_name: Maybe<String> = None
+    /// Accepts any certificate the server presents, unchecked. A program
+    /// that sets it can be read by anyone between it and the server; it is
+    /// for tests against a server whose certificate is made on the spot.
+    insecure_skip_verify: Bool = False
+    /// The application protocols it offers, most wanted first (ALPN).
+    next_protocols: List<String> = []
+    min_version: Version = Version.Tls12
+    max_version: Maybe<Version> = None
+    /// The cipher suite IDs it offers, for TLS 1.2 and below; `None` is Go's.
+    cipher_suites: Maybe<List<Int>> = None
+    curves: Maybe<List<Curve>> = None
+    session_tickets: Bool = True
+    /// How many sessions it keeps to resume; 0 keeps none.
+    session_cache: Int = 0
+    renegotiation: Renegotiation = Renegotiation.Never
+    /// Checks each handshake once Go has verified it, with what it agreed
+    /// on; an `Err` fails the handshake with its reason. Go's
+    /// `VerifyConnection`. It runs on the task making the connection.
+    verify: Maybe<(ConnectionState) -> Result<Unit, String>> = None
+    /// Where the handshake's secrets are written, in the NSS key log
+    /// format, so a tool such as Wireshark can read the traffic. Anyone who
+    /// reads it can read the connection. Go's `KeyLogWriter`.
+    key_log: Maybe<Writer> = None
+}
+
+/// What a server presents and how it checks clients.
+pub struct ServerConfig {
+    /// Certificates it presents, chosen by the name the client asks for.
+    certificates: List<Certificate>
+    client_auth: ClientAuth = ClientAuth.NoCertificate
+    /// The authorities whose client certificates it trusts.
+    client_roots: Roots = Roots.System
+    /// The application protocols it accepts, most wanted first (ALPN).
+    next_protocols: List<String> = []
+    min_version: Version = Version.Tls12
+    max_version: Maybe<Version> = None
+    cipher_suites: Maybe<List<Int>> = None
+    curves: Maybe<List<Curve>> = None
+    session_tickets: Bool = True
+    /// Chooses the certificate for each handshake from what the client
+    /// asked for; `None` from it falls back to `certificates`. Go's
+    /// `GetCertificate`. It runs on the task serving the connections.
+    certificate_for: Maybe<(ClientHello) -> Maybe<Certificate>> = None
+    /// Checks each handshake once Go has verified it, as
+    /// `ClientConfig.verify` does.
+    verify: Maybe<(ConnectionState) -> Result<Unit, String>> = None
+    /// Where the handshake's secrets are written, as `ClientConfig.key_log`.
+    key_log: Maybe<Writer> = None
+}
+
+/// What a client asked for when it started a handshake: Go's
+/// `ClientHelloInfo`, for `ServerConfig.certificate_for`.
+pub struct ClientHello {
+    /// The host the client named (SNI); "" when it named none.
+    server_name: String
+    /// The application protocols it offers (ALPN).
+    protocols: List<String>
+    versions: List<Version>
+    cipher_suites: List<Int>
+    handle: http_host.Handle
+}
+
+impl ClientHello {
+    fn of_handle(handle: http_host.Handle) -> ClientHello {
+        #(name, protocols, versions, suites) = case http_host.hello_parts(handle) {
+            [n, p, v, c] -> #(List.head(n) |> Maybe.with_default(""), p, v, c)
+            _ -> #("", [], [], [])
+        }
+
+        ClientHello{
+            server_name: name,
+            protocols,
+            versions: versions
+            |> Iter.flat_map(fn v -> String.to_int(v) |> Maybe.flat_map(Version.of_number))
+            |> Iter.to_list(),
+            cipher_suites: suites |> Iter.flat_map(String.to_int) |> Iter.to_list(),
+            handle,
+        }
+    }
+
+    /// Whether the client can use `certificate`: its key, signature and
+    /// curves are ones the client offered. Go's `SupportsCertificate`.
+    pub fn supports(hello: ClientHello, certificate: Certificate) -> Bool {
+        http_host.hello_supports(hello.handle, certificate.handle) == ""
+    }
+}
+
+fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
+    List<List<String>>
+) -> String {
+    case verify {
+        Some(check) ->
+            fn parts -> {
+                case check(ConnectionState.of_parts(parts)) {
+                    Ok(_) ->
+                        ""
+
+                    Err(reason) ->
+                        if reason == "" {
+                            "the connection was refused"
+                        } else {
+                            reason
+                        }
+                }
+            }
+
+        None ->
+            fn _ -> ""
+    }
+}
+
+impl ClientConfig {
+    /// The configuration Go builds for this config, for std/http and
+    /// std/net.
+    pub fn host(config: ClientConfig) -> Result<http_host.TlsConfig, Error> {
+        made =
+            http_host.tls_config(
+                False,
+                roots_kind(config.roots),
+                roots_pem(config.roots),
+                roots_files(config.roots),
+                Maybe.with_default(config.server_name, ""),
+                config.insecure_skip_verify,
+                config.next_protocols,
+                Version.number(config.min_version),
+                config.max_version
+                |> Maybe.map(Version.number)
+                |> Maybe.with_default(0),
+                Maybe.with_default(config.cipher_suites, []),
+                Maybe.is_some(config.cipher_suites),
+                curve_names(config.curves),
+                Maybe.is_some(config.curves),
+                config.session_tickets,
+                config.session_cache,
+                case config.renegotiation {
+                    .Never -> 0
+                    .OnceAsClient -> 1
+                    .FreelyAsClient -> 2
+                },
+                0,
+                fn _ -> None,
+                False,
+                verify_hook(config.verify),
+                Maybe.is_some(config.verify),
+                Maybe.with_default(config.key_log, io.stderr),
+                Maybe.is_some(config.key_log),
+            )
+            |> Result.map_err(Error.from_parts)?
+
+        Ok(with_certificates(made, config.certificates))
+    }
+}
+
+impl ServerConfig {
+    /// The configuration Go builds for this config, for std/http and
+    /// std/net.
+    pub fn host(config: ServerConfig) -> Result<http_host.TlsConfig, Error> {
+        made =
+            http_host.tls_config(
+                True,
+                roots_kind(config.client_roots),
+                roots_pem(config.client_roots),
+                roots_files(config.client_roots),
+                "",
+                False,
+                config.next_protocols,
+                Version.number(config.min_version),
+                config.max_version
+                |> Maybe.map(Version.number)
+                |> Maybe.with_default(0),
+                Maybe.with_default(config.cipher_suites, []),
+                Maybe.is_some(config.cipher_suites),
+                curve_names(config.curves),
+                Maybe.is_some(config.curves),
+                config.session_tickets,
+                0,
+                0,
+                ClientAuth.number(config.client_auth),
+                case config.certificate_for {
+                    Some(choose) ->
+                        fn hello -> {
+                            choose(ClientHello.of_handle(hello)) |> Maybe.map(fn c -> c.handle)
+                        }
+
+                    None ->
+                        fn _ -> None
+                },
+                Maybe.is_some(config.certificate_for),
+                verify_hook(config.verify),
+                Maybe.is_some(config.verify),
+                Maybe.with_default(config.key_log, io.stderr),
+                Maybe.is_some(config.key_log),
+            )
+            |> Result.map_err(Error.from_parts)?
+
+        Ok(with_certificates(made, config.certificates))
+    }
+}
+
+fn with_certificates(
+    config: http_host.TlsConfig,
+    certificates: List<Certificate>,
+) -> http_host.TlsConfig {
+    case certificates {
+        [first, ..rest] ->
+            with_certificates(http_host.tls_with_certificate(config, first.handle), rest)
+
+        [] ->
+            config
+    }
+}
+
+fn roots_kind(roots: Roots) -> Int {
+    case roots {
+        .System -> 0
+        .Pem(_) -> 1
+        .Files(_) -> 2
+    }
+}
+
+fn roots_pem(roots: Roots) -> String {
+    case roots {
+        .Pem(text) -> text
+        _ -> ""
+    }
+}
+
+fn roots_files(roots: Roots) -> List<String> {
+    case roots {
+        .Files(files) -> files
+        _ -> []
+    }
+}
+
+fn curve_names(curves: Maybe<List<Curve>>) -> List<String> {
+    curves |> Maybe.with_default([]) |> Iter.map(Curve.name) |> Iter.to_list()
+}
+
+/// What a finished handshake agreed on.
+pub struct ConnectionState {
+    version: Version
+    handshake_complete: Bool
+    resumed: Bool
+    cipher_suite: CipherSuite
+    curve: Maybe<Curve>
+    /// The application protocol both sides chose (ALPN).
+    protocol: Maybe<String>
+    server_name: String
+    /// The certificate this side presented, if any.
+    local_certificate: Maybe<CertificateInfo>
+    peer_certificates: List<CertificateInfo>
+    verified_chains: List<List<CertificateInfo>>
+}
+
+impl ConnectionState {
+    /// The state a crossing answers: the handshake's fields, the local
+    /// certificate's info, the peer's certificates, then each verified
+    /// chain.
+    pub fn of_parts(parts: List<List<String>>) -> ConnectionState {
+        #(head, local, peers, chains) = case parts {
+            [h, l, p, ..c] -> #(h, l, p, c)
+            _ -> #([], [], [], [])
+        }
+
+        #(version, complete, resumed, suite, curve, protocol, server_name) = case head {
+            [v, h, r, s, c, p, n] -> #(v, h, r, s, c, p, n)
+            _ -> #("12", "false", "false", "0", "", "", "")
+        }
+
+        id = String.to_int(suite) |> Maybe.with_default(0)
+        certificate = fn c: String -> CertificateInfo.of_parts(String.split(c, "\n"))
+
+        ConnectionState{
+            version: String.to_int(version)
+            |> Maybe.flat_map(Version.of_number)
+            |> Maybe.with_default(Version.Tls12),
+            handshake_complete: complete == "true",
+            resumed: resumed == "true",
+            cipher_suite: [..CipherSuite.secure(), ..CipherSuite.insecure()]
+            |> Iter.find(fn s -> s.id == id)
+            |> Maybe.with_default(
+                CipherSuite{id, name: CipherSuite.name_of(id), versions: [], insecure: False}
+            ),
+            curve: Curve.of_name(curve),
+            protocol: if protocol == "" { None } else { Some(protocol) },
+            server_name,
+            local_certificate: if local == [] {
+                None
+            } else {
+                Some(CertificateInfo.of_parts(local))
+            },
+            peer_certificates: peers |> Iter.map(certificate) |> Iter.to_list(),
+            verified_chains: chains
+            |> Iter.map(fn chain -> chain |> Iter.map(certificate) |> Iter.to_list())
+            |> Iter.to_list(),
+        }
+    }
+}
+
+/// Why TLS failed.
+pub enum Error {
+    /// The peer sent an alert: Go's `AlertError`.
+    Alert {code: Int, reason: String}
+    /// The peer's certificate did not verify.
+    Verification {reason: String, certificates: List<CertificateInfo>}
+    /// The peer did not speak TLS: Go's `RecordHeaderError`.
+    NotTls {reason: String}
+    /// A certificate or key that does not parse, or roots that hold none.
+    Certificate {reason: String}
+    /// Any other handshake failure.
+    Handshake {reason: String}
+}
+
+derive Equatable for Error
+
+impl Error {
+    /// The error for the parts a crossing answers.
+    pub fn from_parts(parts: List<String>) -> Error {
+        case parts {
+            ["Alert", code, reason] ->
+                Error.Alert{code: String.to_int(code) |> Maybe.with_default(0), reason}
+
+            ["Verification", reason, ..certificates] ->
+                Error.Verification{
+                    reason,
+                    certificates: certificates
+                    |> Iter.map(fn c -> CertificateInfo.of_parts(String.split(c, "\n")))
+                    |> Iter.to_list(),
+                }
+
+            ["NotTls", reason] ->
+                Error.NotTls{reason}
+
+            ["Certificate", reason] ->
+                Error.Certificate{reason}
+
+            _ ->
+                Error.Handshake{
+                    reason: String.join(
+                        List.tail(parts)
+                        |> Maybe.with_default([]),
+                        ": ",
+                    ),
+                }
+        }
+    }
+}
+
+impl Display for Error {
+    //! assert "${Error.NotTls{reason: "first record does not look like a TLS handshake"}}"
+    //!     == "the peer does not speak TLS: first record does not look like a TLS handshake"
+    //
+    fn to_string(error: Error) -> String {
+        case error {
+            .Alert{code: _, reason} -> "TLS alert: ${reason}"
+            .Verification{reason, certificates: _} -> "the certificate did not verify: ${reason}"
+            .NotTls{reason} -> "the peer does not speak TLS: ${reason}"
+            .Certificate{reason} -> "certificate: ${reason}"
+            .Handshake{reason} -> "TLS handshake: ${reason}"
+        }
+    }
+}
+
+/// A TLS connection to `address`, its handshake done. The server name is
+/// the address's host unless `config` names one.
+pub fn dial(
+    address: String,
+    config: ClientConfig = ClientConfig{},
+    options: net.DialOptions = net.DialOptions{},
+) -> Result<Connection, net.Error> {
+    host = ClientConfig.host(config) |> Result.map_err(net.Error.of_tls)?
+
+    handle =
+        http_host.tls_dial(
+            address,
+            net.nanos(options.timeout),
+            net.nanos(options.keep_alive.interval),
+            Maybe.with_default(options.local_address, ""),
+            host,
+        )
+        |> Result.map_err(net.Error.from_parts)?
+
+    Ok(Connection.of_handle(handle))
+}
+
+/// A TLS client over an open connection, as STARTTLS starts one. Use the
+/// answer, not `conn`, from here on.
+pub fn client(conn: Connection, config: ClientConfig) -> Result<Connection, net.Error> {
+    host = ClientConfig.host(config) |> Result.map_err(net.Error.of_tls)?
+
+    handle =
+        http_host.tls_client(Connection.handle_of(conn), host)
+        |> Result.map_err(net.Error.from_parts)?
+
+    Ok(Connection.of_handle(handle))
+}
+
+/// The server side of `client`.
+pub fn server(conn: Connection, config: ServerConfig) -> Result<Connection, net.Error> {
+    host = ServerConfig.host(config) |> Result.map_err(net.Error.of_tls)?
+
+    handle =
+        http_host.tls_server(Connection.handle_of(conn), host)
+        |> Result.map_err(net.Error.from_parts)?
+
+    Ok(Connection.of_handle(handle))
+}
+
+/// A TCP listener whose connections are TLS servers with `config`.
+pub fn listen(address: String, config: ServerConfig) -> Result<net.Listener, net.Error> {
+    host = ServerConfig.host(config) |> Result.map_err(net.Error.of_tls)?
+    handle = http_host.tls_listen(address, host) |> Result.map_err(net.Error.from_parts)?
+    Ok(net.Listener.of_handle(handle))
+}
+
+/// What the connection's handshake agreed on, or `None` when it is not a
+/// TLS connection.
+pub fn state(conn: Connection) -> Maybe<ConnectionState> {
+    http_host.tls_state_parts(Connection.handle_of(conn)) |> Maybe.map(ConnectionState.of_parts)
+}
+
+/// The listener's connections as TLS servers with `config`, each handshake
+/// done on the task that accepts it. It shares the listener: closing one
+/// closes both. Go's `NewListener`.
+pub fn wrap_listener(
+    listener: net.Listener,
+    config: ServerConfig,
+) -> Result<net.Listener, net.Error> {
+    host = ServerConfig.host(config) |> Result.map_err(net.Error.of_tls)?
+    Ok(net.Listener.of_handle(http_host.tls_wrap_listener(net.Listener.handle_of(listener), host)))
+}
+
+/// Whether the peer's certificate covers `host`: Go's `VerifyHostname`.
+pub fn verify_hostname(conn: Connection, host: String) -> Result<Unit, Error> {
+    case http_host.tls_verify_hostname(Connection.handle_of(conn), host) {
+        "" -> Ok(Unit)
+        reason -> Err(Error.Verification{reason, certificates: []})
+    }
+}

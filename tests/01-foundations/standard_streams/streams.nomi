@@ -12,7 +12,7 @@ fn main() -> Result<Unit, io.Error> {
     Writer.print(io.stdout, "out: Writer.print")?
     Writer.print(io.stderr, "err: Writer.print")?
     Writer.write(io.stderr, String.to_bytes("err: Writer.write\n"))?
-    io.eprint(#io.Error.NotFound{path: "notes.txt"})
+    io.eprint(io.Error.NotFound{path: "notes.txt"})
 
     // The corpus runs with no input: the first read is the end.
     case Reader.read_line(io.stdin) {

@@ -151,6 +151,13 @@ go run -C "$ROOT" ./cmd/nomi-docgen -tooling "$ROOT/docs/tooling.md" "$ROOT/tour
 echo "==> generate examples (cmd/nomi-docgen -examples)"
 go run -C "$ROOT" ./cmd/nomi-docgen -examples "$ROOT/tests/exercism" "$ROOT/tour/src/content/docs/examples"
 
+# The files for models: the cheat sheet's page (tour/src/content/docs/
+# cheat-sheet.md, committed; TestCheatSheetPageIsCurrent fails while it is
+# stale) from docs/cheatsheet.md, its one source, and llms.txt,
+# llms-full.txt and cheatsheet.md at the site root (gitignored).
+echo "==> generate the cheat sheet and llms.txt (cmd/nomi-docgen -llms)"
+go run -C "$ROOT" ./cmd/nomi-docgen -llms "$ROOT" "$ROOT/tour"
+
 # Stage assets for the Starlight tour (tour): built wasm/grammar from $OUT,
 # plus the committed client JS from the site's src/lib. The Starlight build
 # serves these statically from public/nomi/ (gitignored) — the editable,

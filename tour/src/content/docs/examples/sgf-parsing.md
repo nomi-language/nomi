@@ -57,7 +57,7 @@ fn node(text: List<Codepoint>) -> Result<#(Tree, List<Codepoint>), Error> {
             variations(rest, [])?
     }
 
-    Ok(#(#Tree{properties, children}, rest))
+    Ok(#(Tree{properties, children}, rest))
 }
 
 /// The parenthesized trees after a node, up to and including the `)` that
@@ -322,7 +322,7 @@ test "malformed trees" {
         #("a child tree with no closing parenthesis", "(;A[B](;B[C])"),
     ]
     |> subtests #(description, encoded), description {
-        assert sgf_parsing.parse(encoded) == Err(Error.Malformed)
+        assert sgf_parsing.parse(encoded) == Err(.Malformed)
     }
 }
 ```

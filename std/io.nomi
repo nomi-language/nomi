@@ -102,16 +102,16 @@ import {
 /// ```nomi
 /// case fs.read_text("notes.txt") {
 ///     Ok(text) -> io.print(text)
-///     Err(#io.Error.NotFound{path: _}) -> io.print("no notes yet")
+///     Err(io.Error.NotFound{path: _}) -> io.print("no notes yet")
 ///     Err(e) -> io.eprint("cannot read the notes: ${e}")
 /// }
 /// ```
-//! assert "${#Error.NotFound{path: "notes.txt"}}" == "notes.txt: not found"
+//! assert "${Error.NotFound{path: "notes.txt"}}" == "notes.txt: not found"
 //!
-//! failed = #Error.Other{operation: "read", path: "a.txt", code: "EIO"}
+//! failed = Error.Other{operation: "read", path: "a.txt", code: "EIO"}
 //! assert "${failed}" == "read a.txt: input/output error (EIO)"
 //!
-//! refused = #Error.Unsupported{operation: "process.run", target: "js/wasm"}
+//! refused = Error.Unsupported{operation: "process.run", target: "js/wasm"}
 //! assert "${refused}" == "process.run is not supported on js/wasm"
 //! assert "${Error.TooManyOpen}" == "too many open files"
 //
@@ -161,34 +161,34 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            #Error.NotFound{path} ->
+            Error.NotFound{path} ->
                 "${path}: not found"
 
-            #Error.AlreadyExists{path} ->
+            Error.AlreadyExists{path} ->
                 "${path}: already exists"
 
-            #Error.PermissionDenied{path} ->
+            Error.PermissionDenied{path} ->
                 "${path}: permission denied"
 
-            #Error.NotADirectory{path} ->
+            Error.NotADirectory{path} ->
                 "${path}: not a directory"
 
-            #Error.IsADirectory{path} ->
+            Error.IsADirectory{path} ->
                 "${path}: is a directory"
 
-            #Error.DirectoryNotEmpty{path} ->
+            Error.DirectoryNotEmpty{path} ->
                 "${path}: directory not empty"
 
-            #Error.InvalidPath{path, reason} ->
+            Error.InvalidPath{path, reason} ->
                 "invalid path \"${path}\": ${reason}"
 
-            #Error.InvalidText{path, offset} ->
+            Error.InvalidText{path, offset} ->
                 "${path}: not UTF-8 text at byte ${offset}"
 
-            #Error.NoSpace{path} ->
+            Error.NoSpace{path} ->
                 "${path}: no space left on the device"
 
-            #Error.ReadOnly{path} ->
+            Error.ReadOnly{path} ->
                 "${path}: read-only file system"
 
             Error.TooManyOpen ->
@@ -203,10 +203,10 @@ impl Display for Error {
             Error.TimedOut ->
                 "timed out"
 
-            #Error.Unsupported{operation, target} ->
+            Error.Unsupported{operation, target} ->
                 "${operation} is not supported on ${target}"
 
-            #Error.Other{operation, path, code} ->
+            Error.Other{operation, path, code} ->
                 "${operation} ${path}: ${code_text(code)} (${code})"
         }
     }
@@ -306,7 +306,7 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 /// Reads the next line of standard input, without its `\n` and a `\r`
 /// before it. Answers `Ok(None)` at the end of the input, and `Err` when the
 /// read fails. A line that is not UTF-8 is
-/// `Err(#io.Error.InvalidText{path: "<stdin>", offset})`, `offset` being
+/// `Err(io.Error.InvalidText{path: "<stdin>", offset})`, `offset` being
 /// the byte offset of its first bad sequence within the line; the lines
 /// after it read as usual. A last line with
 /// no newline is still a line. Inside `io.capture` it reads the capture's
@@ -462,7 +462,7 @@ impl Reader {
     //! assert run.value == Result.Ok("one\ntwo\n")
     //!
     //! bad = Reader.from_bytes(Bytes.concat(String.to_bytes("hi"), Bytes.from_list([255])))
-    //! assert Reader.read_all_text(bad) == Result.Err(#Error.InvalidText{path: "<bytes>", offset: 2})
+    //! assert Reader.read_all_text(bad) == Result.Err(Error.InvalidText{path: "<bytes>", offset: 2})
     //
     pub host fn read_all_text(r: Reader) -> Result<String, Error>
 
@@ -489,12 +489,12 @@ impl Reader {
     //!
     //! assert Iter.to_list(Reader.lines(bad)) == [
     //!     Ok("ok"),
-    //!     Err(#Error.InvalidText{path: "<bytes>", offset: 0}),
+    //!     Err(Error.InvalidText{path: "<bytes>", offset: 0}),
     //! ]
     //
     pub fn lines(r: Reader) -> Iter<Result<String, Error>> {
         Iter.repeat(r)
-        |> Iter.scan(fn _: Result<String, Error> = Ok(""), reader -> {
+        |> Iter.scan(Ok(""), fn _: Result<String, Error>, reader -> {
             case Reader.read_line(reader) {
                 Ok(Some(line)) -> Ok(line)
                 Ok(None) -> break
@@ -523,7 +523,7 @@ impl Reader {
     //
     pub fn chunks(r: Reader, size: Int = 65536) -> Iter<Result<Bytes, Error>> {
         Iter.repeat(r)
-        |> Iter.scan(fn _: Result<Bytes, Error> = Ok(String.to_bytes("")), reader -> {
+        |> Iter.scan(Ok(String.to_bytes("")), fn _: Result<Bytes, Error>, reader -> {
             case Reader.read(reader, max: size) {
                 Ok(Some(chunk)) -> Ok(chunk)
                 Ok(None) -> break
@@ -765,7 +765,7 @@ impl Writer {
     //! assert data == String.to_bytes("abc")
     //
     pub fn write_all(w: Writer, chunks: Iter<Bytes>) -> Result<Unit, Error> {
-        Iter.reduce(chunks, fn written: Result<Unit, Error> = Ok(Unit), chunk -> {
+        Iter.reduce(chunks, Ok(Unit), fn written: Result<Unit, Error>, chunk -> {
             case Writer.write(w, chunk) {
                 Ok(_) -> written
                 failed -> break failed
@@ -794,7 +794,7 @@ impl Writer {
     //! assert Writer.write_lines(full, ["a", "b"]) == Result.Err(Error.BrokenPipe)
     //
     pub fn write_lines<T>(w: Writer, lines: Iter<T>) -> Result<Unit, Error> where T: Display {
-        Iter.reduce(lines, fn written: Result<Unit, Error> = Ok(Unit), line -> {
+        Iter.reduce(lines, Ok(Unit), fn written: Result<Unit, Error>, line -> {
             case Writer.write_text(w, "${line}\n") {
                 Ok(_) -> written
                 failed -> break failed
@@ -835,8 +835,8 @@ impl Writer {
     //!
     //! assert data == String.to_bytes("HELLO, WORLD")
     //!
-    //! failing = Writer.from_fn(unbuffered: True, fn _ -> Result.Err(#Error.NoSpace{path: "disk"}))
-    //! assert Writer.write_text(failing, "x") == Result.Err(#Error.NoSpace{path: "disk"})
+    //! failing = Writer.from_fn(unbuffered: True, fn _ -> Result.Err(Error.NoSpace{path: "disk"}))
+    //! assert Writer.write_text(failing, "x") == Result.Err(Error.NoSpace{path: "disk"})
     //
     pub fn from_fn(
         close: () -> Result<Unit, Error> = fn -> Ok(Unit),
@@ -1055,7 +1055,7 @@ pub struct Captured<T> {
 //! assert asked.transcript == "name: \n    > Ada\nhello, Ada\n"
 //
 pub fn capture<T>(input: String, run: () -> T) -> Captured<T> {
-    run_captured(input, run, fn value, output, errors, transcript -> #Captured{
+    run_captured(input, run, fn value, output, errors, transcript -> Captured{
         value,
         output,
         errors,
@@ -1092,7 +1092,7 @@ impl Assertable for Replayed {
         if replayed.transcript == replayed.expected and replayed.unread == 0 {
             None
         } else {
-            Some(#AssertionDetails{
+            Some(AssertionDetails{
                 reason: replay_reason(replayed),
                 actual: Some(replayed.transcript),
                 expected: Some(replayed.expected),
@@ -1286,7 +1286,7 @@ fn replay_reason(replayed: Replayed) -> String {
 //! )
 //
 pub fn replay<T>(script: String, run: () -> T) -> Replayed {
-    run_replayed(script, run, fn _, output, transcript, expected, unread -> #Replayed{
+    run_replayed(script, run, fn _, output, transcript, expected, unread -> Replayed{
         output,
         transcript,
         expected,

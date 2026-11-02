@@ -12,7 +12,7 @@ import (
 )
 
 // structFieldCandidates offers the fields a struct literal has not written
-// yet, `#Point{x: 1, ` offering `y`, with their types. The literal's type is
+// yet, `Point{x: 1, ` offering `y`, with their types. The literal's type is
 // its named type, its spread's (`#{..base, `), or the type its position
 // expects (`a: Address = #{‸}`). Fields without a default rank first, in
 // declaration order. A patch (a spread, or a literal with no type name at a
@@ -206,7 +206,7 @@ func variantNameOf(te ast.TypeExpr) string {
 }
 
 // variantPattern renders the dot-leading pattern that matches v and binds its
-// payload: `.Point`, `.Some(value)`, `#.Rect{w, h}`. As a snippet each binding
+// payload: `.Point`, `.Some(value)`, `.Rect{w, h}`. As a snippet each binding
 // is a placeholder numbered from n; it returns the next free number.
 func variantPattern(v analysis.VariantDef, n int, snippet bool) (string, int) {
 	hole := func(name string) string {
@@ -221,10 +221,10 @@ func variantPattern(v analysis.VariantDef, n int, snippet bool) (string, int) {
 	case analysis.VariantPositional:
 		return "." + v.Name + "(" + hole("value") + ")", n
 	case analysis.VariantStruct:
-		return "#." + v.Name + "{" + fieldNames(v.Fields, hole) + "}", n
+		return "." + v.Name + "{" + fieldNames(v.Fields, hole) + "}", n
 	case analysis.VariantEmbedded:
 		if st, ok := analysis.ResolveTypeVar(v.Embedded).(*analysis.StructType); ok {
-			return "#." + v.Name + "{" + fieldNames(st.Fields, hole) + "}", n
+			return "." + v.Name + "{" + fieldNames(st.Fields, hole) + "}", n
 		}
 		return "." + v.Name + "(" + hole("value") + ")", n
 	}

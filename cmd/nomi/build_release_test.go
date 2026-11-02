@@ -37,7 +37,8 @@ const releaseTestVersion = "v0.0.0-reltest"
 // runners it could be installed or served with, and the platform the cross
 // runner is for.
 type fakeReleaseBuild struct {
-	// install holds nomi and a matching nomi-vm, as an unpacked archive.
+	// install holds nomi and a matching nomi-vm and nomi-vm-nonet, as an
+	// unpacked archive.
 	install string
 	// bare holds the same nomi and no runner.
 	bare string
@@ -105,13 +106,19 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 		}{
 			{exe(filepath.Join(b.install, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
 			{exe(filepath.Join(b.install, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.install, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
 			{exe(filepath.Join(b.bare, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
 			{exe(filepath.Join(b.mismatch, "nomi")), "./cmd/nomi", nil, []string{"-ldflags", ldflags}},
 			{exe(filepath.Join(b.mismatch, "nomi-vm")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-ldflags", "-s -w"}},
+			{exe(filepath.Join(b.mismatch, "nomi-vm-nonet")), "./cmd/nomi-vm", nil, []string{"-buildvcs=false", "-tags", "nomi_nonet", "-ldflags", "-s -w"}},
 			{b.crossRunner, "./cmd/nomi-vm", []string{"GOOS=" + goos, "GOARCH=" + goarch}, []string{"-ldflags", "-s -w"}},
+			{b.crossRunner + "-nonet", "./cmd/nomi-vm", []string{"GOOS=" + goos, "GOARCH=" + goarch}, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
 			{b.wasmRunners["js/wasm"], "./cmd/nomi-vm", []string{"GOOS=js", "GOARCH=wasm"}, []string{"-ldflags", "-s -w"}},
+			{b.wasmRunners["js/wasm"] + "-nonet", "./cmd/nomi-vm", []string{"GOOS=js", "GOARCH=wasm"}, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
 			{b.wasmRunners["wasip1/wasm"], "./cmd/nomi-vm", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-ldflags", "-s -w"}},
+			{b.wasmRunners["wasip1/wasm"] + "-nonet", "./cmd/nomi-vm", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-tags", "nomi_nonet", "-ldflags", "-s -w"}},
 			{b.wasiReactor, "./cmd/nomi-vm-reactor", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-buildmode=c-shared", "-ldflags", "-s -w"}},
+			{b.wasiReactor + "-nonet", "./cmd/nomi-vm-reactor", []string{"GOOS=wasip1", "GOARCH=wasm"}, []string{"-buildmode=c-shared", "-tags", "nomi_nonet", "-ldflags", "-s -w"}},
 		}
 		for _, s := range steps {
 			args := append(append([]string{"build", "-trimpath"}, s.extra...), "-o", s.out, s.pkg)
@@ -247,7 +254,9 @@ func TestBuildFromRelease_AMismatchedRunnerIsRefused(t *testing.T) {
 	mustWrite(t, entry, releaseHello)
 	out := exe(filepath.Join(t.TempDir(), "hello"))
 	got := runProcess(t, releaseEnv(t, t.TempDir()), dir, "", exe(filepath.Join(b.mismatch, "nomi")), "build", entry, "-o", out)
-	want := "the nomi-vm at " + exe(filepath.Join(b.mismatch, "nomi-vm")) + " was built from an unrecorded commit and this nomi from commit "
+	// Hello world reaches no network crossing, so the runner it asks for
+	// is the one without the network.
+	want := "the nomi-vm at " + exe(filepath.Join(b.mismatch, "nomi-vm-nonet")) + " was built from an unrecorded commit and this nomi from commit "
 	if got.exit == 0 || !strings.Contains(got.stderr, want) ||
 		!strings.Contains(got.stderr, "Install nomi and nomi-vm from one release archive") {
 		t.Fatalf("exit %d, want the refusal %q:\n%s", got.exit, want, got.transcript())
@@ -362,12 +371,17 @@ func localRelease(t *testing.T, b fakeReleaseBuild, corruptSum bool) (*httptest.
 	if err != nil {
 		t.Fatal(err)
 	}
+	runnerNoNet, err := os.ReadFile(b.crossRunner + "-nonet")
+	if err != nil {
+		t.Fatal(err)
+	}
 	goos, goarch := crossTarget()
 	archive := fmt.Sprintf("nomi_%s_%s_%s.tar.gz", releaseTestVersion, goos, goarch)
 	data := tarGzFiles(t, map[string][]byte{
-		"./nomi":     []byte("not the cli"),
-		"./nomi-lsp": []byte("not the lsp"),
-		"./nomi-vm":  runner,
+		"./nomi":          []byte("not the cli"),
+		"./nomi-lsp":      []byte("not the lsp"),
+		"./nomi-vm":       runner,
+		"./nomi-vm-nonet": runnerNoNet,
 	})
 	sum := sha256Hex(data)
 	if corruptSum {
@@ -411,7 +425,9 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 		env := releaseEnv(t, cache, "NOMI_RELEASE_BASE_URL="+srv.URL)
 		out := filepath.Join(t.TempDir(), "hello")
 		got := runProcess(t, env, dir, "", nomi, "build", "--target", b.cross, entry, "-o", out)
-		want := "nomi build: downloading nomi-vm for " + b.cross + " from " + srv.URL + archive + "\n"
+		// Hello world reaches no network crossing, so it is built on the
+		// archive's runner without the network.
+		want := "nomi build: downloading nomi-vm-nonet for " + b.cross + " from " + srv.URL + archive + "\n"
 		if got.exit != 0 || got.stderr != want {
 			t.Fatalf("exit %d, want only %q on stderr:\n%s", got.exit, want, got.transcript())
 		}
@@ -434,7 +450,7 @@ func TestBuildFromRelease_CrossTargetDownloadsTheRunner(t *testing.T) {
 		if _, err := vmrunner.ReadImage(out); err != nil {
 			t.Fatalf("the %s build carries no image: %v", b.cross, err)
 		}
-		cached := filepath.Join(cache, "nomi-vm", releaseTestVersion, goos+"_"+goarch, "nomi-vm")
+		cached := filepath.Join(cache, "nomi-vm", releaseTestVersion, goos+"_"+goarch, "nomi-vm-nonet")
 		if _, err := os.Stat(cached); err != nil {
 			t.Fatalf("the downloaded runner is not cached at %s: %v", cached, err)
 		}
@@ -490,7 +506,11 @@ func wasmRelease(t *testing.T, b fakeReleaseBuild) *httptest.Server {
 		if err != nil {
 			t.Fatal(err)
 		}
-		members := map[string][]byte{"./nomi-vm": runner}
+		runnerNoNet, err := os.ReadFile(path + "-nonet")
+		if err != nil {
+			t.Fatal(err)
+		}
+		members := map[string][]byte{"./nomi-vm": runner, "./nomi-vm-nonet": runnerNoNet}
 		if target == "js/wasm" {
 			members["./wasm_exec.js"] = []byte(releaseWasmExec)
 		}
@@ -500,6 +520,11 @@ func wasmRelease(t *testing.T, b fakeReleaseBuild) *httptest.Server {
 				t.Fatal(err)
 			}
 			members["./nomi-vm-reactor"] = reactor
+			reactorNoNet, err := os.ReadFile(b.wasiReactor + "-nonet")
+			if err != nil {
+				t.Fatal(err)
+			}
+			members["./nomi-vm-reactor-nonet"] = reactorNoNet
 		}
 		archive := fmt.Sprintf("nomi_%s_%s.tar.gz", releaseTestVersion, strings.ReplaceAll(target, "/", "_"))
 		data := tarGzFiles(t, members)
@@ -539,7 +564,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 		t.Run(strings.ReplaceAll(target, "/", "_"), func(t *testing.T) {
 			out := filepath.Join(t.TempDir(), "hello.wasm")
 			got := runProcess(t, env, dir, "", nomi, "build", "--target", target, entry, "-o", out)
-			if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm for "+target) {
+			if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm-nonet for "+target) {
 				t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
 			}
 			if _, err := vmrunner.ReadImage(out); err != nil {
@@ -571,7 +596,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 		mustWrite(t, lib, "export fn twice(n: Int) -> Int {\n    n * 2\n}\n")
 		out := filepath.Join(t.TempDir(), "lib.wasm")
 		got := runProcess(t, env, dir, "", nomi, "build", "--target", "wasip1/wasm", lib, "-o", out)
-		if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm-reactor for wasip1/wasm") {
+		if got.exit != 0 || !strings.Contains(got.stderr, "downloading nomi-vm-reactor-nonet for wasip1/wasm") {
 			t.Fatalf("exit %d:\n%s", got.exit, got.transcript())
 		}
 		data, err := os.ReadFile(out)
@@ -589,7 +614,7 @@ func TestBuildFromRelease_WasmTargetsDownloadTheirRunners(t *testing.T) {
 			}
 		}
 		cached := filepath.Join(cache, "nomi-vm", releaseTestVersion, "wasip1_wasm")
-		for _, name := range []string{"nomi-vm", "nomi-vm-reactor"} {
+		for _, name := range []string{"nomi-vm-nonet", "nomi-vm-reactor-nonet"} {
 			if _, err := os.Stat(filepath.Join(cached, name)); err != nil {
 				t.Fatalf("the cache holds no %s: %v", name, err)
 			}

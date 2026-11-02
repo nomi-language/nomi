@@ -132,7 +132,7 @@ fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order))
             and is_next_to(painting, horse)
     })
     |> Iter.map(fn #(_dog, _snail, _fox, _horse, zebra) -> {
-        #Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
+        Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
     })
     |> Iter.to_list()
 }
@@ -156,14 +156,14 @@ fn is_next_to(one: Int, other: Int) -> Bool {
 }
 
 // FILE: zebra_puzzle_test.nomi
-import zebra_puzzle.{self, Nationality}
+import zebra_puzzle
 
 test "resident who drinks water" {
-    assert zebra_puzzle.drinks_water() == Nationality.Norwegian
+    assert zebra_puzzle.drinks_water() == .Norwegian
 }
 
 test "resident who owns zebra" {
-    assert zebra_puzzle.owns_zebra() == Nationality.Japanese
+    assert zebra_puzzle.owns_zebra() == .Japanese
 }
 ```
 <!-- expect

@@ -11,8 +11,8 @@ import (
 // Every literal of a built-in shape starts with that shape's symbol, and a
 // type built on the shape writes its name right after it: `#Path[1, 2]` is a
 // distinct type over a vector, `#.Items[1]` a variant whose payload is one,
-// `%Tags["a"]` a distinct type over a set, `#Pair(1, "x")` a distinct type
-// over a tuple. The struct and map forms (`#Point{...}`, `%Kvs{...}`) are
+// `%Tags["a"]` a distinct type over a set, `Pair(1, "x")` a distinct type
+// over a tuple. The struct and map forms (`Point{...}`, `%Kvs{...}`) are
 // checkStructLit's and checkMapLit's. The parser knows the shape from the
 // token after the name; this file resolves the name and checks the elements
 // against what the shape holds there.
@@ -74,12 +74,13 @@ func (c *checker) resolveShapeTarget(te ast.TypeExpr, line, col int, spelled, sh
 			name, shape, what, spelled, name, form))
 		return shapeTarget{}, false
 	}
-	if dt.Opaque && (c.fa == nil || c.fa.FilePath != dt.OwningSourceFile) {
+	if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
 		c.addError(line, col, fmt.Sprintf(
 			"constructor of opaque type '%s' is private to its defining module — use an exported constructor function", dt.Name))
 		return shapeTarget{}, false
 	}
-	return shapeTarget{name: name, distinct: dt, inner: dt.Inner}, true
+	dt = c.freshDistinct(dt)
+	return shapeTarget{name: name, distinct: dt, inner: distinctInnerOf(dt)}, true
 }
 
 // result is the type a literal builds once its elements are checked.
@@ -145,82 +146,6 @@ func (c *checker) checkNamedSetLit(n *ast.SetLit) Type {
 	return c.shapeTargetResult(t)
 }
 
-// checkNamedTupleLit types `#Pair(1, "x")`: a distinct type over a tuple,
-// built from the tuple's elements.
-func (c *checker) checkNamedTupleLit(n *ast.TupleLit) Type {
-	spelled := "#" + n.TypeName.TypeString() + "(...)"
-	t, ok := c.resolveShapeTarget(n.TypeName, n.Line, n.Col, spelled, "tuple", "#(...)", isTupleType, false)
-	if !ok {
-		for _, item := range n.Items {
-			c.checkNode(item)
-		}
-		return nil
-	}
-	tt := resolveTypeVar(t.inner).(*TupleType)
-	if len(tt.Elems) != len(n.Items) {
-		for _, item := range n.Items {
-			c.checkNode(item)
-		}
-		c.addError(n.Line, n.Col, fmt.Sprintf(
-			"%s wraps %s, a tuple of %d elements; `#%s(...)` has %d",
-			t.name, tt, len(tt.Elems), t.name, len(n.Items)))
-		return t.distinct
-	}
-	for i, item := range n.Items {
-		c.checkShapeElem(t, item, tt.Elems[i], fmt.Sprintf("element %d of %s", i+1, t.name))
-	}
-	return t.distinct
-}
-
-// checkNamedTuplePattern checks `#Pair(a, b)`, which takes a distinct type
-// over a tuple apart along with its tuple.
-func (c *checker) checkNamedTuplePattern(n *ast.TuplePattern, expectedTy Type) {
-	untyped := func() {
-		for _, sub := range n.Patterns {
-			c.checkPattern(sub, nil)
-		}
-	}
-	if expectedTy == nil {
-		untyped()
-		return
-	}
-	name := n.TypeName.TypeString()
-	dt, ok := expectedTy.(*DistinctType)
-	if !ok {
-		c.addError(n.Line, n.Col, fmt.Sprintf(
-			"tuple pattern `#%s(...)` takes apart a distinct type over a tuple, but the value is %s %s",
-			name, articleFor(expectedTy.String()), expectedTy))
-		untyped()
-		return
-	}
-	if !distinctTypeNameMatches(name, dt.Name) {
-		c.addError(n.Line, n.Col, fmt.Sprintf("distinct type pattern %s does not match type %s", name, dt.Name))
-		untyped()
-		return
-	}
-	if dt.Opaque && (c.fa == nil || c.fa.FilePath != dt.OwningSourceFile) {
-		c.addError(n.Line, n.Col, fmt.Sprintf(
-			"cannot destructure opaque type '%s' outside its defining module", dt.Name))
-		untyped()
-		return
-	}
-	tt, ok := resolveTypeVar(dt.Inner).(*TupleType)
-	if !ok {
-		c.addError(n.Line, n.Col, fmt.Sprintf(
-			"%s wraps %s, not a tuple; take it apart with `%s(x)`", dt.Name, dt.Inner, name))
-		untyped()
-		return
-	}
-	if len(n.Patterns) != len(tt.Elems) {
-		c.addError(n.Line, n.Col, fmt.Sprintf("tuple pattern has %d elements but expected %d", len(n.Patterns), len(tt.Elems)))
-		untyped()
-		return
-	}
-	for i, sub := range n.Patterns {
-		c.checkPattern(sub, tt.Elems[i])
-	}
-}
-
 // shapePatternTarget is the type a vector or set pattern takes apart at
 // expectedTy: the vector or set itself, the one a distinct type over it
 // wraps, or a variant's payload when the pattern names the variant. shape
@@ -258,12 +183,12 @@ func (c *checker) shapePatternTarget(typeName ast.TypeExpr, line, col int, expec
 			c.addError(line, col, fmt.Sprintf(
 				"%s pattern prefix %s does not match scrutinee type %s", shape, typeName.TypeString(), dt.Name))
 		}
-		if dt.Opaque && (c.fa == nil || c.fa.FilePath != dt.OwningSourceFile) {
+		if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
 			c.addError(line, col, fmt.Sprintf(
 				"cannot destructure opaque type '%s' outside its defining module", dt.Name))
 			return nil
 		}
-		return dt.Inner
+		return distinctInnerOf(dt)
 	}
 	if typeName != nil {
 		c.addError(line, col, fmt.Sprintf(
@@ -348,13 +273,11 @@ func (c *checker) checkSetPattern(n *ast.SetPattern, expectedTy Type) {
 }
 
 // LiteralSigil is the symbol a literal headed by the name of t starts with:
-// '#' for a struct, an enum (whose variants a literal names), and a
-// distinct type over a tuple or vector; '%' for a distinct type over a map
-// or set; 0 for a type whose name heads no shape literal.
+// '#' for a distinct type over a tuple or vector; '%' for a distinct type
+// over a map or set; 0 for any other type, a struct's or an enum's
+// included, whose literal is its name alone (`Point{...}`).
 func LiteralSigil(t Type) byte {
 	switch t := resolveTypeVar(t).(type) {
-	case *StructType, *EnumType:
-		return '#'
 	case *DistinctType:
 		inner := resolveTypeVar(t.Inner)
 		switch {

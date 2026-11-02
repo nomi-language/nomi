@@ -53,7 +53,7 @@ func TestTourDoctests(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && (strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".mdx")) {
+		if !d.IsDir() && (strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".mdx")) && filepath.Base(path) != "cheat-sheet.md" {
 			chapters = append(chapters, path)
 		}
 		return nil
@@ -61,6 +61,11 @@ func TestTourDoctests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("walk tour content: %v", err)
 	}
+	// The cheat sheet's page is nomi-docgen's copy of docs/cheatsheet.md,
+	// which TestCheatSheetPageIsCurrent holds it to, so its blocks run here
+	// from the source, once, and a regeneration rewrites the source's expect
+	// blocks; the page follows when nomi-docgen -llms runs again.
+	chapters = append(chapters, filepath.Clean("../docs/cheatsheet.md"))
 
 	// NOMI_REGENERATE_EXPECTATIONS=1 writes each ordinary block's expect
 	// block from its run, its tests' report included.
@@ -109,13 +114,13 @@ func TestTourDoctests(t *testing.T) {
 				t.Run(name, func(t *testing.T) { checkTourErrorBlock(t, b) })
 				continue
 			}
-			if b.HasInfo(doctest.InfoNoRun) {
+			if b.CompilesOnly() {
 				t.Run(name, func(t *testing.T) {
 					if msg := tourCompileError(t, b.Code); msg != "" {
-						t.Fatalf("a no-run tour block must compile:\n%s\n\nerror:\n%s", b.Code, msg)
+						t.Fatalf("a no-run or compile-only tour block must compile:\n%s\n\nerror:\n%s", b.Code, msg)
 					}
 					if b.Expected != nil {
-						t.Fatalf("a no-run tour block is never run, so it has no <!-- expect ... --> block:\n%s", b.Code)
+						t.Fatalf("a no-run or compile-only tour block is never run by a doctest, so it has no <!-- expect ... --> block:\n%s", b.Code)
 					}
 				})
 				continue
@@ -298,8 +303,8 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 // expect block, which it must have.
 func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) {
 	t.Helper()
-	if b.HasInfo(doctest.InfoNoRun) {
-		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `no-run`:\n%s", b.Code)
+	if b.CompilesOnly() {
+		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `no-run` or `compile-only`:\n%s", b.Code)
 	}
 	tourModule := func(name string) bool {
 		return slices.ContainsFunc(tourgo.Modules, func(m tourgo.Module) bool { return m.Name == name })

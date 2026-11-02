@@ -19,7 +19,7 @@ func onlyAppFieldError(t *testing.T, errs []analysis.TypeError, want string) {
 const appFieldsRecursionPrefix = `
 struct App { context: Context
 n: Int }
-fn boot() -> Result<App, String> { Ok(#App{context: Context.root(), n: 1}) }
+fn boot() -> Result<App, String> { Ok(App{context: Context.root(), n: 1}) }
 fn main() { _ = 1 }
 `
 
@@ -51,7 +51,7 @@ test "default" { assert later(1)(0) == 1 }
 // callback reads the field.
 func TestAppFields_ReadThroughARecursiveReduceCallback(t *testing.T) {
 	onlyAppFieldError(t, buildProjectForDefaultConfig(appFieldsRecursionPrefix+`fn total(xs: List<Int>) -> Int {
-  Iter.reduce(xs, fn acc = 0, _ -> acc + App.n + total([]))
+  Iter.reduce(xs, 0, fn acc, _ -> acc + App.n + total([]))
 }
 test "default" { assert total([1]) == 1 }
 `), "this test has no boot, but code it runs reads `App.n` (line 7)")
@@ -81,6 +81,6 @@ impl Iter<Int> for Bag {
   fn each_while(collection: Bag, yield: (Int) -> Bool) -> Bool { Iter.each_while(collection.items, yield) }
   fn known_count(_collection: Bag) -> Maybe<Int> { Some(App.n) }
 }
-test "default" { assert Iter.count(#Bag{items: [1]}) == 1 }
+test "default" { assert Iter.count(Bag{items: [1]}) == 1 }
 `), "this test has no boot, but code it runs reads `App.n` (line 9)")
 }

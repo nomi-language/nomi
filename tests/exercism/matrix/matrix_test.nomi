@@ -1,4 +1,4 @@
-import matrix.{Error, Matrix}
+import matrix.Matrix
 
 test "rows" {
     [
@@ -46,7 +46,7 @@ test "columns" {
 // Not canonical: the canonical matrices are all well formed and every index
 // is in range.
 test "a word that is not a number is an error" {
-    assert Matrix.parse("1 2\n3 four") == Err(Error.NotANumber("four"))
+    assert Matrix.parse("1 2\n3 four") == Err(.NotANumber("four"))
 }
 
 test "an index past the last row or column is None" {

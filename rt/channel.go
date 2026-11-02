@@ -71,6 +71,12 @@ type Chan[T any] struct {
 	// sets it under CloseMu while a parked sender may be observing it.
 	closed  atomic.Bool
 	closeMu sync.Mutex
+	// drained is set when SenderCloseOnDrain's hook closed the channel, so
+	// the owner's own close after it is no double close.
+	drained bool
+	// unhookDrain unregisters SenderCloseOnDrain's hook; the owner's close
+	// calls it, so a closed channel is not closed again at shutdown.
+	unhookDrain func()
 }
 
 // Sender is Nomi's `std/channels.Sender<T>`: the writing half, and the half that
@@ -262,9 +268,55 @@ func SenderClose[T any](s Sender[T]) Unit {
 	c := s.c
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
+	if c.unhookDrain != nil {
+		c.unhookDrain()
+		c.unhookDrain = nil
+	}
 	if !c.closed.CompareAndSwap(false, true) {
+		if c.drained {
+			// Shutdown closed it first (SenderCloseOnDrain): the owner's
+			// close is the one it would have made.
+			return Unit{}
+		}
 		Trap(ChannelDoubleCloseText())
 	}
 	close(c.ch)
+	return Unit{}
+}
+
+// SenderCloseOnDrain is `Sender.close_on_drain(sender)`: the channel closes
+// when the program starts draining its supervisors (OnDrain), so a task that
+// reads it until it closes finishes what is queued and ends, and the drain
+// does not wait out its grace period for a reader parked on an empty
+// channel. A close by the owner first unregisters it; one after it is no
+// double close.
+func SenderCloseOnDrain[T any](s Sender[T]) Unit {
+	c := s.c
+	c.closeMu.Lock()
+	if c.closed.Load() || c.unhookDrain != nil {
+		c.closeMu.Unlock()
+		return Unit{}
+	}
+	// Registered outside the lock: when the drain has already started,
+	// OnDrain runs the hook at once, and the hook takes the lock.
+	c.unhookDrain = func() {}
+	c.closeMu.Unlock()
+	unhook := OnDrain(func() {
+		c.closeMu.Lock()
+		defer c.closeMu.Unlock()
+		if c.closed.CompareAndSwap(false, true) {
+			c.drained = true
+			close(c.ch)
+		}
+	})
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
+	if c.closed.Load() {
+		// The owner closed it, or the hook already ran: nothing is left
+		// for the hook to do.
+		unhook()
+	} else {
+		c.unhookDrain = unhook
+	}
 	return Unit{}
 }

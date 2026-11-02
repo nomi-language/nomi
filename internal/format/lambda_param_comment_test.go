@@ -11,8 +11,8 @@ import "testing"
 func TestFormat_LambdaParameterCommentStaysAfterItsComma(t *testing.T) {
 	cases := map[string]struct{ src, want string }{
 		"after a default, body on the next line": {
-			"fn main() {\n    body = Iter.reduce(xs, fn acc = \"\", // c1\n frag ->\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",
-			"fn main() {\n    body = Iter.reduce(xs, fn acc = \"\", // c1\n        frag -> {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, \"\", fn acc, // c1\n frag ->\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",
+			"fn main() {\n    body = Iter.reduce(xs, \"\", fn acc, // c1\n        frag -> {\n        case frag {\n            _ -> acc\n        }\n    })\n}\n",
 		},
 		"after a bare name, body on the next line": {
 			"fn main() {\n    body = Iter.reduce(xs, fn acc, // c1\n frag ->\n        case frag {\n            _ -> acc\n        }\n    )\n}\n",

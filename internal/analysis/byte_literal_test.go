@@ -41,7 +41,7 @@ func TestByteLiteralTakesItsTypeFromItsPosition(t *testing.T) {
 		{"list element", "fn f() -> List<Byte> {\n  bytes: List<Byte> = [0x81, 0x00, 0x7F]\n  bytes\n}\n"},
 		{"argument", "fn take(b: Byte) -> Byte {\n  b\n}\n\nfn f() -> Byte {\n  take(0x81)\n}\n"},
 		{"list argument", "fn f() -> Bytes {\n  Bytes.from_list([0x68, 0x69])\n}\n"},
-		{"struct field", "struct Packet {\n  tag: Byte\n  size: Int\n}\n\nfn f() -> Packet {\n  #Packet{tag: 0x07, size: 300}\n}\n"},
+		{"struct field", "struct Packet {\n  tag: Byte\n  size: Int\n}\n\nfn f() -> Packet {\n  Packet{tag: 0x07, size: 300}\n}\n"},
 		{"tail", "fn f() -> Byte {\n  0xFF\n}\n"},
 		{"return", "fn f(early: Bool) -> Byte {\n  if early { return 0x01 }\n  0x02\n}\n"},
 		{"default", "fn f(b: Byte = 0x20) -> Byte {\n  b\n}\n"},

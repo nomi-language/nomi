@@ -5,5 +5,5 @@ struct Exit {
 }
 
 fn main() -> Result<Unit, Exit> {
-    Err(#Exit{code: 9})
+    Err(Exit{code: 9})
 }

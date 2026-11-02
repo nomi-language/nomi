@@ -92,7 +92,7 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw {
         .Greater -> .Landscape
     }
 
-    #Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
+    Jigsaw{pieces, border: pieces - inside, inside, rows, columns, aspect_ratio, format}
 }
 
 /// Whether `jigsaw` agrees with every part `clues` knows.
@@ -200,7 +200,7 @@ fn nearest(x: Float) -> Maybe<Int> {
 }
 
 // FILE: piecing_it_together_test.nomi
-import piecing_it_together.{Clues, Error, Jigsaw, jigsaw_data}
+import piecing_it_together.{Clues, Jigsaw, jigsaw_data}
 
 test "jigsaw data" {
     cases: List<#(String, Clues, Jigsaw)> = [
@@ -277,15 +277,15 @@ test "jigsaw data" {
 }
 
 test "puzzle with insufficient data" {
-    clues = #Clues{pieces: Some(1500), format: Some(.Landscape)}
+    clues = Clues{pieces: Some(1500), format: Some(.Landscape)}
 
-    assert jigsaw_data(clues) == Err(Error.InsufficientData)
+    assert jigsaw_data(clues) == Err(.InsufficientData)
 }
 
 test "puzzle with contradictory data" {
-    clues = #Clues{rows: Some(100), columns: Some(1000), format: Some(.Square)}
+    clues = Clues{rows: Some(100), columns: Some(1000), format: Some(.Square)}
 
-    assert jigsaw_data(clues) == Err(Error.ContradictoryData)
+    assert jigsaw_data(clues) == Err(.ContradictoryData)
 }
 ```
 <!-- expect

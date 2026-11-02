@@ -104,6 +104,10 @@ func NewServer() *Server {
 		panicLogMu.Lock()
 		fmt.Fprintf(panicLog, "%s: %v\n", serverName, err)
 		panicLogMu.Unlock()
+	} else if err := lib.CheckError(); err != nil {
+		panicLogMu.Lock()
+		fmt.Fprintf(panicLog, "%s: %v\n", serverName, err)
+		panicLogMu.Unlock()
 	}
 
 	s.handler = protocol.Handler{

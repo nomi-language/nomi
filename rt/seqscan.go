@@ -2,8 +2,7 @@ package rt
 
 // `Iter.scan` and `Iter.map_reduce`: the two folds that answer more than the
 // final state. Both take their seed as an argument for SeqReduce's reason:
-// the seed is the callback lambda's first-parameter default, which the call
-// site lifts out, and it belongs to the callback rather than the source.
+// it belongs to the call rather than the source.
 //
 // A signalling callback answers rt's adapter outcome (seqctladapt.go), not
 // reduce's `#(acc, keepGoing)`, because both functions emit per element and
@@ -56,30 +55,30 @@ func SeqScanCtl[T, U any](src Seq[T], seed U, f func(fr *Frame, acc U, item T) (
 }
 
 // SeqMapReduceCells is `Iter.map_reduce(src, f)` over the consumer's cell
-// type: f answers each element's output and the next state, and the result
-// is the outputs in source order with the final state, built by pair.
+// type: f answers the next state and each element's output, and the result
+// is the final state with the outputs in source order, built by pair.
 func SeqMapReduceCells[T, U, A any, N ListCellShape[U, N], P any](fr *Frame, src Seq[T], seed A,
-	f func(fr *Frame, acc A, item T) (U, A), pair func(*N, A) P) P {
+	f func(fr *Frame, acc A, item T) (A, U), pair func(A, *N) P) P {
 	acc := seed
 	var outs []U
 	src.Run(fr, func(fr *Frame, item T) bool {
 		var out U
-		out, acc = f(fr, acc, item)
+		acc, out = f(fr, acc, item)
 		outs = append(outs, out)
 		return true
 	})
-	return pair(listCellsOf[U, N](outs), acc)
+	return pair(acc, listCellsOf[U, N](outs))
 }
 
 // SeqMapReduceCtlCells is SeqMapReduceCells whose callback can `break` or
-// `continue`. f answers the output, the next state and the outcome; the
-// output and state are read only for CtlEmit and CtlEmitStop.
+// `continue`. f answers the next state, the output and the outcome; the
+// state and output are read only for CtlEmit and CtlEmitStop.
 func SeqMapReduceCtlCells[T, U, A any, N ListCellShape[U, N], P any](fr *Frame, src Seq[T], seed A,
-	f func(fr *Frame, acc A, item T) (U, A, Ctl), pair func(*N, A) P) P {
+	f func(fr *Frame, acc A, item T) (A, U, Ctl), pair func(A, *N) P) P {
 	acc := seed
 	var outs []U
 	src.Run(fr, func(fr *Frame, item T) bool {
-		out, next, c := f(fr, acc, item)
+		next, out, c := f(fr, acc, item)
 		switch c {
 		case CtlEmit:
 			outs, acc = append(outs, out), next
@@ -93,5 +92,5 @@ func SeqMapReduceCtlCells[T, U, A any, N ListCellShape[U, N], P any](fr *Frame, 
 			return false
 		}
 	})
-	return pair(listCellsOf[U, N](outs), acc)
+	return pair(acc, listCellsOf[U, N](outs))
 }

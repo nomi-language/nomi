@@ -280,7 +280,7 @@ type variantDef struct {
 	// positional and embedded, one per field for struct-shaped.
 	payloads []payload
 	// embeds is the struct an `embeds` variant wraps, nil otherwise. It is
-	// what makes `#Shape.Circle{radius: 1.0}` construct a Circle and wrap it.
+	// what makes `Shape.Circle{radius: 1.0}` construct a Circle and wrap it.
 	embeds *typeDef
 }
 
@@ -919,7 +919,15 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 // A STDLIB opaque distinct never reaches here at all: buildTypes gives it the
 // process-wide def whose Go type rt declares. Only a USER declaration does.
 func (g *gen) resolveDistinct(d *typeDef, t *ast.TypeDef) {
-	g.declModifiers(d, t.Decorators, nil, nil, t.Items, "type")
+	g.declModifiers(d, t.Decorators, t.TypeParams, nil, t.Items, "type")
+	g.resolveDistinctInner(d, t, typeParamNames(t.TypeParams))
+}
+
+// resolveDistinctInner resolves a distinct's inner type: the declaration's,
+// or a generic distinct instance's under its substitution frame
+// (genericInstance). tps is a generic declaration's own parameters, whose
+// inner type names them and so has no kind until an instance is built.
+func (g *gen) resolveDistinctInner(d *typeDef, t *ast.TypeDef, tps map[string]bool) {
 	if t.InnerTypeExpr == nil {
 		// A marker. inner stays kindInvalid, which zeroSized reads as "no
 		// storage at all" — distinct from a refusal, which also leaves it
@@ -929,6 +937,11 @@ func (g *gen) resolveDistinct(d *typeDef, t *ast.TypeDef) {
 	k := g.typeOf(t.InnerTypeExpr)
 	// kindInvalid: reports — records `non-scalar distinct inner type` on the declaration.
 	if k == kindInvalid {
+		if namesTypeParam(t.InnerTypeExpr, tps) {
+			// `type Tagged<T> #(String, T)`: refused as `generic type`
+			// already, as resolveStructFields says for a field.
+			return
+		}
 		d.refusals = append(d.refusals, refusal{
 			construct: "non-scalar distinct inner type",
 			detail:    "type " + d.nomi + " " + typeText(t.InnerTypeExpr),

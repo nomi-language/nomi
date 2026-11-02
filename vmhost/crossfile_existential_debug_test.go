@@ -37,7 +37,7 @@ impl Named for Mark {
 }
 
 fn main() {
-    h = #Holder{held: #Mark{k: 1}}
+    h = Holder{held: Mark{k: 1}}
     io.print(Named.name(h.held))
     io.print(Debug.inspect(h))
 }
@@ -56,7 +56,7 @@ fn main() {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatalf("run: %v\n%s", err, out.String())
 	}
-	if want := "m1\n#Holder{held: #Mark{k: 1}}\n"; out.String() != want {
+	if want := "m1\nHolder{held: Mark{k: 1}}\n"; out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
 	}
 }

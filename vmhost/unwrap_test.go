@@ -60,11 +60,11 @@ fn half(n: Int) -> Result<Int, String> {
 }
 
 fn oops(n: Int) -> Result<Int, Oops> {
-    if n > 0 { Ok(n) } else { Err(#Oops{code: n}) }
+    if n > 0 { Ok(n) } else { Err(Oops{code: n}) }
 }
 
 fn nice(n: Int) -> Result<Int, Nice> {
-    if n > 0 { Ok(n) } else { Err(#Nice{why: "too small"}) }
+    if n > 0 { Ok(n) } else { Err(Nice{why: "too small"}) }
 }
 
 fn first<T>(xs: List<T>) -> Maybe<T> {
@@ -131,7 +131,7 @@ func TestUnwrap_EveryFormAnswersThePayload(t *testing.T) {
 		{`    io.print("${Map.get(m, "a")!}")`, "1\n"},
 		{`    io.print("${"12" |> String.to_int()! |> Int.abs()}")`, "12\n"},
 		{`    io.print("${Iter.map([2, 4], &half(&1)!) |> Iter.to_list()}")`, "[1, 2]\n"},
-		{`    io.print("${#User{name: "a", nickname: Some("b")}.nickname!}")`, "b\n"},
+		{`    io.print("${User{name: "a", nickname: Some("b")}.nickname!}")`, "b\n"},
 		{`    io.print("${(8 |> half())! + 1}")`, "5\n"},
 		{`    found = local(3)
     io.print("${found!}")`, "3\n"},
@@ -150,17 +150,17 @@ func TestUnwrap_EveryFormAnswersThePayload(t *testing.T) {
 func TestUnwrap_FailureTrapText(t *testing.T) {
 	cases := []struct{ body, want string }{
 		{`    io.print("${half(3)!}")`, "`half(3)` failed: 3 is odd"},
-		{`    io.print("${oops(-1)!}")`, "`oops(-1)` failed: #Oops{code: -1}"},
+		{`    io.print("${oops(-1)!}")`, "`oops(-1)` failed: Oops{code: -1}"},
 		{`    io.print("${nice(-1)!}")`, "`nice(-1)` failed: nice: too small"},
 		{`    io.print("${local(0)!}")`, "`local(0)` found nothing"},
 		{`    io.print("${f(-2)!}")`, "`f(-2)` found nothing"},
 		{`    io.print("${helper.twice(200)!}")`, "`helper.twice(200)` found nothing"},
 		{`    io.print("${Map.get(m, "z")!}")`, "`Map.get(m, \"z\")` found nothing"},
 		{`    io.print("${"abc" |> String.to_int()!}")`, "`\"abc\" |> String.to_int()` found nothing"},
-		{`    io.print("${#User{name: "a", nickname: None}.nickname!}")`, "`#User{name: \"a\", nickname: None}.nickname` found nothing"},
+		{`    io.print("${User{name: "a", nickname: None}.nickname!}")`, "`User{name: \"a\", nickname: None}.nickname` found nothing"},
 		{`    io.print("${(9 |> half())! + 1}")`, "`(9 |> half())` failed: 9 is odd"},
-		{`    io.print("${pick(#User{name: "a", nickname: None}, .Red, #(1, "x"), 'q', 1.50d, 2.5, True, "a long string")!}")`,
-			"`pick(#User{name: \"a\", nickname: None}, .Red, #(1, \"x\"), 'q',...` found nothing"},
+		{`    io.print("${pick(User{name: "a", nickname: None}, .Red, #(1, "x"), 'q', 1.50d, 2.5, True, "a long string")!}")`,
+			"`pick(User{name: \"a\", nickname: None}, .Red, #(1, \"x\"), 'q', ...` found nothing"},
 	}
 	for _, tc := range cases {
 		out, errText := runBang(t, tc.body)

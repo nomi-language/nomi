@@ -38,8 +38,8 @@ func TestHover_VariantEverywhere(t *testing.T) {
 	// Hall has no doc of its own; the enum's stands in.
 	hall := []string{"```nomi\nRoom.Hall\n```", "Where the game is."}
 	hallDot := append([]string{"*`Room` from the expected type*"}, hall...)
-	game := "fn main() {\n  g = #Game{\n    at: %s,\n    monsters: %{.Hall => .Goblin},\n  }\n  io.inspect(g)\n}\n"
-	keyed := "fn main() {\n  g = #Game{\n    at: .Cave,\n    monsters: %{%s => .Goblin},\n  }\n  io.inspect(g)\n}\n"
+	game := "fn main() {\n  g = Game{\n    at: %s,\n    monsters: %{.Hall => .Goblin},\n  }\n  io.inspect(g)\n}\n"
+	keyed := "fn main() {\n  g = Game{\n    at: .Cave,\n    monsters: %{%s => .Goblin},\n  }\n  io.inspect(g)\n}\n"
 	value := "fn main() {\n  r: Room = %s\n  io.inspect(r)\n}\n"
 	arg := "fn main() {\n  io.inspect(enter(%s))\n}\n"
 	pattern := "fn f(r: Room) -> Int {\n  case r {\n    %s -> 1\n    _ -> 0\n  }\n}\n"
@@ -66,7 +66,7 @@ func TestHover_VariantEverywhere(t *testing.T) {
 		{"the ( of a payload constructor", in(value, ".Pit▮(2)"), []string{"```nomi\nRoom.Pit(Int)\n```", "*`Room` from the expected type*"}, nil},
 		{"the ( of a qualified constructor", in(value, "Room.Pit▮(2)"), []string{"```nomi\nRoom.Pit(Int)\n```"}, []string{"from the expected type"}},
 		{"the ( of a payload pattern", in(pattern, ".Pit▮(n)"), []string{"```nomi\nRoom.Pit(Int)\n```", "*`Room` from the expected type*"}, nil},
-		{"the . of a struct variant pattern", in(pattern, "#▮.Vault{depth}"), []string{"```nomi\nRoom.Vault { depth: Int }\n```", "*`Room` from the expected type*"}, nil},
+		{"the . of a struct variant pattern", in(pattern, "▮.Vault{depth}"), []string{"```nomi\nRoom.Vault { depth: Int }\n```", "*`Room` from the expected type*"}, nil},
 		{"Some's name", "fn main() {\n  s = ▮Some(1)\n  io.inspect(s)\n}\n", []string{"```nomi\nMaybe.Some(Int) -> Maybe<Int>\n```"}, nil},
 		{"Some's (", "fn main() {\n  s = Some▮(1)\n  io.inspect(s)\n}\n", []string{"```nomi\nMaybe.Some(Int) -> Maybe<Int>\n```"}, nil},
 		{"a payload keeps its own hover", "fn main() {\n  s = Some(▮1)\n  io.inspect(s)\n}\n", []string{"```nomi"}, []string{"Maybe.Some"}},

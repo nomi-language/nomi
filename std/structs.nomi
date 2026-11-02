@@ -25,9 +25,9 @@ pub interface Struct {
     /// (`#{address: #{.., city: "NYC"}}` changes only the city).
     ///
     /// ```nomi
-    /// original = #Point{x: 1, y: 2}
+    /// original = Point{x: 1, y: 2}
     ///
-    /// Struct.update(original, #{x: 10}) // → #Point{x: 10, y: 2}
+    /// Struct.update(original, #{x: 10}) // → Point{x: 10, y: 2}
     /// ```
     host fn update(original: self, updates: Partial<self>) -> self
 }

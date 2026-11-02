@@ -57,7 +57,7 @@ fn main() {
 }
 `},
 		{"struct field in a named literal", `fn main() {
-  _p = #Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
+  _p = Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}}
 }
 `},
 		{"nested, through an annotated binding", `fn main() {
@@ -158,7 +158,7 @@ func TestTargetTypedStruct_ErrorsNameTheNominalType(t *testing.T) {
 		{"missing field at a binding", `  _a: Address = #{city: "Bath"}`, "missing field 'street' of Address"},
 		{"wrong field type at a binding", `  _a: Address = #{street: "s", city: 3}`, "field 'city' of Address: expected String, got Int"},
 		{"unknown field at a binding", `  _a: Address = #{street: "s", city: "c", postcode: "z"}`, "Address has no field 'postcode'"},
-		{"missing field at a struct field", `  _p = #Person{name: "Ada", address: #{city: "NYC"}}`, "missing field 'street' of Address"},
+		{"missing field at a struct field", `  _p = Person{name: "Ada", address: #{city: "NYC"}}`, "missing field 'street' of Address"},
 		{"missing field at an argument", `  _s = show(#{city: "NYC"})`, "missing field 'street' of Address"},
 		{"missing field at a list element", `  _l: List<Address> = [#{city: "NYC"}]`, "missing field 'street' of Address"},
 		{"wrong type in a generic struct", `  _b: Box<Int> = #{item: "s"}`, "field 'item' of Box: expected Int, got String"},
@@ -249,7 +249,7 @@ func TestTargetTypedStruct_DoesNotGuess(t *testing.T) {
 // rules must not reach each other's positions.
 func TestTargetTypedStruct_SpreadPatchWins(t *testing.T) {
 	fa, errs := checkSourceWithStdlib(targetTypedDecls + `fn main() {
-  p = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath"}}
+  p = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
   _moved = #{..p, address: #{.., city: "NYC"}}
 }
 `)
@@ -267,7 +267,7 @@ func TestTargetTypedStruct_SpreadValueAtAField(t *testing.T) {
 	// A complete brace under a spread is still a patch (it names every
 	// field), and a nested spread is a value of the field's type.
 	_, errs := checkSourceWithStdlib(targetTypedDecls + `fn main() {
-  p = #Person{name: "Ada", address: #Address{street: "1 Main", city: "Bath"}}
+  p = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
   _a = #{..p, address: #{street: "2 Main", city: "York"}}
   _b = #{..p, address: #{..p.address, city: "York"}}
 }

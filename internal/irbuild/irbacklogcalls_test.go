@@ -164,7 +164,7 @@ pub fn twice(n: Int) -> Int {
 }
 
 fn countdown(from: Int) -> Int {
-  loop(fn n = from -> {
+  loop(from, fn n -> {
     if n == 0 { break n }
     n - 1
   })
@@ -214,7 +214,7 @@ fn same<T>(value: T) -> T {
 }
 
 fn via() -> String {
-  announce(#User{name: "Alice"})
+  announce(User{name: "Alice"})
 }
 
 test "from a named function" {
@@ -222,7 +222,7 @@ test "from a named function" {
 }
 
 test "from a test body" {
-  assert announce(#User{name: "Bob"}) == "announce(user:Bob)"
+  assert announce(User{name: "Bob"}) == "announce(user:Bob)"
   assert same(3) == 3
   assert same("x") == "x"
 }

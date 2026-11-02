@@ -102,6 +102,14 @@ module.exports = grammar({
     [$._lambda_body_expression, $._expression, $._callable_expression],
     [$._expression, $.destructuring_binding],
     [$.destructuring_binding, $.struct_pattern],
+    [$.function_definition, $._simple_type, $._struct_name],
+    [$.function_definition, $.qualified_variant, $._struct_name],
+    [$._lambda_body_expression, $._struct_name],
+    [$._case_pattern, $._struct_name],
+    [$._lambda_body_expression, $._expression, $._struct_name],
+    [$._case_pattern, $.qualified_variant, $._struct_name],
+    [$._expression, $.qualified_variant, $._struct_name],
+    [$._expression, $._struct_name],
     [$._expression, $.enum_pattern, $._callable_expression],
     [$.enum_pattern, $._callable_expression],
     // `self(...)` is the pattern `self(p)` or the construction `self(x)`
@@ -1353,10 +1361,10 @@ module.exports = grammar({
     ),
 
     destructuring_binding: $ => choice(
-      // Tuple: #(x, y) = expr, or #Pair(x, y) = expr for a distinct type
-      // over a tuple.
+      // Tuple: #(x, y) = expr. A distinct type over a tuple is taken
+      // apart by its name, Pair(x, y) = expr, as an enum pattern.
       seq(
-        choice('#(', seq('#', field('type', $._literal_head), '(')),
+        '#(',
         commaSep1(choice(
           field('binding', choice($.identifier, '_')),
           field('pattern', $._destructuring_subpattern),
@@ -1678,7 +1686,7 @@ module.exports = grammar({
     // A tuple, `#(a, b)`, or one that names a distinct type over a tuple:
     // `#Pair(1, "x")`.
     tuple_expression: $ => seq(
-      choice('#(', seq('#', field('type', $._literal_head), '(')),
+      '#(',
       $._expression,
       repeat1(seq(',', $._expression)),
       optional(','),
@@ -1881,7 +1889,7 @@ module.exports = grammar({
       $._named_struct_pattern,
     )),
 
-    _named_struct_pattern: $ => seq('#', field('type', $._literal_head), '{', commaSep($.pattern_field), '}'),
+    _named_struct_pattern: $ => seq(field('type', $._struct_name), token.immediate('{'), commaSep($.pattern_field), '}'),
 
     // A map pattern, `%{"k" => pat}`, or one that names a map-distinct type
     // or a map-payload variant: `%Kvs{..}`, `%.Obj{"k" => v}`. Each key is an
@@ -1935,7 +1943,7 @@ module.exports = grammar({
     // A tuple pattern, `#(a, b)`, or one that names a distinct type over a
     // tuple: `#Pair(a, b)`.
     tuple_pattern: $ => seq(
-      choice('#(', seq('#', field('type', $._literal_head), '(')),
+      '#(',
       $._case_pattern,
       repeat1(seq(',', $._case_pattern)),
       ')',
@@ -2102,14 +2110,22 @@ module.exports = grammar({
 
     _immediate_dot_variant: $ => seq(token.immediate('.'), $.type_identifier),
 
-    // A struct literal that names its type: `#Point{x: 1, y}`,
-    // `#geo.Point{..}`, a struct-shaped variant `#Shape.Circle{radius: 1.0}`,
-    // `#Circle{..}` or `#.Circle{..}`. A punned field (`#Point{x}`) means
-    // `x: x`. The literal with no name is `anon_struct` (`#{x: 1}`).
+    // The name a named struct literal or pattern starts with: `Point`,
+    // `Shape.Circle`, `geo.Point`, `.Circle`.
+    _struct_name: $ => choice(
+      $.dot_variant,
+      seq($.type_identifier, repeat(seq(token.immediate('.'), $.type_identifier))),
+      seq($.identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
+    ),
+
+    // A struct literal that names its type, with the `{` against the name:
+    // `Point{x: 1, y}`, `geo.Point{..}`, a struct-shaped variant
+    // `Shape.Circle{radius: 1.0}`, `Circle{..}` or `.Circle{..}`. A punned
+    // field (`Point{x}`) means `x: x`. The literal with no name is
+    // `anon_struct` (`#{x: 1}`).
     struct_construction: $ => prec.dynamic(10, prec(10, seq(
-      '#',
-      field('type', $._literal_head),
-      '{',
+      field('type', $._struct_name),
+      token.immediate('{'),
       commaSep(choice(
         seq(field('field_name', $._field_identifier), ':', $._expression),
         field('field_name', $._field_identifier),

@@ -27,7 +27,7 @@ fn early(n: Int) -> Int {
 }
 
 fn looped() -> Int {
-  Iter.loop(fn n = 0 -> {
+  Iter.loop(0, fn n -> {
     if n > 3 {
       break n
       _ = n

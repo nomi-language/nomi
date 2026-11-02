@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// A `main` or an entry boot that returns `Err(#Exit{code, message})` with
+// A `main` or an entry boot that returns `Err(Exit{code, message})` with
 // std/process's Exit exits with the code and prints the message alone, with
 // no `error: `, after the shutdown every run ends with.
 
@@ -22,25 +22,25 @@ var exitPrograms = []struct {
 fn main() -> Result<Unit, Exit> {
   io.print("before")
   io.eprint("warning")
-  Err(#Exit{code: 3, message: "usage: count <file>"})
+  Err(Exit{code: 3, message: "usage: count <file>"})
 }
 `, "before\n", "warning\nusage: count <file>\n", 3},
 	{"an empty message prints nothing", `import std/process.Exit
 
 fn main() -> Result<Unit, Exit> {
-  Err(#Exit{code: 42})
+  Err(Exit{code: 42})
 }
 `, "", "", 42},
 	{"code 0 succeeds and still prints the message", `import std/process.Exit
 
 fn main() -> Result<Unit, Exit> {
-  Err(#Exit{code: 0, message: "nothing to do"})
+  Err(Exit{code: 0, message: "nothing to do"})
 }
 `, "", "nothing to do\n", 0},
 	{"a code past 255 is a trap", `import std/process.Exit
 
 fn main() -> Result<Unit, Exit> {
-  Err(#Exit{code: 256, message: "x"})
+  Err(Exit{code: 256, message: "x"})
 }
 `, "", "exit code 256 is outside 0 to 255\n", 1},
 	{"boot's Exit sets the status after its cleanup", `import {
@@ -54,7 +54,7 @@ struct App {
 
 fn boot() -> Result<App, Exit> {
   defer io.print("cleanup")
-  Err(#Exit{code: 5, message: "no port"})
+  Err(Exit{code: 5, message: "no port"})
 }
 
 fn main() {
@@ -66,9 +66,9 @@ fn main() {
 }
 
 fn main() -> Result<Unit, Exit> {
-  Err(#Exit{code: 9})
+  Err(Exit{code: 9})
 }
-`, "", "error: #Exit{code: 9}\n", 1},
+`, "", "error: Exit{code: 9}\n", 1},
 }
 
 func TestRunCommand_ExitSetsTheStatus(t *testing.T) {

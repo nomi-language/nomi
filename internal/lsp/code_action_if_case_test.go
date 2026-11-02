@@ -172,7 +172,7 @@ label = ‸case n {
 }
 
 io.print(label)`), toIfElse, "Convert to case on 'n'"},
-		"literal string field": {fnMainAfter("struct P {\n    name: String\n}\n\n", `p = #P{name: "a"}
+		"literal string field": {fnMainAfter("struct P {\n    name: String\n}\n\n", `p = P{name: "a"}
 
 ‸if p.name == "a" {
     io.print(1)
@@ -462,17 +462,17 @@ io.print(label)`)
 func TestIfCase_StructLiteralConditionConverts(t *testing.T) {
 	// A struct literal starts with `#`, so it reads the same in an `if`
 	// condition as in a case arm, and the conversion is offered.
-	src := fnMainAfter("struct P {\n    x: Int\n}\n\n", `p = #P{x: 1}
+	src := fnMainAfter("struct P {\n    x: Int\n}\n\n", `p = P{x: 1}
 
 label = ‸case {
-    p == #P{x: 1} -> "one"
+    p == P{x: 1} -> "one"
     _ -> "other"
 }
 
 io.print(label)`)
 	assertFormatted(t, src)
 	got := checkRefactor(t, src, toIfElse, protocol.CodeActionKindRefactorRewrite)
-	if !strings.Contains(got, "if p == #P{x: 1} {") {
+	if !strings.Contains(got, "if p == (P{x: 1}) {") {
 		t.Fatalf("the condition did not keep its literal:\n%s", got)
 	}
 }

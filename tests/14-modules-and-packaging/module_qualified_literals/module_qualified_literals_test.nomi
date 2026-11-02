@@ -1,12 +1,12 @@
 //# A literal body attaches to a MODULE-QUALIFIED name.
 //#
-//# `#shapes.Circle{r: 1}` names a type through the module that exports it,
+//# `shapes.Circle{r: 1}` names a type through the module that exports it,
 //# and the brace is that type's body — not a separate anonymous struct
 //# beside a member access. Same for a variant's brace and for the bracket
 //# spelling of a list payload.
 //#
 //# A parser that stops the chain at the member access takes the body as
-//# a separate literal: `#shapes.Shape.Ring{r: 1}` then reports `non-final
+//# a separate literal: `shapes.Shape.Ring{r: 1}` then reports `non-final
 //# expression has type #{r: Int}`, and a std enum's struct variant reports
 //# `return type mismatch: expected Error, got #{reason: String}`. The
 //# neighbouring `dotted_type_names` fixture looks like it covers this and
@@ -23,12 +23,12 @@
 import shapes
 
 test "a module-qualified struct literal" {
-    c = #shapes.Circle{r: 1}
+    c = shapes.Circle{r: 1}
     assert c.r == 1
 }
 
 test "a module-qualified struct-VARIANT literal, three segments" {
-    s = #shapes.Shape.Ring{r: 2}
+    s = shapes.Shape.Ring{r: 2}
     assert shapes.ring_radius(s) == 2
 }
 
@@ -45,23 +45,23 @@ test "a module-qualified list-attach literal equals its call form" {
 }
 
 test "the module-qualified variant is the same value the dot form builds" {
-    a = #shapes.Shape.Ring{r: 7}
-    b: shapes.Shape = #.Ring{r: 7}
+    a = shapes.Shape.Ring{r: 7}
+    b: shapes.Shape = .Ring{r: 7}
     assert a == b
 }
 
 test "a GENERIC enum's struct variant infers its argument across a module" {
-    // Bare `#shapes.Holder.Of{value: 5}` with no annotation: the argument is
+    // Bare `shapes.Holder.Of{value: 5}` with no annotation: the argument is
     // solved from the field, so it satisfies a `Holder<Int>` parameter.
-    h = #shapes.Holder.Of{value: 5}
+    h = shapes.Holder.Of{value: 5}
     assert shapes.holder_int(h) == 5
 }
 
 test "the inferred argument is the field's type, not the declaration's" {
-    h = #shapes.Holder.Of{value: 9}
+    h = shapes.Holder.Of{value: 9}
 
     got = case h {
-        #shapes.Holder.Of{value} -> value + 1
+        shapes.Holder.Of{value} -> value + 1
     }
 
     assert got == 10
@@ -76,20 +76,20 @@ struct Slot {
 
 fn describe(slot: Slot) -> Int {
     case slot {
-        #Slot{shape: shapes.Shape.Square(n), bag: _} -> n
-        #{shape: #shapes.Shape.Ring{r}, bag: shapes.Bag.Items[first, .._rest]} -> r + first
-        #{shape: #shapes.Shape.Ring{r}, bag: _} -> r
+        Slot{shape: shapes.Shape.Square(n), bag: _} -> n
+        #{shape: shapes.Shape.Ring{r}, bag: shapes.Bag.Items[first, .._rest]} -> r + first
+        #{shape: shapes.Shape.Ring{r}, bag: _} -> r
     }
 }
 
 test "a struct pattern field names a variant through its module" {
-    assert describe(#Slot{shape: shapes.Shape.Square(4), bag: shapes.Bag.Items([1])}) == 4
-    assert describe(#Slot{shape: #shapes.Shape.Ring{r: 2}, bag: shapes.Bag.Items([5, 6])}) == 7
-    assert describe(#Slot{shape: #shapes.Shape.Ring{r: 3}, bag: shapes.Bag.Items([])}) == 3
+    assert describe(Slot{shape: shapes.Shape.Square(4), bag: shapes.Bag.Items([1])}) == 4
+    assert describe(Slot{shape: shapes.Shape.Ring{r: 2}, bag: shapes.Bag.Items([5, 6])}) == 7
+    assert describe(Slot{shape: shapes.Shape.Ring{r: 3}, bag: shapes.Bag.Items([])}) == 3
 }
 
 test "a module-qualified field variant in an if condition and a binding with else" {
-    slot = #Slot{shape: shapes.Shape.Square(9), bag: shapes.Bag.Items([])}
+    slot = Slot{shape: shapes.Shape.Square(9), bag: shapes.Bag.Items([])}
 
     got = if #{shape: shapes.Shape.Square(n), bag: _} = slot {
         n
@@ -99,7 +99,7 @@ test "a module-qualified field variant in an if condition and a binding with els
 
     assert got == 9
 
-    #Slot{shape: shapes.Shape.Square(m), bag: _} = slot else { return }
+    Slot{shape: shapes.Shape.Square(m), bag: _} = slot else { return }
 
     assert m == 9
 }

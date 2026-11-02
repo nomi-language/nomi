@@ -23,7 +23,7 @@ fn worker() {
 }
 
 fn returns_next_state() {
-  Iter.loop(fn n = 0 -> {
+  Iter.loop(0, fn n -> {
     if n > 3 { return 0 }
     if n == 2 { continue }
     n + 1
@@ -93,7 +93,7 @@ fn scoped() {
 func TestUnreachable_ALoopThatCanStopIsClean(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
 fn guarded() {
-  Iter.loop(fn n = 0 -> {
+  Iter.loop(0, fn n -> {
     if n > 3 { break }
     n + 1
   })
@@ -101,7 +101,7 @@ fn guarded() {
 }
 
 fn in_an_arm() -> Int {
-  total = Iter.loop(fn n = 0 -> {
+  total = Iter.loop(0, fn n -> {
     case n {
       5 -> {
         _ = n
@@ -126,7 +126,7 @@ fn bound() {
 		never bool
 	}{
 		{"Iter.loop(fn -> { _ = 1 })", true},
-		{"Iter.loop(fn n = 0 -> { if n > 1 { break } n + 1 })", false},
+		{"Iter.loop(0, fn n -> { if n > 1 { break } n + 1 })", false},
 		{"Iter.loop(fn -> { Iter.each([1], fn x -> { if x > 0 { break } }) })", true},
 		{"Iter.loop(fn -> { fn inner(x: Int) -> Int { if x > 0 { break } x } })", true},
 		{"Iter.loop(fn -> { Iter.loop(fn -> { break }) })", true},

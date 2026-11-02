@@ -15,7 +15,7 @@ pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int {
         |> Iter.take(maximum_weight + 1)
         |> Iter.to_vector()
 
-    best = Iter.reduce(items, consider, from: nothing)
+    best = Iter.reduce(items, nothing, consider)
     Vector.get(best, maximum_weight)!
 }
 

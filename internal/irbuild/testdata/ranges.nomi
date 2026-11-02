@@ -187,7 +187,7 @@ fn main() {
     // drives, to keep this fixture fast. The property under test is "the
     // walk does not consume a frame per element", and 20_000 shows that as
     // well as 200_000 does; the corpus keeps the larger drive.
-    io.print("${1..=20_000 |> Iter.map(fn x -> x) |> Iter.reduce(fn acc = 0, x -> acc + x)}")
+    io.print("${1..=20_000 |> Iter.map(fn x -> x) |> Iter.reduce(0, fn acc, x -> acc + x)}")
 
     // --- 7. UNBOUNDED SOURCES, BOUNDED BEFORE CONSUMPTION -------------------
     // `Range.from` and `Range.naturals` differ only in their start. Neither may
@@ -339,7 +339,7 @@ fn main() {
     io.print(Debug.inspect("a".."m"))
 
     // --- 14. PIPELINES, so the Range reaches the ordinary Iter surface ----
-    io.print("${Iter.reduce(1..=10, fn acc = 0, x -> acc + x)}")
+    io.print("${Iter.reduce(1..=10, 0, fn acc, x -> acc + x)}")
 
     io.print(
         show_ints(

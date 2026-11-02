@@ -16,7 +16,7 @@ func TestStructPatternField_ModuleQualifiedVariant(t *testing.T) {
 		payload              bool
 	}{
 		{"#{err: sql.Error.Closed}", "sql.Error", "Closed", false},
-		{"#Slot{shape: shapes.Shape.Square(n), bag}", "shapes.Shape", "Square", true},
+		{"Slot{shape: shapes.Shape.Square(n), bag}", "shapes.Shape", "Square", true},
 		{"#{c: json.Json.Case.Snake}", "json.Json.Case", "Snake", false},
 	} {
 		sp, ok := caseArmPattern(t, tc.arm).(*ast.StructPattern)

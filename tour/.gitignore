@@ -38,6 +38,13 @@ pnpm-debug.log*
 # via build-tour-wasm.sh)
 /src/content/docs/tooling/
 
+# Generated files for models (cmd/nomi-docgen -llms, from docs/cheatsheet.md,
+# docs/spec.md, docs/style.md and std/, via build-tour-wasm.sh). The cheat
+# sheet's page, src/content/docs/cheat-sheet.md, is committed.
+/public/llms.txt
+/public/llms-full.txt
+/public/cheatsheet.md
+
 # scripts/build-tour-wasm.sh's build and vendoring directory, staged from here
 # into public/nomi/
 /.wasm-build/

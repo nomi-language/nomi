@@ -9,7 +9,7 @@ struct Row {
 }
 
 fn row(name: String, tags: List<String>) -> Row {
-    #Row{name, tags}
+    Row{name, tags}
 }
 
 fn names(rows: List<Row>) -> List<String> {

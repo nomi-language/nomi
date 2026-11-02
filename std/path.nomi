@@ -93,7 +93,7 @@ pub fn clean(p: String) -> String {
 
     kept =
         String.split(p, "/")
-        |> Iter.reduce(fn stack = [], part -> step(stack, part, rooted))
+        |> Iter.reduce([], fn stack, part -> step(stack, part, rooted))
         |> Iter.reverse()
 
     text = String.join(kept, "/")

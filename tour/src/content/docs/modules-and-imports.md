@@ -483,7 +483,7 @@ impl Multiply<Rate, Decimal> for Decimal {
 }
 
 fn main() {
-    rate = #Rate{per_unit: 4.25d}
+    rate = Rate{per_unit: 4.25d}
     io.print(12.5d * rate)
 }
 ```

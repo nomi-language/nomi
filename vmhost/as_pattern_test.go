@@ -38,7 +38,7 @@ fn failure(r: Result<Tx, String>) -> String {
 
 fn describe(result: Result<Tx, String>) -> String {
     case result {
-        Ok(#Tx{kind: .Deposit} as t) -> "deposited ${t.end - t.start}"
+        Ok(Tx{kind: .Deposit} as t) -> "deposited ${t.end - t.start}"
         Ok(t) -> "other ${t.start}"
         Err(_) as e -> "failed: ${failure(e)}"
     }
@@ -61,7 +61,7 @@ fn entry(m: Map<String, Int>) -> String {
 
 fn start_of(l: Line) -> Int {
     case l {
-        #Line{from: #Tx{kind: .Withdrawal} as src} -> src.start
+        Line{from: Tx{kind: .Withdrawal} as src} -> src.start
         _ -> 0
     }
 }
@@ -97,17 +97,17 @@ fn if_pattern(r: Result<Int, String>) -> String {
 }
 
 fn main() {
-    io.print(describe(Ok(#Tx{kind: .Deposit, start: 1, end: 5})))
-    io.print(describe(Ok(#Tx{kind: .Withdrawal, start: 1, end: 5})))
+    io.print(describe(Ok(Tx{kind: .Deposit, start: 1, end: 5})))
+    io.print(describe(Ok(Tx{kind: .Withdrawal, start: 1, end: 5})))
     io.print(describe(Err("boom")))
     io.print(head([Some(4), None, Some(6)]))
     io.print(head([None]))
     io.print(entry(%{"k" => 1, "j" => 2}))
     io.print(entry(%{"k" => 2}))
-    io.print(start_of(#Line{from: #Tx{kind: .Withdrawal, start: 7, end: 8}, to: #Tx{kind: .Deposit, start: 0, end: 0}}))
+    io.print(start_of(Line{from: Tx{kind: .Withdrawal, start: 7, end: 8}, to: Tx{kind: .Deposit, start: 0, end: 0}}))
     io.print(tuple_arm(#(Some(3), "three")))
     io.print(tuple_arm(#(None, "nothing")))
-    io.print(param(#Tx{kind: .Deposit, start: 2, end: 3}))
+    io.print(param(Tx{kind: .Deposit, start: 2, end: 3}))
     io.print(binding(Some(5), #(1, 2)))
     io.print(binding(None, #(1, 2)))
     io.print(fallback(Ok(#(1, 2))))
@@ -190,7 +190,7 @@ group "setup" {
 // An anonymous record pattern, with or without `as`, nested in a variant
 // payload, a struct field or a tuple: in a pattern assertion, a `case` arm,
 // a binding with `else` and a lambda parameter. A record pattern of names
-// cannot fail, so `assert #Holder{r: #{a: x, b}} = h` has no mismatch edge.
+// cannot fail, so `assert Holder{r: #{a: x, b}} = h` has no mismatch edge.
 func TestAsPattern_NestedRecordPatternsRun(t *testing.T) {
 	t.Setenv("NOMI_COLOR", "never")
 	const name = "record_as_test.nomi"
@@ -234,9 +234,9 @@ test "lambda parameter" {
 }
 
 test "struct field and tuple" {
-    h = #Holder{r: #{a: 1, b: 2}}
-    assert #Holder{r: #{a: x, b}} = h
-    assert #Holder{r: #{a: 1, b: y} as whole} = h
+    h = Holder{r: #{a: 1, b: 2}}
+    assert Holder{r: #{a: x, b}} = h
+    assert Holder{r: #{a: 1, b: y} as whole} = h
     assert #(#{a: p, b: q} as rec, c) = #(whole, 3)
     assert x + b + y + p + q + c + rec.a == 12
 }

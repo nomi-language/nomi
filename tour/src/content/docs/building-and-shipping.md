@@ -108,7 +108,7 @@ derive ToJson for Game
 derive FromJson for Game
 
 export fn new_game(word: String) -> Game {
-    #Game{word, guesses: []}
+    Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {

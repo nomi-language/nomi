@@ -76,29 +76,29 @@ test "ranges and unary operators" {
 }
 
 test "a literal with a parameter is a construction of it" {
-    mk: (Int) -> Point = &#Point{x: &1, y: 0}
-    swap: (Int, Int) -> Point = &#Point{y: &1, x: &2}
+    mk: (Int) -> Point = &Point{x: &1, y: 0}
+    swap: (Int, Int) -> Point = &Point{y: &1, x: &2}
     anon: (Int) -> Point = &#{x: &1, y: 7}
-    box: (String) -> Box<String> = &#Box{v: &1}
+    box: (String) -> Box<String> = &Box{v: &1}
     pair: (Int, String) -> #(Int, String) = &#(&1, &2)
     twice: (Int) -> List<Int> = &[&1, &1]
-    assert mk(5) == #Point{x: 5, y: 0}
-    assert mk(x: 6) == #Point{x: 6, y: 0}
-    assert swap(1, 2) == #Point{x: 2, y: 1}
-    assert anon(1) == #Point{x: 1, y: 7}
-    assert box("b") == #Box{v: "b"}
+    assert mk(5) == Point{x: 5, y: 0}
+    assert mk(x: 6) == Point{x: 6, y: 0}
+    assert swap(1, 2) == Point{x: 2, y: 1}
+    assert anon(1) == Point{x: 1, y: 7}
+    assert box("b") == Box{v: "b"}
     assert pair(1, "a") == #(1, "a")
     assert twice(3) == [3, 3]
 
-    assert ([1.5] |> Iter.map(&#Shape.Circle{radius: &1}) |> Iter.to_list()) == [
-        #Shape.Circle{radius: 1.5},
+    assert ([1.5] |> Iter.map(&Shape.Circle{radius: &1}) |> Iter.to_list()) == [
+        Shape.Circle{radius: 1.5},
     ]
 
     assert ([1, 2] |> Iter.map(&#(&1, 0)) |> Iter.to_list()) == [#(1, 0), #(2, 0)]
 }
 
 test "a field of function type takes one" {
-    rule = #Rule{name: "big", keep: &(&1 > 10)}
+    rule = Rule{name: "big", keep: &(&1 > 10)}
     assert rule.keep(11)
     refute rule.keep(9)
 }

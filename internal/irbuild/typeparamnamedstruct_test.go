@@ -18,7 +18,7 @@ struct P {
 
 impl Up for P {
     fn update(_a: P, b: #{x: Int}) -> P {
-        #P{x: b.x + 10}
+        P{x: b.x + 10}
     }
 }
 
@@ -27,8 +27,8 @@ fn bump<Struct>(p: Struct) -> Struct where Struct: Up {
 }
 
 fn main() {
-    io.print(bump(#P{x: 1}).x)
-    io.print(Struct.update(#P{x: 1}, #{x: 5}).x)
+    io.print(bump(P{x: 1}).x)
+    io.print(Struct.update(P{x: 1}, #{x: 5}).x)
 }
 `, "12\n5\n")
 }

@@ -177,7 +177,7 @@ func TestStructCallForm_RecordArgumentFieldFaults(t *testing.T) {
 // TestStructCallForm_StillRefusesNonRecordArguments is the boundary of the
 // change. The refusal was NARROWED, not removed: an argument whose type is
 // not an anonymous struct keeps the original message, and the nominal
-// literal `P(#Q{...})` is the row that matters — two structs of the same
+// literal `P(Q{...})` is the row that matters — two structs of the same
 // shape are two types (nominal identity), so accepting it would be the
 // structural coercion that is out of scope.
 func TestStructCallForm_StillRefusesNonRecordArguments(t *testing.T) {
@@ -193,7 +193,7 @@ func TestStructCallForm_StillRefusesNonRecordArguments(t *testing.T) {
 		},
 		{
 			"same-shaped NOMINAL struct",
-			nonLitP + "\nstruct Q {\n  a: Int\n  b: String\n}\n\nfn f() -> P { P(#Q{a: 1, b: \"x\"}) }\n",
+			nonLitP + "\nstruct Q {\n  a: Int\n  b: String\n}\n\nfn f() -> P { P(Q{a: 1, b: \"x\"}) }\n",
 			"P expects an anonymous struct literal #{...} matching its fields, got Q",
 		},
 		{
@@ -347,7 +347,7 @@ struct Site {
   port: Int
 }
 
-fn defaults() -> #{port: Int, greeter: En} { #{port: 80, greeter: #En{name: "x"}} }
+fn defaults() -> #{port: Int, greeter: En} { #{port: 80, greeter: En{name: "x"}} }
 `
 	const impl = `
 impl Greeter for En {
@@ -367,7 +367,7 @@ impl Greeter for En {
 		}
 	})
 	t.Run("the LITERAL form says the same thing", func(t *testing.T) {
-		got := errorTexts(t, decl+"\nfn f() -> Site { Site(#{port: 80, greeter: #En{name: \"x\"}}) }\n")
+		got := errorTexts(t, decl+"\nfn f() -> Site { Site(#{port: 80, greeter: En{name: \"x\"}}) }\n")
 		want := "field 'greeter' of Site: expected Greeter, got En"
 		if len(got) != 1 || got[0] != want {
 			t.Errorf("got %v, want exactly [%q]", got, want)

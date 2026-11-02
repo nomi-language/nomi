@@ -80,7 +80,7 @@ test "a rejected entry is never used: the message keeps its compiled text" {
         pl,
     )
 
-    assert rejected == [#Rejected{
+    assert rejected == [Rejected{
         key: "cart.cart_items",
         locale: pl,
         reason: "`cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish",

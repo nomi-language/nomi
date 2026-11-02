@@ -53,6 +53,12 @@ type Variant struct {
 	// exports `_initialize` and the nomi_call ABI instead of `_start`, for a
 	// program with an `export fn`. Only wasip1/wasm has one.
 	Reactor bool
+	// NoNetwork is the runner built with the nomi_nonet tag: its network
+	// crossings (stdlibadapters.NetworkNames) answer an error instead of
+	// linking net/http, crypto/tls and net's sockets, so it is a third
+	// smaller. `nomi build` picks it for a program that reaches none of
+	// them.
+	NoNetwork bool
 }
 
 // name is what a runner directory's vm.json records for the variant.
@@ -61,15 +67,38 @@ func (v Variant) name() string {
 	if v.Reactor {
 		n = "reactor-" + n
 	}
+	if v.NoNetwork {
+		n += "-nonet"
+	}
 	return n
 }
 
 // binaryName is the runner's file name before any executable suffix.
 func (v Variant) binaryName() string {
+	name := runnerBinaryBaseName
 	if v.Reactor {
-		return reactorBinaryBaseName
+		name = reactorBinaryBaseName
 	}
-	return runnerBinaryBaseName
+	if v.NoNetwork {
+		name += noNetworkSuffix
+	}
+	return name
+}
+
+// noNetworkSuffix ends a NoNetwork runner's file name, in a cache directory
+// and in a release archive: nomi-vm-nonet, nomi-vm-reactor-nonet.
+const noNetworkSuffix = "-nonet"
+
+// buildTags is the -tags value the variant is built with, or "".
+func (v Variant) buildTags() string {
+	var tags []string
+	if v.Compiler {
+		tags = append(tags, "nomi_compiler")
+	}
+	if v.NoNetwork {
+		tags = append(tags, "nomi_nonet")
+	}
+	return strings.Join(tags, ",")
 }
 
 // pkg is the main package the runner is built from, relative to the
@@ -249,8 +278,8 @@ func sourceRunner(nomiRoot string, target Target, v Variant) (string, error) {
 		return bin, nil
 	}
 	args := []string{"build", "-trimpath", "-mod=readonly"}
-	if v.Compiler {
-		args = append(args, "-tags", "nomi_compiler")
+	if tags := v.buildTags(); tags != "" {
+		args = append(args, "-tags", tags)
 	}
 	if v.Reactor {
 		args = append(args, "-buildmode=c-shared")
@@ -398,6 +427,11 @@ func ProjectRunner(r *Result, target Target, v Variant) (string, error) {
 	if v.Reactor {
 		args = append(args, "-buildmode=c-shared")
 	}
+	if v.NoNetwork {
+		// The project's own Go is linked either way; the tag drops std's
+		// network adapters, as for a runner with no project (buildTags).
+		args = append(args, "-tags", "nomi_nonet")
+	}
 	if err := goBuildInto(gotoolchain.FindForProjectRunner, dir, bin, dir, env, append(args, "-o"), mainPath, clean); err != nil {
 		// A bound package that does not build for target is reported at
 		// its `gopkg`, not as the compiler's output (target.go).
@@ -440,6 +474,9 @@ type BuiltImage struct {
 	// UsesFiles is set, for a web build, when the program reaches the
 	// `files` class (vmhost.WebFilesNote).
 	UsesFiles bool
+	// NoNetwork is set when the program reaches no network crossing
+	// (vmhost.Program.UsesNetwork), so its runner is the NoNetwork variant.
+	NoNetwork bool
 	// Declarations is a web build's nomi.d.ts (vmhost.Program.WebDeclarations).
 	Declarations string
 	// LocaleFiles are a web build's locale files by their path in the
@@ -478,6 +515,7 @@ func BuildImageVM(r *Result, entryAbsPath string, spec ImageBuild) (built BuiltI
 	built.UsesCompiler = strings.Contains(out.String(), "__NOMI_IMAGE_USES_COMPILER")
 	built.HasExports = strings.Contains(out.String(), "__NOMI_IMAGE_HAS_EXPORTS")
 	built.UsesFiles = strings.Contains(out.String(), "__NOMI_IMAGE_USES_FILES")
+	built.NoNetwork = strings.Contains(out.String(), "__NOMI_IMAGE_NO_NETWORK")
 	if built.Image, err = os.ReadFile(filepath.Join(dir, "image")); err != nil {
 		return built, "", false, fmt.Errorf("ffirun: reading the wrapper's image: %w", err)
 	}

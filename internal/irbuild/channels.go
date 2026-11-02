@@ -50,7 +50,7 @@ import (
 //
 // `ch: Channel<Int> = Channel.unbuffered()` records NO CallType: the binding's
 // annotation is not propagated into the constructor's instantiation, the same
-// case `preludeArgs` documents for `#Outcome{parsed: Ok(9)}`. The annotation
+// case `preludeArgs` documents for `Outcome{parsed: Ok(9)}`. The annotation
 // reaches the builder only as a coercion TARGET, so irchannels.go's
 // channelCtorFromTarget takes the instantiation from the target published for
 // the call, and declines when there is none.
@@ -110,13 +110,21 @@ type channelFn struct {
 }
 
 // channelFuncs is the lowered surface, and it is the WHOLE surface std declares:
-// two constructors on the pair and three operations on the halves.
+// two constructors on the pair and four operations on the halves.
 var channelFuncs = map[string]channelFn{
-	"Channel.buffered":   {owner: "Channel", rtCall: "rt.ChannelBuffered", args: 1, explicitTypeArg: true},
-	"Channel.unbuffered": {owner: "Channel", rtCall: "rt.ChannelUnbuffered", args: 0, explicitTypeArg: true},
-	"Sender.send":        {owner: "Sender", rtCall: "rt.SenderSend", args: 2, frame: true},
-	"Sender.close":       {owner: "Sender", rtCall: "rt.SenderClose", args: 1},
-	"Receiver.receive":   {owner: "Receiver", rtCall: "rt.ReceiverReceive", args: 1, frame: true},
+	"Channel.buffered":        {owner: "Channel", rtCall: "rt.ChannelBuffered", args: 1, explicitTypeArg: true},
+	"Channel.unbuffered":      {owner: "Channel", rtCall: "rt.ChannelUnbuffered", args: 0, explicitTypeArg: true},
+	"Sender.send":             {owner: "Sender", rtCall: "rt.SenderSend", args: 2, frame: true},
+	"Sender.close":            {owner: "Sender", rtCall: "rt.SenderClose", args: 1},
+	"Sender.close_on_drain":   {owner: "Sender", rtCall: "rt.SenderCloseOnDrain", args: 1},
+	"Receiver.receive":        {owner: "Receiver", rtCall: "rt.ReceiverReceive", args: 1, frame: true},
+	"Receiver.receive_within": {owner: "Receiver", rtCall: "rt.ReceiverReceiveWithin", args: 2, frame: true},
+	// `Channel.select` and its three arm constructors. The select waits, so
+	// it takes the frame; building an arm does not.
+	"Channel.select": {owner: "Channel", rtCall: "rt.Select", args: 1, frame: true},
+	"Arm.receive":    {owner: "Arm", rtCall: "rt.SelectReceive", args: 2},
+	"Arm.send":       {owner: "Arm", rtCall: "rt.SelectSend", args: 3},
+	"Arm.after":      {owner: "Arm", rtCall: "rt.SelectAfter", args: 2},
 }
 
 // channelSpec is the `Channel` row of the generic-std-struct table, resolved by
@@ -150,6 +158,8 @@ func channelElem(k kind) (elem kind, owner string, ok bool) {
 		return args[0], "Sender", true
 	case receiverSpec:
 		return args[0], "Receiver", true
+	case armSpec:
+		return args[0], "Arm", true
 	}
 	return kindInvalid, "", false
 }

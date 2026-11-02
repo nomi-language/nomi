@@ -26,13 +26,13 @@ pub fn find_fewest_coins(coins: List<Int>, target: Int) -> Result<List<Int>, Err
 
     fewest =
         1..=target
-        |> Iter.reduce(fn table = #[Some([])], amount -> {
+        |> Iter.reduce(#[Some([])], fn table, amount -> {
             Vector.push(table, best(table, coins, amount))
         })
 
     Vector.get(fewest, target)!
     |> Maybe.map(Iter.sort)
-    |> Maybe.to_result(Error.CannotMakeTarget)
+    |> Maybe.to_result(.CannotMakeTarget)
 }
 
 /// The fewest coins that make `amount`, given `table`, which holds the

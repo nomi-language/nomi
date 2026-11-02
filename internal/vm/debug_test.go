@@ -493,7 +493,7 @@ func TestDebug_ABreakpointInATask(t *testing.T) {
 const loopSrc = `import std/io
 
 fn main() {
-  n = Iter.loop(fn i = 0 ->
+  n = Iter.loop(0, fn i ->
     if i == 1000000 {
       break i
     } else {

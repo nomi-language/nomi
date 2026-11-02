@@ -164,7 +164,7 @@ test "simulate game" {
             "two cards, one trick",
             deck("2"),
             deck("3"),
-            #Game{status: .Finished, cards: 2, tricks: 1},
+            Game{status: .Finished, cards: 2, tricks: 1},
         ),
         #(
             "three cards, one trick",

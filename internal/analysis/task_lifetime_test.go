@@ -132,3 +132,30 @@ fn demo() -> Int {
 	errs := analyzeConcurrent(src)
 	expectConcurrentError(t, errs, "cannot escape")
 }
+
+// Rule 2: discarding the handle, `_ = t`, is not an await, because it
+// skips the wait (spec §16). The discard is the error, at the `_ =`, and
+// names the await that would count; `_ = Task.await(t)` is accepted.
+func TestTaskLifetime_DiscardingTheHandle_Errors(t *testing.T) {
+	src := `fn demo() -> Int {
+  concurrent {
+    t = Task.spawn(fn -> 42)
+    _ = t
+    0
+  }
+}`
+	errs := analyzeConcurrent(src)
+	expectConcurrentError(t, errs, "`_ = t` discards the Task without waiting for it")
+	expectNoConcurrentError(t, errs, "is never awaited")
+
+	awaited := `fn demo() -> Int {
+  concurrent {
+    t = Task.spawn(fn -> 42)
+    _ = Task.await(t)
+    0
+  }
+}`
+	errs = analyzeConcurrent(awaited)
+	expectNoConcurrentError(t, errs, "discards the Task")
+	expectNoConcurrentError(t, errs, "is never awaited")
+}

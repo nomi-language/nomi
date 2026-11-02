@@ -9,7 +9,7 @@ import "testing"
 // case's end comment, so a lambda whose body is the case gained braces.
 func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
 	src := "fn f(fragments: List<Fragment<String>>) -> String {\n" +
-		"    Iter.reduce(fragments, fn acc = \"\", frag ->\n" +
+		"    Iter.reduce(fragments, \"\", fn acc, frag ->\n" +
 		"        case frag {\n" +
 		"            .Static(s) -> acc + s\n" +
 		"            .Dynamic((\n" +
@@ -20,7 +20,7 @@ func TestFormat_PatternGroupCommentStaysInItsBrackets(t *testing.T) {
 		"    )\n" +
 		"}\n"
 	want := "fn f(fragments: List<Fragment<String>>) -> String {\n" +
-		"    Iter.reduce(fragments, fn acc = \"\", frag -> {\n" +
+		"    Iter.reduce(fragments, \"\", fn acc, frag -> {\n" +
 		"        case frag {\n" +
 		"            .Static(s) -> acc + s\n" +
 		"            .Dynamic(\n" +
@@ -56,7 +56,7 @@ func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
 		"        .Dynamic((\n" +
 		"            // c6\n" +
 		"            v) as w) -> 1 // t6\n" +
-		"        .Other(#Point{x: (\n" +
+		"        .Other(Point{x: (\n" +
 		"            // c7\n" +
 		"            px)}) -> px // t7\n" +
 		"    }\n" +
@@ -96,7 +96,7 @@ func TestFormat_PatternGroupCommentsStayInParentheses(t *testing.T) {
 		"            // c6\n" +
 		"            v\n" +
 		"        ) as w) -> 1 // t6\n" +
-		"        .Other(#Point{x: (\n" +
+		"        .Other(Point{x: (\n" +
 		"            // c7\n" +
 		"            px\n" +
 		"        )}) -> px // t7\n" +

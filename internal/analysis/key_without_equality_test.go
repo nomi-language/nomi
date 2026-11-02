@@ -28,7 +28,7 @@ func TestKeyWithoutEquality_IsRejectedWhereTheCollectionIsBuilt(t *testing.T) {
 		{"generic instance", "s = single(it)\n  _ = s", iterSet, 4, 13},
 		{"function key", "f = fn x: Int -> x + 1\n  m = %{f => 1}\n  _ = m",
 			"`(Int) -> Int` cannot be a Map key: a function value has no equality or hashing", 5, 7},
-		{"key holding an Iter", "m = %{#Feed{items: it} => 1}\n  _ = m",
+		{"key holding an Iter", "m = %{Feed{items: it} => 1}\n  _ = m",
 			"`Feed` cannot be a Map key: it holds `Iter<Int>`, and an Iter has no equality or hashing; " +
 				"materialize it with `Iter.to_list` first", 4, 7},
 	}

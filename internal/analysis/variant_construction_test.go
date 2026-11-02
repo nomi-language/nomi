@@ -37,14 +37,14 @@ fn round() -> #{radius: Float} {
 func TestVariantCtor_AcceptedForms(t *testing.T) {
 	for _, expr := range []string{
 		// Embedded struct: the struct's brace form and record call form.
-		`#Shape.Circle{radius: 1.0}`,
+		`Shape.Circle{radius: 1.0}`,
 		`Shape.Circle(#{radius: 2.0})`,
 		`Shape.Circle(#{})`,
 		`Shape.Circle(round())`,
 		`#{radius: 2.5} |> Shape.Circle()`,
 		`round() |> Shape.Circle()`,
 		// Inline struct variant: the same two forms, defaults filled.
-		`#Shape.Rectangle{height: 1.0}`,
+		`Shape.Rectangle{height: 1.0}`,
 		`Shape.Rectangle(#{width: 4.0, height: 5.0})`,
 		`Shape.Rectangle(#{height: 5.0})`,
 		`Shape.Rectangle(record())`,
@@ -71,9 +71,9 @@ func TestVariantCtor_RejectedFormsNameTheWorkingOnes(t *testing.T) {
 		expr string
 		want string
 	}{
-		{`Shape.Circle(#Circle{radius: 1.0})`,
-			"Shape.Circle constructs a Circle with #Shape.Circle{...} or Shape.Circle(#{...}); this argument is already a Circle — use it where a Shape is expected and it widens"},
-		{`#Circle{radius: 1.0} |> Shape.Circle()`,
+		{`Shape.Circle(Circle{radius: 1.0})`,
+			"Shape.Circle constructs a Circle with Shape.Circle{...} or Shape.Circle(#{...}); this argument is already a Circle — use it where a Shape is expected and it widens"},
+		{`Circle{radius: 1.0} |> Shape.Circle()`,
 			"this argument is already a Circle — use it where a Shape is expected and it widens"},
 		{`Shape.Id(Id(5))`,
 			"Shape.Id constructs an Id with Shape.Id(<Int>); this argument is already an Id — use it where a Shape is expected and it widens"},
@@ -82,7 +82,7 @@ func TestVariantCtor_RejectedFormsNameTheWorkingOnes(t *testing.T) {
 		{`Shape.Expired()`,
 			"Shape.Expired is a zero-sized variant and takes no arguments; write Shape.Expired"},
 		{`Shape.Rectangle(4.0, 5.0)`,
-			"Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with #Shape.Rectangle{...} or Shape.Rectangle(#{...})"},
+			"Shape.Rectangle is a struct-shaped variant and has no positional form; construct it with Shape.Rectangle{...} or Shape.Rectangle(#{...})"},
 		{`Shape.Rectangle(4.0)`,
 			"Shape.Rectangle expects an anonymous struct literal #{...} matching its fields, got Float"},
 		{`Shape.Circle(5)`,

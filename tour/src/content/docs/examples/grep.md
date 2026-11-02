@@ -113,7 +113,7 @@ import {
 
 once all_files = ["iliad.txt", "midsummer-night.txt", "paradise-lost.txt"]
 
-once sandbox = #Sandbox{
+once sandbox = Sandbox{
     files: %{
         "iliad.txt" => """
             Achilles sing, O Goddess! Peleus' son;
@@ -412,7 +412,7 @@ test "Test grepping multiples files at once" {
 // Not a canonical case: the exercise reads only files that exist.
 test "a missing file is the error reading it" {
     assert grep_in_sandbox("Of", %[], ["odyssey.txt"])
-        == Err(#io.Error.NotFound{path: "odyssey.txt"})
+        == Err(io.Error.NotFound{path: "odyssey.txt"})
 }
 ```
 <!-- expect

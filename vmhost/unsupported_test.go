@@ -80,7 +80,7 @@ fn add(a: Int, b: Int) -> Int {
 }
 
 fn main() {
-  io.print(Iter.reduce([1, 2, 3], fn acc = 0, n -> add(acc, n)))
+  io.print(Iter.reduce([1, 2, 3], 0, fn acc, n -> add(acc, n)))
 }
 `)
 	if err := vmhost.Check(path); err != nil {

@@ -21,7 +21,7 @@ impl Display for ConfigError {
 fn setting(startup: Startup, key: String) -> Result<String, ConfigError> {
     case Map.get(startup.env, key) {
         Some(value) -> Ok(value)
-        None -> Err(#ConfigError{key})
+        None -> Err(ConfigError{key})
     }
 }
 
@@ -30,7 +30,7 @@ fn boot(startup: Startup) -> Result<App, ConfigError> {
     io.print("opened the log")
     defer io.print("released the port")
     port = setting(startup, "NOMI_BOOT_FAILURE_FIXTURE_PORT")?
-    Ok(#App{port: String.length(port), context: Context.root()})
+    Ok(App{port: String.length(port), context: Context.root()})
 }
 
 fn main() {

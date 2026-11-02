@@ -31,7 +31,7 @@ fn one(_s: Struct) -> Int {
 }
 
 test "anchored" {
-  assert one(#Point{x: 1}) == 1
+  assert one(Point{x: 1}) == 1
 }
 `)
 	if err != nil {

@@ -141,7 +141,7 @@ impl Equatable for Vector<T> {
 
 impl Hashable for Vector<T> where T: Hashable {
     fn hash(vector: Vector<T>) -> Int {
-        Iter.reduce(vector, fn acc = 19, x -> {
+        Iter.reduce(vector, 19, fn acc, x -> {
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
         })
     }

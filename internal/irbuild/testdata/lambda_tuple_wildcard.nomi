@@ -59,12 +59,12 @@ fn main() {
 
     io.inspect(
         m
-        |> Iter.reduce(fn acc = 0, #(_, v) -> acc + v)
+        |> Iter.reduce(0, fn acc, #(_, v) -> acc + v)
     )
 
     io.inspect(
         pairs
-        |> Iter.reduce(fn acc = 0, #(_, v) -> acc + v)
+        |> Iter.reduce(0, fn acc, #(_, v) -> acc + v)
     )
 
     m |> Iter.each(fn #(_, v) -> io.inspect(v))

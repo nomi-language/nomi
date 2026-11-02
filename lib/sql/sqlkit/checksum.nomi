@@ -16,11 +16,9 @@ once prime: Int = 1_099_511_628_211
 //! assert checksum.of("foobar") == "85944171f73967e8"
 //
 pub fn of(text: String) -> String {
-    hash = Iter.reduce(
-        String.to_bytes(text),
-        fn h, b -> Int.wrapping_mul(Int.bitwise_xor(h, Byte.to_int(b)), prime),
-        from: offset_basis,
-    )
+    hash = Iter.reduce(String.to_bytes(text), offset_basis, fn h, b -> {
+        Int.wrapping_mul(Int.bitwise_xor(h, Byte.to_int(b)), prime)
+    })
 
     hex(hash)
 }

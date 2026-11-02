@@ -26,7 +26,7 @@ pub fn read(dir: String) -> Result<List<Input>, String> {
     |> Iter.sort()
     |> Iter.map(fn path -> {
         fs.read_text(path)
-        |> Result.map(fn text -> #Input{path, text})
+        |> Result.map(fn text -> Input{path, text})
         |> Result.map_err(fn e -> "${path}: ${e}")
     })
     |> Result.collect()
@@ -47,10 +47,10 @@ fn sqltext_dir(dir: String) -> String {
 /// generated file records.
 //! assert inputs.digest([]) == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 //!
-//! one = [#Input{path: "db/migrations/1.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
+//! one = [Input{path: "db/migrations/1.sql", text: "CREATE TABLE t (n INTEGER);\n"}]
 //!
 //! assert inputs.digest(one)
-//!     != inputs.digest([#Input{path: "db/migrations/2.sql", text: "CREATE TABLE t (n INTEGER);\n"}])
+//!     != inputs.digest([Input{path: "db/migrations/2.sql", text: "CREATE TABLE t (n INTEGER);\n"}])
 //
 pub fn digest(inputs: List<Input>) -> String {
     inputs

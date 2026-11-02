@@ -30,7 +30,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-  Ok(#Config{context: Context.root(),
+  Ok(Config{context: Context.root(),
     audit: Supervisor.new(max_running: 4),
     written: Channel.buffered<Int>(8),
   })
@@ -88,7 +88,7 @@ fn retrying() -> Supervisor {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(),
+  Ok(App{context: Context.root(),
     work: Supervisor.new(2, Duration.seconds(1)),
     retry: retrying(),
     label: "app",
@@ -126,7 +126,7 @@ fn jobs() -> Supervisor {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), jobs: jobs()})
+  Ok(App{context: Context.root(), jobs: jobs()})
 }
 
 fn main() {
@@ -174,7 +174,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), settings: #Settings{label: "x", n: 2}})
+  Ok(App{context: Context.root(), settings: Settings{label: "x", n: 2}})
 }
 
 fn main() {
@@ -256,7 +256,7 @@ fn gives_up() -> Supervisor {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), a: permanent(), b: reordered(), c: exits(), d: gives_up()})
+  Ok(App{context: Context.root(), a: permanent(), b: reordered(), c: exits(), d: gives_up()})
 }
 
 fn nap() -> Unit {
@@ -293,7 +293,7 @@ struct App {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), audit: Supervisor.new(max_running: 2), seen: Channel.buffered<Int>(8)})
+  Ok(App{context: Context.root(), audit: Supervisor.new(max_running: 2), seen: Channel.buffered<Int>(8)})
 }
 
 fn record(id: Int) -> Unit {
@@ -352,7 +352,7 @@ fn gives_up() -> Supervisor {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), s: gives_up()})
+  Ok(App{context: Context.root(), s: gives_up()})
 }
 
 fn main() {
@@ -393,7 +393,7 @@ struct App {
   s: Supervisor
 }
 fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), s: Supervisor.new(max_running: 1)})
+  Ok(App{context: Context.root(), s: Supervisor.new(max_running: 1)})
 }
 fn ok() -> Result<Unit, String> { Ok(Unit) }
 fn show() -> Unit {

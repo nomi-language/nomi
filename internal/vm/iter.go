@@ -252,6 +252,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		split := func(result any) (any, any) {
 			return pairPart(result, 0, &failed), pairPart(result, 1, &failed)
 		}
+		joined := func(acc any, outs *list) any { return pair(acc, outs) }
 		var out any
 		if n.Signalling() {
 			out = rt.SeqMapReduceCtlCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any, rt.Ctl) {
@@ -259,13 +260,13 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
 					return nil, nil, ctl
 				}
-				o, next := split(result)
-				return o, next, ctl
-			}, func(outs *list, acc any) any { return pair(outs, acc) })
+				next, o := split(result)
+				return next, o, ctl
+			}, joined)
 		} else {
 			out = rt.SeqMapReduceCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any) {
 				return split(m.iterInvoke(f, runtime, acc, item))
-			}, func(outs *list, acc any) any { return pair(outs, acc) })
+			}, joined)
 		}
 		if failed != nil {
 			return failed

@@ -8,6 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/textpos"
 
 	"github.com/tliron/glsp"
@@ -66,7 +67,7 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildPipeToStringActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildLimitInfiniteActions(snap.Content, uri, params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, snap.Errors, params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
 		actions = append(actions, s.missingTranslationActions(snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)

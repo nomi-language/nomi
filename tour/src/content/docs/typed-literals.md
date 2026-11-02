@@ -102,7 +102,7 @@ The prefix can be any type, so you have two choices:
 - A new distinct type, like `type Html String` above. It names the literal
   and holds the value it builds.
 - A type you already have. Then the literal reads like a constructor.
-  `Box"x"` builds a `Box`, the same as `#Box{contents: "x"}`:
+  `Box"x"` builds a `Box`, the same as `Box{contents: "x"}`:
 
 ```nomi-run
 import std/literals.{Fragment, Literal}
@@ -123,18 +123,18 @@ impl Literal for Box {
             })
             |> String.join()
 
-        #Box{contents}
+        Box{contents}
     }
 }
 
 fn main() {
     dbg Box"hello"
-    dbg #Box{contents: "world"}
+    dbg Box{contents: "world"}
 }
 ```
 <!-- expect
-dbg line 24: Box"hello" = #Box{contents: "hello"}
-dbg line 25: #Box{contents: "world"} = #Box{contents: "world"}
+dbg line 24: Box"hello" = Box{contents: "hello"}
+dbg line 25: Box{contents: "world"} = Box{contents: "world"}
 -->
 
 Both lines build a `Box`.

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/internal/vm"
 )
@@ -15,7 +16,7 @@ import (
 //
 // Every std host function that acts outside the machine in a way some
 // target cannot carries a class on its binding row (stdlibbindings.Classes):
-// `files` today, `processes` and `network` later. `nomi build` walks what
+// `files` and `processes` today, `network` later. `nomi build` walks what
 // the program reaches, as it does to prune the image, and refuses a target
 // that lacks a class a reached call needs, naming each call. The walk
 // over-approximates (a call in a branch the program never takes counts), so
@@ -30,11 +31,30 @@ import (
 // ClassFiles is the class of a function that reads or writes files.
 const ClassFiles = stdlibbindings.ClassFiles
 
+// ClassProcesses is the class of a function that starts a program.
+const ClassProcesses = stdlibbindings.ClassProcesses
+
+// ClassNetwork is the class of a function that reaches the network as a
+// client.
+const ClassNetwork = stdlibbindings.ClassNetwork
+
+// ClassListen is the class of a function that accepts network connections.
+const ClassListen = stdlibbindings.ClassListen
+
 // TargetLacks is the capability classes a build for goos/goarch cannot
-// provide, sorted. None lacks one yet: `processes` will be the first,
-// which js/wasm and wasip1 lack.
+// provide, sorted: a WebAssembly module, for the browser or for WASI,
+// cannot start a process.
 func TargetLacks(goos, goarch string) []string {
-	return testTargets[goos+"/"+goarch]
+	if lacks, ok := testTargets[goos+"/"+goarch]; ok {
+		return lacks
+	}
+	return targetLacks[goos+"/"+goarch]
+}
+
+// targetLacks is each real target that lacks a class, with the classes.
+var targetLacks = map[string][]string{
+	"js/wasm":     {ClassListen, ClassProcesses},
+	"wasip1/wasm": {ClassListen, ClassNetwork, ClassProcesses},
 }
 
 // testTargets are targets only tests build for, each with the classes it
@@ -81,6 +101,42 @@ type CapabilityUse struct {
 // keep. Call it on a program that builds.
 func (p *Program) CapabilityUses(withExports bool) []CapabilityUse {
 	classes := stdlibbindings.Classes()
+	roots, boots := p.capabilityRoots(withExports)
+	sites := vm.ReachedCrossingSites(p.entry, p.res.IRModules(), roots, boots, func(name string) bool {
+		return classes[name] != ""
+	})
+	out := make([]CapabilityUse, len(sites))
+	for i, s := range sites {
+		out[i] = CapabilityUse{
+			Class:    classes[s.Name],
+			Crossing: s.Name,
+			Callee:   s.Via,
+			Site:     fmt.Sprintf("%s:%d:%d", p.imageName(s.At.File()), s.At.Line(), s.At.Col()),
+			Chain:    s.Chain,
+		}
+	}
+	return out
+}
+
+// UsesNetwork reports whether the program reaches a crossing whose adapter
+// needs the network (stdlibadapters.NetworkNames), from main, the boot and,
+// when withExports is set, each exported function: whether `nomi build`
+// must append it to the runner with the network rather than the smaller
+// one built with the nomi_nonet tag.
+func (p *Program) UsesNetwork(withExports bool) bool {
+	roots, boots := p.capabilityRoots(withExports)
+	network := stdlibadapters.NetworkNames()
+	for _, name := range vm.ReachedCrossings(p.entry, p.res.IRModules(), roots, boots) {
+		if _, found := slices.BinarySearch(network, name); found {
+			return true
+		}
+	}
+	return false
+}
+
+// capabilityRoots is the functions a built image starts from: main, the
+// boot and, when withExports is set, each exported function.
+func (p *Program) capabilityRoots(withExports bool) ([]*ir.Func, []*ir.Symbol) {
 	var roots []*ir.Func
 	if p.HasMain() {
 		if mainFn := p.entryFunc("main"); mainFn != nil {
@@ -100,20 +156,7 @@ func (p *Program) CapabilityUses(withExports bool) []CapabilityUse {
 			boots = append(boots, boot)
 		}
 	}
-	sites := vm.ReachedCrossingSites(p.entry, p.res.IRModules(), roots, boots, func(name string) bool {
-		return classes[name] != ""
-	})
-	out := make([]CapabilityUse, len(sites))
-	for i, s := range sites {
-		out[i] = CapabilityUse{
-			Class:    classes[s.Name],
-			Crossing: s.Name,
-			Callee:   s.Via,
-			Site:     fmt.Sprintf("%s:%d:%d", p.imageName(s.At.File()), s.At.Line(), s.At.Col()),
-			Chain:    s.Chain,
-		}
-	}
-	return out
+	return roots, boots
 }
 
 // Unsupported is a build refused because the program reaches calls its
@@ -205,6 +248,12 @@ func classDoing(class string) string {
 	switch class {
 	case ClassFiles:
 		return "reads or writes files"
+	case ClassProcesses:
+		return "starts programs"
+	case ClassNetwork:
+		return "sends network requests"
+	case ClassListen:
+		return "serves network requests"
 	}
 	return "uses " + class
 }

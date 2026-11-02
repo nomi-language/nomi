@@ -131,7 +131,7 @@ struct State {
 pub fn parse(path: String, text: String) -> Result<File, List<Problem>> {
     lines = String.split(text, "\n") |> Iter.map(fn l -> sqltext.cut_suffix(l, "\r"))
 
-    start = #State{
+    start = State{
         imports: [],
         done: [],
         current: None,
@@ -144,12 +144,12 @@ pub fn parse(path: String, text: String) -> Result<File, List<Problem>> {
     read =
         lines
         |> Iter.with_index()
-        |> Iter.reduce(fn s, #(i, line) -> step(path, s, i + 1, line), from: start)
+        |> Iter.reduce(start, fn s, #(i, line) -> step(path, s, i + 1, line))
 
     state = finish(path, read)
 
     if Iter.is_empty(state.problems) {
-        Ok(#File{path, imports: Iter.reverse(state.imports), queries: Iter.reverse(state.done)})
+        Ok(File{path, imports: Iter.reverse(state.imports), queries: Iter.reverse(state.done)})
     } else {
         Err(Iter.reverse(state.problems))
     }
@@ -309,7 +309,7 @@ fn statement(path: String, q: Query, text: String) -> Result<String, Problem> {
 }
 
 fn problem(path: String, line: Int, col: Int, message: String, hints: List<String>) -> Problem {
-    #Problem{file: path, line, col, message, hints}
+    Problem{file: path, line, col, message, hints}
 }
 
 fn usage() -> String {
@@ -362,7 +362,7 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
     }
 
     Ok(
-        #Query{
+        Query{
             file: path,
             line: number,
             name,
@@ -409,7 +409,7 @@ fn parameters(
                             )
                         )
                     } else {
-                        Ok(#Param{name: String.trim(name), type_text, col})
+                        Ok(Param{name: String.trim(name), type_text, col})
                     }
                 }
 
@@ -421,19 +421,15 @@ fn parameters(
 
     params = parsed?
 
-    #(_, twice) = Iter.reduce(
-        params,
-        fn acc, p -> {
-            #(seen, twice) = acc
+    #(_, twice) = Iter.reduce(params, #([], None), fn acc, p -> {
+        #(seen, twice) = acc
 
-            if Iter.contains(seen, p.name) and twice == None {
-                #(seen, Some(p))
-            } else {
-                #([p.name, ..seen], twice)
-            }
-        },
-        from: #([], None),
-    )
+        if Iter.contains(seen, p.name) and twice == None {
+            #(seen, Some(p))
+        } else {
+            #([p.name, ..seen], twice)
+        }
+    })
 
     case twice {
         Some(p) ->
@@ -447,25 +443,21 @@ fn parameters(
 // The text between `from` and `to`, split at the commas outside brackets,
 // each piece with the index it starts at.
 fn split(chars: Vector<String>, from: Int, to: Int) -> List<#(Int, String)> {
-    #(pieces, start, _) = Iter.reduce(
-        Iter.from(from)
-        |> Iter.take(to - from),
-        fn acc, i -> {
-            #(pieces, start, depth) = acc
-            c = at(chars, i)
+    #(pieces, start, _) = Iter.reduce(Iter.from(from)
+    |> Iter.take(to - from), #([], from, 0), fn acc, i -> {
+        #(pieces, start, depth) = acc
+        c = at(chars, i)
 
-            if c == "," and depth == 0 {
-                #([#(start, slice(chars, start, i)), ..pieces], i + 1, depth)
-            } else if c == "(" or c == "<" or c == "[" or c == "{" {
-                #(pieces, start, depth + 1)
-            } else if c == ")" or c == ">" or c == "]" or c == "}" {
-                #(pieces, start, depth - 1)
-            } else {
-                acc
-            }
-        },
-        from: #([], from, 0),
-    )
+        if c == "," and depth == 0 {
+            #([#(start, slice(chars, start, i)), ..pieces], i + 1, depth)
+        } else if c == "(" or c == "<" or c == "[" or c == "{" {
+            #(pieces, start, depth + 1)
+        } else if c == ")" or c == ">" or c == "]" or c == "}" {
+            #(pieces, start, depth - 1)
+        } else {
+            acc
+        }
+    })
 
     Iter.reverse([#(start, slice(chars, start, to)), ..pieces])
 }

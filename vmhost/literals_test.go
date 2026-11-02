@@ -106,7 +106,7 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 		"impl Literal for Loud {\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Loud, String> {\n" +
 		"        io.print(\"building\")\n" +
-		"        Ok(#Loud{n: Iter.count(fragments)})\n" +
+		"        Ok(Loud{n: Iter.count(fragments)})\n" +
 		"    }\n" +
 		"}\n\n"
 	ds := literalDiagnostics(t, decls+"fn main() {\n    _ = Loud`x`\n}\n")
@@ -147,15 +147,15 @@ func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
 		"struct Slow {\n    n: Int\n}\n\n" +
 		"impl Literal for Slow {\n" +
 		"    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Slow, String> {\n" +
-		"        n = Iter.reduce(1..=1000, fn acc = 0, i -> acc + i)\n" +
-		"        Ok(#Slow{n: n + Iter.count(fragments)})\n" +
+		"        n = Iter.reduce(1..=1000, 0, fn acc, i -> acc + i)\n" +
+		"        Ok(Slow{n: n + Iter.count(fragments)})\n" +
 		"    }\n" +
 		"}\n\n" +
 		"fn raw() -> Int {\n" +
-		"    Iter.reduce(1..=100, fn acc = 0, _i -> acc + Slow`x`.n)\n" +
+		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Slow`x`.n)\n" +
 		"}\n\n" +
 		"fn quoted() -> Int {\n" +
-		"    Iter.reduce(1..=100, fn acc = 0, _i -> acc + Result.with_default(Result.map(Slow\"x\", fn s -> s.n), 0))\n" +
+		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Result.with_default(Result.map(Slow\"x\", fn s -> s.n), 0))\n" +
 		"}\n\n" +
 		"fn main() {\n    _ = raw() + quoted()\n}\n"
 	p, err := LoadSource("main", src)

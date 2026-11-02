@@ -48,7 +48,7 @@ const usage = `usage:
                                         file the tests load, changes; a case that runs
                                         longer than --timeout (default 10s, 0 for none)
                                         is stopped and fails
-  nomi check [--format full|short] <path>
+  nomi check [--format full|short|json] <path>
                                         analyze and lower without running, test
                                         files and their cases included; short prints
                                         path:line:col: lines, not source snippets
@@ -95,6 +95,9 @@ const usage = `usage:
                                         programs in it in a browser or Node
   nomi dap                              serve the Debug Adapter Protocol on stdin and
                                         stdout, for an editor's debugger
+  nomi mcp                              serve the Model Context Protocol on stdin and
+                                        stdout, so a coding agent can check, test,
+                                        format and search Nomi through the compiler
   nomi tool <module> <name> [args]      run a module's tool, tools/<name>.nomi,
                                         such as a code generator
   nomi messages accept <locale> <msg>   mark a locale's translation of a message
@@ -116,7 +119,7 @@ func main() {
 		os.Args = append([]string{os.Args[0], command}, rest...)
 	}
 	switch command {
-	case "dap", dap.TerminalCommand, "fmt", "messages", "version", "help", "--help", "-h", "new", "init", "remove":
+	case "dap", "mcp", dap.TerminalCommand, "fmt", "messages", "version", "help", "--help", "-h", "new", "init", "remove":
 		// The debugger is started by an editor, which never downloads, and
 		// the others build nothing.
 	default:
@@ -215,6 +218,8 @@ func main() {
 		}
 	} else if len(os.Args) > 1 && os.Args[1] == "dap" {
 		os.Exit(runDAP(os.Args[2:]))
+	} else if command == "mcp" {
+		os.Exit(runMCP(os.Args[2:]))
 	} else if len(os.Args) > 1 && os.Args[1] == dap.TerminalCommand {
 		// Hidden: what a debugger's terminal runs to carry a program's
 		// input and output (internal/dap's RunTerminal).
@@ -285,18 +290,23 @@ func unknownFlag(cmd, arg, usage string) error {
 	return fmt.Errorf("%s: unknown flag %q\n%s", cmd, arg, usage)
 }
 
-// parseCheckArgs reads `nomi check [--format full|short] <path>`: exactly one
-// path, and the diagnostics format, which it selects for the process (and
-// any FFI wrapper it starts) through NOMI_DIAGNOSTICS.
+// checkJSONFormat is set by `nomi check --format json`: runCheck writes
+// JSON Lines records (check_json.go) instead of text.
+var checkJSONFormat bool
+
+// parseCheckArgs reads `nomi check [--format full|short|json] <path>`:
+// exactly one path, and the diagnostics format, which it selects for the
+// process (and any FFI wrapper it starts) through NOMI_DIAGNOSTICS, or
+// json, which runCheck writes itself.
 func parseCheckArgs(args []string) (string, error) {
-	const checkUsage = "usage: nomi check [--format full|short] <path>"
+	const checkUsage = "usage: nomi check [--format full|short|json] <path>"
 	var paths []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		value, isFormat := strings.CutPrefix(arg, "--format=")
 		if arg == "--format" {
 			if i+1 >= len(args) {
-				return "", fmt.Errorf("nomi check: --format needs full or short\n%s", checkUsage)
+				return "", fmt.Errorf("nomi check: --format needs full, short or json\n%s", checkUsage)
 			}
 			i++
 			value, isFormat = args[i], true
@@ -305,8 +315,11 @@ func parseCheckArgs(args []string) (string, error) {
 			switch value {
 			case "short", "full":
 				_ = os.Setenv(frontend.DiagnosticsFormatEnv, value)
+			case "json":
+				checkJSONFormat = true
+				_ = os.Setenv(frontend.DiagnosticsFormatEnv, "short")
 			default:
-				return "", fmt.Errorf("nomi check: unknown format %q; use full or short\n%s", value, checkUsage)
+				return "", fmt.Errorf("nomi check: unknown format %q; use full, short or json\n%s", value, checkUsage)
 			}
 			continue
 		}
@@ -325,6 +338,9 @@ func parseCheckArgs(args []string) (string, error) {
 }
 
 func runCheck(path string) error {
+	if checkJSONFormat {
+		return runCheckJSON(os.Stdout, path)
+	}
 	files, through, singleFile, err := discoverCheckFiles(path)
 	if err != nil {
 		return fmt.Errorf("nomi check: %w", pathError(path, err))

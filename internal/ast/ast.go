@@ -329,10 +329,10 @@ func (n *AnonStructType) TypeString() string {
 // DotVariantType is the TypeExpr produced by the leading-dot variant shorthand
 // in TypeName positions of literal-attach forms and patterns. Examples:
 //
-//	StructLit{TypeName: &DotVariantType{Name: "Rect"}}  // #.Rect{w: 4.0}
+//	StructLit{TypeName: &DotVariantType{Name: "Rect"}}  // .Rect{w: 4.0}
 //	MapLit{TypeName: &DotVariantType{Name: "Obj"}}      // %.Obj{"k" => v}
 //	ListLit{TypeName: &DotVariantType{Name: "Arr"}}     // .Arr[1, 2, 3]
-//	StructPattern{TypeName: &DotVariantType{Name: ...}} // case x { #.Rect{...} -> ... }
+//	StructPattern{TypeName: &DotVariantType{Name: ...}} // case x { .Rect{...} -> ... }
 //
 // The analyzer treats this TypeExpr as "resolve via expected type at this
 // position": at any expression / pattern position whose expected type is
@@ -732,16 +732,14 @@ type MapLit struct {
 func (*MapLit) NodeType() string { return "MapLit" }
 func (n *MapLit) LineNum() int   { return n.Line }
 
-// TupleLit is a tuple literal, `#(a, b)`. TypeName is non-nil for a tuple
-// literal that names a distinct type over a tuple, `#Pair(1, "x")`. Line and
-// Col are the `#`.
+// TupleLit is a tuple literal, `#(a, b)`. A distinct type over a tuple is
+// built by a call, `Pair(1, "x")`. Line and Col are the `#`.
 type TupleLit struct {
 	TriviaCarrier
 	SpanCarrier
-	TypeName TypeExpr // nil for `#(...)`
-	Items    []Node
-	Line     int
-	Col      int
+	Items []Node
+	Line  int
+	Col   int
 }
 
 func (*TupleLit) NodeType() string { return "TupleLit" }
@@ -1163,7 +1161,7 @@ func (n *Call) LineNum() int   { return n.Line }
 // the no-payload (`.Red`) and call-form (`.Circle(1.0)`) cases.
 //
 // Bare `.X` is a *DotVariant directly; `.X(args)` is a Call whose Func is a
-// *DotVariant. The literal-attach forms (`#.X{...}`, `.X[...]`, `%.X{"k" => v}`)
+// *DotVariant. The literal-attach forms (`.X{...}`, `.X[...]`, `%.X{"k" => v}`)
 // produce StructLit / ListLit / MapLit with `TypeName: &DotVariantType{...}`
 // rather than wrapping them in a DotVariant — those literal nodes already
 // carry the payload directly, and they own their own TypeName slot.
@@ -1288,7 +1286,7 @@ type StructDef struct {
 	// Opaque is set when the parser saw `opaque` before `struct`. It marks
 	// the type as opaque per spec §4 *Opaque distinct types*: outside the owning module the
 	// type name is usable (signatures, generic args) but the field set is
-	// hidden — no `#Name{...}` construction, no destructuring, no field
+	// hidden — no `Name{...}` construction, no destructuring, no field
 	// access. The flag flows through to the symbol and StructType during
 	// analysis so the opacity boundary is enforced at use sites.
 	Opaque     bool
@@ -1338,7 +1336,7 @@ type StructLit struct {
 	// Spread holds the head expression of a struct-update literal,
 	// `#{..base, field: value}` — the `base`. Nil for every other struct
 	// literal. It is only ever set on the anonymous form (TypeName == nil):
-	// the head carries the result type, so `#Cfg{..base}` has no meaning and
+	// the head carries the result type, so `Cfg{..base}` has no meaning and
 	// the parser does not produce it. Fields then hold only the overrides,
 	// and "missing field" stops being an error because the spread supplies
 	// every field (analysis/checker.go's checkStructLitAgainstStruct).
@@ -1349,7 +1347,7 @@ type StructLit struct {
 	SpreadCol  int
 	// EndTrivia holds trailing comments / blank lines between the last
 	// field and the closing `}`. Covers both nominal struct literals
-	// (`#Foo{a: 1, // comment\n}`) and the anonymous literal form
+	// (`Foo{a: 1, // comment\n}`) and the anonymous literal form
 	// (`#{a: 1, // comment\n}`) since they share this AST node.
 	EndTrivia []Trivia
 	Line      int
@@ -1457,7 +1455,10 @@ type TypeDef struct {
 	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Name          string
 	Public        bool
-	Opaque        bool     // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §4, *Opaque distinct types*.
+	Opaque        bool // true for `pub opaque type Name InnerType` — name exported, construction surface module-private. See spec §4, *Opaque distinct types*.
+	// TypeParams holds `<T, ...>` after the name (`type Tagged<T> #(String, T)`),
+	// which the inner type may name; empty for a non-generic distinct.
+	TypeParams    []TypeParam
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
 	// HasBody/Items are retained for compiler-synthesized or legacy internal
 	// nodes. Source `type` declarations do not carry bodies; type-qualified
@@ -1883,7 +1884,7 @@ func (n *ImplBlock) LineNum() int   { return n.Line }
 // exactly one interface. Receiver is the type being derived for. Derive
 // requests the structurally-synthesized impl and has no method body. Options is
 // the optional compile-time codegen configuration expression in
-// `derive Iface for Type with #Options{...}`.
+// `derive Iface for Type with Options{...}`.
 type ImplConformance struct {
 	TriviaCarrier
 	SpanCarrier
@@ -2663,7 +2664,7 @@ func (n *Placeholder) LineNum() int   { return n.Line }
 
 // Capture is a function written as `&` and its body (spec §7, *Captures*):
 // a call (`&Int.max(&1, 0)`), a parenthesized expression (`&(&1 > 2)`) or a
-// literal (`&#Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`). Each `&N` in Body
+// literal (`&Point{x: &1, y: 0}`, `&#(&1, 0)`, `&[&1]`). Each `&N` in Body
 // (a PlaceholderParam, or a Placeholder in a partial capture) is the
 // function's parameter N. A call of the function evaluates Body with the
 // parameters filled, as the equivalent lambda would. Line and Col are the
@@ -2838,7 +2839,7 @@ func (*IdentPattern) NodeType() string { return "IdentPattern" }
 func (n *IdentPattern) LineNum() int   { return n.Line }
 
 // AsPattern matches Pattern and also binds the whole matched value to Name:
-// `Ok(t) as r`, `Ok(#Tx{kind: .Deposit} as t)`. `as` binds looser than any
+// `Ok(t) as r`, `Ok(Tx{kind: .Deposit} as t)`. `as` binds looser than any
 // other pattern construct, so the name always covers everything to its left
 // within the enclosing pattern position. Line/Col are the inner pattern's
 // start; NameLine/NameCol are the name's.
@@ -2857,7 +2858,7 @@ func (*AsPattern) NodeType() string { return "AsPattern" }
 func (n *AsPattern) LineNum() int   { return n.Line }
 
 // OrPattern matches when any of its alternatives matches:
-// `#.Circle{r} or #.Square{r}`. Every alternative binds the same names at the
+// `.Circle{r} or .Square{r}`. Every alternative binds the same names at the
 // same types, and the names bind from whichever alternative matched. `or`
 // binds looser than every pattern construct but `as`, so `A or B as x` names
 // the whole value; parentheses group (`(A as a) or (B as a)`). The parser
@@ -2933,19 +2934,15 @@ func (n *StructPattern) LineNum() int   { return n.Line }
 
 // TuplePattern matches a tuple value in a case branch: #(pattern, pattern, ...)
 //
-// TypeName is non-nil for a tuple pattern that names a distinct type over a
-// tuple, `#Pair(a, b)`, which takes the distinct apart and its tuple with it.
-//
-// Flat is true when the parser read the comma list of a variant's payload
-// written without the tuple's own `#(...)`: `.Pos(a, b)` takes apart a
-// variant whose payload is a tuple, as `.Pos(1, 2)` builds one. The
-// patterns sit directly inside the variant's parentheses. A distinct type
-// over a tuple is not taken apart flat; its pattern is `#Pair(a, b)`.
+// Flat is true when the parser read the comma list of a payload written
+// without the tuple's own `#(...)`: `.Pos(a, b)` takes apart a variant whose
+// payload is a tuple, as `.Pos(1, 2)` builds one, and `Pair(a, b)` a
+// distinct type over a tuple, as `Pair(1, "x")` builds one. The patterns sit
+// directly inside the variant's or type's parentheses.
 type TuplePattern struct {
 	TriviaCarrier
 	SpanCarrier
-	TypeName TypeExpr // nil for `#(...)`
-	Patterns []Node   // each can be a literal, IdentPattern, WildcardPattern
+	Patterns []Node // each can be a literal, IdentPattern, WildcardPattern
 	Flat     bool
 	Line     int
 	Col      int

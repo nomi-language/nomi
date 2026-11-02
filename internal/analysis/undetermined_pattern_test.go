@@ -63,7 +63,7 @@ func TestUndeterminedPatternBinding_Accepted(t *testing.T) {
 		// Nothing is bound.
 		"case Maybe.to_result(None, \"x\") {\n    Ok(_) -> Unit\n    Err(e) -> {\n      dbg e\n      Unit\n    }\n  }",
 		// A lambda parameter whose later lines fix what a destructure bound.
-		"pairs = Iter.reduce([1, 2], fn state = #([], []), item -> {\n    #(ts, fs) = state\n    #([item, ..ts], fs)\n  })\n  dbg pairs",
+		"pairs = Iter.reduce([1, 2], #([], []), fn state, item -> {\n    #(ts, fs) = state\n    #([item, ..ts], fs)\n  })\n  dbg pairs",
 	}
 	for _, body := range bodies {
 		t.Run(body, func(t *testing.T) {

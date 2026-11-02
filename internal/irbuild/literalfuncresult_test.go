@@ -21,7 +21,7 @@ impl Literal for Adder {
         n = fragments |> Iter.map(fn f -> case f {
             Fragment.Static(s) -> String.length(s)
             Fragment.Dynamic(d) -> d
-        }) |> Iter.reduce(fn acc = 0, x -> acc + x)
+        }) |> Iter.reduce(0, fn acc, x -> acc + x)
         fn x -> x + n
     }
 }

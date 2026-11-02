@@ -69,7 +69,7 @@ test "a brace after a map-shaped name attaches a map, and an empty one is the em
 
 test "an empty brace builds the struct its position expects from the defaults" {
     assert depth_of(#{}) == 2
-    assert #Settings{} == #{depth: 2, label: "plain"}
+    assert Settings{} == #{depth: 2, label: "plain"}
 }
 
 test "the spreads take the new heads" {

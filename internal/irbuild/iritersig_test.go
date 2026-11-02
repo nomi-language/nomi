@@ -24,11 +24,11 @@ fn main() {
   }
   pick(False) |> Iter.to_list() |> io.inspect()
   pick(True) |> Iter.count() |> io.print()
-  total = fn f: (Int) -> Int -> Iter.reduce(scaled(2) |> Iter.map(f), fn a = 0, x -> a + x)
+  total = fn f: (Int) -> Int -> Iter.reduce(scaled(2) |> Iter.map(f), 0, fn a, x -> a + x)
   total(fn x -> x + 1) |> io.print()
   chosen = if Iter.count(s) > 1 { scaled(5) } else { s }
   chosen |> Iter.to_list() |> io.inspect()
-  s |> Iter.reduce(fn a = 0, x -> a + x) |> io.print()
+  s |> Iter.reduce(0, fn a, x -> a + x) |> io.print()
 }
 `, "[6, 12]\n[1]\n2\n14\n[10, 20]\n6\n"},
 		{"a user source pushes through its own each_while", `import std/io
@@ -48,12 +48,12 @@ impl Iter for Span {
 }
 
 fn main() {
-  span = #Span{lo: 1, hi: 4}
+  span = Span{lo: 1, hi: 4}
   span |> Iter.to_list() |> io.inspect()
   span |> Iter.map(fn x -> x * 10) |> Iter.take(2) |> Iter.to_list() |> io.inspect()
   Iter.count(span) |> io.print()
   Iter.each_while(span, fn x -> x < 2) |> io.print()
-  Iter.each_while(#Span{lo: 3, hi: 3}, fn _x -> False) |> io.print()
+  Iter.each_while(Span{lo: 3, hi: 3}, fn _x -> False) |> io.print()
   odd = span |> Iter.filter(fn x -> x % 2 == 1)
   odd |> Iter.to_list() |> io.inspect()
   odd |> Iter.to_list() |> io.inspect()

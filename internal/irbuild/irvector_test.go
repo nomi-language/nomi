@@ -98,12 +98,12 @@ fn main() {
   io.inspect(maybes)
   io.inspect(#[..vector(#[1]), mark(2)])
   io.inspect(#[mark(3), ..vector(#[4])])
-  t = #Team{names: names}
+  t = Team{names: names}
   io.inspect(#[..t.names, "Cy"])
   io.inspect(#{..t, names: #["Zed", ..]})
   io.inspect(names)
 }
-`, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\n#Team{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
+`, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\nTeam{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
 }
 
 // A Vector of an interface's existential holds each item as the value it
@@ -132,11 +132,11 @@ fn main() {
     io.print(Int.to_string(Iter.count(v)))
     io.print(show(v))
     io.print(show(#[3, 4]))
-    w: Vector<Display> = #[#Point{x: 5}, "s", 1.5]
+    w: Vector<Display> = #[Point{x: 5}, "s", 1.5]
     io.print(show(w))
     io.print(Int.to_string(Vector.length(Vector.push(w, 7))))
     io.print(show(Vector.push(w, 7)))
     io.inspect(w)
     io.print(Debug.inspect(Vector.get(v, 0)))
-}`, "2\n1,2\n3,4\nP5,s,1.5\n4\nP5,s,1.5,7\n#[#Point{x: 5}, \"s\", 1.5]\nSome(1)\n")
+}`, "2\n1,2\n3,4\nP5,s,1.5\n4\nP5,s,1.5,7\n#[Point{x: 5}, \"s\", 1.5]\nSome(1)\n")
 }

@@ -46,7 +46,7 @@ derive Equatable for Zipper<T>
 impl Zipper<T> {
     /// A zipper on `tree` with its root in focus.
     pub fn from_tree(tree: Tree<T>) -> Zipper<T> {
-        #Zipper{focus: tree, path: []}
+        Zipper{focus: tree, path: []}
     }
 
     /// The whole tree, whatever the focus.
@@ -64,16 +64,16 @@ impl Zipper<T> {
 
     /// The zipper on the focus's left subtree, or `None` when it has none.
     pub fn left(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
-        #Tree{value, left, right} = zipper.focus
+        #{value, left, right} = zipper.focus
 
-        Some(#Zipper{focus: left?, path: [#.FromLeft{value, right}, ..zipper.path]})
+        Some(Zipper{focus: left?, path: [.FromLeft{value, right}, ..zipper.path]})
     }
 
     /// The zipper on the focus's right subtree, or `None` when it has none.
     pub fn right(zipper: Zipper<T>) -> Maybe<Zipper<T>> {
-        #Tree{value, left, right} = zipper.focus
+        #{value, left, right} = zipper.focus
 
-        Some(#Zipper{focus: right?, path: [#.FromRight{value, left}, ..zipper.path]})
+        Some(Zipper{focus: right?, path: [.FromRight{value, left}, ..zipper.path]})
     }
 
     /// The zipper on the focus's parent, or `None` at the root.
@@ -82,11 +82,11 @@ impl Zipper<T> {
             [] ->
                 None
 
-            [#.FromLeft{value, right}, ..path] ->
-                Some(#Zipper{focus: #{value, left: Some(zipper.focus), right}, path})
+            [.FromLeft{value, right}, ..path] ->
+                Some(Zipper{focus: #{value, left: Some(zipper.focus), right}, path})
 
-            [#.FromRight{value, left}, ..path] ->
-                Some(#Zipper{focus: #{value, left, right: Some(zipper.focus)}, path})
+            [.FromRight{value, left}, ..path] ->
+                Some(Zipper{focus: #{value, left, right: Some(zipper.focus)}, path})
         }
     }
 
@@ -134,7 +134,7 @@ fn initial_tree() -> Tree<Int> {
 fn follow(operations: List<Operation>) -> Maybe<Zipper<Int>> {
     start = initial_tree() |> Zipper.from_tree() |> Some()
 
-    Iter.reduce(operations, fn zipper = start, operation -> apply(zipper?, operation))
+    Iter.reduce(operations, start, fn zipper, operation -> apply(zipper?, operation))
 }
 
 fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>> {

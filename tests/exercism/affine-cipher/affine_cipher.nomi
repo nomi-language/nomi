@@ -47,7 +47,7 @@ pub fn decode(phrase: String, key: Key) -> Result<String, Error> {
 fn inverse(a: Int) -> Result<Int, Error> {
     0..letter_count
     |> Iter.find(fn x -> Int.modulo(a * x, letter_count) == 1)
-    |> Maybe.to_result(Error.NotCoprime)
+    |> Maybe.to_result(.NotCoprime)
 }
 
 /// Each letter and digit of `text`, a letter moved to the letter `step`

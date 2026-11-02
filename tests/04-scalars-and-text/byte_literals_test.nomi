@@ -25,7 +25,7 @@ fn has_high_bit(b: Byte) -> Bool {
 test "an Int literal where a Byte is expected is a Byte" {
     b: Byte = 0x81
     bytes: List<Byte> = [0x81, 0x00, 1_0]
-    header = #Header{tag: 7, length: 300}
+    header = Header{tag: 7, length: 300}
 
     assert Byte.to_int(b) == 129
     assert Iter.map(bytes, Byte.to_int) |> Iter.to_list() == [129, 0, 10]

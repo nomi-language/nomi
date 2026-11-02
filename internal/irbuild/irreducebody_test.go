@@ -11,7 +11,7 @@ fn main() {
  answer = xs
  |> Iter.filter(fn n -> n > 2)
  |> Iter.map(fn n -> n * n)
- |> Iter.reduce(fn acc = 0, n -> acc + n)
+ |> Iter.reduce(0, fn acc, n -> acc + n)
  io.print(answer)
 }
 `, "50\n")
@@ -23,8 +23,8 @@ fn source() -> List<Int> { io.print("source"); [1, 2] }
 fn seed(n: Int) -> Int { io.print("seed"); n }
 fn main() {
  x = 10
- io.print(Iter.reduce(source(), fn acc = seed(x), x -> { io.print(x); acc + x }))
- io.print(Iter.reduce([4, 5, 6], fn acc: Int = 0, n: Int -> acc + n))
+ io.print(Iter.reduce(source(), seed(x), fn acc, x -> { io.print(x); acc + x }))
+ io.print(Iter.reduce([4, 5, 6], 0, fn acc: Int, n: Int -> acc + n))
 }
 `, "source\nseed\n1\n2\n13\n15\n")
 }
@@ -32,8 +32,8 @@ fn main() {
 func TestIRReduceBody_NestedIndependentSeeds(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
 fn main() {
- io.print(Iter.reduce([1, 2], fn outer = 100, n -> {
-  outer + Iter.reduce([3, 4], fn inner = n, x -> inner + x)
+ io.print(Iter.reduce([1, 2], 100, fn outer, n -> {
+  outer + Iter.reduce([3, 4], n, fn inner, x -> inner + x)
  }))
 }
 `, "117\n")
@@ -45,9 +45,9 @@ fn empty() -> List<Int> { [] }
 fn main() {
  xs = Iter.filter([1, 2, 3], fn n -> { io.print(n); n > 1 })
  io.print("created")
- io.print(Iter.reduce(xs, fn acc = 0, n -> acc + n))
+ io.print(Iter.reduce(xs, 0, fn acc, n -> acc + n))
  io.inspect(Iter.to_list(xs))
- io.print(Iter.reduce(empty(), fn acc = 7, n -> acc + n))
+ io.print(Iter.reduce(empty(), 7, fn acc, n -> acc + n))
 }
 `, "created\n1\n2\n3\n5\n1\n2\n3\n[2, 3]\n7\n")
 }
@@ -55,7 +55,7 @@ fn main() {
 func TestIRReduceBody_CallbackFault(t *testing.T) {
 	verifyIterFault(t, `import std/io
 fn main() {
- io.print(Iter.reduce([1, 0, 2], fn acc = 10, n -> {
+ io.print(Iter.reduce([1, 0, 2], 10, fn acc, n -> {
   io.print(n)
   acc / n
  }))
@@ -67,6 +67,6 @@ fn main() {
 // VM iterates its `#(K, V)` pairs, and the reduction reads each key.
 func TestIRReduceBody_NestedMapSourceRuns(t *testing.T) {
 	verifyLambdaProgram(t, `import std/io
-fn main() { io.print(Iter.reduce(%{1 => %{2 => 3}}, fn acc = 10, p -> acc + p.0)) }
+fn main() { io.print(Iter.reduce(%{1 => %{2 => 3}}, 10, fn acc, p -> acc + p.0)) }
 `, "11\n")
 }

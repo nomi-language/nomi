@@ -164,7 +164,7 @@ func SeqFrom(start int64) Seq[int64] {
 // Each pair below is one Nomi declaration lowered, and the split is the split
 // std itself makes: a `host fn <name>_each` that mediates the protocol, plus a
 // one-line `pub fn <name>` whose entire body is
-// `#Seq{run: fn yield -> <name>_each(...)}`.
+// `Seq{run: fn yield -> <name>_each(...)}`.
 //
 // So `SeqMap` is not a Go reimplementation of `Iter.map` — it is `Iter.map`'s
 // body, which the stdlib lowering path cannot reach because the function is
@@ -187,7 +187,7 @@ func SeqFrom(start int64) Seq[int64] {
 // `continue` are refused by name at the call site. The remaining three
 // collapse into one line here, and that is not a simplification, it is what
 // the signals mean once the callback is a Go func: a returned value is yielded,
-// and a callback whose result kind is `Unit` returns `#Unit{}` — so
+// and a callback whose result kind is `Unit` returns `Unit{}` — so
 // `yield(fr, f(fr, item))` is all three.
 func MapEach[T, U any](fr *Frame, src Seq[T], f func(fr *Frame, item T) U, yield func(fr *Frame, item U) bool) bool {
 	return src.Run(fr, func(fr *Frame, item T) bool {
@@ -269,21 +269,13 @@ func SeqTake[T any](src Seq[T], n int64) Seq[T] {
 
 // --- terminals --------------------------------------------------------------
 
-// SeqReduce is `pub host fn reduce<T, U>(source: Iter<T>, f: (U, T) -> U) -> U`
-// where the callback declares a first-parameter default — the seed.
+// SeqReduce is `pub host fn reduce<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> U`.
 //
 // # Why the seed is a parameter here and not a field of anything
 //
-// In Nomi the seed is written inside the callback: `Iter.reduce(xs, |acc = 0,
-// x| acc + x)`. It is not an ordinary default, because nothing is applied on an
-// arity mismatch — the callee reads it out of the function value and
-// evaluates it off the lambda's own closure. A Go func value has nowhere to
-// carry that, so the caller lifts the default out at the call site and hands
-// it here.
-//
 // It is an argument to this function rather than a field on `Seq` for a reason
 // that is a correctness one and not a tidiness one: the seed belongs to the
-// callback, not to the source. The same `Seq` may be reduced twice with two
+// call, not to the source. The same `Seq` may be reduced twice with two
 // different seeds, and std/iter declares `Seq` with exactly one field, so a
 // second one would be a type std does not have.
 //

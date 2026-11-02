@@ -98,14 +98,14 @@ func TestSiblingDefaults_LiteralsFillForeignFieldDefaults(t *testing.T) {
 	}
 	want := "" +
 		"base\n" +
-		`#Loot{name: "a", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
-		`#Loot{name: "b", drops: Some(3), held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 7, rare: False}` + "\n" +
-		`#Loot{name: "c", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
-		"#Box{value: 1, extra: [], label: None}\n" +
-		`#Box{value: "s", extra: [], label: Some("x")}` + "\n" +
-		"#Box{value: #Local{x: 1}, extra: [], label: None}\n" +
-		`#Tagged{name: "t", tags: [], at: None}` + "\n" +
-		`#Tagged{name: "inferred", tags: [], at: None}` + "\n" +
+		`Loot{name: "a", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
+		`Loot{name: "b", drops: Some(3), held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 7, rare: False}` + "\n" +
+		`Loot{name: "c", drops: None, held: Some(Key), tags: [], item: Coin, hello: "lib", weight: 42, rare: False}` + "\n" +
+		"Box{value: 1, extra: [], label: None}\n" +
+		`Box{value: "s", extra: [], label: Some("x")}` + "\n" +
+		"Box{value: Local{x: 1}, extra: [], label: None}\n" +
+		`Tagged{name: "t", tags: [], at: None}` + "\n" +
+		`Tagged{name: "inferred", tags: [], at: None}` + "\n" +
 		"main\n"
 	path := fixture("sibling_field_defaults/main.nomi")
 	got := vmReference(path)
@@ -137,5 +137,39 @@ func TestSiblingDefaults_AssertionSubjectRecordsWrittenArguments(t *testing.T) {
 		!strings.Contains(got.stdout, rows) || !strings.Contains(got.stdout, "1 passed, 1 failed") {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want rows ---\n%s",
 			got.exit, got.stdout, got.stderr, rows)
+	}
+}
+
+// A call that leaves out a defaulted parameter before its trailing callback
+// runs (testdata/sibling_callback_defaults): the callback goes to the last
+// slot, as the checker routes it, and the skipped slot takes its default.
+// For another file's generic member the default calls that file's private
+// `pause`, not the caller's function of the same name, through an accessor
+// the declaring file builds for the instance; for a member of another file's
+// generic type the defaults are a literal and an expression over an earlier
+// parameter; and a same-file member fills its own. The written arguments
+// run before any default.
+func TestSiblingDefaults_ADefaultBeforeATrailingCallbackFills(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	want := "" +
+		"caller pause\n" +
+		// Box.apply(arg(3), f): arg first, then boxes.nomi's pause.
+		"arg 3\n" +
+		"default pause\n" +
+		"wait 5s\n" +
+		"4\n" +
+		// Box.grow(arg(4), f): by = 1, step = by * 10.
+		"arg 4\n" +
+		"15\n" +
+		// Box.grow(b, 2, f): step = 20.
+		"26\n" +
+		// Counter.bump(c, f): by = 2.
+		"30\n"
+	got := vmReference(fixture("sibling_callback_defaults/main.nomi"))
+	if got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
 	}
 }

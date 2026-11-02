@@ -62,7 +62,7 @@ struct Team {
 }
 
 test "a bare spread stands anywhere, and a map entry after spreads updates what they hold" {
-    team = #Team{
+    team = Team{
         members: ["Bo"],
         scores: %{"ada" => %{"q1" => 5}},
     }

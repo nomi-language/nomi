@@ -262,7 +262,7 @@ pub struct Json.ShapeError {
 }
 
 pub fn shape_error_root(expected: String, got: Json) -> Json.ShapeError {
-    #Json.ShapeError{
+    Json.ShapeError{
         path: [],
         expected,
         got: Json.kind(got),
@@ -270,7 +270,7 @@ pub fn shape_error_root(expected: String, got: Json) -> Json.ShapeError {
 }
 
 pub fn shape_error_prepend(e: Json.ShapeError, segment: String) -> Json.ShapeError {
-    #Json.ShapeError{
+    Json.ShapeError{
         path: [segment] + e.path,
         expected: e.expected,
         got: e.got,
@@ -466,7 +466,7 @@ impl FromJson for Map<String, V> where V: FromJson {
     fn from_json(json: Json) -> Result<Map<String, V>, Json.ShapeError> {
         case json {
             Json.Obj(items) ->
-                Iter.reduce(items, fn state = Ok(%{}), #(key, value) -> {
+                Iter.reduce(items, Ok(%{}), fn state, #(key, value) -> {
                     case state {
                         Err(e) ->
                             break Err(e)

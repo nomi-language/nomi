@@ -118,11 +118,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Find a value&#39;s index in a sorted array by repeatedly halving the range it could be in.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/collections/">Collections</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/generics/">Generics</a></td>
 </tr>
-<tr data-subject="collections-and-algorithms" data-chapters="functions-and-lambdas collections iteration-and-loops structs-enums-distinct pattern-matching generics interfaces-and-dispatch">
+<tr data-subject="collections-and-algorithms" data-chapters="collections iteration-and-loops structs-enums-distinct pattern-matching generics interfaces-and-dispatch">
 <td><a href="/examples/binary-search-tree/">Binary Search Tree</a></td>
 <td>Collections &amp; Algorithms</td>
 <td>Insert values into a binary search tree, check the shape it builds, and read its values back in sorted order.</td>
-<td><a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/generics/">Generics</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
+<td><a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/generics/">Generics</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
 </tr>
 <tr data-subject="strings-and-text" data-chapters="bindings-and-expressions scalars-and-strings pattern-matching">
 <td><a href="/examples/bob/">Bob</a></td>

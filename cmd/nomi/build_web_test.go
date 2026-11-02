@@ -53,7 +53,7 @@ fn main() {
 }
 
 export fn new_game(word: String) -> Game {
-  #Game{word, guesses: []}
+  Game{word, guesses: []}
 }
 
 export fn guess(game: Game, letter: String) -> Game {
@@ -62,13 +62,13 @@ export fn guess(game: Game, letter: String) -> Game {
 }
 
 export fn outcome(game: Game) -> Outcome {
-  if List.head(game.guesses) == Some("w") { Outcome.Won } else { #Outcome.Playing{left: 6 - Iter.count(game.guesses)} }
+  if List.head(game.guesses) == Some("w") { Outcome.Won } else { Outcome.Playing{left: 6 - Iter.count(game.guesses)} }
 }
 
 export fn describe(o: Outcome) -> String {
   case o {
     Outcome.Won -> "won"
-    #Outcome.Playing{left} -> "${left} left"
+    Outcome.Playing{left} -> "${left} left"
   }
 }
 
@@ -106,7 +106,7 @@ struct App {
 fn boot(startup: Startup) -> Result<App, String> {
   io.print(startup.args)
   io.print(Map.get(startup.env, "NAME"))
-  Ok(#App{context: Context.root()})
+  Ok(App{context: Context.root()})
 }
 
 fn main() {
@@ -122,7 +122,7 @@ fn main() {
 }
 `,
 	"spin.nomi": `fn main() {
-  _ = Iter.loop(fn n = 0 -> n + 1)
+  _ = Iter.loop(0, fn n -> n + 1)
 }
 `,
 	"oom.nomi": `import std/io

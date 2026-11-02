@@ -3,12 +3,15 @@
 //# its consumer; `Channel.unbuffered()` makes every send wait for a
 //# receive. `Sender.send` answers `Err` once the channel is closed,
 //# `Sender.close` closes it, and `Receiver.receive` answers `None` when it
-//# is closed and drained. How a task waiting on a channel is cancelled is a
+//# is closed and drained. `Channel.select` waits on several channel
+//# operations and timers at once, and `Receiver.receive_within` on one
+//# channel with a timeout. How a task waiting on a channel is cancelled is a
 //# language rule ([Concurrency](/spec/concurrency/)).
 //#
 //# ## Multiplexing
 //#
-//# To wait on multiple event sources, use a single channel with an enum:
+//# Producers that share one message type fan in through a single channel
+//# of an enum:
 //#
 //# ```nomi
 //# concurrent {
@@ -31,11 +34,24 @@
 //# ```
 //#
 //# The enum is the multiplexing mechanism: producers tag their messages,
-//# and the consumer pattern matches on variants. There is no multi-channel
-//# `select` construct; the tagged-enum channel covers the realistic cases.
+//# and the consumer pattern matches on variants.
+//#
+//# `Channel.select` covers what one channel cannot: a timeout, a send that
+//# must not block, and channels of different element types or owned by
+//# different code. Each arm's handler maps its own outcome to the result:
+//#
+//# ```nomi
+//# answer = Channel.select([
+//#     Arm.receive(replies, fn reply -> Maybe.with_default(reply, "closed")),
+//#     Arm.receive(errors, fn error -> "failed: ${Maybe.with_default(error, 0)}"),
+//#     Arm.after(Duration.seconds(5), fn -> "timed out"),
+//# ])
+//# ```
 
 import {
+    duration.Duration
     int.Int
+    lists.List
     maybe.Maybe
     results.Result
     tasks.Task
@@ -118,6 +134,40 @@ impl Channel<T> {
     //! assert sent == Maybe.Some(7)
     //
     pub host fn unbuffered<T>() -> Channel<T>
+
+    /// Wait until one of `arms` can finish, run that arm's handler, and
+    /// return what it returns. An arm is a receive (`Arm.receive`), a send
+    /// (`Arm.send`) or a timer (`Arm.after`), and the arms may be on channels
+    /// of different element types, since each handler turns its own outcome
+    /// into the one result type `R`.
+    ///
+    /// When several arms can finish as `select` starts, the first one listed
+    /// wins, so a run repeats exactly. That is a bias: an arm listed first
+    /// that is always ready keeps the others waiting. A loop that must serve
+    /// several busy channels fairly rotates its arms each round. Once
+    /// `select` is waiting, the first arm to become ready wins.
+    ///
+    /// A receive on a closed channel is ready at once with `None`, and a send
+    /// on one is ready at once with `Err(ChannelClosed)`, so a `select` whose
+    /// channels are all closed runs its first listed channel arm. A timer
+    /// counts on the clock in force: under `clock Clock.Virtual` it fires as
+    /// soon as every task is waiting, without a real wait. A timer of zero
+    /// or less is ready at once, so `Arm.after` of zero listed last makes a
+    /// `select` that never waits. An empty list of arms is a fault.
+    ///
+    /// Waiting is cancellable, as `Receiver.receive` is: when the enclosing
+    /// `concurrent` block's context fires, the wait ends and no handler runs.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Ok(_) = Sender.send(ch.sender, 7)
+    //!
+    //! got = Channel.select([
+    //!     Arm.receive(ch.receiver, fn n -> Maybe.with_default(n, 0)),
+    //!     Arm.after(Duration.seconds(1), fn -> -1),
+    //! ])
+    //!
+    //! assert got == 7
+    //
+    pub host fn select<R>(arms: List<Arm<R>>) -> R
 }
 
 impl Sender<T> {
@@ -143,6 +193,20 @@ impl Sender<T> {
     //! assert Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
     //
     pub host fn close<T>(sender: Sender<T>) -> Unit
+
+    /// Close the channel when the program starts shutting down, as its
+    /// supervisors begin to drain. A task that reads the channel until it
+    /// closes then finishes what is queued and ends, so the drain does not
+    /// wait out its grace period for a reader parked on an empty channel.
+    /// A `close` before shutdown cancels it, and a `close` after shutdown
+    /// closed the channel is no double close.
+    //! ch = Channel.buffered<Int>(1)
+    //! Sender.close_on_drain(ch.sender)
+    //! assert Ok(_) = Sender.send(ch.sender, 1)
+    //! Sender.close(ch.sender)
+    //! assert Receiver.receive(ch.receiver) == Maybe.Some(1)
+    //
+    pub host fn close_on_drain<T>(sender: Sender<T>) -> Unit
 }
 
 impl Receiver<T> {
@@ -156,6 +220,65 @@ impl Receiver<T> {
     //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
     //
     pub host fn receive<T>(receiver: Receiver<T>) -> Maybe<T>
+
+    /// Receive the next value, waiting at most `wait`. `Ok(Some(value))` is a
+    /// value, `Ok(None)` a channel closed and drained, and `Err(TimedOut)` a
+    /// wait that ran out first, on the clock in force. A value already
+    /// waiting is received even when `wait` is zero.
+    ///
+    /// For waiting on more than one channel, or on a send, use
+    /// `Channel.select`.
+    //! ch = Channel.buffered<Int>(1)
+    //! assert Receiver.receive_within(ch.receiver, Duration.seconds(0)) == Result.Err(TimedOut)
+    //! assert Ok(_) = Sender.send(ch.sender, 7)
+    //! assert Receiver.receive_within(ch.receiver, Duration.seconds(1)) == Result.Ok(Maybe.Some(7))
+    //
+    pub host fn receive_within<T>(
+        receiver: Receiver<T>,
+        wait: Duration,
+    ) -> Result<Maybe<T>, TimedOut>
+}
+
+/// One way a `Channel.select` can finish, with the handler that turns its
+/// outcome into the `select`'s result. Build one with `Arm.receive`,
+/// `Arm.send` or `Arm.after`.
+pub host type Arm<R>
+
+impl Arm<R> {
+    /// An arm that finishes when `receiver` has a value, or is closed and
+    /// drained, and passes `handle` the value or `None`.
+    //! ch = Channel.buffered<Int>(1)
+    //! Sender.close(ch.sender)
+    //! assert Channel.select([Arm.receive(ch.receiver, fn n -> n)]) == Maybe.None
+    //
+    pub host fn receive<T, R>(receiver: Receiver<T>, handle: (Maybe<T>) -> R) -> Arm<R>
+
+    /// An arm that finishes when `value` can be sent on `sender`, and passes
+    /// `handle` the send's result: `Ok(Unit)`, or `Err(ChannelClosed)` when
+    /// the channel is closed.
+    //! ch = Channel.buffered<Int>(1)
+    //! sent = Channel.select([Arm.send(ch.sender, 7, fn r -> r == Result.Ok(Unit))])
+    //! assert sent
+    //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
+    //
+    pub host fn send<T, R>(
+        sender: Sender<T>,
+        value: T,
+        handle: (Result<Unit, ChannelClosed>) -> R,
+    ) -> Arm<R>
+
+    /// An arm that finishes once `wait` has passed on the clock in force,
+    /// counted from the start of the `select`, and runs `handle`.
+    //! ch = Channel.buffered<Int>(1)
+    //!
+    //! got = Channel.select([
+    //!     Arm.receive(ch.receiver, fn _ -> "a value"),
+    //!     Arm.after(Duration.seconds(0), fn -> "nothing yet"),
+    //! ])
+    //!
+    //! assert got == "nothing yet"
+    //
+    pub host fn after<R>(wait: Duration, handle: () -> R) -> Arm<R>
 }
 
 /// Returned by `Sender.send` when the channel was closed at the time
@@ -163,3 +286,7 @@ impl Receiver<T> {
 /// operation (panics on double-close, matching Go); user code should
 /// plan shutdown so close happens exactly once.
 pub type ChannelClosed
+
+/// Returned by `Receiver.receive_within` when its wait ran out before a
+/// value arrived or the channel closed.
+pub type TimedOut

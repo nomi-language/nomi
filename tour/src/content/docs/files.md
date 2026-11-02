@@ -59,7 +59,7 @@ import {
 fn main() {
     case fs.read_text("settings.toml") {
         Ok(text) -> io.print(text)
-        Err(#io.Error.NotFound{path}) -> io.print("no ${path}, so the defaults")
+        Err(io.Error.NotFound{path}) -> io.print("no ${path}, so the defaults")
         Err(e) -> io.eprint("cannot read the settings: ${e}")
     }
 
@@ -405,7 +405,7 @@ fn sort_file(input: String, output: String) -> Result<Int, io.Error> {
 }
 
 test "sorts the lines into the output file" {
-    ran = fs_testing.run(#Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
+    ran = fs_testing.run(Sandbox{files: %{"in.txt" => "pear\napple\n"}}, fn -> {
         sort_file("in.txt", "out.txt")
     })
 
@@ -415,16 +415,16 @@ test "sorts the lines into the output file" {
 }
 
 test "a full disk leaves the old output in place" {
-    sandbox = #Sandbox{
+    sandbox = Sandbox{
         files: %{"in.txt" => "b\na\n", "out.txt" => "old\n"},
         failures: [
-            #Failure{path: "out.txt", operation: .Write, error: #io.Error.NoSpace{path: "out.txt"}},
+            Failure{path: "out.txt", operation: .Write, error: io.Error.NoSpace{path: "out.txt"}},
         ],
     }
 
     ran = fs_testing.run(sandbox, fn -> sort_file("in.txt", "out.txt"))
 
-    assert ran.value == Err(#io.Error.NoSpace{path: "out.txt"})
+    assert ran.value == Err(io.Error.NoSpace{path: "out.txt"})
     assert fs_testing.text(ran, "/work/out.txt") == Some("old\n")
 }
 ```

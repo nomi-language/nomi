@@ -110,7 +110,7 @@ impl Show for Circle {
 impl Show for Shape {
     fn show(s: Shape) -> String {
         case s {
-            #.Circle{r} -> "shape circle ${r}"
+            .Circle{r} -> "shape circle ${r}"
             .Dot -> "shape dot"
         }
     }
@@ -125,7 +125,7 @@ pub enum Glyph {
 impl Show for Glyph {
     fn show(g: Glyph) -> String {
         case g {
-            #.Circle{r} -> "glyph circle ${r}"
+            .Circle{r} -> "glyph circle ${r}"
             .Blank -> "glyph blank"
         }
     }
@@ -134,15 +134,15 @@ impl Show for Glyph {
 impl Equatable for Glyph {
     fn equal(a: Glyph, b: Glyph) -> Bool {
         case a {
-            #.Circle{r: _} ->
+            .Circle{r: _} ->
                 case b {
-                    #.Circle{r: _} -> True
+                    .Circle{r: _} -> True
                     .Blank -> False
                 }
 
             .Blank ->
                 case b {
-                    #.Circle{r: _} -> False
+                    .Circle{r: _} -> False
                     .Blank -> True
                 }
         }

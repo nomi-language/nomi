@@ -12,31 +12,31 @@ fn main() {
     // the callback's default would print 6 here and pass every other comparison
     // in this file that happens to seed from zero — which is the bug this
     // fixture exists to make loud.
-    io.print("${Iter.reduce([1, 2, 3], fn acc = 100, x -> acc + x)}")
-    io.print("${Iter.reduce([1, 2, 3], fn acc = 0, x -> acc + x)}")
+    io.print("${Iter.reduce([1, 2, 3], 100, fn acc, x -> acc + x)}")
+    io.print("${Iter.reduce([1, 2, 3], 0, fn acc, x -> acc + x)}")
 
     // Every scalar accumulator, each with a seed the fold cannot reach on its
     // own: a multiplicative identity is 1 and not 0, a String seed is a prefix,
     // and a Bool seed of True is what makes an `and` fold vacuous rather than
     // dead.
-    io.print("${Iter.reduce([1, 2, 3], fn acc = 1, x -> acc * x)}")
-    io.print("${Iter.reduce(["a", "b"], fn acc = "seed:", s -> acc + s)}")
-    io.print("${Iter.reduce([1.5, 2.5], fn acc = 10.0, x -> acc + x)}")
-    io.print("${Iter.reduce([1, 2, 3], fn acc = True, x -> acc and x > 0)}")
+    io.print("${Iter.reduce([1, 2, 3], 1, fn acc, x -> acc * x)}")
+    io.print("${Iter.reduce(["a", "b"], "seed:", fn acc, s -> acc + s)}")
+    io.print("${Iter.reduce([1.5, 2.5], 10.0, fn acc, x -> acc + x)}")
+    io.print("${Iter.reduce([1, 2, 3], True, fn acc, x -> acc and x > 0)}")
 
     // An EMPTY source answers the seed. This is the line a zero-value default
     // gets right by accident for `0` and wrong for everything else.
     empty: List<Int> = []
-    io.print("${Iter.reduce(empty, fn acc = 42, x -> acc + x)}")
+    io.print("${Iter.reduce(empty, 42, fn acc, x -> acc + x)}")
 
     // Through a lazy pipeline, so the seed survives an erased source.
-    io.print("${[1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.reduce(fn acc = 5, x -> acc + x)}")
-    io.print("${Iter.from(1) |> Iter.take(4) |> Iter.reduce(fn acc = 1000, x -> acc + x)}")
+    io.print("${[1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.reduce(5, fn acc, x -> acc + x)}")
+    io.print("${Iter.from(1) |> Iter.take(4) |> Iter.reduce(1000, fn acc, x -> acc + x)}")
 
     // A COMPOSITE seed. `[9]` is a non-empty list, so a dropped seed prints
     // [3, 2, 1] and a seed lowered as a typed nil prints the same — only a real
     // one prints the 9.
-    io.print("${Iter.reduce([1, 2, 3], fn acc = [9], x -> [x, ..acc])}")
+    io.print("${Iter.reduce([1, 2, 3], [9], fn acc, x -> [x, ..acc])}")
 
     // A DESTRUCTURING first parameter carries a seed too (`fn #(a, b) = #(0, 0),
     // x ->`), so the claim is on the parameter's DEFAULT and not on it having a
@@ -47,14 +47,14 @@ fn main() {
     // Lowering the seed inside the func literal would resolve it to the
     // parameter and answer 6.
     x = 5
-    io.print("${Iter.reduce([1, 2, 3], fn acc = x, x -> acc + x)}")
+    io.print("${Iter.reduce([1, 2, 3], x, fn acc, x -> acc + x)}")
 
     // NESTED. Each boundary must read its OWN seed. If the inner reduce resolved
     // against the outer's, the inner fold would start at 1000 and this would be
     // 3060 instead of 1074.
     io.print(
-        "${Iter.reduce([1, 2], fn outer = 1000, _a -> {
-            outer + Iter.reduce([10, 20], fn inner = 7, b -> inner + b)
+        "${Iter.reduce([1, 2], 1000, fn outer, _a -> {
+            outer + Iter.reduce([10, 20], 7, fn inner, b -> inner + b)
         })}"
     )
 
@@ -63,6 +63,6 @@ fn main() {
     io.print("order:")
 
     io.print(
-        "${Iter.reduce([note("src", 1), note("src", 2)], fn acc = note("seed", 100), x -> acc + x)}"
+        "${Iter.reduce([note("src", 1), note("src", 2)], note("seed", 100), fn acc, x -> acc + x)}"
     )
 }

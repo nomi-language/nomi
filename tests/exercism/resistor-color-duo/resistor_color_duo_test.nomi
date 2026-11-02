@@ -20,5 +20,5 @@ test "value" {
 
 // Not a canonical case: the exercise always gives at least two bands.
 test "fewer than two bands have no value" {
-    assert resistor_color_duo.value([Color.Brown]) == None
+    assert resistor_color_duo.value([.Brown]) == None
 }

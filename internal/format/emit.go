@@ -1096,9 +1096,7 @@ func bareStartsDestructure(pattern ast.Node) bool {
 	}
 	switch p := pattern.(type) {
 	case *ast.TuplePattern:
-		// `#Pair(a, b) = v` is a pattern binding; only `#(a, b) = v` is
-		// the tuple destructure.
-		if len(p.Patterns) < 2 || p.TypeName != nil {
+		if len(p.Patterns) < 2 {
 			return false
 		}
 
@@ -2254,8 +2252,8 @@ func emitDocsBlockForceBroken(parts []Doc, endTrivia []ast.Trivia) Doc {
 //
 // Only the literal or pattern whose own depth reaches the threshold
 // breaks. Its elements are laid out on their own merits, by width and by
-// their own depth, so in `[#R{p: #P{x: 0, y: 0}, n: 1}]` the list breaks
-// and the depth-2 `#R{...}` stays on one line inside it.
+// their own depth, so in `[R{p: P{x: 0, y: 0}, n: 1}]` the list breaks
+// and the depth-2 `R{...}` stays on one line inside it.
 const maxCompoundDepth = 3
 
 // tooDeep reports whether n, a compound literal or pattern with count
@@ -2466,14 +2464,14 @@ func bracedList(open, close string, elems []Doc, lastComma bool) Doc {
 	))
 }
 
-// emitStructLit renders a struct literal, nominal (`#User{...}`) or with no
+// emitStructLit renders a struct literal, nominal (`User{...}`) or with no
 // type name (`#{...}`). Field punning — where the parser synthesizes
 // Value=Ident{Name:FieldName} — is re-emitted as just the field name.
 //
 // Width-based, except that a literal whose source breaks the line after
 // its `{` stays broken even when it would fit flat (brokenAfterOpen).
 func emitStructLit(v *ast.StructLit) Doc {
-	open := shapeOpen("#", v.TypeName, "{")
+	open := structOpen(v.TypeName)
 	hasEndTrivia := trailingHasComment(v.EndTrivia)
 	hasInterFieldTrivia := structFieldValsHaveLeading(v.Fields) || v.Spread != nil && itemComments(v.Spread) != nil
 	elems := make([]Doc, 0, len(v.Fields)+1)
@@ -3457,7 +3455,7 @@ func emitPatternNode(n ast.Node) Doc {
 	case *ast.OrPattern:
 		return emitOrPattern(v)
 	case *ast.TuplePattern:
-		open := shapeOpen("#", v.TypeName, "(")
+		open := shapeOpen("#", nil, "(")
 		elems, cs, ok := patternItems(v.Patterns)
 		if ok {
 			return emitCommentedListNoLastComma(open, ")", elems, cs)
@@ -3473,7 +3471,7 @@ func emitPatternNode(n ast.Node) Doc {
 		parts = append(parts, Text(")"))
 		return Concat(parts...)
 	case *ast.StructPattern:
-		open := shapeOpen("#", v.TypeName, "{")
+		open := structOpen(v.TypeName)
 		elems := make([]Doc, 0, len(v.Fields))
 		for _, f := range v.Fields {
 			switch {
@@ -3530,7 +3528,7 @@ func emitPatternNode(n ast.Node) Doc {
 			}
 			// Variant(<nested pattern>): the payload is a single pattern.
 			// A distinct type over a tuple is taken apart by the tuple
-			// pattern that names it, `#Pair(a, b)`.
+			// pattern that names it, `Pair(a, b)`.
 			elems, cs, ok := patternItems([]ast.Node{v.Payload})
 			if ok {
 				return Concat(name, emitCommentedListNoLastComma("(", ")", elems, cs))
@@ -4267,7 +4265,7 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		return Concat(Text(n.Module), Text("."), emitTypeExpr(n.Member))
 	case *ast.DotVariantType:
 		// Dot-leading variant shorthand used in TypeName slots of
-		// literal-attach forms (`%.Obj{"k" => v}`, `.Arr[...]`, `#.Rect{w, h}`)
+		// literal-attach forms (`%.Obj{"k" => v}`, `.Arr[...]`, `.Rect{w, h}`)
 		// and patterns. Same round-trip-as-written semantics as DotVariant.
 		return Concat(Text("."), Text(n.Name))
 	case *ast.GenericType:
@@ -5562,7 +5560,7 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 	if v.Opaque {
 		parts = append(parts, Text("opaque "))
 	}
-	parts = append(parts, Text("type "), Text(v.Name))
+	parts = append(parts, Text("type "), Text(v.Name), emitTypeParams(v.TypeParams))
 	if v.InnerTypeExpr != nil {
 		parts = append(parts, Text(" "), emitTypeExpr(v.InnerTypeExpr))
 	}
@@ -6277,7 +6275,16 @@ func emitDecoratedPipeStage(stage ast.Node, keyword ast.Node, more bool) (Doc, b
 
 // shapeOpen is the opening of a literal or pattern of a built-in shape: its
 // symbol, the name of the type built on the shape when there is one, and its
-// bracket. `#{`, `#Point{`, `#.Circle{`, `%Kvs{`, `#Path[`.
+// bracket. `#{`, `Point{`, `.Circle{`, `%Kvs{`, `#Path[`.
+// structOpen is a struct literal's or pattern's opening: `#{` for the
+// unnamed form, and the name alone for a named one, `Point{`.
+func structOpen(name ast.TypeExpr) string {
+	if name == nil {
+		return "#{"
+	}
+	return name.TypeString() + "{"
+}
+
 func shapeOpen(sigil string, name ast.TypeExpr, bracket string) string {
 	if name == nil {
 		return sigil + bracket

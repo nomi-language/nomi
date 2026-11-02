@@ -54,7 +54,7 @@ func TestIterSensitive_AnotherFilesFunctionAsACallback(t *testing.T) {
 
 fn main() {
   io.inspect(Iter.map([3, -1, 4, 500, 6], lib.keep) |> Iter.to_list())
-  io.inspect(Iter.reduce([1, -5, 2], lib.add, from: 0))
+  io.inspect(Iter.reduce([1, -5, 2], 0, lib.add))
 }
 `, "")
 	if err != nil {

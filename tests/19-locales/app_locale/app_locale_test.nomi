@@ -4,7 +4,7 @@ import {
 }
 
 group "Polish from LANG" {
-    boot main.boot(#Startup{env: %{"LANG" => "pl_PL.UTF-8"}})
+    boot main.boot(Startup{env: %{"LANG" => "pl_PL.UTF-8"}})
 
     test "the boot reads the POSIX value" {
         assert App.locale == Locale`pl-PL`
@@ -13,7 +13,7 @@ group "Polish from LANG" {
 }
 
 group "no LANG" {
-    boot main.boot(#Startup{})
+    boot main.boot(Startup{})
 
     test "the boot falls back to English" {
         assert App.locale == Locale`en`
@@ -21,7 +21,7 @@ group "no LANG" {
 }
 
 group "pinned in setup" {
-    boot main.boot(#Startup{env: %{"LANG" => "pl_PL.UTF-8"}})
+    boot main.boot(Startup{env: %{"LANG" => "pl_PL.UTF-8"}})
 
     setup {
         with App.locale = Locale`en-US`

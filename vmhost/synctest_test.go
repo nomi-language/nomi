@@ -156,7 +156,7 @@ fn produce(ch: Channel<Int>, n: Int) -> Unit {
 }
 
 fn consume(ch: Channel<Int>) -> Int {
-  Iter.loop(fn sum = 0 ->
+  Iter.loop(0, fn sum ->
     case Receiver.receive(ch.receiver) {
       Some(v) -> sum + v
       None -> break sum
@@ -235,7 +235,7 @@ struct Config {
 }
 
 fn boot() -> Result<Config, String> {
-  Ok(#Config{context: Context.root(), notify: Supervisor.new(` + groupArgs + `)})
+  Ok(Config{context: Context.root(), notify: Supervisor.new(` + groupArgs + `)})
 }
 ` + rest
 }
@@ -307,7 +307,7 @@ fn main() -> Unit {
 // jitter, so virtual time makes the clock reproducible, not the schedule.
 func TestSynctestRestartBackoffVirtualizesItsDelays(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(10), max_running: 1, "+
-		"restart: Restart.Transient, backoff: #Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}", `
+		"restart: Restart.Transient, backoff: Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}", `
 fn breaks() -> Unit {
   io.print("run")
   _ = 1 / 0

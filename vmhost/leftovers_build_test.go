@@ -70,7 +70,7 @@ func TestDbg_BuildImageRefusesAProgramWithDbgs(t *testing.T) {
 }
 
 fn main() {
-    total = [1, 2, 3] |> Iter.reduce(fn sum = 0, n -> sum + n) |> dbg
+    total = [1, 2, 3] |> Iter.reduce(0, fn sum, n -> sum + n) |> dbg
     _ = dbg total
     _ = dbg [
         "a fairly long first element",
@@ -81,7 +81,7 @@ fn main() {
 	want := strings.Join([]string{
 		"4 dbgs remain:",
 		"  " + path + ":2:5 dbg n + 1",
-		"  " + path + ":6:67 |> dbg",
+		"  " + path + ":6:66 |> dbg",
 		"  " + path + ":7:9 dbg total",
 		"  " + path + ":8:9 dbg [\"a fairly long first element\", \"and a s...",
 	}, "\n")

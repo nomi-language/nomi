@@ -92,6 +92,12 @@ var contextCheckedRows = map[string]bool{
 	"fs_host.open_file": true, "fs_host.within": true, "fs_host.release": true, "io.file_read": true,
 	"io.File.read_at": true, "io.File.write": true, "io.File.write_at": true, "io.File.seek": true,
 	"io.File.position": true, "io.File.size": true, "io.File.truncate": true, "io.File.close": true,
+	// Starting programs and the fake: TestRtFuncs_ProcessesAndTheFake.
+	"process_host.start": true, "process_host.child_stdin": true, "process_host.child_stdout": true,
+	"process_host.child_stderr": true, "process_host.wait": true, "process_host.captured": true,
+	"process_host.kill": true, "process_host.new_fake": true, "process_host.fake_answer": true,
+	"process_host.fake_refuse": true, "process_host.fake_calls": true, "process_host.fake_command": true,
+	"process_host.fake_dir": true, "process_host.fake_env": true, "process_host.fake_input": true,
 }
 
 // TestRtFuncs_ReadLineReadsTheFramesInput: `io.read_line` answers each line of

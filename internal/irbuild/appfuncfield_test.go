@@ -39,11 +39,11 @@ fn plus(a: Int, b: Int) -> Int {
 
 fn boot() -> Result<App, String> {
   k = 7
-  Ok(#App{
+  Ok(App{
     steps: double,
     add: &plus(100, &1),
     scale: fn x -> x * k,
-    cfg: #Cfg{f: fn x -> x + 1},
+    cfg: Cfg{f: fn x -> x + 1},
     hook: Some(fn x -> x - 1),
     context: Context.root(),
   })
@@ -84,7 +84,7 @@ pub struct App {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), steps: fn x -> x * 2})
+  Ok(App{context: Context.root(), steps: fn x -> x * 2})
 }
 
 fn main() {}
@@ -154,7 +154,7 @@ fn double(x: Int) -> Int {
 }
 
 fn boot() -> Result<App, String> {
-  Ok(#App{steps: double, context: Context.root()})
+  Ok(App{steps: double, context: Context.root()})
 }
 
 fn main() {

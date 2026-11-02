@@ -3,7 +3,7 @@ package analysis_test
 import "testing"
 
 // A parameter default is checked against the parameter's declared type, in a
-// `fn`, in an annotated lambda, and in a reduce seed. Before, a default under
+// `fn`, in an annotated lambda, and in a lambda passed as an argument. Before, a default under
 // an annotation was never checked at all: each of these was accepted.
 func TestParamDefault_WrongTypeIsRejected(t *testing.T) {
 	for name, src := range map[string]string{
@@ -13,8 +13,8 @@ func TestParamDefault_WrongTypeIsRejected(t *testing.T) {
 		"lambda": `fn main() -> Unit {
   g = fn a: Int = "t", b: Int -> a + b
 }`,
-		"reduce seed": `fn main() -> Unit {
-  n = Iter.reduce([1, 2], fn c: Int = "u", x -> c + x)
+		"argument lambda": `fn main() -> Unit {
+  _ = Iter.map([1, 2], fn c: Int = "u" -> c + 1) |> Iter.to_list()
 }`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -31,16 +31,16 @@ func TestParamDefault_RightTypeIsAccepted(t *testing.T) {
 }
 
 impl Count {
-  once zero: Count = #Count{n: 0}
+  once zero: Count = Count{n: 0}
 }
 
 fn bump(by: Int, c: Count = Count.zero, seen: List<Int> = []) -> Count {
-  #Count{n: c.n + by}
+  Count{n: c.n + by}
 }
 
 fn main() -> Unit {
-  total = Iter.reduce([1, 2], fn c: Count = Count.zero, x -> #Count{n: c.n + x})
-  add = fn by: Int, c: Count = Count.zero -> #Count{n: c.n + by}
+  total = Iter.reduce([1, 2], Count.zero, fn c: Count, x -> Count{n: c.n + x})
+  add = fn by: Int, c: Count = Count.zero -> Count{n: c.n + by}
 }`
 	expectClean(t, checkWithStdlib(src))
 }

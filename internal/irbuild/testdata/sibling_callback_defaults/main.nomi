@@ -1,0 +1,33 @@
+import {
+    std/io
+    boxes.Box
+}
+
+struct Counter {
+    n: Int
+}
+
+impl Counter {
+    /// A same-file member with a default before its trailing callback.
+    fn bump(c: Counter, by: Int = 2, f: (Int) -> Int) -> Counter {
+        Counter{n: f(c.n + by)}
+    }
+}
+
+fn pause() -> Int {
+    io.print("caller pause")
+    0
+}
+
+fn arg(n: Int) -> Box<Int> {
+    io.print("arg ${n}")
+    Box{v: n}
+}
+
+fn main() {
+    _ = pause()
+    io.print(Box.apply(arg(3), fn x -> x + 1))
+    io.print(Box.grow(arg(4), fn x, n -> x + n).v)
+    io.print(Box.grow(Box{v: 4}, 2, fn x, n -> x + n).v)
+    io.print(Counter.bump(Counter{n: 1}, fn n -> n * 10).n)
+}

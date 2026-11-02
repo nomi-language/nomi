@@ -70,21 +70,21 @@ test "strict parsing reads what the formatter writes" {
 
 test "strict parsing rejects with typed errors" {
     assert Int.parse_in("", Locale`en`) == Err(NumberParseError.Empty)
-    assert Int.parse_in("12,34,567", Locale`en`) == Err(#NumberParseError.Grouping{at: 2})
-    assert Int.parse_in("1,234,567", Locale`hi`) == Err(#NumberParseError.Grouping{at: 1})
+    assert Int.parse_in("12,34,567", Locale`en`) == Err(NumberParseError.Grouping{at: 2})
+    assert Int.parse_in("1,234,567", Locale`hi`) == Err(NumberParseError.Grouping{at: 1})
 
     assert Decimal.parse_in("1.234,5", Locale`en`)
-        == Err(#NumberParseError.Unexpected{at: 5, text: ","})
+        == Err(NumberParseError.Unexpected{at: 5, text: ","})
 
     assert Int.parse_in("12 apples", Locale`en`)
-        == Err(#NumberParseError.Unexpected{at: 2, text: " "})
+        == Err(NumberParseError.Unexpected{at: 2, text: " "})
 
-    assert Int.parse_in(" 12", Locale`en`) == Err(#NumberParseError.Unexpected{at: 0, text: " "})
-    assert Int.parse_in("12.0", Locale`en`) == Err(#NumberParseError.Unexpected{at: 2, text: "."})
+    assert Int.parse_in(" 12", Locale`en`) == Err(NumberParseError.Unexpected{at: 0, text: " "})
+    assert Int.parse_in("12.0", Locale`en`) == Err(NumberParseError.Unexpected{at: 2, text: "."})
     assert Int.parse_in("9223372036854775808", Locale`en`) == Ok(9_223_372_036_854_775_808)
 
     assert Decimal.parse_percent_in("12.5", Locale`en`)
-        == Err(#NumberParseError.Unexpected{at: 4, text: ""})
+        == Err(NumberParseError.Unexpected{at: 4, text: ""})
 }
 
 test "lenient parsing accepts more" {
@@ -96,7 +96,7 @@ test "lenient parsing accepts more" {
     assert Decimal.parse_percent_in("12.5 %", Locale`en`, lenient: True) == Ok(0.125d)
 
     assert Int.parse_in("12 apples", Locale`en`, lenient: True)
-        == Err(#NumberParseError.Unexpected{at: 2, text: " "})
+        == Err(NumberParseError.Unexpected{at: 2, text: " "})
 }
 
 fn round_trips(locale: Locale) -> Bool {
@@ -133,5 +133,5 @@ test "a float reads a percentage back as a fraction" {
     assert Float.parse_percent_in("%50", Locale`en`, lenient: True) == Ok(0.5)
 
     assert Float.parse_percent_in("50", Locale`en`)
-        == Err(#NumberParseError.Unexpected{at: 2, text: ""})
+        == Err(NumberParseError.Unexpected{at: 2, text: ""})
 }

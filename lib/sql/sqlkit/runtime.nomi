@@ -30,7 +30,7 @@ import {
 /// The statement of a query: its SQL around each parameter, and the
 /// parameters.
 pub fn statement(parts: List<String>, params: List<Value>) -> Statement {
-    #Statement{parts, params}
+    Statement{parts, params}
 }
 
 /// A parameter's value.
@@ -199,23 +199,23 @@ fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, s
         }
 
         Err(message) ->
-            Err(#sql.Error.Database{code: "sqlkit", message})
+            Err(sql.Error.Database{code: "sqlkit", message})
     }
 }
 
 fn named(query: String, e: sql.Error) -> sql.Error {
     case e {
-        #sql.Error.UnexpectedNull{query: _, column} ->
-            #sql.Error.UnexpectedNull{query, column}
+        sql.Error.UnexpectedNull{query: _, column} ->
+            sql.Error.UnexpectedNull{query, column}
 
-        #sql.Error.Decode{query: _, column, expected, found} ->
-            #sql.Error.Decode{query, column, expected, found}
+        sql.Error.Decode{query: _, column, expected, found} ->
+            sql.Error.Decode{query, column, expected, found}
 
-        #sql.Error.MissingColumn{query: _, column} ->
-            #sql.Error.MissingColumn{query, column}
+        sql.Error.MissingColumn{query: _, column} ->
+            sql.Error.MissingColumn{query, column}
 
-        #sql.Error.ColumnPosition{query: _, position, count} ->
-            #sql.Error.ColumnPosition{query, position, count}
+        sql.Error.ColumnPosition{query: _, position, count} ->
+            sql.Error.ColumnPosition{query, position, count}
 
         other ->
             other
@@ -468,7 +468,7 @@ pub fn one<T>(
 
     case rows {
         [row] -> Ok(row)
-        _ -> Err(#sql.Error.RowCount{query, expected: "exactly one", found: Iter.count(rows)})
+        _ -> Err(sql.Error.RowCount{query, expected: "exactly one", found: Iter.count(rows)})
     }
 }
 
@@ -484,7 +484,7 @@ pub fn optional<T>(
     case rows {
         [] -> Ok(None)
         [row] -> Ok(Some(row))
-        _ -> Err(#sql.Error.RowCount{query, expected: "at most one", found: Iter.count(rows)})
+        _ -> Err(sql.Error.RowCount{query, expected: "at most one", found: Iter.count(rows)})
     }
 }
 
@@ -512,7 +512,7 @@ pub fn rows<T>(
 /// A statement that returns no rows: the number of rows it changed, what a
 /// `-> Changed` query answers.
 pub fn exec(conn: Conn, statement: Statement) -> Result<Changed, sql.Error> {
-    Conn.exec(conn, statement) |> Result.map(fn rows -> #Changed{rows})
+    Conn.exec(conn, statement) |> Result.map(fn rows -> Changed{rows})
 }
 
 /// A statement that returns no rows, run for its effect alone: what a

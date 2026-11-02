@@ -63,13 +63,13 @@ derive Equatable for Error
 impl Display for Error {
     fn to_string(e: Error) -> String {
         case e {
-            #Error.Length{length} ->
+            Error.Length{length} ->
                 "a UUID is 36 characters or 16 bytes, not ${length}"
 
-            #Error.Separator{index, found} ->
+            Error.Separator{index, found} ->
                 "expected `-` at index ${index} of a UUID, found `${found}`"
 
-            #Error.Digit{index, found} ->
+            Error.Digit{index, found} ->
                 "expected a hexadecimal digit at index ${index} of a UUID, found `${found}`"
         }
     }
@@ -82,20 +82,20 @@ impl Uuid {
     //! assert Display.to_string(Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")?)
     //!     == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     //!
-    //! assert Uuid.parse("6ba7b810") == Err(#Error.Length{length: 8})
+    //! assert Uuid.parse("6ba7b810") == Err(Error.Length{length: 8})
     //!
     //! assert Uuid.parse("6ba7b810+9dad-11d1-80b4-00c04fd430c8")
-    //!     == Err(#Error.Separator{index: 8, found: "+"})
+    //!     == Err(Error.Separator{index: 8, found: "+"})
     //!
-    //! assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(#Error.Digit{index: 7, found: "g"})
+    //! assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(Error.Digit{index: 7, found: "g"})
     //
     pub fn parse(text: String) -> Result<Uuid, Error> {
         codepoints = String.to_codepoints(text)
         count = Iter.count(codepoints)
 
-        if count != 36 { return Err(#Error.Length{length: count}) }
+        if count != 36 { return Err(Error.Length{length: count}) }
 
-        #(_, high, low, failure) = Iter.reduce(codepoints, fn acc = #(0, 0, 0, None), cp -> {
+        #(_, high, low, failure) = Iter.reduce(codepoints, #(0, 0, 0, None), fn acc, cp -> {
             #(index, high, low, failure) = acc
 
             case failure {
@@ -106,7 +106,7 @@ impl Uuid {
 
         case failure {
             Some(e) -> Err(e)
-            None -> Ok(#Uuid{high, low})
+            None -> Ok(Uuid{high, low})
         }
     }
 
@@ -114,19 +114,19 @@ impl Uuid {
     //! assert Display.to_string(Uuid.nil()) == "00000000-0000-0000-0000-000000000000"
     //
     pub fn nil() -> Uuid {
-        #Uuid{high: 0, low: 0}
+        Uuid{high: 0, low: 0}
     }
 
     /// The UUID whose 16 bytes, most significant first, are `data`, as
     /// `bytea` and `BLOB` columns hold it.
     //! id = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
     //! assert Uuid.from_bytes(Uuid.to_bytes(id)) == Ok(id)
-    //! assert Uuid.from_bytes(Bytes.from_list([])) == Err(#Error.Length{length: 0})
+    //! assert Uuid.from_bytes(Bytes.from_list([])) == Err(Error.Length{length: 0})
     //
     pub fn from_bytes(data: Bytes) -> Result<Uuid, Error> {
-        if Bytes.length(data) != 16 { return Err(#Error.Length{length: Bytes.length(data)}) }
+        if Bytes.length(data) != 16 { return Err(Error.Length{length: Bytes.length(data)}) }
 
-        Ok(#Uuid{high: read_half(data, 0), low: read_half(data, 8)})
+        Ok(Uuid{high: read_half(data, 0), low: read_half(data, 8)})
     }
 
     /// The 16 bytes of `id`, most significant first.
@@ -154,7 +154,7 @@ impl Uuid {
     pub fn v4() -> Result<Uuid, random.Error> {
         high = random_int()?
         low = random_int()?
-        Ok(#Uuid{high: with_version(high, 4), low: with_variant(low)})
+        Ok(Uuid{high: with_version(high, 4), low: with_variant(low)})
     }
 
     /// A version 7 UUID: the Unix time in milliseconds from `Instant.now`
@@ -173,7 +173,7 @@ impl Uuid {
         random_high = random_int()?
         low = random_int()?
         high = millis <<< 16 ||| random_high &&& 4095
-        Ok(#Uuid{high: with_version(high, 7), low: with_variant(low)})
+        Ok(Uuid{high: with_version(high, 7), low: with_variant(low)})
     }
 }
 
@@ -196,7 +196,7 @@ impl Literal for Uuid {
     /// program is checked, so a malformed one is a compile error at the
     /// literal.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Uuid, Error> {
-        body = Iter.reduce(fragments, fn acc = "", frag -> {
+        body = Iter.reduce(fragments, "", fn acc, frag -> {
             case frag {
                 .Static(s) -> acc + s
                 .Dynamic(v) -> acc + v
@@ -248,12 +248,12 @@ fn read_char(high: Int, low: Int, index: Int, cp: Codepoint) -> #(Int, Int, Int,
     if index == 8 or index == 13 or index == 18 or index == 23 {
         if found == "-" { return #(next, high, low, None) }
 
-        return #(next, high, low, Some(#Error.Separator{index, found}))
+        return #(next, high, low, Some(Error.Separator{index, found}))
     }
 
     case hex_value(Codepoint.to_int(cp)) {
         None ->
-            #(next, high, low, Some(#Error.Digit{index, found}))
+            #(next, high, low, Some(Error.Digit{index, found}))
 
         Some(digit) ->
             if index < 19 {
@@ -290,7 +290,7 @@ fn hex_digit(d: Int) -> String {
 // Eight bytes from start as one half. from_bytes has checked there are 16, so
 // no byte is missing.
 fn read_half(data: Bytes, start: Int) -> Int {
-    Iter.reduce(start..start + 8, fn acc = 0, i -> {
+    Iter.reduce(start..start + 8, 0, fn acc, i -> {
         byte = case Bytes.get(data, i) {
             Some(b) -> Byte.to_int(b)
             None -> 0

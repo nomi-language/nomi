@@ -1,6 +1,9 @@
 package analysis_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 const discardValueMsg = "`_` is a discard name, not a value\nhelp: a capture's parameter is written `&1`, as in `Iter.map(xs, &(&1 * 2))`"
 
@@ -38,14 +41,15 @@ func TestDiscard_ReadAsAValueIsRejected(t *testing.T) {
 		"struct spread":         "fn f(p: Point) -> Point { #{.._, x: 1} }\n",
 		"pipe operand":          "fn f() -> (Int) -> Int { _ |> add(1) }\n",
 		"operator operand":      "fn f() -> (Int) -> Bool { _ > 2 }\n",
-		"struct field":          "fn f() -> (Int) -> Point { #Point{x: _, y: 0} }\n",
+		"struct field":          "fn f() -> (Int) -> Point { Point{x: _, y: 0} }\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(placeholderDecls + body)
 			var msgs []string
 			for _, e := range errs {
 				msgs = append(msgs, diagText(e))
-				if diagText(e) == discardValueMsg {
+				// A typed hole's help may follow (holes.go).
+				if strings.HasPrefix(diagText(e), discardValueMsg) {
 					return
 				}
 			}
@@ -77,7 +81,8 @@ func TestDiscard_TheOldPlaceholderSpellingsSayToNumber(t *testing.T) {
 			hits := 0
 			for _, e := range errs {
 				msgs = append(msgs, diagText(e))
-				if diagText(e) == tc.want {
+				// A typed hole's help may follow (holes.go).
+				if diagText(e) == tc.want || strings.HasPrefix(diagText(e), tc.want+"\nhelp: as a hole") {
 					hits++
 				}
 			}
@@ -104,7 +109,7 @@ func TestPlaceholder_LegalPositionsAreAccepted(t *testing.T) {
 		"lambda discard param":    "fn f() -> Int {\n    g = fn _: Int -> 3\n    g(0)\n}\n",
 		"lambda tuple param":      "fn f() -> List<Int> { [#(1, 2)] |> Iter.map(fn #(_, v) -> v) |> Iter.to_list() }\n",
 		"tuple pattern":           "fn f() -> Int {\n    #(a, _) = #(1, 2)\n    a\n}\n",
-		"struct pattern":          "fn f(p: Point) -> Int {\n    #Point{x, y: _} = p\n    x\n}\n",
+		"struct pattern":          "fn f(p: Point) -> Int {\n    Point{x, y: _} = p\n    x\n}\n",
 		"list pattern":            "fn f(xs: List<Int>) -> Int {\n    case xs {\n        [_, b, ..] -> b\n        _ -> 0\n    }\n}\n",
 		"case wildcard":           "fn f(e: E) -> Int {\n    case e {\n        .A -> 1\n        _ -> 2\n    }\n}\n",
 		"variant pattern":         "fn f(m: Maybe<Int>) -> Int {\n    case m {\n        Some(_) -> 1\n        None -> 0\n    }\n}\n",

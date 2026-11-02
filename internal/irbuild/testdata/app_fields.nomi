@@ -11,7 +11,7 @@ pub struct Settings {
 }
 
 pub fn boot() -> Result<Settings, String> {
-    Ok(#Settings{context: Context.root(), label: "booted", size: 1})
+    Ok(Settings{context: Context.root(), label: "booted", size: 1})
 }
 
 fn main() {}

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"sort"
 	"strings"
 
@@ -90,6 +89,9 @@ func boot(image []byte, stdout, stderr io.Writer, stdin io.Reader, args []string
 	im, err := ir.DecodeImage(image)
 	if err != nil {
 		return nil, fmt.Errorf("the compiled program cannot be read: %v", err)
+	}
+	if err := networkRefusal(im); err != nil {
+		return nil, err
 	}
 	entry := im.EntryModule()
 	if entry == nil {
@@ -220,14 +222,11 @@ func (in *Instance) Call(name string, argsJSON []byte) ([]byte, error) {
 	if !isString {
 		return nil, fmt.Errorf("the result of `%s` was not encoded as JSON text", x.Name)
 	}
-	if n, found := firstInexactInt(text); found {
-		return nil, fmt.Errorf("the result of `%s` holds the Int %s, outside ±2^53: a JSON number cannot hold it exactly", x.Name, n)
-	}
 	return []byte(text), nil
 }
 
 // ExitCode is the status a host exits with for Main's error: 0 for nil,
-// the code of a main that returned `Err(#Exit{...})`, else 1.
+// the code of a main that returned `Err(Exit{...})`, else 1.
 func ExitCode(err error) int { return vm.ExitCode(err) }
 
 // ErrNoMain is Main on a program with no `fn main`.
@@ -325,32 +324,6 @@ func failureError(err error) error {
 	var b strings.Builder
 	WriteFailure(&b, failure)
 	return errors.New(strings.TrimRight(b.String(), "\n"))
-}
-
-// maxExactInt is 2^53: an Int of greater magnitude is not a number JSON
-// readers (a JavaScript number, a float64) hold exactly.
-var maxExactInt = new(big.Int).Lsh(big.NewInt(1), 53)
-
-// firstInexactInt finds the first integer in the JSON text whose magnitude
-// is over 2^53. Only an Int encodes as a bare integer: a Float renders with
-// a fraction or an exponent past six digits.
-func firstInexactInt(text string) (string, bool) {
-	dec := json.NewDecoder(strings.NewReader(text))
-	dec.UseNumber()
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return "", false
-		}
-		n, isNumber := tok.(json.Number)
-		if !isNumber || strings.ContainsAny(string(n), ".eE") {
-			continue
-		}
-		v, ok := new(big.Int).SetString(string(n), 10)
-		if ok && v.CmpAbs(maxExactInt) > 0 {
-			return string(n), true
-		}
-	}
 }
 
 func countOf(n int, noun string) string {

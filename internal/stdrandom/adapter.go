@@ -166,3 +166,17 @@ func FFIFromOS() (int64, error) {
 	}
 	return int64(binary.LittleEndian.Uint64(b[:])), nil
 }
+
+// FFISecureBytes is std/random's `secure_bytes`: count bytes from the
+// operating system's cryptographically secure source. crypto/rand.Read does
+// not fail since Go 1.24, so the result needs no error. A negative count
+// traps.
+func FFISecureBytes(count int64) rt.Bytes {
+	if count < 0 {
+		rt.Trap(fmt.Sprintf("random.secure_bytes: negative count %d", count))
+		return ""
+	}
+	b := make([]byte, count)
+	rand.Read(b)
+	return rt.Bytes(b)
+}

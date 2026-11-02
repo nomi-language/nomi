@@ -83,7 +83,7 @@ impl Pt {
 }
 typealias P Pt
 fn use_all() -> Int {
-    P.get(#P{x: 1}) + shapes.Q.y_of(#shapes.Q{y: 2})
+    P.get(P{x: 1}) + shapes.Q.y_of(shapes.Q{y: 2})
 }
 `, map[string]string{
 		"shapes": `pub struct Qt {
@@ -118,7 +118,7 @@ fn red() -> Bool {
     L.Red == Color.Red
 }
 fn origin() -> Pt {
-    #P{x: 0}
+    P{x: 0}
 }
 `)
 	expectNoErrors(t, errs)

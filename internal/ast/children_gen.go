@@ -1574,9 +1574,6 @@ func childrenOfTupleDestructure(x *TupleDestructure, fn func(Node)) {
 }
 
 func childrenOfTupleLit(x *TupleLit, fn func(Node)) {
-	if !absent(x.TypeName) {
-		fn(x.TypeName)
-	}
 	for _, e1 := range x.Items {
 		if !absent(e1) {
 			fn(e1)
@@ -1585,9 +1582,6 @@ func childrenOfTupleLit(x *TupleLit, fn func(Node)) {
 }
 
 func childrenOfTuplePattern(x *TuplePattern, fn func(Node)) {
-	if !absent(x.TypeName) {
-		fn(x.TypeName)
-	}
 	for _, e1 := range x.Patterns {
 		if !absent(e1) {
 			fn(e1)
@@ -1616,12 +1610,15 @@ func childrenOfTypeDef(x *TypeDef, fn func(Node)) {
 	for i2 := range x.Decorators {
 		fn(&x.Decorators[i2])
 	}
+	for i3 := range x.TypeParams {
+		childrenOfTypeParam(&x.TypeParams[i3], fn)
+	}
 	if !absent(x.InnerTypeExpr) {
 		fn(x.InnerTypeExpr)
 	}
-	for _, e3 := range x.Items {
-		if !absent(e3) {
-			fn(e3)
+	for _, e4 := range x.Items {
+		if !absent(e4) {
+			fn(e4)
 		}
 	}
 }

@@ -65,6 +65,6 @@ fn main() -> Unit {
     // program-wide off the declaration node, and a mirror's `==` lowers.
     // testdata/sibsig is where the mirror comparison and its two negative
     // halves live.
-    io.print("local same:  ${Bool.to_string(local_same(#Point{label: "a"}, #Point{label: "a"}))}")
-    io.print("local diff:  ${Bool.to_string(local_same(#Point{label: "a"}, #Point{label: "b"}))}")
+    io.print("local same:  ${Bool.to_string(local_same(Point{label: "a"}, Point{label: "a"}))}")
+    io.print("local diff:  ${Bool.to_string(local_same(Point{label: "a"}, Point{label: "b"}))}")
 }

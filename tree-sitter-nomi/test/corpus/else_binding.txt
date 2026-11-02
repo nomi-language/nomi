@@ -95,7 +95,7 @@ fn main() {
   Ok(user) = load(id) else {
     Err(.NotFound) -> return Err("no user")
     Err(e) when e == "x" -> 8080
-    #.Invalid{reason} -> continue
+    .Invalid{reason} -> continue
     _ -> break
   }
   label = if ok { "a" } else { "b" }
@@ -284,10 +284,10 @@ host fn now() -> Int
 fn address(host: String) -> Server {
     host = String.trim(host)
     %{"host" => h} = config() else {
-        return #Server{host}
+        return Server{host}
     }
     host
-    #Server{host: "${host}:${h}"}
+    Server{host: "${host}:${h}"}
 }
 
 --------------------------------------------------------------------------------

@@ -36,7 +36,7 @@ fn twice(n: Int, by: Int) -> Int {
 		{"partial after a named argument", `do_thing(5, option_a: "x", &Int.max(&1, 7))`},
 		{"call in an expression", "do_thing(5, &(Int.max(&1, 7) + 1))"},
 		{"piped partial", "5 |> do_thing(&Int.max(&1, 7))"},
-		{"struct literal", "make(5, &#Point{x: &1, y: 0}).x"},
+		{"struct literal", "make(5, &Point{x: &1, y: 0}).x"},
 		{"sort_by partial", `Iter.sort_by(["ccc", "a"], &String.length(&1)) |> Iter.count()`},
 		{"sort_by operator", `Iter.sort_by([3, 1], &(0 - &1)) |> Iter.count()`},
 	} {

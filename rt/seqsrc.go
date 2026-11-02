@@ -226,7 +226,7 @@ func SeqEachWhile[T any](fr *Frame, src Seq[T], yield func(fr *Frame, item T) bo
 // --- positional terminals -----------------------------------------------------
 
 // SeqLast is `pub fn last<T>(source: Iter<T>) -> Maybe<T>`, whose std body is
-// `reduce(source, fn _acc = None, item -> Some(item))`.
+// `reduce(source, None, fn _acc, item -> Some(item))`.
 //
 // It consumes the whole source — there is no way to know an element is the last
 // until the next one fails to arrive — so it does not terminate on an infinite

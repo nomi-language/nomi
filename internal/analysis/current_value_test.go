@@ -31,7 +31,7 @@ fn take(_p: Partial<Person>) -> Int {
 }
 
 fn ada() -> Person {
-  #Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}, nick: None, tags: [], recent: #[]}
+  Person{name: "Ada", address: #{street: "1 Main", city: "Bath"}, nick: None, tags: [], recent: #[]}
 }
 
 `

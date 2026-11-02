@@ -169,14 +169,14 @@ func TestCaseMapPatternListKey(t *testing.T) {
 	}
 }
 
-// Named-struct key (`#Point{x: 1}`).
+// Named-struct key (`Point{x: 1}`).
 func TestCaseMapPatternNamedStructKey(t *testing.T) {
-	mp := mapPatternBranch0(t, "case m {\n %{#Point{x: 1} => v} -> v\n _ -> \"no\"\n}")
+	mp := mapPatternBranch0(t, "case m {\n %{Point{x: 1} => v} -> v\n _ -> \"no\"\n}")
 	if mp.Entries[0].Key == nil {
 		t.Fatalf("entry[0] key is nil")
 	}
 	if _, ok := mp.Entries[0].Key.(*ast.StructLit); !ok {
-		t.Fatalf("entry[0] key: expected StructLit for #Point{x: 1}, got %T", mp.Entries[0].Key)
+		t.Fatalf("entry[0] key: expected StructLit for Point{x: 1}, got %T", mp.Entries[0].Key)
 	}
 }
 
@@ -193,7 +193,7 @@ func TestCaseMapPatternComputedIdentKey(t *testing.T) {
 	mp := mapPatternBranch0(t, "case m {\n %{x => v} -> v\n _ -> \"no\"\n}")
 	id, ok := mp.Entries[0].Key.(*ast.Ident)
 	if !ok || id.Name != "x" {
-		t.Fatalf("entry[0] key: expected #Identifier{x}, got %T %v", mp.Entries[0].Key, mp.Entries[0].Key)
+		t.Fatalf("entry[0] key: expected Identifier{x}, got %T %v", mp.Entries[0].Key, mp.Entries[0].Key)
 	}
 }
 

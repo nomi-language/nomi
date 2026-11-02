@@ -1172,7 +1172,7 @@ func (l *lexer) scanOperatorOrDelimiter() {
 		} else {
 			l.advance()
 			l.tokens = append(l.tokens, token.Token{Type: token.ILLEGAL, Lexeme: "&", Line: startLine, Col: startCol,
-				Problem: "a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&#Point{x: &1}`"})
+				Problem: "a capture's `&` is written against its body, with no space: `&(&1 > 2)`, `&f(&1)`, `&Point{x: &1}`"})
 		}
 	case '?':
 		l.advance()

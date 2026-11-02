@@ -79,7 +79,7 @@ fn add(acc: Int, x: Int) -> Int {
 fn emit(s: Int, x: Int) -> #(Int, Int) {
   if x == 2 { continue }
   if x == 4 { break }
-  #(x * 10, s + x)
+  #(s + x, x * 10)
 }
 
 fn tick(n: Int) -> Int {
@@ -101,19 +101,19 @@ fn odd_steps(n: Int) -> Int {
 }
 
 fn main() {
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4, 5], add, from: 0)))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], add, from: 10)))
-  io.print(Debug.inspect([1, 2, 3] |> Iter.reduce(add, from: 0)))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4, 5], 0, add)))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 10, add)))
+  io.print(Debug.inspect([1, 2, 3] |> Iter.reduce(0, add)))
   io.print(Debug.inspect(Iter.reduce([1, 2, 3], f: add, from: 0)))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], from: 0, add)))
-  io.print(Debug.inspect(Iter.scan([1, 2, 3, 4, 5], add, from: 0) |> Iter.to_list()))
-  io.print(Debug.inspect(Iter.map_reduce([1, 2, 3, 4, 5], emit, from: 0)))
-  io.print(Debug.inspect(Iter.loop(tick, from: 0)))
-  io.print(Debug.inspect(Iter.loop(halt, from: 0)))
-  io.print(Debug.inspect(Iter.loop(odd_steps, from: 1)))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, add)))
+  io.print(Debug.inspect(Iter.scan([1, 2, 3, 4, 5], 0, add) |> Iter.to_list()))
+  io.print(Debug.inspect(Iter.map_reduce([1, 2, 3, 4, 5], 0, emit)))
+  io.print(Debug.inspect(Iter.loop(0, tick)))
+  io.print(Debug.inspect(Iter.loop(0, halt)))
+  io.print(Debug.inspect(Iter.loop(1, odd_steps)))
   io.print(Debug.inspect(Iter.loop(f: tick, from: 2)))
 }
-`, "400\n14\n4\n4\n4\n[1, 4, 400]\n#([10, 30], 4)\n50\n3\n13\n50\n")
+`, "400\n14\n4\n4\n4\n[1, 4, 400]\n#(4, [10, 30])\n50\n3\n13\n50\n")
 }
 
 // `from:` with a callback that is not an iter-sensitive function: an ordinary
@@ -127,26 +127,26 @@ fn plus(a: Int, b: Int) -> Int {
 }
 
 fn main() {
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], plus, from: 0)))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], Int.add, from: 100)))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], &(&1 * 10 + &2), from: 0)))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4], fn acc, x -> {
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, plus)))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 100, Int.add)))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, &(&1 * 10 + &2))))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3, 4], 0, fn acc, x -> {
     if x == 2 { continue }
     if x == 4 { break acc * 10 }
     acc + x
-  }, from: 0)))
-  io.print(Debug.inspect(Iter.scan([1, 2, 3], plus, from: 1) |> Iter.to_list()))
-  io.print(Debug.inspect(Iter.map_reduce(["a", "bb"], fn n, s -> #(s + s, n + 1), from: 0)))
-  io.print(Debug.inspect(Iter.loop(fn n -> {
+  })))
+  io.print(Debug.inspect(Iter.scan([1, 2, 3], 1, plus) |> Iter.to_list()))
+  io.print(Debug.inspect(Iter.map_reduce(["a", "bb"], 0, fn n, s -> #(n + 1, s + s))))
+  io.print(Debug.inspect(Iter.loop(1, fn n -> {
     if n > 4 { break n }
     n + 2
-  }, from: 1)))
-  io.print(Debug.inspect(Iter.loop(&(if &1 > 3 { break } else { &1 + 1 }), from: 0)))
-  io.print(Debug.inspect(Iter.reduce([1, 2, 3], &(if &2 == 2 { continue } else { &1 + &2 }), from: 0)))
+  })))
+  io.print(Debug.inspect(Iter.loop(0, &(if &1 > 3 { break } else { &1 + 1 }))))
+  io.print(Debug.inspect(Iter.reduce([1, 2, 3], 0, &(if &2 == 2 { continue } else { &1 + &2 }))))
   empty: List<Int> = []
-  io.print(Debug.inspect(Iter.reduce(empty, plus, from: 7)))
+  io.print(Debug.inspect(Iter.reduce(empty, 7, plus)))
 }
-`, "6\n106\n123\n40\n[2, 4, 7]\n#([\"aa\", \"bbbb\"], 2)\n5\n4\n4\n7\n")
+`, "6\n106\n123\n40\n[2, 4, 7]\n#(2, [\"aa\", \"bbbb\"])\n5\n4\n4\n7\n")
 }
 
 // A loop over a function value that cannot signal never ends, and lowers as
@@ -168,21 +168,21 @@ fn bump(n: Int, by: Int) -> Int {
 }
 
 fn partial() -> Int {
-  Iter.loop(&bump(&1, 4), from: 1)
+  Iter.loop(1, &bump(&1, 4))
 }
 
 fn field() -> Int {
-  cfg = #Cfg{step: up}
-  Iter.loop(cfg.step, from: 0)
+  cfg = Cfg{step: up}
+  Iter.loop(0, cfg.step)
 }
 
 fn local() -> Int {
   f = fn n: Int -> n + 2
-  Iter.loop(f, from: 0)
+  Iter.loop(0, f)
 }
 
 fn named() -> Int {
-  Iter.loop(up, from: 0)
+  Iter.loop(0, up)
 }
 
 fn main() {
@@ -211,18 +211,18 @@ fn keep(acc: #(Int, List<Int>), x: Int) -> #(Int, List<Int>) {
 fn add(acc: Acc, x: Int) -> Acc {
   if x == 2 { continue }
   if x == 4 { break }
-  #Acc{total: acc.total + x, items: acc.items + [x]}
+  Acc{total: acc.total + x, items: acc.items + [x]}
 }
 
 fn main() {
-  a = Iter.reduce([1, 2, 3], keep, from: #(0, []))
+  a = Iter.reduce([1, 2, 3], #(0, []), keep)
   io.print(Debug.inspect(a))
-  b = Iter.reduce([1, 2, 3, 4, 5], add, from: #Acc{total: 0, items: []})
+  b = Iter.reduce([1, 2, 3, 4, 5], Acc{total: 0, items: []}, add)
   io.print(Debug.inspect(b))
-  c = Iter.reduce([1, 2, 3], fn #(n, xs), x -> #(n + x, xs + [x]), from: #(0, []))
+  c = Iter.reduce([1, 2, 3], #(0, []), fn #(n, xs), x -> #(n + x, xs + [x]))
   io.print(Debug.inspect(c))
 }
-`, "#(4, [1, 3])\n#Acc{total: 4, items: [1, 3]}\n#(6, [1, 2, 3])\n")
+`, "#(4, [1, 3])\nAcc{total: 4, items: [1, 3]}\n#(6, [1, 2, 3])\n")
 }
 
 // A `defer` in the function runs as it leaves, whatever it leaves with, as
@@ -247,7 +247,7 @@ fn step(n: Int) -> Int {
 fn main() {
   out = Iter.map([1, 2, 3, 4], inner) |> Iter.to_list()
   io.print(Debug.inspect(out))
-  io.print(Debug.inspect(Iter.loop(step, from: 0)))
+  io.print(Debug.inspect(Iter.loop(0, step)))
 }
 `, "inner 1\ninner 2\ninner 3\n[1, 30]\nstep 0\nstep 1\nstep 2\nstep 3\n30\n")
 }
@@ -281,10 +281,10 @@ import lib.{keep, add, step}
 fn main() {
   io.print(Debug.inspect(Iter.map([3, -1, 4, 500, 6], lib.keep) |> Iter.to_list()))
   io.print(Debug.inspect(Iter.map([3, -1, 4, 500, 6], keep) |> Iter.to_list()))
-  io.print(Debug.inspect(Iter.reduce([1, -5, 2], lib.add, from: 0)))
-  io.print(Debug.inspect(Iter.reduce([1, -5, 2], add, from: 0)))
-  io.print(Debug.inspect(Iter.loop(lib.step, from: 0)))
-  io.print(Debug.inspect(Iter.loop(step, from: 1)))
+  io.print(Debug.inspect(Iter.reduce([1, -5, 2], 0, lib.add)))
+  io.print(Debug.inspect(Iter.reduce([1, -5, 2], 0, add)))
+  io.print(Debug.inspect(Iter.loop(0, lib.step)))
+  io.print(Debug.inspect(Iter.loop(1, step)))
 }
 `, "[6, 8, 500]\n[6, 8, 500]\n3\n3\n300\n300\n", map[string]string{"lib.nomi": `pub fn keep(n: Int) -> Int {
   if n < 0 { continue }

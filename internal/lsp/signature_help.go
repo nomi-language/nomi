@@ -29,10 +29,6 @@ func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.S
 		return nil, nil
 	}
 
-	// `#Pair(1, ‸`: the elements of the tuple the distinct type wraps.
-	literal := strings.HasPrefix(funcName, "#")
-	funcName = strings.TrimPrefix(funcName, "#")
-
 	// Look up the function symbol.
 	sym := doc.Analysis.ModuleScope.Lookup(funcName)
 
@@ -53,9 +49,8 @@ func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.S
 
 	var sig, doc_ string
 	var paramInfos []protocol.ParameterInformation
-	if literal {
-		sig, paramInfos, doc_ = tupleLiteralSignature(sym)
-	} else {
+	// `Pair(1, ‸`: the elements of the tuple a distinct type wraps.
+	if sig, paramInfos, doc_ = tupleLiteralSignature(sym); sig == "" {
 		sig, paramInfos, doc_ = buildSignatureInfo(sym)
 	}
 	if sig == "" {
@@ -86,8 +81,8 @@ func (s *Server) textDocumentSignatureHelp(ctx *glsp.Context, params *protocol.S
 	return result, nil
 }
 
-// tupleLiteralSignature is the signature of `#Pair(...)` for a distinct
-// type over a tuple: `#Pair(Int, String)`, one parameter per element.
+// tupleLiteralSignature is the signature of `Pair(...)` for a distinct
+// type over a tuple: `Pair(Int, String)`, one parameter per element.
 func tupleLiteralSignature(sym *analysis.Symbol) (string, []protocol.ParameterInformation, string) {
 	td, ok := sym.Node.(*ast.TypeDef)
 	if !ok {
@@ -103,7 +98,7 @@ func tupleLiteralSignature(sym *analysis.Symbol) (string, []protocol.ParameterIn
 		elems[i] = p.TypeString()
 		infos[i] = protocol.ParameterInformation{Label: elems[i]}
 	}
-	return "#" + td.Name + "(" + strings.Join(elems, ", ") + ")", infos, td.Doc
+	return td.Name + "(" + strings.Join(elems, ", ") + ")", infos, td.Doc
 }
 
 // buildSignatureInfo returns the signature label, parameter infos, and doc for a symbol.
@@ -216,12 +211,7 @@ func extractFuncName(content string, parenPos int) string {
 	for i >= 0 && (isIdentByte(content[i]) || content[i] == '.') {
 		i--
 	}
-	name := content[i+1 : nameEnd]
-	if i >= 0 && content[i] == '#' && name != "" {
-		// `#Pair(`: a tuple literal named by a distinct type.
-		return "#" + name
-	}
-	return name
+	return content[i+1 : nameEnd]
 }
 
 func isIdentByte(c byte) bool {

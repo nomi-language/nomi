@@ -4,7 +4,7 @@ An as pattern names the whole value in every pattern position
 
 fn describe(r: Result<Tx, String>) -> Int {
     case r {
-        Ok(#Tx{kind: .Deposit} as t) -> t.end
+        Ok(Tx{kind: .Deposit} as t) -> t.end
         Ok(_) as whole -> 0
         Err(_) -> 1
     }

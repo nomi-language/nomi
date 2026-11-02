@@ -39,7 +39,7 @@ test "chunks round-trip through from_chunks" {
         Reader.from_chunks(pieces)
         |> Reader.chunks()
         |> Result.collect()
-        |> Result.map(fn chunks -> Iter.reduce(chunks, Bytes.concat, from: String.to_bytes("")))
+        |> Result.map(fn chunks -> Iter.reduce(chunks, String.to_bytes(""), Bytes.concat))
 
     assert joined == Ok(String.to_bytes("abcdef"))
 }

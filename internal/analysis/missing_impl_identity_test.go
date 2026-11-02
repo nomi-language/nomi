@@ -296,12 +296,12 @@ func TestImplIdentity_AnInherentOperatorNameIsNotStdsImpl(t *testing.T) {
 
 impl Duration {
     pub fn add(a: Duration, b: Duration) -> Duration {
-        #Duration{seconds: a.seconds + b.seconds}
+        Duration{seconds: a.seconds + b.seconds}
     }
 }
 
 fn main() {
-    total = Duration.add(#Duration{seconds: 1}, #Duration{seconds: 2})
+    total = Duration.add(Duration{seconds: 1}, Duration{seconds: 2})
     _ = total.seconds
 }
 `
@@ -377,8 +377,8 @@ impl Html for User {
 }
 
 fn main() {
-  io.print(Html.to_html(#users.User{name: "ann"}))
-  io.print(Html.to_html(#User{id: 1}))
+  io.print(Html.to_html(users.User{name: "ann"}))
+  io.print(Html.to_html(User{id: 1}))
 }
 `
 	if msgs := implIdentityProjectErrs(t, both, users); len(msgs) != 0 {
@@ -403,7 +403,7 @@ impl Html for User {
 }
 
 fn main() {
-  io.print(Html.to_html(#users.User{name: "ann"}))
+  io.print(Html.to_html(users.User{name: "ann"}))
 }
 `
 	msgs := implIdentityProjectErrs(t, one, users)

@@ -335,9 +335,8 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterAny:   {name: "any", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterAll:   {name: "all", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	IterFind:  {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
-	// `reduce` takes the source, the seed and the callback. The seed is
-	// written as the callback's first-parameter default; the checker rejects
-	// a reduce without one, so there is no two-operand form.
+	// `reduce` takes the source, the seed (the call's `from`) and the
+	// callback.
 	IterReduce:      {name: "reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
 	IterEachWhile:   {name: "each_while", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	IterToSet:       {name: "to_set", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
@@ -358,8 +357,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// compares (b, a), as std's `Iter.sort_by` does.
 	IterSortBy: {name: "sort_by", form: IterFormTerminal, min: 3, max: 4, over: overSeq},
 	// `scan` and `map_reduce` take the source, the seed and the callback,
-	// the seed lifted from the callback's first-parameter default as
-	// `reduce`'s is.
+	// as `reduce` does.
 	IterScan:      {name: "scan", form: IterFormStage, min: 3, max: 3, over: overSeq, signal: true},
 	IterMapReduce: {name: "map_reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
 	// `is_infinite` reads the sequence's own answer and drives nothing; every

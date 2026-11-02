@@ -67,11 +67,11 @@ fn never_called() -> Int {
 }
 
 fn total<T>(xs: List<T>) -> Int where T: Shape {
-  xs |> Iter.map(fn x -> T.area(x)) |> Iter.reduce(fn a = 0, b -> a + b)
+  xs |> Iter.map(fn x -> T.area(x)) |> Iter.reduce(0, fn a, b -> a + b)
 }
 
 fn main() {
-  io.print(total([#Square{side: 2}]))
+  io.print(total([Square{side: 2}]))
   io.print(table)
 }
 `

@@ -34,10 +34,10 @@ fn main() {
     io.inspect(Box(rec))
 }
 `
-	const want = "#Box{v: 1}\n" +
+	const want = "Box{v: 1}\n" +
 		"Some(\"a\")\n" +
-		"#Pair{a: 1.5, b: [True], note: \"none\"}\n" +
-		"#Pair{a: 1, b: \"x\", note: \"none\"}\n" +
-		"#Box{v: #(1, \"z\")}\n"
+		"Pair{a: 1.5, b: [True], note: \"none\"}\n" +
+		"Pair{a: 1, b: \"x\", note: \"none\"}\n" +
+		"Box{v: #(1, \"z\")}\n"
 	irRunSource(t, src, want)
 }

@@ -22,13 +22,13 @@ struct Upper {
 
 impl Literal for Upper {
   fn from_fragments(fragments: List<Fragment<String>>) -> Upper {
-    text = Iter.reduce(fragments, fn acc = "", frag ->
+    text = Iter.reduce(fragments, "", fn acc, frag ->
       case frag {
         .Static(s) -> acc + String.uppercase(s)
         .Dynamic(v) -> acc + v
       }
     )
-    #Upper{text}
+    Upper{text}
   }
 }
 

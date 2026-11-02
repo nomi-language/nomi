@@ -94,14 +94,13 @@ func argsAt(args []ir.Temp, slots []int) []ir.Temp {
 // type a pattern names or the checker recorded for it, or the inferred type.
 // kindInvalid is a miss, which the caller declines.
 func (g *gen) lambdaParamKind(p ast.Param) kind {
-	tp, tuple := p.Destructure.(*ast.TuplePattern)
-	tuple = tuple && tp.TypeName == nil // `#Pair(a, b)` names its type
+	_, tuple := p.Destructure.(*ast.TuplePattern)
 	switch {
 	case p.TypeAnnotation != nil:
 		return g.typeOf(p.TypeAnnotation)
 	case p.Destructure != nil && !tuple:
 		// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
-		// `fn #Point{x, y} ->` a Point and `fn #Box.Extent{w, h} ->` a Box.
+		// `fn Point{x, y} ->` a Point and `fn Box.Extent{w, h} ->` a Box.
 		// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type.
 		if k := g.irPatternHeadKind(p.Destructure); k != kindInvalid {
 			return k
@@ -130,15 +129,13 @@ func (bl *irScalarBuilder) lambda(t *ast.Lambda) (ir.Temp, kind, bool, bool) {
 			return no()
 		}
 	}
+	params = params[:bl.g.lambdaArity(t)]
 	group := &irLambdaGroup{params: params, suppliers: make([]ir.Temp, len(params)), order: bl.partialOpen[t].order}
 	for i := range group.suppliers {
 		group.suppliers[i] = ir.NoTemp
 	}
-	for i, p := range t.Params {
+	for i, p := range t.Params[:len(params)] {
 		if p.Default == nil {
-			continue
-		}
-		if _, seeded := bl.reduceSeeds[t]; i == 0 && seeded {
 			continue
 		}
 		supplier, fk, _, ok := bl.lambdaFunction(t, group.kindsAt(group.before(i)), p.Default, group, i)
@@ -254,6 +251,24 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			child.declareVar(p.Name, temp, params[i], p.Line, p.Col)
 		}
 	}
+	if supplier < 0 {
+		// A lambda passed where a function type with fewer parameters is
+		// expected (lambdaArity) takes only those: each later parameter is
+		// its default, evaluated on every call in parameter order, as a
+		// call that leaves it out evaluates it.
+		for _, p := range t.Params[len(params):] {
+			k := bl.g.lambdaParamKind(p)
+			v, vk, _, ok := child.lowerWant(p.Default, k)
+			if !ok || vk != k {
+				irDeclineNote("a lambda parameter default outside the parameter's kind: " + k.nomi())
+				return no()
+			}
+			if !ast.IsDiscardName(p.Name) {
+				child.bound[p.Name], child.boundK[p.Name] = v, k
+				child.declareVar(p.Name, v, k, p.Line, p.Col)
+			}
+		}
+	}
 	// A recursive nested fn refers to itself through its own closure: the
 	// first capture parameter, which the FuncValue fills with the closure
 	// it builds. A parameter of the same name shadows it.
@@ -271,7 +286,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	sig := irFuncSig{inferResult: true}
 	// A reduction callback returns its accumulator type. Keep that context
 	// through every branch, including payload-free variants such as None.
-	if supplier < 0 && bl.reduceSeeds[t] {
+	if supplier < 0 && bl.foldCallbacks[t] {
 		sig = irFuncSig{result: params[0]}
 		child.returnKind = params[0]
 	}
@@ -610,7 +625,19 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 	}
 	defaulted := len(t.Args) < len(params)
 	if defaulted && metadata == nil {
-		return no()
+		// A local copy of a declared function (`g = parse`) keeps its
+		// defaults: the call goes through the function's shorter value,
+		// whose body calls it by name with the arguments written here.
+		ref, name := bl.g.copiedFuncRef(t.Func)
+		if ref == nil {
+			return no()
+		}
+		short, sk, _, ok := bl.callFuncValueOf(ref, name, params[:len(t.Args)], funcResult(fk))
+		if !ok {
+			return no()
+		}
+		callee, fk, params, defaulted = short, sk, funcParams(sk), false
+		args = args[:len(params)]
 	}
 	result := funcResult(fk)
 	if !irCallableValueKind(result) && result != kindUnit {
@@ -777,7 +804,7 @@ func irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
 // irPatternHeadKind is the type a self-typing parameter pattern names
 // (`Dur(n)` names Dur), or kindInvalid.
 func (g *gen) irPatternHeadKind(pattern ast.Node) kind {
-	ep, ok := irPattern(pattern).(*ast.EnumPattern)
+	ep, ok := pattern.(*ast.EnumPattern)
 	if !ok {
 		return kindInvalid
 	}
@@ -787,7 +814,10 @@ func (g *gen) irPatternHeadKind(pattern ast.Node) kind {
 		return kindInvalid
 	}
 	d, found := g.namedType(member)
-	if !found || !d.isDistinct {
+	if !found || !d.isDistinct || g.genericTemplates[member] != nil {
+		// A generic distinct's pattern (`fn Wrap(x) ->`) names no
+		// instance; the checker's type for the parameter does
+		// (irParamPatternKind).
 		return kindInvalid
 	}
 	return named(d)
@@ -847,4 +877,25 @@ func (g *gen) lambdaTypedResult(lam *ast.Lambda) kind {
 		return kindInvalid
 	}
 	return g.project(ft.Return)
+}
+
+// lambdaArity is the number of parameters lambda t takes as a value: all of
+// them, unless the checker typed it where a function type with fewer
+// parameters is expected and every parameter past those has a default
+// (`Iter.map(xs, fn x, y = 10 -> x + y)`, analysis.checkLambdaExpecting).
+// A pattern parameter past them keeps the lambda whole.
+func (g *gen) lambdaArity(t *ast.Lambda) int {
+	if g.fa == nil {
+		return len(t.Params)
+	}
+	ft, _ := analysis.ResolveTypeVar(g.srcFA().ExprTypes[t]).(*analysis.FuncType)
+	if ft == nil || len(ft.Params) >= len(t.Params) {
+		return len(t.Params)
+	}
+	for _, p := range t.Params[len(ft.Params):] {
+		if p.Default == nil || p.Destructure != nil {
+			return len(t.Params)
+		}
+	}
+	return len(ft.Params)
 }

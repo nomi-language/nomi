@@ -788,7 +788,7 @@ func tourRunBlocks(t *testing.T) []tourBlock {
 			t.Fatalf("read %s: %v", chapter, err)
 		}
 		for _, b := range doctest.ExtractBlocks(string(data), "nomi-run") {
-			if b.HasInfo(doctest.InfoNoRun) {
+			if b.CompilesOnly() {
 				continue
 			}
 			if b.HasInfo(doctest.InfoError) {

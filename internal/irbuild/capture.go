@@ -8,7 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// captureFunc lowers a capture (`&(&1 > 2)`, `&Int.max(&1, 0)`, `&#Point{x:
+// captureFunc lowers a capture (`&(&1 > 2)`, `&Int.max(&1, 0)`, `&Point{x:
 // &1, y: 0}`; ast.Capture) as the lambda it stands for: a function whose
 // body is the capture's body with each `&N` read as parameter N. Nothing
 // is evaluated when the function is made; a call of it evaluates the

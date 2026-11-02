@@ -68,7 +68,7 @@ fn argument(n: Int) -> Int {
 }
 
 fn field(n: Int) -> Int {
-    p = #P{a: 1, b: {
+    p = P{a: 1, b: {
         io.print("field")
         case n {
             0 -> return 7
@@ -239,7 +239,7 @@ fn filtered(xs: List<Int>) -> List<Int> {
 }
 
 fn looped() -> Int {
-    Iter.loop(fn i = 0 -> {
+    Iter.loop(0, fn i -> {
         x = {
             io.print("iteration ${i}")
             case i {

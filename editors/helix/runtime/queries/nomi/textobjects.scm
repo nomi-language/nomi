@@ -46,7 +46,7 @@
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 
 ; A struct update's entries are its spread and its fields, so `]e` walks
-; `#{..base, x: 9}` the same way it walks `#Point{x: 1, y: 2}` above.
+; `#{..base, x: 9}` the same way it walks `Point{x: 1, y: 2}` above.
 (struct_update
   ((_) @entry.inside . ","? @entry.around) @entry.around)
 

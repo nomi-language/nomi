@@ -113,11 +113,11 @@ fn id_color(c: DotColor) -> DotColor {
 test "dot-leading variants resolve from contextual enum types" {
     c1: DotColor = .Red
     s1: DotShape = .Circle(1.0)
-    s2: DotShape = #.Rect{w: 4.0, h: 3.0}
+    s2: DotShape = .Rect{w: 4.0, h: 3.0}
     v1: DotValue = %.Obj{"k" => 1}
     v2: DotValue = .Arr[1, 2, 3]
     v3: DotValue = .Nil
-    b: DotBox = #DotBox{color: .Red, shape: .Origin}
+    b: DotBox = DotBox{color: .Red, shape: .Origin}
     hit1: Int = paint(.Green)
     c2: DotColor = default_color()
     palette: List<DotColor> = [.Red, .Green, .Blue]
@@ -142,7 +142,7 @@ test "dot-leading variants resolve from contextual enum types" {
     hit4: Float = case s1 {
         .Circle(r) -> r
         .Square(_) -> 0.0
-        #.Rect{w, h: _} -> w
+        .Rect{w, h: _} -> w
         .Origin -> -1.0
     }
 

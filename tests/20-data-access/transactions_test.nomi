@@ -37,7 +37,7 @@ test "a fake answers each statement with the function it was given" {
                 Ok([Row.new("${statement}", [#("name", Value.Text("Ada"))])])
             } else {
                 Err(
-                    #sql.Error.Constraint{
+                    sql.Error.Constraint{
                         kind: .Unique,
                         name: "users_name_key",
                         table: Some("users"),
@@ -51,7 +51,7 @@ test "a fake answers each statement with the function it was given" {
     assert Conn.dialect(fake) == Dialect.Sqlite
     assert Ok([row]) = Conn.query(fake, Sql"SELECT name FROM users")
     assert Row.get<String>(row, "name") == Ok("Ada")
-    assert Err(#sql.Error.Constraint{name}) = insert(fake, "Ada")
+    assert Err(sql.Error.Constraint{name}) = insert(fake, "Ada")
     assert name == "users_name_key"
 
     // A statement the answer refused took no effect.
@@ -223,7 +223,7 @@ test "the suite closes every connection it opens" {
     assert sql_testing.conformance(open) == []
     Sender.close(opened.sender)
 
-    fakes = Iter.loop(fn fakes = [] -> {
+    fakes = Iter.loop([], fn fakes -> {
         case Receiver.receive(opened.receiver) {
             Some(fake) -> fakes + [fake]
             None -> break fakes
@@ -259,7 +259,7 @@ impl Conn for ForgetsRollback {
 
     fn begin(conn: ForgetsRollback) -> Result<Conn, sql.Error> {
         tx = Conn.begin(conn.inner)?
-        Ok(#ForgetsRollback{inner: tx})
+        Ok(ForgetsRollback{inner: tx})
     }
 
     fn commit(tx: ForgetsRollback) -> Result<Unit, sql.Error> {
@@ -286,7 +286,7 @@ impl Conn for ForgetsRollback {
 test "the suite names each rule a broken driver breaks" {
     open = fn -> {
         inner: Conn = Fake.new(answer: sql_testing.conformance_answer)
-        Ok(#ForgetsRollback{inner})
+        Ok(ForgetsRollback{inner})
     }
 
     failures = sql_testing.conformance(open)
@@ -334,7 +334,7 @@ impl Conn for NeverCloses {
 
     fn begin(conn: NeverCloses) -> Result<Conn, sql.Error> {
         tx = Conn.begin(conn.inner)?
-        Ok(#NeverCloses{inner: tx})
+        Ok(NeverCloses{inner: tx})
     }
 
     fn commit(tx: NeverCloses) -> Result<Unit, sql.Error> {
@@ -361,7 +361,7 @@ impl Conn for NeverCloses {
 test "the suite names the close rules a driver that never closes breaks" {
     open = fn -> {
         inner: Conn = Fake.new(answer: sql_testing.conformance_answer)
-        Ok(#NeverCloses{inner})
+        Ok(NeverCloses{inner})
     }
 
     failures = sql_testing.conformance(open)
@@ -481,9 +481,9 @@ test "sql.with_connection closes the connection when its body traps" {
 }
 
 test "sql.with_connection answers open's Err and runs no body" {
-    refused: Result<Fake, sql.Error> = Err(#sql.Error.Connection{message: "refused"})
+    refused: Result<Fake, sql.Error> = Err(sql.Error.Connection{message: "refused"})
     answer = sql.with_connection(fn -> refused, fn conn -> insert(conn, "Ada"))
-    assert answer == Err(#sql.Error.Connection{message: "refused"})
+    assert answer == Err(sql.Error.Connection{message: "refused"})
 }
 
 test "a transaction inside sql.with_connection commits before the close" {

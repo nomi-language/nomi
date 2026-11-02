@@ -31,7 +31,7 @@ pub struct Reverse<T> {
 impl Reverse<T> {
     /// `value`, ordered in reverse.
     pub fn of(value: T) -> Reverse<T> {
-        #Reverse{value}
+        Reverse{value}
     }
 }
 

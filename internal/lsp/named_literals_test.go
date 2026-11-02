@@ -29,8 +29,8 @@ func TestHover_NamedShapeLiteralHeads(t *testing.T) {
 		{decls + "fn f() -> Path {\n    #▮Path[1]\n}\n", "Path"},
 		{decls + "fn f() -> Tags {\n    %▮Tags[\"a\"]\n}\n", "Tags"},
 		{decls + "fn f() -> Kvs {\n    %▮Kvs{\"a\" => 1}\n}\n", "Kvs"},
-		{decls + "fn f() -> Pair {\n    #▮Pair(1, 2)\n}\n", "Pair"},
-		{decls + "fn f() -> Point {\n    #▮Point{x: 1}\n}\n", "Point"},
+		{decls + "fn f() -> Pair {\n    ▮Pair(1, 2)\n}\n", "Pair"},
+		{decls + "fn f() -> Point {\n    ▮Point{x: 1}\n}\n", "Point"},
 	} {
 
 		input, pos := hoverMarkerPosition(t, tc.src)

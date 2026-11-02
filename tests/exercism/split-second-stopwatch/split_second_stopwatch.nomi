@@ -43,7 +43,7 @@ pub opaque struct Stopwatch {
 impl Stopwatch {
     /// A stopwatch in the ready state, with no time and no laps.
     pub fn new() -> Stopwatch {
-        #Stopwatch{state: .Ready, current: no_time, laps: []}
+        Stopwatch{state: .Ready, current: no_time, laps: []}
     }
 
     /// Starts timing from the ready state, or resumes it from the stopped one.

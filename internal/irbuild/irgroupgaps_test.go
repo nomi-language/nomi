@@ -22,7 +22,7 @@ pub struct App {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{context: Context.root(), done: Channel.buffered<Int>(4)})
+  Ok(App{context: Context.root(), done: Channel.buffered<Int>(4)})
 }
 
 fn main() {}
@@ -103,7 +103,7 @@ fn slow() -> Unit {
 
 fn drain() -> List<String> {
   Sender.close(App.alerts.sender)
-  Iter.loop(fn seen = [] ->
+  Iter.loop([], fn seen ->
     case Receiver.receive(App.alerts.receiver) {
       Some(message) -> [message, ..seen]
       None -> break seen
@@ -112,7 +112,7 @@ fn drain() -> List<String> {
 }
 
 pub fn boot() -> Result<App, String> {
-  Ok(#App{
+  Ok(App{
     context: Context.root(),
     work: Supervisor.new(max_running: 2),
     alerts: Channel.buffered<String>(8),
@@ -233,7 +233,7 @@ func TestIRGroupGaps_InstantNowAndConcurrentBlocks(t *testing.T) {
 const irGroupGapsLoopProgram = `import std/io
 
 fn collect(n: Int) -> List<Int> {
-  Iter.loop(fn seen = [] ->
+  Iter.loop([], fn seen ->
     case Iter.count(seen) >= n {
       True -> break seen
       False -> [Iter.count(seen), ..seen]

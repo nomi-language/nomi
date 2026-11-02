@@ -15,7 +15,7 @@ struct App {
 }
 
 fn boot(startup: Startup) -> Result<App, String> {
-    Ok(#App{args: startup.args})
+    Ok(App{args: startup.args})
 }
 
 fn main() -> Result<Unit, String> {

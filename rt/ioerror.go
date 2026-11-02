@@ -9,7 +9,7 @@ package rt
 // See internal/irbuild/stdenum.go.
 //
 // Its payloads are struct-shaped: a pattern binds them by name
-// (`#io.Error.NotFound{path} -> …`). Variants that declare a field of one name
+// (`io.Error.NotFound{path} -> …`). Variants that declare a field of one name
 // share its slot, as stdenum.go's dedup rule allocates them: every `path` is
 // Path, `Unsupported` and `Other` share Operation.
 //

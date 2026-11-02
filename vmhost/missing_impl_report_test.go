@@ -11,7 +11,7 @@ import (
 // to report the same missing impl a second time.
 func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
 	src := "struct Point {\n    x: Int\n    y: Int\n}\n\nfn main() {\n" +
-		"    dbg List.contains([#Point{x: 1, y: 2}], #Point{x: 1, y: 2})\n}\n"
+		"    dbg List.contains([Point{x: 1, y: 2}], Point{x: 1, y: 2})\n}\n"
 	rejects(t, src,
 		"main.nomi:7:9: Point does not implement Equatable (required by `where T: Equatable`)",
 		"add `derive Equatable` to `Point`")
@@ -30,7 +30,7 @@ func TestMissingImpl_AFailedBoundReportsOnce(t *testing.T) {
 // `x in c` over a collection with no Contains impl says so at the
 // collection, naming the test, and the missing impl names the operator.
 func TestMissingImpl_AMembershipTestNamesIn(t *testing.T) {
-	src := "struct Bag {\n    items: List<Int>\n}\n\nfn main() {\n    dbg 1 in #Bag{items: [1]}\n}\n"
+	src := "struct Bag {\n    items: List<Int>\n}\n\nfn main() {\n    dbg 1 in Bag{items: [1]}\n}\n"
 	rejects(t, src,
 		"main.nomi:6:14: the collection `in` looks in: Bag does not implement Contains",
 		"main.nomi:6:14: no impl of `Contains` for `Bag` (required via operator `in`)",
@@ -41,9 +41,9 @@ func TestMissingImpl_AMembershipTestNamesIn(t *testing.T) {
 // missing impl, and its message names how the impl is required, not where:
 // the diagnostic's own position says where.
 func TestMissingImpl_ADemandWithoutABoundStillReports(t *testing.T) {
-	src := "struct Point {\n    x: Int\n}\n\nfn main() {\n    dbg #Point{x: 1} < #Point{x: 2}\n}\n"
+	src := "struct Point {\n    x: Int\n}\n\nfn main() {\n    dbg Point{x: 1} < Point{x: 2}\n}\n"
 	rejects(t, src,
-		"main.nomi:6:22: no impl of `Comparable` for `Point` (required via ordering operator `<`)",
+		"main.nomi:6:21: no impl of `Comparable` for `Point` (required via ordering operator `<`)",
 		"add `derive Comparable` to `Point`")
 	err := checkEntry(t, src)
 	for _, line := range strings.Split(err.Error(), "\n") {

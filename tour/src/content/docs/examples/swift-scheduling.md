@@ -81,7 +81,7 @@ fn parse(text: String) -> Result<Description, Error> {
         "NOW" -> Ok(.Now)
         "ASAP" -> Ok(.Asap)
         "EOW" -> Ok(.EndOfWeek)
-        _ -> numbered(text) |> Maybe.to_result(Error.UnknownDescription(text))
+        _ -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
     }
 }
 
@@ -167,7 +167,7 @@ fn at(day: Date, hour: Int) -> NaiveDateTime {
 // FILE: swift_scheduling_test.nomi
 import {
     std/calendar.NaiveDateTime
-    swift_scheduling.{self, Error}
+    swift_scheduling
 }
 
 test "delivery date" {
@@ -284,8 +284,7 @@ test "descriptions that name no delivery date" {
     meeting_start = NaiveDateTime`2012-02-13T09:00:00`
 
     subtests ["LATER", "0M", "13M", "Q5", "Q", "M"], text {
-        assert swift_scheduling.delivery_date(meeting_start, text)
-            == Err(Error.UnknownDescription(text))
+        assert swift_scheduling.delivery_date(meeting_start, text) == Err(.UnknownDescription(text))
     }
 }
 ```

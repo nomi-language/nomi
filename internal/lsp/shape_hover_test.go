@@ -76,15 +76,15 @@ const pointCard = "struct Point {\n    x: Int\n    y: Int\n}"
 func TestHover_StructLiteralHeadAndClose(t *testing.T) {
 	use := "\n  io.inspect(p)\n}\n"
 	runShapeHoverCases(t, shapeHoverDecls, []shapeHoverCase{
-		{"the #", "fn main() {\n  p = ▮#Point{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
-		{"the name", "fn main() {\n  p = #Po▮int{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
-		{"the opening brace", "fn main() {\n  p = #Point▮{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
-		{"the closing brace", "fn main() {\n  p = #Point{x: 1, y: 2▮}" + use, []string{pointCard, "A point on the plane."}, nil},
-		{"the closing brace on its own line", "fn main() {\n  p = #Point{\n    x: 1,\n    y: 2,\n  ▮}" + use, []string{pointCard, "A point on the plane."}, nil},
-		{"a file-qualified name", "import std/startup\n\nfn main() {\n  p = ▮#startup.Startup{env: %{}, args: []}" + use, []string{"struct Startup"}, nil},
-		{"a field is unchanged", "fn main() {\n  p = #Point{▮x: 1, y: 2}" + use, []string{"x: Int"}, []string{"struct Point"}},
-		{"a value is unchanged", "fn main() {\n  p = #Point{x: 1, y: ▮2}" + use, nil, nil},
-		{"a comma shows nothing", "fn main() {\n  p = #Point{x: 1▮, y: 2}" + use, nil, nil},
+		{"the #", "fn main() {\n  p = ▮Point{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
+		{"the name", "fn main() {\n  p = Po▮int{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
+		{"the opening brace", "fn main() {\n  p = Point▮{x: 1, y: 2}" + use, []string{pointCard, "A point on the plane."}, nil},
+		{"the closing brace", "fn main() {\n  p = Point{x: 1, y: 2▮}" + use, []string{pointCard, "A point on the plane."}, nil},
+		{"the closing brace on its own line", "fn main() {\n  p = Point{\n    x: 1,\n    y: 2,\n  ▮}" + use, []string{pointCard, "A point on the plane."}, nil},
+		{"a file-qualified name", "import std/startup\n\nfn main() {\n  p = ▮startup.Startup{env: %{}, args: []}" + use, []string{"struct Startup"}, nil},
+		{"a field is unchanged", "fn main() {\n  p = Point{▮x: 1, y: 2}" + use, []string{"x: Int"}, []string{"struct Point"}},
+		{"a value is unchanged", "fn main() {\n  p = Point{x: 1, y: ▮2}" + use, nil, nil},
+		{"a comma shows nothing", "fn main() {\n  p = Point{x: 1▮, y: 2}" + use, nil, nil},
 	})
 }
 
@@ -105,13 +105,13 @@ func TestHover_VariantStructLiteral(t *testing.T) {
 	use := "\n  io.inspect(s)\n}\n"
 	circle := "Shape.Circle { radius: Float }"
 	runShapeHoverCases(t, shapeHoverDecls, []shapeHoverCase{
-		{"the # of the qualified form", "fn main() {\n  s = ▮#Shape.Circle{radius: 1.0}" + use, []string{circle, "A round one."}, []string{"from the expected type"}},
-		{"the enum name", "fn main() {\n  s = #Sh▮ape.Circle{radius: 1.0}" + use, []string{circle}, nil},
-		{"the brace", "fn main() {\n  s = #Shape.Circle▮{radius: 1.0}" + use, []string{circle}, nil},
-		{"the # of the dot form", "fn main() {\n  s: Shape = ▮#.Circle{radius: 1.0}" + use, []string{circle, "*`Shape` from the expected type*", "A round one."}, nil},
-		{"the . of the dot form", "fn main() {\n  s: Shape = #▮.Circle{radius: 1.0}" + use, []string{circle, "*`Shape` from the expected type*"}, nil},
-		{"the name of the dot form", "fn main() {\n  s: Shape = #.Cir▮cle{radius: 1.0}" + use, []string{circle, "*`Shape` from the expected type*"}, nil},
-		{"the closing brace of the dot form", "fn main() {\n  s: Shape = #.Circle{radius: 1.0▮}" + use, []string{circle, "*`Shape` from the expected type*"}, nil},
+		{"the # of the qualified form", "fn main() {\n  s = ▮Shape.Circle{radius: 1.0}" + use, []string{circle, "A round one."}, []string{"from the expected type"}},
+		{"the enum name", "fn main() {\n  s = Sh▮ape.Circle{radius: 1.0}" + use, []string{circle}, nil},
+		{"the brace", "fn main() {\n  s = Shape.Circle▮{radius: 1.0}" + use, []string{circle}, nil},
+		{"the # of the dot form", "fn main() {\n  s: Shape = ▮.Circle{radius: 1.0}" + use, []string{circle, "*`Shape` from the expected type*", "A round one."}, nil},
+		{"the . of the dot form", "fn main() {\n  s: Shape = ▮.Circle{radius: 1.0}" + use, []string{circle, "*`Shape` from the expected type*"}, nil},
+		{"the name of the dot form", "fn main() {\n  s: Shape = .Cir▮cle{radius: 1.0}" + use, []string{circle, "*`Shape` from the expected type*"}, nil},
+		{"the closing brace of the dot form", "fn main() {\n  s: Shape = .Circle{radius: 1.0▮}" + use, []string{circle, "*`Shape` from the expected type*"}, nil},
 	})
 }
 
@@ -143,7 +143,7 @@ func TestHover_NamedCollectionLiteral(t *testing.T) {
 		{"the ] of %Tags[", "fn main() {\n  t = %Tags[\"a\"▮]\n  io.inspect(t)\n}\n", []string{"```nomi\nTags\n```", "a `Set<String>`"}, nil},
 		{"#Path[", "fn main() {\n  p = #Path▮[1, 2]\n  io.inspect(p)\n}\n", []string{"```nomi\nPath\n```", "a `Vector<Int>`", "A walk."}, nil},
 		{"%Kvs{", "fn main() {\n  k = ▮%Kvs{\"a\" => 1}\n  io.inspect(k)\n}\n", []string{"```nomi\nKvs\n```", "a `Map<String, Int>`", "Settings by name."}, nil},
-		{"#Pair(", "fn main() {\n  p = ▮#Pair(1, 2)\n  io.inspect(p)\n}\n", []string{"```nomi\nPair\n```", "a `#(Int, Int)`", "Two of a kind."}, nil},
+		{"Pair(", "fn main() {\n  p = ▮Pair(1, 2)\n  io.inspect(p)\n}\n", []string{"```nomi\ntype Pair #(Int, Int)\n```", "Two of a kind."}, nil},
 	})
 }
 
@@ -170,9 +170,9 @@ func TestHover_ShapePatterns(t *testing.T) {
 		{"the .. of a vector rest", at(vec, "#[first, ▮..rest]"), []string{"```nomi\nrest: Vector<Int>\n```"}, nil},
 		{"an exact vector pattern", at(vec, "▮#[a, b]"), []string{"vector pattern: matches a `Vector<Int>` of exactly 2 elements; `a` is `Int`, `b` is `Int`"}, nil},
 		{"a map pattern", "fn f(m: Map<String, Int>) -> Int {\n  case m {\n    ▮%{\"a\" => v} -> v\n    _ -> 0\n  }\n}\n", []string{"map pattern: matches a `Map<String, Int>` with the key `\"a\"`; `v` is `Int`"}, nil},
-		{"a struct pattern", "fn f(p: Point) -> Int {\n  case p {\n    ▮#Point{x, y} -> x + y\n  }\n}\n", []string{"struct pattern: matches a `Point`; `x` is `Int`, `y` is `Int`"}, nil},
-		{"a struct pattern's closing brace on its own line", "fn f(p: Point) -> Int {\n  case p {\n    #Point{\n      x,\n      y,\n    ▮} -> x + y\n  }\n}\n", []string{"struct pattern: matches a `Point`"}, nil},
-		{"a variant struct pattern", "fn f(s: Shape) -> Float {\n  case s {\n    ▮#.Circle{radius} -> radius\n    _ -> 0.0\n  }\n}\n", []string{"struct pattern: matches `Shape.Circle`; `radius` is `Float`"}, nil},
+		{"a struct pattern", "fn f(p: Point) -> Int {\n  case p {\n    ▮Point{x, y} -> x + y\n  }\n}\n", []string{"struct pattern: matches a `Point`; `x` is `Int`, `y` is `Int`"}, nil},
+		{"a struct pattern's closing brace on its own line", "fn f(p: Point) -> Int {\n  case p {\n    Point{\n      x,\n      y,\n    ▮} -> x + y\n  }\n}\n", []string{"struct pattern: matches a `Point`"}, nil},
+		{"a variant struct pattern", "fn f(s: Shape) -> Float {\n  case s {\n    .Circle▮{radius} -> radius\n    _ -> 0.0\n  }\n}\n", []string{"struct pattern: matches `Shape.Circle`; `radius` is `Float`"}, nil},
 		{"a tuple pattern", "fn f(p: #(Int, String)) -> Int {\n  case p {\n    ▮#(n, _) -> n\n  }\n}\n", []string{"tuple pattern: matches a `#(Int, String)`; `n` is `Int`"}, nil},
 		{"a named set pattern", "fn f(t: Tags) -> Int {\n  case t {\n    ▮%Tags[\"a\", ..] -> 1\n    _ -> 0\n  }\n}\n", []string{"set pattern: matches a `Tags` containing `\"a\"`"}, nil},
 	})

@@ -20,7 +20,7 @@ func TestPreludeLifecycleProject(t *testing.T) {
  struct App { context: Context
  count: Int }
  fn boot(startup: Startup) -> Result<App, String> {
-  Ok(#App{context: Context.root(), count: Map.size(startup.env)})
+  Ok(App{context: Context.root(), count: Map.size(startup.env)})
  }
  fn main() {
   _ = Date.new(2024, 1, 2)

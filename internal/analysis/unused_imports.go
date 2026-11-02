@@ -237,6 +237,16 @@ func findUnusedImports(fa *FileAnalysis, nodes []ast.Node) []UnusedImport {
 		// satisfy the module-name rule below and mask every dead stdlib
 		// module import in project builds.
 		if compilerWritten(pos.Line) {
+			// One compiler-written reference counts: a synthesized impl's
+			// header naming an imported interface (the universal `impl
+			// Debug for T`), which in a std file, with no prelude, is the
+			// import that keeps a variant named `Debug` from being read
+			// as the interface.
+			if ref.Kind == SymbolInterface {
+				if i, ok := byQualifiedObjectName[ref.Name]; ok && items[i].sym.Kind == SymbolInterface {
+					used[i] = true
+				}
+			}
 			continue
 		}
 		if i, ok := bySym[ref]; ok {
@@ -350,8 +360,8 @@ func markQualifiedObjectUses(nodes []ast.Node, byName map[string]int, used []boo
 					}
 				}
 			}
-			// A LITERAL-ATTACH HEAD IS NOT A FieldAccess. `#shapes.Circle{r: 1}`
-			// and `#shapes.Shape.Ring{r: 2}` are parsed as a StructLit whose
+			// A LITERAL-ATTACH HEAD IS NOT A FieldAccess. `shapes.Circle{r: 1}`
+			// and `shapes.Shape.Ring{r: 2}` are parsed as a StructLit whose
 			// TypeName is a QualifiedType holding the whole dotted prefix in
 			// one string, so the FieldAccess arms above never see the module
 			// at all and the import read `unused`. Mark the prefix and every

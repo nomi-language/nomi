@@ -53,7 +53,7 @@ fn first_or<T>(xs: List<T>, d: T) -> T {
 fn main() {
     inc: (Int) -> Int = fn x -> x + 1
     dbl: (Int) -> Int = fn x -> x * 2
-    b = #Box{v: inc}.v
+    b = Box{v: inc}.v
     io.inspect(b(1))
     case Opt.Has(dbl) {
         .Has(g) -> io.inspect(g(2))
@@ -70,8 +70,8 @@ fn main() {
     io.inspect(fs)
     io.inspect(Iter.map(fs, fn f -> f(10)) |> Iter.to_list())
     io.inspect(Iter.filter(fs, fn f -> f(1) > 1) |> Iter.count())
-    io.inspect(Iter.reduce(fs, fn acc = 3, f -> f(acc)))
-    composed = Iter.reduce(fs, fn acc = inc, f -> fn x: Int -> f(acc(x)))
+    io.inspect(Iter.reduce(fs, 3, fn acc, f -> f(acc)))
+    composed = Iter.reduce(fs, inc, fn acc, f -> fn x: Int -> f(acc(x)))
     io.inspect(composed(1))
     adders = Iter.map([1, 2], fn n -> fn x: Int -> x + n) |> Iter.to_list()
     io.inspect(Iter.map(adders, fn f -> f(1)) |> Iter.to_list())
@@ -79,7 +79,7 @@ fn main() {
     Iter.each(fs, fn f -> io.inspect(f(100)))
     io.inspect(first_or([], inc)(7))
     io.inspect(first_or(fs, inc)(7))
-    io.inspect(Iter.map(#Ops{fs: fs}.fs, fn f -> f(5)) |> Iter.to_list())
+    io.inspect(Iter.map(Ops{fs: fs}.fs, fn f -> f(5)) |> Iter.to_list())
     case Holder.Many(fs) {
         .Many(gs) -> io.inspect(Iter.map(gs, fn f -> f(7)) |> Iter.to_list())
     }

@@ -203,7 +203,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 		},
 		"a lambda block body follows the rule": {
 			src: `fn f(xs: List<Int>) -> Int {
-    Iter.reduce(xs, fn acc = 0, x -> {
+    Iter.reduce(xs, 0, fn acc, x -> {
         y = x * 2
         z = case y {
             4 -> y
@@ -214,7 +214,7 @@ func TestFormat_StatementSpacingSetsMultiLineStatementsApart(t *testing.T) {
 }
 `,
 			want: `fn f(xs: List<Int>) -> Int {
-    Iter.reduce(xs, fn acc = 0, x -> {
+    Iter.reduce(xs, 0, fn acc, x -> {
         y = x * 2
 
         z = case y {

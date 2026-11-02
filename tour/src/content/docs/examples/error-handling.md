@@ -33,7 +33,7 @@ pub fn number(text: String) -> Maybe<Int> {
 
 /// The number `text` writes, or an `Err` saying what was there instead.
 pub fn parse(text: String) -> Result<Int, Error> {
-    Maybe.to_result(number(text), #Error.NotANumber{text})
+    Maybe.to_result(number(text), .NotANumber{text})
 }
 
 /// The number `text` writes. The caller promises it writes one, and a
@@ -75,7 +75,6 @@ import {
     std/io.{self, Reader}
     std/tasks.Task
     error_handling
-    error_handling.Error
 }
 
 /// Whether `reader` has been closed: reading from it again is refused.
@@ -90,7 +89,7 @@ test "a missing answer is None" {
 
 test "a failure the caller handles is an Err" {
     assert error_handling.parse("1") == Ok(1)
-    assert error_handling.parse("a") == Err(#Error.NotANumber{text: "a"})
+    assert error_handling.parse("a") == Err(.NotANumber{text: "a"})
 }
 
 test "a broken promise traps" {
@@ -112,7 +111,7 @@ test "a resource is released when the work succeeds" {
 test "a resource is released when the work fails" {
     reader = Reader.from_text("1\nx\n3\n")
 
-    assert error_handling.sum_lines(reader) == Err(#Error.NotANumber{text: "x"})
+    assert error_handling.sum_lines(reader) == Err(.NotANumber{text: "x"})
     assert is_closed(reader)
 }
 

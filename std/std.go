@@ -87,9 +87,10 @@ type StdLib struct {
 	// Errors holds every diagnostic analyzing the stdlib produced, keyed by
 	// module name: the build-phase errors in each FileAnalysis and the
 	// CheckTypes errors. A stdlib that analyzes cleanly leaves it empty, and
-	// TestStdlib_AnalyzesWithoutErrors holds it there. Nothing reports these
-	// to users, so a stdlib mistake that changes what a name means (an enum
-	// variant shadowing an import, say) is visible only here.
+	// TestStdlib_AnalyzesWithoutErrors holds it there. The front end and the
+	// language server report them to every program (CheckError), after
+	// SyntaxErrors, since a body that does not check must not be lowered and
+	// run as if it did.
 	Errors map[string][]analysis.TypeError
 	// SyntaxErrors holds the parse errors of each module's embedded source,
 	// keyed by module name. The loader parses with recovery, so a module with
@@ -121,6 +122,32 @@ func (lib *StdLib) SyntaxError() error {
 		}
 	}
 	return fmt.Errorf("the standard library built into this nomi does not parse:\n%s", strings.Join(lines, "\n"))
+}
+
+// CheckError answers every check error in the embedded stdlib (Errors), one
+// "std/<module>.nomi:line:col: message" line each in module order, or nil
+// when the stdlib checks.
+func (lib *StdLib) CheckError() error {
+	if lib == nil || len(lib.Errors) == 0 {
+		return nil
+	}
+	var lines []string
+	for _, name := range lib.ErrorModules() {
+		for _, e := range lib.Errors[name] {
+			lines = append(lines, fmt.Sprintf("std/%s.nomi:%d:%d: %s", name, e.Line, e.Col, e.Message))
+		}
+	}
+	return fmt.Errorf("the standard library built into this nomi does not check:\n%s", strings.Join(lines, "\n"))
+}
+
+// ErrorModules answers the names of the modules Errors holds, sorted.
+func (lib *StdLib) ErrorModules() []string {
+	names := make([]string, 0, len(lib.Errors))
+	for name := range lib.Errors {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // SyntaxErrorModules answers the names of the modules SyntaxErrors holds,
@@ -548,13 +575,18 @@ func Load() *StdLib {
 	// CheckTypes per stdlib FA. BuildProjectWithCache stops after Sweep
 	// C-types; CheckTypes adds impl-body conformance recordings to
 	// fa.ImplManifest, which the runtime impl-bridge consumes. Diagnostics
-	// are kept in lib.Errors rather than reported: the user-facing project
-	// pipeline reports errors against user code, and a stdlib error is a
-	// defect in this repository, caught by TestStdlib_AnalyzesWithoutErrors.
+	// are kept in lib.Errors, which every program's check reports
+	// (CheckError): a stdlib error is a defect in this repository, caught
+	// first by TestStdlib_AnalyzesWithoutErrors.
 	checked := make(map[string][]analysis.TypeError, len(names))
 	for _, name := range names {
 		errs := append([]analysis.TypeError(nil), lib.Files[name].TypeErrors...)
 		checked[name] = append(errs, analysis.CheckTypes(lib.Files[name], lib.Nodes[name])...)
+	}
+	// Two `impl T { ... }` blocks for one type in one file, which a
+	// program's build checks only among its own files.
+	for name, errs := range analysis.StdImplBlockErrors(lib.Files, lib.Nodes) {
+		checked[name] = append(checked[name], errs...)
 	}
 	// The application-field roots, once every module is checked.
 	for _, name := range names {

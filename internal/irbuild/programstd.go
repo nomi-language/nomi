@@ -46,17 +46,26 @@ import (
 // for them, and their host functions cross into Go over rt types. A new
 // module written in Nomi needs no rt type and no row: list it here.
 var programStdModules = map[string]bool{
-	"fs":          true,
-	"fs_testing":  true,
-	"message":     true,
-	"money":       true,
-	"path":        true,
-	"process":     true,
-	"reverse":     true,
-	"bits":        true,
-	"sql":         true,
-	"sql_testing": true,
-	"uuid":        true,
+	"fs":              true,
+	"fs_testing":      true,
+	"http":            true,
+	"http_testing":    true,
+	"log":             true,
+	"log_testing":     true,
+	"message":         true,
+	"money":           true,
+	"net":             true,
+	"path":            true,
+	"process":         true,
+	"process_testing": true,
+	"reverse":         true,
+	"actors":          true,
+	"bits":            true,
+	"sql":             true,
+	"tls":             true,
+	"sql_testing":     true,
+	"url":             true,
+	"uuid":            true,
 }
 
 // isProgramStd reports whether the std module named name (`uuid`, without

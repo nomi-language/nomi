@@ -20,35 +20,35 @@ derive Equatable for Step
 /// answers the steps as they happened. A list that does what every step
 /// says answers the steps it was given.
 fn replay(values: List<Int>, steps: List<Step>) -> List<Step> {
-    #(happened, _list) =
+    #(_list, happened) =
         steps
-        |> Iter.map_reduce(fn list = LinkedList.from(values), step -> {
+        |> Iter.map_reduce(LinkedList.from(values), fn list, step -> {
             case step {
                 .Count(_) ->
-                    #(Step.Count(Iter.count(list)), list)
+                    #(list, Step.Count(Iter.count(list)))
 
                 .Pop(_) or .PopFails -> {
                     case LinkedList.pop(list) {
-                        Ok(#(value, rest)) -> #(Step.Pop(value), rest)
-                        Err(_) -> #(Step.PopFails, list)
+                        Ok(#(value, rest)) -> #(rest, .Pop(value))
+                        Err(_) -> #(list, .PopFails)
                     }
                 }
 
                 .Push(value) ->
-                    #(Step.Push(value), LinkedList.push(list, value))
+                    #(LinkedList.push(list, value), .Push(value))
 
                 .Peek(_) or .PeekFails -> {
                     case LinkedList.peek(list) {
-                        Ok(value) -> #(Step.Peek(value), list)
-                        Err(_) -> #(Step.PeekFails, list)
+                        Ok(value) -> #(list, .Peek(value))
+                        Err(_) -> #(list, .PeekFails)
                     }
                 }
 
                 .ToList(_) ->
-                    #(Step.ToList(Iter.to_list(list)), list)
+                    #(list, .ToList(Iter.to_list(list)))
 
                 .Reverse ->
-                    #(Step.Reverse, LinkedList.reverse(list))
+                    #(LinkedList.reverse(list), .Reverse)
             }
         })
 

@@ -15,11 +15,11 @@ fn answer() -> Int {
   42
 }
 
-//! label = #Label{text: "done"}
+//! label = Label{text: "done"}
 //! assert Label.render(label) == "[done]"
 //! refute Label.render(label) == "[ready]"
 fn done_label() -> String {
-  Label.render(#Label{text: "done"})
+  Label.render(Label{text: "done"})
 }
 `))
 	if err != nil {
@@ -32,7 +32,7 @@ fn done_label() -> String {
 	}
 
 	testFn := findFunc(t, nodes, "done_label")
-	want := `label = #Label{text: "done"}
+	want := `label = Label{text: "done"}
 assert Label.render(label) == "[done]"
 refute Label.render(label) == "[ready]"`
 	if got := RenderAttachedTestBody(testFn.AttachedTests[0]); got != want {
@@ -55,7 +55,7 @@ func findFunc(t *testing.T, nodes []ast.Node, name string) *ast.FuncDef {
 // formatted: at the prompt's width, not the four columns narrower a test
 // block's body would have.
 func TestFormatAttachedTestBodyMatchesThePrompt(t *testing.T) {
-	shown := `assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(#Error.Digit{index: 7, found: "g"})`
+	shown := `assert Uuid.parse("6ba7b81g-9dad-11d1-80b4-00c04fd430c8") == Err(Error.Digit{index: 7, found: "g"})`
 	got, err := FormatAttachedTestBody(shown)
 	if err != nil {
 		t.Fatal(err)

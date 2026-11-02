@@ -26,7 +26,7 @@ func TestParamDestructure_Tuple_Annotated(t *testing.T) {
 
 func TestParamDestructure_TypedStruct_SelfTyped(t *testing.T) {
 	src := `struct Point { x: Int; y: Int }
-fn sum(#Point{x, y}) -> Int { x + y }`
+fn sum(Point{x, y}) -> Int { x + y }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }
@@ -157,12 +157,12 @@ fn open(Identifier.UserId(n)) -> Int { n }`
 }
 
 // The struct-embeds analogue: `enum S { embeds Circle }` (Circle a struct) with
-// `fn area(#S.Circle{r})`. Exercises the QualifiedType struct-pattern head
+// `fn area(S.Circle{r})`. Exercises the QualifiedType struct-pattern head
 // derivation (resolve the qualifier S, not the unknown type `S.Circle`).
 func TestParamDestructure_EmbeddedStructVariant_Accepted(t *testing.T) {
 	src := `struct Circle { r: Int }
 enum S { embeds Circle }
-fn area(#S.Circle{r}) -> Int { r * 2 }`
+fn area(S.Circle{r}) -> Int { r * 2 }`
 	_, errs := checkSource(src)
 	expectNoErrors(t, errs)
 }

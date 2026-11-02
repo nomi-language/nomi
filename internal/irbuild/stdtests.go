@@ -269,7 +269,9 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 //     and every use the builder admits resolves by the checker's reference
 //     at its position (qualifierScope for a file qualifier).
 //   - a name the module scope binds to the same declaration (std/compiler's
-//     prompts open with `import std/strings.String`).
+//     prompts open with `import std/strings.String`), or to the same module
+//     (std/hash's prompts open with `import std/hex`, which the module
+//     imports as `hex`).
 //   - a whole-module import of the stdlib module whose test body this is,
 //     whose alias the builder resolves as that module's own file alias.
 //   - a monomorphic std struct, enum or distinct type, whatever the module
@@ -304,7 +306,11 @@ func (bl *irScalarBuilder) testImport(n *ast.ImportStmt) bool {
 		if outer == nil {
 			continue
 		}
-		if real := resolveSymbol(sym); outer != real && !g.stdTypeRebind(real) && !g.twinOf(real, outer) {
+		real := resolveSymbol(sym)
+		if scope := symbolModuleScope(real); scope != nil && scope == symbolModuleScope(outer) {
+			continue
+		}
+		if outer != real && !g.stdTypeRebind(real) && !g.twinOf(real, outer) {
 			return no()
 		}
 	}

@@ -79,7 +79,7 @@ func TestFuncParam_Tuple(t *testing.T) {
 }
 
 func TestFuncParam_TypedStruct(t *testing.T) {
-	p := funcDefParam(t, "fn f(#Point{x, y}) -> Int { x + y }", 0)
+	p := funcDefParam(t, "fn f(Point{x, y}) -> Int { x + y }", 0)
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("expected *ast.StructPattern, got %T", p.Destructure)
@@ -216,7 +216,7 @@ func TestLambdaParam_Struct_StillWorks(t *testing.T) {
 }
 
 func TestLambdaParam_TypedStruct(t *testing.T) {
-	p := lambdaParam(t, "(fn #Point{x, y} -> x)", 0)
+	p := lambdaParam(t, "(fn Point{x, y} -> x)", 0)
 	sp, ok := p.Destructure.(*ast.StructPattern)
 	if !ok {
 		t.Fatalf("expected *ast.StructPattern, got %T", p.Destructure)

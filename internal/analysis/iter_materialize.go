@@ -12,7 +12,51 @@ func mismatchHint(want, have Type) string {
 	if h := runtimeNounHint(want, have); h != "" {
 		return h
 	}
+	if h := typeArgumentVarianceHint(want, have); h != "" {
+		return h
+	}
 	return iterMaterializeHint(want, have)
+}
+
+// typeArgumentVarianceHint explains a container whose expected type
+// argument is an interface its actual one implements, `Maybe<Display>`
+// against `Maybe<Int>`: type arguments compare exactly (spec §5
+// *Assignability*), so only a value built in place converts, element by
+// element.
+func typeArgumentVarianceHint(want, have Type) string {
+	wantArgs, haveArgs := containerArgs(want), containerArgs(have)
+	if len(wantArgs) == 0 || len(wantArgs) != len(haveArgs) {
+		return ""
+	}
+	for i := range wantArgs {
+		iface, ok := resolveTV(wantArgs[i]).(*InterfaceType)
+		if !ok || isStdIterType(iface) {
+			continue
+		}
+		if _, alsoIface := resolveTV(haveArgs[i]).(*InterfaceType); alsoIface {
+			continue
+		}
+		return fmt.Sprintf("type arguments compare exactly: a %s is not a %s, though each %s is a %s; "+
+			"build the value where the %s is expected (`Some(x)`, `[a, b]`, `Iter.map(...)`), so each element becomes a %s",
+			have, want, haveArgs[i], iface, want, iface)
+	}
+	return ""
+}
+
+// containerArgs are t's type arguments as a container: a list's element, a
+// map's key and value, a generic struct's or enum's arguments.
+func containerArgs(t Type) []Type {
+	switch t := resolveTV(t).(type) {
+	case *ListType:
+		return []Type{t.Elem}
+	case *MapType:
+		return []Type{t.Key, t.Val}
+	case *StructType:
+		return t.TypeArgs
+	case *EnumType:
+		return t.TypeArgs
+	}
+	return nil
 }
 
 // runtimeNounHint explains a `String` where std/message's `Noun` is

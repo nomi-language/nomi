@@ -119,7 +119,7 @@ fn add_pets(#(_colors, nations, drinks, hobbies): #(Order, Order, Order, Order))
             and is_next_to(painting, horse)
     })
     |> Iter.map(fn #(_dog, _snail, _fox, _horse, zebra) -> {
-        #Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
+        Solution{drinks_water: resident(nations, water), owns_zebra: resident(nations, zebra)}
     })
     |> Iter.to_list()
 }

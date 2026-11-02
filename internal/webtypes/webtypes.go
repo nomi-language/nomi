@@ -5,7 +5,8 @@
 // A Nomi type maps to the TypeScript type of the JSON its ToJson writes and
 // its FromJson reads:
 //
-//	Int, Float              number
+//	Int                     number | bigint
+//	Float                   number
 //	String                  string
 //	Bool                    boolean
 //	List, Vector, Set<T>    T[]

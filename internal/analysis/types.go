@@ -200,7 +200,7 @@ func (t *StructType) typeTag() {}
 //   - VariantPositional: a typed positional payload created via the variant's
 //     own constructor (e.g. `Some(T)`).
 //   - VariantStruct: named-field payload defined inline on the variant
-//     (e.g. `#Line{start: Point, end: Point}`).
+//     (e.g. `Line{start: Point, end: Point}`).
 //   - VariantEmbedded: payload is a standalone struct or distinct type
 //     defined elsewhere; the variant name equals the embedded type's name
 //     (e.g. `embeds Circle`). Embedded variants admit subtype coercion —
@@ -729,10 +729,15 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		if !ok || !sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) {
 			return false
 		}
-		// Generic opaque externs (`host type Task<T>` etc.) carry
-		// TypeArgs at use sites — equality requires matching args.
-		// Non-generic distinct types leave TypeArgs nil on both sides,
-		// so the lengths-equal check below short-circuits cleanly.
+		// A generic distinct (`type Tagged<T> ...`, `host type Task<T>`)
+		// carries TypeArgs at use sites, and equality requires matching
+		// args. Either side unparameterized (the bare declaration a
+		// derived impl's header names) matches on name alone, as for a
+		// struct. Non-generic distinct types leave TypeArgs nil on both
+		// sides.
+		if len(at.TypeArgs) == 0 || len(bt.TypeArgs) == 0 {
+			return true
+		}
 		if len(at.TypeArgs) != len(bt.TypeArgs) {
 			return false
 		}

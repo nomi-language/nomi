@@ -41,7 +41,7 @@ export fn moved(p: Point, dx: Int) -> Point {
 
 export fn grow(s: Shape) -> Shape {
     case s {
-        #Shape.Circle{radius} -> #Shape.Circle{radius: radius * 2}
+        Shape.Circle{radius} -> Shape.Circle{radius: radius * 2}
         Shape.Dot -> Shape.Dot
     }
 }

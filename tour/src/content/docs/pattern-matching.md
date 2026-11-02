@@ -72,25 +72,25 @@ enum Shape {
 fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r * 3.14159
-        #.Rectangle{width, height} -> width * height
+        .Rectangle{width, height} -> width * height
     }
 }
 
 fn main() {
     dbg area(.Circle(3.0))
-    dbg area(#.Rectangle{width: 4.0, height: 5.0})
+    dbg area(.Rectangle{width: 4.0, height: 5.0})
 }
 ```
 <!-- expect
 dbg line 14: area(.Circle(3.0)) = 28.27431
-dbg line 15: area(#.Rectangle{width: 4.0, height: 5.0}) = 20.0
+dbg line 15: area(.Rectangle{width: 4.0, height: 5.0}) = 20.0
 -->
 
 `.Circle(r)` matches a circle and names its radius `r`.
-`#.Rectangle{width, height}` matches a rectangle and names both fields.
+`.Rectangle{width, height}` matches a rectangle and names both fields.
 
 Tuples and structs work the same way: `#(a, b) -> ...` and
-`#Point{x, y} -> ...`. A pattern is written the way the value is built.
+`Point{x, y} -> ...`. A pattern is written the way the value is built.
 
 ### Lists, vectors and sets
 
@@ -196,24 +196,24 @@ enum Shape {
 fn area(s: Shape) -> Float {
     case s {
         .Circle(r) -> r * r * 3.0
-        #.Rectangle{width, height} -> width * height
+        .Rectangle{width, height} -> width * height
     }
 }
 
 fn describe(s: Shape) -> String {
     case s {
-        #.Rectangle{width, height} as sq when width == height -> "a square of area ${area(sq)}"
+        .Rectangle{width, height} as sq when width == height -> "a square of area ${area(sq)}"
         other -> "a shape of area ${area(other)}"
     }
 }
 
 fn main() {
-    dbg describe(#.Rectangle{width: 2.0, height: 2.0})
+    dbg describe(.Rectangle{width: 2.0, height: 2.0})
     dbg describe(.Circle(1.0))
 }
 ```
 <!-- expect
-dbg line 21: describe(#.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
+dbg line 21: describe(.Rectangle{width: 2.0, height: 2.0}) = "a square of area 4.0"
 dbg line 22: describe(.Circle(1.0)) = "a shape of area 3.0"
 -->
 
@@ -221,7 +221,7 @@ The first arm reads `width` and `height`, and passes the whole rectangle to
 `area` as `sq`. Without `as`, it would have to build the rectangle again.
 
 `as` names the whole pattern to its left. `Ok(x) as r` names the whole `Result`.
-`Ok(#Point{x, y} as p)` names only the `Point` inside. The name has the type of
+`Ok(Point{x, y} as p)` names only the `Point` inside. The name has the type of
 the value it names, so `sq` is a `Shape`.
 
 `as` works anywhere a pattern does, including `if`, bindings, parameters and
@@ -260,7 +260,7 @@ fn size(s: Shape) -> String {
     case s {
         .Circle(r) or .Square(r) when r > 10.0 -> "big, ${r} across"
         .Circle(r) or .Square(r) -> "${r} across"
-        #.Rectangle{width, height} -> "${width} by ${height}"
+        .Rectangle{width, height} -> "${width} by ${height}"
     }
 }
 
@@ -302,7 +302,7 @@ fn closes(c: Codepoint) -> Bool {
 }
 
 fn main() {
-    blocks = [Block.Item("milk"), Block.Text("note"), Block.Item("eggs")]
+    blocks = [Block.Item("milk"), .Text("note"), .Item("eggs")]
     dbg blocks |> Iter.filter(&(&1 is .Item(_))) |> Iter.count()
     dbg closes(']')
     dbg not Some(3) is None

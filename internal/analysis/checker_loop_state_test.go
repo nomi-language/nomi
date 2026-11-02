@@ -71,7 +71,7 @@ func expectOneLoopError(t *testing.T, errs []analysis.TypeError, msg string, lin
 	if e.Message != msg || e.Line != line || e.Col != col {
 		t.Fatalf("got %q at %d:%d, want %q at %d:%d", e.Message, e.Line, e.Col, msg, line, col)
 	}
-	const help = "to end with a value, give the loop a state, as in `Iter.loop(fn n = 0 -> …)` with `break n`; or write `break` alone"
+	const help = "to end with a value, give the loop a state, as in `Iter.loop(0, fn n -> …)` with `break n`; or write `break` alone"
 	if len(e.Hints) != 1 || e.Hints[0] != help {
 		t.Fatalf("hints: got %q, want [%q]", e.Hints, help)
 	}
@@ -140,7 +140,7 @@ fn main() {
 // state seeded with it.
 func TestLoopState_GenericBreakValueFromASeededState(t *testing.T) {
 	src := `fn id_loop<T>(x: T) -> T {
-  Iter.loop(fn _seed = x -> { break x })
+  Iter.loop(x, fn _seed -> { break x })
 }
 fn main() -> Unit {}`
 	expectClean(t, checkWithStdlib(src))
@@ -152,7 +152,7 @@ func TestLoopState_ConflictingBreakTypesRejected(t *testing.T) {
   True
 }
 fn use_loop() -> Int {
-  Iter.loop(fn n = 0 -> {
+  Iter.loop(0, fn n -> {
     if pick() { break n }
     break "two"
   })
@@ -171,7 +171,7 @@ func TestLoopState_BareBreakStillUnit(t *testing.T) {
 // A stated loop is unchanged — S comes from the default, break matches it.
 func TestLoopState_StatedLoopUnchanged(t *testing.T) {
 	src := `fn use_loop() -> Int {
-  Iter.loop(fn n = 0 ->
+  Iter.loop(0, fn n ->
     if n >= 3 { break n } else { n + 1 })
 }`
 	expectClean(t, checkWithStdlib(src))
@@ -192,7 +192,7 @@ func TestLoop_BareNameWithoutImportRejected(t *testing.T) {
 func TestLoop_SelectiveImportBareSpellingWithBreak(t *testing.T) {
 	src := `import std/iter.Iter.{loop}
 fn main() -> Unit {
-  n = loop(fn n = 0 -> if n > 2 { break n } else { n + 1 })
+  n = loop(0, fn n -> if n > 2 { break n } else { n + 1 })
 }`
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
@@ -233,7 +233,7 @@ fn main() -> Unit {
 // *`loop`*).
 func TestLoopState_StatedLoopBreakMismatchStillErrors(t *testing.T) {
 	src := `fn use_loop() -> Int {
-  Iter.loop(fn n = 0 ->
+  Iter.loop(0, fn n ->
     if n >= 3 { break "done" } else { n + 1 })
 }`
 	expectErrorContaining(t, checkWithStdlib(src), "break value type mismatch")
@@ -271,7 +271,7 @@ func TestLoopState_BareBreakInAStatedLoopHasTheStateType(t *testing.T) {
 }
 
 fn open(inputs: List<Int>) -> Account {
-  Iter.loop(fn account = #Account{} -> {
+  Iter.loop(Account{}, fn account -> {
     if Iter.is_empty(inputs) { break }
     if account.balance > 3 { break #{..account, balance: 0} }
     #{..account, balance: account.balance + 1}
@@ -279,7 +279,7 @@ fn open(inputs: List<Int>) -> Account {
 }
 
 fn count() -> Int {
-  Iter.loop(fn n = 0 -> if n > 3 { break } else { n + 1 })
+  Iter.loop(0, fn n -> if n > 3 { break } else { n + 1 })
 }`
 	expectClean(t, checkWithStdlib(src))
 }

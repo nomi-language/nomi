@@ -112,8 +112,8 @@ func patternBinders(p ast.Node) []string {
 	return nil
 }
 
-// appendPatternField adds the name a struct-pattern field binds. `#Point{x}` puns
-// (Binding == Name); `#Point{x: a}` renames; `#Point{x: 1}` matches and binds
+// appendPatternField adds the name a struct-pattern field binds. `Point{x}` puns
+// (Binding == Name); `Point{x: a}` renames; `Point{x: 1}` matches and binds
 // nothing, which is what a non-nil Pattern means.
 func appendPatternField(out []string, f ast.StructPatternField) []string {
 	if f.Pattern != nil {

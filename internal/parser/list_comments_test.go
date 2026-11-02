@@ -53,7 +53,7 @@ func TestParse_AcceptsACommentInEveryList(t *testing.T) {
 		"fn f<\n    // c\n    A>(a: A) -> A { a }\n",
 		"y = case x {\n    [a, // c\n        b] -> a\n    _ -> 0\n}\n",
 		"y = case x {\n    #(a, // c\n        b) -> a\n}\n",
-		"y = case x {\n    #P{a, // c\n        b} -> a\n}\n",
+		"y = case x {\n    P{a, // c\n        b} -> a\n}\n",
 		"y = case x {\n    .Pair(a, // c\n        b) -> a\n}\n",
 		"import std/comparable.{\n    // c\n    Comparable,\n}\n",
 		"f: (Int, // c\n    Int) -> Int = add\n",

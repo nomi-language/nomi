@@ -47,7 +47,7 @@ pub struct Closed {
 
 impl Conn for Closed {
     fn query(conn: Closed, sql: String) -> Result<List<List<Value>>, Error> {
-        Err(#Error.Refused{reason: "${conn.name} is closed to ${sql}"})
+        Err(Error.Refused{reason: "${conn.name} is closed to ${sql}"})
     }
 
     fn name(conn: Closed) -> String {
@@ -64,7 +64,7 @@ impl FromValue for Int {
     fn from_value(value: Value, column: Int) -> Result<Int, Error> {
         case value {
             Value.Number(n) -> Ok(n)
-            other -> Err(#Error.Decode{column, found: found(other)})
+            other -> Err(Error.Decode{column, found: found(other)})
         }
     }
 }
@@ -73,7 +73,7 @@ impl FromValue for String {
     fn from_value(value: Value, column: Int) -> Result<String, Error> {
         case value {
             Value.Text(s) -> Ok(s)
-            other -> Err(#Error.Decode{column, found: found(other)})
+            other -> Err(Error.Decode{column, found: found(other)})
         }
     }
 }

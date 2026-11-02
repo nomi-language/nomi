@@ -73,7 +73,7 @@ fn main() {
   Iter.count(s) |> io.print()
   Iter.known_count(s) |> io.inspect()
   Iter.zip(s, ["x", "y"]) |> Iter.map(fn p -> "${p.1}${p.0}") |> Iter.to_list() |> io.inspect()
-  s |> Iter.reduce(fn a = 0, x -> a + x) |> io.print()
+  s |> Iter.reduce(0, fn a, x -> a + x) |> io.print()
   Iter.sort(s) |> io.inspect()
 }
 `, "[\"ann=31\", \"bo=22\", \"cy=40\"]\n3\nSome(3)\n2\nTrue\n[5, 3, 9]\n3\nSome(3)\n[\"x5\", \"y3\"]\n17\n[3, 5, 9]\n"},

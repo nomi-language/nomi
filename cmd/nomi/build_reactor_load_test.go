@@ -78,9 +78,10 @@ func wasmMemoryMinimum(t *testing.T, data []byte) uint64 {
 // another program format, a second load, and a load into a reactor `nomi
 // build` embedded a program in, and that an empty load into that one answers
 // its exported functions. The reactor `--reactor` writes is the
-// one `nomi build` embeds programs in, with an empty image area, and its
-// declared initial memory stays under 12 MiB. With no --target it writes the
-// same bytes as with --target wasip1/wasm.
+// one `nomi build` embeds programs in, with an empty image area. Its
+// declared initial memory stays under 16 MiB, and the reactor without the
+// network (`--no-network`), which leaves out net/http, under 12 MiB. With no
+// --target it writes the same bytes as with --target wasip1/wasm.
 func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; builds the wasip1 reactor; -short")
@@ -98,6 +99,7 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	mustWrite(t, filepath.Join(dir, "lib.nomi"), "export fn twice(n: Int) -> Int {\n    n * 2\n}\n")
 	nomi("build-vm", "--reactor", "--target", "wasip1/wasm", "-o", "reactor.wasm")
 	nomi("build-vm", "--reactor", "-o", "vm-reactor.wasm")
+	nomi("build-vm", "--reactor", "--no-network", "--target", "wasip1/wasm", "-o", "reactor-nonet.wasm")
 	nomi("build", "--no-vm", "counter.nomi")
 	nomi("build", "--no-vm", "words.nomi")
 	nomi("build", "--target", "wasip1/wasm", "lib.nomi")
@@ -124,8 +126,15 @@ func TestBuildCommand_ReactorLoadsOneProgramPerInstance(t *testing.T) {
 	if _, err := vmrunner.EmbedWasmImage(reactor, []byte("x")); err != nil {
 		t.Fatalf("the reactor --reactor wrote is not the one nomi build embeds programs in: %v", err)
 	}
-	if got := wasmMemoryMinimum(t, reactor); got > 12<<20 {
-		t.Fatalf("the reactor declares %d bytes of initial memory, over 12 MiB", got)
+	if got := wasmMemoryMinimum(t, reactor); got > 16<<20 {
+		t.Fatalf("the reactor declares %d bytes of initial memory, over 16 MiB", got)
+	}
+	lean, err := os.ReadFile(filepath.Join(dir, "reactor-nonet.wasm"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := wasmMemoryMinimum(t, lean); got > 12<<20 {
+		t.Fatalf("the reactor without the network declares %d bytes of initial memory, over 12 MiB", got)
 	}
 
 	node := wasiNode(t)

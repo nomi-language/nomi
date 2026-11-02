@@ -69,7 +69,7 @@ test "Color codes" {
 
 test "Colors" {
     assert resistor_color.colors() == [
-        Color.Black,
+        .Black,
         .Brown,
         .Red,
         .Orange,

@@ -62,7 +62,7 @@ pub fn territories(board: List<String>) -> Territories {
 
     points
     |> Iter.filter(fn #(_point, stone) -> stone == " ")
-    |> Iter.reduce(fn found = empty, #(point, _stone) -> {
+    |> Iter.reduce(empty, fn found, #(point, _stone) -> {
         if is_claimed(found, point) {
             found
         } else {
@@ -88,8 +88,8 @@ fn fill(points: Map<Point, String>, start: Point) -> Territory {
 
     owner = case Iter.to_list(borders) {
         ["B"] -> Owner.Black
-        ["W"] -> Owner.White
-        _ -> Owner.Neither
+        ["W"] -> .White
+        _ -> .Neither
     }
 
     #{owner, points: area}
