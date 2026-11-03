@@ -1126,6 +1126,30 @@ func (g *gen) settleLowerable(order []*typeDef) {
 // sigreason.go names WHICH of those it was, so a signature position reports the
 // type's own gap rather than the position's shape.
 func (g *gen) typeOf(te ast.TypeExpr) kind {
+	if g.stdSrc != nil {
+		// A std interface's signature (stdprogiface.go): its names are std's,
+		// resolved in the declaring module's scope as a std function's
+		// signature is (stdTypeKind). One that names a type parameter being
+		// substituted is this gen's to resolve, by the arms below.
+		if k, ok := g.stdSrcTypeOf(te); ok {
+			return k
+		}
+		// `Fragment<I>` at a substituted `I` resolves by the position std
+		// wrote it at, in std's file (preludeTypeOf reads srcFA), so this
+		// file's own `Fragment` is not asked.
+		if gt, isGeneric := te.(*ast.GenericType); isGeneric {
+			if k, isPrelude := g.preludeTypeOf(gt); isPrelude {
+				return k
+			}
+		}
+		// The arms below look a head name up in this file's tables, which
+		// would answer with this file's own same-named declaration, not
+		// std's: the function is a signature gap of its own
+		// (methodSignatureGap).
+		if g.stdSrcShadowed(te) {
+			return kindInvalid
+		}
+	}
 	if _, isSelf := te.(*ast.SelfType); isSelf {
 		// `self` names the implementor while an interface default is
 		// monomorphized for one (inheritDefaults, irImplLower); anywhere else
@@ -1214,10 +1238,31 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		}
 		d, found := g.namespacedType(qt)
 		if !found {
+			// `shapes.Shape`, `sql.Conn`: an interface named through the
+			// qualifier of the module that declares it, the same existential
+			// the bare imported name gives. Ahead of qualifiedStdKind, which
+			// answers a std module lowered with the program by projecting its
+			// interface type, and that projection has no answer while this
+			// file's struct fields are still being resolved.
+			if id, isIface := g.moduleQualifiedIface(qt); isIface {
+				if id.lowerable {
+					return existential(id)
+				}
+				return kindInvalid
+			}
 			// `random.Error` — a std type named through its module's qualifier.
 			// See modulequaltype.go.
 			if k, isStd := g.qualifiedStdKind(qt); isStd {
 				return k
+			}
+			// `matcher.Matcher`, a std interface named through its module.
+			if qualifier, name, ok := qualifiedTypeParts(qt); ok {
+				if sd := g.stdProgQualifiedIface(qualifier, name); sd != nil {
+					if sd.lowerable {
+						return existential(sd)
+					}
+					return kindInvalid
+				}
 			}
 		}
 		// kindInvalid: reports — an undeclared or refused dotted name is named
@@ -1387,6 +1432,14 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 	// impossible here. See stdiface.go.
 	if d, isStd := g.stdIfaceNamed(st.Name); isStd {
 		return existential(d)
+	}
+	// Any other std interface this module names (`h: Hashable`), built from
+	// std's declaration. See stdprogiface.go.
+	if d := g.stdProgIfaceNamed(st.Name); d != nil {
+		if d.lowerable {
+			return existential(d)
+		}
+		return kindInvalid
 	}
 	// A name this file does not declare may still be another user FILE's type.
 	// Asked LAST, so a local declaration and a local interface both win, and

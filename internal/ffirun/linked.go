@@ -39,6 +39,10 @@ type LinkedBinding struct {
 // entry declares, as Prepare would for its wrapper, named with prefix. A
 // binding the generator cannot adapt is an error: a binary that links the
 // adapters has no wrapper to report it when the program runs.
+//
+// The bound packages' import aliases carry the prefix too, so the adapters
+// of several programs go into one Go file: the sqlite and postgres modules
+// each bind a package named goside, which one file imports under two names.
 func LinkedAdapters(entry, prefix string) (*Linked, error) {
 	absEntry, err := filepath.Abs(entry)
 	if err != nil {
@@ -55,6 +59,11 @@ func LinkedAdapters(entry, prefix string) (*Linked, error) {
 	}
 	if err := validateDiscoveredGoBindings(projectRoot, discovered); err != nil {
 		return nil, err
+	}
+	for i := range discovered {
+		if discovered[i].Alias != "" {
+			discovered[i].Alias = prefix + "_" + discovered[i].Alias
+		}
 	}
 	adapters, err := generateAdaptersNamed(projectRoot, discovered, prefix)
 	if err != nil {

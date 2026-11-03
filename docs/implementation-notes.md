@@ -10,7 +10,7 @@ does, and where something lives, is for grep and the code's own comments.
 
 ## Contents
 
-**How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [Files](#files), [Logging and actors](#logging-and-actors), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
+**How the implementation is built.** [The engine and `nomi check`](#the-engine-and-nomi-check), [Front end](#front-end), [Keyword declarations and their inputs](#keyword-declarations-and-their-inputs), [HTML templates](#html-templates), [Language server analysis](#language-server-analysis), [IR builder](#ir-builder), [VM](#vm), [Debugging and `nomi dap`](#debugging-and-nomi-dap), [rt](#rt), [Int: exact at any size](#int-exact-at-any-size), [Stdlib](#stdlib), [std and lib](#std-and-lib), [Host functions](#host-functions), [Why std uses `host` rather than `go`](#why-std-uses-host-rather-than-go), [Files](#files), [Logging and actors](#logging-and-actors), [Background jobs](#background-jobs), [Mail](#mail), [Object storage](#object-storage), [Locale data](#locale-data), [Collation](#collation), [Embedding](#embedding), [Go FFI wrapper](#go-ffi-wrapper), [Modules](#modules), [`nomi build`](#nomi-build), [REPL](#repl).
 
 **Formatter and syntax.** [Formatter: layout](tooling.md#formatting), [Formatter: brace-bounded field constructs](#formatter-brace-bounded-field-constructs), [Formatter: fixed layouts](#formatter-fixed-layouts), [Formatter: one-line `if` and binding `else`](#formatter-one-line-if-and-binding-else), [Formatter: a line break after a literal's opening bracket](#formatter-a-line-break-after-a-literals-opening-bracket), [Formatter: filled literal lists](#formatter-filled-literal-lists), [Formatter: comparison and boolean operators](#formatter-comparison-and-boolean-operators), [Formatter: compound depth](#formatter-compound-depth), [Formatter: comments](#formatter-comments), [`or` patterns](#or-patterns), [Captures](#captures).
 
@@ -34,9 +34,17 @@ reads that file from disk. A new edit stops the document's run in progress.
 
 Every load, `nomi check`'s included, runs one thing on the VM before the
 program runs: the handler of each backtick typed literal whose handler
-returns a `Result`. An `Err` is a compile error at the literal. A handler
-that can reach something acting outside the machine is refused, so a
-compile never has effects. The language server also evaluates double-quoted
+returns a `Result`, and the `check` of each checked literal (a tag that
+implements `CheckedLiteral`). An `Err` is a compile error at the literal;
+a checked literal's `LiteralError` names a static and an offset, which
+vmhost maps back to the source (checked_literals.go). The checker types a
+checked literal as its `build`'s result and records it in
+`FileAnalysis.CheckedLiterals`; irbuild lowers it as a `build` call and
+declares a check site, a lazy cell over `check` and the literal's statics,
+in the same `LiteralSite` list backtick literals use (irchecked.go). A
+handler or check that can reach something acting outside the machine is
+refused, an effectful check once at the check, so a compile never has
+effects. The language server also evaluates double-quoted
 typed literals with no `${...}` this way, for hovers and diagnostics.
 
 ## Front end
@@ -46,6 +54,18 @@ declarations, lowers derives, synthesizes universal `Debug`, and then
 analyzes the whole program. The checker has two phases: one registers every
 type, and the second walks bodies. Names resolve whole-program, so the
 import graph may be cyclic and import order never matters.
+
+The boot-only check (`CheckBootScope`, spec §16 *Supervision*) runs per file
+over a graph of the whole program's functions: every function of every
+project file, read through its own file's analysis, and each std function the
+program reaches, whose calls are read once per process (std's analysis never
+changes). A function is boot-only through its first call to `Supervisor.new`
+or to a boot-only function, to a fixed point. A file reports the calls its
+roots make (`main`, test bodies, lambdas, private functions nothing calls)
+to boot-only functions, and the boot-only functions it names as values. It
+runs when a file's diagnostics are assembled, never from a cached check, so
+an edit that makes a function boot-only reaches its callers' files when the
+language server re-analyzes a changed file's importers.
 
 The lexer leaves `>>>` as three `>` tokens. The parser joins them into the
 shift operator only after an operand, so nested type arguments such as
@@ -81,6 +101,69 @@ messages is checked over the whole program.
 A kept program records its inputs. A changed input is an edit to the files
 that read it, with their text unchanged, so a catalog edit that keeps every
 message's signature rebuilds one file's bodies.
+
+## HTML templates
+
+An `Html` literal (spec §18 *HTML templates*) expands too, but where its tag
+resolves rather than per declaration. The builder's walk of a
+`TaggedString` asks whether the tag names std/html's `Html`: the tag's
+symbol's declaration node is the one std/html's analysis declares (or, in
+std/html itself, the file's own `Html`). If so it reads the literal with
+`internal/htmltemplate`, a strict HTML tokenizer and a context machine
+modelled on Go's html/template, run over the static parts with one slot
+between each two. Its errors become the file's type errors, placed at their
+character: a part's first line starts after the opening quote or after the
+previous slot's `}` (the slot expression's span), and later lines start at
+the literal's `BodyCol`, the column a triple-quoted body starts at once its
+indentation is stripped (the lexer's `Indent` on the opening token). A slot's
+error is at its expression.
+
+A literal that reads cleanly gets its expansion, `html$.assemble([...])`
+with each slot a call of the std/html function its context chose
+(`slot_text`, `slot_attribute`, `slot_url_start`, ...), whose parameter's
+interface is the slot's type rule. The expansion is kept in an unexported
+field of the `TaggedString` (`Template()`), so a walk of the tree still
+visits the slot expressions once, under `Parts`. The builder walks the
+expansion in the literal's place, the checker checks it, and the IR builder
+lowers it. The added nodes are placed on characters of the literal no node
+is placed on, the quotes and each slot's `${`, since resolutions are keyed by
+position. The checker rewrites an argument-type error at a slot into what the
+slot takes, with help for its context (`htmlSlotHelp`).
+
+A file that imports std/html gains `import std/html as html$`
+(`withHtmlImport`), so `html$` reaches std/html's private slot functions as
+`message$` reaches std/message's; another std file gains it as `import html
+as html$`, in std's spelling, and std/http's directory listing is a
+literal. An aliased whole-module import moves the module's key in the
+builder's module map to the alias, so the file's own `import html.Html`
+then finds std/html among the scopes the file is built against
+(`builder.stdlibScopes`, in `resolveStdlibImport`). Before that fallback, a
+std file built as a program (a reference page's editor) loaded std/html
+again from source, and with it fresh copies of std/io and the rest, and its
+`io.Writer.write_text` resolved to a scope the IR builder did not know as
+std's. A slot's value whose type the checker has not solved (a bare `None`
+in `disabled=${None}`) is solved by the one impl of the slot's interface
+whose receiver it fits (`unifyInterfaceAgainstConcrete`): an impl at an
+instance of a generic type (`impl OptionalAttribute for Maybe<String>`)
+records its receiver (`recordImplTypeArgsFromBlock`), which also refuses a
+`Maybe<Int>` there. std/html is a program std module: its
+types are the program's. Its escapers are host functions in the internal
+`std/html_host`, over `rt/html.go`, which `internal/htmltemplate`'s fuzz
+target `FuzzTemplateEscaping` also calls: a slot value cannot change a
+rendered template's tags.
+
+std/toml is a program std module as well, so its slot interface `ToToml`
+is held and dispatched as a program interface is. A shared std body that
+takes a std interface without an rt table as a value declines
+(stdprogiface.go), which is why `Toml` cannot be shared, and why
+std/compiler, which is, takes its manifest as a `String`. `Toml`'s check and build cross into the internal
+`std/toml_host`, over internal/stdtoml: it follows the text far enough to
+place each slot (a key part, a value, or refused in a string, a comment
+or touching a token) and reads the text with a stand-in per slot with
+github.com/BurntSushi/toml, mapping its error back to a static and offset. `ToToml` returns a `Toml.Value`, never text; `build` writes each slot's
+value with `Toml.Value.text` in Nomi (strings and table keys through
+`toml_host.quote`) and hands the texts to the host, which quotes any value
+but a `String` where the slot stands for a key.
 
 ## Language server analysis
 
@@ -138,6 +221,31 @@ module is. `TestProgramStdModulesQualify` holds each listed module to the
 rule: no `host fn` or `host type`, no shared std module imports it, and it
 checks and lowers with no decline.
 
+A listed module's reference editor checks the module from edited source, and
+the listed modules its editor imports are lowered beside it from the shared
+analysis (std/storage_testing beside an edited std/storage). Those name the
+shared copy's declarations, so each is resolved to the edited module's
+declaration of the same kind and name (`implFuncTwins`): its types in the
+type registry, and its module scope and file-level functions in the file
+index (`indexEditedStdTwins`), so `storage.check_key` in storage_testing
+calls the edited module's function.
+
+A call into another file that leaves a defaulted parameter out fills it
+where the call is when every name the default mentions means the same
+there, and otherwise calls an accessor the declaring file builds, one per
+defaulted parameter, taking the parameters before it (siblingdefault.go).
+A file builds them for each `pub fn`, and for each private `fn` when its
+partner test, the one file that may call it, is in the program. A
+monomorphic impl's `pub` members get theirs as the impl is emitted, a
+generic member with its own type parameters per instance
+(`methodInstAccessors`), and an impl function of a generic type's instance
+(`Job.new` from a file that never imports the `Duration` its `timeout`
+default names) on request: the declaring gen queues the request and builds
+the accessors under the instance's frame in the late-instance flush
+(instimplaccessor.go). A concrete operand of an interface-typed parameter
+of a type-qualified call enters by erasure before its slot is matched
+(`qualEraseSlotted`).
+
 A `Regex<C>`'s capture type C is phantom. The builder lowers every
 `Regex<X>` as one host handle, and a std function whose type parameters
 appear only inside `Regex<...>` is not generic to it. `String.captures`
@@ -174,6 +282,53 @@ Values carry their type identity, and the call selects the implementation by
 the receiver's identity. What a program may do with a value of interface type
 is the spec's §12 *Interface values*.
 
+A std interface held as a value is lowered as a program's own is
+(`internal/irbuild/stdprogiface.go`). Each file that names one builds a def
+from std's declaration, and a generic one is instantiated per type arguments
+as a program template is. The signatures are std's source: while they
+resolve, `srcFA` answers std's file, so a position-keyed lookup
+(`Maybe<String>` in `Matcher.find_in`, `Fragment<I>` in `Literal`) reads what
+the checker recorded there, and a type expression naming no substituted type
+parameter resolves in the declaring module's scope, as a std function's
+signature does (`stdTypeKind`), so `ToJson`'s `Json` needs no import and
+stays std's in a file that declares its own `Json`. A type expression neither
+resolves is looked up by name in this file's tables only when its head name
+means the same declaration here as in std's file (`stdSrcShadowed`); else that
+function is a signature gap of its own. A file that binds a prelude enum's
+name to its own type (`struct Fragment`) keeps std's declaration as a
+by-position anchor (`preludeAnchorsOf`), so `literals.Fragment<String>` there
+is still std's. Its dispatch symbols are the program's,
+interned in the first file's table, so a value boxed in one file dispatches
+to an impl recorded in another. A program type's impl is recorded as any impl
+is. A std type's value enters as a program interface's would: a builtin
+scalar or a std struct or enum unboxed, its run-time value naming its type,
+and a std container or leaf (`List<Int>`, `Range`, `Regex`, `Bytes`) boxed
+under its type's name (`irBoxPlan`). A tuple or anonymous record entering a
+std interface (`h: Hashable = #(1, 2)`) is boxed the same way
+(`irStructuralBoxes`); its `Hashable.hash` thunk is the derive mix a direct
+call lowers (`tupleHashOf`, irtuplehash.go), and its Display is the
+structural rendering a container's is (`irDisplayErasedContainer`,
+`vm.displayStructural`). Either way each function's dispatch
+entry is a thunk the program builds, once per file, type and function: a
+function of the method's operands whose body is the call `Iface.method(...)`,
+planned as a rendering's `Display.to_string(v)` is, so std's impl is whatever
+a direct call with that type reaches (a container family's operation, an
+instance of std's generic body, a retained body or a host function). Where the
+file binds the interface's bare name to something else, the thunk calls the
+std function whose impl header names the interface's declaration. A thunk is
+built with the gen's refusals and the decline bookkeeping set aside
+(`stdProgIsolated`), so a failed one leaves the boxing site's refusal. Its
+nodes sit at line 1, column 1, where no reference is recorded.
+`Hashable.hash` of a value held as `Hashable` dispatches through the table
+like any other function, so it answers what the call on the concrete value
+answers (`TestStdProgIface_InterfaceCallsAnswerAsTheDirectCall`). A Map key
+or Set element of interface type, and `Hashable.hash` of a value held as
+some other interface, hash with `vm.hash_value` (vm/keys.go), which has
+only to agree with `==`.
+`Display`, `Comparable` and `Debug` keep their `stdIfaceSpecs` rows, `Struct`
+and `Iter` their own representations, and the stdlib lowered once for the
+process builds no such def, so a shared std body taking one declines.
+
 ## VM
 
 The VM compiles each `ir.Func` to a flat `[]uint32` bytecode with three typed
@@ -187,7 +342,13 @@ declared `self` operand. A value whose runtime type names no impl (a std
 container, a value widened into an `embeds` variant) is boxed where it
 becomes an interface value. The box names the static type. Dispatch selects
 by that name and opens the box for a body that takes the concrete type, and
-hashing and rendering otherwise see through the box.
+hashing and rendering otherwise see through the box. A std type that is no
+container and enters std's `Display` or `Debug` without its own erased
+rendering (`d: Display = 'c'`, a `Duration`, a `Date`, a `Byte` as `Debug`)
+is boxed too: the `Display` box names a thunk whose body is the direct call
+`Display.to_string(v)`, so a host function's impl is reached as a direct
+call reaches it, and `Debug` renders the value inside through std's Debug
+body (`irStdNamedBoxPlan`).
 
 `==` on two interface values, a Set element and a Map key compare by
 run-time type. Values of two types (two box names) are unequal. Values of
@@ -367,7 +528,44 @@ std holds what Go's standard library can back with no third-party code:
 `std/fs`, `std/sql`'s vocabulary, later `std/http` over `net/http`. `lib/`
 holds first-party modules that need third-party Go code or are opinionated
 layers over std: database drivers (`lib/sql/sqlite`, over
-modernc.org/sqlite), `lib/sql/sqlkit`, later an HTTP router or framework.
+modernc.org/sqlite, and `lib/sql/postgres`, over pgx), `lib/sql/migrate`
+(the migration runner sqlkit's `migrate` calls), `lib/sql/sqlkit`,
+`lib/markdown`, over goldmark, `lib/image`, over golang.org/x/image,
+`lib/jobs/postgres` and `lib/storage/s3`, Nomi alone over std, later an
+HTTP router or framework.
+
+`lib/markdown` renders with goldmark's CommonMark and GFM extensions and
+keeps its safe defaults (raw HTML omitted, dangerous URLs emptied), which is
+what lets `markdown.render` answer its output through `Html.trusted`. Its Go
+side is one function bound with `go`; rendering to memory cannot fail.
+
+`lib/image` decodes with Go's `image/jpeg` and `image/png` and x/image's
+`webp`, choosing the decoder from the data's leading bytes, and resizes
+with x/image's `draw.CatmullRom`. x/image has no Lanczos kernel; on a
+2048 by 1536 photo, Catmull-Rom's 800 by 600 and 267 by 200 downscales
+are within 46 and 43 dB PSNR of disintegration/imaging's Lanczos, which
+is below what an eye sees, so the module needs no third-party Go beyond
+x/image. `decode` reads the header first and refuses an image declaring
+more than its `max_pixels` before decoding, since Go's decoders allocate
+for the declared size. A Go `*Image` is never changed after it is made,
+and a failed call answers a shared empty one beside its failure, so no nil
+handle reaches Nomi. No call takes a context: the decoders and scalers
+cannot stop partway, and the pixel limit bounds each call. A call does
+not hold up other tasks; four decode, fit and encode passes on that photo
+take about 0.55 s in one task and 0.2 s in four.
+
+The postgres driver's Go side (`lib/sql/postgres/goside`) keeps the
+transaction bookkeeping the SQLite driver does, per transaction instead of
+per connection: a `Session` is one Nomi `Conn` (the pool or connection, or a
+transaction or savepoint at a depth with a token), and a pool's transaction
+holds a connection acquired for it until it ends. Every function that
+reaches the server takes the task's context first (spec §19 *The task's
+context*), and connections are configured to cancel a statement on the
+server when it ends (`keepOnCancel`), since pgx's default breaks the socket
+and the connection with it. `postgres.scratch()` runs one throwaway cluster
+per process under `sh`, which stops it and removes its directory when its
+standard input, a pipe the process holds, closes at exit; the driver's tests
+and the conformance suite run on it.
 
 Each lib module is its own module with its own `go.mod` and `nomi.toml`,
 nested in this repository, so the compiler's module excludes it and its
@@ -382,10 +580,13 @@ newer sibling, and `scripts/pin-lib.sh --verify <commit>` adds sqlkit at a
 pushed commit from the proxy into a fresh project and runs sqlite.
 
 `TestLibModules` in `cmd/nomi` runs their Nomi tests, the shop example's
-generated-code check and the driver's Go tests. It first runs
-`go mod download` in the driver, which needs the network when the Go module
-cache lacks modernc.org/sqlite. CI's lib job vets and tests their Go side. By hand: `go test -C lib/sql/sqlite ./...`, and `go vet` the same
-way in `lib/sql/sqlite` and `lib/sql/sqlkit`. The tour links a lib module's
+generated-code check and the drivers' Go tests. It first runs
+`go mod download` in each driver, which needs the network when the Go module
+cache lacks modernc.org/sqlite or pgx. Its postgres runs skip without
+`initdb` and `postgres` on PATH and on Windows. CI's lib job vets and tests
+their Go side. By hand: `go test -C lib/sql/sqlite ./...` and
+`go test -C lib/sql/postgres ./...`, and `go vet` the same way in each lib
+module. The tour links a lib module's
 browser build through a workspace (see [Tour internals](#tour-internals)).
 
 ## Host functions
@@ -405,9 +606,11 @@ A new Go-backed module also needs:
 In a module lowered once for the process, a std type that a public
 signature names (an enum, an opaque distinct, a carrier struct a host
 function returns) needs an rt Go type and a row in `internal/irbuild`'s
-`stdenum.go`, `opaque.go` or `stdstruct.go`. An interface used as a value
-needs a `stdIfaceSpecs` row and an rt dispatch table. Without them, every
-call whose signature names the type is reported as not supported yet.
+`stdenum.go`, `opaque.go` or `stdstruct.go`. An interface such a body
+takes as a value needs a `stdIfaceSpecs` row and an rt dispatch table; a
+program holding one needs neither (see [Instantiation and
+dispatch](#instantiation-and-dispatch)). Without them, every call whose
+signature names the type is reported as not supported yet.
 
 The shared std modules are lowered once, in import order, and a body that
 calls into a module lowered after its own is refused. So a foundational
@@ -526,6 +729,129 @@ call gives a timeout. Both defaults sit before the trailing function, so a
 call that leaves them out is filled as any call into another file is: the
 callback goes to the last slot, and std/actors' accessor for the instance
 fills the default (`slottedOperands`, `methodInstAccessors`).
+
+## Background jobs
+
+`std/jobs` and `std/jobs_testing` are written in Nomi alone and lowered
+with each program. A `Job<A>` erases to a `Handler` through `impl Handler
+for Job<A> where A: FromJson`, so a worker holds a `List<Handler>` of jobs
+at several argument types and keys it by kind in a `Map`; no `Handler` or
+`Queue` function returns `self` or takes two `self` operands, so both are
+dispatched on interface values. `jobs.enqueue<A>` is a free function and
+writes through `Queue.insert` on the caller's `Conn`.
+
+`run_one` runs the handler in a task and a second task that waits on
+`Task.outcome` and sends it on a channel, so the worker's `select` over that
+channel and `Arm.after(timeout)` sees a trap at once and a timeout before
+the handler ends; on a timeout it calls `Task.cancel`, which reaches a Go
+call the handler is in through the FFI context rule. A library cannot set
+`App.context`, so the timeout is the worker's.
+
+`Worker.new` creates two supervisors, so it runs while boot builds the app
+value: `loops` (`.Transient`, a grace period two seconds longer than the
+jobs') holds the claim loop and the queue's watcher, and `runs` holds the
+jobs, with `max_running`. Handlers come in `Worker.start`, in `main`,
+because boot runs what it references and a handler reads app fields. The
+claim loop takes a slot (a buffered channel holding `max_running` units),
+claims one job, spawns it under `runs`, and charges the rate's token bucket
+(a theoretical arrival time, GCRA); an empty claim returns the slot, runs
+`rescue` and `prune`, and waits on the wake channel or the poll. The wake
+channel is closed on drain, so the loop then flushes `runs` for the grace
+period, by which time `runs` has cancelled what is left, and sends
+`release` for its worker id. A running job's lease is renewed every third
+of it by a task beside the handler.
+
+`lib/jobs/postgres` is Nomi over `lib/sql/postgres`. Its statements match
+renew, settle and release on id, attempt and worker, so a settle after a
+rescue changes nothing; the table name option rewrites `nomi_jobs` in each
+statement's text. The watcher relays `Listener.forward` into a `select`
+with a stop channel closed on drain, so it ends when shutdown starts rather
+than after the grace period. `std/jobs_testing.conformance` is the suite a
+backend runs; `Inline` passes it without the rollback rule, and
+`lib/jobs/postgres` passes all of it on `postgres.scratch()`.
+
+## Mail
+
+`std/mail` and `std/mail_testing` are written in Nomi alone and lowered
+with each program. There is no host function and no Go SMTP code: the
+SMTP client speaks the protocol over std/net's `Connection`, upgrades with
+`tls.client` for STARTTLS or dials with `tls.dial` for TLS from the first
+byte, and reads replies with `Reader.read_line`. So sending mail inherits
+std/net's `network` class (`nomi build` checks the target with no row of
+its own), its context rule (a cancelled task's reads and writes stop), and
+the network runner, since such a program reaches net crossings. Go's
+net/smtp was not used: it is frozen, takes no context and has no implicit
+TLS. `SmtpConfig.timeout` is set as the connection's deadline before each
+command and each reply. One send is one connection.
+
+`mail.render` is the one encoder; `Smtp`, `Memory` and any other backend
+call it, and it checks the message before anything connects. Its output
+is 7-bit: RFC 2047 encoded words (base64, cut between graphemes) for a
+subject, display name or header value that is not printable ASCII or holds
+`=?`, quoted-printable bodies, base64 attachments, CRLF line ends, header
+lines folded before spaces at 78 characters. Boundaries are fixed strings
+starting `=_`, which neither quoted-printable nor base64 can write, so the
+output is deterministic for a given Message-ID and date. The date is
+computed from Unix time with Hinnant's civil-from-days, so std/mail does
+not import std/calendar.
+
+`mail_testing.with_smtp_server` serves one connection at a time on a task
+of its `concurrent` block, with `http_host.test_certificate` for STARTTLS.
+`conformance` runs against `Memory` and against `mail.smtp` on that server
+in std's `//!` cases. `vmhost/mail_smtp_test.go` runs a Nomi program
+against a fake server written in Go (STARTTLS with AUTH PLAIN and LOGIN,
+TLS from the first byte, no TLS) and reads what arrives with Go's
+net/mail, mime and mime/multipart, so the encoder is checked by parsers
+that share nothing with it.
+
+## Object storage
+
+`std/storage` and `std/storage_testing` are written in Nomi alone and
+lowered with each program. `Store` is an interface no function of which
+returns `self` or takes two `self` operands, so it is dispatched on
+interface values, and `storage.local` and `s3.store` each answer a
+`Store` over a private struct, so boot code picks a backend with an `if` whose branches are both `Store`. Every backend calls
+`check_key` before anything else, and `check_content_type` in `put`; the
+key grammar (unreserved URL characters, no empty segment, no segment
+starting with `.`) is what keeps the local store inside its root, with no
+path cleaning.
+
+The local store goes through std/fs, so `fs_testing.run` sandboxes it. A
+`put` writes the content type to `<root>/.nomi-storage/types/<key>` and
+then the bytes to `<root>/<key>`, each with `WriteMode.ReplaceAtomically`,
+whose temporary file starts with `.`, so no key names it. A read of a key
+whose path is a directory, or runs through a file, is `NotFound`; a file
+with no type file is typed by `http.detect_content_type`. `storage.handler`
+answers through `Response.content`, which runs Go's `ServeContent` for
+ranges and conditional requests, and then sets the stored type on a 200 or
+a single-range 206.
+
+`Memory` keeps a `Map<String, Object>` in a `Channel<State>` of capacity
+one, as `jobs_testing.Inline` does. `storage_testing.conformance` runs each
+rule on a fresh store from `open`; `Memory` passes it, and the corpus runs
+the local store through it in a sandbox and in a temporary directory. There
+is no rule that keys `a` and `a/b` coexist, which S3 allows and a directory
+tree cannot.
+
+`lib/storage/s3` is Nomi over std/http with no Go code. Its signer follows
+AWS's SigV4 for S3: one URI encoding of the path (no double encoding and no
+`.` normalization, unlike other AWS services), the query re-encoded and
+sorted, every header the request carries signed with `host`, and the body's
+SHA-256 or `UNSIGNED-PAYLOAD`. It builds a request's `Url` with the encoded
+path in `raw_path` when it differs, so what Go sends is what was signed.
+std/url's escapers are Go's, which differ from SigV4's (`$` kept, a space
+as `+`), so the module has its own `uri_encode`. S3's error documents are
+read with three regular expressions for `Code`, `Message` and `Region`, and
+the five predefined entities; std has no XML. Each attempt is signed afresh,
+and a call that ends `Unavailable` (a transport failure or a 429 or 5xx)
+sleeps 100 ms, then 400 ms, with up to half again from the clock's
+nanoseconds, before trying again. A library cannot read the context in
+force, so a retry does not check the deadline itself: a passed deadline
+unwinds the task. Its tests sign AWS's three published examples, and
+answer requests with std/http_testing, including a fake server over a
+`Memory` that runs the conformance suite; `lib/storage/minio` runs it
+against a real MinIO, and `TestLibModules` skips that project without
+`minio` on PATH.
 
 ## Processes
 
@@ -688,6 +1014,22 @@ keeps the stream past the call reads or writes it later on that frame. The
 match is by the declared Go type, so a function that answers a concrete type
 (`*gzip.Reader`) needs a one-line Go function in the project that answers
 the interface.
+
+The generator reads a Go type's exported fields only: an unexported
+field's type is recorded as an unread placeholder (`fieldType` in
+gotypes.go, and gotypesimport.go for a type-checked package), since no
+value crosses through it. A bound handle's internals may then name types the
+reader does not read, such as pgxpool's `*puddle.Pool[*connResource]`.
+
+A leading `context.Context` parameter is left out of the match
+(`withoutTaskContext`, validate.go) and of the adapter's arity, and the
+adapter passes `fr.Context()` there (internal/hostgen's `isGoContext`, beside
+the `*rt.Frame` parameter std's hosts take). That context is the frame's: the
+ambient deadline `rt.EnterDeadline` derived at the last `with App.context`
+rebind, ending when the task is cancelled. A `context.Context` at any other
+position is refused, by validation at the binding and by the generator if one
+reaches it. `tests/18-ffi-and-dynamic/context_ffi_app` holds a Go call to the
+deadline.
 
 ### The wrapper's module, its cache and the toolchain
 

@@ -1,0 +1,543 @@
+//# Postgres for `std/sql`: `postgres.pool(url)` answers a `Conn` over a
+//# pool of connections, and `postgres.connect(url)` one over a single
+//# connection, through the pure-Go `pgx`. `postgres.scratch()` makes a
+//# fresh empty database on a throwaway server, for tests.
+//#
+//# Parameters are bound as `$1`, `$2`, ..., never spliced into the SQL.
+//# Each `Value` crosses as the Postgres type of the same meaning, and a
+//# column reads back by its type: `BIGINT` and the other integers as `Int`,
+//# `NUMERIC` as `Decimal`, `TIMESTAMPTZ` as `Timestamptz`, `JSON` and
+//# `JSONB` as `Json`, an array as `Array`, and a type with no `Value` of
+//# its own (an interval, an enum) as its text. A time is kept to the
+//# microsecond, as Postgres stores it.
+//#
+//# Every statement runs under the calling task's context, so a
+//# `Context.with_timeout` deadline or a cancelled task cancels it on the
+//# server and answers `Error.Timeout`; the connection stays usable. A
+//# transaction holds one connection of the pool until it ends; a
+//# transaction inside one is a savepoint. A constraint error names the
+//# constraint as Postgres does, and a not-null violation as Postgres 18
+//# names it (`users_email_not_null`).
+
+import {
+    std/calendar.{Date, NaiveDateTime, Time}
+    std/channels.{Arm, Channel, Receiver, Sender}
+    std/duration.Duration
+    std/instant.Instant
+    std/json.Json
+    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
+    std/supervisors.Supervisor
+    std/uuid.Uuid
+}
+
+gopkg "github.com/nomi-language/nomi/lib/sql/postgres/goside"
+
+opaque type Handle go goside.Session
+
+// An array element as it crosses to Go: a Cell with no items.
+struct Item {
+    kind: Int
+    int: Int
+    float: Float
+    text: String
+    bytes: Bytes
+}
+
+// A value as it crosses to Go, tagged by kind: 0 null, 1 int, 2 float,
+// 3 text, 4 bytes, 5 a decimal's text, 6 bool (int 1 or 0), 7 a date's,
+// 8 a time's and 9 a timestamp's ISO text, 10 an instant's Unix
+// nanoseconds, 11 a uuid's and 12 JSON's text, 13 an array of items.
+struct Cell {
+    kind: Int
+    int: Int
+    float: Float
+    text: String
+    bytes: Bytes
+    items: List<Item>
+}
+
+// An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
+// 3 database, 4 finished, 5 closed, 6 the task's context ended,
+// 7 serialization.
+struct Failure {
+    kind: Int
+    code: String
+    message: String
+    constraint: Int
+    name: String
+    table: String
+    column: String
+}
+
+struct Answer {
+    columns: List<String>
+    rows: List<List<Cell>>
+    changed: Int
+    failure: Failure
+}
+
+struct RawRow {
+    columns: List<String>
+    cells: List<Cell>
+}
+
+fn connect_raw(url: String) -> Result<Handle, String> go goside.Connect
+
+fn pool_raw(url: String) -> Handle go goside.Pool
+
+fn scratch_raw() -> Result<String, String> go goside.Scratch
+
+fn run_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer go goside.Run
+
+fn exec_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer go goside.Exec
+
+fn each_row_raw(
+    h: Handle,
+    parts: List<String>,
+    params: List<Cell>,
+    f: (RawRow) -> Bool,
+) -> Failure go goside.EachRow
+
+fn begin_raw(h: Handle) -> #(Handle, Failure) go goside.Begin
+
+fn commit_raw(h: Handle) -> Failure go goside.Commit
+
+fn rollback_raw(h: Handle) -> Failure go goside.Rollback
+
+fn ping_raw(h: Handle) -> Failure go goside.Ping
+
+fn close_raw(h: Handle) -> Failure go goside.Close
+
+opaque type ListenHandle go goside.Listener
+
+struct Notice {
+    channel: String
+    payload: String
+    failure: Failure
+}
+
+fn listen_raw(url: String, channel: String) -> Result<ListenHandle, String> go goside.Listen
+
+fn wait_raw(l: ListenHandle) -> Notice go goside.Wait
+
+fn close_listener_raw(l: ListenHandle) -> Failure go goside.CloseListener
+
+fn listener_closed_raw(l: ListenHandle) -> Bool go goside.IsClosed
+
+// Whether a `wait` is blocked on the server now; for this module's tests.
+fn listener_waiting_raw(l: ListenHandle) -> Bool go goside.Waiting
+
+// How many notifications `wait` has answered; for this module's tests.
+fn listener_received_raw(l: ListenHandle) -> Int go goside.Received
+
+/// A pool of connections to a Postgres database, or a transaction or
+/// savepoint on it: what `pool` and `connect` answer, and what
+/// `Conn.begin` answers on one.
+pub opaque struct PgConn {
+    handle: Handle
+}
+
+/// A pool of connections to the database at `url`
+/// (`postgres://user:password@host:5432/name`). It connects lazily, as Go's
+/// `sql.Open` does: an unreachable server, or a `url` that does not parse,
+/// is `Err(.Connection)` from the first statement, so a program that must
+/// fail early calls `Conn.ping` on it. Statements run on any connection of
+/// the pool, and a transaction on one it holds until it ends.
+pub fn pool(url: String) -> Conn {
+    PgConn{handle: pool_raw(url)}
+}
+
+/// One connection to the database at `url`, opened now: an unreachable
+/// server is `Err(.Connection)`. A transaction is open on the whole
+/// connection, so a statement sent through the connection while one is
+/// open is refused; run it on the `Conn` the transaction's `begin`
+/// answered. What a temporary table needs, since it lives on one
+/// connection.
+pub fn connect(url: String) -> Result<Conn, sql.Error> {
+    case connect_raw(url) {
+        Ok(handle) -> Ok(PgConn{handle})
+        Err(message) -> Err(sql.Error.Connection{message})
+    }
+}
+
+/// The URL of a fresh empty database on a throwaway server, for tests:
+/// `postgres.connect(postgres.scratch()?)`. The first call in a process
+/// starts the server, with the `initdb` and `postgres` on `PATH`, in a
+/// temporary directory and on a free local port; it stops and its directory
+/// is removed when the process ends. Each call makes another database on
+/// it. A machine with no `initdb` or `postgres` on `PATH`, and Windows,
+/// answer `Err(.Connection)` saying so.
+pub fn scratch() -> Result<String, sql.Error> {
+    scratch_raw() |> Result.map_err(fn message -> sql.Error.Connection{message})
+}
+
+/// A connection of its own that listens on one channel, from `listen`.
+pub opaque struct Listener {
+    handle: ListenHandle
+}
+
+/// A notification: the channel it was sent on and its payload, as
+/// `NOTIFY channel, 'payload'` or `pg_notify(channel, payload)` sent it.
+pub struct Notification {
+    channel: String
+    payload: String
+}
+
+derive Equatable for Notification
+
+/// A `Listener` on `channel` of the database at `url`, over a connection
+/// of its own, opened now: an unreachable server is `Err(.Connection)`. A
+/// notification sent on the channel from then on waits on the server for
+/// the listener's next `wait`, in the order they were sent.
+pub fn listen(url: String, channel: String) -> Result<Listener, sql.Error> {
+    case listen_raw(url, channel) {
+        Ok(handle) -> Ok(Listener{handle})
+        Err(message) -> Err(sql.Error.Connection{message})
+    }
+}
+
+impl Listener {
+    /// The next notification, waiting for one as long as it takes: a
+    /// `Context.with_timeout` deadline ends the wait with `Err(.Timeout)`,
+    /// and the listener still works. After `close` it is `Err(.Closed)`.
+    pub fn wait(listener: Listener) -> Result<Notification, sql.Error> {
+        notice = wait_raw(listener.handle)
+        failed(notice.failure)?
+        Ok(Notification{channel: notice.channel, payload: notice.payload})
+    }
+
+    /// Closes the listener's connection. A `wait` running on another task
+    /// ends with `Err(.Closed)`. Closing it again does nothing.
+    pub fn close(listener: Listener) -> Result<Unit, sql.Error> {
+        failed(close_listener_raw(listener.handle))
+    }
+
+    /// The listener's notifications as a channel, so one can be an arm of
+    /// `Channel.select` beside a timer or another channel: `forward` runs
+    /// in a task under `supervisor`, which an app creates in `boot`, and the
+    /// channel holds up to `capacity` notifications the reader has not
+    /// taken yet. Call it once per listener.
+    pub fn receiver(
+        listener: Listener,
+        supervisor: Supervisor,
+        capacity: Int = 16,
+    ) -> Receiver<Result<Notification, sql.Error>> {
+        channel = Channel.buffered<Result<Notification, sql.Error>>(capacity)
+        _ = Supervisor.spawn(supervisor, fn -> Listener.forward(listener, channel.sender))
+        channel.receiver
+    }
+
+    /// Waits for each notification and sends it on `sender`, until the
+    /// listener closes, the calling task is cancelled (as a supervisor's
+    /// drain does at shutdown), or the connection fails. Then it closes
+    /// `sender` and returns. A failure is sent first, as the last value,
+    /// `Err(e)`: a reader that receives `None` knows the listener was
+    /// closed or the task was stopped, and one that receives `Err` knows
+    /// the connection failed. `forward` must be `sender`'s only sender,
+    /// since it closes the channel. While the channel is full it looks
+    /// every 200 milliseconds at whether the listener was closed, so
+    /// `close` ends it even when nothing reads the channel. Two tasks
+    /// forwarding one listener take turns, and each notification goes to
+    /// one of them.
+    pub fn forward(listener: Listener, sender: Sender<Result<Notification, sql.Error>>) {
+        case Listener.wait(listener) {
+            Ok(notification) ->
+                if deliver(listener, sender, Ok(notification)) {
+                    Listener.forward(listener, sender)
+                } else {
+                    Sender.close(sender)
+                }
+
+            Err(.Closed) ->
+                Sender.close(sender)
+
+            Err(.Timeout) ->
+                Sender.close(sender)
+
+            Err(e) -> {
+                _ = deliver(listener, sender, Err(e))
+                Sender.close(sender)
+            }
+        }
+    }
+}
+
+// How often a send blocked on a full channel looks again at whether its
+// listener was closed. A closed listener otherwise keeps the task until
+// the reader takes a value or the program stops.
+once forward_recheck = Duration.milliseconds(200)
+
+// Sends `value`, looking again every `forward_recheck` at whether the
+// listener was closed while the channel stays full. False when it was.
+fn deliver(
+    listener: Listener,
+    sender: Sender<Result<Notification, sql.Error>>,
+    value: Result<Notification, sql.Error>,
+) -> Bool {
+    sent = Channel.select([
+        Arm.send(sender, value, fn _ -> Some(True)),
+        Arm.after(forward_recheck, fn -> None),
+    ])
+
+    case sent {
+        Some(_) ->
+            True
+
+        None ->
+            if listener_closed_raw(listener.handle) {
+                False
+            } else {
+                deliver(listener, sender, value)
+            }
+    }
+}
+
+impl Conn for PgConn {
+    fn query(conn: PgConn, statement: Statement) -> Result<List<Row>, sql.Error> {
+        params = cells(statement)?
+        answer = run_raw(conn.handle, statement.parts, params)
+        failed(answer.failure)?
+        query = "${statement}"
+
+        rows =
+            answer.rows
+            |> Iter.map(fn row -> to_row(query, answer.columns, row))
+            |> Iter.to_list()
+
+        Ok(rows)
+    }
+
+    fn each_row(conn: PgConn, statement: Statement, f: (Row) -> Bool) -> Result<Unit, sql.Error> {
+        query = "${statement}"
+        params = cells(statement)?
+
+        failure = each_row_raw(conn.handle, statement.parts, params, fn raw -> {
+            f(to_row(query, raw.columns, raw.cells))
+        })
+
+        failed(failure)
+    }
+
+    fn exec(conn: PgConn, statement: Statement) -> Result<Int, sql.Error> {
+        params = cells(statement)?
+        answer = exec_raw(conn.handle, statement.parts, params)
+        failed(answer.failure)?
+        Ok(answer.changed)
+    }
+
+    fn begin(conn: PgConn) -> Result<Conn, sql.Error> {
+        #(handle, failure) = begin_raw(conn.handle)
+        failed(failure)?
+        Ok(PgConn{handle})
+    }
+
+    fn commit(tx: PgConn) -> Result<Unit, sql.Error> {
+        failed(commit_raw(tx.handle))
+    }
+
+    fn rollback(tx: PgConn) -> Result<Unit, sql.Error> {
+        failed(rollback_raw(tx.handle))
+    }
+
+    fn ping(conn: PgConn) -> Result<Unit, sql.Error> {
+        failed(ping_raw(conn.handle))
+    }
+
+    fn dialect(conn: PgConn) -> Dialect {
+        _ = conn
+        Dialect.Postgres
+    }
+
+    fn close(conn: PgConn) -> Result<Unit, sql.Error> {
+        failed(close_raw(conn.handle))
+    }
+}
+
+/// `Ok` for no failure, else the `sql.Error` it is.
+fn failed(failure: Failure) -> Result<Unit, sql.Error> {
+    case failure.kind {
+        0 -> Ok(Unit)
+        1 -> Err(sql.Error.Connection{message: failure.message})
+        2 -> Err(constraint_error(failure))
+        4 -> Err(sql.Error.Finished)
+        5 -> Err(sql.Error.Closed)
+        6 -> Err(sql.Error.Timeout)
+        7 -> Err(sql.Error.Serialization{message: failure.message})
+        _ -> Err(sql.Error.Database{code: failure.code, message: failure.message})
+    }
+}
+
+fn constraint_error(failure: Failure) -> sql.Error {
+    kind = case failure.constraint {
+        0 -> ConstraintKind.Unique
+        1 -> ConstraintKind.ForeignKey
+        2 -> ConstraintKind.NotNull
+        _ -> ConstraintKind.Check
+    }
+
+    sql.Error.Constraint{
+        kind,
+        name: failure.name,
+        table: present(failure.table),
+        column: present(failure.column),
+    }
+}
+
+fn present(text: String) -> Maybe<String> {
+    if text == "" { None } else { Some(text) }
+}
+
+/// The cells a statement's parameters are written as.
+fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
+    statement.params
+    |> Iter.with_index()
+    |> Iter.map(fn #(position, value) -> to_cell(position + 1, value))
+    |> Result.collect()
+}
+
+fn item(kind: Int) -> Item {
+    Item{kind, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
+}
+
+fn text_item(kind: Int, text: String) -> Item {
+    #{..item(kind), text}
+}
+
+/// The item a value that is not an array is written as. An `Int` past a
+/// `BIGINT`, a signed 64-bit integer, is written as a decimal, which a
+/// `NUMERIC` column takes and a `BIGINT` one refuses.
+fn to_item(value: Value) -> Maybe<Item> {
+    case value {
+        .Null ->
+            Some(item(0))
+
+        .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
+            Some(text_item(5, "${n}"))
+
+        .Int(n) ->
+            Some(#{..item(1), int: n})
+
+        .Float(x) ->
+            Some(#{..item(2), float: x})
+
+        .Text(s) ->
+            Some(text_item(3, s))
+
+        .Bytes(b) ->
+            Some(#{..item(4), bytes: b})
+
+        .Decimal(d) ->
+            Some(text_item(5, "${d}"))
+
+        .Bool(b) ->
+            Some(#{..item(6), int: if b { 1 } else { 0 }})
+
+        .Date(d) ->
+            Some(text_item(7, "${d}"))
+
+        .Time(t) ->
+            Some(text_item(8, "${t}"))
+
+        .Timestamp(t) ->
+            Some(text_item(9, "${t}"))
+
+        .Timestamptz(i) ->
+            Some(#{..item(10), int: Instant.as_nanos(i)})
+
+        .Uuid(id) ->
+            Some(text_item(11, "${id}"))
+
+        .Json(j) ->
+            Some(text_item(12, Json.encode(j)))
+
+        .Array(_) ->
+            None
+    }
+}
+
+/// The cell parameter `$position` is written as. An array's elements cross
+/// as items, and an array of arrays is refused.
+fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error> {
+    nested = sql.Error.Database{
+        code: "22000",
+        message: "parameter $${position} is an Array of Arrays, and only one-dimensional arrays cross",
+    }
+
+    case value {
+        .Array(values) -> {
+            items =
+                values
+                |> Iter.map(fn v -> to_item(v) |> Maybe.to_result(nested))
+                |> Result.collect()?
+
+            Ok(Cell{kind: 13, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([]), items})
+        }
+
+        _ -> {
+            Some(it) = to_item(value) else {
+                None -> return Err(nested)
+            }
+
+            Ok(
+                Cell{
+                    kind: it.kind,
+                    int: it.int,
+                    float: it.float,
+                    text: it.text,
+                    bytes: it.bytes,
+                    items: [],
+                }
+            )
+        }
+    }
+}
+
+fn to_row(query: String, columns: List<String>, cells: List<Cell>) -> Row {
+    Row.new(
+        query,
+        Iter.zip(
+            columns,
+            cells
+            |> Iter.map(to_value),
+        )
+        |> Iter.to_list(),
+    )
+}
+
+/// The value a cell reads as.
+fn to_value(c: Cell) -> Value {
+    case c.kind {
+        13 ->
+            Value.Array(
+                c.items
+                |> Iter.map(fn it -> scalar(it.kind, it.int, it.float, it.text, it.bytes))
+                |> Iter.to_list()
+            )
+
+        _ ->
+            scalar(c.kind, c.int, c.float, c.text, c.bytes)
+    }
+}
+
+/// The value of a cell or item that is not an array. Text the Go side
+/// wrote for a calendar value, a uuid or JSON always parses; were it not
+/// to, the value would read as that text.
+fn scalar(kind: Int, int: Int, float: Float, text: String, bytes: Bytes) -> Value {
+    parsed = case kind {
+        1 -> Some(Value.Int(int))
+        2 -> Some(Value.Float(float))
+        3 -> Some(Value.Text(text))
+        4 -> Some(Value.Bytes(bytes))
+        5 -> String.to_decimal(text) |> Maybe.map(Value.Decimal)
+        6 -> Some(Value.Bool(int != 0))
+        7 -> Date.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Date)
+        8 -> Time.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Time)
+        9 -> NaiveDateTime.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
+        10 -> Some(Value.Timestamptz(Instant.from_nanos(int)))
+        11 -> Uuid.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
+        12 -> Json.decode(text) |> Result.to_maybe() |> Maybe.map(Value.Json)
+        _ -> Some(Value.Null)
+    }
+
+    Maybe.with_default(parsed, Value.Text(text))
+}

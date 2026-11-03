@@ -112,6 +112,9 @@ func populateTypeMethodIdentities(idx *ProjectImplIndex, filesByKey map[string]*
 	if idx.TypeMethodModuleByIdentity == nil {
 		idx.TypeMethodModuleByIdentity = make(map[TypeMethodKey]string)
 	}
+	if idx.TypeMethodOrigin == nil {
+		idx.TypeMethodOrigin = make(map[*Symbol]string)
+	}
 	for _, provider := range stdlibFirstKeys(filesByKey) {
 		fa := filesByKey[provider]
 		noteStdlibWork(provider)
@@ -128,6 +131,7 @@ func populateTypeMethodIdentities(idx *ProjectImplIndex, filesByKey map[string]*
 					continue
 				}
 				key := TypeMethodKey{Origin: origin, Type: typeName, Method: methodName}
+				idx.TypeMethodOrigin[sym] = origin
 				prev, seen := idx.TypeMethodByIdentity[key]
 				if seen && prev == sym {
 					continue
@@ -201,6 +205,19 @@ func (idx *ProjectImplIndex) LookupTypeMethodByIdentity(origin, typeName, method
 		return nil
 	}
 	return idx.TypeMethodByIdentity[TypeMethodKey{Origin: origin, Type: typeName, Method: method}]
+}
+
+// foreignTypeMethod reports whether sym, a bare-name answer to `Type.method`,
+// is a method of a same-named type declared in a module other than origin.
+// An unknown origin, an unpopulated index or a symbol the index never keyed
+// (a module-private inherent method) is not foreign: the lattice rule above
+// says those fall back.
+func (idx *ProjectImplIndex) foreignTypeMethod(sym *Symbol, origin string) bool {
+	if idx == nil || sym == nil || origin == OriginUnresolved || idx.TypeMethodOrigin == nil {
+		return false
+	}
+	symOrigin, ok := idx.TypeMethodOrigin[sym]
+	return ok && symOrigin != origin
 }
 
 // typeNameHead is the leading segment of a possibly-namespaced type name.

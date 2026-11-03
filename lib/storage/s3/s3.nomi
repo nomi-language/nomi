@@ -1,0 +1,711 @@
+//# A `std/storage` backend for any server that speaks the S3 protocol:
+//# DigitalOcean Spaces, MinIO, Cloudflare R2, Backblaze B2 and AWS. It is
+//# Nomi over std/http, with SigV4 signing over std/hash, and needs no Go
+//# code or AWS SDK.
+//#
+//# ```nomi
+//# store = s3.store(s3.Config{
+//#     endpoint: Url`https://nyc3.digitaloceanspaces.com`,
+//#     bucket: "photos",
+//#     credentials: s3.Credentials{access_key: key, secret_key: secret},
+//#     acl: Some("public-read"),
+//# })?
+//#
+//# Store.put(store, "posts/a.jpg", data, "image/jpeg")?
+//# ```
+//#
+//# The endpoint is required: this is an S3-protocol client, not an AWS
+//# client, so it reads no AWS configuration and takes a static key pair.
+//# Requests use path-style URLs (`https://<endpoint>/<bucket>/<key>`)
+//# unless the config says `Addressing.VirtualHost`, and sign a SHA-256 of
+//# each body unless it says `Payload.Unsigned`.
+//#
+//# Each request runs under the context in force, as all of std/http does,
+//# and each attempt is bounded by `Config.timeout`. A call that fails with
+//# `Unavailable` (a network failure, a timeout, or a 429, 500, 502, 503 or
+//# 504) is tried again `retries` times, after 100 ms and then 400 ms, each
+//# with up to half again at random, and signed again each time. Every call
+//# is a whole-object `PUT`, `GET`, `HEAD` or `DELETE`, so a retry is safe.
+//#
+//# `presign_get` and `presign_put` make URLs that let whoever holds them
+//# read or write one object for a while with no credentials. `sign` and
+//# `presign` are the signer itself, for an S3 call this module does not
+//# make. Listing, multipart uploads and streaming are not built.
+
+import {
+    std/calendar.{DateTime, DateTimePattern}
+    std/duration.Duration
+    std/hash
+    std/hex
+    std/http.{self, Body, Client, ClientOptions, Headers, Method, Request, Response, Status}
+    std/instant.Instant
+    std/regex.Regex
+    std/storage.{self, Info, Object, Store}
+    std/timer
+    std/url.{Query, Url}
+}
+
+/// How requests name the bucket.
+pub enum Addressing {
+    /// `https://<endpoint>/<bucket>/<key>`. Every S3-protocol server
+    /// accepts it, it needs no wildcard DNS, and a bucket name with a dot
+    /// does not break TLS.
+    Path
+
+    /// `https://<bucket>.<endpoint>/<key>`.
+    VirtualHost
+}
+
+derive Equatable for Addressing
+
+/// Whether a request signs a hash of its body.
+pub enum Payload {
+    /// `x-amz-content-sha256` is the body's SHA-256: the server refuses a
+    /// body changed in transit.
+    Signed
+
+    /// `x-amz-content-sha256: UNSIGNED-PAYLOAD`: no hash, so no pass over
+    /// the body. Only TLS protects it.
+    Unsigned
+}
+
+derive Equatable for Payload
+
+/// A static key pair.
+pub struct Credentials {
+    access_key: String
+    secret_key: String
+}
+
+/// A bucket on an S3-protocol server.
+pub struct Config {
+    /// The server: `https://nyc3.digitaloceanspaces.com`,
+    /// `http://localhost:9000`, `https://<account>.r2.cloudflarestorage.com`.
+    /// A scheme and a host, an optional port, no path.
+    endpoint: Url
+    bucket: String
+    credentials: Credentials
+    /// The region requests are signed for. `us-east-1` suits MinIO and
+    /// Spaces; R2 wants `auto`; AWS and B2 want the bucket's own region.
+    region: String = "us-east-1"
+    addressing: Addressing = Addressing.Path
+    payload: Payload = Payload.Signed
+    /// Sent as `x-amz-acl` on every put: `Some("public-read")` makes each
+    /// object public on servers that use ACLs, as Spaces does.
+    acl: Maybe<String> = None
+    /// Sent as `Cache-Control` on every put, and stored with the object.
+    cache_control: Maybe<String> = None
+    /// Where `url` points: a CDN or a public host. `None` means the
+    /// object's own URL on `endpoint`.
+    public_base: Maybe<Url> = None
+    /// The longest one attempt may take.
+    timeout: Duration = Duration.seconds(30)
+    /// How many times a call that failed with `Unavailable` is tried again.
+    retries: Int = 2
+}
+
+/// A store over the bucket `config` names. It sends nothing yet. A config
+/// that cannot work is `Err(.Backend{code: "InvalidConfig", ...})`: an
+/// endpoint with a path, a query or a scheme other than http and https, a
+/// bucket name S3 refuses, an empty region or key, a timeout that is not
+/// positive, negative `retries`, or a bucket name with a dot addressed as a
+/// virtual host over https, whose certificate cannot match.
+//! config = Config{
+//!     endpoint: Url`http://localhost:9000`,
+//!     bucket: "photos",
+//!     credentials: Credentials{access_key: "minio", secret_key: "minio123"},
+//! }
+//!
+//! assert Result.is_ok(store(config))
+//! assert store(#{..config, bucket: "No"}) is Err(.Backend{code: "InvalidConfig"})
+pub fn store(config: Config) -> Result<Store, storage.Error> {
+    check_config(config)?
+    client = Client.new(ClientOptions{timeout: Some(config.timeout)})
+    Ok(Bucket{config, client})
+}
+
+/// A URL that lets whoever holds it `GET` the object under `key` for
+/// `expires`, from 1 second to 7 days, with no credentials. It is on the
+/// endpoint, never `public_base`.
+pub fn presign_get(config: Config, key: String, expires: Duration) -> Result<Url, storage.Error> {
+    check_config(config)?
+    storage.check_key(key)?
+    check_expires(expires)?
+
+    Ok(
+        presign(
+            Method.Get,
+            object_url(config, key),
+            Headers[],
+            config.credentials,
+            config.region,
+            Instant.now(),
+            expires,
+        )
+    )
+}
+
+/// A URL that lets whoever holds it `PUT` an object under `key` for
+/// `expires`, from 1 second to 7 days. The upload must send `Content-Type:
+/// <content_type>`, since the type is signed. `acl` and `cache_control`
+/// are not applied to it.
+pub fn presign_put(
+    config: Config,
+    key: String,
+    content_type: String,
+    expires: Duration,
+) -> Result<Url, storage.Error> {
+    check_config(config)?
+    storage.check_key(key)?
+    storage.check_content_type(content_type)?
+    check_expires(expires)?
+
+    Ok(
+        presign(
+            Method.Put,
+            object_url(config, key),
+            Headers[#("Content-Type", content_type)],
+            config.credentials,
+            config.region,
+            Instant.now(),
+            expires,
+        )
+    )
+}
+
+/// `request` signed with SigV4 for S3 at `at`: it gains `x-amz-date`,
+/// `x-amz-content-sha256` and `Authorization`, replacing any it had. Every
+/// other header the request carries is signed, and `host`. A body that is not `Empty`, `Text` or
+/// `Bytes` is sent as `UNSIGNED-PAYLOAD` whatever `payload` says, since it
+/// cannot be hashed ahead. For a call this module does not make itself.
+pub fn sign(
+    request: Request,
+    credentials: Credentials,
+    region: String,
+    at: Instant,
+    payload: Payload = Payload.Signed,
+) -> Request {
+    stamp = timestamp(at)
+    hashed = payload_hash(request.body, payload)
+
+    headers =
+        request.headers
+        |> Headers.remove("Authorization")
+        |> Headers.set("x-amz-date", stamp)
+        |> Headers.set("x-amz-content-sha256", hashed)
+
+    signing = #{..request, headers}
+    #(names, canonical) = canonical_request(signing, Url.query_values(request.url), hashed)
+    signature = signature_of(credentials.secret_key, region, stamp, canonical)
+
+    authorization = "AWS4-HMAC-SHA256 Credential=${credentials.access_key}/${scope(
+        stamp,
+        region,
+    )}, " + "SignedHeaders=${names}, Signature=${signature}"
+
+    #{..signing, headers: Headers.set(headers, "Authorization", authorization)}
+}
+
+/// The query-string form of `sign`: `url` with the `X-Amz-*` parameters
+/// that let whoever holds it make `method`'s request until `expires` after
+/// `at`, sending `signed_headers` as given. The payload is
+/// `UNSIGNED-PAYLOAD`.
+pub fn presign(
+    method: Method,
+    url: Url,
+    signed_headers: Headers,
+    credentials: Credentials,
+    region: String,
+    at: Instant,
+    expires: Duration,
+) -> Url {
+    stamp = timestamp(at)
+    request = Request{method, url, headers: signed_headers}
+    names = signed_names(request)
+    Query(given) = Url.query_values(url)
+
+    query = given + [
+        #("X-Amz-Algorithm", "AWS4-HMAC-SHA256"),
+        #("X-Amz-Credential", "${credentials.access_key}/${scope(stamp, region)}"),
+        #("X-Amz-Date", stamp),
+        #("X-Amz-Expires", "${Duration.as_seconds(expires)}"),
+        #("X-Amz-SignedHeaders", names),
+    ]
+
+    #(_, canonical) = canonical_request(request, Query(query), "UNSIGNED-PAYLOAD")
+    signature = signature_of(credentials.secret_key, region, stamp, canonical)
+    #{..url, query: Some("${canonical_query(Query(query))}&X-Amz-Signature=${signature}")}
+}
+
+// A store over one bucket.
+struct Bucket {
+    config: Config
+    client: Client
+}
+
+impl Store for Bucket {
+    fn put(
+        bucket: Bucket,
+        key: String,
+        data: Bytes,
+        content_type: String,
+    ) -> Result<Unit, storage.Error> {
+        storage.check_key(key)?
+        storage.check_content_type(content_type)?
+        config = bucket.config
+
+        headers =
+            [
+                Some(#("Content-Type", content_type)),
+                config.acl |> Maybe.map(fn acl -> #("x-amz-acl", acl)),
+                config.cache_control |> Maybe.map(fn value -> #("Cache-Control", value)),
+            ]
+            |> Maybe.values()
+
+        _ = send(bucket, Method.Put, key, Headers(headers), Body.Bytes(data))?
+        Ok(Unit)
+    }
+
+    fn get(bucket: Bucket, key: String) -> Result<Object, storage.Error> {
+        storage.check_key(key)?
+        response = send(bucket, Method.Get, key)?
+
+        data =
+            Response.bytes(response)
+            |> Result.map_err(fn e -> from_http(e))?
+
+        Ok(Object{data, info: info_of(response, Bytes.length(data))})
+    }
+
+    fn info(bucket: Bucket, key: String) -> Result<Maybe<Info>, storage.Error> {
+        storage.check_key(key)?
+
+        case send(bucket, Method.Head, key) {
+            Ok(response) -> {
+                size = case response.content_length {
+                    Some(n) ->
+                        n
+
+                    None ->
+                        Headers.get(response.headers, "Content-Length")
+                        |> Maybe.flat_map(String.to_int)
+                        |> Maybe.with_default(0)
+                }
+
+                Ok(Some(info_of(response, size)))
+            }
+
+            Err(.NotFound{}) ->
+                Ok(None)
+
+            Err(e) ->
+                Err(e)
+        }
+    }
+
+    fn delete(bucket: Bucket, key: String) -> Result<Unit, storage.Error> {
+        storage.check_key(key)?
+
+        case send(bucket, Method.Delete, key) {
+            Ok(_) -> Ok(Unit)
+            Err(.NotFound{}) -> Ok(Unit)
+            Err(e) -> Err(e)
+        }
+    }
+
+    fn url(bucket: Bucket, key: String) -> Result<Url, storage.Error> {
+        storage.check_key(key)?
+
+        case bucket.config.public_base {
+            Some(base) -> Ok(Url.join_path(base, [key]))
+            None -> Ok(object_url(bucket.config, key))
+        }
+    }
+}
+
+// Send one call's request, signed afresh for each attempt, and answer the
+// response of the first attempt that succeeds, or the last failure.
+fn send(
+    bucket: Bucket,
+    method: Method,
+    key: String,
+    headers: Headers = Headers[],
+    body: Body = Body.Empty,
+) -> Result<Response, storage.Error> {
+    config = bucket.config
+    request = Request{method, url: object_url(config, key), headers, body}
+    attempt(bucket, request, key, 0)
+}
+
+fn attempt(
+    bucket: Bucket,
+    request: Request,
+    key: String,
+    tried: Int,
+) -> Result<Response, storage.Error> {
+    config = bucket.config
+
+    signed = sign(
+        request,
+        config.credentials,
+        config.region,
+        Instant.now(),
+        payload: config.payload,
+    )
+
+    outcome = case Client.fetch(bucket.client, signed) {
+        Ok(response) when Status.is_success(response.status) -> Ok(response)
+        Ok(response) -> Err(failure(key, response))
+        Err(error) -> Err(from_http(error))
+    }
+
+    case outcome {
+        Err(.Unavailable{}) when tried < config.retries -> {
+            timer.sleep(backoff(tried))
+            attempt(bucket, request, key, tried + 1)
+        }
+
+        _ ->
+            outcome
+    }
+}
+
+// The wait before retry `tried` + 1: 100 ms, then four times the last,
+// each with up to half again taken from the clock.
+fn backoff(tried: Int) -> Duration {
+    base = Iter.reduce(0..tried, 100, fn wait, _ -> wait * 4)
+    jitter = Instant.as_nanos(Instant.now()) % 1000 * base / 2000
+    Duration.milliseconds(base + jitter)
+}
+
+// What a successful GET or HEAD says about the object.
+fn info_of(response: Response, size: Int) -> Info {
+    content_type =
+        Headers.get(response.headers, "Content-Type")
+        |> Maybe.with_default("application/octet-stream")
+
+    modified =
+        Headers.get(response.headers, "Last-Modified")
+        |> Maybe.flat_map(fn text -> http.parse_time(text) |> Result.to_maybe())
+        |> Maybe.with_default(Instant.now())
+
+    Info{size, content_type, modified}
+}
+
+// The storage error for a response S3 answered with a status other than a
+// success.
+fn failure(key: String, response: Response) -> storage.Error {
+    status = Status.code(response.status)
+    body = Response.text(response) |> Result.with_default("")
+    parsed = parse_error(body)
+    code = parsed |> Maybe.map(fn e -> e.code) |> Maybe.with_default("HTTP ${status}")
+
+    message = case parsed {
+        Some(e) -> e.message
+        None -> String.take(String.trim(body), 200)
+    }
+
+    case status {
+        404 when code != "NoSuchBucket" ->
+            storage.Error.NotFound{key}
+
+        403 ->
+            storage.Error.Denied{message: joined(code, message)}
+
+        400 when code == "AuthorizationHeaderMalformed" -> {
+            wanted = case parsed |> Maybe.flat_map(fn e -> e.region) {
+                Some(region) -> " (the server wants the region ${region})"
+                None -> ""
+            }
+
+            storage.Error.Backend{code, message: "${message}${wanted}"}
+        }
+
+        429 or 500 or 502 or 503 or 504 ->
+            storage.Error.Unavailable{message: joined(code, message)}
+
+        _ ->
+            storage.Error.Backend{code, message}
+    }
+}
+
+fn joined(code: String, message: String) -> String {
+    if message == "" {
+        code
+    } else {
+        "${code}: ${message}"
+    }
+}
+
+// The fields of S3's XML error document that this module reads.
+struct ErrorDocument {
+    code: String
+    message: String
+    region: Maybe<String>
+}
+
+// S3's error document is flat: `<Error><Code>..</Code><Message>..</Message>
+// ...</Error>`. This reads its `Code`, `Message` and `Region` and nothing
+// else; it is not an XML parser.
+fn parse_error(body: String) -> Maybe<ErrorDocument> {
+    code = String.captures(body, Regex`<Code>([^<]*)</Code>`)?
+    message = String.captures(body, Regex`<Message>([^<]*)</Message>`) |> Maybe.with_default("")
+    region = String.captures(body, Regex`<Region>([^<]*)</Region>`)
+
+    Some(
+        ErrorDocument{
+            code: unescape(code),
+            message: unescape(message),
+            region: region |> Maybe.map(unescape),
+        }
+    )
+}
+
+// The five entities XML predefines, with `&amp;` last so `&amp;lt;` stays
+// `&lt;`.
+fn unescape(text: String) -> String {
+    text
+    |> String.replace("&lt;", "<")
+    |> String.replace("&gt;", ">")
+    |> String.replace("&quot;", "\"")
+    |> String.replace("&apos;", "'")
+    |> String.replace("&amp;", "&")
+}
+
+fn from_http(error: http.Error) -> storage.Error {
+    case error {
+        .Dns{} -> storage.Error.Unavailable{message: "${error}"}
+        .Connect{} -> storage.Error.Unavailable{message: "${error}"}
+        .Timeout{} -> storage.Error.Unavailable{message: "${error}"}
+        .Canceled -> storage.Error.Unavailable{message: "${error}"}
+        .Tls{} -> storage.Error.Backend{code: "Tls", message: "${error}"}
+        .BodyTooLarge{} -> storage.Error.Backend{code: "TooLarge", message: "${error}"}
+        _ -> storage.Error.Backend{code: http_code(error), message: "${error}"}
+    }
+}
+
+fn http_code(error: http.Error) -> String {
+    case error {
+        .InvalidUrl{} -> "InvalidUrl"
+        .InvalidRequest{} -> "InvalidRequest"
+        .TooManyRedirects{} -> "TooManyRedirects"
+        .Protocol{} -> "Protocol"
+        .Body{} -> "Body"
+        .Unsupported{} -> "Unsupported"
+        _ -> "Http"
+    }
+}
+
+fn invalid(message: String) -> Result<Unit, storage.Error> {
+    Err(storage.Error.Backend{code: "InvalidConfig", message})
+}
+
+fn check_config(config: Config) -> Result<Unit, storage.Error> {
+    endpoint = config.endpoint
+
+    if endpoint.scheme != "http" and endpoint.scheme != "https" {
+        return invalid("the endpoint ${endpoint} is not http or https")
+    }
+
+    if endpoint.host == "" { return invalid("the endpoint ${endpoint} has no host") }
+
+    if (endpoint.path != "" and endpoint.path != "/")
+        or endpoint.query != None
+        or endpoint.fragment != None {
+        return invalid("the endpoint ${endpoint} has a path, a query or a fragment")
+    }
+
+    check_bucket(config.bucket)?
+    if config.region == "" { return invalid("the region is empty") }
+
+    if config.credentials.access_key == "" or config.credentials.secret_key == "" {
+        return invalid("the access key or the secret key is empty")
+    }
+
+    if config.timeout <= Duration.seconds(0) {
+        return invalid("the timeout ${config.timeout} is not positive")
+    }
+
+    if config.retries < 0 { return invalid("retries is ${config.retries}, below 0") }
+
+    if config.addressing == Addressing.VirtualHost
+        and endpoint.scheme == "https"
+        and String.contains(config.bucket, ".") {
+        return invalid(
+            "the bucket ${config.bucket} has a dot, so as a virtual host over https no certificate matches it"
+        )
+    }
+
+    Ok(Unit)
+}
+
+// S3's rules for a bucket name: 3 to 63 lowercase letters, digits, `.` and
+// `-`, starting and ending with a letter or a digit.
+fn check_bucket(name: String) -> Result<Unit, storage.Error> {
+    if String.contains(name, Regex`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`) {
+        Ok(Unit)
+    } else {
+        invalid("the bucket name \"${name}\" is not 3 to 63 lowercase letters, digits, . and -")
+    }
+}
+
+fn check_expires(expires: Duration) -> Result<Unit, storage.Error> {
+    seconds = Duration.as_seconds(expires)
+
+    if seconds < 1 or seconds > 604_800 {
+        invalid("a presigned URL expires after 1 second to 7 days, not ${expires}")
+    } else {
+        Ok(Unit)
+    }
+}
+
+// The object's URL on the endpoint, in the configured addressing style.
+fn object_url(config: Config, key: String) -> Url {
+    endpoint = config.endpoint
+
+    #(host, path) = case config.addressing {
+        .Path -> #(endpoint.host, "/${config.bucket}/${key}")
+        .VirtualHost -> #("${config.bucket}.${endpoint.host}", "/${key}")
+    }
+
+    encoded = uri_encode(path, keep_slash: True)
+    raw_path = if encoded == path { None } else { Some(encoded) }
+    Url{scheme: endpoint.scheme, host, path, raw_path}
+}
+
+// SigV4's `x-amz-date`: the instant in UTC as `yyyyMMdd'T'HHmmss'Z'`.
+fn timestamp(at: Instant) -> String {
+    DateTime.from_instant_in(at, "UTC")!
+    |> DateTime.to_string_with(DateTimePattern`yyyyMMdd'T'HHmmss'Z'`)
+}
+
+fn scope(stamp: String, region: String) -> String {
+    "${String.take(stamp, 8)}/${region}/s3/aws4_request"
+}
+
+fn payload_hash(body: Body, payload: Payload) -> String {
+    case #(payload, body) {
+        #(.Unsigned, _) -> "UNSIGNED-PAYLOAD"
+        #(.Signed, .Empty) -> hash.sha256_hex(String.to_bytes(""))
+        #(.Signed, .Text(text)) -> hash.sha256_hex(String.to_bytes(text))
+        #(.Signed, .Bytes(data)) -> hash.sha256_hex(data)
+        _ -> "UNSIGNED-PAYLOAD"
+    }
+}
+
+// The signed header names, lowercase, sorted and joined with `;`: `host`
+// and each header the request carries.
+fn signed_names(request: Request) -> String {
+    canonical_headers(request) |> Iter.map(fn #(name, _) -> name) |> String.join(";")
+}
+
+// Each signed header as its lowercase name and its values, trimmed, with
+// runs of spaces made one, and joined with `,`, sorted by name.
+fn canonical_headers(request: Request) -> List<#(String, String)> {
+    host = Maybe.with_default(request.host, request.url.host)
+    Headers(given) = request.headers
+
+    pairs =
+        [#("host", host), ..given]
+        |> Iter.map(fn #(name, value) -> #(String.lowercase(name), value))
+
+    pairs
+    |> Iter.map(fn #(name, _) -> name)
+    |> Iter.to_set()
+    |> Iter.sort()
+    |> Iter.map(fn name -> {
+        values =
+            pairs
+            |> Iter.filter(fn #(n, _) -> n == name)
+            |> Iter.map(fn #(_, value) -> collapse(value))
+            |> String.join(",")
+
+        #(name, values)
+    })
+    |> Iter.to_list()
+}
+
+fn collapse(value: String) -> String {
+    String.split(String.trim(value), " ") |> Iter.filter(fn part -> part != "") |> String.join(" ")
+}
+
+// The canonical request for `request` with the query `query` and the
+// payload hash `hashed`, and the signed header names it lists.
+fn canonical_request(request: Request, query: Query, hashed: String) -> #(String, String) {
+    headers = canonical_headers(request)
+    names = headers |> Iter.map(fn #(name, _) -> name) |> String.join(";")
+
+    path = if request.url.path == "" {
+        "/"
+    } else {
+        request.url.path
+    }
+
+    canonical = String.join(
+        [
+            Method.text(request.method),
+            uri_encode(path, keep_slash: True),
+            canonical_query(query),
+            headers |> Iter.map(fn #(name, value) -> "${name}:${value}\n") |> String.join(""),
+            names,
+            hashed,
+        ],
+        "\n",
+    )
+
+    #(names, canonical)
+}
+
+// Each query name and value URI-encoded, sorted by name then value, joined
+// with `&`.
+fn canonical_query(query: Query) -> String {
+    Query(pairs) = query
+
+    pairs
+    |> Iter.map(fn #(name, value) -> #(uri_encode(name), uri_encode(value)))
+    |> Iter.sort()
+    |> Iter.map(fn #(name, value) -> "${name}=${value}")
+    |> String.join("&")
+}
+
+fn string_to_sign(stamp: String, region: String, canonical: String) -> String {
+    String.join(
+        [
+            "AWS4-HMAC-SHA256",
+            stamp,
+            scope(stamp, region),
+            hash.sha256_hex(String.to_bytes(canonical)),
+        ],
+        "\n",
+    )
+}
+
+fn signature_of(secret: String, region: String, stamp: String, canonical: String) -> String {
+    key =
+        [String.take(stamp, 8), region, "s3", "aws4_request"]
+        |> Iter.reduce(String.to_bytes("AWS4${secret}"), fn key, part -> {
+            hash.hmac_sha256(key, String.to_bytes(part))
+        })
+
+    hex.encode(hash.hmac_sha256(key, String.to_bytes(string_to_sign(stamp, region, canonical))))
+}
+
+// SigV4's URI encoding: `A-Z a-z 0-9 - _ . ~` stay, `/` stays when
+// `keep_slash`, and every other byte of the UTF-8 is `%` and two uppercase
+// hexadecimal digits. std/url's escapers leave `$`, `!` and others alone or
+// write a space as `+`, so neither matches it.
+fn uri_encode(text: String, keep_slash: Bool = False) -> String {
+    unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
+
+    text
+    |> Iter.map(fn c -> {
+        if String.length(c) == 1 and String.contains(unreserved, c) or keep_slash and c == "/" {
+            c
+        } else {
+            String.to_bytes(c)
+            |> Iter.map(fn b -> "%${String.uppercase(hex.encode(Bytes.from_list([b])))}")
+            |> String.join("")
+        }
+    })
+    |> String.join("")
+}

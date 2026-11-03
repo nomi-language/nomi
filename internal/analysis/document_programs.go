@@ -372,6 +372,7 @@ func (dm *DocumentManager) documentBuild(p *CheckedProgram, key, content, manife
 		errs = append(errs, c.check[key]...)
 		errs = append(errs, c.appRoots[key]...)
 		errs = append(errs, c.entryChecks...)
+		errs = append(errs, CheckBootScope(fa, own)...)
 		errs = append(errs, entryCoherence(p)...)
 		errs = append(errs, c.implImports[key]...)
 		errs = append(errs, c.entryDeclChecks(p)...)

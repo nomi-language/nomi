@@ -204,6 +204,13 @@ func v12RunWithRecordedShapes(t *testing.T, label string, entries []vmProbeEntry
 		if vmNeverParam(fn) {
 			continue
 		}
+		// Nor is a function of std/http, std/net or std/tls run: on made-up
+		// arguments it resolves names, and a lookup inside the bubble ends
+		// the test binary. The population tests class it NETWORK, which is
+		// not `ran`, so wantRan does not count it either (vmNetworkClass).
+		if vmNetworkDecl(e.decl) {
+			continue
+		}
 		// A boot starts on a boot frame, as TestIRRetainedPopulationRuns does;
 		// its two parameters are the startup snapshot and a root Context,
 		// not leaves.

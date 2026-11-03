@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"golang.org/x/mod/modfile"
 
 	nomiast "github.com/nomi-language/nomi/internal/ast"
@@ -46,7 +47,6 @@ type DiscoveredType struct {
 	EntryKey    string
 	LocalName   string
 	TypeName    string
-	GoTypeExpr  string
 	Declaration string
 	SourceFile  string
 	SourceLine  int
@@ -338,18 +338,23 @@ func moduleNameForNomiFile(file string) string {
 // BindingModule is the module part of the key a Go-bound declaration in a
 // file other than the entry crosses into Go under: the file's path relative
 // to the nearest directory at or above it that holds a nomi.toml or a go.mod,
-// "/"-separated and without its .nomi extension. A file at that root is its
-// base name (ffi.nomi declares ffi.open); a/util.nomi declares a/util.open.
+// "/"-separated and without its .nomi extension, after the name of the Nomi
+// module that directory is, its nomi.toml's `[module] name`. A file at the
+// root of the module `time_ffi_app` is `time_ffi_app/ffi` (ffi.nomi declares
+// time_ffi_app/ffi.open); a/util.nomi declares time_ffi_app/a/util.open.
 //
 // The path, not the base name, so that a/util.nomi and b/util.nomi in one
-// program register under different keys: under one key the wrapper's host
-// table does not compile, and each file's bindings must find their adapter in
-// their own file. It is relative, so an image `nomi build` writes carries no
-// path of the machine that built it. irbuild names a crossing with it and
-// discovery keys the wrapper's adapter with it, both from the file's absolute
-// path alone, so the two agree whichever file is the entry.
+// program register under different keys, and the module's name, so that
+// sqlite/describe.nomi and postgres/describe.nomi of two modules one program
+// reaches do too: under one key the wrapper's host table does not compile,
+// and each file's bindings must find their adapter in their own file. It is
+// relative, so an image `nomi build` writes carries no path of the machine
+// that built it. irbuild names a crossing with it and discovery keys the
+// wrapper's adapter with it, both from the file's absolute path alone, so the
+// two agree whichever file is the entry.
 //
-// With neither file above it, it is the base name.
+// A root that is not a Nomi module (a go.mod alone, as a tour block's Go is
+// staged) adds no name; with neither file above it, it is the base name.
 func BindingModule(file string) string {
 	name := strings.TrimSuffix(filepath.Base(file), ".nomi")
 	for dir := filepath.Dir(file); ; {
@@ -358,7 +363,11 @@ func BindingModule(file string) string {
 			if err != nil {
 				return name
 			}
-			return strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
+			key := strings.TrimSuffix(filepath.ToSlash(rel), ".nomi")
+			if module := nomiModuleName(dir); module != "" {
+				return module + "/" + key
+			}
+			return key
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -366,6 +375,20 @@ func BindingModule(file string) string {
 		}
 		dir = parent
 	}
+}
+
+// nomiModuleName is the `[module] name` of dir/nomi.toml, or "" when dir
+// holds none or it names none.
+func nomiModuleName(dir string) string {
+	var manifest struct {
+		Module struct {
+			Name string `toml:"name"`
+		} `toml:"module"`
+	}
+	if _, err := toml.DecodeFile(filepath.Join(dir, "nomi.toml"), &manifest); err != nil {
+		return ""
+	}
+	return manifest.Module.Name
 }
 
 func collectExternPackages(nodes []nomiast.Node, aliases map[string]*nomiast.ExternPackage) {
@@ -414,13 +437,15 @@ func collectForeignTypeBindings(file string, nodes []nomiast.Node, moduleName, o
 				continue
 			}
 			pkg := ensureDiscoveredPackage(byImportPath, pkgDecl, file)
-			goTypeExpr := "*" + v.ForeignAlias + "." + v.ForeignName
+			// The type is *TypeName of the package, which the wrapper names
+			// by the alias it assigns the package, not by the gopkg alias of
+			// this file: two modules may each bind a package named goside,
+			// which the wrapper imports as goside1 and goside2.
 			pkg.Types = append(pkg.Types, DiscoveredType{
 				Key:         key,
 				EntryKey:    entryScopedKey(moduleName, owner, v.Name),
 				LocalName:   v.Name,
 				TypeName:    v.ForeignName,
-				GoTypeExpr:  goTypeExpr,
 				Declaration: fmt.Sprintf("host type %s", v.Name),
 				SourceFile:  file,
 				SourceLine:  v.ForeignNameLine,

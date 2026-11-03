@@ -1,0 +1,117 @@
+import {
+    std/html.{self, Css, Html, SafeUrl, ToHtml}
+    std/url.Url
+}
+
+fn render(page: Html) -> String {
+    Html.to_string(page)
+}
+
+struct Campaign {
+    title: String
+    raised: Int
+}
+
+impl ToHtml for Campaign {
+    fn to_html(campaign: Campaign) -> Html {
+        Html"<b>${campaign.title}</b> (${campaign.raised})"
+    }
+}
+
+test "element text escapes a String and keeps an Html" {
+    name = "<script>alert('x')</script>"
+    assert render(Html"<p>${name}</p>") == "<p>&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;</p>"
+    assert render(Html"<p>${Html"<em>ok</em>"}</p>") == "<p><em>ok</em></p>"
+    assert render(Html"<p>${3} ${1.5}</p>") == "<p>3 1.5</p>"
+}
+
+test "a List, a Maybe and a program's own type render in element text" {
+    items = [Html"<li>a</li>", Html"<li>b</li>"]
+    assert render(Html"<ul>${items}</ul>") == "<ul><li>a</li><li>b</li></ul>"
+    nothing: Maybe<Html> = None
+    assert render(Html"<p>${nothing}</p>") == "<p></p>"
+    assert render(Html"<p>${Some(Html"<i>x</i>")}</p>") == "<p><i>x</i></p>"
+
+    assert render(Html"<div>${Campaign{title: "Run & ride", raised: 40}}</div>")
+        == "<div><b>Run &amp; ride</b> (40)</div>"
+}
+
+test "a quoted attribute escapes both quotes, in either quote" {
+    kind = "a\"b'c"
+    assert render(Html"<i data-kind='${kind}'></i>") == "<i data-kind='a&#34;b&#39;c'></i>"
+
+    assert render(Html"""<i data-kind="${kind}"></i>""") == "<i data-kind=\"a&#34;b&#39;c\"></i>"
+
+    assert render(Html"<span class='badge ${html.class_if(True, "on")}'>x</span>")
+        == "<span class='badge on'>x</span>"
+}
+
+test "the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme" {
+    safe = Url.parse("https://example.com/a?b=c") |> Result.with_default(Url`https://x`)
+    bad = Url.parse("javascript:alert(1)") |> Result.with_default(Url`https://x`)
+    assert render(Html"<a href='${safe}'>x</a>") == "<a href='https://example.com/a?b=c'>x</a>"
+    assert render(Html"<a href='${bad}'>x</a>") == "<a href='about:invalid#unsafe-url'>x</a>"
+
+    assert render(Html"<a href='${SafeUrl("javascript:void(0)")}'>x</a>")
+        == "<a href='javascript:void(0)'>x</a>"
+}
+
+test "a slot later in a URL is escaped for its part" {
+    id = "a b/c:d"
+    assert render(Html"<a href='/posts/${id}'>x</a>") == "<a href='/posts/a%20b%2Fc%3Ad'>x</a>"
+
+    assert render(Html"<a href='/search?q=${"tea & cake"}'>x</a>")
+        == "<a href='/search?q=tea+%26+cake'>x</a>"
+
+    assert render(Html"<a href='/p#${"x y"}'>x</a>") == "<a href='/p#x%20y'>x</a>"
+}
+
+test "a style value takes a number or a Css" {
+    assert render(Html"<div style='width: ${40}%'></div>") == "<div style='width: 40%'></div>"
+
+    assert render(Html"<div style='${Css("color: red")}'></div>")
+        == "<div style='color: red'></div>"
+}
+
+test "an optional attribute is written or left out by its value" {
+    yes = True
+    no = False
+    title: Maybe<String> = Some("it's")
+    none: Maybe<String> = None
+    assert render(Html"<input checked=${yes}/>") == "<input checked/>"
+    assert render(Html"<input checked=${no}/>") == "<input/>"
+
+    assert render(Html"<button title=${title}>x</button>")
+        == "<button title=\"it&#39;s\">x</button>"
+
+    assert render(Html"<button title=${none} class='b'>x</button>")
+        == "<button class='b'>x</button>"
+
+    assert render(Html"<input disabled=${None}>") == "<input>"
+    assert render(Html"<input title=${Some("t")}>") == "<input title=\"t\">"
+}
+
+test "title and textarea text is escaped" {
+    assert render(Html"<title>${"a < b"}</title>") == "<title>a &lt; b</title>"
+}
+
+test "a multi-line template keeps its text, with its indentation stripped" {
+    page = Html"""
+        <!DOCTYPE html>
+        <html lang="en">
+          <body>${Html.each([1, 2], fn n -> Html"<p>${n}</p>")}</body>
+        </html>
+        """
+
+    assert render(page)
+        == "<!DOCTYPE html>\n<html lang=\"en\">\n  <body><p>1</p><p>2</p></body>\n</html>"
+}
+
+test "a raw literal is a template with no slots" {
+    assert render(Html`<p class="x">${not a slot}</p>`) == "<p class=\"x\">\${not a slot}</p>"
+}
+
+test "Html values are equal by their text" {
+    assert Html"<b>x</b>" == Html.trusted("<b>x</b>")
+    assert Html"<b>${"<"}</b>" != Html.trusted("<b><</b>")
+}

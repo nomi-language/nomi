@@ -86,6 +86,32 @@ func (r *TypeRegistry) RegisterLazy(name string, build func()) {
 	}
 }
 
+// EnumWithVariant finds a registered enum with a variant named variant, the
+// first in name order so that the answer is the same on every run. It looks
+// only at types already built.
+func (r *TypeRegistry) EnumWithVariant(variant string) *EnumType {
+	for reg := r; reg != nil; reg = reg.parent {
+		var best *EnumType
+		bestName := ""
+		for name, t := range reg.types {
+			et, ok := t.(*EnumType)
+			if !ok || (best != nil && name >= bestName) {
+				continue
+			}
+			for _, v := range et.Variants {
+				if v.Name == variant {
+					best, bestName = et, name
+					break
+				}
+			}
+		}
+		if best != nil {
+			return best
+		}
+	}
+	return nil
+}
+
 // SuggestDotted finds a registered name whose last segment is `bare`. A
 // dotted type carries its qualifier as part of its name, so someone who
 // imported `Probe.Reading` and then wrote `Reading` has named nothing —

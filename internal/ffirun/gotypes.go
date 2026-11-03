@@ -106,18 +106,6 @@ func goPackageName(dir, importPath string) string {
 	return defaultImportName(importPath)
 }
 
-// mainPkg is the wrapper's own package, the scope a binding's Go type
-// expression resolves in. It declares nothing; the expression names its
-// package through the wrapper's imports.
-func (gt *goTypes) mainPkg() *goSourcePkg {
-	if p, ok := gt.pkgs["main"]; ok {
-		return p
-	}
-	p := &goSourcePkg{path: "main", name: "main", types: map[string]goTypeSymbol{}, funcs: map[string]goFuncSymbol{}}
-	gt.pkgs["main"] = p
-	return p
-}
-
 var predeclared = map[string]reflect.Kind{
 	"bool": reflect.Bool, "string": reflect.String,
 	"int": reflect.Int, "int8": reflect.Int8, "int16": reflect.Int16, "int32": reflect.Int32, "int64": reflect.Int64,
@@ -309,10 +297,6 @@ func (gt *goTypes) fillFields(t *astType, st *goast.StructType, scope goScope) e
 		return nil
 	}
 	for _, f := range st.Fields.List {
-		ty, err := gt.resolve(f.Type, scope)
-		if err != nil {
-			return err
-		}
 		var tag reflect.StructTag
 		if f.Tag != nil {
 			if raw, err := strconv.Unquote(f.Tag.Value); err == nil {
@@ -321,14 +305,40 @@ func (gt *goTypes) fillFields(t *astType, st *goast.StructType, scope goScope) e
 		}
 		if len(f.Names) == 0 {
 			name := embeddedName(f.Type)
+			ty, err := gt.fieldType(f.Type, goast.IsExported(name), scope)
+			if err != nil {
+				return err
+			}
 			t.fields = append(t.fields, hostgen.StructField{Name: name, Type: ty, Tag: tag, Anonymous: true, Exported: goast.IsExported(name)})
 			continue
 		}
 		for _, n := range f.Names {
+			ty, err := gt.fieldType(f.Type, n.IsExported(), scope)
+			if err != nil {
+				return err
+			}
 			t.fields = append(t.fields, hostgen.StructField{Name: n.Name, Type: ty, Tag: tag, Exported: n.IsExported()})
 		}
 	}
 	return nil
+}
+
+// fieldType is a struct field's Type. An unexported field's type is not
+// read: no value crosses through it (the generator walks exported fields
+// only, as code outside the field's package must), and a handle type's
+// unexported fields may name anything, such as a third-party generic type
+// this reader does not read (pgxpool's `*puddle.Pool[*connResource]`). It
+// is a placeholder of kind Invalid, spelled as written.
+func (gt *goTypes) fieldType(expr goast.Expr, exported bool, scope goScope) (hostgen.Type, error) {
+	if !exported {
+		return unreadField(goNodeString(expr)), nil
+	}
+	return gt.resolve(expr, scope)
+}
+
+// unreadField is the placeholder Type of an unexported field.
+func unreadField(spelled string) *astType {
+	return &astType{kind: reflect.Invalid, str: spelled}
 }
 
 // embeddedName is an embedded field's name: its type's.

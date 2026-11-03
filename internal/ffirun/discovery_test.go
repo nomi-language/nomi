@@ -303,7 +303,8 @@ fn main() {
 	if len(got) != 1 || got[0].ImportPath != "example.com/dep" || len(got[0].Exports) != 1 {
 		t.Fatalf("expected dep binding, got %+v", got)
 	}
-	if got[0].Exports[0].Key != "binding.ping" {
+	// A binding is keyed under its Nomi module's name (BindingModule).
+	if got[0].Exports[0].Key != "dep/binding.ping" {
 		t.Fatalf("export key: got %+v", got[0].Exports[0])
 	}
 }
@@ -399,6 +400,52 @@ fn missing_func() -> String go binding.MissingFunc
 	}
 	if !strings.Contains(err.Error(), `has no top-level function "MissingFunc"`) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// A Go function's leading context.Context receives the calling task's
+// context, so the Nomi declaration leaves it out (spec §19 *The task's context*).
+// Anywhere else it has nothing to receive, and the binding is refused.
+func TestPrepareMatchesALeadingGoContextParameter(t *testing.T) {
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	root := stageSourceBindingProject(t)
+	mustWriteHelper(t, filepath.Join(root, "binding", "extra.go"), `package taggedbinding
+
+import "context"
+
+func Waits(ctx context.Context, n int64) int64 {
+	_ = ctx
+	return n
+}
+`)
+	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
+
+fn waits(n: Int) -> Int go binding.Waits
+`)
+	if _, err := Prepare(filepath.Join(root, "main.nomi")); err != nil {
+		t.Fatalf("the binding with a leading context.Context is refused: %v", err)
+	}
+}
+
+func TestPrepareRejectsAGoContextParameterAfterTheFirst(t *testing.T) {
+	for _, tc := range []struct{ name, sig, decl, param string }{
+		{"second", "func Late(n int64, ctx context.Context) int64 { _ = ctx; return n }", "fn late(n: Int) -> Int go binding.Late", "parameter 2"},
+		{"two in one field", "func Late(a, b context.Context) int64 { _, _ = a, b; return 0 }", "fn late() -> Int go binding.Late", "parameter 2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := stageSourceBindingProject(t)
+			mustWriteHelper(t, filepath.Join(root, "binding", "extra.go"), "package taggedbinding\n\nimport \"context\"\n\n"+tc.sig+"\n")
+			mustWriteHelper(t, filepath.Join(root, "main.nomi"), "gopkg \"example.com/binding/source\" as binding\n\n"+tc.decl+"\n")
+			res, err := Prepare(filepath.Join(root, "main.nomi"))
+			if err == nil {
+				t.Fatalf("a context.Context past the first parameter is admitted: %+v", res)
+			}
+			want := `Go function "Late" in package "example.com/binding/source" takes a context.Context as ` + tc.param +
+				"; only a first parameter may be a context.Context, where Go receives the calling task's context"
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("error = %v\nwant it to contain %q", err, want)
+			}
+		})
 	}
 }
 
@@ -643,7 +690,8 @@ fn touch_event(event: Event) -> Event go binding.TouchEvent
 }
 
 // hi.nomi and bin/hi.nomi share a base name and declare one binding, and
-// each is keyed by its path under the project (hi.upper, bin/hi.upper), so
+// each is keyed by its path under the project, after the project's module
+// name (testproject/hi.upper, testproject/bin/hi.upper), so
 // discovery keeps an export for each. Either can be the entry, whose own
 // declarations the runtime keys bare, so the wrapper rekeys each export for
 // its own file, or `nomi run` of that file finds no binding for upper.
@@ -669,7 +717,7 @@ fn upper(s: String) -> String go binding.EchoUpper
 	if err != nil {
 		t.Fatalf("renderWrapper: %v", err)
 	}
-	want := map[string]string{"bin/hi.upper": nested, "hi.upper": top}
+	want := map[string]string{"testproject/bin/hi.upper": nested, "testproject/hi.upper": top}
 	for _, exp := range got[0].Exports {
 		file, ok := want[exp.Key]
 		if !ok || exp.SourceFile != file || exp.EntryKey != "upper" || len(exp.AlsoDeclaredIn) != 0 {
@@ -682,10 +730,14 @@ fn upper(s: String) -> String go binding.EchoUpper
 	}
 }
 
-// BindingModule keys a file by its path under the nearest nomi.toml or go.mod, so two
-// files with one base name in different directories cross under different
-// keys, and a file at the Go module's root keeps its base name. The key is
-// relative: it carries no path of the machine that computed it.
+// BindingModule keys a file by its path under the nearest nomi.toml or go.mod,
+// after the name of the Nomi module there (its nomi.toml's `[module] name`),
+// so two files with one base name in different directories, or in different
+// modules, cross under different keys: sqlite/describe.nomi and
+// postgres/describe.nomi each declare `describe`, and one program reaches
+// both through sqlkit's tool. A go.mod alone, which is not a Nomi module
+// (dep/), adds no name. The key is relative: it carries no path of the
+// machine that computed it.
 func TestBindingModule_IsThePathUnderTheNearestGoModule(t *testing.T) {
 	root := t.TempDir()
 	write := func(rel, content string) string {
@@ -700,17 +752,24 @@ func TestBindingModule_IsThePathUnderTheNearestGoModule(t *testing.T) {
 		return p
 	}
 	write("app/go.mod", "module app\n")
+	write("app/nomi.toml", "[module]\nname = \"app\"\n")
 	write("dep/go.mod", "module dep\n")
 	write("app/lib/nomi.toml", "[module]\nname = \"lib\"\n")
+	write("lite/go.mod", "module example.com/sql/sqlite\n")
+	write("lite/nomi.toml", "[module]\nname = \"sqlite\"\n")
+	write("pg/go.mod", "module example.com/sql/postgres\n")
+	write("pg/nomi.toml", "[module]\nname = \"postgres\"\n")
 	cases := map[string]string{
-		"app/lib/x.nomi":      "x",
-		"app/lib/sub/y.nomi":  "sub/y",
-		"app/ffi.nomi":        "ffi",
-		"app/a/util.nomi":     "a/util",
-		"app/b/util.nomi":     "b/util",
-		"app/bin/hi":          "bin/hi",
+		"app/lib/x.nomi":      "lib/x",
+		"app/lib/sub/y.nomi":  "lib/sub/y",
+		"app/ffi.nomi":        "app/ffi",
+		"app/a/util.nomi":     "app/a/util",
+		"app/b/util.nomi":     "app/b/util",
+		"app/bin/hi":          "app/bin/hi",
 		"dep/sqlite.nomi":     "sqlite",
 		"dep/inner/conn.nomi": "inner/conn",
+		"lite/describe.nomi":  "sqlite/describe",
+		"pg/describe.nomi":    "postgres/describe",
 		"loose/util.nomi":     "util",
 	}
 	for rel, want := range cases {

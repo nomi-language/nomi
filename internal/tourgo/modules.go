@@ -59,8 +59,15 @@ type Module struct {
 
 // Modules is every module the tour links.
 var Modules = []Module{
+	// sqlkit's generate tool imports postgres/describe beside
+	// sqlite/describe. In the browser the driver's Go side has no pgx
+	// (goside_js.go), and every call answers that Postgres cannot be reached.
+	{Name: "postgres", Path: "github.com/nomi-language/nomi/lib/sql/postgres", Dir: "lib/sql/postgres", Files: moduleSources["postgres"]},
 	{Name: "sqlite", Path: "github.com/nomi-language/nomi/lib/sql/sqlite", Dir: "lib/sql/sqlite", Files: moduleSources["sqlite"]},
-	{Name: "sqlkit", Path: "github.com/nomi-language/nomi/lib/sql/sqlkit", Dir: "lib/sql/sqlkit", Requires: []string{"sqlite"}, Files: moduleSources["sqlkit"]},
+	// migrate is sqlkit's migration runner. Its go.mod also requires the
+	// postgres driver, for its tools and tests.
+	{Name: "migrate", Path: "github.com/nomi-language/nomi/lib/sql/migrate", Dir: "lib/sql/migrate", Requires: []string{"postgres", "sqlite"}, Files: moduleSources["migrate"]},
+	{Name: "sqlkit", Path: "github.com/nomi-language/nomi/lib/sql/sqlkit", Dir: "lib/sql/sqlkit", Requires: []string{"migrate", "postgres", "sqlite"}, Files: moduleSources["sqlkit"]},
 }
 
 // GoWork is the Go workspace file, relative to the repository root, that
@@ -297,8 +304,8 @@ type linkedModule struct {
 // project of src, a block Source attached its modules to: MarkedHosts',
 // with the bindings of the tool's own file, tools/<name>.nomi, also under
 // the keys a program whose entry it is crosses under, their bare names
-// (`config_text` for `tools/generate.config_text`), since the tool runs as
-// that program.
+// (`config_text` for `sqlkit/tools/generate.config_text`, a binding keyed
+// under its module's name), since the tool runs as that program.
 func ToolHosts(src, name string) (func(*hostadapt.Env) (map[string]hostadapt.Func, error), error) {
 	hosts, err := MarkedHosts(src)
 	if err != nil || hosts == nil {
@@ -313,7 +320,9 @@ func ToolHosts(src, name string) (func(*hostadapt.Env) (map[string]hostadapt.Fun
 		out := make(map[string]hostadapt.Func, len(funcs))
 		for k, f := range funcs {
 			out[k] = f
-			if bare, ok := strings.CutPrefix(k, prefix); ok {
+			if _, rest, ok := strings.Cut(k, "/"+prefix); ok {
+				out[rest] = f
+			} else if bare, ok := strings.CutPrefix(k, prefix); ok {
 				out[bare] = f
 			}
 		}

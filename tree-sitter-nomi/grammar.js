@@ -248,28 +248,35 @@ module.exports = grammar({
     // own for the same reason as `pub`.
     export: $ => 'export',
 
-    attached_test_prompt: $ => seq(
-      $.attached_comment_test_prompt_marker,
+    attached_test_prompt: $ => {
       // A prompt body is a block: it may declare local types and functions
       // (`//! type TraceId String`).
-      field('body', repeat1(seq(
-        choice(
-          $.import_statement,
-          $.import_block,
-          $.function_definition,
-          $.type_definition,
-          $.struct_definition,
-          $.enum_definition,
-          $.type_alias,
-          $.interface_definition,
-          $.impl_block,
-          $.derive_conformance,
-          $._expression_or_statement,
-        ),
-        optional($._statement_end),
-      ))),
-      $._attached_test_prompt_group_end,
-    ),
+      const item = choice(
+        $.import_statement,
+        $.import_block,
+        $.function_definition,
+        $.type_definition,
+        $.struct_definition,
+        $.enum_definition,
+        $.type_alias,
+        $.interface_definition,
+        $.impl_block,
+        $.derive_conformance,
+        $._expression_or_statement,
+      );
+      // As in a block, a statement ends at a line break or a semicolon. With
+      // the separator optional, `x is Err(.V{})` could also read as `x is
+      // Err` followed by a second statement `(.V{})`. A block that starts
+      // its line follows `_newline_brace`, as in `statements`.
+      const separator = repeat1(choice(';', $._statement_end));
+      return seq(
+        $.attached_comment_test_prompt_marker,
+        field('body', item),
+        repeat(seq(choice(separator, $._newline_brace), field('body', item))),
+        optional(separator),
+        $._attached_test_prompt_group_end,
+      );
+    },
 
     decorated_item: $ => prec.right(seq(
       repeat1($.attached_test_prompt),

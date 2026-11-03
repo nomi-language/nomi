@@ -11,7 +11,8 @@
 #
 # The lib job vets and tests the Go side of the modules under lib/, each a
 # Go module of its own. The go job's cmd/nomi TestLibModules runs their
-# Nomi tests, and downloads modernc.org/sqlite, which they require.
+# Nomi tests, and downloads modernc.org/sqlite and pgx, which they require;
+# its postgres runs skip there, with no PostgreSQL on PATH.
 #
 # The windows and windows-irbuild jobs run the go and irbuild jobs' tests on
 # Windows.
@@ -66,6 +67,13 @@ jobs:
       - run: GOOS=js GOARCH=wasm go -C lib/sql/sqlite vet ./...
       - run: go -C lib/sql/sqlite test -count=1 ./...
       - run: go -C lib/sql/sqlkit vet ./...
+      # The postgres driver's tests start a throwaway server with initdb and
+      # postgres from PATH, and skip without them. Ubuntu's runner image
+      # installs PostgreSQL's binaries outside PATH.
+      - name: put PostgreSQL's binaries on PATH
+        run: ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 >> "$GITHUB_PATH"
+      - run: go -C lib/sql/postgres vet ./...
+      - run: go -C lib/sql/postgres test -count=1 ./...
 
   irbuild:
     name: go test ./internal/irbuild

@@ -70,15 +70,14 @@ type Hover struct {
 //     components are package-neutral, so the kind compares equal to the one a
 //     call site's own `mapKind` produces. A kind interned per-gen would be one
 //     no other gen could match.
-//   - `Manifest` is a `Maybe` over `rt.Toml`, a std newtype that already has an
-//     `opaqueSpecs` row, and it carries a field default of `None` — so the
-//     builder must supply that value at a construction site that omits it
-//     rather than leaving a zero `Maybe`, whose Tag is neither Some nor None
-//     and matches no arm of a `case`.
+//   - `Manifest` is a `Maybe` over the manifest's text, and it carries a
+//     field default of `None` — so the builder must supply that value at a
+//     construction site that omits it rather than leaving a zero `Maybe`,
+//     whose Tag is neither Some nor None and matches no arm of a `case`.
 type Project struct {
 	EntryPoint string
 	Files      Map[string, string]
-	Manifest   Maybe[Toml]
+	Manifest   Maybe[string]
 }
 
 // RunFile is the input to `compiler.run_file` as data —

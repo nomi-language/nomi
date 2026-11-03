@@ -28,7 +28,7 @@ import (
 // stdlibCall's order, unchanged: it builds the arguments first and returns
 // bad() when they refuse, WITHOUT reporting the callee's own reason. A typed
 // literal is a call site, so it follows that order. This is not a preference —
-// reporting the callee instead would give one key to `Toml"…"` (whose handler is
+// reporting the callee instead would give one key to `Date"…"` (whose handler is
 // stdlib: `stdlib function outside the scalar subset`) and another to `Sql"…"`
 // (whose handler is the user's own), splitting one gap by where the handler
 // happens to live.
@@ -121,6 +121,39 @@ func fragmentVariants(d *typeDef) (static, dynamic *variantDef, ok bool) {
 }
 
 // lastDynamicPart is the index of the final `${…}` slot, or -1.
+// fragmentParts is a literal's parts as the handler receives them: Static and
+// Dynamic alternating, starting and ending with a Static (spec §18 *Typed
+// literals*). The parser leaves out empty text, so `"${a}${b}"` has no text
+// part; an empty Static goes before a slot with no text before it, after the
+// last slot when no text follows, and alone in an empty literal. Adjacent
+// text parts become one Static.
+func fragmentParts(parts []ast.StringPart) []ast.StringPart {
+	out := make([]ast.StringPart, 0, 2*len(parts)+1)
+	textLast := false
+	for _, p := range parts {
+		switch p := p.(type) {
+		case ast.StringText:
+			if textLast {
+				prev := out[len(out)-1].(ast.StringText)
+				out[len(out)-1] = ast.StringText{Value: prev.Value + p.Value}
+				continue
+			}
+			out = append(out, p)
+			textLast = true
+		default:
+			if !textLast {
+				out = append(out, ast.StringText{})
+			}
+			out = append(out, p)
+			textLast = false
+		}
+	}
+	if !textLast {
+		out = append(out, ast.StringText{})
+	}
+	return out
+}
+
 func lastDynamicPart(parts []ast.StringPart) int {
 	last := -1
 	for i, p := range parts {
@@ -223,6 +256,12 @@ func (g *gen) literalImpl(t *ast.TaggedString) (literalTarget, bool) {
 	if !found {
 		return literalTarget{}, false
 	}
+	return g.literalImplFor(t, fd)
+}
+
+// literalImplFor is literalImpl for the handler function fd of t's tag: its
+// `from_fragments` or `build`, or a CheckedLiteral's `check`.
+func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarget, bool) {
 	label := t.Tag + "." + fd.Name
 	rivalled := g.literalHandlerRivals(t.Tag, fd.Name)
 	for _, d := range g.implOrder {

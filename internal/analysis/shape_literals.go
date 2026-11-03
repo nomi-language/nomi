@@ -264,7 +264,7 @@ func (c *checker) checkSetPattern(n *ast.SetPattern, expectedTy Type) {
 		}
 		ty := c.checkNodeExpecting(e, elem)
 		if ty != nil && !c.litOpenElemFits(elem, ty) {
-			c.report(errAt(e, c.typef("set pattern element type mismatch: expected %s, got %s", elem, ty)).WithHint(mismatchHint(elem, ty)))
+			c.report(errAt(e, c.typef("set pattern element type mismatch: expected %s, got %s", elem, ty)).WithHint(c.mismatchHint(elem, ty)))
 		}
 	}
 	if n.Rest != nil {

@@ -192,6 +192,11 @@ type FileBodies struct {
 	// the first record.
 	ExprTypes     map[ast.Node]Type
 	ExpectedTypes map[ast.Node]Type
+	// CheckedLiterals holds each typed literal whose tag implements
+	// CheckedLiteral (spec §18 *Checked literals*): its type is build's
+	// result in every quote style, and its check runs when the program is
+	// checked. Nil until the first record.
+	CheckedLiterals map[*ast.TaggedString]bool
 	// PatternTypes maps each list, vector, set, map, struct and tuple
 	// pattern, and each `_` pattern, the checker checked to the type of the
 	// value it matches. The editor's hover reads it to say what a pattern

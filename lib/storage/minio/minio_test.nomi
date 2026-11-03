@@ -1,0 +1,5 @@
+import minio
+
+test "lib/storage/s3 works against MinIO" {
+    assert minio.with_minio(fn config -> minio.checks(config)) == Ok([])
+}

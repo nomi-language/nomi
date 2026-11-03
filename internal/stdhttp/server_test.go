@@ -146,8 +146,8 @@ fn main() {
 		"206 text/plain; charset=utf-8 - ell",
 		"301 text/html; charset=utf-8 /docs/ <a href=\"/docs/\">Moved Permanently</a>",
 		"200 text/html; charset=utf-8 - <p>docs</p>",
-		`<a href="x.png">x.png</a>`,
-		`<a href="y%20z.txt">y z.txt</a>`,
+		`<a href='./x.png'>x.png</a>`,
+		`<a href='./y%20z.txt'>y z.txt</a>`,
 		"404 text/plain; charset=utf-8 - 404 page not found",
 	} {
 		if !strings.Contains(got, w) {

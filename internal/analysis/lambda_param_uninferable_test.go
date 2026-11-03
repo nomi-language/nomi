@@ -65,3 +65,85 @@ fn is_leap(year: Int) -> Bool {
 		t.Fatalf("first error at %d:%d:\n%s\nwant at 3:21:\n%s", errs[0].Line, errs[0].Col, got, want)
 	}
 }
+
+// A call of such a lambda has no type. A tuple or an anonymous struct built
+// around the call has none either, so the parameter's error is the only one:
+// they used to stand a Unit in the call's place and add a mismatch over the
+// literal (`list element type mismatch: expected #(String, Int), got
+// #(String, Unit)`). Each position is in its own function, so one cascade
+// cannot hide another.
+func TestLambdaParamUninferable_NoMismatchOverACall(t *testing.T) {
+	errs := checkWithStdlib(`
+fn in_list(n: Int) -> List<#(String, Int)> {
+  twice = fn x -> x * 2
+  [#("a", twice(n))]
+}
+
+fn in_tuple(n: Int) -> #(String, Int) {
+  twice = fn x -> x * 2
+  #("a", twice(n))
+}
+
+fn in_record(n: Int) -> #{v: Int} {
+  twice = fn x -> x * 2
+  #{v: twice(n)}
+}
+
+fn in_map(n: Int) -> Map<String, Int> {
+  twice = fn x -> x * 2
+  %{"a" => twice(n)}
+}
+
+fn in_argument(n: Int) -> Maybe<Int> {
+  twice = fn x -> x * 2
+  Some(twice(n))
+}
+
+fn returned(n: Int) -> Int {
+  twice = fn x -> x * 2
+  twice(n)
+}
+`)
+	var got []string
+	for _, e := range errs {
+		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+	}
+	want := []string{
+		"3:14 cannot infer type for parameter x",
+		"8:14 cannot infer type for parameter x",
+		"13:14 cannot infer type for parameter x",
+		"18:14 cannot infer type for parameter x",
+		"23:14 cannot infer type for parameter x",
+		"28:14 cannot infer type for parameter x",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("errors:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// With the parameter annotated, the same literals check, and a mismatch over
+// a tuple of known items is still reported.
+func TestLambdaParamUninferable_AnnotatedCallsCheck(t *testing.T) {
+	errs := checkWithStdlib(`
+fn in_list(n: Int) -> List<#(String, Int)> {
+  twice = fn x: Int -> x * 2
+  [#("a", twice(n))]
+}
+
+fn in_record(n: Int) -> #{v: Int} {
+  twice = fn x: Int -> x * 2
+  #{v: twice(n)}
+}
+
+fn wrong(_n: Int) -> #(String, Int) {
+  #("a", "b")
+}
+`)
+	var got []string
+	for _, e := range errs {
+		got = append(got, fmt.Sprintf("%d:%d %s", e.Line, e.Col, e.Message))
+	}
+	if len(got) != 1 || !strings.HasPrefix(got[0], "13:") || !strings.Contains(got[0], "mismatch") {
+		t.Fatalf("errors:\n%s\nwant one mismatch at line 13", strings.Join(got, "\n"))
+	}
+}

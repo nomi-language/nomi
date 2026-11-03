@@ -12,14 +12,16 @@ import (
 )
 
 // A STDLIB interface, as an existential this builder can represent: a method
-// shape plus a dispatch table living in rt.
+// shape plus a dispatch table living in rt. Only `Display`, `Comparable` and
+// `Debug` have a row here; a program holding any other std interface gets a
+// def built from std's declaration (stdprogiface.go).
 //
 // # Why a stdlib interface needs this file
 //
 // `collectStdCandidates` registers stdlib FUNCTIONS; a stdlib interface
-// DECLARATION never reaches `g.ifaces`, so without this file a stdlib interface
-// has no `*ifaceDef` in any gen and nothing for an existential kind to point
-// at. There are two doors and both are wired below: reached by ANNOTATION it is
+// DECLARATION never reaches `g.ifaces`, so without this file (or
+// stdprogiface.go) a stdlib interface has no `*ifaceDef` in a gen and
+// nothing for an existential kind to point at. There are two doors and both are wired below: reached by ANNOTATION it is
 // `typeOf`'s interface arm, reached by INFERENCE it is `project`'s
 // `*analysis.InterfaceType` arm. The INFERRED door carries most of the
 // population (a `from_fragments: Display` reached through inference).

@@ -108,6 +108,13 @@ func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, own
 		// A program's own Hashable.
 		return ir.NoTemp, false
 	}
+	if held := args.kinds[0].iface; held.stdOrigin == "std/hashable" && held.nomi == "Hashable" {
+		// A value held as std Hashable itself dispatches to its type's impl
+		// through the table (stdprogiface.go), so the call answers what
+		// `Hashable.hash` of the concrete value answers. vm.hash_value is
+		// the Map key hash, which only has to agree with `==`.
+		return ir.NoTemp, false
+	}
 	pos := bl.g.irNodePos(t)
 	c := ir.NewHostCall(pos, bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(irHashValueHost, irHashValueHost), args.temps[0])
 	bl.b.Append(c)

@@ -534,11 +534,80 @@ The shutdown timeout gives work time to finish. It doesn't guarantee that
 the work happens.
 
 That's fine for a welcome email. It isn't fine for a password reset or a
-receipt. A longer timeout won't fix it. Instead, write the message as an
-outbox row in the same database transaction as the change itself, and let a
-long-lived worker under a supervisor send the pending rows and mark them
-sent. If the process dies, the rows are still there when it starts again.
-[Databases](/databases/#transactions) shows transactions.
+receipt. A longer timeout won't fix it. Instead, enqueue a job with
+[`std/jobs`](/reference/jobs/) in the same database transaction as the
+change itself. The job is stored only if the transaction commits. A
+`Worker`, built in boot and started in `main`, runs each stored job, and
+runs it again if the process died before it finished, so a job's handler
+must be safe to run twice. `lib/jobs/postgres` keeps the jobs in a Postgres
+table.
 
-[Databases](/databases/) is next. It queries SQLite from Nomi, the
-database a background worker often drains.
+A test needs no database. std/jobs_testing's `Inline` queue keeps jobs in
+memory, std/sql_testing's `Fake` stands in for the transaction, and
+`run_queued` runs what was enqueued:
+
+```nomi-run
+import {
+    std/jobs.{self, Failure, Job}
+    std/jobs_testing.{self, Inline}
+    std/sql_testing.Fake
+}
+
+fn send_receipt(order: Int) -> Result<Unit, Failure> {
+    if order > 0 {
+        Ok(Unit)
+    } else {
+        Err(Failure.Discard("no such order"))
+    }
+}
+
+once receipt_job = Job.new("receipt", send_receipt)
+
+test "a receipt job runs once it is enqueued" {
+    queue = Inline.new()
+    _ = jobs.enqueue(queue, Fake.new(), receipt_job, 42)?
+    ran = jobs_testing.run_queued(queue, [receipt_job])
+    assert Iter.map(ran, &(&1.answer)) |> Iter.to_list() == [Ok(Unit)]
+}
+```
+<!-- expect
+ok a receipt job runs once it is enqueued
+test result: ok. 1 passed, 0 failed
+-->
+
+This handler only checks the order. A real one sends the email with
+[`std/mail`](/reference/mail/), which sends a `Message` through a `Mailer`.
+In production the mailer is `mail.smtp(...)`, which reaches any SMTP relay
+or a local catcher such as Mailpit. A test passes std/mail_testing's
+`Memory`, which keeps what it is sent:
+
+```nomi-run
+import {
+    std/mail.{self, Address, Mailer, Message}
+    std/mail_testing.Memory
+}
+
+fn send_receipt(mailer: Mailer, email: String, order: Int) -> Result<Unit, mail.Error> {
+    Mailer.send(mailer, Message{
+        from: Address.parse("Shop <orders@example.com>")?,
+        to: [Address.new(email)?],
+        subject: "Receipt for order ${order}",
+        text: Some("Thanks for order ${order}."),
+    })
+}
+
+test "the receipt goes to the customer" {
+    memory = Memory.new()
+    send_receipt(memory, "ana@example.com", 42)?
+    assert [message] = Memory.sent(memory)
+    assert message.subject == "Receipt for order 42"
+}
+```
+<!-- expect
+ok the receipt goes to the customer
+test result: ok. 1 passed, 0 failed
+-->
+
+[Databases](/databases/) is next. It queries SQLite and Postgres from Nomi
+and shows the [transactions](/databases/#transactions) a job is enqueued
+in.

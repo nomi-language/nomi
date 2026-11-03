@@ -150,11 +150,22 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 	if vt == nil || vt.Erased() {
 		return nil
 	}
-	if _, _, container := stdRecvParts(have); !container && !irStdLeafBoxes(have, vt) {
+	if _, _, container := stdRecvParts(have); !container && !irStdLeafBoxes(have, vt) && !(d.stdOrigin != "" && irStructuralBoxes(have)) {
 		return nil
 	}
 	name := vt.String()
 	p := &irBoxPlan{typ: g.irTypes().Symbol(irBoxTypeToken{name}, name)}
+	if d.stdOrigin != "" {
+		// A std interface over a std type: std's impl, reached as a direct
+		// call reaches it (stdprogiface.go). The orphan rule leaves the
+		// program no impl of its own here.
+		impls, ok := g.stdProgBoxImpls(d, have, p.typ)
+		if !ok {
+			return nil
+		}
+		p.impls = impls
+		return p
+	}
 	for _, m := range d.order {
 		var found *stdRecvCand
 		for _, c := range g.stdRecvCandidates(have, m.name, d.nomi, nil) {
@@ -204,6 +215,14 @@ func irStdLeafBoxes(have kind, vt *ir.ValType) bool {
 	return k != ir.KindStruct && k != ir.KindEnum
 }
 
+// irStructuralBoxes reports whether have, a tuple or an anonymous record,
+// enters a std interface's existential boxed: neither has a declaration
+// whose name a dispatch could read, so `Hashable.hash` of one held as
+// `Hashable` selects the box's thunk, which hashes it as a direct call does.
+func irStructuralBoxes(have kind) bool {
+	return irRetainedTupleKind(have) || irRetainedRecordKind(have)
+}
+
 // irStdBoxPlan is the plan that boxes have into std's Display or Debug
 // existential d. Neither dispatches through the module's impl tables, so the
 // plan records no impls and only names the box: an erased Display rendering
@@ -232,6 +251,11 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 			}
 		}
 		return &irBoxPlan{typ: g.irImplTypeSym(have)}
+	}
+	if _, std := stdNamedRecv(have); std {
+		if _, _, container := stdRecvParts(have); !container {
+			return g.irStdNamedBoxPlan(d, have)
+		}
 	}
 	if _, _, container := stdRecvParts(have); !container {
 		return nil
@@ -262,6 +286,40 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 	if display != nil {
 		display.typ = p.typ
 		p.impls = []irBoxedImpl{*display}
+	}
+	return p
+}
+
+// irStdNamedBoxPlan is the plan that boxes have, a std type that is no
+// container (`Codepoint`, `Duration`, `Date`, `Byte`), into std's Display or
+// Debug existential d, when it does not enter unboxed (irErases). Its value
+// names no Display body an erased rendering can call: std's impl may be a
+// host function (`Codepoint.to_string`) or a body this unit never lowered.
+// So the box names a thunk whose body is the direct call
+// `Display.to_string(v)` (stdProgThunk), which reaches whatever that call
+// reaches, and an erased rendering selects it by the box's name. Debug needs
+// no entry: the renderer names the type's Debug body as a container's leaf
+// (existentialDebugImpls over the unit's boxes).
+func (g *gen) irStdNamedBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
+	if g.irErases(existential(d), have) {
+		return nil
+	}
+	vt := g.irValType(have)
+	if vt == nil || vt.Erased() {
+		return nil
+	}
+	name := vt.String()
+	p := &irBoxPlan{typ: g.irTypes().Symbol(irBoxTypeToken{name}, name)}
+	if d.nomi == "Display" {
+		m := d.methods["to_string"]
+		if m == nil {
+			return nil
+		}
+		fn := g.stdProgThunk(d, m, have, name)
+		if fn == nil {
+			return nil
+		}
+		p.impls = []irBoxedImpl{{fn: fn, typ: p.typ, owner: g}}
 	}
 	return p
 }

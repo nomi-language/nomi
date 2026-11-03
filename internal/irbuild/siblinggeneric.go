@@ -201,15 +201,27 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 			return nil
 		}
 		fd := irImplSource(it)
-		temps, slots, _, ok := slottedOperands(t, args, params, fd.Params)
+		if erased, changed := bl.qualEraseSlotted(t, args, params, fd.Params); changed {
+			args = erased
+		}
+		temps, slots, mobile, ok := slottedOperands(t, args, params, fd.Params)
 		if !ok {
 			return nil
 		}
 		if !bl.siblingDefaultsAgree(&fileFunc{name: method, params0: fd.Params}, owner, slots) {
-			// A default naming what this file cannot: an instance's impl
-			// builds no accessors, so the call declines rather than lower
-			// it here.
-			return nil
+			// A default naming what this file cannot: the declaring gen
+			// builds an accessor for each, at this instance's type
+			// arguments (instimplaccessor.go).
+			name := impl.recv.nomi() + "." + it.name
+			callee := owner.instImplAccessorsFor(impl, it, name)
+			if callee == nil || !bl.siblingFill(t, owner, callee, instImplDecl(fd, name), params, temps, mobile) {
+				return nil
+			}
+			full := irQualArgs{temps: temps, kinds: append([]kind(nil), params...), mobile: make([]bool, len(temps)), ok: true}
+			if !bl.qualSignature(&ast.Call{Func: t.Func, Args: make([]ast.Node, len(temps)), Line: t.Line, Col: t.Col}, full, params, result) {
+				return nil
+			}
+			return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name), args: &full}
 		}
 		if unit := slices.Index(g.reg.gens, owner); unit >= 0 && owner != g {
 			defer g.lowerNamesFrom(unit)()

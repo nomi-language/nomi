@@ -957,6 +957,10 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 	if d, isIface := bl.g.ifaceNamed(owner); isIface && d != nil {
 		return bl.concreteInterfacePlan(t, args, d, method)
 	}
+	if p := bl.stdProgErasedPlan(t, args, owner, method); p != nil {
+		// A receiver held as a std interface (stdprogiface.go).
+		return p
+	}
 	if p := bl.foreignIfacePlan(t, args, owner, method, nil); p != nil {
 		return p
 	}
@@ -1272,7 +1276,12 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 	if f.defaults && args.ok && len(args.temps) < len(params) {
 		// `Powered.describe(e)` omitting a parameter the declaring file
 		// defaults: the default is built here, when every name it mentions
-		// resolves to the same declaration from both files.
+		// resolves to the same declaration from both files. A concrete
+		// operand of an interface-typed slot enters it first, since the
+		// slotting matches kinds exactly.
+		if erased, changed := bl.qualEraseSlotted(t, args, params, f.params0); changed {
+			args = erased
+		}
 		full, ok := bl.siblingDefaultArgs(t, args, chosen, params, owning)
 		if !ok {
 			return nil
@@ -1923,7 +1932,9 @@ func (bl *irScalarBuilder) qualCalleeIsValue(fa *ast.FieldAccess) bool {
 
 // qualDottedOwner resolves a 3-segment qualifier's owner. A namespaced type
 // name (`Json.DecodeError`, `shapes.Colour`) answers its whole spelling, which
-// the type-qualified route resolves like any other owner. A stdlib file
+// the type-qualified route resolves like any other owner, and so does an
+// interface a program module or a std module lowered with the program
+// declares (`shapes.Shape`, `storage.Store`). A stdlib file
 // qualifier followed by a type (`random.Seed`) answers the bare type name and
 // the module, because stdlib types are indexed by bare name and a local type
 // of the same name must not capture the call.
@@ -1938,6 +1949,13 @@ func (bl *irScalarBuilder) qualDottedOwner(n ast.Node) (owner, stdModule string,
 	mod, isIdent := inner.Object.(*ast.Ident)
 	if !isIdent || irQualIsLocal(bl, mod.Name) {
 		return "", "", false
+	}
+	if _, isIface := bl.g.moduleQualifiedIfaceNamed(mod.Name, inner.Field.Name); isIface {
+		// `shapes.Shape.area(s)`, `storage.Store.exists(s, "x")`: an
+		// interface a program module or a std module lowered with the
+		// program declares, which the type-qualified route dispatches as
+		// it does the bare imported name.
+		return mod.Name + "." + inner.Field.Name, "", true
 	}
 	std, isStd := stdFileQualifier(bl.g.fa, mod)
 	if !isStd {
@@ -1970,6 +1988,13 @@ func (bl *irScalarBuilder) stdModuleIfaceCall(t *ast.Call, mod, iface, method st
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || len(args.kinds) == 0 {
 		return no()
+	}
+	if def := bl.g.stdProgQualifiedIface(mod, iface); def != nil {
+		// A receiver held as the std interface the module names
+		// (stdprogiface.go).
+		if plan := bl.stdProgErasedPlanOf(t, args, def, iface, method); plan != nil {
+			return bl.qualEmit(t, args, plan)
+		}
 	}
 	// This file declares an interface named iface, so a program impl of the
 	// std one is filed under its key (qualifiedStdIface).
@@ -2157,6 +2182,43 @@ func (g *gen) stdOwnerUnshadowed(owner string) bool {
 // whose parameter is an `Iter<T>` as that sequence (`Statement.join(parts,
 // sep)` over a list), as a direct call's operand is (coerceEmpty). changed
 // is false when no operand needed it, and args is then unchanged.
+// qualEraseSlotted is args with each operand whose slot is interface-typed,
+// and whose own kind is a concrete one that erases into it, entered at the
+// slot's kind: `Worker.new(Inline.new(), 2)` against `queue: Queue`, which
+// leaves defaults out, so an operand's slot is read off the call's slot
+// plan rather than its position.
+func (bl *irScalarBuilder) qualEraseSlotted(t *ast.Call, args irQualArgs, params []kind, decl []ast.Param) (irQualArgs, bool) {
+	if !args.ok || len(args.temps) != len(t.Args) || len(decl) != len(params) {
+		return args, false
+	}
+	names := make([]string, len(decl))
+	for i, p := range decl {
+		names[i] = p.Name
+	}
+	plan, planned := argSlotPlan(t.Args, params, names)
+	if !planned {
+		return args, false
+	}
+	var out irQualArgs
+	for i, slot := range plan.slots {
+		if slot < 0 || args.kinds[i] == params[slot] || !irExistentialKind(params[slot]) {
+			continue
+		}
+		v, got, ok := bl.coerceEmpty(argExpr(t.Args[i]), args.temps[i], args.kinds[i], params[slot])
+		if !ok {
+			return args, false
+		}
+		if out.temps == nil {
+			out = irQualArgs{temps: slices.Clone(args.temps), kinds: slices.Clone(args.kinds), mobile: slices.Clone(args.mobile), ok: true}
+		}
+		out.temps[i], out.kinds[i] = v, got
+	}
+	if out.temps == nil {
+		return args, false
+	}
+	return out, true
+}
+
 func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params []kind) (irQualArgs, bool) {
 	if !args.ok || len(args.kinds) != len(params) {
 		return args, false
@@ -2164,7 +2226,11 @@ func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params 
 	var out irQualArgs
 	for i, k := range args.kinds {
 		seq := params[i].tag == tagSeq && params[i].comp != nil
-		if k == params[i] || (!irEmbeddedIn(params[i], k) && !seq) {
+		// A concrete value entering an interface-typed parameter
+		// (`Worker.new(Inline.new(), 2)` against `queue: Queue`) enters by
+		// erasure, as it does a module function's parameter.
+		erased := irExistentialKind(params[i])
+		if k == params[i] || (!irEmbeddedIn(params[i], k) && !seq && !erased) {
 			continue
 		}
 		if out.temps == nil {
@@ -2179,8 +2245,9 @@ func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params 
 			return args, false
 		}
 		out.temps[i], out.kinds[i] = v, got
-		if i < len(out.mobile) {
-			// The widened value is a pure construction (embedWiden).
+		if i < len(out.mobile) && v != args.temps[i] {
+			// The widened value is a pure construction (embedWiden); an
+			// erased one is the operand itself and keeps its own.
 			out.mobile[i] = true
 		}
 	}

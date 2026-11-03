@@ -57,5 +57,6 @@ pub host fn query_pairs(text: String) -> List<String>
 /// Go's `url.ParseQuery` error for `text`, or "".
 pub host fn query_error(text: String) -> String
 
-/// Go's `Values.Encode` over pairs alternating key and value.
+/// Pairs alternating key and value as a query string, in their order, each
+/// key and value escaped as `escape_query` does.
 pub host fn query_encode(pairs: List<String>) -> String

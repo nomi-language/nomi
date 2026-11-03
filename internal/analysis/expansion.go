@@ -212,6 +212,9 @@ func ExpandDeclarations(nodes []ast.Node, site *ExpansionSite) []ast.Node {
 	// A derived ToJson or FromJson names std/json through a hidden import
 	// too, added here so the file's imports hold it wherever they are read.
 	nodes = withJsonImport(nodes)
+	// A file that imports std/html reaches its slot functions through a
+	// hidden import too (html_template.go).
+	nodes = withHtmlImport(nodes)
 	hasMessage := false
 	for _, n := range nodes {
 		if kd, ok := n.(*ast.KeywordDecl); ok && isBuiltinKeyword(kd) {

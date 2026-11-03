@@ -1,4 +1,4 @@
-//# Structured logging, in the shape of Go's `log/slog`. A `Logger` writes
+//# Structured logging. A `Logger` writes
 //# each record, a level, a message and a list of fields, as one line to a
 //# `Writer`: `Logger.text` as `key=value` pairs, `Logger.json` as one JSON
 //# object. `log.info(logger, "order placed", [log.int("order", 42)])`

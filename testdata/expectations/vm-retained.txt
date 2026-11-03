@@ -307,8 +307,13 @@
 05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 24:12 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time`23:30:00` at 28:23 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time`23:45:12.5` at 17:12 failure	ran
+06-collections/contains_test.nomi:List<Int>.contains	ran
+06-collections/contains_test.nomi:Map<String, Int>.contains	ran
+06-collections/contains_test.nomi:Range<Int>.contains	ran
+06-collections/contains_test.nomi:Set<Int>.contains	ran
 06-collections/contains_test.nomi:Tag.equal	ran
 06-collections/contains_test.nomi:Tag.inspect	ran
+06-collections/contains_test.nomi:Vector<Int>.contains	ran
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
 06-collections/contains_test.nomi:all_present	ran
@@ -1613,6 +1618,20 @@
 16-concurrency/concurrent_runtime_test.nomi:nested_outer_body	ran
 16-concurrency/concurrent_runtime_test.nomi:produce	ran
 16-concurrency/concurrent_runtime_test.nomi:short_fail	ran
+16-concurrency/jobs/app.nomi:App.inspect	ran
+16-concurrency/jobs/app.nomi:Greeting.from_json	ran
+16-concurrency/jobs/app.nomi:Greeting.inspect	ran
+16-concurrency/jobs/app.nomi:Greeting.mood default	ran
+16-concurrency/jobs/app.nomi:Greeting.to_json	ran
+16-concurrency/jobs/app.nomi:boot	ran
+16-concurrency/jobs/app.nomi:boot failure	ran
+16-concurrency/jobs/app.nomi:greet	ran
+16-concurrency/jobs/app.nomi:main	ran
+16-concurrency/jobs/app.nomi:next_report	ran
+16-concurrency/jobs/app.nomi:slow	ran
+16-concurrency/jobs/jobs_test.nomi:eventually	ran
+16-concurrency/jobs/jobs_test.nomi:handlers	ran
+16-concurrency/jobs/jobs_test.nomi:states	ran
 16-concurrency/message_loop/counter_app.nomi:Config.inspect	ran
 16-concurrency/message_loop/counter_app.nomi:Counter.inspect	ran
 16-concurrency/message_loop/counter_app.nomi:Request.inspect	ran
@@ -1638,6 +1657,37 @@
 16-concurrency/supervisors/app.nomi:send_email	ran
 16-concurrency/supervisors/app.nomi:send_welcome	ran
 16-concurrency/supervisors/app.nomi:slow_work	ran
+17-typed-literals/fragments_test.nomi:Count.from_fragments	ran
+17-typed-literals/fragments_test.nomi:Count.inspect	ran
+17-typed-literals/fragments_test.nomi:Shape.from_fragments	ran
+17-typed-literals/fragments_test.nomi:Shape.inspect	ran
+17-typed-literals/html_templates_test.nomi:Campaign.inspect	ran
+17-typed-literals/html_templates_test.nomi:Campaign.to_html	ran
+17-typed-literals/html_templates_test.nomi:check Url literal at 50:74 failure	ran
+17-typed-literals/html_templates_test.nomi:check Url literal at 51:67 failure	ran
+17-typed-literals/html_templates_test.nomi:render	ran
+17-typed-literals/toml_literal_test.nomi:Port.inspect	ran
+17-typed-literals/toml_literal_test.nomi:Port.to_toml	ran
+17-typed-literals/toml_literal_test.nomi:Sneaky.inspect	ran
+17-typed-literals/toml_literal_test.nomi:Sneaky.to_toml	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 101:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 102:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 109:9 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 124:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 129:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 130:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 31:16 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 41:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 44:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 56:9 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 81:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 82:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 83:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 93:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:check Toml literal at 94:22 failure	ran
+17-typed-literals/toml_literal_test.nomi:literal Date`2026-05-04` at 52:11 failure	ran
+17-typed-literals/toml_literal_test.nomi:literal OffsetDateTime`2026-05-04T09:30:00+02:00` at 54:10 failure	ran
+17-typed-literals/toml_literal_test.nomi:literal Time`12:00:00` at 53:12 failure	ran
 17-typed-literals/typed_literals/html_tags.nomi:Raw.from_fragments	ran
 17-typed-literals/typed_literals/html_tags.nomi:Raw.inspect	ran
 17-typed-literals/typed_literals/html_tags.nomi:Safe.from_fragments	ran
@@ -1655,8 +1705,19 @@
 17-typed-literals/typed_literals/typed_literals_test.nomi:Box.to_string	ran
 17-typed-literals/typed_literals/typed_literals_test.nomi:param_strings	ran
 17-typed-literals/typed_literals/typed_literals_test.nomi:render_fragment	ran
+17-typed-literals/url_slots_test.nomi:breaks	ran
+17-typed-literals/url_slots_test.nomi:check Url literal at 44:13 failure	ran
+17-typed-literals/url_slots_test.nomi:check Url literal at 53:13 failure	ran
+17-typed-literals/url_slots_test.nomi:check Url literal at 62:13 failure	ran
+17-typed-literals/url_slots_test.nomi:climbs	ran
 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi:apply_twice	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/callback_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
+18-ffi-and-dynamic/context_ffi_app/ffi.nomi:has_deadline	UNLINKED: a project Go binding this process does not link
+18-ffi-and-dynamic/context_ffi_app/ffi.nomi:wait_for_cancel	UNLINKED: a project Go binding this process does not link
+18-ffi-and-dynamic/context_ffi_app/main.nomi:Config.inspect	ran
+18-ffi-and-dynamic/context_ffi_app/main.nomi:boot	ran
+18-ffi-and-dynamic/context_ffi_app/main.nomi:boot failure	ran
+18-ffi-and-dynamic/context_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/duration_ffi_app/ffi.nomi:double	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/duration_ffi_app/ffi.nomi:timeout	UNLINKED: a project Go binding this process does not link
 18-ffi-and-dynamic/duration_ffi_app/main.nomi:main	UNLINKED: a project Go binding this process does not link
@@ -2288,6 +2349,10 @@
 20-data-access/sql_test.nomi:round_trips	ran
 20-data-access/sql_test.nomi:round_trips	ran
 20-data-access/sql_test.nomi:user_row	ran
+20-data-access/storage_test.nomi:check Url literal at 20:57 failure	ran
+20-data-access/storage_test.nomi:check Url literal at 58:35 failure	ran
+20-data-access/storage_test.nomi:fresh_local	ran
+20-data-access/storage_test.nomi:serve	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.begin	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.close	ran
 20-data-access/transactions_test.nomi:ForgetsRollback.commit	ran
@@ -3501,6 +3566,7 @@ std/fs.nomi:with_temp_dir	ran
 std/fs.nomi:with_temp_dir	ran
 std/fs.nomi:with_temp_dir	ran
 std/fs.nomi:with_temp_dir	ran
+std/fs.nomi:with_temp_dir	ran
 std/fs.nomi:with_writer	ran
 std/fs.nomi:with_writer	ran
 std/fs.nomi:with_writer default 2	ran
@@ -3518,6 +3584,11 @@ std/fs_testing.nomi:Failure.inspect	ran
 std/fs_testing.nomi:Failure.nth default	ran
 std/fs_testing.nomi:Operation.equal	ran
 std/fs_testing.nomi:Operation.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
+std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
 std/fs_testing.nomi:Ran.inspect	ran
@@ -3615,10 +3686,420 @@ std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:run	ran
 std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:run	ran
+std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:text	ran
 std/fs_testing.nomi:under	ran
+std/html.nomi:Bool.attribute	ran
+std/html.nomi:Css.inspect	ran
+std/html.nomi:Css.to_css	ran
+std/html.nomi:Decimal.to_css	ran
+std/html.nomi:Decimal.to_html	ran
+std/html.nomi:Float.to_css	ran
+std/html.nomi:Float.to_html	ran
+std/html.nomi:Html.concat	ran
+std/html.nomi:Html.each	ran
+std/html.nomi:Html.each	ran
+std/html.nomi:Html.empty	ran
+std/html.nomi:Html.equal	ran
+std/html.nomi:Html.inspect	ran
+std/html.nomi:Html.text	ran
+std/html.nomi:Html.to_html	ran
+std/html.nomi:Html.to_string	ran
+std/html.nomi:Html.trusted	ran
+std/html.nomi:Html.write_to	ran
+std/html.nomi:Int.to_css	ran
+std/html.nomi:Int.to_html	ran
+std/html.nomi:List<Html>.to_html	ran
+std/html.nomi:Maybe<Html>.to_html	ran
+std/html.nomi:Maybe<String>.attribute	ran
+std/html.nomi:SafeUrl.inspect	ran
+std/html.nomi:SafeUrl.to_url	ran
+std/html.nomi:String.to_html	ran
+std/html.nomi:Url.to_url	ran
+std/html.nomi:assemble	ran
+std/html.nomi:class_if	ran
+std/html.nomi:slot_attribute	ran
+std/html.nomi:slot_css	ran
+std/html.nomi:slot_optional_attribute	ran
+std/html.nomi:slot_rcdata	ran
+std/html.nomi:slot_text	ran
+std/html.nomi:slot_url_fragment	ran
+std/html.nomi:slot_url_path	ran
+std/html.nomi:slot_url_query	ran
+std/html.nomi:slot_url_start	ran
+std/http.nomi:Body.bytes_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Body.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Body.read_all	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Body.reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.close_idle	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.fetch	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.get	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.head	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.new	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.new default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.post	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ClientOptions.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ConnState.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ConnState.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ConnState.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.parse_header	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.parse_set_cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Cookie.validate	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:CookieJar.cookies	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:CookieJar.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:CookieJar.new	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:CookieJar.set_cookies	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:CrossOrigin.check	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:CrossOrigin.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Display.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Error.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Error.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Error.is_timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Error.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:FormFile.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:FormFile.open	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:FormPart.encode	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:FormPart.file_disposition	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:FormPart.flat	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:FormPart.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.add	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.canonical_key	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.get	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.has	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.remove	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.set	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.values	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.write_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Headers.write_to default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Http2Options.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Listener.address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Listener.close_connections	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Listener.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Listener.shutdown	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:MaxAge.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:MaxAge.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Method.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Method.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Method.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Method.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Method.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Method.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:MultipartForm.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Part.file_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Part.form_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Part.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocol.at_least	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocol.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocol.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocol.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocol.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocols.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocols.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Protocols.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Proxy.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ProxyRequest.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ProxyRequest.set_url	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ProxyRequest.set_x_forwarded	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Redirect.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Redirects.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.add_cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.basic_auth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.body default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.close default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.content_length default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.context default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.cookies	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.cookies_named	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.dump	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.dump default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.dump_outgoing	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.dump_outgoing default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.extend_read_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.form_file	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.form_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.headers default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.host default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.incoming default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.limit_body	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.media_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.multipart_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.multipart_form default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.path_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.path_values default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.pattern default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.post_form_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.protocol default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.referer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.request_uri default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.tls default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.trace default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.trailers default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.transfer_encoding default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.user_agent	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.with_basic_auth	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.with_path_value	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.write_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Request.write_to default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.bytes	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.content	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.cookies	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.dump	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.dump default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.html	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.json	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.location	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.not_found	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.redirect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.set_cookie	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.upgrade	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.upgrade default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Response.write_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ReverseProxy.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ReverseProxy.to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.from_fragments	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.parse	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Route.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Router.find	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Router.handler	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Router.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Router.new	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Router.route	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Router.serve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:SameSite.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:SameSite.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Server.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.code	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.from_code	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.hash	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.is_client_error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.is_informational	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.is_redirect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.is_server_error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.is_success	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.line	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Status.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:TraceEvent.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:TraceEvent.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Tracer.events	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Tracer.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Tracer.new	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Transport.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:`!` failure Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:`!` failure UrlError	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:accept	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:allow_query_semicolons	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:answer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:chunked_reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:chunked_writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:conn_state	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:cross_origin_protection	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:default_client	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:detect_content_type	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:directory	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:failed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:fetch	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:file_server	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:flat	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:format_time	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:forward	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:from_go	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:get	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:head	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:http2_flags	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:http2_numbers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:ignore_text	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:join_paths	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:length_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:limit_body	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:listen	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:listen default 1	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:multipart_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:multipart_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:multipart_raw_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:nanos	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:not_found	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:pairs	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:parse_time	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:parts_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:post	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:protocol_flags	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:proxy_log	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:pump	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:read_multipart_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:read_multipart_form default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:redirect_to	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:redirected	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:request_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:respond	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:response_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:reverse_proxy	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:send	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:send_following	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:serve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:serve_file	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:serve_here	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:strip_prefix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:take_requests	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:text_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:typed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wire_length	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wire_parts_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wire_request	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wire_response	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:without_hop_headers	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:write_multipart	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http_testing.nomi:TestServer.close_client_connections	ran
+std/http_testing.nomi:TestServer.inspect	ran
+std/http_testing.nomi:`!` failure UrlError	ran
+std/http_testing.nomi:check Url literal at 85:28 failure	ran
+std/http_testing.nomi:chunks	ran
+std/http_testing.nomi:gather	ran
+std/http_testing.nomi:request	ran
+std/jobs.nomi:Claimed.equal	ran
+std/jobs.nomi:Claimed.inspect	ran
+std/jobs.nomi:Failure.equal	ran
+std/jobs.nomi:Failure.inspect	ran
+std/jobs.nomi:Failure.to_string	ran
+std/jobs.nomi:Job.inspect	ran
+std/jobs.nomi:Job.inspect	ran
+std/jobs.nomi:Job.kind	ran
+std/jobs.nomi:Job.kind	ran
+std/jobs.nomi:Job.new	ran
+std/jobs.nomi:Job.new	ran
+std/jobs.nomi:Job.renamed_from	ran
+std/jobs.nomi:Job.renamed_from	ran
+std/jobs.nomi:Job.run	ran
+std/jobs.nomi:Job.run	ran
+std/jobs.nomi:Job.timeout	ran
+std/jobs.nomi:Job.timeout	ran
+std/jobs.nomi:JobId.equal	ran
+std/jobs.nomi:JobId.inspect	ran
+std/jobs.nomi:JobId.to_string	ran
+std/jobs.nomi:NewJob.equal	ran
+std/jobs.nomi:NewJob.inspect	ran
+std/jobs.nomi:Next.inspect	ran
+std/jobs.nomi:Rate.burst default	ran
+std/jobs.nomi:Rate.equal	ran
+std/jobs.nomi:Rate.inspect	ran
+std/jobs.nomi:Settle.equal	ran
+std/jobs.nomi:Settle.inspect	ran
+std/jobs.nomi:Worker.id	ran
+std/jobs.nomi:Worker.inspect	ran
+std/jobs.nomi:Worker.new	ran
+std/jobs.nomi:Worker.new default 3	ran
+std/jobs.nomi:Worker.new default 4	ran
+std/jobs.nomi:Worker.new default 5	ran
+std/jobs.nomi:Worker.new default 6	ran
+std/jobs.nomi:Worker.new default 7	ran
+std/jobs.nomi:Worker.new default 8	ran
+std/jobs.nomi:Worker.start	ran
+std/jobs.nomi:backoff	ran
+std/jobs.nomi:charge	ran
+std/jobs.nomi:claim_loop	ran
+std/jobs.nomi:enqueue	ran
+std/jobs.nomi:enqueue	ran
+std/jobs.nomi:enqueue default 5	ran
+std/jobs.nomi:enqueue default 5	ran
+std/jobs.nomi:fields	ran
+std/jobs.nomi:free_slot	ran
+std/jobs.nomi:handlers_by_kind	ran
+std/jobs.nomi:hold_for_rate	ran
+std/jobs.nomi:idle	ran
+std/jobs.nomi:interval	ran
+std/jobs.nomi:renew_until	ran
+std/jobs.nomi:renewing	ran
+std/jobs.nomi:report	ran
+std/jobs.nomi:rfc3339	ran
+std/jobs.nomi:run_claimed	ran
+std/jobs.nomi:run_one	ran
+std/jobs.nomi:settle_for	ran
+std/jobs.nomi:shut_down	ran
+std/jobs.nomi:tidy	ran
+std/jobs.nomi:wake	ran
+std/jobs_testing.nomi:Broken.equal	ran
+std/jobs_testing.nomi:Broken.inspect	ran
+std/jobs_testing.nomi:Broken.to_string	ran
+std/jobs_testing.nomi:Inline.claim	ran
+std/jobs_testing.nomi:Inline.insert	ran
+std/jobs_testing.nomi:Inline.inspect	ran
+std/jobs_testing.nomi:Inline.jobs	ran
+std/jobs_testing.nomi:Inline.new	ran
+std/jobs_testing.nomi:Inline.new default 1	ran
+std/jobs_testing.nomi:Inline.prune	ran
+std/jobs_testing.nomi:Inline.release	ran
+std/jobs_testing.nomi:Inline.renew	ran
+std/jobs_testing.nomi:Inline.rescue	ran
+std/jobs_testing.nomi:Inline.settle	ran
+std/jobs_testing.nomi:Inline.watch	ran
+std/jobs_testing.nomi:JobError.equal	ran
+std/jobs_testing.nomi:JobError.inspect	ran
+std/jobs_testing.nomi:JobState.equal	ran
+std/jobs_testing.nomi:JobState.inspect	ran
+std/jobs_testing.nomi:Opened.inspect	ran
+std/jobs_testing.nomi:Ran.equal	ran
+std/jobs_testing.nomi:Ran.inspect	ran
+std/jobs_testing.nomi:State.inspect	ran
+std/jobs_testing.nomi:StoredJob.equal	ran
+std/jobs_testing.nomi:StoredJob.inspect	ran
+std/jobs_testing.nomi:all_queues	ran
+std/jobs_testing.nomi:change_where	ran
+std/jobs_testing.nomi:checks	ran
+std/jobs_testing.nomi:claim	ran
+std/jobs_testing.nomi:claim_one	ran
+std/jobs_testing.nomi:claims_none	ran
+std/jobs_testing.nomi:conformance	ran
+std/jobs_testing.nomi:conformance default 1	ran
+std/jobs_testing.nomi:expect	ran
+std/jobs_testing.nomi:expire	ran
+std/jobs_testing.nomi:held	ran
+std/jobs_testing.nomi:id_of	ran
+std/jobs_testing.nomi:job	ran
+std/jobs_testing.nomi:kinds	ran
+std/jobs_testing.nomi:other	ran
+std/jobs_testing.nomi:past	ran
+std/jobs_testing.nomi:peek	ran
+std/jobs_testing.nomi:put	ran
+std/jobs_testing.nomi:put_job	ran
+std/jobs_testing.nomi:rolled_back_rule	ran
+std/jobs_testing.nomi:rules	ran
+std/jobs_testing.nomi:run_due	ran
+std/jobs_testing.nomi:run_queued	ran
+std/jobs_testing.nomi:settle	ran
+std/jobs_testing.nomi:take	ran
 std/log.nomi:Field.equal	ran
 std/log.nomi:Field.inspect	ran
 std/log.nomi:Level.at_least	ran
@@ -3748,6 +4229,70 @@ std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
 std/money.nomi:literal Currency`XXX` at 319:27 failure	ran
 std/money.nomi:literal Currency`XXX` at 379:52 failure	ran
+std/net.nomi:Connection.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.close_read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.close_write	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.handle_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.is_multipath	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.local_address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.of_handle	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.reader	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.remote_address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_keep_alive	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_linger	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_no_delay	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_read_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.set_write_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Connection.writer	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.fallback_delay default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.keep_alive default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.local_address default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.multipath default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:DialOptions.timeout default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Error.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Error.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Error.is_timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Error.of_tls	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Error.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:KeepAlive.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:ListenOptions.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.accept	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.handle_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.of_handle	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Listener.set_deadline	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Mx.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:Srv.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:accept_each	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:dial	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:dial default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:int	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:join_host_port	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:listen	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:listen default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_address	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_cname	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_host	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_ip	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_mx	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_ns	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_port	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_srv	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:lookup_txt	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:mx_records	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:nanos	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:pipe	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:serve	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:split_host_port	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:srv_records	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/net.nomi:unix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/path.nomi:base	ran
 std/path.nomi:clean	ran
 std/path.nomi:climb	ran
@@ -3912,6 +4457,7 @@ std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
 std/sql.nomi:transaction	ran
+std/sql.nomi:transaction	ran
 std/sql.nomi:where_of	ran
 std/sql.nomi:with_connection	ran
 std/sql.nomi:with_connection	ran
@@ -4001,6 +4547,151 @@ std/sql_testing.nomi:times_in_order	ran
 std/sql_testing.nomi:times_table	ran
 std/sql_testing.nomi:violation	ran
 std/sql_testing.nomi:with_effect	ran
+std/storage.nomi:Error.equal	ran
+std/storage.nomi:Error.inspect	ran
+std/storage.nomi:Error.to_string	ran
+std/storage.nomi:Info.equal	ran
+std/storage.nomi:Info.inspect	ran
+std/storage.nomi:Local.content_type	ran
+std/storage.nomi:Local.delete	ran
+std/storage.nomi:Local.exists	ran
+std/storage.nomi:Local.get	ran
+std/storage.nomi:Local.info	ran
+std/storage.nomi:Local.inspect	ran
+std/storage.nomi:Local.object_path	ran
+std/storage.nomi:Local.put	ran
+std/storage.nomi:Local.type_path	ran
+std/storage.nomi:Local.url	ran
+std/storage.nomi:Object.equal	ran
+std/storage.nomi:Object.inspect	ran
+std/storage.nomi:check_content_type	ran
+std/storage.nomi:check_key	ran
+std/storage.nomi:from_io	ran
+std/storage.nomi:handler	ran
+std/storage.nomi:handler default 2	ran
+std/storage.nomi:io_code	ran
+std/storage.nomi:key_characters	ran
+std/storage.nomi:local	ran
+std/storage.nomi:local default 2	ran
+std/storage.nomi:make_parent	ran
+std/storage.nomi:missing	ran
+std/storage_testing.nomi:Broken.equal	ran
+std/storage_testing.nomi:Broken.inspect	ran
+std/storage_testing.nomi:Broken.to_string	ran
+std/storage_testing.nomi:Failing.delete	ran
+std/storage_testing.nomi:Failing.exists	ran
+std/storage_testing.nomi:Failing.get	ran
+std/storage_testing.nomi:Failing.info	ran
+std/storage_testing.nomi:Failing.inspect	ran
+std/storage_testing.nomi:Failing.put	ran
+std/storage_testing.nomi:Failing.url	ran
+std/storage_testing.nomi:Memory.delete	ran
+std/storage_testing.nomi:Memory.exists	ran
+std/storage_testing.nomi:Memory.get	ran
+std/storage_testing.nomi:Memory.info	ran
+std/storage_testing.nomi:Memory.inspect	ran
+std/storage_testing.nomi:Memory.keys	ran
+std/storage_testing.nomi:Memory.new	ran
+std/storage_testing.nomi:Memory.new default 1	ran
+std/storage_testing.nomi:Memory.put	ran
+std/storage_testing.nomi:Memory.url	ran
+std/storage_testing.nomi:State.inspect	ran
+std/storage_testing.nomi:all_bytes	ran
+std/storage_testing.nomi:bytes	ran
+std/storage_testing.nomi:check Url literal at 58:35 failure	ran
+std/storage_testing.nomi:checks	ran
+std/storage_testing.nomi:conformance	ran
+std/storage_testing.nomi:expect	ran
+std/storage_testing.nomi:get_object	ran
+std/storage_testing.nomi:invalid_keys	ran
+std/storage_testing.nomi:peek	ran
+std/storage_testing.nomi:put	ran
+std/storage_testing.nomi:put_object	ran
+std/storage_testing.nomi:refuses	ran
+std/storage_testing.nomi:round_trips	ran
+std/storage_testing.nomi:rules	ran
+std/storage_testing.nomi:take	ran
+std/tls.nomi:Certificate.from_pem	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Certificate.info	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Certificate.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Certificate.load	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CertificateInfo.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CertificateInfo.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CertificateInfo.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CipherSuite.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CipherSuite.insecure	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CipherSuite.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CipherSuite.name_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CipherSuite.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:CipherSuite.secure	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientAuth.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientAuth.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientAuth.number	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientAuth.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientConfig.host	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientConfig.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.of_handle	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ClientHello.supports	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ConnectionState.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ConnectionState.of_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Curve.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Curve.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Curve.name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Curve.of_name	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Curve.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Error.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Error.from_parts	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Error.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Error.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Renegotiation.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Renegotiation.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Roots.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ServerConfig.host	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:ServerConfig.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Version.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Version.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Version.number	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Version.of_number	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:Version.to_string	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:client	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:curve_names	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:dial	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:dial default 2	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:dial default 3	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:listen	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:roots_files	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:roots_kind	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:roots_pem	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:server	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:state	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:verify_hook	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:verify_hostname	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:with_certificates	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/tls.nomi:wrap_listener	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/toml.nomi:Bool.to_toml	ran
+std/toml.nomi:Date.to_toml	ran
+std/toml.nomi:Float.to_toml	ran
+std/toml.nomi:Int.to_toml	ran
+std/toml.nomi:List<Int>.to_toml	ran
+std/toml.nomi:List<List<Int>>.to_toml	ran
+std/toml.nomi:List<String>.to_toml	ran
+std/toml.nomi:Map<String, Int>.to_toml	ran
+std/toml.nomi:Map<String, List<Map<String, String>>>.to_toml	ran
+std/toml.nomi:NaiveDateTime.to_toml	ran
+std/toml.nomi:OffsetDateTime.to_toml	ran
+std/toml.nomi:String.to_toml	ran
+std/toml.nomi:Time.to_toml	ran
+std/toml.nomi:ToToml.to_toml	ran
+std/toml.nomi:ToToml.to_toml	ran
+std/toml.nomi:Toml.Value.equal	ran
+std/toml.nomi:Toml.Value.inspect	ran
+std/toml.nomi:Toml.Value.text	ran
+std/toml.nomi:Toml.Value.to_toml	ran
+std/toml.nomi:Toml.build	ran
+std/toml.nomi:Toml.check	ran
+std/toml.nomi:Toml.inspect	ran
+std/toml.nomi:Toml.text	ran
 std/url.nomi:Place.inspect	ran
 std/url.nomi:Query.add	ran
 std/url.nomi:Query.encode	ran
@@ -4014,10 +4705,11 @@ std/url.nomi:Query.remove	ran
 std/url.nomi:Query.set	ran
 std/url.nomi:Query.to_string	ran
 std/url.nomi:Query.values	ran
+std/url.nomi:Url.build	ran
+std/url.nomi:Url.check	ran
 std/url.nomi:Url.equal	ran
 std/url.nomi:Url.escaped_fragment	ran
 std/url.nomi:Url.escaped_path	ran
-std/url.nomi:Url.from_fragments	ran
 std/url.nomi:Url.hash	ran
 std/url.nomi:Url.hostname	ran
 std/url.nomi:Url.inspect	ran
@@ -4040,17 +4732,23 @@ std/url.nomi:Userinfo.equal	ran
 std/url.nomi:Userinfo.hash	ran
 std/url.nomi:Userinfo.inspect	ran
 std/url.nomi:Userinfo.to_string	ran
+std/url.nomi:`!` failure UrlError	ran
+std/url.nomi:escapable	ran
 std/url.nomi:escape_path_segment	ran
 std/url.nomi:escape_query	ran
 std/url.nomi:flag	ran
 std/url.nomi:from_parts	ran
+std/url.nomi:keep_path	ran
 std/url.nomi:maybe_text	ran
 std/url.nomi:pairs_of	ran
+std/url.nomi:path_slot	ran
 std/url.nomi:place_after	ran
 std/url.nomi:query_from_text	ran
+std/url.nomi:slot_text	ran
 std/url.nomi:to_parts	ran
 std/url.nomi:unescape_path_segment	ran
 std/url.nomi:unescape_query	ran
+std/uuid.nomi:Display.to_string	ran
 std/uuid.nomi:Error.equal	ran
 std/uuid.nomi:Error.inspect	ran
 std/uuid.nomi:Error.to_string	ran
@@ -4058,11 +4756,13 @@ std/uuid.nomi:Uuid.compare	ran
 std/uuid.nomi:Uuid.equal	ran
 std/uuid.nomi:Uuid.from_bytes	ran
 std/uuid.nomi:Uuid.from_fragments	ran
+std/uuid.nomi:Uuid.from_json	ran
 std/uuid.nomi:Uuid.hash	ran
 std/uuid.nomi:Uuid.inspect	ran
 std/uuid.nomi:Uuid.nil	ran
 std/uuid.nomi:Uuid.parse	ran
 std/uuid.nomi:Uuid.to_bytes	ran
+std/uuid.nomi:Uuid.to_json	ran
 std/uuid.nomi:Uuid.to_string	ran
 std/uuid.nomi:Uuid.v4	ran
 std/uuid.nomi:Uuid.v7	ran

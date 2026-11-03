@@ -1,0 +1,35 @@
+//# Markdown for std/html: `markdown.render(text)` is `text` rendered as
+//# HTML, an `Html` a template can insert as it is.
+//#
+//# The renderer is goldmark: CommonMark with GitHub's extensions (tables,
+//# strikethrough, task lists, and a bare URL as a link). Raw HTML in the
+//# text is left out, and a link whose URL has a dangerous scheme, such as
+//# `javascript:`, gets an empty one, so text a user wrote renders safely.
+//#
+//# ```nomi
+//# import {
+//#     markdown
+//#     std/html.Html
+//# }
+//#
+//# fn post(title: String, body: String) -> Html {
+//#     Html"""
+//#         <article>
+//#           <h1>${title}</h1>
+//#           ${markdown.render(body)}
+//#         </article>
+//#         """
+//# }
+//# ```
+
+import std/html.Html
+
+gopkg "github.com/nomi-language/nomi/lib/markdown/goside"
+
+fn to_html(source: String) -> String go goside.ToHTML
+
+/// `text` rendered as HTML: trusted markup, since the renderer escapes
+/// text and leaves raw HTML and dangerous URLs out.
+pub fn render(text: String) -> Html {
+    Html.trusted(to_html(text))
+}

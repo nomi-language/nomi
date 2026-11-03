@@ -1,4 +1,4 @@
-//# An HTTP client over Go's net/http. A `Request` is a value; `http.fetch`
+//# An HTTP client and server. A `Request` is a value; `http.fetch`
 //# sends it with the ambient client and reads the whole response, and
 //# `http.with_response` gives a body the response with its body still
 //# streaming. A status is never an error: a 404 is a `Response` whose
@@ -27,6 +27,7 @@ import {
     equatable.Equatable
     fs
     hashable.Hashable
+    html.Html
     http_host
     instant.Instant
     int.Int
@@ -395,6 +396,9 @@ pub enum Body {
     /// Encoded with `Json.encode`; sent with `Content-Type:
     /// application/json` unless the request sets one.
     Json Json
+    /// Rendered markup; sent with `Content-Type: text/html;
+    /// charset=utf-8` unless the request or response sets one.
+    Html Html
     /// URL-encoded; sent with `Content-Type:
     /// application/x-www-form-urlencoded` unless the request sets one.
     Form Query
@@ -437,6 +441,7 @@ impl Body {
             .Text(text) -> String.to_bytes(text)
             .Bytes(data) -> data
             .Json(value) -> String.to_bytes(Json.encode(value))
+            .Html(page) -> String.to_bytes(Html.to_string(page))
             .Form(query) -> String.to_bytes(Query.encode(query))
             .Multipart(parts) -> FormPart.encode(parts).body
             .Stream(_) -> String.to_bytes("")
@@ -1112,6 +1117,23 @@ impl Response {
         #{..response, headers: Headers.add(response.headers, "Set-Cookie", text)}
     }
 
+    /// A page or a fragment of one: a 200 whose body is `page`, sent as
+    /// `text/html; charset=utf-8` with its length.
+    //! import std/html.Html
+    //! import std/http.Response
+    //! import std/io.Writer
+    //!
+    //! page = Html.text("a < b")
+    //! #(_, wire) = Writer.collect(fn w -> Response.write_to(Response.html(page), w))
+    //! sent = Bytes.to_string(wire)!
+    //! assert String.contains(sent, "Content-Type: text/html; charset=utf-8")
+    //! assert String.contains(sent, "Content-Length: 8")
+    //! assert String.ends_with(sent, "a &lt; b")
+    //
+    pub fn html(page: Html) -> Response {
+        Response{body: Body.Html(page)}
+    }
+
     /// A plain-text response with `status` and `message`, as Go's `Error`
     /// writes it: `text/plain; charset=utf-8`, `X-Content-Type-Options:
     /// nosniff`, and the message and a newline.
@@ -1744,6 +1766,7 @@ fn typed(headers: Headers, body: Body) -> Headers {
     content_type = case body {
         .Text(_) -> Some("text/plain; charset=utf-8")
         .Json(_) -> Some("application/json")
+        .Html(_) -> Some("text/html; charset=utf-8")
         .Form(_) -> Some("application/x-www-form-urlencoded")
         .Multipart(parts) -> Some(FormPart.encode(parts).content_type)
         _ -> None
@@ -2336,7 +2359,7 @@ impl Router {
         case Router.route(router, request) {
             ["match", index, pattern, ..] ->
                 String.to_int(index)
-                |> Maybe.flat_map(fn i -> nth(router.handlers, i))
+                |> Maybe.flat_map(fn i -> Iter.get(router.handlers, i))
                 |> Maybe.map(fn h -> #(h, pattern))
 
             _ ->
@@ -2350,7 +2373,8 @@ impl Router {
     pub fn serve(router: Router, request: Request) -> Response {
         case Router.route(router, request) {
             ["match", index, pattern, ..values] -> {
-                handler = String.to_int(index) |> Maybe.flat_map(fn i -> nth(router.handlers, i))
+                handler =
+                    String.to_int(index) |> Maybe.flat_map(fn i -> Iter.get(router.handlers, i))
 
                 found = #{
                     ..request,
@@ -2391,22 +2415,6 @@ impl Router {
             Maybe.with_default(request.host, ""),
             "${request.url}",
         )
-    }
-}
-
-// The handler at index: Iter.get declines a list of functions over a
-// struct (vmhost's gapIterGetOfAFunctionOverAStruct).
-fn nth(handlers: List<(Request) -> Response>, index: Int) -> Maybe<(Request) -> Response> {
-    case handlers {
-        [first, ..rest] ->
-            if index == 0 {
-                Some(first)
-            } else {
-                nth(rest, index - 1)
-            }
-
-        [] ->
-            None
     }
 }
 
@@ -2739,26 +2747,21 @@ fn directory(request: Request, dir: String) -> Response {
         Err(_) ->
             case fs.list(dir) {
                 Ok(entries) -> {
-                    links =
-                        entries
-                        |> Iter.map(fn e -> {
-                            name = case e.kind {
-                                fs.Kind.Directory -> "${e.name}/"
-                                _ -> e.name
-                            }
+                    links = Html.each(entries, fn e -> {
+                        case e.kind {
+                            fs.Kind.Directory -> Html"<a href='./${e.name}/'>${e.name}/</a>\n"
+                            _ -> Html"<a href='./${e.name}'>${e.name}</a>\n"
+                        }
+                    })
 
-                            "<a href=\"${html_escape(
-                                url.escape_path_segment(name)
-                            )}\">${html_escape(name)}</a>\n"
-                        })
-                        |> String.join("")
-
-                    html = "<!doctype html>\n<meta name=\"viewport\" content=\"width=device-width\">\n<pre>\n${links}</pre>\n"
-
-                    Response{
-                        headers: Headers.set(Headers[], "Content-Type", "text/html; charset=utf-8"),
-                        body: Body.Text(html),
-                    }
+                    Response.html(
+                        Html"""
+                        <!doctype html>
+                        <meta name="viewport" content="width=device-width">
+                        <pre>
+                        ${links}</pre>
+                        """
+                    )
                 }
 
                 Err(e) ->
@@ -2773,15 +2776,6 @@ fn failed(error: io.Error) -> Response {
         .PermissionDenied{path: _} -> Response.error(Status.forbidden, "403 Forbidden")
         _ -> Response.error(Status.internal_server_error, "500 Internal Server Error")
     }
-}
-
-fn html_escape(text: String) -> String {
-    text
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
-    |> String.replace("\"", "&#34;")
-    |> String.replace("'", "&#39;")
 }
 
 /// Go's `DetectContentType`: the media type of `data` from at most its

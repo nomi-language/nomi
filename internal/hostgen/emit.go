@@ -313,9 +313,19 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	// which is read off the signature rather than declared, as irbuild's
 	// hostFn.takesFrame is.
 	takesFrame := ft.NumIn() > 0 && isFrame(ft.In(0))
+	// A Go function whose first parameter is context.Context is handed the
+	// caller's task context (spec §19 *The task's context*): the frame's Go
+	// context, which carries the ambient deadline and ends when the task is
+	// cancelled. The declaration leaves the parameter out.
+	takesContext := ft.NumIn() > 0 && isGoContext(ft.In(0))
 	first := 0
-	if takesFrame {
+	if takesFrame || takesContext {
 		first = 1
+	}
+	for i := first; i < ft.NumIn(); i++ {
+		if isGoContext(ft.In(i)) {
+			return "", fmt.Errorf("%s takes a context.Context as parameter %d; only a first parameter may be a context.Context", call, i+1)
+		}
 	}
 	if len(decl.Params) != ft.NumIn()-first {
 		return "", fmt.Errorf("the declaration takes %d parameter(s) and %s takes %d", len(decl.Params), call, ft.NumIn()-first)
@@ -364,8 +374,11 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	n := len(decl.Params)
 	fmt.Fprintf(&w, "\tif len(args) != %d {\n\t\treturn nil, hostadapt.Arity(%s, %d, len(args))\n\t}\n", n, key, n)
 	var argNames []string
-	if takesFrame {
+	switch {
+	case takesFrame:
 		argNames = append(argNames, "fr")
+	case takesContext:
+		argNames = append(argNames, "fr.Context()")
 	}
 	for i := range n {
 		ps, err := res.Shape(b.Decl.Module, decl.Params[i].TypeAnnotation)
@@ -526,7 +539,7 @@ func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type
 
 // in answers the name of a method `func (b *bound) NAME(v rt.Value) (T, error)`.
 func (g *Generator) in(s *Shape, t Type) (string, error) {
-	key := "in|" + shapeKey(s) + "|" + t.String() + "|" + t.PkgPath()
+	key := "in|" + shapeKey(s) + "|" + typeIdentity(t)
 	if m, ok := g.memo[key]; ok {
 		return m, nil
 	}
@@ -869,7 +882,7 @@ func indent(s string) string {
 
 // out answers the name of a method `func (b *bound) NAME(v T) (rt.Value, error)`.
 func (g *Generator) out(s *Shape, t Type) (string, error) {
-	key := "out|" + shapeKey(s) + "|" + t.String() + "|" + t.PkgPath()
+	key := "out|" + shapeKey(s) + "|" + typeIdentity(t)
 	if m, ok := g.memo[key]; ok {
 		return m, nil
 	}
@@ -1255,7 +1268,10 @@ func (g *Generator) structDesc(s *Shape) string {
 		fmt.Fprintf(&b, "{Name: %q, Type: %s}, ", f.Name, slotExpr(f.Shape.Slot()))
 	}
 	b.WriteString("}}")
-	return g.addDesc("struct|"+shapeKey(s), b.String(), "")
+	// Keyed by the spec, not by shapeKey's name: two modules may each
+	// declare a describe.Table, of different fields, and each must get its
+	// own descriptor.
+	return g.addDesc("struct|"+b.String(), b.String(), "")
 }
 
 func (g *Generator) distinctDesc(s *Shape) string {
@@ -1264,7 +1280,7 @@ func (g *Generator) distinctDesc(s *Shape) string {
 		inner = fmt.Sprintf("hostadapt.Slot(%s)", slotExpr(s.Elems[0].Slot()))
 	}
 	spec := fmt.Sprintf("&hostadapt.DescSpec{Name: %q, Kind: rt.KindDistinct, Inner: %s}", s.Name, inner)
-	return g.addDesc("distinct|"+shapeKey(s), spec, "")
+	return g.addDesc("distinct|"+spec, spec, "")
 }
 
 // enumDesc is the descriptor of a Maybe or Result instantiation. Tags follow

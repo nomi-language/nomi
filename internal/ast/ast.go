@@ -542,10 +542,29 @@ type TaggedString struct {
 	Parts  []StringPart
 	Line   int
 	Col    int
+	// BodyCol is the source column a body line of a triple-quoted literal
+	// starts at once its indentation is stripped; 0 for a one-line form.
+	BodyCol int
+
+	// expansion is the ordinary expression an `Html` literal stands for
+	// (spec §18 *HTML templates*), set by the analysis that reads the
+	// template, or nil. Unexported, so a walk of the tree visits the slot
+	// expressions once, under Parts.
+	expansion Node
+	// template marks a literal whose tag is std/html's Html.
+	template bool
 }
 
 func (*TaggedString) NodeType() string { return "TaggedString" }
 func (n *TaggedString) LineNum() int   { return n.Line }
+
+// SetTemplate marks n as an `Html` template and gives it the expression it
+// expands into, nil when its template has errors.
+func (n *TaggedString) SetTemplate(expansion Node) { n.template, n.expansion = true, expansion }
+
+// Template reports whether n is an `Html` template, and the expression it
+// expands into, nil when its template has errors.
+func (n *TaggedString) Template() (Node, bool) { return n.expansion, n.template }
 
 // ListLit represents a list literal: [item, item, ...].
 //

@@ -234,16 +234,7 @@ func (s *shapeSearch) renderLambda(l *ast.Lambda) string {
 		if i < len(ft.Params) {
 			params[i] += ": " + typeOr(ft.Params[i])
 		}
-		if p.Default != nil {
-			def := renderConstValue(p.Default)
-			if id, ok := p.Default.(*ast.Ident); ok {
-				def = id.Name
-			}
-			if def == "" {
-				def = "…"
-			}
-			params[i] += " = " + def
-		}
+		params[i] += renderDefault(p.Default)
 	}
 	sig := "fn "
 	if len(params) > 0 {

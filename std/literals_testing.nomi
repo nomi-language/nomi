@@ -1,0 +1,69 @@
+//# Tests for a `CheckedLiteral` (std/literals). Its `check` runs when the
+//# program is checked and its `build` when the program runs, and `build` may
+//# not fail once `check` has accepted the literal's text. `build_each` runs
+//# both as the compiler and the program would, over slot values a test
+//# chooses, so a library's tests can show that `build` keeps to this: a value
+//# that makes `build` trap fails the test.
+
+import {
+    iter.Iter
+    lists.List
+    literals.{Fragment, LiteralError}
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+}
+
+/// Runs `check` over `statics`, the text around a literal's slots, and when
+/// it accepts, runs `build` once per value with that value in every slot.
+/// Returns the built results in the order of `values`, or `check`'s error.
+/// A `build` that fails for a value traps, and the test fails there. Every
+/// slot gets the same value in one build; a test of mixed slot values calls
+/// `build` itself.
+//! import std/url.Url
+//!
+//! statics = ["https://example.com/users/", "?tab=", ""]
+//! built = build_each(statics, ["", "..", "a/b c"], Url.check, Url.build)
+//! assert Ok(urls) = built
+//!
+//! assert Iter.map(urls, fn u -> u.host) |> Iter.to_list() == [
+//!     "example.com",
+//!     "example.com",
+//!     "example.com",
+//! ]
+//!
+//! assert Err(_) = build_each(["https://", "/"], ["x"], Url.check, Url.build)
+//
+pub fn build_each<I, T>(
+    statics: List<String>,
+    values: List<I>,
+    check: (List<String>) -> Result<Unit, LiteralError>,
+    build: (List<Fragment<I>>) -> T,
+) -> Result<List<T>, LiteralError> {
+    case check(statics) {
+        Err(e) ->
+            Err(e)
+
+        Ok(_) ->
+            Ok(
+                values
+                |> Iter.map(fn v -> build(fill(statics, v)))
+                |> Iter.to_list()
+            )
+    }
+}
+
+// The fragments of a literal whose statics are statics and whose every slot
+// holds value.
+fn fill<I>(statics: List<String>, value: I) -> List<Fragment<I>> {
+    statics
+    |> Iter.with_index()
+    |> Iter.flat_map(fn #(i, s) -> {
+        if i == 0 {
+            [Fragment.Static(s)]
+        } else {
+            [Fragment.Dynamic(value), Fragment.Static(s)]
+        }
+    })
+    |> Iter.to_list()
+}

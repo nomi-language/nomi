@@ -27,10 +27,12 @@ import (
 // serves, which is what a program uses instead.
 var internalStdModules = map[string]string{
 	"fs_host":        "fs",
+	"html_host":      "html",
 	"message_format": "message",
 	"money_format":   "money",
 	"process_host":   "process",
 	"http_host":      "http",
+	"toml_host":      "toml",
 	"url_host":       "url",
 }
 

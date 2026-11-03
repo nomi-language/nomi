@@ -69,7 +69,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 				// unboxed only when the payload cannot reach this enum
 				// back, so its own check never re-enters this one.
 				userEnum := p.k.tag == tagNamed && p.k.def != nil && p.k.def.isEnum && p.k.def.preludeOf == nil && irRetainedEnumKind(p.k.def)
-				if !(irRetainedLeafKind(p.k) || irChannelFieldKind(p.k) || irStructPayload(p.k) || userEnum ||
+				if !(irRetainedLeafKind(p.k) || irHandleFieldKind(p.k) || irStructPayload(p.k) || userEnum ||
 					(d.preludeOf == nil && irPreludeVariantField(d, p.k, outer)) || (d.preludeOf == nil && irSeqPayload(d, p.k, outer)) ||
 					(d.preludeOf == nil && irNominalListPayload(p.k, append(outer, d))) ||
 					(d.preludeOf == nil && irAcyclicValuePayload(p.k, append(outer, d)))) {
@@ -348,7 +348,7 @@ func irFlatPayload(k kind) bool {
 // co-inductive arms, so deciding this one cannot re-enter the walk.
 //
 // A payload holding a channel or task handle is left to the channel field
-// rule (irChannelFieldKind): irKindReaches does not look through a handle's
+// rule (irHandleFieldKind): irKindReaches does not look through a handle's
 // element, so `Ask {reply: Channel<Request>}` inside Request would recurse.
 func irAcyclicValuePayload(k kind, deciding []*typeDef) bool {
 	return !irHoldsConcHandle(k, 0) && !irKindReaches(k, deciding) && irCallableValueKind(k)

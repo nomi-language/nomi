@@ -1,0 +1,31 @@
+// Type-qualified calls into another file's impl functions, none of which
+// this file could lower before (instimplaccessor.go, qualEraseSlotted): a
+// generic type's constructor skipping a default that names `Duration`,
+// which this file never imports, positionally and by name; and a concrete
+// value entering an interface-typed parameter, with defaults left out.
+import lib.{Box, Greeter, Named}
+
+struct Cat {
+    nick: String
+}
+
+impl Named for Cat {
+    fn name(cat: Cat) -> String {
+        cat.nick
+    }
+}
+
+fn double(n: Int) -> Int {
+    n * 2
+}
+
+fn main() {
+    a = Box.new("a", double)
+    dbg #(a.size, Box.wait_seconds(a), a.handler(4))
+    b = Box.new("b", size: 3, double)
+    dbg #(b.size, Box.wait_seconds(b), b.handler(5))
+    c = Box.new("c", size: 2, fn s: String -> String.length(s))
+    dbg #(c.size, Box.wait_seconds(c), c.handler("four"))
+    dbg Greeter.new(Cat{nick: "Tom"}).greeting
+    dbg Greeter.new(Cat{nick: "Tom"}, punct: "?").greeting
+}

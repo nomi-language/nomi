@@ -258,6 +258,24 @@ const vmNotEnteredClass = "PROBE: the machine entered the body on no synthesized
 // value of another type.
 const vmNeverParamClass = "NEVER: a parameter is Infallible, so nothing can call it"
 
+// vmNetworkClass is a function of std/http, std/net or std/tls, which a
+// program reaches through std/storage. On made-up arguments those dial,
+// listen and resolve names, and a lookup inside the probe's synctest bubble
+// is a fatal error that ends the whole test binary, so the probe does not
+// run them. std/http's own tests, and the corpus programs that call them,
+// run them on the real machine.
+const vmNetworkClass = "NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments"
+
+// vmNetworkDecl reports whether decl, a retained function's declaring file,
+// is one of the std modules vmNetworkClass names.
+func vmNetworkDecl(decl string) bool {
+	switch decl {
+	case "std/http.nomi", "std/net.nomi", "std/tls.nomi":
+		return true
+	}
+	return false
+}
+
 // vmNeverParam reports whether fn takes a parameter of Infallible.
 func vmNeverParam(fn *ir.Func) bool {
 	for _, p := range fn.Params() {
@@ -1164,6 +1182,11 @@ func TestIRRetainedPopulationRuns(t *testing.T) {
 			lines = append(lines, key+"\t"+vmNeverParamClass)
 			continue
 		}
+		if vmNetworkDecl(e.decl) {
+			failures[vmNetworkClass] = append(failures[vmNetworkClass], e.rel+":"+fn.Name())
+			lines = append(lines, key+"\t"+vmNetworkClass)
+			continue
+		}
 		if missing := vmUnimplementedIfaces(e.mod, fn, e.links); len(missing) > 0 {
 			unimplemented = append(unimplemented, fmt.Sprintf("%s:%s (%s)", e.rel, fn.Name(), strings.Join(missing, ", ")))
 		}
@@ -1254,6 +1277,7 @@ func vmCheckBuckets(t *testing.T, failures map[string][]string) {
 		vmUnlinkedClass:                                     true,
 		vmNotEnteredClass:                                   true,
 		vmNeverParamClass:                                   true,
+		vmNetworkClass:                                      true,
 	}
 	for class, members := range failures {
 		if !known[class] && !strings.HasPrefix(class, "VOCABULARY") && !strings.HasPrefix(class, "IDENTITY") {

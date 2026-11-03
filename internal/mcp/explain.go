@@ -24,8 +24,9 @@ var explanations = map[string]string{
 		"Every use of the name still means the built-in, so other errors may follow from this one. Rename the declaration.",
 	"boot-result": "An entry file's `boot` must return `Result<App, E>`: the application struct in `Ok`, " +
 		"or the error that stops the program. Wrap the struct: `Ok(App{...})`.",
-	"invalid-literal": "A backtick typed literal (``Url`...` ``, ``Regex`...` ``, ``Locale`...` ``) does not parse " +
-		"as its type, and the message says why. The literal is checked at compile time; fix its text.",
+	"invalid-literal": "A typed literal checked at compile time does not parse as its type, and the message says why: " +
+		"a backtick literal (``Regex`...` ``, ``Locale`...` ``), or a checked literal in any quotes (`Url\"...\"`), " +
+		"whose error points at the character or slot its type refused. Fix the literal's text.",
 	"unlisted-currency": "A `Currency.custom` call names a currency its module's `nomi.toml` does not list. " +
 		"List it, or use the currency's literal.",
 	"custom-currency-call": "A `Currency.custom` call with a literal code and digits writes a currency " +

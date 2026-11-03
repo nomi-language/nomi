@@ -495,9 +495,6 @@ func wrapperHasEntryScopedKeys(packages []DiscoveredPackage) bool {
 }
 
 func wrapperTypePrototype(pkg DiscoveredPackage, typ DiscoveredType) string {
-	if typ.GoTypeExpr != "" {
-		return "(" + typ.GoTypeExpr + ")(nil)"
-	}
 	return "(*" + pkg.Alias + "." + typ.TypeName + ")(nil)"
 }
 

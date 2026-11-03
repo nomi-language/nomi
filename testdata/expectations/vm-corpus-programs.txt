@@ -11,6 +11,7 @@
 15-app-and-defer/import_vs_app/import_app.nomi
 15-app-and-defer/with_overrides/app.nomi
 16-concurrency/actor/counter_actor.nomi
+16-concurrency/jobs/app.nomi
 16-concurrency/message_loop/counter_app.nomi
 16-concurrency/supervisors/app.nomi
 19-locales/app_locale/main.nomi

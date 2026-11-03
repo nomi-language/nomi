@@ -534,6 +534,16 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		}
 		return fmt.Errorf("%s does not implement %s", concrete, iface)
 	}
+	// A tuple, an anonymous struct or a function has no impls of its own
+	// (structural_bounds.go).
+	if implements, decided := structuralConformance(concrete, iface, func(p Type) bool {
+		return containsTypeVar(p) || typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, nil)
+	}); decided {
+		if implements {
+			return nil
+		}
+		return typeErrorf("%s does not implement %s", concrete, iface)
+	}
 	concreteName := interfaceImplName(concrete)
 	if concreteName == "" {
 		return typeErrorf("cannot unify %s with %s", iface, concrete)
@@ -551,12 +561,24 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 			continue
 		}
 		recorded = true
-		if implReceiverMatches(info, concrete, impls, implTypeArgs) {
+		// A trial: matching a receiver solves the inference variables
+		// concrete holds (`None`'s `Maybe<?>` against `Maybe<String>`), and
+		// only the one impl that fits may keep that solution.
+		saved := saveTypeVars(concrete)
+		matches := implReceiverMatches(info, concrete, impls, implTypeArgs)
+		saved.restore()
+		if matches {
 			infos = append(infos, info)
 		}
 	}
 	if recorded && len(infos) == 0 {
 		return fmt.Errorf("%s does not implement %s", concrete, iface.Name)
+	}
+	if len(infos) == 1 && containsTypeVar(concrete) {
+		// One impl fits a value whose type is not yet solved: the value is
+		// of that impl's receiver, as `show(None)` against `impl Opt for
+		// Maybe<String>` is a Maybe<String>.
+		implReceiverMatches(infos[0], concrete, impls, implTypeArgs)
 	}
 	if len(iface.TypeArgs) == 0 {
 		return nil
@@ -686,6 +708,11 @@ func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, imp
 		if decided {
 			return implements
 		}
+	}
+	if implements, decided := structuralConformance(concrete, iface, func(p Type) bool {
+		return typeSatisfiesInterfaceForImplMatch(p, iface, impls, implTypeArgs, seen)
+	}); decided {
+		return implements
 	}
 	concreteName := interfaceImplName(concrete)
 	if concreteName == "" || !interfaceImplemented(concreteName, iface.Name, iface.Origin, impls) {

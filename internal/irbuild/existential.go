@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"strings"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -280,6 +282,20 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 	if g.reg == nil || src == nil || src.decl == nil {
 		g.importWhy = "existential over a sibling file type"
 		return kindInvalid, false
+	}
+	if src.stdOrigin != "" {
+		// A std interface held in another file: this file's def of the
+		// same declaration (stdprogiface.go).
+		if d := g.stdProgIfaceAt(src.stdOrigin, src.decl.Name); d == nil || d.decl != src.decl {
+			g.importWhy = "std interface signature"
+			return kindInvalid, false
+		} else if src.instOf == nil {
+			if !d.lowerable {
+				g.importWhy = d.why
+				return kindInvalid, false
+			}
+			return existential(d), true
+		}
 	}
 	if src.instOf != nil {
 		// `Gets<String>` held in another file: its instance here.
@@ -586,6 +602,13 @@ func pickAnyName(n ast.Node, out map[string]bool) bool {
 		out[t.Module] = true
 	case *ast.TypeIdent:
 		out[t.Name] = true
+	case *ast.TaggedString:
+		// A typed literal's tag names its type, or the file that declares
+		// it (`url.Url`): the literal's handler is found through it.
+		if t.Tag != "" {
+			name, _, _ := strings.Cut(t.Tag, ".")
+			out[name] = true
+		}
 	}
 	return false
 }
@@ -632,16 +655,14 @@ func buildImplIndex(gens []*gen) *implIndex {
 		// genericimpl.go.
 		for _, e := range g.genericImplQueue {
 			d := e.impl
-			if !d.lowerable || d.iface == nil || d.iface.decl == nil {
-				continue
+			if iface := implIface(d); d.lowerable && iface != nil && iface.decl != nil {
+				x.has[implKeyFor(iface, d.recv)] = true
 			}
-			x.has[implKeyFor(d.iface, d.recv)] = true
 		}
 		for _, d := range g.implOrder {
-			if !d.lowerable || d.iface == nil || d.iface.decl == nil {
-				continue
+			if iface := implIface(d); d.lowerable && iface != nil && iface.decl != nil {
+				x.has[implKeyFor(iface, d.recv)] = true
 			}
-			x.has[implKeyFor(d.iface, d.recv)] = true
 		}
 	}
 	return x
@@ -686,6 +707,10 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	// asked through one function. See debugerased.go.
 	if g.bindsStdScalarImpl(d, k) {
 		return true
+	}
+	if d.stdOrigin != "" {
+		// A std interface built from std's declaration (stdprogiface.go).
+		return g.stdProgBinds(d, k)
 	}
 	if g.impls != nil && d.decl != nil && g.impls.has[implKeyFor(d, k)] {
 		return true

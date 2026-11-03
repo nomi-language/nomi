@@ -26,8 +26,8 @@ fn main() {
     io.print(unwrap(a))
 
     // And through the typed-literal desugaring, whose handler is std's own
-    // `impl Literal for Toml`. The triple-quote body is dedented at lex time,
-    // so what reaches `from_fragments` is already the final text.
+    // `impl CheckedLiteral for Toml`. The triple-quote body is dedented at lex
+    // time, so what reaches `build` is already the final text.
     b = Toml"""
         y = 2
         z = 3
@@ -35,10 +35,9 @@ fn main() {
 
     io.print(unwrap(b))
 
-    // NOT exercised here, and measured rather than assumed: a `${n}` slot for a
-    // SCALAR is refused as `argument type mismatch (Toml.from_fragments slot is
-    // Display, got Int)`. Widening a scalar into an existential at a slot is its
-    // own gap and predates this row; testdata/typed_literal.nomi's `Doc` handler
-    // already exercises the Dynamic half of `Fragment<Display>` with struct
-    // payloads that carry their own `impl Display`.
+    // A slot is written for where it stands: an Int in key position as a
+    // quoted key, a String in value position quoted and escaped.
+    n = 7
+    name = "a \"b\""
+    io.print(Toml.text(Toml"${n} = ${name}"))
 }

@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -12,14 +13,18 @@ import (
 )
 
 // TestLibModules runs the first-party modules under lib/ as their checkout
-// runs them: `nomi test` on the sqlite driver and on sqlkit, `nomi tool
-// sqlkit generate --check` and `nomi test .` in the shop example, and the
-// driver's Go tests (`go test ./...` in lib/sql/sqlite, its own Go
+// runs them: `nomi test` on the sqlite and postgres drivers, on migrate, on
+// sqlkit, on the Postgres jobs queue and its notify example, on the S3
+// storage backend and its MinIO project (skipped without `minio` on PATH),
+// `nomi tool sqlkit generate --check` and `nomi test .` in the shop
+// example, and the drivers' Go tests (`go test ./...` in each, its own Go
 // module). Each is its own module with its own go.mod, which root `go test
-// ./...` does not reach. They require modernc.org/sqlite, which the
-// compiler's module does not: `go mod download` in lib/sql/sqlite puts it in
-// the Go module cache first, from the network when the cache lacks it.
-// Every case must pass.
+// ./...` does not reach. They require modernc.org/sqlite and pgx, which the
+// compiler's module does not: `go mod download` in sqlkit, whose module
+// graph holds both drivers through migrate, puts them in the Go module cache
+// first, from the network when the cache lacks them. The postgres, migrate
+// and jobs runs skip where postgres.scratch() cannot start a server. Every
+// case must pass.
 func TestLibModules(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; builds the sqlite driver's runner; -short")
@@ -27,9 +32,9 @@ func TestLibModules(t *testing.T) {
 	root := repoRoot(t)
 	sqliteDir := filepath.Join(root, "lib", "sql", "sqlite")
 	download := exec.Command("go", "mod", "download")
-	download.Dir = sqliteDir
+	download.Dir = filepath.Join(root, "lib", "sql", "sqlkit")
 	if out, err := download.CombinedOutput(); err != nil {
-		t.Fatalf("go mod download in lib/sql/sqlite: %v\n%s", err, out)
+		t.Fatalf("go mod download in lib/sql/sqlkit: %v\n%s", err, out)
 	}
 	// One wrapper cache for every run, so the shop's runner reuses what the
 	// driver's built; the managed toolchain is never downloaded.
@@ -78,4 +83,109 @@ func TestLibModules(t *testing.T) {
 			t.Fatalf("go test ./... in lib/sql/sqlite: %v\n%s", err, out)
 		}
 	})
+	markdownDir := filepath.Join(root, "lib", "markdown")
+	t.Run("markdown", func(t *testing.T) {
+		download := exec.Command("go", "mod", "download")
+		download.Dir = markdownDir
+		if out, err := download.CombinedOutput(); err != nil {
+			t.Fatalf("go mod download in lib/markdown: %v\n%s", err, out)
+		}
+		passes(t, root, "test", filepath.Join("lib", "markdown"))
+	})
+	t.Run("markdown's Go tests", func(t *testing.T) {
+		cmd := exec.Command("go", "test", "-count=1", "./...")
+		cmd.Dir = markdownDir
+		cmd.Env = os.Environ()
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go test ./... in lib/markdown: %v\n%s", err, out)
+		}
+	})
+	imageDir := filepath.Join(root, "lib", "image")
+	t.Run("image", func(t *testing.T) {
+		download := exec.Command("go", "mod", "download")
+		download.Dir = imageDir
+		if out, err := download.CombinedOutput(); err != nil {
+			t.Fatalf("go mod download in lib/image: %v\n%s", err, out)
+		}
+		passes(t, root, "test", filepath.Join("lib", "image"))
+	})
+	t.Run("image's Go tests", func(t *testing.T) {
+		cmd := exec.Command("go", "test", "-count=1", "./...")
+		cmd.Dir = imageDir
+		cmd.Env = os.Environ()
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go test ./... in lib/image: %v\n%s", err, out)
+		}
+	})
+	// The postgres driver's tests run on postgres.scratch()'s throwaway
+	// server, which needs initdb and postgres on PATH and a POSIX shell.
+	postgresDir := filepath.Join(root, "lib", "sql", "postgres")
+	t.Run("postgres", func(t *testing.T) {
+		requireScratchPostgres(t)
+		download := exec.Command("go", "mod", "download")
+		download.Dir = postgresDir
+		if out, err := download.CombinedOutput(); err != nil {
+			t.Fatalf("go mod download in lib/sql/postgres: %v\n%s", err, out)
+		}
+		passes(t, root, "test", filepath.Join("lib", "sql", "postgres"))
+	})
+	// migrate's tests run each case on SQLite and on postgres.scratch()'s
+	// server, and two processes at once on Postgres.
+	t.Run("migrate", func(t *testing.T) {
+		requireScratchPostgres(t)
+		passes(t, root, "test", filepath.Join("lib", "sql", "migrate"))
+	})
+	// The jobs queue over Postgres and the example that ports an app's
+	// notifications to it run on the same scratch servers.
+	t.Run("jobs/postgres", func(t *testing.T) {
+		requireScratchPostgres(t)
+		passes(t, root, "test", filepath.Join("lib", "jobs", "postgres"))
+	})
+	t.Run("jobs/examples/notify", func(t *testing.T) {
+		requireScratchPostgres(t)
+		passes(t, root, "test", filepath.Join("lib", "jobs", "examples", "notify"))
+	})
+	// The S3 backend's own tests need no server: they sign AWS's published
+	// examples and answer requests with std/http_testing. The MinIO
+	// project runs it against a real server.
+	t.Run("storage/s3", func(t *testing.T) {
+		passes(t, root, "test", filepath.Join("lib", "storage", "s3"))
+	})
+	t.Run("storage/minio", func(t *testing.T) {
+		requireMinio(t)
+		passes(t, root, "test", filepath.Join("lib", "storage", "minio"))
+	})
+	t.Run("postgres's Go tests", func(t *testing.T) {
+		requireScratchPostgres(t)
+		cmd := exec.Command("go", "test", "-count=1", "./...")
+		cmd.Dir = postgresDir
+		cmd.Env = os.Environ()
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("go test ./... in lib/sql/postgres: %v\n%s", err, out)
+		}
+	})
+}
+
+// requireMinio skips a test that starts a MinIO server when `minio` is not
+// on PATH. A Nomi test cannot skip itself, which is why the MinIO tests are
+// a project of their own.
+func requireMinio(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("minio"); err != nil {
+		t.Skip("minio is not on PATH, so lib/storage/minio has no server to run")
+	}
+}
+
+// requireScratchPostgres skips a test that needs postgres.scratch()'s
+// server when this machine cannot run one.
+func requireScratchPostgres(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("postgres.scratch() needs a POSIX shell to stop its server")
+	}
+	for _, tool := range []string{"initdb", "postgres"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s is not on PATH, so postgres.scratch() has no server to run", tool)
+		}
+	}
 }

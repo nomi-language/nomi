@@ -46,7 +46,7 @@ import {
 //#   chosen by the needle's type, so a `String` also satisfies
 //#   `where C: Contains<String>`.
 //# - `String.replace` replaces every match. With a `Regex` it expands group
-//#   references in the replacement by Go's `regexp` rules; with any other
+//#   references in the replacement (`$1`, `${name}`, `$$` for a `$`); with any other
 //#   matcher the replacement is literal text.
 //# - `String.captures` and `String.captures_all` take a `Regex` rather than
 //#   any `Matcher`, since only a regex has groups, and answer each match's

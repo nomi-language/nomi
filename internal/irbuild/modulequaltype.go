@@ -62,11 +62,12 @@ import (
 // function over: the member must be an `*ast.SimpleType`, because a generic
 // declaration is refused in its own file too and a mirror inherits that.
 //
-// A qualified INTERFACE (`store.Store` where `Store` is an `interface`) also
-// declines, because `foreignOwner`'s own rule is that a type lookup must never
-// come back holding an interface — the mirror machinery has no alias, layout or
-// tags for one. An existential over a qualified interface stays refused under
-// its own key.
+// A qualified INTERFACE (`store.Store` where `Store` is an `interface`) is not
+// a type mirror: `foreignOwner`'s rule is that a type lookup never comes back
+// holding an interface, since the mirror machinery has no alias, layout or tags
+// for one. It resolves instead through moduleQualifiedIface, to the interface
+// mirror the bare imported name reaches (foreignIface), so `db: sql.Conn` and
+// `db: Conn` are one existential.
 
 // moduleQualifiedType resolves `<qualifier>.<Name>` to this package's mirror of
 // the declaration the qualifier's module exports under that name.
@@ -113,6 +114,44 @@ func (g *gen) moduleQualifiedOwner(qualifier, name string) *typeOwner {
 		return nil
 	}
 	return o
+}
+
+// moduleQualifiedIface resolves `<qualifier>.<Name>` to this package's def for
+// the interface the qualifier's module exports under that name, by
+// declaration node, as moduleQualifiedType does for a type. It answers for a
+// program's own modules and for the std modules lowered with the program
+// (programStdModules), which the registry holds; other std interfaces are
+// stdProgQualifiedIface's.
+func (g *gen) moduleQualifiedIface(t *ast.QualifiedType) (*ifaceDef, bool) {
+	qualifier, name, ok := qualifiedTypeParts(t)
+	if !ok {
+		return nil, false
+	}
+	return g.moduleQualifiedIfaceNamed(qualifier, name)
+}
+
+// moduleQualifiedIfaceNamed is moduleQualifiedIface reached from the two
+// segments of a call's owner (`storage.Store`, of `storage.Store.exists(s,
+// "x")`). The def is registered in g.ifaces under the dotted spelling, so the
+// type-qualified route (ifaceNamed) reaches the one mirror the bare imported
+// name reaches, defaults and all.
+func (g *gen) moduleQualifiedIfaceNamed(qualifier, name string) (*ifaceDef, bool) {
+	if g.reg == nil || g.fa == nil || g.fileUnit < 0 {
+		return nil, false
+	}
+	scope := g.moduleScope(qualifier)
+	if scope == nil {
+		return nil, false
+	}
+	o := g.ownerOfSymbol(resolvedScopeSymbol(scope, name))
+	if o == nil || !o.isIface {
+		return nil, false
+	}
+	d := g.mirrorIface(o)
+	if _, taken := g.ifaces[qualifier+"."+name]; !taken {
+		g.ifaces[qualifier+"."+name] = d
+	}
+	return d, true
 }
 
 // moduleQualifiedBare is the DOTTED spelling for a declaration named BARE,

@@ -1,0 +1,32 @@
+// `nomi tool migrate adopt [--dir db/migrations] [--url URL]`: once, when a
+// database that golang-migrate kept moves to migrate, record the migrations
+// golang-migrate applied (its table `schema_migrations`) without running
+// them. After it, `up` runs only the newer ones.
+import {
+    std/io
+    std/sql
+    migrate
+    migrate/tools/internal/cli.{self, Options}
+}
+
+struct App {
+    options: Options
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(App{options: cli.options("adopt", startup.args, startup.env)?})
+}
+
+fn main() -> Result<Unit, String> {
+    migrations = migrate.read(App.options.dir) |> Result.map_err(fn e -> "${e}")?
+    db = cli.open(App.options.url) |> Result.map_err(fn e -> "${e}")?
+    defer sql.close_quietly(db)
+    adopted = migrate.adopt_golang_migrate(db, migrations) |> Result.map_err(fn e -> "${e}")?
+
+    case adopted {
+        [] -> io.print("nothing to adopt: every migration golang-migrate applied is recorded")
+        _ -> Iter.each(adopted, fn version -> io.print("recorded ${version}"))
+    }
+
+    Ok(Unit)
+}

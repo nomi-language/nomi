@@ -460,6 +460,7 @@ func (s *programShare) fold(own *implTables, owned map[*FileAnalysis]bool) *Proj
 		TypeMethodByIdentity:        maps.Clone(x.TypeMethodByIdentity),
 		TypeMethodModuleByIdentity:  maps.Clone(x.TypeMethodModuleByIdentity),
 		TypeMethodIdentityConflicts: slices.Clip(x.TypeMethodIdentityConflicts),
+		TypeMethodOrigin:            maps.Clone(x.TypeMethodOrigin),
 		IfaceMethodImplExterns:      maps.Clone(x.IfaceMethodImplExterns),
 		ImplExternFiles:             maps.Clone(x.ImplExternFiles),
 		ImplBlockReceiverExtern:     maps.Clone(x.ImplBlockReceiverExtern),

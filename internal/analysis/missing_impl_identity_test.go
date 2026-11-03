@@ -256,7 +256,8 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // claims and the identity index cannot judge, measured over the stdlib.
 //
 // They are the impls whose headers write type arguments: the 48 OPERATOR
-// pairs (the arithmetic ones and the bitwise ones on Int and Byte), String's Contains, and std/fs's `Lines`, `Chunks` and `Walk` as
+// pairs (the arithmetic ones and the bitwise ones on Int and Byte), String's Contains, Url's
+// `CheckedLiteral<String, Url>` and Toml's `CheckedLiteral<ToToml, Toml>`, and std/fs's `Lines`, `Chunks` and `Walk` as
 // `Iter<Result<...>>`. One mechanism explains the whole set:
 // `ImplBlockInterfaceKey` spells such an impl with its type arguments
 // (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
@@ -283,7 +284,7 @@ const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/Bit
 	"Money/Add Money/Multiply Money/Subtract NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add " +
 	"OffsetDateTime/Subtract Set/Add Set/Subtract Statement/Add " +
-	"String/Add String/Contains Time/Add Time/Subtract Vector/Add " +
+	"String/Add String/Contains Time/Add Time/Subtract Toml/CheckedLiteral Url/CheckedLiteral Vector/Add " +
 	"Walk/Iter"
 
 // A user type that shares a name with a std type implementing an operator

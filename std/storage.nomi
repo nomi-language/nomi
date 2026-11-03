@@ -1,0 +1,542 @@
+//# Object storage: files kept whole under keys, in a directory, an S3
+//# bucket or memory. Code that stores files calls the `Store` interface,
+//# and each backend implements it, so one function serves the local
+//# directory in development, a bucket in production and a test's
+//# `storage_testing.Memory`:
+//#
+//# ```nomi
+//# fn save_avatar(user_id: Int, data: Bytes) -> Result<Url, storage.Error> {
+//#     key = "avatars/${user_id}.png"
+//#     Store.put(App.store, key, data, "image/png")?
+//#     Store.url(App.store, key)
+//# }
+//# ```
+//#
+//# `storage.local(root)` keeps objects as plain files under a directory,
+//# and `storage.handler(store)` serves any store's objects through the app.
+//# `lib/storage/s3` is a backend for any server that speaks the S3
+//# protocol: DigitalOcean Spaces, MinIO, Cloudflare R2, Backblaze B2 and
+//# AWS. Boot code picks one:
+//#
+//# ```nomi
+//# store = if production {
+//#     s3.store(config)?
+//# } else {
+//#     storage.local("tmp/files", public_base: Some(Url`/files/`))
+//# }
+//# ```
+//#
+//# std/storage_testing has `Memory`, a store kept in memory for tests,
+//# `Failing`, a store whose every call fails, and `conformance`, the suite
+//# every backend passes.
+//#
+//# ## Keys
+//#
+//# Every backend enforces one key grammar (`storage.check_key`), so a key
+//# that works on the local store works on S3:
+//#
+//# - 1 to 1,024 bytes, in segments separated by `/`, none of them empty;
+//# - each segment at most 255 bytes, and none starting with `.`;
+//# - only ASCII letters, digits, `-`, `_`, `.` and `~`.
+//#
+//# So `../etc/passwd` and `/abs` are refused before any backend builds a
+//# path or a URL from them. Objects move whole, as `Bytes`; there is no
+//# listing, streaming or multipart upload.
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    debug.Debug
+    display.Display
+    equatable.Equatable
+    fs.{self, Kind, WriteMode}
+    http.{self, Headers, Request, Response, Status}
+    instant.Instant
+    int.Int
+    io
+    iter.Iter
+    maybe.Maybe.{self, None, Some}
+    path
+    results.Result.{self, Err, Ok}
+    strings.String
+    unit.Unit
+    url.Url
+}
+
+/// Why a store call failed.
+//! assert "${Error.NotFound{key: "a.txt"}}" == "no object has the key a.txt"
+//
+pub enum Error {
+    /// No object has the key. `get` answers it; `info` answers `Ok(None)`
+    /// instead, and `delete` answers `Ok`.
+    NotFound {key: String}
+
+    /// The key breaks the key rules (`check_key`). `reason` says which.
+    InvalidKey {key: String, reason: String}
+
+    /// The content type is empty, longer than 255 characters, or holds a
+    /// character outside printable ASCII.
+    InvalidContentType {content_type: String}
+
+    /// The store was made with no public URL for its objects.
+    NoPublicUrl
+
+    /// The backend refused the credentials or the permission.
+    Denied {message: String}
+
+    /// The backend could not be reached, timed out, or said it is
+    /// overloaded. The same call may succeed later.
+    Unavailable {message: String}
+
+    /// Anything else, with the backend's own code: an S3 error code such as
+    /// `NoSuchBucket`, or an `io.Error` variant's name for the local store.
+    Backend {code: String, message: String}
+}
+
+derive Equatable for Error
+derive Debug for Error
+
+impl Display for Error {
+    fn to_string(error: Error) -> String {
+        case error {
+            .NotFound{key} -> "no object has the key ${key}"
+            .InvalidKey{key, reason} -> "invalid key \"${key}\": ${reason}"
+            .InvalidContentType{content_type} -> "invalid content type \"${content_type}\""
+            .NoPublicUrl -> "the store has no public URL"
+            .Denied{message} -> "denied: ${message}"
+            .Unavailable{message} -> "unavailable: ${message}"
+            .Backend{code, message} -> "${code}: ${message}"
+        }
+    }
+}
+
+/// What a store knows about an object without reading it.
+pub struct Info {
+    /// The size in bytes.
+    size: Int
+    /// The content type `put` stored.
+    content_type: String
+    /// When the object was last stored.
+    modified: Instant
+}
+
+derive Equatable for Info
+derive Debug for Info
+
+/// An object read whole: its bytes and its `Info`.
+pub struct Object {
+    data: Bytes
+    info: Info
+}
+
+derive Equatable for Object
+derive Debug for Object
+
+/// A place objects live, each under a key. `storage.local`, `lib/storage/s3`
+/// and `storage_testing.Memory` implement it.
+///
+/// Every backend follows these rules, and std/storage_testing's
+/// `conformance` suite checks each:
+///
+/// - Every function checks its key with `check_key` first, and answers its
+///   `Err(.InvalidKey)` before doing anything else. `put` then checks the
+///   content type with `check_content_type`.
+/// - `put` replaces any object under the key. A reader sees the old object
+///   or the new one, never part of one.
+/// - `get` and `info` answer the bytes and content type the last `put`
+///   stored, and its size.
+/// - `get` of a missing key is `Err(.NotFound)`; `info` of one is
+///   `Ok(None)`; `delete` of one is `Ok`.
+/// - `url` does no I/O. It answers a URL whether or not the object exists.
+//! import std/storage_testing.Memory
+//!
+//! store: Store = Memory.new()
+//! assert Store.put(store, "notes/a.txt", String.to_bytes("hi"), "text/plain") == Ok(Unit)
+//! assert Store.get(store, "notes/a.txt")!.data == String.to_bytes("hi")
+//! assert Store.exists(store, "notes/b.txt") == Ok(False)
+//
+pub interface Store {
+    /// Stores `data` under `key` with `content_type`, replacing any object
+    /// there.
+    fn put(store: self, key: String, data: Bytes, content_type: String) -> Result<Unit, Error>
+    /// The object under `key`, read whole, or `Err(.NotFound)`.
+    fn get(store: self, key: String) -> Result<Object, Error>
+    /// What the store knows about the object under `key`, or `None` when
+    /// there is none.
+    fn info(store: self, key: String) -> Result<Maybe<Info>, Error>
+    /// Removes the object under `key`. A missing key is `Ok`.
+    fn delete(store: self, key: String) -> Result<Unit, Error>
+    /// Where a reader fetches the object under `key`, with no I/O, or
+    /// `Err(.NoPublicUrl)` from a store made without one.
+    fn url(store: self, key: String) -> Result<Url, Error>
+
+    /// Whether an object has the key.
+    fn exists(store: self, key: String) -> Result<Bool, Error> {
+        info(store, key) |> Result.map(Maybe.is_some)
+    }
+}
+
+/// `Ok` when `key` is a valid key, else `Err(.InvalidKey)` saying why. A
+/// key is 1 to 1,024 bytes of segments separated by `/`; each segment is 1
+/// to 255 bytes of ASCII letters, digits, `-`, `_`, `.` and `~`, and does
+/// not start with `.`.
+//! assert check_key("posts/2024-05-01/a_1.jpg") == Ok(Unit)
+//!
+//! assert check_key("../etc/passwd") == Err(Error.InvalidKey{
+//!         key: "../etc/passwd",
+//!         reason: "segment .. starts with a dot",
+//!     })
+//!
+//! assert check_key("a//b") is Err(.InvalidKey{})
+//! assert check_key("a b") is Err(.InvalidKey{})
+//! assert check_key("") is Err(.InvalidKey{})
+//
+pub fn check_key(key: String) -> Result<Unit, Error> {
+    bad = fn reason: String -> Err(Error.InvalidKey{key, reason})
+    if key == "" { return bad("it is empty") }
+    size = Bytes.length(String.to_bytes(key))
+    if size > 1024 { return bad("it is ${size} bytes, over 1024") }
+
+    if Some(c) = Iter.find(key, fn c -> not String.contains(key_characters(), c)) {
+        return bad("it holds \"${c}\", which is not an ASCII letter, a digit, -, _, . or ~")
+    }
+
+    segments = String.split(key, "/")
+    if Iter.any(segments, fn s -> s == "") { return bad("it has an empty segment") }
+
+    if Some(long) = Iter.find(segments, fn s -> String.length(s) > 255) {
+        return bad("a segment is ${String.length(long)} bytes, over 255")
+    }
+
+    if Some(dotted) = Iter.find(segments, fn s -> String.starts_with(s, ".")) {
+        return bad("segment ${dotted} starts with a dot")
+    }
+
+    Ok(Unit)
+}
+
+fn key_characters() -> String {
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~/"
+}
+
+/// `Ok` when `content_type` can be stored: 1 to 255 characters of
+/// printable ASCII, space to `~`. It refuses CR and LF, which could
+/// otherwise add a header, but does not parse the media type: `image/jpg`
+/// is stored as written.
+//! assert check_content_type("image/jpeg") == Ok(Unit)
+//! assert check_content_type("text/html; charset=utf-8") == Ok(Unit)
+//! assert check_content_type("") is Err(.InvalidContentType{})
+//! assert check_content_type("text/plain\r\nX-Evil: 1") is Err(.InvalidContentType{})
+//
+pub fn check_content_type(content_type: String) -> Result<Unit, Error> {
+    printable = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    length = String.length(content_type)
+
+    if length == 0
+        or length > 255
+        or Iter.any(content_type, fn c -> not String.contains(printable, c)) {
+        Err(Error.InvalidContentType{content_type})
+    } else {
+        Ok(Unit)
+    }
+}
+
+/// A store over the directory `root`. Each object is a plain file at
+/// `<root>/<key>`, so the directory can be backed up, inspected or served
+/// by anything; its content type is kept beside it in
+/// `<root>/.nomi-storage/types/<key>`, which no key can name. `root` is
+/// created on the first `put`.
+///
+/// `public_base` is where the app serves the directory, as
+/// `Some(Url`/files/`)` with a route to `storage.handler`; `url` joins the
+/// key to it. With `None`, `url` answers `Err(.NoPublicUrl)`.
+///
+/// A `put` writes the type file, then the object, each to a temporary file
+/// renamed over the old one, so a reader sees the old object or the new
+/// one. A file someone copied in with no type file is read with the type
+/// `http.detect_content_type` gives its bytes. Errors from the file system
+/// map to `NotFound`, `Denied` for `PermissionDenied`, and `Backend` with
+/// the `io.Error` variant's name for the rest.
+///
+/// It differs from S3 in three ways:
+///
+/// - Keys `a` and `a/b` cannot both exist, since `a` cannot be a file and
+///   a directory. The second `put` is `Err(.Backend)`.
+/// - Two concurrent `put`s to one key may pair one put's bytes with the
+///   other's type. Keys that never collide, as ones built from a timestamp
+///   or a UUID, are safe.
+/// - On a case-insensitive file system, as macOS and Windows have by
+///   default, keys that differ only in case name one file.
+///
+/// The calls go through std/fs, so `fs_testing.run` sandboxes the store in
+/// tests, and `fs.within` applies.
+//! import std/fs_testing
+//!
+//! ran = fs_testing.run(fs_testing.Sandbox{}, fn -> {
+//!     store = local("files", public_base: Some(Url`/files/`))
+//!     Store.put(store, "a/b.txt", String.to_bytes("hi"), "text/plain")?
+//!     Ok(#(Store.get(store, "a/b.txt")?.info.content_type, "${Store.url(store, "a/b.txt")?}"))
+//! })
+//!
+//! assert ran.value == Ok(#("text/plain", "/files/a/b.txt"))
+//! assert fs_testing.text(ran, "/work/files/a/b.txt") == Some("hi")
+//! assert fs_testing.text(ran, "/work/files/.nomi-storage/types/a/b.txt") == Some("text/plain")
+//
+pub fn local(root: String, public_base: Maybe<Url> = None) -> Store {
+    Local{root, public_base}
+}
+
+struct Local {
+    root: String
+    public_base: Maybe<Url>
+}
+
+impl Local {
+    fn object_path(local: Local, key: String) -> String {
+        path.join(local.root, key)
+    }
+
+    fn type_path(local: Local, key: String) -> String {
+        path.join_all([local.root, ".nomi-storage", "types", key])
+    }
+
+    // The stored type of the object at `key`, else what its bytes look like.
+    fn content_type(
+        local: Local,
+        key: String,
+        data: () -> Result<Bytes, Error>,
+    ) -> Result<String, Error> {
+        case fs.read_text(Local.type_path(local, key)) {
+            Ok(text) -> Ok(text)
+            Err(.NotFound{}) -> data() |> Result.map(http.detect_content_type)
+            Err(.NotADirectory{}) -> data() |> Result.map(http.detect_content_type)
+            Err(.IsADirectory{}) -> data() |> Result.map(http.detect_content_type)
+            Err(e) -> Err(from_io(key, e))
+        }
+    }
+}
+
+impl Store for Local {
+    fn put(local: Local, key: String, data: Bytes, content_type: String) -> Result<Unit, Error> {
+        check_key(key)?
+        check_content_type(content_type)?
+        object = Local.object_path(local, key)
+        type_file = Local.type_path(local, key)
+        make_parent(key, object)?
+        make_parent(key, type_file)?
+
+        fs.write_text(type_file, content_type, mode: WriteMode.ReplaceAtomically)
+        |> Result.map_err(fn e -> from_io(key, e))?
+
+        fs.write(object, data, mode: WriteMode.ReplaceAtomically)
+        |> Result.map_err(fn e -> from_io(key, e))
+    }
+
+    fn get(local: Local, key: String) -> Result<Object, Error> {
+        check_key(key)?
+        object = Local.object_path(local, key)
+        meta = fs.metadata(object) |> Result.map_err(fn e -> missing(key, e))?
+        if meta.kind != Kind.File { return Err(Error.NotFound{key}) }
+        data = fs.read(object) |> Result.map_err(fn e -> missing(key, e))?
+        content_type = Local.content_type(local, key, fn -> Ok(data))?
+
+        Ok(
+            Object{
+                data,
+                info: Info{size: Bytes.length(data), content_type, modified: meta.modified},
+            }
+        )
+    }
+
+    fn info(local: Local, key: String) -> Result<Maybe<Info>, Error> {
+        check_key(key)?
+        object = Local.object_path(local, key)
+
+        case fs.metadata(object) {
+            Ok(meta) when meta.kind == Kind.File -> {
+                content_type = Local.content_type(local, key, fn -> {
+                    fs.read(object) |> Result.map_err(fn e -> missing(key, e))
+                })?
+
+                Ok(Some(Info{size: meta.size, content_type, modified: meta.modified}))
+            }
+
+            Ok(_) ->
+                Ok(None)
+
+            Err(e) ->
+                case missing(key, e) {
+                    .NotFound{} -> Ok(None)
+                    other -> Err(other)
+                }
+        }
+    }
+
+    fn delete(local: Local, key: String) -> Result<Unit, Error> {
+        check_key(key)?
+        object = Local.object_path(local, key)
+
+        is_file = case fs.metadata(object) {
+            Ok(meta) ->
+                meta.kind == Kind.File
+
+            Err(e) ->
+                case missing(key, e) {
+                    .NotFound{} -> False
+                    other -> return Err(other)
+                }
+        }
+
+        if is_file { fs.remove(object) |> Result.map_err(fn e -> from_io(key, e))? }
+
+        case fs.remove(Local.type_path(local, key)) {
+            Ok(_) ->
+                Ok(Unit)
+
+            Err(e) ->
+                case missing(key, e) {
+                    .NotFound{} -> Ok(Unit)
+                    other -> Err(other)
+                }
+        }
+    }
+
+    fn url(local: Local, key: String) -> Result<Url, Error> {
+        check_key(key)?
+
+        case local.public_base {
+            Some(base) -> Ok(Url.join_path(base, [key]))
+            None -> Err(Error.NoPublicUrl)
+        }
+    }
+}
+
+// Create the directories above the file at `file`, which holds `key`.
+fn make_parent(key: String, file: String) -> Result<Unit, Error> {
+    case path.parent(file) {
+        Some(dir) -> fs.create_dir(dir, parents: True) |> Result.map_err(fn e -> from_io(key, e))
+        None -> Ok(Unit)
+    }
+}
+
+// An io.Error from reading `key`, where a path that is not there, or a
+// directory where a file was asked for, means no object has the key.
+fn missing(key: String, error: io.Error) -> Error {
+    case error {
+        .NotADirectory{} -> Error.NotFound{key}
+        .IsADirectory{} -> Error.NotFound{key}
+        _ -> from_io(key, error)
+    }
+}
+
+fn from_io(key: String, error: io.Error) -> Error {
+    case error {
+        .NotFound{} -> Error.NotFound{key}
+        .PermissionDenied{} -> Error.Denied{message: "${error}"}
+        _ -> Error.Backend{code: io_code(error), message: "${error}"}
+    }
+}
+
+fn io_code(error: io.Error) -> String {
+    case error {
+        .NotFound{} -> "NotFound"
+        .AlreadyExists{} -> "AlreadyExists"
+        .PermissionDenied{} -> "PermissionDenied"
+        .NotADirectory{} -> "NotADirectory"
+        .IsADirectory{} -> "IsADirectory"
+        .DirectoryNotEmpty{} -> "DirectoryNotEmpty"
+        .InvalidPath{} -> "InvalidPath"
+        .InvalidText{} -> "InvalidText"
+        .NoSpace{} -> "NoSpace"
+        .ReadOnly{} -> "ReadOnly"
+        .TooManyOpen -> "TooManyOpen"
+        .Closed -> "Closed"
+        .BrokenPipe -> "BrokenPipe"
+        .TimedOut -> "TimedOut"
+        .Unsupported{} -> "Unsupported"
+        .Other{} -> "Other"
+    }
+}
+
+/// A handler that answers `GET` and `HEAD` with the object whose key is the
+/// request's path value `param`, with its stored content type. It answers
+/// `Range` and conditional requests as `Response.content` does. A missing
+/// object or an invalid key is a 404, `Denied` a 403, `Unavailable` a 503,
+/// and any other error a 500.
+///
+/// ```nomi
+/// routes = [#(Route`GET /files/{key...}`, storage.handler(App.store))]
+/// ```
+///
+/// It sets no `Cache-Control`: an app whose keys never change wraps the
+/// handler and adds one. It reads the whole object into memory first,
+/// which suits images and documents, not video.
+//! import std/http.{Method, Status}
+//! import std/http_testing
+//! import std/storage_testing.Memory
+//!
+//! store = Memory.new()
+//! _ = Store.put(store, "a/b.css", String.to_bytes("p{}"), "text/css")
+//! serve = handler(store)
+//!
+//! found = serve(
+//!     Request.with_path_value(http_testing.request(Method.Get, "/files/a/b.css"), "key", "a/b.css")
+//! )
+//!
+//! assert found.status == Status.ok
+//! assert Headers.get(found.headers, "Content-Type") == Some("text/css")
+//! assert Response.text(found) == Ok("p{}")
+//!
+//! missing = serve(Request.with_path_value(http_testing.request(Method.Get, "/files/x"), "key", "x"))
+//! assert missing.status == Status.not_found
+//
+pub fn handler(store: Store, param: String = "key") -> (Request) -> Response {
+    fn request -> {
+        key = Request.path_value(request, param) |> Maybe.with_default("")
+
+        case Store.get(store, key) {
+            Ok(object) -> {
+                response = Response.content(request, key, Some(object.info.modified), object.data)
+
+                typed = response.status == Status.ok
+                    or response.status == Status.partial_content
+                        and not String.starts_with(
+                            Headers.get(response.headers, "Content-Type")
+                            |> Maybe.with_default(""),
+                            "multipart/",
+                        )
+
+                if typed {
+                    #{
+                        ..response,
+                        headers: Headers.set(
+                            response.headers,
+                            "Content-Type",
+                            object.info.content_type,
+                        ),
+                    }
+                } else {
+                    response
+                }
+            }
+
+            Err(error) ->
+                case error {
+                    .NotFound{} ->
+                        Response.error(Status.not_found, "404 page not found")
+
+                    .InvalidKey{} ->
+                        Response.error(Status.not_found, "404 page not found")
+
+                    .Denied{} ->
+                        Response.error(Status.forbidden, "forbidden")
+
+                    .Unavailable{} ->
+                        Response.error(Status.service_unavailable, "service unavailable")
+
+                    _ ->
+                        Response.error(Status.internal_server_error, "internal server error")
+                }
+        }
+    }
+}

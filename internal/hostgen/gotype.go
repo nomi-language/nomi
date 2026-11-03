@@ -2,7 +2,66 @@ package hostgen
 
 import (
 	"reflect"
+	"strconv"
+	"strings"
 )
+
+// typeIdentity is t spelled with the import path of every named type in it:
+// `[]example.com/a/goside.Table`. String spells a named type by its
+// package's name, so the `[]goside.Table` of two packages named goside read
+// alike, and a conversion memoized under String would serve one package's
+// slice to the other's.
+func typeIdentity(t Type) string {
+	if t == nil {
+		return "<nil>"
+	}
+	if t.Name() != "" {
+		if t.PkgPath() == "" {
+			return t.Name()
+		}
+		return t.PkgPath() + "." + t.Name()
+	}
+	switch t.Kind() {
+	case reflect.Pointer:
+		return "*" + typeIdentity(t.Elem())
+	case reflect.Slice:
+		return "[]" + typeIdentity(t.Elem())
+	case reflect.Array:
+		length, _, _ := strings.Cut(strings.TrimPrefix(t.String(), "["), "]")
+		return "[" + length + "]" + typeIdentity(t.Elem())
+	case reflect.Map:
+		return "map[" + typeIdentity(t.Key()) + "]" + typeIdentity(t.Elem())
+	case reflect.Chan:
+		return "chan " + typeIdentity(t.Elem())
+	case reflect.Func:
+		var b strings.Builder
+		b.WriteString("func(")
+		for i := range t.NumIn() {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(typeIdentity(t.In(i)))
+		}
+		b.WriteString(")")
+		if t.IsVariadic() {
+			b.WriteString("...")
+		}
+		for i := range t.NumOut() {
+			b.WriteString(" " + typeIdentity(t.Out(i)))
+		}
+		return b.String()
+	case reflect.Struct:
+		var b strings.Builder
+		b.WriteString("struct{")
+		for i := range t.NumField() {
+			f := t.Field(i)
+			b.WriteString(f.Name + " " + typeIdentity(f.Type) + " " + strconv.Quote(string(f.Tag)) + ";")
+		}
+		b.WriteString("}")
+		return b.String()
+	}
+	return t.String()
+}
 
 // Type is the part of a Go type the generator reads. Two front ends supply
 // it: ReflectType, over a linked function value's reflect.Type (the stdlib
@@ -145,6 +204,9 @@ func isEmptyInterface(t Type) bool {
 func isFrame(t Type) bool {
 	return t != nil && t.Kind() == reflect.Pointer && isNamed(t.Elem(), rtPkg, "Frame")
 }
+
+// isGoContext reports whether t is Go's context.Context.
+func isGoContext(t Type) bool { return isNamed(t, "context", "Context") }
 
 // isRtBytes reports whether t is rt.Bytes.
 func isRtBytes(t Type) bool { return isNamed(t, rtPkg, "Bytes") }

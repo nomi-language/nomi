@@ -1,0 +1,35 @@
+// `nomi tool migrate status [--dir db/migrations] [--url URL]`: print where
+// each migration in the directory stands against the database. It changes
+// nothing, and exits with a failure when a migration changed after it ran.
+import {
+    std/io
+    std/sql
+    migrate
+    migrate/tools/internal/cli.{self, Options}
+}
+
+struct App {
+    options: Options
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(App{options: cli.options("status", startup.args, startup.env)?})
+}
+
+fn main() -> Result<Unit, String> {
+    migrations = migrate.read(App.options.dir) |> Result.map_err(fn e -> "${e}")?
+    db = cli.open(App.options.url) |> Result.map_err(fn e -> "${e}")?
+    defer sql.close_quietly(db)
+    status = migrate.status(db, migrations) |> Result.map_err(fn e -> "${e}")?
+
+    Iter.each(status.applied, fn path -> io.print("applied  ${path}"))
+    Iter.each(status.pending, fn path -> io.print("pending  ${path}"))
+    Iter.each(status.changed, fn path -> io.print("changed  ${path}"))
+    Iter.each(status.missing, fn version -> io.print("missing  ${version} (recorded, no file)"))
+
+    if status.changed != [] {
+        return Err("a migration changed after it was applied; write the change as a new migration")
+    }
+
+    Ok(Unit)
+}

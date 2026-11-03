@@ -1,0 +1,16 @@
+//# The Go-backed half of std/html: the escaping an `Html` template's slots
+//# write their values with (rt/html.go). It is internal; a program imports
+//# std/html.
+
+import strings.String
+
+/// Text escaped for element content or a quoted attribute value: `&`, `<`,
+/// `>`, `"` and `'` as character references.
+pub host fn escape(text: String) -> String
+
+/// The URL itself when it is relative or its scheme is http, https, mailto
+/// or tel, else `about:invalid#unsafe-url`.
+pub host fn filter_url(text: String) -> String
+
+/// One URL path segment, percent-encoded, `:` included.
+pub host fn escape_url_path(text: String) -> String

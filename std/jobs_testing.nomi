@@ -1,0 +1,909 @@
+//# Testing code that uses std/jobs. `Inline` is a `Queue` kept in memory,
+//# and `run_queued` runs every due job in the test's own task, so a test
+//# enqueues, runs and asserts with no database, worker or sleep:
+//#
+//# ```nomi
+//# test "a batch job emails each subscriber" {
+//#     queue = Inline.new()
+//#     _ = jobs.enqueue(queue, Fake.new(), batch_job, BatchArgs{post_id: 7})?
+//#     // The post has two subscribers, so batch_job enqueues two email jobs,
+//#     // which run in the same call.
+//#     ran = run_queued(queue, [batch_job, email_job])
+//#     assert Iter.map(ran, &(&1.kind)) |> Iter.to_list() == ["batch", "email", "email"]
+//# }
+//# ```
+//#
+//# `Inline` ignores the `Conn` it is given, so a job enqueued in a
+//# transaction that rolls back is still stored. A test about rollback runs
+//# against a durable backend. `conformance` is the suite every backend
+//# passes: a backend's own tests run it against queues it opens.
+
+import {
+    bool.Bool.{self, False, True}
+    channels.{Channel, Receiver, Sender}
+    display.Display
+    duration.Duration
+    equatable.Equatable
+    instant.Instant
+    int.Int
+    iter.Iter
+    jobs.{self, Claimed, Handler, Job, JobId, NewJob, Queue, Settle}
+    json.{FromJson, Json}
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    sets.Set
+    sql.{self, Conn}
+    sql_testing.Fake
+    strings.String
+    supervisors.Supervisor
+    tasks.Task
+    timer
+    unit.Unit
+}
+
+/// Where a stored job stands.
+pub enum JobState {
+    Available
+    Running
+    Completed
+    Discarded
+}
+
+derive Equatable for JobState
+
+/// One failed run of a stored job.
+pub struct JobError {
+    attempt: Int
+    at: Instant
+    error: String
+}
+
+derive Equatable for JobError
+
+/// A job as `Inline` holds it.
+pub struct StoredJob {
+    id: JobId
+    queue: String
+    kind: String
+    args: Json
+    state: JobState
+    attempt: Int
+    max_attempts: Int
+    run_at: Instant
+    locked_by: Maybe<String>
+    locked_until: Maybe<Instant>
+    errors: List<JobError>
+    finished_at: Maybe<Instant>
+}
+
+derive Equatable for StoredJob
+
+/// A `Queue` kept in memory, shared by every copy of the value. It ignores
+/// the `Conn` an enqueue gives it, and wakes the workers watching it on
+/// each enqueue. A test usually runs its jobs with `run_queued` rather
+/// than a `Worker`.
+//! queue = Inline.new()
+//! job = Job.new("count", fn _: Int -> Ok(Unit))
+//! assert Result.is_ok(jobs.enqueue(queue, Fake.new(), job, 3))
+//! assert Iter.map(Inline.jobs(queue), &(&1.kind)) |> Iter.to_list() == ["count"]
+//
+pub opaque struct Inline {
+    state: Channel<State>
+    retention: Duration
+}
+
+struct State {
+    next_id: Int
+    jobs: List<StoredJob>
+    watchers: List<Sender<Unit>>
+}
+
+impl Inline {
+    /// An empty queue that keeps finished jobs for `retention`.
+    pub fn new(retention: Duration = Duration.hours(24 * 7)) -> Inline {
+        state: Channel<State> = Channel.buffered(1)
+        _ = Sender.send(state.sender, State{next_id: 1, jobs: [], watchers: []})
+        Inline{state, retention}
+    }
+
+    /// Every job held, in the order they were enqueued.
+    pub fn jobs(inline: Inline) -> List<StoredJob> {
+        peek(inline).jobs
+    }
+}
+
+impl Queue for Inline {
+    fn insert(inline: Inline, conn: Conn, job: NewJob) -> Result<JobId, sql.Error> {
+        _ = conn
+        now = Instant.now()
+        state = take(inline)
+
+        stored = StoredJob{
+            id: JobId(state.next_id),
+            queue: job.queue,
+            kind: job.kind,
+            args: job.args,
+            state: .Available,
+            attempt: 0,
+            max_attempts: job.max_attempts,
+            run_at: Maybe.with_default(job.run_at, now),
+            locked_by: None,
+            locked_until: None,
+            errors: [],
+            finished_at: None,
+        }
+
+        put(
+            inline,
+            State{
+                next_id: state.next_id + 1,
+                jobs: state.jobs + [stored],
+                watchers: state.watchers,
+            },
+        )
+
+        Iter.each(state.watchers, &jobs.wake(&1))
+        Ok(stored.id)
+    }
+
+    fn claim(
+        inline: Inline,
+        worker: String,
+        queues: List<String>,
+        kinds: List<String>,
+        limit: Int,
+        lease: Duration,
+    ) -> Result<List<Claimed>, sql.Error> {
+        now = Instant.now()
+        state = take(inline)
+
+        picked =
+            state.jobs
+            |> Iter.filter(fn job -> {
+                job.state == .Available
+                    and not Instant.is_before(now, job.run_at)
+                    and Iter.contains(queues, job.queue)
+                    and Iter.contains(kinds, job.kind)
+            })
+            |> Iter.sort_by(fn job -> #(Instant.as_nanos(job.run_at), id_of(job.id)))
+            |> Iter.take(limit)
+            |> Iter.map(&(&1.id))
+            |> Iter.to_set()
+
+        updated =
+            Iter.map(state.jobs, fn job -> {
+                if Set.contains(picked, job.id) {
+                    #{
+                        ..job,
+                        state: .Running,
+                        attempt: job.attempt + 1,
+                        locked_by: Some(worker),
+                        locked_until: Some(now + lease),
+                    }
+                } else {
+                    job
+                }
+            })
+            |> Iter.to_list()
+
+        put(inline, #{..state, jobs: updated})
+
+        claimed =
+            updated
+            |> Iter.filter(fn job -> Set.contains(picked, job.id))
+            |> Iter.sort_by(fn job -> #(Instant.as_nanos(job.run_at), id_of(job.id)))
+            |> Iter.map(fn job -> Claimed{
+                id: job.id,
+                queue: job.queue,
+                kind: job.kind,
+                args: job.args,
+                attempt: job.attempt,
+                max_attempts: job.max_attempts,
+            })
+            |> Iter.to_list()
+
+        Ok(claimed)
+    }
+
+    fn renew(
+        inline: Inline,
+        worker: String,
+        job: Claimed,
+        lease: Duration,
+    ) -> Result<Bool, sql.Error> {
+        now = Instant.now()
+        held(inline, worker, job, fn stored -> #{..stored, locked_until: Some(now + lease)})
+    }
+
+    fn settle(
+        inline: Inline,
+        worker: String,
+        job: Claimed,
+        how: Settle,
+    ) -> Result<Bool, sql.Error> {
+        now = Instant.now()
+
+        held(inline, worker, job, fn stored -> {
+            unlocked = #{..stored, locked_by: None, locked_until: None}
+
+            case how {
+                .Completed ->
+                    #{..unlocked, state: .Completed, finished_at: Some(now)}
+
+                .Retry{at, error} ->
+                    #{
+                        ..unlocked,
+                        state: .Available,
+                        run_at: at,
+                        errors: stored.errors + [JobError{attempt: stored.attempt, at: now, error}],
+                    }
+
+                .Snoozed{at, error} ->
+                    #{
+                        ..unlocked,
+                        state: .Available,
+                        run_at: at,
+                        attempt: stored.attempt - 1,
+                        errors: stored.errors + [JobError{attempt: stored.attempt, at: now, error}],
+                    }
+
+                .Discarded(error) ->
+                    #{
+                        ..unlocked,
+                        state: .Discarded,
+                        finished_at: Some(now),
+                        errors: stored.errors + [JobError{attempt: stored.attempt, at: now, error}],
+                    }
+            }
+        })
+    }
+
+    fn release(inline: Inline, worker: String) -> Result<Int, sql.Error> {
+        now = Instant.now()
+
+        Ok(
+            change_where(inline, fn job -> {
+                job.state == .Running and job.locked_by == Some(worker)
+            }, fn job -> #{
+                ..job,
+                state: .Available,
+                attempt: job.attempt - 1,
+                run_at: now,
+                locked_by: None,
+                locked_until: None,
+            })
+        )
+    }
+
+    fn rescue(inline: Inline) -> Result<Int, sql.Error> {
+        now = Instant.now()
+
+        expired = fn job: StoredJob -> {
+            case job.locked_until {
+                Some(until) -> job.state == .Running and Instant.is_before(until, now)
+                None -> False
+            }
+        }
+
+        Ok(
+            change_where(inline, expired, fn job -> {
+                unlocked = #{
+                    ..job,
+                    locked_by: None,
+                    locked_until: None,
+                    errors: job.errors + [
+                        JobError{attempt: job.attempt, at: now, error: "lease expired"},
+                    ],
+                }
+
+                if job.attempt >= job.max_attempts {
+                    #{..unlocked, state: .Discarded, finished_at: Some(now)}
+                } else {
+                    #{..unlocked, state: .Available, run_at: now}
+                }
+            })
+        )
+    }
+
+    fn prune(inline: Inline) -> Result<Int, sql.Error> {
+        cutoff = Instant.now() - inline.retention
+        state = take(inline)
+
+        old = fn job: StoredJob -> {
+            case job.finished_at {
+                Some(at) -> Instant.is_before(at, cutoff)
+                None -> False
+            }
+        }
+
+        kept = state.jobs |> Iter.filter(fn job -> not old(job)) |> Iter.to_list()
+        put(inline, #{..state, jobs: kept})
+        Ok(Iter.count(state.jobs) - Iter.count(kept))
+    }
+
+    fn watch(inline: Inline, supervisor: Supervisor, wake: Sender<Unit>) -> Unit {
+        _ = supervisor
+        state = take(inline)
+        put(inline, #{..state, watchers: state.watchers + [wake]})
+    }
+}
+
+/// One job `run_queued` ran: its id, kind and arguments, and what its
+/// handler answered.
+pub struct Ran {
+    id: JobId
+    kind: String
+    args: Json
+    answer: Result<Unit, jobs.Failure>
+}
+
+derive Equatable for Ran
+
+/// Runs every due job of the kinds `handlers` handle, in the test's own
+/// task, oldest first, and settles each as a worker would. A job a handler
+/// enqueues runs in the same call when it is due; a retried or snoozed job
+/// does not, since it is due later. Answers each job run, in order. Two
+/// handlers of one kind trap, as `Worker.start` does.
+//! queue = Inline.new()
+//!
+//! double = Job.new("double", fn n: Int -> {
+//!     if n > 0 {
+//!         Ok(Unit)
+//!     } else {
+//!         Err(jobs.Failure.Discard("not positive"))
+//!     }
+//! })
+//!
+//! _ = jobs.enqueue(queue, Fake.new(), double, 2)
+//! _ = jobs.enqueue(queue, Fake.new(), double, -1)
+//! ran = run_queued(queue, [double])
+//!
+//! assert Iter.map(ran, &(&1.answer)) |> Iter.to_list() == [
+//!     Ok(Unit),
+//!     Err(jobs.Failure.Discard("not positive")),
+//! ]
+//!
+//! assert Iter.map(Inline.jobs(queue), &(&1.state)) |> Iter.to_list() == [
+//!     JobState.Completed,
+//!     JobState.Discarded,
+//! ]
+//
+pub fn run_queued(queue: Inline, handlers: List<Handler>) -> List<Ran> {
+    by_kind = jobs.handlers_by_kind(handlers)!
+    kinds = Map.keys(by_kind) |> Iter.to_list()
+    run_due(queue, by_kind, kinds, [])
+}
+
+fn run_due(
+    queue: Inline,
+    by_kind: Map<String, Handler>,
+    kinds: List<String>,
+    done: List<Ran>,
+) -> List<Ran> {
+    queues = Inline.jobs(queue) |> Iter.map(&(&1.queue)) |> Iter.to_set() |> Iter.to_list()
+
+    case Queue.claim(queue, "run_queued", queues, kinds, 1, Duration.hours(1)) {
+        Ok([claimed, ..]) -> {
+            answer = case Map.get(by_kind, claimed.kind) {
+                Some(handler) -> jobs.run_one(handler, claimed.args)
+                None -> Err(jobs.Failure.Discard("no handler for ${claimed.kind}"))
+            }
+
+            _ = Queue.settle(
+                queue,
+                "run_queued",
+                claimed,
+                jobs.settle_for(claimed, answer, Instant.now()),
+            )
+
+            ran = Ran{id: claimed.id, kind: claimed.kind, args: claimed.args, answer}
+            run_due(queue, by_kind, kinds, done + [ran])
+        }
+
+        _ ->
+            done
+    }
+}
+
+/// Decodes `text`, a stored job's arguments as JSON, as `job`'s argument
+/// type, or answers the decode error. A test keeps an old payload, copied
+/// out of a queue, decoding against the current type.
+//! job = Job.new("count", fn _: Int -> Ok(Unit))
+//! assert decodes(job, "3") == Ok(3)
+//! assert Result.is_err(decodes(job, "\"three\""))
+//
+pub fn decodes<A>(job: Job<A>, text: String) -> Result<A, String> where A: FromJson {
+    _ = job.kind
+    json = Json.decode(text) |> Result.map_err(fn e -> "${e}")?
+    FromJson.from_json<A>(json) |> Result.map_err(fn e -> "${e}")
+}
+
+/// A queue and a connection to enqueue on, as `conformance` opens them.
+pub struct Opened {
+    queue: Queue
+    conn: Conn
+}
+
+/// A conformance rule a backend broke, and how. Its `Display` is `rule:
+/// message`.
+pub struct Broken {
+    rule: String
+    message: String
+}
+
+derive Equatable for Broken
+
+impl Display for Broken {
+    fn to_string(broken: Broken) -> String {
+        "${broken.rule}: ${broken.message}"
+    }
+}
+
+/// Runs every conformance rule against queues from `open`, and answers the
+/// rules broken: none for a backend that conforms. Each rule opens a fresh
+/// queue on a fresh connection and enqueues jobs of the kinds
+/// `conformance` and `conformance_other` on it. `transactional` is
+/// `False` for a backend that ignores the `Conn` it is given, as `Inline`
+/// does, which skips the rule that a rolled-back enqueue stores no job.
+///
+/// The rules cover a committed enqueue being claimable with its kind,
+/// arguments and attempt, a rolled-back one storing nothing, `run_at`,
+/// oldest first, two claims never taking one job (also from two tasks at
+/// once), each way a job settles, a settle or renew by a worker that does
+/// not hold the job changing nothing, a rescued lease, a late settle after
+/// a rescue, a rescue on the last attempt, `release` freeing only its own
+/// worker's jobs, and the queue and kind filters.
+//! assert conformance(transactional: False, fn -> {
+//!     Ok(Opened{queue: Inline.new(), conn: Fake.new()})
+//! }) == []
+//
+pub fn conformance(
+    transactional: Bool = True,
+    open: () -> Result<Opened, sql.Error>,
+) -> List<Broken> {
+    checks()
+    |> Iter.filter(fn #(rule, _) -> transactional or rule != rolled_back_rule())
+    |> Iter.flat_map(fn #(rule, check) -> {
+        outcome = case open() {
+            Ok(opened) -> check(opened)
+            Err(e) -> Err("cannot open a queue: ${e}")
+        }
+
+        case outcome {
+            Ok(_) -> []
+            Err(message) -> [Broken{rule, message}]
+        }
+    })
+    |> Iter.to_list()
+}
+
+/// The names of the conformance rules, in the order `conformance` runs
+/// them.
+//! assert Iter.contains(rules(), "two claims never take one job")
+//
+pub fn rules() -> List<String> {
+    checks() |> Iter.map(fn #(rule, _) -> rule) |> Iter.to_list()
+}
+
+fn rolled_back_rule() -> String {
+    "a rolled-back enqueue stores no job"
+}
+
+fn job() -> Job<Int> {
+    Job.new("conformance", max_attempts: 3, fn _: Int -> Ok(Unit))
+}
+
+fn other() -> Job<Int> {
+    Job.new("conformance_other", queue: "other", fn _: Int -> Ok(Unit))
+}
+
+fn kinds() -> List<String> {
+    ["conformance", "conformance_other"]
+}
+
+fn all_queues() -> List<String> {
+    ["default", "other"]
+}
+
+fn put_job(o: Opened, n: Int, run_at: Maybe<Instant> = None) -> Result<JobId, String> {
+    jobs.enqueue(o.queue, o.conn, job(), n, run_at: run_at)
+    |> Result.map_err(fn e -> "enqueue: ${e}")
+}
+
+fn claim(
+    o: Opened,
+    worker: String,
+    limit: Int = 1,
+    lease: Duration = Duration.minutes(1),
+) -> Result<List<Claimed>, String> {
+    Queue.claim(o.queue, worker, all_queues(), kinds(), limit, lease)
+    |> Result.map_err(fn e -> "claim: ${e}")
+}
+
+fn claim_one(
+    o: Opened,
+    worker: String,
+    lease: Duration = Duration.minutes(1),
+) -> Result<Claimed, String> {
+    case claim(o, worker, lease: lease)? {
+        [claimed] -> Ok(claimed)
+        got -> Err("a claim answered ${Iter.count(got)} jobs, not 1")
+    }
+}
+
+fn claims_none(o: Opened, worker: String, why: String) -> Result<Unit, String> {
+    case claim(o, worker)? {
+        [] -> Ok(Unit)
+        got -> Err("${why}, and a claim answered ${Iter.count(got)} jobs")
+    }
+}
+
+fn expect(holds: Bool, message: String) -> Result<Unit, String> {
+    if holds { Ok(Unit) } else { Err(message) }
+}
+
+fn settle(o: Opened, worker: String, claimed: Claimed, how: Settle) -> Result<Bool, String> {
+    Queue.settle(o.queue, worker, claimed, how) |> Result.map_err(fn e -> "settle: ${e}")
+}
+
+fn past() -> Instant {
+    Instant.now() - Duration.seconds(1)
+}
+
+// Let a lease of zero run out.
+fn expire(o: Opened) -> Result<Int, String> {
+    timer.sleep(Duration.milliseconds(20))
+    Queue.rescue(o.queue) |> Result.map_err(fn e -> "rescue: ${e}")
+}
+
+fn checks() -> List<#(String, (Opened) -> Result<Unit, String>)> {
+    [
+        #(
+            "a committed enqueue is claimable",
+            fn o -> {
+                committed = sql.transaction(o.conn, fn tx -> jobs.enqueue(o.queue, tx, job(), 7))
+                id = committed |> Result.map_err(fn e -> "enqueue: ${e}")?
+                claimed = claim_one(o, "w1")?
+                expect(claimed.id == id, "the claim answered another job")?
+
+                expect(
+                    claimed.kind == "conformance" and claimed.queue == "default",
+                    "the claim answered the wrong kind or queue",
+                )?
+
+                expect(
+                    claimed.args == Json.Int(7),
+                    "the arguments came back as ${Json.encode(claimed.args)}",
+                )?
+
+                expect(
+                    claimed.attempt == 1 and claimed.max_attempts == 3,
+                    "attempt ${claimed.attempt} of ${claimed.max_attempts}, not 1 of 3",
+                )
+            },
+        ),
+        #(
+            rolled_back_rule(),
+            fn o -> {
+                rolled: Result<Unit, sql.Error> = sql.transaction(o.conn, fn tx -> {
+                    _ = jobs.enqueue(o.queue, tx, job(), 1)?
+                    Err(sql.Error.Database{code: "test", message: "roll back"})
+                })
+
+                _ = rolled
+                claims_none(o, "w1", "the enqueue was rolled back")
+            },
+        ),
+        #(
+            "a job due later is not claimed",
+            fn o -> {
+                _ = put_job(o, 1, run_at: Some(Instant.now() + Duration.hours(1)))?
+                claims_none(o, "w1", "the job is due in an hour")
+            },
+        ),
+        #(
+            "jobs are claimed oldest first",
+            fn o -> {
+                later = put_job(o, 1)?
+                earlier = put_job(o, 2, run_at: Some(Instant.now() - Duration.minutes(1)))?
+                first = claim_one(o, "w1")?
+                second = claim_one(o, "w1")?
+
+                expect(
+                    first.id == earlier and second.id == later,
+                    "the job due first was not claimed first",
+                )
+            },
+        ),
+        #(
+            "two claims never take one job",
+            fn o -> {
+                a = put_job(o, 1)?
+                b = put_job(o, 2)?
+                one = claim_one(o, "w1")?
+                two = claim_one(o, "w2")?
+                expect(one.id != two.id, "both claims answered job ${one.id}")?
+
+                expect(
+                    Iter.to_set([one.id, two.id]) == Iter.to_set([a, b]),
+                    "the claims answered other jobs",
+                )?
+
+                claims_none(o, "w3", "both jobs are running")
+            },
+        ),
+        #(
+            "two tasks claiming at once never take one job",
+            fn o -> {
+                Iter.each(1..=10, fn n -> {
+                    _ = put_job(o, n)
+                })
+
+                ids = concurrent {
+                    first = Task.spawn(fn -> claim(o, "w1", limit: 6))
+                    second = Task.spawn(fn -> claim(o, "w2", limit: 6))
+                    #(Task.await(first), Task.await(second))
+                }
+
+                #(one, two) = ids
+                got = one? + two?
+                distinct = got |> Iter.map(&(&1.id)) |> Iter.to_set()
+
+                expect(
+                    Iter.count(got) == 10 and Set.size(distinct) == 10,
+                    "${Iter.count(got)} claims of ${Set.size(
+                        distinct
+                    )} distinct jobs, not 10 of 10",
+                )
+            },
+        ),
+        #(
+            "a completed job is not claimed again",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1")?
+
+                expect(
+                    settle(o, "w1", claimed, .Completed)?,
+                    "the settle answered that w1 does not hold the job",
+                )?
+
+                claims_none(o, "w1", "the job completed")
+            },
+        ),
+        #(
+            "a retried job comes back with its attempt counted",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1")?
+                _ = settle(o, "w1", claimed, .Retry{at: past(), error: "boom"})?
+                again = claim_one(o, "w1")?
+
+                expect(
+                    again.id == claimed.id and again.attempt == 2,
+                    "attempt ${again.attempt} after a retry, not 2",
+                )
+            },
+        ),
+        #(
+            "a retry due later is not claimed",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1")?
+
+                _ = settle(
+                    o,
+                    "w1",
+                    claimed,
+                    .Retry{at: Instant.now() + Duration.hours(1), error: "boom"},
+                )?
+
+                claims_none(o, "w1", "the retry is due in an hour")
+            },
+        ),
+        #(
+            "a snoozed job comes back without counting the attempt",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1")?
+                _ = settle(o, "w1", claimed, .Snoozed{at: past(), error: "busy"})?
+                again = claim_one(o, "w1")?
+                expect(again.attempt == 1, "attempt ${again.attempt} after a snooze, not 1")
+            },
+        ),
+        #(
+            "a discarded job is never claimed",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1")?
+                _ = settle(o, "w1", claimed, .Discarded("bad"))?
+                claims_none(o, "w1", "the job was discarded")
+            },
+        ),
+        #(
+            "a worker that does not hold a job cannot settle or renew it",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1")?
+
+                renewed =
+                    Queue.renew(o.queue, "w2", claimed, Duration.minutes(1))
+                    |> Result.map_err(fn e -> "renew: ${e}")?
+
+                expect(not renewed, "w2 renewed w1's job")?
+
+                own =
+                    Queue.renew(o.queue, "w1", claimed, Duration.minutes(1))
+                    |> Result.map_err(fn e -> "renew: ${e}")?
+
+                expect(own, "w1 could not renew its own job")?
+                expect(not settle(o, "w2", claimed, .Completed)?, "w2 settled w1's job")?
+                claims_none(o, "w3", "w1 still holds the job")
+            },
+        ),
+        #(
+            "an expired lease is rescued",
+            fn o -> {
+                _ = put_job(o, 1)?
+                claimed = claim_one(o, "w1", lease: Duration.seconds(0))?
+                rescued = expire(o)?
+                expect(rescued == 1, "rescue answered ${rescued}, not 1")?
+                again = claim_one(o, "w2")?
+
+                expect(
+                    again.id == claimed.id and again.attempt == 2,
+                    "attempt ${again.attempt} after a rescue, not 2",
+                )
+            },
+        ),
+        #(
+            "a late settle after a rescue changes nothing",
+            fn o -> {
+                _ = put_job(o, 1)?
+                first = claim_one(o, "w1", lease: Duration.seconds(0))?
+                _ = expire(o)?
+                second = claim_one(o, "w2")?
+
+                expect(
+                    not settle(o, "w1", first, .Completed)?,
+                    "w1's late settle changed the job w2 holds",
+                )?
+
+                expect(settle(o, "w2", second, .Completed)?, "w2 could not settle the job it holds")
+            },
+        ),
+        #(
+            "a rescue on the last attempt discards the job",
+            fn o -> {
+                _ =
+                    jobs.enqueue(
+                        o.queue,
+                        o.conn,
+                        Job.new("conformance", max_attempts: 1, fn _: Int -> Ok(Unit)),
+                        1,
+                    )
+                    |> Result.map_err(fn e -> "enqueue: ${e}")?
+
+                _ = claim_one(o, "w1", lease: Duration.seconds(0))?
+                _ = expire(o)?
+                claims_none(o, "w2", "the job used its one attempt")
+            },
+        ),
+        #(
+            "release frees only its own worker's jobs",
+            fn o -> {
+                _ = put_job(o, 1)?
+                _ = put_job(o, 2)?
+                mine = claim_one(o, "w1")?
+                _ = claim_one(o, "w2")?
+                released = Queue.release(o.queue, "w1") |> Result.map_err(fn e -> "release: ${e}")?
+                expect(released == 1, "release answered ${released}, not 1")?
+                again = claim_one(o, "w3")?
+
+                expect(
+                    again.id == mine.id and again.attempt == 1,
+                    "the released job came back as ${again.id} at attempt ${again.attempt}",
+                )
+            },
+        ),
+        #(
+            "the queue and kind filters hold",
+            fn o -> {
+                _ =
+                    jobs.enqueue(o.queue, o.conn, other(), 1)
+                    |> Result.map_err(fn e -> "enqueue: ${e}")?
+
+                none =
+                    Queue.claim(o.queue, "w1", ["default"], kinds(), 1, Duration.minutes(1))
+                    |> Result.map_err(fn e -> "claim: ${e}")?
+
+                expect(none == [], "a claim of the default queue took a job of queue other")?
+
+                wrong_kind =
+                    Queue.claim(o.queue, "w1", ["other"], ["conformance"], 1, Duration.minutes(1))
+                    |> Result.map_err(fn e -> "claim: ${e}")?
+
+                expect(
+                    wrong_kind == [],
+                    "a claim of kind conformance took a job of kind conformance_other",
+                )?
+
+                right =
+                    Queue.claim(
+                        o.queue,
+                        "w1",
+                        ["other"],
+                        ["conformance_other"],
+                        1,
+                        Duration.minutes(1),
+                    )
+                    |> Result.map_err(fn e -> "claim: ${e}")?
+
+                expect(
+                    Iter.count(right) == 1,
+                    "a claim of the right queue and kind answered ${Iter.count(right)} jobs",
+                )
+            },
+        ),
+    ]
+}
+
+fn id_of(JobId(n)) -> Int {
+    n
+}
+
+// The queue's state, taken out of its channel until `put` puts it back.
+fn take(inline: Inline) -> State {
+    case Receiver.receive(inline.state.receiver) {
+        Some(state) -> state
+        None -> State{next_id: 0, jobs: [], watchers: []}
+    }
+}
+
+fn put(inline: Inline, state: State) {
+    _ = Sender.send(inline.state.sender, state)
+}
+
+fn peek(inline: Inline) -> State {
+    state = take(inline)
+    put(inline, state)
+    state
+}
+
+// Change the job `claimed` names when `worker` still holds it at that
+// attempt, and answer whether it did.
+fn held(
+    inline: Inline,
+    worker: String,
+    claimed: Claimed,
+    change: (StoredJob) -> StoredJob,
+) -> Result<Bool, sql.Error> {
+    holds = fn job: StoredJob -> {
+        job.id == claimed.id
+            and job.state == .Running
+            and job.attempt == claimed.attempt
+            and job.locked_by == Some(worker)
+    }
+
+    Ok(change_where(inline, holds, change) == 1)
+}
+
+// Change every job `matches` picks, and answer how many.
+fn change_where(
+    inline: Inline,
+    matches: (StoredJob) -> Bool,
+    change: (StoredJob) -> StoredJob,
+) -> Int {
+    state = take(inline)
+    count = state.jobs |> Iter.filter(matches) |> Iter.count()
+
+    updated =
+        state.jobs
+        |> Iter.map(fn job -> if matches(job) { change(job) } else { job })
+        |> Iter.to_list()
+
+    put(inline, #{..state, jobs: updated})
+    count
+}

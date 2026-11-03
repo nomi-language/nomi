@@ -1,0 +1,20 @@
+import {
+    std/duration.Duration
+    ffi
+    main.{self, Config}
+}
+
+group "a Go function receives the task's context" {
+    boot main.boot()
+
+    test "no deadline reaches Go outside a bounded region" {
+        assert not ffi.has_deadline()
+        assert ffi.wait_for_cancel(10) == "the context did not end"
+    }
+
+    test "a Context.with_timeout deadline ends the Go call" {
+        with Config.context = Context.with_timeout(Config.context, Duration.milliseconds(50))
+        assert ffi.has_deadline()
+        assert ffi.wait_for_cancel(10000) == "context deadline exceeded"
+    }
+}

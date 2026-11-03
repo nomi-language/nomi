@@ -522,6 +522,9 @@ type gen struct {
 	// irliteralcell.go.
 	literalCells map[*ast.TaggedString]*ir.Symbol
 	literalSites []LiteralSite
+	// checkSites holds each checked literal whose check site this unit
+	// declared (irchecked.go), and whether it lowered.
+	checkSites map[*ast.TaggedString]bool
 	// bangRenders holds the function that renders a failed `!` call's error,
 	// by the error's kind (unwrap.go); nil for a kind with no rendering.
 	bangRenders map[kind]*ir.Symbol
@@ -591,12 +594,37 @@ type gen struct {
 	// See foreignfielddefault.go.
 	fieldDefaults     map[irFieldDefaultFill]*irFieldDefaultReq
 	fieldDefaultQueue []*irFieldDefaultReq
-	genericSubst      []map[string]kind
+	// instImplAccessors interns one request per generic instance's impl
+	// function another file calls omitting a default it cannot name;
+	// instImplAccessorQueue holds them for flushInstImplAccessors. See
+	// instimplaccessor.go.
+	instImplAccessors     map[*implItem]*instImplAccessorReq
+	instImplAccessorQueue []*instImplAccessorReq
+	genericSubst          []map[string]kind
 	// ifaceInsts is one monomorphized *ifaceDef per (impl block, receiver) of a
 	// GENERIC interface. PER-GEN for genericInsts' reason: an instance's method
 	// kinds can name a type one generated package declares. The key needs its
 	// RECEIVER half; see ifaceinst.go.
 	ifaceInsts map[ifaceInstKey]*ifaceInst
+	// stdProgIfaces is this gen's def of each std interface it names that
+	// has no rt table, and stdProgHeld each std type a value of one was
+	// held at unboxed: a builtin scalar, or a std struct or enum. See
+	// stdprogiface.go.
+	stdProgIfaces map[*ast.InterfaceDef]*ifaceDef
+	stdProgHeld   map[*ifaceDef]map[kind]bool
+	// stdSrc is the analysis of the std file whose interface declaration
+	// this gen is resolving, while it does (withStdSrc), and nil otherwise.
+	// srcFA answers it: the declaration's nodes and positions are that
+	// file's, so a position lookup here would read whatever this file wrote
+	// at the same line and column.
+	stdSrc *analysis.FileAnalysis
+	// stdSrcAnchors is each std file's anchors, for resolving the
+	// signatures of an interface it declares (stdSrcTypeOf).
+	stdSrcAnchors map[*analysis.FileAnalysis]stdAnchors
+	// stdProgThunkFailed is each std interface dispatch entry whose
+	// function did not build, so a later boxing site does not build it
+	// again (stdProgThunk).
+	stdProgThunkFailed map[stdProgThunkToken]bool
 	// The generic FUNCTION templates' monomorphized instances. monoInsts
 	// interns one instance per (declaration, argument tuple), monoQueue is the
 	// lowering worklist, monoSig is the instance funcDecl is currently

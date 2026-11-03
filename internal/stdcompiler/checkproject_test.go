@@ -13,7 +13,7 @@ import (
 // TestCheckProjectDiagnosticsArePinned pins `compiler.check_project`'s answers
 // absolutely, as (line, col, message) triples from ProjectSpecDiagnostics. The
 // rows cover every field a ProjectSpec carries: entry point, file map, and the
-// three states of `Maybe<Toml>`.
+// three states of `Maybe<String>`.
 func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -110,9 +110,9 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 		})
 	}
 
-	// `Some(Toml"")` is NOT None, and ProjectSpec carries the manifest as a
+	// `Some("")` is NOT None, and ProjectSpec carries the manifest as a
 	// POINTER for exactly this value: a `string` field would make the two
-	// indistinguishable and silently give `Some(Toml"")` None's behaviour.
+	// indistinguishable and silently give `Some("")` None's behaviour.
 	//
 	// The discriminator turned out sharper than expected and is recorded as
 	// MEASURED rather than as designed: an empty manifest is not a manifest
@@ -122,7 +122,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	t.Run("an EMPTY manifest is Some, not None", func(t *testing.T) {
 		files := map[string]string{"main": "fn main() {\n  Unit\n}\n"}
 		if _, err := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, new("")), ""); err == nil {
-			t.Error("Some(Toml\"\") produced no error, so it was treated as None and the " +
+			t.Error("Some(\"\") produced no error, so it was treated as None and the " +
 				"pointer in ProjectSpec is doing nothing")
 		} else if want := "<compiler.Project manifest>: [module] name is required " +
 			"(non-empty, non-whitespace)"; err.Error() != want {

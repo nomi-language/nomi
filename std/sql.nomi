@@ -137,18 +137,19 @@ impl Literal for Sql {
     //! assert Sql"${1}${2}".parts == ["", "", ""]
     //
     fn from_fragments(fragments: List<Fragment<ToSql>>) -> Statement {
-        // A literal leaves out empty text, so two slots side by side, or one
-        // at either end, have no `Static` between them.
-        #(parts, text, params) = Iter.reduce(fragments, #([], "", []), fn acc, fragment -> {
-            #(parts, text, params) = acc
+        // The fragments alternate Static, Dynamic, ..., Static, with an
+        // empty Static between two slots and at either end, so each Static
+        // is one part and there is one more part than parameters.
+        #(parts, params) = Iter.reduce(fragments, #([], []), fn acc, fragment -> {
+            #(parts, params) = acc
 
             case fragment {
-                .Static(s) -> #(parts, text + s, params)
-                .Dynamic(value) -> #(parts + [text], "", params + [ToSql.to_sql(value)])
+                .Static(s) -> #(parts + [s], params)
+                .Dynamic(value) -> #(parts, params + [ToSql.to_sql(value)])
             }
         })
 
-        Statement{parts: parts + [text], params}
+        Statement{parts, params}
     }
 }
 
@@ -328,7 +329,12 @@ fn where_of(condition: Statement) -> Statement {
 
 /// A value as it crosses to or from a database. `Null` is SQL's NULL;
 /// `Timestamp` is a timestamp without a time zone and `Timestamptz` one
-/// with, which every engine stores as an instant.
+/// with, which every engine stores as an instant. `Array` is a Postgres
+/// array (`WHERE id = ANY(${ids})`), its elements in order; an engine
+/// without arrays refuses one as a parameter.
+//! assert ToSql.to_sql([1, 2]) == Value.Array([Value.Int(1), Value.Int(2)])
+//! assert Value.kind(Value.Array([])) == "Array"
+//
 pub enum Value {
     Null
     Int Int
@@ -343,6 +349,7 @@ pub enum Value {
     Timestamptz Instant
     Uuid Uuid
     Json Json
+    Array List<Value>
 }
 
 derive Equatable for Value
@@ -367,14 +374,15 @@ impl Value {
             .Timestamptz(_) -> "Timestamptz"
             .Uuid(_) -> "Uuid"
             .Json(_) -> "Json"
+            .Array(_) -> "Array"
         }
     }
 }
 
 /// A type that can be sent as a parameter. std implements it for `Int`,
 /// `Float`, `Decimal`, `String`, `Bool`, `Bytes`, `Date`, `Time`,
-/// `NaiveDateTime`, `Instant`, `Uuid`, `Json`, `Value` itself, and
-/// `Maybe<T>`, whose `None` is NULL.
+/// `NaiveDateTime`, `Instant`, `Uuid`, `Json`, `Value` itself,
+/// `Maybe<T>`, whose `None` is NULL, and `List<T>`, which is an `Array`.
 //! assert ToSql.to_sql(Some(3)) == Value.Int(3)
 //! nothing: Maybe<Int> = None
 //! assert ToSql.to_sql(nothing) == Value.Null
@@ -605,6 +613,37 @@ impl FromSql for Maybe<T> where T: FromSql {
         case value {
             .Null -> Ok(None)
             _ -> T.from_sql(value) |> Result.map(Some)
+        }
+    }
+}
+
+impl ToSql for List<T> where T: ToSql {
+    fn to_sql(value: List<T>) -> Value {
+        value |> Iter.map(&T.to_sql(&1)) |> Iter.to_list() |> Value.Array()
+    }
+}
+
+/// An `Array` reads as a `List<T>` when every element reads as a `T`. Its
+/// error names the element type that did not read: `"List<Int>"`, or
+/// `"List"` for a value that is not an array.
+//! ints: Result<List<Int>, String> = List.from_sql(Value.Array([Value.Int(1), Value.Int(2)]))
+//! assert ints == Ok([1, 2])
+//! texts: Result<List<Int>, String> = List.from_sql(Value.Array([Value.Text("a")]))
+//! assert texts == Err("List<Int>")
+//! scalar: Result<List<Int>, String> = List.from_sql(Value.Int(1))
+//! assert scalar == Err("List")
+//
+impl FromSql for List<T> where T: FromSql {
+    fn from_sql(value: Value) -> Result<List<T>, String> {
+        case value {
+            .Array(items) ->
+                items
+                |> Iter.map(&T.from_sql(&1))
+                |> Result.collect()
+                |> Result.map_err(fn element -> "List<${element}>")
+
+            _ ->
+                Err("List")
         }
     }
 }

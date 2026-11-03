@@ -78,11 +78,12 @@ func (g *gen) unitGen(to int) *gen {
 	return g.reg.gens[to]
 }
 
-// irFileSlotDefaults builds the accessors of a `pub fn` another file may call.
+// irFileSlotDefaults builds the accessors of a `fn` another file may call: a
+// `pub fn`, or a private one when the file's partner test is in the program.
 // Called from funcDecl, so an instance of a generic template gets its own
 // with the template's type arguments in scope.
 func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
-	if g.irMod == nil || g.files == nil || sig == nil || !fd.Public || fd.ImplFunction ||
+	if g.irMod == nil || g.files == nil || sig == nil || (!fd.Public && !g.hasPartnerTest()) || fd.ImplFunction ||
 		len(sig.params) != len(fd.Params) || sig.dict != nil || sig.tps != nil {
 		return
 	}
@@ -168,9 +169,18 @@ func (bl *irScalarBuilder) namedSiblingImplFill(t *ast.Call, fa *ast.FieldAccess
 		return false, false
 	}
 	for i, tmp := range temps {
-		if tmp == ir.NoTemp {
+		switch {
+		case tmp == ir.NoTemp:
 			kinds[i] = params[i]
-		} else if kinds[i] != params[i] {
+		case kinds[i] != params[i] && irExistentialKind(params[i]):
+			// A concrete operand of an interface-typed slot enters it by
+			// erasure, as a positional call's does (qualEraseSlotted).
+			v, got, erased := bl.coerceEmpty(t, tmp, kinds[i], params[i])
+			if !erased {
+				return false, true
+			}
+			temps[i], kinds[i] = v, got
+		case kinds[i] != params[i]:
 			return false, true
 		}
 	}

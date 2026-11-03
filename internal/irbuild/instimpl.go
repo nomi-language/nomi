@@ -122,6 +122,10 @@ func (g *gen) ifaceInstTypeOf(name string, params []ast.TypeExpr) (kind, bool) {
 		return kindInvalid, false
 	}
 	d, _ := g.ifaceNamed(name)
+	if d == nil {
+		// `Contains<Int>`: a std generic interface (stdprogiface.go).
+		d = g.stdProgIfaceNamed(name)
+	}
 	tpl := g.genericTemplateDecl(d)
 	if tpl == nil || len(params) != len(tpl.TypeParams) {
 		return kindInvalid, false
@@ -158,6 +162,9 @@ func (g *gen) genericTemplateDecl(d *ifaceDef) *ast.InterfaceDef {
 // its signatures mean the same here (ifaceTemplate), else mirrored from the
 // declaring file's.
 func (g *gen) ifaceInstOf(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceInst {
+	if inst := g.stdProgInst(tpl, subst); inst != nil {
+		return inst
+	}
 	if g.ifaceTemplate(tpl.Name) == tpl {
 		return g.ifaceInstAt(tpl, subst)
 	}
@@ -260,6 +267,10 @@ func (g *gen) importIfaceInstKind(src *ifaceDef) (kind, bool) {
 func (g *gen) projectIfaceInst(ty *analysis.InterfaceType) kind {
 	d, found := g.solvedIface(ty.Origin, ty.Name)
 	if !found {
+		// A std generic interface (stdprogiface.go).
+		d = g.stdProgSolved(ty)
+	}
+	if d == nil {
 		return kindInvalid
 	}
 	tpl := g.genericTemplateDecl(d)

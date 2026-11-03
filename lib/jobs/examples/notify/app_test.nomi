@@ -1,0 +1,74 @@
+import {
+    std/jobs.Worker
+    std/sql.{self, Conn, Row, Sql}
+    std/uuid.Uuid
+    app.{self, App, EmailArgs, add_post, add_user, batch_job, deliveries, email_job, publish, send_email}
+}
+
+fn statuses() -> Result<List<String>, sql.Error> {
+    rows = Conn.query(App.db, Sql"SELECT status FROM notifications ORDER BY status")?
+    seed: Result<List<String>, sql.Error> = Ok([])
+
+    Iter.reduce(rows, seed, fn acc, row -> {
+        found = acc?
+        Ok(found + [Row.get<String>(row, "status")?])
+    })
+}
+
+fn job_count() -> Result<Int, sql.Error> {
+    rows = Conn.query(App.db, Sql"SELECT count(*) AS n FROM nomi_jobs")?
+    Row.get<Int>(Iter.first(rows)!, "n")
+}
+
+group "welovenoah's notifications on a Postgres queue" {
+    boot app.boot()
+
+    test "publishing a post emails each subscriber once" {
+        Worker.start(App.worker, [email_job, batch_job])
+        _ = add_user("ada@example.com", True)?
+        _ = add_user("grace@example.com", True)?
+        _ = add_user("linus@example.com", False)?
+        post = add_post("Cross country")?
+        publish(post)?
+        assert deliveries(2) == ["ada@example.com", "grace@example.com"]
+        assert statuses() == Ok(["sent_to_provider", "sent_to_provider"])
+    }
+
+    test "a publish that rolls back enqueues nothing" {
+        post = add_post("Draft")?
+
+        result: Result<Unit, sql.Error> = sql.transaction(App.db, fn tx -> {
+            _ = Conn.exec(tx, Sql"UPDATE posts SET published = true WHERE id = ${post}")?
+            Err(sql.Error.Database{code: "test", message: "the post did not save"})
+        })
+
+        assert Result.is_err(result)
+        assert job_count() == Ok(0)
+        publish(post)?
+        assert job_count() == Ok(1)
+    }
+
+    test "an email job run twice sends once" {
+        user = add_user("ada@example.com", True)?
+        post = add_post("Bell ringing")?
+
+        rows = Conn.query(
+            App.db,
+            Sql"INSERT INTO notifications (user_id, post_id) VALUES (${user}, ${post}) RETURNING id",
+        )?
+
+        id = Row.get<Uuid>(Iter.first(rows)!, "id")?
+
+        args = EmailArgs{
+            notification_id: id,
+            notification_type: .NewPost,
+            post_id: Some(post),
+            user_id: Some(user),
+        }
+
+        assert send_email(args) == Ok(Unit)
+        assert send_email(args) == Ok(Unit)
+        assert deliveries(1) == ["ada@example.com"]
+        assert statuses() == Ok(["sent_to_provider"])
+    }
+}

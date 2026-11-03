@@ -332,7 +332,14 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAncho
 		if !isEnum || et.Origin != spec.origin || et.Name != spec.nomi {
 			// Not the prelude type: either the name resolves to something
 			// else here, or a file declares its own. Either way there is no
-			// anchor and every use refuses by name.
+			// anchor by NAME, and every use of the name refuses. The
+			// declaration is still std's: a mention that resolves to it by
+			// position (`literals.Fragment<String>` in a file with its own
+			// `Fragment`, or a std interface's signature read against std's
+			// file) reaches it through byDecl.
+			if a := preludeDeclaringAnchor(spec); a != nil {
+				byDecl[a.decl] = a
+			}
 			continue
 		}
 		decl, isDecl := sym.Node.(*ast.EnumDef)

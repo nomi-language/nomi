@@ -65,10 +65,18 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	// A destructuring parameter's name is the parser's synthesized one,
 	// which no named argument can spell, so only a positional fills it.
 	names := make([]string, len(params))
+	// argSlotPlan routes a trailing name (`Job.new("k", max_attempts: 3,
+	// send)`) to a last parameter of function type, as the checker does,
+	// so it needs to know which parameters are functions; nothing else of
+	// their kinds is read here.
+	slotKinds := make([]kind, len(params))
 	for i, p := range params {
 		names[i] = p.Name
+		if _, fn := p.TypeAnnotation.(*ast.FuncType); fn {
+			slotKinds[i] = kind{tag: tagFunc}
+		}
 	}
-	plan, planned := argSlotPlan(t.Args, make([]kind, len(names)), names)
+	plan, planned := argSlotPlan(t.Args, slotKinds, names)
 	if !planned {
 		return no()
 	}
@@ -146,6 +154,19 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 			// `Fake.new(answer: f)`, whose skipped default names what only
 			// the declaring file can: that file's accessors fill every
 			// omitted slot.
+			if !filledHere {
+				return no()
+			}
+			gap = false
+			last = len(temps) - 1
+		}
+	}
+	if gap && isFunc {
+		if filledHere, handled := bl.namedInstanceImplFill(t, fd, kinds, temps); handled {
+			// `Job.new("k", max_attempts: 3, send)` against another file's
+			// generic impl, whose skipped default names what only the
+			// declaring file can: that file's accessors for the instance
+			// fill every omitted slot.
 			if !filledHere {
 				return no()
 			}

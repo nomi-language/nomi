@@ -2,6 +2,8 @@ package rt
 
 import (
 	"crypto/hmac"
+	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
@@ -16,6 +18,20 @@ func SHA256(data Bytes) Bytes {
 // SHA512 is the SHA-512 digest of data, 64 bytes: std/hash's `sha512`.
 func SHA512(data Bytes) Bytes {
 	sum := sha512.Sum512([]byte(data))
+	return Bytes(sum[:])
+}
+
+// MD5 is the MD5 digest of data, 16 bytes: std/hash's `md5`, for formats
+// that still name it. MD5 is broken for security.
+func MD5(data Bytes) Bytes {
+	sum := md5.Sum([]byte(data))
+	return Bytes(sum[:])
+}
+
+// SHA1 is the SHA-1 digest of data, 20 bytes: std/hash's `sha1`, for
+// formats that still name it. SHA-1 is broken for security.
+func SHA1(data Bytes) Bytes {
+	sum := sha1.Sum([]byte(data))
 	return Bytes(sum[:])
 }
 

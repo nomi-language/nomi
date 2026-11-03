@@ -680,8 +680,16 @@ func TestTourWasmRunsTheSqliteDriversTests(t *testing.T) {
 		}
 		t.Skip("node is not on PATH")
 	}
-	m := tourgo.Modules[0]
-	text, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(m.Dir), "sqlite_test.nomi"))
+	dir := ""
+	for _, m := range tourgo.Modules {
+		if m.Name == "sqlite" {
+			dir = m.Dir
+		}
+	}
+	if dir == "" {
+		t.Fatal("the tour links no sqlite module")
+	}
+	text, err := os.ReadFile(filepath.Join("..", filepath.FromSlash(dir), "sqlite_test.nomi"))
 	if err != nil {
 		t.Fatal(err)
 	}

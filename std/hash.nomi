@@ -1,18 +1,30 @@
-//# Cryptographic hashes and message authentication codes over bytes.
-//# `hash.sha256(data)` is the 32-byte SHA-256 digest and `hash.sha512(data)`
-//# the 64-byte SHA-512 digest (FIPS 180-4); each has a `_hex` form, the
-//# lowercase hexadecimal digits `sha256sum` and `sha512sum` print, the form
+//# Cryptographic hashes and message authentication codes over bytes. Each
+//# digest function returns the digest's bytes, and its `_hex` form the
+//# lowercase hexadecimal digits that `sha256sum` and its kin print, the form
 //# a digest is usually written down in. Hash text as its UTF-8 bytes:
 //#
 //# ```nomi
 //# digest = hash.sha256_hex(String.to_bytes("abc"))
 //# ```
 //#
-//# `hash.hmac_sha256(key, data)` and `hash.hmac_sha512(key, data)` are HMACs
-//# (RFC 2104): a digest only a holder of `key` can compute, for signing a
-//# message or a token. Check a MAC someone sent with
-//# `hash.equal_in_constant_time`, never `==`, which returns as soon as a
-//# byte differs and so tells an attacker how much of a forgery was right.
+//# Which one to use:
+//#
+//# - To tell whether data changed, or to name it by its content:
+//#   `sha256` (32 bytes), or `sha512` (64 bytes) when a format asks for it.
+//#   Both are SHA-2 (FIPS 180-4).
+//# - To sign a message or a token so that only a holder of the key can make
+//#   or check it: `hmac_sha256` or `hmac_sha512` (RFC 2104). Check a MAC
+//#   someone sent with `equal_in_constant_time`, never `==`, which returns
+//#   as soon as a byte differs and so tells an attacker how much of a forgery
+//#   was right.
+//# - To match a format that names an older hash: `md5` (ETags, legacy
+//#   checksums) and `sha1` (Git object names). Both are broken for security,
+//#   since inputs with the same digest can be made, so never use them to
+//#   check data someone else could have chosen.
+//#
+//# None of these is for storing passwords. They are fast by design, which
+//# lets an attacker who has the digests guess billions of passwords a
+//# second. std has no password hash.
 //#
 //# Every function here is pure, so a typed literal's handler may call them.
 
@@ -63,6 +75,63 @@ pub host fn sha512(data: Bytes) -> Bytes
 //
 pub fn sha512_hex(data: Bytes) -> String {
     hex.encode(sha512(data))
+}
+
+/// The MD5 digest of `data`: 16 bytes (RFC 1321). MD5 is here for formats
+/// that still name it, such as ETags, legacy checksums and Gravatar's
+/// original URLs. It is broken for security, since anyone can make two
+/// inputs with the same digest; to tell whether data was changed, use
+/// `sha256`, and to sign it, `hmac_sha256`.
+//! import std/hash
+//!
+//! assert Bytes.length(hash.md5(String.to_bytes(""))) == 16
+//
+pub host fn md5(data: Bytes) -> Bytes
+
+/// The MD5 digest of `data` as 32 lowercase hexadecimal digits, the form
+/// `md5sum` prints. Not for security; see `md5`.
+//! import std/hash
+//!
+//! // RFC 1321, appendix A.5.
+//! assert hash.md5_hex(String.to_bytes("")) == "d41d8cd98f00b204e9800998ecf8427e"
+//! assert hash.md5_hex(String.to_bytes("abc")) == "900150983cd24fb0d6963f7d28e17f72"
+//!
+//! assert hash.md5_hex(String.to_bytes("message digest")) == "f96b697d7cb7938d525a2f31aaf161d0"
+//
+//! import std/hash
+//!
+//! // A Gravatar URL can name the MD5 of the trimmed, lowercased email.
+//! email = "  Ada@Example.com "
+//! key = email |> String.trim() |> String.lowercase() |> String.to_bytes() |> hash.md5_hex()
+//! assert key == "3e3417d7ef77d5932a6734b916515ed5"
+//
+pub fn md5_hex(data: Bytes) -> String {
+    hex.encode(md5(data))
+}
+
+/// The SHA-1 digest of `data`: 20 bytes (FIPS 180-4). SHA-1 is here for
+/// formats that still name it, such as Git object names and older
+/// checksums. It is broken for security, since two inputs with the same
+/// digest have been made; to tell whether data was changed, use `sha256`.
+//! import std/hash
+//!
+//! assert Bytes.length(hash.sha1(String.to_bytes(""))) == 20
+//
+pub host fn sha1(data: Bytes) -> Bytes
+
+/// The SHA-1 digest of `data` as 40 lowercase hexadecimal digits, the form
+/// `sha1sum` prints. Not for security; see `sha1`.
+//! import std/hash
+//!
+//! // FIPS 180 examples.
+//! assert hash.sha1_hex(String.to_bytes("")) == "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+//! assert hash.sha1_hex(String.to_bytes("abc")) == "a9993e364706816aba3e25717850c26c9cd0d89d"
+//!
+//! assert hash.sha1_hex(String.to_bytes("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))
+//!     == "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
+//
+pub fn sha1_hex(data: Bytes) -> String {
+    hex.encode(sha1(data))
 }
 
 /// The HMAC-SHA256 of `data` under `key` (RFC 2104): 32 bytes. The same

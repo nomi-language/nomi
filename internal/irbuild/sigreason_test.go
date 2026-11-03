@@ -46,9 +46,8 @@ pub enum Owner.Nested {
 }
 
 // Handler is a LOWERED row: a module-level alias is transparent (typealias.go).
-// u: Literal<Int, Int> supplies the refused half with a type whose absence is a
-// language-level decision: a generic interface has no existential
-// representation.
+// u: Literal<Int, Int> is a LOWERED row too, a boxed generic interface. w: #{}
+// supplies the refused half: a record with no fields has no representation.
 typealias Handler (String) -> String
 
 fn every(
@@ -72,7 +71,8 @@ fn every(
   _s: #{x: Int},
   _t: List<Ordering>,
   _u: Literal<Int, Int>,
-  _v: Iter<Int>
+  _v: Iter<Int>,
+  _w: #{}
 ) -> Int {
   0
 }
@@ -115,8 +115,8 @@ fn main() {
 			}
 		}
 	}
-	if checked != 21 {
-		t.Fatalf("expected to check 21 parameters, checked %d", checked)
+	if checked != 22 {
+		t.Fatalf("expected to check 22 parameters, checked %d", checked)
 	}
 	// Both halves must be non-empty or the property is vacuous: a typeRefusal
 	// that named everything would pass the first arm, and one that named

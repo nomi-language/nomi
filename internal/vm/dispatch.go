@@ -109,7 +109,7 @@ func (m *Machine) displayErased(fr *frame, v any) (string, error) {
 				break
 			}
 			return m.displayCall(fr, sym, v)
-		case rt.KindTuple:
+		case rt.KindTuple, rt.KindAnon:
 			return m.displayStructural(fr, v)
 		}
 		return "", fmt.Errorf("vm: %s: Display over an existential holding %s, and this program's modules did not "+

@@ -1,0 +1,52 @@
+// Runs this project's checks against a real bucket, for a test of a
+// provider by hand:
+//
+//     NOMI_S3_TEST_ENDPOINT=https://nyc3.digitaloceanspaces.com \
+//     NOMI_S3_TEST_BUCKET=my-test-bucket \
+//     NOMI_S3_TEST_ACCESS_KEY=... NOMI_S3_TEST_SECRET_KEY=... \
+//     nomi run lib/storage/minio/real.nomi
+//
+// It writes objects under `conformance/` and `presigned/` in the bucket,
+// and skips the public-object check, which would need a bucket policy.
+import {
+    std/io
+    std/url.Url
+    minio
+    s3.{Config, Credentials}
+}
+
+pub struct App {
+    config: Config
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    variable = fn name: String -> {
+        Map.get(startup.env, name) |> Maybe.to_result("${name} is not set")
+    }
+
+    endpoint = Url.parse(variable("NOMI_S3_TEST_ENDPOINT")?) |> Result.map_err(fn e -> "${e}")?
+
+    config = Config{
+        endpoint,
+        bucket: variable("NOMI_S3_TEST_BUCKET")?,
+        credentials: Credentials{
+            access_key: variable("NOMI_S3_TEST_ACCESS_KEY")?,
+            secret_key: variable("NOMI_S3_TEST_SECRET_KEY")?,
+        },
+        region: Map.get(startup.env, "NOMI_S3_TEST_REGION") |> Maybe.with_default("us-east-1"),
+    }
+
+    Ok(App{config})
+}
+
+fn main() -> Result<Unit, String> {
+    failed = minio.checks(App.config, public: False)
+    Iter.each(failed, fn failure -> io.print(failure))
+
+    if failed == [] {
+        io.print("ok")
+        Ok(Unit)
+    } else {
+        Err("${Iter.count(failed)} checks failed")
+    }
+}

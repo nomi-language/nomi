@@ -188,10 +188,10 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 // addMismatch reports msg, a value of type have refused where want is
 // expected, at line:col, with embedsDowncastHint.
 func (c *checker) addMismatch(line, col int, want, have Type, msg string) {
-	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(mismatchHint(want, have)))
+	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(c.mismatchHint(want, have)))
 }
 
 // addMismatchAt is addMismatch over n's extent: the value that does not fit.
 func (c *checker) addMismatchAt(n ast.Node, want, have Type, msg string) {
-	c.report(shapeLiteralConfusion(errAt(n, msg).WithHint(mismatchHint(want, have)), want, n))
+	c.report(shapeLiteralConfusion(errAt(n, msg).WithHint(c.mismatchHint(want, have)), want, n))
 }

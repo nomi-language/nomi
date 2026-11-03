@@ -636,8 +636,14 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		})
 		return
 	}
-	if len(iface.TypeParamDefs) == 0 && !ContainsTypeParam(receiver) {
-		return // non-generic interface + concrete receiver: no template to record
+	if len(iface.TypeParamDefs) == 0 && !ContainsTypeParam(receiver) && len(concreteTypeArgs(receiver)) == 0 {
+		// A non-generic interface on a receiver with no type arguments: the
+		// receiver's name is the whole match, so there is nothing to record.
+		// One with type arguments (`impl OptionalAttribute for
+		// Maybe<String>`) records its receiver, so a Maybe<Int> is refused
+		// and a bare `None` is solved to the one instance that implements it
+		// (unifyInterfaceAgainstConcrete).
+		return
 	}
 
 	subs := map[*TypeParam_]Type{}
@@ -2546,6 +2552,14 @@ func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Sc
 		if prefix != "" {
 			name = prefix + "." + ts.Name
 		}
+		if tReal.Type == nil && tReal.Kind == SymbolTypeAlias && prefix != "" {
+			// Another module's `typealias` this file reaches through its
+			// qualifier (`sqlkit.Migration`) may not be resolved yet: modules
+			// build their types in an order this file does not control. Its
+			// qualified name is registered for the first lookup instead.
+			registerQualifiedAliasLater(reg, name, tReal)
+			continue
+		}
 		if tReal.Type != nil {
 			switch tReal.Kind {
 			case SymbolStruct, SymbolEnum, SymbolType, SymbolTypeAlias, SymbolInterface:
@@ -2556,6 +2570,19 @@ func registerQualifiedTypesFromScope(reg *TypeRegistry, prefix string, scope *Sc
 			}
 		}
 	}
+}
+
+// registerQualifiedAliasLater registers name for alias's type at the first
+// lookup that finds the alias resolved. A lookup before then finds nothing and
+// leaves the registration in place for the next one.
+func registerQualifiedAliasLater(reg *TypeRegistry, name string, alias *Symbol) {
+	reg.RegisterLazy(name, func() {
+		if alias.Type == nil {
+			registerQualifiedAliasLater(reg, name, alias)
+			return
+		}
+		reg.Register(name, alias.Type)
+	})
 }
 
 func registerQualifiedTypeMembers(reg *TypeRegistry, prefix string, sym *Symbol) {

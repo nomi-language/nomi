@@ -65,7 +65,8 @@ hidden parameter.
 Each impl writes its own type in place of `self`. The parameter's name doesn't
 have to match: the interface says `animal`, and the impls say `d` and `c`.
 Every other parameter keeps the interface's name, since a caller can pass it by
-name. An impl that doesn't use one writes `_ = name` in its body.
+name. An impl that doesn't read one puts an underscore before it, as in
+`_style` for the interface's `style`, and callers still name it `style`.
 
 ## Qualified call shapes
 
@@ -115,6 +116,13 @@ Use the interface's name when two interfaces have a function with the same
 name, or in generic code that knows only the interface (see
 [Interface-bounded generics](#interface-bounded-generics)).
 
+An interface is also a type, and a value of it is called through the
+interface's name. Where a value's type is written as an interface, the
+branches of an `if` or `case` may be different types that implement it:
+`pet: Speech = if quiet { Cat{name: "Tom"} } else { Dog{name: "Rex"} }`,
+then `Speech.speak(pet)`. Without the `: Speech`, the branches must have one
+type.
+
 To sum up the rule for every call:
 
 - A function declared in an `impl Type` or `impl Interface` block is called
@@ -137,6 +145,7 @@ To sum up the rule for every call:
 - An impl's parameter names must match the interface's, except the one in
   `self`'s place: `fn format(r: R, s: String)` for
   `format(value: self, style: String)` is an error that asks for `style`.
+  `_style` matches too, for a parameter the impl doesn't read.
 - `Display` and `Debug` name their functions `to_string` and `inspect`, so
   a type implements both with no clash.
 

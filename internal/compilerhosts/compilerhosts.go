@@ -188,16 +188,12 @@ func projectSpec(v rt.Value) (stdcompiler.ProjectSpec, error) {
 	if m, err := field(v, "Project", "manifest"); err == nil && m != nil {
 		maybe, ok := m.(*rt.Record)
 		if !ok || maybe.Desc.Kind != rt.KindEnum || rt.ShortTypeName(maybe.Desc.Name) != "Maybe" {
-			return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Maybe<Toml>")
+			return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Maybe<String>")
 		}
 		if maybe.Variant().Name == "Some" {
-			toml, ok := maybe.Field(0).(*rt.Record)
-			if !ok || toml.Desc.Kind != rt.KindDistinct || rt.ShortTypeName(toml.Desc.Name) != "Toml" || toml.NumFields() != 1 {
-				return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Maybe<Toml>, got Some(%s)", describe(maybe.Field(0)))
-			}
-			text, ok := toml.Field(0).(string)
+			text, ok := maybe.Field(0).(string)
 			if !ok {
-				return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest expected Toml to wrap String, got %T", toml.Field(0))
+				return stdcompiler.ProjectSpec{}, fmt.Errorf("compiler.Project.manifest must be Maybe<String>, got Some(%s)", describe(maybe.Field(0)))
 			}
 			spec.Manifest = &text
 		}

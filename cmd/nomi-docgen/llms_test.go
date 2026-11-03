@@ -16,6 +16,10 @@ const cheatSheetTokenBudget = 6000
 
 var leftoverHTML = regexp.MustCompile(`<(span|pre|p|section|div|ul|li|a)[ >]|<!--`)
 
+// inlineCode is a Markdown code span, whose markup (std/html's examples) is
+// code a model reads as code, not leftover HTML.
+var inlineCode = regexp.MustCompile("``[^\n]*?``|`[^`\n]*`")
+
 // TestLLMsFiles holds what -llms writes to its sources: llms.txt lists every
 // page of the Coming from…, Language Tour and Libraries groups with its
 // description; llms-full.txt holds the cheat sheet, the spec, Writing Nomi
@@ -81,7 +85,7 @@ func TestLLMsFiles(t *testing.T) {
 	}
 	cheat := files["public/cheatsheet.md"]
 	for name, text := range map[string]string{"llms-full.txt": full, "cheatsheet.md": cheat, "llms.txt": index} {
-		if m := leftoverHTML.FindString(outsideFences(text)); m != "" {
+		if m := leftoverHTML.FindString(inlineCode.ReplaceAllString(outsideFences(text), "")); m != "" {
 			t.Errorf("%s holds HTML (%q); a model reads it as Markdown", name, m)
 		}
 		if strings.Contains(text, "](/") {

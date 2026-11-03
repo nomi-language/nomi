@@ -986,11 +986,11 @@ const opaqueDuration = 0
 
 // opaqueLocale indexes the `Locale` row of opaqueSpecs, the type of
 // LoadError's `locale` fields, pinned as opaqueDuration is.
-const opaqueLocale = 7
+const opaqueLocale = 6
 
 // opaqueCurrency indexes the `Currency` row of opaqueSpecs, the type of
 // NumberParseError's `expected` field, pinned as opaqueLocale is.
-const opaqueCurrency = 18
+const opaqueCurrency = 17
 
 // stdStructVariant is a positional payload holding the stdStructSpecs row
 // at index structIdx, stored in rt's `field`.

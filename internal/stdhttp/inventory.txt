@@ -397,7 +397,7 @@ Values.Add | covered | phase 1 | `Query.add(query, key, value) -> Query`
 Values.Del | covered | phase 1 | `Query.remove(query, key) -> Query`
 Values.Has | covered | phase 1 | `Query.has(query, key) -> Bool`
 Values.Clone | mapped | phase 1 | Values are immutable; nothing to copy
-Values.Encode | covered | phase 1 | `Query.encode(query) -> String` (sorted by key, as Go does)
+Values.Encode | covered | phase 1 | `Query.encode(query) -> String` (in the pairs' order; Go sorts by key)
 
 @ net/http/httptest
 DefaultRemoteAddr | covered | phase 6 | `http_testing.request`'s `remote_address`, `"192.0.2.1:1234"`

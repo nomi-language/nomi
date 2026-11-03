@@ -1,0 +1,67 @@
+import std/url.Url
+
+// A Url"..." slot's value is escaped for where it stands, so no value can
+// change the URL's scheme, user, host or port, or climb its path. Each test
+// lists the values that break its rule, so a failure names them. A slot in
+// the scheme, user or host is a compile error, tested in vmhost
+// (checked_literals_load_test.go).
+once hostile = [
+    "",
+    "a",
+    "a/b c",
+    "../..",
+    "x?y#z",
+    "%zz",
+    "@evil.org",
+    "ü 日本",
+    "x&y",
+    "\u{0}",
+    ".",
+    "..",
+    "//evil.org",
+    "/evil.org",
+]
+
+// Whether the escaped path has a bare dot segment, which would let data
+// climb the path. A leading `/.` is the literal's own, written to keep a path
+// that starts with `//` from naming a host, not a segment a slot wrote.
+fn climbs(u: Url) -> Bool {
+    path = Maybe.with_default(u.raw_path, u.path)
+
+    String.strip_prefix(path, "/./")
+    |> Maybe.map(&("/" + &1))
+    |> Maybe.with_default(path)
+    |> String.split("/")
+    |> Iter.any(fn segment -> segment == "." or segment == "..")
+}
+
+fn breaks(rule: (String) -> Bool) -> List<String> {
+    hostile |> Iter.filter(fn v -> not rule(v)) |> Iter.to_list()
+}
+
+test "a slot in an absolute URL's path keeps its host and cannot climb" {
+    bad = breaks(fn v -> {
+        u = Url"https://api.example.com/greet/${v}/end"
+        u.host == "api.example.com" and u.scheme == "https" and not climbs(u)
+    })
+
+    assert bad == []
+}
+
+test "a slot in a relative URL's path cannot make it name a host" {
+    bad = breaks(fn v -> {
+        u = Url"/${v}/b"
+        u.host == "" and not String.starts_with("${u}", "//") and not climbs(u)
+    })
+
+    assert bad == []
+}
+
+test "a slot in a query keeps its host and path" {
+    bad = breaks(fn v -> {
+        u = Url"https://example.com/search?q=${v}&page=2"
+        u.host == "example.com" and u.path == "/search"
+    })
+
+    assert bad == []
+}

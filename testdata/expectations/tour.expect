@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 356
-declared-cases 178
+records 360
+declared-cases 180
 failing 0
 C app-fields.md:L105
 E 0
@@ -83,6 +83,20 @@ N 1
 H ddd98c693bb3466050638c85c8d1865af29c49d1edffbeebafef20b6255218a3
 T count: Ok(2)
 T ok a counter actor / messages accumulate into state a caller can read back
+T test result: ok. 1 passed, 0 failed
+T
+C background-work.md:L549
+E 0
+N 1
+H 10d6b786d27bbc303bc4d0615d5d71c534fc08ed3b71cfbb4fee9f35ac88e5c9
+T ok a receipt job runs once it is enqueued
+T test result: ok. 1 passed, 0 failed
+T
+C background-work.md:L584
+E 0
+N 1
+H 10e6aafdfa1dd5e1fecbb29908ea72d07f631b2e5642f8f83fc0c359ab079271
+T ok the receipt goes to the customer
 T test result: ok. 1 passed, 0 failed
 T
 C bindings-and-expressions.md:L118
@@ -190,7 +204,7 @@ N 0
 H 6b69232c9c850170547e4ee927872cb7eb2f719ab756f5dc6e7b08bd25667885
 T dbg line 10: area(6, 7) = 42
 T
-C calling-go.md:L185
+C calling-go.md:L186
 E 0
 N 0
 H 7aea34fb4595f432050d3c577f09659e2801420722e0fda73286182eb0dc27c2
@@ -205,28 +219,28 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L123
+C cheat-sheet.md:L130
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L191
+C cheat-sheet.md:L202
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L243
+C cheat-sheet.md:L254
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L277
+C cheat-sheet.md:L288
 E 0
 N 0
 H 2e6d31a5983a91251bfae5aefa1c0a19d8ba3cf601d0e8a706b4cfa9661a6b8a
@@ -239,7 +253,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L329
+C cheat-sheet.md:L340
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -248,7 +262,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L78
+C cheat-sheet.md:L85
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
@@ -399,20 +413,20 @@ N 0
 H 3339a05f5c0b79fd6335143f1aedae34dbda7764e5aebea63f3f6ec5a2c7882b
 T dbg line 40: total = 60
 T
-C databases.md:L129
+C databases.md:L103
+E 0
+N 0
+H ad7644bb362150d94e26cb30eeb2479a10d122c43b2dcc91b052506f66c92bb2
+T dbg line 7: "${statement}" = "SELECT id, name FROM users WHERE email = ?1"
+T dbg line 8: statement.params = [Text("x' OR '1'='1")]
+T
+C databases.md:L136
 E 0
 N 0
 H 9abcd7ad79b8914755b0f27cf4ca0deb95786daf155601933c3f1d20df55bddf
 T dbg line 29: "${orders_query([], None, .Newest)}" = "SELECT id FROM orders ORDER BY placed_at DESC"
 T dbg line 30: "${orders_query(["paid", "shipped"], Some(20d), .Largest)}" = "SELECT id FROM orders WHERE (status IN (?1, ?2)) AND (total >= ?3) ORDER BY total DESC"
 T dbg line 31: orders_query(["paid", "shipped"], Some(20d), .Largest).params = [Text("paid"), Text("shipped"), Decimal(20d)]
-T
-C databases.md:L96
-E 0
-N 0
-H ad7644bb362150d94e26cb30eeb2479a10d122c43b2dcc91b052506f66c92bb2
-T dbg line 7: "${statement}" = "SELECT id, name FROM users WHERE email = ?1"
-T dbg line 8: statement.params = [Text("x' OR '1'='1")]
 T
 C dates-and-times.md:L108
 E 0
@@ -1944,13 +1958,26 @@ H d59ad04725cb4d783d88d6f4bb9d8aa14026593801d2642735e7ac2a2b926600
 T dbg line 10: first_two_sorted([3, 1, 4, 1, 5, 9, 2, 6]) = [1, 1]
 T dbg line 13: first_two_sorted(["banana", "apple", "cherry"]) = ["apple", "banana"]
 T
+C http.md:L112
+E 0
+N 0
+H 17a32976d88b397334d71c10ec2f11af6f247933a3da8dcf1e9ba939bdad603d
+T dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
+T
 C http.md:L15
 E 0
 N 0
 H b2d081ab19838216aa3178588b98237b4643bd979c1b80c5b81b74734a70f366
 T dbg line 20: ran.value = Ok("hello from /greet/ann b")
 T
-C http.md:L60
+C http.md:L197
+E 0
+N 0
+H 7a85e46390ce5ea6c5dc0967f13c2693d828a917d1b6e03ae486a121de9ea31d
+T dbg line 17: "${save_avatar(store, 7, String.to_bytes("png"))!}" = "/files/avatars/7.png"
+T dbg line 21: Headers.get(response.headers, "Content-Type") = Some("image/png")
+T
+C http.md:L62
 E 0
 N 0
 H 3476914905abd2abf097ed7a552d8b47563f2fb0a55baae25df6bab38ad79a78
@@ -1993,7 +2020,7 @@ N 0
 H aab5c9d0af7dacba01e83c352170d8a7b4ff14a83ba39f77e22029b3d29456d0
 T dbg line 14: run.value = Ok(3)
 T
-C interfaces-and-dispatch.md:L156
+C interfaces-and-dispatch.md:L165
 E 0
 N 0
 H fbe745be4a94067d17d210df0a08151b1ee502231cb53e3eea3faf94bbb88d57
@@ -2008,14 +2035,14 @@ H 7cbfa67d63c7401821e4ee56a63a56eadada1f9328fee95092f09413df9f51cc
 T Rex says woof
 T Whiskers says meow
 T
-C interfaces-and-dispatch.md:L239
+C interfaces-and-dispatch.md:L248
 E 0
 N 0
 H 0c00120598cdf765c7396f6d6ee279f7bb215f486dd212275ba09632629d1c7f
 T 250 g
 T hidden
 T
-C interfaces-and-dispatch.md:L297
+C interfaces-and-dispatch.md:L306
 E 0
 N 0
 H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
@@ -2023,19 +2050,19 @@ T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
-C interfaces-and-dispatch.md:L352
+C interfaces-and-dispatch.md:L361
 E 0
 N 0
 H b7c07a37968384ab9150b8d18ca406fd3d66c61f67e7cbe9947b8e5c238d551c
 T Alice (30)
 T
-C interfaces-and-dispatch.md:L385
+C interfaces-and-dispatch.md:L394
 E 0
 N 0
 H ea8ef614947e9a99dcd42f98516b23bc2b1a41e1b7279e70be24143c0f9d1d78
 T dbg line 19: advance(Counter(10), 5) = Counter(15)
 T
-C interfaces-and-dispatch.md:L455
+C interfaces-and-dispatch.md:L464
 E 0
 N 0
 H 9afe3396c64f85408f29af4b133f1dc3b8d762a7d343ddc249b9059a2f5b6633
@@ -2043,7 +2070,7 @@ T dbg line 42: score_number(score) = 5
 T dbg line 43: day_number(day) = 14
 T dbg line 44: plus(Day(10), Days(4)) = Day(14)
 T
-C interfaces-and-dispatch.md:L559
+C interfaces-and-dispatch.md:L568
 E 0
 N 0
 H 34c5c9d41923611f88ff0f6b4007e863d1fbfa1310b14c310e20dcbb46817ff7
@@ -2051,26 +2078,26 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: %{Point{x: 1, y: 2} => "home"} = %{Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L599
+C interfaces-and-dispatch.md:L608
 E 0
 N 0
 H e2c4356c9d61e9f31214a25d5f3ddf6f7fa087a9f98475d9ba01de15d0e70714
 T dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
 T dbg line 10: Version{major: 2, minor: 0} < Version{major: 1, minor: 10} = False
 T
-C interfaces-and-dispatch.md:L627
+C interfaces-and-dispatch.md:L636
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
 T dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 T
-C interfaces-and-dispatch.md:L658
+C interfaces-and-dispatch.md:L667
 E 0
 N 0
 H ccace190313d0ce68b2112eacea99b972c41f5ce58501190cd6b036728688438
 T dbg line 11: Coin.variants() = [Penny, Nickel, Dime, Quarter]
 T
-C interfaces-and-dispatch.md:L711
+C interfaces-and-dispatch.md:L720
 E 0
 N 0
 H 1b4530e286b86a6eb4fbaf9469bc7a0ce7f6c0572572e0a250f21f92c730d11b
@@ -2078,7 +2105,7 @@ T 21.5 C
 T 70.0 F
 T Celsius(20d)
 T
-C interfaces-and-dispatch.md:L77
+C interfaces-and-dispatch.md:L78
 E 0
 N 0
 H b24fe6511e454a5e722bce222b443a440f52dadd74493d534cf20802de47a821

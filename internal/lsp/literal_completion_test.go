@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -108,8 +109,8 @@ func TestLiteralBodyAt(t *testing.T) {
 	}
 }
 
-// Every stdlib type with a `Literal` impl documents at least one example, so
-// completion has something to offer inside each.
+// Every stdlib type with a `Literal` or `CheckedLiteral` impl documents at
+// least one example, so completion has something to offer inside each.
 func TestLiteralCompletion_EveryStdlibLiteralTypeHasAnExample(t *testing.T) {
 	types := map[string][]string{
 		"calendar": {"Date", "Time", "NaiveDateTime", "OffsetDateTime", "DateTime"},
@@ -121,12 +122,10 @@ func TestLiteralCompletion_EveryStdlibLiteralTypeHasAnExample(t *testing.T) {
 		if !ok {
 			t.Fatalf("no std/%s", module)
 		}
-		if !strings.Contains(string(src), "impl Literal for") {
-			t.Fatalf("std/%s declares no Literal impl", module)
-		}
 		for _, name := range names {
-			if !strings.Contains(string(src), "impl Literal for "+name+" {") && !strings.Contains(string(src), "impl Literal for "+name+"<") {
-				t.Errorf("std/%s has no Literal impl for %s", module, name)
+			if !strings.Contains(string(src), "impl Literal for "+name+" {") && !strings.Contains(string(src), "impl Literal for "+name+"<") &&
+				!regexp.MustCompile(`impl CheckedLiteral<[^{]*> for `+name+` \{`).MatchString(string(src)) {
+				t.Errorf("std/%s has no Literal or CheckedLiteral impl for %s", module, name)
 			}
 			if len(docExamples(string(src), name)) == 0 {
 				t.Errorf("std/%s documents no %s literal example", module, name)

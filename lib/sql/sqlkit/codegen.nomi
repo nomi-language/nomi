@@ -333,9 +333,17 @@ pub fn schema_file(s: Schema, migrations: List<#(String, String)>, digest: Strin
     family_imports =
         plain
         |> Iter.flat_map(fn f -> {
+            // The names a family's type mentions that its module declares:
+            // `Uuid` of `List<Uuid>`.
             case f |> Maybe.flat_map(fn x -> x.module |> Maybe.map(fn m -> #(m, x.nomi))) {
-                Some(pair) -> [pair]
-                None -> []
+                Some(#(m, nomi)) ->
+                    type_names(nomi)
+                    |> Iter.reject(&Iter.contains(prelude, &1))
+                    |> Iter.map(fn n -> #(m, n))
+                    |> Iter.to_list()
+
+                None ->
+                    []
             }
         })
         |> Iter.to_list()
@@ -643,9 +651,11 @@ fn function(
             cs
 
         Err(e) -> {
+            reported = "reported by ${s.db.dialect} for `${q.name}`"
+
             p = case sqltext.token_at_offset(tokens, e.offset) {
-                Some(t) -> at_token(q, t, e.message, ["reported by SQLite for `${q.name}`"])
-                None -> at_annotation(q, 1, e.message, ["reported by SQLite for `${q.name}`"])
+                Some(t) -> at_token(q, t, e.message, [reported])
+                None -> at_annotation(q, 1, e.message, [reported])
             }
 
             return Err([p])

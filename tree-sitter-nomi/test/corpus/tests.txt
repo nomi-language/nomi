@@ -364,6 +364,67 @@ fn answer() -> Int { 42 }
         (integer)))))
 
 ================================================================================
+Attached test with an is pattern holding a dot variant
+================================================================================
+
+//! assert check("") is Err(.Invalid{})
+//! assert check("a") is Err(.Invalid{reason: "x"})
+//!
+//! {
+//!     assert true
+//! }
+fn check(s: String) -> Int { 0 }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (decorated_item
+    (attached_test_prompt
+      (attached_comment_test_prompt_marker)
+      body: (assertion
+        value: (is_expression
+          value: (call_expression
+            function: (identifier)
+            (string))
+          pattern: (enum_pattern
+            (type_identifier)
+            (struct_pattern
+              type: (dot_variant
+                (type_identifier))))))
+      (attached_comment_test_line_prompt)
+      body: (assertion
+        value: (is_expression
+          value: (call_expression
+            function: (identifier)
+            (string
+              (string_content)))
+          pattern: (enum_pattern
+            (type_identifier)
+            (struct_pattern
+              type: (dot_variant
+                (type_identifier))
+              (pattern_field
+                name: (identifier)
+                (string
+                  (string_content)))))))
+      (attached_comment_test_line_prompt)
+      (attached_comment_test_line_prompt)
+      body: (body
+        (attached_comment_test_line_prompt)
+        (assertion
+          value: (boolean))
+        (attached_comment_test_line_prompt)))
+    (function_definition
+      name: (identifier)
+      (parameters
+        (parameter
+          name: (identifier)
+          (type_identifier)))
+      return_type: (type_identifier)
+      (body
+        (integer)))))
+
+================================================================================
 Attached test with prompted triple string
 ================================================================================
 

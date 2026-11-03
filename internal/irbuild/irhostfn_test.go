@@ -61,18 +61,37 @@ func irHostFnDistinct(spec *hostadapt.DescSpec, nullary string, n int64, unary s
 	}
 }
 
+// Each binding is keyed under its Nomi module's name, the `[module] name` of
+// the project's nomi.toml (ffirun.BindingModule), so a row's bindings and
+// hosts are under module.
 var irHostFnPrograms = []struct {
 	dir      string
+	module   string
 	want     string
 	bindings []string
 	hosts    vm.HostTable
 }{
-	{"duration_ffi_app", "3000\n", []string{"ffi.timeout", "ffi.double"},
+	{"duration_ffi_app", "durationffiapp", "3000\n", []string{"ffi.timeout", "ffi.double"},
 		irHostFnDistinct(irHostFnDuration, "ffi.timeout", int64(1500*stdtime.Millisecond), "ffi.double", func(d int64) int64 { return d * 2 })},
-	{"time_ffi_app", "1700000001\n", []string{"ffi.created_at", "ffi.plus_second"},
+	{"time_ffi_app", "time_ffi_app", "1700000001\n", []string{"ffi.created_at", "ffi.plus_second"},
 		irHostFnDistinct(irHostFnInstant, "ffi.created_at", stdtime.Unix(1700000000, 250000000).UnixNano(), "ffi.plus_second", func(t int64) int64 { return t + int64(stdtime.Second) })},
-	{"inline_go_block_app", "INLINE\n", []string{"ffi.echo_upper", "ffi.make_box_raw", "ffi.box_label_raw"}, irHostFnBoxBindings},
-	{"tagged_ffi_app", "FIXTURE\n", []string{"ffi.echo_upper", "ffi.make_box_raw", "ffi.box_label_raw"}, irHostFnBoxBindings},
+	{"inline_go_block_app", "inline_go_block_app", "INLINE\n", []string{"ffi.echo_upper", "ffi.make_box_raw", "ffi.box_label_raw"}, irHostFnBoxBindings},
+	{"tagged_ffi_app", "tagged_ffi_app", "FIXTURE\n", []string{"ffi.echo_upper", "ffi.make_box_raw", "ffi.box_label_raw"}, irHostFnBoxBindings},
+}
+
+// irHostFnUnder is hosts with each key under module.
+func irHostFnUnder(module string, hosts vm.HostTable) vm.HostTable {
+	return func(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
+		fns, err := hosts(env)
+		if err != nil {
+			return nil, err
+		}
+		under := make(map[string]hostadapt.Func, len(fns))
+		for key, fn := range fns {
+			under[module+"/"+key] = fn
+		}
+		return under, nil
+	}
 }
 
 func irHostFnBoxBindings(*hostadapt.Env) (map[string]hostadapt.Func, error) {
@@ -120,7 +139,7 @@ func TestIRHostFn_GoBoundProgramsRunOnTheVM(t *testing.T) {
 					}
 					for _, b := range f.Blocks() {
 						for _, in := range b.Instrs() {
-							if c, isCall := in.(*ir.Call); isCall && c.Crosses() && strings.HasPrefix(c.Callee().Name(), hostadapt.ProjectName("ffi.")) {
+							if c, isCall := in.(*ir.Call); isCall && c.Crosses() && strings.HasPrefix(c.Callee().Name(), hostadapt.ProjectName(tc.module+"/ffi.")) {
 								crossings[c.Callee().Name()] = true
 							}
 						}
@@ -128,7 +147,7 @@ func TestIRHostFn_GoBoundProgramsRunOnTheVM(t *testing.T) {
 				}
 			}
 			for _, key := range tc.bindings {
-				if !crossings[hostadapt.ProjectName(key)] {
+				if !crossings[hostadapt.ProjectName(tc.module+"/"+key)] {
 					t.Errorf("no retained body crosses into %s; crossings %v", key, crossings)
 				}
 			}
@@ -137,7 +156,7 @@ func TestIRHostFn_GoBoundProgramsRunOnTheVM(t *testing.T) {
 			}
 
 			var out bytes.Buffer
-			booted, err := vm.NewProgram(entry, res.IRModules(), &out).WithHosts(hostadapt.ProjectTable(tc.hosts)).Boot()
+			booted, err := vm.NewProgram(entry, res.IRModules(), &out).WithHosts(hostadapt.ProjectTable(irHostFnUnder(tc.module, tc.hosts))).Boot()
 			if err != nil {
 				t.Fatal(err)
 			}

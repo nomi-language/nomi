@@ -1,20 +1,27 @@
 // `nomi tool sqlkit generate [--check]`, run at the root of a module that
 // uses sqlkit: for each database `[sqlkit.database.<name>]` configures
-// (with none, `main` with the defaults), apply its migrations to a fresh
-// in-memory SQLite database, describe each query of its query files
-// against it, and write the generated files: the schema file, one file of
-// functions per query file, and a test that they are current. With
-// `--check` it writes nothing and fails when a generated file is not what
-// it would write, for CI.
+// (with none, `main` with the defaults), apply its migrations to a scratch
+// database, describe each query of its query files against it, and write
+// the generated files: the schema file, one file of functions per query
+// file, and a test that they are current. With `--check` it writes nothing
+// and fails when a generated file is not what it would write, for CI.
 //
-// A migration or a query SQLite rejects, and a query whose annotation does
-// not fit its SQL, stops the tool with the problem at its file and line,
-// and nothing is written. A DECIMAL column SQLite cannot keep exactly (more
-// than 15 digits) or at its scale (none declared) is a warning.
+// A SQLite database's scratch database is in memory. A Postgres database's
+// is `nomi_prepare_<hash>_<random>` on the development server the
+// environment variable `dev_url_env` names (`DATABASE_URL` by default),
+// dropped before the tool answers.
+//
+// A migration or a query the database rejects, and a query whose
+// annotation does not fit its SQL, stops the tool with the problem at its
+// file and line, and nothing is written. A DECIMAL column SQLite cannot
+// keep exactly (more than 15 digits) or at its scale (none declared) is a
+// warning, and a Postgres type sqlkit has no family for is a note: it is
+// read as text.
 import {
     std/fs
     std/io
     std/json.Json
+    postgres/describe as pg
     sqlite/describe
     sqlkit/codegen
     sqlkit/databases.{self, Database}
@@ -31,10 +38,18 @@ fn config_text(root: String) -> Result<String, String> go toolside.Config
 
 struct App {
     args: List<String>
+    env: Map<String, String>
 }
 
 fn boot(startup: Startup) -> Result<App, String> {
-    Ok(App{args: startup.args})
+    Ok(App{args: startup.args, env: startup.env})
+}
+
+/// What a database says of the schema the migrations build and of each
+/// query: its columns, or the error that stopped it from preparing.
+struct Found {
+    tables: List<Table>
+    queries: List<Result<List<Column>, QueryError>>
 }
 
 /// One generated file: its path from the module root and its text.
@@ -51,6 +66,14 @@ fn main() -> Result<Unit, String> {
     }
 
     config = Json.decode(config_text(".")?) |> Result.map_err(fn e -> "nomi.toml: ${e}")?
+
+    case databases.problems(config) {
+        [] -> {}
+
+        problems ->
+            return Err(String.join(problems, "\n"))
+    }
+
     dbs = databases.read(config)
     made = dbs |> Iter.map(generate) |> Result.collect()?
     files = made |> Iter.flat_map(fn m -> m) |> Iter.to_list()
@@ -209,47 +232,30 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
 
     queries = files |> Iter.flat_map(fn f -> f.queries) |> Iter.to_list()
     tokens = queries |> Iter.map(fn q -> sqltext.tokens(q.sql)) |> Iter.to_list()
-    statements = tokens |> Iter.map(fn t -> sqltext.sqlite_sql(sqltext.parts(t))) |> Iter.to_list()
 
-    applied =
-        migrations
-        |> Iter.map(fn m -> describe.Migration{path: m.path, text: m.text})
-        |> Iter.to_list()
+    found = case db.dialect {
+        .Sqlite ->
+            sqlite_found(migrations, tokens)?
 
-    found = describe.describe(applied, statements)
-
-    if found.error != "" {
-        text =
-            migrations
-            |> Iter.find(fn m -> m.path == found.migration)
-            |> Maybe.map(fn m -> m.text)
-            |> Maybe.with_default("")
-
-        return Err("${found.migration}:${line_of_byte(text, found.offset)}: ${found.error}")
+        .Postgres ->
+            postgres_found(
+                db,
+                migrations,
+                queries
+                |> Iter.map(fn q -> q.name)
+                |> Iter.to_list(),
+                tokens,
+            )?
     }
 
-    tables = found.tables |> Iter.map(fn t -> table(t, migrations)) |> Iter.to_list()
-
-    Iter.each(tables, fn t -> {
-        Iter.each(t.columns, fn c -> {
-            case decimal_warning(t.name, c) {
-                Some(w) ->
-                    io.print("warning: ${c.migration}:${c.line}: ${w}")
-
-                None -> {}
-            }
-        })
-    })
+    tables = found.tables
 
     schema = case codegen.schema(db, tables, databases.module_of(db, db.schema)) {
         Ok(s) -> s
         Err(ps) -> return report(ps) |> Result.map(fn _ -> [])
     }
 
-    described =
-        Iter.zip(tokens, found.statements)
-        |> Iter.map(fn #(toks, s) -> columns(toks, s))
-        |> Iter.to_list()
+    described = found.queries
 
     digest = inputs.digest(migrations + query_inputs)
 
@@ -298,6 +304,176 @@ fn generate(db: Database) -> Result<List<Generated>, String> {
                 text: codegen.test_file(db, digest),
             },
         ] + query_files
+    )
+}
+
+// What a scratch in-memory SQLite database says of the migrations and
+// each query, with a warning for each DECIMAL column it cannot keep.
+fn sqlite_found(migrations: List<Input>, tokens: List<List<Token>>) -> Result<Found, String> {
+    statements = tokens |> Iter.map(fn t -> sqltext.sqlite_sql(sqltext.parts(t))) |> Iter.to_list()
+
+    applied =
+        migrations
+        |> Iter.map(fn m -> describe.Migration{path: m.path, text: m.text})
+        |> Iter.to_list()
+
+    found = describe.describe(applied, statements)
+
+    if found.error != "" {
+        return Err(migration_error(migrations, found.migration, found.offset, found.error))
+    }
+
+    tables = found.tables |> Iter.map(fn t -> table(t, migrations)) |> Iter.to_list()
+
+    Iter.each(tables, fn t -> {
+        Iter.each(t.columns, fn c -> {
+            case decimal_warning(t.name, c) {
+                Some(w) ->
+                    io.print("warning: ${c.migration}:${c.line}: ${w}")
+
+                None -> {}
+            }
+        })
+    })
+
+    queries =
+        Iter.zip(tokens, found.statements)
+        |> Iter.map(fn #(toks, s) -> columns(toks, s))
+        |> Iter.to_list()
+
+    Ok(Found{tables, queries})
+}
+
+// What a scratch database on db's development Postgres server says of the
+// migrations and each query, with a note for each type sqlkit reads as
+// text.
+fn postgres_found(
+    db: Database,
+    migrations: List<Input>,
+    names: List<String>,
+    tokens: List<List<Token>>,
+) -> Result<Found, String> {
+    url = case Map.get(App.env, db.dev_url_env) {
+        Some(u) when u != "" ->
+            u
+
+        _ ->
+            return Err(
+                "${db.name}: set ${db.dev_url_env} to the URL of a Postgres server sqlkit can make a scratch database on (postgres://user@localhost:5432/postgres); `generate` applies the migrations there, describes each query and drops the database"
+            )
+    }
+
+    statements =
+        tokens |> Iter.map(fn t -> sqltext.postgres_sql(sqltext.parts(t))) |> Iter.to_list()
+
+    applied =
+        migrations
+        |> Iter.map(fn m -> pg.Migration{path: m.path, text: m.text})
+        |> Iter.to_list()
+
+    found = pg.describe(url, applied, statements)
+
+    if found.error != "" {
+        if found.migration == "" { return Err("${db.name}: ${found.error}") }
+        return Err(migration_error(migrations, found.migration, found.offset, found.error))
+    }
+
+    tables = found.tables |> Iter.map(fn t -> postgres_table(t, migrations)) |> Iter.to_list()
+
+    queries =
+        Iter.zip(names, found.statements)
+        |> Iter.map(fn #(name, s) -> postgres_columns(name, s))
+        |> Iter.to_list()
+
+    Ok(Found{tables, queries})
+}
+
+// A migration's error at the line of the byte the database gave for it.
+fn migration_error(migrations: List<Input>, path: String, offset: Int, message: String) -> String {
+    text = text_of(migrations, path)
+    "${path}:${line_of_byte(text, offset)}: ${message}"
+}
+
+// A Postgres table as the generated code reads it. A column of a type
+// sqlkit has no family for is read as text, with a note; an enum type's
+// column is an enum, and `citext` is text by design.
+fn postgres_table(t: pg.Table, migrations: List<Input>) -> Table {
+    migration_text = text_of(migrations, t.migration)
+
+    columns =
+        t.columns
+        |> Iter.map(fn c -> {
+            column_text = text_of(migrations, c.migration)
+            line = line_of_word(column_text, c.name, t.name)
+
+            declared = case types.postgres(c.type_name) {
+                Some(d) ->
+                    d
+
+                None -> {
+                    if Iter.is_empty(c.values) and c.type_name != "citext" {
+                        io.print(
+                            "note: ${c.migration}:${line}: `${t.name}.${c.name}` is ${c.type_name}, which sqlkit has no type for: it reads as text, a `String`"
+                        )
+                    }
+
+                    "TEXT"
+                }
+            }
+
+            TableColumn{
+                name: c.name,
+                type_name: declared,
+                nullable: not c.not_null,
+                primary_key: c.primary_key,
+                has_default: c.has_default,
+                values: c.values,
+                migration: c.migration,
+                line,
+            }
+        })
+        |> Iter.to_list()
+
+    Table{
+        name: t.name,
+        migration: t.migration,
+        line: line_of_word(migration_text, t.name, ""),
+        columns,
+    }
+}
+
+// A Postgres query's result columns as the generated code reads them, or
+// its error.
+fn postgres_columns(name: String, s: pg.Statement) -> Result<List<Column>, QueryError> {
+    if s.error != "" { return Err(QueryError{message: s.error, offset: s.offset}) }
+
+    Ok(
+        s.columns
+        |> Iter.map(fn c -> {
+            declared = case types.postgres(c.type_name) {
+                Some(d) ->
+                    d
+
+                None -> {
+                    if c.table == "" and c.type_name != "citext" {
+                        io.print(
+                            "note: `${name}`: the column `${c.name}` is ${c.type_name}, which sqlkit has no type for: it reads as text, a `String`"
+                        )
+                    }
+
+                    "TEXT"
+                }
+            }
+
+            Column{
+                name: c.name,
+                type_name: declared,
+                table: c.table,
+                column: c.column,
+                nullable: c.nullable,
+            }
+        })
+        |> Iter.to_list()
     )
 }
 

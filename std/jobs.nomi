@@ -1,0 +1,873 @@
+//# Background jobs that survive a restart. A `Job<A>` pairs a kind, the
+//# name a job is stored under, with a handler for its arguments `A`.
+//# `jobs.enqueue` writes a job on the caller's `Conn`, so it commits or
+//# rolls back with the caller's own writes, and a `Worker` claims due jobs
+//# from a `Queue` and runs them.
+//#
+//# ```nomi
+//# struct EmailArgs {
+//#     post_id: Int
+//# }
+//#
+//# derive ToJson for EmailArgs
+//# derive FromJson for EmailArgs
+//#
+//# fn send_email(args: EmailArgs) -> Result<Unit, Failure> {
+//#     ...
+//# }
+//#
+//# once email_job = Job.new("email", send_email, max_attempts: 25)
+//#
+//# fn publish(post_id: Int) -> Result<Unit, sql.Error> {
+//#     sql.transaction(App.db, fn tx -> {
+//#         _ = Conn.exec(tx, Sql"UPDATE posts SET published = true WHERE id = ${post_id}")?
+//#         _ = jobs.enqueue(App.queue, tx, email_job, EmailArgs{post_id})?
+//#         Ok(Unit)
+//#     })
+//# }
+//# ```
+//#
+//# `Queue` is the interface a backend implements: `lib/jobs/postgres`
+//# keeps jobs in a Postgres table. std/jobs_testing has `Inline`, a queue
+//# kept in memory for tests, `run_queued`, which runs the due jobs in the
+//# test's own task, and `conformance`, the suite every backend passes.
+//#
+//# ## Delivery
+//#
+//# A job runs at least once. If its process dies after the handler's side
+//# effect but before the job is marked done, it runs again, so a handler
+//# must be safe to run twice.
+//#
+//# ## Running jobs
+//#
+//# A `Worker` is built while boot builds the app value, since it creates
+//# two supervisors, and is started in `main` with the handlers it runs:
+//#
+//# ```nomi
+//# fn boot() -> Result<App, String> {
+//#     queue = pgjobs.queue(db, url)
+//#     Ok(App{..., queue, worker: Worker.new(queue, max_running: 4)})
+//# }
+//#
+//# fn main() {
+//#     Worker.start(App.worker, [email_job, batch_job])
+//#     ...
+//# }
+//# ```
+//#
+//# A handler answers `Ok(Unit)`, or a `Failure`: `Retry` after a backoff of
+//# `attempt^4 + 15` seconds plus up to a tenth more, `Snooze` after a delay
+//# of its own without counting an attempt, or `Discard`. A trap counts as a
+//# `Retry`, and so does running past the job's `timeout`, which cancels the
+//# handler's task. A job that reaches `max_attempts` is discarded. At
+//# shutdown the worker gives running jobs its `shutdown_timeout`, then
+//# hands back the ones still running, so another process takes them at
+//# once.
+//#
+//# ## Arguments over time
+//#
+//# A stored job's arguments are `A`'s JSON. Derived `FromJson` fills a
+//# missing key from the field's default or `None` and ignores a key it does
+//# not know, so a field added with a default reads old jobs. Arguments
+//# that do not decode are discarded with the decode error. Renaming a kind
+//# leaves its stored jobs under the old name: `Job.renamed_from` gives a
+//# handler for the old name too.
+//#
+//# ## Writing a backend
+//#
+//# Everything after `Worker` on this page is for a backend or a test queue:
+//# the `Queue` interface and the values it takes and answers (`NewJob`,
+//# `Claimed`, `Settle`), `Handler`, which a worker runs, and the pieces a
+//# worker is built from (`run_one`, `settle_for`, `backoff`,
+//# `handlers_by_kind`, `wake`).
+
+import {
+    bool.Bool.{self, False, True}
+    channels.{Arm, Channel, Receiver, Sender}
+    debug.Debug
+    display.Display
+    duration.Duration
+    equatable.Equatable
+    instant.Instant
+    int.Int
+    iter.Iter
+    json.{FromJson, Json, ToJson}
+    lists.List
+    log.{self, Logger}
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    sql.{self, Conn}
+    strings.String
+    supervisors.{Supervisor, Wait}
+    tasks.{Outcome, Task}
+    unit.Unit
+    uuid.Uuid
+}
+
+/// One kind of job: the name it is stored under, the queue it goes to,
+/// how often it may run and for how long, and its handler, typed by its
+/// arguments `A`.
+pub struct Job<A> {
+    kind: String
+    queue: String
+    max_attempts: Int
+    timeout: Duration
+    handler: (A) -> Result<Unit, Failure>
+}
+
+impl Job<A> {
+    /// A job of `kind`, handled by `handler`. A program declares each kind
+    /// once, as a file-level `once`, and enqueues and starts that value.
+    /// The handler comes last, so it goes in its slot whichever options a
+    /// call names: `Job.new("email", send_email, max_attempts: 25)`.
+    ///
+    /// `max_attempts` counts runs, including the first, and `timeout`
+    /// bounds each run.
+    //! job = Job.new("greet", max_attempts: 3, fn _: Int -> Ok(Unit))
+    //! assert job.kind == "greet"
+    //! assert job.queue == "default"
+    //! assert job.max_attempts == 3
+    //! assert job.timeout == Duration.minutes(5)
+    //
+    pub fn new(
+        kind: String,
+        queue: String = "default",
+        max_attempts: Int = 20,
+        timeout: Duration = Duration.minutes(5),
+        handler: (A) -> Result<Unit, Failure>,
+    ) -> Job<A> {
+        Job{kind, queue, max_attempts, timeout, handler}
+    }
+
+    /// The same job under a kind it was stored under before a rename. Start
+    /// a worker with both until no job of the old kind is left.
+    //! job = Job.new("send_email", fn _: Int -> Ok(Unit))
+    //! old = Job.renamed_from(job, "email")
+    //! assert old.kind == "email"
+    //! assert old.queue == job.queue
+    //
+    pub fn renamed_from(job: Job<A>, old_kind: String) -> Job<A> {
+        Job{
+            kind: old_kind,
+            queue: job.queue,
+            max_attempts: job.max_attempts,
+            timeout: job.timeout,
+            handler: job.handler,
+        }
+    }
+}
+
+/// Why a job did not complete: the handler's `Err`.
+//! assert "${Failure.Retry("timed out")}" == "retry: timed out"
+//
+pub enum Failure {
+    /// Runs the job again after the backoff. The run counts as an attempt.
+    Retry String
+
+    /// Runs the job again no sooner than `after`, and the run does not
+    /// count as an attempt: for a downstream that said to come back later.
+    Snooze {message: String, after: Duration}
+
+    /// Never runs the job again.
+    Discard String
+}
+
+derive Equatable for Failure
+derive Debug for Failure
+
+impl Display for Failure {
+    fn to_string(failure: Failure) -> String {
+        case failure {
+            .Retry(message) -> "retry: ${message}"
+            .Snooze{message, after} -> "snooze ${after}: ${message}"
+            .Discard(message) -> "discard: ${message}"
+        }
+    }
+}
+
+/// A stored job's id, as its queue numbers it.
+pub type JobId Int
+
+derive Equatable for JobId
+derive Debug for JobId
+
+impl Display for JobId {
+    fn to_string(JobId(n)) -> String {
+        "${n}"
+    }
+}
+
+/// Enqueues a job of `job`'s kind for `args` on `conn`, due at once or at
+/// `run_at`, and answers its id. `conn` may be a transaction, and the job
+/// is stored only if the transaction commits. A failed write is the
+/// queue's `sql.Error`.
+pub fn enqueue<A>(
+    queue: Queue,
+    conn: Conn,
+    job: Job<A>,
+    args: A,
+    run_at: Maybe<Instant> = None,
+) -> Result<JobId, sql.Error> where A: ToJson {
+    new_job = NewJob{
+        queue: job.queue,
+        kind: job.kind,
+        args: ToJson.to_json(args),
+        run_at,
+        max_attempts: job.max_attempts,
+    }
+
+    Queue.insert(queue, conn, new_job)
+}
+
+/// A start rate: at most `count` jobs start per `per`, with up to `burst`
+/// started at once after a quiet spell. It holds back claims in one worker
+/// process; several processes each get the whole rate.
+pub struct Rate {
+    count: Int
+    per: Duration
+    burst: Int = 1
+}
+
+derive Equatable for Rate
+derive Debug for Rate
+
+/// Claims due jobs from a queue and runs them, up to `max_running` at
+/// once. Build one with `Worker.new` while boot builds the app value, and
+/// start it in `main` with `Worker.start`.
+pub opaque struct Worker {
+    queue: Queue
+    id: String
+    queues: List<String>
+    rate: Maybe<Rate>
+    poll: Duration
+    lease: Duration
+    grace: Duration
+    logger: Logger
+    loops: Supervisor
+    runs: Supervisor
+    wake: Channel<Unit>
+    slots: Channel<Unit>
+}
+
+// What the claim loop does next.
+enum Next {
+    Claim
+    Wait
+    Stop
+}
+
+impl Worker {
+    /// A worker for `queue`'s queues `queues`, running up to `max_running`
+    /// jobs at once. Call it while boot builds the app value, since it
+    /// creates the worker's two supervisors: one for its claim loop and
+    /// the queue's watcher, one for the jobs.
+    ///
+    /// - `rate` holds back claims to a start rate.
+    /// - `poll` is how often an idle worker looks for due jobs when the
+    ///   queue does not wake it.
+    /// - `lease` is how long a claimed job is held before another worker
+    ///   may rescue it; a running job's lease is renewed every third of
+    ///   it.
+    /// - `shutdown_timeout` is how long running jobs get to finish at
+    ///   shutdown before they are cancelled and handed back.
+    /// - `logger` gets a line for each job claimed, completed, retried,
+    ///   snoozed or discarded, and for each queue call that failed.
+    pub fn new(
+        queue: Queue,
+        max_running: Int,
+        queues: List<String> = ["default"],
+        rate: Maybe<Rate> = None,
+        poll: Duration = Duration.seconds(5),
+        lease: Duration = Duration.seconds(30),
+        shutdown_timeout: Duration = Duration.seconds(10),
+        logger: Logger = Logger.discard(),
+    ) -> Worker {
+        slots: Channel<Unit> = Channel.buffered(max_running)
+
+        Iter.each(1..=max_running, fn _ -> {
+            _ = Sender.send(slots.sender, Unit)
+        })
+
+        id = case Uuid.v4() {
+            Ok(uuid) -> "${uuid}"
+            Err(_) -> "worker-${Instant.as_nanos(Instant.now())}"
+        }
+
+        Worker{
+            queue,
+            id,
+            queues,
+            rate,
+            poll,
+            lease,
+            grace: shutdown_timeout,
+            logger,
+            loops: Supervisor.new(
+                max_running: 4,
+                shutdown_timeout: shutdown_timeout + Duration.seconds(2),
+                restart: .Transient,
+            ),
+            runs: Supervisor.new(max_running: max_running, shutdown_timeout: shutdown_timeout),
+            wake: Channel.buffered(1),
+            slots,
+        }
+    }
+
+    /// The name this worker claims jobs under.
+    pub fn id(worker: Worker) -> String {
+        worker.id
+    }
+
+    /// Starts claiming jobs of the kinds `handlers` handle, and returns at
+    /// once; the worker runs until the program drains. Two handlers of one
+    /// kind trap, naming the kind.
+    pub fn start(worker: Worker, handlers: List<Handler>) {
+        by_kind = handlers_by_kind(handlers)!
+        kinds = Map.keys(by_kind) |> Iter.to_list()
+        Sender.close_on_drain(worker.wake.sender)
+        Queue.watch(worker.queue, worker.loops, worker.wake.sender)
+
+        _ = Supervisor.spawn(worker.loops, fn -> {
+            claim_loop(worker, by_kind, kinds, Instant.from_seconds(0))
+        })
+    }
+}
+
+/// Where jobs are stored. `lib/jobs/postgres` and `jobs_testing.Inline`
+/// implement it, and std/jobs_testing's `conformance` suite checks each
+/// backend.
+///
+/// Each function but `insert` and `watch` acts for the worker named
+/// `worker`, and `renew` and `settle` change a job only while that worker
+/// still holds it at that attempt, so a worker that lost a job to a rescue
+/// cannot overwrite the run that took it over.
+pub interface Queue {
+    /// Stores `job` on `conn`, which may be a transaction: the job exists
+    /// only if `conn`'s writes commit.
+    fn insert(queue: self, conn: Conn, job: NewJob) -> Result<JobId, sql.Error>
+    /// Marks up to `limit` due jobs of these queues and kinds as running
+    /// for `worker`, held for `lease`, each with its attempt counted, and
+    /// answers them oldest first. Two claims never answer the same job.
+    fn claim(
+        queue: self,
+        worker: String,
+        queues: List<String>,
+        kinds: List<String>,
+        limit: Int,
+        lease: Duration,
+    ) -> Result<List<Claimed>, sql.Error>
+    /// Extends `job`'s lease. `False` when `worker` no longer holds it.
+    fn renew(queue: self, worker: String, job: Claimed, lease: Duration) -> Result<Bool, sql.Error>
+    /// Records how `job` ended. `False` when `worker` no longer holds it.
+    fn settle(queue: self, worker: String, job: Claimed, how: Settle) -> Result<Bool, sql.Error>
+    /// Makes every job `worker` still holds available at once, with this
+    /// run's attempt not counted. Answers how many.
+    fn release(queue: self, worker: String) -> Result<Int, sql.Error>
+    /// Makes every job whose lease ran out available again, or discarded
+    /// when it used its last attempt. Answers how many.
+    fn rescue(queue: self) -> Result<Int, sql.Error>
+    /// Deletes finished jobs older than the queue keeps them. Answers how
+    /// many.
+    fn prune(queue: self) -> Result<Int, sql.Error>
+    /// Sends `Unit` on `wake` when a job may have become due, from a task
+    /// under `supervisor`. A queue with no way to know does nothing; the
+    /// worker also claims on a timer.
+    fn watch(queue: self, supervisor: Supervisor, wake: Sender<Unit>) -> Unit
+}
+
+/// A job as `enqueue` hands it to a queue to store.
+pub struct NewJob {
+    queue: String
+    kind: String
+    args: Json
+    run_at: Maybe<Instant>
+    max_attempts: Int
+}
+
+derive Equatable for NewJob
+derive Debug for NewJob
+
+/// A job a worker claimed: `attempt` counts this run, from 1.
+pub struct Claimed {
+    id: JobId
+    queue: String
+    kind: String
+    args: Json
+    attempt: Int
+    max_attempts: Int
+}
+
+derive Equatable for Claimed
+derive Debug for Claimed
+
+/// How a claimed job ended, as a worker hands it to its queue.
+pub enum Settle {
+    /// The handler answered `Ok`.
+    Completed
+
+    /// Available again at `at`; the run counted as an attempt.
+    Retry {at: Instant, error: String}
+
+    /// Available again at `at`; the run did not count as an attempt.
+    Snoozed {at: Instant, error: String}
+
+    /// Never runs again.
+    Discarded String
+}
+
+derive Equatable for Settle
+derive Debug for Settle
+
+/// A job with its argument type erased: what a worker runs. Every
+/// `Job<A>` whose `A` is `FromJson` is one, and its `run` discards
+/// arguments that do not decode as `A`.
+pub interface Handler {
+    fn kind(handler: self) -> String
+    fn timeout(handler: self) -> Duration
+    fn run(handler: self, args: Json) -> Result<Unit, Failure>
+}
+
+impl Handler for Job<A> where A: FromJson {
+    fn kind(handler: Job<A>) -> String {
+        handler.kind
+    }
+
+    fn timeout(handler: Job<A>) -> Duration {
+        handler.timeout
+    }
+
+    fn run(handler: Job<A>, args: Json) -> Result<Unit, Failure> {
+        case FromJson.from_json<A>(args) {
+            Ok(value) ->
+                handler.handler(value)
+
+            Err(error) ->
+                Err(Failure.Discard("arguments do not decode as ${handler.kind}: ${error}"))
+        }
+    }
+}
+
+/// Wakes a worker whose wake channel is `wake` without waiting: a wake
+/// already pending absorbs this one. A queue's `watch` calls it.
+pub fn wake(wake: Sender<Unit>) {
+    Channel.select([
+        Arm.send(wake, Unit, fn _ -> Unit),
+        Arm.after(Duration.seconds(0), fn -> Unit),
+    ])
+}
+
+/// Runs `handler` on `args` under the handler's timeout. The handler runs
+/// in a task of its own: a trap answers `Retry` with the trap's message at
+/// once, and running past the timeout cancels the task and answers
+/// `Retry("timed out")`.
+//! ok = Job.new("ok", fn _: Int -> Ok(Unit))
+//! assert run_one(ok, Json.Int(1)) == Ok(Unit)
+//! assert run_one(ok, Json.String("x")) is Err(.Discard(_))
+//
+pub fn run_one(handler: Handler, args: Json) -> Result<Unit, Failure> {
+    concurrent {
+        done = Channel.buffered<Outcome<Result<Unit, Failure>>>(1)
+        task = Task.spawn(fn -> Handler.run(handler, args))
+
+        watcher = Task.spawn(fn -> {
+            _ = Sender.send(done.sender, Task.outcome(task))
+        })
+
+        answer = Channel.select([
+            Arm.receive(done.receiver, fn got -> {
+                case got {
+                    Some(.Completed(result)) -> result
+                    Some(.Failed(.Panicked(message))) -> Err(Failure.Retry("trapped: ${message}"))
+                    Some(.Failed(.Errored(message))) -> Err(Failure.Retry("trapped: ${message}"))
+                    Some(.Cancelled) -> Err(Failure.Retry("cancelled"))
+                    None -> Err(Failure.Retry("cancelled"))
+                }
+            }),
+            Arm.after(Handler.timeout(handler), fn -> Err(Failure.Retry("timed out"))),
+        ])
+
+        Task.cancel(task)
+        _ = Task.outcome(watcher)
+        answer
+    }
+}
+
+/// The delay before a job that failed attempt `attempt` runs again:
+/// `attempt^4 + 15` seconds. `settle_for` adds up to a tenth more.
+//! assert backoff(1) == Duration.seconds(16)
+//! assert backoff(3) == Duration.seconds(96)
+//
+pub fn backoff(attempt: Int) -> Duration {
+    Duration.seconds(attempt * attempt * attempt * attempt + 15)
+}
+
+/// How `claimed` settles when its handler answered `answer` at `now`. A
+/// retry waits the backoff plus a share of it, up to a tenth, taken from
+/// `now`'s nanoseconds, so jobs that failed together do not all come back
+/// at once. A retry of the last attempt is a discard.
+//! claimed = Claimed{
+//!     id: JobId(1),
+//!     queue: "default",
+//!     kind: "k",
+//!     args: Json.Null,
+//!     attempt: 2,
+//!     max_attempts: 3,
+//! }
+//!
+//! now = Instant.from_seconds(0)
+//! assert settle_for(claimed, Ok(Unit), now) == Settle.Completed
+//! assert settle_for(claimed, Err(.Retry("x")), now) == Settle.Retry{at: now + backoff(2), error: "x"}
+//! assert settle_for(#{..claimed, attempt: 3}, Err(.Retry("x")), now) == Settle.Discarded("x")
+//! assert settle_for(claimed, Err(.Discard("bad")), now) == Settle.Discarded("bad")
+//! snooze = Failure.Snooze{message: "busy", after: Duration.seconds(60)}
+//!
+//! assert settle_for(claimed, Err(snooze), now) == Settle.Snoozed{
+//!     at: now + Duration.seconds(60),
+//!     error: "busy",
+//! }
+//
+pub fn settle_for(claimed: Claimed, answer: Result<Unit, Failure>, now: Instant) -> Settle {
+    case answer {
+        Ok(_) ->
+            Settle.Completed
+
+        Err(.Discard(message)) ->
+            Settle.Discarded(message)
+
+        Err(.Snooze{message, after}) ->
+            Settle.Snoozed{at: now + after, error: message}
+
+        Err(.Retry(message)) ->
+            if claimed.attempt >= claimed.max_attempts {
+                Settle.Discarded(message)
+            } else {
+                delay = backoff(claimed.attempt)
+                jitter = delay * (Instant.as_nanos(now) % 101) / 1000
+                Settle.Retry{at: now + delay + jitter, error: message}
+            }
+    }
+}
+
+/// The handlers keyed by kind, or an `Err` naming a kind two of them
+/// share.
+//! a = Job.new("a", fn _: Int -> Ok(Unit))
+//! b = Job.new("b", fn _: Int -> Ok(Unit))
+//! assert Result.map(handlers_by_kind([a, b]), &Map.size(&1)) == Ok(2)
+//! assert handlers_by_kind([a, b, a]) == Err("two handlers for job kind a")
+//
+pub fn handlers_by_kind(handlers: List<Handler>) -> Result<Map<String, Handler>, String> {
+    Iter.reduce(handlers, Ok(%{}), fn acc, handler -> {
+        by_kind = acc?
+        kind = Handler.kind(handler)
+
+        if Map.contains(by_kind, kind) {
+            Err("two handlers for job kind ${kind}")
+        } else {
+            Ok(Map.put(by_kind, kind, handler))
+        }
+    })
+}
+
+// Claim and start one job at a time while slots are free, and wait for a
+// wake or the poll when none is due. `tat` is the rate's theoretical
+// arrival time: the next claim may go at `tat` less the burst's slack.
+fn claim_loop(worker: Worker, handlers: Map<String, Handler>, kinds: List<String>, tat: Instant) {
+    next = Channel.select([
+        Arm.receive(worker.slots.receiver, fn got -> {
+            if Maybe.is_some(got) {
+                Next.Claim
+            } else {
+                Next.Stop
+            }
+        }),
+        Arm.receive(worker.wake.receiver, fn got -> {
+            if Maybe.is_some(got) {
+                Next.Wait
+            } else {
+                Next.Stop
+            }
+        }),
+    ])
+
+    case next {
+        .Stop ->
+            shut_down(worker)
+
+        .Wait ->
+            claim_loop(worker, handlers, kinds, tat)
+
+        .Claim -> {
+            if not hold_for_rate(worker, tat) {
+                free_slot(worker)
+                return shut_down(worker)
+            }
+
+            case Queue.claim(worker.queue, worker.id, worker.queues, kinds, 1, worker.lease) {
+                Ok([claimed, ..]) -> {
+                    log.debug(worker.logger, "jobs: claimed", fields(claimed))
+                    _ = Supervisor.spawn(worker.runs, fn -> run_claimed(worker, handlers, claimed))
+                    claim_loop(worker, handlers, kinds, charge(worker.rate, tat))
+                }
+
+                Ok([]) -> {
+                    free_slot(worker)
+                    tidy(worker)
+
+                    if idle(worker) {
+                        claim_loop(worker, handlers, kinds, tat)
+                    } else {
+                        shut_down(worker)
+                    }
+                }
+
+                Err(error) -> {
+                    free_slot(worker)
+                    log.warn(worker.logger, "jobs: claim failed", [log.string("error", "${error}")])
+
+                    if idle(worker) {
+                        claim_loop(worker, handlers, kinds, tat)
+                    } else {
+                        shut_down(worker)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Wait for a wake or the poll interval. False when the drain closed the
+// wake channel.
+fn idle(worker: Worker) -> Bool {
+    Channel.select([
+        Arm.receive(worker.wake.receiver, fn got -> Maybe.is_some(got)),
+        Arm.after(worker.poll, fn -> True),
+    ])
+}
+
+// Hold the next claim until the rate allows it. False when the drain
+// closed the wake channel meanwhile.
+fn hold_for_rate(worker: Worker, tat: Instant) -> Bool {
+    case worker.rate {
+        None ->
+            True
+
+        Some(rate) -> {
+            allowed = tat - interval(rate) * (rate.burst - 1)
+            now = Instant.now()
+
+            if not Instant.is_before(now, allowed) { return True }
+
+            keep_waiting = Channel.select([
+                Arm.receive(worker.wake.receiver, fn got -> {
+                    if Maybe.is_some(got) {
+                        Next.Wait
+                    } else {
+                        Next.Stop
+                    }
+                }),
+                Arm.after(Instant.between(now, allowed), fn -> Next.Claim),
+            ])
+
+            case keep_waiting {
+                .Claim -> True
+                .Wait -> hold_for_rate(worker, tat)
+                .Stop -> False
+            }
+        }
+    }
+}
+
+// The rate's next theoretical arrival time once a job has started.
+fn charge(rate: Maybe<Rate>, tat: Instant) -> Instant {
+    case rate {
+        None ->
+            tat
+
+        Some(r) -> {
+            now = Instant.now()
+
+            from = if Instant.is_before(tat, now) {
+                now
+            } else {
+                tat
+            }
+
+            from + interval(r)
+        }
+    }
+}
+
+fn interval(rate: Rate) -> Duration {
+    rate.per / rate.count
+}
+
+// Rescue jobs whose lease ran out and prune old finished ones, after a
+// claim found nothing due.
+fn tidy(worker: Worker) {
+    case Queue.rescue(worker.queue) {
+        Ok(0) ->
+            Unit
+
+        Ok(n) ->
+            log.info(worker.logger, "jobs: rescued", [log.int("count", n)])
+
+        Err(error) ->
+            log.warn(worker.logger, "jobs: rescue failed", [log.string("error", "${error}")])
+    }
+
+    case Queue.prune(worker.queue) {
+        Ok(_) ->
+            Unit
+
+        Err(error) ->
+            log.warn(worker.logger, "jobs: prune failed", [log.string("error", "${error}")])
+    }
+}
+
+// Run one claimed job with its lease renewed, then settle it.
+fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed) {
+    defer free_slot(worker)
+    started = Instant.now()
+
+    answer = case Map.get(handlers, claimed.kind) {
+        Some(handler) ->
+            renewing(worker, claimed, fn -> run_one(handler, claimed.args))
+
+        None ->
+            Err(
+                Failure.Snooze{
+                    message: "no handler for ${claimed.kind}",
+                    after: Duration.minutes(1),
+                }
+            )
+    }
+
+    how = settle_for(claimed, answer, Instant.now())
+    took = Instant.between(started, Instant.now())
+    report(worker, claimed, how, took)
+
+    case Queue.settle(worker.queue, worker.id, claimed, how) {
+        Ok(True) ->
+            Unit
+
+        Ok(False) ->
+            log.warn(worker.logger, "jobs: settle found the job taken over", fields(claimed))
+
+        Err(error) ->
+            log.warn(
+                worker.logger,
+                "jobs: settle failed",
+                fields(claimed) + [log.string("error", "${error}")],
+            )
+    }
+}
+
+// Run `body` while a second task renews the job's lease every third of
+// it, until the body answers.
+fn renewing(
+    worker: Worker,
+    claimed: Claimed,
+    body: () -> Result<Unit, Failure>,
+) -> Result<Unit, Failure> {
+    concurrent {
+        stop: Channel<Unit> = Channel.buffered(1)
+        renewer = Task.spawn(fn -> renew_until(worker, claimed, stop.receiver))
+        answer = body()
+        Sender.close(stop.sender)
+        _ = Task.outcome(renewer)
+        answer
+    }
+}
+
+fn renew_until(worker: Worker, claimed: Claimed, stop: Receiver<Unit>) {
+    go_on = Channel.select([
+        Arm.receive(stop, fn _ -> False),
+        Arm.after(worker.lease / 3, fn -> True),
+    ])
+
+    if go_on {
+        case Queue.renew(worker.queue, worker.id, claimed, worker.lease) {
+            Ok(_) ->
+                Unit
+
+            Err(error) ->
+                log.warn(
+                    worker.logger,
+                    "jobs: renew failed",
+                    fields(claimed) + [log.string("error", "${error}")],
+                )
+        }
+
+        renew_until(worker, claimed, stop)
+    }
+}
+
+fn report(worker: Worker, claimed: Claimed, how: Settle, took: Duration) {
+    case how {
+        .Completed ->
+            log.info(
+                worker.logger,
+                "jobs: completed",
+                fields(claimed) + [log.int("ms", Duration.as_millis(took))],
+            )
+
+        .Retry{at, error} ->
+            log.warn(
+                worker.logger,
+                "jobs: retry",
+                fields(claimed) + [log.string("run_at", rfc3339(at)), log.string("error", error)],
+            )
+
+        .Snoozed{at, error} ->
+            log.info(
+                worker.logger,
+                "jobs: snoozed",
+                fields(claimed) + [log.string("run_at", rfc3339(at)), log.string("error", error)],
+            )
+
+        .Discarded(error) ->
+            log.error(
+                worker.logger,
+                "jobs: discarded",
+                fields(claimed) + [log.string("error", error)],
+            )
+    }
+}
+
+fn fields(claimed: Claimed) -> List<log.Field> {
+    [
+        log.string("kind", claimed.kind),
+        log.any("id", claimed.id),
+        log.string("queue", claimed.queue),
+        log.int("attempt", claimed.attempt),
+    ]
+}
+
+// An instant as RFC 3339 text in UTC, as its JSON writes it.
+fn rfc3339(at: Instant) -> String {
+    case ToJson.to_json(at) {
+        .String(text) -> text
+        _ -> "${Instant.as_nanos(at)}"
+    }
+}
+
+fn free_slot(worker: Worker) {
+    _ = Sender.send(worker.slots.sender, Unit)
+}
+
+// At the drain: give running jobs the grace period, then hand back what
+// is still running, so another worker takes it at once. The jobs' own
+// supervisor cancels them after the same grace period; this loop's
+// supervisor waits longer, so the release runs after the cancel.
+fn shut_down(worker: Worker) {
+    _ = Supervisor.flush(worker.runs, Wait.UpTo(worker.grace))
+
+    case Queue.release(worker.queue, worker.id) {
+        Ok(n) ->
+            log.info(worker.logger, "jobs: released", [log.int("count", n)])
+
+        Err(error) ->
+            log.warn(worker.logger, "jobs: release failed", [log.string("error", "${error}")])
+    }
+}

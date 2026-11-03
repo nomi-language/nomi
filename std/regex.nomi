@@ -1,4 +1,4 @@
-//# Regular expressions backed by Go's RE2-compatible `regexp` engine.
+//# Regular expressions in RE2 syntax, matched in time linear in the input.
 //# Use raw typed literals for readable patterns, such as ``Regex`\d+``. A raw
 //# literal's pattern is compiled when the program is checked, so an invalid
 //# one is a compile error and the literal is a `Regex`; a double-quoted

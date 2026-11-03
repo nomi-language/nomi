@@ -16,7 +16,6 @@ package ffirun
 import (
 	"fmt"
 	goast "go/ast"
-	goparser "go/parser"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -85,20 +84,13 @@ func generateAdaptersNamed(projectRoot string, packages []DiscoveredPackage, pre
 	}
 
 	gt := newGoTypes(projectRoot)
-	mainImports := map[string]string{}
-	for _, pkg := range packages {
-		if pkg.Alias != "" {
-			mainImports[pkg.Alias] = pkg.ImportPath
-		}
-	}
-	mainScope := goScope{pkg: gt.mainPkg(), imports: mainImports}
 
 	out := &wrapperAdapters{}
 	handles := map[string]string{}
 	for _, pkg := range packages {
 		for _, typ := range pkg.Types {
 			name := nomiModuleOfFile(typ.SourceFile) + "." + nomiTypeName(typ)
-			t, err := handleType(gt, pkg, typ, mainScope)
+			t, err := handleType(gt, pkg, typ)
 			if err != nil {
 				continue // every binding naming the type is refused below
 			}
@@ -329,16 +321,10 @@ func adapterShapesHashInput(packages []DiscoveredPackage) string {
 	return strings.Join(lines, "\n")
 }
 
-// handleType is the Go type behind a registered host type: the wrapper's
-// prototype expression, `(*alias.Name)(nil)` or the declared expression.
-func handleType(gt *goTypes, pkg DiscoveredPackage, typ DiscoveredType, mainScope goScope) (hostgen.Type, error) {
-	if typ.GoTypeExpr != "" {
-		expr, err := goparser.ParseExpr(typ.GoTypeExpr)
-		if err != nil {
-			return nil, err
-		}
-		return gt.resolve(expr, mainScope)
-	}
+// handleType is the Go type behind a registered host type: a pointer to the
+// named type of its package, which the wrapper's prototype
+// `(*alias.Name)(nil)` names.
+func handleType(gt *goTypes, pkg DiscoveredPackage, typ DiscoveredType) (hostgen.Type, error) {
 	p, err := gt.pkg(pkg.ImportPath)
 	if err != nil {
 		return nil, err

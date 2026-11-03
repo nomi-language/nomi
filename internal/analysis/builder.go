@@ -1268,11 +1268,21 @@ func (b *builder) resolveStdlibImport(modulePath []string) *Scope {
 	if scope, ok := b.modules[relPath]; ok {
 		return scope
 	}
-	scope, ok := b.modules[name]
-	if !ok {
-		return nil
+	if scope, ok := b.modules[name]; ok {
+		return scope
 	}
-	return scope
+	// A whole-module import with an alias moves the module's b.modules key
+	// to the alias (defineImport), so a later import of the same module by
+	// its own path finds it only here, among the scopes the file is built
+	// against: std/http's `import html.Html` after the hidden `import html
+	// as html$` its `Html` literals name (html_template.go). Without this,
+	// the import loads std/html from source, and with it fresh copies of
+	// the modules it imports, which the file's own `import io` then finds
+	// in b.cache instead of the shared std/io.
+	if scope := b.stdlibScopes[relPath]; scope != nil {
+		return scope
+	}
+	return b.stdlibScopes[name]
 }
 
 // nodeCol extracts the Col from an *Ident or *TypeIdent node.
@@ -4936,6 +4946,15 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		// LSP / hover need, and walk slot expressions so identifiers
 		// inside them get resolved.
 		b.resolveTaggedStringTag(n, scope)
+		if b.isStdHtmlTag(n, scope) {
+			// An `Html` literal is the call its template expands into
+			// (html_template.go), which holds the slot expressions.
+			b.htmlTemplate(n)
+			if x, _ := n.Template(); x != nil {
+				b.walkNode(x, scope)
+				return
+			}
+		}
 		for _, part := range n.Parts {
 			if se, ok := part.(ast.StringExpr); ok {
 				b.walkNode(se.Expr, scope)

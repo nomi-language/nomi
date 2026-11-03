@@ -135,8 +135,12 @@ func validateFunctionSignature(projectRoot, importPath string, exp DiscoveredExp
 			loc, exp.FuncName, importPath)}
 	}
 	check.begin(loc, exp.FuncName, importPath, exp)
+	params, ctxProblem := withoutTaskContext(goFunc.typ.Params, goFunc.imports)
+	if ctxProblem != "" {
+		return []string{fmt.Sprintf("%s: Go function %q in package %q %s", loc, exp.FuncName, importPath, ctxProblem)}
+	}
 	var problems []string
-	goParams, unsupported := goFieldListNomiTypes(goFunc.typ.Params, check.pkg, goFunc.imports, true)
+	goParams, unsupported := goFieldListNomiTypes(params, check.pkg, goFunc.imports, true)
 	for _, msg := range unsupported {
 		problems = append(problems, fmt.Sprintf(
 			"%s: Go function %q in package %q has unsupported parameter type: %s",
@@ -608,6 +612,47 @@ func goResultNomiType(results *goast.FieldList, pkg *goPkgTypes, imports map[str
 		return projGenericOf("Result", projected, projLeafOf(ffitypes.NomiString)), unsupported
 	}
 	return projected, unsupported
+}
+
+// withoutTaskContext is a Go function's parameters with a leading
+// `context.Context` removed (spec §19 *The task's context*): the adapter passes the
+// calling task's context there, so the Nomi declaration leaves it out. A
+// `context.Context` at any other position has no value to receive and is
+// refused, with the refusal as the second result.
+func withoutTaskContext(params *goast.FieldList, imports map[string]string) (*goast.FieldList, string) {
+	if params == nil {
+		return nil, ""
+	}
+	isContext := func(expr goast.Expr) bool {
+		sel, ok := expr.(*goast.SelectorExpr)
+		if !ok || sel.Sel.Name != "Context" {
+			return false
+		}
+		path, ok := selectorImportPath(sel, imports)
+		return ok && path == "context"
+	}
+	out := &goast.FieldList{}
+	position := 0
+	for _, field := range params.List {
+		count := max(len(field.Names), 1)
+		if !isContext(field.Type) {
+			out.List = append(out.List, field)
+			position += count
+			continue
+		}
+		if position > 0 || count > 1 {
+			// The first context.Context past the first parameter: this
+			// field's first name, or its second when it starts the list.
+			n := position + 1
+			if position == 0 {
+				n = 2
+			}
+			return nil, fmt.Sprintf("takes a context.Context as parameter %d; "+
+				"only a first parameter may be a context.Context, where Go receives the calling task's context", n)
+		}
+		position++
+	}
+	return out, ""
 }
 
 func goFieldListNomiTypes(fields *goast.FieldList, pkg *goPkgTypes, imports map[string]string, allowCallbacks bool) ([]*goProjection, []string) {

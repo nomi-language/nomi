@@ -1,0 +1,472 @@
+//# Migrations as plain SQL files, each applied once, in name order, and
+//# recorded in the table `nomi_migrations`. `migrate.up(conn, dir)` reads
+//# the `.sql` files directly in `dir` and applies the ones the database has
+//# not run; a program calls it from `main` before it serves. There are no
+//# down migrations: a mistake is fixed by a new migration, and a file named
+//# `.down.sql` is not a migration.
+//#
+//# One run holds a lock for its whole length, so two processes that start
+//# at once do not both migrate: on Postgres a transaction-scoped advisory
+//# lock, on SQLite the database's write lock. Each migration runs in a
+//# savepoint of that transaction with its record, so a migration that
+//# fails leaves nothing of itself and the ones before it stay applied. A
+//# migration whose text changed after it ran is refused before anything
+//# runs.
+
+import {
+    std/fs.{self, Kind}
+    std/matcher.Matcher
+    std/regex.Regex
+    std/sql.{self, Conn, Row, Sql, Statement}
+    migrate/checksum
+}
+
+/// One migration: its path and its SQL. Its version, what
+/// `nomi_migrations` records, is the path's file name, and migrations
+/// apply in the order of their list, which `read` makes name order.
+pub struct Migration {
+    path: String
+    sql: String
+}
+
+derive Equatable for Migration
+
+/// Why `up`, `apply`, `status` or `adopt_golang_migrate` stopped.
+pub enum Error {
+    /// The migrations directory, or a file in it, could not be read.
+    Read {path: String, message: String}
+
+    /// A migration's text is not the text that ran: its checksum is not the
+    /// one `nomi_migrations` recorded. Nothing ran.
+    Changed {path: String}
+
+    /// A migration failed. Nothing of it was applied, and every migration
+    /// before it was.
+    Failed {path: String, error: sql.Error}
+
+    /// The lock, or reading or writing `nomi_migrations`, failed.
+    Database {error: sql.Error}
+
+    /// `adopt_golang_migrate` found nothing to adopt, or a state it should
+    /// not adopt.
+    Adopt {message: String}
+}
+
+derive Equatable for Error
+
+impl Display for Error {
+    //! assert "${Error.Changed{
+    //!     path: "db/migrations/1_users.sql",
+    //! }}" == "the migration `db/migrations/1_users.sql` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one"
+    //
+    fn to_string(error: Error) -> String {
+        case error {
+            .Read{path, message} ->
+                "cannot read the migrations at `${path}`: ${message}"
+
+            .Changed{path} ->
+                "the migration `${path}` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one"
+
+            .Failed{path, error} ->
+                "the migration `${path}` failed, and was not applied: ${error}"
+
+            .Database{error} ->
+                "migrating: ${error}"
+
+            .Adopt{message} ->
+                message
+        }
+    }
+}
+
+/// Where each migration stands against a database, from `status`. Paths for
+/// the migrations given, versions (file names) for the records.
+pub struct Status {
+    /// Applied, with the text that ran.
+    applied: List<String>
+
+    /// Not applied yet; `up` would run these, in this order.
+    pending: List<String>
+
+    /// Applied, but the file's text changed since; `up` refuses these.
+    changed: List<String>
+
+    /// Recorded as applied, with no migration of that version given.
+    missing: List<String>
+}
+
+derive Equatable for Status
+
+/// Whether a file of this name is a migration: a `.sql` file other than a
+/// `.down.sql` one, which golang-migrate and others pair with each `.up.sql`
+/// and which this runner never applies. sqlkit reads a migrations
+/// directory by the same rule.
+//! assert migrate.is_migration_file("000001_init.up.sql")
+//! assert migrate.is_migration_file("20261019120000_users.sql")
+//! assert not migrate.is_migration_file("000001_init.down.sql")
+//! assert not migrate.is_migration_file("notes.md")
+//
+pub fn is_migration_file(name: String) -> Bool {
+    String.ends_with(name, ".sql") and not String.ends_with(name, ".down.sql")
+}
+
+/// The migrations in `dir`: its files `is_migration_file` accepts, in name
+/// order, with their text. Subdirectories are not read. A directory that
+/// does not exist is `Err(.Read)`, not an empty list, so a program started
+/// in the wrong directory fails rather than migrating nothing.
+pub fn read(dir: String) -> Result<List<Migration>, Error> {
+    entries = fs.list(dir) |> Result.map_err(fn e -> Error.Read{path: dir, message: "${e}"})?
+
+    entries
+    |> Iter.filter(fn e -> e.kind == Kind.File and is_migration_file(e.name))
+    |> Iter.map(fn e -> e.path)
+    |> Iter.sort()
+    |> Iter.map(fn path -> {
+        fs.read_text(path)
+        |> Result.map(fn text -> Migration{path, sql: text})
+        |> Result.map_err(fn e -> Error.Read{path, message: "${e}"})
+    })
+    |> Result.collect()
+}
+
+/// Read the migrations in `dir` and apply the ones `conn`'s database has
+/// not run (`read`, then `apply`). Answers the versions it ran, in order.
+pub fn up(conn: Conn, dir: String) -> Result<List<String>, Error> {
+    migrations = read(dir)?
+    apply(conn, migrations)
+}
+
+/// Bring `conn`'s database up to date with `migrations`: lock, create
+/// `nomi_migrations` if it is missing, refuse a migration whose text
+/// changed after it ran, then run each one not yet recorded, in list
+/// order, in a savepoint with its record. Answers the versions it ran.
+///
+/// The run is one transaction on one connection, so a pool works: the
+/// lock, the records and every migration share it. A migration that fails
+/// is `Err(.Failed)`: the ones before it are committed, it and the ones
+/// after are not. A statement Postgres refuses inside a transaction
+/// (`CREATE INDEX CONCURRENTLY`) cannot be a migration.
+pub fn apply(conn: Conn, migrations: List<Migration>) -> Result<List<String>, Error> {
+    tx = Conn.begin(conn) |> Result.map_err(database)?
+
+    pending = case prepare(tx, migrations) {
+        Ok(p) ->
+            p
+
+        Err(e) -> {
+            _ = Conn.rollback(tx)
+            return Err(e)
+        }
+    }
+
+    #(ran, failure) = run(tx, pending, [])
+    Conn.commit(tx) |> Result.map_err(database)?
+
+    case failure {
+        Some(e) -> Err(e)
+        None -> Ok(ran)
+    }
+}
+
+/// Where each of `migrations` stands against `conn`'s database. It takes no
+/// lock and creates nothing: a database with no `nomi_migrations` has
+/// every migration pending.
+pub fn status(conn: Conn, migrations: List<Migration>) -> Result<Status, Error> {
+    recorded = if table_exists(conn, "nomi_migrations")? {
+        records(conn)?
+    } else {
+        %{}
+    }
+
+    paths = fn keep: (Migration) -> Bool -> {
+        migrations |> Iter.filter(keep) |> Iter.map(fn m -> m.path) |> Iter.to_list()
+    }
+
+    versions = migrations |> Iter.map(version_of) |> Iter.to_set()
+
+    Ok(
+        Status{
+            applied: paths(fn m -> Map.get(recorded, version_of(m)) == Some(checksum.of(m.sql))),
+            pending: paths(fn m -> Maybe.is_none(Map.get(recorded, version_of(m)))),
+            changed: paths(fn m -> {
+                case Map.get(recorded, version_of(m)) {
+                    Some(sum) -> sum != checksum.of(m.sql)
+                    None -> False
+                }
+            }),
+            missing: Map.keys(recorded)
+            |> Iter.filter(fn v -> not (v in versions))
+            |> Iter.sort()
+            |> Iter.to_list(),
+        }
+    )
+}
+
+/// Move a database that golang-migrate kept to this runner, once, without
+/// running anything: record each of `migrations` whose leading number is at
+/// most golang-migrate's version (its table `schema_migrations`) as applied,
+/// with the checksum of its text now. Answers the versions it recorded;
+/// running it again records nothing new. After it, `up` runs only the
+/// migrations numbered past that version, and `schema_migrations` can be
+/// dropped.
+///
+/// Refused, with nothing recorded: no `schema_migrations` table; a version
+/// golang-migrate marked dirty (a migration it left half-applied, which its
+/// own `force` resolves); a version with no migration of that number; a
+/// migration with no leading number.
+pub fn adopt_golang_migrate(
+    conn: Conn,
+    migrations: List<Migration>,
+) -> Result<List<String>, Error> {
+    tx = Conn.begin(conn) |> Result.map_err(database)?
+
+    case adopted(tx, migrations) {
+        Ok(versions) -> {
+            Conn.commit(tx) |> Result.map_err(database)?
+            Ok(versions)
+        }
+
+        Err(e) -> {
+            _ = Conn.rollback(tx)
+            Err(e)
+        }
+    }
+}
+
+fn adopted(tx: Conn, migrations: List<Migration>) -> Result<List<String>, Error> {
+    lock(tx)?
+
+    if not table_exists(tx, "schema_migrations")? {
+        return Err(
+            Error.Adopt{
+                message: "no `schema_migrations` table: there is no golang-migrate state to adopt",
+            }
+        )
+    }
+
+    rows =
+        Conn.query(tx, Sql"SELECT version, dirty FROM schema_migrations")
+        |> Result.map_err(database)?
+
+    #(version, dirty) = case rows {
+        [] ->
+            return Ok([])
+
+        [row, ..] -> {
+            v = Row.get<Int>(row, "version") |> Result.map_err(database)?
+            d = Row.get<Bool>(row, "dirty") |> Result.map_err(database)?
+            #(v, d)
+        }
+    }
+
+    if dirty {
+        return Err(
+            Error.Adopt{
+                message: "golang-migrate marked version ${version} dirty: a migration it left half-applied; resolve it with golang-migrate (`migrate force`) first",
+            }
+        )
+    }
+
+    numbered =
+        migrations
+        |> Iter.map(fn m -> number_of(m) |> Result.map(fn n -> #(n, m)))
+        |> Result.collect()?
+
+    if not (numbered |> Iter.any(fn #(n, _) -> n == version)) {
+        return Err(
+            Error.Adopt{
+                message: "golang-migrate is at version ${version}, and no migration has that number",
+            }
+        )
+    }
+
+    recorded = records(tx)?
+
+    adopt =
+        numbered
+        |> Iter.filter(fn #(n, m) -> {
+            n <= version and Maybe.is_none(Map.get(recorded, version_of(m)))
+        })
+        |> Iter.map(fn #(_, m) -> m)
+        |> Iter.to_list()
+
+    adopt
+    |> Iter.map(fn m -> {
+        v = version_of(m)
+        sum = checksum.of(m.sql)
+
+        Conn.exec(tx, Sql"INSERT INTO nomi_migrations (version, checksum) VALUES (${v}, ${sum})")
+        |> Result.map(fn _ -> v)
+        |> Result.map_err(database)
+    })
+    |> Result.collect()
+}
+
+// A migration's leading number, as golang-migrate reads it.
+fn number_of(m: Migration) -> Result<Int, Error> {
+    digits = Matcher.find_in(Regex`^[0-9]+`, version_of(m))
+
+    case digits |> Maybe.flat_map(fn d -> String.to_int(d)) {
+        Some(n) ->
+            Ok(n)
+
+        None ->
+            Err(
+                Error.Adopt{
+                    message: "the migration `${m.path}` has no leading number, so golang-migrate's version cannot place it",
+                }
+            )
+    }
+}
+
+// The pending migrations, after the lock, the table and the checksums.
+fn prepare(tx: Conn, migrations: List<Migration>) -> Result<List<Migration>, Error> {
+    lock(tx)?
+    recorded = records(tx)?
+
+    changed = Iter.find(migrations, fn m -> {
+        case Map.get(recorded, version_of(m)) {
+            Some(sum) -> sum != checksum.of(m.sql)
+            None -> False
+        }
+    })
+
+    case changed {
+        Some(m) ->
+            return Err(Error.Changed{path: m.path})
+
+        None -> {}
+    }
+
+    Ok(
+        migrations
+        |> Iter.filter(fn m -> Maybe.is_none(Map.get(recorded, version_of(m))))
+        |> Iter.to_list()
+    )
+}
+
+// The advisory lock's key: the bytes of "nomi_mig" as one 64-bit number.
+once lock_key: Int = 7_957_699_365_926_955_367
+
+// Take the run's lock and create the records table if it is missing.
+//
+// Postgres holds the advisory lock until the transaction ends, so a second
+// process waits at this statement, then finds the first one's records.
+// SQLite has one writer at a time: the empty delete is a write, which takes
+// the database's write lock for the rest of the transaction, and a second
+// process waits for it (the driver's busy timeout, 5 seconds) before its
+// own reads. Another engine gets no lock.
+fn lock(tx: Conn) -> Result<Unit, Error> {
+    case Conn.dialect(tx) {
+        .Postgres -> {
+            _ =
+                Conn.exec(tx, Sql"SELECT pg_advisory_xact_lock(${lock_key})")
+                |> Result.map_err(database)?
+
+            create_table(tx)
+        }
+
+        .Sqlite -> {
+            create_table(tx)?
+
+            _ =
+                Conn.exec(tx, Sql"DELETE FROM nomi_migrations WHERE 1 = 0")
+                |> Result.map_err(database)?
+
+            Ok(Unit)
+        }
+
+        .Other(_) ->
+            create_table(tx)
+    }
+}
+
+fn create_table(conn: Conn) -> Result<Unit, Error> {
+    _ =
+        Conn.exec(
+            conn,
+            Sql"CREATE TABLE IF NOT EXISTS nomi_migrations (version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+        )
+        |> Result.map_err(database)?
+
+    Ok(Unit)
+}
+
+// Each recorded version and its checksum.
+fn records(conn: Conn) -> Result<Map<String, String>, Error> {
+    rows =
+        Conn.query(conn, Sql"SELECT version, checksum FROM nomi_migrations")
+        |> Result.map_err(database)?
+
+    pairs =
+        rows
+        |> Iter.map(fn row -> {
+            version = Row.get<String>(row, "version")?
+            sum = Row.get<String>(row, "checksum")?
+            Ok(#(version, sum))
+        })
+        |> Result.collect()
+        |> Result.map_err(database)?
+
+    Ok(
+        pairs
+        |> Iter.to_map()
+    )
+}
+
+// Whether the current schema has a table named `name`.
+fn table_exists(conn: Conn, name: String) -> Result<Bool, Error> {
+    statement = case Conn.dialect(conn) {
+        .Postgres ->
+            Sql"SELECT count(*) AS n FROM pg_tables WHERE schemaname = current_schema() AND tablename = ${name}"
+
+        _ ->
+            Sql"SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ${name}"
+    }
+
+    rows = Conn.query(conn, statement) |> Result.map_err(database)?
+
+    case rows {
+        [row, ..] -> Row.get<Int>(row, "n") |> Result.map(fn n -> n > 0) |> Result.map_err(database)
+        [] -> Ok(False)
+    }
+}
+
+// Run each migration in a savepoint with its record, stopping at the first
+// that fails. Answers the versions run and the failure, if one stopped it.
+fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> #(List<String>, Maybe<Error>) {
+    case pending {
+        [] ->
+            #(ran, None)
+
+        [first, ..rest] -> {
+            version = version_of(first)
+            sum = checksum.of(first.sql)
+
+            done = sql.transaction(tx, fn sp -> {
+                _ = Conn.exec(sp, Statement{parts: [first.sql], params: []})?
+
+                _ = Conn.exec(
+                    sp,
+                    Sql"INSERT INTO nomi_migrations (version, checksum) VALUES (${version}, ${sum})",
+                )?
+
+                Ok(Unit)
+            })
+
+            case done {
+                Ok(_) -> run(tx, rest, List.concat(ran, [version]))
+                Err(error) -> #(ran, Some(Error.Failed{path: first.path, error}))
+            }
+        }
+    }
+}
+
+// A migration's version: its file name.
+fn version_of(migration: Migration) -> String {
+    String.split(migration.path, "/") |> Iter.last() |> Maybe.with_default(migration.path)
+}
+
+fn database(error: sql.Error) -> Error {
+    Error.Database{error}
+}

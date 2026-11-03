@@ -210,7 +210,7 @@ func discoveredHashInput(d DiscoveredPackage) string {
 	parts := []string{q(d.ImportPath)}
 	for _, typ := range d.Types {
 		parts = append(parts, "type:"+strings.Join([]string{
-			q(typ.Key), q(typ.EntryKey), q(typ.TypeName), q(typ.GoTypeExpr),
+			q(typ.Key), q(typ.EntryKey), q(typ.TypeName),
 			q(typ.Declaration), q(typ.SourceFile),
 		}, ","))
 	}

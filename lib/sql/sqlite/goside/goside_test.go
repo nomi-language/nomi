@@ -1,10 +1,32 @@
 package goside
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
+
+// The calling task's context interrupts a statement: a recursive CTE with
+// no end runs until SQLite is interrupted, so a Timeout means the deadline
+// reached the statement. The connection works afterwards.
+func TestRun_TheTaskContextInterruptsAStatement(t *testing.T) {
+	c, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Close(c)
+	ctx, cancel := context.WithTimeout(background, 50*time.Millisecond)
+	defer cancel()
+	endless := []string{"WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT count(*) FROM n"}
+	if got := Run(ctx, c, 0, 0, endless, nil).Failure; got.Kind != FailTimeout {
+		t.Fatalf("failure = %+v, want FailTimeout", got)
+	}
+	if got := Run(background, c, 0, 0, []string{"SELECT 1"}, nil); got.Failure.Kind != FailNone || len(got.Rows) != 1 {
+		t.Fatalf("the connection after the interrupt answered %+v", got)
+	}
+}
 
 // A transaction's savepoints commit and roll back to their own depth, and
 // an ended one answers Finished.
@@ -14,11 +36,11 @@ func TestConn_SavepointsAndFinished(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Close(c)
-	if a := Exec(c, 0, 0, []string{"CREATE TABLE t (n INTEGER)"}, nil); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, 0, 0, []string{"CREATE TABLE t (n INTEGER)"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
 	insert := func(depth, token, n int64) Failure {
-		return Exec(c, depth, token, []string{"INSERT INTO t VALUES (", ")"}, []Cell{{Kind: KindInt, Int: n}}).Failure
+		return Exec(background, c, depth, token, []string{"INSERT INTO t VALUES (", ")"}, []Cell{{Kind: KindInt, Int: n}}).Failure
 	}
 	tx := Begin(c, 0, 0)
 	if f := insert(tx.Depth, tx.Token, 1); f.Kind != FailNone {
@@ -41,13 +63,13 @@ func TestConn_SavepointsAndFinished(t *testing.T) {
 	if f := Rollback(c, sp.Depth, sp.Token); f.Kind != FailNone {
 		t.Fatal(f)
 	}
-	if f := Exec(c, sp.Depth, sp.Token, []string{"SELECT 1"}, nil).Failure; f.Kind != FailFinished {
+	if f := Exec(background, c, sp.Depth, sp.Token, []string{"SELECT 1"}, nil).Failure; f.Kind != FailFinished {
 		t.Errorf("a statement on a rolled-back savepoint answered %+v", f)
 	}
 	if f := Commit(c, tx.Depth, tx.Token); f.Kind != FailNone {
 		t.Fatal(f)
 	}
-	rows := Run(c, 0, 0, []string{"SELECT n FROM t"}, nil)
+	rows := Run(background, c, 0, 0, []string{"SELECT n FROM t"}, nil)
 	if len(rows.Rows) != 1 || rows.Rows[0][0].Int != 1 {
 		t.Errorf("rows %+v, %+v", rows.Rows, rows.Failure)
 	}
@@ -89,7 +111,7 @@ func TestConn_ConstraintNames(t *testing.T) {
 		"INSERT INTO orders (user_id) VALUES (1)",
 		"INSERT INTO scratch (n) VALUES (1)",
 	} {
-		if a := Exec(c, 0, 0, []string{s}, nil); a.Failure.Kind != FailNone {
+		if a := Exec(background, c, 0, 0, []string{s}, nil); a.Failure.Kind != FailNone {
 			t.Fatalf("%s: %+v", s, a.Failure)
 		}
 	}
@@ -121,7 +143,7 @@ func TestConn_ConstraintNames(t *testing.T) {
 	}
 	check := func(depth, token int64) {
 		for _, k := range cases {
-			f := Exec(c, depth, token, []string{k.sql}, nil).Failure
+			f := Exec(background, c, depth, token, []string{k.sql}, nil).Failure
 			if f.Kind != FailConstraint || f.Constraint != k.constraint || f.Name != k.name || f.Table != k.table || f.Column != k.column {
 				t.Errorf("%s (depth %d): got %+v, want %s on %s.%s", k.sql, depth, f, k.name, k.table, k.column)
 			}
@@ -131,18 +153,18 @@ func TestConn_ConstraintNames(t *testing.T) {
 	// Inside a transaction too, and finding a foreign key's name leaves the
 	// transaction as it was.
 	tx := Begin(c, 0, 0)
-	if a := Exec(c, tx.Depth, tx.Token, []string{"INSERT INTO pairs VALUES (5, 6)"}, nil); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, tx.Depth, tx.Token, []string{"INSERT INTO pairs VALUES (5, 6)"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
 	check(tx.Depth, tx.Token)
-	if a := Exec(c, tx.Depth, tx.Token, []string{"INSERT INTO pairs VALUES (7, 8)"}, nil); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, tx.Depth, tx.Token, []string{"INSERT INTO pairs VALUES (7, 8)"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
 	if f := Rollback(c, tx.Depth, tx.Token); f.Kind != FailNone {
 		t.Fatal(f)
 	}
 	for table, want := range map[string]int64{"pairs": 1, "orders": 1, "users": 1} {
-		rows := Run(c, 0, 0, []string{"SELECT count(*) FROM " + table}, nil)
+		rows := Run(background, c, 0, 0, []string{"SELECT count(*) FROM " + table}, nil)
 		if rows.Failure.Kind != FailNone || rows.Rows[0][0].Int != want {
 			t.Errorf("%s after the checks: %+v", table, rows)
 		}
@@ -196,18 +218,18 @@ func TestConn_DecimalsKeepTheirScale(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Close(c)
-	if a := Exec(c, 0, 0, []string{"CREATE TABLE m (amount DECIMAL(12, 2))"}, nil); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, 0, 0, []string{"CREATE TABLE m (amount DECIMAL(12, 2))"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
 	insert := []string{"INSERT INTO m VALUES (", ")"}
-	if a := Exec(c, 0, 0, insert, []Cell{{Kind: KindDecimal, Text: "12.50"}}); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, 0, 0, insert, []Cell{{Kind: KindDecimal, Text: "12.50"}}); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
-	a := Exec(c, 0, 0, insert, []Cell{{Kind: KindDecimal, Text: "123456789012345678.91"}})
+	a := Exec(background, c, 0, 0, insert, []Cell{{Kind: KindDecimal, Text: "123456789012345678.91"}})
 	if a.Failure.Code != "SQLITE_MISMATCH" || !strings.HasPrefix(a.Failure.Message, "parameter ?1 is the Decimal 123456789012345678.91, of 20 digits") {
 		t.Errorf("got %+v", a.Failure)
 	}
-	got := Run(c, 0, 0, []string{"SELECT amount, typeof(amount) FROM m"}, nil)
+	got := Run(background, c, 0, 0, []string{"SELECT amount, typeof(amount) FROM m"}, nil)
 	if got.Failure.Kind != FailNone || len(got.Rows) != 1 || got.Rows[0][0].Kind != KindDecimal || got.Rows[0][0].Text != "12.50" || got.Rows[0][1].Text != "real" {
 		t.Errorf("got %+v", got)
 	}
@@ -222,7 +244,7 @@ func TestConn_ValuesCrossAsTheNativeDriverAnswersThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Close(c)
-	if a := Exec(c, 0, 0, []string{"CREATE TABLE v (i INTEGER, f REAL, s TEXT, b BLOB, e BLOB, n TEXT, d DATE)"}, nil); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, 0, 0, []string{"CREATE TABLE v (i INTEGER, f REAL, s TEXT, b BLOB, e BLOB, n TEXT, d DATE)"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
 	params := []Cell{
@@ -234,10 +256,10 @@ func TestConn_ValuesCrossAsTheNativeDriverAnswersThem(t *testing.T) {
 		{Kind: KindNull},
 		{Kind: KindText, Text: "2026-10-24T16:59:52"},
 	}
-	if a := Exec(c, 0, 0, []string{"INSERT INTO v VALUES (", ", ", ", ", ", ", ", ", ", ", ", ", ")"}, params); a.Failure.Kind != FailNone || a.Changed != 1 {
+	if a := Exec(background, c, 0, 0, []string{"INSERT INTO v VALUES (", ", ", ", ", ", ", ", ", ", ", ", ", ")"}, params); a.Failure.Kind != FailNone || a.Changed != 1 {
 		t.Fatalf("%+v", a)
 	}
-	got := Run(c, 0, 0, []string{"SELECT i, f, s, b, e, n, d, typeof(e) AS te FROM v"}, nil)
+	got := Run(background, c, 0, 0, []string{"SELECT i, f, s, b, e, n, d, typeof(e) AS te FROM v"}, nil)
 	if got.Failure.Kind != FailNone || len(got.Rows) != 1 {
 		t.Fatalf("%+v", got)
 	}

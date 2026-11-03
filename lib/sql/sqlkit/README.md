@@ -9,8 +9,10 @@ nomi tool sqlkit generate           # write the generated files
 nomi tool sqlkit generate --check   # write nothing; fail when they are stale
 ```
 
-`generate` applies the migrations to a scratch in-memory SQLite database,
-asks SQLite to describe every query, and writes:
+`generate` applies the migrations to a scratch database (an in-memory
+SQLite database, or one it makes on a Postgres development server; see
+[Postgres](#postgres)), asks the database to describe every query, and
+writes:
 
 - `schema.nomi`: a row struct per table, named in the singular (`users`
   holds `User` rows), an enum per `CHECK (column IN (...))` column, and the
@@ -48,10 +50,12 @@ The defaults need no configuration. To change them:
 ```toml
 # nomi.toml
 [sqlkit.database.main]
+dialect = "sqlite"             # or "postgres"
 migrations = "db/migrations"   # SQL files, applied in name order
 queries = "db/queries"         # the query files, *.sql
 out = "."                      # where the generated files go
 schema = "schema"              # the schema file's name: schema.nomi
+dev_url_env = "DATABASE_URL"   # postgres: the variable naming a development server
 
 [sqlkit.database.main.tables]
 people = "Person"              # a table's row struct, when the rule misses
@@ -61,7 +65,7 @@ Every key may be left out; those are the defaults. A module with no
 `[sqlkit.database]` table has one database, `main`, with the defaults.
 With several databases, give each its own `queries` and `out` or `schema`,
 so no two write one file. The migrations and the query files are the `.sql`
-files directly in their directories. SQLite is the only database so far.
+files directly in their directories.
 
 A table's row struct is its name in the singular, in PascalCase: a final
 `ies` becomes `y` (`categories`, `Category`), a final `ses` becomes `s`
@@ -266,15 +270,23 @@ one at a time; a row that does not decode stops it with the error.
 Every generated function takes the `Conn` first, so one function runs on a
 connection, a transaction (`sql.transaction`) or a test's.
 
-`sqlkit.migrate(conn, schema.migrations)` brings a database up to date: it
-runs each generated migration the database has not run, in order, each in
-its own transaction with its record. The records are the table
-`nomi_migrations` (`version`, the migration's file name; `checksum`, of its
-text; `applied_at`), which the first run creates. So it builds a test's
-fresh database and migrates one that lives on, run after run. A migration
-whose text changed after it ran is refused before anything runs, with
-`sql.Error.Database` coded `sqlkit` naming the file: write the change as a
-new migration.
+`sqlkit.migrate(conn, schema.migrations)` brings a database up to date
+through the [migrate](../migrate) module: under a lock (on Postgres an
+advisory lock, on SQLite the write lock), it runs each generated migration
+the database has not run, in order, each in a savepoint with its record.
+The records are the table `nomi_migrations` (`version`, the migration's
+file name; `checksum`, of its text; `applied_at`), which the first run
+creates. So it builds a test's fresh database and migrates one that lives
+on, run after run, and two processes that start at once do not both
+migrate. A migration whose text changed after it ran is refused before
+anything runs, with `sql.Error.Database` coded `migrate` naming the file:
+write the change as a new migration. A migration that fails answers its
+own error; the ones before it stay applied.
+
+The migrations directory is read as the migrate module reads it: the
+`.sql` files directly in it, in name order, without `.down.sql` files, so
+a directory golang-migrate keeps (`000001_x.up.sql`, `000001_x.down.sql`)
+describes the schema its `.up.sql` files build.
 
 ### Testing with the schema
 
@@ -335,11 +347,60 @@ ends. A test group that writes `boot main.boot(Startup{})` gets a fresh
 in-memory database and its own `App.db` for each test; a test that builds
 its own database replaces the field with `with App.db = db` in its `setup`.
 
+## Postgres
+
+With `dialect = "postgres"`, `generate` needs a Postgres development
+server, whose URL the environment variable `dev_url_env` holds
+(`DATABASE_URL` by default). It makes a scratch database there,
+`nomi_prepare_<hash>_<random>`, applies the migrations, describes each
+query, and drops the database before it finishes, also when it fails.
+Nothing is written to the database the URL names, but its user must be
+allowed to create databases. `generate --check` does the same, so CI that
+runs it needs a server and the variable too; with the variable unset,
+`generate` stops and says to set it.
+
+The generated code runs on a `Conn` from the
+[Postgres driver](../postgres), which a project adds with `nomi add
+github.com/nomi-language/nomi/lib/sql/postgres`, and the SQL it sends
+binds `$1`, `$2`, .... A test gets a fresh database from the driver's
+throwaway server, `postgres.connect(postgres.scratch()?)?`, and
+`sqlkit.migrate` builds the schema there as it does on SQLite.
+
+What differs from SQLite:
+
+- Postgres reports a type for every column, expressions included, so an
+  anonymous row needs no `AS "n: Int"`.
+- A column is non-null only when it reads a `NOT NULL` table column that
+  no outer join of the query can leave out, which the query's generic
+  plan shows (Postgres 12 or later). `AS "n!"` and `AS "n?"` still say
+  otherwise.
+- An enum type's labels, like a `CHECK (column IN (...))`, make the
+  column a generated enum.
+- `T[]` reads and binds as `List<T>`: `WHERE id = ANY(@ids)` with
+  `ids: List<Uuid>`.
+- A type sqlkit has no family for (`interval`, `inet`) reads as text,
+  and `generate` prints a note; `citext` reads as text without one.
+
+| Postgres | Nomi type |
+|---|---|
+| `smallint`, `integer`, `bigint` | `Int` |
+| `real`, `double precision` | `Float` |
+| `numeric(p, s)` | `Decimal`, at scale `s` |
+| `text`, `varchar`, `char`, `citext` | `String` |
+| `boolean` | `Bool` |
+| `bytea` | `Bytes` |
+| `date`, `time` | `Date`, `Time` |
+| `timestamp`, `timestamptz` | `NaiveDateTime`, `Instant` |
+| `uuid` | `Uuid` |
+| `json`, `jsonb` | `Json` |
+| `T[]` | `List<T>` |
+
 ## Limits
 
-- SQLite only. Postgres needs its driver and an `EXPLAIN`-based
-  nullability.
 - A query is one statement.
+- Postgres parameters are not yet checked against the type Postgres infers
+  for them: a parameter binds through `ToSql`, and a mismatch is
+  Postgres's error when the query runs.
 - The editor reads the generated code, not the SQL: there is no hover,
   completion or error inside a `.sql` file unless a SQL language server is
   configured for it.

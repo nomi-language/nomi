@@ -40,69 +40,7 @@ type loweringGap struct {
 	src    string
 }
 
-var knownLoweringGaps = []loweringGap{
-	{
-		name: "gapStdOpaqueDistinctAsDisplayArgument",
-		fix: "builder: a std opaque distinct type (`Duration`) passed where a `Display` value is " +
-			"expected declines at the call, while an Int or a program's own type with an " +
-			"`impl Display` lowers; boxing the shared std module's type into the existential " +
-			"has no path",
-		reason: "a direct call's operand: show",
-		noSkip: true,
-		src: `import std/duration.Duration
-
-fn show(v: Display) -> String {
-    "${v}"
-}
-
-fn main() {
-    dbg show(Duration.milliseconds(5))
-}
-`,
-	},
-	{
-		name: "gapIterGetOfAFunctionOverAStruct",
-		fix: "builder: `Iter.get` over a `List<(Foo) -> Foo>` declines at the call, while one over " +
-			"a `List<(Int) -> Int>` and one over a `List<Foo>` lower; the instantiation of std/iter's " +
-			"generic `get`, whose `reduce` state is `#(Int, Maybe<T>)`, refuses T a function that " +
-			"names a struct",
-		reason: "qualified call, Type.method: Iter.get",
-		src: `struct Foo {
-    n: Int
-}
-
-fn main() {
-    hs: List<(Foo) -> Foo> = [fn f -> f]
-    dbg Maybe.is_some(Iter.get(hs, 0))
-}
-`,
-	},
-	{
-		name: "gapStdGenericInterfaceExistential",
-		fix: "builder: a value held as an instantiation of a std generic interface (`Contains<Int>`) " +
-			"has no kind: ifaceInstTypeOf instantiates only a program interface's template, and std's " +
-			"generic interfaces have no rt dispatch table (stdIfaceSpec.matches refuses type parameters)",
-		reason: "a binding annotation outside the retained value domain: an unsupported type",
-		noSkip: true,
-		src: `import std/io
-
-struct Bag {
-    n: Int
-}
-
-impl Contains<Int> for Bag {
-    fn contains(c: Bag, x: Int) -> Bool {
-        c.n == x
-    }
-}
-
-fn main() {
-    b: Contains<Int> = Bag{n: 3}
-    io.print(Bool.to_string(Contains.contains(b, 3)))
-}
-`,
-	},
-}
+var knownLoweringGaps = []loweringGap{}
 
 // knownGapFor is the known gap every one of reasons matches, or nil.
 func knownGapFor(reasons []string) *loweringGap {

@@ -1,0 +1,44 @@
+import std/literals.{Fragment, Literal}
+
+// A typed literal's fragments always alternate Static, Dynamic, ..., Static:
+// the first and last Static are there even when empty, and two slots side by
+// side have an empty Static between them (spec §18 *Typed literals*).
+type Count
+
+impl Literal for Count {
+    fn from_fragments(fragments: List<Fragment<Int>>) -> Int {
+        Iter.count(fragments)
+    }
+}
+
+type Shape
+
+impl Literal for Shape {
+    fn from_fragments(fragments: List<Fragment<Int>>) -> String {
+        fragments
+        |> Iter.map(fn f -> {
+            case f {
+                .Static(s) -> "S(${s})"
+                .Dynamic(n) -> "D(${n})"
+            }
+        })
+        |> String.join(" ")
+    }
+}
+
+test "fragments alternate, with empty statics kept" {
+    x = 7
+    assert Count"${x}" == 3
+    assert Count"a${x}" == 3
+    assert Count"${x}${x}" == 5
+    assert Count"" == 1
+    assert Count"plain" == 1
+}
+
+test "the empty statics sit where the spec puts them" {
+    x = 7
+    assert Shape"${x}${x}" == "S() D(7) S() D(7) S()"
+    assert Shape"a${x}b" == "S(a) D(7) S(b)"
+    assert Shape"" == "S()"
+    assert Shape`raw` == "S(raw)"
+}

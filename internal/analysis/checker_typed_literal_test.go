@@ -561,3 +561,58 @@ func TestTypeQualifiedCall_InherentBeatsInterfaceImplInEitherOrder(t *testing.T)
 		})
 	}
 }
+
+// A slot whose value is typed as another interface (here std's `Iter<Show>`)
+// may hold anything, and that interface does not require the slot's
+// interface of its implementors, so the slot is refused at the slot, as an
+// argument of that type is. A slot typed as the slot's own interface is
+// fine. Without the first half the checker accepted the literal and the IR
+// builder refused the program.
+func showTagDecls() string {
+	return `import std/literals.{Fragment, Literal}
+
+interface Show {
+  fn show(value: self) -> String
+}
+
+impl Show for Int {
+  fn show(value: Int) -> String {
+    "${value}"
+  }
+}
+
+pub type ShowTag
+
+impl Literal<Show, String> for ShowTag {
+  fn from_fragments(fragments: List<Fragment<Show>>) -> String {
+    Iter.reduce(fragments, "", fn acc, frag -> case frag {
+      .Static(s) -> acc + s
+      .Dynamic(v) -> acc + Show.show(v)
+    })
+  }
+}
+`
+}
+
+func TestTypedLiteral_SlotOfAnotherInterfaceTypeIsRefused(t *testing.T) {
+	entry := showTagDecls() + `
+fn main() {
+  xs = [1, 2] |> Iter.map(&(&1 + 1))
+  _ = ShowTag"values: ${xs}"
+}`
+	errs := checkTypedLiteralProject(t, entry, nil)
+	expectTypedLiteralError(t, errs, "does not require Show of its implementors")
+}
+
+func TestTypedLiteral_SlotOfTheSlotInterfaceTypeIsAccepted(t *testing.T) {
+	entry := showTagDecls() + `
+fn main() {
+  x: Show = 3
+  _ = ShowTag"value: ${x}"
+}`
+	for _, e := range checkTypedLiteralProject(t, entry, nil) {
+		if strings.Contains(e.Message, "Show") || strings.Contains(e.Message, "slot") {
+			t.Fatalf("the front end rejects a slot typed as the slot's own interface: %v", e)
+		}
+	}
+}

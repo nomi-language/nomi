@@ -708,8 +708,9 @@ line gets a blank line before it, unless it opens its block, and after it,
 unless it closes its block. A block's final expression counts as a
 statement. Whether a statement spans lines is decided as rendered at the
 block's indent, so a call that fits in a shallow block may break, and be set
-apart, in a deeper one. A `case`, a nested block, a triple-quoted string and
-a literal broken after its opening bracket always span lines. A stacked
+apart, in a deeper one. A `case`, a nested block, a triple-quoted string
+written across lines and a literal broken after its opening bracket always
+span lines. A stacked
 pipeline, or one broken because it does not fit, is set apart; one that fits
 on its line sits with its neighbours. A binding `else` is measured by its
 first line, so a run of one-line guards reads as one step; a binding `else`
@@ -717,6 +718,15 @@ with arms is laid out as a `case`. One-line statements sit together, and a
 single blank line the author writes between them is kept. A blank line at
 the top or bottom of a block is removed, and a block's imports are followed
 by one.
+
+**Strings and templates.** A string is never split: a double-quoted one,
+typed (`Html"..."`) or not, stays on its line however long. A triple-quoted
+one written on one line, `Html"""<i>${n}</i>"""`, stays on one line when it
+fits, and is framed, its body on lines of its own, when it does not. A
+`${...}` whose expression spans lines, in a triple-quoted body, is laid out
+from the column of its `${`, so its lines stay with the text around it.
+`nomi fmt` never changes the text of a string, a template's markup
+included.
 
 **Pipes.** A pipe written on one line stays inline, and one written across
 lines stays stacked, each `|>` aligned with the subject. An inline chain

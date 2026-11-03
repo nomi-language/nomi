@@ -225,10 +225,12 @@ func TestTargetTypedStruct_DoesNotGuess(t *testing.T) {
 	})
 	t.Run("an interface", func(t *testing.T) {
 		_, errs := checkSourceWithStdlib(targetTypedDecls + `fn main() {
-  _d: Display = #{street: "s", city: "c"}
+  _d: Comparable = #{street: "s", city: "c"}
 }
 `)
-		expectExactlyOne(t, errs, "expected Display, got #{street: String, city: String}")
+		// Comparable, since an anonymous struct whose fields are Display is
+		// itself Display (spec §12), and none is Comparable.
+		expectExactlyOne(t, errs, "expected Comparable, got #{street: String, city: String}")
 	})
 	t.Run("an enum", func(t *testing.T) {
 		_, errs := checkSourceWithStdlib(targetTypedDecls + `fn main() {

@@ -184,6 +184,10 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 		parts = have.comp.parts
 	case have.tag == tagMap && have.comp != nil && len(have.comp.parts) == 2:
 		parts = have.comp.parts
+	case irStructuralBoxes(have) && have.comp != nil:
+		// A tuple or an anonymous record renders as its shape around each
+		// part's Display text, as `"${t}"` renders it.
+		parts = have.comp.parts
 	default:
 		elem, vector := vectorElem(have)
 		if !vector || have == kindEmptyVector {
@@ -395,10 +399,11 @@ func (g *gen) irRecordImpls() {
 			// that names it (irboxed.go).
 			typ = g.irImplTypeSym(d.recv)
 		}
-		if d.iface == nil || typ == nil {
+		iface := implIface(d)
+		if iface == nil || typ == nil {
 			continue
 		}
-		for _, m := range d.iface.order {
+		for _, m := range iface.order {
 			it := d.items[m.name]
 			if it == nil {
 				continue
@@ -407,13 +412,23 @@ func (g *gen) irRecordImpls() {
 			if g.irMod.FuncFor(fn) == nil {
 				continue
 			}
-			method := g.irIfaceMethodSym(d.iface, m)
+			method := g.irIfaceMethodSym(iface, m)
 			if method == nil {
 				continue
 			}
 			g.irMod.Implement(method, typ, fn)
 		}
 	}
+	g.stdProgHeldImpls()
+}
+
+// implIface is the interface d's methods dispatch through: the interface's
+// def, or a std interface's built from std's declaration (stdprogiface.go).
+func implIface(d *implDef) *ifaceDef {
+	if d.iface != nil {
+		return d.iface
+	}
+	return d.stdIface
 }
 
 // irScalarTypeToken identifies a builtin scalar's type symbol in the table.
@@ -587,6 +602,10 @@ func irKeyImplRecv(k kind) bool {
 // dispatch in one file finds an impl recorded in another. nil when the
 // declaring unit's gen or its declaration is not available.
 func (g *gen) irIfaceMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
+	if d.stdOrigin != "" {
+		// A std interface: the program's symbol (stdprogiface.go).
+		return g.stdProgMethodSym(d, m)
+	}
 	if d.instOf != nil {
 		// `Gets<String>.got`: the instance's own table (instimpl.go).
 		return g.instMethodSym(d, m)

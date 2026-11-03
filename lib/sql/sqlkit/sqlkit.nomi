@@ -18,9 +18,9 @@ import {
     std/channels.{Channel, Receiver, Sender}
     std/instant.Instant
     std/json.Json
-    std/sql.{self, Conn, Row, Sql, Statement}
+    std/sql.{self, Conn, Row, Statement}
     std/uuid.Uuid
-    checksum
+    migrate as runner
 }
 
 /// The rows of a `-> Rows<T>` query, read one at a time with `Rows.fold`.
@@ -105,99 +105,27 @@ pub struct Changed {
 
 derive Equatable for Changed
 
-/// One migration: its path from the module root and its SQL. The generated
-/// schema file holds `migrations`, a list of them in name order.
-pub struct Migration {
-    path: String
-    sql: String
-}
+/// One migration: its path from the module root and its SQL, the migrate
+/// module's own type. The generated schema file holds `migrations`, a list
+/// of them in name order, which `migrate` hands to the migrate module.
+pub typealias Migration runner.Migration
 
-derive Equatable for Migration
-
-/// Bring `conn`'s database up to date with `migrations`: run each one it
-/// has not run yet, in order, each in a transaction of its own with its
-/// record. The records are the table `nomi_migrations` (`version`, the
-/// migration's file name; `checksum`, of its text; `applied_at`), which
-/// the first run creates, so `migrate` works on a fresh database (what a
-/// test builds) and on one that lives on. A migration whose text changed
-/// after it ran is refused, before anything runs, with
-/// `Error.Database{code: "sqlkit"}` naming its file: write the change as a
-/// new migration.
+/// Bring `conn`'s database up to date with `migrations`, as the migrate
+/// module's `apply` does: under a lock, run each one it has not run yet, in
+/// order, in a savepoint with its record in `nomi_migrations`. A migration
+/// whose text changed after it ran is refused, before anything runs, with
+/// `Error.Database{code: "migrate"}` naming its file; a migration that fails
+/// answers its own error, and the ones before it stay applied.
 pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error> {
-    _ = Conn.exec(
-        conn,
-        Sql"CREATE TABLE IF NOT EXISTS nomi_migrations (version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
-    )?
-
-    rows = Conn.query(conn, Sql"SELECT version, checksum FROM nomi_migrations")?
-
-    records =
-        rows
-        |> Iter.map(fn row -> {
-            version = Row.get<String>(row, "version")?
-            sum = Row.get<String>(row, "checksum")?
-            Ok(#(version, sum))
-        })
-        |> Result.collect()
-
-    applied = (records?) |> Iter.to_map()
-
-    changed = Iter.find(migrations, fn m -> {
-        case Map.get(applied, version_of(m)) {
-            Some(sum) -> sum != checksum.of(m.sql)
-            None -> False
+    runner.apply(conn, migrations)
+    |> Result.map(fn _ -> Unit)
+    |> Result.map_err(fn e -> {
+        case e {
+            .Failed{path: _, error} -> error
+            .Database{error} -> error
+            _ -> sql.Error.Database{code: "migrate", message: "${e}"}
         }
     })
-
-    case changed {
-        Some(m) ->
-            return Err(
-                sql.Error.Database{
-                    code: "sqlkit",
-                    message: "the migration `${m.path}` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one",
-                }
-            )
-
-        None -> {}
-    }
-
-    pending =
-        migrations
-        |> Iter.filter(fn m -> Maybe.is_none(Map.get(applied, version_of(m))))
-        |> Iter.to_list()
-
-    apply_each(conn, pending)
-}
-
-// Run each migration in its own transaction with its record.
-fn apply_each(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Error> {
-    case migrations {
-        [] ->
-            Ok(Unit)
-
-        [first, ..rest] -> {
-            sql.transaction(conn, fn tx -> {
-                _ = Conn.exec(tx, Statement{parts: [first.sql], params: []})?
-                version = version_of(first)
-                sum = checksum.of(first.sql)
-
-                _ = Conn.exec(
-                    tx,
-                    Sql"INSERT INTO nomi_migrations (version, checksum) VALUES (${version}, ${sum})",
-                )?
-
-                Ok(Unit)
-            })?
-
-            apply_each(conn, rest)
-        }
-    }
-}
-
-// A migration's version: its file name, which the order of the migrations
-// goes by.
-fn version_of(migration: Migration) -> String {
-    String.split(migration.path, "/") |> Iter.last() |> Maybe.with_default(migration.path)
 }
 
 /// A type read from, or bound to, an integer column (`INTEGER`).

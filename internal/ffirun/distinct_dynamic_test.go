@@ -325,6 +325,47 @@ func Apply(f func(int64) int64) int64 { return f(1) }
 // What does not cross is refused at load: Dynamic against a Go type that is
 // no empty interface, a distinct whose inner type does not project to the
 // Go type, a marker, and a distinct over a struct whose fields differ.
+// A bound handle's unexported fields never cross, so their types are not
+// read: one that names a generic instantiation, as pgxpool's
+// `*puddle.Pool[*connResource]` does, does not stop the handle's bindings
+// being adapted.
+func TestFFIRun_AHandlesUnexportedFieldsAreNotRead(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test invokes go run; skipped in -short mode")
+	}
+	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
+	entry := stageCrossingProject(t, `package crossing
+
+type box[T any] struct{ v T }
+
+type counter struct{ n int64 }
+
+type Handle struct {
+	inner *box[int64]
+	counter
+}
+
+func New(n int64) *Handle   { return &Handle{inner: &box[int64]{v: n}} }
+func Get(h *Handle) int64   { return h.inner.v + h.counter.n }
+`, `import std/io
+
+gopkg "crossing" as crossing
+
+opaque type Handle go crossing.Handle
+
+fn new_handle(n: Int) -> Handle go crossing.New
+
+fn get(h: Handle) -> Int go crossing.Get
+
+fn main() {
+  io.print(get(new_handle(41)) + 1)
+}
+`)
+	if got := runCrossingProject(t, entry); got != "42" {
+		t.Fatalf("main printed %q, want 42", got)
+	}
+}
+
 func TestPrepareRefusesDistinctsAndDynamicThatDoNotCross(t *testing.T) {
 	t.Setenv("NOMI_FFIRUN_CACHE_ROOT", t.TempDir())
 	entry := stageCrossingProject(t, refusedGo, `import {

@@ -1,4 +1,4 @@
-//# TLS over Go's crypto/tls: the certificates a side presents, the roots
+//# TLS: the certificates a side presents, the roots
 //# it trusts, and the versions, cipher suites and protocols it allows. A
 //# `ClientConfig` or `ServerConfig` is a value, used by std/http
 //# (`ClientOptions.tls`, `Server.tls`) and std/net (`tls.dial`,
@@ -13,8 +13,8 @@
 //# })?
 //# ```
 //#
-//# A config's defaults are Go's: the system's roots, TLS 1.2 at least, and
-//# Go's cipher suites and curves.
+//# A config's defaults are the system's trusted roots, TLS 1.2 or later, and
+//# only cipher suites and curves with no known weakness.
 
 import {
     bool.Bool.{self, False, True}

@@ -383,6 +383,15 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 			sibErrs[key] = append(sibErrs[key], extChecks[key]...)
 		}
 	}
+	// Every file's calls to boot-only functions, which the check follows
+	// across the whole program (analysis.CheckBootScope).
+	for _, key := range sibKeys {
+		sibFA := siblingFAs[key]
+		if _, shared := c.sharedStdlib(key, sibFA); shared {
+			continue
+		}
+		sibErrs[key] = append(sibErrs[key], c.kept(analysis.CheckBootScope(sibFA, siblingNodes[key]))...)
+	}
 	var sibDiags Diagnostics
 	sibDiagsOf := map[string]Diagnostics{}
 	for _, key := range sibKeys {

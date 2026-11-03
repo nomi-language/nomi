@@ -1,50 +1,90 @@
-//# Typed literals — the machinery behind ``Date`2026-01-01` `` and
-//# `Sql"SELECT * FROM users WHERE id = ${id}"`. A typed literal is a
-//# string-shaped expression prefixed by a PascalCase type name; the
-//# compiler desugars `<Type>"..."` to `<Type>.from_fragments([...])`,
-//# so the prefix type's `Literal` impl decides what the body means and
-//# what value comes back. `Fragment` is the handler's input — the
-//# literal body split into `Static` text segments and `Dynamic`
-//# `${...}` slot values. Stdlib implementors include the `std/calendar`
-//# types (``Date`…` ``, ``DateTime`…` ``, …); user types opt in with an
-//# `impl Literal for Type { ... }` block and a `from_fragments` function of
-//# their own.
+//# Typed literals: a type name written against a string, as
+//# `Date"2026-05-04"`, ``Regex`\d+` `` or
+//# `Sql"SELECT * FROM users WHERE id = ${id}"`. The prefix type decides what
+//# the text means by implementing one of two interfaces from this module.
+//#
+//# - `Literal`: the literal is a call of the type's `from_fragments`, which
+//#   gets the text as a list of `Fragment`s and returns whatever type the
+//#   impl chooses, usually a `Result`. A double-quoted literal calls it when
+//#   the program runs. A backtick literal has no slots, so when
+//#   `from_fragments` returns a `Result` the compiler calls it while it
+//#   checks the program: an `Err` is a compile error, and the literal is the
+//#   `Ok` value. std/calendar's `Date`, std/regex's `Regex` and std/sql's
+//#   `Sql` work this way.
+//# - `CheckedLiteral`: `check` reads the literal's text around its slots
+//#   while the program is checked, and `build` makes the value when it runs.
+//#   The literal is the value in every quote style, slots included, never a
+//#   `Result`. `check` refuses text with a `LiteralError`, which names the
+//#   character the compile error points at. std/url's `Url` and std/toml's
+//#   `Toml` work this way.
+//#
+//# A type implements one of the two, never both. Choose `CheckedLiteral`
+//# when the text alone tells whether every slot value will build, as a URL's
+//# does: a slot in its path is escaped as one segment whatever it holds.
+//# std/literals_testing's `build_each` tests that a `build` keeps to this.
+//#
+//# A program's own type gets literals from an impl:
+//#
+//# ```nomi
+//# import std/literals.{Fragment, Literal}
+//#
+//# pub struct Box {
+//#     contents: String
+//# }
+//#
+//# impl Literal for Box {
+//#     fn from_fragments(fragments: List<Fragment<String>>) -> Box {
+//#         body = Iter.reduce(fragments, "", fn acc, frag -> {
+//#             case frag {
+//#                 .Static(s) -> acc + s
+//#                 .Dynamic(v) -> acc + v
+//#             }
+//#         })
+//#
+//#         Box{contents: body}
+//#     }
+//# }
+//# ```
+//#
+//# Then `Box"hello ${name}"` is a `Box`. The full rules, including which
+//# module may write these impls, are in spec §18 *Typed literals*.
 
-import strings.String
+import {
+    display.Display
+    equatable.Equatable
+    int.Int
+    lists.List
+    results.Result
+    strings.String
+    unit.Unit
+}
 
-/// One piece of a typed-literal body — either a `Static` text segment
-/// from the source between interpolation slots, or a `Dynamic` value
-/// from inside a `${...}` slot. A literal's type impl
-/// `Literal`'s `from_fragments(fragments: List<Fragment<I>>) -> R`
-/// to consume a typed literal; the `I` parameter pins the interface
-/// every dynamic slot must satisfy.
-///
-/// User code rarely constructs `Fragment` directly — the typed-literal
-/// syntax (`Date"..."`, `Sql"..."`) builds the list at the call site.
-/// The variants are defined here so every type's `from_fragments`
-/// composes uniformly, and so user-written handlers can pattern-match
-/// on the variants explicitly.
+/// One piece of a typed literal's text: a `Static` run of source text
+/// between slots, or a `Dynamic` value from a `${...}` slot. The list a
+/// handler gets always alternates `Static, Dynamic, ..., Static`, and its
+/// first and last `Static` are there even when empty: `Box"a ${x}"` is
+/// `[Static("a "), Dynamic(x), Static("")]`. A backtick literal is one
+/// `Static`. Programs rarely build a `Fragment` themselves; the literal's
+/// syntax builds the list, and a handler matches on it.
 pub enum Fragment<T> {
     Static String
     Dynamic T
 }
 
-/// Compiler-known interface backing typed literals. A `<Type>"..."` site
-/// resolves `Type` to a type in scope, demands its `Literal` impl,
-/// and desugars to `Type.from_fragments(fragments)` — so coherence, the
-/// orphan rule, and dispatch are ordinary interface-impl machinery. `I` is the
-/// interface every `${...}` slot value must satisfy
-/// (used existentially — heterogeneous slots, each implementing `I` its
-/// own way); `R` is the literal's static type (often `Result<T, E>` for a
-/// fallible parse, or the produced domain value for a builder). The impl
-/// is free to choose `I` and `R`; `from_fragments` takes no value typed
-/// `self` — the literal's type supplies the implementation, not an argument.
+/// The handler behind a typed literal. `T"..."` is a call of
+/// `T.from_fragments(fragments)`. `I` is what each `${...}` slot's value
+/// must be: a concrete type such as `String`, or an interface such as
+/// `Display` that each slot implements its own way. `R` is the literal's
+/// type, usually `Result<T, E>` for text that can be wrong, or `T` itself
+/// for a handler that cannot fail. `from_fragments` takes no `self`: the
+/// prefix type picks the handler.
+///
+/// A backtick literal whose handler returns `Result<T, E>` is checked when
+/// the program is checked and is a `T`, so that handler may not have
+/// effects. The double-quoted form is the `Result`, built when the program
+/// runs.
 ///
 /// ```nomi
-/// pub opaque struct Date {
-///     // ...fields...
-/// }
-///
 /// impl Literal for Date {
 ///     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Date, Error> {
 ///         ...
@@ -53,4 +93,59 @@ pub enum Fragment<T> {
 /// ```
 pub interface Literal<I, R> {
     fn from_fragments(fragments: List<Fragment<I>>) -> R
+}
+
+/// The handler behind a checked literal: a typed literal that is a `T` in
+/// every quote style, slots included, never a `Result`.
+///
+/// - `check` runs while the program is checked, once per literal. It gets
+///   the literal's static text: the `n + 1` pieces around its `n` slots, in
+///   order, empty ones included. An `Err` is a compile error at the
+///   character its `LiteralError` names. `check` may not have effects
+///   (output, files, the clock, tasks, an application field).
+/// - `build` runs when the program runs and gets the fragments
+///   `Literal.from_fragments` would get. It cannot fail: once `check`
+///   accepts the text, every slot value must build. A `build` that traps
+///   anyway traps where the literal runs. std/literals_testing's
+///   `build_each` tests this.
+///
+/// A type implements `Literal` or `CheckedLiteral`, never both.
+///
+/// ```nomi
+/// impl CheckedLiteral<String, Url> for Url {
+///     fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+///         ...
+///     }
+///
+///     fn build(fragments: List<Fragment<String>>) -> Url {
+///         ...
+///     }
+/// }
+/// ```
+pub interface CheckedLiteral<I, T> {
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
+    fn build(fragments: List<Fragment<I>>) -> T
+}
+
+/// Why `CheckedLiteral.check` refused a literal's text, and where.
+/// `fragment` is the index of the static the problem is in, and `offset`
+/// counts code points into it as `check` received it; an offset at a
+/// static's end points at the `${` of the slot after it. The compile error
+/// shows `message` there. When `check` cannot name a place, fragment 0 and
+/// offset 0 put the error on the literal.
+//! e = LiteralError{fragment: 1, offset: 4, message: "a slot cannot go here"}
+//! assert "${e}" == "a slot cannot go here"
+//
+pub struct LiteralError {
+    fragment: Int
+    offset: Int
+    message: String
+}
+
+derive Equatable for LiteralError
+
+impl Display for LiteralError {
+    fn to_string(error: LiteralError) -> String {
+        error.message
+    }
 }

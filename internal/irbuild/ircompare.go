@@ -282,6 +282,14 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
 		} else if irEmbeddedIn(lk, rk) {
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
+		} else if irExistentialKind(lk) && !irExistentialKind(rk) {
+			// `t == #(1, "a")` with `t: Equatable`: the concrete value is
+			// boxed as the interface value it is compared with, and the two
+			// compare by their run-time types below (spec §12 *Interface
+			// values*).
+			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
+		} else if irExistentialKind(rk) && !irExistentialKind(lk) {
+			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
 		}
 	}
 	if !ok || lk != rk {

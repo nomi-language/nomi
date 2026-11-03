@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 649
-declared-cases 3741
+records 658
+declared-cases 3786
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -684,13 +684,12 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/interpolate_display_value_test.nomi
 E 0
-N 4
-H 2e294402ca6a4a831fcc214f19109143a29837fc370ad771a2797ef595ce3392
+N 3
+H 8ee939bac63dcc36b7c356fcf9b21de879458c3e67479b8e172bb9073f66cd38
 T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a Display parameter interpolates through the value's own impl
 T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a type parameter bounded by Display interpolates
 T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a lambda over a list of Display values interpolates each
-T ok <root>/tests/04-scalars-and-text/interpolate_display_value_test.nomi :: a Toml literal writes each hole through Display
-T test result: ok. 4 passed, 0 failed
+T test result: ok. 3 passed, 0 failed
 T
 C 04-scalars-and-text/ints_test.nomi
 E 0
@@ -3288,6 +3287,26 @@ T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: sibling cancell
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: sibling cancellation is observable under a virtual clock / cancellation reaches tasks nested inside a cancelled sibling
 T test result: ok. 9 passed, 0 failed
 T
+C 16-concurrency/jobs/app.nomi
+E 0
+N 0
+H c5fa82d189d479e8f25624dae9ac04ef4cdce2b76bada300e95ce74da2d7724f
+T hello, Ada
+T
+C 16-concurrency/jobs/jobs_test.nomi
+E 0
+N 8
+H 536094f90ad0c95512ae66d3c26671098cee600ab5f2c36f863433aa031cc6cd
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / it runs a job enqueued after it starts
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / it runs a job enqueued before it starts
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a completed job is marked completed
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a retry waits its backoff with the attempt counted
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a discard is final
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a trap is a retry that names the trap
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a job past its timeout is cancelled and retried
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker with a start rate / it starts no more jobs a second than its rate
+T test result: ok. 8 passed, 0 failed
+T
 C 16-concurrency/message_loop/counter_app.nomi
 E 0
 N 0
@@ -3343,12 +3362,45 @@ T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task
 T ok <root>/tests/16-concurrency/supervisors/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
 T test result: ok. 6 passed, 0 failed
 T
+C 17-typed-literals/fragments_test.nomi
+E 0
+N 2
+H 61115a0608660402661ab0e5885c8fcf5def2830c8e5d6e5e0a487773e5e3900
+T ok <root>/tests/17-typed-literals/fragments_test.nomi :: fragments alternate, with empty statics kept
+T ok <root>/tests/17-typed-literals/fragments_test.nomi :: the empty statics sit where the spec puts them
+T test result: ok. 2 passed, 0 failed
+T
+C 17-typed-literals/html_templates_test.nomi
+E 0
+N 11
+H f45d320026295b9198e541a640ce944e34e379de2f513fe3a66d2ae555f9056f
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: element text escapes a String and keeps an Html
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a List, a Maybe and a program's own type render in element text
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a quoted attribute escapes both quotes, in either quote
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a slot later in a URL is escaped for its part
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a style value takes a number or a Css
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: an optional attribute is written or left out by its value
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: title and textarea text is escaped
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a multi-line template keeps its text, with its indentation stripped
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: a raw literal is a template with no slots
+T ok <root>/tests/17-typed-literals/html_templates_test.nomi :: Html values are equal by their text
+T test result: ok. 11 passed, 0 failed
+T
 C 17-typed-literals/toml_literal_test.nomi
 E 0
-N 1
-H 826a2698f20f0b1fa76e77c28b02db0e7f61b752f88ee1dabaf69469f5a867f3
+N 9
+H d33e24466d76c7afb4fd408ddb27f9fae0703ce2d0362fc5c1fd830f24db6f90
 T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: Toml literal preserves source text
-T test result: ok. 1 passed, 0 failed
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a String slot is one quoted value, whatever it holds
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: numbers, booleans and dates are TOML values
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a List slot is an array of its items' TOML
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a Map slot is an inline table with quoted keys
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: slots in arrays and inline tables
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a key slot is one quoted key part
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a program's own type writes itself as another ToToml
+T ok <root>/tests/17-typed-literals/toml_literal_test.nomi :: a program's own type cannot write TOML text
+T test result: ok. 9 passed, 0 failed
 T
 C 17-typed-literals/typed_literals/html_tags.nomi
 E 1
@@ -3391,6 +3443,15 @@ T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: t
 T ok <root>/tests/17-typed-literals/typed_literals/typed_literals_test.nomi :: Regex typed literals use the standard adapter
 T test result: ok. 7 passed, 0 failed
 T
+C 17-typed-literals/url_slots_test.nomi
+E 0
+N 3
+H b4dcdad2b350d0499648ea267e6e4fe680335cf1c188f2357ab9f45ed28bcd7b
+T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in an absolute URL's path keeps its host and cannot climb
+T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in a relative URL's path cannot make it name a host
+T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in a query keeps its host and path
+T test result: ok. 3 passed, 0 failed
+T
 C 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi
 E 1
 N 0
@@ -3410,6 +3471,29 @@ N 1
 H 99b5f411d2d84ba4f9b46ff3981a5c05f3ef25b082bb6166328066285df7dc8a
 T ok <root>/tests/18-ffi-and-dynamic/callback_ffi_app/main_test.nomi :: Go callback parameter can call Nomi lambda
 T test result: ok. 1 passed, 0 failed
+T
+C 18-ffi-and-dynamic/context_ffi_app/ffi.nomi
+E 1
+N 0
+H a03ed76dd6a023d526f54c9d7c5d51fd041d8b37055b2db0d706935ca17e7b24
+T --- stderr ---
+T nomi run: <root>/tests/18-ffi-and-dynamic/context_ffi_app/ffi.nomi declares no `fn main`, so there is no program to run
+T
+C 18-ffi-and-dynamic/context_ffi_app/main.nomi
+E 0
+N 0
+H 3f5265f6349f7af770e9ca6f0e2677f5af1c0828316f083ad29041d0a2870beb
+T False
+T True
+T context deadline exceeded
+T
+C 18-ffi-and-dynamic/context_ffi_app/main_test.nomi
+E 0
+N 2
+H 36246e3fce409a5b12c26ac38680c9405c4661a4534dfbf179507ec9d897ca11
+T ok <root>/tests/18-ffi-and-dynamic/context_ffi_app/main_test.nomi :: a Go function receives the task's context / no deadline reaches Go outside a bounded region
+T ok <root>/tests/18-ffi-and-dynamic/context_ffi_app/main_test.nomi :: a Go function receives the task's context / a Context.with_timeout deadline ends the Go call
+T test result: ok. 2 passed, 0 failed
 T
 C 18-ffi-and-dynamic/duration_ffi_app/ffi.nomi
 E 1
@@ -3829,6 +3913,24 @@ T ok <root>/tests/20-data-access/sql_test.nomi :: a constraint error keeps the c
 T ok <root>/tests/20-data-access/sql_test.nomi :: every error displays as a sentence
 T ok <root>/tests/20-data-access/sql_test.nomi :: a dialect displays its engine's name
 T test result: ok. 20 passed, 0 failed
+T
+C 20-data-access/storage_test.nomi
+E 0
+N 12
+H fae8eaa3f77a22614b0fab9459112b044a9f0ea077a8df009695d6e1e1c0a661
+T ok <root>/tests/20-data-access/storage_test.nomi :: Memory passes the conformance suite
+T ok <root>/tests/20-data-access/storage_test.nomi :: the local store passes the conformance suite in a sandbox
+T ok <root>/tests/20-data-access/storage_test.nomi :: the local store passes the conformance suite on disk
+T ok <root>/tests/20-data-access/storage_test.nomi :: the local store keeps a content type beside each object
+T ok <root>/tests/20-data-access/storage_test.nomi :: a file copied in by hand is typed from its bytes
+T ok <root>/tests/20-data-access/storage_test.nomi :: a delete removes the object and its type, and leaves directories
+T ok <root>/tests/20-data-access/storage_test.nomi :: keys a and a/b cannot both exist on the local store
+T ok <root>/tests/20-data-access/storage_test.nomi :: a key cannot climb out of the root
+T ok <root>/tests/20-data-access/storage_test.nomi :: a store with no public base has no URLs
+T ok <root>/tests/20-data-access/storage_test.nomi :: the handler serves an object with its stored type
+T ok <root>/tests/20-data-access/storage_test.nomi :: the handler answers a range, a HEAD and a conditional request
+T ok <root>/tests/20-data-access/storage_test.nomi :: the handler maps store errors to statuses
+T test result: ok. 12 passed, 0 failed
 T
 C 20-data-access/transactions_test.nomi
 E 0

@@ -485,7 +485,7 @@ func TestCache_DiscoveredHashCoversWhatTheWrapperCompilesIn(t *testing.T) {
 		"export declaration":   func(d []DiscoveredPackage) { d[0].Exports[0].Declaration = "host fn upper(s: String) -> Int" },
 		"type source file":     func(d []DiscoveredPackage) { d[0].Types[0].SourceFile = "/p/bin/hi" },
 		"type entry key":       func(d []DiscoveredPackage) { d[0].Types[0].EntryKey = "" },
-		"type Go expression":   func(d []DiscoveredPackage) { d[0].Types[0].GoTypeExpr = "*binding.Box" },
+		"type Go type name":    func(d []DiscoveredPackage) { d[0].Types[0].TypeName = "Crate" },
 	}
 	for name, move := range moves {
 		d := base()

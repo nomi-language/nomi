@@ -247,6 +247,7 @@ const ModulesFileName = "linked_modules_gen.go"
 // modules_native.go declares linkedModules empty.
 func ModulesFile(root, work string) ([]byte, error) {
 	imports := map[string]string{}
+	pathOf := map[string]string{} // alias -> import path
 	var decls, modules bytes.Buffer
 	for i, m := range tourgo.Modules {
 		prefix := fmt.Sprintf("tourModule%d", i)
@@ -258,7 +259,11 @@ func ModulesFile(root, work string) ([]byte, error) {
 			if other, ok := imports[path]; ok && other != alias {
 				return nil, fmt.Errorf("the tour module %s: its adapters import %s as %s, and another module's as %s", m.Name, path, alias, other)
 			}
+			if other, ok := pathOf[alias]; ok && other != path {
+				return nil, fmt.Errorf("the tour module %s: its adapters import %s as %s, which another module's name %s", m.Name, path, alias, other)
+			}
 			imports[path] = alias
+			pathOf[alias] = path
 		}
 		fmt.Fprintf(&decls, "\n// The tour module %s (%s)\n\n%s\n", m.Name, m.Path, l.Decls)
 		fmt.Fprintf(&modules, "\t{module: %s, bind: %sBind},\n", strconv.Quote(m.Path), prefix)

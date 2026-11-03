@@ -1,0 +1,508 @@
+//# Testing code that uses std/storage. `Memory` is a `Store` kept in
+//# memory, so a test stores, reads and asserts with no directory or
+//# server:
+//#
+//# ```nomi
+//# test "an upload stores the avatar" {
+//#     store = Memory.new()
+//#     with App.store = store
+//#     url = save_avatar(7, png)?
+//#     assert Memory.keys(store) == ["avatars/7.png"]
+//#     assert "${url}" == "https://storage.test/avatars/7.png"
+//# }
+//# ```
+//#
+//# `Failing` is a store whose every call fails with an error the test
+//# picks, for testing what a caller does when storage is down.
+//# `conformance` is the suite every backend passes: a backend's own tests
+//# run it against stores it opens.
+
+import {
+    bool.Bool.{self, False, True}
+    bytes.Bytes
+    channels.{Channel, Receiver, Sender}
+    display.Display
+    equatable.Equatable
+    hex
+    instant.Instant
+    iter.Iter
+    lists.List
+    maps.Map
+    maybe.Maybe.{self, None, Some}
+    results.Result.{self, Err, Ok}
+    storage.{self, Error, Info, Object, Store}
+    strings.String
+    unit.Unit
+    url.Url
+}
+
+/// A `Store` kept in memory, shared by every copy of the value. Its `url`
+/// is `public_base` joined with the key; the default base is on
+/// `storage.test`, a name reserved so it never reaches a real host.
+//! store = Memory.new()
+//! assert Store.put(store, "a.txt", String.to_bytes("hi"), "text/plain") == Ok(Unit)
+//! assert Memory.keys(store) == ["a.txt"]
+//! assert "${Store.url(store, "a.txt")!}" == "https://storage.test/a.txt"
+//
+pub opaque struct Memory {
+    state: Channel<State>
+    public_base: Url
+}
+
+struct State {
+    objects: Map<String, Object>
+}
+
+impl Memory {
+    /// An empty store whose URLs start with `public_base`.
+    pub fn new(public_base: Url = Url`https://storage.test/`) -> Memory {
+        state: Channel<State> = Channel.buffered(1)
+        _ = Sender.send(state.sender, State{objects: %{}})
+        Memory{state, public_base}
+    }
+
+    /// Every key held, sorted.
+    //! store = Memory.new()
+    //! _ = Store.put(store, "b", String.to_bytes(""), "text/plain")
+    //! _ = Store.put(store, "a", String.to_bytes(""), "text/plain")
+    //! assert Memory.keys(store) == ["a", "b"]
+    //
+    pub fn keys(memory: Memory) -> List<String> {
+        Map.keys(peek(memory).objects) |> Iter.sort() |> Iter.to_list()
+    }
+}
+
+impl Store for Memory {
+    fn put(memory: Memory, key: String, data: Bytes, content_type: String) -> Result<Unit, Error> {
+        storage.check_key(key)?
+        storage.check_content_type(content_type)?
+        info = Info{size: Bytes.length(data), content_type, modified: Instant.now()}
+        state = take(memory)
+        put(memory, State{objects: Map.put(state.objects, key, Object{data, info})})
+        Ok(Unit)
+    }
+
+    fn get(memory: Memory, key: String) -> Result<Object, Error> {
+        storage.check_key(key)?
+        Map.get(peek(memory).objects, key) |> Maybe.to_result(Error.NotFound{key})
+    }
+
+    fn info(memory: Memory, key: String) -> Result<Maybe<Info>, Error> {
+        storage.check_key(key)?
+
+        Ok(
+            Map.get(peek(memory).objects, key)
+            |> Maybe.map(fn object -> object.info)
+        )
+    }
+
+    fn delete(memory: Memory, key: String) -> Result<Unit, Error> {
+        storage.check_key(key)?
+        state = take(memory)
+        put(memory, State{objects: Map.remove(state.objects, key)})
+        Ok(Unit)
+    }
+
+    fn url(memory: Memory, key: String) -> Result<Url, Error> {
+        storage.check_key(key)?
+        Ok(Url.join_path(memory.public_base, [key]))
+    }
+}
+
+// The store's state, taken out of its channel until `put` puts it back.
+fn take(memory: Memory) -> State {
+    case Receiver.receive(memory.state.receiver) {
+        Some(state) -> state
+        None -> State{objects: %{}}
+    }
+}
+
+fn put(memory: Memory, state: State) {
+    _ = Sender.send(memory.state.sender, state)
+}
+
+fn peek(memory: Memory) -> State {
+    state = take(memory)
+    put(memory, state)
+    state
+}
+
+/// A `Store` whose every call fails with `error`, whatever the key, for
+/// testing what a caller does when storage is down. `exists` fails with it
+/// too. The default `error` is an `Unavailable` one.
+//! store = Failing{error: Error.Unavailable{message: "down"}}
+//! assert Store.get(store, "a") == Err(Error.Unavailable{message: "down"})
+//! assert Store.exists(store, "a") == Err(Error.Unavailable{message: "down"})
+//! assert Store.put(Failing{}, "a", String.to_bytes(""), "text/plain") is Err(.Unavailable{})
+//
+pub struct Failing {
+    error: Error = Error.Unavailable{message: "the test's store is failing"}
+}
+
+impl Store for Failing {
+    fn put(
+        failing: Failing,
+        key: String,
+        data: Bytes,
+        content_type: String,
+    ) -> Result<Unit, Error> {
+        _ = #(key, data, content_type)
+        Err(failing.error)
+    }
+
+    fn get(failing: Failing, key: String) -> Result<Object, Error> {
+        _ = key
+        Err(failing.error)
+    }
+
+    fn info(failing: Failing, key: String) -> Result<Maybe<Info>, Error> {
+        _ = key
+        Err(failing.error)
+    }
+
+    fn delete(failing: Failing, key: String) -> Result<Unit, Error> {
+        _ = key
+        Err(failing.error)
+    }
+
+    fn url(failing: Failing, key: String) -> Result<Url, Error> {
+        _ = key
+        Err(failing.error)
+    }
+}
+
+/// A conformance rule a backend broke, and how. Its `Display` is `rule:
+/// message`.
+pub struct Broken {
+    rule: String
+    message: String
+}
+
+derive Equatable for Broken
+
+impl Display for Broken {
+    fn to_string(broken: Broken) -> String {
+        "${broken.rule}: ${broken.message}"
+    }
+}
+
+/// Runs every conformance rule against stores from `open`, and answers the
+/// rules broken: none for a backend that conforms. Each rule opens a fresh
+/// store and puts and reads objects under keys starting with
+/// `conformance/`, except the rule on invalid keys, which puts `b` and
+/// reads the valid keys a backend that cleaned an invalid key would have
+/// used. A store `open` cannot make breaks the rule it was for.
+///
+/// The rules cover a put read back with its bytes, type and size, a put
+/// replacing another, a missing key for each function, a delete, every
+/// invalid key refused by every function with nothing stored, invalid
+/// content types, an empty object, every byte value, an object of 5 MiB,
+/// and `url`. There is no rule that keys `a` and `a/b` can both exist:
+/// S3 allows it and `storage.local` cannot.
+//! assert conformance(fn -> Ok(Memory.new())) == []
+//
+pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken> {
+    checks()
+    |> Iter.flat_map(fn #(rule, check) -> {
+        outcome = case open() {
+            Ok(store) -> check(store)
+            Err(e) -> Err("cannot open a store: ${e}")
+        }
+
+        case outcome {
+            Ok(_) -> []
+            Err(message) -> [Broken{rule, message}]
+        }
+    })
+    |> Iter.to_list()
+}
+
+/// The names of the conformance rules, in the order `conformance` runs
+/// them.
+//! assert Iter.contains(rules(), "an object of 5 MiB round-trips")
+//
+pub fn rules() -> List<String> {
+    checks() |> Iter.map(fn #(rule, _) -> rule) |> Iter.to_list()
+}
+
+/// The keys every function of a backend must refuse with `InvalidKey`.
+//! assert Iter.all(invalid_keys(), fn key -> Result.is_err(storage.check_key(key)))
+//
+pub fn invalid_keys() -> List<String> {
+    [
+        "",
+        "/a",
+        "a/",
+        "a//b",
+        "..",
+        "a/../b",
+        ".hidden",
+        "a b",
+        "ü",
+        "a\\b",
+        String.repeat("k", 1025),
+    ]
+}
+
+fn expect(holds: Bool, message: String) -> Result<Unit, String> {
+    if holds { Ok(Unit) } else { Err(message) }
+}
+
+fn bytes(text: String) -> Bytes {
+    String.to_bytes(text)
+}
+
+fn put_object(
+    store: Store,
+    key: String,
+    data: Bytes,
+    content_type: String,
+) -> Result<Unit, String> {
+    Store.put(store, key, data, content_type) |> Result.map_err(fn e -> "put ${key}: ${e}")
+}
+
+fn get_object(store: Store, key: String) -> Result<Object, String> {
+    Store.get(store, key) |> Result.map_err(fn e -> "get ${key}: ${e}")
+}
+
+// Put `data` and read it back whole and through `info`.
+fn round_trips(
+    store: Store,
+    key: String,
+    data: Bytes,
+    content_type: String,
+) -> Result<Unit, String> {
+    put_object(store, key, data, content_type)?
+    object = get_object(store, key)?
+
+    expect(
+        object.data == data,
+        "get answered ${Bytes.length(object.data)} bytes that differ from the ${Bytes.length(
+            data
+        )} put",
+    )?
+
+    expect(
+        object.info.content_type == content_type,
+        "get answered the type ${object.info.content_type}, not ${content_type}",
+    )?
+
+    expect(object.info.size == Bytes.length(data), "get answered the size ${object.info.size}")?
+
+    case Store.info(store, key) {
+        Ok(Some(info)) -> {
+            expect(info.size == Bytes.length(data), "info answered the size ${info.size}")?
+            expect(info.content_type == content_type, "info answered the type ${info.content_type}")
+        }
+
+        Ok(None) ->
+            Err("info answered None for a key just put")
+
+        Err(e) ->
+            Err("info ${key}: ${e}")
+    }
+}
+
+fn all_bytes() -> Bytes {
+    digits = "0123456789abcdef"
+
+    text =
+        Iter.flat_map(digits, fn high -> Iter.map(digits, fn low -> "${high}${low}"))
+        |> String.join("")
+
+    hex.decode(text)!
+}
+
+fn refuses(key: String, function: String, answer: Result<Unit, Error>) -> Result<Unit, String> {
+    case answer {
+        Err(.InvalidKey{}) -> Ok(Unit)
+        Err(e) -> Err("${function} of the key \"${key}\" answered ${e}, not InvalidKey")
+        Ok(_) -> Err("${function} of the key \"${key}\" answered Ok, not InvalidKey")
+    }
+}
+
+fn checks() -> List<#(String, (Store) -> Result<Unit, String>)> {
+    [
+        #(
+            "a put is read back with its bytes, type and size",
+            fn store -> {
+                round_trips(store, "conformance/a.txt", bytes("hello"), "text/plain; charset=utf-8")
+            },
+        ),
+        #(
+            "a second put replaces the first",
+            fn store -> {
+                put_object(store, "conformance/a.txt", bytes("first"), "text/plain")?
+                round_trips(store, "conformance/a.txt", bytes("second, longer"), "application/json")
+            },
+        ),
+        #(
+            "a missing key is NotFound to get, None to info, False to exists and Ok to delete",
+            fn store -> {
+                key = "conformance/missing.txt"
+
+                case Store.get(store, key) {
+                    Err(.NotFound{key: named}) ->
+                        expect(named == key, "get's NotFound named ${named}")?
+
+                    Err(e) ->
+                        return Err("get answered ${e}, not NotFound")
+
+                    Ok(_) ->
+                        return Err("get of a missing key answered an object")
+                }
+
+                expect(
+                    Store.info(store, key) == Ok(None),
+                    "info of a missing key did not answer Ok(None)",
+                )?
+
+                expect(
+                    Store.exists(store, key) == Ok(False),
+                    "exists of a missing key did not answer Ok(False)",
+                )?
+
+                expect(
+                    Store.delete(store, key) == Ok(Unit),
+                    "delete of a missing key did not answer Ok",
+                )
+            },
+        ),
+        #(
+            "a deleted object is gone",
+            fn store -> {
+                key = "conformance/gone.txt"
+                put_object(store, key, bytes("x"), "text/plain")?
+
+                expect(
+                    Store.exists(store, key) == Ok(True),
+                    "exists of a key just put did not answer Ok(True)",
+                )?
+
+                Store.delete(store, key) |> Result.map_err(fn e -> "delete: ${e}")?
+
+                expect(
+                    Store.get(store, key) is Err(.NotFound{}),
+                    "get after delete did not answer NotFound",
+                )?
+
+                expect(
+                    Store.info(store, key) == Ok(None),
+                    "info after delete did not answer Ok(None)",
+                )
+            },
+        ),
+        #(
+            "every function refuses an invalid key and stores nothing",
+            fn store -> {
+                probe = bytes("probe")
+                put_object(store, "b", probe, "text/plain")?
+
+                _ =
+                    invalid_keys()
+                    |> Iter.map(fn key -> {
+                        refuses(key, "put", Store.put(store, key, bytes("x"), "text/plain"))?
+
+                        refuses(
+                            key,
+                            "get",
+                            Store.get(store, key)
+                            |> Result.map(fn _ -> Unit),
+                        )?
+
+                        refuses(
+                            key,
+                            "info",
+                            Store.info(store, key)
+                            |> Result.map(fn _ -> Unit),
+                        )?
+
+                        refuses(
+                            key,
+                            "exists",
+                            Store.exists(store, key)
+                            |> Result.map(fn _ -> Unit),
+                        )?
+
+                        refuses(key, "delete", Store.delete(store, key))?
+
+                        refuses(
+                            key,
+                            "url",
+                            Store.url(store, key)
+                            |> Result.map(fn _ -> Unit),
+                        )
+                    })
+                    |> Result.collect()?
+
+                kept = get_object(store, "b")?
+
+                expect(
+                    kept.data == probe,
+                    "a refused put or delete of an invalid key changed the object b",
+                )?
+
+                ["a", "a/b", "hidden"]
+                |> Iter.map(fn key -> {
+                    case Store.info(store, key) {
+                        Ok(None) -> Ok(Unit)
+                        Ok(Some(_)) -> Err("a refused put of an invalid key stored ${key}")
+                        Err(e) -> Err("info ${key}: ${e}")
+                    }
+                })
+                |> Result.collect()
+                |> Result.map(fn _ -> Unit)
+            },
+        ),
+        #(
+            "put refuses an invalid content type",
+            fn store -> {
+                key = "conformance/typed.txt"
+
+                _ =
+                    ["", "text/plain\r\nX-Injected: 1", String.repeat("t", 256)]
+                    |> Iter.map(fn content_type -> {
+                        case Store.put(store, key, bytes("x"), content_type) {
+                            Err(.InvalidContentType{}) -> Ok(Unit)
+                            Err(e) -> Err("put with the type \"${content_type}\" answered ${e}")
+                            Ok(_) -> Err("put with the type \"${content_type}\" answered Ok")
+                        }
+                    })
+                    |> Result.collect()?
+
+                expect(Store.info(store, key) == Ok(None), "a refused put stored an object")
+            },
+        ),
+        #(
+            "an empty object round-trips",
+            fn store -> {
+                round_trips(store, "conformance/empty", bytes(""), "application/octet-stream")
+            },
+        ),
+        #(
+            "every byte value round-trips",
+            fn store -> {
+                round_trips(store, "conformance/bytes.bin", all_bytes(), "application/octet-stream")
+            },
+        ),
+        #(
+            "an object of 5 MiB round-trips",
+            fn store -> {
+                data = bytes(String.repeat("0123456789abcdef", 5 * 1024 * 64))
+                round_trips(store, "conformance/large.bin", data, "application/octet-stream")
+            },
+        ),
+        #(
+            "url answers a URL whose path ends with the key, or NoPublicUrl",
+            fn store -> {
+                key = "conformance/linked.txt"
+
+                case Store.url(store, key) {
+                    Ok(u) -> expect(String.ends_with(u.path, "/${key}"), "url answered ${u}")
+                    Err(.NoPublicUrl) -> Ok(Unit)
+                    Err(e) -> Err("url answered ${e}")
+                }
+            },
+        ),
+    ]
+}

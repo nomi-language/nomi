@@ -3257,19 +3257,57 @@ func TestFormat_TripleStringEmpty_Idempotent(t *testing.T) {
 
 func TestFormat_TripleStringSingleLineBody_Idempotent(t *testing.T) {
 	// `"""body"""` (no leading/trailing newline). Decoded value is
-	// `body`. Canonical output is the multi-line form with the body
-	// on its own indented line — same Doc shape the multi-line case
-	// produces, just with one body line.
+	// `body`. Written on one line, it stays on one line when it fits.
 	src := "fn main() {\n    q = \"\"\"body\"\"\"\n}\n"
 	once := formatOnce(t, src)
 	twice := formatOnce(t, once)
 	if once != twice {
 		t.Fatalf("not idempotent:\n  once: %q\n twice: %q", once, twice)
 	}
-	// The canonical form pulls the body onto its own line.
-	want := "fn main() {\n    q = \"\"\"\n        body\n        \"\"\"\n}\n"
+	if once != src {
+		t.Errorf("canonical form mismatch:\n want: %q\n  got: %q", src, once)
+	}
+}
+
+// A one-line triple-quoted literal that does not fit in the line is
+// framed, its body on its own line; a framed one stays framed.
+func TestFormat_TripleStringOneLineTooWideIsFramed(t *testing.T) {
+	long := strings.Repeat("x", 120)
+	once := formatOnce(t, "fn main() {\n    q = \"\"\""+long+"\"\"\"\n}\n")
+	want := "fn main() {\n    q = \"\"\"\n        " + long + "\n        \"\"\"\n}\n"
 	if once != want {
-		t.Errorf("canonical form mismatch:\n want: %q\n  got: %q", want, once)
+		t.Fatalf("got %q, want %q", once, want)
+	}
+	if twice := formatOnce(t, once); twice != once {
+		t.Fatalf("not idempotent: %q", twice)
+	}
+}
+
+// A one-line `Html"""..."""` stays on one line, and a double-quoted one is
+// never split, however long.
+func TestFormat_OneLineTypedLiteralsStayOnOneLine(t *testing.T) {
+	for _, line := range []string{
+		`    _ = Html"""<i data-kind="${kind}"></i>"""`,
+		`    _ = Html"<i data-kind='${kind}' class='` + strings.Repeat("a", 120) + `'></i>"`,
+	} {
+		src := "fn f(kind: String) {\n" + line + "\n}\n"
+		if got := formatOnce(t, src); got != src {
+			t.Errorf("got %q, want it unchanged", got)
+		}
+	}
+}
+
+// A slot whose expression spans lines is laid out from the column of its
+// `${`.
+func TestFormat_AMultiLineSlotStartsAtItsDollar(t *testing.T) {
+	src := "fn f(on: Bool) -> Html {\n    Html\"\"\"\n        <p>${if on {\n            Html\"<b>on</b>\"\n        } else {\n            Html\"<i>off</i>\"\n        }}</p>\n        \"\"\"\n}\n"
+	want := "fn f(on: Bool) -> Html {\n    Html\"\"\"\n        <p>${if on {\n               Html\"<b>on</b>\"\n           } else {\n               Html\"<i>off</i>\"\n           }}</p>\n        \"\"\"\n}\n"
+	once := formatOnce(t, src)
+	if once != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", once, want)
+	}
+	if twice := formatOnce(t, once); twice != once {
+		t.Fatalf("not idempotent:\n%s", twice)
 	}
 }
 

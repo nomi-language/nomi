@@ -32,29 +32,14 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 	if why != "" {
 		return no()
 	}
-	var callee *ir.Symbol
-	if h.std != nil {
-		// A stdlib handler, such as Regex's, is a retained std body called
-		// as stdlibInvoke spells it.
-		f := h.std
-		if f.canon != nil {
-			f = f.canon
-		}
-		if f.irBody == nil || f.rtCall != "" {
-			why = "a stdlib handler with no retained body"
-			return no()
-		}
-		callee = f.irBody.Sym()
-	} else if h.unit >= 0 {
-		// A sibling file's handler, called by the declaring unit's symbol
-		// for its retained body, as a type-qualified sibling impl call is.
-		callee = h.sym
-	} else {
-		it := bl.g.literalImplItem(t)
-		if it == nil || irImplSource(it) == nil {
-			return no()
-		}
-		callee = bl.g.irCalleeSym(it, h.label)
+	fd, _ := bl.g.literalHandlerDecl(t)
+	callee, why := bl.g.literalCallee(h, fd)
+	if callee == nil {
+		return no()
+	}
+	if bl.g.srcFA().CheckedLiterals[t] && !bl.g.checkedLiteralSite(t) {
+		why = "a checked literal whose check does not lower"
+		return no()
 	}
 	if len(h.params) != 1 || !irListTransportKind(h.params[0]) || !irCallableValueKind(h.result) {
 		why = "a handler signature outside the retained domain"
@@ -76,9 +61,10 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 		// time; its value is the Ok payload of its cell.
 		return bl.checkedLiteral(t, h.result)
 	}
-	last := lastDynamicPart(t.Parts)
-	items := make([]ir.Temp, 0, len(t.Parts))
-	for i, part := range t.Parts {
+	parts := fragmentParts(t.Parts)
+	last := lastDynamicPart(parts)
+	items := make([]ir.Temp, 0, len(parts))
+	for i, part := range parts {
 		switch p := part.(type) {
 		case ast.StringText:
 			c := ir.NewString(bl.g.irNodeSpan(t), bl.f.NewTemp(), p.Value)
@@ -119,10 +105,46 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 	return c.Dst(), h.result, false, true
 }
 
+// literalCallee is the symbol a call to the handler h, declared by fd,
+// names, or nil and why it does not lower.
+func (g *gen) literalCallee(h literalTarget, fd *ast.FuncDef) (*ir.Symbol, string) {
+	if h.std != nil {
+		// A stdlib handler, such as Regex's, is a retained std body called
+		// as stdlibInvoke spells it.
+		f := h.std
+		if f.canon != nil {
+			f = f.canon
+		}
+		if f.irBody == nil || f.rtCall != "" {
+			return nil, "a stdlib handler with no retained body"
+		}
+		return f.irBody.Sym(), ""
+	}
+	if h.unit >= 0 {
+		// A sibling file's handler, called by the declaring unit's symbol
+		// for its retained body, as a type-qualified sibling impl call is.
+		return h.sym, ""
+	}
+	it := g.implItemFor(fd)
+	if it == nil || irImplSource(it) == nil {
+		return nil, ""
+	}
+	return g.irCalleeSym(it, h.label), ""
+}
+
 // literalImplItem is the impl item literalImpl's local route resolves.
 func (g *gen) literalImplItem(t *ast.TaggedString) *implItem {
 	fd, found := g.literalHandlerDecl(t)
 	if !found {
+		return nil
+	}
+	return g.implItemFor(fd)
+}
+
+// implItemFor is the lowerable impl item of this module that declares fd, or
+// nil.
+func (g *gen) implItemFor(fd *ast.FuncDef) *implItem {
+	if fd == nil {
 		return nil
 	}
 	for _, d := range g.implOrder {

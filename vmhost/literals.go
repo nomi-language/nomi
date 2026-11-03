@@ -73,8 +73,15 @@ func (p *Program) checkLiterals() error {
 	}
 	m := p.machineOver(entry, io.Discard)
 	var lits frontend.Diagnostics
+	effectful := map[any]bool{}
 	for _, site := range p.res.Literals {
-		d, failed, err := p.checkLiteral(m, site)
+		check := p.checkLiteral
+		if site.Checked {
+			check = func(m *vm.Machine, site irbuild.LiteralSite) (frontend.Diagnostic, bool, error) {
+				return p.checkCheckedLiteral(m, site, effectful)
+			}
+		}
+		d, failed, err := check(m, site)
 		if err != nil {
 			return err
 		}

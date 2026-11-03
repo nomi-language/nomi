@@ -517,6 +517,11 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.RangeLit:
 		return bl.rangeMake(t)
 	case *ast.TaggedString:
+		if x, ok := t.Template(); ok {
+			// An `Html` literal is the call its template expands into
+			// (internal/analysis/html_template.go).
+			return bl.lowerNode(x)
+		}
 		return bl.taggedLiteral(t)
 	case *ast.ListLit:
 		if t.TypeName != nil {

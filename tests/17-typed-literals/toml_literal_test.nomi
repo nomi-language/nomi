@@ -1,4 +1,31 @@
-import std/toml.Toml
+//# A Toml"..." slot is written for where it stands: a value as its TOML, a
+//# key as one quoted key. A slot anywhere else is a compile error, tested in
+//# vmhost (checked_literals_toml_test.go).
+
+import {
+    std/calendar.{Date, OffsetDateTime, Time}
+    std/toml.{ToToml, Toml}
+}
+
+struct Port {
+    number: Int
+}
+
+impl ToToml for Port {
+    fn to_toml(port: Port) -> Toml.Value {
+        ToToml.to_toml(port.number)
+    }
+}
+
+// An impl that tries to write TOML text can only make a String value, which
+// the literal quotes.
+struct Sneaky {}
+
+impl ToToml for Sneaky {
+    fn to_toml(_: Sneaky) -> Toml.Value {
+        Toml.Value.String("1\nadmin = true")
+    }
+}
 
 test "Toml literal preserves source text" {
     manifest = Toml"""
@@ -7,4 +34,98 @@ test "Toml literal preserves source text" {
         """
 
     assert "name = \"demo\"" in Toml.text(manifest)
+}
+
+test "a String slot is one quoted value, whatever it holds" {
+    evil = "x\"\nadmin = true"
+    assert Toml.text(Toml"user = ${evil}") == "user = \"x\\\"\\nadmin = true\""
+
+    odd = "back\\slash\ttab\u{1}"
+    assert Toml.text(Toml"k = ${odd}") == "k = \"back\\\\slash\\ttab\\u0001\""
+}
+
+test "numbers, booleans and dates are TOML values" {
+    port = 8080
+    ratio = 0.5
+    whole = 2.0
+    on = True
+    day = Date`2026-05-04`
+    noon = Time`12:00:00`
+    at = OffsetDateTime`2026-05-04T09:30:00+02:00`
+
+    t = Toml"""
+        port = ${port}
+        ratio = ${ratio}
+        whole = ${whole}
+        on = ${on}
+        day = ${day}
+        noon = ${noon}
+        at = ${at}
+        """
+
+    assert Toml.text(t) == """
+        port = 8080
+        ratio = 0.5
+        whole = 2.0
+        on = true
+        day = 2026-05-04
+        noon = 12:00:00
+        at = 2026-05-04T09:30:00+02:00
+        """
+}
+
+test "a List slot is an array of its items' TOML" {
+    hosts = ["a", "b\"c"]
+    grid = [[1, 2], [3]]
+    none: List<Int> = []
+    assert Toml.text(Toml"hosts = ${hosts}") == "hosts = [\"a\", \"b\\\"c\"]"
+    assert Toml.text(Toml"grid = ${grid}") == "grid = [[1, 2], [3]]"
+    assert Toml.text(Toml"none = ${none}") == "none = []"
+}
+
+test "a Map slot is an inline table with quoted keys" {
+    limits = %{"cpu" => 2, "a.b" => 3}
+
+    nested = %{
+        "x" => [%{"y" => "z"}],
+    }
+
+    assert Toml.text(Toml"limits = ${limits}") == "limits = {\"cpu\" = 2, \"a.b\" = 3}"
+    assert Toml.text(Toml"n = ${nested}") == "n = {\"x\" = [{\"y\" = \"z\"}]}"
+}
+
+test "slots in arrays and inline tables" {
+    a = 1
+    b = "two"
+    key = "the key"
+    assert Toml.text(Toml"xs = [${a}, ${b}]") == "xs = [1, \"two\"]"
+    assert Toml.text(Toml"t = {${key} = ${a}}") == "t = {\"the key\" = 1}"
+}
+
+test "a key slot is one quoted key part" {
+    name = "web.1]\n[admin"
+    id = 42
+
+    t = Toml"""
+        [servers.${name}]
+        ${id} = true
+        a.${id}.b = 1
+        """
+
+    assert Toml.text(t) == """
+        [servers."web.1]\n[admin"]
+        "42" = true
+        a."42".b = 1
+        """
+}
+
+test "a program's own type writes itself as another ToToml" {
+    port = Port{number: 9000}
+    assert Toml.text(Toml"port = ${port}") == "port = 9000"
+}
+
+test "a program's own type cannot write TOML text" {
+    s = Sneaky{}
+    assert Toml.text(Toml"user = ${s}") == "user = \"1\\nadmin = true\""
+    assert Toml.text(Toml"${s} = 1") == "\"1\\nadmin = true\" = 1"
 }

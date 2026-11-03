@@ -164,6 +164,10 @@ func (g *gen) ifaceInstAt(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceIn
 	} else if o := g.templateOwner(tpl); o != nil {
 		d.foreign, d.pkg, d.unit = o.fileKey, o.pkg, o.unit
 	}
+	if t := g.stdProgIfaces[tpl]; t != nil {
+		// A std generic interface's instance (stdprogiface.go).
+		d.stdOrigin = t.stdOrigin
+	}
 	inst := &ifaceInst{def: d, subst: subst}
 	// Interned BEFORE resolving, so a default body that reaches this interface
 	// again resolves against the same def rather than building a second one.

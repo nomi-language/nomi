@@ -1,0 +1,3 @@
+[module]
+name = "minio"
+entry_points = ["real"]

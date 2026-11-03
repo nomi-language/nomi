@@ -274,7 +274,13 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 			}
 			return resolveTypeExpr(base, reg, typeParams, refs, declared)
 		}
-		return nil, TypeError{Line: n.ModuleLine, Col: n.ModuleCol, Message: fmt.Sprintf("unknown type %q", qualName)}
+		e := TypeError{Line: n.ModuleLine, Col: n.ModuleCol, Message: fmt.Sprintf("unknown type %q", qualName)}
+		if et, ok := reg.Lookup(n.Module).(*EnumType); ok {
+			if member, ok := n.Member.(*ast.SimpleType); ok {
+				e = e.WithHint(variantTypeHint(et, member.Name))
+			}
+		}
+		return nil, e
 
 	case *ast.SelfType:
 		if typeParams != nil {
@@ -345,9 +351,35 @@ func unknownTypeError(reg *TypeRegistry, line, col int, name string) TypeError {
 				full, name, full[:strings.LastIndex(full, ".")]))
 		}
 	}
+	if reg != nil && !strings.Contains(name, ".") {
+		if et := reg.EnumWithVariant(name); et != nil {
+			return e.WithHint(variantTypeHint(et, name))
+		}
+	}
 	var candidates []string
 	if reg != nil {
 		candidates = reg.Names()
 	}
 	return e.WithHint(didYouMean(name, candidates))
+}
+
+// variantTypeHint explains, for a type name that names a variant of et, that
+// a variant declared inside an enum is not a type (spec §4 *Variants as
+// Parameter Types*), and how to write what was meant. It is empty when et has
+// no such variant.
+func variantTypeHint(et *EnumType, variant string) string {
+	for _, v := range et.Variants {
+		if v.Name != variant {
+			continue
+		}
+		if v.Embedded != nil {
+			return fmt.Sprintf("write `%s`, the embedded variant's own type", v.Embedded)
+		}
+		if strings.HasPrefix(et.Origin, "std/") {
+			return fmt.Sprintf("`%s` is a variant of `%s`, not a type: take a `%s`", variant, et.Name, et.Name)
+		}
+		return fmt.Sprintf("`%s` is a variant of `%s`, not a type: take a `%s`, or declare `%s` on its own and write `embeds %s` in `%s`",
+			variant, et.Name, et.Name, variant, variant, et.Name)
+	}
+	return ""
 }

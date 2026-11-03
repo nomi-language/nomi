@@ -5,7 +5,7 @@ description: "Send HTTP requests, write handlers, route requests by checked patt
 
 ## Making requests
 
-[`std/http`](/reference/http/) sends requests with Go's HTTP client.
+[`std/http`](/reference/http/) sends HTTP requests and answers them.
 `http.get` fetches a URL and answers a `Response` with its whole body read,
 `http.post` sends a body, and `http.fetch` sends a `Request` you build. A
 status is not an error: a 404 is a `Response` like a 200, and
@@ -20,7 +20,7 @@ import {
 }
 
 fn greeting(name: String) -> Result<String, http.Error> {
-    response = http.get(Url"https://api.example.com/greet/${name}"!)?
+    response = http.get(Url"https://api.example.com/greet/${name}")?
     if not Status.is_success(response.status) { return Ok("no greeting: ${response.status}") }
     Response.text(response)
 }
@@ -41,16 +41,18 @@ dbg line 20: ran.value = Ok("hello from /greet/ann b")
 
 The page cannot reach the network, so `main` runs `greeting` under
 [`http_testing`](/reference/http_testing/), which answers each request with
-a function instead, as a test does. The `Url"..."` literal escapes each
-`${...}` for where it stands, so `ann b` becomes the one path segment
-`ann%20b`. A request runs under the context in force, so a deadline or a
+a function instead, as a test does. `Url"..."` is a [checked
+literal](/typed-literals/#checked-literals): it is a `Url`, not a `Result`,
+and it escapes each `${...}` for where it stands. `ann b` goes out as the
+path segment `ann%20b`, and the handler's `request.url.path` reads it back
+decoded. A request runs under the context in force, so a deadline or a
 cancelled task stops it.
 
 ## Handlers and routes
 
 A handler is a plain function from a `Request` to a `Response`. A
 [`Router`](/reference/http/#struct-router) picks the handler for each
-request by a `Route`, a pattern with the rules of Go's `ServeMux`:
+request by a `Route`, a method and a path pattern:
 ``Route`GET /users/{id}` `` matches a `GET` of `/users/7`, and
 `Request.path_value` reads what `{id}` matched. A request no route matches
 gets a 404, and one that matches only under another method a 405. Since a
@@ -99,6 +101,48 @@ main.nomi:4:9: typed literal Route`GET /users/{id}/posts/{id}` is invalid: patte
 requests, since each literal sees only its own pattern. `Route.parse`
 checks a pattern built at run time.
 
+A handler answers with a page through `Response.html`, which takes an
+[`Html`](/reference/html/). Write one with an `Html"..."` literal, an HTML
+template the compiler checks. Each `${...}` is escaped for where it stands,
+so the `<nobody>` below arrives as text, and an unclosed tag or a slot in a
+`<script>` is a compile error. A one-line fragment quotes its attributes
+with `'`, since a `"` would end the literal. Markup of several lines goes in
+triple quotes:
+
+```nomi-run
+import {
+    std/html.Html
+    std/http.{Request, Response}
+    std/http_testing
+}
+
+fn badge(count: Int) -> Html {
+    Html"<span class='badge'>${count}</span>"
+}
+
+fn profile(request: Request) -> Response {
+    name = Request.path_value(request, "name") |> Maybe.with_default("<nobody>")
+
+    page = Html"""
+        <main>
+          <h1>${name} ${badge(3)}</h1>
+        </main>
+        """
+
+    Response.html(page)
+}
+
+fn main() {
+    dbg Response.text(profile(http_testing.request(.Get, "/")))
+}
+```
+<!-- expect
+dbg line 24: Response.text(profile(http_testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
+-->
+
+What a slot in an attribute, a URL or a `style` takes is in the spec's
+[HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).
+
 ## Serving
 
 `http.listen` binds the server's address, and `http.serve` answers each
@@ -138,6 +182,50 @@ fn main() -> Result<Unit, http.Error> {
 
 The page cannot listen on a port, so this one does not run here.
 `nomi run` serves it on port 8080.
+
+## Storing files
+
+Uploaded files go in a [`Store`](/reference/storage/), which keeps each
+file whole under a key. `storage.local(root)` keeps them in a directory,
+`lib/storage/s3` in a bucket on any S3-protocol server, and
+`storage_testing.Memory` in memory for tests. Code that stores files takes
+a `Store`, so boot picks the backend and the rest of the code doesn't
+change. `Store.url` answers where a file can be fetched, and
+`storage.handler` serves a store's files through the app with their stored
+content type:
+
+```nomi-run
+import {
+    std/http.{Headers, Route, Router}
+    std/http_testing
+    std/storage.{self, Store}
+    std/storage_testing.Memory
+    std/url.Url
+}
+
+fn save_avatar(store: Store, user: Int, image: Bytes) -> Result<Url, storage.Error> {
+    key = "avatars/${user}.png"
+    Store.put(store, key, image, "image/png")?
+    Store.url(store, key)
+}
+
+fn main() {
+    store = Memory.new(public_base: Url`/files/`)
+    dbg "${save_avatar(store, 7, String.to_bytes("png"))!}"
+
+    router = Router.new([#(Route`GET /files/{key...}`, storage.handler(store))])!
+    response = Router.serve(router, http_testing.request(.Get, "/files/avatars/7.png"))
+    dbg Headers.get(response.headers, "Content-Type")
+}
+```
+<!-- expect
+dbg line 17: "${save_avatar(store, 7, String.to_bytes("png"))!}" = "/files/avatars/7.png"
+dbg line 21: Headers.get(response.headers, "Content-Type") = Some("image/png")
+-->
+
+A key is ASCII letters, digits, `-`, `_`, `.` and `~` in segments
+separated by `/`, and no segment starts with a dot. So a key taken from a
+request cannot reach outside a local store's directory.
 
 ## Testing against a real server
 

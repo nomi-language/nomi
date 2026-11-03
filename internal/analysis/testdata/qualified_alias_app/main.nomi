@@ -1,0 +1,8 @@
+import {
+    std/io
+    listing
+}
+
+fn main() {
+    io.print("${listing.total(listing.all)}")
+}

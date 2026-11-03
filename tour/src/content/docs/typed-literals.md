@@ -216,5 +216,26 @@ you can do with a `Regex`: find, split, replace and read capture groups.
 ``Bits`10aa_aaaa` `` is a bit pattern whose `x`s match any bit and whose
 letters name a field, and ``Bits`10z2` `` does not compile.
 
+## Checked literals
+
+A type can also check a literal that has `${...}` slots, by implementing
+[`CheckedLiteral`](/reference/literals/#interface-checkedliteral) instead
+of `Literal`. Its `check` reads the text around the slots while Nomi checks
+your program, and its `build` fills the slots when the program runs and
+cannot fail. So the literal is the value, not a `Result`, whichever quotes
+it uses.
+
+`Url` works this way. `Url"https://api.example.com/greet/${name}"` is a
+`Url`, with `name` escaped as a path segment, and `Url"https://${host}/"`
+is a compile error at the slot, since no escaping makes a value safe as a
+host. `Toml` does too: in `Toml"name = ${name}"` the slot is written as the
+value's TOML, so a `String` is quoted and escaped, and a slot inside a TOML
+string is a compile error. Spec:
+[Checked literals](/spec/typed-literals-and-keyword-declarations/#checked-literals).
+
+std/html's `Html`, which [HTTP](/http/) uses for pages, is not the `Html`
+this page declares. The compiler checks its literals itself, as HTML
+templates.
+
 [Modules & Imports](/modules-and-imports/) is next. It covers how a program
 is split across files.

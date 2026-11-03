@@ -1,0 +1,321 @@
+//# HTML for a server to send: one value type, `Html`, written as an
+//# `Html"..."` or `Html"""..."""` literal that the compiler reads as an HTML
+//# template when it checks the program (spec §18 *HTML templates*).
+//#
+//# ```nomi
+//# import std/html.Html
+//#
+//# fn badge(count: Int) -> Html {
+//#     Html"<span class='badge'>${count}</span>"
+//# }
+//#
+//# fn comment(author: String, body: String) -> Html {
+//#     Html"""
+//#         <article class="comment">
+//#           <p class="author">${author}</p>
+//#           <p>${body}</p>
+//#         </article>
+//#         """
+//# }
+//# ```
+//#
+//# Each `${...}` is written by where it stands. In element text a `String`
+//# is escaped and an `Html` is inserted as it is; a quoted attribute value
+//# takes any `Display`; the start of an `href` or `src` takes a `Url` or a
+//# `SafeUrl`; later in a URL a value is escaped for the path segment, query
+//# value or fragment it stands in, so `/p/${id}` writes a `/` in `id` as
+//# `%2F`; a `style` value takes a number or a `Css`; `checked=${on}` takes
+//# a `Bool` or a `Maybe<String>` and writes the attribute or leaves it out.
+//# A slot where no escaping is safe, markup that is not closed, and a value
+//# with no rendering where it stands are compile errors.
+//#
+//# `Html.each` renders a list, and `Html.concat` joins parts:
+//#
+//# ```nomi
+//# fn names(all: List<String>) -> Html {
+//#     Html"<ul>${Html.each(all, fn name -> Html"<li>${name}</li>")}</ul>"
+//# }
+//# ```
+//#
+//# An attribute value may be quoted with `"` or `'`. A one-line fragment is
+//# usually written `Html"..."` with `'` around its attributes, and markup of
+//# several lines `Html"""..."""`.
+//#
+//# `Html.trusted` inserts markup as written, unescaped: for HTML a trusted
+//# renderer produced, such as Markdown, and never for text a user wrote.
+
+import {
+    bool.Bool.{self, False, True}
+    debug.Debug
+    decimal.Decimal
+    display.Display
+    equatable.Equatable
+    float.Float
+    html_host.{escape, escape_url_path, filter_url}
+    int.Int
+    io.{Error, Writer}
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+    results.Result
+    strings.String
+    unit.Unit
+    url.{self, Url}
+    url_host
+}
+
+/// Rendered HTML: balanced markup from templates, or markup a program
+/// vouches for through `Html.trusted`. Two `Html` values are equal when
+/// they render the same text.
+//! assert Html.to_string(Html"<b>${"<i>"}</b>") == "<b>&lt;i&gt;</b>"
+//
+pub opaque struct Html {
+    text: String
+}
+
+derive Equatable for Html
+
+impl Debug for Html {
+    /// The rendered text, as `Html("<p>hi</p>")`.
+    //! assert Debug.inspect(Html"<p>hi</p>") == "Html(\"<p>hi</p>\")"
+    //
+    fn inspect(html: Html) -> String {
+        "Html(${Debug.inspect(html.text)})"
+    }
+}
+
+impl Html {
+    /// Markup inserted as written, unescaped: for HTML a trusted renderer
+    /// produced, such as Markdown. Never for text from a user, which
+    /// `Html.text` or a template's slot escapes.
+    //! assert Html.to_string(Html.trusted("<em>x</em>")) == "<em>x</em>"
+    //
+    pub fn trusted(markup: String) -> Html {
+        Html{text: markup}
+    }
+
+    /// Text, escaped.
+    //! assert Html.to_string(Html.text("a < b & c")) == "a &lt; b &amp; c"
+    //
+    pub fn text(value: String) -> Html {
+        Html{text: escape(value)}
+    }
+
+    /// No markup.
+    //! assert Html.to_string(Html.empty()) == ""
+    //
+    pub fn empty() -> Html {
+        Html{text: ""}
+    }
+
+    /// The parts, in order.
+    //! assert Html.to_string(Html.concat([Html"<b>1</b>", Html"<b>2</b>"])) == "<b>1</b><b>2</b>"
+    //
+    pub fn concat(parts: List<Html>) -> Html {
+        Html{text: parts |> Iter.map(&(&1.text)) |> String.join()}
+    }
+
+    /// The markup `item` makes of each of `items`, in order.
+    //! items = Html.each([1, 2], fn n -> Html"<li>${n}</li>")
+    //! assert Html.to_string(items) == "<li>1</li><li>2</li>"
+    //
+    pub fn each<T>(items: List<T>, item: (T) -> Html) -> Html {
+        Html{text: items |> Iter.map(fn x -> item(x).text) |> String.join()}
+    }
+
+    /// The markup as text.
+    pub fn to_string(html: Html) -> String {
+        html.text
+    }
+
+    /// Writes the markup to `writer`.
+    pub fn write_to(html: Html, writer: Writer) -> Result<Unit, Error> {
+        Writer.write_text(writer, html.text)
+    }
+}
+
+/// A value an element's content can show: `String` and the numbers as
+/// escaped text, an `Html` as it is, a `List<Html>` joined, and a
+/// `Maybe<Html>`'s `None` as nothing. A program's own type can render
+/// itself by implementing it.
+pub interface ToHtml {
+    fn to_html(value: self) -> Html
+}
+
+impl ToHtml for String {
+    fn to_html(value: String) -> Html {
+        Html{text: escape(value)}
+    }
+}
+
+impl ToHtml for Int {
+    fn to_html(value: Int) -> Html {
+        Html{text: "${value}"}
+    }
+}
+
+impl ToHtml for Float {
+    fn to_html(value: Float) -> Html {
+        Html{text: "${value}"}
+    }
+}
+
+impl ToHtml for Decimal {
+    fn to_html(value: Decimal) -> Html {
+        Html{text: "${value}"}
+    }
+}
+
+impl ToHtml for Html {
+    fn to_html(value: Html) -> Html {
+        value
+    }
+}
+
+impl ToHtml for List<Html> {
+    fn to_html(value: List<Html>) -> Html {
+        Html.concat(value)
+    }
+}
+
+impl ToHtml for Maybe<Html> {
+    fn to_html(value: Maybe<Html>) -> Html {
+        case value {
+            Some(html) -> html
+            None -> Html.empty()
+        }
+    }
+}
+
+/// A value a URL attribute's value can start with: a `Url`, whose scheme
+/// must be http, https, mailto or tel (another is written as
+/// `about:invalid#unsafe-url`), or a `SafeUrl`, which the program vouches
+/// for.
+pub interface UrlValue {
+    fn to_url(value: self) -> String
+}
+
+impl UrlValue for Url {
+    fn to_url(value: Url) -> String {
+        filter_url("${value}")
+    }
+}
+
+/// A URL the program vouches for, whatever its scheme: written as it is,
+/// escaped for the attribute.
+pub type SafeUrl String
+
+impl UrlValue for SafeUrl {
+    fn to_url(SafeUrl(value)) -> String {
+        value
+    }
+}
+
+/// A value a `style` attribute can hold: a number, or a `Css` the program
+/// vouches for.
+pub interface CssValue {
+    fn to_css(value: self) -> String
+}
+
+impl CssValue for Int {
+    fn to_css(value: Int) -> String {
+        "${value}"
+    }
+}
+
+impl CssValue for Float {
+    fn to_css(value: Float) -> String {
+        "${value}"
+    }
+}
+
+impl CssValue for Decimal {
+    fn to_css(value: Decimal) -> String {
+        "${value}"
+    }
+}
+
+/// CSS the program vouches for, escaped for the attribute.
+pub type Css String
+
+impl CssValue for Css {
+    fn to_css(Css(value)) -> String {
+        value
+    }
+}
+
+/// An attribute written or left out by its value, in `name=${value}`:
+/// `True` writes the bare attribute and `False` leaves it out; `Some(text)`
+/// writes `name="text"` and `None` leaves it out.
+pub interface OptionalAttribute {
+    /// The attribute's value, `Some("")` for a bare attribute, or `None` to
+    /// leave it out.
+    fn attribute(value: self) -> Maybe<String>
+}
+
+impl OptionalAttribute for Bool {
+    fn attribute(value: Bool) -> Maybe<String> {
+        if value { Some("") } else { None }
+    }
+}
+
+impl OptionalAttribute for Maybe<String> {
+    fn attribute(value: Maybe<String>) -> Maybe<String> {
+        value
+    }
+}
+
+/// `class` when `condition` holds, else "": for a class list.
+//! assert class_if(True, "active") == "active"
+//! assert class_if(False, "active") == ""
+//
+pub fn class_if(condition: Bool, class: String) -> String {
+    if condition { class } else { "" }
+}
+
+// The functions an `Html` literal expands into (the compiler's
+// internal/analysis/html_template.go). Each slot is a call of the one its
+// context chose, so its parameter's interface is the slot's type rule.
+fn assemble(parts: List<String>) -> Html {
+    Html{text: String.join(parts)}
+}
+
+fn slot_text(value: ToHtml) -> String {
+    ToHtml.to_html(value).text
+}
+
+fn slot_rcdata(value: Display) -> String {
+    escape("${value}")
+}
+
+fn slot_attribute(value: Display) -> String {
+    escape("${value}")
+}
+
+fn slot_url_start(value: UrlValue) -> String {
+    escape(UrlValue.to_url(value))
+}
+
+fn slot_url_path(value: Display) -> String {
+    escape(escape_url_path("${value}"))
+}
+
+fn slot_url_query(value: Display) -> String {
+    escape(url.escape_query("${value}"))
+}
+
+fn slot_url_fragment(value: Display) -> String {
+    escape(url_host.escape_fragment("${value}"))
+}
+
+fn slot_css(value: CssValue) -> String {
+    escape(CssValue.to_css(value))
+}
+
+fn slot_optional_attribute(name: String, value: OptionalAttribute) -> String {
+    case OptionalAttribute.attribute(value) {
+        None -> ""
+        Some("") -> " ${name}"
+        Some(text) -> " ${name}=\"${escape(text)}\""
+    }
+}

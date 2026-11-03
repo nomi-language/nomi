@@ -1,10 +1,14 @@
 import {
     bool.Bool.{self, True}
+    calendar.{Anchored, Date, NaiveDateTime, OffsetDateTime, Time}
     debug.Debug
+    decimal.Decimal
     display.Display
+    duration.Duration
     dynamic.Dynamic
     equatable.Equatable
     float.Float
+    instant.Instant
     int.Int
     iter.Iter
     lists.List
@@ -481,6 +485,207 @@ impl FromJson for Map<String, V> where V: FromJson {
 
             _ ->
                 Err(shape_error_root("object", json))
+        }
+    }
+}
+
+// The shape error for a value whose JSON kind is right but whose text is not
+// in the form `expected` names: `got` quotes the text, since "got string"
+// alone would not say what was wrong with it.
+fn shape_error_text(expected: String, json: Json) -> Json.ShapeError {
+    case json {
+        Json.String(text) ->
+            Json.ShapeError{path: [], expected, got: "string ${Debug.inspect(text)}"}
+
+        _ ->
+            shape_error_root(expected, json)
+    }
+}
+
+impl ToJson for Instant {
+    /// Writes RFC 3339 in UTC, `Z`, with as much fraction of a second as
+    /// the instant has and no more.
+    //! assert ToJson.to_json(Instant.from_seconds(1_700_000_000)) == Json.String("2023-11-14T22:13:20Z")
+    //!
+    //! assert ToJson.to_json(Instant.from_nanos(1_700_000_000_250_000_000))
+    //!     == Json.String("2023-11-14T22:13:20.25Z")
+    //
+    fn to_json(value: Instant) -> Json {
+        text = Display.to_string(OffsetDateTime.from_instant(value, Duration.seconds(0)))
+
+        utc =
+            String.strip_suffix(text, "+00:00")
+            |> Maybe.map(&(&1 + "Z"))
+            |> Maybe.with_default(text)
+
+        Json.String(utc)
+    }
+}
+
+impl FromJson for Instant {
+    /// Reads RFC 3339 text with any offset, `Z` or `+01:00`, as the moment
+    /// it names.
+    //! i = Instant.from_nanos(1_700_000_000_250_000_000)
+    //! assert Instant.from_json(ToJson.to_json(i)) == Ok(i)
+    //! assert Instant.from_json(Json.String("2023-11-14T23:13:20.25+01:00")) == Ok(i)
+    //!
+    //! assert Instant.from_json(Json.String("2023-11-14"))
+    //! |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected RFC 3339 timestamp, got string \"2023-11-14\""
+    //! )
+    //
+    fn from_json(json: Json) -> Result<Instant, Json.ShapeError> {
+        expected = "RFC 3339 timestamp"
+
+        case json {
+            Json.String(text) ->
+                OffsetDateTime.parse(text)
+                |> Result.map(&Anchored.to_instant(&1))
+                |> Result.map_err(fn _ -> shape_error_text(expected, json))
+
+            _ ->
+                Err(shape_error_root(expected, json))
+        }
+    }
+}
+
+impl ToJson for Date {
+    /// Writes `YYYY-MM-DD`.
+    //! assert ToJson.to_json(Date`2026-05-04`) == Json.String("2026-05-04")
+    //
+    fn to_json(value: Date) -> Json {
+        Json.String(Display.to_string(value))
+    }
+}
+
+impl FromJson for Date {
+    /// Reads `YYYY-MM-DD`.
+    //! d = Date`2026-05-04`
+    //! assert Date.from_json(ToJson.to_json(d)) == Ok(d)
+    //!
+    //! assert Date.from_json(Json.String("2026-13-01")) |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected date as YYYY-MM-DD, got string \"2026-13-01\""
+    //! )
+    //
+    fn from_json(json: Json) -> Result<Date, Json.ShapeError> {
+        expected = "date as YYYY-MM-DD"
+
+        case json {
+            Json.String(text) ->
+                Date.parse(text) |> Result.map_err(fn _ -> shape_error_text(expected, json))
+
+            _ ->
+                Err(shape_error_root(expected, json))
+        }
+    }
+}
+
+impl ToJson for NaiveDateTime {
+    /// Writes `YYYY-MM-DDTHH:MM:SS`, with a fraction of a second only when
+    /// there is one.
+    //! dt = NaiveDateTime`2026-05-04T12:30:05.123`
+    //! assert ToJson.to_json(dt) == Json.String("2026-05-04T12:30:05.123")
+    //
+    fn to_json(value: NaiveDateTime) -> Json {
+        Json.String(Display.to_string(value))
+    }
+}
+
+impl FromJson for NaiveDateTime {
+    /// Reads `YYYY-MM-DDTHH:MM:SS[.fff]`.
+    //! dt = NaiveDateTime`2026-05-04T12:30:05`
+    //! assert NaiveDateTime.from_json(ToJson.to_json(dt)) == Ok(dt)
+    //!
+    //! assert NaiveDateTime.from_json(Json.Int(0)) |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected date-time as YYYY-MM-DDTHH:MM:SS, got int"
+    //! )
+    //
+    fn from_json(json: Json) -> Result<NaiveDateTime, Json.ShapeError> {
+        expected = "date-time as YYYY-MM-DDTHH:MM:SS"
+
+        case json {
+            Json.String(text) ->
+                NaiveDateTime.parse(text)
+                |> Result.map_err(fn _ -> shape_error_text(expected, json))
+
+            _ ->
+                Err(shape_error_root(expected, json))
+        }
+    }
+}
+
+impl ToJson for Time {
+    /// Writes `HH:MM:SS`, with a fraction of a second only when there is one.
+    //! assert ToJson.to_json(Time`12:30:05.5`) == Json.String("12:30:05.5")
+    //
+    fn to_json(value: Time) -> Json {
+        Json.String(Display.to_string(value))
+    }
+}
+
+impl FromJson for Time {
+    /// Reads `HH:MM:SS[.fff]`.
+    //! t = Time`12:30:05`
+    //! assert Time.from_json(ToJson.to_json(t)) == Ok(t)
+    //!
+    //! assert Time.from_json(Json.String("12:30")) |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected time as HH:MM:SS, got string \"12:30\""
+    //! )
+    //
+    fn from_json(json: Json) -> Result<Time, Json.ShapeError> {
+        expected = "time as HH:MM:SS"
+
+        case json {
+            Json.String(text) ->
+                Time.parse(text) |> Result.map_err(fn _ -> shape_error_text(expected, json))
+
+            _ ->
+                Err(shape_error_root(expected, json))
+        }
+    }
+}
+
+impl ToJson for Decimal {
+    /// Writes the exact text as a JSON string, scale kept (`"12.50"`), so
+    /// no digit is lost to a reader that parses JSON numbers as floats.
+    //! assert ToJson.to_json(12.50d) == Json.String("12.50")
+    //
+    fn to_json(value: Decimal) -> Json {
+        Json.String(Display.to_string(value))
+    }
+}
+
+impl FromJson for Decimal {
+    /// Reads decimal text, as `to_json` writes it, exactly. A JSON number is
+    /// read too: a whole number exactly, and one with a fraction only as
+    /// exactly as `Json.decode` holds it, which is as a `Float`.
+    //! assert Decimal.from_json(ToJson.to_json(12.50d)) |> Result.map(&Display.to_string(&1)) == Ok(
+    //!     "12.50"
+    //! )
+    //!
+    //! assert Decimal.from_json(Json.String("123456789012345678901234567890.5"))
+    //!     == Ok(123_456_789_012_345_678_901_234_567_890.5d)
+    //!
+    //! assert Decimal.from_json(Json.Int(7)) == Ok(7d)
+    //! assert Decimal.from_json(Json.Float(2.5)) == Ok(2.5d)
+    //!
+    //! assert Decimal.from_json(Json.String("1,5")) |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected decimal as text or a number, got string \"1,5\""
+    //! )
+    //
+    fn from_json(json: Json) -> Result<Decimal, Json.ShapeError> {
+        expected = "decimal as text or a number"
+
+        read = case json {
+            Json.String(text) -> String.to_decimal(text)
+            Json.Int(n) -> String.to_decimal(Int.to_string(n))
+            Json.Float(f) -> String.to_decimal(Float.to_string(f))
+            _ -> None
+        }
+
+        case read {
+            Some(d) -> Ok(d)
+            None -> Err(shape_error_text(expected, json))
         }
     }
 }

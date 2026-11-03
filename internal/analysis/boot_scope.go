@@ -1,320 +1,231 @@
 package analysis
 
 import (
+	"fmt"
+	"path/filepath"
+	"strings"
+	"sync"
+
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// CheckBootScope enforces that named task groups are created while the
-// app value is being constructed in `boot`.
+// CheckBootScope enforces that supervisors are created only while `boot`
+// builds the application value (spec §16 *Supervision*), across the whole
+// program.
 //
-//	A `Supervisor.new(...)` call is legal only inside the dynamic extent of
-//	`boot`. Reaches transitively — a constructor like `Counter.start()`
-//	that creates its own group is legal exactly as long as every chain
-//	from that call up through the call graph bottoms out in `boot`.
+// A function is BOOT-ONLY when it calls `Supervisor.new`, or calls another
+// boot-only function, directly or through any chain of calls, across files
+// and modules, std included: std/jobs's `Worker.new` is boot-only, and so is
+// an app's `make_worker` that calls it. A call to a boot-only function must
+// run only while boot runs. The check finds every place code starts running
+// outside boot, a ROOT, and reports each call a root makes to a boot-only
+// function, at that call:
 //
-// The requirement concerns the dynamic execution scope. A server
-// type owning its own group may start itself:
+//   - `fn main`, and a test body;
+//   - a function no function of the program calls, unless it is `pub`: a
+//     private one is dead code that would create a supervisor if it ran, and
+//     a public one is a library's API, which nothing here runs;
+//   - a lambda or capture, which runs whenever whoever holds it calls it,
+//     even one written in boot.
 //
-//	pub struct Counter {
-//	  fn start() -> Counter {
-//	    inbox = Channel.buffered<Request>(16)
-//	    _ = Supervisor.new(drain: …, restart: Restart.Permanent)
-//	      |> Supervisor.spawn(fn -> Counter.serve(inbox))
-//	    Counter{inbox}
-//	  }
-//	}
+// A function a root calls is reported at the root's call, not at its own
+// calls, so a chain main -> handler -> Worker.new -> Supervisor.new is one
+// error, at main's call to handler, naming the chain. `boot`, and a function
+// a test group's `boot` calls, is no root: what it calls runs inside boot.
 //
-// which satisfies the requirement (boot calls it) but fails the proxy
-// (it is not lexically boot). Forcing the group to be built in `boot` and
-// passed in cost a second app-struct field per server and made
-// `Restart.Permanent` unusable, since one shared group cannot be
-// permanent for some of its work and not the rest.
+// A boot-only function named as a value (`Supervisor.spawn(s, make_group)`,
+// `f = Worker.new`) is refused where it is named: a function value may be
+// called anywhere, which no check can follow.
 //
-// Mechanically this is analysis/concurrent_scope.go's shape with `boot`
-// as the covering context instead of a `concurrent { }` block: a
-// per-function flag ("creates a group, directly or transitively")
-// propagates through the in-file call graph, and every call site of a
-// flagged function must sit inside `boot` or inside another flagged
-// function.
-//
-// Reported at the offending **call site**, which is where the mistake is.
-// A constructor called from both `boot` and a request handler is an error
-// at the handler alone; the constructor itself is fine.
-//
-// Cross-file call-graph propagation is not in scope, matching
-// concurrent_scope. A flagged function reachable only through cross-module
-// calls is not provably outside boot here, so it is left to the runtime
-// guard in `rt.SupervisorNewExact` — the same division of labour Rule 1
-// already uses for `Task.spawn`.
+// The runtime guard in rt.SupervisorNewExact stays as the backstop, with the
+// same message.
 func CheckBootScope(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	s := &bootScope{
-		fa:           fa,
-		directCalls:  make(map[*Symbol]map[*Symbol]bool),
-		createsGroup: make(map[*Symbol]bool),
-		newSites:     make(map[*Symbol][]*ast.Call),
+	g := newBootGraph(fa)
+	r := &bootReport{g: g, fa: fa, reported: map[Pos]bool{}, covered: map[*ast.FuncDef]bool{}}
+	for _, node := range nodes {
+		r.seedTestBoots(node)
 	}
 	for _, node := range nodes {
-		s.collect(node)
+		r.visit(node)
 	}
-	s.computeClosure()
-	s.validate(nodes)
-	return s.errors
+	return r.errors
 }
 
-type bootScope struct {
-	fa *FileAnalysis
-
-	// directCalls is the in-file call graph: caller -> callees.
-	directCalls map[*Symbol]map[*Symbol]bool
-
-	// createsGroup marks functions that call Supervisor.new directly or
-	// transitively.
-	createsGroup map[*Symbol]bool
-
-	// newSites are the Supervisor.new calls written in each function, used
-	// as the diagnostic anchor when a flagged function has no in-file
-	// call site to blame.
-	newSites map[*Symbol][]*ast.Call
-
-	// bootSym is `boot` itself — the one function allowed to create groups
-	// with no further justification.
-	bootSym *Symbol
-
-	errors []TypeError
+// bootFn is one function's calls, read once.
+type bootFn struct {
+	fd  *ast.FuncDef
+	fa  *FileAnalysis
+	sym *Symbol
+	// calls are the calls in its body outside any lambda, each to a
+	// function the program declares or to Supervisor.new.
+	calls []bootCall
 }
 
-func (s *bootScope) collect(node ast.Node) {
-	switch n := node.(type) {
-	case *ast.FuncDef:
-		sym := s.fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
-		if sym == nil {
+type bootCall struct {
+	call   *ast.Call
+	callee *ast.FuncDef // nil for Supervisor.new
+	sym    *Symbol
+}
+
+// bootGraph is the program's functions, which of them are boot-only and
+// why, and which are called or named as values anywhere in the program's
+// own files.
+type bootGraph struct {
+	fns map[*ast.FuncDef]*bootFn
+	// why is each boot-only function's first boot-only call; absent for a
+	// function that is not boot-only.
+	why map[*ast.FuncDef]bootCall
+	// called holds every function some function or lambda of the program's
+	// own files calls.
+	called map[*ast.FuncDef]bool
+}
+
+// stdBootFns caches a std function's calls, read once per process: std's
+// analysis is shared and never changes.
+var stdBootFns sync.Map // *ast.FuncDef -> *bootFn
+
+func newBootGraph(fa *FileAnalysis) *bootGraph {
+	g := &bootGraph{fns: map[*ast.FuncDef]*bootFn{}, why: map[*ast.FuncDef]bootCall{}, called: map[*ast.FuncDef]bool{}}
+	files := fa.Program().Files()
+	seen := map[*FileAnalysis]bool{}
+	var std []*FileAnalysis
+	add := func(f *FileAnalysis) {
+		if f == nil || seen[f] {
 			return
 		}
-		if n.Name == "boot" {
-			s.bootSym = sym
-		}
-		s.walkBody(sym, n.Body)
-	case *ast.StructDef:
-		for _, item := range n.Items {
-			s.collect(item)
-		}
-	case *ast.EnumDef:
-		for _, item := range n.Items {
-			s.collect(item)
-		}
-	case *ast.TypeDef:
-		for _, item := range n.Items {
-			s.collect(item)
-		}
-	case *ast.ExternType:
-		for _, item := range n.Items {
-			s.collect(item)
-		}
-	case *ast.ImplBlock:
-		for _, item := range n.Items {
-			s.collect(item)
-		}
-	}
-}
-
-// walkBody records this function's Supervisor.new sites and its callees.
-func (s *bootScope) walkBody(owner *Symbol, body ast.Node) {
-	WalkNodes(body, func(n ast.Node) {
-		call, ok := n.(*ast.Call)
-		if !ok {
+		seen[f] = true
+		if _, isStd := stdlibModuleForPath(f.FilePath); isStd && f != fa {
+			std = append(std, f)
 			return
 		}
-		callee := s.resolveSym(call.Func)
-		if isSupervisorNewSymbol(s.fa, callee) {
-			s.createsGroup[owner] = true
-			s.newSites[owner] = append(s.newSites[owner], call)
-			return
-		}
-		if callee != nil {
-			if s.directCalls[owner] == nil {
-				s.directCalls[owner] = make(map[*Symbol]bool)
-			}
-			s.directCalls[owner][callee] = true
-		}
-	})
-}
-
-func (s *bootScope) computeClosure() {
-	changed := true
-	for changed {
-		changed = false
-		for caller, callees := range s.directCalls {
-			if s.createsGroup[caller] {
+		for _, sym := range f.Definitions {
+			fd, ok := sym.Node.(*ast.FuncDef)
+			if !ok || sym.Kind != SymbolFunction || fd.Body == nil || g.fns[fd] != nil {
 				continue
 			}
-			for callee := range callees {
-				if s.createsGroup[callee] {
-					s.createsGroup[caller] = true
+			fn := &bootFn{fd: fd, fa: f, sym: sym}
+			fn.calls = readBootCalls(f, fd.Body, func(callee *ast.FuncDef) { g.called[callee] = true })
+			g.fns[fd] = fn
+		}
+	}
+	add(fa)
+	for _, f := range files {
+		add(f)
+	}
+	// A std function enters the graph when the program's code reaches it,
+	// with what it reaches in turn.
+	stdIndex := map[*ast.FuncDef]*FileAnalysis{}
+	for _, f := range std {
+		for _, sym := range f.Definitions {
+			if fd, ok := sym.Node.(*ast.FuncDef); ok && sym.Kind == SymbolFunction && fd.Body != nil {
+				stdIndex[fd] = f
+			}
+		}
+	}
+	var queue []*ast.FuncDef
+	for _, fn := range g.fns {
+		for _, c := range fn.calls {
+			if c.callee != nil && g.fns[c.callee] == nil {
+				queue = append(queue, c.callee)
+			}
+		}
+	}
+	for len(queue) > 0 {
+		fd := queue[0]
+		queue = queue[1:]
+		if g.fns[fd] != nil {
+			continue
+		}
+		f := stdIndex[fd]
+		if f == nil {
+			continue
+		}
+		var fn *bootFn
+		if cached, ok := stdBootFns.Load(fd); ok {
+			fn = cached.(*bootFn)
+		} else {
+			fn = &bootFn{fd: fd, fa: f, sym: f.Definitions[Pos{Line: fd.Line, Col: fd.Col}]}
+			fn.calls = readBootCalls(f, fd.Body, func(*ast.FuncDef) {})
+			stdBootFns.Store(fd, fn)
+		}
+		g.fns[fd] = fn
+		for _, c := range fn.calls {
+			if c.callee != nil && g.fns[c.callee] == nil {
+				queue = append(queue, c.callee)
+			}
+		}
+	}
+	// Boot-only, to a fixed point: a function is boot-only through its
+	// first call to Supervisor.new or to a boot-only function.
+	for changed := true; changed; {
+		changed = false
+		for fd, fn := range g.fns {
+			if _, done := g.why[fd]; done {
+				continue
+			}
+			for _, c := range fn.calls {
+				if _, bootOnly := g.why[c.callee]; c.callee == nil || bootOnly {
+					g.why[fd] = c
 					changed = true
 					break
 				}
 			}
 		}
 	}
+	return g
 }
 
-// validate reports every call to a group-creating function from somewhere
-// that is not itself inside boot's extent.
-func (s *bootScope) validate(nodes []ast.Node) {
-	// Which functions are legitimately allowed to create groups: boot, and
-	// anything reachable from it. Computed by fixed point so a chain
-	// boot -> a -> b is covered at every step.
-	covered := make(map[*Symbol]bool)
-	if s.bootSym != nil {
-		covered[s.bootSym] = true
-	}
-	// A `group "…" { boot … }` expression constructs the app value for the
-	// tests below it, so it is boot for this rule. Anything it calls is
-	// covered, exactly as if `fn boot` had called it — otherwise a server
-	// that starts itself would be untestable.
-	for _, node := range nodes {
-		s.seedFromTestBoot(node, covered)
-	}
-	changed := true
-	for changed {
-		changed = false
-		for caller, callees := range s.directCalls {
-			if !covered[caller] {
-				continue
-			}
-			for callee := range callees {
-				if s.createsGroup[callee] && !covered[callee] {
-					covered[callee] = true
-					changed = true
+// readBootCalls is body's calls outside lambdas, each to a function the
+// program declares or to Supervisor.new, resolved in f. Every call it sees,
+// lambdas' included, is passed to called.
+func readBootCalls(f *FileAnalysis, body ast.Node, called func(*ast.FuncDef)) []bootCall {
+	var calls []bootCall
+	var walk func(n ast.Node, inLambda bool)
+	walk = func(n ast.Node, inLambda bool) {
+		if n == nil {
+			return
+		}
+		ast.Inspect(n, func(inner ast.Node) bool {
+			switch x := inner.(type) {
+			case *ast.Lambda:
+				if x.Body != nil {
+					walk(x.Body, true)
 				}
-			}
-		}
-	}
-
-	// Any call to a group-creating function from an uncovered function is
-	// the error, anchored where it was written.
-	reported := make(map[Pos]bool)
-	for _, node := range nodes {
-		s.reportBadCalls(node, nil, covered, reported)
-	}
-
-	// A group-creating function with no in-file call site at all cannot be
-	// shown to run under boot. Anchor at its own Supervisor.new so the user
-	// has a line to look at, matching concurrent_scope's fallback.
-	for owner, sites := range s.newSites {
-		if covered[owner] || owner == s.bootSym {
-			continue
-		}
-		if s.hasInFileCaller(owner) {
-			continue
-		}
-		for _, call := range sites {
-			s.addError(call, reported)
-		}
-	}
-}
-
-// seedFromTestBoot marks every function a test boot expression calls as
-// allowed to create groups.
-func (s *bootScope) seedFromTestBoot(node ast.Node, covered map[*Symbol]bool) {
-	switch n := node.(type) {
-	case *ast.TestDecl:
-		if n.Boot != nil {
-			WalkNodes(n.Boot, func(inner ast.Node) {
-				if call, ok := inner.(*ast.Call); ok {
-					if callee := s.resolveSym(call.Func); callee != nil {
-						covered[callee] = true
+				return false
+			case *ast.Capture:
+				walk(x.Body, true)
+				return false
+			case *ast.Call:
+				sym := resolveCalleeSym(f, x.Func)
+				if isSupervisorNewSymbol(f, sym) {
+					if !inLambda {
+						calls = append(calls, bootCall{call: x, sym: sym})
+					}
+				} else if fd := funcDefOf(sym); fd != nil {
+					called(fd)
+					if !inLambda {
+						calls = append(calls, bootCall{call: x, callee: fd, sym: sym})
 					}
 				}
-			})
-		}
-		if n.Body != nil {
-			for _, stmt := range n.Body.Stmts {
-				s.seedFromTestBoot(stmt, covered)
 			}
-		}
-	}
-}
-
-func (s *bootScope) hasInFileCaller(target *Symbol) bool {
-	for _, callees := range s.directCalls {
-		if callees[target] {
 			return true
-		}
-	}
-	return false
-}
-
-func (s *bootScope) reportBadCalls(node ast.Node, enclosing *Symbol, covered map[*Symbol]bool, reported map[Pos]bool) {
-	switch n := node.(type) {
-	case *ast.FuncDef:
-		sym := s.fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
-		WalkNodes(n.Body, func(inner ast.Node) {
-			call, ok := inner.(*ast.Call)
-			if !ok {
-				return
-			}
-			if covered[sym] || sym == s.bootSym {
-				return
-			}
-			callee := s.resolveSym(call.Func)
-			switch {
-			case isSupervisorNewSymbol(s.fa, callee):
-				// A group created here, in a function boot never reaches.
-				s.addError(call, reported)
-			case callee != nil && s.createsGroup[callee] && covered[callee]:
-				// Calling a constructor that IS legitimately used from
-				// boot, from somewhere that is not. `Counter.start()` in a
-				// request handler is the case this exists for.
-				//
-				// Only when the callee is covered: if it is not, its own
-				// `Supervisor.new` is reported instead, so a chain
-				// a -> b -> new yields one error at the creation rather
-				// than one per link.
-				s.addError(call, reported)
-			}
 		})
-	case *ast.StructDef:
-		for _, item := range n.Items {
-			s.reportBadCalls(item, enclosing, covered, reported)
-		}
-	case *ast.EnumDef:
-		for _, item := range n.Items {
-			s.reportBadCalls(item, enclosing, covered, reported)
-		}
-	case *ast.TypeDef:
-		for _, item := range n.Items {
-			s.reportBadCalls(item, enclosing, covered, reported)
-		}
-	case *ast.ExternType:
-		for _, item := range n.Items {
-			s.reportBadCalls(item, enclosing, covered, reported)
-		}
-	case *ast.ImplBlock:
-		for _, item := range n.Items {
-			s.reportBadCalls(item, enclosing, covered, reported)
-		}
 	}
+	walk(body, false)
+	return calls
 }
 
-func (s *bootScope) addError(call *ast.Call, reported map[Pos]bool) {
-	pos := Pos{Line: call.Line, Col: call.Col}
-	if reported[pos] {
-		return
+func funcDefOf(sym *Symbol) *ast.FuncDef {
+	if sym == nil || sym.Kind != SymbolFunction {
+		return nil
 	}
-	reported[pos] = true
-	s.errors = append(s.errors, TypeError{
-		Line: call.Line,
-		Col:  call.Col,
-		Message: "a supervisor here would be a new one every time this runs, and each " +
-			"is kept for the life of the program with a `max_running` of its " +
-			"own — so the bound would be per call rather than per downstream. " +
-			"Create it while `boot` builds the app value: in boot, or in " +
-			"something boot calls",
-	})
+	fd, _ := sym.Node.(*ast.FuncDef)
+	return fd
 }
 
-func (s *bootScope) resolveSym(fn ast.Node) *Symbol {
+// resolveCalleeSym is the function a callee expression names in f, through
+// an import.
+func resolveCalleeSym(f *FileAnalysis, fn ast.Node) *Symbol {
 	var pos Pos
 	switch n := fn.(type) {
 	case *ast.Ident:
@@ -329,11 +240,226 @@ func (s *bootScope) resolveSym(fn ast.Node) *Symbol {
 	default:
 		return nil
 	}
-	sym, ok := s.fa.References[pos]
+	sym, ok := f.References[pos]
 	if !ok {
 		return nil
 	}
 	return resolvedSymbol(sym)
+}
+
+// bootReport walks one file for its roots' calls to boot-only functions and
+// its boot-only function values.
+type bootReport struct {
+	g        *bootGraph
+	fa       *FileAnalysis
+	covered  map[*ast.FuncDef]bool
+	reported map[Pos]bool
+	errors   []TypeError
+}
+
+// seedTestBoots marks each function a test group's boot calls as running
+// inside boot.
+func (r *bootReport) seedTestBoots(node ast.Node) {
+	td, ok := node.(*ast.TestDecl)
+	if !ok {
+		return
+	}
+	if td.Boot != nil {
+		WalkNodes(td.Boot, func(inner ast.Node) {
+			if call, isCall := inner.(*ast.Call); isCall {
+				if fd := funcDefOf(resolveCalleeSym(r.fa, call.Func)); fd != nil {
+					r.covered[fd] = true
+				}
+			}
+		})
+	}
+	if td.Body != nil {
+		for _, stmt := range td.Body.Stmts {
+			r.seedTestBoots(stmt)
+		}
+	}
+}
+
+func (r *bootReport) visit(node ast.Node) {
+	switch n := node.(type) {
+	case *ast.FuncDef:
+		r.function(n)
+	case *ast.TestDecl:
+		if n.Body != nil {
+			r.root(n.Body, "")
+		}
+	case *ast.StructDef:
+		r.visitAll(n.Items)
+	case *ast.EnumDef:
+		r.visitAll(n.Items)
+	case *ast.TypeDef:
+		r.visitAll(n.Items)
+	case *ast.ExternType:
+		r.visitAll(n.Items)
+	case *ast.ImplBlock:
+		r.visitAll(n.Items)
+	}
+}
+
+func (r *bootReport) visitAll(items []ast.Node) {
+	for _, item := range items {
+		r.visit(item)
+	}
+}
+
+// function reports fd's calls when it is a root, and in any case its
+// lambdas' calls and the boot-only functions it names as values.
+func (r *bootReport) function(fd *ast.FuncDef) {
+	if fd.Body == nil {
+		return
+	}
+	boot := fd.Name == "boot" || r.covered[fd] || r.fa.Program().BootFunctions[fd]
+	isRoot := !boot && (fd.Name == "main" || (!r.g.called[fd] && !fd.Public))
+	if isRoot {
+		r.root(fd.Body, "")
+		return
+	}
+	// Not a root: its own calls run where its callers do. Its lambdas
+	// run wherever they are called, and its function values likewise.
+	r.lambdasAndValues(fd.Body)
+}
+
+// root reports every call in body to a boot-only function, its lambdas'
+// included, and the boot-only functions it names as values.
+func (r *bootReport) root(body ast.Node, _ string) {
+	calls := readBootCalls(r.fa, body, func(*ast.FuncDef) {})
+	for _, c := range calls {
+		r.reportCall(c)
+	}
+	r.lambdasAndValues(body)
+}
+
+// lambdasAndValues reports the calls to boot-only functions in body's
+// lambdas, which run whenever they are called, and the boot-only functions
+// body names as values.
+func (r *bootReport) lambdasAndValues(body ast.Node) {
+	callees := map[Pos]bool{}
+	WalkNodes(body, func(n ast.Node) {
+		switch x := n.(type) {
+		case *ast.Call:
+			switch f := x.Func.(type) {
+			case *ast.Ident:
+				callees[Pos{Line: f.Line, Col: f.Col}] = true
+			case *ast.TypeIdent:
+				callees[Pos{Line: f.Line, Col: f.Col}] = true
+			case *ast.FieldAccess:
+				if f.Field != nil {
+					callees[Pos{Line: f.Field.Line, Col: f.Field.Col}] = true
+				}
+			}
+		case *ast.Lambda:
+			if x.Body != nil {
+				for _, c := range readBootCalls(r.fa, x.Body, func(*ast.FuncDef) {}) {
+					r.reportCall(c)
+				}
+			}
+		case *ast.Capture:
+			for _, c := range readBootCalls(r.fa, x.Body, func(*ast.FuncDef) {}) {
+				r.reportCall(c)
+			}
+		}
+	})
+	WalkNodes(body, func(n ast.Node) {
+		var pos Pos
+		switch x := n.(type) {
+		case *ast.Ident:
+			pos = Pos{Line: x.Line, Col: x.Col}
+		case *ast.FieldAccess:
+			if x.Field == nil {
+				return
+			}
+			pos = Pos{Line: x.Field.Line, Col: x.Field.Col}
+		default:
+			return
+		}
+		if callees[pos] {
+			return
+		}
+		ref, ok := r.fa.References[pos]
+		if !ok {
+			return
+		}
+		sym := resolvedSymbol(ref)
+		fd := funcDefOf(sym)
+		if fd == nil {
+			return
+		}
+		if _, bootOnly := r.g.why[fd]; !bootOnly {
+			return
+		}
+		r.add(pos, fmt.Sprintf("%s, so it cannot be passed as a value: a function value may be called anywhere, "+
+			"and a supervisor can only be created while `boot` builds the app value. Call it in boot instead",
+			r.because(bootCall{callee: fd, sym: sym})))
+	})
+}
+
+func (r *bootReport) reportCall(c bootCall) {
+	if c.callee == nil {
+		r.add(Pos{Line: c.call.Line, Col: c.call.Col}, "a supervisor here would be a new one every time this runs, and each "+
+			"is kept for the life of the program with a `max_running` of its "+
+			"own — so the bound would be per call rather than per downstream. "+
+			"Create it while `boot` builds the app value: in boot, or in "+
+			"something boot calls")
+		return
+	}
+	if _, bootOnly := r.g.why[c.callee]; !bootOnly {
+		return
+	}
+	r.add(Pos{Line: c.call.Line, Col: c.call.Col}, fmt.Sprintf("%s, so it can only be called while `boot` builds "+
+		"the app value, in boot or in something boot calls: a supervisor made here would be a new one every time "+
+		"this runs, so the bound would be per call rather than per downstream", r.because(c)))
+}
+
+// because is "`f` creates a supervisor (...)", naming the chain of calls
+// from c's callee down to its Supervisor.new.
+func (r *bootReport) because(c bootCall) string {
+	var steps []string
+	seen := map[*ast.FuncDef]bool{}
+	fd := c.callee
+	for fd != nil && !seen[fd] {
+		seen[fd] = true
+		why, ok := r.g.why[fd]
+		fn := r.g.fns[fd]
+		if !ok || fn == nil {
+			break
+		}
+		at := fmt.Sprintf("%s:%d", filepath.Base(fn.fa.FilePath), why.call.Line)
+		if why.callee == nil {
+			steps = append(steps, "`Supervisor.new` at "+at)
+			break
+		}
+		steps = append(steps, "`"+bootName(why.sym, why.callee)+"` at "+at)
+		fd = why.callee
+	}
+	head := "`" + bootName(c.sym, c.callee) + "` creates a supervisor"
+	if len(steps) == 0 {
+		return head
+	}
+	if len(steps) == 1 {
+		return head + " (" + steps[0] + ")"
+	}
+	return head + " (through " + strings.Join(steps[:len(steps)-1], ", ") + ", then " + steps[len(steps)-1] + ")"
+}
+
+func bootName(sym *Symbol, fd *ast.FuncDef) string {
+	name := fd.Name
+	if sym != nil && sym.OwningType != "" {
+		return sym.OwningType + "." + name
+	}
+	return name
+}
+
+func (r *bootReport) add(pos Pos, msg string) {
+	if r.reported[pos] {
+		return
+	}
+	r.reported[pos] = true
+	r.errors = append(r.errors, TypeError{Line: pos.Line, Col: pos.Col, Message: msg})
 }
 
 func isSupervisorNewSymbol(fa *FileAnalysis, sym *Symbol) bool {

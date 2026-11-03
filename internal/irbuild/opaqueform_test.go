@@ -8,13 +8,6 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// `std/toml` lowers. `Toml` is an opaqueSpecs row (see opaque.go on why the
-// OPAQUE clause is not a representation boundary), and `Fragment<Display>` at a
-// stdlib signature is admitted because an existential is package-neutral. That
-// is safe only because the intern tables key on a kind's components rather than
-// its rendered text: every existential renders alike, so a text key would merge
-// `List<Display>` with `List<Comparable>`. erased_test.go carries that half.
-
 // TestOpaqueSpecFormIsRequiredAndChecked pins a row's declaration `form`, in
 // both directions.
 //
@@ -25,8 +18,8 @@ import (
 //     without the field anchors nothing and every mention refuses — but a
 //     reviewer should see the omission here rather than in a coverage drop.
 //   - The clause is CHECKED against std. A declaration of the other clause
-//     must not match, which is what makes a std edit from `pub type Toml
-//     String` to `pub opaque type Toml String` produce no anchor instead of a
+//     must not match, which is what makes a std edit from `pub type Days
+//     Int` to `pub opaque type Days Int` produce no anchor instead of a
 //     silently different use-site surface.
 func TestOpaqueSpecFormIsRequiredAndChecked(t *testing.T) {
 	lib := std.Load()

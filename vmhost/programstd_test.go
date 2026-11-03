@@ -112,6 +112,34 @@ func TestProgramStd_APromptImportsAnotherProgramStdModule(t *testing.T) {
 	}
 }
 
+// A reference editor of a std module checked from edited source imports a
+// module lowered with its program whose bodies call the edited module's own
+// file-level functions: std/storage's editor using std/storage_testing's
+// Memory, whose put calls storage.check_key. storage_testing was checked
+// against the shared analysis, so its qualifier names the shared copy's
+// scope, which must resolve to the edited unit (irbuild's
+// indexEditedStdTwins). It was blocked: "qualified call, file.fn:
+// storage.check_key". A refused key fails the second assertion, so the
+// case ran.
+func TestProgramStd_AnEditorsImportCallsTheEditedModulesFunctions(t *testing.T) {
+	body := "import std/storage_testing.Memory\n" +
+		"store = Memory.new()\n" +
+		"assert Store.put(store, \"a/b.txt\", String.to_bytes(\"x\"), \"text/plain\") == Ok(Unit)\n" +
+		"assert Store.put(store, \"../b\", String.to_bytes(\"x\"), \"text/plain\") is Err(.InvalidKey{})\n" +
+		"io.print(\"${Memory.keys(store)}\")\n"
+	var out strings.Builder
+	cases, err := StdlibReference("storage", "import std/io\n"+body, "", &out)
+	if err != nil {
+		t.Fatalf("the front end rejects the editor, so nothing below is tested: %v", err)
+	}
+	if len(cases) != 1 || cases[0].Err != nil || len(cases[0].Blocked) > 0 {
+		t.Fatalf("cases %+v\n%s", cases, out.String())
+	}
+	if want := "[a/b.txt]\n"; cases[0].Output != want {
+		t.Errorf("output %q, want %q", cases[0].Output, want)
+	}
+}
+
 // A reference editor of a std module lowered once for the process imports a
 // module lowered with its program and runs: std/io's editor calling
 // path.join, and building a Sandbox for fs_testing.run over fs.read_text;

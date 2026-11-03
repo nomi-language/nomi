@@ -570,7 +570,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		return d != nil && sameIfaceInstance(d, k.iface)
 	}
 	for _, d := range bl.g.implOrder {
-		if !of(d.iface) || d.recv.tag != tagNamed || d.recv.def == nil {
+		if !of(implIface(d)) || d.recv.tag != tagNamed || d.recv.def == nil {
 			continue
 		}
 		nested, ok := bl.nestedDebugImpls(named(d.recv.def))
@@ -602,6 +602,13 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		}
 		impls = append(impls, nested...)
 		boxed = true
+	}
+	for d, kinds := range bl.g.stdProgHeld {
+		// A std type held unboxed as a std interface (stdprogiface.go)
+		// renders as itself.
+		if of(d) && len(kinds) > 0 {
+			boxed = true
+		}
 	}
 	return impls, len(impls) != 0 || boxed, true
 }

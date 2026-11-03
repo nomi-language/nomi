@@ -297,42 +297,35 @@ func (g *gen) aliasNamedDef(name string) (d *typeDef, found bool) {
 	return k.def, true
 }
 
-// qualifiedAliasTarget is `shapes.Pt` for `shapes.P` when P is a typealias
-// the file bound to `shapes` declares over a named type `Pt`, reporting
-// whether name was one, so `shapes.P{...}` is a `shapes.Pt` literal.
-func (g *gen) qualifiedAliasTarget(name string) (string, bool) {
+// qualifiedAliasDef is the declared type `shapes.P` names when P is a
+// typealias the file bound to `shapes` declares over a struct, enum or
+// distinct type, reporting whether name was such an alias, so `shapes.P{...}`
+// builds that type. The target is the type the checker resolved in the
+// alias's own file, found by its declaration: it may live in a third file or
+// module (`pub typealias P g.Pt`, `pub typealias Migration
+// runner.Migration`), where no spelling through `shapes` names it. A target
+// with no representation answers a nil def.
+func (g *gen) qualifiedAliasDef(name string) (*typeDef, bool) {
 	dot := strings.LastIndex(name, ".")
 	if dot <= 0 {
-		return "", false
+		return nil, false
 	}
 	scope := g.moduleScope(name[:dot])
 	if scope == nil {
-		return "", false
+		return nil, false
 	}
-	target := aliasTargetName(resolvedScopeSymbol(scope, name[dot+1:]))
-	if target == "" {
-		return "", false
-	}
-	return name[:dot] + "." + target, true
-}
-
-// aliasTargetName is the name of the struct, enum or distinct type the
-// typealias sym stands for, or "" when sym is no alias or stands for no
-// such type.
-func aliasTargetName(sym *analysis.Symbol) string {
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
+	sym := resolvedScopeSymbol(scope, name[dot+1:])
 	if sym == nil || sym.Kind != analysis.SymbolTypeAlias {
-		return ""
+		return nil, false
 	}
-	switch t := sym.Type.(type) {
-	case *analysis.StructType:
-		return t.Name
-	case *analysis.EnumType:
-		return t.Name
-	case *analysis.DistinctType:
-		return t.Name
+	switch sym.Type.(type) {
+	case *analysis.StructType, *analysis.EnumType, *analysis.DistinctType:
+	default:
+		return nil, false
 	}
-	return ""
+	k := g.project(sym.Type)
+	if k.tag != tagNamed || k.def == nil || !k.def.lowerable {
+		return nil, true
+	}
+	return k.def, true
 }

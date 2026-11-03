@@ -264,9 +264,22 @@ fn pieces(tokens: List<Token>) -> List<#(Token, String)> {
 //! assert sqltext.sqlite_sql(["SELECT ", " + ", ""]) == "SELECT ?1 + ?2"
 //
 pub fn sqlite_sql(parts: List<String>) -> String {
+    numbered(parts, "?")
+}
+
+/// The SQL around the parameters with `$1`, `$2`, ... between the parts,
+/// as the Postgres driver writes them: what Postgres describes. `$1` is as
+/// wide as `?1`, so `token_at_offset` reads an offset in either.
+//! assert sqltext.postgres_sql(["SELECT ", " + ", ""]) == "SELECT $1 + $2"
+//
+pub fn postgres_sql(parts: List<String>) -> String {
+    numbered(parts, "$")
+}
+
+fn numbered(parts: List<String>, mark: String) -> String {
     parts
     |> Iter.with_index()
-    |> Iter.map(fn #(i, part) -> if i == 0 { part } else { "?${i}" + part })
+    |> Iter.map(fn #(i, part) -> if i == 0 { part } else { "${mark}${i}" + part })
     |> String.join()
 }
 

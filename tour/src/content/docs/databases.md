@@ -1,6 +1,6 @@
 ---
 title: "Databases"
-description: "Run SQL on SQLite from Nomi, then let sqlkit check your SQL against the schema and write typed functions for it."
+description: "Run SQL on SQLite or Postgres from Nomi, then let sqlkit check your SQL against the schema and write typed functions for it."
 ---
 
 A Nomi program talks to a SQL database in one of two ways, and this chapter
@@ -25,6 +25,13 @@ $ nomi add github.com/nomi-language/nomi/lib/sql/sqlite
 
 The examples run in this page on a real SQLite. Edit them and they run
 again.
+
+For Postgres, add `github.com/nomi-language/nomi/lib/sql/postgres` instead
+and open a pool of connections with `postgres.pool(url)`. Both drivers give
+you a `Conn`, so the Nomi code in this chapter works with either. The SQL
+text is the database's own: SQLite fills in an `INTEGER PRIMARY KEY` that
+an insert leaves out, and Postgres needs `GENERATED ALWAYS AS IDENTITY` for
+that.
 
 ## Running SQL directly
 
@@ -299,7 +306,11 @@ shop/
 ```
 
 You write the migration, `queries.sql`, `main.nomi` and `shop_test.nomi`.
-sqlkit's `generate` tool writes the other three `.nomi` files.
+sqlkit's `generate` tool writes the other three `.nomi` files. The shop
+uses SQLite. With `dialect = "postgres"` in `nomi.toml`, `generate` checks
+the migrations and queries against a scratch Postgres database instead, as
+[sqlkit's README](https://github.com/nomi-language/nomi/tree/main/lib/sql/sqlkit#postgres)
+describes.
 
 ### Migrations
 

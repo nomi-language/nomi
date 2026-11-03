@@ -1,6 +1,5 @@
 import {
     std/compiler.{self, Project}
-    std/toml.Toml
     test_helpers
 }
 
@@ -37,7 +36,7 @@ test "package-local types can use impl blocks" {
     diagnostics = compiler.check_project(Project{
         entry_point: "main",
         manifest: Some(
-            Toml"""
+            """
             [module]
             name = "demo"
             entry_points = ["main"]

@@ -243,12 +243,14 @@ func (g *gen) irRetryWalkOnlyTestBodiesWith(setup func(testCaseDecl) func()) {
 func (g *gen) flushInstanceQueues() {
 	for {
 		impls, monos, methods, defaults := len(g.genericImplQueue), len(g.monoQueue), len(g.methodInstQueue), len(g.fieldDefaultQueue)
+		accessors := len(g.instImplAccessorQueue)
 		g.flushMonoInstances()
 		g.flushGenericImpls()
 		g.flushMethodInsts()
 		g.flushFieldDefaults()
+		g.flushInstImplAccessors()
 		if impls == len(g.genericImplQueue) && monos == len(g.monoQueue) && methods == len(g.methodInstQueue) &&
-			defaults == len(g.fieldDefaultQueue) {
+			defaults == len(g.fieldDefaultQueue) && accessors == len(g.instImplAccessorQueue) {
 			break
 		}
 	}
@@ -275,7 +277,7 @@ func (g *gen) instancesPending() bool {
 			return true
 		}
 	}
-	return false
+	return g.instImplAccessorsPending()
 }
 
 // irFlushLateInstances builds the instances a file's call asked another

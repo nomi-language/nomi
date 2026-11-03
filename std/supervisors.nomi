@@ -206,13 +206,15 @@ pub host type Supervisor
 impl Supervisor {
     /// Create a named supervisor with its own shutdown budget.
     ///
-    /// `shutdown_timeout:` is how long shutdown waits for this supervisor's work after
-    /// cancelling it. Supervisors drain concurrently and their budgets are
-    /// unrelated, so a 30-second budget and a 200-millisecond one do not
-    /// queue behind each other. When the budget expires the runtime
-    /// abandons whatever is left rather than waiting — otherwise a task
-    /// that never observes cancellation could hang shutdown forever, and
-    /// every budget would be decorative.
+    /// `shutdown_timeout:` is how long shutdown lets this supervisor's work
+    /// run before cancelling it: a grace period, not a window to unwind in.
+    /// Work that finishes inside it is never cancelled. Supervisors drain
+    /// concurrently and their budgets are unrelated, so a 30-second budget
+    /// and a 200-millisecond one do not queue behind each other. When the
+    /// budget expires the runtime cancels whatever is left and does not
+    /// wait for it to stop — otherwise a task that never observes
+    /// cancellation could hang shutdown forever, and every budget would be
+    /// decorative.
     ///
     /// `max_running:` is how many of its tasks run at once, and it
     /// is not optional. Other languages default this to the CPU count,

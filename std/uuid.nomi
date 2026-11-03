@@ -22,6 +22,7 @@ import {
     instant.Instant
     int.Int
     iter.Iter
+    json.{FromJson, Json, ToJson, shape_error_root}
     lists.List
     literals.{Fragment, Literal}
     maybe.Maybe.{self, None, Some}
@@ -204,6 +205,47 @@ impl Literal for Uuid {
         })
 
         Uuid.parse(body)
+    }
+}
+
+// JSON: here rather than in std/json because uuid is lowered with each
+// program (internal/irbuild/programstd.go), and std/json, lowered once for
+// the process, may not import it.
+impl ToJson for Uuid {
+    /// Writes the canonical lowercase text, 8-4-4-4-12 hex digits.
+    //! id = Uuid`6BA7B810-9DAD-11D1-80B4-00C04FD430C8`
+    //! assert ToJson.to_json(id) == Json.String("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+    //
+    fn to_json(value: Uuid) -> Json {
+        Json.String(Display.to_string(value))
+    }
+}
+
+impl FromJson for Uuid {
+    /// Reads UUID text in either case.
+    //! id = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
+    //! assert Uuid.from_json(ToJson.to_json(id)) == Ok(id)
+    //! assert Uuid.from_json(Json.String("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")) == Ok(id)
+    //!
+    //! assert Uuid.from_json(Json.String("6ba7b810")) |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "expected UUID as 8-4-4-4-12 hex digits, got string \"6ba7b810\""
+    //! )
+    //
+    fn from_json(json: Json) -> Result<Uuid, Json.ShapeError> {
+        expected = "UUID as 8-4-4-4-12 hex digits"
+
+        case json {
+            Json.String(text) ->
+                Uuid.parse(text)
+                |> Result.map_err(fn _ -> Json.ShapeError{
+                    path: [],
+                    expected,
+                    got: "string ${Debug.inspect(text)}",
+                })
+
+            _ ->
+                Err(shape_error_root(expected, json))
+        }
     }
 }
 

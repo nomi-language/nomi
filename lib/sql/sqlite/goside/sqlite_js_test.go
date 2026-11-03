@@ -30,7 +30,7 @@ func TestOpen_APathIsInTheBuildsMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a := Exec(c, 0, 0, []string{"CREATE TABLE IF NOT EXISTS t (n INTEGER); INSERT INTO t VALUES (1)"}, nil); a.Failure.Kind != FailNone {
+	if a := Exec(background, c, 0, 0, []string{"CREATE TABLE IF NOT EXISTS t (n INTEGER); INSERT INTO t VALUES (1)"}, nil); a.Failure.Kind != FailNone {
 		t.Fatal(a.Failure)
 	}
 	Close(c)
@@ -39,7 +39,7 @@ func TestOpen_APathIsInTheBuildsMemory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Close(c)
-	got := Run(c, 0, 0, []string{"SELECT count(*) AS n FROM t"}, nil)
+	got := Run(background, c, 0, 0, []string{"SELECT count(*) AS n FROM t"}, nil)
 	if got.Failure.Kind != FailNone || len(got.Rows) != 1 || got.Rows[0][0].Int != 1 {
 		t.Errorf("the database opened again holds %+v", got)
 	}

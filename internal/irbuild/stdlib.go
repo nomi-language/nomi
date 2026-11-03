@@ -208,7 +208,13 @@ var hostPackages = [...]struct{ path, local string }{
 	{pluralHostPath, "stdplural"},
 	{formatHostPath, "stdformat"},
 	{messageHostPath, "stdmessageformat"},
+	{tomlHostPath, "stdtoml"},
 }
+
+// tomlHostPath is std/toml's host implementation: a `Toml"..."` literal's
+// check and build over github.com/BurntSushi/toml. Its boundary is String,
+// Float, Int and List<String>.
+const tomlHostPath = "github.com/nomi-language/nomi/internal/stdtoml"
 
 // messageHostPath is std/message_format's host implementation, the
 // MessageFormat 2 formatter. Its boundary is String, List<Int> and
@@ -2119,8 +2125,8 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		return stdHostKind(i)
 	}
 	if i, anchored := anchors.ifaces[name]; anchored {
-		// A stdlib INTERFACE in a type position: `Toml.from_fragments(
-		// fragments: List<Fragment<Display>>): Toml`. Admitted on the same
+		// A stdlib INTERFACE in a type position: `Doc.from_fragments(
+		// fragments: List<Fragment<Display>>): Doc`. Admitted on the same
 		// terms as the three families above and for the same reason — the
 		// *ifaceDef is process-wide, the value renders `rt.Dyn` in every
 		// generated package, and the dispatch tables are variables in rt. See

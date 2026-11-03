@@ -1208,8 +1208,7 @@ func emitTripleStringLit(v *ast.StringLit) Doc {
 	if strings.HasSuffix(v.Value, "\r") && !strings.Contains(v.Value, "\n") {
 		return Text(`"""` + encodeTripleStringContent(v.Value) + `"""`)
 	}
-	body := tripleBodyDoc(encodeTripleStringContent(v.Value))
-	return tripleStringFraming("", body, defaultIndent)
+	return tripleLiteral("", []ast.StringPart{ast.StringText{Value: v.Value}}, false, v.EndLine == v.Line, defaultIndent)
 }
 
 // tripleStringFraming wraps a body Doc in `<prefix>"""\n  <body>\n  """`,
@@ -1238,16 +1237,71 @@ func tripleStringFraming(prefix string, body Doc, bodyIndent int) Doc {
 // and dynamic parts emit as `${ <expr> }`. Static text content is run
 // through encodeTripleStringContent so a literal `${` round-trips.
 func emitTripleStringInterp(v *ast.StringInterp) Doc {
-	var bodyParts []Doc
-	for _, p := range v.Parts {
+	return tripleLiteral("", v.Parts, false, v.EndLine == v.Line, defaultIndent)
+}
+
+// tripleLiteral renders a triple-quoted literal, or a multi-line raw one,
+// with prefix (a typed literal's tag) before its opening delimiter and its
+// body bodyIndent beyond the current indent.
+//
+// Two rules keep a template readable:
+//
+//   - A non-raw literal written on one line (oneLine) stays on one line,
+//     `Html"""<span>${n}</span>"""`, when it fits in the line width from
+//     the column it starts at. One that does not fit is framed.
+//   - A slot whose expression spans lines is laid out from the column of
+//     its `${` (tripleSlot), so its lines stay with the markup around it.
+func tripleLiteral(prefix string, parts []ast.StringPart, raw, oneLine bool, bodyIndent int) Doc {
+	var body []Doc
+	for _, p := range parts {
 		switch part := p.(type) {
 		case ast.StringText:
-			bodyParts = append(bodyParts, tripleBodyDoc(encodeTripleStringContent(part.Value)))
+			if raw {
+				body = append(body, tripleBodyDoc(part.Value))
+			} else {
+				body = append(body, tripleBodyDoc(encodeTripleStringContent(part.Value)))
+			}
 		case ast.StringExpr:
-			bodyParts = append(bodyParts, Text("${"), emitInterpolatedExpr(part.Expr), Text("}"))
+			body = append(body, tripleSlot(part.Expr))
 		}
 	}
-	return tripleStringFraming("", Concat(bodyParts...), defaultIndent)
+	if raw {
+		return rawBacktickFraming(prefix, Concat(body...), bodyIndent)
+	}
+	framed := tripleStringFraming(prefix, Concat(body...), bodyIndent)
+	if !oneLine {
+		return framed
+	}
+	flat := []Doc{Text(prefix + `"""`)}
+	for _, p := range parts {
+		switch part := p.(type) {
+		case ast.StringText:
+			if strings.Contains(part.Value, "\n") || strings.HasSuffix(part.Value, "\r") {
+				return framed
+			}
+			flat = append(flat, Verbatim(encodeTripleStringContent(part.Value)))
+		case ast.StringExpr:
+			flat = append(flat, Text("${"), emitInterpolatedExpr(part.Expr), Text("}"))
+		}
+	}
+	one := InString(Concat(append(flat, Text(`"""`))...))
+	return WithColumn(func(col, _, width int) Doc {
+		text := Render(one, 1<<30)
+		if strings.Contains(text, "\n") || col+textWidth(text) > width {
+			return framed
+		}
+		return one
+	})
+}
+
+// tripleSlot is a `${...}` in a multi-line literal's body. Its expression
+// is nested to the column of its `${`, so a slot that spans lines
+// (`${if ... }`) lays its later lines out from there rather than from the
+// statement around the literal.
+func tripleSlot(expr ast.Node) Doc {
+	return WithColumn(func(col, indent, _ int) Doc {
+		return Concat(Text("${"), Nest(col-indent, emitInterpolatedExpr(expr)), Text("}"))
+	})
 }
 
 // emitTaggedString renders a typed literal `<tag>"..."` (or its triple
@@ -1266,27 +1320,9 @@ func emitTripleStringInterp(v *ast.StringInterp) Doc {
 func emitTaggedString(v *ast.TaggedString) Doc {
 	prefix := v.Tag
 	if v.Triple {
-		// Triple-quoted: walk Parts emitting body Doc(s) and frame
-		// with `<prefix>"""\n  <body>\n  """`. Raw multi-line tagged
-		// literals (Raw && Triple) carry exactly one StringText so
-		// the loop produces a single body chunk with no hash escape.
-		var bodyParts []Doc
-		for _, p := range v.Parts {
-			switch part := p.(type) {
-			case ast.StringText:
-				if v.Raw {
-					bodyParts = append(bodyParts, tripleBodyDoc(part.Value))
-				} else {
-					bodyParts = append(bodyParts, tripleBodyDoc(encodeTripleStringContent(part.Value)))
-				}
-			case ast.StringExpr:
-				bodyParts = append(bodyParts, Text("${"), emitInterpolatedExpr(part.Expr), Text("}"))
-			}
-		}
-		if v.Raw {
-			return rawBacktickFraming(prefix, Concat(bodyParts...), defaultIndent)
-		}
-		return tripleStringFraming(prefix, Concat(bodyParts...), defaultIndent)
+		// Triple-quoted, or a multi-line raw literal, whose one
+		// StringText is its body with no escaping.
+		return tripleLiteral(prefix, v.Parts, v.Raw, taggedOnOneLine(v), defaultIndent)
 	}
 	// Single-line: walk Parts emitting `<prefix>"<encoded body>"`.
 	// Raw single-line typed literals carry exactly one StringText
@@ -2969,42 +3005,18 @@ func emitCallArg(n ast.Node) Doc {
 			body := tripleBodyDoc(v.Value)
 			return rawBacktickFraming("", body, 0)
 		case v.Triple:
-			body := tripleBodyDoc(encodeTripleStringContent(v.Value))
-			return tripleStringFraming("", body, 0)
+			if strings.HasSuffix(v.Value, "\r") && !strings.Contains(v.Value, "\n") {
+				return emitTripleStringLit(v)
+			}
+			return tripleLiteral("", []ast.StringPart{ast.StringText{Value: v.Value}}, false, v.EndLine == v.Line, 0)
 		}
 	case *ast.StringInterp:
 		if v.Triple {
-			var bodyParts []Doc
-			for _, p := range v.Parts {
-				switch part := p.(type) {
-				case ast.StringText:
-					bodyParts = append(bodyParts, tripleBodyDoc(encodeTripleStringContent(part.Value)))
-				case ast.StringExpr:
-					bodyParts = append(bodyParts, Text("${"), emitInterpolatedExpr(part.Expr), Text("}"))
-				}
-			}
-			return tripleStringFraming("", Concat(bodyParts...), 0)
+			return tripleLiteral("", v.Parts, false, v.EndLine == v.Line, 0)
 		}
 	case *ast.TaggedString:
 		if v.Triple {
-			prefix := v.Tag
-			var bodyParts []Doc
-			for _, p := range v.Parts {
-				switch part := p.(type) {
-				case ast.StringText:
-					if v.Raw {
-						bodyParts = append(bodyParts, tripleBodyDoc(part.Value))
-					} else {
-						bodyParts = append(bodyParts, tripleBodyDoc(encodeTripleStringContent(part.Value)))
-					}
-				case ast.StringExpr:
-					bodyParts = append(bodyParts, Text("${"), emitInterpolatedExpr(part.Expr), Text("}"))
-				}
-			}
-			if v.Raw {
-				return rawBacktickFraming(prefix, Concat(bodyParts...), 0)
-			}
-			return tripleStringFraming(prefix, Concat(bodyParts...), 0)
+			return tripleLiteral(v.Tag, v.Parts, v.Raw, taggedOnOneLine(v), 0)
 		}
 	}
 	return emit(n)
@@ -6385,4 +6397,11 @@ func emitSetPattern(v *ast.SetPattern) Doc {
 		return Concat(parts...)
 	}
 	return emitBracedList(open, "]", elems)
+}
+
+// taggedOnOneLine reports whether v, a triple-quoted typed literal, was
+// written on one line: its span starts and ends on its line.
+func taggedOnOneLine(v *ast.TaggedString) bool {
+	sp := v.GetSpan()
+	return !v.Raw && !sp.IsZero() && sp.StartLine == sp.EndLine
 }

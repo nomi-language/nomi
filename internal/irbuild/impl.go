@@ -161,6 +161,11 @@ type ifaceDef struct {
 	// order; nil for an ordinary def. With instOf it is the instance's
 	// identity (ifaceInstKey).
 	instArgs []kind
+	// stdOrigin is the declaring std module (`std/hashable`) of a std
+	// interface's def built from std's declaration, a generic one's
+	// instances included, and "" otherwise. Its dispatch symbols are the
+	// program's (stdProgMethodSym). See stdprogiface.go.
+	stdOrigin string
 }
 
 // ifaceMethod is one function an interface declares, required or default.
@@ -219,8 +224,13 @@ type implDef struct {
 	// the existential path needs the declaration.
 	ifaceName string
 	iface     *ifaceDef
-	recv      kind
-	decl      *ast.ImplBlock
+	// stdIface is the def of the std interface (or its instance) this block
+	// implements when iface is nil because std declares it: what a value of
+	// the receiver held as that interface dispatches through. iface stays
+	// nil, so nothing else about the block changes. See stdprogiface.go.
+	stdIface *ifaceDef
+	recv     kind
+	decl     *ast.ImplBlock
 	// synth marks a block the front end produced from a `derive`, or the
 	// universal Debug. Its refusals are never reported at its own position.
 	synth bool
@@ -452,6 +462,11 @@ func (g *gen) resolveIfaces() {
 }
 
 func (g *gen) resolveIface(d *ifaceDef) {
+	if d.stdOrigin != "" {
+		// A std interface's declaration is std's source: its positions
+		// resolve against std's file (stdprogiface.go).
+		defer g.withStdSrc(strings.TrimPrefix(d.stdOrigin, "std/"))()
+	}
 	for i := range d.decl.Methods {
 		im := &d.decl.Methods[i]
 		m := &ifaceMethod{
@@ -834,6 +849,22 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// An impl written here binds into rt's variable, which is the one
 			// table for that interface in the whole artifact. See stdiface.go.
 			d.iface, _ = g.stdIfaceNamed(name)
+		}
+		if d.iface == nil && name == "Debug" && d.synth && g.programStd {
+			// The universal Debug the front end synthesizes for every type
+			// a std module lowered with the program declares
+			// (programStdModules, analysis.SynthesizeUniversalDebug).
+			// A std module has no prelude, and one that never names Debug
+			// (std/url, std/money) imports none, so the block's `Debug`
+			// resolves to nothing in its scope. It is std's Debug by
+			// construction: without this its impls were in no table, and a
+			// program could not hold a `Url` as a `Debug`.
+			d.iface = g.stdDebugDef()
+		}
+		if d.iface == nil && d.oper == nil {
+			// Any other std interface: the def a value of the receiver
+			// held as it dispatches through. See stdprogiface.go.
+			d.stdIface = g.stdProgIfaceForImpl(ib)
 		}
 		if d.iface != nil && !d.iface.lowerable {
 			d.lowerable, d.why, d.whyDetail = false, d.iface.why, name

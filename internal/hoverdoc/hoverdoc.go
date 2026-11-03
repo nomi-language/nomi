@@ -12,6 +12,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	nomiformat "github.com/nomi-language/nomi/internal/format"
 )
 
 // At returns the hover markdown for the symbol at pos in fa, or "" when
@@ -905,10 +906,7 @@ func RenderFuncSigResolvedSelf(name string, typeParams []ast.TypeParam, params [
 			b.WriteString(": ")
 			b.WriteString(renderTypeExprSelfAware(p.TypeAnnotation, typeAt(ft, i), receiver, receiverName))
 		}
-		if def := renderConstValue(p.Default); def != "" {
-			b.WriteString(" = ")
-			b.WriteString(def)
-		}
+		b.WriteString(renderDefault(p.Default))
 	}
 	b.WriteString(")")
 
@@ -1151,6 +1149,7 @@ func renderStructDef(n *ast.StructDef) string {
 			b.WriteString(": ")
 			b.WriteString(f.TypeAnnotation.TypeString())
 		}
+		b.WriteString(renderDefault(f.Default))
 		b.WriteString("\n")
 	}
 	b.WriteString("}")
@@ -1197,6 +1196,7 @@ func renderEnumDef(n *ast.EnumDef) string {
 					b.WriteString(": ")
 					b.WriteString(f.TypeAnnotation.TypeString())
 				}
+				b.WriteString(renderDefault(f.Default))
 			}
 			b.WriteString(" }")
 		default:
@@ -1954,6 +1954,28 @@ func renderTryOpHover(sym *analysis.Symbol) string {
 }
 
 // renderConstValue renders a constant's value expression as source text.
+// renderDefault is a parameter's or field's default as a signature writes
+// it, ` = ` and the expression as the formatter lays it out, or "" when there
+// is none.
+func renderDefault(node ast.Node) string {
+	if node == nil {
+		return ""
+	}
+	// A default the parser could not read holds an ErrorNode, which the
+	// formatter cannot render; the signature shows that one is there.
+	broken := false
+	ast.Inspect(node, func(n ast.Node) bool {
+		if _, isErr := n.(*ast.ErrorNode); isErr {
+			broken = true
+		}
+		return !broken
+	})
+	if broken {
+		return " = …"
+	}
+	return " = " + nomiformat.RenderNode(node)
+}
+
 func renderConstValue(node ast.Node) string {
 	switch n := node.(type) {
 	case *ast.IntLit:

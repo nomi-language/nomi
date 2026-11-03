@@ -96,6 +96,7 @@ import (
 	"github.com/nomi-language/nomi/internal/stdrandom"
 	"github.com/nomi-language/nomi/internal/stdregex"
 	"github.com/nomi-language/nomi/internal/stdstrings"
+	"github.com/nomi-language/nomi/internal/stdtoml"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -297,6 +298,10 @@ func Funcs() []Binding {
 		{Name: "Regex.replace_in", Fn: stdregex.FFIReplace},
 		{Name: "Regex.split_in", Fn: stdregex.FFISplit},
 		{Name: "Regex.is_suffix_of", Fn: stdregex.FFISuffixOf},
+		{Name: "toml_host.check", Fn: stdtoml.FFICheck},
+		{Name: "toml_host.build", Fn: stdtoml.FFIBuild},
+		{Name: "toml_host.quote", Fn: stdtoml.FFIQuote},
+		{Name: "toml_host.float", Fn: stdtoml.FFIFloat},
 		{Name: "strings.capture_groups", Fn: stdstrings.FFICaptures},
 		{Name: "strings.capture_groups_all", Fn: stdstrings.FFICapturesAll},
 		{Name: "String.capitalize", Fn: stdstrings.FFICapitalize},
@@ -392,6 +397,8 @@ func RtFuncs() []Binding {
 		{Name: "bytes.Bytes.length", Fn: rt.BytesLength},
 		{Name: "hash.sha256", Fn: rt.SHA256},
 		{Name: "hash.sha512", Fn: rt.SHA512},
+		{Name: "hash.md5", Fn: rt.MD5},
+		{Name: "hash.sha1", Fn: rt.SHA1},
 		{Name: "hash.hmac_sha256", Fn: rt.HMACSHA256},
 		{Name: "hash.hmac_sha512", Fn: rt.HMACSHA512},
 		{Name: "hash.equal_in_constant_time", Fn: rt.EqualInConstantTime},
@@ -401,6 +408,9 @@ func RtFuncs() []Binding {
 		{Name: "base64.decode_url", Fn: rt.Base64URLDecode},
 		{Name: "hex.encode", Fn: rt.HexEncode},
 		{Name: "hex.decode", Fn: rt.HexDecode},
+		{Name: "html_host.escape", Fn: rt.HTMLEscape},
+		{Name: "html_host.filter_url", Fn: rt.HTMLFilterURL},
+		{Name: "html_host.escape_url_path", Fn: rt.HTMLEscapeURLPath},
 		{Name: "url_host.escape_query", Fn: rt.URLEscapeQuery},
 		{Name: "url_host.unescape_query", Fn: rt.URLUnescapeQuery},
 		{Name: "url_host.escape_path_segment", Fn: rt.URLEscapePathSegment},

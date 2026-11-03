@@ -311,9 +311,10 @@ func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, dec
 // siblingOwnerSpelling answers `mod.Owner` when qual spells it, mod qualifies
 // another user file, and Owner is an interface or generic type for which
 // another file declares an owner function named method: `boxes.Shape.twice(3)`.
-// The three-segment route finds an owner by the dotted name of its mirror
-// (qualDottedOwner), and an interface has none, so without this the call would
-// be read as a call through a value. siblingOwnerPlan resolves the spelling.
+// The three-segment route finds a type owner by the dotted name of its mirror
+// and an interface by its interface mirror (qualDottedOwner); a generic type
+// has neither, so without this the call would be read as a call through a
+// value. siblingOwnerPlan resolves the spelling.
 func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (string, bool) {
 	inner, isFA := qual.(*ast.FieldAccess)
 	if !isFA || inner.Field == nil {

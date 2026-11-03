@@ -147,9 +147,13 @@
 15-app-and-defer/logging/logging_test.nomi
 15-app-and-defer/with_overrides/with_overrides_test.nomi
 16-concurrency/actor/actor_test.nomi
+16-concurrency/jobs/jobs_test.nomi
 16-concurrency/message_loop/message_loop_test.nomi
 16-concurrency/supervisors/supervisors_test.nomi
+17-typed-literals/fragments_test.nomi
+17-typed-literals/html_templates_test.nomi
 17-typed-literals/toml_literal_test.nomi
+17-typed-literals/url_slots_test.nomi
 18-ffi-and-dynamic/dynamic_decoder_test.nomi
 18-ffi-and-dynamic/json_container_decode_test.nomi
 18-ffi-and-dynamic/json_decode_error_text_test.nomi
@@ -171,6 +175,7 @@
 19-locales/shop/locale_load_test.nomi
 19-locales/shop/order_test.nomi
 20-data-access/sql_test.nomi
+20-data-access/storage_test.nomi
 20-data-access/transactions_test.nomi
 20-data-access/uuid_test.nomi
 exercism/acronym/acronym_test.nomi

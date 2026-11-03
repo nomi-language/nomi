@@ -176,6 +176,40 @@ func TestCodegen_ImportPathAliasing(t *testing.T) {
 	}
 }
 
+// TestCodegen_HostTypesNameTheirPackageByItsImportAlias holds a host type
+// to the alias its package is imported under. The SQLite and Postgres
+// drivers each bind a Go package named goside, so a program that imports
+// both gets `goside1` and `goside2`; a host type written `*goside.Conn`
+// would name neither, and the wrapper would not compile.
+func TestCodegen_HostTypesNameTheirPackageByItsImportAlias(t *testing.T) {
+	pkgs := []DiscoveredPackage{
+		{
+			ImportPath: "github.com/x/postgres/goside",
+			Owner:      "goside",
+			Types:      []DiscoveredType{{Key: "postgres_Handle", TypeName: "Session"}},
+		},
+		{
+			ImportPath: "github.com/x/sqlite/goside",
+			Owner:      "goside",
+			Types:      []DiscoveredType{{Key: "sqlite_Handle", TypeName: "Conn"}},
+		},
+	}
+	assignAliases(pkgs)
+	got, err := renderWrapper("/abs/project", pkgs)
+	if err != nil {
+		t.Fatalf("renderWrapper: %v", err)
+	}
+	src := string(got)
+	for _, s := range []string{`(*goside1.Session)(nil)`, `(*goside2.Conn)(nil)`} {
+		if !strings.Contains(src, s) {
+			t.Errorf("wrapper missing %q:\n%s", s, src)
+		}
+	}
+	if strings.Contains(src, "goside.") {
+		t.Errorf("wrapper names `goside`, which it does not import:\n%s", src)
+	}
+}
+
 // TestCodegen_AliasSanitizes covers the hyphen-in-module-path case.
 // `github.com/foo/some-binding` would yield "some-binding" as the
 // base — illegal Go identifier — so sanitizeIdent maps the hyphen

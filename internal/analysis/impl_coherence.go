@@ -148,9 +148,15 @@ type ProjectImplIndex struct {
 	// the key in TypeMethodKey.Origin — that one is where the receiver TYPE was
 	// declared, and `impl Iter for List` splits the two). The runtime bridge
 	// force-loads it, so it has to follow the symbol the identity path picked.
+	//
+	// TypeMethodOrigin is the reverse: each symbol TypeMethodByIdentity holds,
+	// mapped to its receiver's declaring origin. resolveTypeMethodSymbol reads
+	// it to refuse a bare-name answer that belongs to another module's
+	// same-named type.
 	TypeMethodByIdentity        map[TypeMethodKey]*Symbol
 	TypeMethodModuleByIdentity  map[TypeMethodKey]string
 	TypeMethodIdentityConflicts []TypeMethodKey
+	TypeMethodOrigin            map[*Symbol]string
 
 	// IfaceMethodImplExterns / ImplExternFiles / ImplBlockReceiverExtern are the
 	// `host fn` parallel of IfaceMethodImpls / ImplFiles / ImplBlockReceiver,

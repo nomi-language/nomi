@@ -1526,11 +1526,15 @@ field must give it one type, or the read is
 An embedded type is a type of its own, so a function that handles one
 variant takes it as a parameter (`fn area(c: Circle)` above).
 
-> **Status: not yet implemented.** A struct variant declared inline
-> (`Rectangle {width: Float, height: Float}`) is not a type:
-> `fn perimeter(rect: Shape.Rectangle)` is `unknown type "Shape.Rectangle"`.
-> Declare the payload as a struct and `embeds` it when a function needs to
-> take that one variant.
+A variant declared inside the enum is not a type, bare or qualified:
+`fn perimeter(rect: Shape.Rectangle)` is `unknown type "Shape.Rectangle"`,
+with the help
+`` `Rectangle` is a variant of `Shape`, not a type: take a `Shape`, or declare `Rectangle` on its own and write `embeds Rectangle` in `Shape` ``.
+A function that takes one variant takes an embedded type, and a `case` arm
+that matches that variant narrows an enum value to it (§10 *Type Narrowing*).
+An embedded variant's qualified name is not a type either: `Shape.Circle`
+is `unknown type "Shape.Circle"`, with the help
+``write `Circle`, the embedded variant's own type``.
 
 ### Distinct Types
 
@@ -2987,6 +2991,10 @@ Values cross as `ToJson` writes them and `FromJson` reads them:
 | `Int` | number, its exact digits at any size | `number`, or a `BigInt` past `Number.MAX_SAFE_INTEGER` |
 | `Float` | number | `number` |
 | `String`, `Bool` | string, boolean | `string`, `boolean` |
+| `Decimal` | string of its exact digits, scale kept (`"12.50"`); a number is read too | `string` |
+| `Uuid` | string, lowercase 8-4-4-4-12 hex | `string` |
+| `Instant` | string, RFC 3339 in UTC (`"2023-11-14T22:13:20.25Z"`); any offset is read | `string` |
+| `Date`, `Time`, `NaiveDateTime` | string, `YYYY-MM-DD`, `HH:MM:SS[.fff]`, `YYYY-MM-DDTHH:MM:SS[.fff]` | `string` |
 | `List<T>`, `Vector<T>`, `Set<T>` | array | array |
 | `Map<String, V>` | object | object |
 | struct | object, as `derive ToJson` writes it | object |
@@ -3724,17 +3732,32 @@ fn main() {
 - `else` is required when the branches have a value other than `Unit`. An `if`
   without `else` has the value `Unit`.
 - The branches have one type. Two types are the error `if/else branch type
-  mismatch: then is Range<Int>, else is List<Int>`. There are two joins: a
-  concrete type beside an interface it implements is the interface, and a type
-  beside an enum that `embeds` it is the enum.
-- Two `Iter` types (a `Range` and a `List`) join as `Iter<T>` only where the
-  value's type is written as one: a binding's annotation, a parameter's type
-  or a function's declared result. A pipe's head is its first stage's first
-  argument, so `if up { 1..4 } else { [3, 2, 1] } |> Iter.count()` joins at
-  `Iter.count`'s `Iter<T>` parameter. Without a written `Iter<T>` the mismatch
-  stands, and its help names the annotation: ``both are an Iter<Int>, and two
-  kinds of Iter join only where the value's type is written as one: annotate it
-  `: Iter<Int>`, or declare the function's result as `Iter<Int>` ``.
+  mismatch: then is Range<Int>, else is List<Int>`. Two joins need nothing
+  written: a concrete type beside an interface it implements is the
+  interface, and a type beside an enum that `embeds` it is the enum.
+- Two types that both implement an interface join as that interface only
+  where the value's type is written as it: a binding's annotation, a
+  parameter's type or a function's declared result. Any interface joins
+  this way, std's or the program's, generic or not:
+  `s: Shape = if round { Circle{r: 1.0} } else { Square{side: 2.0} }` is a
+  `Shape`, `d: Display = if n > 0 { n } else { "none" }` is a `Display`,
+  and a `Range` beside a `List` under a written `Iter<Int>` is an
+  `Iter<Int>`. Each branch's value enters the interface as any value
+  assigned to it does. The same holds for every arm of a `case`. A pipe's
+  head is its first stage's first argument, so
+  `if up { 1..4 } else { [3, 2, 1] } |> Iter.count()` joins at
+  `Iter.count`'s `Iter<T>` parameter.
+- Without a written interface the mismatch stands, and its help may name
+  the annotation. When both branches are an `Iter` of one element type, the
+  help is ``both are an Iter<Int>, and two kinds of Iter join only where the
+  value's type is written as one: annotate it `: Iter<Int>`, or declare the
+  function's result as `Iter<Int>` ``. When exactly one interface declared
+  outside std, with no type parameters, is implemented by both types, the
+  help names it: ``both implement Shape, and two types join as an interface
+  only where the value's type is written as one: annotate it `: Shape`, or
+  declare the function's result as `Shape` ``. No std interface but `Iter`
+  is named, since nearly any two types share `Display`, `Debug` and
+  `Equatable`, and two candidate interfaces give no help.
 - `else` and `else if` may start a fresh line after the previous block's `}`.
 
 ```nomi
@@ -5223,6 +5246,8 @@ receiver replaces `self`.
   position typed exactly `self` is free. `fn format(report: Report, s: String)`
   for `format(value: self, style: String)` is the error `impl function
   'format': parameter name 's' does not match interface declaration 'style'`.
+  A parameter the body does not read is named in the discard form:
+  `_style` matches `style`, and a call still names the argument `style`.
 - **A `self` position takes the receiver.** `fn greet(p: Person)` in `impl
   Greeter for Peon` is `impl function 'greet': parameter 1 has type Person, but
   it stands for `self`, which this block implements for Peon`.
@@ -5370,6 +5395,33 @@ can write:
   `Regex` and `String` implement it``;
 - otherwise, to wrap the type: ``only std can implement `Hashable` for
   `Ordering`; wrap it in a type of your own that implements `Hashable` ``.
+
+**Tuples, anonymous structs and functions.** No impl can be written for a
+tuple, an anonymous struct or a function type, so none of them implements
+an interface the program declares. What each implements of std's:
+
+- A tuple implements `Equatable`, `Hashable`, `Comparable` and `Display`
+  when every element does, and `Debug`.
+- An anonymous struct implements `Struct` and `Debug`, and `Equatable`,
+  `Hashable` and `Display` when every field does.
+- A function implements only `Debug`.
+
+One rule decides both a bound and an interface-typed position (*Interface
+values*): a parameter, a field, a list element, or a map key of type
+`Hashable`. So a `where T: Hashable` bound takes `#(1, "a")` and
+`[#(1, 2)]`, and refuses `#(1, p)` for a `p: P` that is not `Hashable`:
+``#(Int, P) does not implement Hashable (required by `where T: Hashable`)``,
+with help that begins `` `#(Int, P)` is Hashable when each element is, and
+`P` is not ``. A `where T: Shape` bound refuses `#(1, 2)` with the help
+``no impl can be written for a tuple, which implements only Equatable,
+Hashable, Comparable and Display, each when every element does; declare a
+struct of your own that implements `Shape` ``. An interface-typed parameter
+refuses the same values with the same help: `fn f(h: Hashable)` called with
+`#(1, p)` is `` argument 1: expected Hashable, got #(Int, P) ``.
+
+A tuple held as an interface value behaves as the tuple does: its
+`Hashable.hash` is the tuple's own hash, two equal tuples are `==`, and
+`"${d}"` renders it as the tuple renders.
 
 **Calls through a bound.** In generic code, call an interface function through
 the interface (`Formatted.format(item, style)`) or through the bounded type
@@ -5582,7 +5634,10 @@ a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
   with an `embeds` variant and a value of the struct it embeds. Values of one
   concrete type compare as `==` on that type does (§5 *Equality and Ordering
   Semantics*), and hash by its hand-written `impl Hashable` when it has one.
-  The same holds for values held as `Display` or `Debug`.
+  The same holds for values held as `Display` or `Debug`, and for `==` and
+  `!=` between an interface value and a value of a concrete type, on either
+  side: `t == #(1, "a")` for a `t: Equatable` compares as if the tuple were
+  held as an `Equatable` too.
 - So an interface value satisfies an `Equatable` or `Hashable` bound with that
   meaning (`List.contains(scales, s)`, `Iter.to_set`, `derive Equatable` over a
   `Scale` field). An `Iter<T>` value is the exception: it is a function and has
@@ -6812,6 +6867,8 @@ Long-lived background work is owned by a `Supervisor`, from `std/supervisors`. A
 
 A supervisor is created only while `boot` builds the application value, in boot or in something boot calls, and is usually kept in an application field. Anywhere else, `Supervisor.new` is the error `` a supervisor here would be a new one every time this runs, and each is kept for the life of the program with a `max_running` of its own — so the bound would be per call rather than per downstream. Create it while `boot` builds the app value: in boot, or in something boot calls ``.
 
+The checker follows this across the whole program, std included. A function is *boot-only* when it calls `Supervisor.new` or another boot-only function, directly or through any chain of calls in any module: std/jobs's `Worker.new` is one, and so is an app's function that calls it. Code starts running outside boot in `fn main`, in a test body, in a lambda or capture (wherever it is written, since it runs whenever it is called), and in a private function nothing calls. Each call such code makes to a boot-only function is an error at that call, naming the chain down to `Supervisor.new`: `` `make_worker` creates a supervisor (through `Worker.new` at workers.nomi:4, then `Supervisor.new` at jobs.nomi:483), so it can only be called while `boot` builds the app value ``. A call inside a boot-only function is not itself an error; the call into that function is. A `pub` function nothing calls is not checked from inside: it is another module's to call. `boot`, and a function a test group's `boot` calls, runs inside boot. A boot-only function named as a value (`f = Worker.new`) is an error where it is named, in boot too, since a function value may be called anywhere. The runtime traps with the same message as a backstop.
+
 ```nomi
 import {
     std/duration.Duration
@@ -7166,11 +7223,13 @@ Neither `Literal`, `Fragment` nor `Fragment`'s variants are in the prelude. Only
 
 #### The prefix
 
-The prefix is a type, found by ordinary name lookup, and its `impl Literal` supplies the handler. Importing the type brings its impl, as it brings a `Display` impl. A domain type makes the literal read as a constructor (`Date"2026-05-04"`), and a zero-sized type gives a DSL a stateless prefix (`type Sql`, then `Sql"SELECT ..."`).
+The prefix is a type, found by ordinary name lookup, and its `Literal` or `CheckedLiteral` impl supplies the handler. Importing the type brings its impl, as it brings a `Display` impl. A domain type makes the literal read as a constructor (`Date"2026-05-04"`), and a zero-sized type gives a DSL a stateless prefix (`type Sql`, then `Sql"SELECT ..."`).
 
 - A prefix that is not a type in scope is the error ``tag 'Nope' is not in scope — a typed literal `Nope"..."` requires `Nope` to be a type with an `impl Literal for Nope` block``.
 - A type with no `Literal` impl is ``type 'Plain' has no typed-literal handler — write `impl Literal for Plain { fn from_fragments(fragments: List<Fragment<I>>) -> R }` ``.
 - A slot whose type does not implement `I`, or is not `I`, is an error at the slot: `slot expression of type 'Int' does not match required type 'String' (required by tag 'Joiner')`.
+
+**`Html` is a prefix the compiler knows.** std/html's `Html` has no `Literal` handler: the compiler reads an `Html` literal's text as an HTML template (§18 *HTML templates*), and the literal is an `Html`, never a `Result`. A type named `Html` declared anywhere else is an ordinary prefix, since a type's identity is its declaring file and name.
 
 **One `from_fragments` per prefix.** A typed literal names no interface, so its prefix type may declare `from_fragments` only once. When another of its impls, or its inherent block, also declares `from_fragments`, the literal is an error at the prefix that names the rival declaration:
 
@@ -7188,7 +7247,7 @@ A typed literal is a call of its prefix type's handler:
 <Type>.from_fragments(fragments: List<Fragment<I>>): R
 ```
 
-Each `${expr}` slot becomes a `Dynamic(value)`, and the text between slots a `Static(text)`. <!-- OPEN: the compiler drops empty Static fragments. With `impl Literal for Count` answering `Iter.count(fragments)`, `Count"${x}"` gives 1, `Count"a${x}"` 2, `Count"${x}${x}"` 2 and `Count""` 1, where this rule gives 3, 3, 5 and 1. The Joiner example's trailing `Static("")` depends on the rule. -->
+Each `${expr}` slot becomes a `Dynamic(value)`, and the text between slots a `Static(text)`.
 The list always alternates `Static, Dynamic, ..., Static`: the first and last `Static` are present even when empty. `Joiner"name: ${name}, age: ${age}"` is:
 
 ```nomi
@@ -7199,7 +7258,7 @@ Joiner.from_fragments(
 
 A triple-quoted typed literal strips its leading newline, common indentation and trailing newline as a triple-quoted string does, and the `${...}` and `\${` rules of strings apply inside a non-raw body (§3 *String Literals*). A raw (backtick) body has no slots: it is one `Static` holding the text as written.
 
-The type of a double-quoted typed literal is `R`, interpolated or not: `Date"2026-05-04"` is a `Result<Date, Error>`, built when the program runs. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is `Result<Regex<String>, String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std/regex](/reference/regex/#capture-types)).
+The type of a double-quoted typed literal is `R`, interpolated or not: `Date"2026-05-04"` is a `Result<Date, Error>`, built when the program runs. A checked literal is an exception: its type is its `build`'s result in every quote style (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is `Result<Regex<String>, String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std/regex](/reference/regex/#capture-types)).
 
 #### Raw literals are checked at compile time
 
@@ -7230,9 +7289,148 @@ fn main() {
 
 When the program runs, a raw literal still calls its handler, once per literal site: the first evaluation builds the value and later ones reuse it. The handler is pure and its input fixed, so the run gets the value the compiler got.
 
+#### Checked literals
+
+A type may implement `CheckedLiteral<I, T>` from std/literals instead of `Literal`:
+
+```nomi
+pub interface CheckedLiteral<I, T> {
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
+    fn build(fragments: List<Fragment<I>>) -> T
+}
+```
+
+Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
+
+- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a raw literal's handler: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
+- An `Err(LiteralError{fragment, offset, message})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
+- `build` runs when the program runs, gets the fragments `from_fragments` would get, and cannot fail: once `check` accepts the text, every slot value must build. A `build` that traps anyway traps where it runs.
+
+A type implements `Literal` or `CheckedLiteral`, not both: ``type `Twice` implements both `Literal` and `CheckedLiteral`; a typed literal has one handler``. The orphan rule below applies to both.
+
+std/url's `Url` is a checked literal. A slot in its path, query or fragment is escaped for where it stands, and a slot in its scheme, user or host is a compile error at the slot: ``typed literal Url"https://${host}/greet" is invalid: a slot in the scheme, user or host cannot be escaped``.
+
+```nomi
+import {
+    std/io
+    std/url.Url
+}
+
+fn main() {
+    name = "ann b"
+    u = Url"https://api.example.com/greet/${name}"
+    io.print(u) // https://api.example.com/greet/ann%20b
+}
+```
+
+std/toml's `Toml` is a checked literal too. Its text, with a stand-in for each slot, must be TOML. A slot in value position (after `=`, or as an array item) is its value's TOML. The slot interface `ToToml` turns the value into a `Toml.Value` (a string, number, boolean, date or time, an array, or an inline table), and the literal writes that itself: a `String` quoted and escaped, a `List` as an array, a `Map<String, V>` as an inline table with quoted keys. No impl writes TOML text, so no slot can add a key. A slot in key position (at the start of a line, after a `.` in a dotted key, in a table header, or as an inline table's key) is one quoted key. A slot anywhere else is a compile error at the slot: ``typed literal Toml"user = \"${name}\"" is invalid: a slot cannot go inside a TOML string; write it where the whole value goes, as in `key = ${value}` ``.
+
+```nomi
+import {
+    std/io
+    std/toml.Toml
+}
+
+fn main() {
+    user = "x\"\nadmin = true"
+    io.print(Toml.text(Toml"user = ${user}")) // user = "x\"\nadmin = true"
+}
+```
+
+A `?` or `!` on a checked literal is the ordinary error for a value that is not a `Result`, and a `?`'s hint says the literal is already its type: `` a `Url` literal is checked when the program is checked, so this one is already a Url: remove the `?` ``. std/literals_testing's `build_each` runs a type's `check` and then its `build` over test values, so a library's tests can hold `build` to its contract.
+
 #### Coherence
 
-A handler is an ordinary interface impl, so the impl rules apply (§12). There is at most one `impl Literal` for a type in a program, and the orphan rule requires `Literal` or the prefix type to be declared in the implementing module. Unlike other impls (§12 *Foreign Types*), a `Literal` impl is not admitted by a type argument the module declares: `impl Literal for List<Mine>` is an orphan impl even when `Mine` is the module's, since the handler is chosen by the prefix alone.
+A handler is an ordinary interface impl, so the impl rules apply (§12). There is at most one `Literal` or `CheckedLiteral` impl for a type in a program, and the orphan rule requires the interface or the prefix type to be declared in the implementing module. Unlike other impls (§12 *Foreign Types*), a `Literal` impl is not admitted by a type argument the module declares: `impl Literal for List<Mine>` is an orphan impl even when `Mine` is the module's, since the handler is chosen by the prefix alone.
+
+#### HTML templates
+
+An `Html` literal, with std/html's `Html` as its prefix, is a fragment of HTML that the compiler reads when it checks the program. It is zero or more nodes: text, elements and comments, with an optional `<!DOCTYPE html>` at its start. Every element opened in the literal is closed in it.
+
+A small fragment is usually written on one line with double quotes, its attributes quoted with `'`, since a `"` ends the literal. Markup of several lines is triple-quoted:
+
+```nomi
+import {
+    std/html.Html
+    std/io
+}
+
+fn badge(count: Int) -> Html {
+    Html"<span class='badge'>${count}</span>"
+}
+
+fn comment(author: String, body: String, likes: Int) -> Html {
+    Html"""
+        <article class="comment">
+          <p>${author} ${badge(likes)}</p>
+          <p>${body}</p>
+        </article>
+        """
+}
+
+fn main() {
+    io.print(Html.to_string(comment("Bo & Co", "<b>hi</b>", 2)))
+}
+```
+
+The program prints the comment with its text escaped:
+
+```text
+<article class="comment">
+  <p>Bo &amp; Co <span class='badge'>2</span></p>
+  <p>&lt;b&gt;hi&lt;/b&gt;</p>
+</article>
+```
+
+The template language is HTML with stricter rules:
+
+- Every non-void element has an explicit end tag (`</p>`, `</li>`, `</td>`, which HTML lets a page leave out).
+- A `/>` closes only a void element (`<input/>`) or an element inside `<svg>` or `<math>`.
+- An element's name is an HTML, SVG or MathML name, or a custom element's name, which has a hyphen (`el-dropdown`). Attribute names are not checked.
+- An attribute value quoted with `'` is read as one quoted with `"`: the same contexts, escaping and errors.
+
+Each `${...}` slot has the context of where it stands, which decides how its value is written and which type it must have:
+
+| Context | Example | The value must be | Written as |
+|---|---|---|---|
+| Element content | `<p>${x}</p>` | `ToHtml` | `String` and numbers escaped as text; `Html` as it is; `List<Html>` joined; `Maybe<Html>`'s `None` as nothing |
+| Text of `<title>` or `<textarea>` | `<title>${t}</title>` | `Display` | escaped text; an `Html` is refused, since its markup could end the element |
+| Quoted attribute value | `class='a ${c}'`, `data-reaction="${kind}"` | `Display` | escaped for an attribute: `&`, `<`, `>`, `"` and `'` |
+| URL attribute, the start of its value | `href="${link}"` | `UrlValue` (`Url`, `SafeUrl`) | a `Url` whose scheme is not `http`, `https`, `mailto` or `tel` as `about:invalid#unsafe-url`; then escaped |
+| URL attribute, after text | `href="/posts/${id}"`, `?q=${q}`, `#${f}` | `Display` | percent-encoded as a path segment (`/` and `:` included), a query value or a fragment, then escaped |
+| `style` attribute | `style="width: ${pct}%"` | `CssValue` (`Int`, `Float`, `Decimal`, `Css`) | a number as written; a `Css` as it is; escaped |
+| A whole unquoted value | `checked=${on}`, `title=${tip}` | `OptionalAttribute` (`Bool`, `Maybe<String>`) | `True` writes `checked`; `False` and `None` leave the attribute out; `Some(s)` writes `title="..."` escaped |
+
+The URL attributes are `action`, `background`, `cite`, `formaction`, `href`, `icon`, `longdesc`, `manifest`, `poster`, `profile`, `src`, `usemap`, `xmlns`, and `data` on `<object>`.
+
+A value of the wrong type is an error at the slot that says what the slot takes: `<title>${page}</title>` with an `Html` is ``this slot takes a `Display`, and an `Html` is not one``, with help for the context.
+
+A slot anywhere else is an error at the slot:
+
+| Where | Error |
+|---|---|
+| A tag or attribute name | ``a slot cannot name a tag or an attribute: `<${tag}>` `` |
+| Part of an unquoted value | ``quote the attribute's value to put a slot in it: `class="...${...}..."` `` |
+| An unquoted URL or `style` value | ``quote `href`'s value to put a slot in it: `href="${...}"` `` |
+| An event handler attribute | ``a slot in `onclick` would be JavaScript; pass the value in a `data-` attribute and read it in a script`` |
+| Inside `<script>` or `<style>` | ``a slot in a `<script>` element would be JavaScript; pass the value in a `data-` attribute`` |
+| Inside a comment | `a slot in an HTML comment is not rendered safely` |
+| In `srcset` | ``a slot in `srcset` is not supported; build the attribute from `SafeUrl` values`` |
+| A URL's scheme or host | ``a slot in a URL's scheme or host cannot be escaped: `href="https://${host}/"` `` |
+
+Malformed markup is an error at the place it is noticed: `` `<div>` is not closed in this literal ``, `` `</span>` closes `<p>`, opened at line 4 ``, ``a `/>` does not close `<div>` in HTML; write `</div>` ``, ``unknown element `<dvi>`; a custom element's name has a hyphen``.
+
+A raw body, ``Html`...` ``, is a template with no slots under the same rules.
+
+**The value.** Static text is written exactly as it stands, after a triple-quoted literal's indentation strip; no whitespace is collapsed. An `Html` built from templates, `Html.text`, `Html.each` and `Html.concat` is balanced markup, because each template was checked and each slot's value was escaped or was itself such an `Html`. `Html.trusted(markup)` is the one way to insert markup unchecked, for HTML a trusted renderer produced, such as Markdown.
+
+**How it is built.** The literal is read once, when the program is checked; nothing is parsed when it runs. It stands for a call of std/html's `assemble` over the static text and one call per slot. The slot's context picks that function, and the function's parameter type is the slot's type rule:
+
+```text
+html.assemble(["<p class=\"", html.slot_attribute(c), "\">", html.slot_text(x), "</p>"])
+```
+
+The slot expressions are the program's own, so hovering and errors inside a slot are at the source.
 
 ### Keyword declarations
 
@@ -7391,6 +7589,8 @@ Taught in [Calling Go](/calling-go/#binding-the-go-standard-library).
 - A `gopkg` is a top-level declaration: `` a `gopkg` declaration belongs at the top level of a file, beside the `go` bindings that use it; it cannot appear inside a body ``.
 - The alias in `go alias.Symbol` is one a `gopkg` of the same file declares: `` `go t.ToUpper`: no `gopkg` in this file declares the alias t ``.
 - A Go type binding is opaque: `type B go s.Builder` is ``Go type binding B must be declared with `opaque type` ``. It may be private, a raw handle behind a Nomi facade (`opaque type RawConn go ffi.Conn`), or public (`pub opaque type Regex go ffi.Regex`); either way it can be named and passed but not constructed, unwrapped or inspected.
+
+**The task's context.** A Go function whose first parameter is `context.Context` receives the calling task's context there, and the binding leaves that parameter out: `func Fetch(ctx context.Context, url string) (string, error)` binds as `fn fetch(url: String) -> Result<String, String> go web.Fetch`. The context carries the deadline of the `Context` in force (`with App.context = Context.with_timeout(...)`) and ends when the task is cancelled, so a Go call that honours it stops then. A `context.Context` at any other position is an error at the binding: ``Go function "Late" in package "example.com/web" takes a context.Context as parameter 2; only a first parameter may be a context.Context, where Go receives the calling task's context``. Nomi's `Context` value itself does not cross.
 
 Building and running a program with Go bindings is in the [tooling reference](/tooling/go-bindings/).
 

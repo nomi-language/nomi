@@ -1158,9 +1158,12 @@ func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
 		return kindInvalid, false
 	}
 	mk, shared := bl.g.sharedMaybe(elem)
-	if !shared && irRetainedValueKind(elem) {
+	if !shared && irCallableValueKind(elem) {
 		// `Maybe<Point>` renders package-relative, so it is this gen's
-		// instance, as `List.head` over the same list asks for it.
+		// instance, as `List.head` over the same list asks for it. The
+		// callable domain, not only the retained one: an interface element
+		// (`List<Named>`) is held as the concrete value, and `maybeOf`, which
+		// `Map.get` and `List.head` ask, already instantiates Maybe at it.
 		mk = bl.g.preludeInstance(bl.g.preludeByName["Maybe"], []kind{elem})
 		// kindInvalid: propagates — preludeInstance answers kindInvalid for an element Maybe cannot be instantiated at, and the terminal declines.
 		shared = mk != kindInvalid

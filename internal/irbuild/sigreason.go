@@ -152,6 +152,13 @@ func (g *gen) typeRefusal(te ast.TypeExpr) (construct, detail string, ok bool) {
 			}
 			return unloweredReason(d)
 		}
+		// Mirrors typeOf's qualified-interface arm, in the same position.
+		if d, isIface := g.moduleQualifiedIface(t); isIface {
+			if d.lowerable {
+				return "", "", false
+			}
+			return ifaceReason(d)
+		}
 		// A dotted name nothing in this program declares. It is the same
 		// question a bare unknown name asks, one segment longer, so it routes
 		// through the same resolution rather than getting a key of its own —
@@ -232,6 +239,12 @@ func (g *gen) genericRefusal(t *ast.GenericType) (string, string, bool) {
 		// `Vector<Int>`, exactly as the prelude, Map and List arms above name
 		// their argument rather than their container.
 		return g.genericArgRefusal(t)
+	}
+	// A generic interface held as a value (`Literal<Int, Int>`) is a boxed
+	// existential typeOf builds, so it has no reason.
+	// kindInvalid: reports — a generic type typeOf declines is named below.
+	if g.typeOf(t) != kindInvalid {
+		return "", "", false
 	}
 	// Everything else instantiates a GENERIC DECLARATION — `Fragment<String>`,
 	// `Pair<E>`, `Channel<Int>`, `Set<Int>` — that no arm above represents, so

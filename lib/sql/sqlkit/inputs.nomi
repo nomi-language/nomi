@@ -7,6 +7,7 @@
 import {
     std/fs
     std/hash
+    migrate
 }
 
 /// One input: its path from the module root and its text.
@@ -17,12 +18,19 @@ pub struct Input {
 
 derive Equatable for Input
 
-/// The `.sql` files directly in `dir`, in name order, with their text.
+/// The `.sql` files directly in `dir`, in name order, with their text,
+/// without a `.down.sql` file: the files `migrate.read` takes as
+/// migrations (`migrate.is_migration_file`), so a directory golang-migrate
+/// keeps describes the schema its `.up.sql` files build.
 pub fn read(dir: String) -> Result<List<Input>, String> {
     pattern = "${sqltext_dir(dir)}*.sql"
     paths = fs.glob(pattern) |> Result.map_err(fn e -> "${dir}: ${e}")?
 
     paths
+    |> Iter.filter(fn path -> {
+        name = String.split(path, "/") |> Iter.last() |> Maybe.with_default(path)
+        migrate.is_migration_file(name)
+    })
     |> Iter.sort()
     |> Iter.map(fn path -> {
         fs.read_text(path)

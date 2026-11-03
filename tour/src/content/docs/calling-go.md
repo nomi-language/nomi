@@ -149,6 +149,7 @@ pass it as `Dynamic` and decode it on the Nomi side
 | exported Go structs | Nomi `struct` | Exported Go fields match Nomi fields by name: `RawQuery` matches `raw_query`. The struct may come from another package your adapter imports, such as `model.User`, used directly or through an alias like `type User = model.User`. |
 | a Go type alias | the alias's target | `type ID = core.ID` crosses as whatever `core.ID` is. |
 | a `func(A) R` parameter | a Nomi function `(A) -> R` | Pass a lambda or a named function, and Go calls it. The Go function may return nothing (`(A) -> Unit`), one value, or a value and an `error` (`(A) -> Result<R, String>`). |
+| a first parameter `ctx context.Context` | left out of the Nomi signature | Go receives the calling task's context: it carries the `with App.context` deadline and ends when the task is cancelled. |
 | a Go value Nomi only holds | `opaque type` | Nomi stores it and passes it back, but can't look inside. |
 | a value of unknown shape | `Dynamic` | Nomi decodes it or matches on it. |
 | channels, non-empty interfaces, named function types | Go adapter or opaque handle | Convert to a type in this table, or keep the value opaque. |

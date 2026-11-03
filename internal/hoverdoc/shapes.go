@@ -694,6 +694,7 @@ func variantPayload(v ast.EnumVariant) string {
 			if f.TypeAnnotation != nil {
 				fields[i] += ": " + f.TypeAnnotation.TypeString()
 			}
+			fields[i] += renderDefault(f.Default)
 		}
 		return " { " + strings.Join(fields, ", ") + " }"
 	case "embedded":

@@ -31,16 +31,34 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	ft := bl.g.checkedCallSignature(t)
-	if ft == nil || len(ft.Params) != 1 {
+	if ft == nil {
+		// A call this file synthesized (a slot of an enclosing tuple's mix,
+		// or a box's thunk) has no checker facts: its operand is a name
+		// bound here, whose kind says whether it is a tuple or a record.
+		id, isIdent := t.Args[0].(*ast.Ident)
+		if !isIdent {
+			return ir.NoTemp, kindInvalid, false, false, false
+		}
+		k, bound := bl.boundK[id.Name]
+		if !bound || !irStructuralBoxes(k) {
+			return ir.NoTemp, kindInvalid, false, false, false
+		}
+	} else if len(ft.Params) != 1 {
 		return ir.NoTemp, kindInvalid, false, false, false
-	}
-	if tag := bl.g.project(ft.Params[0]).tag; tag != tagTuple && tag != tagAnonStruct {
+	} else if tag := bl.g.project(ft.Params[0]).tag; tag != tagTuple && tag != tagAnonStruct {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	subj, sk, _, sok := bl.lower(t.Args[0])
 	if !sok || !irRetainedTupleKind(sk) && !irRetainedRecordKind(sk) {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
+	v, k, mobile, ok = bl.tupleHashOf(t, subj, sk)
+	return v, k, mobile, ok, true
+}
+
+// tupleHashOf is the derive mix over subj, a lowered tuple or record of kind
+// sk, for the call t.
+func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind) (v ir.Temp, k kind, mobile, ok bool) {
 	if bl.qualRecord == t {
 		// In an assertion subject the tuple is the call's one row.
 		bl.qualRecordArgs = irQualArgs{temps: []ir.Temp{subj}, kinds: []kind{sk}, mobile: []bool{true}, ok: true}
@@ -87,7 +105,7 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 	}
 	v, k, mobile, ok = bl.lower(mix)
 	if ok && k != kindInt {
-		return ir.NoTemp, kindInvalid, false, false, true
+		return ir.NoTemp, kindInvalid, false, false
 	}
-	return v, k, mobile, ok, true
+	return v, k, mobile, ok
 }

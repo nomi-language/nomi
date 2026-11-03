@@ -108,18 +108,15 @@ func TestGenericInstanceAtATypeParameterIsRefused(t *testing.T) {
 // constructed. So the enum rows are here rather than in a parallel test that
 // could drift.
 func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
-	// The unrepresentable member is `Literal<T, T>`, a generic interface
-	// existential. A generic interface has no existential representation: the
-	// declaration is refused `generic interface`, so typeOf answers kindInvalid
-	// for `Literal<Int, Int>` and typeRefusal names it. If that type gains a
-	// kind, this guard fails with its own message and a member with no
+	// The unrepresentable member is `#{}`, a record with no fields: typeOf
+	// answers kindInvalid for it and typeRefusal names it. If that type gains
+	// a kind, this guard fails with its own message and a member with no
 	// representation must be chosen instead.
-	src := "import std/literals.Literal\n\n" +
-		"pub struct Point {\n  x: Int\n}\n\n" +
-		"pub struct Bag<T> {\n  marker: Literal<T, T>\n}\n\n" +
+	src := "pub struct Point {\n  x: Int\n}\n\n" +
+		"pub struct Bag<T> {\n  marker: #{}\n}\n\n" +
 		"pub struct Box<T> {\n  item: T\n}\n\n" +
 		"pub enum Holder<T> {\n  Held T\n  Nothing\n}\n\n" +
-		"pub enum Sack<T> {\n  Stuff Literal<T, T>\n  Empty\n}\n\n" +
+		"pub enum Sack<T> {\n  Stuff #{}\n  Empty\n}\n\n" +
 		"fn size(_b: Bag<Point>) -> Int {\n  0\n}\n\n" +
 		"fn peek(b: Box<Int>) -> Int {\n  b.item\n}\n\n" +
 		"fn hold(_h: Holder<Int>) -> Int {\n  0\n}\n\n" +
@@ -162,7 +159,7 @@ func TestGenericInstanceNeverSilentlyDropsAField(t *testing.T) {
 		}
 	}
 	if !sawUnlowerable {
-		t.Error("every instance was lowerable, so the unrepresentable `Literal<T, T>` member did not " +
+		t.Error("every instance was lowerable, so the unrepresentable `#{}` member did not " +
 			"produce one — this guard passed without exercising the branch it guards. If a " +
 			"generic interface existential has gained a kind, pick a member with no " +
 			"representation here. Do not delete the check")

@@ -31,7 +31,7 @@ func TestOpaqueRtTypesAreNominallyDistinct(t *testing.T) {
 		}
 		// The UNDERLYING kind comes from the row's own `inner` rather than
 		// being fixed at int64, because not every row is an Int newtype:
-		// `std/toml.Toml` is `pub type Toml String`.
+		// `std/locale.Locale` is over a String.
 		// TestOpaqueGoWidthMatchesTheDeclaredInner owns the Nomi-to-Go width
 		// agreement; what is asserted here is the NOMINAL half.
 		underlying, named := goKindFor[s.inner.tag]

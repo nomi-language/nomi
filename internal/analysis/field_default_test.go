@@ -613,8 +613,10 @@ fn main() {
 // `18-ffi-and-dynamic/json_derive_defaults_test.nomi` adds nine, seven on the
 // top-level struct `Game` and two on the record variant `Shape.Box`, which a
 // derived FromJson fills when the JSON object lacks the key.
+// `16-concurrency/jobs/app.nomi` adds one, `Greeting.mood` on a top-level
+// struct, which a job's JSON arguments leave out.
 //
-// `std` reads 201: std/assertions 5, std/compiler 2, std/fs_testing 7
+// `std` reads 219: std/assertions 5, std/compiler 2, std/fs_testing 7
 // (`Sandbox`'s files, directories, links and failures, empty by default, so
 // `Sandbox{}` is an empty file system), std/json 2, std/process 7 (the two
 // of its exit fields and `Command`'s args, env, clear_env, dir and stdin, so
@@ -628,7 +630,10 @@ fn main() {
 // structs, plus the `FormPart.File` and `Redirects.Follow` record variants),
 // std/net 11 (`KeepAlive`, `DialOptions` and `ListenOptions`) and std/tls 25
 // (`ClientConfig` and `ServerConfig`, with their `verify`, `key_log` and
-// `certificate_for` hooks).
+// `certificate_for` hooks) std/jobs 1 (`Rate.burst`, on a
+// top-level struct), std/mail 15 (`Message`'s optional parts and
+// `SmtpConfig`'s settings), and std/mail_testing and std/storage_testing 1
+// each (`Failing.error`), all on top-level structs.
 //
 // `tour (nomi-run)` reads 1 rather than 2 because the same cutover removed
 // the other site. `app-fields.md`'s "basic shape" block declared
@@ -650,8 +655,8 @@ fn main() {
 // three, on the top-level struct `Config` (deployment, database_url,
 // max_connections), its development defaults.
 var fieldDefaultDenominator = map[string]int{
-	"std":             201,
-	"tests":           62,
+	"std":             219,
+	"tests":           63,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,
 }

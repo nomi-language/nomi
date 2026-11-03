@@ -2,10 +2,12 @@
 //# `[sqlkit.database.<name>]` table.
 //#
 //#     [sqlkit.database.main]
+//#     dialect = "sqlite"             # or "postgres"
 //#     migrations = "db/migrations"   # SQL files, applied in name order
 //#     queries = "db/queries"         # the query files, `*.sql`
 //#     out = "."                      # where the generated files go
 //#     schema = "schema"              # the generated schema file's name
+//#     dev_url_env = "DATABASE_URL"   # postgres: the variable naming a development server
 //#
 //#     [sqlkit.database.main.tables]
 //#     people = "Person"              # a table's row struct, when the rule misses
@@ -20,13 +22,38 @@ import {
     sqltext
 }
 
+/// The engine a database's SQL is checked against.
+pub enum Dialect {
+    /// A scratch in-memory SQLite database the tool makes itself.
+    Sqlite
+
+    /// A scratch database the tool makes on a development Postgres server.
+    Postgres
+}
+
+derive Equatable for Dialect
+
+impl Display for Dialect {
+    fn to_string(dialect: Dialect) -> String {
+        case dialect {
+            .Sqlite -> "SQLite"
+            .Postgres -> "Postgres"
+        }
+    }
+}
+
 /// One database of the module.
 pub struct Database {
     name: String
+    dialect: Dialect = Dialect.Sqlite
     migrations: String
     queries: String
     out: String
     schema: String
+
+    /// For Postgres, the environment variable that names the development
+    /// server `generate` makes its scratch database on.
+    dev_url_env: String = "DATABASE_URL"
 
     /// The row struct of each table whose name the `tables` table gives,
     /// by table.
@@ -73,11 +100,64 @@ pub fn read(config: Json) -> List<Database> {
 
         Database{
             name,
+            dialect: dialect_of(text(table, "dialect")),
             migrations: text(table, "migrations") |> Maybe.with_default(d.migrations),
             queries: text(table, "queries") |> Maybe.with_default(d.queries),
             out: text(table, "out") |> Maybe.with_default(d.out),
             schema: text(table, "schema") |> Maybe.with_default(d.schema),
+            dev_url_env: text(table, "dev_url_env") |> Maybe.with_default(d.dev_url_env),
             tables: text_map(table, "tables"),
+        }
+    })
+    |> Iter.to_list()
+}
+
+/// The dialects a `dialect` key names, and what each is called there.
+pub fn dialects() -> List<#(String, Dialect)> {
+    [#("sqlite", Dialect.Sqlite), #("postgres", Dialect.Postgres)]
+}
+
+// The dialect a `dialect` key names; one it does not name is reported by
+// `problems`, and read as SQLite meanwhile.
+fn dialect_of(given: Maybe<String>) -> Dialect {
+    given
+    |> Maybe.flat_map(fn g -> dialects() |> Iter.find(fn #(name, _) -> name == g))
+    |> Maybe.map(fn #(_, d) -> d)
+    |> Maybe.with_default(Dialect.Sqlite)
+}
+
+/// What is wrong with a `[sqlkit]` table: a `dialect` that names no
+/// dialect.
+//! c =
+//!     Json.decode("{\"database\":{\"main\":{\"dialect\":\"mysql\"}}}")
+//!     |> Result.with_default(Json.Null)
+//!
+//! assert databases.problems(c) == [
+//!     "nomi.toml: `[sqlkit.database.main]` names the dialect \"mysql\"; sqlkit knows \"sqlite\" and \"postgres\"",
+//! ]
+//
+pub fn problems(config: Json) -> List<String> {
+    tables = case field(config, "database") {
+        Some(Json.Obj(tables)) -> tables
+        _ -> %{}
+    }
+
+    tables
+    |> Map.keys()
+    |> Iter.sort()
+    |> Iter.flat_map(fn name -> {
+        table = Map.get(tables, name) |> Maybe.with_default(Json.Null)
+
+        case text(table, "dialect") {
+            Some(g) when not Iter.any(dialects(), fn #(n, _) -> n == g) ->
+                [
+                    "nomi.toml: `[sqlkit.database.${name}]` names the dialect ${Debug.inspect(
+                        g
+                    )}; sqlkit knows \"sqlite\" and \"postgres\"",
+                ]
+
+            _ ->
+                []
         }
     })
     |> Iter.to_list()

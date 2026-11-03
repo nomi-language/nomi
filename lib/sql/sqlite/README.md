@@ -67,6 +67,7 @@ declared type:
 | `Timestamp` | `2026-10-19 12:30:05` | `DATETIME`, `TIMESTAMP` |
 | `Timestamptz` | `2026-10-19 12:30:05` in UTC, with a fraction only when it has one (`12:30:05.5`) | `TIMESTAMPTZ` (that form, or RFC 3339 text with an offset) |
 | `Uuid`, `Json` | their text | `UUID`, `JSON` |
+| `Array` | refused (`SQLITE_MISMATCH`): SQLite has no array type | never |
 
 A column with no declared type (an expression, `count(*)`) keeps its
 storage class.

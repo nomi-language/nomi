@@ -53,6 +53,9 @@ const (
 	FailDatabase
 	FailFinished
 	FailClosed
+	// FailTimeout is a statement the calling task's context ended: its
+	// deadline passed or the task was cancelled.
+	FailTimeout
 )
 
 // Constraint kinds, in std/sql's ConstraintKind order.
@@ -183,8 +186,9 @@ func (c *Conn) runnable(depth, token int64) Failure {
 
 // Run runs a statement on the Conn at depth with token. parts is the SQL
 // around each parameter; each parameter is bound as ?1, ?2, ..., never
-// spliced into the text.
-func Run(c *Conn, depth, token int64, parts []string, params []Cell) Answer {
+// spliced into the text. ctx is the calling task's context: SQLite is
+// interrupted when it ends.
+func Run(ctx context.Context, c *Conn, depth, token int64, parts []string, params []Cell) Answer {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if f := c.runnable(depth, token); f.Kind != FailNone {
@@ -195,21 +199,21 @@ func Run(c *Conn, depth, token int64, parts []string, params []Cell) Answer {
 		return Answer{Failure: f}
 	}
 	query := join(parts)
-	rows, err := c.conn.QueryContext(background, query, args...)
+	rows, err := c.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		return Answer{Failure: c.statementFailure(err, query, args)}
+		return Answer{Failure: c.contextFailure(ctx, err, query, args)}
 	}
 	defer rows.Close()
 	answer, err := read(rows, func([]Cell) bool { return true }, true)
 	if err != nil {
 		rows.Close()
-		return Answer{Failure: c.statementFailure(err, query, args)}
+		return Answer{Failure: c.contextFailure(ctx, err, query, args)}
 	}
 	return answer
 }
 
 // Exec runs a statement that writes and answers how many rows it changed.
-func Exec(c *Conn, depth, token int64, parts []string, params []Cell) Answer {
+func Exec(ctx context.Context, c *Conn, depth, token int64, parts []string, params []Cell) Answer {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if f := c.runnable(depth, token); f.Kind != FailNone {
@@ -220,9 +224,9 @@ func Exec(c *Conn, depth, token int64, parts []string, params []Cell) Answer {
 		return Answer{Failure: f}
 	}
 	query := join(parts)
-	res, err := c.conn.ExecContext(background, query, args...)
+	res, err := c.conn.ExecContext(ctx, query, args...)
 	if err != nil {
-		return Answer{Failure: c.statementFailure(err, query, args)}
+		return Answer{Failure: c.contextFailure(ctx, err, query, args)}
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
@@ -242,7 +246,7 @@ type Row struct {
 // EachRow runs a statement and calls f with each row in order, stopping
 // when f returns false. The connection is held while it runs, so f must
 // not use the same connection.
-func EachRow(c *Conn, depth, token int64, parts []string, params []Cell, f func(Row) bool) Failure {
+func EachRow(ctx context.Context, c *Conn, depth, token int64, parts []string, params []Cell, f func(Row) bool) Failure {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if fl := c.runnable(depth, token); fl.Kind != FailNone {
@@ -253,9 +257,9 @@ func EachRow(c *Conn, depth, token int64, parts []string, params []Cell, f func(
 		return fl
 	}
 	query := join(parts)
-	rows, err := c.conn.QueryContext(background, query, args...)
+	rows, err := c.conn.QueryContext(ctx, query, args...)
 	if err != nil {
-		return c.statementFailure(err, query, args)
+		return c.contextFailure(ctx, err, query, args)
 	}
 	defer rows.Close()
 	var columns, types []string
@@ -267,7 +271,7 @@ func EachRow(c *Conn, depth, token int64, parts []string, params []Cell, f func(
 	}, false)
 	if err != nil {
 		rows.Close()
-		return c.statementFailure(err, query, args)
+		return c.contextFailure(ctx, err, query, args)
 	}
 	return Failure{}
 }
@@ -625,6 +629,15 @@ func (e mismatchError) Error() string { return string(e) }
 
 func mismatch(message string) Failure {
 	return Failure{Kind: FailDatabase, Code: "SQLITE_MISMATCH", Message: message}
+}
+
+// contextFailure is statementFailure, except that a statement the calling
+// task's context ended is a Timeout, whatever error that surfaced as.
+func (c *Conn) contextFailure(ctx context.Context, err error, query string, args []any) Failure {
+	if ctx.Err() != nil {
+		return Failure{Kind: FailTimeout, Message: ctx.Err().Error()}
+	}
+	return c.statementFailure(err, query, args)
 }
 
 // failure maps an error that no one statement caused to a Failure.

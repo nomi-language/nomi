@@ -1,0 +1,98 @@
+// The app a worker test boots: in-memory queues, a worker over each, and a
+// channel each job reports on, so a test waits for jobs instead of
+// sleeping. `rated` starts at most two jobs a second.
+import {
+    std/channels.{Channel, Receiver, Sender}
+    std/duration.Duration
+    std/io
+    std/jobs.{self, Failure, Job, Rate, Worker}
+    std/jobs_testing.Inline
+    std/json.{FromJson, ToJson}
+    std/sql_testing.Fake
+}
+
+pub struct Greeting {
+    name: String
+    mood: String = "fine"
+}
+
+derive ToJson for Greeting
+derive FromJson for Greeting
+
+pub struct App {
+    context: Context
+    queue: Inline
+    worker: Worker
+    rated_queue: Inline
+    rated: Worker
+    done: Channel<String>
+}
+
+pub fn boot() -> Result<App, String> {
+    queue = Inline.new()
+    rated_queue = Inline.new()
+
+    Ok(App{
+        context: Context.root(),
+        queue,
+        worker: Worker.new(queue, max_running: 2, poll: Duration.milliseconds(50)),
+        rated_queue,
+        rated: Worker.new(
+            rated_queue,
+            max_running: 4,
+            poll: Duration.milliseconds(50),
+            rate: Some(Rate{count: 2, per: Duration.seconds(1)}),
+        ),
+        done: Channel.buffered(16),
+    })
+}
+
+pub fn greet(greeting: Greeting) -> Result<Unit, Failure> {
+    case greeting.mood {
+        "grumpy" -> {
+            _ = Sender.send(App.done.sender, "refused ${greeting.name}")
+            Err(Failure.Retry("not today"))
+        }
+
+        "hopeless" -> {
+            _ = Sender.send(App.done.sender, "gave up on ${greeting.name}")
+            Err(Failure.Discard("no point"))
+        }
+
+        "trapping" -> {
+            _ = Sender.send(App.done.sender, "trapping ${greeting.name}")
+            zero = String.length(greeting.mood) - 8
+            _ = 1 / zero
+            Ok(Unit)
+        }
+
+        _ -> {
+            _ = Sender.send(App.done.sender, "hello, ${greeting.name}")
+            Ok(Unit)
+        }
+    }
+}
+
+pub once greet_job = Job.new("greet", greet)
+
+pub fn slow(greeting: Greeting) -> Result<Unit, Failure> {
+    _ = Sender.send(App.done.sender, "started ${greeting.name}")
+    _ = Receiver.receive_within(Channel.buffered<Unit>(1).receiver, Duration.minutes(10))
+    Ok(Unit)
+}
+
+pub once slow_job = Job.new("slow", timeout: Duration.seconds(1), slow)
+
+// The next report from a job, or "nothing" after a while.
+pub fn next_report() -> String {
+    case Receiver.receive_within(App.done.receiver, Duration.seconds(5)) {
+        Ok(Some(report)) -> report
+        _ -> "nothing"
+    }
+}
+
+fn main() {
+    Worker.start(App.worker, [greet_job, slow_job])
+    _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})
+    io.print(next_report())
+}

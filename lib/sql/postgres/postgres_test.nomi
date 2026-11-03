@@ -1,0 +1,412 @@
+import {
+    std/calendar.{Date, NaiveDateTime, Time}
+    std/channels.{Arm, Channel, Receiver}
+    std/duration.Duration
+    std/instant.Instant
+    std/json.Json
+    std/sql.{self, Conn, ConstraintKind, Dialect, Row, Sql, Value}
+    std/sql_testing
+    std/tasks.{Outcome, Task}
+    std/uuid.Uuid
+    postgres.{self, Listener, Notification}
+    postgres/describe
+}
+
+// Every test runs on a fresh database of the process's scratch server,
+// which needs `initdb` and `postgres` on PATH.
+fn fresh() -> Result<Conn, sql.Error> {
+    postgres.connect(postgres.scratch()?)
+}
+
+test "the driver passes std/sql_testing's conformance suite" {
+    url = postgres.scratch()?
+    failures = sql_testing.conformance(fn -> postgres.connect(url))
+    assert failures == []
+}
+
+test "describe answers the schema and each statement's types and nullability" {
+    url = postgres.scratch()?
+
+    migrations = [
+        describe.Migration{
+            path: "1.up.sql",
+            text: "CREATE TABLE users (id uuid PRIMARY KEY, email text NOT NULL, name text);\nCREATE TABLE posts (id bigint PRIMARY KEY, user_id uuid REFERENCES users (id), title text NOT NULL);",
+        },
+    ]
+
+    d = describe.describe(url, migrations, [
+        "SELECT p.title, u.email FROM posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = $1",
+        "SELECT nope FROM posts",
+    ])
+
+    assert d.error == ""
+    assert d.tables |> Iter.map(fn t -> t.name) |> Iter.to_list() == ["posts", "users"]
+    assert [joined, broken] = d.statements
+    assert joined.params == ["bigint"]
+
+    assert joined.columns == [
+        describe.Column{
+            name: "title",
+            type_name: "text",
+            table: "posts",
+            column: "title",
+            nullable: False,
+        },
+        describe.Column{
+            name: "email",
+            type_name: "text",
+            table: "users",
+            column: "email",
+            nullable: True,
+        },
+    ]
+
+    assert broken.error == "column \"nope\" does not exist"
+    assert broken.offset == 7
+}
+
+test "a connection says it is Postgres" {
+    db = fresh()?
+    defer sql.close_quietly(db)
+    assert Conn.dialect(db) == Dialect.Postgres
+}
+
+test "every Value reads back as the Value it was written as" {
+    db = fresh()?
+    defer sql.close_quietly(db)
+
+    _ = Conn.exec(
+        db,
+        Sql"""
+        CREATE TABLE v (
+            i BIGINT, f DOUBLE PRECISION, d NUMERIC(12, 2), t TEXT, b BOOLEAN, x BYTEA,
+            day DATE, at TIME, ts TIMESTAMP, tz TIMESTAMPTZ, id UUID, j JSONB, ns BIGINT[]
+        )
+        """,
+    )?
+
+    day = Date`2026-10-19`
+    at = Time`12:30:05`
+    ts = NaiveDateTime`2026-10-19T12:30:05`
+    tz = Instant.from_seconds(1_760_000_000)
+    id = Uuid`0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10`
+    j = Json.decode("{\"a\":[1,2]}")?
+    bytes = String.to_bytes("hi")
+
+    _ = Conn.exec(
+        db,
+        Sql"""
+        INSERT INTO v VALUES (${7}, ${2.5}, ${12.25d}, ${"text"}, ${True}, ${bytes},
+        ${day}, ${at}, ${ts}, ${tz}, ${id}, ${j}, ${[1, 2, 3]})
+        """,
+    )?
+
+    rows = Conn.query(db, Sql"SELECT * FROM v")?
+
+    Some(row) = Iter.first(rows) else {
+        None -> return Err(sql.Error.Finished)
+    }
+
+    assert Row.values(row) == [
+        Value.Int(7),
+        Value.Float(2.5),
+        Value.Decimal(12.25d),
+        Value.Text("text"),
+        Value.Bool(True),
+        Value.Bytes(bytes),
+        Value.Date(day),
+        Value.Time(at),
+        Value.Timestamp(ts),
+        Value.Timestamptz(tz),
+        Value.Uuid(id),
+        Value.Json(j),
+        Value.Array([Value.Int(1), Value.Int(2), Value.Int(3)]),
+    ]
+
+    ns: List<Int> = Row.get(row, "ns")?
+    assert ns == [1, 2, 3]
+}
+
+test "a List parameter matches with = ANY" {
+    db = fresh()?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE users (id BIGINT PRIMARY KEY, name TEXT NOT NULL)")?
+    _ = Conn.exec(db, Sql"INSERT INTO users VALUES (1, 'a'), (2, 'b'), (3, 'c')")?
+    ids = [1, 3]
+    rows = Conn.query(db, Sql"SELECT name FROM users WHERE id = ANY(${ids}) ORDER BY id")?
+
+    names = rows |> Iter.map(fn row -> Row.get<String>(row, "name")) |> Result.collect()?
+
+    assert names == ["a", "c"]
+}
+
+test "an Int past BIGINT is written as a decimal" {
+    db = fresh()?
+    defer sql.close_quietly(db)
+    big = 123_456_789_012_345_678_901
+    rows = Conn.query(db, Sql"SELECT ${big}::NUMERIC AS n")?
+
+    Some(row) = Iter.first(rows) else {
+        None -> return Err(sql.Error.Finished)
+    }
+
+    assert Row.value(row, "n") == Ok(Value.Decimal(123456789012345678901d))
+}
+
+test "a constraint error names the constraint, its table and its columns" {
+    db = fresh()?
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE users (id BIGINT PRIMARY KEY, email TEXT NOT NULL UNIQUE)")?
+    _ = Conn.exec(db, Sql"INSERT INTO users VALUES (1, 'a@example.com')")?
+
+    assert Conn.exec(db, Sql"INSERT INTO users VALUES (2, 'a@example.com')") == Err(
+        sql.Error.Constraint{
+            kind: ConstraintKind.Unique,
+            name: "users_email_key",
+            table: Some("users"),
+            column: Some("email"),
+        }
+    )
+
+    assert Conn.exec(db, Sql"INSERT INTO users VALUES (3, NULL)") == Err(
+        sql.Error.Constraint{
+            kind: ConstraintKind.NotNull,
+            name: "users_email_not_null",
+            table: Some("users"),
+            column: Some("email"),
+        }
+    )
+}
+
+test "SQL the server rejects is a Database error with its SQLSTATE" {
+    db = fresh()?
+    defer sql.close_quietly(db)
+
+    assert Conn.query(db, Sql"SELECT * FROM missing")
+        == Err(sql.Error.Database{code: "42P01", message: "relation \"missing\" does not exist"})
+}
+
+test "a pool's transaction holds one connection until it ends" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    defer sql.close_quietly(db)
+    _ = Conn.exec(db, Sql"CREATE TABLE t (n INTEGER)")?
+
+    tx = Conn.begin(db)?
+    _ = Conn.exec(tx, Sql"INSERT INTO t VALUES (1)")?
+    savepoint = Conn.begin(tx)?
+    _ = Conn.exec(savepoint, Sql"INSERT INTO t VALUES (2)")?
+    Conn.rollback(savepoint)?
+
+    outside = Conn.query(db, Sql"SELECT count(*) AS n FROM t")?
+
+    Some(before) = Iter.first(outside) else {
+        None -> return Err(sql.Error.Finished)
+    }
+
+    assert Row.get<Int>(before, "n") == Ok(0)
+
+    Conn.commit(tx)?
+    after = Conn.query(db, Sql"SELECT n FROM t")?
+    assert after |> Iter.map(fn row -> Row.get<Int>(row, "n")) |> Iter.to_list() == [Ok(1)]
+}
+
+test "a listener answers a notification sent on its channel" {
+    url = postgres.scratch()?
+    listener = postgres.listen(url, "orders")?
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+    _ = Conn.query(db, Sql"SELECT pg_notify('orders', ${"order 7"})")?
+
+    assert Listener.wait(listener) == Ok(Notification{channel: "orders", payload: "order 7"})
+
+    Listener.close(listener)?
+    assert Listener.wait(listener) == Err(sql.Error.Closed)
+}
+
+test "a pool connects lazily: an unreachable server fails its first statement" {
+    db = postgres.pool("postgres://postgres@127.0.0.1:1/none?sslmode=disable&connect_timeout=2")
+    defer sql.close_quietly(db)
+
+    reached = case Conn.ping(db) {
+        Err(sql.Error.Connection{message: _}) -> "Connection"
+        Err(e) -> "${e}"
+        Ok(_) -> "Ok"
+    }
+
+    assert reached == "Connection"
+}
+
+fn close_quietly(listener: Listener) {
+    _ = Listener.close(listener)
+}
+
+// Waits, in steps of 10 milliseconds and for at most 1,000 of them, until
+// a task is blocked in the listener's `wait`, so a test closes or cancels
+// it there and not before it starts.
+fn until_waiting(listener: Listener, steps: Int = 1000) -> Bool {
+    if postgres.listener_waiting_raw(listener.handle) {
+        True
+    } else if steps == 0 {
+        False
+    } else {
+        Channel.select([Arm.after(Duration.milliseconds(10), fn -> Unit)])
+        until_waiting(listener, steps - 1)
+    }
+}
+
+// Waits the same way until the listener has answered `count`
+// notifications.
+fn until_received(listener: Listener, count: Int, steps: Int = 1000) -> Bool {
+    if postgres.listener_received_raw(listener.handle) >= count {
+        True
+    } else if steps == 0 {
+        False
+    } else {
+        Channel.select([Arm.after(Duration.milliseconds(10), fn -> Unit)])
+        until_received(listener, count, steps - 1)
+    }
+}
+
+// A task that was cancelled while it waited in Go either unwinds
+// (`Cancelled`) or returns the `Timeout` its Go call answered.
+fn saw_cancel<T>(outcome: Outcome<Result<T, sql.Error>>) -> Bool {
+    case outcome {
+        .Cancelled -> True
+        .Completed(Err(sql.Error.Timeout)) -> True
+        _ -> False
+    }
+}
+
+test "a forwarded listener is one arm of a select" {
+    url = postgres.scratch()?
+    listener = postgres.listen(url, "orders")?
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+    notes = Channel.buffered<Result<Notification, sql.Error>>(4)
+
+    got = concurrent {
+        forwarder = Task.spawn(fn -> Listener.forward(listener, notes.sender))
+        _ = Conn.query(db, Sql"SELECT pg_notify('orders', ${"order 8"})")?
+
+        first = Channel.select([
+            Arm.receive(notes.receiver, fn n -> n),
+            Arm.after(Duration.seconds(30), fn -> None),
+        ])
+
+        waited = until_waiting(listener)
+        close_quietly(listener)
+        Task.await(forwarder)
+        Ok(#(first, waited))
+    }
+
+    assert got == Ok(#(Some(Ok(Notification{channel: "orders", payload: "order 8"})), True))
+}
+
+test "closing a listener ends forward and closes its channel" {
+    url = postgres.scratch()?
+    listener = postgres.listen(url, "orders")?
+    notes = Channel.buffered<Result<Notification, sql.Error>>(4)
+
+    after = concurrent {
+        forwarder = Task.spawn(fn -> Listener.forward(listener, notes.sender))
+        waited = until_waiting(listener)
+        close_quietly(listener)
+        // Returns only once forward has: nothing is left running.
+        Task.await(forwarder)
+        #(Receiver.receive(notes.receiver), waited)
+    }
+
+    assert after == #(None, True)
+}
+
+test "closing a listener ends forward while its channel is full" {
+    url = postgres.scratch()?
+    listener = postgres.listen(url, "orders")?
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+    notes = Channel.buffered<Result<Notification, sql.Error>>(1)
+
+    ended = concurrent {
+        forwarder = Task.spawn(fn -> Listener.forward(listener, notes.sender))
+        _ = Conn.query(db, Sql"SELECT pg_notify('orders', 'one'), pg_notify('orders', 'two')")?
+        // The first fills the channel, so once the listener has answered
+        // the second, the task holds it and nothing reads the channel.
+        held = until_received(listener, 2)
+        close_quietly(listener)
+        Task.await(forwarder)
+        Ok(#(held, Receiver.receive(notes.receiver), Receiver.receive(notes.receiver)))
+    }
+
+    assert ended == Ok(#(True, Some(Ok(Notification{channel: "orders", payload: "one"})), None))
+}
+
+test "cancelling a task ends its wait on a listener, which still works" {
+    url = postgres.scratch()?
+    listener = postgres.listen(url, "orders")?
+    defer close_quietly(listener)
+
+    #(outcome, waited) = concurrent {
+        waiter = Task.spawn(fn -> Listener.wait(listener))
+        waited = until_waiting(listener)
+        Task.cancel(waiter)
+        #(Task.outcome(waiter), waited)
+    }
+
+    assert waited
+    assert saw_cancel(outcome)
+
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+    _ = Conn.query(db, Sql"SELECT pg_notify('orders', 'after')")?
+    assert Listener.wait(listener) == Ok(Notification{channel: "orders", payload: "after"})
+}
+
+// How many statements sleeping in `pg_sleep` the server is running.
+fn sleeping(db: Conn) -> Result<Int, sql.Error> {
+    rows = Conn.query(
+        db,
+        Sql"SELECT count(*) AS n FROM pg_stat_activity WHERE state = 'active' AND query LIKE 'SELECT pg_sleep%'",
+    )?
+
+    Some(row) = Iter.first(rows) else {
+        None -> return Err(sql.Error.Finished)
+    }
+
+    Row.get<Int>(row, "n")
+}
+
+// Waits in steps of 10 milliseconds, at most 1,000 of them, until the
+// server runs `count` sleeping statements.
+fn until_sleeping(db: Conn, count: Int, steps: Int = 1000) -> Result<Bool, sql.Error> {
+    if sleeping(db)? == count {
+        Ok(True)
+    } else if steps == 0 {
+        Ok(False)
+    } else {
+        Channel.select([Arm.after(Duration.milliseconds(10), fn -> Unit)])
+        until_sleeping(db, count, steps - 1)
+    }
+}
+
+test "cancelling a task stops its query on the server, and the connection still works" {
+    url = postgres.scratch()?
+    db = postgres.connect(url)?
+    defer sql.close_quietly(db)
+    watcher = postgres.connect(url)?
+    defer sql.close_quietly(watcher)
+
+    #(outcome, started) = concurrent {
+        sleeper = Task.spawn(fn -> Conn.query(db, Sql"SELECT pg_sleep(30)"))
+        started = until_sleeping(watcher, 1)
+        Task.cancel(sleeper)
+        #(Task.outcome(sleeper), started)
+    }
+
+    assert started == Ok(True)
+    assert saw_cancel(outcome)
+    assert until_sleeping(watcher, 0) == Ok(True)
+
+    rows = Conn.query(db, Sql"SELECT 1 AS n")?
+    assert rows |> Iter.map(fn row -> Row.get<Int>(row, "n")) |> Iter.to_list() == [Ok(1)]
+}

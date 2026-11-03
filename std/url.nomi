@@ -1,22 +1,11 @@
-//# Percent-encoding for URLs (RFC 3986): text made safe to put in a query
-//# string or a path segment. `url.escape_query` writes a query key or value
-//# (a space as `+`), and `url.escape_path_segment` one segment of a path
-//# (a space as `%20`, and `/` escaped so it cannot start a new segment):
+//# URLs (RFC 3986): parsed into parts, built from literals, and
+//# percent-encoded. Parsing and writing follow Go's `net/url`.
 //#
-//# ```nomi
-//# link = "/search/${url.escape_path_segment(tag)}?q=${url.escape_query(term)}"
-//# ```
-//#
-//# Each `unescape_` function reverses its `escape_` function and returns an
-//# `Err` for a malformed `%` escape or text that is not UTF-8 once
-//# unescaped.
-//#
-//# ## URLs
-//#
-//# A `Url` is a parsed URL, read with Go's `net/url`: `Url.parse` takes
-//# text apart, `Display` writes it back escaped, and the functions on `Url`
-//# answer its parts. Its fields hold decoded text. A `Query` is a query
-//# string's pairs, in order.
+//# A `Url` is a parsed URL whose fields hold decoded text. `Url.parse` reads
+//# text and returns a `UrlError` for text that is not a URL, and `Display`
+//# writes the URL back escaped. A `Url` literal is checked when the program
+//# is checked, so a malformed one is a compile error, and it is a `Url`, not
+//# a `Result`, in every quote style:
 //#
 //# ```nomi
 //# api = Url`https://api.example.com/v1/`
@@ -26,12 +15,32 @@
 //# search = Url.with_query(users, Query[#("tab", "posts"), #("page", "2")])
 //# ```
 //#
-//# A ``Url`...` `` literal is parsed when the program is checked, so a
-//# malformed one is a compile error. A `Url"..."` literal with `${...}`
-//# slots answers a `Result`, and escapes each slot for where it stands: a
-//# slot in the path cannot add a segment, and one in the query cannot add
-//# a key. Every function here is pure, so a typed literal's handler may
-//# call them.
+//# In `Url"..."`, each `${...}` slot is escaped for where it stands, so data
+//# cannot change the URL's shape: a slot in the path is one segment, one in
+//# the query is one key or value, and one after `#` is the fragment. A slot
+//# in the scheme, user or host is a compile error, since no escaping makes
+//# it safe there; build that URL with `Url.parse`.
+//#
+//# ```nomi
+//# profile = Url"https://example.com/users/${name}?tab=${tab}"
+//# ```
+//#
+//# A `Query` is a query string's pairs, in order, and a key may appear more
+//# than once. `Query.encode`, and so `Url.with_query`, writes the pairs in
+//# that order.
+//#
+//# For a piece of text rather than a whole URL, `url.escape_query` escapes a
+//# query key or value (a space as `+`), and `url.escape_path_segment` one
+//# segment of a path (a space as `%20`, and `/` escaped so it cannot start a
+//# new segment). Each `unescape_` function reverses its `escape_` function
+//# and returns an `Err` for a malformed `%` escape or text that is not UTF-8
+//# once unescaped.
+//#
+//# ```nomi
+//# link = "/search/${url.escape_path_segment(tag)}?q=${url.escape_query(term)}"
+//# ```
+//#
+//# Every function here is pure, so a typed literal's handler may call them.
 
 import {
     bool.Bool.{self, False, True}
@@ -41,10 +50,11 @@ import {
     hashable.Hashable
     iter.Iter
     lists.List
-    literals.{Fragment, Literal}
+    literals.{CheckedLiteral, Fragment, LiteralError}
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
     strings.String
+    unit.Unit
     url_host
 }
 
@@ -269,11 +279,12 @@ impl Url {
         url.query |> Maybe.with_default("") |> query_from_text()
     }
 
-    /// The URL with its query replaced by `query`, encoded.
+    /// The URL with its query replaced by `query`, encoded as
+    /// `Query.encode` writes it, the pairs in their order.
     //! import std/url.{Query, Url}
     //!
-    //! u = Url.with_query(Url`https://example.com/s`, Query[#("q", "tea & cake")])
-    //! assert "${u}" == "https://example.com/s?q=tea+%26+cake"
+    //! u = Url.with_query(Url`https://example.com/s`, Query[#("q", "tea & cake"), #("n", "2")])
+    //! assert "${u}" == "https://example.com/s?q=tea+%26+cake&n=2"
     //
     pub fn with_query(url: Url, query: Query) -> Url {
         #{..url, query: Some(Query.encode(query))}
@@ -424,11 +435,11 @@ impl Query {
         )
     }
 
-    /// The query encoded, keys sorted and each key's values in order, as
-    /// Go's `Values.Encode` writes it.
+    /// The query encoded: each pair as `key=value`, both escaped as
+    /// `url.escape_query` does, in the pairs' order and joined with `&`.
     //! import std/url.Query
     //!
-    //! assert Query.encode(Query[#("b", "x y"), #("a", "1"), #("b", "&")]) == "a=1&b=x+y&b=%26"
+    //! assert Query.encode(Query[#("b", "x y"), #("a", "1"), #("b", "&")]) == "b=x+y&a=1&b=%26"
     //
     pub fn encode(query: Query) -> String {
         Query(pairs) = query
@@ -443,59 +454,148 @@ impl Display for Query {
     }
 }
 
-impl Literal for Url {
-    /// ``Url`https://example.com/a` `` is the URL `Url.parse` reads from
-    /// its text, checked when the program is checked. In `Url"..."`, each
-    /// `${...}` slot is escaped for where it stands: as one path segment in
-    /// the path, as a key or value in the query and as a fragment after
-    /// `#`. A slot in the scheme, user or host is an `Err`, since no
-    /// escaping makes it safe there.
+impl CheckedLiteral<String, Url> for Url {
+    /// A `Url` literal is a `Url` in every quote style, never a `Result`,
+    /// and is checked when the program is checked: text that `Url.parse`
+    /// would refuse is a compile error. ``Url`https://example.com/a` `` is
+    /// the URL `Url.parse` reads from its text. In `Url"..."`, each `${...}`
+    /// slot is escaped for where it stands: as one path segment in the path,
+    /// as a key or value in the query, and as the fragment after `#`. A slot
+    /// of `.` or `..` in the path is escaped too, so it cannot climb the path.
+    /// A slot in the scheme, user or host is a compile error, since no
+    /// escaping makes it safe there; build such a URL with `Url.parse`.
     //! import std/url.Url
     //!
     //! id = "a/b c"
     //! tab = "x&y"
-    //! u = Url"https://example.com/users/${id}?tab=${tab}#${tab}"!
+    //! u = Url"https://example.com/users/${id}?tab=${tab}#${tab}"
     //! assert u.path == "/users/a/b c"
     //! assert "${u}" == "https://example.com/users/a%2Fb%20c?tab=x%26y#x&y"
-    //! host = "evil.org"
-    //! assert Url"https://${host}/" |> Result.is_err()
+    //!
+    //! // An empty slot is an empty segment, and cannot make a relative
+    //! // URL name a host: `//b` would be the host `b`.
+    //! empty = ""
+    //! r = Url"/${empty}/b"
+    //! assert r.host == ""
+    //! assert "${r}" == "/.//b"
+    //!
+    //! // A slot of `.` or `..` is written escaped, so data cannot climb the
+    //! // path with a dot segment.
+    //! up = ".."
+    //! f = Url"/files/${up}/secret"
+    //! assert "${f}" == "/files/%2E%2E/secret"
     //
-    fn from_fragments(fragments: List<Fragment<String>>) -> Result<Url, UrlError> {
-        #(state, text) = Iter.reduce(fragments, #(Ok(Place.InScheme), ""), fn acc, frag -> {
-            #(state, text) = acc
+    fn check(statics: List<String>) -> Result<Unit, LiteralError> {
+        last = Iter.count(statics) - 1
 
-            case state {
-                Err(_) ->
-                    acc
+        // Each slot stands where the statics before it leave the URL, so
+        // the place of every slot is known from the statics alone.
+        #(_, refused) = Iter.reduce(Iter.with_index(statics), #(
+            Place.InScheme,
+            None,
+        ), fn acc, #(i, s) -> {
+            #(place, refused) = acc
+            after = place_after(place, s)
 
-                Ok(place) ->
-                    case frag {
-                        .Static(s) ->
-                            #(Ok(place_after(place, s)), text + s)
+            refused = case refused {
+                Some(_) ->
+                    refused
 
-                        .Dynamic(v) ->
-                            case place {
-                                .InPath -> #(Ok(place), text + url_host.escape_path_segment(v))
-                                .InQuery -> #(Ok(place), text + url_host.escape_query(v))
-                                .InFragment -> #(Ok(place), text + url_host.escape_fragment(v))
-                                _ -> #(Err(text + "\${...}"), text)
+                None ->
+                    if i < last and not escapable(after) {
+                        Some(
+                            LiteralError{
+                                fragment: i,
+                                offset: Iter.count(String.to_codepoints(s)),
+                                message: "a slot in the scheme, user or host cannot be escaped",
                             }
+                        )
+                    } else {
+                        None
                     }
+            }
+
+            #(after, refused)
+        })
+
+        // The rest of the text must be a URL whatever the slots hold, so it
+        // is parsed with a stand-in for each slot.
+        case refused {
+            Some(e) ->
+                Err(e)
+
+            None ->
+                case Url.parse(String.join(statics, "x")) {
+                    Ok(_) -> Ok(Unit)
+                    Err(e) -> Err(LiteralError{fragment: 0, offset: 0, message: e.reason})
+                }
+        }
+    }
+
+    fn build(fragments: List<Fragment<String>>) -> Url {
+        #(_, text) = Iter.reduce(fragments, #(Place.InScheme, ""), fn acc, frag -> {
+            #(place, text) = acc
+
+            case frag {
+                .Static(s) -> #(place_after(place, s), text + s)
+                .Dynamic(v) -> #(place, text + slot_text(place, v))
             }
         })
 
-        case state {
-            Err(at) ->
-                Err(
-                    UrlError{
-                        url: at,
-                        reason: "a slot in the scheme, user or host cannot be escaped",
-                    }
-                )
+        // check accepted the statics, so the text parses whatever the slots
+        // held.
+        Url.parse(keep_path(fragments, text))!
+    }
+}
 
-            Ok(_) ->
-                Url.parse(text)
-        }
+// Whether a slot at place can be escaped: in the path, the query or the
+// fragment.
+fn escapable(place: Place) -> Bool {
+    case place {
+        .InPath or .InQuery or .InFragment -> True
+        _ -> False
+    }
+}
+
+// A slot's text at place, escaped for it. check refuses a slot anywhere
+// else, so the last arm is never reached.
+fn slot_text(place: Place, value: String) -> String {
+    case place {
+        .InPath -> path_slot(value)
+        .InQuery -> url_host.escape_query(value)
+        .InFragment -> url_host.escape_fragment(value)
+        _ -> ""
+    }
+}
+
+// A path slot's text: one escaped segment. Escaping leaves `.` alone, so a
+// value of `.` or `..` would be a dot segment, which a client resolving the
+// path removes or climbs with; such a value is written `%2E` or `%2E%2E`.
+fn path_slot(value: String) -> String {
+    if value == "." {
+        "%2E"
+    } else if value == ".." {
+        "%2E%2E"
+    } else {
+        url_host.escape_path_segment(value)
+    }
+}
+
+// The literal's text, written so a slot cannot make it name a host. A URL
+// with no authority whose path starts with `//` reads as the host after the
+// slashes, and an empty slot after a leading `/` writes exactly that
+// (`Url"/${x}/b"` with `x = ""`). WHATWG's URL serializer keeps such a path
+// a path by writing `/.` before it, and so does this.
+fn keep_path(fragments: List<Fragment<String>>, text: String) -> String {
+    first = case fragments {
+        [.Static(s), ..] -> s
+        _ -> ""
+    }
+
+    if String.starts_with(text, "//") and not String.starts_with(first, "//") {
+        "/." + text
+    } else {
+        text
     }
 }
 

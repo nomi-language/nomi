@@ -395,7 +395,9 @@ func equalAST(a, b reflect.Value, path string) (string, bool) {
 		t := a.Type()
 		for i := 0; i < a.NumField(); i++ {
 			name := t.Field(i).Name
-			if astSkipField(name) || t.Field(i).Type == triviaType || t.Field(i).Type == oneTriviaType {
+			// An unexported field is analysis state (an `Html` literal's
+			// expansion), never source.
+			if !t.Field(i).IsExported() || astSkipField(name) || t.Field(i).Type == triviaType || t.Field(i).Type == oneTriviaType {
 				continue
 			}
 			// A destructured parameter's synthesized name, `__destr_N`,

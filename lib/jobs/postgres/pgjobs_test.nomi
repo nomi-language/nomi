@@ -1,0 +1,129 @@
+import {
+    std/channels.{Channel, Receiver, TimedOut}
+    std/duration.Duration
+    std/instant.Instant
+    std/jobs.{self, Failure, Job, Queue, Settle}
+    std/jobs_testing.{self, Opened}
+    std/sql.{self, Conn, Row, Sql}
+    std/tasks.Task
+    pgjobs
+    postgres.{self, Listener, Notification}
+}
+
+// A fresh database of the process's scratch server with the jobs table in
+// it, and a queue over a pool of connections to it, so tasks that claim at
+// once use connections of their own.
+fn fresh(table: String = "nomi_jobs") -> Result<#(Conn, Queue, String), sql.Error> {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    pgjobs.install(db, table: table)?
+    Ok(#(db, pgjobs.queue(db, url, table: table), url))
+}
+
+fn count(db: Conn, statement: sql.Statement) -> Result<Int, sql.Error> {
+    rows = Conn.query(db, statement)?
+    Row.get<Int>(Iter.first(rows)!, "n")
+}
+
+once noop = Job.new("noop", fn _: Int -> Ok(Unit))
+
+test "the queue passes std/jobs_testing's conformance suite" {
+    broken = jobs_testing.conformance(fn -> {
+        #(db, queue, _) = fresh()?
+        Ok(Opened{queue, conn: db})
+    })
+
+    assert broken == []
+}
+
+test "install is idempotent" {
+    #(db, _, _) = fresh()?
+    assert pgjobs.install(db) == Ok(Unit)
+}
+
+test "a queue keeps its jobs in the table it names" {
+    #(db, queue, _) = fresh(table: "other_jobs")?
+    _ = jobs.enqueue(queue, db, noop, 1)?
+    assert count(db, Sql"SELECT count(*) AS n FROM other_jobs") == Ok(1)
+    assert Result.is_err(Conn.query(db, Sql"SELECT count(*) AS n FROM nomi_jobs"))
+}
+
+test "an enqueue notifies the table's channel at commit, not before" {
+    #(db, queue, url) = fresh()?
+    listener = postgres.listen(url, "nomi_jobs")?
+    defer close_quietly(listener)
+    heard: Channel<Result<Notification, sql.Error>> = Channel.buffered(4)
+
+    outcome = concurrent {
+        forwarding = Task.spawn(fn -> Listener.forward(listener, heard.sender))
+
+        result = sql.transaction(db, fn tx -> {
+            _ = jobs.enqueue(queue, tx, noop, 1)?
+            before = Receiver.receive_within(heard.receiver, Duration.milliseconds(200))
+            Ok(before)
+        })
+
+        after = Receiver.receive_within(heard.receiver, Duration.seconds(5))
+        _ = Listener.close(listener)
+        _ = Task.outcome(forwarding)
+        #(result, after)
+    }
+
+    #(during, after) = outcome
+    assert during == Ok(Err(TimedOut))
+    assert after == Ok(Some(Ok(Notification{channel: "nomi_jobs", payload: "default"})))
+}
+
+test "stuck lists jobs no worker has claimed" {
+    #(db, queue, _) = fresh()?
+    id = jobs.enqueue(queue, db, noop, 1)?
+    _ = Conn.exec(db, Sql"UPDATE nomi_jobs SET run_at = now() - interval '1 hour'")?
+    stuck = pgjobs.stuck(db, Duration.minutes(10))?
+    assert Iter.map(stuck, &(&1.id)) |> Iter.to_list() == [id]
+    assert pgjobs.stuck(db, Duration.hours(2)) == Ok([])
+}
+
+test "prune deletes finished jobs older than the retention" {
+    url = postgres.scratch()?
+    db = postgres.pool(url)
+    pgjobs.install(db)?
+    queue = pgjobs.queue(db, url, retention: Duration.seconds(0))
+    _ = jobs.enqueue(queue, db, noop, 1)?
+    _ = jobs.enqueue(queue, db, noop, 2)?
+    claimed = Iter.first(Queue.claim(queue, "w1", ["default"], ["noop"], 1, Duration.minutes(1))?)!
+    assert Queue.settle(queue, "w1", claimed, Settle.Completed) == Ok(True)
+
+    _ = Conn.exec(
+        db,
+        Sql"UPDATE nomi_jobs SET finished_at = now() - interval '1 second' WHERE state = 'completed'",
+    )?
+
+    assert Queue.prune(queue) == Ok(1)
+    assert count(db, Sql"SELECT count(*) AS n FROM nomi_jobs") == Ok(1)
+}
+
+test "a failure is kept on the row with its attempt" {
+    #(db, queue, _) = fresh()?
+    _ = jobs.enqueue(queue, db, noop, 1)?
+    claimed = Iter.first(Queue.claim(queue, "w1", ["default"], ["noop"], 1, Duration.minutes(1))?)!
+    settle = jobs.settle_for(claimed, Err(Failure.Retry("boom")), postgres_now(db)?)
+    assert Queue.settle(queue, "w1", claimed, settle) == Ok(True)
+
+    rows = Conn.query(
+        db,
+        Sql"SELECT errors->0->>'error' AS error, (errors->0->>'attempt')::int AS attempt FROM nomi_jobs",
+    )?
+
+    row = Iter.first(rows)!
+    assert Row.get<String>(row, "error") == Ok("boom")
+    assert Row.get<Int>(row, "attempt") == Ok(1)
+}
+
+fn postgres_now(db: Conn) -> Result<Instant, sql.Error> {
+    rows = Conn.query(db, Sql"SELECT now() AS at")?
+    Row.get(Iter.first(rows)!, "at")
+}
+
+fn close_quietly(listener: Listener) {
+    _ = Listener.close(listener)
+}

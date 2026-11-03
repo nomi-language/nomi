@@ -4777,7 +4777,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@177a9f95b41274af
+C internal/irbuild/testdata/check_project.nomi@0aea700444151bf7
 E 0
 N 0
 H 19845bdd207b1256a62fdd3a196cdc90f7743bfd4ac294e00e18aba02eaaaa67
@@ -8935,14 +8935,15 @@ H 58b89c02cbb69d077462bf63cde0054b9d7184883ed964699bfe6b8ac8e35673
 T ok <dir>/tests_with_main.nomi :: the tests are what runs
 T test result: ok. 1 passed, 0 failed
 T
-C internal/irbuild/testdata/toml_use.nomi@4e4af9ef3c39dacc
+C internal/irbuild/testdata/toml_use.nomi@1ad55399919ad942
 E 0
 N 0
-H d8abf5be50893b6612c620742526f7f88a2d6fa71eb420260deff939561d6b77
+H c274920368f94f8751ffb423c684fd957788d0f9d90f781cc1f8377c26f044d2
 T x = 1
 T raw:x = 1
 T raw:y = 2
 T z = 3
+T "7" = "a \"b\""
 T
 C internal/irbuild/testdata/trap_div_zero.nomi@39c09fe299d33815
 E 1
@@ -9134,13 +9135,13 @@ T
 C internal/irbuild/testdata/typed_literal.nomi@933b9e2d5537f361
 E 0
 N 0
-H b2440d42949f32ed14f7b377fdcb8229a7f8956819d9bb79cd786f47b629d342
+H e39d929f63b8f7e04638e3efdb73f794a49e4471cf48bd450e9e5f910772d13c
 T select * from users where name = 'Ada'
 T no slots
 T raw ${name}
 T line one 'Ada'
 T line two
-T [abc]{4}[de]{5}
+T [abc]{4}[de]{5}[]
 T [just text]
 T a=<tick7> b=<#Ada>
 T slot a
@@ -10640,12 +10641,20 @@ T ok <dir>/supervisors_test.nomi :: named task groups / cancelling one grouped t
 T ok <dir>/supervisors_test.nomi :: named task groups / a cancelled task reports Cancelled rather than Completed
 T test result: ok. 6 passed, 0 failed
 T
-C tests/17-typed-literals/toml_literal_test.nomi@be2a820d43ab7e97
+C tests/17-typed-literals/toml_literal_test.nomi@441de10bc5d385b2
 E 0
 N 0
-H bc232debfbea660082a06b48cca94f25007741cabc79200e23b77499167ba249
+H 6e23940da7bc16159934fc5937c470e9bd6ebe9827114ade3a25f415581d3327
 T ok <dir>/toml_literal_test.nomi :: Toml literal preserves source text
-T test result: ok. 1 passed, 0 failed
+T ok <dir>/toml_literal_test.nomi :: a String slot is one quoted value, whatever it holds
+T ok <dir>/toml_literal_test.nomi :: numbers, booleans and dates are TOML values
+T ok <dir>/toml_literal_test.nomi :: a List slot is an array of its items' TOML
+T ok <dir>/toml_literal_test.nomi :: a Map slot is an inline table with quoted keys
+T ok <dir>/toml_literal_test.nomi :: slots in arrays and inline tables
+T ok <dir>/toml_literal_test.nomi :: a key slot is one quoted key part
+T ok <dir>/toml_literal_test.nomi :: a program's own type writes itself as another ToToml
+T ok <dir>/toml_literal_test.nomi :: a program's own type cannot write TOML text
+T test result: ok. 9 passed, 0 failed
 T
 C tests/18-ffi-and-dynamic/callback_ffi_app/main_test.nomi@c6da00ab54938984
 E 0

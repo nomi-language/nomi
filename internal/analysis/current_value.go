@@ -265,7 +265,7 @@ func (c *checker) checkVectorUpdateLit(n *ast.VectorLit, elemTy Type) Type {
 	for _, item := range n.Items {
 		ty := c.checkNodeExpecting(item, elemTy)
 		if ty != nil && !c.litElemFits(elemTy, ty, item) && !(containsTypeVar(elemTy) && c.unify(elemTy, ty, nil) == nil) {
-			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", resolveTypeVar(elemTy), ty)).WithHint(mismatchHint(elemTy, ty)))
+			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", resolveTypeVar(elemTy), ty)).WithHint(c.mismatchHint(elemTy, ty)))
 		}
 	}
 	return head

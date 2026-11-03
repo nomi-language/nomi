@@ -12,7 +12,7 @@ import (
 )
 
 // The stdlib's scalar newtypes — `pub opaque type Duration Int`,
-// `pub type Toml String` — as Go types declared in rt.
+// `pub type Days Int` — as Go types declared in rt.
 //
 // The file is named after the first five rows and the family is not: what a
 // row describes is a std DISTINCT over a scalar, and `opaque` is one of the
@@ -34,7 +34,7 @@ import (
 //
 // # Two populations, two mechanisms
 //
-// A STDLIB newtype's Go type is declared in rt (`rt.Duration`, `rt.Toml`). A
+// A STDLIB newtype's Go type is declared in rt (`rt.Duration`, `rt.Days`). A
 // USER's `opaque type Meters Int` is a type def named `NomiT_Meters` in its own
 // unit package and crosses a file boundary through foreign.go's mirror,
 // exactly like any other distinct type. The asymmetry is not a shortcut: rt
@@ -126,19 +126,17 @@ type opaqueSpec struct {
 // `opaque` is a USE-SITE rule the front end enforces, not a representation. A
 // distinct over a scalar is a Go defined type over that scalar whether or not
 // callers outside the declaring file may construct and destructure one.
-// Nothing downstream of the shared def reads the clause; `Toml("x")` and
-// `Toml(raw) = t` lower through the same distinct-constructor and
-// distinct-pattern paths a USER's own `type Meters Int` uses, and
-// testdata/toml_use.nomi exercises both from a module that merely imports the
-// type.
+// Nothing downstream of the shared def reads the clause; `Days(3)` and
+// `Days(n) = d` lower through the same distinct-constructor and
+// distinct-pattern paths a USER's own `type Meters Int` uses.
 //
 // A row still must not redirect a declaration whose SHAPE it has not checked.
 // `form` is that check, and it is required rather than defaulted, so a std edit
-// from `pub type Toml String` to `pub opaque type Toml String` produces NO
+// from `pub type Days Int` to `pub opaque type Days Int` produces NO
 // anchor and every mention refuses, the same direction a changed `inner` fails
-// in. Both clauses are represented: `std/toml`'s `pub type Toml String`, and
-// `std/calendar`'s ten civil units (`pub type Years Int` through
-// `pub type Nanoseconds Int`).
+// in. Both clauses are represented: `std/calendar`'s ten civil units
+// (`pub type Years Int` through `pub type Nanoseconds Int`) beside the opaque
+// rows.
 //
 // TestOpaqueSpecsAreLoadBearing checks, per row, that some std DECLARATION's
 // signature names the type, which is this table's actual bar and the reason
@@ -155,7 +153,6 @@ var opaqueSpecs = []opaqueSpec{
 	{origin: "std/int", nomi: "NonZeroInt", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.NonZeroInt]()},
 	{origin: "std/int", nomi: "PositiveInt", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.PositiveInt]()},
 	{origin: "std/code_points", nomi: "Codepoint", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Codepoint]()},
-	{origin: "std/toml", nomi: "Toml", form: formDistinct, inner: kindString, goType: reflect.TypeFor[rt.Toml]()},
 	// std/random's PRNG register. A row with NO extern over it, which this
 	// table's own header says is the normal case rather than the exception:
 	// `Seed.from_int(n: Int) -> Seed` is the Nomi body `Seed(n)`. See

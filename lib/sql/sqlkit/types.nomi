@@ -18,6 +18,11 @@
 //# | `TIMESTAMPTZ` | `SqlTimestamptz` | `Instant` |
 //# | `UUID` | `SqlUuid` | `Uuid` |
 //# | `JSON`, `JSONB` | `SqlJson` | `Json` |
+//# | `T[]` | none | `List<T>`, read and bound through `FromSql` and `ToSql` |
+//#
+//# Postgres names its types its own way (`timestamp with time zone`,
+//# `character varying(80)`); `postgres` turns each into the declared name
+//# above that means it.
 
 /// A family: the reader `runtime` names it by, its interface (`bound`), and the
 /// Nomi type it reads by default, with the std module that type is
@@ -36,15 +41,35 @@ fn family(reader: String, bound: String, nomi: String, module: Maybe<String>) ->
 }
 
 /// The family of a declared type, or `None` when it names none (an
-/// expression's column has no declared type).
+/// expression's column has no declared type). An array, `T[]`, reads as a
+/// `List` of `T`'s type through the generic reader, since a family is a
+/// column of one value.
 //! assert types.of("BIGINT") |> Maybe.map(fn f -> f.nomi) == Some("Int")
 //! assert types.of("varchar(80)") |> Maybe.map(fn f -> f.nomi) == Some("String")
 //! assert types.of("DECIMAL(12, 2)") |> Maybe.map(fn f -> f.nomi) == Some("Decimal")
 //! assert types.of("DATE") |> Maybe.map(fn f -> f.nomi) == Some("Date")
+//!
+//! assert types.of("UUID[]") |> Maybe.map(fn f -> #(f.reader, f.nomi)) == Some(
+//!     #("value", "List<Uuid>")
+//! )
+//!
 //! assert types.of("") == None
 //
 pub fn of(declared: String) -> Maybe<Family> {
     upper = declared |> String.uppercase() |> String.trim()
+
+    case String.strip_suffix(upper, "[]") {
+        Some(element) ->
+            return of(element)
+            |> Maybe.map(fn f -> Family{
+                reader: "value",
+                bound: "",
+                nomi: "List<${f.nomi}>",
+                module: f.module,
+            })
+
+        None -> {}
+    }
 
     name = case String.split(upper, "(") {
         [first, ..] -> String.trim(first)
@@ -152,6 +177,64 @@ fn by_affinity(name: String) -> Maybe<Family> {
         Some(family("float", "SqlFloat", "Float", None))
     } else {
         None
+    }
+}
+
+/// The declared type a Postgres type, as `format_type` writes it, reads
+/// as, or `None` for a type sqlkit has no family for (`interval`, `inet`,
+/// an extension's `citext`), which the driver reads as its text.
+//! assert types.postgres("integer") == Some("INTEGER")
+//! assert types.postgres("character varying(80)") == Some("TEXT")
+//! assert types.postgres("numeric(12,2)") == Some("NUMERIC(12,2)")
+//! assert types.postgres("timestamp(3) with time zone") == Some("TIMESTAMPTZ")
+//! assert types.postgres("timestamp without time zone") == Some("TIMESTAMP")
+//! assert types.postgres("double precision") == Some("DOUBLE")
+//! assert types.postgres("uuid[]") == Some("UUID[]")
+//! assert types.postgres("interval") == None
+//! assert types.postgres("citext") == None
+//
+pub fn postgres(type_name: String) -> Maybe<String> {
+    name = String.trim(type_name)
+
+    case String.strip_suffix(name, "[]") {
+        Some(element) ->
+            return postgres(element) |> Maybe.map(fn e -> "${e}[]")
+
+        None -> {}
+    }
+
+    // A precision (`timestamp(3)`, `time(0)`) does not change the family;
+    // a numeric's does, as its scale.
+    base = case String.split(name, "(") {
+        [head, ..rest] -> {
+            tail = case rest {
+                [args] -> String.split(args, ")") |> Iter.drop(1) |> String.join(")")
+                _ -> ""
+            }
+
+            String.trim(head + tail)
+        }
+
+        _ ->
+            name
+    }
+
+    case base {
+        "smallint" or "integer" or "bigint" -> Some(String.uppercase(base))
+        "real" -> Some("REAL")
+        "double precision" -> Some("DOUBLE")
+        "numeric" -> Some(String.uppercase(name))
+        "text" or "character varying" or "character" or "\"char\"" or "name" -> Some("TEXT")
+        "boolean" -> Some("BOOLEAN")
+        "bytea" -> Some("BLOB")
+        "date" -> Some("DATE")
+        "time without time zone" -> Some("TIME")
+        "timestamp without time zone" -> Some("TIMESTAMP")
+        "timestamp with time zone" -> Some("TIMESTAMPTZ")
+        "uuid" -> Some("UUID")
+        "json" -> Some("JSON")
+        "jsonb" -> Some("JSONB")
+        _ -> None
     }
 }
 

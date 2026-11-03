@@ -690,7 +690,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 				if tag != "" {
 					kind = token.TAGGED_TRIPLE_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent)})
 			} else {
 				firstText := true
 				// Track whether the *next* text part begins at a line
@@ -712,7 +712,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 							} else {
 								tt = ""
 							}
-							l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: stripped, Tag: tt, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+							l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: stripped, Tag: tt, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent)})
 							firstText = false
 						} else {
 							l.tokens = append(l.tokens, token.Token{Type: token.TRIPLE_STRING_PART, Lexeme: stripped, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})

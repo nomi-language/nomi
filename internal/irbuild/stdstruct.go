@@ -196,28 +196,6 @@ func stdMapField(nomi string, key, val func(defs []*typeDef) kind) stdStructFiel
 	}}
 }
 
-// stdOpaqueKind is the kind of the std newtype declared as `origin.nomi` —
-// `stdOpaqueKind("std/toml", "Toml")`.
-//
-// By NAME rather than by index. `opaqueKind` takes a position in `opaqueSpecs`,
-// and a positional reference from this table would be a second encoding of that
-// table's ORDER: the calendar block there is ordered largest-unit-first because
-// that is the order a reader checks it in, so a row inserted for readability
-// would silently repoint a field here. The name is what std actually declares.
-//
-// kindInvalid when no spec matches, which propagates as a refusal rather than
-// producing a field whose kind is a lie. Unreachable while every caller names a
-// spec that exists, and honoured rather than asserted for the same reason
-// stdMaybeField honours its `!shared` case.
-func stdOpaqueKind(origin, nomi string) kind {
-	for i := range opaqueSpecs {
-		if opaqueSpecs[i].origin == origin && opaqueSpecs[i].nomi == nomi {
-			return opaqueKind(i)
-		}
-	}
-	return kindInvalid
-}
-
 // stdHostOriginKind is the kind of the stdHostSpecs row identified by ORIGIN and
 // name — `stdHostOriginKind("std/context", "Context")`.
 //
@@ -228,8 +206,8 @@ func stdOpaqueKind(origin, nomi string) kind {
 // Bool markers get a per-load `*PrimitiveType` and can only be anchored by where
 // they were declared.
 //
-// By NAME rather than by index, for stdOpaqueKind's reason: a positional
-// reference from a field row would be a second encoding of stdHostSpecs' order,
+// By NAME rather than by index: a positional reference from a field row
+// would be a second encoding of stdHostSpecs' order,
 // and that table's own comments say rows are APPENDED precisely so nothing
 // shifts.
 //
@@ -553,9 +531,8 @@ var stdStructSpecs = []stdStructSpec{{
 	//     components are package-neutral, so it is the same entry a call site's
 	//     own `mapKind` produces. That equality is the whole requirement — a
 	//     per-gen kind here would match no call site anywhere.
-	//   - `manifest` is a `Maybe<Toml>` with a DEFAULT of `None`. `Toml` is
-	//     std's `pub type Toml String` and already has an `opaqueSpecs` row, so
-	//     no new runtime type was needed; the default matters because a zero
+	//   - `manifest` is a `Maybe<String>` with a DEFAULT of `None`. The
+	//     default matters because a zero
 	//     `Maybe` has Tag 0, which is neither Some nor None and matches no arm
 	//     of a `case` rather than failing.
 	//
@@ -573,7 +550,7 @@ var stdStructSpecs = []stdStructSpec{{
 			func([]*typeDef) kind { return kindString },
 			func([]*typeDef) kind { return kindString }),
 		withDefault(stdMaybeField("manifest", func([]*typeDef) kind {
-			return stdOpaqueKind("std/toml", "Toml")
+			return kindString
 		}), stdNoneDefault()),
 	},
 	transparent: true,
@@ -811,6 +788,20 @@ var stdStructSpecs = []stdStructSpec{{
 		stdScalarField("value", kindString),
 		stdScalarField("kind", kindInt),
 		stdScalarField("detail", kindString),
+	},
+	transparent: true,
+}, {
+	// std/literals' LiteralError, what a CheckedLiteral's check answers when
+	// it refuses a literal's text. std/literals is lowered once for the
+	// process, so its struct needs this row; Display and Equatable are
+	// ordinary Nomi in std/literals.nomi.
+	origin: "std/literals",
+	nomi:   "LiteralError",
+	goType: reflect.TypeFor[rt.LiteralError](),
+	fields: []stdStructField{
+		stdScalarField("fragment", kindInt),
+		stdScalarField("offset", kindInt),
+		stdScalarField("message", kindString),
 	},
 	transparent: true,
 }}

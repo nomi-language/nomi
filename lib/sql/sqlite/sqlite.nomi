@@ -49,7 +49,7 @@ struct Cell {
 }
 
 // An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
-// 3 database, 4 finished, 5 closed.
+// 3 database, 4 finished, 5 closed, 6 the task's context ended.
 struct Failure {
     kind: Int
     code: String
@@ -216,6 +216,7 @@ fn failed(failure: Failure) -> Result<Unit, sql.Error> {
         2 -> Err(constraint_error(failure))
         4 -> Err(sql.Error.Finished)
         5 -> Err(sql.Error.Closed)
+        6 -> Err(sql.Error.Timeout)
         _ -> Err(sql.Error.Database{code: failure.code, message: failure.message})
     }
 }
@@ -240,25 +241,11 @@ fn present(text: String) -> Maybe<String> {
     if text == "" { None } else { Some(text) }
 }
 
-/// The cells a statement's parameters are written as, or `Err` for an `Int`
-/// past what an SQLite `INTEGER` holds, a signed 64-bit integer. Such an
-/// Int is refused rather than written as text or a float, which would read
-/// back as another value.
+/// The cells a statement's parameters are written as.
 fn cells(statement: Statement) -> Result<List<Cell>, sql.Error> {
     statement.params
     |> Iter.with_index()
-    |> Iter.map(fn #(position, value) -> {
-        case value {
-            .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
-                Err(sql.Error.Database{
-                    code: "SQLITE_MISMATCH",
-                    message: "parameter ?${position + 1} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
-                })
-
-            _ ->
-                Ok(to_cell(value))
-        }
-    })
+    |> Iter.map(fn #(position, value) -> to_cell(position + 1, value))
     |> Result.collect()
 }
 
@@ -270,22 +257,63 @@ fn text_cell(text: String) -> Cell {
     #{..cell(3), text}
 }
 
-/// The cell a value is written as: what its declared type reads back.
-fn to_cell(value: Value) -> Cell {
+/// The cell parameter `?position` is written as: what its declared type
+/// reads back. An `Int` past what an SQLite `INTEGER` holds, a signed 64-bit
+/// integer, is refused rather than written as text or a float, which would
+/// read back as another value; an `Array` is refused, since SQLite has no
+/// array type.
+fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error> {
     case value {
-        .Null -> cell(0)
-        .Int(n) -> #{..cell(1), int: n}
-        .Float(x) -> #{..cell(2), float: x}
-        .Decimal(d) -> #{..cell(5), text: "${d}"}
-        .Text(s) -> text_cell(s)
-        .Bool(b) -> #{..cell(1), int: if b { 1 } else { 0 }}
-        .Bytes(b) -> #{..cell(4), bytes: b}
-        .Date(d) -> text_cell("${d}")
-        .Time(t) -> text_cell("${t}")
-        .Timestamp(t) -> text_cell(String.replace("${t}", "T", " "))
-        .Timestamptz(i) -> text_cell(utc_text(i))
-        .Uuid(id) -> text_cell("${id}")
-        .Json(j) -> text_cell(Json.encode(j))
+        .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
+            Err(sql.Error.Database{
+                code: "SQLITE_MISMATCH",
+                message: "parameter ?${position} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
+            })
+
+        .Array(_) ->
+            Err(sql.Error.Database{
+                code: "SQLITE_MISMATCH",
+                message: "parameter ?${position} is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
+            })
+
+        .Null ->
+            Ok(cell(0))
+
+        .Int(n) ->
+            Ok(#{..cell(1), int: n})
+
+        .Float(x) ->
+            Ok(#{..cell(2), float: x})
+
+        .Decimal(d) ->
+            Ok(#{..cell(5), text: "${d}"})
+
+        .Text(s) ->
+            Ok(text_cell(s))
+
+        .Bool(b) ->
+            Ok(#{..cell(1), int: if b { 1 } else { 0 }})
+
+        .Bytes(b) ->
+            Ok(#{..cell(4), bytes: b})
+
+        .Date(d) ->
+            Ok(text_cell("${d}"))
+
+        .Time(t) ->
+            Ok(text_cell("${t}"))
+
+        .Timestamp(t) ->
+            Ok(text_cell(String.replace("${t}", "T", " ")))
+
+        .Timestamptz(i) ->
+            Ok(text_cell(utc_text(i)))
+
+        .Uuid(id) ->
+            Ok(text_cell("${id}"))
+
+        .Json(j) ->
+            Ok(text_cell(Json.encode(j)))
     }
 }
 

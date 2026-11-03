@@ -273,7 +273,7 @@
 //#
 //# ## Embedded IANA tzdata
 //#
-//# `std/calendar` embeds Go's `time/tzdata` package, so IANA zone lookups
+//# `std/calendar` carries the IANA time zone database, so zone lookups
 //# (`America/New_York`, `Asia/Tokyo`, ...) work on every host without
 //# system-provided tzdata. Programs ship with their own zone database, and
 //# behavior is the same on every operating system and in minimal Docker

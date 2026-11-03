@@ -83,6 +83,17 @@ func isStdDebug(d *ifaceDef) bool {
 	return d != nil && d.stdShared && d.nomi == "Debug"
 }
 
+// stdDebugDef is the process-wide shared def for std's `Debug`, reached
+// without an anchor in the asking file (impl.go's synthesized-Debug arm).
+func (g *gen) stdDebugDef() *ifaceDef {
+	for _, d := range stdIfaceDefs() {
+		if isStdDebug(d) {
+			return d
+		}
+	}
+	return nil
+}
+
 // erasedImplResolves reports whether the builder names the implementation of
 // one (interface, method, receiver kind) for an erased receiver.
 //

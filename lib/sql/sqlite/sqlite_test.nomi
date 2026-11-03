@@ -401,3 +401,15 @@ test "a path that cannot be opened is a Connection error" {
 
     assert opened == "Connection"
 }
+
+test "an Array parameter is refused, since SQLite has no arrays" {
+    db = sqlite.memory()?
+    defer sql.close_quietly(db)
+
+    assert Conn.query(db, Sql"SELECT 1 WHERE 1 IN (${[1, 2]})") == Err(
+        sql.Error.Database{
+            code: "SQLITE_MISMATCH",
+            message: "parameter ?1 is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
+        }
+    )
+}

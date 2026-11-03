@@ -167,6 +167,12 @@ func (gt *goTypes) fromTypes(t types.Type) (hostgen.Type, error) {
 		st := &astType{kind: reflect.Struct, str: "struct {...}"}
 		for i := 0; i < x.NumFields(); i++ {
 			f := x.Field(i)
+			if !f.Exported() {
+				// Not read, for gotypes.go's fieldType's reason.
+				st.fields = append(st.fields, hostgen.StructField{Name: f.Name(), Type: unreadField(types.TypeString(f.Type(), nil)),
+					Tag: reflect.StructTag(x.Tag(i)), Anonymous: f.Embedded()})
+				continue
+			}
 			ft, err := gt.fromTypes(f.Type())
 			if err != nil {
 				return nil, err

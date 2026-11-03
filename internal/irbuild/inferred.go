@@ -306,14 +306,14 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isMarker := g.projectStdMarker(ty); isMarker {
 			return k
 		}
-		// A std DISTINCT with an rt Go type — `Toml`, `Duration`, `Days` —
+		// A std DISTINCT with an rt Go type — `Duration`, `Days` —
 		// answered here for the reason the StructType and EnumType arms above
 		// give for theirs: every `opaqueSpecs` row is reachable by ANNOTATION
 		// (namedType consults opaqueNamed), so it must be reachable by
 		// INFERENCE too.
 		//
-		// A miss here does not name this file or the type: `Some(Toml"…")`
-		// would refuse as `non-scalar type argument (Maybe<Toml>)` through
+		// A miss here does not name this file or the type: `Some(Days(3))`
+		// would refuse as `non-scalar type argument (Maybe<Days>)` through
 		// prelude.go's preludeArgs, which calls project() on each type argument
 		// and reports whatever comes back invalid.
 		if k, isStd := g.projectStdOpaque(ty); isStd {
@@ -406,6 +406,9 @@ func (g *gen) project(t analysis.Type) kind {
 			return g.projectIfaceInst(ty)
 		}
 		if d, found := g.solvedIface(ty.Origin, ty.Name); found && d.lowerable {
+			return existential(d)
+		}
+		if d := g.stdProgSolved(ty); d != nil && d.lowerable {
 			return existential(d)
 		}
 		return kindInvalid

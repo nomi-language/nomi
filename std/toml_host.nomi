@@ -1,0 +1,25 @@
+//# The Go-backed half of std/toml: placing a `Toml"..."` literal's slots,
+//# reading its text as TOML, and writing its slots' values
+//# (internal/stdtoml). It is internal; a program imports std/toml.
+
+import {
+    float.Float
+    int.Int
+    lists.List
+    strings.String
+}
+
+/// Where the literal's slots stand and whether its text is TOML with a
+/// stand-in for each slot: fragment -1 when it is, else the static the
+/// refusal is in, the code point offset there, and why.
+pub host fn check(statics: List<String>) -> #(Int, Int, String)
+
+/// The statics with each slot's TOML between them, written as a quoted key
+/// where the slot stands for a key.
+pub host fn build(statics: List<String>, slots: List<String>) -> String
+
+/// `text` as a TOML basic string.
+pub host fn quote(text: String) -> String
+
+/// `value` as a TOML float.
+pub host fn float(value: Float) -> String

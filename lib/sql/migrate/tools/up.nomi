@@ -1,0 +1,30 @@
+// `nomi tool migrate up [--dir db/migrations] [--url URL]`: apply the
+// migrations in the directory that the database has not run, and print each
+// one it ran. The URL defaults to $DATABASE_URL.
+import {
+    std/io
+    std/sql
+    migrate
+    migrate/tools/internal/cli.{self, Options}
+}
+
+struct App {
+    options: Options
+}
+
+fn boot(startup: Startup) -> Result<App, String> {
+    Ok(App{options: cli.options("up", startup.args, startup.env)?})
+}
+
+fn main() -> Result<Unit, String> {
+    db = cli.open(App.options.url) |> Result.map_err(fn e -> "${e}")?
+    defer sql.close_quietly(db)
+    ran = migrate.up(db, App.options.dir) |> Result.map_err(fn e -> "${e}")?
+
+    case ran {
+        [] -> io.print("up to date: nothing to apply")
+        _ -> Iter.each(ran, fn version -> io.print("applied ${version}"))
+    }
+
+    Ok(Unit)
+}

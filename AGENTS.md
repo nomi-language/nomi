@@ -41,7 +41,7 @@ The repository root is the compiler's Go module,
 | `hostadapt/` | Support package that generated FFI wrappers import. |
 | `internal/` | Everything else. Syntax: `lexer`, `parser`, `ast`, `token`, `strlit`. `analysis` (resolution and the type checker), `frontend` (the whole front end as one call), `dap` (`nomi dap`), `mcp` (`nomi mcp`, the compiler as Model Context Protocol tools), `irbuild` (IR builder), `ir` (IR, lint, image encoding), `vm` (bytecode VM), `lsp`, `format`, `ffirun` (Go FFI wrapper and runner builds), `gotoolchain` (the `go` builds run, and the managed toolchain), `modcache` and `modfetch` (dependencies), `std*` (Go-backed stdlib adapters), `mf2` (MessageFormat 2) and `catalog` (message catalogs), and the tooling behind them. |
 | `std/` | The standard library's `.nomi` sources, embedded into the binaries. |
-| `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`. The compiler's module neither contains nor requires them. |
+| `lib/` | First-party Nomi modules outside std, each its own nested Go module with its own `go.mod` and `nomi.toml`: `lib/sql/sqlite` (the SQLite driver), `lib/sql/postgres` (the Postgres driver), `lib/sql/migrate` (migrations), `lib/sql/sqlkit` (checked SQL), `lib/sql/examples/shop`, `lib/markdown` (Markdown to std/html's `Html`, over goldmark), `lib/image` (decoding, resizing and encoding JPEG, PNG and WebP, over golang.org/x/image), `lib/jobs/postgres` (std/jobs's queue in a Postgres table), `lib/jobs/examples/notify`, `lib/storage/s3` (std/storage's backend for S3-protocol servers), `lib/storage/minio` (its tests against a MinIO server). The compiler's module neither contains nor requires them. |
 | `rt/` | The runtime library, `github.com/nomi-language/nomi/rt`. The VM runs over it and built executables link it. It may import only the standard library and `github.com/rivo/uniseg` (`TestRuntimeImportsOnlyItsAllowlist`). |
 | `docs/` | The spec, style guide, implementation notes, feature status, roadmap and install guide. |
 | `tour/` | The Astro Starlight site at nomi-lang.org: the tour and the generated stdlib reference. |
@@ -472,8 +472,11 @@ A block runs on an in-memory file system. A `// FILE:` section that is not
 Nomi source or `nomi.toml` is a data file the block starts with; one named
 `go.mod` makes the block a project of modules. A block's entry is its first
 file with a `fn main`, else its first Nomi file that declares tests, else
-its first Nomi file. After editing a block's `go` bindings or Go file, run
-`go generate ./internal/tourgo`. How blocks of modules, sibling projects, Go
+its first Nomi file. After editing a block's `go` bindings or Go file, or
+the Nomi or Go side of a `lib/` module the tour links (`sqlite`, `sqlkit`),
+run `go generate ./internal/tourgo`; `TestGeneratedFileIsCurrent`
+(`internal/tourgo/tourgogen`) fails until you do, and `make start-tour`
+does not build. How blocks of modules, sibling projects, Go
 bindings and the linked `sqlite` and `sqlkit` modules run, and the live
 editor's layout, is in
 [implementation-notes.md, "Tour internals"](docs/implementation-notes.md#tour-internals).

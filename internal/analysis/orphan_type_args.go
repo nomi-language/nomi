@@ -73,8 +73,8 @@ func (r *orphanFacts) verdict(fn *ast.FuncDef, iface, recv, implMod string) (adm
 		param := it.TypeParams[k]
 		why := ""
 		switch {
-		case it.Name == "Literal" && it.Origin == "std/literals":
-			why = fmt.Sprintf("a typed literal's handler is chosen by its type alone, so a type implements `Literal` once and `%s` cannot set a second impl apart from the first", typeArgName(arg))
+		case (it.Name == "Literal" || it.Name == "CheckedLiteral") && it.Origin == "std/literals":
+			why = fmt.Sprintf("a typed literal's handler is chosen by its type alone, so a type implements `%s` once and `%s` cannot set a second impl apart from the first", it.Name, typeArgName(arg))
 		case !interfaceTakesTypeParam(it, it.TypeParamDefs[k]):
 			why = fmt.Sprintf("`%s` stands in `%s`'s type parameter `%s`, which only results name, so an impl there would compete for calls that already exist; a local type admits an impl only where a parameter takes it", typeArgName(arg), iface, param)
 		case ContainsTypeParam(arg):

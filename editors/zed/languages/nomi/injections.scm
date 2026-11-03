@@ -12,7 +12,7 @@
 ; falls back to no-injection. Tags that need a spelling alias can be handled
 ; by a static rule before the generic dynamic rule; `Toml` injects the
 ; editor's `toml` grammar. `Regex` likewise injects the lowercase
-; `regex` grammar.
+; `regex` grammar, and `Html` the lowercase `html` one.
 ;
 ; No `(#set! injection.combined)`: that flag concatenates ALL matching
 ; `@injection.content` captures across the whole file into one virtual
@@ -67,6 +67,26 @@
   (#eq? @tag "Regex")
   (#set! injection.language "regex"))
 
+; HTML typed literals (std/html's templates) use the editor's lowercase
+; `html` grammar.
+(tagged_type_string
+  tag: (type_identifier) @tag
+  (string_content) @injection.content
+  (#eq? @tag "Html")
+  (#set! injection.language "html"))
+
+(tagged_type_triple_string
+  tag: (type_identifier) @tag
+  (triple_string_content) @injection.content
+  (#eq? @tag "Html")
+  (#set! injection.language "html"))
+
+(raw_tagged_string
+  tag: (type_identifier) @tag
+  (raw_string_content) @injection.content
+  (#eq? @tag "Html")
+  (#set! injection.language "html"))
+
 ; Interpolated single-line tagged literal: `<Tag>"...${expr}..."`.
 ; Body content is `string_content`; interpolation holes
 ; (`string_interpolation`) are skipped so the host language continues
@@ -75,14 +95,16 @@
   tag: (type_identifier) @injection.language
   (string_content) @injection.content
   (#not-eq? @injection.language "Toml")
-  (#not-eq? @injection.language "Regex"))
+  (#not-eq? @injection.language "Regex")
+  (#not-eq? @injection.language "Html"))
 
 ; Interpolated triple-quoted tagged literal: `<Tag>"""..."""`.
 (tagged_type_triple_string
   tag: (type_identifier) @injection.language
   (triple_string_content) @injection.content
   (#not-eq? @injection.language "Toml")
-  (#not-eq? @injection.language "Regex"))
+  (#not-eq? @injection.language "Regex")
+  (#not-eq? @injection.language "Html"))
 
 ; Raw tagged literal: `<Tag>`...``. No interpolation; the body is one
 ; `raw_string_content` token.
@@ -90,7 +112,8 @@
   tag: (type_identifier) @injection.language
   (raw_string_content) @injection.content
   (#not-eq? @injection.language "Toml")
-  (#not-eq? @injection.language "Regex"))
+  (#not-eq? @injection.language "Regex")
+  (#not-eq? @injection.language "Html"))
 
 ; A `message` or `noun` declaration's body is MessageFormat 2, the editor's
 ; `mf2` grammar when it has one.

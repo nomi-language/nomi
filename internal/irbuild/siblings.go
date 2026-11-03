@@ -6,6 +6,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/std"
 )
 
 // Sibling FILES: a user's `test_helpers.has_diagnostic(d, s)` reaching the
@@ -152,6 +153,22 @@ func (g *gen) partnerTestOf(to int) bool {
 	return x.units[g.fileUnit].key == x.units[to].key+"_test"
 }
 
+// hasPartnerTest reports whether g's file has its partner test in the
+// program, the one other file that may call its private functions.
+func (g *gen) hasPartnerTest() bool {
+	x := g.files
+	if x == nil || g.fileUnit < 0 || g.fileUnit >= len(x.units) {
+		return false
+	}
+	want := x.units[g.fileUnit].key + "_test"
+	for _, u := range x.units {
+		if u != nil && u.key == want {
+			return true
+		}
+	}
+	return false
+}
+
 // fileUnit is one user file, under the Go package name its kind text uses.
 type fileUnit struct {
 	// key is the analyzer's module-path key, and what a refusal names.
@@ -295,8 +312,39 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 			}
 		}
 	}
+	x.indexEditedStdTwins(p)
 	x.closeReferences(p, reg)
 	return x
+}
+
+// indexEditedStdTwins lets a module lowered beside a std module checked from
+// edited source (a reference editor's) reach the edited module's functions.
+// Such a module (std/storage_testing beside an edited std/storage) was
+// checked against the shared analysis, so its `storage.check_key` names the
+// shared copy's module scope and FuncDef: each resolves to the edited unit
+// and its function of the same name (implFuncTwins), as the type registry
+// resolves the shared copy's types.
+func (x *fileIndex) indexEditedStdTwins(p *Program) {
+	for i := range p.Modules {
+		m := &p.Modules[i]
+		if m.twins == nil {
+			continue
+		}
+		if name, inStd := strings.CutPrefix(m.Name, "std/"); inStd {
+			if shared := std.Shared().Files[name]; shared != nil && shared.ModuleScope != nil {
+				if _, dup := x.byScope[shared.ModuleScope]; !dup {
+					x.byScope[shared.ModuleScope] = i
+				}
+			}
+		}
+		for shared, edited := range m.twins {
+			if site, ok := x.byDecl[edited]; ok {
+				if _, dup := x.byDecl[shared]; !dup {
+					x.byDecl[shared] = site
+				}
+			}
+		}
+	}
 }
 
 // resolveSignatures types every callable sibling function, once every file's

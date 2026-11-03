@@ -3,7 +3,6 @@ import {
     std/json.Json
     std/sql.{self, Conn, Row, Sql, Value}
     std/sql_testing.Fake
-    checksum
     codegen.{self, Schema}
     databases.{self, Database}
     described.{Column, QueryError, Table, TableColumn}
@@ -681,41 +680,6 @@ test "one and optional count the rows" {
 }
 
 // --- migrations ----------------------------------------------------------
-test "migrate runs each migration in order, each in a transaction with its record" {
-    fake = Fake.new()
-
-    migrations = [
-        Migration{path: "db/migrations/1.sql", sql: "CREATE TABLE a (n INTEGER)"},
-        Migration{path: "db/migrations/2.sql", sql: "CREATE TABLE b (n INTEGER)"},
-    ]
-
-    assert sqlkit.migrate(fake, migrations) == Ok(Unit)
-
-    assert Fake.log(fake) == [
-        "CREATE TABLE IF NOT EXISTS nomi_migrations (version TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)",
-        "SELECT version, checksum FROM nomi_migrations",
-        "BEGIN",
-        "CREATE TABLE a (n INTEGER)",
-        "INSERT INTO nomi_migrations (version, checksum) VALUES (?1, ?2)",
-        "COMMIT",
-        "BEGIN",
-        "CREATE TABLE b (n INTEGER)",
-        "INSERT INTO nomi_migrations (version, checksum) VALUES (?1, ?2)",
-        "COMMIT",
-    ]
-
-    inserted =
-        Fake.statements(fake)
-        |> Iter.filter(fn s -> String.starts_with("${s}", "INSERT"))
-        |> Iter.map(fn s -> s.params)
-        |> Iter.to_list()
-
-    assert inserted == [
-        [Value.Text("1.sql"), Value.Text(checksum.of("CREATE TABLE a (n INTEGER)"))],
-        [Value.Text("2.sql"), Value.Text(checksum.of("CREATE TABLE b (n INTEGER)"))],
-    ]
-}
-
 fn temp_dir() -> Result<String, String> go testside.TempDir
 
 fn remove_all(path: String) -> Result<Unit, String> go testside.RemoveAll
@@ -765,7 +729,7 @@ test "migrate runs only the migrations a database file has not run, and refuses 
 
     assert migrate_file(path, [renamed, orders, later]) == Err(
         sql.Error.Database{
-            code: "sqlkit",
+            code: "migrate",
             message: "the migration `db/migrations/1_users.sql` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one",
         }
     )

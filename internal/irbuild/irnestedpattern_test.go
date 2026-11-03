@@ -262,14 +262,31 @@ func TestIRNestedPattern_SpawnOverACalledSupervisor(t *testing.T) {
 }
 
 // Shapes left native: an enum whose channel field carries the enum itself,
-// which the channel-field rule declines rather than recursing into. It keeps
-// the walk's Sources.
+// directly or inside a composite, which the channel-field rule declines
+// rather than recursing into. It keeps the walk's Sources.
 func TestIRNestedPattern_BoundariesPreserveFallback(t *testing.T) {
 	for _, tc := range []struct{ name, fn, why, src string }{
 		{"self-carrying channel", "pick", "an ident kind outside the domain: Channel<Request>", `import std/channels.{Channel, Receiver}
 
 enum Request {
   Ask {reply: Channel<Request>}
+  Stop
+}
+
+fn pick(inbox: Channel<Request>) -> Int {
+  case Receiver.receive(inbox.receiver) {
+    Some(Request.Stop) -> 1
+    Some(_) -> 2
+    None -> 0
+  }
+}
+
+fn main() { _ = pick(Channel.buffered<Request>(1)) }
+`},
+		{"self-carrying channel of a composite", "pick", "an ident kind outside the domain: Channel<Request>", `import std/channels.{Channel, Receiver}
+
+enum Request {
+  Ask {reply: Channel<List<Request>>}
   Stop
 }
 

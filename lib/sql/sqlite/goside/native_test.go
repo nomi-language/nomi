@@ -15,7 +15,7 @@ func TestOpen_FileDatabaseWaitsForALock(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Close(c)
-	got := Run(c, 0, 0, []string{"PRAGMA busy_timeout"}, nil)
+	got := Run(background, c, 0, 0, []string{"PRAGMA busy_timeout"}, nil)
 	if got.Failure.Kind != FailNone || len(got.Rows) != 1 || got.Rows[0][0].Int != 5000 {
 		t.Errorf("busy_timeout: %+v", got)
 	}

@@ -28,55 +28,80 @@ func irConcHandleKind(k kind) bool {
 	return false
 }
 
-// irChannelFieldKind is a channel handle held in a struct field or a
+// irHandleFieldKind is a channel or task handle held in a struct field or a
 // struct-shaped variant's field: `inbox: Channel<Request>`,
-// `Get {reply: Channel<Int>}`.
+// `Get {reply: Channel<Int>}`, `state: Channel<Map<String, Int>>`,
+// `job: Task<List<Int>>`.
 //
-// A channel is a handle, so the layout never recurses through it, but the
-// admission check does: the element's own fields are checked in turn, and
+// A handle never puts its element in the layout, but the admission check
+// looks through it: the element's own fields are checked in turn, and
 // `enum Request { Get {reply: Channel<Request>} }` would recurse forever. So
-// the element is Unit, a leaf, or a named declaration whose channels end:
-// each of its channel fields holds Unit, a leaf or another such declaration,
-// and none leads back (irReachesNominalChannel). The element's check then
-// ends where those channels do. Composite elements stay outside.
-func irChannelFieldKind(k kind) bool {
+// the element must end (irHandleElemEnds): Unit, a leaf, a structural
+// composite whose parts end, or a named declaration whose own handles end
+// and none of which leads back (irReachesNominalChannel). The element's
+// check then ends where those handles do.
+func irHandleFieldKind(k kind) bool {
 	elem, owner, isChannel := channelElem(k)
-	if !isChannel || owner == "" {
+	if isChannel && owner == "" {
+		return false
+	}
+	if !isChannel {
+		var isTask bool
+		if elem, isTask = taskElem(k); !isTask {
+			return false
+		}
+	}
+	return irHandleElemEnds(elem, nil, 0) && irConcHandleKind(k)
+}
+
+// irHandleElemEnds reports whether a handle's element elem holds no handle
+// that leads back to self (nil outside a declaration's walk), within a small
+// depth: Unit, a leaf, a structural composite (`Map<String, Int>`,
+// `List<List<Int>>`, `#(Int, String)`) whose parts end, or a named
+// declaration other than self whose own handles end. A function element
+// stays outside.
+func irHandleElemEnds(elem kind, self *typeDef, depth int) bool {
+	if depth > 8 {
 		return false
 	}
 	if elem == kindUnit || irRetainedLeafKind(elem) {
-		return irConcHandleKind(k)
+		return true
 	}
-	if elem.tag != tagNamed || elem.def == nil || irReachesNominalChannel(elem.def, 0) {
+	if elem.tag == tagNamed && elem.def != nil {
+		return elem.def != self && !irReachesNominalChannel(elem.def, depth+1)
+	}
+	if elem.comp == nil || elem.tag == tagFunc {
 		return false
 	}
-	return irConcHandleKind(k)
+	for _, p := range elem.comp.parts {
+		if !irHandleElemEnds(p, self, depth+1) {
+			return false
+		}
+	}
+	return true
 }
 
 // irReachesNominalChannel reports whether d, through its unboxed fields,
 // variant payloads, embedded types and a distinct's inner value, holds a
-// channel whose element is
-// neither Unit, a leaf, nor a declaration that holds only such channels in
-// turn: a channel of d itself, of a composite, or a chain of channels that
-// comes back round. It answers true past a small depth, which only declines.
+// channel or task handle whose element does not end (irHandleElemEnds): a
+// handle of d itself, or a chain of handles that comes back round. It
+// answers true past a small depth, which only declines.
 func irReachesNominalChannel(d *typeDef, depth int) bool {
 	if depth > 8 {
 		return true
 	}
 	visit := func(k kind) bool {
-		if elem, _, isChannel := channelElem(k); isChannel {
-			if elem == kindUnit || irRetainedLeafKind(elem) {
-				return false
-			}
-			// A channel of a declaration is admitted when that
-			// declaration's own channels end, as its check will ask in
+		elem, _, isHandle := channelElem(k)
+		if !isHandle {
+			elem, isHandle = taskElem(k)
+		}
+		if isHandle {
+			// A handle of a declaration is admitted when that
+			// declaration's own handles end, as its check will ask in
 			// turn: `reply: Channel<Result<Int, String>>` inside the
 			// element of `inbox: Channel<Request>`. One that leads back
 			// to d is a cycle the check would follow forever.
-			if elem.tag != tagNamed || elem.def == nil || elem.def == d {
-				return true
-			}
-			return irReachesNominalChannel(elem.def, depth+1)
+			return !irHandleElemEnds(elem, d, depth+1)
 		}
 		if k.tag == tagNamed && k.def != nil && k.def != d {
 			return irReachesNominalChannel(k.def, depth+1)

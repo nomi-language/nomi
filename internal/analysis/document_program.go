@@ -611,7 +611,6 @@ func (c *programChecks) checkEntry(p *CheckedProgram) {
 	nodes := p.Nodes[p.Entry]
 	c.entryChecks = AnalyzeIterSensitivity(c.entry, nodes)
 	c.entryChecks = append(c.entryChecks, CheckConcurrentScope(c.entry, nodes)...)
-	c.entryChecks = append(c.entryChecks, CheckBootScope(c.entry, nodes)...)
 	c.entryChecks = append(c.entryChecks, CheckTaskLifetime(c.entry, nodes)...)
 }
 
@@ -628,6 +627,9 @@ func (c *programChecks) assemble(p *CheckedProgram) {
 	errs = append(errs, c.coherence...)
 	errs = append(errs, c.catalogTree...)
 	errs = append(errs, c.entryChecks...)
+	// The boot-only check reads every file's calls (boot_scope.go), so it
+	// runs here, against the program as it is now, for every file.
+	errs = append(errs, CheckBootScope(c.entry, p.Nodes[p.Entry])...)
 	p.Errors[p.Entry] = append(errs, c.frontEnd...)
 	for _, key := range c.checked {
 		if IsStdlibKey(key) {
@@ -637,6 +639,9 @@ func (c *programChecks) assemble(p *CheckedProgram) {
 		errs = append(errs, c.check[key]...)
 		errs = append(errs, c.appRoots[key]...)
 		errs = append(errs, c.declChecks[key]...)
+		if fa, nodes := c.fileOf(p, key); fa != nil {
+			errs = append(errs, CheckBootScope(fa, nodes)...)
+		}
 		p.Errors[key] = append(errs, c.implImports[key]...)
 	}
 }

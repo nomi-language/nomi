@@ -1,0 +1,7 @@
+gopkg "contextffiapp" as ffi
+
+// The Go functions take a `context.Context` first, which the binding leaves
+// out: Go receives the calling task's context.
+pub fn wait_for_cancel(limit_ms: Int) -> String go ffi.WaitForCancel
+
+pub fn has_deadline() -> Bool go ffi.HasDeadline

@@ -53,7 +53,29 @@ type LiteralSite struct {
 	// std/money's “Money`…` “, whose custom currency its module must
 	// list (vmhost's unlistedCurrency).
 	Currency bool
+	// Checked is set for a checked literal (irchecked.go): Cell's initializer
+	// answers its CheckedLiteral.check's Result over the literal's statics,
+	// and an Err is a LiteralError naming a static and an offset into it.
+	Checked bool
+	// Tag is the literal's tag, so the opening quote is len(Tag) columns
+	// past Col.
+	Tag string
+	// Statics is a checked literal's static text, as check got it.
+	Statics []string
+	// Slots holds the position of each slot's expression, in order.
+	Slots []SlotPos
+	// Check identifies a checked literal's check declaration, so an
+	// effectful check is reported once (vmhost's checkLiterals).
+	Check any
+	// CheckName is how a diagnostic names that check: `Url.check`.
+	CheckName string
+	// CheckLine and CheckCol are the check declaration's position when it is
+	// in the literal's own file, and 0 otherwise.
+	CheckLine, CheckCol int
 }
+
+// SlotPos is where a typed literal's slot expression starts.
+type SlotPos struct{ Line, Col int }
 
 // currencyLiteralType reports whether ty, a literal's success type, is
 // std/currency's Currency or std/money's Money.

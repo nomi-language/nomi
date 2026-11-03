@@ -90,13 +90,17 @@ func (g *gen) namesFromGen() *gen {
 }
 
 // srcFA is the analysis of the file whose source is being lowered: the
-// declaring file's while a sibling's interface default or parameter default
-// is lowered here (lowerNamesFrom), else this file's. Every lookup keyed by a
+// declaring std file's while a std interface's signatures are resolved here
+// (withStdSrc), the declaring file's while a sibling's interface default or
+// parameter default is lowered here (lowerNamesFrom), else this file's. Every lookup keyed by a
 // node of that source or by its position (References, Definitions,
 // ExprTypes, ExpectedTypes) reads it: this file's maps hold nothing for the
 // sibling's nodes, and at a position they hold whatever this file wrote
 // there.
 func (g *gen) srcFA() *analysis.FileAnalysis {
+	if g.stdSrc != nil {
+		return g.stdSrc
+	}
 	if from := g.namesFromGen(); from != nil && from.fa != nil {
 		return from.fa
 	}

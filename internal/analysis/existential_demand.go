@@ -96,7 +96,15 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 			return
 		}
 	}
-	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(c.existentialDemandHelp(it, ifaceName, param, rec.Kind == RecordingKindOrderingOperator || rec.Kind == RecordingKindOperator || ifaceName == "Comparable")))
+	help := c.existentialDemandHelp(it, ifaceName, param, rec.Kind == RecordingKindOrderingOperator || rec.Kind == RecordingKindOperator || ifaceName == "Comparable")
+	if rec.Kind == RecordingKindTypedLiteralSlot {
+		// A slot cannot introduce a type parameter.
+		help = fmt.Sprintf("a slot's value must have a type that implements %s", ifaceName)
+		if isStdIterType(it) {
+			help = "an `Iter` is a lazy sequence; collect it with `Iter.to_list()` first"
+		}
+	}
+	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(help))
 }
 
 // existentialDemandHelp suggests a type parameter bounded by both

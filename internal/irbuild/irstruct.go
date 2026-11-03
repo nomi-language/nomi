@@ -577,13 +577,13 @@ func irLeafStructKind(d *typeDef) bool {
 	return true
 }
 
-// irRetainedFieldKind is a struct field's domain: a leaf, a channel handle
-// (irChannelFieldKind), or a declared struct that is itself retained. An
-// unboxed struct field cannot contain its own declaration, so the recursion
-// ends at the leaves; irChannelFieldKind bounds the one path through a
-// channel's element.
+// irRetainedFieldKind is a struct field's domain: a leaf, a channel or task
+// handle (irHandleFieldKind), or a declared struct that is itself retained.
+// An unboxed struct field cannot contain its own declaration, so the
+// recursion ends at the leaves; irHandleFieldKind bounds the one path
+// through a handle's element.
 func irRetainedFieldKind(k kind) bool {
-	if k == kindUnit || irRetainedLeafKind(k) || irChannelFieldKind(k) {
+	if k == kindUnit || irRetainedLeafKind(k) || irHandleFieldKind(k) {
 		return true
 	}
 	return k.tag == tagNamed && k.def != nil && !k.def.isEnum && irRetainedStructKind(k.def)

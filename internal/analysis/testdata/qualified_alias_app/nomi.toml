@@ -1,0 +1,3 @@
+[module]
+name = "qualified_alias_app"
+entry_points = ["main"]

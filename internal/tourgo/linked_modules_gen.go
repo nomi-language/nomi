@@ -12,13 +12,14 @@ import (
 	errors "errors"
 	fmt "fmt"
 	hostadapt "github.com/nomi-language/nomi/hostadapt"
-	goside "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
-	testside "github.com/nomi-language/nomi/lib/sql/sqlkit/testside"
-	toolside "github.com/nomi-language/nomi/lib/sql/sqlkit/toolside"
+	tourModule0_goside "github.com/nomi-language/nomi/lib/sql/postgres/goside"
+	tourModule1_goside "github.com/nomi-language/nomi/lib/sql/sqlite/goside"
+	tourModule3_testside "github.com/nomi-language/nomi/lib/sql/sqlkit/testside"
+	tourModule3_toolside "github.com/nomi-language/nomi/lib/sql/sqlkit/toolside"
 	rt "github.com/nomi-language/nomi/rt"
 )
 
-// The tour module sqlite (github.com/nomi-language/nomi/lib/sql/sqlite)
+// The tour module postgres (github.com/nomi-language/nomi/lib/sql/postgres)
 
 var (
 	_ = errors.New
@@ -29,25 +30,29 @@ var tourModule0Spec_d0 = &hostadapt.DescSpec{Name: "describe.Migration", Kind: r
 
 var tourModule0Spec_d1 = &hostadapt.DescSpec{Name: "describe.Description", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "tables", Type: rt.SlotRef}, {Name: "statements", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "migration", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
 
-var tourModule0Spec_d2 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "sql", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
+var tourModule0Spec_d2 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
 
-var tourModule0Spec_d3 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "migration", Type: rt.SlotString}}}
+var tourModule0Spec_d3 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "type_name", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "values", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
 
-var tourModule0Spec_d4 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotInt}, {Name: "plan", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
+var tourModule0Spec_d4 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
 
-var tourModule0Spec_d5 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "origin", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}}}
+var tourModule0Spec_d5 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "type_name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}, {Name: "nullable", Type: rt.SlotBool}}}
 
-var tourModule0Spec_d6 = &hostadapt.DescSpec{Name: "sqlite.Level", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "depth", Type: rt.SlotInt}, {Name: "token", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+var tourModule0Spec_d7 = &hostadapt.DescSpec{Name: "postgres.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
 
-var tourModule0Spec_d7 = &hostadapt.DescSpec{Name: "sqlite.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
+var tourModule0Spec_d8 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var tourModule0Spec_d8 = &hostadapt.DescSpec{Name: "sqlite.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
+var tourModule0Spec_d9 = &hostadapt.DescSpec{Name: "postgres.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}, {Name: "items", Type: rt.SlotRef}}}
 
-var tourModule0Spec_d9 = &hostadapt.DescSpec{Name: "sqlite.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
+var tourModule0Spec_d10 = &hostadapt.DescSpec{Name: "postgres.Item", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
 
-var tourModule0Spec_d10 = &hostadapt.DescSpec{Name: "sqlite.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+var tourModule0Spec_d11 = &hostadapt.DescSpec{Name: "postgres.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
 
-var tourModule0Spec_d11 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var tourModule0Spec_d12 = &hostadapt.DescSpec{Name: "postgres.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+
+var tourModule0Spec_d13 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+
+var tourModule0Spec_d14 = &hostadapt.DescSpec{Name: "postgres.Notice", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "channel", Type: rt.SlotString}, {Name: "payload", Type: rt.SlotString}, {Name: "failure", Type: rt.SlotRef}}}
 
 // tourModule0Bound holds the descriptors the adapters build with, resolved once.
 type tourModule0Bound struct {
@@ -64,6 +69,9 @@ type tourModule0Bound struct {
 	d9  *rt.TypeDesc
 	d10 *rt.TypeDesc
 	d11 *rt.TypeDesc
+	d12 *rt.TypeDesc
+	d13 *rt.TypeDesc
+	d14 *rt.TypeDesc
 }
 
 // tourModule0Specs lists the descriptor specs the adapters build with, so an engine can
@@ -76,28 +84,38 @@ func tourModule0Specs() []*hostadapt.DescSpec {
 		tourModule0Spec_d3,
 		tourModule0Spec_d4,
 		tourModule0Spec_d5,
-		tourModule0Spec_d6,
 		tourModule0Spec_d7,
 		tourModule0Spec_d8,
 		tourModule0Spec_d9,
 		tourModule0Spec_d10,
 		tourModule0Spec_d11,
+		tourModule0Spec_d12,
+		tourModule0Spec_d13,
+		tourModule0Spec_d14,
 	}
 }
 
 // tourModule0Names lists every binding this file adapts, in table order.
 func tourModule0Names() []string {
 	return []string{
-		"describe.describe",
-		"sqlite.begin_raw",
-		"sqlite.close_raw",
-		"sqlite.commit_raw",
-		"sqlite.each_row_raw",
-		"sqlite.exec_raw",
-		"sqlite.open_raw",
-		"sqlite.ping_raw",
-		"sqlite.rollback_raw",
-		"sqlite.run_raw",
+		"postgres/describe.describe",
+		"postgres/postgres.begin_raw",
+		"postgres/postgres.close_listener_raw",
+		"postgres/postgres.close_raw",
+		"postgres/postgres.commit_raw",
+		"postgres/postgres.connect_raw",
+		"postgres/postgres.each_row_raw",
+		"postgres/postgres.exec_raw",
+		"postgres/postgres.listen_raw",
+		"postgres/postgres.listener_closed_raw",
+		"postgres/postgres.listener_received_raw",
+		"postgres/postgres.listener_waiting_raw",
+		"postgres/postgres.ping_raw",
+		"postgres/postgres.pool_raw",
+		"postgres/postgres.rollback_raw",
+		"postgres/postgres.run_raw",
+		"postgres/postgres.scratch_raw",
+		"postgres/postgres.wait_raw",
 	}
 }
 
@@ -124,9 +142,7 @@ func tourModule0Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d5, err = env.Desc(tourModule0Spec_d5); err != nil {
 		return nil, err
 	}
-	if b.d6, err = env.Desc(tourModule0Spec_d6); err != nil {
-		return nil, err
-	}
+	b.d6 = rt.TupleDesc(rt.SlotRef, rt.SlotRef)
 	if b.d7, err = env.Desc(tourModule0Spec_d7); err != nil {
 		return nil, err
 	}
@@ -142,22 +158,48 @@ func tourModule0Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d11, err = env.Desc(tourModule0Spec_d11); err != nil {
 		return nil, err
 	}
+	if b.d12, err = env.Desc(tourModule0Spec_d12); err != nil {
+		return nil, err
+	}
+	if b.d13, err = env.Desc(tourModule0Spec_d13); err != nil {
+		return nil, err
+	}
+	if b.d14, err = env.Desc(tourModule0Spec_d14); err != nil {
+		return nil, err
+	}
 	return map[string]hostadapt.Func{
-		"describe.describe":   b.fn1,
-		"sqlite.begin_raw":    b.fn22,
-		"sqlite.close_raw":    b.fn28,
-		"sqlite.commit_raw":   b.fn29,
-		"sqlite.each_row_raw": b.fn30,
-		"sqlite.exec_raw":     b.fn41,
-		"sqlite.open_raw":     b.fn48,
-		"sqlite.ping_raw":     b.fn50,
-		"sqlite.rollback_raw": b.fn51,
-		"sqlite.run_raw":      b.fn52,
+		"postgres/describe.describe":              b.fn1,
+		"postgres/postgres.begin_raw":             b.fn23,
+		"postgres/postgres.close_listener_raw":    b.fn29,
+		"postgres/postgres.close_raw":             b.fn31,
+		"postgres/postgres.commit_raw":            b.fn32,
+		"postgres/postgres.connect_raw":           b.fn33,
+		"postgres/postgres.each_row_raw":          b.fn34,
+		"postgres/postgres.exec_raw":              b.fn49,
+		"postgres/postgres.listen_raw":            b.fn55,
+		"postgres/postgres.listener_closed_raw":   b.fn57,
+		"postgres/postgres.listener_received_raw": b.fn59,
+		"postgres/postgres.listener_waiting_raw":  b.fn61,
+		"postgres/postgres.ping_raw":              b.fn62,
+		"postgres/postgres.pool_raw":              b.fn63,
+		"postgres/postgres.rollback_raw":          b.fn64,
+		"postgres/postgres.run_raw":               b.fn65,
+		"postgres/postgres.scratch_raw":           b.fn66,
+		"postgres/postgres.wait_raw":              b.fn67,
 	}, nil
 }
 
-// in3 reads a Migration as Go goside.Migration.
-func (b *tourModule0Bound) in3(fr *rt.Frame, v rt.Value) (out goside.Migration, err error) {
+// in2 reads a String as Go string.
+func (b *tourModule0Bound) in2(fr *rt.Frame, v rt.Value) (out string, err error) {
+	x, ok := v.(string)
+	if !ok {
+		return out, hostadapt.Want("String", v)
+	}
+	return string(x), nil
+}
+
+// in4 reads a Migration as Go tourModule0_goside.Migration.
+func (b *tourModule0Bound) in4(fr *rt.Frame, v rt.Value) (out tourModule0_goside.Migration, err error) {
 	r, err := hostadapt.Record(v, "describe.Migration")
 	if err != nil {
 		return out, err
@@ -179,13 +221,1108 @@ func (b *tourModule0Bound) in3(fr *rt.Frame, v rt.Value) (out goside.Migration, 
 	return out, nil
 }
 
-// in2 reads a List<Migration> as Go []goside.Migration.
-func (b *tourModule0Bound) in2(fr *rt.Frame, v rt.Value) (out []goside.Migration, err error) {
+// in3 reads a List<Migration> as Go []tourModule0_goside.Migration.
+func (b *tourModule0Bound) in3(fr *rt.Frame, v rt.Value) (out []tourModule0_goside.Migration, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside.Migration, 0, hostadapt.Len(xs))
+	out = make([]tourModule0_goside.Migration, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in4(fr, c.Head)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		out = append(out, e)
+		i++
+	}
+	return out, nil
+}
+
+// in5 reads a List<String> as Go []string.
+func (b *tourModule0Bound) in5(fr *rt.Frame, v rt.Value) (out []string, err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	out = make([]string, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in2(fr, c.Head)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		out = append(out, e)
+		i++
+	}
+	return out, nil
+}
+
+// out12 builds a String from Go string.
+func (b *tourModule0Bound) out12(v string) (rt.Value, error) {
+	return string(v), nil
+}
+
+// out11 builds a List<String> from Go []string.
+func (b *tourModule0Bound) out11(v []string) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out12(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out10 builds a TableColumn from Go tourModule0_goside.TableColumn.
+func (b *tourModule0Bound) out10(v tourModule0_goside.TableColumn) (rt.Value, error) {
+	r := b.d3.New()
+	r.S[0] = string(v.Name)
+	r.S[1] = string(v.TypeName)
+	r.W[0] = rt.BoolWord(bool(v.NotNull))
+	r.W[1] = rt.BoolWord(bool(v.PrimaryKey))
+	r.W[2] = rt.BoolWord(bool(v.HasDefault))
+	w13, err := b.out11(v.Values)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "values", err)
+	}
+	r.R[0] = w13
+	r.S[2] = string(v.Migration)
+	return r, nil
+}
+
+// out9 builds a List<TableColumn> from Go []tourModule0_goside.TableColumn.
+func (b *tourModule0Bound) out9(v []tourModule0_goside.TableColumn) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out10(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out8 builds a Table from Go tourModule0_goside.Table.
+func (b *tourModule0Bound) out8(v tourModule0_goside.Table) (rt.Value, error) {
+	r := b.d2.New()
+	r.S[0] = string(v.Name)
+	w14, err := b.out9(v.Columns)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "columns", err)
+	}
+	r.R[0] = w14
+	r.S[1] = string(v.Migration)
+	return r, nil
+}
+
+// out7 builds a List<Table> from Go []tourModule0_goside.Table.
+func (b *tourModule0Bound) out7(v []tourModule0_goside.Table) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out8(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out19 builds a Column from Go tourModule0_goside.Column.
+func (b *tourModule0Bound) out19(v tourModule0_goside.Column) (rt.Value, error) {
+	r := b.d5.New()
+	r.S[0] = string(v.Name)
+	r.S[1] = string(v.TypeName)
+	r.S[2] = string(v.Table)
+	r.S[3] = string(v.Column)
+	r.W[0] = rt.BoolWord(bool(v.Nullable))
+	return r, nil
+}
+
+// out18 builds a List<Column> from Go []tourModule0_goside.Column.
+func (b *tourModule0Bound) out18(v []tourModule0_goside.Column) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out19(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out17 builds a Statement from Go tourModule0_goside.Statement.
+func (b *tourModule0Bound) out17(v tourModule0_goside.Statement) (rt.Value, error) {
+	r := b.d4.New()
+	w20, err := b.out18(v.Columns)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "columns", err)
+	}
+	r.R[0] = w20
+	w21, err := b.out11(v.Params)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "params", err)
+	}
+	r.R[1] = w21
+	r.S[0] = string(v.Error)
+	r.SetIntSlot(0, rt.Value(int64(v.Offset)))
+	return r, nil
+}
+
+// out16 builds a List<Statement> from Go []tourModule0_goside.Statement.
+func (b *tourModule0Bound) out16(v []tourModule0_goside.Statement) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out17(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out6 builds a Description from Go tourModule0_goside.Description.
+func (b *tourModule0Bound) out6(v tourModule0_goside.Description) (rt.Value, error) {
+	r := b.d1.New()
+	w15, err := b.out7(v.Tables)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "tables", err)
+	}
+	r.R[0] = w15
+	w22, err := b.out16(v.Statements)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "statements", err)
+	}
+	r.R[1] = w22
+	r.S[0] = string(v.Error)
+	r.S[1] = string(v.Migration)
+	r.SetIntSlot(0, rt.Value(int64(v.Offset)))
+	return r, nil
+}
+
+// fn1 adapts postgres/describe.describe: describe(url: String, migrations: List<Migration>, statements: List<String>) -> Description
+func (b *tourModule0Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/describe.describe", &err)
+	if len(args) != 3 {
+		return nil, hostadapt.Arity("postgres/describe.describe", 3, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/describe.describe", 0, "goside.Describe", "url", err)
+	}
+	a1, err := b.in3(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/describe.describe", 1, "goside.Describe", "migrations", err)
+	}
+	a2, err := b.in5(fr, args[2])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/describe.describe", 2, "goside.Describe", "statements", err)
+	}
+	r0 := tourModule0_goside.Describe(fr.Context(), a0, a1, a2)
+	v0, err := b.out6(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Describe", err)
+	}
+	return v0, nil
+}
+
+// in24 reads a Handle as Go *tourModule0_goside.Session.
+func (b *tourModule0Bound) in24(fr *rt.Frame, v rt.Value) (out *tourModule0_goside.Session, err error) {
+	h, err := hostadapt.Handle(v, "postgres.Handle")
+	if err != nil {
+		return out, err
+	}
+	p, ok := h.(*tourModule0_goside.Session)
+	if !ok {
+		return out, fmt.Errorf("postgres.Handle handle holds %T, not *tourModule0_goside.Session", h)
+	}
+	return p, nil
+}
+
+// out25 builds a Handle from Go *tourModule0_goside.Session.
+func (b *tourModule0Bound) out25(v *tourModule0_goside.Session) (rt.Value, error) {
+	return rt.HostHandle{TypeName: "postgres.Handle", Value: v}, nil
+}
+
+// out27 builds a Failure from Go tourModule0_goside.Failure.
+func (b *tourModule0Bound) out27(v tourModule0_goside.Failure) (rt.Value, error) {
+	r := b.d7.New()
+	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
+	r.S[0] = string(v.Code)
+	r.S[1] = string(v.Message)
+	r.SetIntSlot(1, rt.Value(int64(v.Constraint)))
+	r.S[2] = string(v.Name)
+	r.S[3] = string(v.Table)
+	r.S[4] = string(v.Column)
+	return r, nil
+}
+
+// fn23 adapts postgres/postgres.begin_raw: begin_raw(h: Handle) -> #(Handle, Failure)
+func (b *tourModule0Bound) fn23(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.begin_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.begin_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.begin_raw", 0, "goside.Begin", "s", err)
+	}
+	r0, r1 := tourModule0_goside.Begin(fr.Context(), a0)
+	tup := b.d6.New()
+	w26, err := b.out25(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Begin", fmt.Errorf("%s: marshaling return 0: %w", "postgres/postgres.begin_raw", err))
+	}
+	tup.R[0] = w26
+	w28, err := b.out27(r1)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Begin", fmt.Errorf("%s: marshaling return 1: %w", "postgres/postgres.begin_raw", err))
+	}
+	tup.R[1] = w28
+	return tup, nil
+}
+
+// in30 reads a ListenHandle as Go *tourModule0_goside.Listener.
+func (b *tourModule0Bound) in30(fr *rt.Frame, v rt.Value) (out *tourModule0_goside.Listener, err error) {
+	h, err := hostadapt.Handle(v, "postgres.ListenHandle")
+	if err != nil {
+		return out, err
+	}
+	p, ok := h.(*tourModule0_goside.Listener)
+	if !ok {
+		return out, fmt.Errorf("postgres.ListenHandle handle holds %T, not *tourModule0_goside.Listener", h)
+	}
+	return p, nil
+}
+
+// fn29 adapts postgres/postgres.close_listener_raw: close_listener_raw(l: ListenHandle) -> Failure
+func (b *tourModule0Bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.close_listener_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.close_listener_raw", 1, len(args))
+	}
+	a0, err := b.in30(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.close_listener_raw", 0, "goside.CloseListener", "l", err)
+	}
+	r0 := tourModule0_goside.CloseListener(a0)
+	v0, err := b.out27(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.CloseListener", err)
+	}
+	return v0, nil
+}
+
+// fn31 adapts postgres/postgres.close_raw: close_raw(h: Handle) -> Failure
+func (b *tourModule0Bound) fn31(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.close_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.close_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.close_raw", 0, "goside.Close", "s", err)
+	}
+	r0 := tourModule0_goside.Close(a0)
+	v0, err := b.out27(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Close", err)
+	}
+	return v0, nil
+}
+
+// fn32 adapts postgres/postgres.commit_raw: commit_raw(h: Handle) -> Failure
+func (b *tourModule0Bound) fn32(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.commit_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.commit_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.commit_raw", 0, "goside.Commit", "s", err)
+	}
+	r0 := tourModule0_goside.Commit(fr.Context(), a0)
+	v0, err := b.out27(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Commit", err)
+	}
+	return v0, nil
+}
+
+// fn33 adapts postgres/postgres.connect_raw: connect_raw(url: String) -> Result<Handle, String>
+func (b *tourModule0Bound) fn33(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.connect_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.connect_raw", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.connect_raw", 0, "goside.Connect", "url", err)
+	}
+	r0, e := tourModule0_goside.Connect(fr.Context(), a0)
+	if e != nil {
+		rec := b.d8.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, nil
+	}
+	v0, err := b.out25(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Connect", err)
+	}
+	ok := b.d8.NewVariant(0)
+	ok.R[0] = v0
+	return ok, nil
+}
+
+// in38 reads a Item as Go tourModule0_goside.Item.
+func (b *tourModule0Bound) in38(fr *rt.Frame, v rt.Value) (out tourModule0_goside.Item, err error) {
+	r, err := hostadapt.Record(v, "postgres.Item")
+	if err != nil {
+		return out, err
+	}
+	{
+		x, err := hostadapt.IntValueField(r, b.d10, 0, 0, "kind")
+		if err != nil {
+			return out, err
+		}
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "kind", err)
+		}
+		out.Kind = y
+	}
+	{
+		x, err := hostadapt.IntValueField(r, b.d10, 1, 1, "int")
+		if err != nil {
+			return out, err
+		}
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "int", err)
+		}
+		out.Int = y
+	}
+	{
+		x, err := hostadapt.FloatField(r, b.d10, 2, 2, "float")
+		if err != nil {
+			return out, err
+		}
+		out.Float = float64(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d10, 3, 0, "text")
+		if err != nil {
+			return out, err
+		}
+		out.Text = string(x)
+	}
+	{
+		x, err := hostadapt.BytesField(r, b.d10, 4, 1, "bytes")
+		if err != nil {
+			return out, err
+		}
+		out.Bytes = []uint8(x)
+	}
+	return out, nil
+}
+
+// in37 reads a List<Item> as Go []tourModule0_goside.Item.
+func (b *tourModule0Bound) in37(fr *rt.Frame, v rt.Value) (out []tourModule0_goside.Item, err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	out = make([]tourModule0_goside.Item, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in38(fr, c.Head)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		out = append(out, e)
+		i++
+	}
+	return out, nil
+}
+
+// in36 reads a Cell as Go tourModule0_goside.Cell.
+func (b *tourModule0Bound) in36(fr *rt.Frame, v rt.Value) (out tourModule0_goside.Cell, err error) {
+	r, err := hostadapt.Record(v, "postgres.Cell")
+	if err != nil {
+		return out, err
+	}
+	{
+		x, err := hostadapt.IntValueField(r, b.d9, 0, 0, "kind")
+		if err != nil {
+			return out, err
+		}
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "kind", err)
+		}
+		out.Kind = y
+	}
+	{
+		x, err := hostadapt.IntValueField(r, b.d9, 1, 1, "int")
+		if err != nil {
+			return out, err
+		}
+		y, err := hostadapt.ToSigned[int64](x, "int64")
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "int", err)
+		}
+		out.Int = y
+	}
+	{
+		x, err := hostadapt.FloatField(r, b.d9, 2, 2, "float")
+		if err != nil {
+			return out, err
+		}
+		out.Float = float64(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d9, 3, 0, "text")
+		if err != nil {
+			return out, err
+		}
+		out.Text = string(x)
+	}
+	{
+		x, err := hostadapt.BytesField(r, b.d9, 4, 1, "bytes")
+		if err != nil {
+			return out, err
+		}
+		out.Bytes = []uint8(x)
+	}
+	{
+		x, err := hostadapt.RefField(r, b.d9, 5, 0, "items")
+		if err != nil {
+			return out, err
+		}
+		y, err := b.in37(fr, x)
+		if err != nil {
+			return out, fmt.Errorf("field %q: %w", "items", err)
+		}
+		out.Items = y
+	}
+	return out, nil
+}
+
+// in35 reads a List<Cell> as Go []tourModule0_goside.Cell.
+func (b *tourModule0Bound) in35(fr *rt.Frame, v rt.Value) (out []tourModule0_goside.Cell, err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	out = make([]tourModule0_goside.Cell, 0, hostadapt.Len(xs))
+	i := 0
+	for c := xs; c != nil; c = c.Tail {
+		e, err := b.in36(fr, c.Head)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		out = append(out, e)
+		i++
+	}
+	return out, nil
+}
+
+// out45 builds a Item from Go tourModule0_goside.Item.
+func (b *tourModule0Bound) out45(v tourModule0_goside.Item) (rt.Value, error) {
+	r := b.d10.New()
+	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
+	r.SetIntSlot(1, rt.Value(int64(v.Int)))
+	r.W[2] = rt.FloatWord(float64(v.Float))
+	r.S[0] = string(v.Text)
+	r.S[1] = string(rt.Bytes(v.Bytes))
+	return r, nil
+}
+
+// out44 builds a List<Item> from Go []tourModule0_goside.Item.
+func (b *tourModule0Bound) out44(v []tourModule0_goside.Item) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out45(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out43 builds a Cell from Go tourModule0_goside.Cell.
+func (b *tourModule0Bound) out43(v tourModule0_goside.Cell) (rt.Value, error) {
+	r := b.d9.New()
+	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
+	r.SetIntSlot(1, rt.Value(int64(v.Int)))
+	r.W[2] = rt.FloatWord(float64(v.Float))
+	r.S[0] = string(v.Text)
+	r.S[1] = string(rt.Bytes(v.Bytes))
+	w46, err := b.out44(v.Items)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "items", err)
+	}
+	r.R[0] = w46
+	return r, nil
+}
+
+// out42 builds a List<Cell> from Go []tourModule0_goside.Cell.
+func (b *tourModule0Bound) out42(v []tourModule0_goside.Cell) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out43(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out40 builds a RawRow from Go tourModule0_goside.Row.
+func (b *tourModule0Bound) out40(v tourModule0_goside.Row) (rt.Value, error) {
+	r := b.d11.New()
+	w41, err := b.out11(v.Columns)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "columns", err)
+	}
+	r.R[0] = w41
+	w47, err := b.out42(v.Cells)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "cells", err)
+	}
+	r.R[1] = w47
+	return r, nil
+}
+
+// in48 reads a Bool as Go bool.
+func (b *tourModule0Bound) in48(fr *rt.Frame, v rt.Value) (out bool, err error) {
+	x, ok := v.(bool)
+	if !ok {
+		return out, hostadapt.Want("Bool", v)
+	}
+	return bool(x), nil
+}
+
+// in39 reads a (RawRow) -> Bool as Go func(tourModule0_goside.Row) bool.
+func (b *tourModule0Bound) in39(fr *rt.Frame, v rt.Value) (out func(tourModule0_goside.Row) bool, err error) {
+	if v == nil {
+		return out, fmt.Errorf("expected a function, got nil")
+	}
+	return func(p0 tourModule0_goside.Row) bool {
+		x0, err := b.out40(p0)
+		if err != nil {
+			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
+		}
+		res, err := b.env.Call(fr, v, []rt.Value{x0})
+		if err != nil {
+			panic(hostadapt.CallbackFailure(err, "func(goside.Row) bool"))
+		}
+		y, err := b.in48(fr, res)
+		if err != nil {
+			panic(hostadapt.CallbackFailure(err, "func(goside.Row) bool"))
+		}
+		return y
+	}, nil
+}
+
+// fn34 adapts postgres/postgres.each_row_raw: each_row_raw(h: Handle, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
+func (b *tourModule0Bound) fn34(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.each_row_raw", &err)
+	if len(args) != 4 {
+		return nil, hostadapt.Arity("postgres/postgres.each_row_raw", 4, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 0, "goside.EachRow", "s", err)
+	}
+	a1, err := b.in5(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 1, "goside.EachRow", "parts", err)
+	}
+	a2, err := b.in35(fr, args[2])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 2, "goside.EachRow", "params", err)
+	}
+	a3, err := b.in39(fr, args[3])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.each_row_raw", 3, "goside.EachRow", "f", err)
+	}
+	r0 := tourModule0_goside.EachRow(fr.Context(), a0, a1, a2, a3)
+	v0, err := b.out27(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.EachRow", err)
+	}
+	return v0, nil
+}
+
+// out52 builds a List<List<Cell>> from Go [][]tourModule0_goside.Cell.
+func (b *tourModule0Bound) out52(v [][]tourModule0_goside.Cell) (rt.Value, error) {
+	var xs *rt.List[any]
+	for i := len(v) - 1; i >= 0; i-- {
+		x, err := b.out42(v[i])
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		xs = rt.Cons[any](x, xs)
+	}
+	return xs, nil
+}
+
+// out50 builds a Answer from Go tourModule0_goside.Answer.
+func (b *tourModule0Bound) out50(v tourModule0_goside.Answer) (rt.Value, error) {
+	r := b.d12.New()
+	w51, err := b.out11(v.Columns)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "columns", err)
+	}
+	r.R[0] = w51
+	w53, err := b.out52(v.Rows)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "rows", err)
+	}
+	r.R[1] = w53
+	r.SetIntSlot(0, rt.Value(int64(v.Changed)))
+	w54, err := b.out27(v.Failure)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "failure", err)
+	}
+	r.R[2] = w54
+	return r, nil
+}
+
+// fn49 adapts postgres/postgres.exec_raw: exec_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer
+func (b *tourModule0Bound) fn49(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.exec_raw", &err)
+	if len(args) != 3 {
+		return nil, hostadapt.Arity("postgres/postgres.exec_raw", 3, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.exec_raw", 0, "goside.Exec", "s", err)
+	}
+	a1, err := b.in5(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.exec_raw", 1, "goside.Exec", "parts", err)
+	}
+	a2, err := b.in35(fr, args[2])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.exec_raw", 2, "goside.Exec", "params", err)
+	}
+	r0 := tourModule0_goside.Exec(fr.Context(), a0, a1, a2)
+	v0, err := b.out50(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Exec", err)
+	}
+	return v0, nil
+}
+
+// out56 builds a ListenHandle from Go *tourModule0_goside.Listener.
+func (b *tourModule0Bound) out56(v *tourModule0_goside.Listener) (rt.Value, error) {
+	return rt.HostHandle{TypeName: "postgres.ListenHandle", Value: v}, nil
+}
+
+// fn55 adapts postgres/postgres.listen_raw: listen_raw(url: String, channel: String) -> Result<ListenHandle, String>
+func (b *tourModule0Bound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.listen_raw", &err)
+	if len(args) != 2 {
+		return nil, hostadapt.Arity("postgres/postgres.listen_raw", 2, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.listen_raw", 0, "goside.Listen", "url", err)
+	}
+	a1, err := b.in2(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.listen_raw", 1, "goside.Listen", "channel", err)
+	}
+	r0, e := tourModule0_goside.Listen(fr.Context(), a0, a1)
+	if e != nil {
+		rec := b.d8.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, nil
+	}
+	v0, err := b.out56(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Listen", err)
+	}
+	ok := b.d8.NewVariant(0)
+	ok.R[0] = v0
+	return ok, nil
+}
+
+// out58 builds a Bool from Go bool.
+func (b *tourModule0Bound) out58(v bool) (rt.Value, error) {
+	return bool(v), nil
+}
+
+// fn57 adapts postgres/postgres.listener_closed_raw: listener_closed_raw(l: ListenHandle) -> Bool
+func (b *tourModule0Bound) fn57(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.listener_closed_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.listener_closed_raw", 1, len(args))
+	}
+	a0, err := b.in30(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.listener_closed_raw", 0, "goside.IsClosed", "l", err)
+	}
+	r0 := tourModule0_goside.IsClosed(a0)
+	v0, err := b.out58(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.IsClosed", err)
+	}
+	return v0, nil
+}
+
+// out60 builds a Int from Go int64.
+func (b *tourModule0Bound) out60(v int64) (rt.Value, error) {
+	return rt.Value(int64(v)), nil
+}
+
+// fn59 adapts postgres/postgres.listener_received_raw: listener_received_raw(l: ListenHandle) -> Int
+func (b *tourModule0Bound) fn59(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.listener_received_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.listener_received_raw", 1, len(args))
+	}
+	a0, err := b.in30(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.listener_received_raw", 0, "goside.Received", "l", err)
+	}
+	r0 := tourModule0_goside.Received(a0)
+	v0, err := b.out60(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Received", err)
+	}
+	return v0, nil
+}
+
+// fn61 adapts postgres/postgres.listener_waiting_raw: listener_waiting_raw(l: ListenHandle) -> Bool
+func (b *tourModule0Bound) fn61(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.listener_waiting_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.listener_waiting_raw", 1, len(args))
+	}
+	a0, err := b.in30(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.listener_waiting_raw", 0, "goside.Waiting", "l", err)
+	}
+	r0 := tourModule0_goside.Waiting(a0)
+	v0, err := b.out58(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Waiting", err)
+	}
+	return v0, nil
+}
+
+// fn62 adapts postgres/postgres.ping_raw: ping_raw(h: Handle) -> Failure
+func (b *tourModule0Bound) fn62(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.ping_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.ping_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.ping_raw", 0, "goside.Ping", "s", err)
+	}
+	r0 := tourModule0_goside.Ping(fr.Context(), a0)
+	v0, err := b.out27(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Ping", err)
+	}
+	return v0, nil
+}
+
+// fn63 adapts postgres/postgres.pool_raw: pool_raw(url: String) -> Handle
+func (b *tourModule0Bound) fn63(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.pool_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.pool_raw", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.pool_raw", 0, "goside.Pool", "url", err)
+	}
+	r0 := tourModule0_goside.Pool(a0)
+	v0, err := b.out25(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Pool", err)
+	}
+	return v0, nil
+}
+
+// fn64 adapts postgres/postgres.rollback_raw: rollback_raw(h: Handle) -> Failure
+func (b *tourModule0Bound) fn64(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.rollback_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.rollback_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.rollback_raw", 0, "goside.Rollback", "s", err)
+	}
+	r0 := tourModule0_goside.Rollback(fr.Context(), a0)
+	v0, err := b.out27(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Rollback", err)
+	}
+	return v0, nil
+}
+
+// fn65 adapts postgres/postgres.run_raw: run_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer
+func (b *tourModule0Bound) fn65(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.run_raw", &err)
+	if len(args) != 3 {
+		return nil, hostadapt.Arity("postgres/postgres.run_raw", 3, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.run_raw", 0, "goside.Run", "s", err)
+	}
+	a1, err := b.in5(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.run_raw", 1, "goside.Run", "parts", err)
+	}
+	a2, err := b.in35(fr, args[2])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.run_raw", 2, "goside.Run", "params", err)
+	}
+	r0 := tourModule0_goside.Run(fr.Context(), a0, a1, a2)
+	v0, err := b.out50(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Run", err)
+	}
+	return v0, nil
+}
+
+// fn66 adapts postgres/postgres.scratch_raw: scratch_raw() -> Result<String, String>
+func (b *tourModule0Bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.scratch_raw", &err)
+	if len(args) != 0 {
+		return nil, hostadapt.Arity("postgres/postgres.scratch_raw", 0, len(args))
+	}
+	r0, e := tourModule0_goside.Scratch(fr.Context())
+	if e != nil {
+		rec := b.d13.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, nil
+	}
+	v0, err := b.out12(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Scratch", err)
+	}
+	ok := b.d13.NewVariant(0)
+	ok.S[0] = v0.(string)
+	return ok, nil
+}
+
+// out68 builds a Notice from Go tourModule0_goside.Notice.
+func (b *tourModule0Bound) out68(v tourModule0_goside.Notice) (rt.Value, error) {
+	r := b.d14.New()
+	r.S[0] = string(v.Channel)
+	r.S[1] = string(v.Payload)
+	w69, err := b.out27(v.Failure)
+	if err != nil {
+		return nil, fmt.Errorf("field %q: %w", "failure", err)
+	}
+	r.R[0] = w69
+	return r, nil
+}
+
+// fn67 adapts postgres/postgres.wait_raw: wait_raw(l: ListenHandle) -> Notice
+func (b *tourModule0Bound) fn67(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("postgres/postgres.wait_raw", &err)
+	if len(args) != 1 {
+		return nil, hostadapt.Arity("postgres/postgres.wait_raw", 1, len(args))
+	}
+	a0, err := b.in30(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("postgres/postgres.wait_raw", 0, "goside.Wait", "l", err)
+	}
+	r0 := tourModule0_goside.Wait(fr.Context(), a0)
+	v0, err := b.out68(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("goside.Wait", err)
+	}
+	return v0, nil
+}
+
+// The tour module sqlite (github.com/nomi-language/nomi/lib/sql/sqlite)
+
+var (
+	_ = errors.New
+	_ = fmt.Errorf
+)
+
+var tourModule1Spec_d0 = &hostadapt.DescSpec{Name: "describe.Migration", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "path", Type: rt.SlotString}, {Name: "text", Type: rt.SlotString}}}
+
+var tourModule1Spec_d1 = &hostadapt.DescSpec{Name: "describe.Description", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "tables", Type: rt.SlotRef}, {Name: "statements", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "migration", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
+
+var tourModule1Spec_d2 = &hostadapt.DescSpec{Name: "describe.Table", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "sql", Type: rt.SlotString}, {Name: "columns", Type: rt.SlotRef}, {Name: "migration", Type: rt.SlotString}}}
+
+var tourModule1Spec_d3 = &hostadapt.DescSpec{Name: "describe.TableColumn", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}, {Name: "primary_key", Type: rt.SlotBool}, {Name: "has_default", Type: rt.SlotBool}, {Name: "migration", Type: rt.SlotString}}}
+
+var tourModule1Spec_d4 = &hostadapt.DescSpec{Name: "describe.Statement", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "params", Type: rt.SlotInt}, {Name: "plan", Type: rt.SlotRef}, {Name: "error", Type: rt.SlotString}, {Name: "offset", Type: rt.SlotInt}}}
+
+var tourModule1Spec_d5 = &hostadapt.DescSpec{Name: "describe.Column", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "name", Type: rt.SlotString}, {Name: "declared", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "origin", Type: rt.SlotString}, {Name: "not_null", Type: rt.SlotBool}}}
+
+var tourModule1Spec_d6 = &hostadapt.DescSpec{Name: "sqlite.Level", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "depth", Type: rt.SlotInt}, {Name: "token", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+
+var tourModule1Spec_d7 = &hostadapt.DescSpec{Name: "sqlite.Failure", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "code", Type: rt.SlotString}, {Name: "message", Type: rt.SlotString}, {Name: "constraint", Type: rt.SlotInt}, {Name: "name", Type: rt.SlotString}, {Name: "table", Type: rt.SlotString}, {Name: "column", Type: rt.SlotString}}}
+
+var tourModule1Spec_d8 = &hostadapt.DescSpec{Name: "sqlite.Cell", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "kind", Type: rt.SlotInt}, {Name: "int", Type: rt.SlotInt}, {Name: "float", Type: rt.SlotFloat}, {Name: "text", Type: rt.SlotString}, {Name: "bytes", Type: rt.SlotBytes}}}
+
+var tourModule1Spec_d9 = &hostadapt.DescSpec{Name: "sqlite.RawRow", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "cells", Type: rt.SlotRef}}}
+
+var tourModule1Spec_d10 = &hostadapt.DescSpec{Name: "sqlite.Answer", Kind: rt.KindStruct, Fields: []rt.FieldSpec{{Name: "columns", Type: rt.SlotRef}, {Name: "types", Type: rt.SlotRef}, {Name: "rows", Type: rt.SlotRef}, {Name: "changed", Type: rt.SlotInt}, {Name: "failure", Type: rt.SlotRef}}}
+
+var tourModule1Spec_d11 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+
+// tourModule1Bound holds the descriptors the adapters build with, resolved once.
+type tourModule1Bound struct {
+	env *hostadapt.Env
+	d0  *rt.TypeDesc
+	d1  *rt.TypeDesc
+	d2  *rt.TypeDesc
+	d3  *rt.TypeDesc
+	d4  *rt.TypeDesc
+	d5  *rt.TypeDesc
+	d6  *rt.TypeDesc
+	d7  *rt.TypeDesc
+	d8  *rt.TypeDesc
+	d9  *rt.TypeDesc
+	d10 *rt.TypeDesc
+	d11 *rt.TypeDesc
+}
+
+// tourModule1Specs lists the descriptor specs the adapters build with, so an engine can
+// link its own descriptors for them before tourModule1Bind.
+func tourModule1Specs() []*hostadapt.DescSpec {
+	return []*hostadapt.DescSpec{
+		tourModule1Spec_d0,
+		tourModule1Spec_d1,
+		tourModule1Spec_d2,
+		tourModule1Spec_d3,
+		tourModule1Spec_d4,
+		tourModule1Spec_d5,
+		tourModule1Spec_d6,
+		tourModule1Spec_d7,
+		tourModule1Spec_d8,
+		tourModule1Spec_d9,
+		tourModule1Spec_d10,
+		tourModule1Spec_d11,
+	}
+}
+
+// tourModule1Names lists every binding this file adapts, in table order.
+func tourModule1Names() []string {
+	return []string{
+		"sqlite/describe.describe",
+		"sqlite/sqlite.begin_raw",
+		"sqlite/sqlite.close_raw",
+		"sqlite/sqlite.commit_raw",
+		"sqlite/sqlite.each_row_raw",
+		"sqlite/sqlite.exec_raw",
+		"sqlite/sqlite.open_raw",
+		"sqlite/sqlite.ping_raw",
+		"sqlite/sqlite.rollback_raw",
+		"sqlite/sqlite.run_raw",
+	}
+}
+
+// tourModule1Bind resolves every descriptor through env and answers the adapters by
+// binding name.
+func tourModule1Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
+	b := &tourModule1Bound{env: env}
+	var err error
+	if b.d0, err = env.Desc(tourModule1Spec_d0); err != nil {
+		return nil, err
+	}
+	if b.d1, err = env.Desc(tourModule1Spec_d1); err != nil {
+		return nil, err
+	}
+	if b.d2, err = env.Desc(tourModule1Spec_d2); err != nil {
+		return nil, err
+	}
+	if b.d3, err = env.Desc(tourModule1Spec_d3); err != nil {
+		return nil, err
+	}
+	if b.d4, err = env.Desc(tourModule1Spec_d4); err != nil {
+		return nil, err
+	}
+	if b.d5, err = env.Desc(tourModule1Spec_d5); err != nil {
+		return nil, err
+	}
+	if b.d6, err = env.Desc(tourModule1Spec_d6); err != nil {
+		return nil, err
+	}
+	if b.d7, err = env.Desc(tourModule1Spec_d7); err != nil {
+		return nil, err
+	}
+	if b.d8, err = env.Desc(tourModule1Spec_d8); err != nil {
+		return nil, err
+	}
+	if b.d9, err = env.Desc(tourModule1Spec_d9); err != nil {
+		return nil, err
+	}
+	if b.d10, err = env.Desc(tourModule1Spec_d10); err != nil {
+		return nil, err
+	}
+	if b.d11, err = env.Desc(tourModule1Spec_d11); err != nil {
+		return nil, err
+	}
+	return map[string]hostadapt.Func{
+		"sqlite/describe.describe":   b.fn1,
+		"sqlite/sqlite.begin_raw":    b.fn22,
+		"sqlite/sqlite.close_raw":    b.fn28,
+		"sqlite/sqlite.commit_raw":   b.fn29,
+		"sqlite/sqlite.each_row_raw": b.fn30,
+		"sqlite/sqlite.exec_raw":     b.fn41,
+		"sqlite/sqlite.open_raw":     b.fn48,
+		"sqlite/sqlite.ping_raw":     b.fn50,
+		"sqlite/sqlite.rollback_raw": b.fn51,
+		"sqlite/sqlite.run_raw":      b.fn52,
+	}, nil
+}
+
+// in3 reads a Migration as Go tourModule1_goside.Migration.
+func (b *tourModule1Bound) in3(fr *rt.Frame, v rt.Value) (out tourModule1_goside.Migration, err error) {
+	r, err := hostadapt.Record(v, "describe.Migration")
+	if err != nil {
+		return out, err
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d0, 0, 0, "path")
+		if err != nil {
+			return out, err
+		}
+		out.Path = string(x)
+	}
+	{
+		x, err := hostadapt.StringField(r, b.d0, 1, 1, "text")
+		if err != nil {
+			return out, err
+		}
+		out.Text = string(x)
+	}
+	return out, nil
+}
+
+// in2 reads a List<Migration> as Go []tourModule1_goside.Migration.
+func (b *tourModule1Bound) in2(fr *rt.Frame, v rt.Value) (out []tourModule1_goside.Migration, err error) {
+	xs, err := hostadapt.List(v)
+	if err != nil {
+		return out, err
+	}
+	out = make([]tourModule1_goside.Migration, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
 		e, err := b.in3(fr, c.Head)
@@ -199,7 +1336,7 @@ func (b *tourModule0Bound) in2(fr *rt.Frame, v rt.Value) (out []goside.Migration
 }
 
 // in5 reads a String as Go string.
-func (b *tourModule0Bound) in5(fr *rt.Frame, v rt.Value) (out string, err error) {
+func (b *tourModule1Bound) in5(fr *rt.Frame, v rt.Value) (out string, err error) {
 	x, ok := v.(string)
 	if !ok {
 		return out, hostadapt.Want("String", v)
@@ -208,7 +1345,7 @@ func (b *tourModule0Bound) in5(fr *rt.Frame, v rt.Value) (out string, err error)
 }
 
 // in4 reads a List<String> as Go []string.
-func (b *tourModule0Bound) in4(fr *rt.Frame, v rt.Value) (out []string, err error) {
+func (b *tourModule1Bound) in4(fr *rt.Frame, v rt.Value) (out []string, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
@@ -226,8 +1363,8 @@ func (b *tourModule0Bound) in4(fr *rt.Frame, v rt.Value) (out []string, err erro
 	return out, nil
 }
 
-// out10 builds a TableColumn from Go goside.TableColumn.
-func (b *tourModule0Bound) out10(v goside.TableColumn) (rt.Value, error) {
+// out10 builds a TableColumn from Go tourModule1_goside.TableColumn.
+func (b *tourModule1Bound) out10(v tourModule1_goside.TableColumn) (rt.Value, error) {
 	r := b.d3.New()
 	r.S[0] = string(v.Name)
 	r.S[1] = string(v.Declared)
@@ -238,8 +1375,8 @@ func (b *tourModule0Bound) out10(v goside.TableColumn) (rt.Value, error) {
 	return r, nil
 }
 
-// out9 builds a List<TableColumn> from Go []goside.TableColumn.
-func (b *tourModule0Bound) out9(v []goside.TableColumn) (rt.Value, error) {
+// out9 builds a List<TableColumn> from Go []tourModule1_goside.TableColumn.
+func (b *tourModule1Bound) out9(v []tourModule1_goside.TableColumn) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out10(v[i])
@@ -251,8 +1388,8 @@ func (b *tourModule0Bound) out9(v []goside.TableColumn) (rt.Value, error) {
 	return xs, nil
 }
 
-// out8 builds a Table from Go goside.Table.
-func (b *tourModule0Bound) out8(v goside.Table) (rt.Value, error) {
+// out8 builds a Table from Go tourModule1_goside.Table.
+func (b *tourModule1Bound) out8(v tourModule1_goside.Table) (rt.Value, error) {
 	r := b.d2.New()
 	r.S[0] = string(v.Name)
 	r.S[1] = string(v.Sql)
@@ -265,8 +1402,8 @@ func (b *tourModule0Bound) out8(v goside.Table) (rt.Value, error) {
 	return r, nil
 }
 
-// out7 builds a List<Table> from Go []goside.Table.
-func (b *tourModule0Bound) out7(v []goside.Table) (rt.Value, error) {
+// out7 builds a List<Table> from Go []tourModule1_goside.Table.
+func (b *tourModule1Bound) out7(v []tourModule1_goside.Table) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out8(v[i])
@@ -278,8 +1415,8 @@ func (b *tourModule0Bound) out7(v []goside.Table) (rt.Value, error) {
 	return xs, nil
 }
 
-// out16 builds a Column from Go goside.Column.
-func (b *tourModule0Bound) out16(v goside.Column) (rt.Value, error) {
+// out16 builds a Column from Go tourModule1_goside.Column.
+func (b *tourModule1Bound) out16(v tourModule1_goside.Column) (rt.Value, error) {
 	r := b.d5.New()
 	r.S[0] = string(v.Name)
 	r.S[1] = string(v.Declared)
@@ -289,8 +1426,8 @@ func (b *tourModule0Bound) out16(v goside.Column) (rt.Value, error) {
 	return r, nil
 }
 
-// out15 builds a List<Column> from Go []goside.Column.
-func (b *tourModule0Bound) out15(v []goside.Column) (rt.Value, error) {
+// out15 builds a List<Column> from Go []tourModule1_goside.Column.
+func (b *tourModule1Bound) out15(v []tourModule1_goside.Column) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out16(v[i])
@@ -303,12 +1440,12 @@ func (b *tourModule0Bound) out15(v []goside.Column) (rt.Value, error) {
 }
 
 // out19 builds a String from Go string.
-func (b *tourModule0Bound) out19(v string) (rt.Value, error) {
+func (b *tourModule1Bound) out19(v string) (rt.Value, error) {
 	return string(v), nil
 }
 
 // out18 builds a List<String> from Go []string.
-func (b *tourModule0Bound) out18(v []string) (rt.Value, error) {
+func (b *tourModule1Bound) out18(v []string) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out19(v[i])
@@ -320,8 +1457,8 @@ func (b *tourModule0Bound) out18(v []string) (rt.Value, error) {
 	return xs, nil
 }
 
-// out14 builds a Statement from Go goside.Statement.
-func (b *tourModule0Bound) out14(v goside.Statement) (rt.Value, error) {
+// out14 builds a Statement from Go tourModule1_goside.Statement.
+func (b *tourModule1Bound) out14(v tourModule1_goside.Statement) (rt.Value, error) {
 	r := b.d4.New()
 	w17, err := b.out15(v.Columns)
 	if err != nil {
@@ -339,8 +1476,8 @@ func (b *tourModule0Bound) out14(v goside.Statement) (rt.Value, error) {
 	return r, nil
 }
 
-// out13 builds a List<Statement> from Go []goside.Statement.
-func (b *tourModule0Bound) out13(v []goside.Statement) (rt.Value, error) {
+// out13 builds a List<Statement> from Go []tourModule1_goside.Statement.
+func (b *tourModule1Bound) out13(v []tourModule1_goside.Statement) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out14(v[i])
@@ -352,8 +1489,8 @@ func (b *tourModule0Bound) out13(v []goside.Statement) (rt.Value, error) {
 	return xs, nil
 }
 
-// out6 builds a Description from Go goside.Description.
-func (b *tourModule0Bound) out6(v goside.Description) (rt.Value, error) {
+// out6 builds a Description from Go tourModule1_goside.Description.
+func (b *tourModule1Bound) out6(v tourModule1_goside.Description) (rt.Value, error) {
 	r := b.d1.New()
 	w12, err := b.out7(v.Tables)
 	if err != nil {
@@ -371,21 +1508,21 @@ func (b *tourModule0Bound) out6(v goside.Description) (rt.Value, error) {
 	return r, nil
 }
 
-// fn1 adapts describe.describe: describe(migrations: List<Migration>, statements: List<String>) -> Description
-func (b *tourModule0Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("describe.describe", &err)
+// fn1 adapts sqlite/describe.describe: describe(migrations: List<Migration>, statements: List<String>) -> Description
+func (b *tourModule1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/describe.describe", &err)
 	if len(args) != 2 {
-		return nil, hostadapt.Arity("describe.describe", 2, len(args))
+		return nil, hostadapt.Arity("sqlite/describe.describe", 2, len(args))
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("describe.describe", 0, "goside.Describe", "migrations", err)
+		return nil, hostadapt.Param("sqlite/describe.describe", 0, "goside.Describe", "migrations", err)
 	}
 	a1, err := b.in4(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("describe.describe", 1, "goside.Describe", "statements", err)
+		return nil, hostadapt.Param("sqlite/describe.describe", 1, "goside.Describe", "statements", err)
 	}
-	r0 := goside.Describe(a0, a1)
+	r0 := tourModule1_goside.Describe(a0, a1)
 	v0, err := b.out6(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Describe", err)
@@ -393,21 +1530,21 @@ func (b *tourModule0Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	return v0, nil
 }
 
-// in23 reads a Handle as Go *goside.Conn.
-func (b *tourModule0Bound) in23(fr *rt.Frame, v rt.Value) (out *goside.Conn, err error) {
+// in23 reads a Handle as Go *tourModule1_goside.Conn.
+func (b *tourModule1Bound) in23(fr *rt.Frame, v rt.Value) (out *tourModule1_goside.Conn, err error) {
 	h, err := hostadapt.Handle(v, "sqlite.Handle")
 	if err != nil {
 		return out, err
 	}
-	p, ok := h.(*goside.Conn)
+	p, ok := h.(*tourModule1_goside.Conn)
 	if !ok {
-		return out, fmt.Errorf("sqlite.Handle handle holds %T, not *goside.Conn", h)
+		return out, fmt.Errorf("sqlite.Handle handle holds %T, not *tourModule1_goside.Conn", h)
 	}
 	return p, nil
 }
 
 // in24 reads a Int as Go int64.
-func (b *tourModule0Bound) in24(fr *rt.Frame, v rt.Value) (out int64, err error) {
+func (b *tourModule1Bound) in24(fr *rt.Frame, v rt.Value) (out int64, err error) {
 	if !rt.IsInt(v) {
 		return out, hostadapt.Want("Int", v)
 	}
@@ -415,8 +1552,8 @@ func (b *tourModule0Bound) in24(fr *rt.Frame, v rt.Value) (out int64, err error)
 	return hostadapt.ToSigned[int64](x, "int64")
 }
 
-// out26 builds a Failure from Go goside.Failure.
-func (b *tourModule0Bound) out26(v goside.Failure) (rt.Value, error) {
+// out26 builds a Failure from Go tourModule1_goside.Failure.
+func (b *tourModule1Bound) out26(v tourModule1_goside.Failure) (rt.Value, error) {
 	r := b.d7.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.S[0] = string(v.Code)
@@ -428,8 +1565,8 @@ func (b *tourModule0Bound) out26(v goside.Failure) (rt.Value, error) {
 	return r, nil
 }
 
-// out25 builds a Level from Go goside.Level.
-func (b *tourModule0Bound) out25(v goside.Level) (rt.Value, error) {
+// out25 builds a Level from Go tourModule1_goside.Level.
+func (b *tourModule1Bound) out25(v tourModule1_goside.Level) (rt.Value, error) {
 	r := b.d6.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Depth)))
 	r.SetIntSlot(1, rt.Value(int64(v.Token)))
@@ -441,25 +1578,25 @@ func (b *tourModule0Bound) out25(v goside.Level) (rt.Value, error) {
 	return r, nil
 }
 
-// fn22 adapts sqlite.begin_raw: begin_raw(h: Handle, depth: Int, token: Int) -> Level
-func (b *tourModule0Bound) fn22(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.begin_raw", &err)
+// fn22 adapts sqlite/sqlite.begin_raw: begin_raw(h: Handle, depth: Int, token: Int) -> Level
+func (b *tourModule1Bound) fn22(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.begin_raw", &err)
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("sqlite.begin_raw", 3, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.begin_raw", 3, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.begin_raw", 0, "goside.Begin", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.begin_raw", 0, "goside.Begin", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.begin_raw", 1, "goside.Begin", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.begin_raw", 1, "goside.Begin", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.begin_raw", 2, "goside.Begin", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.begin_raw", 2, "goside.Begin", "token", err)
 	}
-	r0 := goside.Begin(a0, a1, a2)
+	r0 := tourModule1_goside.Begin(a0, a1, a2)
 	v0, err := b.out25(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Begin", err)
@@ -467,17 +1604,17 @@ func (b *tourModule0Bound) fn22(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn28 adapts sqlite.close_raw: close_raw(h: Handle) -> Failure
-func (b *tourModule0Bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.close_raw", &err)
+// fn28 adapts sqlite/sqlite.close_raw: close_raw(h: Handle) -> Failure
+func (b *tourModule1Bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.close_raw", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("sqlite.close_raw", 1, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.close_raw", 1, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.close_raw", 0, "goside.Close", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.close_raw", 0, "goside.Close", "c", err)
 	}
-	r0 := goside.Close(a0)
+	r0 := tourModule1_goside.Close(a0)
 	v0, err := b.out26(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Close", err)
@@ -485,25 +1622,25 @@ func (b *tourModule0Bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn29 adapts sqlite.commit_raw: commit_raw(h: Handle, depth: Int, token: Int) -> Failure
-func (b *tourModule0Bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.commit_raw", &err)
+// fn29 adapts sqlite/sqlite.commit_raw: commit_raw(h: Handle, depth: Int, token: Int) -> Failure
+func (b *tourModule1Bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.commit_raw", &err)
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("sqlite.commit_raw", 3, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.commit_raw", 3, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.commit_raw", 0, "goside.Commit", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.commit_raw", 0, "goside.Commit", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.commit_raw", 1, "goside.Commit", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.commit_raw", 1, "goside.Commit", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.commit_raw", 2, "goside.Commit", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.commit_raw", 2, "goside.Commit", "token", err)
 	}
-	r0 := goside.Commit(a0, a1, a2)
+	r0 := tourModule1_goside.Commit(a0, a1, a2)
 	v0, err := b.out26(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Commit", err)
@@ -511,8 +1648,8 @@ func (b *tourModule0Bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// in32 reads a Cell as Go goside.Cell.
-func (b *tourModule0Bound) in32(fr *rt.Frame, v rt.Value) (out goside.Cell, err error) {
+// in32 reads a Cell as Go tourModule1_goside.Cell.
+func (b *tourModule1Bound) in32(fr *rt.Frame, v rt.Value) (out tourModule1_goside.Cell, err error) {
 	r, err := hostadapt.Record(v, "sqlite.Cell")
 	if err != nil {
 		return out, err
@@ -563,13 +1700,13 @@ func (b *tourModule0Bound) in32(fr *rt.Frame, v rt.Value) (out goside.Cell, err 
 	return out, nil
 }
 
-// in31 reads a List<Cell> as Go []goside.Cell.
-func (b *tourModule0Bound) in31(fr *rt.Frame, v rt.Value) (out []goside.Cell, err error) {
+// in31 reads a List<Cell> as Go []tourModule1_goside.Cell.
+func (b *tourModule1Bound) in31(fr *rt.Frame, v rt.Value) (out []tourModule1_goside.Cell, err error) {
 	xs, err := hostadapt.List(v)
 	if err != nil {
 		return out, err
 	}
-	out = make([]goside.Cell, 0, hostadapt.Len(xs))
+	out = make([]tourModule1_goside.Cell, 0, hostadapt.Len(xs))
 	i := 0
 	for c := xs; c != nil; c = c.Tail {
 		e, err := b.in32(fr, c.Head)
@@ -582,8 +1719,8 @@ func (b *tourModule0Bound) in31(fr *rt.Frame, v rt.Value) (out []goside.Cell, er
 	return out, nil
 }
 
-// out38 builds a Cell from Go goside.Cell.
-func (b *tourModule0Bound) out38(v goside.Cell) (rt.Value, error) {
+// out38 builds a Cell from Go tourModule1_goside.Cell.
+func (b *tourModule1Bound) out38(v tourModule1_goside.Cell) (rt.Value, error) {
 	r := b.d8.New()
 	r.SetIntSlot(0, rt.Value(int64(v.Kind)))
 	r.SetIntSlot(1, rt.Value(int64(v.Int)))
@@ -593,8 +1730,8 @@ func (b *tourModule0Bound) out38(v goside.Cell) (rt.Value, error) {
 	return r, nil
 }
 
-// out37 builds a List<Cell> from Go []goside.Cell.
-func (b *tourModule0Bound) out37(v []goside.Cell) (rt.Value, error) {
+// out37 builds a List<Cell> from Go []tourModule1_goside.Cell.
+func (b *tourModule1Bound) out37(v []tourModule1_goside.Cell) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out38(v[i])
@@ -606,8 +1743,8 @@ func (b *tourModule0Bound) out37(v []goside.Cell) (rt.Value, error) {
 	return xs, nil
 }
 
-// out34 builds a RawRow from Go goside.Row.
-func (b *tourModule0Bound) out34(v goside.Row) (rt.Value, error) {
+// out34 builds a RawRow from Go tourModule1_goside.Row.
+func (b *tourModule1Bound) out34(v tourModule1_goside.Row) (rt.Value, error) {
 	r := b.d9.New()
 	w35, err := b.out18(v.Columns)
 	if err != nil {
@@ -628,7 +1765,7 @@ func (b *tourModule0Bound) out34(v goside.Row) (rt.Value, error) {
 }
 
 // in40 reads a Bool as Go bool.
-func (b *tourModule0Bound) in40(fr *rt.Frame, v rt.Value) (out bool, err error) {
+func (b *tourModule1Bound) in40(fr *rt.Frame, v rt.Value) (out bool, err error) {
 	x, ok := v.(bool)
 	if !ok {
 		return out, hostadapt.Want("Bool", v)
@@ -636,12 +1773,12 @@ func (b *tourModule0Bound) in40(fr *rt.Frame, v rt.Value) (out bool, err error) 
 	return bool(x), nil
 }
 
-// in33 reads a (RawRow) -> Bool as Go func(goside.Row) bool.
-func (b *tourModule0Bound) in33(fr *rt.Frame, v rt.Value) (out func(goside.Row) bool, err error) {
+// in33 reads a (RawRow) -> Bool as Go func(tourModule1_goside.Row) bool.
+func (b *tourModule1Bound) in33(fr *rt.Frame, v rt.Value) (out func(tourModule1_goside.Row) bool, err error) {
 	if v == nil {
 		return out, fmt.Errorf("expected a function, got nil")
 	}
-	return func(p0 goside.Row) bool {
+	return func(p0 tourModule1_goside.Row) bool {
 		x0, err := b.out34(p0)
 		if err != nil {
 			panic(fmt.Sprintf("Nomi callback arg 0: %v", err))
@@ -658,37 +1795,37 @@ func (b *tourModule0Bound) in33(fr *rt.Frame, v rt.Value) (out func(goside.Row) 
 	}, nil
 }
 
-// fn30 adapts sqlite.each_row_raw: each_row_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
-func (b *tourModule0Bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.each_row_raw", &err)
+// fn30 adapts sqlite/sqlite.each_row_raw: each_row_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
+func (b *tourModule1Bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.each_row_raw", &err)
 	if len(args) != 6 {
-		return nil, hostadapt.Arity("sqlite.each_row_raw", 6, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.each_row_raw", 6, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.each_row_raw", 0, "goside.EachRow", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 0, "goside.EachRow", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.each_row_raw", 1, "goside.EachRow", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 1, "goside.EachRow", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.each_row_raw", 2, "goside.EachRow", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 2, "goside.EachRow", "token", err)
 	}
 	a3, err := b.in4(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.each_row_raw", 3, "goside.EachRow", "parts", err)
+		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 3, "goside.EachRow", "parts", err)
 	}
 	a4, err := b.in31(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.each_row_raw", 4, "goside.EachRow", "params", err)
+		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 4, "goside.EachRow", "params", err)
 	}
 	a5, err := b.in33(fr, args[5])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.each_row_raw", 5, "goside.EachRow", "f", err)
+		return nil, hostadapt.Param("sqlite/sqlite.each_row_raw", 5, "goside.EachRow", "f", err)
 	}
-	r0 := goside.EachRow(a0, a1, a2, a3, a4, a5)
+	r0 := tourModule1_goside.EachRow(fr.Context(), a0, a1, a2, a3, a4, a5)
 	v0, err := b.out26(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.EachRow", err)
@@ -696,8 +1833,8 @@ func (b *tourModule0Bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// out45 builds a List<List<Cell>> from Go [][]goside.Cell.
-func (b *tourModule0Bound) out45(v [][]goside.Cell) (rt.Value, error) {
+// out45 builds a List<List<Cell>> from Go [][]tourModule1_goside.Cell.
+func (b *tourModule1Bound) out45(v [][]tourModule1_goside.Cell) (rt.Value, error) {
 	var xs *rt.List[any]
 	for i := len(v) - 1; i >= 0; i-- {
 		x, err := b.out37(v[i])
@@ -709,8 +1846,8 @@ func (b *tourModule0Bound) out45(v [][]goside.Cell) (rt.Value, error) {
 	return xs, nil
 }
 
-// out42 builds a Answer from Go goside.Answer.
-func (b *tourModule0Bound) out42(v goside.Answer) (rt.Value, error) {
+// out42 builds a Answer from Go tourModule1_goside.Answer.
+func (b *tourModule1Bound) out42(v tourModule1_goside.Answer) (rt.Value, error) {
 	r := b.d10.New()
 	w43, err := b.out18(v.Columns)
 	if err != nil {
@@ -736,33 +1873,33 @@ func (b *tourModule0Bound) out42(v goside.Answer) (rt.Value, error) {
 	return r, nil
 }
 
-// fn41 adapts sqlite.exec_raw: exec_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
-func (b *tourModule0Bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.exec_raw", &err)
+// fn41 adapts sqlite/sqlite.exec_raw: exec_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
+func (b *tourModule1Bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.exec_raw", &err)
 	if len(args) != 5 {
-		return nil, hostadapt.Arity("sqlite.exec_raw", 5, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.exec_raw", 5, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.exec_raw", 0, "goside.Exec", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 0, "goside.Exec", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.exec_raw", 1, "goside.Exec", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 1, "goside.Exec", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.exec_raw", 2, "goside.Exec", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 2, "goside.Exec", "token", err)
 	}
 	a3, err := b.in4(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.exec_raw", 3, "goside.Exec", "parts", err)
+		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 3, "goside.Exec", "parts", err)
 	}
 	a4, err := b.in31(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.exec_raw", 4, "goside.Exec", "params", err)
+		return nil, hostadapt.Param("sqlite/sqlite.exec_raw", 4, "goside.Exec", "params", err)
 	}
-	r0 := goside.Exec(a0, a1, a2, a3, a4)
+	r0 := tourModule1_goside.Exec(fr.Context(), a0, a1, a2, a3, a4)
 	v0, err := b.out42(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Exec", err)
@@ -770,22 +1907,22 @@ func (b *tourModule0Bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// out49 builds a Handle from Go *goside.Conn.
-func (b *tourModule0Bound) out49(v *goside.Conn) (rt.Value, error) {
+// out49 builds a Handle from Go *tourModule1_goside.Conn.
+func (b *tourModule1Bound) out49(v *tourModule1_goside.Conn) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "sqlite.Handle", Value: v}, nil
 }
 
-// fn48 adapts sqlite.open_raw: open_raw(path: String) -> Result<Handle, String>
-func (b *tourModule0Bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.open_raw", &err)
+// fn48 adapts sqlite/sqlite.open_raw: open_raw(path: String) -> Result<Handle, String>
+func (b *tourModule1Bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.open_raw", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("sqlite.open_raw", 1, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.open_raw", 1, len(args))
 	}
 	a0, err := b.in5(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.open_raw", 0, "goside.Open", "path", err)
+		return nil, hostadapt.Param("sqlite/sqlite.open_raw", 0, "goside.Open", "path", err)
 	}
-	r0, e := goside.Open(a0)
+	r0, e := tourModule1_goside.Open(a0)
 	if e != nil {
 		rec := b.d11.NewVariant(1)
 		rec.S[0] = e.Error()
@@ -800,25 +1937,25 @@ func (b *tourModule0Bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return ok, nil
 }
 
-// fn50 adapts sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
-func (b *tourModule0Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.ping_raw", &err)
+// fn50 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
+func (b *tourModule1Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.ping_raw", &err)
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("sqlite.ping_raw", 3, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.ping_raw", 3, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.ping_raw", 0, "goside.Ping", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.ping_raw", 0, "goside.Ping", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.ping_raw", 1, "goside.Ping", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.ping_raw", 1, "goside.Ping", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.ping_raw", 2, "goside.Ping", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.ping_raw", 2, "goside.Ping", "token", err)
 	}
-	r0 := goside.Ping(a0, a1, a2)
+	r0 := tourModule1_goside.Ping(a0, a1, a2)
 	v0, err := b.out26(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Ping", err)
@@ -826,25 +1963,25 @@ func (b *tourModule0Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn51 adapts sqlite.rollback_raw: rollback_raw(h: Handle, depth: Int, token: Int) -> Failure
-func (b *tourModule0Bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.rollback_raw", &err)
+// fn51 adapts sqlite/sqlite.rollback_raw: rollback_raw(h: Handle, depth: Int, token: Int) -> Failure
+func (b *tourModule1Bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.rollback_raw", &err)
 	if len(args) != 3 {
-		return nil, hostadapt.Arity("sqlite.rollback_raw", 3, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.rollback_raw", 3, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.rollback_raw", 0, "goside.Rollback", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.rollback_raw", 0, "goside.Rollback", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.rollback_raw", 1, "goside.Rollback", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.rollback_raw", 1, "goside.Rollback", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.rollback_raw", 2, "goside.Rollback", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.rollback_raw", 2, "goside.Rollback", "token", err)
 	}
-	r0 := goside.Rollback(a0, a1, a2)
+	r0 := tourModule1_goside.Rollback(a0, a1, a2)
 	v0, err := b.out26(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Rollback", err)
@@ -852,38 +1989,70 @@ func (b *tourModule0Bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn52 adapts sqlite.run_raw: run_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
-func (b *tourModule0Bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("sqlite.run_raw", &err)
+// fn52 adapts sqlite/sqlite.run_raw: run_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
+func (b *tourModule1Bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.run_raw", &err)
 	if len(args) != 5 {
-		return nil, hostadapt.Arity("sqlite.run_raw", 5, len(args))
+		return nil, hostadapt.Arity("sqlite/sqlite.run_raw", 5, len(args))
 	}
 	a0, err := b.in23(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.run_raw", 0, "goside.Run", "c", err)
+		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 0, "goside.Run", "c", err)
 	}
 	a1, err := b.in24(fr, args[1])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.run_raw", 1, "goside.Run", "depth", err)
+		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 1, "goside.Run", "depth", err)
 	}
 	a2, err := b.in24(fr, args[2])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.run_raw", 2, "goside.Run", "token", err)
+		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 2, "goside.Run", "token", err)
 	}
 	a3, err := b.in4(fr, args[3])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.run_raw", 3, "goside.Run", "parts", err)
+		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 3, "goside.Run", "parts", err)
 	}
 	a4, err := b.in31(fr, args[4])
 	if err != nil {
-		return nil, hostadapt.Param("sqlite.run_raw", 4, "goside.Run", "params", err)
+		return nil, hostadapt.Param("sqlite/sqlite.run_raw", 4, "goside.Run", "params", err)
 	}
-	r0 := goside.Run(a0, a1, a2, a3, a4)
+	r0 := tourModule1_goside.Run(fr.Context(), a0, a1, a2, a3, a4)
 	v0, err := b.out42(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("goside.Run", err)
 	}
 	return v0, nil
+}
+
+// The tour module migrate (github.com/nomi-language/nomi/lib/sql/migrate)
+
+var (
+	_ = errors.New
+	_ = fmt.Errorf
+	_ = rt.TupleDesc
+)
+
+// tourModule2Bound holds the descriptors the adapters build with, resolved once.
+type tourModule2Bound struct {
+	env *hostadapt.Env
+}
+
+// tourModule2Specs lists the descriptor specs the adapters build with, so an engine can
+// link its own descriptors for them before tourModule2Bind.
+func tourModule2Specs() []*hostadapt.DescSpec {
+	return []*hostadapt.DescSpec{}
+}
+
+// tourModule2Names lists every binding this file adapts, in table order.
+func tourModule2Names() []string {
+	return []string{}
+}
+
+// tourModule2Bind resolves every descriptor through env and answers the adapters by
+// binding name.
+func tourModule2Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
+	b := &tourModule2Bound{env: env}
+	_ = b
+	return map[string]hostadapt.Func{}, nil
 }
 
 // The tour module sqlkit (github.com/nomi-language/nomi/lib/sql/sqlkit)
@@ -893,55 +2062,55 @@ var (
 	_ = fmt.Errorf
 )
 
-var tourModule1Spec_d0 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var tourModule3Spec_d0 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-var tourModule1Spec_d1 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
+var tourModule3Spec_d1 = &hostadapt.DescSpec{Name: "results.Result", Kind: rt.KindEnum, Variants: []rt.VariantSpec{{Name: "Ok", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}, {Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotString}}}}}
 
-// tourModule1Bound holds the descriptors the adapters build with, resolved once.
-type tourModule1Bound struct {
+// tourModule3Bound holds the descriptors the adapters build with, resolved once.
+type tourModule3Bound struct {
 	env *hostadapt.Env
 	d0  *rt.TypeDesc
 	d1  *rt.TypeDesc
 }
 
-// tourModule1Specs lists the descriptor specs the adapters build with, so an engine can
-// link its own descriptors for them before tourModule1Bind.
-func tourModule1Specs() []*hostadapt.DescSpec {
+// tourModule3Specs lists the descriptor specs the adapters build with, so an engine can
+// link its own descriptors for them before tourModule3Bind.
+func tourModule3Specs() []*hostadapt.DescSpec {
 	return []*hostadapt.DescSpec{
-		tourModule1Spec_d0,
-		tourModule1Spec_d1,
+		tourModule3Spec_d0,
+		tourModule3Spec_d1,
 	}
 }
 
-// tourModule1Names lists every binding this file adapts, in table order.
-func tourModule1Names() []string {
+// tourModule3Names lists every binding this file adapts, in table order.
+func tourModule3Names() []string {
 	return []string{
 		"remove_all",
 		"temp_dir",
-		"tools/generate.config_text",
+		"sqlkit/tools/generate.config_text",
 	}
 }
 
-// tourModule1Bind resolves every descriptor through env and answers the adapters by
+// tourModule3Bind resolves every descriptor through env and answers the adapters by
 // binding name.
-func tourModule1Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
-	b := &tourModule1Bound{env: env}
+func tourModule3Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
+	b := &tourModule3Bound{env: env}
 	var err error
-	if b.d0, err = env.Desc(tourModule1Spec_d0); err != nil {
+	if b.d0, err = env.Desc(tourModule3Spec_d0); err != nil {
 		return nil, err
 	}
-	if b.d1, err = env.Desc(tourModule1Spec_d1); err != nil {
+	if b.d1, err = env.Desc(tourModule3Spec_d1); err != nil {
 		return nil, err
 	}
 	return map[string]hostadapt.Func{
-		"remove_all":                 b.fn1,
-		"temp_dir":                   b.fn3,
-		"tools/generate.config_text": b.fn5,
+		"remove_all":                        b.fn1,
+		"temp_dir":                          b.fn3,
+		"sqlkit/tools/generate.config_text": b.fn5,
 	}, nil
 }
 
 // in2 reads a String as Go string.
-func (b *tourModule1Bound) in2(fr *rt.Frame, v rt.Value) (out string, err error) {
+func (b *tourModule3Bound) in2(fr *rt.Frame, v rt.Value) (out string, err error) {
 	x, ok := v.(string)
 	if !ok {
 		return out, hostadapt.Want("String", v)
@@ -950,7 +2119,7 @@ func (b *tourModule1Bound) in2(fr *rt.Frame, v rt.Value) (out string, err error)
 }
 
 // fn1 adapts remove_all: remove_all(path: String) -> Result<Unit, String>
-func (b *tourModule1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *tourModule3Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("remove_all", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("remove_all", 1, len(args))
@@ -959,7 +2128,7 @@ func (b *tourModule1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	if err != nil {
 		return nil, hostadapt.Param("remove_all", 0, "testside.RemoveAll", "path", err)
 	}
-	e := testside.RemoveAll(a0)
+	e := tourModule3_testside.RemoveAll(a0)
 	if e != nil {
 		rec := b.d0.NewVariant(1)
 		rec.S[0] = e.Error()
@@ -971,17 +2140,17 @@ func (b *tourModule1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 }
 
 // out4 builds a String from Go string.
-func (b *tourModule1Bound) out4(v string) (rt.Value, error) {
+func (b *tourModule3Bound) out4(v string) (rt.Value, error) {
 	return string(v), nil
 }
 
 // fn3 adapts temp_dir: temp_dir() -> Result<String, String>
-func (b *tourModule1Bound) fn3(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+func (b *tourModule3Bound) fn3(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("temp_dir", &err)
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("temp_dir", 0, len(args))
 	}
-	r0, e := testside.TempDir()
+	r0, e := tourModule3_testside.TempDir()
 	if e != nil {
 		rec := b.d1.NewVariant(1)
 		rec.S[0] = e.Error()
@@ -996,17 +2165,17 @@ func (b *tourModule1Bound) fn3(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	return ok, nil
 }
 
-// fn5 adapts tools/generate.config_text: config_text(root: String) -> Result<String, String>
-func (b *tourModule1Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
-	defer hostadapt.Recover("tools/generate.config_text", &err)
+// fn5 adapts sqlkit/tools/generate.config_text: config_text(root: String) -> Result<String, String>
+func (b *tourModule3Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("sqlkit/tools/generate.config_text", &err)
 	if len(args) != 1 {
-		return nil, hostadapt.Arity("tools/generate.config_text", 1, len(args))
+		return nil, hostadapt.Arity("sqlkit/tools/generate.config_text", 1, len(args))
 	}
 	a0, err := b.in2(fr, args[0])
 	if err != nil {
-		return nil, hostadapt.Param("tools/generate.config_text", 0, "toolside.Config", "root", err)
+		return nil, hostadapt.Param("sqlkit/tools/generate.config_text", 0, "toolside.Config", "root", err)
 	}
-	r0, e := toolside.Config(a0)
+	r0, e := tourModule3_toolside.Config(a0)
 	if e != nil {
 		rec := b.d1.NewVariant(1)
 		rec.S[0] = e.Error()
@@ -1023,6 +2192,8 @@ func (b *tourModule1Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 
 // linkedModules is the adapters of every tour module's bindings.
 var linkedModules = []linkedModule{
-	{module: "github.com/nomi-language/nomi/lib/sql/sqlite", bind: tourModule0Bind},
-	{module: "github.com/nomi-language/nomi/lib/sql/sqlkit", bind: tourModule1Bind},
+	{module: "github.com/nomi-language/nomi/lib/sql/postgres", bind: tourModule0Bind},
+	{module: "github.com/nomi-language/nomi/lib/sql/sqlite", bind: tourModule1Bind},
+	{module: "github.com/nomi-language/nomi/lib/sql/migrate", bind: tourModule2Bind},
+	{module: "github.com/nomi-language/nomi/lib/sql/sqlkit", bind: tourModule3Bind},
 }

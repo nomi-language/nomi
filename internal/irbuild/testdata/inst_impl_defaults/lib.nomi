@@ -1,0 +1,40 @@
+import std/duration.Duration
+
+// A generic type whose constructor has a default the caller's file cannot
+// name (`Duration`), before a trailing function.
+pub struct Box<A> {
+    size: Int
+    wait: Duration
+    handler: (A) -> Int
+}
+
+impl Box<A> {
+    pub fn new(
+        kind: String,
+        size: Int = 1,
+        wait: Duration = Duration.minutes(5),
+        handler: (A) -> Int,
+    ) -> Box<A> {
+        _ = kind
+        Box{size, wait, handler}
+    }
+
+    pub fn wait_seconds(box: Box<A>) -> Int {
+        Duration.as_seconds(box.wait)
+    }
+}
+
+pub interface Named {
+    fn name(value: self) -> String
+}
+
+// A monomorphic constructor whose first parameter is an interface.
+pub struct Greeter {
+    greeting: String
+}
+
+impl Greeter {
+    pub fn new(who: Named, greeting: String = "hello", punct: String = "!") -> Greeter {
+        Greeter{greeting: "${greeting}, ${Named.name(who)}${punct}"}
+    }
+}

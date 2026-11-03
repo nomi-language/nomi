@@ -283,6 +283,20 @@ func pluralCases() map[string][]argSet {
 	}
 }
 
+// tomlCases covers a Toml literal's check over placed and misplaced slots
+// and text that is not TOML, its build over key and value slots, and the
+// quoting and float text its values write.
+func tomlCases() map[string][]argSet {
+	return map[string][]argSet{
+		"toml_host.check": sets(a(strs("a = ", "")), a(strs("", " = 1")), a(strs("a = \"", "\"")),
+			a(strs("a = 1 # ", "")), a(strs("a = 1", "")), a(strs("a = = 1")), a(strs(""))),
+		"toml_host.build": sets(a(strs("", " = ", ""), strs(`"k"`, "1")), a(strs("[t.", "]"), strs("42")),
+			a(strs("x = [", ", ", "]"), strs("1", `"two"`))),
+		"toml_host.quote": sets(a(s("")), a(s("plain")), a(s("x\"\nadmin = true")), a(s("tab\t\u0001\\"))),
+		"toml_host.float": sets(a(0.0), a(2.0), a(-2.5), a(1e21), a(math.Inf(1)), a(math.NaN())),
+	}
+}
+
 // formatCases covers the locale-aware formatting and parsing rows: the
 // grouping, digit, sign and percent shapes the adapters convert, and each
 // parse error's payload.
@@ -599,6 +613,7 @@ func TestParity_EveryBindingReproducesItsRecordedOutcomes(t *testing.T) {
 	p.run(pluralCases())
 	p.run(formatCases())
 	p.run(moneyDateCases())
+	p.run(tomlCases())
 	p.regex()
 
 	updateOutcomes(t, funcsGoldenPath, p.lines)

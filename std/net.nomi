@@ -1,4 +1,4 @@
-//# TCP connections over Go's net package. `net.dial` opens a connection,
+//# TCP connections. `net.dial` opens a connection,
 //# and `net.listen` with `net.serve` answers the connections that arrive,
 //# each as a task of a supervisor, as `http.serve` answers requests. A
 //# connection is read and written through std/io's streams:

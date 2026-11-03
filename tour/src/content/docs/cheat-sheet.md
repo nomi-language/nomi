@@ -64,6 +64,13 @@ test result: ok. 1 passed, 0 failed
 - Strings interpolate with `${...}`. A backtick string is raw: no escapes and
   no interpolation. A type name before a backtick string is a typed literal,
   checked at compile time: ``Regex`\d+` ``, ``Url`https://nomi-lang.org` ``.
+  A type that implements `CheckedLiteral`, such as `Url`, is checked in
+  every quote style, slots included: `Url"https://x.org/${id}"` is a `Url`,
+  never a `Result`.
+- std/html's `Html"..."` is an HTML template the compiler checks. Each
+  `${...}` is escaped for where it stands. A one-line fragment quotes its
+  attributes with `'`, since `"` ends the literal:
+  `Html"<b class='x'>${n}</b>"`. Several lines go in `Html"""..."""`.
 - The constants are `True`, `False`, `None` and `Unit`. There is no `null`.
 
 | Shape | Literal | Named form |
@@ -178,6 +185,10 @@ test result: ok. 1 passed, 0 failed
 
 - `if` and `case` are expressions. `case` must cover every shape the value can
   take. A guard is written `when`: `Some(n) when n > 0 -> ...`.
+- The branches of an `if` or `case` have one type. Branches of different
+  types that implement one interface join as it only where the value's type
+  is written as that interface, by an annotation, a parameter or a declared
+  result: `shape: Shape = if round { Circle{r: 1.0} } else { Square{side: 2.0} }`.
 - There are no exceptions. A function that can fail returns `Maybe<T>`
   (`Some(v)` or `None`) or `Result<T, E>` (`Ok(v)` or `Err(e)`).
 - A postfix `?` returns an `Err` or `None` from the enclosing function, lambda

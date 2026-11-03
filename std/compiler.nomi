@@ -7,7 +7,6 @@ import {
     maybe.Maybe.{self, None}
     results.Result
     strings.String
-    toml.Toml
 }
 
 /// A compiler diagnostic with 1-based source coordinates.
@@ -37,7 +36,7 @@ pub struct Hover {
 pub struct Project {
     entry_point: String
     files: Map<String, String>
-    manifest: Maybe<Toml> = None
+    manifest: Maybe<String> = None
 }
 
 /// Options for running a `.nomi` file under the current test project root.
@@ -123,7 +122,7 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //! diagnostics = compiler.check_project(Project{
 //!     entry_point: "main",
 //!     manifest: Maybe.Some(
-//!         Toml"""
+//!         """
 //!         [module]
 //!         name = "demo"
 //!         entry_points = ["main"]

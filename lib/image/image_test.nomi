@@ -1,0 +1,148 @@
+import {
+    std/fs
+    image.{self, Dimensions, Format, Image}
+}
+
+// testdata/gradient.{jpg,png,webp} are one 120 by 80 gradient in each
+// format; truncated.jpg is the JPEG's first third; huge-header.png is a
+// PNG header that declares 100000 by 100000 pixels and holds no pixels.
+fn fixture(name: String) -> Bytes {
+    fs.read("testdata/${name}")!
+}
+
+test "dimensions reads each format's size from its header" {
+    assert image.dimensions(fixture("gradient.jpg"))
+        == Ok(Dimensions{format: .Jpeg, width: 120, height: 80})
+
+    assert image.dimensions(fixture("gradient.png"))
+        == Ok(Dimensions{format: .Png, width: 120, height: 80})
+
+    assert image.dimensions(fixture("gradient.webp"))
+        == Ok(Dimensions{format: .Webp, width: 120, height: 80})
+}
+
+test "decode answers the image and the format it came from" {
+    jpeg = image.decode(fixture("gradient.jpg"))!
+    assert Image.width(jpeg) == 120
+    assert Image.height(jpeg) == 80
+    assert Image.format(jpeg) == Some(Format.Jpeg)
+    assert Image.format(image.decode(fixture("gradient.png"))!) == Some(Format.Png)
+    assert Image.format(image.decode(fixture("gradient.webp"))!) == Some(Format.Webp)
+}
+
+test "bytes of no supported format are UnsupportedFormat" {
+    gif = String.to_bytes("GIF89a")
+    assert image.decode(gif) == Err(.UnsupportedFormat)
+    assert image.dimensions(Bytes.from_list([])) == Err(.UnsupportedFormat)
+}
+
+test "a truncated file is Corrupt, with the decoder's message" {
+    case image.decode(fixture("truncated.jpg")) {
+        Err(.Corrupt{message}) -> assert message != ""
+        other -> assert other == Err(.Corrupt{message: "a Corrupt error"})
+    }
+}
+
+test "a header that declares too many pixels is refused before decoding" {
+    data = fixture("huge-header.png")
+    assert image.dimensions(data) == Ok(Dimensions{format: .Png, width: 100000, height: 100000})
+    assert image.decode(data) == Err(.TooLarge{width: 100000, height: 100000})
+
+    assert image.decode(fixture("gradient.png"), max_pixels: 9599)
+        == Err(.TooLarge{width: 120, height: 80})
+
+    assert image.decode(fixture("gradient.png"), max_pixels: 9600) |> Result.is_ok()
+}
+
+test "fit scales down into the box keeping the shape" {
+    picture = image.decode(fixture("gradient.png"))!
+
+    [
+        #("wider than the box", 60, 60, 60, 40),
+        #("taller than the box", 100, 20, 30, 20),
+        #("a one-pixel box", 1, 1, 1, 1),
+    ]
+    |> subtests #(description, box_width, box_height, width, height), description {
+        fitted = Image.fit(picture, box_width, box_height)
+        assert #(Image.width(fitted), Image.height(fitted)) == #(width, height)
+        assert Image.format(fitted) == None
+    }
+}
+
+test "fit never scales up, and an image that fits is answered as it is" {
+    picture = image.decode(fixture("gradient.png"))!
+    same = Image.fit(picture, 800, 600)
+    assert #(Image.width(same), Image.height(same)) == #(120, 80)
+    assert Image.format(same) == Some(Format.Png)
+}
+
+test "fill covers the box and crops to it exactly" {
+    picture = image.decode(fixture("gradient.png"))!
+    square = Image.fill(picture, 50, 50)
+    assert #(Image.width(square), Image.height(square)) == #(50, 50)
+    tall = Image.fill(picture, 20, 90)
+    assert #(Image.width(tall), Image.height(tall)) == #(20, 90)
+}
+
+test "crop answers the rectangle it names" {
+    picture = image.decode(fixture("gradient.png"))!
+    part = Image.crop(picture, 10, 20, 30, 40)
+    assert #(Image.width(part), Image.height(part)) == #(30, 40)
+}
+
+test "encoded images decode back to the same size" {
+    picture = Image.fit(image.decode(fixture("gradient.webp"))!, 60, 60)
+    jpeg = Image.encode_jpeg(picture)
+    png = Image.encode_png(picture)
+    assert image.dimensions(jpeg) == Ok(Dimensions{format: .Jpeg, width: 60, height: 40})
+    assert image.dimensions(png) == Ok(Dimensions{format: .Png, width: 60, height: 40})
+    assert Image.width(image.decode(jpeg)!) == 60
+}
+
+test "a lower JPEG quality writes a smaller file" {
+    picture = image.decode(fixture("gradient.png"))!
+    high = Bytes.length(Image.encode_jpeg(picture, quality: 95))
+    default = Bytes.length(Image.encode_jpeg(picture))
+    low = Bytes.length(Image.encode_jpeg(picture, quality: 20))
+    assert high > default
+    assert default > low
+}
+
+// What welovenoah's upload does with each picture: the original, a medium
+// variant for posts and a thumbnail for listings, a WebP stored as a JPEG.
+fn variants(upload: Bytes) -> Result<List<#(String, Bytes)>, image.Error> {
+    picture = image.decode(upload)?
+
+    encode = fn variant: Image -> {
+        case Image.format(picture) {
+            Some(.Png) -> Image.encode_png(variant)
+            _ -> Image.encode_jpeg(variant)
+        }
+    }
+
+    Ok([
+        #("original", encode(picture)),
+        #("medium", encode(Image.fit(picture, 800, 600))),
+        #("thumbnail", encode(Image.fit(picture, 300, 200))),
+    ])
+}
+
+test "an upload's variants are written as files that read back" {
+    written = fs.with_temp_dir(fn dir -> {
+        Iter.each(variants(fixture("gradient.webp"))!, fn #(size, data) -> {
+            fs.write("${dir}/${size}.jpg", data)!
+        })
+
+        Ok(
+            ["original", "medium", "thumbnail"]
+            |> Iter.map(fn size -> image.dimensions(fs.read("${dir}/${size}.jpg")!))
+            |> Iter.to_list()
+        )
+    })
+
+    assert written == Ok([
+            Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
+            Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
+            Ok(Dimensions{format: .Jpeg, width: 120, height: 80}),
+        ])
+}

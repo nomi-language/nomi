@@ -213,12 +213,18 @@ type urlErrorf string
 
 func (e urlErrorf) Error() string { return string(e) }
 
-// QueryEncode is `Query.encode`: Go's Values.Encode over the pairs (keys
-// sorted, each key's values in order). pairs alternates key and value.
+// QueryEncode is `Query.encode`: each pair as `key=value`, both escaped
+// as url.QueryEscape does, in the pairs' order and joined with `&`. pairs
+// alternates key and value.
 func QueryEncode(pairs *List[string]) string {
-	v := url.Values{}
+	var b strings.Builder
 	for l := pairs; l != nil && l.Tail != nil; l = l.Tail.Tail {
-		v.Add(l.Head, l.Tail.Head)
+		if b.Len() > 0 {
+			b.WriteByte('&')
+		}
+		b.WriteString(url.QueryEscape(l.Head))
+		b.WriteByte('=')
+		b.WriteString(url.QueryEscape(l.Tail.Head))
 	}
-	return v.Encode()
+	return b.String()
 }

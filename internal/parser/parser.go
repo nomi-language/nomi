@@ -2978,6 +2978,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 			Triple: true,
 			Parts:  []ast.StringPart{ast.StringText{Value: tok.Lexeme}},
 			Line:   tok.Line, Col: tok.Col,
+			BodyCol: tok.Indent + 1,
 		}, nil
 
 	case token.RAW_TAGGED_STRING_LITERAL:
@@ -2997,6 +2998,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 			Triple: true,
 			Parts:  []ast.StringPart{ast.StringText{Value: tok.Lexeme}},
 			Line:   tok.Line, Col: tok.Col,
+			BodyCol: tok.Indent + 1,
 		}, nil
 
 	case token.STRING_START, token.TRIPLE_STRING_START:
@@ -3938,12 +3940,16 @@ func (p *Parser) parseTaggedStringInterp() (ast.Node, error) {
 		return nil, errorAt(cur.Line, cur.Col, "unexpected %s in interpolated tagged string", tokenShown(cur))
 	}
 
-	return &ast.TaggedString{
+	n := &ast.TaggedString{
 		Tag:    tok.Tag,
 		Triple: triple,
 		Parts:  parts,
 		Line:   tok.Line, Col: tok.Col,
-	}, nil
+	}
+	if triple {
+		n.BodyCol = tok.Indent + 1
+	}
+	return n, nil
 }
 
 // parseIf parses an if expression:

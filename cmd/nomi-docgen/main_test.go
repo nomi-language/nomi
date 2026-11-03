@@ -204,6 +204,21 @@ func tourSidebarReferenceModules(t *testing.T) []string {
 	return names
 }
 
+// A signature shows each default as its source writes it, constant or not:
+// a parameter's, a struct field's and a record variant field's.
+func TestReferenceSignaturesShowDefaults(t *testing.T) {
+	lib := std.Load()
+	for module, want := range map[string]string{
+		"storage_testing": "fn new(public_base: Url = Url`https://storage.test/`) -> Memory",
+		"fs_testing":      `    cwd: String = "/work"`,
+		"http":            "Follow { max: Int = 10 }",
+	} {
+		if page := renderModuleWithLinks(lib, module, nil); !strings.Contains(page, want) {
+			t.Errorf("std/%s reference lacks %q\n%s", module, want, page)
+		}
+	}
+}
+
 func TestRenderModuleIncludesPublicNamespaceAndTypeBodyAPIs(t *testing.T) {
 	lib := std.Load()
 	names := make([]string, 0, len(lib.Files))

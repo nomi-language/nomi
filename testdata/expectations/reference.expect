@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
-records 64
-declared-cases 755
+records 73
+declared-cases 816
 failing 0
 C actors
 E 0
@@ -359,12 +359,17 @@ T ok fs_testing.text
 T ok fs_testing.conformance
 C hash
 E 0
-N 9
-H 37fa0bd6e7b71f1bb63bd3ba124ca8dc4471579da955dfc12e724fdfcc4bc179
+N 14
+H 9075340ff29eb56a0241105f927847dee2fc6df7e806f9cd8728bdaa841e3c06
 T ok hash.sha256
 T ok hash.sha256_hex
 T ok hash.sha512
 T ok hash.sha512_hex
+T ok hash.md5
+T ok hash.md5_hex
+T ok hash.md5_hex #2
+T ok hash.sha1
+T ok hash.sha1_hex
 T ok hash.hmac_sha256
 T ok hash.hmac_sha256 #2
 T ok hash.hmac_sha512
@@ -376,10 +381,22 @@ N 2
 H 28e33cf39d24ca75107c3747b15aff1c5a0b49742f2edc42c4ca3049804b2500
 T ok hex.encode
 T ok hex.decode
+C html
+E 0
+N 8
+H 8be585bd7320b53dc0fc27aabae9ef459ed1f55fa6fd198fc7702bd8e2a4fcdd
+T ok struct Html
+T ok Html.inspect (impl Debug for Html)
+T ok Html.trusted
+T ok Html.text
+T ok Html.empty
+T ok Html.concat
+T ok Html.each
+T ok html.class_if
 C http
 E 0
-N 43
-H d2b1112ea56eaa9be83bb3dd560fbb49ea0d56c9e091ed7734b46989c94726ae
+N 44
+H feb87c0bb61bf9bcffb32a695bf05b075a58a419de6a2e950a38363bd7aaf25e
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -403,6 +420,7 @@ T ok Request.read
 T ok Request.dump
 T ok Response.write_to
 T ok Response.set_cookie
+T ok Response.html
 T ok Response.error
 T ok Response.redirect
 T ok Response.content
@@ -585,6 +603,26 @@ T ok Iter.sum
 T ok Iter.sum_by
 T ok Iter.product
 T ok Iter.product_by
+C jobs
+E 0
+N 7
+H 0950d2f8660c483801a045e9460c174c005558f4d8c1a986b517edf93b101c23
+T ok Job.new
+T ok Job.renamed_from
+T ok enum Failure
+T ok jobs.run_one
+T ok jobs.backoff
+T ok jobs.settle_for
+T ok jobs.handlers_by_kind
+C jobs_testing
+E 0
+N 5
+H 9f1c4dc94d4a19b9a6e392809dd9438a2511356397f2b942c650e3e8ea0134bc
+T ok struct Inline
+T ok jobs_testing.run_queued
+T ok jobs_testing.decodes
+T ok jobs_testing.conformance
+T ok jobs_testing.rules
 C json
 E 0
 N 5
@@ -609,6 +647,16 @@ T ok List.starts_with
 T ok List.ends_with
 T ok List.contains (impl Contains for List<T>)
 T ok List.empty_sum (impl Summable for List<T>)
+C literals
+E 0
+N 1
+H 3e1aaf677cbb88cf12437a8374fb1c60ad270fc74082feaacceeefcbe47a4fed
+T ok struct LiteralError
+C literals_testing
+E 0
+N 1
+H 4f0ac9a5eacf50c3d6c2c1449b99ab79367b7d22d0f9b1356d7e17dbee66e657
+T ok literals_testing.build_each
 C locale
 E 0
 N 13
@@ -650,6 +698,29 @@ E 0
 N 1
 H b07491426ce7385c46289528f48c62cffac746919216f5009fc06f46304aa9d5
 T ok log_testing.run
+C mail
+E 0
+N 10
+H 5aa395f1b842e15f54481065afb85a765a0743f890e961995e3033afd47aa27b
+T ok struct Address
+T ok Address.new
+T ok Address.parse
+T ok Error.is_temporary
+T ok Error.to_string (impl Display for Error)
+T ok mail.smtp
+T ok mail.render
+T ok mail.quoted_printable
+T ok mail.encoded_words
+T ok mail.rfc5322_date
+C mail_testing
+E 0
+N 5
+H 9d990ad99e5da44d83f1073ad9d53e2849a3bc7df440ce0bb05eaf5b140bb63b
+T ok struct Memory
+T ok struct Failing
+T ok mail_testing.with_smtp_server
+T ok mail_testing.conformance
+T ok mail_testing.rules
 C maps
 E 0
 N 16
@@ -837,8 +908,8 @@ T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
 C sql
 E 0
-N 20
-H a7c50742e49d86ec5a3f2272d1c10a7833c6e52af309c92c6954336cb02fb44b
+N 21
+H 8a6549095ca73923e2ef2ea46cf13185f07f20f484815e97cd0583b55d7a0a9b
 T ok struct Statement
 T ok Statement.join
 T ok Statement.list
@@ -848,6 +919,7 @@ T ok Statement.any
 T ok Statement.where_all
 T ok Statement.where_any
 T ok Sql.from_fragments (impl Literal for Sql)
+T ok enum Value
 T ok Value.kind
 T ok interface ToSql
 T ok interface FromSql
@@ -870,6 +942,26 @@ T ok Fake.is_closed
 T ok struct Failure
 T ok sql_testing.conformance
 T ok sql_testing.rules
+C storage
+E 0
+N 6
+H 537cb0cb9797f081b3ba24b0a08c80bceaa75ba9e13175f2b3c59441a29be768
+T ok enum Error
+T ok interface Store
+T ok storage.check_key
+T ok storage.check_content_type
+T ok storage.local
+T ok storage.handler
+C storage_testing
+E 0
+N 6
+H bb6a26bbe3fb4f752db21ce906f7a060b4702767cfece8b2eaf8268fd545fe00
+T ok struct Memory
+T ok Memory.keys
+T ok struct Failing
+T ok storage_testing.conformance
+T ok storage_testing.rules
+T ok storage_testing.invalid_keys
 C strings
 E 0
 N 49
@@ -958,9 +1050,12 @@ T ok CipherSuite.name_of
 T ok Error.to_string (impl Display for Error)
 C toml
 E 0
-N 1
-H 7222a78180e1863eed1aa4b0587ae514f49025b40853ad43e7640be69b1b4eb4
+N 4
+H b784546b5361dbb3dfbff0e13d409342a14effcd49af4d6a71c282baa1347ae3
 T ok Toml.text
+T ok Toml.check (impl CheckedLiteral<ToToml, Toml> for Toml)
+T ok enum Toml.Value
+T ok interface ToToml
 C unit
 E 0
 N 1
@@ -969,7 +1064,7 @@ T ok type Unit
 C url
 E 0
 N 24
-H 82b336c64bf8d3994ced6db8930c605e8318c6a851e6380cb2d9351401a3d57c
+H 909b4e93784651a54ebf8ace4c3a4fd25cc23528e50d5c27e94e24e4c3e268cd
 T ok url.escape_query
 T ok url.unescape_query
 T ok url.escape_path_segment
@@ -989,15 +1084,15 @@ T ok Url.resolve
 T ok Url.resolve_text
 T ok Url.join_path
 T ok Url.to_string (impl Display for Url)
-T ok Url.from_fragments (impl Literal for Url)
+T ok Url.check (impl CheckedLiteral<String, Url> for Url)
 T ok Query.parse
 T ok Query.get
 T ok Query.set
 T ok Query.encode
 C uuid
 E 0
-N 9
-H 99d736f0db9b69259fa74002111e3b2014be729dbf40c8bf7f3bd247df15c73b
+N 11
+H 324e5d8e7d8d895337d1b35d0fa1715436feecf0c9d8cef092fb359f83e47ac0
 T ok struct Uuid
 T ok Uuid.parse
 T ok Uuid.nil
@@ -1007,6 +1102,8 @@ T ok Uuid.version
 T ok Uuid.v4
 T ok Uuid.v7
 T ok Uuid.compare (impl Comparable for Uuid)
+T ok Uuid.to_json (impl ToJson for Uuid)
+T ok Uuid.from_json (impl FromJson for Uuid)
 C variants
 E 0
 N 1

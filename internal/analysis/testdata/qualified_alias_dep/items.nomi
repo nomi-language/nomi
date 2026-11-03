@@ -1,0 +1,3 @@
+import qualified_alias_src/base as source
+
+pub typealias Item source.Item
