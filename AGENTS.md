@@ -485,7 +485,13 @@ The stdlib reference (`src/content/docs/reference/`, gitignored) is generated
 by `cmd/nomi-docgen` from `///` doc comments and `//#` module comments in
 `std/*.nomi`. Edit those comments, never the generated pages. `docgen` does not
 prune: after renaming or removing a stdlib module, delete its old reference
-page.
+page. Each `//!` prompt becomes a live editor, except one that reaches a
+capability class the js/wasm build lacks (a socket, a name lookup, a
+process), which docgen finds by the walk `nomi build` checks a target with
+and shows as highlighted code with a note, as a `compile-only` tour block
+is shown; no list names them. `go test ./vmhost -run
+TestTourWasmAnswersTheReferenceEditors` runs every live editor through the
+staged wasm.
 
 The Specification section (`src/content/docs/spec/`, gitignored) is generated
 from `docs/spec.md`, one page per numbered chapter named after its heading

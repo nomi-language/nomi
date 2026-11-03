@@ -159,6 +159,7 @@ var outcomeFailure = &namedPayloadSpec{
 // against rt.Failure by reflection, so a spec claiming a field rt does not
 // declare fails rather than emitting a selector that does not compile.
 var namedPayloadDefs = sync.OnceValue(func() map[*namedPayloadSpec]*typeDef {
+	defer changingTypes()()
 	defs := make(map[*namedPayloadSpec]*typeDef, len(namedPayloadSpecs))
 	for _, s := range namedPayloadSpecs {
 		d := &typeDef{nomi: s.nomi, tagName: s.tagField, isEnum: true, lowerable: true, rtDeclared: true}

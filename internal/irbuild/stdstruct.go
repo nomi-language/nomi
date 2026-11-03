@@ -214,13 +214,24 @@ func stdMapField(nomi string, key, val func(defs []*typeDef) kind) stdStructFiel
 // kindInvalid when no row matches, which propagates as a refusal rather than a
 // field whose kind is a lie.
 func stdHostOriginKind(origin, nomi string) kind {
-	for i := range stdHostSpecs {
-		if stdHostSpecs[i].origin == origin && stdHostSpecs[i].nomi == nomi {
-			return stdHostKind(i)
-		}
+	if i, ok := stdHostOriginRows()[[2]string{origin, nomi}]; ok {
+		return stdHostKind(i)
 	}
 	return kindInvalid
 }
+
+// stdHostOriginRows indexes stdHostSpecs by (origin, name), the first row
+// winning as a scan would. The table is fixed for the process.
+var stdHostOriginRows = sync.OnceValue(func() map[[2]string]int {
+	rows := map[[2]string]int{}
+	for i := range stdHostSpecs {
+		key := [2]string{stdHostSpecs[i].origin, stdHostSpecs[i].nomi}
+		if _, dup := rows[key]; !dup {
+			rows[key] = i
+		}
+	}
+	return rows
+})
 
 // stdFieldDefault is a stdlib field DEFAULT: the shape std's declaration must
 // have, and the value the builder uses where a construction site omits the
@@ -846,6 +857,7 @@ const (
 // Built once for the process, exactly like opaqueDefs and stdEnumDefs, and for
 // the same pointer-identity reason.
 var stdStructDefs = sync.OnceValue(func() []*typeDef {
+	defer changingTypes()()
 	// TWO passes, because a row may name another: every shell exists before any
 	// field kind is resolved, so `AssertionFailure.values` can be a List over
 	// the `AssertionValue` def without either row having to be built first. A

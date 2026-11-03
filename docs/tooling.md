@@ -850,7 +850,7 @@ The `js/wasm` build keeps the browser build's limits: its file system is in memo
 
 ### Capability classes
 
-A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std/fs's, `processes` for std/process's, `network` for std/http's requests and `listen` for its server. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends requests through the browser's `fetch` but cannot start programs or serve; a `wasip1/wasm` module has none of the three.
+A std host function that acts outside the program in a way some target cannot has a capability class: `files` for std/fs's, `processes` for std/process's, `network` for std/http's requests, `connect` for std/net's and std/tls's dials and std/net's lookups, and `listen` for a server or listener. Every target has `files`, a `js/wasm` module's in memory. A `js/wasm` module sends HTTP requests through the browser's `fetch` but cannot open other connections, start programs or serve; a `wasip1/wasm` module has none of the four.
 
 `nomi build` walks what `main`, the boot and the exported functions can reach, and refuses a program that reaches a call of a class its target lacks. It writes nothing and lists each call in the program's own code that reaches the class, at that call: the std function it calls (`fs.read_text`), the host function that one reaches (`fs_host.read_text`), and the functions the call is reached through. A hint follows, to build for another target or pass `--allow-unsupported <class>`.
 

@@ -492,6 +492,7 @@ func genHostOf(k kind) (*stdGenHostSpec, []kind, bool) {
 // std STRUCT there is nothing here that can fail after the arguments are
 // admitted. That is why this function has no field guard and its neighbour does.
 func (g *gen) genHostInstance(spec *stdGenHostSpec, args ...kind) (kind, bool) {
+	defer changingTypes()()
 	if spec == nil {
 		// A caller resolved by (origin, name) and the row is absent. Unreachable
 		// while the table has both channel rows, and honoured rather than

@@ -75,7 +75,7 @@ func TestBuildCommand_AllowUnsupportedTakesAClass(t *testing.T) {
 		t.Fatalf("nomi build --allow-unsupported files: exit %d\n%s", got.exit, got.transcript())
 	}
 	got = runProcess(t, env, dir, "", nomiBin, "build", entry, "--target", "js/wasm", "--allow-unsupported", "sockets")
-	if got.exit != 1 || !strings.Contains(got.stderr, `--allow-unsupported takes a capability class (files, processes, network, listen); got "sockets"`) {
+	if got.exit != 1 || !strings.Contains(got.stderr, `--allow-unsupported takes a capability class (files, processes, network, connect, listen); got "sockets"`) {
 		t.Fatalf("an unknown class: exit %d\n%s", got.exit, got.transcript())
 	}
 }

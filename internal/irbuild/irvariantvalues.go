@@ -18,7 +18,10 @@ func irSlotlessPayload(k kind) bool {
 }
 
 func irRetainedEnumKind(d *typeDef) bool {
-	return irRetainedEnumKindIn(d, nil)
+	if d == nil {
+		return false
+	}
+	return d.retainedEnum.answer("irRetainedEnumKind", d, func() bool { return irRetainedEnumKindIn(d, nil) })
 }
 
 // irRetainedEnumKindIn is irRetainedEnumKind inside a walk already deciding

@@ -550,6 +550,7 @@ func genStructNomi(spec *stdGenStructSpec, args []kind) string {
 // was never declared. The per-gen door below admits non-neutral arguments, so
 // this check is required.
 func buildGenStructDef(g *gen, spec *stdGenStructSpec, args []kind) (*typeDef, bool) {
+	defer changingTypes()()
 	nomi := genStructNomi(spec, args)
 	d := &typeDef{
 		nomi: nomi,

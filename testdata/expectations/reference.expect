@@ -10,7 +10,7 @@
 # S <source line>, only for a record that carries its own program
 # T <transcript line>, verbatim
 population reference
-what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors. N is the page's editor count.
+what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 73
 declared-cases 816
 failing 0
@@ -444,11 +444,11 @@ T ok http.multipart_parts
 C http_testing
 E 0
 N 4
-H cd4f005b45dce2871da76751f6107eb4194f45ceba16e7da222c0c7baa5f67e8
+H bc6e7025c7fc38091f8640e3b752ae36236dc8f7406923bb2695097bb533ab51
 T ok http_testing.run
 T ok http_testing.request
 T ok http_testing.chunks
-T ok http_testing.with_server
+T ok http_testing.with_server [not run in the browser: listen]
 C instant
 E 0
 N 9
@@ -701,13 +701,13 @@ T ok log_testing.run
 C mail
 E 0
 N 10
-H 5aa395f1b842e15f54481065afb85a765a0743f890e961995e3033afd47aa27b
+H 94359a37cffee0f223ae406711ae9a21bf9bf648a33679a1fa1c7e78826c17fd
 T ok struct Address
 T ok Address.new
 T ok Address.parse
 T ok Error.is_temporary
 T ok Error.to_string (impl Display for Error)
-T ok mail.smtp
+T ok mail.smtp [not run in the browser: connect listen]
 T ok mail.render
 T ok mail.quoted_printable
 T ok mail.encoded_words
@@ -715,11 +715,11 @@ T ok mail.rfc5322_date
 C mail_testing
 E 0
 N 5
-H 9d990ad99e5da44d83f1073ad9d53e2849a3bc7df440ce0bb05eaf5b140bb63b
+H c23d7fbebe8d521a3dd7061a89f81dfc35b84392523eb210e448c5b3752889c6
 T ok struct Memory
 T ok struct Failing
-T ok mail_testing.with_smtp_server
-T ok mail_testing.conformance
+T ok mail_testing.with_smtp_server [not run in the browser: connect listen]
+T ok mail_testing.conformance [not run in the browser: connect listen]
 T ok mail_testing.rules
 C maps
 E 0
@@ -785,13 +785,13 @@ T ok Error.to_string (impl Display for Error)
 C net
 E 0
 N 6
-H b635913679337a15a7c6dc637fad342ecc9605f4dfa7e9538ae6f471d6c23bd5
+H 8fc62dd9a02d65a59cd1662aca81b9b633a3803b56e7921358eb6cbb87ea24d5
 T ok Error.to_string (impl Display for Error)
 T ok net.pipe
 T ok net.split_host_port
 T ok net.join_host_port
-T ok net.lookup_host
-T ok net.lookup_port
+T ok net.lookup_host [not run in the browser: connect]
+T ok net.lookup_port [not run in the browser: connect]
 C path
 E 0
 N 10

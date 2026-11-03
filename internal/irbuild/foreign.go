@@ -607,6 +607,7 @@ func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
 // Tree { left: Tree }`, whose field is boxed) reaches its own mirror rather
 // than recursing forever.
 func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
+	defer constructingType()()
 	d := &typeDef{nomi: src.nomi, decl: src.decl, line: src.line, isEnum: src.isEnum, isDistinct: src.isDistinct, tagName: src.tagName, foreign: o.fileKey, lowerable: src.lowerable, ownerDef: src}
 	if o.instSrc != nil {
 		// A MONOMORPHIZED instance, interned by the owner's def rather than
@@ -642,6 +643,7 @@ func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
 // same thing through declRefusal, so one refusal reads the same from either
 // side of a file boundary. `unlowered type` is only the fallback.
 func refuseMirror(d, src *typeDef, o *typeOwner) {
+	defer changingTypes()()
 	d.lowerable = false
 	if construct, detail, named := declRefusal(src); named {
 		d.why, d.whyDetail = construct, o.fileKey+"."+detail
@@ -659,6 +661,7 @@ func refuseMirror(d, src *typeDef, o *typeOwner) {
 // group of files whose types refer to each other imports every mirror's kinds
 // before any of them has a layout. See typecycle.go.
 func (g *gen) importMirrorKinds(d, src *typeDef, o *typeOwner) bool {
+	defer changingTypes()()
 	fail := func(why, detail string) bool {
 		d.lowerable, d.why, d.whyDetail = false, why, detail
 		return false
@@ -704,6 +707,7 @@ func (g *gen) importMirrorKinds(d, src *typeDef, o *typeOwner) bool {
 // copyMirrorLayout copies the owner's boxing and slot assignment into a mirror
 // whose kinds importMirrorKinds imported.
 func (g *gen) copyMirrorLayout(d, src *typeDef, o *typeOwner) {
+	defer changingTypes()()
 	for i := range d.fields {
 		d.fields[i].boxed = src.fields[i].boxed
 	}

@@ -571,6 +571,13 @@ pre.nomi-tour {
   font-family: var(--sl-font-mono);
   font-size: var(--sl-text-xs);
 }
+/* Under a stdlib reference example the page does not run, since it
+   reaches something a browser cannot do (cmd/nomi-docgen browserNote). */
+.sl-markdown-content .nomi-ref-note {
+  margin-top: 0.4rem;
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm);
+}
 .nomi-test-program-nav {
   display: flex;
   flex-wrap: wrap;

@@ -321,6 +321,10 @@ type referenceTest struct {
 	Label   string
 	Body    string
 	Context string
+	// BrowserLacks is the capability classes the prompt reaches that the
+	// browser lacks, space-separated, when the page shows it as code it
+	// does not run; "" for a live editor.
+	BrowserLacks string
 }
 
 func referenceTestBodies(page, module string) []referenceTest {
@@ -346,7 +350,11 @@ func referenceTestBodies(page, module string) []referenceTest {
 			return tests
 		}
 		attrs := rest[:preEnd]
+		lacks := referenceAttr(attrs, "data-nomi-browser-lacks")
 		codeOpen := `<code class="language-nomi-test">`
+		if lacks != "" {
+			codeOpen = `<code class="language-nomi">`
+		}
 		codeStart := strings.Index(rest[preEnd+1:], codeOpen)
 		if codeStart < 0 {
 			return tests
@@ -358,9 +366,10 @@ func referenceTestBodies(page, module string) []referenceTest {
 			return tests
 		}
 		tests = append(tests, referenceTest{
-			Label:   label,
-			Body:    html.UnescapeString(codeRest[:end]),
-			Context: referenceTestContextAttr(attrs),
+			Label:        label,
+			Body:         html.UnescapeString(codeRest[:end]),
+			Context:      referenceAttr(attrs, "data-nomi-stdlib-context"),
+			BrowserLacks: lacks,
 		})
 		offset = start + codeStart + end + len("</code></pre>")
 	}
@@ -398,8 +407,10 @@ func referenceEntryLabel(before string) string {
 	return "(no heading)"
 }
 
-func referenceTestContextAttr(attrs string) string {
-	const key = `data-nomi-stdlib-context="`
+// referenceAttr is the value of the attribute name in a `<pre>`'s attrs,
+// unescaped, or "".
+func referenceAttr(attrs, name string) string {
+	key := name + `="`
 	start := strings.Index(attrs, key)
 	if start < 0 {
 		return ""
@@ -424,8 +435,11 @@ func referenceTestContextAttr(attrs string) string {
 // tests of the public API entries it documents, so a prompt on a private
 // function or on an `impl` block itself runs under `nomi test std` and has no
 // editor, and an editor runs re-hosted with its page's context rather than in
-// place. So a dropped, added, renamed or newly failing editor is a diff here,
-// and adding a `//!` example needs only
+// place. A prompt the page shows but does not run, since it reaches a
+// capability the browser lacks (promptClassifier), runs here too, natively,
+// and its `T` line ends `[not run in the browser: <classes>]`. So a
+// dropped, added, renamed, newly failing or newly browser-less editor is a
+// diff here, and adding a `//!` example needs only
 //
 //	NOMI_REGENERATE_EXPECTATIONS=1 go test ./cmd/nomi-docgen -run TestReferenceInteractiveTestsOnTheVM -count=1
 func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
@@ -440,7 +454,9 @@ func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
 		What: "one record per stdlib reference page carrying interactive tests, each editor " +
 			"run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an " +
 			"editor's outcome and its label: the entry heading, its impl context, and #n " +
-			"for an entry's later editors. N is the page's editor count.",
+			"for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt " +
+			"the page shows as code since it reaches a capability the browser lacks; it runs here " +
+			"natively. N is the page's editor count.",
 	}
 	bad := 0
 	for _, name := range names {
@@ -472,7 +488,11 @@ func TestReferenceInteractiveTestsOnTheVM(t *testing.T) {
 				bad++
 				exit = 1
 			}
-			lines = append(lines, outcome+" "+test.Label)
+			line := outcome + " " + test.Label
+			if test.BrowserLacks != "" {
+				line += " [not run in the browser: " + test.BrowserLacks + "]"
+			}
+			lines = append(lines, line)
 		}
 		got.Add(expectation.NewCase(name, exit, len(tests), strings.Join(lines, "\n")))
 	}

@@ -96,9 +96,9 @@ once a = #{..log, recent: #[.., e], first: #[e, ..]}
 Named spread at either end of a vector
 ================================================================================
 
-once a = #[..names, "Noah"]
+once a = #[..names, "Iris"]
 
-once b = #["Noah", ..Team.names(t)]
+once b = #["Iris", ..Team.names(t)]
 
 --------------------------------------------------------------------------------
 

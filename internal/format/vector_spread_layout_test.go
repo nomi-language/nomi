@@ -12,18 +12,18 @@ func TestFormat_VectorNamedSpreadLayout(t *testing.T) {
 	for _, c := range []struct{ name, src, want string }{
 		{
 			"first, flat",
-			head + "    #[ ..names , \"Noah\" ]\n" + tail,
-			head + "    #[..names, \"Noah\"]\n" + tail,
+			head + "    #[ ..names , \"Iris\" ]\n" + tail,
+			head + "    #[..names, \"Iris\"]\n" + tail,
 		},
 		{
 			"last, flat",
-			head + "    #[\"Noah\",..names]\n" + tail,
-			head + "    #[\"Noah\", ..names]\n" + tail,
+			head + "    #[\"Iris\",..names]\n" + tail,
+			head + "    #[\"Iris\", ..names]\n" + tail,
 		},
 		{
 			"a computed spread, flat",
-			head + "    #[\"Noah\", ..Vector.push(names, \"Eve\")]\n" + tail,
-			head + "    #[\"Noah\", ..Vector.push(names, \"Eve\")]\n" + tail,
+			head + "    #[\"Iris\", ..Vector.push(names, \"Eve\")]\n" + tail,
+			head + "    #[\"Iris\", ..Vector.push(names, \"Eve\")]\n" + tail,
 		},
 		{
 			"first, broken for width",
@@ -37,18 +37,18 @@ func TestFormat_VectorNamedSpreadLayout(t *testing.T) {
 		},
 		{
 			"first, with comments",
-			head + "    #[ // a\n        ..names, // b\n        // c\n        \"Noah\"]\n" + tail,
-			head + "    #[\n        // a\n        ..names, // b\n        // c\n        \"Noah\",\n    ]\n" + tail,
+			head + "    #[ // a\n        ..names, // b\n        // c\n        \"Iris\"]\n" + tail,
+			head + "    #[\n        // a\n        ..names, // b\n        // c\n        \"Iris\",\n    ]\n" + tail,
 		},
 		{
 			"last, with comments",
-			head + "    #[\"Noah\", // a\n        // b\n        ..names // c\n    ]\n" + tail,
-			head + "    #[\n        \"Noah\", // a\n        // b\n        ..names // c\n    ]\n" + tail,
+			head + "    #[\"Iris\", // a\n        // b\n        ..names // c\n    ]\n" + tail,
+			head + "    #[\n        \"Iris\", // a\n        // b\n        ..names // c\n    ]\n" + tail,
 		},
 		{
 			"last, a comment below",
-			head + "    #[\"Noah\", ..names\n        // a\n    ]\n" + tail,
-			head + "    #[\n        \"Noah\",\n        ..names\n        // a\n    ]\n" + tail,
+			head + "    #[\"Iris\", ..names\n        // a\n    ]\n" + tail,
+			head + "    #[\n        \"Iris\",\n        ..names\n        // a\n    ]\n" + tail,
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {

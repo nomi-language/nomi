@@ -130,8 +130,15 @@ const ClassFiles = "files"
 const ClassProcesses = "processes"
 
 // ClassNetwork is the capability class of a function that reaches the
-// network as a client: a browser has it through fetch, and wasip1 does not.
+// network as an HTTP client: a browser has it through fetch, and wasip1
+// does not.
 const ClassNetwork = "network"
+
+// ClassConnect is the capability class of a function that opens a
+// connection or asks a name resolver itself, below HTTP: std/net's dial
+// and lookups, std/tls's dial. A js/wasm or wasip1 module lacks it, since
+// a browser offers a program only fetch.
+const ClassConnect = "connect"
 
 // ClassListen is the capability class of a function that accepts network
 // connections, as a server does. A js/wasm or wasip1 module lacks it.
@@ -614,8 +621,8 @@ func RtFuncs() []Binding {
 		{Name: "http_host.tls_with_certificate", Fn: stdhttp.TLSWithCertificate},
 		{Name: "http_host.cipher_suites", Fn: stdhttp.CipherSuites},
 		{Name: "http_host.cipher_suite_name", Fn: stdhttp.CipherSuiteName},
-		{Name: "http_host.dial_with", Fn: stdhttp.DialWith, Class: ClassNetwork},
-		{Name: "http_host.lookup", Fn: stdhttp.Lookup, Class: ClassNetwork},
+		{Name: "http_host.dial_with", Fn: stdhttp.DialWith, Class: ClassConnect},
+		{Name: "http_host.lookup", Fn: stdhttp.Lookup, Class: ClassConnect},
 		{Name: "http_host.pipe", Fn: stdhttp.Pipe},
 		{Name: "http_host.split_host_port", Fn: stdhttp.SplitHostPort},
 		{Name: "http_host.join_host_port", Fn: stdhttp.JoinHostPort},
@@ -624,7 +631,7 @@ func RtFuncs() []Binding {
 		{Name: "http_host.conn_linger", Fn: stdhttp.ConnLinger},
 		{Name: "http_host.conn_keep_alive", Fn: stdhttp.ConnKeepAlive},
 		{Name: "http_host.conn_multipath", Fn: stdhttp.ConnMultipath},
-		{Name: "http_host.tls_dial", Fn: stdhttp.TLSDial, Class: ClassNetwork},
+		{Name: "http_host.tls_dial", Fn: stdhttp.TLSDial, Class: ClassConnect},
 		{Name: "http_host.tls_client", Fn: stdhttp.TLSClient},
 		{Name: "http_host.tls_server", Fn: stdhttp.TLSServer},
 		{Name: "http_host.conn_reader", Fn: stdhttp.ConnReader},

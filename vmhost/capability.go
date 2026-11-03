@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
@@ -16,9 +17,12 @@ import (
 //
 // Every std host function that acts outside the machine in a way some
 // target cannot carries a class on its binding row (stdlibbindings.Classes):
-// `files` and `processes` today, `network` later. `nomi build` walks what
-// the program reaches, as it does to prune the image, and refuses a target
-// that lacks a class a reached call needs, naming each call. The walk
+// `files`, `processes`, `network`, `connect` and `listen`. `nomi build`
+// walks what the program reaches, as it does to prune the image, and
+// refuses a target that lacks a class a reached call needs, naming each
+// call. The tour's stdlib reference pages walk each `//!` prompt the same
+// way (TestCapabilityUses) and show one that reaches a class the browser
+// lacks as code it does not run. The walk
 // over-approximates (a call in a branch the program never takes counts), so
 // `--allow-unsupported <class>` builds anyway; such a call then answers
 // `Err(.Unsupported{...})` when it runs.
@@ -34,9 +38,13 @@ const ClassFiles = stdlibbindings.ClassFiles
 // ClassProcesses is the class of a function that starts a program.
 const ClassProcesses = stdlibbindings.ClassProcesses
 
-// ClassNetwork is the class of a function that reaches the network as a
-// client.
+// ClassNetwork is the class of a function that reaches the network as an
+// HTTP client.
 const ClassNetwork = stdlibbindings.ClassNetwork
+
+// ClassConnect is the class of a function that opens a connection or asks
+// a name resolver below HTTP.
+const ClassConnect = stdlibbindings.ClassConnect
 
 // ClassListen is the class of a function that accepts network connections.
 const ClassListen = stdlibbindings.ClassListen
@@ -53,8 +61,8 @@ func TargetLacks(goos, goarch string) []string {
 
 // targetLacks is each real target that lacks a class, with the classes.
 var targetLacks = map[string][]string{
-	"js/wasm":     {ClassListen, ClassProcesses},
-	"wasip1/wasm": {ClassListen, ClassNetwork, ClassProcesses},
+	"js/wasm":     {ClassConnect, ClassListen, ClassProcesses},
+	"wasip1/wasm": {ClassConnect, ClassListen, ClassNetwork, ClassProcesses},
 }
 
 // testTargets are targets only tests build for, each with the classes it
@@ -100,8 +108,47 @@ type CapabilityUse struct {
 // set, each exported function: what BuildImage or BuildExportsImage would
 // keep. Call it on a program that builds.
 func (p *Program) CapabilityUses(withExports bool) []CapabilityUse {
-	classes := stdlibbindings.Classes()
 	roots, boots := p.capabilityRoots(withExports)
+	return p.capabilityUsesFrom(roots, boots)
+}
+
+// TestCapabilityUses is CapabilityUses for the entry's test cases opts
+// selects: every call to a host function with a capability class that
+// those tests, with their group's boot, reach. Call it on a program that
+// loads.
+func (p *Program) TestCapabilityUses(opts TestOptions) []CapabilityUse {
+	if p.entry == nil {
+		return nil
+	}
+	plan, _ := frontend.SelectTests(p.prog.Entry().Nodes, opts)
+	retained := map[string]ir.TestCase{}
+	for _, c := range p.entry.Tests() {
+		retained[c.Name()] = c
+	}
+	var roots []*ir.Func
+	var boots []*ir.Symbol
+	if boot := p.entry.Boot(); boot != nil {
+		boots = append(boots, boot)
+	}
+	for _, tc := range plan {
+		c, ok := retained[tc.FullName()]
+		if !ok {
+			continue
+		}
+		roots = append(roots, c.Fn())
+		if b := c.Group().Boot; b != nil {
+			boots = append(boots, b, c.Group().Startup)
+		}
+	}
+	if len(roots) == 0 {
+		return nil
+	}
+	return p.capabilityUsesFrom(roots, boots)
+}
+
+// capabilityUsesFrom is the classed calls reached from roots and boots.
+func (p *Program) capabilityUsesFrom(roots []*ir.Func, boots []*ir.Symbol) []CapabilityUse {
+	classes := stdlibbindings.Classes()
 	sites := vm.ReachedCrossingSites(p.entry, p.res.IRModules(), roots, boots, func(name string) bool {
 		return classes[name] != ""
 	})
@@ -206,7 +253,7 @@ func (u *Unsupported) Error() string {
 	var what []string
 	for _, class := range u.Lacking {
 		if slices.ContainsFunc(u.Uses, func(c CapabilityUse) bool { return c.Class == class }) {
-			what = append(what, classDoing(class))
+			what = append(what, ClassDoing(class))
 		}
 	}
 	return fmt.Sprintf("%s: this program %s, which a %s module cannot do", u.Command, strings.Join(what, " and "), u.Target)
@@ -243,8 +290,9 @@ func (u *Unsupported) Write(w io.Writer) {
 	fmt.Fprintf(w, "      to build anyway; the calls then answer Err(.Unsupported{...})\n")
 }
 
-// classDoing is what a program reaching a class does, for the report.
-func classDoing(class string) string {
+// ClassDoing is what a program reaching class does, as a report says it
+// ("serves network requests").
+func ClassDoing(class string) string {
 	switch class {
 	case ClassFiles:
 		return "reads or writes files"
@@ -252,6 +300,8 @@ func classDoing(class string) string {
 		return "starts programs"
 	case ClassNetwork:
 		return "sends network requests"
+	case ClassConnect:
+		return "opens network connections"
 	case ClassListen:
 		return "serves network requests"
 	}

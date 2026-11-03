@@ -102,6 +102,7 @@ func preludeNomi(spec *preludeSpec, args []kind) string {
 // the SAME def rather than two that have to be kept in step — the layout is a
 // property of the rt type, not of where the pointer is cached.
 func buildPreludeDef(spec *preludeSpec, args []kind) *typeDef {
+	defer constructingType()()
 	nomi := preludeNomi(spec, args)
 	d := &typeDef{
 		nomi:    nomi,

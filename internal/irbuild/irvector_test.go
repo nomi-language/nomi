@@ -89,9 +89,9 @@ fn vector(v: Vector<Int>) -> Vector<Int> { io.print("vector") v }
 struct Team { names: Vector<String> }
 fn main() {
   names = #["Ada", "Bo"]
-  io.inspect(#[..names, "Noah"])
-  io.inspect(#["Noah", ..names])
-  io.inspect(#[..names, "Noah", "Eve"])
+  io.inspect(#[..names, "Iris"])
+  io.inspect(#["Iris", ..names])
+  io.inspect(#[..names, "Iris", "Eve"])
   io.inspect(#[..#[], 1, 2])
   io.inspect(#[1, ..#[]])
   maybes: Vector<Maybe<Int>> = #[..#[], None]
@@ -103,7 +103,7 @@ fn main() {
   io.inspect(#{..t, names: #["Zed", ..]})
   io.inspect(names)
 }
-`, "#[\"Ada\", \"Bo\", \"Noah\"]\n#[\"Noah\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Noah\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\nTeam{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
+`, "#[\"Ada\", \"Bo\", \"Iris\"]\n#[\"Iris\", \"Ada\", \"Bo\"]\n#[\"Ada\", \"Bo\", \"Iris\", \"Eve\"]\n#[1, 2]\n#[1]\n#[None]\nvector\n2\n#[1, 2]\nvector\n3\n#[3, 4]\n#[\"Ada\", \"Bo\", \"Cy\"]\nTeam{names: #[\"Zed\", \"Ada\", \"Bo\"]}\n#[\"Ada\", \"Bo\"]\n")
 }
 
 // A Vector of an interface's existential holds each item as the value it

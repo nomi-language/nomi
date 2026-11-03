@@ -187,6 +187,7 @@ func (g *gen) pendingIfaceMirror(src *ifaceDef, o *typeOwner) *ifaceDef {
 // another file whose group grp is resolving fields, as an identity whose
 // kinds and layout grp.layOut fills in.
 func (g *gen) pendingMirror(grp *typeGroup, src *typeDef, o *typeOwner) *typeDef {
+	defer changingTypes()()
 	d := g.mirrorShell(src, o)
 	d.layoutGroup = grp
 	grp.pending = append(grp.pending, pendingMirror{g: g, d: d, src: src, o: o})
@@ -234,6 +235,7 @@ func (r *typeRegistry) buildGroup(grp *typeGroup) {
 // member's fields are resolved, with the mirrors and generic instances that
 // waited for them. A group of one file runs it too (buildTypes).
 func (grp *typeGroup) layOut(gens []*gen) {
+	defer changingTypes()()
 	// By index: importing one mirror's kinds can make another pending mirror,
 	// or an instance over one.
 	for i := 0; i < len(grp.pending); i++ {
@@ -302,6 +304,7 @@ func (grp *typeGroup) layOut(gens []*gen) {
 // reports whether one was refused, which the caller settles again so its
 // containers follow.
 func (grp *typeGroup) registerInsts() bool {
+	defer changingTypes()()
 	refused := false
 	for ; grp.registered < len(grp.insts); grp.registered++ {
 		in := grp.insts[grp.registered]

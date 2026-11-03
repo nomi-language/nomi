@@ -186,15 +186,15 @@ func TestParseVectorNamedSpread(t *testing.T) {
 		items     int
 		line, col int
 	}{
-		{`#[..names, "Noah"]`, "Ident", 0, 1, 1, 3},
-		{`#["Noah", ..names]`, "Ident", 1, 1, 1, 11},
+		{`#[..names, "Iris"]`, "Ident", 0, 1, 1, 3},
+		{`#["Iris", ..names]`, "Ident", 1, 1, 1, 11},
 		{`#[1, 2, ..f(x)]`, "Call", 2, 2, 1, 9},
 		{`#[..Team.names(t), 1]`, "Call", 0, 1, 1, 3},
 		{`#[..#[], 1]`, "VectorLit", 0, 1, 1, 3},
 		{`#[..v]`, "Ident", 0, 0, 1, 3},
 
-		{"#[\n  ..names,\n  \"Noah\",\n]", "Ident", 0, 1, 2, 3},
-		{"#[\n  \"Noah\",\n  ..names\n]", "Ident", 1, 1, 3, 3},
+		{"#[\n  ..names,\n  \"Iris\",\n]", "Ident", 0, 1, 2, 3},
+		{"#[\n  \"Iris\",\n  ..names\n]", "Ident", 1, 1, 3, 3},
 	}
 	for _, tc := range cases {
 		lit, ok := parseExpr(t, tc.src).(*ast.VectorLit)

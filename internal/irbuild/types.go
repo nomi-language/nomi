@@ -237,6 +237,10 @@ type typeDef struct {
 	// stdMarkerDefs, hostTypeDefs are each a sync.OnceValue — so per-walk
 	// state here would be a property of data every concurrent `Generate`
 	// shares. See typePath.
+	//
+	// The memos below are not walk state: each holds an answer that depends
+	// on the types alone, stored atomically. See kindmemo.go.
+	retainedStruct, retainedEnum kindMemo
 }
 
 // refusal is one recorded reason a declaration was not lowered, replayed at the
@@ -595,6 +599,7 @@ func (g *gen) boxTypeFields() {
 
 // boxFields boxes each of d's fields that can reach d.
 func (d *typeDef) boxFields() {
+	defer changingTypes()()
 	for i := range d.fields {
 		for _, c := range appendInlineDefs(nil, d.fields[i].k) {
 			if c == d || c.reaches(d) {
@@ -669,6 +674,7 @@ func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
 // invalid field kind is therefore a genuine `non-scalar field type` on the
 // instantiation. That difference is the whole reason the split exists.
 func (g *gen) resolveStructFields(d *typeDef, t *ast.StructDef, tps map[string]bool) {
+	defer changingTypes()()
 	for _, f := range t.Fields {
 		k := g.typeOf(f.TypeAnnotation)
 		// kindInvalid: reports — records `non-scalar field type` on the declaration.
@@ -776,6 +782,7 @@ func (g *gen) resolveEnum(d *typeDef, t *ast.EnumDef) {
 // answer for every instance, but a fence only one of two entry points passes
 // through is a fence with a hole, and the tag is a uint8 either way.
 func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]bool) {
+	defer changingTypes()()
 	if len(t.Variants) > maxEnumTag {
 		d.refusals = append(d.refusals, refusal{
 			construct: "enum with too many variants",
@@ -928,6 +935,7 @@ func (g *gen) resolveDistinct(d *typeDef, t *ast.TypeDef) {
 // (genericInstance). tps is a generic declaration's own parameters, whose
 // inner type names them and so has no kind until an instance is built.
 func (g *gen) resolveDistinctInner(d *typeDef, t *ast.TypeDef, tps map[string]bool) {
+	defer changingTypes()()
 	if t.InnerTypeExpr == nil {
 		// A marker. inner stays kindInvalid, which zeroSized reads as "no
 		// storage at all" — distinct from a refusal, which also leaves it
@@ -1033,6 +1041,7 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 // and deliberately does NOT follow a list or a map, because those are already
 // indirect and boxing them would add a pointer to a pointer.
 func (d *typeDef) assignSlots() {
+	defer changingTypes()()
 	for i := range d.variants {
 		v := &d.variants[i]
 		used := map[int]bool{}
@@ -1081,6 +1090,7 @@ func (d *typeDef) assignSlots() {
 // written. Relaxation rather than a topological order because the graph may
 // contain cycles.
 func (g *gen) settleLowerable(order []*typeDef) {
+	defer changingTypes()()
 	for _, d := range order {
 		// A generic instance whose impls could not be registered carries why
 		// (typeGroup.registerInsts) and stays refused.

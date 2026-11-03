@@ -408,14 +408,14 @@ func lintModuleDecls(m *Module, st *moduleLintState, vs *[]Violation) {
 // lintPositions applies RulePositionValid and RulePositionSpan to the
 // function, every block, every instruction and every terminator.
 func lintPositions(f *Func, vs *[]Violation) {
-	checkPos(vs, f.Pos(), "func "+f.Name())
+	checkPos(vs, f.Pos(), func() string { return "func " + f.Name() })
 	for _, b := range f.Blocks() {
-		checkPos(vs, b.Pos(), b.ID().String())
+		checkPos(vs, b.Pos(), b.ID().String)
 		for i, in := range b.Instrs() {
-			checkPos(vs, in.Pos(), b.ID().String()+" instr "+strconv.Itoa(i)+" ("+in.String()+")")
+			checkPos(vs, in.Pos(), func() string { return instrWhat(b, i, in) })
 		}
 		if t := b.Term(); t != nil {
-			checkPos(vs, t.Pos(), b.ID().String()+" term ("+t.String()+")")
+			checkPos(vs, t.Pos(), func() string { return termWhat(b, t) })
 		}
 	}
 }
@@ -436,25 +436,37 @@ func lintPositions(f *Func, vs *[]Violation) {
 // hole at the constructor where it can. That is `At`'s empty-file gate's own
 // argument, applied one field over. The positive is
 // TestPos_TheEndCannotNameADifferentFile.
-func checkPos(vs *[]Violation, p Pos, what string) {
+//
+// what describes the construct, and is called only for a violation: a
+// description renders the instruction, and most positions are sound.
+func checkPos(vs *[]Violation, p Pos, what func() string) {
 	switch {
 	case !p.IsValid():
-		*vs = append(*vs, Violation{Rule: RulePositionValid, Pos: p, What: what,
+		*vs = append(*vs, Violation{Rule: RulePositionValid, Pos: p, What: what(),
 			Why: "the position names no line"})
 		return
 	case p.File() == "":
-		*vs = append(*vs, Violation{Rule: RulePositionValid, Pos: p, What: what,
+		*vs = append(*vs, Violation{Rule: RulePositionValid, Pos: p, What: what(),
 			Why: "the position names no file"})
 		return
 	}
 	switch {
 	case p.EndLine() < 1:
-		*vs = append(*vs, Violation{Rule: RulePositionSpan, Pos: p, What: what,
+		*vs = append(*vs, Violation{Rule: RulePositionSpan, Pos: p, What: what(),
 			Why: "the position has no end, so nothing can say how far the construct reaches"})
 	case p.EndLine() < p.Line() || (p.EndLine() == p.Line() && p.EndCol() < p.Col()):
-		*vs = append(*vs, Violation{Rule: RulePositionSpan, Pos: p, What: what,
+		*vs = append(*vs, Violation{Rule: RulePositionSpan, Pos: p, What: what(),
 			Why: "the position ends before it starts"})
 	}
+}
+
+// instrWhat and termWhat name an instruction or a terminator in a violation.
+func instrWhat(b *Block, i int, in Instr) string {
+	return b.ID().String() + " instr " + strconv.Itoa(i) + " (" + in.String() + ")"
+}
+
+func termWhat(b *Block, t Term) string {
+	return b.ID().String() + " term (" + t.String() + ")"
 }
 
 // lintTerminators applies RuleBlockTerminated.
@@ -691,7 +703,7 @@ func lintTempDefs(f *Func, vs *[]Violation) {
 	for i, b := range blocks {
 		cur := make([]bool, n)
 		copy(cur, in[i])
-		report := func(t Temp, at Pos, what string) {
+		report := func(t Temp, at Pos, what func() string) {
 			if t == NoTemp {
 				return
 			}
@@ -708,12 +720,12 @@ func lintTempDefs(f *Func, vs *[]Violation) {
 				return
 			}
 			*vs = append(*vs, Violation{Rule: RuleTempDefinedBeforeUse, Pos: at,
-				What: what, Why: why})
+				What: what(), Why: why})
 		}
 		for j, instr := range b.Instrs() {
 			uses = instr.AppendUses(uses[:0])
 			sortTemps(uses)
-			what := b.ID().String() + " instr " + strconv.Itoa(j) + " (" + instr.String() + ")"
+			what := func() string { return instrWhat(b, j, instr) }
 			for _, u := range uses {
 				report(u, instr.Pos(), what)
 			}
@@ -724,7 +736,7 @@ func lintTempDefs(f *Func, vs *[]Violation) {
 		if t := b.Term(); t != nil {
 			uses = t.AppendUses(uses[:0])
 			sortTemps(uses)
-			what := b.ID().String() + " term (" + t.String() + ")"
+			what := func() string { return termWhat(b, t) }
 			for _, u := range uses {
 				report(u, t.Pos(), what)
 			}
@@ -810,16 +822,16 @@ func lintSlots(f *Func, vs *[]Violation) {
 	for i, b := range blocks {
 		cur := make([]bool, n)
 		copy(cur, in[i])
-		report := func(t Temp, at Pos, what, how string) {
+		report := func(t Temp, at Pos, what func() string, how string) {
 			if t == NoTemp || int(t) >= n || !isSlot[t] || cur[t] {
 				return
 			}
 			*vs = append(*vs, Violation{Rule: RuleSlotDeclaredBeforeUse, Pos: at,
-				What: what, Why: how + " " + t.String() +
+				What: what(), Why: how + " " + t.String() +
 					", whose storage is not declared on every path reaching here"})
 		}
 		for j, instr := range b.Instrs() {
-			what := b.ID().String() + " instr " + strconv.Itoa(j) + " (" + instr.String() + ")"
+			what := func() string { return instrWhat(b, j, instr) }
 			uses = instr.AppendUses(uses[:0])
 			sortTemps(uses)
 			for _, u := range uses {
@@ -838,7 +850,7 @@ func lintSlots(f *Func, vs *[]Violation) {
 		if t := b.Term(); t != nil {
 			uses = t.AppendUses(uses[:0])
 			sortTemps(uses)
-			what := b.ID().String() + " term (" + t.String() + ")"
+			what := func() string { return termWhat(b, t) }
 			for _, u := range uses {
 				report(u, t.Pos(), what, "reads")
 			}

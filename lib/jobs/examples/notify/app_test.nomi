@@ -1,6 +1,8 @@
 import {
+    std/duration.Duration
     std/jobs.Worker
     std/sql.{self, Conn, Row, Sql}
+    std/timer
     std/uuid.Uuid
     app.{self, App, EmailArgs, add_post, add_user, batch_job, deliveries, email_job, publish, send_email}
 }
@@ -15,12 +17,23 @@ fn statuses() -> Result<List<String>, sql.Error> {
     })
 }
 
+// The statuses once both emails are marked: a job delivers and then marks its
+// row, so a delivery can arrive before the row says so. Gives up after five
+// seconds with what it read last.
+fn settled_statuses(tries: Int = 100) -> Result<List<String>, sql.Error> {
+    found = statuses()?
+
+    if found == ["sent_to_provider", "sent_to_provider"] or tries == 0 { return Ok(found) }
+    timer.sleep(Duration.milliseconds(50))
+    settled_statuses(tries - 1)
+}
+
 fn job_count() -> Result<Int, sql.Error> {
     rows = Conn.query(App.db, Sql"SELECT count(*) AS n FROM nomi_jobs")?
     Row.get<Int>(Iter.first(rows)!, "n")
 }
 
-group "welovenoah's notifications on a Postgres queue" {
+group "a blog's notifications on a Postgres queue" {
     boot app.boot()
 
     test "publishing a post emails each subscriber once" {
@@ -31,7 +44,7 @@ group "welovenoah's notifications on a Postgres queue" {
         post = add_post("Cross country")?
         publish(post)?
         assert deliveries(2) == ["ada@example.com", "grace@example.com"]
-        assert statuses() == Ok(["sent_to_provider", "sent_to_provider"])
+        assert settled_statuses() == Ok(["sent_to_provider", "sent_to_provider"])
     }
 
     test "a publish that rolls back enqueues nothing" {

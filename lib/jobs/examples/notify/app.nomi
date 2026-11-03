@@ -1,4 +1,4 @@
-// welovenoah's two background jobs, ported from River to std/jobs over a
+// A blog's two background jobs, ported from River to std/jobs over a
 // Postgres queue. Publishing a post enqueues a batch job in the same
 // transaction as the post; the batch job writes one notification row per
 // unnotified subscriber and enqueues its email in the same transaction as

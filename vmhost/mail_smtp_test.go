@@ -265,12 +265,12 @@ fn main() {
     credentials = Some(Credentials{username: "user", password: "secret"})
 
     message = Message{
-        from: Address.new("no-reply@example.com", name: "Noah Baldwin Updates")!,
+        from: Address.new("no-reply@example.com", name: "Example Updates")!,
         to: [Address.new("ana@example.com", name: "Zoë Ångström")!],
-        cc: [Address.new("cc@example.com", name: "Baldwin, Noah")!],
+        cc: [Address.new("cc@example.com", name: "Lovelace, Ada")!],
         bcc: [Address.new("hidden@example.com")!],
         reply_to: [Address.new("reply@example.com")!],
-        subject: "Grüße 🎉: a new update for Noah Baldwin, with a title long enough to fold",
+        subject: "Grüße 🎉: a new update for Ada Lovelace, with a title long enough to fold",
         text: Some("Grüße,\n.hidden\nline with a trailing space \n${String.repeat("x", 120)}\n"),
         html: Some(Html"<p>Hello ${"Zoë & co"}</p>"),
         headers: [
@@ -411,16 +411,16 @@ func checkMessage(t *testing.T, name, data string) {
 	}
 	h := m.Header
 	dec := new(mime.WordDecoder)
-	if subject, err := dec.DecodeHeader(h.Get("Subject")); err != nil || subject != "Grüße 🎉: a new update for Noah Baldwin, with a title long enough to fold" {
+	if subject, err := dec.DecodeHeader(h.Get("Subject")); err != nil || subject != "Grüße 🎉: a new update for Ada Lovelace, with a title long enough to fold" {
 		t.Errorf("%s: subject %q (%v)", name, subject, err)
 	}
-	if from, err := h.AddressList("From"); err != nil || len(from) != 1 || from[0].Name != "Noah Baldwin Updates" || from[0].Address != "no-reply@example.com" {
+	if from, err := h.AddressList("From"); err != nil || len(from) != 1 || from[0].Name != "Example Updates" || from[0].Address != "no-reply@example.com" {
 		t.Errorf("%s: From %v (%v)", name, from, err)
 	}
 	if to, err := h.AddressList("To"); err != nil || len(to) != 1 || to[0].Name != "Zoë Ångström" {
 		t.Errorf("%s: To %v (%v)", name, to, err)
 	}
-	if cc, err := h.AddressList("Cc"); err != nil || len(cc) != 1 || cc[0].Name != "Baldwin, Noah" {
+	if cc, err := h.AddressList("Cc"); err != nil || len(cc) != 1 || cc[0].Name != "Lovelace, Ada" {
 		t.Errorf("%s: Cc %v (%v)", name, cc, err)
 	}
 	if h.Get("Bcc") != "" || strings.Contains(data, "hidden@example.com") {

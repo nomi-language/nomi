@@ -297,6 +297,7 @@ func implReceiverBaseName(te ast.TypeExpr) string {
 // recursing forever, and the boxing pass below then breaks the cycle exactly as
 // buildTypes does for a module declaration.
 func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
+	defer changingTypes()()
 	if tpl.why != "" {
 		return kindInvalid, false
 	}
@@ -410,6 +411,7 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 // An instance already refused by its own fields, or by a component settled
 // unlowerable, is not queued: the caller refuses it at once.
 func (g *gen) deferInstLayout(d *typeDef) bool {
+	defer changingTypes()()
 	grp := g.instLayoutGroup(d)
 	if grp == nil || len(d.refusals) > 0 {
 		return false

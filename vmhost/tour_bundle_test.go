@@ -931,7 +931,7 @@ const go = new Go();
     return r;
   };
   for (const p of probes) {
-    if (!p.hover && !globalThis.sqlite3 && JSON.parse(globalThis.nomiTourModules(p.source)).includes("sqlite")) {
+    if (!p.hover && !p.module && !globalThis.sqlite3 && JSON.parse(globalThis.nomiTourModules(p.source)).includes("sqlite")) {
       globalThis.sqlite3ApiConfig = {
         disable: { vfs: { opfs: true, "opfs-vfs": true, "opfs-wl": true, "opfs-sahpool": true } },
       };
@@ -954,6 +954,11 @@ const go = new Go();
         // A hover probe, as run-worker.js asks for one in a multi-file tab.
         const md = globalThis.nomiHoverIn(p.source, p.hover.file, p.hover.line, p.hover.col);
         return { name: p.name, output: md, error: "" };
+      }
+      if (p.module) {
+        // A stdlib reference editor, as run-worker.js runs one.
+        const r = globalThis.nomiRunStdlibTest(p.module, p.source, p.context || "");
+        return { name: p.name, output: r.output, error: r.error };
       }
       // A block's tools run first, each on the source the one before
       // left, as run-worker.js runs them; what they print comes first.

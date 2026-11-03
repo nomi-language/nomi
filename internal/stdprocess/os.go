@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/osreach"
 	"github.com/nomi-language/nomi/internal/stdio"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -35,6 +36,7 @@ type osProcess struct {
 
 // startOS starts s on the operating system.
 func startOS(fr *rt.Frame, s spec) (*child, *rt.IOError) {
+	osreach.Note("processes")
 	ctx := context.Background()
 	if fr != nil && fr.Context() != nil {
 		ctx = fr.Context()

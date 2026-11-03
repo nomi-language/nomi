@@ -135,9 +135,9 @@ test "Iter.to_vector materializes any iterator into a vector" {
 
 test "a vector spread at either end concatenates" {
     names = #["Ada", "Bo"]
-    assert #[..names, "Noah"] == #["Ada", "Bo", "Noah"]
-    assert #["Noah", ..names] == #["Noah", "Ada", "Bo"]
-    assert #[..names, "Noah"] == Vector.concat(names, #["Noah"])
+    assert #[..names, "Iris"] == #["Ada", "Bo", "Iris"]
+    assert #["Iris", ..names] == #["Iris", "Ada", "Bo"]
+    assert #[..names, "Iris"] == Vector.concat(names, #["Iris"])
     assert #[..#[], 1] == #[1]
     assert names == #["Ada", "Bo"]
 }

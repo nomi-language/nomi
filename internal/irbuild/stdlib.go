@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	goruntime "runtime"
 	"sort"
@@ -1365,11 +1366,21 @@ func (x *stdlibIndex) underlay(earlier *stdlibIndex) {
 	// because underlay runs after every local add and nothing appends to a
 	// local set afterwards. An append on the earlier index for a later module
 	// writes past this alias's length, so it cannot be seen here.
-	for key, fs := range earlier.byType {
-		if len(x.byType[key]) == 0 {
-			x.byType[key] = fs
+	// The earlier map cloned whole and this module's own sets laid over it,
+	// which is the map the per-key fill would build: a key keeps its own set
+	// unless the set is empty and an earlier module has one. A clone copies
+	// the table in one pass; a generic stdlib instance binds its module this
+	// way each time it is built (stdInstances.queue).
+	byType := maps.Clone(earlier.byType)
+	if byType == nil {
+		byType = map[string][]*stdFunc{}
+	}
+	for key, fs := range x.byType {
+		if len(fs) > 0 || len(byType[key]) == 0 {
+			byType[key] = fs
 		}
 	}
+	x.byType = byType
 	for key, byRecv := range earlier.byIface {
 		mine := x.byIface[key]
 		if mine == nil {

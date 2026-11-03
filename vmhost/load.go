@@ -419,6 +419,21 @@ func LoadStdlibSource(module, src string) (*Program, error) {
 	return loadStdlib(strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi"), nodes, fa, irbuild.GenerateStdlibTestIR)
 }
 
+// LoadEmbeddedStdlib is LoadStdlib for the embedded stdlib module named
+// module (`net`, `std/net`), from the process's cached stdlib lowering:
+// the module's tests, its `//!` prompts among them, as `nomi test std`
+// runs them.
+func LoadEmbeddedStdlib(module string) (*Program, error) {
+	module = strings.TrimSuffix(strings.TrimPrefix(module, "std/"), ".nomi")
+	if _, ok := std.ReadFile(module); !ok {
+		return nil, fmt.Errorf("unknown stdlib module %q", module)
+	}
+	if err := frontend.StdlibModuleErrors(module); err != nil {
+		return nil, err
+	}
+	return loadStdlib(module, nil, nil, irbuild.GenerateStdlibTestIR)
+}
+
 // StdlibReference runs one of the tour's stdlib reference editors: body, with
 // context's import lines ahead of it, as a `test "reference"` appended to the
 // stdlib module's own source, the only case selected. The case's own output

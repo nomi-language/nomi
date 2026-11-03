@@ -63,7 +63,7 @@ type buildArgs struct {
 }
 
 // capabilityClasses are the classes --allow-unsupported names.
-var capabilityClasses = []string{vmhost.ClassFiles, vmhost.ClassProcesses, vmhost.ClassNetwork, vmhost.ClassListen}
+var capabilityClasses = []string{vmhost.ClassFiles, vmhost.ClassProcesses, vmhost.ClassNetwork, vmhost.ClassConnect, vmhost.ClassListen}
 
 func parseBuildArgs(args []string) (buildArgs, error) {
 	var b buildArgs

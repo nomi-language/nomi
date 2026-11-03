@@ -83,7 +83,10 @@ import (
 // (irNominalCoinductive), because the VM holds records by reference; any
 // other boxed field disqualifies the whole declaration.
 func irRetainedStructKind(d *typeDef) bool {
-	return irRetainedStructKindIn(d, nil)
+	if d == nil {
+		return false
+	}
+	return d.retainedStruct.answer("irRetainedStructKind", d, func() bool { return irRetainedStructKindIn(d, nil) })
 }
 
 // irRetainedStructKindIn is irRetainedStructKind inside a walk that is

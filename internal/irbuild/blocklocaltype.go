@@ -230,6 +230,7 @@ func newBlockTypeDecls() *blockTypeDecls {
 // (`//! type TraceId String`). Only the blocks it adds are resolved, slotted
 // and settled, the way buildTypes treats the module's own.
 func (g *gen) declareCaseBlockTypes(bodies []*ast.Block) {
+	defer changingTypes()()
 	first := len(g.blockTypeOrder)
 	var order []*typeDef
 	for _, b := range bodies {

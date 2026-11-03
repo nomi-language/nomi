@@ -108,7 +108,7 @@ test "a lower JPEG quality writes a smaller file" {
     assert default > low
 }
 
-// What welovenoah's upload does with each picture: the original, a medium
+// What a blog's upload does with each picture: the original, a medium
 // variant for posts and a thumbnail for listings, a WebP stored as a JPEG.
 fn variants(upload: Bytes) -> Result<List<#(String, Bytes)>, image.Error> {
     picture = image.decode(upload)?

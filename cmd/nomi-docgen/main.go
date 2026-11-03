@@ -169,13 +169,14 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 		}
 	}
 	shared := sharedImplHeadings(name, entries)
+	prompts := newPromptClassifier(name)
 	for _, group := range apiGroups(entries) {
 		fmt.Fprintf(&b, "## %s\n\n", renderGroupHeading(name, group.apiGroupKey))
 		for _, entry := range group.Entries {
 			if !entry.RendersAsGroupHeading() {
 				renderEntryHeading(&b, name, entry, shared)
 			}
-			renderAPIEntry(&b, name, fa, entry, implLinks)
+			renderAPIEntry(&b, name, fa, entry, implLinks, prompts)
 		}
 	}
 	return b.String()
@@ -537,7 +538,7 @@ func renderVariantDocs(b *strings.Builder, node ast.Node) {
 	}
 }
 
-func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnalysis, entry apiEntry, implLinks referenceLinks) {
+func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnalysis, entry apiEntry, implLinks referenceLinks, prompts *promptClassifier) {
 	s := entry.Sym
 	body := hoverdoc.Render(s)
 	if body == "" {
@@ -559,6 +560,22 @@ func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnal
 					" data-nomi-stdlib-context=\"%s\"",
 					html.EscapeString(context),
 				)
+			}
+			// A prompt the browser cannot run is a plain highlighted block,
+			// as a ```nomi-run compile-only tour block is, with a line saying
+			// why; data-nomi-browser-lacks names the classes it reaches.
+			lacking := prompts.browserLacks(test, body, context)
+			if len(lacking) > 0 {
+				fmt.Fprintf(
+					b,
+					"<pre data-nomi-stdlib-module=%q%s data-nomi-browser-lacks=%q><code class=\"language-nomi\">%s</code></pre>\n\n",
+					moduleName,
+					contextAttr,
+					strings.Join(lacking, " "),
+					html.EscapeString(body),
+				)
+				b.WriteString(browserNote(lacking))
+				continue
 			}
 			fmt.Fprintf(
 				b,

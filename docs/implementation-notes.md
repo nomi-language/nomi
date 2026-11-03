@@ -221,6 +221,21 @@ module is. `TestProgramStdModulesQualify` holds each listed module to the
 rule: no `host fn` or `host type`, no shared std module imports it, and it
 checks and lowers with no decline.
 
+What a listed module costs a program is its lowering. Its analysis is the
+shared one (`std.Shared`) and is not repeated: for the HTTP chapter's first
+tour block, analysis takes about 2 ms and lowering the program's own file
+about 3 ms, while lowering the listed modules it reaches (std/http,
+std/http_testing, std/url, std/fs, std/net, std/tls and the rest) takes the
+remaining 115 ms or so. Their lowering is not kept from one program to the
+next: it builds the program's type registry entries, impl index entries and
+generic std instances, and the program's own lowering reads and adds to all
+three, so a reused lowering would have to be frozen against every one of
+those writes. The lowering is kept fast instead, which also serves `nomi run`,
+where every process lowers one program. `kindmemo.go` memoizes the retention
+predicates, `stdHostOriginKind` is an index, the lint describes an
+instruction only for a violation, and a generic std instance's module binding
+clones the earlier modules' index rather than refilling it.
+
 A listed module's reference editor checks the module from edited source, and
 the listed modules its editor imports are lowered beside it from the shared
 analysis (std/storage_testing beside an edited std/storage). Those name the
@@ -269,6 +284,17 @@ each such diagnostic as a hint.
 The builder's own type is `kind` (a tag plus declaration pointers, spelled
 in Nomi by `nomi()`), and a value is an `expr`: its IR temporary and its
 kind. Do not add Go text or Go names to the builder.
+
+`irRetainedStructKind` and `irRetainedEnumKind` keep each typeDef's last
+answer, stamped with a process-wide epoch (`kindmemo.go`). A function that
+writes an existing typeDef's fields, variants, slots, layout or
+lowerability opens a `changingTypes` bracket around the writes: the memo is
+off while one is open, and opening or closing one invalidates every stored
+answer. A function that builds a new typeDef and writes nothing else opens a
+`constructingType` bracket, which turns the memo off without invalidating.
+Under `go test` every memoized answer is recomputed and compared, so a write
+outside a bracket fails the first test that reads the stale answer;
+`TestKindMemo_*` count the walks one lowering makes and plant such a write.
 
 ### Instantiation and dispatch
 
@@ -700,7 +726,7 @@ A server is Go's `http.Server` (internal/stdhttp/server.go). Go calls its handle
 
 A listener registers a drain hook (`rt.OnDrain`) when it binds, so when the program starts draining its supervisors the server runs Go's `Server.Shutdown` before any grace period: it stops accepting, the requests it took finish, and `serve` returns, which ends the drain. With `Redirects.Decide` the Go client follows no redirect and std/http's `send_following` follows them on the calling task, since Go would run the callback on its own goroutine. A multipart form crosses as a flat `List<Bytes>` (`http_host.parse_multipart`, `encode_multipart`), parsed and written by Go's `mime/multipart` over bytes already read; `Body.Multipart`'s boundary is a digest of its parts, so its `Content-Type` and its bytes, computed separately, agree. The timeout, cross-origin and query-semicolon middleware are Nomi functions that wrap a handler.
 
-`std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` answers requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send.
+`std/tls` and `std/net` are lowered with each program too, and their crossings sit in `std/http_host` beside HTTP's, implemented in internal/stdhttp (tls.go, netconn.go), so the HTTP, TLS and TCP Go sides share one adapter package. A `ClientConfig` or `ServerConfig` is a Nomi value; each use builds Go's `*tls.Config` from its parts (`http_host.tls_config`, then `tls_with_certificate` per certificate) and holds it as a `TlsConfig` handle for that use. A `Certificate` is a handle over Go's `tls.Certificate`, its key never read back. A `Connection` is a handle (rt.NetConn) over a `net.Conn`, TCP or `*tls.Conn`, with one rt `Reader` and one unbuffered `Writer` made when it opens; a `context.AfterFunc` on the context of the task that dialed sets a past deadline when it ends, so a cancelled task's reads and writes stop. A listener (rt.NetListener) accepts on a goroutine into a channel, as the HTTP server hands requests over, so `Listener.accept` can stop for the waiting task's cancellation or an accept deadline; it registers a drain hook that closes it. `net.Error` sorts Go's errors with `errors.Is` against the system's error numbers (not matched on Windows). `http.serve_here` answers requests as tasks of the enclosing `concurrent` block, which `http_testing.with_server` uses with a certificate `http_host.test_certificate` makes; `http.reverse_proxy` is Nomi over the client's send. `dial_with`, `tls_dial` and `lookup` carry the `connect` class, which js/wasm and wasip1 lack: a browser offers a program only `fetch`, so there each answers the no-sockets error (`noSocketsMessage`).
 
 Go calls a program's hooks on goroutines of its own, where no Nomi code may run. A broker (internal/stdhttp/broker.go) carries each call to the Nomi task waiting in the crossing whose work set it off, which runs it on its own frame: a server's broker is served by `http_host.next`, a client's by `send`, which runs Go's `Do` on a goroutine and serves the broker until it answers, and a TLS configuration's by whichever of these uses it (the listener or client adopts it) or by the handshake itself (`tls_dial`, `tls_client`, `tls_server`, and the accept of a TLS listener, which runs the handshake there instead of on the first read). A hook that waits for an answer (`certificate_for`, `verify`, `on_proxy_connect`) blocks Go's goroutine until the task has run it; one that only reports (connection states, the error log, `on_shutdown`, HTTP/2's error counter, the key log) is queued, and `next` runs what is left before it answers that the server has shut down. A hook that traps traps the waiting task. A TLS state crosses as lists of parts (`stateParts`), the same for a connection, a request, a response and a trace event. `Response.upgrade` takes the connection with Go's `ResponseController.Hijack`, writes the status line and headers itself, and hands the handler a `Connection` that reads what Go's server had already buffered first. `Request.read` and `Response.read` run Go's `ReadRequest` and `ReadResponse` under a `bufio.Reader` over a reader that answers one byte per read, so no byte of the next message is taken. The reverse proxy sends once with the client's handle, following no redirect, and answers a `Body.Produce` that copies the upstream body, flushing per `flush_interval`. `http_host.Handle` (rt.HTTPHandle) holds the Go values a std struct wraps that have no handle type of their own: a ClientHello, a tracer, a read message, a multipart reader and its parts.
 
@@ -777,7 +803,7 @@ with each program. There is no host function and no Go SMTP code: the
 SMTP client speaks the protocol over std/net's `Connection`, upgrades with
 `tls.client` for STARTTLS or dials with `tls.dial` for TLS from the first
 byte, and reads replies with `Reader.read_line`. So sending mail inherits
-std/net's `network` class (`nomi build` checks the target with no row of
+std/net's `connect` class (`nomi build` checks the target with no row of
 its own), its context rule (a cancelled task's reads and writes stop), and
 the network runner, since such a program reaches net crossings. Go's
 net/smtp was not used: it is frozen, takes no context and has no implicit
@@ -1852,6 +1878,44 @@ headless Chrome with a fake worker and holds them to that (`tour/test/`; it
 skips without Chrome or the staged `tour/public/nomi/`). `astro.config.mjs` passes a hash of
 `rehype-shiki.mjs` as the plugin's option, so an edit to it clears Astro's
 cache of rendered pages.
+
+### Stdlib reference examples
+
+`cmd/nomi-docgen` writes each `//!` prompt on a public entry as a live
+editor (`<pre data-nomi-stdlib-module><code class="language-nomi-test">`),
+which the worker runs through `nomiRunStdlibTest` (`vmhost.StdlibReference`)
+when it scrolls into view, unless the prompt reaches a capability class the
+browser lacks (`promptClassifier`). Docgen loads each module's lowered
+tests once (`vmhost.LoadEmbeddedStdlib`) and walks from the prompt's own
+case (`Program.TestCapabilityUses`), the walk `nomi build --target
+js/wasm` refuses a program by, for the classes in `vmhost.TargetLacks("js",
+"wasm")` (`connect`, `listen`, `processes`). An HTTP request (`network`) is
+not among them, since the browser build sends it through fetch.
+
+The walk counts what a prompt could reach, which is wider than what it
+does: a call through an interface reaches every impl (`mail_testing.rules`
+reaches the SMTP mailer through `Mailer.send`), and a crossing a fake
+answers on the frame still counts (`process.run`'s prompt runs under
+`process_testing.run`). So docgen runs a flagged prompt once, natively, as
+its editor runs, and keeps only the classes whose calls went on to the
+operating system: `internal/osreach` counts them, noted where internal/stdprocess
+starts a process and internal/stdhttp listens, dials or looks a name up. A
+run that fails keeps every class the walk found. A prompt left with a class
+is written as a plain `language-nomi` block carrying
+`data-nomi-browser-lacks`, with a line under it saying why and that `nomi
+test` runs it; the client only highlights it, as it does a `compile-only`
+tour block. A new crossing of a class the browser lacks must call
+`osreach.Note` where it reaches the operating system; one that does not
+leaves a prompt that reaches it live, and
+`TestTourWasmAnswersTheReferenceEditors` fails on that prompt.
+
+reference.expect records each prompt the page does not run with `[not run
+in the browser: <classes>]` and still runs it natively.
+`TestTourWasmAnswersTheReferenceEditors` (vmhost) runs every prompt on the
+generated pages through the staged wasm under node, requires each live
+editor to run clean, and logs each prompt the page does not run that ran
+clean anyway (`net.lookup_port`, which Go's built-in table of service
+ports answers without a resolver).
 
 `TestTourWasmAnswersTheTourBlocks` times each block's run under Node and
 logs the slowest. With `NOMI_TOUR_RUN_BUDGET=1`, which `make check-full`

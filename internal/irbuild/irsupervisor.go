@@ -26,6 +26,7 @@ package irbuild
 import (
 	"fmt"
 	"slices"
+	"sync"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -47,16 +48,27 @@ func irSupervisorKind(k kind) bool {
 // Exchange, the rt.HTTPClient and rt.HTTPExchange std/http holds
 // (rt/network.go).
 func irStreamKind(k kind) bool {
-	return k == stdHostOriginKind("std/io", "Reader") || k == stdHostOriginKind("std/io", "Writer") ||
-		k == stdHostOriginKind("std/io", "File") || k == stdHostOriginKind("std/fs_host", "FileSystem") ||
-		k == stdHostOriginKind("std/process_host", "Child") || k == stdHostOriginKind("std/process_host", "Fake") ||
-		k == stdHostOriginKind("std/http_host", "Client") || k == stdHostOriginKind("std/http_host", "Exchange") ||
-		k == stdHostOriginKind("std/http_host", "Listener") || k == stdHostOriginKind("std/http_host", "Incoming") ||
-		k == stdHostOriginKind("std/http_host", "Certificate") || k == stdHostOriginKind("std/http_host", "TlsConfig") ||
-		k == stdHostOriginKind("std/http_host", "Conn") || k == stdHostOriginKind("std/http_host", "TcpListener") ||
-		k == stdHostOriginKind("std/http_host", "Mux") || k == stdHostOriginKind("std/http_host", "Jar") ||
-		k == stdHostOriginKind("std/http_host", "Handle")
+	if k.tag != tagNamed {
+		return false
+	}
+	return slices.Contains(irStreamKinds(), k)
 }
+
+// irStreamKinds is irStreamKind's rows, resolved once: stdHostSpecs and
+// stdHostDefs are fixed for the process.
+var irStreamKinds = sync.OnceValue(func() []kind {
+	return []kind{
+		stdHostOriginKind("std/io", "Reader"), stdHostOriginKind("std/io", "Writer"),
+		stdHostOriginKind("std/io", "File"), stdHostOriginKind("std/fs_host", "FileSystem"),
+		stdHostOriginKind("std/process_host", "Child"), stdHostOriginKind("std/process_host", "Fake"),
+		stdHostOriginKind("std/http_host", "Client"), stdHostOriginKind("std/http_host", "Exchange"),
+		stdHostOriginKind("std/http_host", "Listener"), stdHostOriginKind("std/http_host", "Incoming"),
+		stdHostOriginKind("std/http_host", "Certificate"), stdHostOriginKind("std/http_host", "TlsConfig"),
+		stdHostOriginKind("std/http_host", "Conn"), stdHostOriginKind("std/http_host", "TcpListener"),
+		stdHostOriginKind("std/http_host", "Mux"), stdHostOriginKind("std/http_host", "Jar"),
+		stdHostOriginKind("std/http_host", "Handle"),
+	}
+})
 
 // supervisorSpawn lowers `Supervisor.spawn(sup, body)`: a supervisor, a
 // zero-parameter function whose result is Unit (a lambda literal or any other

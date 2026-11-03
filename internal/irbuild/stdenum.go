@@ -1080,6 +1080,7 @@ const stdEnumJson = 7
 // a spec that claimed a field rt does not declare fails rather than emitting a
 // selector that does not compile.
 var stdEnumDefs = sync.OnceValue(func() []*typeDef {
+	defer changingTypes()()
 	defs := stdEnumShells()
 	for i := range stdEnumSpecs {
 		s := &stdEnumSpecs[i]

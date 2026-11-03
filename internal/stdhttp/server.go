@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/osreach"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -239,6 +240,7 @@ func listen(address string, durations, limits *rt.List[int64], flags *rt.List[bo
 	if !hasSockets {
 		return rt.Err[rt.HTTPListener](listOf([]string{"Listen", address, noSocketsMessage}))
 	}
+	osreach.Note("listen")
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return rt.Err[rt.HTTPListener](listOf([]string{"Listen", address, err.Error()}))

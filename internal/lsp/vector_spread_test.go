@@ -11,8 +11,8 @@ import (
 func TestVectorSpread_HoverAndCompletion(t *testing.T) {
 	const decls = "struct Team {\n    names: Vector<String>\n}\n\n"
 	for _, tc := range []struct{ name, body string }{
-		{"first", `    _a = #[..▮names, "Noah"]`},
-		{"last", `    _a = #["Noah", ..▮names]`},
+		{"first", `    _a = #[..▮names, "Iris"]`},
+		{"last", `    _a = #["Iris", ..▮names]`},
 	} {
 		t.Run("hover "+tc.name, func(t *testing.T) {
 			src := decls + "fn f(names: Vector<String>) {\n" + tc.body + "\n}\n"
@@ -23,10 +23,10 @@ func TestVectorSpread_HoverAndCompletion(t *testing.T) {
 		})
 	}
 	for _, tc := range []struct{ name, body, want string }{
-		{"a name, first", `    _a = #[..nam‸, "Noah"]`, "names"},
-		{"a name, last", `    _a = #["Noah", ..nam‸]`, "names"},
-		{"a field, first", `    _a = #[..t.‸, "Noah"]`, "names"},
-		{"a field, last", `    _a = #["Noah", ..t.‸]`, "names"},
+		{"a name, first", `    _a = #[..nam‸, "Iris"]`, "names"},
+		{"a name, last", `    _a = #["Iris", ..nam‸]`, "names"},
+		{"a field, first", `    _a = #[..t.‸, "Iris"]`, "names"},
+		{"a field, last", `    _a = #["Iris", ..t.‸]`, "names"},
 	} {
 		t.Run("completion "+tc.name, func(t *testing.T) {
 			src := decls + "fn f(names: Vector<String>, t: Team) {\n" + tc.body + "\n}\n"

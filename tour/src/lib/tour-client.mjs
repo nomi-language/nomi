@@ -8,7 +8,10 @@
 //              build carries) until the reader edits it, and runs only then; a
 //              ```nomi-run manual block runs only on its Run button. A block
 //              with no record (```nomi-run no-run, a stdlib reference example)
-//              runs when it scrolls into view.
+//              runs when it scrolls into view. A reference example that
+//              reaches what a browser cannot do (a socket, a process)
+//              arrives as a plain language-nomi block, only highlighted
+//              (cmd/nomi-docgen's promptClassifier).
 // Served statically from /nomi/ (no bundling); web-tree-sitter + the wasm load
 // lazily when the first example scrolls into view.
 import { render, renderJson, renderToml } from "./highlight.mjs";

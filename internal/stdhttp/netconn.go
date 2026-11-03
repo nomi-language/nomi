@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/osreach"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -101,6 +102,7 @@ func dialer(timeout, keepAlive int64, local string) (*net.Dialer, []string) {
 	if !hasSockets {
 		return nil, strsOf(netErr("dial", local, errors.New(noSocketsMessage)))
 	}
+	osreach.Note("connect")
 	d := &net.Dialer{Timeout: dur(timeout), KeepAlive: dur(keepAlive)}
 	if local != "" {
 		a, err := net.ResolveTCPAddr("tcp", local)
@@ -149,6 +151,7 @@ func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdle, kaInterval
 	if !hasSockets {
 		return rt.Err[rt.NetListener](netErr("listen", address, errors.New(noSocketsMessage)))
 	}
+	osreach.Note("listen")
 	lc := &net.ListenConfig{KeepAliveConfig: keepAliveConfig(kaEnabled, kaIdle, kaInterval, kaCount)}
 	if !kaEnabled {
 		lc.KeepAlive = -1
@@ -248,6 +251,7 @@ func lookup[T any](fr *rt.Frame, name string, f func(context.Context) (T, error)
 // priority and weight quads, port as one number. For srv, name is
 // "service protocol domain".
 func Lookup(fr *rt.Frame, kind, name string) rt.Result[*rt.List[string], *rt.List[string]] {
+	osreach.Note("connect")
 	r := net.DefaultResolver
 	same := func(xs []string) *rt.List[string] { return listOf(xs) }
 	switch kind {
@@ -489,6 +493,7 @@ func startListener(address string, cfg *tlsConf) rt.Result[rt.NetListener, *rt.L
 	if !hasSockets {
 		return rt.Err[rt.NetListener](netErr("listen", address, errors.New(noSocketsMessage)))
 	}
+	osreach.Note("listen")
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return rt.Err[rt.NetListener](netErr("listen", address, err))

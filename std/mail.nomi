@@ -108,10 +108,10 @@ derive Equatable for Attachment
 /// A mailbox: an address and an optional display name, checked when it is
 /// made. The address is ASCII: a dot-atom before the `@` and host-name
 /// labels after it.
-//! a = Address.parse("Noah Baldwin <noah@example.com>")?
-//! assert Address.email(a) == "noah@example.com"
-//! assert Address.name(a) == Some("Noah Baldwin")
-//! assert "${a}" == "Noah Baldwin <noah@example.com>"
+//! a = Address.parse("Ada Lovelace <ada@example.com>")?
+//! assert Address.email(a) == "ada@example.com"
+//! assert Address.name(a) == Some("Ada Lovelace")
+//! assert "${a}" == "Ada Lovelace <ada@example.com>"
 //
 pub opaque struct Address {
     email: String
@@ -141,12 +141,12 @@ impl Address {
         }
     }
 
-    /// An address as a person writes it: `noah@example.com`,
-    /// `Noah <noah@example.com>` or `"Baldwin, Noah" <noah@example.com>`.
+    /// An address as a person writes it: `ada@example.com`,
+    /// `Ada <ada@example.com>` or `"Lovelace, Ada" <ada@example.com>`.
     /// Text of none of these forms is `Err(.InvalidAddress)`.
-    //! assert Address.name(Address.parse("\"Baldwin, Noah\" <n@x.org>")?) == Some("Baldwin, Noah")
+    //! assert Address.name(Address.parse("\"Lovelace, Ada\" <n@x.org>")?) == Some("Lovelace, Ada")
     //! assert Address.name(Address.parse("  n@x.org ")?) == None
-    //! assert Result.is_err(Address.parse("Noah n@x.org>"))
+    //! assert Result.is_err(Address.parse("Ada n@x.org>"))
     //
     pub fn parse(text: String) -> Result<Address, Error> {
         trimmed = String.trim(text)
@@ -180,7 +180,7 @@ impl Address {
         }
     }
 
-    /// The address, such as `noah@example.com`.
+    /// The address, such as `ada@example.com`.
     pub fn email(address: Address) -> String {
         address.email
     }
